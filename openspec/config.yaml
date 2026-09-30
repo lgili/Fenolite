@@ -1,0 +1,32 @@
+schema: spec-driven
+
+context: |
+  Project: Fenolite (package `fenolite`, CLI `fenolite`) — an open-source, Apache-2.0, headless,
+  agent-first Python 3.11+ library and CLI to generate, open, verify, compare, convert and export
+  printed-circuit-board projects through a small neutral model, with KiCad (file backend + kicad-cli
+  as oracle) as the first backend and Altium (clean-room, read then write) as the second.
+  Core is stdlib-only; geometry in integer nanometres; every output carries an evidence label
+  (KICAD-VERIFIED, ORACLE-VERIFIED(<tool>), CORPUS-VERIFIED, INFERRED, UNKNOWN, UNVERIFIED,
+  ALTIUM-VERIFIED(kit|author-report)).
+  Language: code, identifiers, CLI, file names and specs in English; ADRs and docs in English.
+  Tooling: uv, ruff, pyright (strict on src), pytest; conventional commits; DCO sign-off.
+  IP rules (non-negotiable): clean-room — no design files, constants, seeds, fixtures, statistics,
+  vocabularies, templates or examples derived from any organisation's non-public material (an
+  employer's included); format knowledge comes from public sources only (cited in docs/evidence/sources.md);
+  GPL/AGPL software is used only behind a process boundary (subprocess) or a published plugin API,
+  never imported or vendored; the official KiCad libraries are fetched, never committed.
+  Public artifacts (openspec/, docs/, ADRs, tests, examples) must not name any company, internal
+  standard, part-number scheme, template, colleague or private path.
+
+rules:
+  proposal:
+    - Keep it under 600 words; include "Non-goals" and "Evidence level required" sections.
+    - Cite only public sources (URLs) or docs/evidence/sources.md; never internal documents.
+  design:
+    - Name the files/modules to create and the public API they expose.
+    - State the evidence level each behaviour must reach before merge.
+  specs:
+    - Requirements use SHALL/MUST; every requirement has at least one GIVEN/WHEN/THEN scenario.
+  tasks:
+    - Each task ≤ 1 day; each task names the command that proves it (pytest path, CLI invocation).
+    - "Every change ends with three closing tasks: run tests/residue, update evidence labels, update CHANGELOG."

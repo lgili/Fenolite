@@ -1,0 +1,32 @@
+# Claude Code local state
+.claude/*
+
+# Private planning material (never published)
+private/
+
+# Fenolite derived cache
+.fenolite/
+
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+
+# Backups written by atomic saves
+*.bak
+
+# Temporary verification artefacts
+verify_results/*.tmp

@@ -1,0 +1,8 @@
+# Public structural residue patterns: "<id> <regex>" per line (first space separates).
+# They describe SHAPES of leaked material, never specific private identifiers. Private tokens and
+# private file hashes live outside the repository (see tools/residue/README.md).
+numeric-code (?<![0-9A-Za-z.\-_])[0-9]{9,10}(?![0-9A-Za-z.\-_])
+internal-rev (?<![0-9A-Za-z])v[0-9]+r[A-Z](?![0-9A-Za-z])
+abs-user-path /(Users|home)/[A-Za-z0-9._-]+/
+win-user-path [A-Za-z]:\\+Users\\+[A-Za-z0-9._-]+
+cloud-drive-path (?i)(CloudStorage/|Shared drives/|My Drive/|OneDrive - )

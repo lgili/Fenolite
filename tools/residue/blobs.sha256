@@ -1,0 +1,2 @@
+# SHA-256 of whole files known to be derived from non-public material: "<sha256> <label>".
+# Labels are neutral. Private hashes go to FENOLITE_RESIDUE_BLOBS_FILE instead (see README.md).

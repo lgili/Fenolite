@@ -1,0 +1,16 @@
+#!/bin/sh
+# SPDX-License-Identifier: Apache-2.0
+# Fenolite pre-commit hook (install with `make hooks`): refuse commits whose staged files contain
+# residue. Private lists under private/ (gitignored) are used when present.
+root=$(git rev-parse --show-toplevel) || exit 1
+cd "$root" || exit 1
+if [ -z "$FENOLITE_RESIDUE_TOKENS_FILE" ] && [ -f private/residue-tokens.txt ]; then
+  FENOLITE_RESIDUE_TOKENS_FILE=private/residue-tokens.txt; export FENOLITE_RESIDUE_TOKENS_FILE
+fi
+if [ -z "$FENOLITE_RESIDUE_BLOBS_FILE" ] && [ -f private/residue-blobs.sha256 ]; then
+  FENOLITE_RESIDUE_BLOBS_FILE=private/residue-blobs.sha256; export FENOLITE_RESIDUE_BLOBS_FILE
+fi
+if command -v uv >/dev/null 2>&1; then
+  exec uv run --quiet --no-project python tools/residue/scan.py --staged
+fi
+exec python3 tools/residue/scan.py --staged

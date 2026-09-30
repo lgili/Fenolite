@@ -1,0 +1,17 @@
+# Public test corpus for Fenolite (openspec change c0003, capability corpus-policy).
+#
+# One [[file]] table per external file. Files are fetched by `uv run python tools/corpus_fetch.py`
+# into ~/.cache/fenolite/corpus/<id>/ (override with FENOLITE_CORPUS_CACHE) and verified by SHA-256.
+# Only items with `embeddable = true` (license CC0-1.0 or public domain) may ever be copied into the
+# repository; everything else is fetch-only measurement material.
+#
+# [[file]]
+# id = "kicad-demo-example"            # unique, kebab-case
+# url = "https://…/file.kicad_pcb"     # direct download URL (https or file://)
+# ref = "10.0.6"                       # tag or commit the URL points to
+# sha256 = "…64 hex digits…"
+# license = "CC-BY-SA-4.0"             # SPDX identifier
+# license_variant = ""                 # e.g. which reciprocal variant; free text
+# embeddable = false
+# uses = ["roundtrip", "drc"]
+# notes = ""

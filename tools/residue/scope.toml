@@ -1,0 +1,20 @@
+# Scope of the residue scan (tools/residue/scan.py).
+# Every tracked or untracked-but-not-ignored file is scanned, plus dist/*.whl when present,
+# except the paths listed in `exclude`. A pattern listed under [patterns.<id>] applies only to the
+# listed paths; other patterns apply everywhere. Waivers are per file and per pattern and need a
+# reason; the scan prints how many are active.
+
+exclude = [
+    "uv.lock",                  # hashes and versions of third-party packages only
+    "tests/corpus/cache/**",    # fetched public corpus
+    "tools/residue/patterns.regex",
+]
+
+[patterns.numeric-code]
+# 9-10 digit numbers are normal in code and lock files; they only matter in data and examples.
+paths = ["tests/data/**", "examples/**"]
+
+# [[waiver]]
+# path = "examples/blink_2layer/bom.csv"
+# pattern = "numeric-code"
+# reason = "LCSC-style catalogue numbers written for this example"

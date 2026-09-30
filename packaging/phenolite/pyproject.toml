@@ -1,0 +1,29 @@
+# Alias distribution: `pip install phenolite` installs `fenolite` (same version).
+# Keep `version` and the `fenolite==` pin equal to fenolite's version
+# (tests/unit/test_pyproject_invariants.py enforces it); the release workflow builds both.
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phenolite"
+version = "0.0.1.dev0"
+description = "Alias of Fenolite (headless, agent-first PCB design automation). Installs the 'fenolite' package."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Fenolite contributors" }]
+keywords = ["pcb", "eda", "kicad", "altium", "hardware-as-code", "fenolite"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+]
+dependencies = ["fenolite==0.0.1.dev0"]
+
+[project.urls]
+Source = "https://github.com/lgili/Fenolite"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/phenolite"]

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.error.v0",
+  "title": "ErrorInfo",
+  "description": "The single error object written to stderr when the exit code is not 0.",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^FEN-[1-7][0-9]{3}$"
+    },
+    "message": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    },
+    "retryable": {
+      "type": "boolean"
+    },
+    "where": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "message",
+    "hint",
+    "retryable",
+    "where"
+  ]
+}

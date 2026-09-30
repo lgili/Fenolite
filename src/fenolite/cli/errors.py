@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Typed CLI errors: the ``FEN-NNNN`` registry, the stderr error object and :class:`CliError`."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+
+from fenolite.cli.exitcodes import ExitCode
+
+ERROR_CODE = re.compile(r"^FEN-[1-7][0-9]{3}$")
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorSpec:
+    """Registry entry for one error code."""
+
+    code: str
+    exit_code: ExitCode
+    message: str
+    hint: str
+    retryable: bool = False
+
+
+_SPECS = (
+    ErrorSpec(
+        "FEN-1001", ExitCode.INTERNAL, "internal error", "this is a bug; report it with the command line"
+    ),
+    ErrorSpec("FEN-2001", ExitCode.USAGE, "invalid command line", "run 'fenolite --help'"),
+    ErrorSpec(
+        "FEN-2002", ExitCode.USAGE, "unknown field in --fields", "list the result keys with --json first"
+    ),
+    ErrorSpec(
+        "FEN-2003", ExitCode.USAGE, "--dry-run and --confirm are mutually exclusive", "use one of them"
+    ),
+    ErrorSpec("FEN-2004", ExitCode.USAGE, "invalid --timestamp", "use ISO 8601, e.g. 2026-01-01T00:00:00Z"),
+    ErrorSpec(
+        "FEN-3001", ExitCode.INPUT, "input file missing or unreadable", "check the path and permissions"
+    ),
+    ErrorSpec(
+        "FEN-3002", ExitCode.INPUT, "input uses a newer format version than supported", "upgrade fenolite"
+    ),
+    ErrorSpec(
+        "FEN-4001",
+        ExitCode.CONFIRM_REQUIRED,
+        "confirmation required; nothing was written",
+        "review result.plan, then re-run with --confirm (or --dry-run to only preview)",
+    ),
+    ErrorSpec(
+        "FEN-5001",
+        ExitCode.FINDINGS,
+        "verification produced findings of severity error",
+        "read 'issues' in the envelope",
+    ),
+    ErrorSpec(
+        "FEN-6001",
+        ExitCode.TOOL,
+        "external tool not found",
+        "run 'fenolite capabilities' to see what is missing",
+        retryable=True,
+    ),
+    ErrorSpec(
+        "FEN-6002", ExitCode.TOOL, "external tool version not supported", "install a supported version"
+    ),
+    ErrorSpec(
+        "FEN-7001",
+        ExitCode.LOSSY,
+        "operation would lose information",
+        "re-run with --allow-lossy to accept the loss",
+    ),
+)
+
+REGISTRY: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorInfo:
+    """The single error object written to stderr when the exit code is not 0."""
+
+    code: str = field(metadata={"pattern": ERROR_CODE.pattern})
+    message: str
+    hint: str
+    retryable: bool
+    where: str
+
+
+class CliError(Exception):
+    """An error with a registered ``FEN-NNNN`` code; the dispatcher maps it to an exit code."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str | None = None,
+        *,
+        hint: str | None = None,
+        where: str = "",
+        retryable: bool | None = None,
+    ) -> None:
+        if code not in REGISTRY:
+            raise ValueError(f"unregistered error code {code!r}")
+        spec = REGISTRY[code]
+        self.code = code
+        self.message = message or spec.message
+        self.hint = spec.hint if hint is None else hint
+        self.where = where
+        self.retryable = spec.retryable if retryable is None else retryable
+        super().__init__(f"{code}: {self.message}")
+
+    @property
+    def exit_code(self) -> ExitCode:
+        return REGISTRY[self.code].exit_code
+
+    def info(self) -> ErrorInfo:
+        return ErrorInfo(
+            code=self.code, message=self.message, hint=self.hint, retryable=self.retryable, where=self.where
+        )
+
+
+__all__ = ["ERROR_CODE", "REGISTRY", "CliError", "ErrorInfo", "ErrorSpec"]
