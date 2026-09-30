@@ -24,7 +24,7 @@
 
 ## 5. History hygiene
 
-- [ ] 5.1 Run the scan over the full git history (`uv run python tools/residue/scan.py --history` with the private lists) right before the first tag, `v0.0.1.dev0`; document the result in `docs/evidence/residue-history.md`. Proof: file lists commit range and `0 hits`.
+- [x] 5.1 Run the scan over the full git history (`uv run python tools/residue/scan.py --history` with the private lists) right before the first tag, `v0.0.1.dev0`; document the result in `docs/evidence/residue-history.md`. Proof: file lists commit range and `0 hits`.
 
 ## 6. Closing
 

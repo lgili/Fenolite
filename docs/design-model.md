@@ -1,8 +1,7 @@
 # The Fenolite design model (v0)
 
-Normative text: `openspec/changes/c0004-design-model-core/specs/` (capabilities `design-model`,
-`canonical-serialization`, `core-primitives`), archived into `openspec/specs/` when the change is
-done. Decision record: `docs/adr/0001-neutral-model.md`.
+Normative text: `openspec/specs/design-model/`, `openspec/specs/canonical-serialization/` and
+`openspec/specs/core-primitives/`. Decision record: `docs/adr/0001-neutral-model.md`.
 
 ## Entity header
 

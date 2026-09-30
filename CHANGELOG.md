@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.0.1.dev0] - 2026-09-30
+
+Pre-alpha repository bootstrap; not usable for real boards yet.
+
 ### Added
 
 - Repository bootstrap: package skeleton (`src/fenolite`, stdlib-only core, closed extras), Apache-2.0 licence with NOTICE and SPDX headers, `LEGAL.md`/`LEGAL-ANNEX.md`, DCO, ADR-0004, evidence registers and the `unit` CI baseline (ruff, pyright strict, pytest on ubuntu and macos).

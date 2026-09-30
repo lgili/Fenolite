@@ -54,4 +54,4 @@ rejects unknown tokens on load, so extension data cannot be stored inside its fi
 ## Evidence
 - Unit definitions: S-0001, S-0002 in `docs/evidence/sources.md`; hypotheses `H-K-UNIT`,
   `H-A-UNIT`, `H-G-ANGLE` in `docs/hypotheses.md`; `docs/formats/units.md`.
-- Normative text: `openspec/changes/c0004-design-model-core/specs/design-model/spec.md`.
+- Normative text: `openspec/specs/design-model/spec.md`.

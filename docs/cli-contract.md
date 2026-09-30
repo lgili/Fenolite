@@ -1,8 +1,8 @@
 # The `fenolite` CLI contract (v0)
 
-Normative text: `openspec/changes/c0002-cli-contract/specs/cli-contract/spec.md` (archived into
-`openspec/specs/cli-contract/` when the change is done). This page is the short human version.
-The contract is frozen at 1.0; before that, a breaking change bumps the schema id.
+Normative text: `openspec/specs/cli-contract/spec.md` and `openspec/specs/package-layering/spec.md`.
+This page is the short human version. The contract is frozen at 1.0; before that, a breaking change
+bumps the schema id.
 
 ## Output
 
