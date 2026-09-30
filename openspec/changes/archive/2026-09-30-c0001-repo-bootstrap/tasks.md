@@ -19,13 +19,13 @@
 
 ## 4. CI baseline
 
-- [x] 4.1 Add `.github/workflows/ci.yml` (`unit` job, ubuntu + macos × 3.12, `astral-sh/setup-uv`, `uv sync --locked --extra dev`, ruff check, ruff format --check, pyright src, pytest) and commit `uv.lock`. Proof: workflow green on both runners. _(Done locally: YAML parses, `uv sync --locked --extra dev` and all four steps pass via `make check`; the first GitHub run happens on the first push — the repository has no remote yet.)_
+- [x] 4.1 Add `.github/workflows/ci.yml` (`unit` job, ubuntu + macos × 3.12, `astral-sh/setup-uv`, `uv sync --locked --extra dev`, ruff check, ruff format --check, pyright src, pytest) and commit `uv.lock`. Proof: workflow green on both runners. _(Verified: the first GitHub runs on `main` and on tag `v0.0.1.dev0` passed on ubuntu and macos, 2026-09-30.)_
 - [x] 4.2 Add `Makefile` target `check` running the same four steps. Proof: `make check` exits 0 locally.
 
 ## 5. Name reservation (manual, author)
 
 - [x] 5.1 Prepare the name reservation: alias distribution `packaging/phenolite/` (depends on `fenolite==<same version>`, re-exports `fenolite`, README pointing to Fenolite, version kept in sync by `tests/unit/test_pyproject_invariants.py`) and `.github/workflows/release.yml` (builds both, checks versions against the tag, publishes with PyPI trusted publishing when a GitHub Release is published). Proof: `uv build` and `uv build packaging/phenolite` succeed; installing the `phenolite` wheel in a clean venv installs `fenolite` and `import phenolite` works.
-- [ ] 5.2 (author, on pypi.org) Register a pending trusted publisher for `fenolite` and for `phenolite` (owner `lgili`, repository `Fenolite`, workflow `release.yml`, environment `pypi`), then publish the GitHub Release `v0.0.1.dev0`; record the date in `CHANGELOG.md`. Proof: `pip index versions fenolite` and `pip index versions phenolite` list `0.0.1.dev0`.
+- [x] 5.2 (author, on pypi.org) Register a pending trusted publisher for `fenolite` and for `phenolite` (owner `lgili`, repository `Fenolite`, workflow `release.yml`, environment `pypi`), then publish the GitHub Release `v0.0.1.dev0`; record the date in `CHANGELOG.md`. Proof: `pip index versions fenolite` and `pip index versions phenolite` list `0.0.1.dev0`. _(Verified on pypi.org: both published 2026-09-30 by the `release` workflow; `phenolite` requires `fenolite==0.0.1.dev0`.)_
 
 ## 6. Closing
 

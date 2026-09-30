@@ -8,7 +8,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [0.0.1.dev0] - 2026-09-30
 
-Pre-alpha repository bootstrap; not usable for real boards yet.
+Pre-alpha repository bootstrap; not usable for real boards yet. Published to PyPI as `fenolite` and its
+alias `phenolite` on 2026-09-30 (`pip install --pre fenolite`).
 
 ### Added
 
