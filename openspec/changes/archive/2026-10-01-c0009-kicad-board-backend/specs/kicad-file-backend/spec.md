@@ -199,7 +199,7 @@ The reader MUST record the slot list of the board root in `Board.ext["kicad"]`, 
 ### Requirement: Modelled children are reproducible
 After mapping an item, the reader SHALL re-emit every modelled child that maps to values (not to nested entities) through `pcb.model_source` and compare it with the original child.
 - A child that the emitter does not reproduce tree-equal MUST become an `Opaque` slot. Its value MUST stay projected into the model, and the reader MUST add the info `kicad.board.kept-opaque` naming the reason.
-- Emitters MUST write lengths with `Atom.from_nm`, angles as the shortest exact decimal of degrees, and strings with `Atom.string`. They MUST omit a zero angle.
+- Emitters MUST write lengths with `Atom.from_nm`, angles as the shortest exact decimal of degrees, and strings with `Atom.string`. They MUST omit a zero footprint or pad angle, and MUST always write the angle of a text, as KiCad does (the corpus boards write `(at X Y 0)` for texts).
 
 #### Scenario: Non-canonical spelling
 - **GIVEN** a segment with `(start 12.000000 0)`

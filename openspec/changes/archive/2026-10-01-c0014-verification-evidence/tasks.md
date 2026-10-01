@@ -63,7 +63,7 @@ Tests in `tests/unit/verify/` cite only registered hypothesis ids, because the g
 ## 6. Closing
 
 - [x] 6.1 Run the residue and full test suites and `make check`. No `LEGAL-ANNEX.md` row is needed, because the change touches neither `backends/` nor `docs/formats/`; `tests/unit/test_provenance.py` confirms this. Proof: `make check` exits 0; `uv run pytest tests/residue` exits 0; `make residue` exits 0 and its summary line ends with `private gate: on`; `uv run python tools/gen_schemas.py --check` exits 0 (model unchanged); `uv run pytest tests/unit/test_provenance.py tests/unit/test_adrs.py tests/unit/test_import_graph.py` passes; `openspec validate c0014-verification-evidence --strict --no-interactive` passes.
-- [ ] 6.2 Update the evidence labels from the results:
+- [x] 6.2 Update the evidence labels from the results:
   - the `H-A-WRITE-*` and `H-A-PH-*` rows carry `ALTIUM-VERIFIED(author-report; AD 24.<minor>; <date>; no artefact)` as reported. Under the fallback they stay `INFERRED`, `pending (author report)`, and a one-line follow-up commit upgrades them when the author answers;
   - `H-K-LIB-DRC` and `H-G-SHAPELY-GC` stay `INFERRED`, `pending`, with their placeholder tests;
   - `H-K-SEXPR-NUM-WRITE` and `H-K-TOK-FUTURE` keep the labels of task 1.2;

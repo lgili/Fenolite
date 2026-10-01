@@ -9,6 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -121,12 +122,21 @@ def test_folder_copied(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_timeout(fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    record = tmp_path / "cwd.txt"
+    from fenolite.backends.kicad import cli as module
+
+    made: list[str] = []
+    real_mkdtemp = module.tempfile.mkdtemp
+
+    def mkdtemp(*args: Any, **kwargs: Any) -> str:
+        made.append(real_mkdtemp(*args, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr(module.tempfile, "mkdtemp", mkdtemp)
     monkeypatch.setenv("FAKE_MODE", "sleep")
-    monkeypatch.setenv("FAKE_RECORD", str(record))
+    monkeypatch.setenv("FAKE_RECORD", str(tmp_path / "cwd.txt"))
     run = KicadCli(fake, timeout=1).run(["pcb", "x", "b.kicad_pcb"], files={"b.kicad_pcb": board})
     assert run.outcome == "timeout" and run.returncode is None
-    assert record.is_file() and not Path(record.read_text()).exists()
+    assert len(made) == 1 and not Path(made[0]).exists()
 
 
 def test_sanitised_output(fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

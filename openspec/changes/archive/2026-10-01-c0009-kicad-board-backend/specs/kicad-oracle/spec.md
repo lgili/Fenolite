@@ -60,7 +60,7 @@
   - Pads that the export puts on one net MUST be on one model net, and the reverse.
   - The counts of via records, truncated keys and ambiguous keys are recorded for the census. `R` fields are recorded and not asserted.
 - **Loads** (`test_board_loads.py`). `rebuild_board` output MUST load with `KicadCli.load_board_svg`.
-- **Upgraded copies** (`test_board_upgraded.py`, `kicad_min_major(10)`, `needs_corpus`). The upgrade set is the 16 non-heavy 10.0.6 demos and the 3 third-party boards. Their `pcb upgrade --force` copies MUST read with no error issue from `read_board` and pass RT1. For each of the 16 demos, the unmasked `uuid` multiset of the copy MUST equal that of the original (`H-K-UUID-KEEP`, demo half). The census of the third-party copies counts as origin `third-party`.
+- **Upgraded copies** (`test_board_upgraded.py`, `kicad_min_major(10)`, `needs_corpus`). The upgrade set is the 16 non-heavy 10.0.6 demos and the 3 third-party boards. Their `pcb upgrade --force` copies MUST read with no error issue from `read_board` and pass RT1. For each of the 16 demos, every `uuid` of the original that the copy keeps MUST stay on the same kind of item; a `uuid` that disappears MUST belong to a teardrop zone, a footprint's `Footprint` property or an `fp_text` item, and a new `uuid` MUST be on a property (`H-K-UUID-KEEP-2`, demo half; 10.0.6 removes teardrop zones and `Footprint` properties and replaces `fp_text` items on re-save, which refuted `H-K-UUID-KEEP`). The census of the third-party copies counts as origin `third-party`.
 
 Coverage MUST be:
 - the 21 readable non-heavy demo boards (tags 10.0.6 and 9.0.9.1) on `kicad-cli` 10.0.6 (local and `kicad-10`);
@@ -81,10 +81,10 @@ Coverage MUST be:
 - **WHEN** `uv run pytest tests/kicad/board/test_board_loads.py` runs
 - **THEN** `load_board_svg` exits 0 for the rebuild of each of the 21 readable non-heavy demo boards and of the authored board
 
-#### Scenario: uuids survive a KiCad re-save
+#### Scenario: uuids of kept items survive a KiCad re-save
 - **GIVEN** `kicad-cli` 10.0.6 and the fetched corpus
 - **WHEN** `uv run pytest tests/kicad/board/test_board_upgraded.py -k uuid_keep` runs
-- **THEN** each demo's `uuid` multiset equals its upgraded copy's, or the test fails naming the board and the first differing uuid
+- **THEN** for each demo, every uuid missing from the upgraded copy belonged to a teardrop zone, a `Footprint` property or an `fp_text` item, every new uuid is on a property, and no kept uuid changes kind; otherwise the test fails naming the board and the first uuid that breaks the rule
 
 #### Scenario: Wrong model detected
 - **GIVEN** a model of the authored board in which `D1.rotation` was changed to 0
