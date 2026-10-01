@@ -7,3 +7,4 @@ entitled to use are consulted during these sessions.
 | date | area | files touched | public sources consulted | author |
 |---|---|---|---|---|
 | 2026-09-30 | docs/formats | docs/formats/units.md | S-0001, S-0002 | maintainer |
+| 2026-10-01 | docs/formats | docs/formats/kicad/geometry.md | S-0001, S-0010, S-0018, S-0019 | maintainer |

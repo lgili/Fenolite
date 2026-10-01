@@ -1,16 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Package layering (openspec change c0002, capability package-layering).
+"""Package layering (openspec changes c0002 and c0005, capability package-layering).
 
 Every package may import itself, ``core`` and the root ``fenolite`` namespace; other edges must be
-listed in ALLOWED. The stdlib-only packages may not import third-party code at all; other packages
-may import third-party code only inside functions or under ``try/except ImportError``.
+listed in ALLOWED. The stdlib-only packages may not import third-party code at all, statically or
+dynamically; the one exception is ``geometry/boolean/_extra.py``, the loader of the ``geo`` extra,
+whose ``GEO_MODULES`` must match that extra. Other packages may import third-party code only inside
+functions or under ``try/except ImportError``.
 """
 
 from __future__ import annotations
 
 import ast
+import re
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -44,6 +48,8 @@ ALLOWED: dict[str, set[str]] = {
     "agent": {"cli"},
 }
 STDLIB_ONLY = {"core", "model", "geometry", "dsl"}
+EXTRA_LOADER = "geometry/boolean/_extra.py"
+PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
 
 def _key(parts: list[str]) -> str:
@@ -143,11 +149,34 @@ def _edges(path: Path) -> list[Edge]:
     return edges
 
 
+def _dynamic_imports(path: Path) -> list[int]:
+    """Lines that call ``importlib.import_module``, ``import_module`` or ``__import__``."""
+    lines: list[int] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = (
+                func.attr
+                if isinstance(func, ast.Attribute)
+                else func.id
+                if isinstance(func, ast.Name)
+                else ""
+            )
+            if name in ("import_module", "__import__"):
+                lines.append(node.lineno)
+    return lines
+
+
 def _violations() -> list[str]:
     problems: list[str] = []
     for path in _modules():
         source = _key(_dotted(path))
         rel = path.relative_to(SRC.parent).as_posix()
+        if source in STDLIB_ONLY and path.relative_to(SRC).as_posix() != EXTRA_LOADER:
+            problems.extend(
+                f"{rel}:{line}: dynamic import in {source}; only {EXTRA_LOADER} may load extras"
+                for line in _dynamic_imports(path)
+            )
         if _pattern(source) not in ALLOWED:
             problems.append(f"{rel}: package {source!r} is not in the layering table")
             continue
@@ -203,5 +232,83 @@ def test_bare_import_without_extras() -> None:
     import subprocess
 
     code = "import fenolite, fenolite.cli.main, fenolite.cli.api, fenolite.cli.output, fenolite.core.io"
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+
+
+def _import_name(requirement: str) -> str:
+    """Import name of a requirement string (distribution name normalised; same for every geo package)."""
+    name = re.split(r"[\s<>=!~;\[]", requirement.strip(), maxsplit=1)[0]
+    return name.lower().replace("-", "_")
+
+
+def geo_modules_drift(pyproject_text: str, geo_modules: tuple[str, ...]) -> list[str]:
+    extra = tomllib.loads(pyproject_text)["project"]["optional-dependencies"]["geo"]
+    wanted = {_import_name(r) for r in extra}
+    problems = [
+        f"GEO_MODULES lacks {name!r} (in the geo extra)" for name in sorted(wanted - set(geo_modules))
+    ]
+    problems += [
+        f"GEO_MODULES has {name!r}, not in the geo extra" for name in sorted(set(geo_modules) - wanted)
+    ]
+    return problems
+
+
+def test_geo_modules_match_the_extra() -> None:
+    from fenolite.geometry.boolean._extra import GEO_MODULES
+
+    problems = geo_modules_drift(PYPROJECT.read_text(encoding="utf-8"), GEO_MODULES)
+    assert not problems, "\n".join(problems)
+
+
+def test_detects_geo_modules_drift() -> None:
+    from fenolite.geometry.boolean._extra import GEO_MODULES
+
+    text = PYPROJECT.read_text(encoding="utf-8").replace(
+        'geo = ["shapely>=2.1", "pyclipper>=1.3"]', 'geo = ["shapely>=2.1", "pyclipper>=1.3", "rtree>=1.0"]'
+    )
+    assert geo_modules_drift(text, GEO_MODULES) == ["GEO_MODULES lacks 'rtree' (in the geo extra)"]
+
+
+def _fake_tree(tmp_path: Path, rel: str, code: str) -> Path:
+    fake = tmp_path / "fenolite"
+    target = fake / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(code)
+    return fake
+
+
+def test_detects_function_level_import_in_geometry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _fake_tree(tmp_path, "geometry/boolean/fallback.py", "def f():\n    import shapely\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("geometry/boolean/fallback.py" in p and "shapely" in p for p in problems), problems
+
+
+def test_detects_dynamic_import_outside_the_loader(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _fake_tree(
+        tmp_path, "geometry/polygon.py", 'import importlib\nimportlib.import_module("pyclipper")\n'
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any(
+        "geometry/polygon.py" in p and "only geometry/boolean/_extra.py may load extras" in p
+        for p in problems
+    ), problems
+
+
+def test_loader_may_import_dynamically(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _fake_tree(tmp_path, EXTRA_LOADER, 'import importlib\nimportlib.import_module("shapely")\n')
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+
+
+def test_geometry_imports_without_extras() -> None:
+    import subprocess
+
+    code = (
+        "import sys; sys.modules['shapely'] = None; sys.modules['pyclipper'] = None\n"
+        "import fenolite.geometry, fenolite.geometry.boolean"
+    )
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr

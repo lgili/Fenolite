@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Geometry kernel: exact integer predicates, three-point arcs, polygons with a canonical normal form, mixed contours, deterministic µdeg transforms, STR spatial index, boolean backend protocol with a convex-only stdlib fallback, and KiCad frame and arc evidence tests (`fenolite.geometry`, `docs/geometry.md`, `docs/formats/kicad/geometry.md`; `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-ARC-ROUND`, `H-G-ARC-DIR` and `H-G-PTS-ARC` verified with `kicad-cli` 10.0.6).
+
 ## [0.0.1.dev0] - 2026-09-30
 
 Pre-alpha repository bootstrap; not usable for real boards yet. Published to PyPI as `fenolite` and its

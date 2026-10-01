@@ -172,7 +172,7 @@ The kernel SHALL use the file frame of the first backend (X to the right, Y down
 
 #### Scenario: Outer polygon contains the circle
 - **WHEN** `Circle.from_radius(Point(0, 0), 1000000).polygonize(5000, outer=True)` is built
-- **THEN** every vertex `v` satisfies `1004999² ≤ v.x² + v.y² ≤ 1005001²`, and every generated integer point `p` with `p.x² + p.y² ≤ 10**12` is located `INSIDE` or `BOUNDARY` of the result
+- **THEN** every vertex `v` satisfies `1005000² ≤ v.x² + v.y² ≤ 1005002²` (within 1 nm of `R = 1005001`), and every generated integer point `p` with `p.x² + p.y² ≤ 10**12` is located `INSIDE` or `BOUNDARY` of the result
 
 #### Scenario: Outer is circle-only
 - **WHEN** `Arc(Point(1000, 0), Point(0, 1000), Point(-1000, 0)).polygonize(5000, outer=True)` is called

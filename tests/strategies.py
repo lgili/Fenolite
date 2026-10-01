@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Hypothesis strategies shared by the model tests: lengths, angles, ids and small valid designs."""
+"""Hypothesis strategies shared by the tests: lengths, angles, ids, small valid designs and geometry."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from hypothesis import strategies as st
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
+from fenolite.geometry import Arc, GeometryError, Transform, convex_hull
 from fenolite.model import (
     Board,
     Component,
@@ -108,3 +109,42 @@ def designs(draw: st.DrawFn, max_components: int = 5) -> Design:
     board = replace(board, layers=layers, footprints=tuple(footprints), tracks=tracks, vias=vias)
     circuit = replace(design.circuit, components=tuple(components), nets=tuple(nets), netclasses=(netclass,))
     return replace(design, circuit=circuit, board=board)
+
+
+# --- geometry -------------------------------------------------------------------------------------
+
+small_coords = st.integers(min_value=-1000, max_value=1000)
+small_points = st.builds(Point, small_coords, small_coords)
+"""Points in a ±1 µm square: dense enough to hit collinear and touching cases."""
+
+
+@st.composite
+def rings(draw: st.DrawFn, max_size: int = 12) -> tuple[Point, ...]:
+    """Simple convex rings in normal form (positive orientation), from the convex hull of random points."""
+    pts = draw(st.lists(small_points, min_size=3, max_size=max_size))
+    hull = convex_hull(pts)
+    if len(hull) < 3:
+        hull = (Point(0, 0), Point(10, 0), Point(0, 10))
+    return hull
+
+
+def _arc_or_none(points: tuple[Point, Point, Point]) -> Arc | None:
+    try:
+        return Arc(*points)
+    except GeometryError:
+        return None
+
+
+def arcs(coords: st.SearchStrategy[int] = lengths) -> st.SearchStrategy[Arc]:
+    """Valid three-point arcs (straight ones included when the points happen to be collinear)."""
+    point = st.builds(Point, coords, coords)
+    valid = st.tuples(point, point, point).map(_arc_or_none).filter(lambda a: a is not None)
+    return valid  # type: ignore[return-value]
+
+
+transforms = st.builds(
+    Transform.placement,
+    st.builds(Point, lengths, lengths),
+    angles,
+    st.booleans(),
+)
