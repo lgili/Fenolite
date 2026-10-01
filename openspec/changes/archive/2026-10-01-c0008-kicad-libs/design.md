@@ -61,6 +61,7 @@
 3. **Ids.** The closed prefix table gains `fpd` (footprint definition) and `sym` (symbol definition).
    - A definition's native id is `"<library>:<name>"`, or `"<name>"` when `library` is empty. Its id is `derived_id(prefix, "kicad", native)`. Reading the same item twice gives the same id; the same file under two nicknames gives two ids.
    - Sub-entities are scoped to their definition. Pads, graphics and padstacks with a `(uuid U)` use `derived_id(prefix, "kicad", f"{native}:{U}")` (a padstack uses its pad's uuid plus `:padstack`). Without a uuid they use `content_id(prefix, "kicad", native, "pad" | "gfx", digest)`, where the digest covers the normalised content plus an occurrence counter among identical contents.
+   - A uuid repeated inside one definition keeps that form for its first occurrence; its k-th repetition uses `f"{native}:{U}:{k}"`. The installed 10.0.6 footprints repeat graphic uuids inside single files in 13 libraries (observed by the census; S-0018), so the plain rule alone would collide.
    - Ids are therefore unique within a `Library`, even when two files share copied uuids. The census asserts this (Decision 17). Placing a footprint twice on a board needs distinct pad ids; the board backend change re-derives them from the placement.
    - Rejected: ids from the file hash (forbidden by `design-model`). Rejected: ids from the item index, which changes when another pad is inserted.
 

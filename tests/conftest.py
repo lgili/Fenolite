@@ -15,6 +15,7 @@ if str(TESTS_DIR) not in sys.path:
 
 from _resources import (  # noqa: E402  (imported after the sys.path setup above)
     CORPUS_HINT,
+    LIBS_HINT,
     corpus_cache_dir,
     kicad_cli,
     kicad_cli_version,
@@ -38,7 +39,7 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         if not cache.is_dir() or not any(cache.iterdir()):
             _missing("corpus", CORPUS_HINT)
     if item.get_closest_marker("needs_libs") and not kicad_library_dirs():
-        _missing("libs", "official KiCad libraries not found (set KICAD10_FOOTPRINT_DIR or install KiCad)")
+        _missing("libs", LIBS_HINT)
     if item.get_closest_marker("needs_kicad") and kicad_cli() is None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
     minimum = item.get_closest_marker("kicad_min_major")

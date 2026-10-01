@@ -17,4 +17,11 @@ LAYER_SCHEMAS: dict[str, tuple[str, str]] = {
     "findings.json": ("fenolite.findings.v0", "fenolite.model.findings:Findings"),
 }
 
-__all__ = ["LAYER_SCHEMAS", "SCHEMA_DIR"]
+# Library definitions are reference data, not a layer of a design: (file name, schema id, "module:Class").
+LIBRARY_SCHEMA: tuple[str, str, str] = (
+    "library.json",
+    "fenolite.library.v0",
+    "fenolite.model.library:Library",
+)
+
+__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMA_DIR"]

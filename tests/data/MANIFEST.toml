@@ -216,3 +216,69 @@ corpus_id = ""
 path = "tests/data/kicad/tokens/examples.toml"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "tests/data/libs/Mini.pretty/Mini_Edge_Cases.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini_v9.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic symbols for Fenolite tests"
+
+[[file]]
+path = "tests/data/libs/Mini_v9.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic symbols for Fenolite tests"
+
+[[file]]
+path = "tests/data/libs/project/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "authored library table"
+
+[[file]]
+path = "tests/data/libs/project/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "authored library table"
+
+[[file]]
+path = "tests/data/libs/project/nested/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "authored library table"
+
+[[file]]
+path = "tests/data/libs/project/nested/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "authored library table"

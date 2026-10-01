@@ -1,0 +1,128 @@
+(footprint "Mini_LED_THT_3mm"
+	(version 20260206)
+	(generator "fenolite-tests")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern")
+	(tags "led tht mini")
+	(property "Reference" "REF**"
+		(at 1.27 -2.5 0)
+		(layer "F.SilkS")
+		(uuid "a2000000-0000-4000-8000-000000000001")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Mini_LED_THT_3mm"
+		(at 1.27 2.5 0)
+		(layer "F.Fab")
+		(uuid "a2000000-0000-4000-8000-000000000002")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2000000-0000-4000-8000-000000000003")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "a2000000-0000-4000-8000-000000000004")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr through_hole)
+	(duplicate_pad_numbers_are_jumpers no)
+	(fp_arc
+		(start -0.29 -1.08)
+		(mid 1.27 -1.65)
+		(end 2.83 -1.08)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "a2000000-0000-4000-8000-000000000005")
+	)
+	(fp_arc
+		(start 2.83 1.08)
+		(mid 1.27 1.65)
+		(end -0.29 1.08)
+		(stroke
+			(width 0.12)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "a2000000-0000-4000-8000-000000000006")
+	)
+	(fp_rect
+		(start -1.2 -2)
+		(end 3.75 2)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "a2000000-0000-4000-8000-000000000008")
+	)
+	(fp_circle
+		(center 1.27 0)
+		(end 2.77 0)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.Fab")
+		(uuid "a2000000-0000-4000-8000-000000000007")
+	)
+	(pad "1" thru_hole rect
+		(at 0 0)
+		(size 1.8 1.8)
+		(drill 0.9)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "a2000000-0000-4000-8000-000000000009")
+	)
+	(pad "2" thru_hole circle
+		(at 2.54 0)
+		(size 1.8 1.8)
+		(drill 0.9)
+		(layers "*.Cu" "*.Mask")
+		(remove_unused_layers no)
+		(uuid "a2000000-0000-4000-8000-000000000010")
+	)
+	(embedded_fonts no)
+	(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_LED_THT_3mm.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

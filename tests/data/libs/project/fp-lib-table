@@ -1,0 +1,9 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "Mini") (type "KiCad") (uri "${KIPRJMOD}/../Mini.pretty") (options "") (descr "Authored mini library"))
+	(lib (name "MiniRel") (type "KiCad") (uri "../Mini.pretty") (options "") (descr "Relative row"))
+	(lib (name "MiniDisabled") (type "KiCad") (uri "${KIPRJMOD}/../Mini.pretty") (options "") (descr "Disabled row") (disabled))
+	(lib (name "MiniHidden") (type "KiCad") (uri "${KIPRJMOD}/../Mini.pretty") (options "") (descr "Hidden row") (hidden))
+	(lib (name "MiniLegacy") (type "Legacy") (uri "${KIPRJMOD}/legacy.mod") (options "") (descr "Unsupported type"))
+	(lib (name "Nested") (type "Table") (uri "${KIPRJMOD}/nested/fp-lib-table") (options "") (descr "Nested table"))
+)

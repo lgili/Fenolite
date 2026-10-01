@@ -25,3 +25,11 @@ written from the pages under `docs/formats/kicad/`.
 | token placement (c0007) | S-0039 | GPL-3.0-or-later (KiCad-written files, facts only) | 2026-10-01 | facts only |
 | CLI commands per major (c0007) | S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | oracle |
 | load behaviour of `kicad-cli` 9.0.9 and 10.0.6 (c0007) | S-0020, S-0029 | GPL-3.0-or-later tool and image, run as subprocesses | 2026-10-01 | oracle |
+| footprint grammar (c0008) | S-0001, S-0040, S-0018, S-0042 | not stated on the page; CC-BY-SA-4.0 with the library exception (facts only) | 2026-10-01 | facts only |
+| symbol grammar and the `~` empty-text rule (c0008) | S-0001, S-0041, S-0043, S-0031 | not stated on the page; CC-BY-SA-4.0 with the library exception; GPL-3.0-or-later (facts only) | 2026-10-01 | facts only |
+| symbol folders and packing (c0008) | S-0043, S-0044 | CC-BY-SA-4.0 with the library exception (facts only) | 2026-10-01 | facts only |
+| library tables and precedence (c0008) | S-0046, S-0047 | GPL-3.0-or-later or CC-BY-3.0-or-later; GPL-3.0-or-later (keyword names only) | 2026-10-01 | facts only |
+| path variables and configuration folders (c0008) | S-0045, S-0049 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | facts only |
+| library version constants (c0008, cited from c0007) | S-0030, S-0031 | GPL-3.0-or-later (facts only) | 2026-10-01 | facts only |
+| official library licence (c0008) | S-0048 | CC-BY-SA-4.0 (licence text) | 2026-10-01 | facts only |
+| library load and re-save behaviour of `kicad-cli` 9.0.9 and 10.0.6 (c0008) | S-0020, S-0029 | GPL-3.0-or-later tool and image, run as subprocesses | 2026-10-01 | oracle |

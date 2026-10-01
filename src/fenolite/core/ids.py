@@ -27,6 +27,7 @@ PREFIXES: frozenset[str] = frozenset(
         "zon", "kpo", "txt", "gfx", "hol", "out",  # board
         "rst", "rul",  # rules
         "mfn",  # manufacturing
+        "fpd", "sym",  # library definitions
     }
 )  # fmt: skip
 

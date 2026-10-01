@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name NestedMini)(type KiCad)(uri ../../Mini_v9.kicad_sym)(options "")(descr "Nested relative row"))
+)

@@ -49,3 +49,14 @@ def test_is_id() -> None:
     value = new_id("net", random.Random(3))
     assert is_id(value) and is_id(value, "net") and not is_id(value, "cmp")
     assert not is_id("net_not-a-uuid") and not is_id("R1")
+
+
+@pytest.mark.parametrize("prefix", ["fpd", "sym"])
+def test_library_definition_prefixes(prefix: str) -> None:
+    value = derived_id(prefix, "kicad", "Mini:R")
+    assert is_id(value, prefix) and value == derived_id(prefix, "kicad", "Mini:R")
+
+
+def test_unknown_library_prefix_still_rejected() -> None:
+    with pytest.raises(ValueError):
+        new_id("fpx", random.Random(1))

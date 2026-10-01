@@ -47,6 +47,33 @@ objects change; the diff matches such objects by content.
 `Design` aggregates them and offers read-only indexes (`by_id`, `by_ref`, `by_net`, `by_layer`)
 and `validate()` (duplicate ids and references, dangling references, empty and single-pin nets).
 
+## Library definitions
+
+`fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside
+the `.fenolite/` layer files (normative text: requirement "Library definitions" of the
+`design-model` capability, change c0008):
+
+| Class | Contents |
+|---|---|
+| `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
+| `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins` |
+| `SymbolPin`, `SymbolUnit`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` |
+| `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
+
+- Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,
+  `units`, `pins` and `alternates` are ordered; `properties` is sorted by key.
+- **Ids.** Definitions use the prefixes `fpd` and `sym`, with the native id `"<library>:<name>"`
+  (or `"<name>"` for the library `""`) stored in `native_ids[<backend>]`.
+- Pads, padstacks and graphics are scoped to their definition:
+  - with a native uuid `U`, the id is `derived_id(prefix, backend, "<native id>:<U>")`, and `U` is
+    stored in `native_ids[<backend>]`; a uuid repeated inside one definition keeps that form for its
+    first occurrence, and its k-th repetition uses `"<native id>:<U>:<k>"`;
+  - without one, it is a content id whose document is the definition's native id, whose section is
+    `pad` or `gfx`, and whose digest includes an occurrence counter among identical contents.
+
+  Ids are therefore unique within a `Library`. A consumer that places a definition twice derives new
+  ids for the placed copies.
+
 ## Canonical JSON
 
 `fenolite.model.canonical`: UTF-8, LF, two-space indent, keys in field order, defaults omitted,

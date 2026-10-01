@@ -73,3 +73,19 @@ def test_error_schema() -> None:
     ok = {"code": "FEN-2001", "message": "m", "hint": "h", "retryable": False, "where": ""}
     assert _schema.validate(ok, schema) == []
     assert _schema.validate({**ok, "code": "FEN-8001"}, schema)
+
+
+def test_library_schema_is_a_target() -> None:
+    from fenolite.model.schema import LIBRARY_SCHEMA, SCHEMA_DIR
+
+    name, schema_id, ref = LIBRARY_SCHEMA
+    target = next(t for t in GEN.TARGETS if t.schema_id == schema_id)
+    assert (target.out, target.ref) == (f"{SCHEMA_DIR}/{name}", ref) and name == "library.json"
+
+
+def test_library_drift_names_the_file(tmp_path: Path) -> None:
+    target = next(t for t in GEN.TARGETS if t.schema_id == "fenolite.library.v0")
+    stale = tmp_path / "library.json"
+    stale.write_text(GEN.render(target).replace('"pins"', '"pinz"'), encoding="utf-8")
+    assert stale.read_text(encoding="utf-8") != GEN.render(target)
+    assert target.out.endswith("library.json")

@@ -41,7 +41,7 @@ Library definitions MUST obey these rules:
 ### Requirement: Identifiers of library definitions
 The closed prefix table SHALL include `fpd` (footprint definition) and `sym` (symbol definition).
 - A definition imported by a backend MUST have the native id `"<library>:<name>"` (or `"<name>"` when the library is empty), stored in `native_ids[<backend>]`, and the id `derived_id(prefix, backend, native_id)`.
-- Pads, padstacks and graphics inside a definition MUST be scoped to it. With a native uuid `U`, their id MUST be `derived_id(prefix, backend, "<native_id>:<U>")`. Without one, they MUST use a content id whose document is the definition's native id, whose section is `pad` or `gfx`, and whose digest includes an occurrence counter among identical contents.
+- Pads, padstacks and graphics inside a definition MUST be scoped to it. With a native uuid `U`, their id MUST be `derived_id(prefix, backend, "<native_id>:<U>")`. A uuid that occurs again inside the same definition (the official library copies graphics with their uuids) MUST keep that form for its first occurrence, and its k-th repetition MUST use `"<native_id>:<U>:<k>"`. Without a uuid, they MUST use a content id whose document is the definition's native id, whose section is `pad` or `gfx`, and whose digest includes an occurrence counter among identical contents.
 - Ids MUST be unique within a `Library`. A consumer that places a definition more than once MUST derive new ids for the placed copies.
 
 #### Scenario: Same item, same id
@@ -56,6 +56,11 @@ The closed prefix table SHALL include `fpd` (footprint definition) and `sym` (sy
 - **GIVEN** a footprint with two pads without uuid and with identical number, geometry and layers
 - **WHEN** it is read
 - **THEN** the two pads have different ids, and reading the file again reproduces both ids
+
+#### Scenario: Repeated uuid inside one definition
+- **GIVEN** a footprint with three graphics that carry the same uuid `U`
+- **WHEN** it is read
+- **THEN** the three graphics have different ids, the first is `derived_id("gfx", "kicad", "<native_id>:<U>")`, the third uses `"<native_id>:<U>:2"`, and all three keep `U` as native id
 
 #### Scenario: Unknown prefix still rejected
 - **WHEN** `new_id("fpx", rng)` is called

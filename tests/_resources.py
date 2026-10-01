@@ -8,12 +8,19 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from functools import cache
 from pathlib import Path
 
 MACOS_KICAD = Path("/Applications/KiCad/KiCad.app/Contents")
-LIB_ENV = ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD10_3DMODEL_DIR")
+LINUX_KICAD = Path("/usr/share/kicad")
+LIB_ENV = ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR")
+MODEL_ENV = ("KICAD10_3DMODEL_DIR", "KICAD9_3DMODEL_DIR")
 CORPUS_HINT = "run: uv run python tools/corpus_fetch.py"
+LIBS_HINT = (
+    "official KiCad libraries not found: set KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR, "
+    "or install KiCad (FENOLITE_KICAD_INSTALL_DIR names an install outside the default location)"
+)
 
 
 def corpus_cache_dir() -> Path:
@@ -21,13 +28,35 @@ def corpus_cache_dir() -> Path:
     return Path(override) if override else Path.home() / ".cache" / "fenolite" / "corpus"
 
 
+def _default_installs() -> list[Path]:
+    if sys.platform.startswith("win"):
+        base = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "KiCad"
+        return [base / f"{major}.0" / "share" / "kicad" for major in (10, 9)]
+    return [MACOS_KICAD / "SharedSupport"] if sys.platform == "darwin" else [LINUX_KICAD]
+
+
+def kicad_install_dir() -> Path | None:
+    """The local KiCad share folder: ``FENOLITE_KICAD_INSTALL_DIR`` when set (``None`` if that path is
+    missing), else the per-OS default location."""
+    override = os.environ.get("FENOLITE_KICAD_INSTALL_DIR")
+    if override:
+        return Path(override) if Path(override).is_dir() else None
+    return next((d for d in _default_installs() if d.is_dir()), None)
+
+
 def kicad_library_dirs() -> list[Path]:
-    """Official KiCad library folders available here: env overrides first, then the macOS app."""
-    dirs = [Path(os.environ[v]) for v in LIB_ENV if os.environ.get(v)]
-    if not dirs:
-        support = MACOS_KICAD / "SharedSupport"
-        dirs = [support / "footprints", support / "symbols", support / "3dmodels"]
-    return [d for d in dirs if d.is_dir()]
+    """Official KiCad library folders: ``KICAD9_*``/``KICAD10_*`` footprint and symbol folders first,
+    else the ``footprints``, ``symbols`` and ``3dmodels`` folders of the local install."""
+    named = [Path(os.environ[v]) for v in LIB_ENV if os.environ.get(v)]
+    named = [d for d in named if d.is_dir()]
+    if named:
+        return named + [
+            Path(os.environ[v]) for v in MODEL_ENV if os.environ.get(v) and Path(os.environ[v]).is_dir()
+        ]
+    install = kicad_install_dir()
+    if install is None:
+        return []
+    return [d for d in (install / "footprints", install / "symbols", install / "3dmodels") if d.is_dir()]
 
 
 def required_resources() -> set[str]:
@@ -61,3 +90,9 @@ def kicad_cli_version() -> tuple[int, int, int] | None:
     """The running kicad-cli version as (major, minor, patch), parsed once; None without kicad-cli."""
     cli = kicad_cli()
     return None if cli is None else _version_of(cli)
+
+
+def kicad_cli_major() -> int | None:
+    """The major version of the running kicad-cli (``kicad_cli_version()[0]``), or None without one."""
+    version = kicad_cli_version()
+    return None if version is None else version[0]
