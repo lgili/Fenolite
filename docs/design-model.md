@@ -74,6 +74,32 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   Ids are therefore unique within a `Library`. A consumer that places a definition twice derives new
   ids for the placed copies.
 
+## Boards read from a backend
+
+Normative text: requirements "Board entities read from file backends" and "Components synthesised
+from a board" of the `design-model` capability (change c0009); KiCad facts in
+`docs/formats/kicad/board.md`.
+
+| Field | Meaning |
+|---|---|
+| `FootprintInstance.attributes` | ordered footprint flags: `smd`, `through_hole`, `board_only`, `exclude_from_pos_files`, `exclude_from_bom`, `dnp`, `allow_missing_courtyard`, `allow_soldermask_bridges` |
+| `Via.via_type` | `through` (default), `blind`, `buried` or `micro` |
+| `ZoneFill.island` | the fill is an island; a zone may have several fills per layer, in file order |
+| `Zone.name` | the zone's name, `""` when it has none |
+
+- **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
+  R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
+  mirrored coordinates. `Pad.rotation` is relative to the footprint, and `Pad.layers` are real board
+  layers without wildcards.
+- **Outlines.** An empty `Zone.outline` or `Keepout.outline` means the backend keeps the outline as
+  an opaque slot. `Board.outline` is `None` for an imported board; its edge graphics are authoritative.
+- **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
+  are in `Layer.ext[<backend>]`.
+- **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one
+  `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
+  reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
+  or when every component sharing it is placed only by `board_only` footprints.
+
 ## Canonical JSON
 
 `fenolite.model.canonical`: UTF-8, LF, two-space indent, keys in field order, defaults omitted,

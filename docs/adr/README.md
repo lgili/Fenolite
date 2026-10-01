@@ -30,5 +30,6 @@ Public sources (ids from `docs/evidence/sources.md`), tests or hypotheses that b
 | ADR | Title | Status |
 |---|---|---|
 | [0001](0001-neutral-model.md) | Neutral model: small now, frozen after the second backend | Accepted |
+| [0002](0002-kicad-file-backend.md) | KiCad file backend: Fenolite's own readers and writers, `kicad-cli` as the oracle | Accepted |
 | [0003](0003-clean-room-and-provenance.md) | Clean-room development and provenance of format knowledge | Accepted |
 | [0004](0004-licence-apache-2.0.md) | Licence: Apache-2.0; copyleft only behind a process boundary | Accepted |

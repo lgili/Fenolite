@@ -12,7 +12,12 @@ import pytest
 ADR_DIR = Path(__file__).resolve().parents[2] / "docs" / "adr"
 SECTIONS = ["## Status", "## Context", "## Decision", "## Alternatives", "## Consequences", "## Evidence"]
 STATUS = re.compile(r"^(Proposed|Accepted|Deprecated|Superseded by ADR-\d{4})\b")
-REQUIRED = ["0001-neutral-model.md", "0003-clean-room-and-provenance.md", "0004-licence-apache-2.0.md"]
+REQUIRED = [
+    "0001-neutral-model.md",
+    "0002-kicad-file-backend.md",
+    "0003-clean-room-and-provenance.md",
+    "0004-licence-apache-2.0.md",
+]
 
 
 def _adrs() -> list[Path]:

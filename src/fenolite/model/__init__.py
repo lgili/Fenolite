@@ -6,6 +6,7 @@ from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.board import (
     Arc,
     Board,
+    FootprintAttribute,
     FootprintInstance,
     Graphic,
     Hole,
@@ -20,6 +21,7 @@ from fenolite.model.board import (
     Text,
     Track,
     Via,
+    ViaType,
     Zone,
     ZoneFill,
 )
@@ -40,6 +42,7 @@ __all__ = [
     "Entity",
     "ExtBag",
     "Findings",
+    "FootprintAttribute",
     "FootprintInstance",
     "Graphic",
     "Hole",
@@ -69,6 +72,7 @@ __all__ = [
     "Text",
     "Track",
     "Via",
+    "ViaType",
     "Zone",
     "ZoneFill",
 ]

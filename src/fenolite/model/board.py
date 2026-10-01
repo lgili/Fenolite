@@ -27,6 +27,17 @@ PadShape = Literal["circle", "rect", "oval", "roundrect", "trapezoid", "custom"]
 PadKind = Literal["smd", "thru_hole", "np_thru_hole", "connect"]
 Side = Literal["top", "bottom"]
 GraphicKind = Literal["line", "arc", "circle", "rect", "polygon"]
+FootprintAttribute = Literal[
+    "smd",
+    "through_hole",
+    "board_only",
+    "exclude_from_pos_files",
+    "exclude_from_bom",
+    "dnp",
+    "allow_missing_courtyard",
+    "allow_soldermask_bridges",
+]
+ViaType = Literal["through", "blind", "buried", "micro"]
 ORDERED = {"ordered": True}
 
 
@@ -101,7 +112,7 @@ class Pad(Entity):
 
 @dataclass(frozen=True, slots=True)
 class FootprintInstance(Entity):
-    """A placed footprint of a component."""
+    """A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order."""
 
     component_id: str
     lib_ref: str
@@ -109,6 +120,7 @@ class FootprintInstance(Entity):
     rotation: Udeg = 0
     side: Side = "top"
     locked: bool = False
+    attributes: tuple[FootprintAttribute, ...] = field(default=(), metadata=ORDERED)
     pads: tuple[Pad, ...] = ()
 
 
@@ -140,21 +152,27 @@ class Via(Entity):
     drill: Nm
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
+    via_type: ViaType = "through"
 
 
 @dataclass(frozen=True, slots=True)
 class ZoneFill:
-    """Filled copper of a zone on one layer (a derived artefact)."""
+    """Filled copper of a zone on one layer (a derived artefact); a zone may have several per layer."""
 
     layer: str
     polygon: tuple[Point, ...]
+    island: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class Zone(Entity):
-    """A copper zone (pour). ``fills`` are derived and discarded when the zone changes."""
+    """A copper zone (pour). ``fills`` are derived and discarded when the zone changes.
+
+    An empty ``outline`` on an imported zone means the backend keeps the outline as an opaque slot.
+    """
 
     outline: tuple[Point, ...] = field(metadata=ORDERED)
+    name: str = ""
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
     priority: int = 0
@@ -225,6 +243,7 @@ class Board(Entity):
 __all__ = [
     "Arc",
     "Board",
+    "FootprintAttribute",
     "FootprintInstance",
     "Graphic",
     "GraphicKind",
@@ -245,6 +264,7 @@ __all__ = [
     "Text",
     "Track",
     "Via",
+    "ViaType",
     "Zone",
     "ZoneFill",
 ]

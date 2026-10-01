@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import sys
 from functools import cache
@@ -65,13 +64,12 @@ def required_resources() -> set[str]:
 
 
 def kicad_cli() -> str | None:
-    """``FENOLITE_KICAD_CLI`` when set (``None`` if that file is missing), else PATH, else the macOS app."""
-    override = os.environ.get("FENOLITE_KICAD_CLI")
-    if override:
-        return override if Path(override).is_file() else None
-    found = shutil.which("kicad-cli")
-    bundled = MACOS_KICAD / "MacOS" / "kicad-cli"
-    return found or (str(bundled) if bundled.is_file() else None)
+    """``FENOLITE_KICAD_CLI`` when set (``None`` if that file is missing), else PATH, else the macOS app
+    (``fenolite.backends.kicad.cli.find_kicad_cli``)."""
+    from fenolite.backends.kicad.cli import find_kicad_cli
+
+    found = find_kicad_cli()
+    return None if found is None else str(found)
 
 
 @cache

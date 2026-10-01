@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
+from fenolite.backends.kicad import cli as kicad_cli
 from fenolite.cli import cmd_capabilities
 from fenolite.cli.main import main
 
@@ -37,7 +39,7 @@ def test_missing_tools_are_null_not_fatal(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(cmd_capabilities.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(cmd_capabilities, "_MACOS_KICAD_CLI", "/nonexistent/kicad-cli")
+    monkeypatch.setattr(kicad_cli, "MACOS_KICAD_CLI", Path("/nonexistent/kicad-cli"))
     monkeypatch.delenv("FENOLITE_KICAD_CLI", raising=False)
     tools = _capabilities(capsys)["tools"]
     assert tools == {"kicad-cli": None, "java": None, "docker": None}

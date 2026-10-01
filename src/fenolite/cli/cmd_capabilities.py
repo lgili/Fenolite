@@ -6,18 +6,16 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
-import os
 import re
 import shutil
 import subprocess
 from functools import cache
-from pathlib import Path
 from typing import Any
 
 from fenolite import __version__
+from fenolite.backends import registry
 from fenolite.cli.api import Command, Context, Result, discover
 
-_MACOS_KICAD_CLI = "/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli"
 _EXTRA_MARKER = re.compile(r"extra\s*==\s*['\"]([^'\"]+)['\"]")
 _DIST_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 
@@ -58,13 +56,10 @@ def _run_version(argv: list[str]) -> str | None:
 
 
 def _kicad_cli_path() -> str | None:
-    override = os.environ.get("FENOLITE_KICAD_CLI")
-    if override:
-        return override if Path(override).is_file() else None
-    found = shutil.which("kicad-cli")
-    if found:
-        return found
-    return _MACOS_KICAD_CLI if Path(_MACOS_KICAD_CLI).is_file() else None
+    from fenolite.backends.kicad.cli import find_kicad_cli
+
+    found = find_kicad_cli()
+    return None if found is None else str(found)
 
 
 @cache
@@ -94,7 +89,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     result: dict[str, Any] = {
         "fenolite_version": __version__,
         "commands": commands,
-        "backends": [],
+        "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "sends_data_offsite": False,

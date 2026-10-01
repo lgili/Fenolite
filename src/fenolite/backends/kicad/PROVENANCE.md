@@ -33,3 +33,9 @@ written from the pages under `docs/formats/kicad/`.
 | library version constants (c0008, cited from c0007) | S-0030, S-0031 | GPL-3.0-or-later (facts only) | 2026-10-01 | facts only |
 | official library licence (c0008) | S-0048 | CC-BY-SA-4.0 (licence text) | 2026-10-01 | facts only |
 | library load and re-save behaviour of `kicad-cli` 9.0.9 and 10.0.6 (c0008) | S-0020, S-0029 | GPL-3.0-or-later tool and image, run as subprocesses | 2026-10-01 | oracle |
+| board file structure and common syntax (c0009) | S-0001, S-0021 | not stated on the page | 2026-10-01 | facts only |
+| board layer numbering, net reference forms and the zone island flag per format version (c0009) | S-0030, S-0033 | GPL-3.0-or-later (names and dated facts only, nothing copied) | 2026-10-01 | facts only |
+| placement of tokens in KiCad-written boards (c0009) | S-0039 | GPL-3.0-or-later (KiCad-written files, facts only) | 2026-10-01 | facts only |
+| footprint attributes, copper layer types and user names, rule areas (c0009) | S-0010, S-0038 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | facts only |
+| board features introduced by 9.0 (c0009) | S-0050 | CC-BY-3.0-or-later or GPL-3.0-or-later (site notice) | 2026-10-01 | facts only |
+| `pcb export pos`, `pcb export ipcd356` and `pcb upgrade --force` of `kicad-cli` 9.0.9 and 10.0.6 (c0009) | S-0019, S-0020, S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 | 2026-10-01 | oracle |

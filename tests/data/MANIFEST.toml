@@ -282,3 +282,9 @@ path = "tests/data/libs/project/nested/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "authored library table"
+
+[[file]]
+path = "tests/data/kicad/board/two_layer.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 two-layer board (format 20241229): two footprints, copper, a zone with fills, a rule area, edge graphics and a text"

@@ -12,13 +12,13 @@ units per axis at 30° (each exported value is quantised once and a difference s
 
 from __future__ import annotations
 
-import re
 from fractions import Fraction
 from pathlib import Path
 
 import pytest
 from _kicad import mm, run, supported_version
 
+from fenolite.backends.kicad.ipcd356 import Ipcd356, read_ipcd356
 from fenolite.geometry import Point, Transform
 
 pytestmark = pytest.mark.needs_kicad
@@ -61,28 +61,21 @@ def _board() -> str:
     return "\n".join(lines) + "\n"
 
 
-RECORD = re.compile(r"^317(\S+)\s.*?X([+-]?\d+)Y([+-]?\d+).*?R(\d{3})")
-
-
-def _export(tmp_path: Path) -> tuple[str, dict[str, tuple[int, int, int]]]:
+def _export(tmp_path: Path) -> tuple[Ipcd356, dict[str, tuple[int, int, int | None]]]:
     board = tmp_path / "frame.kicad_pcb"
     board.write_text(_board(), encoding="utf-8")
     out = tmp_path / "frame.d356"
     run("pcb", "export", "ipcd356", "-o", out, board)
-    text = out.read_text(encoding="utf-8", errors="replace")
-    pads: dict[str, tuple[int, int, int]] = {}
-    for line in text.splitlines():
-        match = RECORD.match(line)
-        if match:
-            pads[match.group(1)] = (int(match.group(2)), int(match.group(3)), int(match.group(4)))
-    return text, pads
+    export = read_ipcd356(out.read_text(encoding="utf-8", errors="replace"))
+    pads = {r.net: (r.x, r.y, r.rotation) for r in export.records if r.code == "317"}
+    return export, pads
 
 
 def test_rotation_and_bottom_side_against_kicad_cli(tmp_path: Path) -> None:
     version = supported_version()
-    text, pads = _export(tmp_path)
-    assert re.search(r"^P\s+UNITS\s+CUST\s+0\s*$", text, re.MULTILINE), "expected UNITS CUST 0 (0.0001 in)"
-    observed_r: dict[str, tuple[int, int]] = {}
+    export, pads = _export(tmp_path)
+    assert export.unit_nm == UNIT_NM, "expected UNITS CUST 0 (0.0001 in)"
+    observed_r: dict[str, tuple[int | None, int | None]] = {}
     for name, _layer, at, udeg, stored2 in FOOTPRINTS:
         placement = Transform.placement(at, udeg)
         p1, p2 = placement.apply(PAD1), placement.apply(stored2)

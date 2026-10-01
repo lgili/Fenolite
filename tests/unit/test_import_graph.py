@@ -66,8 +66,13 @@ def _key(parts: list[str]) -> str:
     return head
 
 
+BACKENDS_TOP = ("backends.base", "backends.registry")  # top-level modules: the ``backends`` row
+
+
 def _pattern(key: str) -> str:
-    if key.startswith("backends.") and key not in ("backends.base", "backends.registry"):
+    if key in BACKENDS_TOP:
+        return "backends"
+    if key.startswith("backends."):
         return "backends.<x>"
     if key.startswith("routing.plugins."):
         return "routing.plugins.<x>"
@@ -226,6 +231,24 @@ def test_detects_forbidden_edge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     problems = _violations()
     assert any("model → backends.kicad" in p for p in problems)
     assert any("must be stdlib-only (imports shapely)" in p for p in problems)
+
+
+def test_registry_may_import_a_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _fake_tree(
+        tmp_path,
+        "backends/registry.py",
+        "def f():\n    import fenolite.backends.kicad.backend\nimport fenolite.backends.base\n",
+    )
+    (fake / "backends" / "base.py").write_text("import fenolite.model.design\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+
+
+def test_backend_may_not_import_another_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = _fake_tree(tmp_path, "backends/kicad/pcb.py", "import fenolite.backends.other.x\n")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("backends.kicad → backends.other" in p for p in problems), problems
 
 
 def test_bare_import_without_extras() -> None:

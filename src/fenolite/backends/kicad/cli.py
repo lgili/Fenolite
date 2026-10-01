@@ -1,0 +1,248 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""The package ``kicad-cli`` runner: KiCad's command-line tool as an oracle, always on copies.
+
+``kicad-cli`` writes files next to the board it opens (S-0020), so every run copies its inputs to a
+fresh temporary folder, runs there with an isolated environment and returns the files the run
+created or changed. The caller's files are only ever read. Commands: S-0022 (10.0), S-0037 (9.0).
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import Literal
+
+from fenolite.core.errors import FenoliteError
+
+MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
+CONFIG_DIR = "config"
+_VERSION = re.compile(r"(\d+)\.(\d+)")
+
+
+def find_kicad_cli(explicit: str | os.PathLike[str] | None = None) -> Path | None:
+    """The ``kicad-cli`` to use: ``explicit``, else ``FENOLITE_KICAD_CLI``, else ``PATH``, else the
+    macOS application bundle. An explicit path or override naming a missing file gives ``None``."""
+    if explicit is not None:
+        path = Path(os.fspath(explicit))
+        return path if path.is_file() else None
+    override = os.environ.get("FENOLITE_KICAD_CLI")
+    if override:
+        return Path(override) if Path(override).is_file() else None
+    found = shutil.which("kicad-cli")
+    if found:
+        return Path(found)
+    return MACOS_KICAD_CLI if MACOS_KICAD_CLI.is_file() else None
+
+
+@dataclass(frozen=True)
+class CliRun:
+    """One ``kicad-cli`` run: its outcome, output streams and the files it created or changed."""
+
+    outcome: Literal["exit", "timeout"]
+    returncode: int | None
+    stdout: str
+    stderr: str
+    outputs: Mapping[str, bytes]
+
+    @property
+    def ok(self) -> bool:
+        return self.outcome == "exit" and self.returncode == 0
+
+
+class KicadCliError(FenoliteError):
+    """A ``kicad-cli`` helper failed (non-zero exit or timeout); ``run`` holds what happened."""
+
+    def __init__(self, message: str, run: CliRun) -> None:
+        self.run = run
+        super().__init__(message)
+
+
+class KicadCliVersionError(KicadCliError):
+    """The command needs another ``kicad-cli`` major (for example ``pcb upgrade``, 10.0 only)."""
+
+    cli_code = "FEN-6002"
+
+    def __init__(self, message: str, run: CliRun, hint: str = "") -> None:
+        super().__init__(message, run)
+        self.hint = hint
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _files(root: Path) -> dict[str, Path]:
+    """Every regular file under ``root``, keyed by POSIX path relative to it, the config folder excluded."""
+    found: dict[str, Path] = {}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root)
+        if rel.parts[0] == CONFIG_DIR or not path.is_file():
+            continue
+        found[rel.as_posix()] = path
+    return found
+
+
+def _relative(name: str) -> PurePosixPath:
+    rel = PurePosixPath(name)
+    if rel.is_absolute() or not rel.parts or ".." in rel.parts or rel.parts[0] == CONFIG_DIR:
+        raise ValueError(f"run file name {name!r} must be a relative path outside {CONFIG_DIR!r}")
+    return rel
+
+
+def _environment(config: Path, extra: Mapping[str, str] | None) -> dict[str, str]:
+    environ = {key: value for key, value in os.environ.items() if not key.startswith("KICAD")}
+    environ.update({"KICAD_CONFIG_HOME": str(config), "LANG": "C", "LC_ALL": "C"})
+    environ.update(extra or {})
+    return environ
+
+
+def _decode(data: bytes | str | None) -> str:
+    if data is None:
+        return ""
+    return data if isinstance(data, str) else data.decode("utf-8", "replace")
+
+
+class KicadCli:
+    """A ``kicad-cli`` binary, run as a subprocess on temporary copies (``timeout`` in seconds)."""
+
+    def __init__(self, path: Path, *, timeout: float = 120) -> None:
+        self.path = Path(path)
+        self.timeout = timeout
+        self._version: str | None = None
+
+    def version(self) -> str:
+        """The first line that ``kicad-cli version`` prints, for example ``10.0.6``."""
+        if self._version is None:
+            run = self.run(["version"], files={})
+            lines = run.stdout.strip().splitlines()
+            if not run.ok or not lines:
+                raise KicadCliError(f"kicad-cli version failed: {run.stderr.strip()}", run)
+            self._version = lines[0].strip()
+        return self._version
+
+    def major(self) -> int:
+        match = _VERSION.search(self.version())
+        if match is None:
+            raise ValueError(f"cannot read a version from {self.version()!r}")
+        return int(match.group(1))
+
+    def run(
+        self, args: Sequence[str], *, files: Mapping[str, Path], env: Mapping[str, str] | None = None
+    ) -> CliRun:
+        """Copy ``files`` (relative name → file or folder) to a fresh folder and run there."""
+        tmp = Path(tempfile.mkdtemp(prefix="fenolite-kicad-"))
+        try:
+            config = tmp / CONFIG_DIR
+            config.mkdir()
+            for name, source in files.items():
+                target = tmp / _relative(name)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if Path(source).is_dir():
+                    shutil.copytree(source, target)
+                else:
+                    shutil.copyfile(source, target)
+            before = {rel: _sha256(path) for rel, path in _files(tmp).items()}
+            command = [str(self.path), *map(str, args)]
+            try:
+                proc = subprocess.run(
+                    command,
+                    cwd=tmp,
+                    env=_environment(config, env),
+                    capture_output=True,
+                    timeout=self.timeout,
+                    check=False,
+                )
+                outcome: Literal["exit", "timeout"] = "exit"
+                returncode: int | None = proc.returncode
+                stdout, stderr = _decode(proc.stdout), _decode(proc.stderr)
+            except subprocess.TimeoutExpired as exc:
+                outcome, returncode = "timeout", None
+                stdout, stderr = _decode(exc.stdout), _decode(exc.stderr)
+            outputs = {
+                rel: path.read_bytes()
+                for rel, path in _files(tmp).items()
+                if rel not in before or _sha256(path) != before[rel]
+            }
+            return CliRun(outcome, returncode, _sanitise(stdout, tmp), _sanitise(stderr, tmp), outputs)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
+        run = self.run(args, files=files)
+        if run.outcome == "timeout":
+            raise KicadCliError(f"kicad-cli {what} timed out after {self.timeout} s", run)
+        if run.returncode != 0:
+            detail = (run.stderr or run.stdout).strip()
+            raise KicadCliError(f"kicad-cli {what} exited {run.returncode}: {detail}", run)
+        return run
+
+    def load_board_svg(self, board: Path) -> CliRun:
+        """The board load check: ``pcb export svg -l Edge.Cuts --mode-single`` exits 0 and writes the SVG."""
+        name = Path(board).name
+        args = ["pcb", "export", "svg", "-l", "Edge.Cuts", "--mode-single", "-o", "out.svg", name]
+        run = self._checked(args, {name: Path(board)}, "pcb export svg")
+        if "out.svg" not in run.outputs:
+            raise KicadCliError("kicad-cli pcb export svg wrote no SVG", run)
+        return run
+
+    def export_pos_csv(self, board: Path) -> str:
+        """``pcb export pos --format csv --side both --units mm`` (the default unit is inches)."""
+        name = Path(board).name
+        args = ["pcb", "export", "pos", "--format", "csv", "--side", "both", "--units", "mm"]
+        run = self._checked([*args, "-o", "pos.csv", name], {name: Path(board)}, "pcb export pos")
+        return _output(run, "pos.csv", "pcb export pos")
+
+    def export_ipcd356(self, board: Path) -> str:
+        """``pcb export ipcd356``: the IPC-D-356 netlist text."""
+        name = Path(board).name
+        run = self._checked(
+            ["pcb", "export", "ipcd356", "-o", "board.d356", name], {name: Path(board)}, "pcb export ipcd356"
+        )
+        return _output(run, "board.d356", "pcb export ipcd356")
+
+    def upgrade_board(self, board: Path) -> bytes:
+        """``pcb upgrade --force`` (10.0 only): the board re-saved in the running version's format."""
+        major = self.major()
+        if major < 10:
+            run = CliRun("exit", None, "", "", {})
+            raise KicadCliVersionError(
+                f"pcb upgrade needs kicad-cli 10.0 or newer; running {self.version()}",
+                run,
+                hint="run the 10.0 image, for example the kicad-10 job's container",
+            )
+        name = Path(board).name
+        run = self._checked(["pcb", "upgrade", "--force", name], {name: Path(board)}, "pcb upgrade")
+        return run.outputs.get(name, Path(board).read_bytes())
+
+
+def _output(run: CliRun, name: str, what: str) -> str:
+    if name not in run.outputs:
+        raise KicadCliError(f"kicad-cli {what} wrote no {name}", run)
+    return run.outputs[name].decode("utf-8", "replace")
+
+
+def _sanitise(text: str, tmp: Path) -> str:
+    for spelling in sorted({os.path.realpath(tmp), str(tmp)}, key=len, reverse=True):
+        text = text.replace(spelling, "<tmp>")
+    home = str(Path.home())
+    if home and home != "/":
+        text = text.replace(home, "~")
+    return text
+
+
+__all__ = [
+    "MACOS_KICAD_CLI",
+    "CliRun",
+    "KicadCli",
+    "KicadCliError",
+    "KicadCliVersionError",
+    "find_kicad_cli",
+]

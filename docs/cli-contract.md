@@ -81,3 +81,16 @@ produce byte-identical outputs.
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends, installed
 extras, detected external tools (`kicad-cli`, `java`, `docker`) with versions, and whether any
 enabled feature sends data off the machine. Agents should call it first.
+
+Each entry of `result.backends` is one backend's capability report, sorted by name:
+
+```json
+{"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"], "write_kinds": [],
+ "targets": [], "default_target": null, "downgrade": "unsupported", "operations": ["detect", "read"],
+ "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ"]}}
+```
+
+`operations` lists only what the backend implements (`detect`, `read`, `write`, `lower`,
+`validate`); an operation that is absent is not available yet. Listing backends runs no external
+tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
+by `fenolite.backends.kicad.cli.find_kicad_cli()`.

@@ -76,7 +76,7 @@
 
 ## 9. Closing
 
-- [ ] 9.1 Run the residue and full test suites. Add a `LEGAL-ANNEX.md` row for every further ISO week in which `backends/` or `docs/formats/` changed. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `openspec validate c0009-kicad-board-backend --strict` passes.
+- [x] 9.1 Run the residue and full test suites. Add a `LEGAL-ANNEX.md` row for every further ISO week in which `backends/` or `docs/formats/` changed. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `openspec validate c0009-kicad-board-backend --strict` passes.
 - [ ] 9.2 Update the evidence labels from the results:
   - `H-K-PCB-READ` becomes `CORPUS-VERIFIED` (origins `kicad-demos` and `third-party` through upgraded copies, as its result states) or is refuted. Its result also records the `Design.validate()` error counts per board.
   - `H-K-PCB-POS` (placements and pads) becomes `KICAD-VERIFIED (9.0.x, 10.0.x)`, or is refuted for bottom rotation only, with a successor row (suffix `-2`) that records the observed rule. Its result records the via, truncated-key and ambiguous-key counts of `test_ipcd356`.

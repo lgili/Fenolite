@@ -166,9 +166,17 @@ class Design:
         for entity_id, count in sorted(Counter(e.id for e in self.entities()).items()):
             if count > 1:
                 add("model.duplicate-id", "error", f"id used {count} times", entity_id)
+        placed: dict[str, list[tuple[str, ...]]] = {}
+        for fp in self.board.footprints if self.board else ():
+            placed.setdefault(fp.component_id, []).append(fp.attributes)
         for ref, count in sorted(Counter(c.ref for c in self.circuit.components).items()):
             if count > 1:
-                add("model.duplicate-ref", "error", f"reference used {count} times", ref)
+                sharing = [c for c in self.circuit.components if c.ref == ref]
+                board_only = all(
+                    placed.get(c.id) and all("board_only" in attrs for attrs in placed[c.id]) for c in sharing
+                )
+                severity: Severity = "warning" if board_only or ref.endswith("**") else "error"
+                add("model.duplicate-ref", severity, f"reference used {count} times", ref)
         components = {c.id: c for c in self.circuit.components}
         netclasses = {c.id for c in self.circuit.netclasses}
         net_ids = {n.id for n in self.circuit.nets}

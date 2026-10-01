@@ -250,7 +250,7 @@
       "additionalProperties": false
     },
     "FootprintInstance": {
-      "description": "A placed footprint of a component.",
+      "description": "A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order.",
       "type": "object",
       "properties": {
         "id": {
@@ -299,6 +299,21 @@
         },
         "locked": {
           "type": "boolean"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "smd",
+              "through_hole",
+              "board_only",
+              "exclude_from_pos_files",
+              "exclude_from_bom",
+              "dnp",
+              "allow_missing_courtyard",
+              "allow_soldermask_bridges"
+            ]
+          }
         },
         "pads": {
           "type": "array",
@@ -1118,6 +1133,14 @@
               "type": "null"
             }
           ]
+        },
+        "via_type": {
+          "enum": [
+            "through",
+            "blind",
+            "buried",
+            "micro"
+          ]
         }
       },
       "additionalProperties": false,
@@ -1164,6 +1187,9 @@
             "$ref": "#/$defs/Point"
           }
         },
+        "name": {
+          "type": "string"
+        },
         "layers": {
           "type": "array",
           "items": {
@@ -1197,7 +1223,7 @@
       ]
     },
     "ZoneFill": {
-      "description": "Filled copper of a zone on one layer (a derived artefact).",
+      "description": "Filled copper of a zone on one layer (a derived artefact); a zone may have several per layer.",
       "type": "object",
       "properties": {
         "layer": {
@@ -1208,6 +1234,9 @@
           "items": {
             "$ref": "#/$defs/Point"
           }
+        },
+        "island": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

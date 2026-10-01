@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fenolite.backends.kicad import versions
-from fenolite.backends.kicad.liberrors import lib_issue
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, parse, parse_bytes
 from fenolite.backends.kicad.slots import split
 from fenolite.core.coords import Point
@@ -26,6 +25,17 @@ from fenolite.core.units import parse_angle
 from fenolite.model.base import Opaque, Slot
 
 Source = str | os.PathLike[str] | Node
+LIB_KEPT_CODE = "kicad.lib.kept-opaque"
+
+
+class InexactValueError(FormatError):
+    """A number that is valid but not a whole number of nanometres (``length``) or µdeg (``angle``)."""
+
+    def __init__(
+        self, what: str, message: str, *, file: str = "", locator: str = "", offset: int | None = None
+    ) -> None:
+        super().__init__(message, file=file, locator=locator, offset=offset)
+        self.what = what
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +105,7 @@ class Context:
     issues: list[Issue] = field(default_factory=lambda: [])
     version: int = 0
     future: bool = False
+    kept_code: str = LIB_KEPT_CODE
 
     @property
     def file(self) -> str:
@@ -125,13 +136,21 @@ class Context:
         )
 
     def kept_opaque(self, message: str, locator: str) -> None:
-        self.issues.append(lib_issue("kicad.lib.kept-opaque", message, where=locator))
+        """An info with this file's kept-opaque code (``kicad.lib.kept-opaque`` or a board's own)."""
+        self.issues.append(Issue(self.kept_code, "info", message, where=locator))
+
+    def inexact(self, what: str, message: str, locator: str, node: Node) -> InexactValueError:
+        return InexactValueError(what, message, file=self.file, locator=locator, offset=node.offset)
 
     def nm(self, atom: Atom, locator: str, node: Node) -> int:
         try:
             return atom.to_nm(exact=True)
         except ValueError as exc:
-            raise self.error(str(exc), locator, node) from None
+            try:
+                atom.to_nm(exact=False)
+            except ValueError:
+                raise self.error(str(exc), locator, node) from None
+            raise self.inexact("length", str(exc), locator, node) from None
 
     def udeg(self, atom: Atom, locator: str, node: Node) -> int:
         if atom.kind != AtomKind.NUMBER:
@@ -139,6 +158,8 @@ class Context:
         try:
             return parse_angle(atom.text, default_unit="deg")
         except ValueError as exc:
+            if "not representable" in str(exc):
+                raise self.inexact("angle", f"angle {atom.text!r}: {exc}", locator, node) from None
             raise self.error(f"angle {atom.text!r}: {exc}", locator, node) from None
 
     def point(self, node: Node, locator: str) -> Point:
@@ -177,4 +198,13 @@ class Context:
         return list(split(node, fields, positional=positional, min_version=rule))
 
 
-__all__ = ["Context", "Loaded", "Source", "child_locators", "leading_atoms", "load_source"]
+__all__ = [
+    "LIB_KEPT_CODE",
+    "Context",
+    "InexactValueError",
+    "Loaded",
+    "Source",
+    "child_locators",
+    "leading_atoms",
+    "load_source",
+]
