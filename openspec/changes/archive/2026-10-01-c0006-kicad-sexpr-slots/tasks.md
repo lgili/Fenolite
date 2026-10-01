@@ -34,7 +34,7 @@
 ## 6. Continuous integration
 
 - [x] 6.1 Implement required-resource mode in `tests/conftest.py` (`FENOLITE_REQUIRE=kicad,corpus,libs` turns the skips into failures with the same message) and enable the `pytester` plugin there with `pytest_plugins = ["pytester"]`. Document the mode and `FENOLITE_HEAVY` in `tests/README.md`. Proof: `uv run pytest tests/unit/test_conftest_require.py` (uses `pytester`: failure with the variable set, skip without it).
-- [ ] 6.2 Add the `kicad-10` job to `.github/workflows/ci.yml` with the seven steps of the `ci-baseline` delta in that order. Resolve the full index digest with `docker buildx imagetools inspect kicad/kicad:10.0.6` and pin it. Add `tests/unit/test_ci_workflow.py`, which checks textually the digest pin, `options: --user 0`, the step order, the cache key `hashFiles('tests/corpus/manifest.toml')`, `--exclude-uses heavy` and `FENOLITE_REQUIRE=kicad,corpus`. Record the URL of the first green `kicad-10` run in `docs/formats/kicad/corpus.md`. Proof: `uv run pytest tests/unit/test_ci_workflow.py`; `gh pr checks` shows `kicad-10` passing.
+- [x] 6.2 Add the `kicad-10` job to `.github/workflows/ci.yml` with the seven steps of the `ci-baseline` delta in that order. Resolve the full index digest with `docker buildx imagetools inspect kicad/kicad:10.0.6` and pin it. Add `tests/unit/test_ci_workflow.py`, which checks textually the digest pin, `options: --user 0`, the step order, the cache key `hashFiles('tests/corpus/manifest.toml')`, `--exclude-uses heavy` and `FENOLITE_REQUIRE=kicad,corpus`. Record the URL of the first green `kicad-10` run in `docs/formats/kicad/corpus.md`. Proof: `uv run pytest tests/unit/test_ci_workflow.py`; `gh pr checks` shows `kicad-10` passing.
 
 ## 7. Closing
 

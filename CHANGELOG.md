@@ -16,6 +16,7 @@ All notable changes to Fenolite are documented here. The format follows
 ### Changed
 
 - The `kicad-9` CI job runs `pytest -q -rA`, so its log lists the outcome of every oracle test.
+- CI evidence recorded: the first green `kicad-10` run and the `kicad-9` run confirm the geometry hypotheses (`H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-ARC-ROUND`, `H-G-ARC-DIR`, `H-G-PTS-ARC`) on 9.0.9 and settle `H-K-02`; `main` now requires the `kicad-9` and `kicad-10` checks. Changes c0006 and c0007 archived.
 
 ## [0.0.1.dev0] - 2026-09-30
 

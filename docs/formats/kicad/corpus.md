@@ -71,4 +71,5 @@ These are the versions of the cached files, as of 2026-10-01:
 
 - The `kicad-10` job in `.github/workflows/ci.yml` runs the oracle and corpus tests inside
   `kicad/kicad:10.0.6`, pinned by digest (S-0029), with `FENOLITE_REQUIRE=kicad,corpus`.
-- First green run: pending; the job has not run on GitHub yet.
+- First green run: https://github.com/lgili/Fenolite/actions/runs/36816175839 (commit `3654076`,
+  2026-10-01): `kicad-cli` 10.0.6, 29 corpus items fetched, 158 passed and 10 skipped in required mode.
