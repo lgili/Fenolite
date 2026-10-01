@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and format page
 
-- [ ] 1.1 Register sources and hypotheses. This is the first commit of the implementation, so c0014's cited-id guard sees the ids registered. c0014 lands first (batch order): the proof runs its `tests/unit/test_hypotheses_register.py`. Unticked in review on 2026-10-01, because that file does not exist yet and the proof exits 4. Rows already added stay; check them against the design tables, which review changed (`H-K-PCB-READ`, `H-K-PCB-POS`, `H-K-PCB-UUID`, `H-K-PCB-ZONE`, `H-K-UUID-KEEP`, S-0010), and tick only after the proof passes.
+- [x] 1.1 Register sources and hypotheses. This is the first commit of the implementation, so c0014's cited-id guard sees the ids registered. c0014 lands first (batch order): the proof runs its `tests/unit/test_hypotheses_register.py`. Unticked in review on 2026-10-01, because that file does not exist yet and the proof exits 4. Rows already added stay; check them against the design tables, which review changed (`H-K-PCB-READ`, `H-K-PCB-POS`, `H-K-PCB-UUID`, `H-K-PCB-ZONE`, `H-K-UUID-KEEP`, S-0010), and tick only after the proof passes.
   - Add row S-0050 to `docs/evidence/sources.md` from the design table, with the consultation date and the licence the page states, or "not stated". If its URL is already registered, cite that id and leave S-0050 unused.
   - Widen the "used for" cells of S-0022 and S-0037 (`pcb export pos`, `pcb export ipcd356`, `pcb upgrade --force`), of S-0038 (the whole pcbnew 10.0 page: footprint attributes, layer types and user names, rule areas, zone properties) and of S-0010 (pcbnew 9.0 page: footprint attributes, layer types, rule areas).
   - Add rows `H-K-PCB-READ`, `H-K-PCB-POS`, `H-K-PCB-UUID`, `H-K-PCB-ZONE` and `H-K-UUID-KEEP` to `docs/hypotheses.md`, with backend `kicad`, level `INFERRED`, the test (placeholder ids included) and the criterion from `design.md`, and result `pending`.
@@ -77,7 +77,7 @@
 ## 9. Closing
 
 - [x] 9.1 Run the residue and full test suites. Add a `LEGAL-ANNEX.md` row for every further ISO week in which `backends/` or `docs/formats/` changed. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `openspec validate c0009-kicad-board-backend --strict` passes.
-- [ ] 9.2 Update the evidence labels from the results:
+- [x] 9.2 Update the evidence labels from the results:
   - `H-K-PCB-READ` becomes `CORPUS-VERIFIED` (origins `kicad-demos` and `third-party` through upgraded copies, as its result states) or is refuted. Its result also records the `Design.validate()` error counts per board.
   - `H-K-PCB-POS` (placements and pads) becomes `KICAD-VERIFIED (9.0.x, 10.0.x)`, or is refuted for bottom rotation only, with a successor row (suffix `-2`) that records the observed rule. Its result records the via, truncated-key and ambiguous-key counts of `test_ipcd356`.
   - `H-K-UUID-KEEP` records the demo half as `KICAD-VERIFIED (10.0.x)`, with the Fenolite-written half pending in c0017.

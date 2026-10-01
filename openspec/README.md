@@ -8,3 +8,33 @@ Spec-driven development with [OpenSpec](https://github.com/Fission-AI/OpenSpec).
 - `config.yaml` — project context and artefact rules injected into every change.
 
 No code lands without a change. Archive a change with `openspec archive <id>` once all tasks are done.
+
+## Change ids
+
+Changes c0001–c0008 are archived under `changes/archive/`. Plan items keep their numbers (c0009–c0016);
+split-offs and follow-ups take c0017 and later numbers in implementation order, and a new split-off
+takes the next free number. Ids follow the form `cNNNN-<slug>`, a project convention (the `openspec`
+CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A slug may still change
+until its change is proposed.
+
+| id | slug | roadmap item | parent |
+|---|---|---|---|
+| c0009 | `kicad-board-backend` | 0009 (part 1) | — |
+| c0010 | `kicad-project-file` | 0010 | — |
+| c0011 | `dsl-thin-build` | 0011 (part 1) | — |
+| c0012 | `sheet-templates-kicad` | 0012 | — |
+| c0013 | `kicad-oracle-and-check` | 0013 (part 1) | — |
+| c0014 | `verification-evidence` | 0014 | — |
+| c0015 | `zone-fill` | 0015 | — |
+| c0016 | `routing-plugins` | 0016 | — |
+| c0017 | `kicad-board-writer` | split-off | 0009 |
+| c0018 | `kicad-rules-footprints` | split-off | 0009 |
+| c0019 | `layout-preserve` | split-off | 0011 |
+| c0020 | `check-netlist-drc` | split-off | 0013 |
+| c0021 | `kicad-libs-cache` | follow-up | c0008 |
+| c0022 | `placement-grid` | split-off | 0016 |
+| c0023 | `specctra-freerouting` | split-off | 0016 |
+| c0024 | `manufacturing-exports` | unowned deliverables | — |
+| c0025 | `release-v0-1` | unowned deliverables | — |
+
+Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
