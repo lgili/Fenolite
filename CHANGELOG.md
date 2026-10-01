@@ -13,6 +13,10 @@ All notable changes to Fenolite are documented here. The format follows
 - KiCad S-expression layer (spelling-preserving parser, KiCad-style and compact printers, fragment codec, tree equality), slots helper with extension-bag persistence, KiCad demo and third-party corpus rows with RT0, and the `kicad-10` Docker oracle job (`fenolite.backends.kicad`, `docs/formats/kicad/sexpr.md`, `docs/formats/kicad/corpus.md`; `FENOLITE_REQUIRE` required-resource mode; `tools/corpus_fetch.py --uses/--exclude-uses`). Verified with `kicad-cli` 10.0.6: lexical acceptance and rejections, string escapes, number reading, re-save equality; `H-K-SEXPR-NUM-WRITE` refuted (KiCad writes non-length values with up to 10 decimals).
 - Geometry kernel: exact integer predicates, three-point arcs, polygons with a canonical normal form, mixed contours, deterministic µdeg transforms, STR spatial index, boolean backend protocol with a convex-only stdlib fallback, and KiCad frame and arc evidence tests (`fenolite.geometry`, `docs/geometry.md`, `docs/formats/kicad/geometry.md`; `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-ARC-ROUND`, `H-G-ARC-DIR` and `H-G-PTS-ARC` verified with `kicad-cli` 10.0.6).
 
+### Changed
+
+- The `kicad-9` CI job runs `pytest -q -rA`, so its log lists the outcome of every oracle test.
+
 ## [0.0.1.dev0] - 2026-09-30
 
 Pre-alpha repository bootstrap; not usable for real boards yet. Published to PyPI as `fenolite` and its

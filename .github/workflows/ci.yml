@@ -89,4 +89,4 @@ jobs:
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad
-        run: uv run pytest tests/kicad -q
+        run: uv run pytest tests/kicad -q -rA

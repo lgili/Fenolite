@@ -84,7 +84,7 @@ def test_unit_job_untouched() -> None:
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
-    ("pytest", "run: uv run pytest tests/kicad -q"),
+    ("pytest", "run: uv run pytest tests/kicad -q -rA"),
 ]
 
 

@@ -4,7 +4,7 @@
 `.github/workflows/ci.yml` SHALL contain a job `kicad-9` that runs on every push and pull request inside the official image `kicad/kicad:9.0.9`, pinned by index digest (`@sha256:` followed by 64 hex digits), with the same container mechanism as the `kicad-10` job. It MUST run the following steps in order:
 1. `kicad-cli version`
 2. `uv sync --locked --extra dev`
-3. `uv run pytest tests/kicad -q` with `FENOLITE_REQUIRE=kicad`
+3. `uv run pytest tests/kicad -q -rA` (every outcome listed in the log) with `FENOLITE_REQUIRE=kicad`
 
 The job SHALL NOT fetch the corpus, so its `needs_corpus` tests skip, and tests marked `kicad_min_major(10)` skip without failing. Tests marked `needs_kicad` fail instead of skipping when `kicad-cli` is missing. The job MUST fail if any step fails, and it SHALL be a required check for merging.
 
