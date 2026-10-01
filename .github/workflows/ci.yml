@@ -38,3 +38,33 @@ jobs:
         run: uv run python tools/residue/scan.py
       - name: Tests
         run: uv run pytest -q
+
+  kicad-10:
+    name: kicad-10 (kicad-cli oracle and corpus)
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
+      options: --user 0
+    env:
+      HOME: /root
+      FENOLITE_CORPUS_CACHE: /root/.cache/fenolite/corpus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: kicad-cli version
+        run: kicad-cli version
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev
+      - name: Corpus cache
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/fenolite/corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - name: Fetch corpus
+        run: uv run python tools/corpus_fetch.py --uses rt0 --exclude-uses heavy
+      - name: Oracle and corpus tests
+        env:
+          FENOLITE_REQUIRE: kicad,corpus
+        run: uv run pytest tests/kicad tests/corpus -q

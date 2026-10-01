@@ -6,3 +6,143 @@
 # path = "tests/data/blink.kicad_pcb"
 # origin = "authored"          # or "corpus"
 # corpus_id = ""               # when origin = "corpus": an id with embeddable = true
+
+[[file]]
+path = "tests/data/kicad/sexpr/minimal.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/escapes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/empty.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/unbalanced.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/bom.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/newline-in-string.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/glued-atom.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/crlf.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/comment-line.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/bare-symbols.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/mirror/quote-in-atom.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/trailing-content.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/empty-list.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/list-starting-with-list.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/cr-in-string.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/unterminated-string.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/too-deep.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/unmirrored/invalid-utf8.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-exponent.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-leading-dot.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-trailing-dot.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/coord-negative-zero.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/coord-over-precise.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-plus.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-plus-dot.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-hex.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/semantic/width-unit.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/sexpr/EXPECT.toml"
+origin = "authored"
+corpus_id = ""

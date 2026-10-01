@@ -6,7 +6,7 @@
 - one schematic, one symbol library, one footprint, one footprint-library table and one worksheet from the demos at 10.0.6
 - the Apache-2.0 third-party boards registered as sources S-0027 and S-0028
 
-Every row MUST set `license` from the repository-level statement. It MUST record any per-folder licence in `license_variant`, and it MUST set `embeddable = false`. A demo folder whose licence carries a non-commercial clause MUST NOT be listed. Every row MUST carry `rt0` and exactly one of `origin:kicad-demos` and `origin:third-party` in `uses`. Board rows MUST also carry `oracle`, and files larger than 20 MB MUST also carry `heavy`.
+Every row MUST set `license` from the repository-level statement. It MUST record any per-folder licence in `license_variant`, and it MUST set `embeddable = false`. A demo folder whose licence carries a non-commercial clause MUST NOT be listed. Every row MUST carry exactly one of `origin:kicad-demos` and `origin:third-party` in `uses`, and either `rt0` or, for a file that its source publishes malformed so that the parser rejects it as fetched, `malformed` (never both); a `malformed` row's `notes` MUST name the rule the parser reports. Board rows that carry `rt0` MUST also carry `oracle`, and files larger than 20 MB MUST also carry `heavy`.
 
 #### Scenario: Non-commercial folder excluded
 - **GIVEN** a manifest row whose `license_variant` mentions a non-commercial licence
@@ -22,6 +22,11 @@ Every row MUST set `license` from the repository-level statement. It MUST record
 - **GIVEN** a row whose fetched file is larger than 20 MB and whose `uses` lacks `heavy`
 - **WHEN** `uv run pytest tests/corpus/test_manifest.py -m needs_corpus` runs
 - **THEN** the test fails naming the row id
+
+#### Scenario: File published malformed
+- **GIVEN** the demo board at tag 9.0.9.1 whose published bytes close the root list early (a spliced line), listed with `uses = ["malformed", "origin:kicad-demos"]`
+- **WHEN** `uv run pytest tests/corpus/test_rt0.py::test_malformed_items_rejected` runs with the file cached
+- **THEN** the parser raises `FormatError` with the rule named in the row's `notes` (`content after the root list`), and the RT0 tests do not include the row
 
 #### Scenario: Share-alike demo is not embeddable (regression case)
 - **GIVEN** a demo row with `license = "CC-BY-SA-4.0"` and `embeddable = true`

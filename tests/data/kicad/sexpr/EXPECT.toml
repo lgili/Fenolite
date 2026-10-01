@@ -1,0 +1,224 @@
+# Expected outcomes of the S-expression fixtures (openspec change c0006, capability kicad-sexpr).
+#
+# expect_parse: "accept" or the rule named in the FormatError of fenolite.backends.kicad.parse_bytes.
+# expect_kicad_10: exit code of `kicad-cli pcb export svg -l Edge.Cuts --mode-single -o <svg> <file>`,
+# observed once with kicad-cli 10.0.6 on 2026-10-01. expect_kicad_9 is added by the kicad-9 job (c0007).
+# class: mirror (parser rejects exactly when KiCad exits 3), unmirrored (Fenolite-only strictness, KiCad's
+# outcome recorded only), semantic (number spellings that parse; KiCad may refuse them).
+# All fixtures are authored for Fenolite and released under CC0-1.0.
+
+[[fixture]]
+file = "minimal.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "minimal 10.0 board with an Edge.Cuts rectangle; numeric heads in the layer table"
+
+[[fixture]]
+file = "escapes.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-ESCAPES"
+note = "one gr_text per row of the decode table"
+
+[[fixture]]
+file = "mirror/empty.kicad_pcb"
+class = "mirror"
+expect_parse = "empty input"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "empty file"
+
+[[fixture]]
+file = "mirror/unbalanced.kicad_pcb"
+class = "mirror"
+expect_parse = "unbalanced"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "root list not closed"
+
+[[fixture]]
+file = "mirror/bom.kicad_pcb"
+class = "mirror"
+expect_parse = "byte-order mark"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "UTF-8 byte-order mark before the root"
+
+[[fixture]]
+file = "mirror/newline-in-string.kicad_pcb"
+class = "mirror"
+expect_parse = "newline inside string"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "raw LF inside a gr_text string"
+
+[[fixture]]
+file = "mirror/glued-atom.kicad_pcb"
+class = "mirror"
+expect_parse = "atom directly after a closing quote"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "atom glued after a closing quote"
+
+[[fixture]]
+file = "mirror/crlf.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "CRLF line endings"
+
+[[fixture]]
+file = "mirror/comment-line.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "# line before the root"
+
+[[fixture]]
+file = "mirror/bare-symbols.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "unquoted layer and paper names"
+
+[[fixture]]
+file = "mirror/quote-in-atom.kicad_pcb"
+class = "mirror"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-LEX-10"
+note = "unquoted atom containing a quote"
+
+[[fixture]]
+file = "unmirrored/trailing-content.kicad_pcb"
+class = "unmirrored"
+expect_parse = "content after the root list"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-STRICT"
+note = "a list after the root"
+
+[[fixture]]
+file = "unmirrored/empty-list.kicad_pcb"
+class = "unmirrored"
+expect_parse = "empty list"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-STRICT"
+note = "() inside general"
+
+[[fixture]]
+file = "unmirrored/list-starting-with-list.kicad_pcb"
+class = "unmirrored"
+expect_parse = "list starting with a list"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-STRICT"
+note = "((thickness 1.6))"
+
+[[fixture]]
+file = "unmirrored/cr-in-string.kicad_pcb"
+class = "unmirrored"
+expect_parse = "carriage return inside string"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-STRICT"
+note = "raw CR inside the generator string"
+
+[[fixture]]
+file = "unmirrored/unterminated-string.kicad_pcb"
+class = "unmirrored"
+expect_parse = "unterminated string"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-STRICT"
+note = "file ends inside a string"
+
+[[fixture]]
+file = "unmirrored/too-deep.kicad_pcb"
+class = "unmirrored"
+expect_parse = "MAX_DEPTH"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-STRICT"
+note = "257 nested lists inside general"
+
+[[fixture]]
+file = "unmirrored/invalid-utf8.kicad_pcb"
+class = "unmirrored"
+expect_parse = "invalid UTF-8"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-STRICT"
+note = "byte 0xFF inside the generator string"
+
+[[fixture]]
+file = "semantic/width-exponent.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width 1e-1"
+
+[[fixture]]
+file = "semantic/width-leading-dot.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width .1"
+
+[[fixture]]
+file = "semantic/width-trailing-dot.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width 1."
+
+[[fixture]]
+file = "semantic/coord-negative-zero.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "start x -0"
+
+[[fixture]]
+file = "semantic/coord-over-precise.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 0
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "end x with 10 decimals"
+
+[[fixture]]
+file = "semantic/width-plus.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width +0.8"
+
+[[fixture]]
+file = "semantic/width-plus-dot.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width +.8"
+
+[[fixture]]
+file = "semantic/width-hex.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width 0x10"
+
+[[fixture]]
+file = "semantic/width-unit.kicad_pcb"
+class = "semantic"
+expect_parse = "accept"
+expect_kicad_10 = 3
+hypothesis = "H-K-SEXPR-NUM-READ"
+note = "stroke width 1.6mm"

@@ -34,6 +34,23 @@ def supported_version() -> str:
     return version
 
 
+def major() -> int:
+    """The major version of the kicad-cli in use (after the supported-major check)."""
+    return int(supported_version().split(".")[0])
+
+
+def run_raw(*args: str | Path) -> subprocess.CompletedProcess[str]:
+    """Run kicad-cli and return the result whatever the exit code."""
+    return subprocess.run([cli(), *map(str, args)], capture_output=True, text=True, check=False, timeout=600)
+
+
+def loads(board: Path) -> bool:
+    """The load check: ``pcb export svg -l Edge.Cuts --mode-single`` exits 0 and writes the SVG."""
+    svg = board.with_suffix(".svg")
+    result = run_raw("pcb", "export", "svg", "-l", "Edge.Cuts", "--mode-single", "-o", svg, board)
+    return result.returncode == 0 and svg.is_file()
+
+
 def run(*args: str | Path) -> subprocess.CompletedProcess[str]:
     """Run kicad-cli; fail the test with its output on a non-zero exit code."""
     result = subprocess.run(

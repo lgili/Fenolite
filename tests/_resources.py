@@ -27,10 +27,16 @@ def kicad_library_dirs() -> list[Path]:
     return [d for d in dirs if d.is_dir()]
 
 
+def required_resources() -> set[str]:
+    """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``; comma-separated)."""
+    return {r.strip() for r in os.environ.get("FENOLITE_REQUIRE", "").split(",") if r.strip()}
+
+
 def kicad_cli() -> str | None:
+    """``FENOLITE_KICAD_CLI`` when set (``None`` if that file is missing), else PATH, else the macOS app."""
     override = os.environ.get("FENOLITE_KICAD_CLI")
-    if override and Path(override).is_file():
-        return override
+    if override:
+        return override if Path(override).is_file() else None
     found = shutil.which("kicad-cli")
     bundled = MACOS_KICAD / "MacOS" / "kicad-cli"
     return found or (str(bundled) if bundled.is_file() else None)

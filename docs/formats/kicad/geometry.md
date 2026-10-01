@@ -43,7 +43,6 @@ The labels in the table below are those of 2026-10-01:
   `kicad-cli fp upgrade --force`.
 - Both tests run `kicad-cli version` and fail unless the major is 9 or 10. They print the exact
   version.
-- When the KiCad backend package `src/fenolite/backends/kicad/` is created (change c0006), its
-  `PROVENANCE.md` must carry rows for these facts: rotation direction, bottom-side placement,
-  three-point arcs and their direction, and `pts` arcs. Their sources are S-0001, S-0018 and S-0019.
-  This change created no backend package.
+- `src/fenolite/backends/kicad/PROVENANCE.md` carries the rows for these facts: rotation direction,
+  bottom-side placement, three-point arcs and their direction, and `pts` arcs (S-0001, S-0010,
+  S-0018, S-0019).

@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Fact tables of docs/formats/kicad/*.md (capability kicad-sexpr): sources, labels and hypotheses.
+
+A fact table has the header ``| fact | source | label | hypothesis |``. Every row cites an S-id, its
+label is a value of ``fenolite.core.evidence.Level`` (optionally followed by a parenthesised scope,
+such as ``KICAD-VERIFIED (10.0.x)``), and a row that is neither ``KICAD-VERIFIED`` nor
+``CORPUS-VERIFIED`` names a hypothesis (``H-K-SEXPR-*`` or ``H-K-FMT-*`` on the S-expression page).
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+from fenolite.core.evidence import Level
+
+ROOT = Path(__file__).resolve().parents[2]
+PAGES = ROOT / "docs" / "formats" / "kicad"
+HEADER = ["fact", "source", "label", "hypothesis"]
+VERIFIED = {Level.KICAD_VERIFIED.value, Level.CORPUS_VERIFIED.value}
+HYPOTHESIS_IDS: dict[str, str] = {"sexpr.md": r"\bH-K-(SEXPR|FMT)-[A-Z0-9-]+\b"}
+ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
+
+
+def _cells(line: str) -> list[str]:
+    """Split a table row on unescaped pipes."""
+    inner = line.strip()
+    inner = inner[1:] if inner.startswith("|") else inner
+    inner = inner[:-1] if inner.endswith("|") and not inner.endswith("\\|") else inner
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", inner)]
+
+
+def _label(cell: str) -> str | None:
+    """The Level value of a label cell, or None when the cell is not a label."""
+    for level in sorted(Level, key=lambda lv: -len(lv.value)):
+        if cell == level.value or re.fullmatch(re.escape(level.value) + r"(\(\S+\))?( \(.+\))?", cell):
+            return level.value
+    return None
+
+
+def table_problems(name: str, text: str) -> list[str]:
+    problems: list[str] = []
+    in_table = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.startswith("|"):
+            in_table = False
+            continue
+        cells = _cells(line)
+        if cells == HEADER:
+            in_table = True
+            continue
+        if not in_table or set(line.replace("|", "").strip()) <= {"-", " "}:
+            continue
+        where = f"{name}:{number}"
+        if len(cells) != 4:
+            problems.append(f"{where}: expected 4 cells, found {len(cells)}")
+            continue
+        _fact, source, label, hypothesis = cells
+        if not re.search(r"\bS-\d{4}\b", source):
+            problems.append(f"{where}: no source id (S-NNNN)")
+        level = _label(label)
+        if level is None:
+            problems.append(f"{where}: label {label!r} is not a fenolite.core.evidence.Level value")
+        elif level not in VERIFIED and not re.search(HYPOTHESIS_IDS.get(name, ANY_HYPOTHESIS), hypothesis):
+            problems.append(f"{where}: {level} row names no hypothesis")
+    return problems
+
+
+def test_fact_tables() -> None:
+    problems: list[str] = []
+    for page in sorted(PAGES.glob("*.md")):
+        problems += table_problems(page.name, page.read_text(encoding="utf-8"))
+    assert not problems, "\n".join(problems)
+
+
+def test_sexpr_page_has_a_fact_table() -> None:
+    text = (PAGES / "sexpr.md").read_text(encoding="utf-8")
+    assert "| fact | source | label | hypothesis |" in text
+
+
+TABLE = "| fact | source | label | hypothesis |\n|---|---|---|---|\n"
+
+
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [
+        ("| a | S-0020 | INFERRED | H-K-SEXPR-LEX-10 |", None),
+        ("| a | S-0020 | KICAD-VERIFIED (10.0.x) |  |", None),
+        ("| a \\| b | S-0020 | CORPUS-VERIFIED | — |", None),
+        ("| a | S-0020 |  | H-K-SEXPR-LEX-10 |", "is not a fenolite.core.evidence.Level value"),
+        ("| a | S-0020 | INFERRED |  |", "names no hypothesis"),
+        ("| a | S-0020 | INFERRED | H-G-ROT-DIR |", "names no hypothesis"),
+        ("| a | docs | INFERRED | H-K-FMT-INDENT |", "no source id"),
+    ],
+)
+def test_row_rules(row: str, expected: str | None) -> None:
+    problems = table_problems("sexpr.md", TABLE + row + "\n")
+    if expected is None:
+        assert problems == []
+    else:
+        assert len(problems) == 1 and expected in problems[0] and "sexpr.md:3" in problems[0]

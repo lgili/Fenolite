@@ -1,0 +1,127 @@
+(kicad_pcb
+	(version 20260206)
+	(generator "fenolite")
+	(generator_version "10.0")
+	(general
+		(thickness 1.6)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(25 "Edge.Cuts" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(gr_rect
+		(start 0 0)
+		(end 20 10)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill no)
+		(layer "Edge.Cuts")
+	)
+	(gr_text "a\"b"
+		(at 5 2 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\\b"
+		(at 5 3 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\nb"
+		(at 5 4 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\rb"
+		(at 5 5 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\tb"
+		(at 5 6 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\vb"
+		(at 5 7 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\7b"
+		(at 5 8 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\101b"
+		(at 5 9 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\x42b"
+		(at 5 10 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(gr_text "a\eb"
+		(at 5 11 0)
+		(layer "F.Cu")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+)

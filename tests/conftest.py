@@ -18,15 +18,25 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
     corpus_cache_dir,
     kicad_cli,
     kicad_library_dirs,
+    required_resources,
 )
+
+pytest_plugins = ["pytester"]
+
+
+def _missing(resource: str, message: str) -> None:
+    """Skip, or fail when ``FENOLITE_REQUIRE`` lists the resource (required-resource mode)."""
+    if resource in required_resources():
+        pytest.fail(message, pytrace=False)
+    pytest.skip(message)
 
 
 def pytest_runtest_setup(item: pytest.Item) -> None:
     if item.get_closest_marker("needs_corpus"):
         cache = corpus_cache_dir()
         if not cache.is_dir() or not any(cache.iterdir()):
-            pytest.skip(CORPUS_HINT)
+            _missing("corpus", CORPUS_HINT)
     if item.get_closest_marker("needs_libs") and not kicad_library_dirs():
-        pytest.skip("official KiCad libraries not found (set KICAD10_FOOTPRINT_DIR or install KiCad)")
+        _missing("libs", "official KiCad libraries not found (set KICAD10_FOOTPRINT_DIR or install KiCad)")
     if item.get_closest_marker("needs_kicad") and kicad_cli() is None:
-        pytest.skip("kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
+        _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")

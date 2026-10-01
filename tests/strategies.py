@@ -9,6 +9,7 @@ from dataclasses import replace
 
 from hypothesis import strategies as st
 
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
 from fenolite.geometry import Arc, GeometryError, Transform, convex_hull
@@ -148,3 +149,76 @@ transforms = st.builds(
     angles,
     st.booleans(),
 )
+
+
+# --- KiCad S-expressions --------------------------------------------------------------------------
+
+
+def kicad_strings(max_size: int = 20) -> st.SearchStrategy[str]:
+    """Any text without NUL or surrogates: quotes, backslashes, controls, non-ASCII."""
+    chars = st.characters(blacklist_categories=("Cs",), blacklist_characters="\x00")
+    special = st.sampled_from(
+        ['"', "\\", "\n", "\r", "\t", "\x0b", "\x01", "\x7f", "é", "日", "(", ")", "#", " "]
+    )
+    return st.text(alphabet=st.one_of(chars, special), max_size=max_size)
+
+
+_SYMBOL_START = "abcdefghijklmnopqrstuvwxyzABCDEFXYZ_.:/#$*+-{}~!@%&'`=\\|<>?,;^"
+_SYMBOL_REST = _SYMBOL_START + '0123456789"é'
+
+
+def _symbol_atom(text: str) -> Atom | None:
+    try:
+        return Atom(text, AtomKind.SYMBOL)
+    except ValueError:
+        return None
+
+
+symbol_atoms = (
+    st.builds(
+        lambda a, b: a + b, st.sampled_from(list(_SYMBOL_START)), st.text(alphabet=_SYMBOL_REST, max_size=8)
+    )
+    .map(_symbol_atom)
+    .filter(lambda a: a is not None)
+)
+number_atoms = st.one_of(
+    st.integers(-(10**12), 10**12).map(Atom.from_nm),
+    st.integers(-(10**9), 10**9).map(Atom.integer),
+    st.from_regex(r"-?([0-9]{1,4}\.?[0-9]{0,8}|\.[0-9]{1,6})([eE][-+]?[0-9]{1,2})?", fullmatch=True).map(
+        lambda text: Atom(text, AtomKind.NUMBER)
+    ),
+)
+string_atoms = kicad_strings().map(Atom.string)
+atoms = st.one_of(symbol_atoms, number_atoms, string_atoms)  # type: ignore[arg-type]
+heads = st.one_of(symbol_atoms, st.sampled_from([Atom.symbol(n) for n in ("pts", "xy", "at", "kicad_pcb")]),
+                  st.integers(0, 64).map(Atom.integer))  # fmt: skip
+
+
+def _xy() -> st.SearchStrategy[Node]:
+    return st.builds(lambda x, y: Node(Atom.symbol("xy"), (x, y)), number_atoms, number_atoms)
+
+
+def _nodes(children: st.SearchStrategy[list[Node | Atom]]) -> st.SearchStrategy[Node]:
+    return st.builds(lambda h, c: Node(h, tuple(c)), heads, children)
+
+
+nested_nodes = st.recursive(
+    _nodes(st.lists(atoms, max_size=4)) | _xy(),
+    lambda inner: (
+        _nodes(st.lists(st.one_of(atoms, inner), max_size=6))
+        | st.builds(
+            lambda c: Node(Atom.symbol("pts"), tuple(c)), st.lists(st.one_of(_xy(), inner), max_size=8)
+        )
+    ),
+    max_leaves=25,
+)
+comment_lines = st.text(alphabet=st.characters(blacklist_categories=("Cs",), blacklist_characters="\r\n"),
+                        max_size=10).map(lambda s: "#" + s)  # fmt: skip
+
+
+@st.composite
+def sexpr_trees(draw: st.DrawFn) -> Node:
+    """Trees with comments on the root only."""
+    root = draw(nested_nodes)
+    comments = tuple(draw(st.lists(comment_lines, max_size=2)))
+    return Node(root.head, root.children, comments=comments)

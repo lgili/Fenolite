@@ -13,5 +13,360 @@
 # license = "CC-BY-SA-4.0"             # SPDX identifier
 # license_variant = ""                 # e.g. which reciprocal variant; free text
 # embeddable = false
-# uses = ["roundtrip", "drc"]
+# uses = ["rt0", "oracle", "origin:kicad-demos"]  # rt0 ids: see tests/corpus/test_manifest.py
 # notes = ""
+
+# --- change c0006: KiCad demos at tags 10.0.6 and 9.0.9.1 (S-0023..S-0026) and three Apache-2.0
+# third-party boards (S-0027, S-0028). Rows are described by id, tag, format version and licence only.
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5_MINIMA_3.kicad_pcb"
+ref = "10.0.6"
+sha256 = "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3382011 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.kicad_pcb"
+ref = "10.0.6"
+sha256 = "d5f4162d4c766448832723d139f9e0fcb88a17c82340f10f6f6dc6c2042f0d69"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 883812 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-03"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/ecc83-pp.kicad_pcb"
+ref = "10.0.6"
+sha256 = "0ab45f4f8c90ac877e3313a1888d875107f2be3fc2b2f40cfb7927873b35260c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 158878 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-04"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/ecc83-pp_v2.kicad_pcb"
+ref = "10.0.6"
+sha256 = "9be2caf4c257a93fc2b3904add1061a4d2e23cde502a7846513ae7db6b214c30"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 173660 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-05"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/interf_u/interf_u.kicad_pcb"
+ref = "10.0.6"
+sha256 = "a740ce7fde77ab6af191e23ece21e57d36bb3c29325879248520dcd9ab47b57e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 622284 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-06"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_pcb"
+ref = "10.0.6"
+sha256 = "e61179b68ac151376f5552f91a8acc2aed46f0cc4cd9c771049490735cdbf3f8"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos", "heavy"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); 84806775 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-07"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/kit-dev-coldfire-xilinx_5213/kit-dev-coldfire-xilinx_5213.kicad_pcb"
+ref = "10.0.6"
+sha256 = "392cf6bf4b9b62beb435f965ccd7671a46decb17f947b74bfde482acd2132a5e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2770404 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-08"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/microwave/microwave.kicad_pcb"
+ref = "10.0.6"
+sha256 = "7f17191488b51f8782efc0a3b9ce7b5748a4e771ff0babb34ec0369ffcf43be5"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 85718 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-09"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/multichannel/multichannel_mixer-unrouted.kicad_pcb"
+ref = "10.0.6"
+sha256 = "149b2dce16e0f59adb78f87068f4137b7dafca0e991a0b21fdd967c873fd5ee9"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241030; 1942567 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-10"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/multichannel/multichannel_mixer.kicad_pcb"
+ref = "10.0.6"
+sha256 = "44b7c119a0d05c98e9f294659879184038a5f6c30073c04d9536990429ca413e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2000139 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-11"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/openair-max/One-Air-Max.kicad_pcb"
+ref = "10.0.6"
+sha256 = "a577ba5e2b337c9b827f3c30256161a1893da8303d278fb7db10dba4f02ea810"
+license = "CC-BY-SA-4.0"
+license_variant = "CC-BY-SA-4.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 2433726 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-12"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/pic_programmer/pic_programmer.kicad_pcb"
+ref = "10.0.6"
+sha256 = "1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20260206; 643403 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-13"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/RoyalBlue54L-Feather.kicad_pcb"
+ref = "10.0.6"
+sha256 = "535dbe212f43a8bab12b23277e176a94ac9694177258af2981c0e7b08e4b7252"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 3549654 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-14"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/nfc_antenna/RoyalBlue54L-NFC-Antenna/RoyalBlue54L-NFC-Antenna.kicad_pcb"
+ref = "10.0.6"
+sha256 = "cd87e6d1b20fe0d129d9a9c807af3118c67749eff44b1f032d85c047a814c6dc"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 147777 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-15"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/sonde%20xilinx/sonde%20xilinx.kicad_pcb"
+ref = "10.0.6"
+sha256 = "d0dee876715fcdd3f656dd6a77cc1141c39bec4d6f8492a3784d38edd6b9a998"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 336473 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-16"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/tiny_tapeout/tinytapeout-demo.kicad_pcb"
+ref = "10.0.6"
+sha256 = "0d26bf9b6d561e32cf610d428541d6433e60b45e1838f34f73467e25b9144814"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4541774 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-17"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/video.kicad_pcb"
+ref = "10.0.6"
+sha256 = "f620675158ddd5c61e5ce9e15f4c92b230ae1df1cbcec6c502b8ce266e4007ea"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 5787523 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-pcb-18"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme-wren.kicad_pcb"
+ref = "10.0.6"
+sha256 = "1c76ac238b04babc238d2d50585858988fb3f6c4f8d0fbacc738cfe4862fff5b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos", "heavy"]
+notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); 69638531 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "a36d3d6f7e9f82412acee8636a76ee1cbd5d0790eaa9fd7aef99c555dbb29fc5"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 124831 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/flat_hierarchy.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "4bd316f0609b689c90add7426362ece5763dd3a4443a3d26fd73bce987a438aa"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 1015246 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-03"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/pic_programmer/pic_programmer.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "470e9b32954f3c92e1c74c5b4c29934adf28b6fd60f504803942466163da99d9"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 698533 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-04"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/royalblue54L_feather/RoyalBlue54L-Feather.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "8a435448b5ecace39581fadc5476ab0b428662d222a3d6ea3dc7ee56bdd7e9bb"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["malformed", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 3549305 bytes; differs from or is absent at 10.0.6. Malformed as published: a spliced line closes the root list at byte 14111, so the strict parser rejects it with 'content after the root list'; kicad-cli 10.0.6 loads it (exit 0) and silently ignores the remaining bytes."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-05"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/test_pads_inside_pads/test_pads_inside_pads.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "611b0ec42ac66d520555bf60e752301491f9e0095ec84564047fd7c718f1be1c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 13155 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-pcb-06"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/test_xil_95108/carte_test.kicad_pcb"
+ref = "9.0.9.1"
+sha256 = "d23c9e029e586546dd5b6c4fcc9b992740373ae2c4d0a2a774ad78b9514b11a2"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:kicad-demos"]
+notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 701695 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.kicad_sch"
+ref = "10.0.6"
+sha256 = "4344cf98eac9e48262bc6092add7c0dffe27b560627d0658e5129250e7226e9e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 58053 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sym-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.kicad_sym"
+ref = "10.0.6"
+sha256 = "39ae1574cda9ab144ab6e6fc8db48ba518a6d6c2fdc4b8cbdb0d6816aea1c91b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241209; 31087 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/DIP-8_W7.62mm_LongPads.kicad_mod"
+ref = "10.0.6"
+sha256 = "db7d323a4d137b17a5b1355b9dcc13fd712caa70bc8ecddc18cab4c9dabd9c6d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 7157 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-fplib-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/fp-lib-table"
+ref = "10.0.6"
+sha256 = "033abebfd8e676afd8500b8ab27ead67e6fe599fd14e7898584d7fe43f3fe0fa"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 145 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-wks-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/interf_u/pagelayout_logo.kicad_wks"
+ref = "10.0.6"
+sha256 = "85694b7288a2361d0042058dd374c94bb181f4f353169ae20b8d96b5bade301b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format none (no version list); 16634 bytes."
+
+[[file]]
+id = "third-party-pcb-01"
+url = "https://raw.githubusercontent.com/OLIMEX/ESP32-POE/deb38a377d50eadb04ddc7118a17a5ae58b1ee53/HARDWARE/ESP32-PoE-hardware-revision-M2/ESP32-PoE_Rev_M2.kicad_pcb"
+ref = "deb38a377d50eadb04ddc7118a17a5ae58b1ee53"
+sha256 = "7c9f634768ff4e8aee67b8f2f83d0495ab00e2f50209c5dd133a9f39e8bce9fa"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:third-party"]
+notes = "Third-party board at commit deb38a377d50 (S-0027); format 20221018; 2809205 bytes; licence: repository LICENSE file (Apache-2.0)"
+
+[[file]]
+id = "third-party-pcb-02"
+url = "https://raw.githubusercontent.com/OLIMEX/ESP32-GATEWAY/d45c9bc8120534b130a4f8bb8fa6cd3dc78e4ea0/HARDWARE/Hardware%20revision%20I/ESP32-GATEWAY_Rev_I.kicad_pcb"
+ref = "d45c9bc8120534b130a4f8bb8fa6cd3dc78e4ea0"
+sha256 = "c0b96817d497ed8e378413a5fff809b7d3a2307c98449fce598a2fe38dde03af"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:third-party"]
+notes = "Third-party board at commit d45c9bc81205 (S-0028); format 20171130; 760858 bytes; licence: repository LICENSE file (Apache-2.0)"
+
+[[file]]
+id = "third-party-pcb-03"
+url = "https://raw.githubusercontent.com/OLIMEX/ESP32-EVB/a3ec2f448109cb8f35ce7cb21a027bb7c837ab61/HARDWARE/REV-L/ESP32-EVB_Rev_L.kicad_pcb"
+ref = "a3ec2f448109cb8f35ce7cb21a027bb7c837ab61"
+sha256 = "c747ed0fa69d36b89ed52c904f667d46e0081cbcf32f9d9826453a28ad6703f7"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "oracle", "origin:third-party"]
+notes = "Third-party board at commit a3ec2f448109 (S-0028); format 20221018; 3263128 bytes; licence: repository LICENSE file (Apache-2.0)"
