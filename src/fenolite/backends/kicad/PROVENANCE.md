@@ -39,3 +39,8 @@ written from the pages under `docs/formats/kicad/`.
 | footprint attributes, copper layer types and user names, rule areas (c0009) | S-0010, S-0038 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | facts only |
 | board features introduced by 9.0 (c0009) | S-0050 | CC-BY-3.0-or-later or GPL-3.0-or-later (site notice) | 2026-10-01 | facts only |
 | `pcb export pos`, `pcb export ipcd356` and `pcb upgrade --force` of `kicad-cli` 9.0.9 and 10.0.6 (c0009) | S-0019, S-0020, S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 | 2026-10-01 | oracle |
+| board header, net reference forms, rows no longer written and the 9.0 layer renumbering (c0017 writer) | S-0030, S-0039 | GPL-3.0-or-later (names and dated facts only, nothing copied); GPL-3.0-or-later (KiCad-written files, facts only) | 2026-10-01 | facts only |
+| child order per head, layer tables, back-layer text mirroring and net 0 on unconnected zones (c0017 writer) | S-0020, S-0058 | GPL-3.0-or-later tool run as a subprocess; CC-BY-SA-4.0 demo files read for facts only | 2026-10-01 | facts only |
+| DRC report keys (c0017) and strict JSON | S-0055, S-0056, S-0057 | GPL-3.0-or-later (key names only, never vendored or read at runtime); IETF Trust Legal Provisions | 2026-10-01 | facts only |
+| `pcb drc`, `pcb export pos`, `pcb export ipcd356` and `pcb export stats` of `kicad-cli` 9.0.9 and 10.0.6 (c0017) | S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | oracle |
+| flip option and bottom-side observation for footprint embedding (c0017) | S-0010, S-0019 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 | 2026-10-01 | facts only |

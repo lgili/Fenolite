@@ -10,10 +10,11 @@ projected (copied into a field and kept as an opaque slot) or opaque; slot lists
 from __future__ import annotations
 
 from collections.abc import Mapping
-from types import MappingProxyType
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import (
+    DEF_FIELDS,
+    DEF_POSITIONAL,
     FP_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
     PAD_FIELDS,
@@ -47,9 +48,8 @@ from fenolite.model.library import FootprintDef, FootprintKind
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
 
 GRAPHIC_HEADS = FP_GRAPHIC_HEADS
-FOOTPRINT_FIELDS: Mapping[str, str] = MappingProxyType(
-    {"descr": "description", "attr": "kind", "pad": "pads", **dict.fromkeys(GRAPHIC_HEADS, "graphics")}
-)
+FOOTPRINT_FIELDS: Mapping[str, str] = DEF_FIELDS
+"""The definition field map; it lives in ``_fpmap`` (``DEF_FIELDS``), which the footprint emitter shares."""
 _ROOT = ("footprint",)
 
 
@@ -96,7 +96,7 @@ def footprint_from(
 
 def _definition(ctx: Context, root: Node, name: str, library: str, native: str) -> FootprintDef:
     ids = Ids(native)
-    slots = ctx.split(root, dict(FOOTPRINT_FIELDS), _ROOT, ("name",))
+    slots = ctx.split(root, dict(FOOTPRINT_FIELDS), _ROOT, DEF_POSITIONAL)
     description, kind = "", "unspecified"
     flags: tuple[str, ...] = ()
     keywords: tuple[str, ...] = ()

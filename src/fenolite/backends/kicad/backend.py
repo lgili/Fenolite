@@ -1,27 +1,29 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The KiCad backend as seen through ``fenolite.backends.base``: detection, reading, capabilities."""
+"""The KiCad backend as seen through ``fenolite.backends.base``: detection, reading, writing and
+capabilities."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fenolite.backends.base import CapabilityReport, ReadResult
+from fenolite.backends.base import CapabilityReport, ReadResult, WriteResult
 from fenolite.backends.kicad import versions
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
 
 SYMBOL_DIR_SUFFIX = ".kicad_symdir"
 
 CAPABILITIES = CapabilityReport(
     name="kicad",
     read_kinds=("kicad_pcb", "kicad_mod", "kicad_sym"),
-    write_kinds=(),
-    targets=(),
-    default_target=None,
+    write_kinds=("kicad_pcb",),
+    targets=versions.TARGET_MAJORS,
+    default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",
-    operations=("detect", "read"),
-    evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",)),
+    operations=("detect", "read", "write"),
+    evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ", "H-K-PCB-WRITE")),
 )
 
 _READ_KINDS = frozenset({versions.FileKind.BOARD, versions.FileKind.FOOTPRINT, versions.FileKind.SYMBOL_LIB})
@@ -69,6 +71,17 @@ class KicadBackend:
         if issues is not None:
             issues.extend(found)
         return result
+
+    def write(self, design: Design, *, target: int | None = None, allow_lossy: bool = False) -> WriteResult:
+        """The design's board as ``.kicad_pcb`` text for ``target`` (the default target when ``None``).
+
+        Nothing is written to disk; see ``pcb.write_board`` for the errors.
+        """
+        from fenolite.backends.kicad import pcb
+
+        chosen = CAPABILITIES.default_target if target is None else target
+        assert chosen is not None
+        return pcb.write_board(design, target=chosen, allow_lossy=allow_lossy)
 
     def capabilities(self) -> CapabilityReport:
         return CAPABILITIES

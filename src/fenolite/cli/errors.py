@@ -82,6 +82,12 @@ _SPECS = (
         "target format version older than the input; downgrade is not supported",
         "choose a target at least as new as the input",
     ),
+    ErrorSpec(
+        "FEN-7003",
+        ExitCode.LOSSY,
+        "input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source",
+        "convert it with 'kicad-cli pcb upgrade' (KiCad 10.0) or re-save it in KiCad 9.0",
+    ),
 )
 
 REGISTRY: dict[str, ErrorSpec] = {spec.code: spec for spec in _SPECS}

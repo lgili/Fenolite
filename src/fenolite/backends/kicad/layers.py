@@ -11,8 +11,11 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
+from typing import Literal
 
-from fenolite.model.board import LayerKind
+from fenolite.core.ids import derived_id
+from fenolite.model.base import ExtBag
+from fenolite.model.board import Layer, LayerKind
 
 LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(
     {
@@ -38,6 +41,37 @@ LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(
 
 COPPER_ROW_TYPES = frozenset({"signal", "power", "mixed", "jumper"})
 _SIDES = ("F", "B")
+FLIP_SUFFIXES = ("Cu", "Adhes", "Paste", "SilkS", "Mask", "CrtYd", "Fab")
+"""Technical layers that come in a front and a back copy; ``flip_layer`` swaps their side."""
+
+CREATED_ROWS: tuple[tuple[int, str, str, str | None], ...] = (
+    (0, "F.Cu", "signal", None),
+    (2, "B.Cu", "signal", None),
+    (9, "F.Adhes", "user", "F.Adhesive"),
+    (11, "B.Adhes", "user", "B.Adhesive"),
+    (13, "F.Paste", "user", None),
+    (15, "B.Paste", "user", None),
+    (5, "F.SilkS", "user", "F.Silkscreen"),
+    (7, "B.SilkS", "user", "B.Silkscreen"),
+    (1, "F.Mask", "user", None),
+    (3, "B.Mask", "user", None),
+    (17, "Dwgs.User", "user", "User.Drawings"),
+    (19, "Cmts.User", "user", "User.Comments"),
+    (21, "Eco1.User", "user", "User.Eco1"),
+    (23, "Eco2.User", "user", "User.Eco2"),
+    (25, "Edge.Cuts", "user", None),
+    (27, "Margin", "user", None),
+    (31, "F.CrtYd", "user", "F.Courtyard"),
+    (29, "B.CrtYd", "user", "B.Courtyard"),
+    (35, "F.Fab", "user", None),
+    (33, "B.Fab", "user", None),
+)
+"""The two-copper layer table KiCad 10.0.6 writes (``board.md``): number, name, type, user name."""
+INNER_ROWS: tuple[tuple[int, str, str, str | None], ...] = (
+    (4, "In1.Cu", "signal", None),
+    (6, "In2.Cu", "signal", None),
+)
+"""Rows a four-copper table adds after ``F.Cu``."""
 
 
 def _compile(pattern: str) -> re.Pattern[str]:
@@ -90,4 +124,46 @@ def expand_layers(names: Sequence[str], copper: Sequence[str]) -> tuple[str, ...
     return tuple(out)
 
 
-__all__ = ["COPPER_ROW_TYPES", "LAYER_KINDS", "expand_layers", "has_wildcard", "is_canonical", "layer_kind"]
+def flip_layer(name: str) -> str:
+    """``F.<x>`` ↔ ``B.<x>`` for the paired technical layers; every other name is returned unchanged."""
+    side, dot, suffix = name.partition(".")
+    if dot and side in _SIDES and suffix in FLIP_SUFFIXES:
+        return f"{'B' if side == 'F' else 'F'}.{suffix}"
+    return name
+
+
+def created_layers(copper: Literal[2, 4]) -> tuple[Layer, ...]:
+    """The layers of a created board, with the KiCad number, type and user name in ``ext["kicad"]``."""
+    if copper not in (2, 4):  # pyright: ignore[reportUnnecessaryContains]
+        raise ValueError(f"created boards have 2 or 4 copper layers, not {copper!r}")
+    rows = CREATED_ROWS[:1] + (INNER_ROWS if copper == 4 else ()) + CREATED_ROWS[1:]
+    layers: list[Layer] = []
+    for ordinal, (number, name, row_type, user_name) in enumerate(rows):
+        pairs = [("number", str(number)), ("type", row_type)]
+        if user_name is not None:
+            pairs.append(("user_name", user_name))
+        layers.append(
+            Layer(
+                id=derived_id("lay", "kicad", f"layer:{name}"),
+                ext={"kicad": ExtBag(None, tuple(pairs))},
+                name=name,
+                kind=layer_kind(name, row_type),
+                ordinal=ordinal,
+            )
+        )
+    return tuple(layers)
+
+
+__all__ = [
+    "COPPER_ROW_TYPES",
+    "CREATED_ROWS",
+    "FLIP_SUFFIXES",
+    "INNER_ROWS",
+    "LAYER_KINDS",
+    "created_layers",
+    "expand_layers",
+    "flip_layer",
+    "has_wildcard",
+    "is_canonical",
+    "layer_kind",
+]

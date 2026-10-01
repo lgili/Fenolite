@@ -63,8 +63,18 @@ def opaque_child(slot: Opaque) -> Node | Atom:
     return parse_fragment(slot.fragment)
 
 
-def rebuild(head: Atom, slots: Sequence[Slot], source: SlotSource, *, canonical: Sequence[str] = ()) -> Node:
-    """A node whose children follow ``slots``; modelled children come from ``source``."""
+def rebuild(
+    head: Atom,
+    slots: Sequence[Slot],
+    source: SlotSource,
+    *,
+    canonical: Sequence[str] = (),
+    opaque: Callable[[Opaque], Node | Atom] = opaque_child,
+) -> Node:
+    """A node whose children follow ``slots``; modelled children come from ``source``.
+
+    ``opaque`` turns an opaque slot into its child; a writer passes its own to see each child it emits.
+    """
     last: dict[str, int] = {}
     for index, slot in enumerate(slots):
         if isinstance(slot, Modeled):
@@ -77,7 +87,7 @@ def rebuild(head: Atom, slots: Sequence[Slot], source: SlotSource, *, canonical:
     taken: dict[str, int] = {}
     for index, slot in enumerate(slots):
         if isinstance(slot, Opaque):
-            emitted[index].append(opaque_child(slot))
+            emitted[index].append(opaque(slot))
             continue
         items = source.items(slot.field)
         k = taken.get(slot.field, 0)

@@ -1,19 +1,39 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Authored boards for the board reader tests: the CC0 fixture and small inline boards per scenario."""
+"""Authored boards for the board tests: the CC0 fixture, small inline boards per scenario, and the
+created test board of the writer (built through the model API, no library definition)."""
 
 from __future__ import annotations
 
 import dataclasses
 import json
 import os
+import random
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import opaque_count, opaque_digests, read_board, rebuild_board
 from fenolite.backends.kicad.sexpr import dumps, first_difference, parse, tree_equal
+from fenolite.core.coords import Point, Size
+from fenolite.core.ids import new_id
+from fenolite.model.board import (
+    Arc,
+    Board,
+    FootprintInstance,
+    Graphic,
+    Keepout,
+    Outline,
+    Pad,
+    Text,
+    Track,
+    Via,
+    Zone,
+    ZoneFill,
+)
 from fenolite.model.canonical import to_data
+from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.design import Design
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -155,3 +175,83 @@ def census(section: str, key: str, data: Any) -> None:
     current.setdefault(section, {})[key] = data
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+MM = 1_000_000
+CREATED_NETS = ("GND", "LED_A", "VIN")
+
+
+def mm(x: float, y: float) -> Point:
+    """A point in millimetres (test helper; the values used are exact in nm)."""
+    return Point(round(x * MM), round(y * MM))
+
+
+def square(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
+    return (mm(x0, y0), mm(x1, y0), mm(x1, y1), mm(x0, y1))
+
+
+def created_board(copper: Literal[2, 4] = 2) -> Design:
+    """The created test board of the writer (c0017 Decision 19): ``created_layers(copper)``, a 50 × 30 mm
+    outline, the nets GND, LED_A and VIN, and one created entity of every ``CANONICAL_ORDER`` head, so
+    that every name of ``pcb.FLOOR_HEADS`` is written for target 9."""
+    rng = random.Random(copper)
+    design = Design.new("created", seed=copper)
+    nets = {name: Net(id=new_id("net", rng), name=name) for name in CREATED_NETS}
+    gnd, led, _vin = (nets[name].id for name in CREATED_NETS)
+    u1 = Component(
+        id=new_id("cmp", rng), ref="U1", value="TEST", path="/u1", lib_footprint_ref="fenolite:Created"
+    )
+    size = Size(MM, 3 * MM // 2)
+    pads = (
+        Pad(id=new_id("pad", rng), number="1", shape="rect", size=size, position=mm(-1.27, 0),
+            layers=("F.Cu", "F.Mask"), net_id=gnd),
+        Pad(id=new_id("pad", rng), number="2", shape="rect", size=size, position=mm(1.27, 0),
+            layers=("F.Cu", "F.Mask"), net_id=led),
+    )  # fmt: skip
+    footprint = FootprintInstance(
+        id=new_id("fp", rng), component_id=u1.id, lib_ref="fenolite:Created", position=mm(10, 10),
+        locked=True, attributes=("smd",), pads=pads,
+    )  # fmt: skip
+    fill = ZoneFill("B.Cu", square(26, 6, 34, 14), island=True)
+    zone = Zone(
+        id=new_id("zon", rng), outline=square(25, 5, 35, 15), name="GND_POUR", layers=("B.Cu",), net_id=gnd,
+        priority=1, fills=(fill,),
+    )  # fmt: skip
+    rule = Keepout(id=new_id("kpo", rng), outline=square(40, 5, 45, 10), layers=("F.Cu",), no_tracks=True)
+    silk = "F.SilkS"
+    w = 120_000
+    graphics = (
+        Graphic(id=new_id("gfx", rng), kind="line", layer=silk, points=(mm(2, 2), mm(8, 2)), width=w),
+        Graphic(id=new_id("gfx", rng), kind="arc", layer=silk, points=(mm(2, 4), mm(5, 5), mm(8, 4)),
+                width=w),
+        Graphic(id=new_id("gfx", rng), kind="circle", layer=silk, points=(mm(5, 8), mm(6, 8)), width=w),
+        Graphic(id=new_id("gfx", rng), kind="rect", layer=silk, points=(mm(2, 10), mm(8, 12)), width=w),
+        Graphic(id=new_id("gfx", rng), kind="polygon", layer=silk, points=(mm(2, 14), mm(8, 14), mm(5, 17)),
+                width=w, filled=True),
+    )  # fmt: skip
+    text = Text(
+        id=new_id("txt", rng), text="BACK", position=mm(40, 25), layer="B.SilkS", size=Size(MM, MM),
+        thickness=150_000,
+    )  # fmt: skip
+    board = Board(
+        id=design.board.id if design.board else new_id("brd", rng),
+        outline=Outline(id=new_id("out", rng), points=square(0, 0, 50, 30)),
+        layers=created_layers(copper),
+        footprints=(footprint,),
+        tracks=(Track(id=new_id("trk", rng), start=mm(5, 20), end=mm(15, 20), width=250_000, layer="F.Cu",
+                      net_id=gnd),),
+        arcs=(Arc(id=new_id("arc", rng), start=mm(20, 20), mid=mm(22, 22), end=mm(24, 20), width=250_000,
+                  layer="F.Cu", net_id=led),),
+        vias=(Via(id=new_id("via", rng), position=mm(30, 20), diameter=600_000, drill=300_000,
+                  layers=("F.Cu", "B.Cu"), net_id=gnd),),
+        zones=(zone,),
+        keepouts=(rule,),
+        texts=(text,),
+        graphics=graphics,
+    )  # fmt: skip
+    members = {gnd: (PinRef(u1.id, "1"),), led: (PinRef(u1.id, "2"),)}
+    circuit = Circuit(
+        components=(u1,),
+        nets=tuple(dataclasses.replace(n, members=members.get(n.id, ())) for n in nets.values()),
+    )
+    return dataclasses.replace(design, circuit=circuit, board=board)

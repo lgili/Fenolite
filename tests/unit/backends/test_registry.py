@@ -148,18 +148,19 @@ def test_symbol_library_read_through_the_backend() -> None:
 
 
 def test_kicad_capability_report() -> None:
+    """The write fields of c0017 replace c0009's pre-writer values (write kinds empty, no targets)."""
     report = KicadBackend().capabilities().to_json()
+    assert "kicad_pcb" in report.pop("write_kinds")
     assert report == {
         "name": "kicad",
         "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
-        "write_kinds": [],
-        "targets": [],
-        "default_target": None,
+        "targets": [9, 10],
+        "default_target": 10,
         "downgrade": "unsupported",
-        "operations": ["detect", "read"],
-        "evidence": {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-PCB-READ"]},
+        "operations": ["detect", "read", "write"],
+        "evidence": {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]},
     }
-    assert "write" not in report["operations"]
+    assert "lower" not in report["operations"] and "validate" not in report["operations"]
     json.dumps(report)
 
 
@@ -183,4 +184,7 @@ def test_capability_invariants() -> None:
             assert callable(getattr(backend, operation, None)), f"{backend.name} lists {operation!r}"
         if not report.write_kinds:
             assert "write" not in report.operations and report.targets == () and report.default_target is None
+        else:
+            assert "write" in report.operations and report.default_target in report.targets
+            assert list(report.targets) == sorted(report.targets)
         assert report.downgrade == "unsupported" or report.write_kinds

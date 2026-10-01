@@ -29,6 +29,7 @@ Lengths are `int` nanometres, angles `int` microdegrees; floats are rejected eve
 | imported, with a native id | `uuid5(FENOLITE_NS, "<backend>:<native id>")` |
 | imported, without one | `uuid5(FENOLITE_NS, "<backend>:<document id>:<section>:<content hash>")` |
 | created by Fenolite | `uuid4` from a seeded generator (`--seed`) |
+| placed copy of a library definition | from the caller's key, never from the seed (see "Placed copies") |
 
 A file hash never enters an id. Ids of objects without a native id are stable when *other*
 objects change; the diff matches such objects by content.
@@ -100,6 +101,22 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
 
+## Placed copies
+
+Normative text: requirement "Placed copies of library definitions" of the `design-model` capability
+and the third case of "Identifier derivation" (change c0017); KiCad facts in
+`docs/formats/kicad/board.md` ("Placed footprints").
+
+A backend that places a library definition into a design derives every id of the copy from a key the
+caller passes (c0011 passes the component path), never from the seeded generator and never from the
+definition's own ids. For KiCad each native id is `uuid5(FENOLITE_NS, "kicad-place:<key>:<locator>")`,
+the locator being the node's place in the emitted definition, and the Fenolite ids follow from those
+native ids as for any imported object, so a design read back from the written file has the same ids.
+Placing again with the same key gives the same ids; two keys share none; adding or removing another
+placement changes no id of a copy. The copy records the definition in `FootprintInstance.lib_ref`,
+belongs to the caller's component, and its pads have no net until the caller assigns one. The
+definition stays unchanged.
+
 ## Canonical JSON
 
 `fenolite.model.canonical`: UTF-8, LF, two-space indent, keys in field order, defaults omitted,
@@ -114,7 +131,11 @@ Reading validates every value against the same annotations the JSON Schemas in
 A backend represents each node it reads as an ordered list of `Modeled(field)` and
 `Opaque(fragment, min_version)` children and writes opaque children back verbatim in their original
 position. This is what makes "read → write unchanged" lossless without matching the tool's own
-formatter byte for byte. The first backend to implement it is the KiCad board backend.
+formatter byte for byte. The first backend to implement it is the KiCad board backend. On a write, a
+backend changes an opaque child only where one of its requirements says so; the KiCad writer's list
+is in the `kicad-slots` requirement "Slot source for model entities" (net references in the target's
+form, rows the target no longer writes, slots dropped under `--allow-lossy`, the Reference and Value
+atoms, and respelled fields written from changed model values).
 
 ## Layout authority
 

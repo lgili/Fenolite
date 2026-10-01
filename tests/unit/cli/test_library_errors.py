@@ -17,11 +17,13 @@ from fenolite.backends.kicad.versions import (
     FileKind,
     FormatInfo,
     FutureFormatError,
+    LegacyEditRefusedError,
+    LossyWriteError,
     VersionStatus,
     require_readable,
 )
 from fenolite.cli.api import Command, Context, Result
-from fenolite.core.errors import FenoliteError, FormatError
+from fenolite.core.errors import FenoliteError, FormatError, Issue
 
 Raiser = Callable[[], None]
 
@@ -88,6 +90,35 @@ def test_downgrade_maps_to_exit_7(run_raising: Callable[[Raiser, list[str]], tup
 
     code, stderr = run_raising(raiser, ["--json"])
     assert code == 7 and _error(stderr)["code"] == "FEN-7002"
+
+
+def test_legacy_edit_maps_to_exit_7(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) -> None:
+    def raiser() -> None:
+        raise LegacyEditRefusedError(FileKind.BOARD, 20240108)
+
+    code, stderr = run_raising(raiser, ["--json"])
+    error = _error(stderr)
+    assert code == 7 and error["code"] == "FEN-7003" and "kicad-cli pcb upgrade" in str(error["hint"])
+
+
+def test_lossy_write_maps_to_exit_7(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) -> None:
+    def raiser() -> None:
+        issue = Issue("kicad.token.too-new", "error", "'duplicate_pad_numbers_are_jumpers' needs KiCad 10.0")
+        raise LossyWriteError([issue], droppable=True)
+
+    code, stderr = run_raising(raiser, ["--json"])
+    error = _error(stderr)
+    assert code == 7 and error["code"] == "FEN-7001" and "--allow-lossy" in str(error["hint"])
+
+
+def test_kept_loss_keeps_its_own_hint(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) -> None:
+    def raiser() -> None:
+        issue = Issue("kicad.board.opaque-net-ref", "error", "net 7 is not in the source table")
+        raise LossyWriteError([issue], droppable=False)
+
+    code, stderr = run_raising(raiser, ["--json"])
+    error = _error(stderr)
+    assert code == 7 and error["code"] == "FEN-7001" and "--allow-lossy" not in str(error["hint"])
 
 
 def test_plain_format_error_maps_to_exit_3(

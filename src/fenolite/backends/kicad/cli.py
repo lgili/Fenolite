@@ -10,6 +10,7 @@ created or changed. The caller's files are only ever read. Commands: S-0022 (10.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -18,12 +19,14 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Literal, cast
 
+from fenolite.backends.base import DrcReport
 from fenolite.core.errors import FenoliteError
 
 MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
 CONFIG_DIR = "config"
+DRC_REPORT = "drc.json"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
 
 
@@ -184,43 +187,93 @@ class KicadCli:
             raise KicadCliError(f"kicad-cli {what} exited {run.returncode}: {detail}", run)
         return run
 
-    def load_board_svg(self, board: Path) -> CliRun:
-        """The board load check: ``pcb export svg -l Edge.Cuts --mode-single`` exits 0 and writes the SVG."""
+    def load_board_svg(self, board: Path, *, files: Mapping[str, Path] | None = None) -> CliRun:
+        """The board load check: ``pcb export svg -l Edge.Cuts --mode-single`` exits 0 and writes the SVG.
+
+        ``files`` are copied next to the board (a project file, ``fp-lib-table``, library folders).
+        """
         name = Path(board).name
         args = ["pcb", "export", "svg", "-l", "Edge.Cuts", "--mode-single", "-o", "out.svg", name]
-        run = self._checked(args, {name: Path(board)}, "pcb export svg")
+        run = self._checked(args, _with(board, files), "pcb export svg")
         if "out.svg" not in run.outputs:
             raise KicadCliError("kicad-cli pcb export svg wrote no SVG", run)
         return run
 
-    def export_pos_csv(self, board: Path) -> str:
+    def export_pos_csv(self, board: Path, *, files: Mapping[str, Path] | None = None) -> str:
         """``pcb export pos --format csv --side both --units mm`` (the default unit is inches)."""
         name = Path(board).name
         args = ["pcb", "export", "pos", "--format", "csv", "--side", "both", "--units", "mm"]
-        run = self._checked([*args, "-o", "pos.csv", name], {name: Path(board)}, "pcb export pos")
+        run = self._checked([*args, "-o", "pos.csv", name], _with(board, files), "pcb export pos")
         return _output(run, "pos.csv", "pcb export pos")
 
-    def export_ipcd356(self, board: Path) -> str:
+    def export_ipcd356(self, board: Path, *, files: Mapping[str, Path] | None = None) -> str:
         """``pcb export ipcd356``: the IPC-D-356 netlist text."""
         name = Path(board).name
         run = self._checked(
-            ["pcb", "export", "ipcd356", "-o", "board.d356", name], {name: Path(board)}, "pcb export ipcd356"
+            ["pcb", "export", "ipcd356", "-o", "board.d356", name], _with(board, files), "pcb export ipcd356"
         )
         return _output(run, "board.d356", "pcb export ipcd356")
 
-    def upgrade_board(self, board: Path) -> bytes:
-        """``pcb upgrade --force`` (10.0 only): the board re-saved in the running version's format."""
-        major = self.major()
-        if major < 10:
+    def _require_ten(self, what: str) -> None:
+        if self.major() < 10:
             run = CliRun("exit", None, "", "", {})
             raise KicadCliVersionError(
-                f"pcb upgrade needs kicad-cli 10.0 or newer; running {self.version()}",
+                f"{what} needs kicad-cli 10.0 or newer; running {self.version()}",
                 run,
                 hint="run the 10.0 image, for example the kicad-10 job's container",
             )
+
+    def upgrade_board(self, board: Path, *, files: Mapping[str, Path] | None = None) -> bytes:
+        """``pcb upgrade --force`` (10.0 only): the board re-saved in the running version's format."""
+        self._require_ten("pcb upgrade")
         name = Path(board).name
-        run = self._checked(["pcb", "upgrade", "--force", name], {name: Path(board)}, "pcb upgrade")
+        run = self._checked(["pcb", "upgrade", "--force", name], _with(board, files), "pcb upgrade")
         return run.outputs.get(name, Path(board).read_bytes())
+
+    def drc(self, board: Path, *, files: Mapping[str, Path] | None = None) -> DrcRun:
+        """``pcb drc --format json --severity-all``: the run and its report (``None`` when none was written).
+
+        The exit code is only a load signal; ``--exit-code-violations`` is never passed, and every
+        verdict is read from the report.
+        """
+        from fenolite.backends.kicad.drc import read_drc_report
+
+        name = Path(board).name
+        args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, name]
+        run = self.run(args, files=_with(board, files))
+        data = run.outputs.get(DRC_REPORT)
+        report = None if data is None else read_drc_report(data.decode("utf-8"), file=DRC_REPORT)
+        return DrcRun(run, report)
+
+    def export_stats(self, board: Path, *, files: Mapping[str, Path] | None = None) -> dict[str, object]:
+        """``pcb export stats --format json`` (10.0 only): the board statistics report."""
+        self._require_ten("pcb export stats")
+        name = Path(board).name
+        run = self._checked(
+            ["pcb", "export", "stats", "--format", "json", "-o", "stats.json", name],
+            _with(board, files),
+            "pcb export stats",
+        )
+        data: object = json.loads(_output(run, "stats.json", "pcb export stats"))
+        if not isinstance(data, dict):
+            raise KicadCliError("kicad-cli pcb export stats wrote no JSON object", run)
+        return cast(dict[str, object], data)
+
+
+@dataclass(frozen=True)
+class DrcRun:
+    """A ``pcb drc`` run and the report it wrote, or ``None`` when it wrote none."""
+
+    run: CliRun
+    report: DrcReport | None
+
+
+def _with(board: Path, files: Mapping[str, Path] | None) -> dict[str, Path]:
+    """The board under its own name, and the extra files next to it."""
+    found = {Path(board).name: Path(board)}
+    for name, source in (files or {}).items():
+        found[name] = Path(source)
+    return found
 
 
 def _output(run: CliRun, name: str, what: str) -> str:
@@ -239,8 +292,10 @@ def _sanitise(text: str, tmp: Path) -> str:
 
 
 __all__ = [
+    "DRC_REPORT",
     "MACOS_KICAD_CLI",
     "CliRun",
+    "DrcRun",
     "KicadCli",
     "KicadCliError",
     "KicadCliVersionError",

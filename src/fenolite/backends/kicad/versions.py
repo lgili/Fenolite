@@ -133,6 +133,47 @@ class DowngradeRefusedError(FenoliteError):
         )
 
 
+LOSSY_HINT = "re-run with --allow-lossy to drop them"
+KEPT_HINT = "the issue codes name what cannot be written; change the design or the target"
+LEGACY_HINT = (
+    "convert the board with 'kicad-cli pcb upgrade' (KiCad 10.0) or re-save it in KiCad 9.0, "
+    "then edit the converted copy"
+)
+
+
+class LossyWriteError(FenoliteError):
+    """A write would lose content: tokens the target cannot read, or model values the file cannot hold.
+
+    ``droppable`` is true only when every issue is a too-new token inside opaque content, which
+    ``allow_lossy`` may drop; the hint names ``--allow-lossy`` only then.
+    """
+
+    cli_code = "FEN-7001"
+
+    def __init__(self, issues: Sequence[Issue], *, droppable: bool) -> None:
+        self.issues = tuple(issues)
+        self.droppable = droppable
+        self.hint = LOSSY_HINT if droppable else KEPT_HINT
+        first = self.issues[0].message if self.issues else "no issue"
+        more = f" (and {len(self.issues) - 1} more)" if len(self.issues) > 1 else ""
+        super().__init__(f"the write would lose content: {first}{more}")
+
+
+class LegacyEditRefusedError(FenoliteError):
+    """Input written by KiCad 8.0 is read-only: 9.0 renumbered the layers, also inside opaque content."""
+
+    cli_code = "FEN-7003"
+
+    def __init__(self, kind: FileKind, version: int) -> None:
+        self.kind = kind
+        self.version = version
+        self.hint = LEGACY_HINT
+        super().__init__(
+            f"{kind.value} format version {version} (KiCad 8.0) is read-only; "
+            "writing needs a KiCad 9.0 or newer source"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class FormatInfo:
     kind: FileKind
@@ -709,7 +750,9 @@ __all__ = [
     "DEFAULT_TARGET",
     "FORMAT_VERSIONS",
     "GENERATOR",
+    "LEGACY_HINT",
     "LEGACY_WORKSHEET_VERSION",
+    "LOSSY_HINT",
     "READ_FLOOR",
     "READ_MAJORS",
     "ROOT_HEADS",
@@ -720,6 +763,8 @@ __all__ = [
     "FormatInfo",
     "FutureFormatError",
     "Inventory",
+    "LegacyEditRefusedError",
+    "LossyWriteError",
     "Note",
     "TokenRow",
     "UnsupportedFormatError",

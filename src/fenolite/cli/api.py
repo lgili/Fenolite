@@ -33,6 +33,8 @@ class Context:
     rng: random.Random
     no_backup: bool
     cwd: Path
+    kicad_target: int = 10
+    allow_lossy: bool = False
 
 
 @dataclass(frozen=True, slots=True)

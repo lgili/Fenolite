@@ -13,7 +13,7 @@ return the items of each modelled field; ``pcb.ModelSource`` wraps them, so this
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Protocol
 
@@ -23,8 +23,9 @@ from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.core.units import format_angle
-from fenolite.model.base import Slot
+from fenolite.model.base import Modeled, Slot
 from fenolite.model.board import Graphic, GraphicKind, Pad, Padstack, PadstackLayer
+from fenolite.model.library import FootprintDef
 
 FP_GRAPHIC_HEADS: Mapping[str, GraphicKind] = MappingProxyType(
     {"fp_line": "line", "fp_arc": "arc", "fp_circle": "circle", "fp_rect": "rect", "fp_poly": "polygon"}
@@ -36,6 +37,11 @@ PAD_FIELDS: Mapping[str, str] = MappingProxyType(
     {"at": "position", "size": "size", "layers": "layers", "uuid": "native_ids", "drill": "drill"}
 )
 PAD_POSITIONAL = ("number", "kind", "shape")
+DEF_FIELDS: Mapping[str, str] = MappingProxyType(
+    {"descr": "description", "attr": "kind", "pad": "pads", **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics")}
+)
+"""The field map of a footprint definition (``mod.FOOTPRINT_FIELDS`` is this mapping)."""
+DEF_POSITIONAL = ("name",)
 GRAPHIC_FIELDS: Mapping[str, str] = MappingProxyType(
     {
         **dict.fromkeys(("start", "mid", "end", "center", "pts"), "points"),
@@ -57,6 +63,9 @@ POINT_HEADS: Mapping[GraphicKind, tuple[str, ...]] = MappingProxyType(
     }
 )
 _FILLS = {"yes": True, "solid": True, "no": False, "none": False}
+_FP_KIND_HEADS: Mapping[GraphicKind, str] = MappingProxyType(
+    {kind: head for head, kind in FP_GRAPHIC_HEADS.items()}
+)
 _PLAIN_STROKES = frozenset({"solid", "default"})
 
 Items = dict[str, list[Node | Atom]]
@@ -366,7 +375,71 @@ def emit_graphic(graphic: Graphic, head: str) -> Items:
     }
 
 
+def emit_attr(kind: str, flags: Sequence[str]) -> Node:
+    """``(attr KIND FLAG …)``; the kind ``unspecified`` is not written."""
+    values = ([] if kind == "unspecified" else [kind]) + list(flags)
+    return node("attr", *(Atom.symbol(v) for v in values))
+
+
+class _Items:
+    """A ``slots.SlotSource`` over prepared items (``pcb.ModelSource`` without importing ``pcb``)."""
+
+    def __init__(self, items: Mapping[str, Sequence[Node | Atom]], wanted: set[str]) -> None:
+        self._items = {k: tuple(v) for k, v in items.items() if k in wanted}
+
+    def items(self, field: str) -> Sequence[Node | Atom]:
+        return self._items.get(field, ())
+
+    def fields(self) -> list[str]:
+        return [name for name, values in self._items.items() if values]
+
+
+def _modelled(slots: Sequence[Slot]) -> set[str]:
+    return {s.field for s in slots if isinstance(s, Modeled)}
+
+
+def _entity_slots(entity: Pad | Graphic | FootprintDef) -> tuple[Slot, ...]:
+    bag = entity.ext.get("kicad")
+    return slotlib.from_ext(bag) if bag is not None else ()
+
+
+def _graphic_head(graphic: Graphic) -> str:
+    locator = graphic.provenance.locator if graphic.provenance is not None else ""
+    head = locator.rsplit("/", 1)[-1].split("[", 1)[0]
+    return head if head in FP_GRAPHIC_HEADS else _FP_KIND_HEADS[graphic.kind]
+
+
+def emit_footprint(defn: FootprintDef, *, root_chain: tuple[str, ...] = ("footprint",)) -> Node:
+    """A definition read from a footprint file, emitted as a ``footprint`` node from its slots.
+
+    Opaque children come back as read; modelled ones from the definition's current values. Created
+    definitions (no slots) are written by the footprint writer (c0018).
+    """
+    slots = _entity_slots(defn)
+    if not slots:
+        raise ValueError(
+            f"{defn.lib_id!r} has no KiCad slot list; only definitions read from a file are emitted"
+        )
+    pads = [_rebuild(pad, emit_pad(pad, None)) for pad in defn.pads]
+    graphics = [_rebuild(g, emit_graphic(g, _graphic_head(g)), _graphic_head(g)) for g in defn.graphics]
+    items: dict[str, list[Node | Atom]] = {
+        "name": [Atom.string(defn.name)],
+        "description": [node("descr", Atom.string(defn.description))],
+        "kind": [emit_attr(defn.kind, defn.flags)],
+        "pads": list(pads),
+        "graphics": list(graphics),
+    }
+    return slotlib.rebuild(Atom.symbol(root_chain[-1]), slots, _Items(items, _modelled(slots)))
+
+
+def _rebuild(entity: Pad | Graphic, items: Mapping[str, Sequence[Node | Atom]], head: str = "pad") -> Node:
+    slots = _entity_slots(entity)
+    return slotlib.rebuild(Atom.symbol(head), slots, _Items(items, _modelled(slots)))
+
+
 __all__ = [
+    "DEF_FIELDS",
+    "DEF_POSITIONAL",
     "FP_GRAPHIC_HEADS",
     "GRAPHIC_FIELDS",
     "GR_GRAPHIC_HEADS",
@@ -381,6 +454,8 @@ __all__ = [
     "Items",
     "angle_atom",
     "at_node",
+    "emit_attr",
+    "emit_footprint",
     "emit_graphic",
     "emit_pad",
     "layers_node",

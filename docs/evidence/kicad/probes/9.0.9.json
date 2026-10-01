@@ -1,0 +1,25 @@
+{
+  "version": "9.0.9",
+  "probes": {
+    "pcb-drc-ignored-checks": "absent",
+    "pcb-genver-9-10.0": "load",
+    "pcb-genver-9-9.0": "load",
+    "pcb-genver-9-absent": "load",
+    "pcb-genver-9-fenolite-x": "load",
+    "pcb-libdrc-bench": "absent",
+    "pcb-libdrc-exact": "absent",
+    "pcb-libdrc-flip-angle": "present",
+    "pcb-libdrc-missing-table": "present",
+    "pcb-libdrc-relative-angles": "present",
+    "pcb-libdrc-unmirrored": "present",
+    "pcb-write-dimension-10": "reject",
+    "pcb-write-dimension-9": "load",
+    "pcb-write-heads-10": "reject",
+    "pcb-write-heads-9": "load",
+    "pcb-write-lossy-9": "load",
+    "pcb-write-triad-10": "reject",
+    "pcb-write-triad-9": "load",
+    "pcb-write-two-layer-10": "reject",
+    "pcb-write-two-layer-9": "load"
+  }
+}

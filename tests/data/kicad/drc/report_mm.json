@@ -1,0 +1,45 @@
+{
+  "source": "authored.kicad_pcb",
+  "date": "2026-10-01T12:00:00",
+  "kicad_version": "10.0.6",
+  "coordinate_units": "mm",
+  "included_severities": ["error", "warning"],
+  "violations": [
+    {
+      "type": "clearance",
+      "description": "Clearance violation (authored example)",
+      "severity": "error",
+      "items": [
+        {"uuid": "00000000-0000-4000-8000-0000000000d1", "description": "Track on F.Cu", "pos": {"x": 12.5, "y": 3.25}},
+        {"uuid": "00000000-0000-4000-8000-0000000000d2", "description": "Pad 1 of R1", "pos": {"x": 13, "y": -1.0000005}}
+      ]
+    },
+    {
+      "type": "lib_footprint_mismatch",
+      "description": "Footprint differs from its library copy (authored example)",
+      "severity": "warning",
+      "excluded": true,
+      "comment": "authored",
+      "items": [
+        {"uuid": "00000000-0000-4000-8000-0000000000d3", "description": "Footprint U1", "pos": {"x": 0, "y": 0}}
+      ]
+    },
+    {
+      "type": "clearance",
+      "description": "Second clearance violation (authored example)",
+      "severity": "error",
+      "items": []
+    }
+  ],
+  "unconnected_items": [
+    {
+      "type": "unconnected_items",
+      "description": "Missing connection (authored example)",
+      "severity": "error",
+      "items": [
+        {"uuid": "00000000-0000-4000-8000-0000000000d4", "description": "Pad 2 of R1", "pos": {"x": 1e1, "y": 2.5e-1}}
+      ]
+    }
+  ],
+  "schematic_parity": []
+}

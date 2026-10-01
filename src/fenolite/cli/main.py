@@ -33,6 +33,10 @@ from fenolite.cli.output import (
 )
 from fenolite.core.io import atomic_write, sha256_bytes
 
+KICAD_TARGETS = (9, 10)
+"""The values of ``--kicad-version``: the KiCad majors Fenolite writes for (``versions.TARGET_MAJORS``)."""
+DEFAULT_KICAD_TARGET = 10
+
 
 class _Parser(argparse.ArgumentParser):
     """argparse that raises typed usage errors instead of printing and exiting."""
@@ -56,6 +60,12 @@ def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> 
                        help="fixed timestamp for generated dates")  # fmt: skip
     group.add_argument("--no-backup", action="store_true", default=False if top_level else default,
                        help="do not keep .bak copies of overwritten files")  # fmt: skip
+    kicad = parser.add_argument_group("KiCad output")
+    kicad.add_argument("--kicad-version", type=int, choices=KICAD_TARGETS, dest="kicad_version",
+                       default=DEFAULT_KICAD_TARGET if top_level else default, metavar="{9,10}",
+                       help="KiCad major that written files target (default 10)")  # fmt: skip
+    kicad.add_argument("--allow-lossy", action="store_true", default=False if top_level else default,
+                       help="drop content the target KiCad version cannot read, with a warning")  # fmt: skip
 
 
 def build_parser(commands: dict[str, Command]) -> argparse.ArgumentParser:
@@ -97,6 +107,8 @@ def _context(args: argparse.Namespace, mode: OutputMode) -> Context:
         rng=rng,
         no_backup=bool(args.no_backup),
         cwd=Path.cwd(),
+        kicad_target=int(args.kicad_version),
+        allow_lossy=bool(args.allow_lossy),
     )
 
 
@@ -211,4 +223,4 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(exc.exit_code)
 
 
-__all__ = ["build_parser", "main"]
+__all__ = ["DEFAULT_KICAD_TARGET", "KICAD_TARGETS", "build_parser", "main"]

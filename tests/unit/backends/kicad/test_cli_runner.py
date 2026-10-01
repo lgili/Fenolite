@@ -13,7 +13,13 @@ from typing import Any
 
 import pytest
 
-from fenolite.backends.kicad.cli import KicadCli, KicadCliError, KicadCliVersionError, find_kicad_cli
+from fenolite.backends.kicad.cli import (
+    DRC_REPORT,
+    KicadCli,
+    KicadCliError,
+    KicadCliVersionError,
+    find_kicad_cli,
+)
 
 FAKE = """import json, os, sys, time
 args = sys.argv[1:]
@@ -44,6 +50,20 @@ elif mode == "paths":
 elif mode == "fail":
     print("bad board", file=sys.stderr)
     sys.exit(3)
+elif mode == "drc":
+    out = args[args.index("-o") + 1]
+    report = {"source": args[-1], "date": "d", "kicad_version": "10.0.6", "coordinate_units": "mm",
+              "violations": [{"type": "clearance", "description": "c", "severity": "error",
+                              "items": [{"uuid": "u", "description": "t", "pos": {"x": 1.5, "y": 2}}]}],
+              "unconnected_items": [], "schematic_parity": []}
+    open(out, "w").write(json.dumps(report))
+elif mode == "nodrc":
+    sys.exit(3)
+elif mode == "list":
+    print(json.dumps(sorted(os.listdir("."))))
+    open("out.svg", "w").write("<svg/>")
+elif mode == "stats":
+    open(args[args.index("-o") + 1], "w").write(json.dumps({"components": {"total": {"total": 3}}}))
 """
 
 
@@ -225,3 +245,72 @@ def test_unchanged_resave_returns_the_copy(fake: Path, board: Path, monkeypatch:
     """A re-save that writes the same bytes leaves no output; the helper returns the copy's bytes."""
     monkeypatch.setenv("FAKE_MODE", "")
     assert KicadCli(fake).upgrade_board(board) == board.read_bytes()
+
+
+def test_drc_report_is_the_verdict(
+    fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("FAKE_MODE", "drc")
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    run = KicadCli(fake).drc(board)
+    assert run.run.ok and run.report is not None
+    (call,) = [json.loads(line) for line in log.read_text().splitlines()]
+    assert call == ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, "b.kicad_pcb"]
+    assert "--exit-code-violations" not in call
+    (violation,) = run.report.of_type("clearance")
+    assert violation.items[0].position.x == 1_500_000
+
+
+def test_drc_without_report(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "nodrc")
+    run = KicadCli(fake).drc(board)
+    assert run.report is None and run.run.returncode == 3
+
+
+def test_extra_files_next_to_the_board(
+    fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_MODE", "list")
+    pro, table = tmp_path / "x.kicad_pro", tmp_path / "fp-lib-table"
+    pro.write_text("{}")
+    table.write_text("(fp_lib_table (version 7))")
+    lib = tmp_path / "Lib.pretty"
+    lib.mkdir()
+    (lib / "A.kicad_mod").write_text("(footprint A)")
+
+    def snapshot() -> dict[str, str]:
+        return {
+            str(f): hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in sorted(tmp_path.rglob("*"))
+            if f.is_file()
+        }
+
+    before = snapshot()
+    files = {"board.kicad_pro": pro, "fp-lib-table": table, "Lib.pretty": lib}
+    run = KicadCli(fake).load_board_svg(board, files=files)
+    listing = json.loads(run.stdout.splitlines()[0])
+    assert {"b.kicad_pcb", "board.kicad_pro", "fp-lib-table", "Lib.pretty"} <= set(listing)
+    assert snapshot() == before
+
+
+def test_helpers_take_extra_files(
+    fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_MODE", "inplace")
+    pro = tmp_path / "x.kicad_pro"
+    pro.write_text("{}")
+    assert KicadCli(fake).upgrade_board(board, files={"b.kicad_pro": pro}).endswith(b"(rewritten)")
+
+
+def test_export_stats(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "stats")
+    assert KicadCli(fake).export_stats(board) == {"components": {"total": {"total": 3}}}
+
+
+def test_export_stats_needs_kicad_10(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_VERSION", "9.0.9")
+    monkeypatch.setenv("FAKE_MODE", "stats")
+    with pytest.raises(KicadCliVersionError) as info:
+        KicadCli(fake).export_stats(board)
+    assert info.value.cli_code == "FEN-6002"

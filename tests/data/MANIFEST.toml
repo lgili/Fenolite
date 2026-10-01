@@ -248,6 +248,18 @@ corpus_id = ""
 notes = "synthetic geometry, not a validated land pattern"
 
 [[file]]
+path = "tests/data/libs/Mini_v9.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format copy of the Mini.pretty footprint (c0017); synthetic geometry, not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Mini_v9.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format copy of the Mini.pretty footprint (c0017); synthetic geometry, not a validated land pattern"
+
+[[file]]
 path = "tests/data/libs/Mini.kicad_sym"
 origin = "authored"
 corpus_id = ""
@@ -288,3 +300,21 @@ path = "tests/data/kicad/board/two_layer.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "authored CC0 two-layer board (format 20241229): two footprints, copper, a zone with fills, a rule area, edge graphics and a text"
+
+[[file]]
+path = "tests/data/kicad/board/dimension.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored board with one dimension between two segments, for the writer's unknown-child test (c0017)"
+
+[[file]]
+path = "tests/data/kicad/drc/report_mils.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored DRC report for the reader's unit tests (c0017); key names from S-0055 and S-0056"
+
+[[file]]
+path = "tests/data/kicad/drc/report_mm.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored DRC report for the reader's unit tests (c0017); key names from S-0055 and S-0056"

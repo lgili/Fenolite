@@ -57,6 +57,7 @@ def test_there_are_commands() -> None:
 def test_help(name: str, capsys: CapSys) -> None:
     code, out, _ = _invoke(capsys, [name, "--help"])
     assert code == 0 and f"usage: fenolite {name}" in out
+    assert "--kicad-version" in out and "--allow-lossy" in out
 
 
 @pytest.mark.parametrize("name", NAMES)

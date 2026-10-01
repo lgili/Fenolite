@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
@@ -36,6 +37,62 @@ class ReadResult:
         if not isinstance(self.content, Design):
             raise TypeError(f"read result holds a {type(self.content).__name__}, not a Design")
         return self.content
+
+
+@dataclass(frozen=True, slots=True)
+class WriteResult:
+    """What a backend writer returns: the file text and the warnings and infos of the write.
+
+    Errors are raised, never returned, so a caller cannot write a file that lost content silently.
+    """
+
+    text: str
+    issues: tuple[Issue, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class DrcItem:
+    """A board item a DRC violation names: its uuid, the tool's description, and a report position."""
+
+    uuid: str
+    description: str
+    position: Point
+
+    def __post_init__(self) -> None:
+        if type(self.position.x) is not int or type(self.position.y) is not int:
+            raise TypeError(f"DRC positions are integer nanometres, got {self.position!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class DrcViolation:
+    """One violation of a DRC report; ``type`` and ``severity`` are the tool's own strings."""
+
+    type: str
+    description: str
+    severity: str
+    items: tuple[DrcItem, ...] = ()
+    excluded: bool = False
+    comment: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DrcReport:
+    """A DRC report in report order, independent of the tool that wrote it."""
+
+    source: str
+    date: str
+    kicad_version: str
+    coordinate_units: str
+    violations: tuple[DrcViolation, ...] = ()
+    unconnected_items: tuple[DrcViolation, ...] = ()
+    schematic_parity: tuple[DrcViolation, ...] = ()
+    ignored_checks: tuple[str, ...] = ()
+    included_severities: tuple[str, ...] = ()
+
+    def of_type(self, type: str) -> tuple[DrcViolation, ...]:  # noqa: A002 (the report's own key)
+        """The violations, unconnected items and parity items of ``type``, in report order."""
+        groups = (self.violations, self.unconnected_items, self.schematic_parity)
+        return tuple(v for group in groups for v in group if v.type == type)
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,4 +143,14 @@ class Backend(Protocol):
     def capabilities(self) -> CapabilityReport: ...
 
 
-__all__ = ["Backend", "BackendOperation", "CapabilityReport", "Downgrade", "ReadResult"]
+__all__ = [
+    "Backend",
+    "BackendOperation",
+    "CapabilityReport",
+    "Downgrade",
+    "DrcItem",
+    "DrcReport",
+    "DrcViolation",
+    "ReadResult",
+    "WriteResult",
+]

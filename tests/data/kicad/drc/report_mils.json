@@ -1,0 +1,19 @@
+{
+  "source": "authored.kicad_pcb",
+  "date": "2026-10-01T12:00:00",
+  "kicad_version": "9.0.9",
+  "coordinate_units": "mils",
+  "violations": [
+    {
+      "type": "track_dangling",
+      "description": "Track has an unconnected end (authored example)",
+      "severity": "warning",
+      "items": [
+        {"uuid": "00000000-0000-4000-8000-0000000000e1", "description": "Track on B.Cu", "pos": {"x": 100, "y": 0}},
+        {"uuid": "00000000-0000-4000-8000-0000000000e2", "description": "Via", "pos": {"x": 0.00001, "y": -1.5}}
+      ]
+    }
+  ],
+  "unconnected_items": [],
+  "schematic_parity": []
+}
