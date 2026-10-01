@@ -68,3 +68,25 @@ jobs:
         env:
           FENOLITE_REQUIRE: kicad,corpus
         run: uv run pytest tests/kicad tests/corpus -q
+
+  kicad-9:
+    name: kicad-9 (kicad-cli 9.0 oracle)
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729
+      options: --user 0
+    env:
+      HOME: /root
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: kicad-cli version
+        run: kicad-cli version
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev
+      - name: Oracle tests
+        env:
+          FENOLITE_REQUIRE: kicad
+        run: uv run pytest tests/kicad -q

@@ -17,6 +17,7 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
     CORPUS_HINT,
     corpus_cache_dir,
     kicad_cli,
+    kicad_cli_version,
     kicad_library_dirs,
     required_resources,
 )
@@ -40,3 +41,10 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         _missing("libs", "official KiCad libraries not found (set KICAD10_FOOTPRINT_DIR or install KiCad)")
     if item.get_closest_marker("needs_kicad") and kicad_cli() is None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
+    minimum = item.get_closest_marker("kicad_min_major")
+    if minimum is not None:
+        version = kicad_cli_version()
+        needed = int(minimum.args[0])
+        if version is not None and version[0] < needed:
+            # An older major is present, not missing: required-resource mode never turns this into a failure.
+            pytest.skip(f"needs kicad-cli {needed}.x; running {version[0]}.x")

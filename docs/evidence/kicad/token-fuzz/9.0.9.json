@@ -1,0 +1,1344 @@
+{
+ "format": 1,
+ "kicad_cli": {
+  "version": "9.0.9",
+  "image": "kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729",
+  "platform": "linux-x86_64",
+  "env": {
+   "KICAD_CONFIG_HOME": "<tmp>/cfg",
+   "LANG": "C",
+   "LC_ALL": "C"
+  }
+ },
+ "cases": [
+  {
+   "example": "barcode",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "a6c40bd41666a98835862b590eb5e742e13080eb29d59881436ed977d089c0d8",
+   "rows": [
+    "barcode"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "component-classes",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "de029225389e31d7809817abd43e735f1aa7a3ea98c157865e7f674de0166b1a",
+   "rows": [
+    "component-classes-class",
+    "footprint-component-classes"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "dev-header-9",
+   "kind": "kicad_pcb",
+   "header_version": 20241030,
+   "example_sha256": "21148f0e603068fe4d836468611f917fcfc6f1ffe4f5632a65edb27caf2dd360",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "dimension-style",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "07d640724c0a26b2341d7c067005d85f4aca77ca9bd0b88f463e54a380c7821a",
+   "rows": [
+    "dimension-arrow-direction",
+    "dimension-keep-text-aligned"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "duplicate-pad-numbers-are-jumpers",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "7e4c67a02473abf00effd074116a5a4b4a5686711972148846b679de58bbbc42",
+   "rows": [
+    "footprint-duplicate-pad-numbers-are-jumpers"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "duplicate-pad-numbers-are-jumpers-fp",
+   "kind": "kicad_mod",
+   "header_version": 20241229,
+   "example_sha256": "fa791aa557e67c2cea5254d26c8eb7aa766bc2d6ede1fb09b9ddbfd219a03520",
+   "rows": [
+    "footprint-duplicate-pad-numbers-are-jumpers"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 2,
+   "detail": "Unable to load library"
+  },
+  {
+   "example": "embedded-files",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "e1ba2821aa16ac786c93c713c902fe48145441f85ba3e3c5ec493b7da8d7a1ac",
+   "rows": [
+    "embedded-files"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "embedded-fonts",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "6d2add9064e05053bd29fe51adfdf98dbb70cce18f3436dd73dd4f07e3221a01",
+   "rows": [
+    "embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "embedded-fonts-footprint",
+   "kind": "kicad_mod",
+   "header_version": 20241229,
+   "example_sha256": "ddde3dc4a1dd5ae5987894d5c429e3bb4e82c3563812b485327b9df8d93fa99c",
+   "rows": [
+    "embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting footprint 'case' to 'out/case.svg'"
+  },
+  {
+   "example": "fill-cross-hatch",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "01038a8f48a06844cf4f951fa132c93fc2fa42e19613ddf357134fcccdbe728e",
+   "rows": [
+    "fill-cross-hatch"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "fill-hatch",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "5086eb173d80bccba238a11683c511901dccc8d233aaae634bbcf3842a717b0b",
+   "rows": [
+    "fill-hatch"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "fill-reverse-hatch",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "1a3c69a1ea84bf058da290abf9356c359440a5d46b2606d9f6b54a734cd0ddd0",
+   "rows": [
+    "fill-reverse-hatch"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "footprint-point",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "414b123f3c3a4d7a37f2fedddb075f125be3eed331852faa96aae19fa9015113",
+   "rows": [
+    "point"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "footprint-units",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "5c5d196fdf7e07b15841474d9f04344e6bd7f13e8360727748cd67edf405dac9",
+   "rows": [
+    "footprint-units"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "footprint-variant",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "56eb6ef282ec5d416fe498455bcd97f5904666f41abaa8def87353a3580dbfa3",
+   "rows": [
+    "footprint-variant"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "future-header",
+   "kind": "kicad_pcb",
+   "header_version": 20990101,
+   "example_sha256": "d65e387230a41ffdda4b69a210913c3029848978268e1cb4d095b5e3e73fff99",
+   "rows": [
+    "gr-rect-fill-no"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "graphic-fill-board",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "c621568485abc4dea596f0b34595adbc4312ddc54e2f8a284b9e3ca38d268d17",
+   "rows": [
+    "gr-circle-fill-no",
+    "gr-circle-fill-yes",
+    "gr-poly-fill-no",
+    "gr-poly-fill-yes",
+    "gr-rect-fill-no",
+    "gr-rect-fill-yes"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "graphic-fill-footprint",
+   "kind": "kicad_mod",
+   "header_version": 20241229,
+   "example_sha256": "7e64273d7b06a690ad649c06a1eab7d811412704240080ac983f601155c2b4ec",
+   "rows": [
+    "fp-circle-fill-no",
+    "fp-circle-fill-yes",
+    "fp-poly-fill-no",
+    "fp-poly-fill-yes",
+    "fp-rect-fill-no",
+    "fp-rect-fill-yes"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting footprint 'case' to 'out/case.svg'"
+  },
+  {
+   "example": "graphic-soldermask",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "2565f94b4d1a829af1d7b49aa5161dcaa790919192266d0165bef24981cb09fd",
+   "rows": [
+    "gr-rect-fill-yes",
+    "gr-rect-solder-mask-margin"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "group-lib-id",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "7ac65861658afda86aa4ecc276ab7b00b9ef913e04f8c90c5cc0636871118dce",
+   "rows": [
+    "group-lib-id"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "island-no",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "a8f0132732285e84b80d94ffaeef9b207487da04a1b183f59d9d149b7211877e",
+   "rows": [
+    "island-no"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "island-yes",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "e55952430977f1ef44e508e5ce7199d446437dc69a24a2e161fe7afafb6a4860",
+   "rows": [
+    "island-yes"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "jumper-pad-groups",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "57305624187c5a977298ae347758f54d6022a52ce5c2f4f4cc6c88714f882bb6",
+   "rows": [
+    "footprint-jumper-pad-groups"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "lenient-general",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "b873b7b8f10aa946d904aaa45e5521de126fb2ea08164371a298f59c549c56cc",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "negative-unknown-footprint",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "85d24d55796b6b745b52125ced0a049a551ba4ec9e9a673f9c4ea3e1bc06cdbe",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "negative-unknown-fp-pad",
+   "kind": "kicad_mod",
+   "header_version": 20240108,
+   "example_sha256": "2880e679f441258152394c2fa5979506970e97d5c5c4d64e453a6802a97b141d",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 2,
+   "detail": "Unable to load library"
+  },
+  {
+   "example": "negative-unknown-pad",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "4e44d5d329fcd0f2eca15f8e9771d97364862133ace759665119e3dc617db7e3",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "negative-unknown-segment",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "314ca0e45409a38ac2397b6694fcd8699c37aff9259af4438c57415adcff576b",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "negative-unknown-setup",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "c646757839434c8d64894f73e122d454df30874a36ef4cf69cbb42c765144609",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "negative-unknown-top",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "0ecb3ab776c2ec49fb3fc4fd48eb871cd47aafd7268bc3f715e1790d9be0dbf7",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "net-by-name",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "59c0b2f5c47bf992c0758641a81392abf297d30d70495de1d99a7db203de8dc6",
+   "rows": [
+    "net-by-name"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "obsolete-zone",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "bfaa7aaae297fcc63022e7ddcb837063a835e3d443660c02242a0ab00688fe94",
+   "rows": [
+    "zone-filled-areas-thickness",
+    "zone-net-name"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "pad-die-delay",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "d9f12929fb6a1a241f4cb98dc1bc9090e2e4125044475af5b3693c5850e27470",
+   "rows": [
+    "pad-die-delay"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "pad-padstack-custom",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "ea05e59745a1004f95d83f86910445d4bb3d9b3b6b0c84bfaa90a8c674a731e6",
+   "rows": [
+    "pad-padstack",
+    "pad-padstack-layer",
+    "pad-padstack-layer-shape",
+    "pad-padstack-mode"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "pad-padstack-front-inner-back",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "6df7334b8a7c164f12275f16b813fa3c1031e0b72a4122aac5e463295123a277",
+   "rows": [
+    "pad-padstack",
+    "pad-padstack-layer",
+    "pad-padstack-layer-shape",
+    "pad-padstack-mode"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "pad-property-mechanical",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "bbcac0c7320cce0b4107f9c06f62155b6c3c64d5f8cf75f05c4c36242933c01e",
+   "rows": [
+    "pad-property-mechanical"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "pad-property-pressfit",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "c7e0ac9aaef0a5553cd3c20e46ac279133bf71456ecd1aa6382828f39f33bfd8",
+   "rows": [
+    "pad-property-pressfit"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "pad-tenting",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "a0369a79a57e499908a2695fa054b68dd067f0e9b050223fea32d897bc811d28",
+   "rows": [
+    "tenting"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "placement-rule-area",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "dc00ce79bc709bd850ff421b6ece91f1bf992f560e9c02c9d4b8a057d53372a8",
+   "rows": [
+    "zone-filled-areas-thickness",
+    "zone-net-name",
+    "zone-placement"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [
+    "rules-constraint",
+    "rules-min",
+    "rules-rule",
+    "rules-type-clearance",
+    "rules-version"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Found 3 violations"
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_mod",
+   "header_version": 20240108,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting footprint 'case' to 'out/case.svg'"
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_mod",
+   "header_version": 20241229,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting footprint 'case' to 'out/case.svg'"
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_pcb",
+   "header_version": 20240108,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [
+    "board-net-table",
+    "plot-hpglpendiameter",
+    "plot-hpglpennumber",
+    "plot-hpglpenspeed",
+    "plot-plotinvisibletext",
+    "zone-filled-areas-thickness",
+    "zone-net-name"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [
+    "board-net-table",
+    "plot-hpglpendiameter",
+    "plot-hpglpennumber",
+    "plot-hpglpenspeed",
+    "plot-plotinvisibletext",
+    "zone-filled-areas-thickness",
+    "zone-net-name"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "rows": [
+    "wks-bold",
+    "wks-bottom-margin",
+    "wks-comment",
+    "wks-end",
+    "wks-font",
+    "wks-generator",
+    "wks-incrlabel",
+    "wks-incrx",
+    "wks-incry",
+    "wks-italic",
+    "wks-justify",
+    "wks-left-margin",
+    "wks-line",
+    "wks-linewidth",
+    "wks-maxheight",
+    "wks-maxlen",
+    "wks-name",
+    "wks-option",
+    "wks-pos",
+    "wks-rect",
+    "wks-repeat",
+    "wks-right-margin",
+    "wks-root",
+    "wks-rotate",
+    "wks-setup",
+    "wks-size",
+    "wks-start",
+    "wks-tbtext",
+    "wks-textlinewidth",
+    "wks-textsize",
+    "wks-top-margin",
+    "wks-version"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "rounded-rectangle",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "7479daffac94d4321d66e4f98fb18ecb588841852a064de85da9672810c1f388",
+   "rows": [
+    "gr-rect-fill-no",
+    "gr-rect-radius"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "rules-bridged-mask",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "c20e7172d687e614890ceb2652896307142d584a57ac2b82b55c7be2a1c38451",
+   "rows": [
+    "rules-constraint",
+    "rules-rule",
+    "rules-type-bridged-mask"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-canary-invented",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "919f0d55cd2519b2cc78e8c45a13925262f26c9bcc38c4f61454f6e9965c4053",
+   "rows": [
+    "rules-constraint",
+    "rules-min",
+    "rules-rule"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-disallow-blind-via",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "75ffa72730d19d3b83aafdf324f4c2c149e64c98369141940495b5e959206395",
+   "rows": [
+    "rules-condition",
+    "rules-constraint",
+    "rules-disallow-blind-via",
+    "rules-rule",
+    "rules-type-disallow"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-disallow-through-via",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "9a7f7af8742e77a110557268e521dca148c9ee91e05d9bea9031da60f71d8296",
+   "rows": [
+    "rules-condition",
+    "rules-constraint",
+    "rules-disallow-through-via",
+    "rules-rule",
+    "rules-type-disallow"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-floor-basic",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "09be70903a6ccb2c5cfa85b6e00d4ef285c80a143f001016f01ab43c17718133",
+   "rows": [
+    "rules-condition",
+    "rules-constraint",
+    "rules-layer",
+    "rules-max",
+    "rules-min",
+    "rules-opt",
+    "rules-rule",
+    "rules-severity",
+    "rules-type-track-width"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Found 3 violations"
+  },
+  {
+   "example": "rules-floor-types",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "97bf22a813e20b338eacf49229890b1d469773444101ab0be6c121981fa95c28",
+   "rows": [
+    "rules-condition",
+    "rules-constraint",
+    "rules-disallow-buried-via",
+    "rules-disallow-footprint",
+    "rules-disallow-graphic",
+    "rules-disallow-hole",
+    "rules-disallow-micro-via",
+    "rules-disallow-pad",
+    "rules-disallow-text",
+    "rules-disallow-track",
+    "rules-disallow-via",
+    "rules-disallow-zone",
+    "rules-max",
+    "rules-min",
+    "rules-rule",
+    "rules-type-annular-width",
+    "rules-type-assertion",
+    "rules-type-connection-width",
+    "rules-type-courtyard-clearance",
+    "rules-type-creepage",
+    "rules-type-diff-pair-gap",
+    "rules-type-diff-pair-uncoupled",
+    "rules-type-disallow",
+    "rules-type-edge-clearance",
+    "rules-type-hole-clearance",
+    "rules-type-hole-size",
+    "rules-type-hole-to-hole",
+    "rules-type-length",
+    "rules-type-min-resolved-spokes",
+    "rules-type-physical-clearance",
+    "rules-type-physical-hole-clearance",
+    "rules-type-silk-clearance",
+    "rules-type-skew",
+    "rules-type-text-height",
+    "rules-type-text-thickness",
+    "rules-type-thermal-relief-gap",
+    "rules-type-thermal-spoke-width",
+    "rules-type-track-angle",
+    "rules-type-track-segment-length",
+    "rules-type-via-count",
+    "rules-type-via-diameter",
+    "rules-type-zone-connection",
+    "rules-within-diff-pairs"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Found 4 violations"
+  },
+  {
+   "example": "rules-solder-mask-expansion",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "79b88022871314443435eb396f25f3ebaa5e63e9825a8b70b5431436f9c362b5",
+   "rows": [
+    "rules-constraint",
+    "rules-opt",
+    "rules-rule",
+    "rules-type-solder-mask-expansion"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-solder-paste-abs-margin",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "b497830578592f585e6aaa7493e8daaefe75fccc6723e098498534bf3fdc897e",
+   "rows": [
+    "rules-constraint",
+    "rules-opt",
+    "rules-rule",
+    "rules-type-solder-paste-abs-margin"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-solder-paste-rel-margin",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "229665cccd220f8fa87cc98d6236d947819eb49eaf4ac33b71a5005467758783",
+   "rows": [
+    "rules-constraint",
+    "rules-opt",
+    "rules-rule",
+    "rules-type-solder-paste-rel-margin"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "rules-via-dangling",
+   "kind": "kicad_dru",
+   "header_version": 1,
+   "example_sha256": "bf0fd57d20afb1d94b4106a7ef51da7868d9265a99dd9ac3280cc6ac56dc1318",
+   "rows": [
+    "rules-constraint",
+    "rules-rule",
+    "rules-type-via-dangling"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Found 2 violations"
+  },
+  {
+   "example": "table",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "a770e51c97c0aa57eb89c2128a2aebce8c11ec12172b63b9ca77fc31687002ce",
+   "rows": [
+    "margins",
+    "table",
+    "table-border",
+    "table-border-external",
+    "table-border-header",
+    "table-cell",
+    "table-cell-span",
+    "table-cells",
+    "table-column-count",
+    "table-column-widths",
+    "table-row-heights",
+    "table-separators",
+    "table-separators-cols",
+    "table-separators-rows"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "table-uuid",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "d9c1acd5599eb98c044f1afefbaf80eceda802e4397f312c9aac1fbae508494e",
+   "rows": [
+    "margins",
+    "table",
+    "table-border",
+    "table-border-external",
+    "table-border-header",
+    "table-cell",
+    "table-cell-span",
+    "table-cells",
+    "table-column-count",
+    "table-column-widths",
+    "table-row-heights",
+    "table-separators",
+    "table-separators-cols",
+    "table-separators-rows",
+    "table-uuid"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "teardrop-curved-edges",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "2f47a3ed962b8b7db1f9cabf1364a1e8e32a5bebe2d57b7409c24d84cd31e463",
+   "rows": [
+    "teardrops-curved-edges"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "tenting-9",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "b8eee28db232485944e82bf923b7267155996f9ab03ea7192661cc81dc123a7d",
+   "rows": [
+    "tenting"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "tenting-back",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "74d164185049e4c650ff50030c0410ef3e8feeef1244de59fc38d8958d1ac333",
+   "rows": [
+    "tenting",
+    "tenting-back"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "tenting-front",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "f04bc5858f794a852193ff61b7b7a41744d84085dc379603ead5383f12911056",
+   "rows": [
+    "tenting",
+    "tenting-front"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "text-box-margins",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "54bb81b163cc4c4ac72709dca65f0e629a99ebd2ce2d796f658930ec3608d52a",
+   "rows": [
+    "margins"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "textbox-knockout",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "2462d4c050cc13df780b57121d3c885231b64b08223d09672131b7fa8fdbe628",
+   "rows": [
+    "margins",
+    "textbox-knockout"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "track-soldermask",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "7b97c2b8fb157998ff8463c64e4bd5331c7314412620038b31603aea29d28fdb",
+   "rows": [
+    "segment-solder-mask-margin"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "user-layer-types",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "d1d00d550dcd31b070b01d2bdfe0a2f37aa48d8a83f759e507c61b78ed96bd8f",
+   "rows": [
+    "layers-user-back",
+    "layers-user-front"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "variants",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "25ac2a77b220aa5bf0b9d6d00c045efa8a670d7f39d17a9625d2fde8d9041565",
+   "rows": [
+    "variants"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-back-post-machining",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "92a0d27efd97a5b37fafcaec7daf9a5d1751eab372f58fe0a575bf63537aa146",
+   "rows": [
+    "via-back-post-machining"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-backdrill",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "5f6a3f03b30253ea8f009cbe51ca0f4aebfeaaaafd364c9254642d02bff50c77",
+   "rows": [
+    "via-backdrill"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-buried",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "0e3ac81989ea62b1c65b477abbec30c28fe61154df0140377bcc31e84e8d07ba",
+   "rows": [
+    "via-buried"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-capping",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "f0a4e46b8442b09c8df3dacde2c418374b3437a8b58a0904c4b1d66acf233921",
+   "rows": [
+    "capping"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-covering",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "2d69e409d2684a6d8465b0b147451b165cf2d821894cbf6c03e10ccfef9c94fc",
+   "rows": [
+    "covering"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-filling",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "82a7dd91eb0cd89a8020f2fba8214a44bf2870b1df12ceb095054fcd9e59fb5d",
+   "rows": [
+    "filling"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-front-post-machining",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "947b8e7270de6c2d154c949f7b3bae431489988da05fa307b70ff4d6f56eeb3f",
+   "rows": [
+    "via-front-post-machining"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-padstack",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "06e780e919cdb8932ef33455c66f1f11f165ad9ba3fca94671e2ad23af06a848",
+   "rows": [
+    "pad-padstack-layer",
+    "pad-padstack-mode",
+    "via-padstack"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "via-plugging",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "0eebd5ddb1a058f91cf564ba7800564d1546e1abda2b70d0b5fb36e745aa198c",
+   "rows": [
+    "plugging"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "via-tertiary-drill",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "86e292b3b32c2d8f2a1cbaf4529813690d7ef49865d63d16f388b65575660a3e",
+   "rows": [
+    "via-tertiary-drill"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "wks-bitmap",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "53c79781cdae95b7a4e8fa1f4eafe3caabdf667074632fa28916b8dc24be4847",
+   "rows": [
+    "wks-bitmap",
+    "wks-data",
+    "wks-name",
+    "wks-pngdata",
+    "wks-pos",
+    "wks-scale"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-font-face-color",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "aee40e246965a17a8c9494e558e7b095478bdc6f73295d29b8b7bc79e1b26da5",
+   "rows": [
+    "wks-color",
+    "wks-face",
+    "wks-font",
+    "wks-name",
+    "wks-pos",
+    "wks-size",
+    "wks-tbtext"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-future",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "34ac18dd6696083e37e23fb467fbb41a37c784c16c6feab6092fcc21052687db",
+   "rows": [
+    "wks-version"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "KiCad was unable to open this file because it was created with a more recent version than the one you are running."
+  },
+  {
+   "example": "wks-generator-version",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "972dd72f0bf71f748fc3ddde0c8c8424cba693530aeb272acfde5065e22ba1a8",
+   "rows": [
+    "wks-generator-version"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-polygon",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "eb0fb2ac0217ca5a4e5bead5e90f701e5875ee39ee14b1042c93ae177d98221e",
+   "rows": [
+    "wks-linewidth",
+    "wks-name",
+    "wks-polygon",
+    "wks-pos",
+    "wks-pts",
+    "wks-rotate",
+    "wks-xy"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-root-drawing-sheet",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "57cf65ac92315d64ebfaad3dbf3f9de84e6908956420ba1d30c4734f19df3011",
+   "rows": [
+    "wks-bottom-margin",
+    "wks-end",
+    "wks-generator",
+    "wks-left-margin",
+    "wks-linewidth",
+    "wks-name",
+    "wks-rect",
+    "wks-right-margin",
+    "wks-root-drawing-sheet",
+    "wks-setup",
+    "wks-start",
+    "wks-textlinewidth",
+    "wks-textsize",
+    "wks-top-margin",
+    "wks-version"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-root-page-layout",
+   "kind": "kicad_wks",
+   "header_version": 0,
+   "example_sha256": "da57ac728659b2c6716226e61e18fca5a7f7bdacbc87a370895ef35b4a1ab5cb",
+   "rows": [
+    "wks-bottom-margin",
+    "wks-end",
+    "wks-left-margin",
+    "wks-linewidth",
+    "wks-name",
+    "wks-rect",
+    "wks-right-margin",
+    "wks-root-page-layout",
+    "wks-setup",
+    "wks-start",
+    "wks-textlinewidth",
+    "wks-textsize",
+    "wks-top-margin"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotted to 'out.svg'."
+  },
+  {
+   "example": "wks-unknown",
+   "kind": "kicad_wks",
+   "header_version": 20231118,
+   "example_sha256": "bf0ac294b75034d38b1bd57770428deecd9b943cffea19ee0e48cd7488fe5cbf",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 0,
+   "detail": "Unexpected 'fenolite_frobnicate' in '<tmp>/case.kicad_wks', line 51, offset 3."
+  },
+  {
+   "example": "zone-defaults",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "3e29ade611afae6e6b693e9ed5e34c050b8a85c46abc83558e1a07770a334122",
+   "rows": [
+    "setup-zone-defaults"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  },
+  {
+   "example": "zone-hatch-position",
+   "kind": "kicad_pcb",
+   "header_version": 20241229,
+   "example_sha256": "dbcafcccdcae91685385f5b5b3eb655e0b3e25edf7c887059a5814a2a9eaf642",
+   "rows": [
+    "hatch-position",
+    "zone-net-name"
+   ],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load board"
+  }
+ ]
+}

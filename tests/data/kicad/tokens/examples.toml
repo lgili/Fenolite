@@ -1,0 +1,679 @@
+# Token fuzz examples (openspec change c0007, capability kicad-token-inventory). Authored for Fenolite,
+# CC0-1.0, ASCII only. Each example is inserted into the skeleton of its kind (host + mode + fragment)
+# or is a whole file; tools/kicad_token_fuzz.py derives the header and the expected outcome from the
+# inventory. Controls carry an explicit expect per major.
+
+# ------------------------------------------------------------------------------------- controls
+
+[[example]]
+id = "positive-baseline"
+kinds = ["kicad_pcb", "kicad_mod", "kicad_wks", "kicad_dru"]
+expect = { "9" = "load", "10" = "load" }
+note = "the skeleton alone (for rules, the canary alone); run once per header used"
+
+[[example]]
+id = "negative-unknown-top"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-setup"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/setup"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-segment"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/segment"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-footprint"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-pad"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-fp-pad"
+kinds = ["kicad_mod"]
+host = "footprint/pad"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "lenient-general"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/general"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "load", "10" = "load" }
+
+[[example]]
+id = "future-header"
+kinds = ["kicad_pcb"]
+file = "future.kicad_pcb"
+header = 20990101
+note = "a board without nets; observed: 10.0.6 refuses any header newer than its own (exit 3)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "dev-header-9"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = ""
+header = 20241030
+expect = { "9" = "load", "10" = "load" }
+
+[[example]]
+id = "wks-future"
+kinds = ["kicad_wks"]
+host = "kicad_wks/version"
+mode = "replace"
+fragment = "(version 20231119)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "wks-unknown"
+kinds = ["kicad_wks"]
+host = "kicad_wks"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "rules-canary-invented"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule fenolite_invented (constraint fenolite_frobnication (min 1mm)))"
+expect = { "9" = "reject", "10" = "reject" }
+
+# ---------------------------------------------------------------------- board/footprint, KiCad 9.0
+
+[[example]]
+id = "table"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """
+(table (column_count 2) (layer "F.SilkS")
+  (border (external yes) (header yes) (stroke (width 0.1) (type solid)))
+  (separators (rows yes) (cols yes) (stroke (width 0.1) (type solid)))
+  (column_widths 5 5) (row_heights 3)
+  (cells
+    (table_cell "a" (start 50 50) (end 55 53) (margins 0.5 0.5 0.5 0.5) (span 1 1) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))
+    (table_cell "b" (start 55 50) (end 60 53) (margins 0.5 0.5 0.5 0.5) (span 1 1) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))))
+"""
+
+[[example]]
+id = "text-box-margins"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_text_box "t" (start 1 25) (end 9 28) (margins 0.5 0.5 0.5 0.5) (layer "F.SilkS")
+  (effects (font (size 1 1) (thickness 0.15))))"""
+
+[[example]]
+id = "tenting-9"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/setup"
+mode = "append"
+fragment = "(tenting front back)"
+
+[[example]]
+id = "user-layer-types"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/layers"
+mode = "append"
+fragment = """(39 "User.1" front) (41 "User.2" back)"""
+
+[[example]]
+id = "embedded-fonts"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = "(embedded_fonts no)"
+
+[[example]]
+id = "embedded-fonts-footprint"
+kinds = ["kicad_mod"]
+host = "footprint"
+mode = "append"
+fragment = "(embedded_fonts no)"
+
+[[example]]
+id = "embedded-files"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = "(embedded_files)"
+
+[[example]]
+id = "component-classes"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = """(component_classes (class "Power"))"""
+
+[[example]]
+id = "pad-padstack-front-inner-back"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = """(padstack (mode front_inner_back) (layer "Inner" (shape circle) (size 1.2 1.2)) (layer "B.Cu" (shape circle) (size 1.5 1.5)))"""
+
+[[example]]
+id = "pad-padstack-custom"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = """(padstack (mode custom) (layer "In1.Cu" (shape circle) (size 1.2 1.2)))"""
+
+[[example]]
+id = "via-padstack"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = """(padstack (mode front_inner_back) (layer "Inner" (size 0.5)) (layer "B.Cu" (size 0.6)))"""
+
+[[example]]
+id = "track-soldermask"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/segment"
+mode = "append"
+fragment = "(solder_mask_margin 0.1)"
+
+[[example]]
+id = "graphic-soldermask"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_rect (start 1 1) (end 4 3) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.Cu") (solder_mask_margin 0.1))"""
+
+[[example]]
+id = "placement-rule-area"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(zone (net 0) (net_name "") (layer "F.Cu") (hatch edge 0.5) (connect_pads (clearance 0)) (min_thickness 0.25)
+  (filled_areas_thickness no)
+  (keepout (tracks allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints allowed))
+  (placement (enabled yes) (sheetname ""))
+  (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
+  (polygon (pts (xy 30 20) (xy 38 20) (xy 38 28) (xy 30 28))))"""
+
+[[example]]
+id = "dimension-style"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(dimension (type aligned) (layer "F.SilkS") (pts (xy 2 26) (xy 12 26)) (height 2)
+  (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))
+  (style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)
+    (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))
+  (gr_text "10.0000 mm" (at 7 22 0) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15)))))"""
+
+[[example]]
+id = "graphic-fill-board"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """
+(gr_rect (start 1 1) (end 3 3) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.SilkS"))
+(gr_rect (start 4 1) (end 6 3) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS"))
+(gr_circle (center 2 6) (end 3 6) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.SilkS"))
+(gr_circle (center 5 6) (end 6 6) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS"))
+(gr_poly (pts (xy 1 8) (xy 3 8) (xy 2 10)) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.SilkS"))
+(gr_poly (pts (xy 4 8) (xy 6 8) (xy 5 10)) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS"))
+"""
+
+[[example]]
+id = "graphic-fill-footprint"
+kinds = ["kicad_mod"]
+host = "footprint"
+mode = "append"
+fragment = """
+(fp_rect (start -1 -4) (end 1 -3) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.Fab"))
+(fp_rect (start -1 3) (end 1 4) (stroke (width 0.1) (type solid)) (fill no) (layer "F.Fab"))
+(fp_circle (center 3 0) (end 3.5 0) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.Fab"))
+(fp_circle (center -3 0) (end -2.5 0) (stroke (width 0.1) (type solid)) (fill no) (layer "F.Fab"))
+(fp_poly (pts (xy 0 5) (xy 1 5) (xy 0.5 6)) (stroke (width 0.1) (type solid)) (fill yes) (layer "F.Fab"))
+(fp_poly (pts (xy 0 -5) (xy 1 -5) (xy 0.5 -6)) (stroke (width 0.1) (type solid)) (fill no) (layer "F.Fab"))
+"""
+
+[[example]]
+id = "teardrop-curved-edges"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = """(teardrops (best_length_ratio 0.5) (max_length 1) (best_width_ratio 1) (max_width 2) (curved_edges no)
+  (filter_ratio 0.9) (enabled yes) (allow_two_segments yes) (prefer_zone_connections yes))"""
+
+[[example]]
+id = "pad-property-mechanical"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = "(property pad_prop_mechanical)"
+
+# --------------------------------------------------------------------- board/footprint, KiCad 10.0
+
+[[example]]
+id = "textbox-knockout"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_text_box "t" (start 1 25) (end 9 28) (margins 0.5 0.5 0.5 0.5) (layer "F.SilkS") (knockout yes)
+  (effects (font (size 1 1) (thickness 0.15))))"""
+
+[[example]]
+id = "fill-hatch"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_rect (start 1 1) (end 4 3) (stroke (width 0.1) (type solid)) (fill hatch) (layer "F.SilkS"))"""
+
+[[example]]
+id = "fill-reverse-hatch"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_rect (start 1 1) (end 4 3) (stroke (width 0.1) (type solid)) (fill reverse_hatch) (layer "F.SilkS"))"""
+
+[[example]]
+id = "fill-cross-hatch"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_rect (start 1 1) (end 4 3) (stroke (width 0.1) (type solid)) (fill cross_hatch) (layer "F.SilkS"))"""
+
+[[example]]
+id = "tenting-front"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/setup"
+mode = "append"
+fragment = "(tenting (front yes))"
+
+[[example]]
+id = "tenting-back"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/setup"
+mode = "append"
+fragment = "(tenting (back yes))"
+
+[[example]]
+id = "pad-tenting"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = "(tenting front back)"
+
+[[example]]
+id = "via-covering"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(covering (front no) (back no))"
+
+[[example]]
+id = "via-plugging"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(plugging (front no) (back no))"
+
+[[example]]
+id = "via-capping"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(capping no)"
+
+[[example]]
+id = "via-filling"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(filling no)"
+
+[[example]]
+id = "zone-hatch-position"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(zone (net 0) (net_name "") (layer "F.SilkS") (hatch edge 0.5) (min_thickness 0.25)
+  (property (hatch_position (xy 0 0)))
+  (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
+  (polygon (pts (xy 30 20) (xy 38 20) (xy 38 28) (xy 30 28))))"""
+
+[[example]]
+id = "jumper-pad-groups"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = """(jumper_pad_groups ("1" "2"))"""
+
+[[example]]
+id = "duplicate-pad-numbers-are-jumpers"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = "(duplicate_pad_numbers_are_jumpers no)"
+
+[[example]]
+id = "duplicate-pad-numbers-are-jumpers-fp"
+kinds = ["kicad_mod"]
+host = "footprint"
+mode = "append"
+fragment = "(duplicate_pad_numbers_are_jumpers no)"
+
+[[example]]
+id = "pad-die-delay"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = "(die_delay 0.01)"
+
+[[example]]
+id = "group-lib-id"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(group "g" (lib_id "fenolite:block") (members "6f1d2c3e-0000-4000-8000-000000000007"))"""
+
+[[example]]
+id = "island-yes"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/zone"
+mode = "append"
+fragment = """(filled_polygon (layer "B.Cu") (island yes) (pts (xy 25 5) (xy 35 5) (xy 35 15) (xy 25 15)))"""
+
+[[example]]
+id = "island-no"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/zone"
+mode = "append"
+fragment = """(filled_polygon (layer "B.Cu") (island no) (pts (xy 25 5) (xy 35 5) (xy 35 15) (xy 25 15)))"""
+
+[[example]]
+id = "pad-property-pressfit"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint/pad"
+mode = "append"
+fragment = "(property pad_prop_pressfit)"
+
+[[example]]
+id = "rounded-rectangle"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(gr_rect (start 1 1) (end 4 3) (radius 0.5) (stroke (width 0.1) (type solid)) (fill no) (layer "F.SilkS"))"""
+
+[[example]]
+id = "footprint-point"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = """(point (at 0 1) (size 0.5) (layer "F.Fab"))"""
+
+[[example]]
+id = "table-uuid"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """
+(table (column_count 1) (uuid "6f1d2c3e-0000-4000-8000-000000000601") (layer "F.SilkS")
+  (border (external yes) (header no) (stroke (width 0.1) (type solid)))
+  (separators (rows yes) (cols yes) (stroke (width 0.1) (type solid)))
+  (column_widths 5) (row_heights 3)
+  (cells
+    (table_cell "a" (start 50 50) (end 55 53) (margins 0.5 0.5 0.5 0.5) (span 1 1) (layer "F.SilkS")
+      (effects (font (size 1 1) (thickness 0.15))))))
+"""
+
+[[example]]
+id = "footprint-units"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = """(units (unit (name "A") (pins "1" "2")))"""
+
+[[example]]
+id = "barcode"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(barcode (at 30 25 0) (layer "F.SilkS") (size 3 3) (text "FENOLITE") (text_height 1) (type qr) (ecc_level M) (hide no) (knockout no))"""
+
+[[example]]
+id = "via-buried"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(via buried (at 22 22) (size 0.6) (drill 0.3) (layers "In1.Cu" "In2.Cu") (net 1))"""
+
+[[example]]
+id = "via-backdrill"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = """(backdrill (size 0.5) (layers "B.Cu" "In2.Cu"))"""
+
+[[example]]
+id = "via-tertiary-drill"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = """(tertiary_drill (size 0.5) (layers "F.Cu" "In1.Cu"))"""
+
+[[example]]
+id = "via-front-post-machining"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(front_post_machining counterbore (size 1) (depth 0.2))"
+
+[[example]]
+id = "via-back-post-machining"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/via"
+mode = "append"
+fragment = "(back_post_machining countersink (size 1) (angle 90))"
+
+[[example]]
+id = "variants"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(variants (variant (name "V1") (description "first")))"""
+
+[[example]]
+id = "footprint-variant"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/footprint"
+mode = "append"
+fragment = """(variant (name "V1") (dnp yes) (field (name "Value") (value "1k")))"""
+
+[[example]]
+id = "zone-defaults"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb/setup"
+mode = "append"
+fragment = "(zone_defaults)"
+
+[[example]]
+id = "net-by-name"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(segment (start 5 25) (end 15 25) (width 0.25) (layer "F.Cu") (net "A"))"""
+exercises = ["net-by-name"]
+
+# --------------------------------------------------------------------------------- obsolete rows
+
+[[example]]
+id = "obsolete-zone"
+kinds = ["kicad_pcb"]
+host = "kicad_pcb"
+mode = "append"
+fragment = """(zone (net 1) (net_name "A") (layer "F.Cu") (hatch edge 0.5) (connect_pads (clearance 0.5)) (min_thickness 0.25)
+  (filled_areas_thickness no)
+  (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
+  (polygon (pts (xy 30 20) (xy 38 20) (xy 38 28) (xy 30 28))))"""
+
+# ------------------------------------------------------------------------------------- worksheet
+
+[[example]]
+id = "wks-generator-version"
+kinds = ["kicad_wks"]
+host = "kicad_wks"
+mode = "append"
+fragment = """(generator_version "10.0")"""
+
+[[example]]
+id = "wks-font-face-color"
+kinds = ["kicad_wks"]
+host = "kicad_wks"
+mode = "append"
+fragment = """(tbtext "x" (name "") (pos 30 30) (font (face "KiCad Font") (size 1.5 1.5) (color 0 0 0 1)))"""
+
+[[example]]
+id = "wks-polygon"
+kinds = ["kicad_wks"]
+host = "kicad_wks"
+mode = "append"
+fragment = """(polygon (name "") (pos 100 100) (rotate 0) (linewidth 0.15) (pts (xy 0 0) (xy 5 0) (xy 5 5)))"""
+
+[[example]]
+id = "wks-bitmap"
+kinds = ["kicad_wks"]
+host = "kicad_wks"
+mode = "append"
+fragment = """(bitmap (name "") (pos 50 50) (scale 1)
+  (pngdata (data "89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52 00 00 00 01 00 00 00 01 08 00 00 00 00 3A 7E 9B 55 00 00 00 0A 49 44 41 54 78 9C 63 60 00 00 00 02 00 01 48 AF A4 71 00 00 00 00 49 45 4E 44 AE 42 60 82")))"""
+
+[[example]]
+id = "wks-root-page-layout"
+kinds = ["kicad_wks"]
+file = "page_layout.kicad_wks"
+
+[[example]]
+id = "wks-root-drawing-sheet"
+kinds = ["kicad_wks"]
+file = "drawing_sheet.kicad_wks"
+
+# ----------------------------------------------------------------------------------------- rules
+
+[[example]]
+id = "rules-floor-basic"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = """(rule floor_basic (layer outer) (severity warning) (condition "A.NetName == 'A'")
+  (constraint track_width (min 0.1mm) (opt 0.2mm) (max 5mm)))"""
+
+[[example]]
+id = "rules-floor-types"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = """
+(rule t1 (constraint annular_width (min 0.1mm)))
+(rule t2 (constraint hole_clearance (min 0.1mm)))
+(rule t3 (constraint hole_size (min 0.1mm) (max 6mm)))
+(rule t4 (constraint hole_to_hole (min 0.1mm)))
+(rule t5 (constraint edge_clearance (min 0.1mm)))
+(rule t6 (constraint courtyard_clearance (min 0mm)))
+(rule t7 (constraint silk_clearance (min 0mm)))
+(rule t8 (constraint via_diameter (min 0.3mm)))
+(rule t9 (constraint text_height (min 0.5mm)))
+(rule t10 (constraint text_thickness (min 0.05mm)))
+(rule t11 (constraint physical_clearance (min 0mm)))
+(rule t12 (constraint physical_hole_clearance (min 0mm)))
+(rule t13 (constraint connection_width (min 0.1mm)))
+(rule t14 (constraint thermal_relief_gap (min 0.1mm)))
+(rule t15 (constraint thermal_spoke_width (min 0.1mm)))
+(rule t16 (constraint min_resolved_spokes 2))
+(rule t17 (constraint zone_connection solid))
+(rule t18 (constraint length (min 1mm) (max 500mm)))
+(rule t19 (constraint skew (max 10mm) (within_diff_pairs)))
+(rule t20 (constraint diff_pair_gap (min 0.1mm) (max 1mm)))
+(rule t21 (constraint diff_pair_uncoupled (max 5mm)))
+(rule t22 (constraint via_count (max 100)))
+(rule t23 (constraint track_angle (min 1)))
+(rule t24 (constraint track_segment_length (min 0.01mm)))
+(rule t25 (constraint creepage (min 0.1mm)))
+(rule t26 (constraint assertion "A.NetName != ''"))
+(rule t27 (constraint disallow track via micro_via buried_via pad zone text graphic hole footprint) (condition "A.NetName == 'fenolite_none'"))
+"""
+
+[[example]]
+id = "rules-bridged-mask"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule drift (constraint bridged_mask))"
+
+[[example]]
+id = "rules-solder-mask-expansion"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule drift (constraint solder_mask_expansion (opt 0.05mm)))"
+
+[[example]]
+id = "rules-solder-paste-abs-margin"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule drift (constraint solder_paste_abs_margin (opt 0mm)))"
+
+[[example]]
+id = "rules-solder-paste-rel-margin"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule drift (constraint solder_paste_rel_margin (opt 0mm)))"
+
+[[example]]
+id = "rules-via-dangling"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = "(rule drift (constraint via_dangling))"
+
+[[example]]
+id = "rules-disallow-through-via"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = """(rule drift (constraint disallow through_via) (condition "A.NetName == 'fenolite_none'"))"""
+
+[[example]]
+id = "rules-disallow-blind-via"
+kinds = ["kicad_dru"]
+host = "kicad_dru"
+mode = "append"
+fragment = """(rule drift (constraint disallow blind_via) (condition "A.NetName == 'fenolite_none'"))"""

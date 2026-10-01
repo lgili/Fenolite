@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from _corpus import CorpusItem, manifest_items, require
-from _kicad import loads, major, run
+from _kicad import loads, run
 
 from fenolite.backends.kicad import Atom, AtomKind, Node, dumps, first_difference, load, tree_equal, walk
 
@@ -49,10 +49,9 @@ def test_redump_loads(item: CorpusItem, tmp_path: Path) -> None:
     assert loads(redump), f"{item.id}: the re-dumped board does not load"
 
 
+@pytest.mark.kicad_min_major(10)
 @pytest.mark.parametrize("item", BOARDS, ids=lambda i: i.id)
 def test_resave_equal(item: CorpusItem, tmp_path: Path) -> None:
-    if major() != 10:
-        pytest.skip("pcb upgrade exists only in the 10.0 CLI")
     path = require(item)
     first = _mask(_upgraded(path, tmp_path / "a.kicad_pcb"))
     second = _mask(_upgraded(path, tmp_path / "b.kicad_pcb"))
@@ -88,6 +87,7 @@ def _census(ident: str, root: Node) -> None:
                     OVER_PRECISE.append(f"{ident} {locator} {atom.text}")
 
 
+@pytest.mark.kicad_min_major(10)
 def test_number_census_upgraded() -> None:
     """H-K-SEXPR-NUM-WRITE-2: files written by kicad-cli 10.0.x have no exponent, and numbers with more
     than 6 decimals only where the value is not a length (H-K-SEXPR-NUM-WRITE as stated is refuted)."""

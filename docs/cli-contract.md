@@ -49,6 +49,18 @@ Whenever the exit code is not 0, stderr carries exactly one error object
 | 6 | external tool missing or incompatible | `FEN-6xxx` |
 | 7 | operation not representable without loss | `FEN-7xxx` |
 
+Errors raised by the library inside a command keep a registered code: a Fenolite exception whose class
+has a `cli_code` becomes that code, a plain `FormatError` becomes `FEN-3004`, and any other exception is
+`FEN-1001`. For a `FormatError` the message is the bare message and `where` is `file:locator:@offset`;
+an exception's own `hint` replaces the registry hint.
+
+| Code | Meaning | Raised by |
+|---|---|---|
+| `FEN-3002` | input uses a newer format version than supported | `FutureFormatError` (editing a future file) |
+| `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
+| `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …) |
+| `FEN-7002` | target format version older than the input; downgrade is not supported | `DowngradeRefusedError` |
+
 ## Writing files
 
 Commands that write are **mutating**. They never write unless asked:

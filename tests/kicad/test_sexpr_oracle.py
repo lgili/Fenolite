@@ -16,6 +16,7 @@ import pytest
 from _kicad import major, run, run_raw
 
 from fenolite.backends.kicad import Atom, Node, dumps, load, parse
+from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 from fenolite.core.errors import FormatError
 
 pytestmark = pytest.mark.needs_kicad
@@ -33,7 +34,9 @@ def test_fixture_outcomes(row: dict[str, Any], tmp_path: Path) -> None:
     if key not in row:
         pytest.skip(f"{row['file']}: no {key} recorded")
     board = tmp_path / Path(str(row["file"])).name
-    shutil.copy(FIXTURES / str(row["file"]), board)
+    # Fixtures are 10.0 files; on another major the header becomes that major's own board constant.
+    header = f"(version {FORMAT_VERSIONS[FileKind.BOARD][major()]})".encode()
+    board.write_bytes((FIXTURES / str(row["file"])).read_bytes().replace(b"(version 20260206)", header))
     svg = board.with_suffix(".svg")
     result = run_raw("pcb", "export", "svg", "-l", "Edge.Cuts", "--mode-single", "-o", svg, board)
     assert result.returncode == row[key], (
@@ -48,14 +51,13 @@ def _texts(root: Node) -> list[str]:
 
 
 def _upgrade(board: Path) -> Node:
-    """``pcb upgrade --force`` in place (10.x only), then parse the re-saved file."""
-    if major() != 10:
-        pytest.skip("pcb upgrade exists only in the 10.0 CLI")
+    """``pcb upgrade --force`` in place (10.x only, see the markers), then parse the re-saved file."""
     load(board)  # never upgrade a file that does not parse: the CLI stops on a raw newline
     run("pcb", "upgrade", "--force", board)
     return load(board)
 
 
+@pytest.mark.kicad_min_major(10)
 def test_escapes_after_upgrade(tmp_path: Path) -> None:
     board = tmp_path / "escapes.kicad_pcb"
     shutil.copy(FIXTURES / "escapes.kicad_pcb", board)
@@ -64,6 +66,7 @@ def test_escapes_after_upgrade(tmp_path: Path) -> None:
     assert _texts(_upgrade(board)) == expected
 
 
+@pytest.mark.kicad_min_major(10)
 def test_encoder_after_upgrade(tmp_path: Path) -> None:
     base = load(FIXTURES / "minimal.kicad_pcb")
     texts = [

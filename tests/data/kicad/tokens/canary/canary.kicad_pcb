@@ -1,0 +1,47 @@
+(kicad_pcb
+	(version 20241229)
+	(generator "fenolite")
+	(generator_version "9.0")
+	(general
+		(thickness 1.6)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(25 "Edge.Cuts" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(net 0 "")
+	(net 1 "A")
+	(net 2 "B")
+	(gr_rect
+		(start 0 0)
+		(end 30 20)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(fill none)
+		(layer "Edge.Cuts")
+		(uuid "6f1d2c3e-0000-4000-8000-000000000201")
+	)
+	(segment
+		(start 5 10)
+		(end 25 10)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "6f1d2c3e-0000-4000-8000-000000000202")
+	)
+	(segment
+		(start 5 11)
+		(end 25 11)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 2)
+		(uuid "6f1d2c3e-0000-4000-8000-000000000203")
+	)
+)

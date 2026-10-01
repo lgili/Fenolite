@@ -43,6 +43,11 @@ def _corpus_tree(path: Path) -> Node:
     return load(path)
 
 
+@cache
+def _corpus_identifiers(path: Path) -> frozenset[str]:
+    return frozenset(identifiers(_corpus_tree(path)))
+
+
 def derived_reports(candidates: Iterable[Path], corpus: list[CorpusItem]) -> list[str]:
     reports: list[str] = []
     for path in candidates:
@@ -52,9 +57,8 @@ def derived_reports(candidates: Iterable[Path], corpus: list[CorpusItem]) -> lis
             continue
         mine = identifiers(tree)
         for item in corpus:
-            other = _corpus_tree(item.path)
-            shared = len(mine & identifiers(other))
-            if tree_equal(tree, other) or shared >= 3:
+            shared = len(mine & _corpus_identifiers(item.path))
+            if shared >= 3 or tree_equal(tree, _corpus_tree(item.path)):
                 reports.append(f"{path}: derived from corpus item {item.id} ({shared} shared identifiers)")
     return reports
 
@@ -100,6 +104,7 @@ def test_partial_copy_detected(tmp_path: Path) -> None:
 
 
 @pytest.mark.needs_kicad
+@pytest.mark.kicad_min_major(10)
 def test_upgraded_copy_detected(tmp_path: Path) -> None:
     from _kicad import run
 

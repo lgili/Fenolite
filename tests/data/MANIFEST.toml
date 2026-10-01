@@ -146,3 +146,73 @@ corpus_id = ""
 path = "tests/data/kicad/sexpr/EXPECT.toml"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_mod"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_wks"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/page_layout.kicad_wks"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/drawing_sheet.kicad_wks"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/canary/canary.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/canary/canary.kicad_pro"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/canary/canary.kicad_dru"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/old/old.kicad_mod"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/old/old.kicad_sym"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/old/old.kicad_sch"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/old/old.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/future.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/tokens/examples.toml"
+origin = "authored"
+corpus_id = ""

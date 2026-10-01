@@ -42,6 +42,13 @@ _SPECS = (
         "FEN-3002", ExitCode.INPUT, "input uses a newer format version than supported", "upgrade fenolite"
     ),
     ErrorSpec(
+        "FEN-3003",
+        ExitCode.INPUT,
+        "input format version older than the oldest supported",
+        "upgrade the file with the kicad-cli command for its kind",
+    ),
+    ErrorSpec("FEN-3004", ExitCode.INPUT, "malformed input file", "the message and where locate the problem"),
+    ErrorSpec(
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",
@@ -68,6 +75,12 @@ _SPECS = (
         ExitCode.LOSSY,
         "operation would lose information",
         "re-run with --allow-lossy to accept the loss",
+    ),
+    ErrorSpec(
+        "FEN-7002",
+        ExitCode.LOSSY,
+        "target format version older than the input; downgrade is not supported",
+        "choose a target at least as new as the input",
     ),
 )
 
@@ -117,4 +130,27 @@ class CliError(Exception):
         )
 
 
-__all__ = ["ERROR_CODE", "REGISTRY", "CliError", "ErrorInfo", "ErrorSpec"]
+def from_exception(exc: Exception, where: str) -> CliError:
+    """The CLI error for an exception raised inside a command (library errors keep their codes)."""
+    from fenolite.core.errors import FenoliteError, FormatError
+
+    code = getattr(type(exc), "cli_code", None)
+    if isinstance(exc, FenoliteError) and isinstance(code, str) and code in REGISTRY:
+        chosen = code
+    elif isinstance(exc, FormatError):
+        chosen = "FEN-3004"
+    else:
+        return CliError("FEN-1001", f"{type(exc).__name__}: {exc}", where=where)
+    if isinstance(exc, FormatError):
+        message = exc.message
+        offset = "" if exc.offset is None else f"@{exc.offset}"
+        location = ":".join(part for part in (exc.file, exc.locator, offset) if part)
+    else:
+        message, location = str(exc), ""
+    hint = getattr(exc, "hint", "")
+    return CliError(
+        chosen, message, hint=hint if isinstance(hint, str) and hint else None, where=location or where
+    )
+
+
+__all__ = ["ERROR_CODE", "REGISTRY", "CliError", "ErrorInfo", "ErrorSpec", "from_exception"]

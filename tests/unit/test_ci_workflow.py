@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The kicad-10 oracle job, checked textually (capability ci-baseline; the dev extra has no YAML parser)."""
+"""The kicad-10 and kicad-9 oracle jobs, checked textually (capability ci-baseline; the dev extra has no YAML
+parser)."""
 
 from __future__ import annotations
 
@@ -78,3 +79,56 @@ def test_steps_out_of_order() -> None:
 
 def test_unit_job_untouched() -> None:
     assert "run: uv run pytest -q" in job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")
+
+
+KICAD9_STEPS = [
+    ("kicad-cli version", "run: kicad-cli version"),
+    ("uv sync", "run: uv sync --locked --extra dev"),
+    ("pytest", "run: uv run pytest tests/kicad -q"),
+]
+
+
+def kicad9_problems(workflow: str) -> list[str]:
+    job = job_text(workflow, "kicad-9")
+    if not job:
+        return ["kicad-9: job missing"]
+    problems: list[str] = []
+    if not re.search(r"image: kicad/kicad:9\.0\.9@sha256:[0-9a-f]{64}\s*$", job, re.MULTILINE):
+        problems.append("kicad-9: image must be kicad/kicad:9.0.9 pinned by @sha256 index digest")
+    if not re.search(r"^\s+options: --user 0\s*$", job, re.MULTILINE):
+        problems.append("kicad-9: container options must be --user 0")
+    positions = [(name, job.find(marker)) for name, marker in KICAD9_STEPS]
+    problems += [f"kicad-9: step {name!r} missing" for name, at in positions if at < 0]
+    present = [(n, p) for n, p in positions if p >= 0]
+    for (first, p1), (second, p2) in zip(present, present[1:], strict=False):
+        if p2 < p1:
+            problems.append(f"kicad-9: step {second!r} must come after {first!r}")
+    if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
+        problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
+    if "corpus_fetch" in job or "actions/cache" in job:
+        problems.append("kicad-9: must not fetch the corpus")
+    return problems
+
+
+def test_kicad_9_job() -> None:
+    problems = kicad9_problems(WORKFLOW.read_text(encoding="utf-8"))
+    assert not problems, "\n".join(problems)
+
+
+def test_both_kicad_jobs_run_tests_kicad() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    for job in ("kicad-9", "kicad-10"):
+        assert re.search(r"run: uv run pytest tests/kicad\b", job_text(text, job)), job
+
+
+def test_every_kicad_image_is_pinned() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    references = re.findall(r"kicad/kicad:\S+", text)
+    assert references and all(re.fullmatch(r"kicad/kicad:[0-9.]+@sha256:[0-9a-f]{64}", r) for r in references)
+
+
+def test_unpinned_kicad_9_rejected() -> None:
+    text = re.sub(
+        r"kicad/kicad:9\.0\.9@sha256:[0-9a-f]{64}", "kicad/kicad:9.0", WORKFLOW.read_text(encoding="utf-8")
+    )
+    assert any(p.startswith("kicad-9: image") for p in kicad9_problems(text))

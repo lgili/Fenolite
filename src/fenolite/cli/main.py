@@ -16,7 +16,7 @@ from typing import NoReturn, TextIO
 
 from fenolite import __version__
 from fenolite.cli.api import Command, Context, Result, discover
-from fenolite.cli.errors import CliError, ErrorInfo
+from fenolite.cli.errors import CliError, ErrorInfo, from_exception
 from fenolite.cli.exitcodes import ExitCode
 from fenolite.cli.output import (
     Envelope,
@@ -135,12 +135,11 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         _emit(_envelope(command, Result(), {}, ok=False, receipt=None, started=started), ctx.mode, out)
         write_error(exc.info(), ctx.mode, err)
         return int(exc.exit_code)
-    except Exception as exc:  # any bug inside a command becomes exit 1 with FEN-1001
+    except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
         _emit(_envelope(command, Result(), {}, ok=False, receipt=None, started=started), ctx.mode, out)
-        write_error(
-            CliError("FEN-1001", f"{type(exc).__name__}: {exc}", where=command.name).info(), ctx.mode, err
-        )
-        return int(ExitCode.INTERNAL)
+        failure = from_exception(exc, command.name)
+        write_error(failure.info(), ctx.mode, err)
+        return int(failure.exit_code)
 
     try:
         result = project_fields(outcome.result, fields) if fields else dict(outcome.result)

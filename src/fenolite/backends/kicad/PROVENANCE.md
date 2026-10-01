@@ -17,3 +17,11 @@ written from the pages under `docs/formats/kicad/`.
 | Docker image (`kicad/kicad`) | S-0029 | GPL-3.0-or-later (OCI label) | 2026-10-01 | oracle |
 | rotation direction and bottom-side placement (geometry, c0005) | S-0010, S-0019 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 | 2026-10-01 | oracle |
 | three-point arcs, their written direction and arcs inside `pts` (geometry, c0005) | S-0001, S-0018 | not stated on the page; CC-BY-SA-4.0 with the library exception | 2026-10-01 | oracle |
+| format version constants (c0007) | S-0030, S-0031, S-0032, S-0010, S-0038 | GPL-3.0-or-later (facts only); GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | facts only |
+| token names per tag (c0007) | S-0033, S-0034, S-0036 | GPL-3.0-or-later (single names only, never converted into data) | 2026-10-01 | facts only |
+| worksheet vocabulary (c0007) | S-0035, S-0036 | not stated on the page; GPL-3.0-or-later (single names only) | 2026-10-01 | facts only |
+| board documentation (c0007) | S-0001, S-0021 | not stated on the page | 2026-10-01 | facts only |
+| custom rules syntax (c0007) | S-0010, S-0038 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | facts only |
+| token placement (c0007) | S-0039 | GPL-3.0-or-later (KiCad-written files, facts only) | 2026-10-01 | facts only |
+| CLI commands per major (c0007) | S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | oracle |
+| load behaviour of `kicad-cli` 9.0.9 and 10.0.6 (c0007) | S-0020, S-0029 | GPL-3.0-or-later tool and image, run as subprocesses | 2026-10-01 | oracle |

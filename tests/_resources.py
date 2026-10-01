@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
+import subprocess
+from functools import cache
 from pathlib import Path
 
 MACOS_KICAD = Path("/Applications/KiCad/KiCad.app/Contents")
@@ -40,3 +43,21 @@ def kicad_cli() -> str | None:
     found = shutil.which("kicad-cli")
     bundled = MACOS_KICAD / "MacOS" / "kicad-cli"
     return found or (str(bundled) if bundled.is_file() else None)
+
+
+@cache
+def _version_of(cli: str) -> tuple[int, int, int] | None:
+    try:
+        out = subprocess.run(
+            [cli, "version"], capture_output=True, text=True, timeout=120, check=False
+        ).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", out)
+    return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None
+
+
+def kicad_cli_version() -> tuple[int, int, int] | None:
+    """The running kicad-cli version as (major, minor, patch), parsed once; None without kicad-cli."""
+    cli = kicad_cli()
+    return None if cli is None else _version_of(cli)

@@ -66,6 +66,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers --import-mode=importlib"
 markers = [
     "needs_kicad: requires a kicad-cli binary (skipped when absent)",
+    "kicad_min_major(n): skip when the running kicad-cli major is below n (never a failure)",
     "needs_corpus: requires the fetched public test corpus (tools/corpus_fetch.py)",
     "needs_libs: requires the official KiCad libraries (local install or fetched tag)",
     "slow: long-running test",
