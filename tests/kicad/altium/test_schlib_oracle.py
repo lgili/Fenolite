@@ -25,7 +25,7 @@ from functools import cache
 from pathlib import Path
 
 import pytest
-from _altium import sample_model
+from _altium import example, example_resolver, sample_model
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.altsym import AltiumSymbol
@@ -40,6 +40,8 @@ from fenolite.backends.altium.schlib import (
     write_schlib,
 )
 from fenolite.backends.kicad.sym import read_symbol_library
+from fenolite.dsl import to_model
+from fenolite.lens.altium import build_altium, resolve_symbols
 from fenolite.model.library import SymbolDef
 
 pytestmark = pytest.mark.needs_kicad
@@ -189,3 +191,81 @@ def test_negative_controls(variant: str) -> None:
     }[variant]()
     result = convert(data)
     assert result.code != 0, f"{variant}: kicad-cli converted a malformed library"
+
+
+# --- the KiCad example's library --------------------------------------------------------------------
+
+EXAMPLE_LIBRARY = "altium_kicad.SchLib"
+
+
+@cache
+def example_build() -> tuple[dict[str, SymbolDef], bytes]:
+    """The example's source symbols by name and its built library."""
+    with tempfile.TemporaryDirectory() as folder:
+        resolver = example_resolver(Path(folder))
+        design = example()
+        output = build_altium(to_model(design), name=design.name, resolver=resolver)
+        sources = {s.name: s for s in resolve_symbols(to_model(design), resolver).values()}
+    return sources, output.files[EXAMPLE_LIBRARY]
+
+
+READ_BACK = {"power_out": "power_in", "free": "passive", "unspecified": "passive", "no_connect": "passive"}
+"""The electrical type KiCad reads back for a type that Fenolite maps lossily (``altium.pin-lossy``)."""
+
+
+def _etype(etype: str) -> str:
+    return READ_BACK.get(etype, etype)
+
+
+def _name(name: str) -> str:
+    """A pin name ``~`` and an empty name are one: a 9.0 library file (version 20241209) writes ``~`` for
+    an empty name, and Fenolite's reader reads it so (S-0031)."""
+    return "" if name == "~" else name
+
+
+def source_pins(symbol: SymbolDef) -> set[tuple[object, ...]]:
+    return {
+        (
+            p.number,
+            _name(p.name),
+            _etype(p.etype),
+            p.position.x,
+            p.position.y,
+            p.rotation,
+            p.length,
+            p.unit,
+            p.hidden,
+        )
+        for p in symbol.pins
+        if p.body_style in (0, 1)
+    }
+
+
+def converted_pins(symbol: SymbolDef) -> set[tuple[object, ...]]:
+    return {
+        (p.number, _name(p.name), p.etype, p.position.x, p.position.y, p.rotation, p.length, p.unit, p.hidden)
+        for p in symbol.pins
+    }
+
+
+def test_example_library_converts_with_the_source_pins() -> None:
+    sources, data = example_build()
+    symbols = converted(data, EXAMPLE_LIBRARY).symbols
+    assert sorted(symbols) == sorted(sources)
+    for name, source in sources.items():
+        read = symbols[name]
+        assert read.unit_count == source.unit_count, name
+        assert converted_pins(read) == source_pins(source), name
+        assert read.reference == source.reference, name
+        if source.footprint:
+            assert read.footprint.split(":")[-1] == source.footprint.split(":")[-1], name
+        else:
+            assert read.footprint == "", name
+
+
+def test_example_shapes_and_overbars() -> None:
+    _, data = example_build()
+    mcu = converted(data, EXAMPLE_LIBRARY).symbols["MCU8"]
+    by = {p.number: p for p in mcu.pins}
+    assert (by["2"].name, by["2"].shape) == ("~{RST}", "inverted")
+    assert by["3"].shape == "clock" and by["8"].hidden

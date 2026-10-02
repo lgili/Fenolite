@@ -143,6 +143,8 @@ payload has 34 bytes, so the record is:
 | Converting the same library twice gives byte-identical KiCad libraries | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
 | Fenolite's oracle (`tests/kicad/altium/test_schlib_oracle.py`, kicad-cli 10.0.6, 2026-10-02): the sample's `FenoliteSample.SchLib` converts (exit 0) into six symbols named after their storages, with the generic pins (number, name, passive, hot end, angle, length, unit 1), the reference prefix and the footprint name; two conversions are byte-identical | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
 | Fenolite's negative controls on kicad-cli 10.0.6 (2026-10-02), built from the writer's records: another header text, a `Data` whose first record is not the component, a stray byte after the last record, and a pin without its last two short strings each exit 2 with "Unable to convert library"; the same library without the change converts | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
+| Fenolite's oracle on kicad-cli 10.0.6 (2026-10-02): `altium_kicad.SchLib` of `examples/altium_kicad/` converts into its four symbols with the source's unit count and, per pin, the number, the name (overbars back in KiCad's form), the electrical type after the lossy mapping, the hot end, the angle, the length, the unit (Part Zero as unit 0) and the hidden flag; the reference prefix, the footprint name, the inverted and clock shapes all read back | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
+| The same test with kicad-cli 9.0.9 (pinned image, local run, 2026-10-02) passes as well: 9.0 converts every library; a pin name `~` reads back as an empty name, because a 9.0 library file writes `~` for an empty name | S-0020, S-0031, S-0153 | INFERRED | H-A-SCHLIB-KICAD9 |
 
 ## Facts awaiting a permitted source
 
