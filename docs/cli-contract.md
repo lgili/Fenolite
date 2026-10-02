@@ -195,7 +195,9 @@ project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_
 `drc.kicad` appends a clearance rule on a net of its own to a copy of `<stem>.kicad_dru` and inserts two
 tracks of that net beyond the board in a copy of the board. Its state is `fired` (the rules were
 loaded), `absent` (they were not), `inconclusive` (with `canary_reason`) or `not-applicable` (no rules
-file, or no project file next to it).
+file, or no project file next to it). The canary tracks can change other violations of a large board,
+so on KiCad 9.0 and 10.0 the canary run gives only the state and a second, plain run gives the counted
+report; `kicad-cli` then runs twice.
 
 | code | severity | when |
 |---|---|---|

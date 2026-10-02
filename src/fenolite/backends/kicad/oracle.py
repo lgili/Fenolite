@@ -23,8 +23,9 @@ from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-CHECK-COPYSET", "H-K-CHECK-CANARY"))
-"""Raised to ``KICAD-VERIFIED`` only when both hypotheses are verified on both majors (c0013 task 9.2)."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-2"))
+"""``KICAD-VERIFIED``: both hypotheses hold on 9.0.9 and 10.0.6; ``H-K-CHECK-CANARY-2`` succeeds the refuted
+neutrality of ``H-K-CHECK-CANARY`` (c0013 task 9.2)."""
 
 
 @dataclasses.dataclass(frozen=True)

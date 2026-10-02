@@ -18,17 +18,40 @@ from the corpus is kept.
 | canary `fired` | 21 | 0 |
 | canary `not-applicable` (no rules file) | 0 | 20 |
 | `tool_writes` = `<stem>.kicad_prl` only | 21 | 20 |
-| seconds per run: min / median / max | 0.8 / 1.9 / 12.6 | 0.6 / 1.8 / 11.5 |
-| seconds in total | 72.4 | 63.9 |
+| seconds per run: min / median / max | 1.8 / 4.5 / 26.5 | 1.2 / 3.3 / 21.5 |
+| seconds in total | 160.1 | 120.4 |
 
 The `model.validate` errors are the boards' own model findings (duplicate references, as the reader
 already reports for them); every round trip passed with `opaque_count` equal to the reader's.
 
-**Canary neutrality on the demo boards** (`test_canary_neutral_demo_boards`): the stripped canary run
-reports what a plain run reports on 15 boards. On 6 boards kicad-cli 10.0.6 does not repeat its own
-plain report: between identical runs it names a different partner item for some clearance violations,
-and on one board it reported 871 violations in one run and 864 in the others. Neutrality cannot be judged
-there, and those cases are skipped with that reason; no board showed a difference that KiCad's own
-repeated runs did not also show. For the same reason, two `check` runs on such a board can give different
-DRC counts; the determinism of `check` is proved on authored projects (`test_check_oracle.py -k
-deterministic`).
+**Timings.** Measured again on 2026-10-02 after the two-run fallback, with other jobs sharing the
+machine: a demo board now runs DRC twice (plain and canary), a demo project once (no rules file, so no
+canary). Earlier the same day, with one DRC run per board, the board column read 0.8 / 1.9 / 12.6 s and
+72.4 s in total on an idle machine, and 1.3 / 3.5 / 24.3 s and 132.8 s under the same load as above.
+
+**Canary neutrality on the demo boards.** It does not hold, so both majors take the two-run fallback
+(c0013 Decision 6; `H-K-CHECK-CANARY` refuted, `H-K-CHECK-CANARY-2`). On macOS 10.0.6 the stripped canary
+report equals a plain run on 15 boards; on the other 6, kicad-cli does not repeat its own report between
+identical runs (another partner item for some clearance violations, or another count: 864 to 869
+violations over five plain runs of one board, 864 to 891 over five canary runs), so nothing could be
+judged there. In the pinned Linux images with 4 CPUs, as on the CI runner, four plain and four canary
+runs per board give:
+
+| board | 10.0.6 plain / canary | 9.0.9 plain / canary |
+|---|---|---|
+| `kicad-demo-10-0-6-pcb-01` | 1597 each run / 1596 each run | not readable by 9.0 |
+| `kicad-demo-10-0-6-pcb-07` | 475, one report / 475, another report | 500, one report / 501 in three runs |
+| `kicad-demo-10-0-6-pcb-09` | 280, four reports / 280, four others | 281, three reports / 281, three others |
+| `kicad-demo-10-0-6-pcb-11` | 867, one report / 867, another report | 819 to 821 / 821 to 822 |
+| `kicad-demo-10-0-6-pcb-13` | 1302 each run / 1301 each run | 1101 to 1103 / 1099 to 1104 |
+| `kicad-demo-10-0-6-pcb-16` | 887, mostly one report / 887, another report | 730, mostly one report / 730, another report |
+
+"Another report" means the same count by type but other partner items for some clearance or unconnected
+items. The three canary items (its clearance violation and two dangling-track warnings) are removed in
+each canary run, so the differences are the canary tracks' effect on the rest of the run. The five
+9.0.9.1 demo boards (at most 75 violations) give identical plain and canary reports on 9.0.9. With
+`CANARY_TWO_RUN` = {9, 10}, the counted report comes from the plain run, and
+`test_canary.py::test_two_run_demo_boards` checks on all 21 boards that the canary fires and that the
+counted report holds no canary item. Two `check` runs on a board where KiCad does not repeat itself can
+still give different DRC counts; the determinism of `check` is proved on authored projects
+(`test_check_oracle.py -k deterministic`).

@@ -39,7 +39,8 @@ def test_kicad_oracle_satisfies_the_protocol(tmp_path: Path) -> None:
     assert oracle.name == "kicad"
 
 
-def test_staging_outside_the_project(tmp_path: Path) -> None:
+def test_staging_outside_the_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(canary, "CANARY_TWO_RUN", frozenset())  # one run: the canary run gives the report
     root = authored_project(tmp_path, major=10)
     oracle, script = _oracle(tmp_path, writes=("x.kicad_prl",))
     before = tree_snapshot(root)
@@ -157,4 +158,4 @@ def test_evidence_never_above_its_parts(tmp_path: Path) -> None:
     assert outcome.evidence.oracle == "kicad-cli 10.0.6"
     for part in (drcmod.EVIDENCE, oraclemod.EVIDENCE):
         assert strength(outcome.evidence.level) <= strength(part.level)
-    assert set(outcome.evidence.hypotheses) >= {"H-K-DRC-JSON", "H-K-CHECK-COPYSET", "H-K-CHECK-CANARY"}
+    assert set(outcome.evidence.hypotheses) >= {"H-K-DRC-JSON", "H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-2"}

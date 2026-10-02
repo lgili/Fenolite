@@ -68,7 +68,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 | `model.validate`, native | `Validation.read.evidence` (`pcb.EVIDENCE`: `INFERRED`, `H-K-PCB-READ`) |
 | `model.validate`, built | `INFERRED` (Fenolite's structural rules) |
 | `erc.lite` | `erc_lite.EVIDENCE`: `INFERRED`, `H-K-CHECK-ERC` |
-| `drc.kicad` | `DrcOutcome.evidence` (for KiCad, `Evidence.combine(drc.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`; `KICAD-VERIFIED` only once `H-K-DRC-JSON`, `H-K-CHECK-COPYSET` and `H-K-CHECK-CANARY` are) when a report exists and the stage gave neither `<oracle>.drc.rules-not-loaded` nor `<oracle>.drc.rules-unchecked`; `UNVERIFIED` otherwise |
+| `drc.kicad` | `DrcOutcome.evidence` (for KiCad, `Evidence.combine(drc.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`; `KICAD-VERIFIED` only once `H-K-DRC-JSON`, `H-K-CHECK-COPYSET` and `H-K-CHECK-CANARY`, or its `-2` successor, are) when a report exists and the stage gave neither `<oracle>.drc.rules-not-loaded` nor `<oracle>.drc.rules-unchecked`; `UNVERIFIED` otherwise |
 | `roundtrip` | `Validation.read.evidence` |
 
 #### Scenario: Lowest level of the stages that ran

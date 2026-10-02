@@ -228,4 +228,7 @@ def test_support_follows_the_probe_files() -> None:
     assert canary.CANARY_SUPPORT == _recorded("check-canary-fired", "present") & _recorded(
         "check-canary-broken", "absent"
     )
-    assert canary.CANARY_TWO_RUN == _recorded("check-canary-neutral", "different")
+    # Every probed major is two-run: the authored projects record ``equal``, but the canary changes the
+    # reports of large demo boards on 9.0.9 and 10.0.6 (H-K-CHECK-CANARY, refuted; H-K-CHECK-CANARY-2).
+    assert canary.CANARY_TWO_RUN >= _recorded("check-canary-neutral", "different")
+    assert canary.CANARY_TWO_RUN == canary.CANARY_SUPPORT == frozenset({9, 10})

@@ -7,7 +7,7 @@ KiCad drops a rules file with one error whole and still exits 0 (``H-K-TOK-RULES
 clean report proves nothing about custom rules. The canary appends a ``clearance`` rule on its own net
 after the user's rules, where the later rule governs (``H-K-DRU-ORDER``, S-0010, S-0038), and inserts two
 tracks of its own nets 25 mm beyond every board coordinate. Their clearance violation appears exactly
-when the rules were loaded (``H-K-CHECK-CANARY``). Both are inserted as text into temporary copies: every
+when the rules were loaded (``H-K-CHECK-CANARY-2``). Both are inserted as text into temporary copies: every
 byte of the user's files is kept, and nothing is written to the project.
 """
 
@@ -42,8 +42,10 @@ CANARY_MAX_X_NM = 2_000_000_000
 """The canary's far end stays within ±2 000 mm, inside a board's 32-bit nanometre range (S-0010)."""
 CANARY_SUPPORT: frozenset[int] = frozenset({9, 10})
 """Majors whose probe files record ``check-canary-fired`` present and ``check-canary-broken`` absent."""
-CANARY_TWO_RUN: frozenset[int] = frozenset()
-"""Majors whose probe files record ``check-canary-neutral`` = ``different`` (a plain run gives the report)."""
+CANARY_TWO_RUN: frozenset[int] = frozenset({9, 10})
+"""Majors where the canary is not neutral, so a plain run gives the report and the canary run the verdict:
+on boards with hundreds of violations, 9.0.9 and 10.0.6 name other partner items, and sometimes report
+one violation more or less, with the canary tracks present (``H-K-CHECK-CANARY-2``)."""
 CLEARANCE_SEVERITY = "/board/design_settings/rule_severities/clearance"
 
 CanaryReason = Literal[

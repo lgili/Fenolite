@@ -51,7 +51,7 @@ def test_matrix_from_synthetic_pages(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert matrix["pcb drc --format"] is True and matrix["pcb drc --refill-zones"] is False
     assert matrix["pcb export svg"] is True and matrix["pcb export gerbers"] is False
     assert entry["evidence"] == {
-        "level": "INFERRED",
+        "level": "KICAD-VERIFIED",
         "oracle": "kicad-cli 10.0.6",
         "hypotheses": ["H-K-CLI-HELP"],
     }

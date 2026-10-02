@@ -16,6 +16,7 @@ from _projects import STEM, authored_project, native_project, tree_snapshot
 
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad import oracle as oraclemod
+from fenolite.backends.kicad.canary import CANARY_TWO_RUN
 from fenolite.core.evidence import Evidence
 
 pytestmark = pytest.mark.needs_kicad
@@ -47,7 +48,9 @@ def test_canary(tmp_path: Path) -> None:
     code, env, _, err = check(root)
     drc = stage(env, "drc.kicad")
     assert code == 0, (env.get("issues"), err)
-    assert drc["summary"]["canary"] == "fired" and drc["summary"]["canary_removed"] >= 1
+    assert drc["summary"]["canary"] == "fired"
+    # in a two-run major the counted report comes from the plain run, so nothing is stripped from it
+    assert (drc["summary"]["canary_removed"] == 0) == (major() in CANARY_TWO_RUN)
     assert drc["summary"]["violations_judged"] is False
     combined = Evidence.combine(drcmod.EVIDENCE, oraclemod.EVIDENCE)
     assert drc["evidence"]["level"] == combined.level.value

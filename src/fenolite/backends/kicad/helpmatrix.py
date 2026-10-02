@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-CLI-HELP",))
-"""Raised to ``KICAD-VERIFIED`` only when ``H-K-CLI-HELP`` is verified on both majors (c0013 task 9.2)."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CLI-HELP",))
+"""``KICAD-VERIFIED``: ``H-K-CLI-HELP`` holds on 9.0.9 and 10.0.6 (c0013 task 9.2)."""
 
 
 @dataclass(frozen=True, slots=True)
