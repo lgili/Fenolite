@@ -142,4 +142,27 @@ on it.
 
 ## Reports
 
-None yet.
+### 2026-10-02, `A365 Viewer`, Part V
+
+- Tool: the free Altium 365 Viewer (web), `A365 Viewer`; it shows no version.
+- File: the committed binary sample `binary/altium_sample.SchDoc`, uploaded alone from a local copy whose
+  SHA-256 equals the value in Part V. Only Fenolite's authored sample was uploaded.
+
+Outcome per step:
+
+- **V1.** Opened and rendered, with no error about the file. One sheet in the expected two-row layout:
+  all 8 components with generic bodies, pin numbers, designators and comments (J1 HDR2, R2 10k, U2 DRV4,
+  D1 red, R1 330, C1 10uF, C2 10uF, U1 5V); the power ports of VIN, GND and +5V in their bar and ground
+  styles; the net labels of EN, LED_DRV and LED_A on their wire stubs. Confirms `H-A-SCHBIN-CFB`,
+  `H-A-SCHBIN-FRAME` and `H-A-SCHBIN-STORAGE`; `H-A-SCHBIN-VIEWER` also needs V2.
+- **V2.** Not reported.
+- **V3.** Observation of the same day, made before the binary sample existed: the Viewer refused every
+  ASCII sample upload with the generic message "Please ensure all supported design or manufacturing
+  files are included in the upload. Note that library files are not currently supported." Recorded as
+  data for `H-A-SCHBIN-VIEWER`.
+- **A7.** Not checked: the Viewer neither compiles a project nor runs a change order, so
+  `H-A-SCHBIN-AD` stays pending.
+
+- The ASCII refusal concerns the Viewer only. The `H-A-SCH-*` and `H-A-PRJ-*` rows concern Altium
+  Designer (Part A) and stay pending; no writer behaviour changes for it.
+- The report names no fault of the binary sample, so its bytes and SHA-256 values are unchanged.

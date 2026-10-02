@@ -31,7 +31,7 @@
 
 ## 4. The maintainer's report
 
-- [ ] 4.1 Record the maintainer's Viewer and Altium Designer reports in the "Reports" section of `docs/evidence/altium-schematic.md` (tool as `A365 Viewer` or `AD <major>.<minor>`, date, one generic outcome per step, the Viewer's message when it refuses) and in `docs/hypotheses.md`, as c0032's "Altium author reports" requires. Fix any fault the report names, with a regression test that names its hypothesis, after recording the changed fact in `docs/formats/altium/`. Then rebuild the golden files with `FENOLITE_GOLDEN_WRITE=1` and update the SHA-256 values. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py tests/unit/lens/test_altium_binary_golden.py`; `uv run python tools/residue/scan.py` exits 0.
+- [x] 4.1 Record the maintainer's Viewer and Altium Designer reports in the "Reports" section of `docs/evidence/altium-schematic.md` (tool as `A365 Viewer` or `AD <major>.<minor>`, date, one generic outcome per step, the Viewer's message when it refuses) and in `docs/hypotheses.md`, as c0032's "Altium author reports" requires. Fix any fault the report names, with a regression test that names its hypothesis, after recording the changed fact in `docs/formats/altium/`. Then rebuild the golden files with `FENOLITE_GOLDEN_WRITE=1` and update the SHA-256 values. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py tests/unit/lens/test_altium_binary_golden.py`; `uv run python tools/residue/scan.py` exits 0.
 
 ## 5. Closing
 

@@ -105,8 +105,10 @@ takes one file, or one project in a Zip archive, up to 200 MB, and lists `*.SchD
    labels.
 
 The Viewer only renders: it neither compiles the project nor runs a change order, so nets and the PCB
-update still need Altium Designer. Upload only files you may share with Altium's service. The
-maintainer's own Viewer check of the sample is recorded in `docs/evidence/altium-schematic.md`, Part V.
+update still need Altium Designer. Upload only files you may share with Altium's service. In the
+maintainer's check of 2026-10-02 the Viewer rendered the binary sample and refused the ASCII sample with
+a generic message about supported files, so upload the binary form (`docs/evidence/altium-schematic.md`,
+Part V and "Reports").
 
 ## Project file and outputs
 
