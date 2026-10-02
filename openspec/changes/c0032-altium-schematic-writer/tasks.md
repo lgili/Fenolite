@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and format pages
 
-- [ ] 1.1 Register sources and hypotheses. This is the first commit of the implementation, so the cited-id guard sees the ids registered.
+- [x] 1.1 Register sources and hypotheses. This is the first commit of the implementation, so the cited-id guard sees the ids registered.
   - Add rows S-0130 … S-0144 to `docs/evidence/sources.md` from the design table "Sources registered by this change", with the consultation date and the licence each page states, or "not stated on the page (checked <date>)". If a URL is already registered, cite that id and leave the freed id unused. Widen the "used for" cells of S-0002 and S-0020 as the design says.
   - Add the ten rows `H-A-SCH-OPEN`, `H-A-SCH-LINEEND`, `H-A-SCH-UID`, `H-A-SCH-NETS`, `H-A-SCH-LINK`, `H-A-SCH-ECO`, `H-A-SCH-RELINK`, `H-A-SCH-UPDATE`, `H-A-PRJ-OPEN` and `H-A-PRJ-KEEP` to `docs/hypotheses.md`, with backend `altium`, level `INFERRED`, the test and criterion of `design.md`, and the result `pending (author report)`. Add the paragraph "Change c0032 (experimental Altium schematic writer) adds …".
   - Write `tests/unit/test_altium_rows.py`: every `H-A-SCH-*` and `H-A-PRJ-*` row is refuted with a registered successor, or is `INFERRED` with a result starting `pending (author report)`, or is `ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact)`; its unit cases include a bare `ALTIUM-VERIFIED(author-report)` cell.
