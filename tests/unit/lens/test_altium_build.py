@@ -122,6 +122,8 @@ def test_summary_of_the_sample() -> None:
         "symbols": 6,
         "kept": [],
         "schematic_format": "binary",
+        "footprints": 0,
+        "pcb_document": None,
         "experimental": True,
     }
     assert build(sample(), form="ascii").summary["schematic_format"] == "ascii"
@@ -236,7 +238,9 @@ def test_example_resolves_from_its_own_table(tmp_path: Path) -> None:
         "altium_kicad.SchDoc",
         "altium_kicad.SchLib",
     ]
-    assert not [i for i in output.issues if i.severity != "info"]
+    others = [i for i in output.issues if i.severity != "info"]
+    assert {i.code for i in others} == {"altium.footprint-unresolved"}  # FenoliteDemo has no fp-lib-table
+    assert not [i for i in others if i.severity != "warning"]
     library = read_schlib(output.files["altium_kicad.SchLib"])
     assert sorted(library) == ["CONN2", "DUAL_OPAMP", "MCU8", "R_V"]
     assert b"DocumentPath=altium_kicad.SchLib" in output.files["altium_kicad.PrjPcb"]

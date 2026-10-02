@@ -26,7 +26,7 @@
 - [x] 3.1 Add `pcbrecords.pad_record`: the six subrecords, shapes, holes on Multi-Layer, the 114-byte fifth subrecord with version 1's defaults, and the 596-byte sixth subrecord for roundrect pads. Proof: `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k pad -q`. This covers "Footprint pad records".
 - [x] 3.2 Write `pcblib.PadExtras`, `FootprintCheck` and `check_footprint` (refusals, drops, extras), and the graphic mapping (line, rect as four tracks, circle as a full arc, arc from three points). Proof: `uv run pytest tests/unit/backends/altium/test_pcblib.py -k "check or graphic" -q`. This covers "Footprint content checks" and "Footprint line and arc records".
 - [x] 3.3 Write `pcblib.write_pcblib` on c0034's `cfb.Storage`: `FileHeader`, `Library/{Header, Data, Models}`, `SectionKeys`, per-footprint streams, `UniqueIdPrimitiveInformation`, storage names from `project.storage_name`, and nothing else. Proof: `uv run pytest tests/unit/backends/altium/test_pcblib.py -q`. This covers "PCB library file".
-- [ ] 3.4 Plumb the library into the build.
+- [x] 3.4 Plumb the library into the build.
   - `lens.altium`: `footprint_source`, `kicad_footprint_ids`, `pad_extras`, the resolver for footprint links, the library-side issue codes, `result.footprints`, `result.libraries` with the `.PcbLib`.
   - `project.pcblib_name`; `MODELDATAFILE0` by link form; `write_project(..., footprints=…)`; `write_prjpcb(..., libraries=…)` with the `.PcbLib`; the kind `altium_pcblib` in `cmd_build`.
   - Rebuild c0034's example golden schematic with `FENOLITE_GOLDEN_WRITE=1`.

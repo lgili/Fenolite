@@ -29,7 +29,11 @@ from fenolite.core.evidence import Level
 from fenolite.dsl import Design, Net, Part, Power, connect
 
 PACKAGE = Path(project.__file__).parent
-STDLIB_ALLOWED = {"__future__", "collections", "dataclasses", "hashlib", "re", "struct", "typing"}
+STDLIB_ALLOWED = {
+    "__future__", "collections", "dataclasses", "decimal", "fractions", "hashlib", "re", "struct", "types",
+    "typing",
+}  # fmt: skip
+"""``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
@@ -69,7 +73,12 @@ def test_imports_only_core_and_model() -> None:
             for name in names:
                 if name.startswith("fenolite."):
                     assert name.startswith(
-                        ("fenolite.core.", "fenolite.model.", "fenolite.backends.altium.")
+                        (
+                            "fenolite.core.",
+                            "fenolite.model.",
+                            "fenolite.geometry.",
+                            "fenolite.backends.altium.",
+                        )
                     ), f"{path.name} imports {name}"
                 else:
                     assert name.split(".")[0] in STDLIB_ALLOWED, f"{path.name} imports {name}"

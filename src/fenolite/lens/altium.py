@@ -16,27 +16,32 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+from collections import Counter
 from collections.abc import Mapping, Sequence
+from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, project, schlib
+from fenolite.backends.altium import binary, pcblib, project, schlib
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
+from fenolite.backends.kicad import slots as kicad_slots
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver
-from fenolite.core.errors import Issue, Severity
+from fenolite.backends.kicad.sexpr import Atom, Node, parse_fragment
+from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.lens.build import CACHE_DIR, RECORD_FILE, RECORD_SCHEMA, BuildOutput, UnresolvedLibrariesError
 from fenolite.model import canonical
+from fenolite.model.base import Opaque
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import SymbolDef
+from fenolite.model.library import FootprintDef, SymbolDef
 
 TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
@@ -57,9 +62,14 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.symbol-off-grid": "error",
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",
+        "altium.pcb-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
+        "altium.footprint-unresolved": "warning",
+        "altium.footprint-unsupported": "warning",
+        "altium.footprint-name-collision": "warning",
+        "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
@@ -67,6 +77,8 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
+        "altium.footprint-extras-dropped": "info",
+        "altium.pcb-not-in-project": "info",
     }
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
@@ -249,6 +261,184 @@ def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design
         nets.append(dataclasses.replace(net, members=unique))
     circuit = dataclasses.replace(design.circuit, components=tuple(components), nets=tuple(nets))
     return dataclasses.replace(design, circuit=circuit), issues
+
+
+FootprintSource = Literal["altium", "kicad"]
+PAD_DROPPED: Mapping[str, str] = MappingProxyType(
+    {
+        "solder_mask_margin": "solder mask margin",
+        "solder_paste_margin": "solder paste margin",
+        "solder_paste_margin_ratio": "solder paste margin ratio",
+        "solder_paste_ratio": "solder paste margin ratio",
+        "clearance": "clearance",
+        "zone_connect": "zone connection",
+        "thermal_width": "thermal width",
+        "thermal_gap": "thermal gap",
+        "thermal_bridge_width": "thermal width",
+        "thermal_bridge_angle": "thermal angle",
+        "die_length": "die length",
+    }
+)
+"""KiCad pad children Altium's pad record has no field for: left out with ``altium.primitive-dropped``."""
+PAD_REFUSED: Mapping[str, str] = MappingProxyType(
+    {
+        "chamfer_ratio": "has chamfered corners",
+        "chamfer": "has chamfered corners",
+        "primitives": "has custom primitives",
+    }
+)
+"""KiCad pad children that make a pad unwritable: the footprint is refused."""
+
+
+def footprint_source(link: str) -> FootprintSource:
+    """``altium`` for a footprint link whose library part ends with ``.PcbLib`` in any letter case (the
+    user's library: no footprint is written), ``kicad`` for any other (a KiCad footprint id, change c0035)."""
+    return "altium" if project.is_altium_footprint(link) else "kicad"
+
+
+def kicad_footprint_ids(design: Design) -> tuple[str, ...]:
+    """The sorted distinct well-formed KiCad footprint links of the components' ``footprint`` fields."""
+    links = {c.lib_footprint_ref for c in design.circuit.components if c.lib_footprint_ref}
+    return tuple(sorted(i for i in links if split_link(i) is not None and footprint_source(i) == "kicad"))
+
+
+def _opaque_nodes(entity: FootprintDef | object) -> list[Node]:
+    bag = getattr(entity, "ext", {}).get("kicad")
+    if bag is None:
+        return []
+    nodes: list[Node] = []
+    for slot in kicad_slots.from_ext(bag):
+        if isinstance(slot, Opaque):
+            parsed = parse_fragment(slot.fragment)
+            if isinstance(parsed, Node):
+                nodes.append(parsed)
+    return nodes
+
+
+def _decimal_atom(node: Node) -> Decimal | None:
+    atoms: list[Atom] = list(node.atoms())
+    if len(atoms) != 1:
+        return None
+    try:
+        return Decimal(atoms[0].value)
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
+    """Pad id → the KiCad-only facts the model keeps opaque: the corner ratio of a rounded rectangle, a reason
+    to refuse (an oval or offset drill, chamfers, custom primitives) and the settings Altium has no field for
+    (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
+    out: dict[str, pcblib.PadExtras] = {}
+    for pad in defn.pads:
+        ratio: Decimal | None = None
+        refusal: str | None = None
+        dropped: list[str] = []
+        for node in _opaque_nodes(pad):
+            head = node.name
+            if head == "roundrect_rratio":
+                ratio = _decimal_atom(node)
+            elif head == "drill":
+                refusal = refusal or "the drill is oval or has an offset"
+            elif head in PAD_REFUSED:
+                if head == "chamfer_ratio" and _decimal_atom(node) == 0:
+                    continue
+                refusal = refusal or PAD_REFUSED[head]
+            elif head in PAD_DROPPED and PAD_DROPPED[head] not in dropped:
+                if _decimal_atom(node) == 0:
+                    continue
+                dropped.append(PAD_DROPPED[head])
+        out[pad.id] = pcblib.PadExtras(ratio, refusal, tuple(dropped))
+    return out
+
+
+def footprint_texts(defn: FootprintDef) -> int:
+    """The number of ``fp_text`` children of a footprint read from a KiCad file (kept opaque)."""
+    return sum(1 for node in _opaque_nodes(defn) if node.name == "fp_text")
+
+
+def _counted(items: Sequence[str]) -> str:
+    return ", ".join(f"{count} x {item}" for item, count in sorted(Counter(items).items()))
+
+
+def resolve_footprints(
+    design: Design, resolver: LibraryResolver | None
+) -> tuple[dict[str, pcblib.LibFootprint], list[Issue]]:
+    """KiCad footprint link → the footprint written into ``<name>.PcbLib``, with the warnings and infos of
+    footprints that do not resolve, are refused, collide on a storage name, or lose items."""
+    issues: list[Issue] = []
+    resolved: dict[str, pcblib.LibFootprint] = {}
+    for link in kicad_footprint_ids(design):
+        if resolver is None:
+            reason = "no KiCad library table was given"
+            defn = None
+        else:
+            try:
+                defn = resolver.footprint(link)
+                reason = ""
+            except (LibraryError, FenoliteError) as error:
+                defn = None
+                code = error.issue.code if isinstance(error, LibraryError) else type(error).__name__
+                reason = f"{code}: {error}"
+        if defn is None:
+            issues.append(
+                issue(
+                    "altium.footprint-unresolved",
+                    f"{link} does not resolve ({reason}); its footprint is not written",
+                    link,
+                    "add the footprint library to the design folder's fp-lib-table",
+                )
+            )
+            continue
+        extras = pad_extras(defn)
+        texts = footprint_texts(defn)
+        check = pcblib.check_footprint(defn, extras, texts=texts)
+        if check.refusal is None:
+            try:
+                schlib.storage_name(defn.name)
+            except ValueError as error:
+                check = pcblib.FootprintCheck(str(error))
+        if check.refusal is not None:
+            issues.append(
+                issue(
+                    "altium.footprint-unsupported",
+                    f"{link}: {check.refusal}; the footprint is not written",
+                    link,
+                    "use a footprint with round, rectangular, oval or rounded-rectangle pads and round holes",
+                )
+            )
+            continue
+        if check.dropped:
+            issues.append(
+                issue("altium.primitive-dropped", f"{link}: left out: {_counted(check.dropped)}", link)
+            )
+        if check.extras:
+            issues.append(
+                issue(
+                    "altium.footprint-extras-dropped",
+                    f"{link}: {', '.join(check.extras)} are not written; Altium adds the designator and "
+                    "comment when it places the footprint",
+                    link,
+                )
+            )
+        resolved[link] = pcblib.LibFootprint(defn, extras, texts)
+    by_key: dict[tuple[int, tuple[int, ...]], list[str]] = {}
+    for link, footprint in resolved.items():
+        by_key.setdefault(name_key(schlib.storage_name(footprint.defn.name)), []).append(link)
+    for links in by_key.values():
+        if len(links) > 1:
+            issues.append(
+                issue(
+                    "altium.footprint-name-collision",
+                    f"the footprint links {', '.join(links)} get one footprint name in the PCB library; "
+                    "none of them is written",
+                    links[0],
+                    "use one footprint library per footprint name",
+                )
+            )
+            for link in links:
+                del resolved[link]
+    return resolved, issues
 
 
 def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
@@ -520,18 +710,25 @@ def _summary(
     plan: SheetPlan | None,
     form: project.SchematicForm,
     libraries: Mapping[str, Sequence[AltiumSymbol]] | None = None,
+    footprints: int = 0,
+    pcb_document: str | None = None,
+    pcb_library: str = "",
 ) -> dict[str, object]:
     labels = sum(1 for s in plan.stubs if s.net.kind == "label") if plan is not None else 0
     ports = sum(1 for s in plan.stubs if s.net.kind == "port") if plan is not None else 0
-    found = libraries or {}
+    found = list(libraries or {})
+    if footprints:
+        found = sorted([*found, pcb_library], key=name_key)
     return {
         "components": len(design.circuit.components),
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
         "sheet": plan.size.name if plan is not None else None,
-        "libraries": list(found),
-        "symbols": sum(len(symbols) for symbols in found.values()),
+        "libraries": found,
+        "symbols": sum(len(symbols) for symbols in (libraries or {}).values()),
+        "footprints": footprints,
+        "pcb_document": pcb_document,
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -578,6 +775,18 @@ def build_altium(
         issues += _library_checks(model, name, symbols, project_exists)
     if any(i.severity == "error" for i in issues):
         return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+    footprints, footprint_issues = resolve_footprints(model, resolver)
+    issues += footprint_issues
+    written = [footprints[link] for link in sorted(footprints)]
+    if project_exists and written:
+        issues.append(
+            issue(
+                "altium.pcb-not-in-project",
+                f"the kept {name}.PrjPcb does not list {name}.PcbLib; add it in Altium "
+                "(Project » Add Existing to Project)",
+                f"{name}.PrjPcb",
+            )
+        )
     count = sum(1 for c in model.circuit.components if symbol_source(c.lib_symbol_ref) == "altium")
     if count:
         issues.append(
@@ -591,8 +800,24 @@ def build_altium(
         )
     try:
         files = project.write_project(
-            model, name=name, project=not project_exists, issues=issues, form=form, symbols=symbols
+            model,
+            name=name,
+            project=not project_exists,
+            issues=issues,
+            form=form,
+            symbols=symbols,
+            footprints=written,
         )
+    except project.PcbTooLarge as error:
+        issues.append(
+            issue(
+                "altium.pcb-too-large",
+                f"{error.file} is too large for a compound file without DIFAT sectors: {error}",
+                error.file,
+                "build fewer footprints into one design",
+            )
+        )
+        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
     except project.LibraryTooLarge as error:
         issues.append(
             issue(
@@ -627,7 +852,9 @@ def build_altium(
     ).encode("utf-8")
     plan = project.plan_sheet(model, name=name, symbols=symbols)
     libraries = project.library_symbols(model, name=name, symbols=symbols)
-    summary = _summary(model, kept, plan, form, libraries)
+    summary = _summary(
+        model, kept, plan, form, libraries, footprints=len(written), pcb_library=f"{name}.PcbLib"
+    )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
 
@@ -637,10 +864,15 @@ __all__ = [
     "EXPERIMENTAL",
     "TARGET",
     "build_altium",
+    "footprint_source",
+    "footprint_texts",
     "generic_pins",
+    "kicad_footprint_ids",
     "kicad_lib_ids",
     "kicad_pins",
     "library_symbols",
+    "pad_extras",
+    "resolve_footprints",
     "resolve_symbols",
     "symbol_source",
 ]

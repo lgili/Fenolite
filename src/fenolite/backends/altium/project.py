@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
@@ -23,6 +23,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
+from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import write_schdoc
 from fenolite.backends.altium.schlib import storage_name, write_schlib
@@ -46,6 +47,11 @@ WRITE_KINDS: tuple[str, ...] = (
 """The kinds of the planned writes of an Altium build: the project file, the schematic in each form and
 the schematic libraries (change c0034)."""
 SCHLIB_KIND = "altium_schlib"
+PCBLIB_KIND = "altium_pcblib"
+"""The write kind of ``<name>.PcbLib`` (change c0035; listed by the ``altium-pcb-writer`` entry, not in
+``WRITE_KINDS``)."""
+PCBDOC_KIND = "altium_pcbdoc"
+"""The write kind of ``<name>.PcbDoc`` (change c0035)."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
@@ -76,6 +82,14 @@ class LibraryTooLarge(CompoundTooLarge):
         self.library = library
 
 
+class PcbTooLarge(CompoundTooLarge):
+    """A PCB library or document is past the compound file's size limit; ``file`` names it (change c0035)."""
+
+    def __init__(self, file: str, error: CompoundTooLarge) -> None:
+        super().__init__(f"{file}: {error}")
+        self.file = file
+
+
 def split_link(text: str) -> tuple[str, str] | None:
     """``<library>:<name>`` split at the first ``:``, or ``None`` when a part is missing."""
     library, colon, name = text.partition(":")
@@ -102,6 +116,25 @@ def schlib_name(lib_id: str, *, design: str) -> str:
     if link is None:
         raise ValueError(f"lib_id {lib_id!r} is not <library>:<name>")
     return link[0] if is_altium_link(lib_id) else f"{design}.SchLib"
+
+
+PCBLIB_SUFFIX = ".pcblib"
+"""A footprint link whose library part ends with this, in any letter case, is an Altium link."""
+
+
+def is_altium_footprint(link: str) -> bool:
+    """True when the library part of the footprint link ``link`` ends with ``.PcbLib`` in any letter case."""
+    parts = split_link(link)
+    return parts is not None and parts[0].lower().endswith(PCBLIB_SUFFIX)
+
+
+def pcblib_name(link: str, *, design: str) -> str:
+    """The PCB library file of a footprint link: its library part for an Altium link, ``<design>.PcbLib`` for
+    a KiCad footprint link (all KiCad footprints of a design share one library, change c0035)."""
+    parts = split_link(link)
+    if parts is None:
+        raise ValueError(f"footprint {link!r} is not <library>:<name>")
+    return parts[0] if is_altium_footprint(link) else f"{design}.PcbLib"
 
 
 def unique_id(key: str) -> str:
@@ -182,6 +215,8 @@ def part_specs(
             if component.lib_footprint_ref
             else None
         )
+        if footprint is not None and name:
+            footprint = (pcblib_name(component.lib_footprint_ref, design=name), footprint[1])
         body = bodies[component.lib_symbol_ref]
         for pin in body.pins:
             _text(pin.designator, f"{component.ref} pin designator")
@@ -266,11 +301,14 @@ def write_project(
     issues: list[Issue] | None = None,
     form: SchematicForm = DEFAULT_FORM,
     symbols: Mapping[str, AltiumSymbol] | None = None,
+    footprints: Sequence[LibFootprint] = (),
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
     lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
-    every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit."""
+    every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit. ``footprints`` (change
+    c0035) are written into ``<name>.PcbLib`` when not empty, which the project file lists; its size limit
+    raises ``PcbTooLarge``."""
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
@@ -287,8 +325,11 @@ def write_project(
         )
     libraries = library_symbols(design, name=name, symbols=symbols)
     files: dict[str, bytes] = {}
+    listed = list(libraries)
+    if footprints:
+        listed.append(f"{name}.PcbLib")
     if project:
-        files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc", libraries=tuple(libraries))
+        files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc", libraries=tuple(listed))
     files[f"{name}.SchDoc"] = write_schdoc_binary(plan) if form == "binary" else write_schdoc(plan)
     for library, found in libraries.items():
         try:
@@ -297,6 +338,11 @@ def write_project(
             raise
         except CompoundTooLarge as error:
             raise LibraryTooLarge(library, error) from error
+    if footprints:
+        try:
+            files[f"{name}.PcbLib"] = write_pcblib(footprints)
+        except CompoundTooLarge as error:
+            raise PcbTooLarge(f"{name}.PcbLib", error) from error
     return files
 
 
@@ -304,6 +350,9 @@ __all__ = [
     "DEFAULT_FORM",
     "EVIDENCE",
     "LibraryTooLarge",
+    "PCBDOC_KIND",
+    "PCBLIB_KIND",
+    "PcbTooLarge",
     "PATH_PROPERTY",
     "WRITE_KINDS",
     "SCHDOC_KINDS",
@@ -312,7 +361,9 @@ __all__ = [
     "component_path",
     "generic_symbols",
     "library_symbols",
+    "is_altium_footprint",
     "is_altium_link",
+    "pcblib_name",
     "prefix_of",
     "schlib_name",
     "storage_name",

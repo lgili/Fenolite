@@ -243,3 +243,66 @@ def check_plan(plan: SheetPlan, grid: int = 100) -> None:
         assert MARGIN <= ax0 < ax1 <= size.width - MARGIN and MARGIN <= ay0 < ay1 <= size.height - MARGIN
         for bx0, by0, bx1, by1 in cells[i + 1 :]:
             assert ax1 <= bx0 or bx1 <= ax0 or ay1 <= by0 or by1 <= ay0, "cells overlap"
+
+
+BLINK_DIR = ROOT / "examples" / "blink_2layer"
+BLINK = BLINK_DIR / "design.py"
+LIBS = ROOT / "tests" / "data" / "libs"
+
+
+def blink(text: str = "", new: str = "") -> Design:
+    """The KiCad-footprint sample of change c0035 (``examples/blink_2layer``), with ``text`` replaced by
+    ``new`` in its script."""
+    source = BLINK.read_text(encoding="utf-8")
+    if text:
+        assert text in source, text
+        source = source.replace(text, new)
+    namespace: dict[str, object] = {}
+    exec(compile(source, str(BLINK), "exec"), namespace)  # noqa: S102
+    design = namespace["design"]
+    assert isinstance(design, Design)
+    return design
+
+
+def blink_tree(
+    root: Path,
+    *,
+    fp_table: tuple[str, str] = ("", ""),
+    footprint: tuple[str, str, str] = ("", "", ""),
+) -> Path:
+    """A copy of the blink folder and the mini libraries under ``root`` (same relative layout), with one
+    edit of its ``fp-lib-table`` and one edit of a footprint file ``(name, text, new)``; returns the
+    project folder."""
+    project = root / "examples" / "blink_2layer"
+    project.mkdir(parents=True)
+    for name in ("design.py", "fp-lib-table", "sym-lib-table"):
+        (project / name).write_bytes((BLINK_DIR / name).read_bytes())
+    libs = root / "tests" / "data" / "libs"
+    for folder in ("Mini_v9.pretty", "Mini.pretty"):
+        (libs / folder).mkdir(parents=True)
+        for item in sorted((LIBS / folder).iterdir()):
+            (libs / folder / item.name).write_bytes(item.read_bytes())
+    (libs / "Mini_v9.kicad_sym").write_bytes((LIBS / "Mini_v9.kicad_sym").read_bytes())
+    if fp_table[0]:
+        table = project / "fp-lib-table"
+        text = table.read_text(encoding="utf-8")
+        assert fp_table[0] in text, fp_table[0]
+        table.write_text(text.replace(*fp_table), encoding="utf-8")
+    if footprint[0]:
+        path = libs / "Mini_v9.pretty" / f"{footprint[0]}.kicad_mod"
+        text = path.read_text(encoding="utf-8")
+        assert footprint[1] in text, footprint[1]
+        path.write_text(text.replace(footprint[1], footprint[2]), encoding="utf-8")
+    return project
+
+
+def blink_resolver(folder: Path, project_dir: Path = BLINK_DIR) -> LibraryResolver:
+    """A resolver that sees only the blink folder's own tables: no global table, no install."""
+    return example_resolver(folder, project_dir=project_dir)
+
+
+def blink_placements(design: Design) -> dict[str, object]:
+    """The script's placements, as ``cmd_build`` passes them."""
+    from fenolite.dsl import placements
+
+    return dict(placements(design))

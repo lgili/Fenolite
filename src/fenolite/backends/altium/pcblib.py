@@ -17,7 +17,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from fenolite.backends.altium import pcbrecords as rec
+import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, name_key, write_compound
 from fenolite.backends.altium.schlib import storage_name

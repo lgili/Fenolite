@@ -20,7 +20,14 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
-from fenolite.backends.altium.project import DEFAULT_FORM, SCHDOC_KINDS, SCHLIB_KIND, SchematicForm
+from fenolite.backends.altium.project import (
+    DEFAULT_FORM,
+    PCBDOC_KIND,
+    PCBLIB_KIND,
+    SCHDOC_KINDS,
+    SCHLIB_KIND,
+    SchematicForm,
+)
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -28,7 +35,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.dsl import DslError, moves, placements, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
-from fenolite.lens.altium import build_altium, kicad_lib_ids
+from fenolite.lens.altium import build_altium, kicad_footprint_ids, kicad_lib_ids
 from fenolite.lens.build import VENDOR_MODES, build_design, check_existing, read_record
 from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
@@ -47,6 +54,8 @@ _KINDS = {
     ".kicad_mod": "kicad_mod",
     ".PrjPcb": "altium_prjpcb",
     ".SchLib": SCHLIB_KIND,
+    ".PcbLib": PCBLIB_KIND,
+    ".PcbDoc": PCBDOC_KIND,
 }
 
 
@@ -180,13 +189,14 @@ def _run_altium(
     out_dir: Path,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
-    libraries of KiCad lib ids are read, through a resolver built as for ``--target kicad`` and only when
+    libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
+    resolver built as for ``--target kicad`` and only when
     the design has such lib ids; no external tool runs; the project file is planned only when ``DIR`` has
     none."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     resolver = None
-    if kicad_lib_ids(model):
+    if kicad_lib_ids(model) or kicad_footprint_ids(model):
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
@@ -217,6 +227,8 @@ def _run_altium(
         "schematic_format": form,
         "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],
         "symbols": summary["symbols"],
+        "footprints": summary["footprints"],
+        "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

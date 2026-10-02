@@ -16,7 +16,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from _altium import EXAMPLE_DIR, example, example_resolver, sample
+from _altium import EXAMPLE_DIR, blink, blink_resolver, blink_tree, example, example_resolver, sample
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -136,7 +136,7 @@ CASES: dict[str, tuple[Callable[[Design], None], dict[str, object], set[str]]] =
 
 
 KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
-    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified"}),
+    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified", "altium.footprint-unresolved"}),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
@@ -153,7 +153,7 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
             "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
             "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
         ),
-        {"altium.pin-lossy", "altium.symbol-simplified"},
+        {"altium.pin-lossy", "altium.symbol-simplified", "altium.footprint-unresolved"},
     ),
     "pin-text-too-long": (
         ("", ""),
@@ -225,6 +225,85 @@ def run_unique_id_case() -> tuple[Issue, ...]:
         return build_altium(to_model(design), name=design.name).issues
 
 
+TRAPEZOID = ("Mini_R_0603", '(pad "1" smd roundrect', '(pad "1" smd trapezoid')
+OTHER_ROW = (
+    '(descr "Authored CC0 mini library"))',
+    '(descr "Authored CC0 mini library"))\n\t(lib (name "Other") (type "KiCad") '
+    '(uri "${KIPRJMOD}/../../tests/data/libs/Mini.pretty") (options "") (descr ""))',
+)
+SECOND_R = (
+    "design.add(u1, r1, d1)",
+    'r2 = Part("R2", "Mini:Mini_R", footprint="Other:Mini_R_0603", value="1k")\ndesign.add(u1, r1, d1, r2)',
+)
+BLINK_CODES = {"altium.not-lowered", "altium.symbol-simplified", "altium.primitive-dropped",
+               "altium.footprint-extras-dropped"}  # fmt: skip
+PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
+    "blink": ({}, BLINK_CODES),
+    "blink-kept": (
+        {"project_exists": True},
+        BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
+    ),
+    "blink-unsupported": ({"footprint": TRAPEZOID}, BLINK_CODES | {"altium.footprint-unsupported"}),
+    "blink-collision": (
+        {"fp_table": OTHER_ROW, "script": SECOND_R},
+        BLINK_CODES | {"altium.footprint-name-collision"},
+    ),
+}
+"""Blink variants (change c0035): tree edits and build arguments, and the codes the build reports."""
+
+
+def run_pcb_case(name: str) -> tuple[Issue, ...]:
+    edits, _ = PCB_CASES[name]
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        project = blink_tree(
+            root,
+            fp_table=edits.get("fp_table", ("", "")),  # type: ignore[arg-type]
+            footprint=edits.get("footprint", ("", "", "")),  # type: ignore[arg-type]
+        )
+        script = edits.get("script", ("", ""))
+        design = blink(*script)  # type: ignore[misc]
+        kwargs = {k: v for k, v in edits.items() if k == "project_exists"}
+        return build_altium(
+            to_model(design),
+            name=design.name,
+            resolver=blink_resolver(root, project),
+            **kwargs,  # type: ignore[arg-type]
+        ).issues
+
+
+def run_pcb_too_large() -> tuple[Issue, ...]:
+    import fenolite.backends.altium.project as altium_project
+
+    original = altium_project.write_pcblib
+
+    def refuse(footprints: object) -> bytes:
+        raise cfb.CompoundTooLarge("patched")
+
+    altium_project.write_pcblib = refuse  # type: ignore[assignment]
+    try:
+        with tempfile.TemporaryDirectory() as folder:
+            design = blink()
+            output = build_altium(to_model(design), name=design.name, resolver=blink_resolver(Path(folder)))
+    finally:
+        altium_project.write_pcblib = original  # type: ignore[assignment]
+    assert output.files == {}
+    return output.issues
+
+
+@pytest.mark.parametrize("name", sorted(PCB_CASES))
+def test_pcb_case(name: str) -> None:
+    issues = run_pcb_case(name)
+    altium = {i.code for i in issues if not i.code.startswith(PASS_THROUGH)}
+    assert altium == PCB_CASES[name][1], [i.code for i in issues]
+
+
+def test_pcb_too_large() -> None:
+    """``altium-build`` "PCB issue codes", "Too large refused"."""
+    found = [i for i in run_pcb_too_large() if i.code == "altium.pcb-too-large"]
+    assert len(found) == 1 and found[0].severity == "error" and found[0].where == "blink.PcbLib"
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_case(name: str) -> None:
     issues = run_case(name)
@@ -246,7 +325,15 @@ def test_closed_set() -> None:
     for name in KICAD_CASES:
         for found in run_kicad_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
-    for found in (*run_unique_id_case(), *run_too_large_case(), *run_too_large_case("ascii")):
+    for name in PCB_CASES:
+        for found in run_pcb_case(name):
+            produced.setdefault(found.code, set()).add(found.severity)
+    for found in (
+        *run_unique_id_case(),
+        *run_too_large_case(),
+        *run_too_large_case("ascii"),
+        *run_pcb_too_large(),
+    ):
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -269,9 +356,14 @@ def test_the_table() -> None:
         "altium.symbol-off-grid": "error",
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",
+        "altium.pcb-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
+        "altium.footprint-unresolved": "warning",
+        "altium.footprint-unsupported": "warning",
+        "altium.footprint-name-collision": "warning",
+        "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
@@ -279,6 +371,8 @@ def test_the_table() -> None:
         "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
+        "altium.footprint-extras-dropped": "info",
+        "altium.pcb-not-in-project": "info",
     }
 
 

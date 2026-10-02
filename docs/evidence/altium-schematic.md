@@ -147,7 +147,7 @@ that fresh builds give these bytes and that this table names them.
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
-| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `6e7366b3be51414f7649b4354aa61a2c4636d416ead64b7b0ceb6b2cabf5ff44` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `10c95992c6cab223fa2125493d07772a79855014bcc64553d4c757dbd88ed34a` |
 | `tests/data/altium/kicad_example/altium_kicad.SchLib` | `ccdfe416efa57324236b30f0e7e73c0c9a3bbd229babf9aae150427feb7ed6b4` |
 
 - `FenoliteSample.SchLib` holds the six generic symbols of the sample (`CAP`, `DRV4`, `HDR2`, `LDO3`,

@@ -26,3 +26,27 @@ def test_no_byte_order_mark_and_ascii_only() -> None:
 def test_unwritable_names(name: str) -> None:
     with pytest.raises(ValueError):
         write_prjpcb(schematic=name)
+
+
+def test_project_with_a_library() -> None:
+    assert write_prjpcb(schematic="altium_sample.SchDoc", libraries=("FenoliteSample.SchLib",)) == (
+        b"[Design]\r\nVersion=1.0\r\n\r\n[Document1]\r\nDocumentPath=altium_sample.SchDoc\r\n\r\n"
+        b"[Document2]\r\nDocumentPath=FenoliteSample.SchLib\r\n"
+    )
+
+
+def test_project_with_a_pcb_document_and_two_libraries() -> None:
+    """``altium-schematic-writer`` "Project file" (change c0035)."""
+    data = write_prjpcb(
+        schematic="blink.SchDoc", pcb="blink.PcbDoc", libraries=("blink.SchLib", "blink.PcbLib")
+    )
+    assert data == (
+        b"[Design]\r\nVersion=1.0\r\n\r\n[Document1]\r\nDocumentPath=blink.SchDoc\r\n\r\n"
+        b"[Document2]\r\nDocumentPath=blink.PcbDoc\r\n\r\n[Document3]\r\nDocumentPath=blink.PcbLib\r\n\r\n"
+        b"[Document4]\r\nDocumentPath=blink.SchLib\r\n"
+    )
+
+
+def test_pcb_document_path_refused() -> None:
+    with pytest.raises(ValueError):
+        write_prjpcb(schematic="b.SchDoc", pcb="x/b.PcbDoc")

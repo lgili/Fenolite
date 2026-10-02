@@ -3,7 +3,8 @@
 """The minimal PCB project file (capability altium-schematic-writer, "Project file").
 
 Facts: ``docs/formats/altium/project.md``. The file lists the schematic beside it, by its bare file name,
-then the schematic libraries the build writes (change c0034, ``H-A-SCHLIB-PRJ``); Altium takes defaults
+then the PCB document (change c0035, ``H-A-PCB-PRJ``) and the libraries the build writes (change c0034,
+``H-A-SCHLIB-PRJ``); Altium takes defaults
 for every other key (``H-A-PRJ-OPEN``).
 """
 
@@ -24,10 +25,12 @@ def _file_name(name: str, what: str) -> str:
     return name
 
 
-def write_prjpcb(*, schematic: str, libraries: Sequence[str] = ()) -> bytes:
-    """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``, then
-    per library, in the MS-CFB order of the names and numbered from 2, an empty line, ``[Document<i>]`` and
-    ``DocumentPath=<library>``; each line ends with CR LF, in 7-bit ASCII without a byte-order mark."""
+def write_prjpcb(*, schematic: str, pcb: str | None = None, libraries: Sequence[str] = ()) -> bytes:
+    """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``; then,
+    with ``pcb`` (change c0035), ``[Document2]`` and ``DocumentPath=<pcb>``; then per library (``.SchLib`` and
+    ``.PcbLib`` alike), in the MS-CFB order of the names and numbered from the next free number, an empty
+    line, ``[Document<i>]`` and ``DocumentPath=<library>``; each line ends with CR LF, in 7-bit ASCII without
+    a byte-order mark."""
     lines = [
         "[Design]",
         f"Version={VERSION}",
@@ -35,8 +38,10 @@ def write_prjpcb(*, schematic: str, libraries: Sequence[str] = ()) -> bytes:
         "[Document1]",
         f"DocumentPath={_file_name(schematic, 'schematic')}",
     ]
-    for index, library in enumerate(sorted(libraries, key=name_key), start=2):
-        lines += ["", f"[Document{index}]", f"DocumentPath={_file_name(library, 'library')}"]
+    documents = [_file_name(pcb, "PCB document")] if pcb is not None else []
+    documents += [_file_name(library, "library") for library in sorted(libraries, key=name_key)]
+    for index, document in enumerate(documents, start=2):
+        lines += ["", f"[Document{index}]", f"DocumentPath={document}"]
     return b"".join(line.encode("ascii") + LINE_END for line in lines)
 
 
