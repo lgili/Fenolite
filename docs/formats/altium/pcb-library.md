@@ -30,6 +30,8 @@ a footprint are in `pcb-records.md`; the container is in `compound-file.md`.
 | A storage name holds at most 31 characters and none of `/ \ : !` | S-0145 | INFERRED | H-A-PCB-LIB-NAME |
 | Version 1 stores a footprint whose name is not a valid storage name under its name cut to 31 characters with `/` replaced by `_`, and writes the root stream `SectionKeys` only then: a 32-bit count, then per keyed footprint its full name (a 32-bit length and the NUL-terminated text, the length counting the NUL) and its storage name (a string block) | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-LIB-NAME |
 | `kicad-cli fp upgrade <lib>.PcbLib -o <dir>.pretty` converts a non-KiCad library through the plugin its path selects, on 10.0 and 9.0; the message on failure is only "Unable to convert library" | S-0166, S-0020 | INFERRED | H-A-PCB-KICAD-LIB |
+| `kicad-cli` 10.0.6 converts the PCB library Fenolite writes for the blink sample: three `.kicad_mod` files whose pads, holes, corner ratios, lines, rectangles, arcs and circle equal the source within 10 nm; without `Parameters` a footprint gives no file and exit 0 (`tests/kicad/altium/test_pcblib_oracle.py`, 2026-10-03) | S-0020, S-0166 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
+| `kicad-cli` 9.0.9 (pinned image, local run) converts the same library with the same pads and geometry; it puts Mechanical 13 on `B.Fab` and Mechanical 15 on `Eco2.User`, and exits 2 when a footprint has no `Parameters` | S-0020, S-0166 | INFERRED | H-A-PCB-KICAD-LIB |
 
 ## Version 2 not used
 
