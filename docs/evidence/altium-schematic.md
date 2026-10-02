@@ -10,6 +10,8 @@ This page is the protocol by which the maintainer checks, in Altium Designer, th
   experimental in `fenolite capabilities`.
 - Part A uses only the committed sample files below, named by their SHA-256. Part B uses a design and
   libraries that the maintainer may use (conditions below).
+- Part V uses the committed binary sample (change c0033) in the free Altium 365 Viewer, and step A7 opens
+  it in Altium Designer.
 - `kicad-cli` cannot read a `.SchDoc` (S-0132, S-0020), so this check is the first reading of the files by
   a program other than Fenolite.
 
@@ -76,6 +78,35 @@ Steps of Part A, and the rows of `docs/hypotheses.md` each settles:
 | A4 | Select `U2` and open its properties and its footprint model. | Design Item ID (written `DRV4`), Source (written `FenoliteSample.SchLib`), the footprint name (written `SOT143`) and the PCB Library mode of the footprint model (expected "Library name" with `FenoliteSample.PcbLib`). | `H-A-SCH-LINK` |
 | A5 | "File » Save As" with the type "Advanced Schematic ascii (*.SchDoc)" (SCH ASCII), under a new name. | Only the key names Altium added (no values), and whether the 8 `UNIQUEID` values of the table above are kept. | `H-A-SCH-UID`; data for `H-A-SCH-OPEN` |
 | A6 | Open `altium_sample_lf.SchDoc`. Then open `altium_sample_nouid.SchDoc`, compile, and save it as ASCII under a new name. | Whether the LF variant opens; whether `UNIQUEID` keys appear in the saved copy of the variant without them. | `H-A-SCH-LINEEND`; data for `H-A-SCH-UID` |
+| A7 | Open the binary sample `binary/altium_sample.SchDoc` (Part V) inside a copy of `binary/` with its project file, then compile the project. | Any prompt, repair offer or error when opening; every message of level error or fatal; the nets in the Navigator panel, compared with the table above. | `H-A-SCHBIN-AD`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE` |
+
+## Part V: Altium 365 Viewer opens the binary sample
+
+The binary sample is the same design written in Altium's binary form (change c0033): a compound file with
+the streams `FileHeader` and `Storage`, holding the same 122 records as the ASCII sample after a binary
+header record. `tests/unit/lens/test_altium_binary_golden.py` checks that a fresh build with
+`form="binary"` gives the same bytes and that this table names them. The project file is a copy of the
+ASCII sample's project file.
+
+| binary file | SHA-256 |
+|---|---|
+| `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `608d67d64ad32c26dc8c91d67cf271a26ab797d09c1ba4e4115451c75032c50d` |
+| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `2dada3a9095802ae98c4ab77cda9f4dda907e3fc6daa03dfd1af98b159e33007` |
+
+- The free Altium 365 Viewer (S-0149) needs no Altium licence. It takes one file, or one project in a Zip
+  archive, up to 200 MB.
+- Upload only Fenolite's authored sample files: the two files of `binary/` and, for V3, the ASCII
+  `altium_sample.SchDoc` of Part A. Never upload any other design. The sample is CC0, so no licence or
+  file question arises (`LEGAL.md`, block A).
+- Check the SHA-256 values before uploading, as in Part A.
+
+| step | what to do | what to note | rows |
+|---|---|---|---|
+| V1 | Upload `binary/altium_sample.SchDoc` alone. | The Viewer's message, word for word, or what it renders: the sheet, the 8 components with pin numbers, designators and comments, the 13 power ports and the 6 net labels. | `H-A-SCHBIN-VIEWER`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE` |
+| V2 | Upload a Zip archive holding the two files of `binary/` (the project file and the binary schematic). | The same as V1. | `H-A-SCHBIN-VIEWER`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE` |
+| V3 | Upload the ASCII `altium_sample.SchDoc` of Part A alone, as in V1. | The same as V1. A refusal with the same message as V1 points to the upload, not to the form. | data for `H-A-SCHBIN-VIEWER` |
+
+A Viewer report names the tool `A365 Viewer`: the Viewer shows no version.
 
 ## Part B: a design and libraries the maintainer may use
 
@@ -99,9 +130,11 @@ on it.
 
 ## Recording a report
 
-- A report gives the Altium Designer version as `AD <major>.<minor>`, the date, and one outcome per step
-  in generic format terms, under "Reports" below.
-- A confirmed row gets `ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact)`.
+- A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the
+  date, and one outcome per step in generic format terms, under "Reports" below. A Viewer refusal is
+  recorded with the Viewer's message.
+- A confirmed row gets `ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact)`,
+  or `ALTIUM-VERIFIED(author-report; A365 Viewer; <YYYY-MM-DD>; no artefact)` for a Viewer step.
 - A refuted row keeps its id, its result starts with `refuted; superseded by <id>-2`, and a successor row
   states what Altium did.
 - Without a report, a row stays `INFERRED` with a result that starts with `pending (author report)`.

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""A model design as the files of an Altium project: ``<name>.PrjPcb`` and an ASCII ``<name>.SchDoc``
-(capability altium-schematic-writer, "Altium writer package").
+"""A model design as the files of an Altium project: ``<name>.PrjPcb`` and ``<name>.SchDoc`` in the ASCII or
+the binary form (capability altium-schematic-writer, "Altium writer package" and "Binary schematic form").
 
 ``write_project`` takes a design whose components hold their pins (``lens.altium.generic_pins`` gives
 them), lays the sheet out and returns the file bytes. It writes no file, starts no process and reads no
@@ -15,6 +15,7 @@ import hashlib
 from typing import Literal
 
 from fenolite.backends.altium.ascii import text_problem
+from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import write_schdoc
@@ -45,6 +46,10 @@ EVIDENCE = Evidence(
 """The writer's format facts are inferred from public sources until the maintainer's author reports."""
 
 PowerStyle = Literal["ground", "bar"]
+SchematicForm = Literal["binary", "ascii"]
+"""The two forms of ``<name>.SchDoc``: a compound file of framed records, or text lines."""
+DEFAULT_FORM: SchematicForm = "ascii"
+"""The one default of the schematic form for the writer, the lens and the CLI (change c0033)."""
 
 
 def split_link(text: str) -> tuple[str, str] | None:
@@ -158,9 +163,17 @@ def plan_sheet(design: Design) -> SheetPlan:
 
 
 def write_project(
-    design: Design, *, name: str, project: bool = True, issues: list[Issue] | None = None
+    design: Design,
+    *,
+    name: str,
+    project: bool = True,
+    issues: list[Issue] | None = None,
+    form: SchematicForm = DEFAULT_FORM,
 ) -> dict[str, bytes]:
-    """``<name>.SchDoc`` and, when ``project`` is true, ``<name>.PrjPcb``, as bytes; no file is written."""
+    """``<name>.SchDoc`` in ``form`` and, when ``project`` is true, ``<name>.PrjPcb``, as bytes; no file is
+    written. The binary form raises ``cfb.CompoundTooLarge`` past the compound file's size limit."""
+    if form not in ("binary", "ascii"):
+        raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
     plan = plan_sheet(design)
     if plan.size.style is None and issues is not None:
@@ -176,14 +189,16 @@ def write_project(
     files: dict[str, bytes] = {}
     if project:
         files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc")
-    files[f"{name}.SchDoc"] = write_schdoc(plan)
+    files[f"{name}.SchDoc"] = write_schdoc_binary(plan) if form == "binary" else write_schdoc(plan)
     return files
 
 
 __all__ = [
+    "DEFAULT_FORM",
     "EVIDENCE",
     "PATH_PROPERTY",
     "WRITE_KINDS",
+    "SchematicForm",
     "component_path",
     "part_specs",
     "plan_sheet",

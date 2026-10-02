@@ -612,3 +612,15 @@ path = "tests/data/altium/sample/variants/altium_sample_nouid.SchDoc"
 origin = "authored"
 corpus_id = ""
 notes = "the sample schematic with every UNIQUEID field removed (c0032 check variant)"
+
+[[file]]
+path = "tests/data/altium/sample/binary/altium_sample.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "copy of the sample project file beside the binary schematic, for the Altium 365 Viewer check (c0033 golden file)"
+
+[[file]]
+path = "tests/data/altium/sample/binary/altium_sample.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary (MS-CFB) schematic written from examples/altium_sample with form=binary (c0033 golden file)"

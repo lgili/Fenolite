@@ -244,12 +244,18 @@ def _summary(design: Design, kept: Sequence[str], plan: SheetPlan | None) -> dic
 
 
 def build_altium(
-    design: Design, *, name: str, placed: Sequence[str] = (), project_exists: bool = False
+    design: Design,
+    *,
+    name: str,
+    placed: Sequence[str] = (),
+    project_exists: bool = False,
+    form: project.SchematicForm = project.DEFAULT_FORM,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
     ``placed`` are the component paths the script placed; ``project_exists`` tells that
-    ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned.
+    ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned; ``form`` is the
+    form of ``<name>.SchDoc`` (``binary`` or ``ascii``).
     """
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
@@ -277,7 +283,7 @@ def build_altium(
             "use 'Replace selected attributes' with graphical attributes off to keep every connection",
         )
     )
-    files = project.write_project(model, name=name, project=not project_exists, issues=issues)
+    files = project.write_project(model, name=name, project=not project_exists, issues=issues, form=form)
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(model).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
