@@ -21,11 +21,13 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+import _acceptance
 import _bench
 import _buildcases
 import _fpwrite
 import _procases
 import _rulecases
+import _sheetcases
 import _triad
 import pytest
 from _boards import FIXTURE, created_board
@@ -196,6 +198,10 @@ def _probes() -> dict[str, Probe]:
         **_procases.pro_probes(),
         **_buildcases.build_probes(),
     }.items():
+        probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
+    for pid, (function, majors) in _sheetcases.wks_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _acceptance.accept_probes().items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     return probes
 

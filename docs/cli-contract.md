@@ -102,7 +102,7 @@ Each entry of `result.backends` is one backend's capability report, sorted by na
 
 ```json
 {"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
- "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro"],
+ "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks"],
  "targets": [9, 10], "default_target": 10, "downgrade": "unsupported",
  "operations": ["detect", "read", "write", "lower"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}

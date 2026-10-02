@@ -71,6 +71,11 @@ never taken from KiCad's writer code.
 | S-0030 names no format version for the 9.0 layer renumbering; the development board `multichannel_mixer-unrouted` (header `20241030`, tag 10.0.6) already numbers `B.Cu` 2 and `Edge.Cuts` 25, so the renumbering lies after `20240108` and no later than `20241030` | S-0030, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Layer tables written by 10.0.6 for two copper layers: `(0 "F.Cu" signal)`, `(2 "B.Cu" signal)`, `(9 "F.Adhes" user "F.Adhesive")`, `(11 "B.Adhes" user "B.Adhesive")`, `(13 "F.Paste" user)`, `(15 "B.Paste" user)`, `(5 "F.SilkS" user "F.Silkscreen")`, `(7 "B.SilkS" user "B.Silkscreen")`, `(1 "F.Mask" user)`, `(3 "B.Mask" user)`, `(17 "Dwgs.User" user "User.Drawings")`, `(19 "Cmts.User" user "User.Comments")`, `(21 "Eco1.User" user "User.Eco1")`, `(23 "Eco2.User" user "User.Eco2")`, `(25 "Edge.Cuts" user)`, `(27 "Margin" user)`, `(31 "F.CrtYd" user "F.Courtyard")`, `(29 "B.CrtYd" user "B.Courtyard")`, `(35 "F.Fab" user)`, `(33 "B.Fab" user)` (6 boards, user copper names aside); four copper layers add `(4 "In1.Cu" signal)` and `(6 "In2.Cu" signal)` after `F.Cu` (3 boards) | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Root children as 10.0.6 writes them: `version`, `generator`, `generator_version`, `general`, `paper`, `title_block`, `layers`, `setup`, footprints, drawings (`gr_*` interleaved by KiCad's own sort, then `gr_text`, then `dimension`), tracks (`segment`, `arc` and `via` interleaved), zones, `group`, `generated`, `embedded_fonts`, `embedded_files`; 9.0-written boards put the net table after `setup` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
+| `paper` holds a size name (`A0` … `A5`, `A` … `E`) with an optional `portrait` atom, or `"User"` with a width and a height in mm; without `portrait` the page is landscape | S-0001, S-0058, S-0020 | INFERRED | H-K-PCB-PAPER-2 |
+| KiCad's named pages come out within 0.05 mm of the ISO sizes (an A4 board's SVG page is 297.0022 × 210.0072 mm, A3 419.9890 × 297.0022 mm) | S-0077, S-0020 | INFERRED | H-K-PCB-PAPER-2 |
+| A `User` page is each dimension truncated to a whole mil (0.0254 mm): Letter 279.4 × 215.9, Legal 355.6 × 215.9 and Tabloid 431.8 × 279.4 mm are exact, 300 × 200 mm comes out 299.9994 × 199.9996 mm and 300.5 × 200.25 mm comes out 300.4820 × 200.2282 mm | S-0020 | INFERRED | H-K-PCB-PAPER-2 |
+| `(paper "Tabloid")` makes the board load fail ("Page type 'Tabloid' is not valid"); KiCad-written demo boards spell a custom page `"User"` | S-0020, S-0058 | INFERRED | H-K-PCB-PAPER-2 |
+| `title_block` holds `title`, `date`, `rev`, `company` and `comment N "…"` (N = 1 … 9), each with one string, in that order; KiCad writes it right after `paper` | S-0001, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of board items as 9.0 and 10.0 write them (no conflicting order in 22 boards per major): `footprint` name, `locked`, `layer`, `uuid`, `at`, `descr`, `tags`, `property`, `path`, `sheetname`, `sheetfile`, …, `attr`, graphics, `pad`, `zone`, `group`, `embedded_*`, `model`; `property` name, value, `at`, `unlocked`, `layer`, `hide`, `uuid`, `effects`; `effects` `font`, `justify`; `font` `face`, `size`, `thickness`, `bold`; `pad` number, type, shape, `at`, `size`, `rect_delta`, `drill`, `property`, `layers`, …, `net`, `pinfunction`, `pintype`, …, `uuid` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of tracks and zones as 9.0 and 10.0 write them: `segment` `start`, `end`, `width`, `locked`, `layer`, `net`, `uuid`; `arc` `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid`; `via` type atom, `at`, `size`, `drill`, `layers`, …, `locked`, …, `net`, `uuid`; `zone` `net`, `net_name` (9.0), `layer`, `locked`, `layers`, `uuid`, `name`, `hatch`, `priority`, `attr`, `connect_pads`, `min_thickness`, `filled_areas_thickness` (9.0), `keepout`, `placement`, `fill`, `polygon`, `filled_polygon`; `polygon` `pts`; `filled_polygon` `layer`, `pts`; `keepout` `tracks`, `vias`, `pads`, `copperpour`, `footprints` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of drawings as 9.0 and 10.0 write them: `gr_line` `start`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_arc` `start`, `mid`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_circle` `center`, `end`, `stroke`, `fill`, `layer`, `uuid`; `gr_rect` `start`, `end`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_poly` `pts`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_text` text, `at`, `layer`, `uuid`, `effects`, `render_cache`; `stroke` `width`, `type`; `pts` `xy` (and `arc`); fills are spelled `(fill yes)` and `(fill no)` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
@@ -153,6 +158,23 @@ These are decisions of the reader, not facts about KiCad.
   board `kicad_pcb`. An item without a uuid gets a content id; a repeated uuid gets the occurrence
   suffix `:<k>` and the warning `kicad.board.duplicate-uuid`.
 
+## Paper and title block (c0012)
+
+`paper` and `title_block` stay opaque root slots, so the closed list of modelled content, every opaque
+count and RT1 are unchanged; their content is projected into `Board.sheet` and `Board.title_block`.
+
+- **Read.** `pcb.project_paper` gives `A0` … `A5` (with `portrait`), and maps `(paper "User" W H)` to
+  `Letter`, `Legal` or `Tabloid` when W × H is that size in either orientation (portrait when W < H),
+  else to `custom` W × H. Any other name (`USLetter`, `A` … `E`) and a size that is not whole nm give
+  `Board.sheet = None` and the info `kicad.board.paper-unmodelled`. `pcb.project_title_block` maps
+  `title`, `date`, `rev`, `company` and `comment 1` … `comment 3` through `pcb.TITLE_BLOCK_FIELDS`;
+  `comment 4` … `comment 9` and unknown children stay in the fragment.
+- **Write.** An unchanged projection keeps its fragment. A changed `paper` is re-emitted whole with
+  `pcb.paper_node`: a named A size, or `"User" W H` for the US sizes and custom pages, never KiCad's own
+  US names. A changed `title_block` is rewritten in place: changed values replaced, newly set fields
+  inserted in the order `title`, `date`, `rev`, `company`, `comment 1` … `comment 3`, emptied fields
+  removed, every other child kept; a board read without one gains it right after `paper`.
+
 ## Issue codes
 
 | code | severity | when |
@@ -183,7 +205,9 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   release of that major writes, for read and created boards alike (`H-K-GENVER`).
 - **Created boards.** The root holds the head set of c0007's skeleton: the header,
   `(general (thickness T) (legacy_teardrops no))` with T the sum of the stack-up thicknesses or 1.6 mm,
-  `(paper "A4")`, `layers`, `(setup (pad_to_mask_clearance 0))` and, for target 9, the net table.
+  `paper` from `Board.sheet` (`(paper "A4")` when it is `None`), `title_block` right after `paper` when
+  one of the seven fields of `Board.title_block` is set (c0012), `layers`,
+  `(setup (pad_to_mask_clearance 0))` and, for target 9, the net table.
   `layers.created_layers(2)` is the two-copper table above; `created_layers(4)` adds `In1.Cu` (4) and
   `In2.Cu` (6) after `F.Cu`. No `pcbplotparams` is written.
 - **Net forms.** For target 9 the root holds `(net 0 "")` and `(net i "NAME")` for the model's nets in
@@ -206,7 +230,7 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
 
   | head | children in order |
   |---|---|
-  | `kicad_pcb` | `version`, `generator`, `generator_version`, `general`, `paper`, `layers`, `setup`, `net`, `footprint`, `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text`, `segment`, `arc`, `via`, `zone` |
+  | `kicad_pcb` | `version`, `generator`, `generator_version`, `general`, `paper`, `title_block`, `layers`, `setup`, `net`, `footprint`, `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text`, `segment`, `arc`, `via`, `zone` |
   | `footprint` | name, `locked`, `layer`, `uuid`, `at`, `property`, `path`, `attr`, `pad` |
   | `property` | name, value, `at`, `layer`, `uuid`, `effects` |
   | `effects` | `font`, `justify` |

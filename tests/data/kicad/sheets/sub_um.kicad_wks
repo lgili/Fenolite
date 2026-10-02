@@ -1,0 +1,20 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 10)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(line
+		(start 50.0006 30 ltcorner)
+		(end 60 30 ltcorner)
+	)
+	(tbtext "Whole"
+		(pos 20.001 20 ltcorner)
+	)
+)

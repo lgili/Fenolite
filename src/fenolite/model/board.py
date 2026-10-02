@@ -10,6 +10,7 @@ from typing import Literal
 from fenolite.core.coords import Point, Size
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
+from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
 LayerKind = Literal[
     "copper",
@@ -238,6 +239,8 @@ class Board(Entity):
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     holes: tuple[Hole, ...] = ()
+    sheet: SheetFrameRef | None = None
+    title_block: TitleBlock | None = None
 
 
 __all__ = [

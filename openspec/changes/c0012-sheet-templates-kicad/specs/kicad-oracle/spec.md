@@ -75,12 +75,16 @@ The drawing-sheet and paper probes SHALL be entries of c0017's `tests/kicad/_pro
 | `wks-bitmap-corrupt` | `present` | `H-K-WKS-BITMAP` |
 | `wks-bitmap` | `load` | `H-K-WKS-BITMAP` |
 | `wks-bitmap-clean` | `absent` | `H-K-WKS-BITMAP` |
-| `wks-resolution` | `equal` | `H-K-WKS-RES` |
-| `pcb-paper-<name>` | `equal` | `H-K-PCB-PAPER` |
+| `wks-resolution` | `different` | `H-K-WKS-RES` (refuted by the spike; superseded by `H-K-WKS-RES-2`) |
+| `wks-resolution-exact` | `equal` | `H-K-WKS-RES-2` |
+| `pcb-paper-<name>` except `custom` | `equal` | `H-K-PCB-PAPER-2` |
+| `pcb-paper-custom` | `different` | `H-K-PCB-PAPER` (refuted by the spike; superseded by `H-K-PCB-PAPER-2`) |
+| `pcb-paper-custom-mil`, `pcb-paper-custom-fraction` | `equal` | `H-K-PCB-PAPER-2` |
 | `wks-pro-relative`, `wks-pro-kiprjmod` | `present` | `H-K-PRO-WKS` |
 | `wks-accept-<example>-<size>` | `equal` | acceptance item 4 |
 
-- `pcb-paper-<name>` MUST compare the SVG page size with `PAPER_SIZES`: within 0.05 mm for `A0` … `A5` and exactly for the `User` form (Letter, Legal, Tabloid and one custom size), in the orientation written.
+- `pcb-paper-<name>` MUST compare the SVG page size with `PAPER_SIZES`: within 0.05 mm for `A0` … `A5`, and exactly for the `User` form of the whole-mil sizes Letter, Legal and Tabloid, in the orientation written. `pcb-paper-custom` compares `(paper "User" 300 200)` exactly with 300 × 200 mm, and its `different` outcome is the refutation of `H-K-PCB-PAPER`; `pcb-paper-custom-mil` and `pcb-paper-custom-fraction` compare `(paper "User" 300 200)` and `(paper "User" 300.5 200.25)` exactly with each dimension truncated to a whole mil of 0.0254 mm (`H-K-PCB-PAPER-2`, measured by the spike on 9.0.9 and 10.0.6 on 2026-10-02).
+- `wks-resolution` compares the start of `probe_resolution`'s line (written 50.0006 mm) with the truncated micrometre, and its `different` outcome is the refutation of `H-K-WKS-RES`; `wks-resolution-exact` compares it with the value as written, within 0.0001 mm (`H-K-WKS-RES-2`).
 - A probe whose outcome differs from this table MUST NOT be overridden: `layout` MUST follow the measurement on both majors, and a successor hypothesis row with suffix `-2` MUST record it (c0014's "Refuted rows keep their id").
 - `wks-bitmap-corrupt` holds a `pngdata` whose bytes are not a PNG. Its outcome MUST be `present` when its output holds at least one line (the decoder line) that the output of `wks-control` lacks. `wks-bitmap` holds a 1x1 authored PNG and MUST be classified like any sheet case. `wks-bitmap-clean` runs no `kicad-cli`: it reads the memoised outputs of `wks-bitmap`, `wks-bitmap-corrupt` and `wks-control` of the same session, and MUST be `absent` when no line that `wks-bitmap-corrupt` adds over `wks-control` appears in the output of `wks-bitmap`, and `present` otherwise. Each probe thus has one outcome. A `load` verdict alone cannot tell a good bitmap from a bad one, because KiCad loads the rest of the sheet either way.
 - Each hypothesis MUST become `KICAD-VERIFIED (9.0.x, 10.0.x)` only when its probes give the expected outcome on both majors; otherwise it stays `INFERRED` with the reason. Bitmap loading stays `INFERRED` when `wks-bitmap-corrupt` is not `present` or `wks-bitmap-clean` is not `absent` on a major. Bitmap plotting stays `INFERRED` (S-0075).

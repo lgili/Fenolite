@@ -110,6 +110,26 @@
       "items": {
         "$ref": "#/$defs/Hole"
       }
+    },
+    "sheet": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SheetFrameRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "title_block": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TitleBlock"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -835,6 +855,60 @@
         "locator"
       ]
     },
+    "SheetFrameRef": {
+      "description": "The board's paper and the drawing sheet its project names (a project-relative path).",
+      "type": "object",
+      "properties": {
+        "paper": {
+          "enum": [
+            "A0",
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "Letter",
+            "Legal",
+            "Tabloid",
+            "custom"
+          ]
+        },
+        "portrait": {
+          "type": "boolean"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drawing_sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
     "Size": {
       "description": "A width and height in nanometres.",
       "type": "object",
@@ -1017,6 +1091,40 @@
         "size",
         "thickness"
       ]
+    },
+    "TitleBlock": {
+      "description": "The title-block fields of a board and the user parameters its sheet may show.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "doc_id": {
+          "type": "string"
+        },
+        "responsible": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "Track": {
       "type": "object",

@@ -1,0 +1,37 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 10)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(tbtext "Repeat"
+		(name "")
+		(pos 100 100 ltcorner)
+	)
+	(tbtext "A"
+		(name "")
+		(pos 5 25 ltcorner)
+		(repeat 10)
+		(incry 50)
+		(incrlabel 1)
+	)
+	(tbtext "1"
+		(name "")
+		(pos 20 5 ltcorner)
+		(repeat 12)
+		(incrx 20)
+		(incrlabel 1)
+	)
+	(tbtext "Q"
+		(name "")
+		(pos 15 25 ltcorner)
+		(repeat 3)
+		(incry 20)
+	)
+)

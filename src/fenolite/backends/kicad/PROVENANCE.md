@@ -57,3 +57,7 @@ written from the pages under `docs/formats/kicad/`.
 | hidden user property `fenolite.path` on board footprints, in the form of KiCad-written boards (c0011) | S-0010, S-0038, S-0058 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 (notice) | 2026-10-02 | facts only |
 | project `fp-lib-table` forms per major and `${KIPRJMOD}` rows of vendored libraries (c0011) | S-0042, S-0043, S-0045, S-0046 | CC-BY-SA-4.0 with the library exception; GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
 | `pcb drc`, `pcb export pos` and `pcb upgrade` on built projects, on `kicad-cli` 9.0.9 and 10.0.6 (c0011) | S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
+| worksheet syntax: roots, setup and item heads, points and corner atoms, repeat, `pngdata`, page-1 options (c0012) | S-0035, S-0036, S-0032 | not stated on the page; GPL-3.0-or-later (single names and the version constant only, nothing copied) | 2026-10-02 | facts only |
+| worksheet text variables, default corner, label increment, bitmap plotting (c0012) | S-0075, S-0076 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| board `paper` forms and `title_block` children; the `User` paper spelling (c0012) | S-0001, S-0058 | not stated on the page; CC-BY-SA-4.0 (demo files read for facts only) | 2026-10-02 | facts only |
+| drawing-sheet oracle: `pcb export svg --drawing-sheet` on `kicad-cli` 9.0.9 and 10.0.6 (c0012) | S-0020, S-0022, S-0037, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |

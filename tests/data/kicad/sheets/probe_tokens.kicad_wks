@@ -1,0 +1,65 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 10)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(tbtext "Tokens"
+		(name "")
+		(pos 20 20 ltcorner)
+	)
+	(tbtext "${TITLE}"
+		(name "")
+		(pos 20 30 ltcorner)
+	)
+	(tbtext "${COMMENT1}"
+		(name "")
+		(pos 20 36 ltcorner)
+	)
+	(tbtext "${REVISION}"
+		(name "")
+		(pos 20 42 ltcorner)
+	)
+	(tbtext "${#}"
+		(name "")
+		(pos 20 48 ltcorner)
+	)
+	(tbtext "${##}"
+		(name "")
+		(pos 20 54 ltcorner)
+	)
+	(tbtext "${ISSUE_DATE}"
+		(name "")
+		(pos 20 60 ltcorner)
+	)
+	(tbtext "${COMPANY}"
+		(name "")
+		(pos 20 66 ltcorner)
+	)
+	(tbtext "${COMMENT2}"
+		(name "")
+		(pos 20 72 ltcorner)
+	)
+	(tbtext "${COMMENT3}"
+		(name "")
+		(pos 20 78 ltcorner)
+	)
+	(tbtext "${FILENAME}"
+		(name "")
+		(pos 20 84 ltcorner)
+	)
+	(tbtext "${PAPER}"
+		(name "")
+		(pos 20 90 ltcorner)
+	)
+	(tbtext "${LOT}"
+		(name "")
+		(pos 20 96 ltcorner)
+	)
+)

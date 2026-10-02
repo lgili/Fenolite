@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import dataclasses
 import random
+import re
 from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -20,6 +21,7 @@ from fenolite.model.board import Board, Pad
 from fenolite.model.circuit import Circuit, Component, Net
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
+from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleSet
 
 SCHEMA_VERSION = "0"
@@ -208,7 +210,58 @@ class Design:
                 net_id: str | None = getattr(item, "net_id", None)
                 if net_id is not None and net_id not in net_ids:
                     add("model.unknown-net", "error", f"refers to unknown net {net_id}", item.id)
+            issues += presentation_issues(self.board.sheet, self.board.title_block, self.board.id)
         return tuple(issues)
 
 
-__all__ = ["SCHEMA_VERSION", "Design", "DesignHeader", "iter_entities"]
+_DRIVE = re.compile(r"^[A-Za-z]:")
+
+
+def _sheet_path_problem(path: str) -> str | None:
+    """Why ``path`` is not a project-relative path (``${KIPRJMOD}/`` allowed), or None."""
+    rest = path.removeprefix("${KIPRJMOD}/")
+    if rest.startswith(("/", "\\")) or _DRIVE.match(rest):
+        return "an absolute path"
+    if ".." in re.split(r"[/\\]", rest):
+        return "a '..' segment"
+    return None
+
+
+def presentation_issues(sheet: SheetFrameRef | None, block: TitleBlock | None, where: str) -> list[Issue]:
+    """The ``model.sheet-path``, ``model.sheet-size`` and ``model.param-name`` findings of a board's
+    presentation fields (design-model, "Presentation values are validated")."""
+    issues: list[Issue] = []
+    if sheet is not None:
+        if sheet.drawing_sheet is not None:
+            why = _sheet_path_problem(sheet.drawing_sheet)
+            if why:
+                issues.append(Issue(code="model.sheet-path", severity="error", where=where,
+                                    message=f"drawing sheet {sheet.drawing_sheet!r} is {why}",
+                                    hint="name the sheet relative to the project folder"))  # fmt: skip
+        size = _sheet_size_problem(sheet)
+        if size:
+            issues.append(Issue(code="model.sheet-size", severity="error", message=size, where=where))
+    for name in sorted(block.params) if block is not None else ():
+        if not PARAM_NAME.fullmatch(name):
+            message = f"parameter name {name!r} does not match [A-Za-z_][A-Za-z0-9_]*"
+            issues.append(Issue(code="model.param-name", severity="error", message=message, where=where))
+    return issues
+
+
+def _sheet_size_problem(sheet: SheetFrameRef) -> str | None:
+    if sheet.paper == "custom":
+        if sheet.width is None or sheet.height is None:
+            return "a custom paper needs both width and height"
+        if sheet.portrait:
+            return "portrait is not set on a custom paper; give width and height in the wanted orientation"
+        for name in US_SIZES:
+            w, h = PAPER_SIZES[name]
+            if (sheet.width, sheet.height) in ((w, h), (h, w)):
+                return f"a custom paper of {name} size is the named size {name!r}"
+        return None
+    if sheet.width is not None or sheet.height is not None:
+        return f"width and height are set only on a custom paper, not on {sheet.paper!r}"
+    return None
+
+
+__all__ = ["SCHEMA_VERSION", "Design", "DesignHeader", "iter_entities", "presentation_issues"]

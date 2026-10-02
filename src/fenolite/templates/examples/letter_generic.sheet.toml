@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: CC0-1.0
+# A generic drawing sheet for Letter and Tabloid landscape: a plain frame and a 180 mm title block whose
+# labels are ISO 7200 data field names (S-0078, facts only). No public figure for frames on US paper is
+# registered, so every number is a Fenolite choice, listed under [provenance.values]. No conformance
+# with any standard is claimed.
+
+[provenance]
+sources = ["S-0078", "S-0079"]
+licence = "CC0-1.0"
+
+[provenance.values]
+"sheet.text_size" = "fenolite-choice"
+"sheet.line_width" = "fenolite-choice"
+"sheet.text_line_width" = "fenolite-choice"
+"margins.left" = "fenolite-choice"
+"margins.right" = "fenolite-choice"
+"margins.top" = "fenolite-choice"
+"margins.bottom" = "fenolite-choice"
+"frame.line_width" = "fenolite-choice"
+"title_block.columns" = "fenolite-choice"
+"title_block.rows" = "fenolite-choice"
+"title_block.line_width" = "fenolite-choice"
+"title_block.label_size" = "fenolite-choice"
+"title_block.cell[4].font_size" = "fenolite-choice"
+
+[sheet]
+name = "letter_generic"
+sizes = ["Letter", "Tabloid"]
+orientation = "landscape"
+text_size = 2.5
+line_width = 0.25
+text_line_width = 0.25
+
+[margins]
+left = 12.7
+right = 12.7
+top = 12.7
+bottom = 12.7
+
+[frame]
+line_width = 0.5
+zones = false
+
+[title_block]
+corner = "rb"
+columns = [40, 60, 35, 45]
+rows = [9, 12, 9]
+line_width = 0.35
+label_size = 1.8
+
+[[title_block.cell]]
+row = 0
+col = 0
+label = "Legal owner"
+token = "organization"
+
+[[title_block.cell]]
+row = 0
+col = 1
+label = "Identification number"
+token = "doc_id"
+
+[[title_block.cell]]
+row = 0
+col = 2
+label = "Revision index"
+token = "revision"
+
+[[title_block.cell]]
+row = 0
+col = 3
+label = "Segment/sheet number"
+token = "sheet"
+
+[[title_block.cell]]
+row = 1
+col = 0
+span = 3
+label = "Title"
+token = "title"
+font_size = 3.5
+
+[[title_block.cell]]
+row = 1
+col = 3
+label = "Paper size"
+token = "paper"
+
+[[title_block.cell]]
+row = 2
+col = 0
+label = "Responsible department"
+token = "responsible"
+
+[[title_block.cell]]
+row = 2
+col = 1
+label = "Approval person"
+token = "approver"
+
+[[title_block.cell]]
+row = 2
+col = 2
+span = 2
+label = "Date of issue"
+token = "date"

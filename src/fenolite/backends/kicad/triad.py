@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
-from fenolite.backends.kicad.pro import synthesize_project, update_project
+from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
 from fenolite.backends.kicad.versions import DEFAULT_TARGET
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
@@ -49,6 +49,7 @@ def write_triad(
         project = update_project(
             existing_project, design, target=target, allow_lossy=allow_lossy, issues=found
         )
+    project = apply_sheet_keys(project, design, allow_lossy=allow_lossy, issues=found)
     if issues is not None:
         issues.extend(found)
     return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}

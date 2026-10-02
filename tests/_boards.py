@@ -35,6 +35,7 @@ from fenolite.model.board import (
 from fenolite.model.canonical import to_data
 from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.design import Design
+from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 LAYERS = (
@@ -119,6 +120,7 @@ SCENARIOS: dict[str, str] = {
         zone(1, inner="(polygon (pts (xy 0 0) (arc (start 0 0) (mid 1 1) (end 2 0)) (xy 2 5)))")
     ),
     "zone-two-polygons": board(zone(1, inner=f"{SQUARE} {SQUARE}")),
+    "paper-unmodelled": board().replace('(paper "A4")', '(paper "USLetter")'),
     "island-10": board(
         zone(
             1,
@@ -178,6 +180,11 @@ def census(section: str, key: str, data: Any) -> None:
 
 
 MM = 1_000_000
+CREATED_TITLE_BLOCK = TitleBlock(
+    title="Created", date="2026-10-02", revision="A", organization="Fenolite", doc_id="FEN-1",
+    responsible="Ann", approver="Bob",
+)  # fmt: skip
+"""The seven-field title block of the created test board (c0012), so it writes every title-block head."""
 CREATED_NETS = ("GND", "LED_A", "VIN")
 
 
@@ -192,8 +199,9 @@ def square(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
 
 def created_board(copper: Literal[2, 4] = 2) -> Design:
     """The created test board of the writer (c0017 Decision 19): ``created_layers(copper)``, a 50 × 30 mm
-    outline, the nets GND, LED_A and VIN, and one created entity of every ``CANONICAL_ORDER`` head, so
-    that every name of ``pcb.FLOOR_HEADS`` is written for target 9."""
+    outline, the nets GND, LED_A and VIN, one created entity of every ``CANONICAL_ORDER`` head, an A4
+    sheet and a seven-field title block (c0012), so that every name of ``pcb.FLOOR_HEADS`` is written
+    for target 9."""
     rng = random.Random(copper)
     design = Design.new("created", seed=copper)
     nets = {name: Net(id=new_id("net", rng), name=name) for name in CREATED_NETS}
@@ -248,6 +256,8 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         keepouts=(rule,),
         texts=(text,),
         graphics=graphics,
+        sheet=SheetFrameRef("A4"),
+        title_block=CREATED_TITLE_BLOCK,
     )  # fmt: skip
     members = {gnd: (PinRef(u1.id, "1"),), led: (PinRef(u1.id, "2"),)}
     circuit = Circuit(

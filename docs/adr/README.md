@@ -33,9 +33,10 @@ Public sources (ids from `docs/evidence/sources.md`), tests or hypotheses that b
 | [0002](0002-kicad-file-backend.md) | KiCad file backend: Fenolite's own readers and writers, `kicad-cli` as the oracle | Accepted |
 | [0003](0003-clean-room-and-provenance.md) | Clean-room development and provenance of format knowledge | Accepted |
 | [0004](0004-licence-apache-2.0.md) | Licence: Apache-2.0; copyleft only behind a process boundary | Accepted |
+| [0005](0005-sheet-templates.md) | Sheet templates: a neutral drawing sheet built from closed, sourced specifications | Proposed |
 
 **Numbering.**
 
 - ADR-0002 was allocated by change c0001 before 0003 and 0004 existed; change c0009 writes it, so it is the only number written out of order.
 - The next free number is one above the highest number written or allocated; a new ADR takes it when its change is proposed, and numbers are never reserved.
-- ADR numbers are not tied to planning decision numbers. With 0001 to 0004 written, the next ADR is 0005.
+- ADR numbers are not tied to planning decision numbers. With 0001 to 0005 written, the next ADR is 0006.

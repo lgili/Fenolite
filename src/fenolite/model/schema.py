@@ -24,4 +24,11 @@ LIBRARY_SCHEMA: tuple[str, str, str] = (
     "fenolite.model.library:Library",
 )
 
-__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMA_DIR"]
+# Drawing sheets are definitions outside a design, like library definitions (change c0012).
+SHEET_SCHEMA: tuple[str, str, str] = (
+    "drawing_sheet.json",
+    "fenolite.drawing_sheet.v0",
+    "fenolite.model.presentation:DrawingSheet",
+)
+
+__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMA_DIR", "SHEET_SCHEMA"]

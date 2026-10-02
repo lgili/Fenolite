@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """KiCad backend: S-expression syntax layer, slots, format versions, library and board readers, the
-board, footprint, custom-rules and project writers, and the ``kicad-cli`` runner.
+board, footprint, custom-rules, project and drawing-sheet writers, and the ``kicad-cli`` runner.
 
 Facts and sources: ``docs/formats/kicad/`` and ``PROVENANCE.md`` in this package.
 """
@@ -39,6 +39,7 @@ from fenolite.backends.kicad.sexpr import (
 from fenolite.backends.kicad.sym import read_symbol_library, resolve_extends
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import LegacyEditRefusedError, LossyWriteError
+from fenolite.backends.kicad.wks import read_drawing_sheet, rebuild_drawing_sheet, write_drawing_sheet
 
 __all__ = [
     "MAX_DEPTH",
@@ -66,12 +67,14 @@ __all__ = [
     "parse_fragment",
     "place_footprint",
     "read_board",
+    "read_drawing_sheet",
     "read_drc_report",
     "read_footprint",
     "read_project",
     "read_rules",
     "read_symbol_library",
     "rebuild_board",
+    "rebuild_drawing_sheet",
     "resolve_extends",
     "synthesize_project",
     "split_lib_id",
@@ -83,4 +86,5 @@ __all__ = [
     "write_pretty",
     "write_rules",
     "write_triad",
+    "write_drawing_sheet",
 ]

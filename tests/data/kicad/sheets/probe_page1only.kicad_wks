@@ -1,0 +1,22 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 10)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(tbtext "Scope"
+		(name "")
+		(pos 20 20 ltcorner)
+	)
+	(tbtext "First"
+		(name "")
+		(pos 20 30 ltcorner)
+		(option page1only)
+	)
+)

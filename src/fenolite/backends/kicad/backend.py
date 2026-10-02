@@ -12,13 +12,14 @@ from fenolite.backends.kicad import versions
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
+from fenolite.model.presentation import DrawingSheet
 
 SYMBOL_DIR_SUFFIX = ".kicad_symdir"
 
 CAPABILITIES = CapabilityReport(
     name="kicad",
     read_kinds=("kicad_pcb", "kicad_mod", "kicad_sym"),
-    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro"),
+    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks"),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",
@@ -109,6 +110,17 @@ class KicadBackend:
             allow_lossy=allow_lossy,
             issues=issues,
         )
+
+    def write_sheet(
+        self, sheet: DrawingSheet, *, target: int | None = None, allow_lossy: bool = False
+    ) -> WriteResult:
+        """``sheet`` as ``.kicad_wks`` text (``wks.write_drawing_sheet``); ``target=None`` means the default
+        target, which selects the emit check only."""
+        from fenolite.backends.kicad.wks import write_drawing_sheet
+
+        chosen = CAPABILITIES.default_target if target is None else target
+        assert chosen is not None
+        return write_drawing_sheet(sheet, target=chosen, allow_lossy=allow_lossy)
 
     def capabilities(self) -> CapabilityReport:
         return CAPABILITIES

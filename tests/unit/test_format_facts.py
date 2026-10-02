@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Fact tables of docs/formats/kicad/*.md (capability kicad-sexpr): sources, labels and hypotheses.
+"""Fact tables of docs/formats/kicad/*.md (capability kicad-sexpr): sources, labels and hypotheses; and
+the figure tables of docs/formats/sheets.md (change c0012): a registered source id per row.
 
 A fact table has the header ``| fact | source | label | hypothesis |``. Every row cites an S-id, its
 label is a value of ``fenolite.core.evidence.Level`` (optionally followed by a parenthesised scope,
@@ -19,6 +20,8 @@ from fenolite.core.evidence import Level
 
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = ROOT / "docs" / "formats" / "kicad"
+SHEETS_PAGE = ROOT / "docs" / "formats" / "sheets.md"
+SOURCES = ROOT / "docs" / "evidence" / "sources.md"
 HEADER = ["fact", "source", "label", "hypothesis"]
 VERIFIED = {Level.KICAD_VERIFIED.value, Level.CORPUS_VERIFIED.value}
 HYPOTHESIS_IDS: dict[str, str] = {
@@ -114,3 +117,57 @@ def test_project_page_names_its_own_hypotheses() -> None:
     assert table_problems("project.md", table) == ["project.md:3: INFERRED row names no hypothesis"]
     ok = table.replace("H-K-SEXPR-STRICT", "H-K-PRO-MIN")
     assert table_problems("project.md", ok) == []
+
+
+def registered_sources(text: str) -> set[str]:
+    """The ids of the rows of ``docs/evidence/sources.md``."""
+    return set(re.findall(r"^\| (S-\d{4}) \|", text, flags=re.MULTILINE))
+
+
+def sheets_problems(text: str, registered: set[str], name: str = "sheets.md") -> list[str]:
+    """Every row of every table in ``sheets.md`` cites a registered source id."""
+    problems: list[str] = []
+    header = True
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.startswith("|"):
+            header = True
+            continue
+        if header:  # the first row of a table is its header
+            header = False
+            continue
+        if set(line.replace("|", "").strip()) <= {"-", " "}:
+            continue
+        ids = re.findall(r"\bS-\d{4}\b", line)
+        if not ids:
+            problems.append(f"{name}:{number}: no source id (S-NNNN)")
+        unknown = [sid for sid in ids if sid not in registered]
+        problems += [f"{name}:{number}: {sid} is not registered in sources.md" for sid in unknown]
+    return problems
+
+
+def test_collected_pages_include_the_sheet_pages() -> None:
+    names = {page.name for page in PAGES.glob("*.md")}
+    assert "worksheet.md" in names
+    assert SHEETS_PAGE.is_file()
+
+
+def test_sheets_page_rows_cite_registered_sources() -> None:
+    registered = registered_sources(SOURCES.read_text(encoding="utf-8"))
+    problems = sheets_problems(SHEETS_PAGE.read_text(encoding="utf-8"), registered)
+    assert not problems, "\n".join(problems)
+
+
+def test_sheets_rows_without_registered_source_refused() -> None:
+    table = "| size | width × height (mm) | source |\n|---|---|---|\n"
+    assert sheets_problems(table + "| A4 | 210 × 297 | S-0077 |\n", {"S-0077"}) == []
+    assert sheets_problems(table + "| A4 | 210 × 297 | fenolite-choice |\n", {"S-0077"}) == [
+        "sheets.md:3: no source id (S-NNNN)"
+    ]
+    assert sheets_problems(table + "| A4 | 210 × 297 | S-9999 |\n", {"S-0077"}) == [
+        "sheets.md:3: S-9999 is not registered in sources.md"
+    ]
+
+
+def test_worksheet_row_without_hypothesis_refused() -> None:
+    table = TABLE + "| a corner fact | S-0035 | INFERRED |  |\n"
+    assert table_problems("worksheet.md", table) == ["worksheet.md:3: INFERRED row names no hypothesis"]

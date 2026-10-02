@@ -396,3 +396,189 @@ path = "examples/blink_official/design.py"
 origin = "authored"
 corpus_id = ""
 notes = "blink on official library lib ids; DSL source only"
+
+[[file]]
+path = "tests/data/kicad/sheets/logo_1x1.png"
+origin = "authored"
+corpus_id = ""
+notes = "a 1x1 greyscale PNG authored for the bitmap probes and the logo test"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_bitmap.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "the 1x1 PNG as pngdata (wks-bitmap)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_bitmap_corrupt.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "pngdata whose bytes are not a PNG (wks-bitmap-corrupt)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_broken.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a marker text and the unknown item (frobnicate 1) (wks-broken)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_corners.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "one text per corner atom and one without corner atom (wks-corners)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_notonpage1.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a notonpage1 text (wks-notonpage1)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_page1only.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a page1only text (wks-page1only)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_percent.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "legacy percent codes in a kicad_wks 20231118 root (wks-percent)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_percent_legacy.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "legacy percent codes in a page_layout root (wks-percent)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_repeat.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a letter row, a 12-copy number row and a letter row without incrlabel (wks-repeat)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_resolution.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a line starting at 50.0006 mm (wks-resolution)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_shape.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "three tbtext items (wks-svg-shape)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_tokens.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "the eleven mapped variables and one parameter (wks-tokens)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_undefined.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "an undefined variable (wks-undefined-var)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_bold.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (bold)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_bottom.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (bottom)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_center.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (center)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_italic.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (italic)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_lbcorner.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (lbcorner)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_left.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (left)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_ltcorner.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (ltcorner)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_notonpage1.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (notonpage1)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_page1only.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (page1only)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_rbcorner.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (rbcorner)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_right.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (right)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_rtcorner.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (rtcorner)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_top.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (top)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_value_unknown.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "value atom probe (unknown)"
+
+[[file]]
+path = "tests/data/kicad/sheets/probe_pro.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a marker and the project variable ${LOT}, named by the project key (wks-pro-relative, wks-pro-kiprjmod)"
+
+[[file]]
+path = "tests/data/kicad/sheets/all_items.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "every modelled item kind, corner, scope, justify value and font flag, a repeat with a label step, the 1x1 PNG"
+
+[[file]]
+path = "tests/data/kicad/sheets/sub_um.kicad_wks"
+origin = "authored"
+corpus_id = ""
+notes = "a line starting at 50.0006 mm (kept opaque) and one whole-micrometre text"

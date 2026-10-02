@@ -17,6 +17,7 @@ REQUIRED = [
     "0002-kicad-file-backend.md",
     "0003-clean-room-and-provenance.md",
     "0004-licence-apache-2.0.md",
+    "0005-sheet-templates.md",
 ]
 
 

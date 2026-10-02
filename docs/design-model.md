@@ -76,6 +76,31 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   Ids are therefore unique within a `Library`. A consumer that places a definition twice derives new
   ids for the placed copies.
 
+## Presentation
+
+`fenolite.model.presentation` (change c0012) holds what a sheet draws around a board:
+
+- `Board.sheet: SheetFrameRef | None`: the paper (`A0` … `A5`, `Letter`, `Legal`, `Tabloid`, or `custom`
+  with `width` and `height` in nm), `portrait`, and `drawing_sheet`, the project-relative path of the
+  drawing-sheet file the project names (or `${KIPRJMOD}/…`).
+- `Board.title_block: TitleBlock | None`: `title`, `date`, `revision`, `organization`, `doc_id`,
+  `responsible`, `approver`, and `params`, user parameters a sheet may show.
+- `DrawingSheet(name, setup, items)`: a definition outside `Design`, like a library definition, with
+  prefix `wks` and its own schema `drawing_sheet.json`. One sheet serves many boards and sizes, so it is
+  never written to the six layer files. Its id is `derived_id("wks", "template", <sheet.name>)` for a
+  sheet built from a `*.sheet.toml` specification and `derived_id("wks", "kicad", <name>)` for one read
+  from a KiCad file.
+- Items are value objects in drawing order: `SheetShape` (`kind` `line` or `rect`), `SheetText` and
+  `SheetBitmap`. Every point is a `SheetPoint(corner, x, y)`, an offset from a corner of the margin box
+  (the page minus the setup margins), positive toward the interior, so one sheet fits every page size.
+- Texts hold neutral tokens only: `{title}`, `{doc_id}`, `{revision}`, `{sheet}`, `{sheets}`, `{date}`,
+  `{organization}`, `{responsible}`, `{approver}`, `{filename}`, `{paper}`, `{param:NAME}`, and `{{`/`}}`
+  for literal braces. `split_tokens` is the only parser; each backend maps the tokens to its own
+  variables.
+- `Design.validate()` reports `model.sheet-path` (an absolute path or a `..` segment), `model.sheet-size`
+  (an inconsistent custom or named size) and `model.param-name` (a parameter name outside
+  `[A-Za-z_][A-Za-z0-9_]*`).
+
 ## Boards read from a backend
 
 Normative text: requirements "Board entities read from file backends" and "Components synthesised

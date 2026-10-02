@@ -25,6 +25,9 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.project.inexact-value": "info",
         "kicad.project.unlowered-field": "info",
         "kicad.project.unread-entry": "info",
+        "kicad.project.reserved-variable": "error",
+        "kicad.project.dropped-variable": "warning",
+        "kicad.project.unread-variable": "info",
     }
 )
 

@@ -96,6 +96,7 @@ from fenolite.model.board import (
 )
 from fenolite.model.circuit import Circuit, Component, Net, Pin, PinRef, PinType
 from fenolite.model.design import SCHEMA_VERSION, Design, DesignHeader
+from fenolite.model.presentation import PAPER_SIZES, US_SIZES, SheetFrameRef, TitleBlock
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ",))
 KEPT_CODE = "kicad.board.kept-opaque"
@@ -111,6 +112,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.duplicate-uuid": "warning",
         "kicad.board.unknown-net": "warning",
         KEPT_CODE: "info",
+        "kicad.board.paper-unmodelled": "info",
     }
 )
 PIN_TYPES: Mapping[str, PinType] = MappingProxyType({t: t for t in get_args(PinType)})
@@ -345,6 +347,169 @@ def _emit_layers(layers: Sequence[Layer]) -> Node:
             atoms.append(Atom.string(pairs["user_name"]))
         rows.append(Node(Atom.integer(int(pairs["number"])), tuple(atoms)))
     return node("layers", *rows)
+
+
+# --- paper and title block (change c0012; board.md, "Facts") ----------------------------------------
+
+NAMED_PAPERS = ("A0", "A1", "A2", "A3", "A4", "A5")
+TITLE_BLOCK_FIELDS: Mapping[str, str] = MappingProxyType(
+    {
+        "title": "title",
+        "date": "date",
+        "rev": "revision",
+        "company": "organization",
+        "comment 1": "doc_id",
+        "comment 2": "responsible",
+        "comment 3": "approver",
+    }
+)
+"""``title_block`` child (``comment N`` with its number) → ``TitleBlock`` field, in write order."""
+PAPER_UNMODELLED = "kicad.board.paper-unmodelled"
+
+
+def project_paper(node: Node, *, issues: list[Issue] | None = None) -> SheetFrameRef | None:
+    """``Board.sheet`` for a ``paper`` child; ``None`` with an info for a name or size the model does not
+    name (``USLetter``, ``A`` … ``E``, a size that is not whole nm)."""
+    atoms = node.atoms()
+    name = atoms[0].value if atoms and atoms[0].kind in (AtomKind.STRING, AtomKind.SYMBOL) else ""
+    rest = list(atoms[1:])
+    portrait = bool(rest) and rest[-1].kind == AtomKind.SYMBOL and rest[-1].text == "portrait"
+    if portrait:
+        rest = rest[:-1]
+    found: SheetFrameRef | None = None
+    if name in NAMED_PAPERS and not rest and not node.nodes():
+        found = SheetFrameRef(name, portrait=portrait)  # type: ignore[arg-type]
+    elif name == "User" and len(rest) == 2 and not portrait and not node.nodes():
+        try:
+            width, height = rest[0].to_nm(exact=True), rest[1].to_nm(exact=True)
+        except ValueError:
+            width = height = 0
+        if width > 0 and height > 0:
+            found = SheetFrameRef("custom", width=width, height=height)
+            for us in US_SIZES:
+                w, h = PAPER_SIZES[us]
+                if (width, height) in ((w, h), (h, w)):
+                    found = SheetFrameRef(us, portrait=width < height)  # type: ignore[arg-type]
+                    break
+    if found is None and issues is not None:
+        issues.append(Issue(PAPER_UNMODELLED, ISSUE_CODES[PAPER_UNMODELLED],
+                            f"paper {dumps(node, style='compact')} has no model equivalent; kept as written",
+                            where="/kicad_pcb/paper[0]"))  # fmt: skip
+    return found
+
+
+def paper_node(sheet: SheetFrameRef | None) -> Node:
+    """The ``paper`` child for ``Board.sheet``: a named A size, or ``"User" W H`` for the US sizes and
+    custom pages (KiCad's own US names are never written, ``H-K-PCB-PAPER-2``)."""
+    if sheet is None:
+        return node("paper", Atom.string("A4"))
+    if sheet.paper in NAMED_PAPERS:
+        extra = (Atom.symbol("portrait"),) if sheet.portrait else ()
+        return node("paper", Atom.string(sheet.paper), *extra)
+    if sheet.paper == "custom":
+        if sheet.width is None or sheet.height is None:
+            raise ValueError("a custom paper needs both width and height (model.sheet-size)")
+        width, height = sheet.width, sheet.height
+    else:
+        short, long = PAPER_SIZES[sheet.paper]
+        width, height = (short, long) if sheet.portrait else (long, short)
+    return node("paper", Atom.string("User"), Atom.from_nm(width), Atom.from_nm(height))
+
+
+def _title_key(child: Node) -> str | None:
+    atoms = child.atoms()
+    if child.name == "comment" and atoms and atoms[0].kind == AtomKind.NUMBER:
+        key = f"comment {atoms[0].text}"
+        return key if key in TITLE_BLOCK_FIELDS else None
+    return child.name if child.name in TITLE_BLOCK_FIELDS else None
+
+
+def _title_value(child: Node) -> str | None:
+    atoms = [a for a in child.atoms() if a.kind == AtomKind.STRING]
+    return atoms[-1].value if atoms else None
+
+
+def project_title_block(node: Node) -> TitleBlock:
+    """The seven mapped fields of a ``title_block`` child; ``comment 4`` … ``comment 9`` and unknown
+    children stay in the fragment unmapped."""
+    values: dict[str, str] = {}
+    for child in node.nodes():
+        key = _title_key(child)
+        value = _title_value(child)
+        if key is not None and value is not None and TITLE_BLOCK_FIELDS[key] not in values:
+            values[TITLE_BLOCK_FIELDS[key]] = value
+    return TitleBlock(
+        title=values.get("title", ""),
+        date=values.get("date", ""),
+        revision=values.get("revision", ""),
+        organization=values.get("organization", ""),
+        doc_id=values.get("doc_id", ""),
+        responsible=values.get("responsible", ""),
+        approver=values.get("approver", ""),
+    )
+
+
+def _title_child(key: str, value: str) -> Node:
+    if key.startswith("comment "):
+        return node("comment", Atom.integer(int(key.split()[1])), Atom.string(value))
+    return node(key, Atom.string(value))
+
+
+def title_block_node(block: TitleBlock) -> Node:
+    """The non-empty fields of ``block`` in the order ``title``, ``date``, ``rev``, ``company``,
+    ``comment 1`` … ``comment 3``."""
+    children = [
+        _title_child(k, getattr(block, f)) for k, f in TITLE_BLOCK_FIELDS.items() if getattr(block, f)
+    ]
+    return node("title_block", *children)
+
+
+def _block_fields(block: TitleBlock | None) -> TitleBlock:
+    """``block`` without parameters (they come from the project); ``None`` counts as ``TitleBlock()``."""
+    return TitleBlock() if block is None else dataclasses.replace(block, params={})
+
+
+def has_title(block: TitleBlock | None) -> bool:
+    return _block_fields(block) != TitleBlock()
+
+
+def rewrite_title_block(fragment: Node, block: TitleBlock | None) -> Node:
+    """``fragment`` with each mapped child set from ``block`` in place: changed values replaced, newly set
+    fields inserted at the place their order gives among the mapped children, emptied ones removed;
+    every other child kept tree-equal at its position."""
+    order = list(TITLE_BLOCK_FIELDS)
+    wanted = {k: getattr(_block_fields(block), f) for k, f in TITLE_BLOCK_FIELDS.items()}
+    children: list[Node | Atom] = []
+    present: list[str] = []
+    for child in fragment.children:
+        key = _title_key(child) if isinstance(child, Node) else None
+        if key is None or key in present:
+            children.append(child)
+            continue
+        present.append(key)
+        if not wanted[key]:
+            continue
+        if _title_value(child) != wanted[key]:  # type: ignore[arg-type]
+            child = _title_child(key, wanted[key])
+        children.append(child)
+    for key in order:
+        if not wanted[key] or key in present:
+            continue
+        index = order.index(key)
+        before = [k for k in order[:index] if k in present and wanted[k]]
+        positions = {
+            _title_key(c): i
+            for i, c in enumerate(children)
+            if isinstance(c, Node) and _title_key(c) is not None
+        }
+        if before:
+            at = positions[before[-1]] + 1
+        else:
+            after = [positions[k] for k in order[index + 1 :] if k in positions]
+            at = min(after) if after else len(children)
+        children.insert(at, _title_child(key, wanted[key]))
+        present.append(key)
+    return fragment.with_children(children)
 
 
 def _emit_header(board: Board) -> Items:
@@ -1174,6 +1339,9 @@ class _Reader:
         children = child_locators("/kicad_pcb", root)
         pairs: list[tuple[str, str]] = []
         layers: list[Layer] = []
+        paper, block = root.find("paper"), root.find("title_block")
+        sheet = project_paper(paper, issues=ctx.issues) if paper is not None else None
+        title_block = project_title_block(block) if block is not None else None
         self.form = "numbered" if root.find("net") is not None else "named"
         for index, (loc, child) in enumerate(children):  # the header, layers and net table come first
             if not isinstance(child, Node):
@@ -1237,6 +1405,8 @@ class _Reader:
             keepouts=tuple(collections["keepouts"]),  # type: ignore[arg-type]
             texts=tuple(collections["texts"]),  # type: ignore[arg-type]
             graphics=tuple(collections["graphics"]),  # type: ignore[arg-type]
+            sheet=sheet,
+            title_block=title_block,
         )
         header_items = _emit_header(board)
         header_items["nets"] = [
@@ -1310,17 +1480,19 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 )  # fmt: skip
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
-    "arc", "attr", "center", "copperpour", "filled_polygon", "footprints", "gr_arc", "gr_circle",
-    "gr_line", "gr_poly", "gr_text", "island", "justify", "keepout", "locked", "mid", "name", "pads",
-    "path", "priority", "tracks", "vias",
+    "arc", "attr", "center", "comment", "company", "copperpour", "date", "filled_polygon", "footprints",
+    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "island", "justify", "keepout", "locked", "mid",
+    "name", "pads", "path", "priority", "rev", "title", "title_block", "tracks", "vias",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0)."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
-            *CREATED_ROOT_HEADS, "footprint", *GR_GRAPHIC_HEADS, "gr_text", "segment", "arc", "via", "zone",
+            *CREATED_ROOT_HEADS[:5], "title_block", *CREATED_ROOT_HEADS[5:], "footprint", *GR_GRAPHIC_HEADS,
+            "gr_text", "segment", "arc", "via", "zone",
         ),
+        "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
             *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", "pad",
         ),
@@ -1369,8 +1541,8 @@ _GRAPHIC_WRITE_FIELDS: Mapping[str, str] = MappingProxyType({**GRAPHIC_FIELDS, "
 _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyType(
     {
         "kicad_pcb": {
-            **ROOT_FIELDS, "general": "general", "paper": "paper", "setup": "setup",
-            "zone": ("zones", "keepouts"),
+            **ROOT_FIELDS, "general": "general", "paper": "paper", "title_block": "title_block",
+            "setup": "setup", "zone": ("zones", "keepouts"),
         },
         "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": "properties"},
         "pad": BOARD_PAD_FIELDS,
@@ -1736,9 +1908,12 @@ class _Writer:
                 node("legacy_teardrops", Atom.symbol("no")),
             )
             items["general"] = [general]
-            items["paper"] = [node("paper", Atom.string("A4"))]
+            items["paper"] = [paper_node(board.sheet)]
+            if has_title(board.title_block):
+                items["title_block"] = [title_block_node(_block_fields(board.title_block))]
             items["setup"] = [node("setup", node("pad_to_mask_clearance", Atom.integer(0)))]
         else:
+            slots = _with_title_block(list(slots), board.title_block)
             rows = _sorted(n for n in self.design.circuit.nets if "number" in _ext_pairs(n))
             items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), n.name) for n in rows]
         items["footprints"] = [self.entity(fp, "footprint") for fp in _write_order(board.footprints)]
@@ -1845,6 +2020,15 @@ class _Writer:
     ) -> str | None:
         """Handle a child projected into a field that the emitters never write; return that field."""
         name = child.name
+        if isinstance(entity, Board) and name in ("paper", "title_block"):
+            slot = slots[i]
+            assert isinstance(slot, Opaque)
+            if name == "paper" and project_paper(child) != entity.sheet:
+                slots[i] = Opaque(dumps(paper_node(entity.sheet), style="compact"), slot.min_version)
+            elif name == "title_block" and project_title_block(child) != _block_fields(entity.title_block):
+                rewritten = rewrite_title_block(child, entity.title_block)
+                slots[i] = Opaque(dumps(rewritten, style="compact"), slot.min_version)
+            return name
         if isinstance(entity, FootprintInstance) and name == "property":
             atoms = leading_atoms(child)
             if len(atoms) < 2:
@@ -1904,6 +2088,40 @@ class _Writer:
             if key in ("Reference", "Value") or found.get(key) == value:
                 continue
             self.read_only("properties", where, f"property {key!r} differs from the footprint's")
+
+
+def _with_title_block(slots: list[Slot], block: TitleBlock | None) -> list[Slot]:
+    """A read board without ``title_block`` gains ``title_block_node(block)`` right after ``paper`` when the
+    model sets a field (``board.md``; KiCad writes ``title_block`` right after ``paper``)."""
+    if not has_title(block):
+        return slots
+    heads = [_fragment_head(s) for s in slots]
+    if "title_block" in heads:
+        return slots
+    created = Opaque(dumps(title_block_node(_block_fields(block)), style="compact"))
+    at = (
+        heads.index("paper") + 1
+        if "paper" in heads
+        else next(
+            (
+                i + 1
+                for i, s in reversed(list(enumerate(slots)))
+                if isinstance(s, Modeled) and s.field in HEADER_FIELDS
+            ),
+            0,
+        )
+    )
+    return [*slots[:at], created, *slots[at:]]
+
+
+HEADER_FIELDS = frozenset({"version", "generator", "generator_version"})
+
+
+def _fragment_head(slot: Slot) -> str | None:
+    if not isinstance(slot, Opaque):
+        return None
+    child = slotlib.opaque_child(slot)
+    return child.name if isinstance(child, Node) else None
 
 
 def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False) -> WriteResult:

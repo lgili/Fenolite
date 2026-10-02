@@ -1,0 +1,68 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 20)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(rect
+		(name "frame")
+		(start 0 0 ltcorner)
+		(end 0 0)
+		(linewidth 0.7)
+	)
+	(line
+		(name "tick")
+		(start 50 0 ltcorner)
+		(end 50 5 ltcorner)
+		(repeat 8)
+		(incrx 50)
+		(comment "zone ticks")
+		(option page1only)
+	)
+	(line
+		(start 0 50 lbcorner)
+		(end 5 50 lbcorner)
+		(option notonpage1)
+	)
+	(tbtext "A"
+		(pos 2.5 25 rtcorner)
+		(font bold italic
+			(size 3.5 3.5)
+		)
+		(justify center)
+		(repeat 8)
+		(incry 50)
+		(incrlabel 2)
+	)
+	(tbtext "{title} / ${COMMENT1} / ${LOT_NO}"
+		(name "title")
+		(pos 90 20)
+		(font
+			(size 2 2)
+		)
+		(justify right top)
+		(rotate 90)
+		(maxlen 80)
+		(maxheight 5)
+	)
+	(tbtext "${REVISION}"
+		(pos 30 5 lbcorner)
+		(justify bottom)
+	)
+	(bitmap
+		(name "logo")
+		(pos 5 5 ltcorner)
+		(scale 0.5)
+		(pngdata
+			(data "89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52 00 00 00 01 00 00 00 01 08 00 00 00 00 3A 7E 9B")
+			(data "55 00 00 00 0A 49 44 41 54 78 DA 63 60 00 00 00 02 00 01 E5 27 DE FC 00 00 00 00 49 45 4E 44 AE")
+			(data "42 60 82")
+		)
+	)
+)

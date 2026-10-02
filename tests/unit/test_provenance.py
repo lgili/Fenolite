@@ -18,6 +18,22 @@ SOURCE_REF = re.compile(r"\bS-\d{4}\b|https?://")
 FORMAT_PATHS = ("src/fenolite/backends/", "docs/formats/")
 
 
+PROVENANCE_PACKAGES = ("templates",)  # packages outside backends/ that ship sourced figures
+
+
+def _provenance_problems(prov: Path, rel: str) -> list[str]:
+    if not prov.is_file():
+        return [f"{rel}: missing PROVENANCE.md"]
+    headers = [
+        [c.strip() for c in line.strip().strip("|").split("|")]
+        for line in prov.read_text(encoding="utf-8").splitlines()
+        if line.startswith("| fact-or-area")
+    ]
+    if headers != [PROVENANCE_HEADER]:
+        return [f"{rel}: PROVENANCE.md must have exactly one table with columns {PROVENANCE_HEADER}"]
+    return []
+
+
 def missing_provenance(root: Path) -> list[str]:
     backends = root / "src" / "fenolite" / "backends"
     problems: list[str] = []
@@ -26,20 +42,18 @@ def missing_provenance(root: Path) -> list[str]:
     for package in sorted(p for p in backends.iterdir() if p.is_dir() and not p.name.startswith("_")):
         if not (package / "__init__.py").exists():
             continue
-        prov = package / "PROVENANCE.md"
         rel = package.relative_to(root / "src" / "fenolite").as_posix()
-        if not prov.is_file():
-            problems.append(f"{rel}: missing PROVENANCE.md")
-            continue
-        headers = [
-            [c.strip() for c in line.strip().strip("|").split("|")]
-            for line in prov.read_text(encoding="utf-8").splitlines()
-            if line.startswith("| fact-or-area")
-        ]
-        if headers != [PROVENANCE_HEADER]:
-            problems.append(
-                f"{rel}: PROVENANCE.md must have exactly one table with columns {PROVENANCE_HEADER}"
-            )
+        problems += _provenance_problems(package / "PROVENANCE.md", rel)
+    return problems
+
+
+def missing_package_provenance(root: Path) -> list[str]:
+    """The packages of ``PROVENANCE_PACKAGES`` that exist must carry a PROVENANCE.md as backends do."""
+    problems: list[str] = []
+    for name in PROVENANCE_PACKAGES:
+        package = root / "src" / "fenolite" / name
+        if package.is_dir():
+            problems += _provenance_problems(package / "PROVENANCE.md", name)
     return problems
 
 
@@ -84,6 +98,19 @@ def _format_work_weeks(root: Path) -> set[tuple[int, int]]:
 def test_every_backend_has_provenance() -> None:
     problems = missing_provenance(ROOT)
     assert not problems, "\n".join(problems)
+
+
+def test_packages_with_figures_have_provenance() -> None:
+    problems = missing_package_provenance(ROOT)
+    assert not problems, "\n".join(problems)
+
+
+def test_detects_package_without_provenance(tmp_path: Path) -> None:
+    pkg = tmp_path / "src" / "fenolite" / "templates"
+    pkg.mkdir(parents=True)
+    assert missing_package_provenance(tmp_path) == ["templates: missing PROVENANCE.md"]
+    (pkg / "PROVENANCE.md").write_text("| " + " | ".join(PROVENANCE_HEADER) + " |\n")
+    assert missing_package_provenance(tmp_path) == []
 
 
 def test_format_pages_cite_sources() -> None:

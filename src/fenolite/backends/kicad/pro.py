@@ -36,13 +36,15 @@ from fenolite.backends.kicad.versions import (
     UnsupportedFormatError,
     VersionStatus,
 )
+from fenolite.backends.kicad.wks import RESERVED_VARIABLES
 from fenolite.core.errors import ConsistencyError, FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.provenance import Provenance
 from fenolite.core.units import Nm, parse_length
 from fenolite.model.circuit import Net, NetClass
-from fenolite.model.design import Design
+from fenolite.model.design import Design, presentation_issues
+from fenolite.model.presentation import TitleBlock
 
 PROJECT_VERSIONS: Mapping[int, tuple[int, int]] = MappingProxyType({9: (3, 4), 10: (3, 5)})
 """The pair (``meta.version``, ``net_settings.meta.version``) Fenolite writes per target."""
@@ -214,6 +216,10 @@ class ProjectInfo:
     sha256: str = ""
     priorities: tuple[int, ...] = ()
     """The ``priority`` of each class, in ``classes`` order (absent: the largest value)."""
+    drawing_sheet: str | None = None
+    """``pcbnew.page_layout_descr_file`` (``None`` when absent or empty; change c0012)."""
+    text_variables: tuple[tuple[str, str], ...] = ()
+    """``text_variables`` members with a string value, in file order (change c0012)."""
 
 
 def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
@@ -306,6 +312,20 @@ def read_project(
                     where=f"/net_settings/netclass_assignments/{_escape(net)}",
                 )
             )
+    drawing_sheet = _json.get(data, PAGE_LAYOUT_POINTER)
+    variables: list[tuple[str, str]] = []
+    raw_variables = data.get("text_variables")
+    for key, value in cast(JsonObject, raw_variables).items() if isinstance(raw_variables, dict) else ():
+        if isinstance(value, str):
+            variables.append((key, value))
+        else:
+            found.append(
+                project_issue(
+                    "kicad.project.unread-variable",
+                    f"text variable {key!r} has no string value; ignored",
+                    where=f"/text_variables/{_escape(key)}",
+                )
+            )
     return ProjectInfo(
         file=file,
         data=data,
@@ -319,6 +339,8 @@ def read_project(
         floors=project_floors(data, issues=found),
         sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(),
         priorities=tuple(priorities),
+        drawing_sheet=drawing_sheet if isinstance(drawing_sheet, str) and drawing_sheet else None,
+        text_variables=tuple(variables),
     )
 
 
@@ -382,10 +404,88 @@ def apply_project(design: Design, info: ProjectInfo, *, issues: list[Issue] | No
             )
         nets.append(dataclasses.replace(net, netclass_id=_class_id(chosen) if chosen is not None else None))
     circuit = dataclasses.replace(design.circuit, netclasses=netclasses, nets=tuple(nets))
-    return dataclasses.replace(design, circuit=circuit)
+    return _apply_sheet(dataclasses.replace(design, circuit=circuit), info)
+
+
+def _apply_sheet(design: Design, info: ProjectInfo) -> Design:
+    """The project's drawing sheet into ``Board.sheet.drawing_sheet`` (when the board has a sheet) and
+    its text variables into ``Board.title_block.params`` (change c0012)."""
+    board = design.board
+    if board is None:
+        return design
+    sheet = board.sheet
+    if sheet is not None:
+        sheet = dataclasses.replace(sheet, drawing_sheet=info.drawing_sheet)
+    block = board.title_block
+    params = dict(info.text_variables)
+    if block is not None:
+        block = dataclasses.replace(block, params=params)
+    elif params:
+        block = TitleBlock(params=params)
+    return dataclasses.replace(design, board=dataclasses.replace(board, sheet=sheet, title_block=block))
 
 
 # --- writing --------------------------------------------------------------------------------------
+
+PAGE_LAYOUT_POINTER = "/pcbnew/page_layout_descr_file"
+"""The project key naming the board's drawing sheet (change c0012); the schematic key is never touched."""
+SHEET_KEY_PATHS: frozenset[str] = frozenset({"/text_variables/*"})
+"""The only key paths ``apply_sheet_keys`` may add beyond the template's and ``PATTERN_ENTRY_PATHS``."""
+
+
+def apply_sheet_keys(
+    project_text: str, design: Design, *, allow_lossy: bool = False, issues: list[Issue] | None = None
+) -> str:
+    """``project_text`` with ``pcbnew.page_layout_descr_file`` and ``text_variables`` set from the design's
+    ``Board.sheet.drawing_sheet`` and ``Board.title_block.params`` (``kicad-file-backend``, "Projects
+    carry the drawing sheet and text variables"). The text comes back unchanged when the design sets
+    neither; existing variables are replaced in place, new ones appended sorted by name, none deleted."""
+    found = issues if issues is not None else []
+    board = design.board
+    sheet = board.sheet if board is not None else None
+    block = board.title_block if board is not None else None
+    drawing_sheet = sheet.drawing_sheet if sheet is not None else None
+    params = dict(block.params) if block is not None else {}
+    if drawing_sheet is None and not params:
+        return project_text
+    problems = [
+        i
+        for i in presentation_issues(sheet, block, "board")
+        if i.code in ("model.sheet-path", "model.param-name")
+    ]
+    if problems:
+        raise ConsistencyError("; ".join(f"{i.code}: {i.message}" for i in problems))
+    errors: list[Issue] = []
+    kept: dict[str, str] = {}
+    for name, value in params.items():
+        if name in RESERVED_VARIABLES:
+            where = f"/text_variables/{_escape(name)}"
+            if allow_lossy:
+                message = f"text variable {name!r} is reserved by KiCad; left out"
+                found.append(project_issue("kicad.project.dropped-variable", message, where=where))
+            else:
+                message = f"text variable {name!r} is a reserved KiCad variable"
+                errors.append(project_issue("kicad.project.reserved-variable", message, where=where))
+            continue
+        kept[name] = value
+    if errors:
+        raise LossyWriteError(errors, droppable=True)
+    data = read_project_text(project_text)
+    if drawing_sheet is not None:
+        pcbnew = data.setdefault("pcbnew", {})
+        if not isinstance(pcbnew, dict):
+            raise FormatError("'pcbnew' is not an object", locator="/pcbnew")
+        cast(JsonObject, pcbnew)["page_layout_descr_file"] = drawing_sheet
+    if kept:
+        variables = data.setdefault("text_variables", {})
+        if not isinstance(variables, dict):
+            raise FormatError("'text_variables' is not an object", locator="/text_variables")
+        table = cast(JsonObject, variables)
+        for name in [n for n in kept if n in table]:
+            table[name] = kept[name]
+        for name in sorted(n for n in kept if n not in table):
+            table[name] = kept[name]
+    return write_project_text(data)
 
 
 def _classes(data: JsonObject) -> list[Any]:
@@ -637,14 +737,17 @@ __all__ = [
     "EVIDENCE",
     "ISSUE_CODES",
     "NET_SETTINGS_READ_MAX",
+    "PAGE_LAYOUT_POINTER",
     "PATTERN_ENTRY_PATHS",
     "PROJECT_READ_MAX",
     "PROJECT_VERSIONS",
+    "SHEET_KEY_PATHS",
     "TEN_ONLY_PATHS",
     "UNSAFE_PATTERN_CHARS",
     "ProjectClass",
     "ProjectInfo",
     "apply_project",
+    "apply_sheet_keys",
     "classify_project",
     "pattern_matches",
     "project_floors",

@@ -1,0 +1,428 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.drawing_sheet.v0",
+  "title": "DrawingSheet",
+  "description": "A drawing-sheet definition: its setup and its items, in drawing order.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "native_ids": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ext": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ExtBag"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "setup": {
+      "$ref": "#/$defs/SheetSetup"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SheetShape"
+          },
+          {
+            "$ref": "#/$defs/SheetText"
+          },
+          {
+            "$ref": "#/$defs/SheetBitmap"
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "setup"
+  ],
+  "$defs": {
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "SheetBitmap": {
+      "description": "A PNG image (base64 text) at ``pos``; ``scale_ppm`` is the scale in parts per million.",
+      "type": "object",
+      "properties": {
+        "pos": {
+          "$ref": "#/$defs/SheetPoint"
+        },
+        "png": {
+          "type": "string"
+        },
+        "scale_ppm": {
+          "type": "integer"
+        },
+        "repeat": {
+          "$ref": "#/$defs/SheetRepeat"
+        },
+        "scope": {
+          "enum": [
+            "all",
+            "first_only",
+            "not_first"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "pos",
+        "png"
+      ]
+    },
+    "SheetPoint": {
+      "description": "An offset from ``corner`` of the margin box, positive toward the interior (nm).",
+      "type": "object",
+      "properties": {
+        "corner": {
+          "enum": [
+            "lt",
+            "lb",
+            "rt",
+            "rb"
+          ]
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SheetRepeat": {
+      "description": "Copies of an item, each offset by one more step; ``label_step`` steps a one-letter or number text.",
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer"
+        },
+        "step_x": {
+          "type": "integer"
+        },
+        "step_y": {
+          "type": "integer"
+        },
+        "label_step": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SheetSetup": {
+      "description": "Default text size and line widths, and the four page margins (nm).",
+      "type": "object",
+      "properties": {
+        "text_size": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "line_width": {
+          "type": "integer"
+        },
+        "text_line_width": {
+          "type": "integer"
+        },
+        "left_margin": {
+          "type": "integer"
+        },
+        "right_margin": {
+          "type": "integer"
+        },
+        "top_margin": {
+          "type": "integer"
+        },
+        "bottom_margin": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text_size",
+        "line_width",
+        "text_line_width",
+        "left_margin",
+        "right_margin",
+        "top_margin",
+        "bottom_margin"
+      ]
+    },
+    "SheetShape": {
+      "description": "A line or a rectangle between two points. ``kind`` has no default, so it is always written.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "line",
+            "rect"
+          ]
+        },
+        "start": {
+          "$ref": "#/$defs/SheetPoint"
+        },
+        "end": {
+          "$ref": "#/$defs/SheetPoint"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "$ref": "#/$defs/SheetRepeat"
+        },
+        "scope": {
+          "enum": [
+            "all",
+            "first_only",
+            "not_first"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "start",
+        "end"
+      ]
+    },
+    "SheetText": {
+      "description": "A text at ``pos``; ``rotation`` in µdeg, ``size`` (width, height) in nm or the setup size.",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "pos": {
+          "$ref": "#/$defs/SheetPoint"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "items": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bold": {
+          "type": "boolean"
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "vjustify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "max_len": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "max_height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "$ref": "#/$defs/SheetRepeat"
+        },
+        "scope": {
+          "enum": [
+            "all",
+            "first_only",
+            "not_first"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "comment": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "pos"
+      ]
+    }
+  }
+}

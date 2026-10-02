@@ -1,0 +1,33 @@
+(kicad_wks
+	(version 20231118)
+	(generator "fenolite")
+	(setup
+		(textsize 1.5 1.5)
+		(linewidth 0.15)
+		(textlinewidth 0.15)
+		(left_margin 10)
+		(right_margin 10)
+		(top_margin 10)
+		(bottom_margin 10)
+	)
+	(tbtext "LT"
+		(name "")
+		(pos 30 20 ltcorner)
+	)
+	(tbtext "LB"
+		(name "")
+		(pos 30 20 lbcorner)
+	)
+	(tbtext "RT"
+		(name "")
+		(pos 30 20 rtcorner)
+	)
+	(tbtext "RB"
+		(name "")
+		(pos 30 20 rbcorner)
+	)
+	(tbtext "DEF"
+		(name "")
+		(pos 60 40)
+	)
+)

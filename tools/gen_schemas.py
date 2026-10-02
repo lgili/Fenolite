@@ -37,7 +37,7 @@ class Target:
 
 
 def _targets() -> list[Target]:
-    from fenolite.model.schema import LAYER_SCHEMAS, LIBRARY_SCHEMA, SCHEMA_DIR
+    from fenolite.model.schema import LAYER_SCHEMAS, LIBRARY_SCHEMA, SCHEMA_DIR, SHEET_SCHEMA
 
     wire = [
         Target(
@@ -46,8 +46,10 @@ def _targets() -> list[Target]:
         Target("fenolite.error.v0", "fenolite.cli.errors:ErrorInfo", "schemas/fenolite.error.v0.json", True),
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
-    name, sid, ref = LIBRARY_SCHEMA
-    return [*wire, *model, Target(sid, ref, f"{SCHEMA_DIR}/{name}", False)]
+    definitions = [
+        Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA)
+    ]
+    return [*wire, *model, *definitions]
 
 
 TARGETS: list[Target] = _targets()

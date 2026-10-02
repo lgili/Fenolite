@@ -4,6 +4,9 @@
 # Private planning material (never published)
 private/
 
+# Real boards built with Fenolite while it grows (dogfooding, never published)
+dogfood/
+
 # Fenolite derived cache
 .fenolite/
 
