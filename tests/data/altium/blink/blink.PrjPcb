@@ -1,0 +1,11 @@
+[Design]
+Version=1.0
+
+[Document1]
+DocumentPath=blink.SchDoc
+
+[Document2]
+DocumentPath=blink.PcbLib
+
+[Document3]
+DocumentPath=blink.SchLib

@@ -666,3 +666,27 @@ path = "tests/data/altium/kicad_example/altium_kicad.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file)"
+
+[[file]]
+path = "tests/data/altium/blink/blink.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of examples/blink_2layer with the three mini footprints (c0035 golden file)"
+
+[[file]]
+path = "tests/data/altium/blink/blink.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of examples/blink_2layer listing its schematic and libraries (c0035 golden file)"
+
+[[file]]
+path = "tests/data/altium/blink/blink.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of examples/blink_2layer linking its footprints to blink.PcbLib (c0035 golden file)"
+
+[[file]]
+path = "tests/data/altium/blink/blink.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file)"

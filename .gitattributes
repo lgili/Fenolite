@@ -2,3 +2,5 @@
 *.SchDoc -text
 *.PrjPcb -text
 *.SchLib -text
+*.PcbLib -text
+*.PcbDoc -text
