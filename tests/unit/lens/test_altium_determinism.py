@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from _altium import SAMPLE, records, variant_script
+from _altium import EXAMPLE, SAMPLE, records, variant_script
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium.cfb import SIGNATURE
@@ -99,3 +99,51 @@ def test_a_changed_value_keeps_every_unique_id() -> None:
     base = _unique_ids(design)
     design.parts["R2"].value = "4k7"
     assert _unique_ids(design) == base
+
+
+EXAMPLE_PLANNED = {
+    "altium_kicad.PrjPcb",
+    "altium_kicad.SchDoc",
+    "altium_kicad.SchLib",
+    *(f".fenolite/{n}.json" for n in LAYERS),
+}
+
+
+def test_example_twice_in_process_and_twice_by_subprocess(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The KiCad example (change c0034) resolves from its own library table, with an empty KiCad
+    configuration folder, into the same bytes in every build."""
+    config = tmp_path / "kicad-config"
+    config.mkdir()
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(config))
+    for name in ("KICAD10_SYMBOL_DIR", "KICAD9_SYMBOL_DIR", "KICAD10_FOOTPRINT_DIR", "KICAD9_FOOTPRINT_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    before = files_under(EXAMPLE.parent)
+    outs = [tmp_path / "in1", tmp_path / "in2"]
+    for out in outs:
+        args = ["build", str(EXAMPLE), "--out", str(out), "--target", "altium", "--confirm", "--json"]
+        assert cli_main.main(args) == 0, capsys.readouterr().err
+    capsys.readouterr()
+    for seed, stamp in ((3, "2026-01-01T00:00:00Z"), (4, "2027-06-01T00:00:00Z")):
+        out = tmp_path / f"sub{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+        argv = [
+            sys.executable,
+            "-m",
+            "fenolite",
+            "build",
+            str(EXAMPLE),
+            "--out",
+            str(out),
+            "--target",
+            "altium",
+        ]
+        argv += ["--confirm", "--json", "--seed", str(seed), "--timestamp", stamp]
+        proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr
+        outs.append(out)
+    builds = [files_under(out) for out in outs]
+    assert set(builds[0]) == EXAMPLE_PLANNED
+    assert all(build == builds[0] for build in builds[1:])
+    assert files_under(EXAMPLE.parent) == before, "the build changed the script folder"
