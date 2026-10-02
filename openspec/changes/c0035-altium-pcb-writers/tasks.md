@@ -56,7 +56,7 @@
 
 ## 7. Closing
 
-- [ ] 7.1 Run the residue and full test suites. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0 (model unchanged); `uv run pytest tests/unit/test_import_graph.py` passes with no `ALLOWED` change; `grep -c '^dependencies = \[\]' pyproject.toml` prints `1`; `openspec validate c0035-altium-pcb-writers --strict --no-interactive` passes.
+- [x] 7.1 Run the residue and full test suites. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0 (model unchanged); `uv run pytest tests/unit/test_import_graph.py` passes with no `ALLOWED` change; `grep -c '^dependencies = \[\]' pyproject.toml` prints `1`; `openspec validate c0035-altium-pcb-writers --strict --no-interactive` passes.
 - [x] 7.2 Update the evidence labels from the results:
   - `H-A-PCB-KICAD-LIB`, `H-A-PCB-KICAD-DOC` and the KiCad-read rows of the `pcb-*.md` pages become `ORACLE-VERIFIED(kicad-cli)` with the version and date; the 9.0.9 result is recorded on `H-A-PCB-KICAD-LIB`;
   - the other rows follow tasks 6.1 and 6.2.
