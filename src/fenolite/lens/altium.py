@@ -22,7 +22,7 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, pcbdoc, pcblib, project, schlib
+from fenolite.backends.altium import binary, pcbdoc, pcblib, pcbrecords, project, schlib
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -124,6 +124,7 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
         ),
     ),
     schlib.EVIDENCE,
+    pcbrecords.EVIDENCE,
 )
 """``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
 the kicad-cli oracle checks only what KiCad's importer reads. It names the rows of both schematic forms
@@ -138,6 +139,19 @@ EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     }
 )
 """The ``capabilities`` entry of this writer, without its evidence (``ALTIUM_BUILD_EVIDENCE``)."""
+PCB_WRITE_KINDS: tuple[str, ...] = (project.PCBDOC_KIND, project.PCBLIB_KIND)
+"""The write kinds of the PCB writers (change c0035), listed by their own ``capabilities`` entry."""
+PCB_BUILD_EVIDENCE = Evidence.combine(pcbrecords.EVIDENCE, pcblib.EVIDENCE, pcbdoc.EVIDENCE)
+"""``INFERRED``: every ``H-A-PCB-*`` row; the kicad-cli oracles check only what KiCad reads."""
+PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
+    {
+        "name": "altium-pcb-writer",
+        "command": "build",
+        "option": f"--target {TARGET}",
+        "write_kinds": list(PCB_WRITE_KINDS),
+    }
+)
+"""The ``capabilities`` entry of the PCB writers, without its evidence (``PCB_BUILD_EVIDENCE``)."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -869,7 +883,7 @@ def build_altium(
     limit is reported as ``altium.schematic-too-large`` and gives no file. ``resolver`` resolves the KiCad
     lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``.
     """
-    evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE)
+    evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     resolved = resolve_symbols(design, resolver)
     design = _with_symbol_fields(design, resolved)
@@ -996,6 +1010,9 @@ __all__ = [
     "ALTIUM_BUILD_EVIDENCE",
     "ALTIUM_ISSUE_CODES",
     "EXPERIMENTAL",
+    "PCB_BUILD_EVIDENCE",
+    "PCB_EXPERIMENTAL",
+    "PCB_WRITE_KINDS",
     "TARGET",
     "build_altium",
     "footprint_source",

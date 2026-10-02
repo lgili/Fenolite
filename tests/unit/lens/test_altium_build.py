@@ -21,6 +21,7 @@ from fenolite.dsl import Design, Net, Part, connect, to_model
 from fenolite.lens.altium import (
     ALTIUM_BUILD_EVIDENCE,
     EXPERIMENTAL,
+    PCB_BUILD_EVIDENCE,
     TARGET,
     build_altium,
     generic_pins,
@@ -175,10 +176,16 @@ def test_evidence() -> None:
     assert ALTIUM_BUILD_EVIDENCE.level is Level.INFERRED
     assert "H-A-SCHBIN-VIEWER" in output.evidence.hypotheses
     registered = {r.id for r in load_register(ROOT / "docs" / "hypotheses.md")}
-    rows = {i for i in registered if i.startswith(("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-"))}
+    rows = {
+        i
+        for i in registered
+        if i.startswith(("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-"))
+    }
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
     assert set(binary.EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-SCHBIN-")}
+    assert set(PCB_BUILD_EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-PCB-")}
+    assert PCB_BUILD_EVIDENCE.level is Level.INFERRED and "H-A-PCB-ECO" in output.evidence.hypotheses
 
 
 def test_experimental_entry() -> None:

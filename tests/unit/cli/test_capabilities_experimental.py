@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``result.experimental`` of ``fenolite capabilities`` (capability cli-contract, "Experimental features in
-capabilities"; change c0032)."""
+capabilities"; change c0032; the second entry of change c0035). Entries are selected by name."""
 
 from __future__ import annotations
 
@@ -37,7 +37,9 @@ def test_altium_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]
     assert _schema.validate(envelope, _schema.load("fenolite.envelope.v0.json")) == []
     result = envelope["result"]
     assert isinstance(result, dict)
-    (entry,) = result["experimental"]
+    entries = {e["name"]: e for e in result["experimental"]}
+    assert [e["name"] for e in result["experimental"]] == ["altium-pcb-writer", "altium-schematic-writer"]
+    entry = entries["altium-schematic-writer"]
     assert list(entry) == KEYS
     assert entry["name"] == "altium-schematic-writer" and entry["command"] == "build"
     assert entry["option"] == "--target altium"
@@ -87,3 +89,20 @@ def test_entry_module_imported_only_by_run() -> None:
     )
     proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stderr
+
+
+def test_pcb_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]) -> None:
+    """``altium-build`` "PCB evidence and capabilities", "PCB entry in capabilities" (change c0035)."""
+    from fenolite.lens.altium import PCB_WRITE_KINDS
+
+    result = _envelope(capsys, "--no-tools")["result"]
+    assert isinstance(result, dict)
+    entries = {e["name"]: e for e in result["experimental"]}
+    entry = entries["altium-pcb-writer"]
+    assert list(entry) == KEYS and entry["command"] == "build" and entry["option"] == "--target altium"
+    assert entry["write_kinds"] == ["altium_pcbdoc", "altium_pcblib"] == list(PCB_WRITE_KINDS)
+    assert entry["evidence"]["level"] == "INFERRED"
+    assert {"H-A-PCB-KICAD-LIB", "H-A-PCB-DOC-LINK"} <= set(entry["evidence"]["hypotheses"])
+    schematic = entries["altium-schematic-writer"]
+    assert not set(entry["write_kinds"]) & set(schematic["write_kinds"])
+    assert {h for h in entry["evidence"]["hypotheses"]} <= set(schematic["evidence"]["hypotheses"])

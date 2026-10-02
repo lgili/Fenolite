@@ -101,7 +101,7 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
-    from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL
+    from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
     commands = [
         {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
@@ -111,7 +111,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "fenolite_version": __version__,
         "commands": commands,
         "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
-        "experimental": _experimental([(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE)]),
+        "experimental": _experimental(
+            [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]
+        ),
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "sends_data_offsite": False,

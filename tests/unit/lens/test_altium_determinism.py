@@ -147,3 +147,51 @@ def test_example_twice_in_process_and_twice_by_subprocess(
     assert set(builds[0]) == EXAMPLE_PLANNED
     assert all(build == builds[0] for build in builds[1:])
     assert files_under(EXAMPLE.parent) == before, "the build changed the script folder"
+
+
+BLINK = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
+BLINK_PLANNED = {
+    "blink.PrjPcb",
+    "blink.SchDoc",
+    "blink.SchLib",
+    "blink.PcbLib",
+    "blink.PcbDoc",
+    *(f".fenolite/{n}.json" for n in LAYERS),
+}
+
+
+def test_blink_twice_in_process_and_twice_by_subprocess(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The KiCad-footprint sample (change c0035) gives the same five project files in every build."""
+    config = tmp_path / "kicad-config"
+    config.mkdir()
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(config))
+    for name in ("KICAD10_SYMBOL_DIR", "KICAD9_SYMBOL_DIR", "KICAD10_FOOTPRINT_DIR", "KICAD9_FOOTPRINT_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    outs = [tmp_path / "in1", tmp_path / "in2"]
+    for out in outs:
+        args = ["build", str(BLINK), "--out", str(out), "--target", "altium", "--confirm", "--json"]
+        assert cli_main.main(args) == 0, capsys.readouterr().err
+    capsys.readouterr()
+    for seed, stamp in ((5, "2026-01-01T00:00:00Z"), (6, "2027-06-01T00:00:00Z")):
+        out = tmp_path / f"sub{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+        argv = [
+            sys.executable,
+            "-m",
+            "fenolite",
+            "build",
+            str(BLINK),
+            "--out",
+            str(out),
+            "--target",
+            "altium",
+        ]
+        argv += ["--confirm", "--json", "--seed", str(seed), "--timestamp", stamp]
+        proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr
+        outs.append(out)
+    builds = [files_under(out) for out in outs]
+    assert set(builds[0]) == BLINK_PLANNED
+    assert all(build == builds[0] for build in builds[1:])
