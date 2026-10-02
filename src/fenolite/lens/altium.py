@@ -90,20 +90,23 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
 
 
 def generic_pins(design: Design) -> Design:
-    """``design`` with one passive pin per designator its nets name, in natural order, for every component
-    that holds no pin yet. A pin's name is its designator and its id is keyed ``pin:<path>:<designator>``."""
-    used: dict[str, set[str]] = {c.id: set() for c in design.circuit.components}
+    """``design`` with one passive pin per designator that its nets name on any component of the same lib
+    id, in natural order, for every component that holds no pin yet: components sharing a lib id share one
+    generic body, which is also their library symbol. A pin's name is its designator and its id is keyed
+    ``pin:<path>:<designator>``."""
+    lib_of = {c.id: c.lib_symbol_ref for c in design.circuit.components}
+    used: dict[str, set[str]] = {lib: set() for lib in lib_of.values()}
     for net in design.circuit.nets:
         for member in net.members:
-            if member.component_id in used:
-                used[member.component_id].add(member.pin)
+            if member.component_id in lib_of:
+                used[lib_of[member.component_id]].add(member.pin)
     components: list[Component] = []
     for component in design.circuit.components:
         if not component.pins:
             path = component_path(component)
             pins = tuple(
                 Pin(id=derived_id("pin", DSL_BACKEND, f"pin:{path}:{d}"), number=d, name=d, etype="passive")
-                for d in sorted(used[component.id], key=lambda d: (natural_key(d), d))
+                for d in sorted(used[component.lib_symbol_ref], key=lambda d: (natural_key(d), d))
             )
             component = dataclasses.replace(component, pins=pins)
         components.append(component)

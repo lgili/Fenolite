@@ -12,13 +12,16 @@ as issues before it calls the writer.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Literal
 
+from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import write_schdoc
+from fenolite.backends.altium.schlib import storage_name
 from fenolite.backends.altium.symbols import generic_symbol
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -60,6 +63,26 @@ def split_link(text: str) -> tuple[str, str] | None:
     if not colon or not library or not name:
         return None
     return library, name
+
+
+SCHLIB_SUFFIX = ".schlib"
+"""A lib id whose library part ends with this, in any letter case, is an Altium link."""
+_PREFIX = re.compile(r"[A-Za-z]*")
+
+
+def is_altium_link(lib_id: str) -> bool:
+    """True when the library part of ``lib_id`` ends with ``.SchLib`` in any letter case."""
+    link = split_link(lib_id)
+    return link is not None and link[0].lower().endswith(SCHLIB_SUFFIX)
+
+
+def schlib_name(lib_id: str, *, design: str) -> str:
+    """The library file of ``lib_id``: its library part for an Altium link, ``<design>.SchLib`` for a
+    KiCad lib id (all KiCad symbols of a design share one library)."""
+    link = split_link(lib_id)
+    if link is None:
+        raise ValueError(f"lib_id {lib_id!r} is not <library>:<name>")
+    return link[0] if is_altium_link(lib_id) else f"{design}.SchLib"
 
 
 def unique_id(key: str) -> str:
@@ -159,6 +182,37 @@ def part_specs(design: Design) -> list[PartSpec]:
     return specs
 
 
+def prefix_of(ref: str) -> str:
+    """The leading letters of a ref (``R`` of ``R12``), or ``U`` when it has none."""
+    match = _PREFIX.match(ref)
+    return match.group(0) if match and match.group(0) else "U"
+
+
+def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
+    """Lib id → its generic library symbol, built from the pins of the components of that lib id (which
+    ``lens.altium.generic_pins`` makes equal): prefix of the first ref in component-path order, the parts'
+    common footprint or none, the symbol name as comment."""
+    by_lib: dict[str, list[Component]] = {}
+    for component in sorted(design.circuit.components, key=component_path):
+        by_lib.setdefault(component.lib_symbol_ref, []).append(component)
+    symbols: dict[str, AltiumSymbol] = {}
+    for lib_id, components in sorted(by_lib.items()):
+        _library, name = _link(lib_id, f"{components[0].ref} lib_id")
+        pins = [(p.number, p.name or p.number) for p in components[0].pins]
+        footprints = {c.lib_footprint_ref for c in components}
+        footprint = None
+        if len(footprints) == 1 and (only := footprints.pop()):
+            footprint = _link(only, f"{components[0].ref} footprint")
+        symbols[lib_id] = from_generic(
+            generic_symbol(pins),
+            lib_ref=name,
+            prefix=prefix_of(components[0].ref),
+            comment=name,
+            footprint=footprint,
+        )
+    return symbols
+
+
 def plan_sheet(design: Design) -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components and stubs."""
     return layout_sheet(part_specs(design))
@@ -203,6 +257,11 @@ __all__ = [
     "SCHDOC_KINDS",
     "SchematicForm",
     "component_path",
+    "generic_symbols",
+    "is_altium_link",
+    "prefix_of",
+    "schlib_name",
+    "storage_name",
     "part_specs",
     "plan_sheet",
     "power_styles",

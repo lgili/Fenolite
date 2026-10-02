@@ -10,9 +10,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fenolite.backends.altium.layout import MARGIN, SheetPlan
+from fenolite.core.coords import Point
+from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, to_model
 from fenolite.lens.altium import generic_pins
+from fenolite.model.circuit import PinType
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.library import SymbolDef, SymbolPin, SymbolUnit
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = ROOT / "examples" / "altium_sample" / "design.py"
@@ -26,6 +30,50 @@ SAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
     "LED_A": {("R1", "2"), ("D1", "2")},
 }
 """The sample's nets as (ref, pin) pairs, written out by hand from the script."""
+
+
+MIL = 25_400
+"""Nanometres per mil."""
+
+
+def symbol_pin(
+    number: str, x: int, y: int, rot: int, unit: int, etype: PinType = "input", **more: object
+) -> SymbolPin:
+    """A KiCad symbol pin ``number`` named ``P<number>``, hot end (``x``, ``y``) mil, angle ``rot``
+    degrees, 100 mil long."""
+    fields: dict[str, object] = {
+        "number": number,
+        "name": f"P{number}",
+        "etype": etype,
+        "position": Point(x * MIL, y * MIL),
+        "rotation": rot * 1_000_000,
+        "length": 100 * MIL,
+        "unit": unit,
+        **more,
+    }
+    return SymbolPin(**fields)  # type: ignore[arg-type]
+
+
+def dual_symbol() -> SymbolDef:
+    """Two units of three pins each and two common power_in pins (``8`` up, ``4`` down)."""
+    pins = (
+        symbol_pin("1", -300, 100, 0, 1),
+        symbol_pin("2", -300, -100, 0, 1),
+        symbol_pin("3", 300, 0, 180, 1, "output"),
+        symbol_pin("5", -300, 100, 0, 2),
+        symbol_pin("6", -300, -100, 0, 2),
+        symbol_pin("7", 300, 0, 180, 2, "output"),
+        symbol_pin("8", 0, 300, 270, 0, "power_in"),
+        symbol_pin("4", 0, -300, 90, 0, "power_in"),
+    )
+    return SymbolDef(
+        id=derived_id("sym", "kicad", "Demo:DUAL"),
+        name="DUAL",
+        library="Demo",
+        properties={"Reference": "U", "Value": "DUAL"},
+        units=(SymbolUnit(1, 1), SymbolUnit(2, 1)),
+        pins=pins,
+    )
 
 
 def sample() -> Design:
