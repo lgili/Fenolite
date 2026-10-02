@@ -11,7 +11,7 @@ the test reader `tests/_altium_read.py` (`read_schlib`) checks. The container is
 - S-0150 is AltiumSharp **version 1 only**, at commit `afe796434b6d2110c745c90abe44a6ddf64f5bca`
   (2023-07-21, Apache-2.0 `LICENSE` at that commit). Every row resting on it says so. AltiumSharp
   version 2 is not used: its comments cite a non-public decompilation folder (LEGAL.md P1). Facts that
-  only version 2 gave are listed under "Facts awaiting a permitted source" and are not used.
+  only version 2 gave are listed in the section of facts awaiting a permitted source and are not used.
 - The code is written from this page only, never from the sources' code or the format researcher's
   scratch probe.
 - `kicad-cli sym upgrade` converts a `.SchLib` into a KiCad library through KiCad's Altium importer
@@ -153,9 +153,46 @@ them, so Fenolite does not use them, and no row above rests on them:
 - that Altium writes the records 44 … 48 at the end of `Data`;
 - that a library writer writes no `OWNERINDEX` (version 1 sets an owner index).
 
-Facts that c0032's and c0033's pages cite from S-0142 (unpinned AltiumSharp) were checked against
-S-0150 by task 1.3 of change c0034; the result is recorded in the section "Check of S-0142 against
-S-0150" below.
+Facts that c0032's and c0033's pages cite from S-0142 (unpinned AltiumSharp) and that version 1 does
+not give. Each of those rows also cites another source, except the two marked "S-0142 only"; c0034
+changes no behaviour of c0032 or c0033 (design Decision 12, Open Question 8), and the coordinator
+decides whether a follow-up change replaces them:
+
+- `project.md`: every fact cited from S-0142 (INI layout, `[DocumentN]` sections, relative
+  `DocumentPath`, `[Design]` `Version` and optional keys, CR LF "Altium uses CRLF", the byte-order mark
+  kept, Altium rewriting the file). Version 1 has no project-file code at all. The `Version` and
+  optional-key row and the byte-order-mark row are S-0142 only;
+- `schematic-ascii.md`: the project writer's statement that Altium writes CR LF (line-end row), and the
+  ownership chain 44 → 45 → 46, 48 of the footprint link (version 1 declares the record numbers 44,
+  45, 46 and 48 but shows no owner chain);
+- `schematic-binary.md`: that the writer writes compound files of version 3 (version 1 hands the
+  container to a third-party library and states no version; S-0142 only), and that a binary pin record
+  belongs to libraries only (version 1 writes a pin as binary whenever its caller asks, and the
+  schematic-document writer does not show which);
+- `schematic-binary.md`, `Storage` without images: version 1 always writes the `Storage` stream, which
+  confirms that part of the row, but it writes a `WEIGHT` key holding the image count (0 without
+  images), where the row says "no weight key"; the other sources of that row (S-0130, S-0131) remain.
+
+## Check of S-0142 against S-0150
+
+Task 1.3 of change c0034 read only the version-1 files at the pinned commit (`SchWriter.cs`,
+`SchDocWriter.cs`, `CompoundFileWriter.cs`, `SchLibWriter.cs`, `Records/Sch/SchLibHeader.cs`,
+`SchImplementation.cs`, `SchImplementationList.cs`, `SchMapDefinerList.cs`,
+`SchImplementationParameters.cs` and the file list of the tree), on 2026-10-02:
+
+| page and fact (cited from S-0142) | version 1 |
+|---|---|
+| `schematic-binary.md`: the record word `(type << 24) \| length`, a NUL that the length counts | confirmed |
+| `schematic-binary.md`: a `Storage` stream is always written | confirmed (written even without images) |
+| `schematic-binary.md`: payload text in a Windows code page | confirmed (Windows-1252 by default) |
+| `schematic-ascii.md`: records 44, 45, 46 and 48 of a footprint link | record numbers confirmed; the ownership chain not shown |
+| `schematic-binary.md`: compound files of version 3 | not given |
+| `schematic-binary.md`: binary pins belong to libraries | not given |
+| `schematic-binary.md`: `Storage` without images has no weight key | contradicted (version 1 writes `WEIGHT`) |
+| `project.md`: every project-file fact | not given (no project code in version 1) |
+| `schematic-ascii.md`: Altium writes project files with CR LF | not given |
+
+Confirmed rows carry "confirmed in S-0150" in their source cell.
 
 ## Fenolite's choices
 

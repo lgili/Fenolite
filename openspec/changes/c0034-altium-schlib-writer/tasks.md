@@ -14,7 +14,7 @@
 
   Code in later groups is written from these pages, never from the sources' code or the researcher's scratch probe. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py tests/unit/test_legal_docs.py`; `uv run python tools/residue/scan.py` exits 0. This covers "Fact page checked".
 
-- [ ] 1.3 Check each fact that c0032's and c0033's fact pages cite from S-0142 (unpinned AltiumSharp) against S-0150 (version 1), reading only the version-1 files at the pinned commit.
+- [x] 1.3 Check each fact that c0032's and c0033's fact pages cite from S-0142 (unpinned AltiumSharp) against S-0150 (version 1), reading only the version-1 files at the pinned commit.
   - Add "confirmed in S-0150" to the source cell of each confirmed row.
   - List any fact that only version 2 gives in a section "Facts awaiting a permitted source" of `schematic-library.md`, and report it to the coordinator. Change no c0032 or c0033 behaviour here (design Decision 12, Open Question 8).
 
