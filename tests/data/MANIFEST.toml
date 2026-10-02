@@ -582,3 +582,9 @@ path = "tests/data/kicad/sheets/sub_um.kicad_wks"
 origin = "authored"
 corpus_id = ""
 notes = "a line starting at 50.0006 mm (kept opaque) and one whole-micrometre text"
+
+[[file]]
+path = "examples/altium_sample/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Altium sample design script (thin DSL, c0032); lib ids name libraries Fenolite does not ship"
