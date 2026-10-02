@@ -23,7 +23,7 @@ from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.core.units import format_angle
-from fenolite.model.base import Modeled, Slot
+from fenolite.model.base import Modeled, Opaque, Slot
 from fenolite.model.board import Graphic, GraphicKind, Pad, Padstack, PadstackLayer
 from fenolite.model.library import FootprintDef
 
@@ -244,6 +244,21 @@ def read_drill(
     return None
 
 
+def padstack_key(pad: Pad, child: Node) -> tuple[tuple[str, str, int, int], ...] | None:
+    """The padstack layers a ``padstack`` child stands for, as ``read_padstack`` reads them."""
+    layers = [("F.Cu", str(pad.shape), pad.size.w, pad.size.h)]
+    for row in child.nodes("layer"):
+        names, shape, size = row.atoms(), row.find("shape"), row.find("size")
+        if not names or shape is None or size is None or len(size.atoms()) != 2:
+            return None
+        try:
+            w, h = (a.to_nm() for a in size.atoms())
+        except ValueError:
+            return None
+        layers.append((names[0].value, " ".join(symbols(shape)), w, h))
+    return tuple(layers)
+
+
 def unrepresentable(node: Node, kind: GraphicKind) -> str | None:
     """Why a graphic cannot be represented, or None."""
     if node.find("layer") is None:
@@ -409,19 +424,26 @@ def _graphic_head(graphic: Graphic) -> str:
     return head if head in FP_GRAPHIC_HEADS else _FP_KIND_HEADS[graphic.kind]
 
 
-def emit_footprint(defn: FootprintDef, *, root_chain: tuple[str, ...] = ("footprint",)) -> Node:
-    """A definition read from a footprint file, emitted as a ``footprint`` node from its slots.
+def emit_footprint(
+    defn: FootprintDef,
+    *,
+    root_chain: tuple[str, ...] = ("footprint",),
+    opaque: Callable[[Opaque], Node | Atom] = slotlib.opaque_child,
+) -> Node:
+    """A definition read from a file, emitted as a ``footprint`` node from its slots.
 
-    Opaque children come back as read; modelled ones from the definition's current values. Created
-    definitions (no slots) are written by the footprint writer (c0018).
+    Opaque children come back as read (through ``opaque``, which a writer passes to see each one);
+    modelled ones from the definition's current values. Definitions without slots are refused.
     """
     slots = _entity_slots(defn)
     if not slots:
         raise ValueError(
             f"{defn.lib_id!r} has no KiCad slot list; only definitions read from a file are emitted"
         )
-    pads = [_rebuild(pad, emit_pad(pad, None)) for pad in defn.pads]
-    graphics = [_rebuild(g, emit_graphic(g, _graphic_head(g)), _graphic_head(g)) for g in defn.graphics]
+    pads = [_rebuild(pad, emit_pad(pad, None), opaque=opaque) for pad in defn.pads]
+    graphics = [
+        _rebuild(g, emit_graphic(g, _graphic_head(g)), _graphic_head(g), opaque=opaque) for g in defn.graphics
+    ]
     items: dict[str, list[Node | Atom]] = {
         "name": [Atom.string(defn.name)],
         "description": [node("descr", Atom.string(defn.description))],
@@ -429,12 +451,18 @@ def emit_footprint(defn: FootprintDef, *, root_chain: tuple[str, ...] = ("footpr
         "pads": list(pads),
         "graphics": list(graphics),
     }
-    return slotlib.rebuild(Atom.symbol(root_chain[-1]), slots, _Items(items, _modelled(slots)))
+    return slotlib.rebuild(Atom.symbol(root_chain[-1]), slots, _Items(items, _modelled(slots)), opaque=opaque)
 
 
-def _rebuild(entity: Pad | Graphic, items: Mapping[str, Sequence[Node | Atom]], head: str = "pad") -> Node:
+def _rebuild(
+    entity: Pad | Graphic,
+    items: Mapping[str, Sequence[Node | Atom]],
+    head: str = "pad",
+    *,
+    opaque: Callable[[Opaque], Node | Atom] = slotlib.opaque_child,
+) -> Node:
     slots = _entity_slots(entity)
-    return slotlib.rebuild(Atom.symbol(head), slots, _Items(items, _modelled(slots)))
+    return slotlib.rebuild(Atom.symbol(head), slots, _Items(items, _modelled(slots)), opaque=opaque)
 
 
 __all__ = [
@@ -460,6 +488,7 @@ __all__ = [
     "emit_pad",
     "layers_node",
     "node",
+    "padstack_key",
     "point_node",
     "read_drill",
     "read_graphic",

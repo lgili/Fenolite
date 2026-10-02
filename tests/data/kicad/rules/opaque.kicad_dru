@@ -1,0 +1,17 @@
+(version 1)
+(rule "opaque_lifted"
+	(condition "A.NetName == 'OPQ'")
+	(constraint clearance (min 0.3mm))
+)
+(rule "opaque_annular"
+	(constraint annular_width (min 0.1mm))
+)
+(rule "opaque_outer"
+	(layer outer)
+	(condition "A.NetName == 'OPQ'")
+	(constraint clearance (min 0.3mm))
+)
+(rule "opaque_condition"
+	(condition "A.insideCourtyard('U1')")
+	(constraint clearance (min 0.3mm))
+)

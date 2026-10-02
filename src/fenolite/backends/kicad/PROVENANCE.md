@@ -44,3 +44,6 @@ written from the pages under `docs/formats/kicad/`.
 | DRC report keys (c0017) and strict JSON | S-0055, S-0056, S-0057 | GPL-3.0-or-later (key names only, never vendored or read at runtime); IETF Trust Legal Provisions | 2026-10-01 | facts only |
 | `pcb drc`, `pcb export pos`, `pcb export ipcd356` and `pcb export stats` of `kicad-cli` 9.0.9 and 10.0.6 (c0017) | S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-01 | oracle |
 | flip option and bottom-side observation for footprint embedding (c0017) | S-0010, S-0019 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 | 2026-10-01 | facts only |
+| custom rules dialect (comment lines, units, `'…'` literals), rule precedence and condition syntax, `assign_component_class` per tag (c0018) | S-0010, S-0038, S-0034, S-0020 | GPL-3.0-or-later or CC-BY-3.0-or-later; GPL-3.0-or-later (single names only); GPL-3.0-or-later tool run as a subprocess | 2026-10-02 | facts only |
+| footprint writer header and format constants (c0018) | S-0040, S-0030, S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later; GPL-3.0-or-later (names and dated facts only, nothing copied) | 2026-10-02 | facts only |
+| rules oracle: `pcb drc` with a canary rule on `kicad-cli` 9.0.9 and 10.0.6 (c0018) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |

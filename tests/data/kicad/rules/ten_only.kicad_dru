@@ -1,0 +1,8 @@
+(version 1)
+(rule canary
+	(constraint clearance (min 3mm))
+)
+(rule "ten_only"
+	(condition "A.NetName == 'TEN'")
+	(constraint bridged_mask)
+)

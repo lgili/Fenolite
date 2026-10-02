@@ -1,0 +1,17 @@
+(version 1)
+# Comment before the first rule.
+(rule "comment_first"
+	(condition "A.NetName == 'COM_A'")
+	(constraint clearance (min 0.5mm))
+)
+  # Comment between two rules, indented.
+(rule "comment_inside"
+	# Comment inside a rule: the rule stays opaque.
+	(condition "A.NetName == 'COM_B'")
+	(constraint track_width (min 0.1mm))
+)
+(rule "comment_last"
+	(condition "A.NetName == 'COM_C'")
+	(constraint clearance (min 0.4mm))
+	(severity warning)
+)

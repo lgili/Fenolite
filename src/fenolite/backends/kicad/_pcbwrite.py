@@ -245,13 +245,15 @@ def owner(locator: str, opaque: Collection[str]) -> str | None:
 
 
 def gate(
-    root: Node, target: int, opaque: Collection[str]
+    root: Node, target: int, opaque: Collection[str], kind: FileKind = FileKind.BOARD
 ) -> tuple[dict[str, list[Issue]], list[Issue], list[Issue]]:
-    """Run ``check_emittable``: ``(droppable by opaque locator, other errors, warnings and infos)``."""
+    """Run ``check_emittable``: ``(droppable by opaque locator, other errors, warnings and infos)``.
+
+    The footprint writer (``mod``) runs it with ``kind`` ``FOOTPRINT`` on a ``footprint`` root."""
     droppable: dict[str, list[Issue]] = {}
     errors: list[Issue] = []
     others: list[Issue] = []
-    for issue in check_emittable(root, FileKind.BOARD, target):
+    for issue in check_emittable(root, kind, target):
         if issue.severity != "error":
             others.append(issue)
             continue
@@ -284,14 +286,14 @@ def remove(root: Node, locators: Collection[str]) -> Node:
                 children.append(child)
         return node.with_children(children)
 
-    return visit(root, ROOT)
+    return visit(root, f"/{root.name}")
 
 
-def dropped(locator: str, node_head: str, issues: Sequence[Issue]) -> Issue:
-    """The ``dropped-too-new`` warning of one removed opaque slot."""
+def dropped(locator: str, node_head: str, issues: Sequence[Issue], code: str = DROPPED_CODE) -> Issue:
+    """The ``dropped-too-new`` warning of one removed opaque slot (``code`` names the file kind)."""
     rows = sorted({i.hint.split(" ", 2)[1] for i in issues if i.hint.startswith("row ")})
     return Issue(
-        DROPPED_CODE,
+        code,
         "warning",
         f"removed '{node_head}': {issues[0].message}",
         where=locator,

@@ -1,0 +1,13 @@
+(version 1)
+(rule "units_mm"
+	(condition "A.NetName == 'MM'")
+	(constraint clearance (min 0.2mm))
+)
+(rule "units_mil"
+	(condition "A.NetName == 'MIL'")
+	(constraint track_width (min 8mil))
+)
+(rule "units_in"
+	(condition "A.NetName == 'INCH'")
+	(constraint track_width (min 0.01in))
+)

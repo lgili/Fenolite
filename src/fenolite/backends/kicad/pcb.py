@@ -39,6 +39,7 @@ from fenolite.backends.kicad._fpmap import (
     emit_pad,
     layers_node,
     node,
+    padstack_key,
     point_node,
     read_graphic,
     read_pad,
@@ -1564,21 +1565,6 @@ def _plain_numbers(child: Node, count: int) -> bool:
     return not child.nodes() and len(atoms) == count and all(a.kind == AtomKind.NUMBER for a in atoms)
 
 
-def _padstack_key(pad: Pad, child: Node) -> tuple[tuple[str, str, int, int], ...] | None:
-    """The padstack layers a ``padstack`` child stands for, as ``read_padstack`` reads them."""
-    layers = [("F.Cu", str(pad.shape), pad.size.w, pad.size.h)]
-    for row in child.nodes("layer"):
-        names, shape, size = row.atoms(), row.find("shape"), row.find("size")
-        if not names or shape is None or size is None or len(size.atoms()) != 2:
-            return None
-        try:
-            w, h = (a.to_nm() for a in size.atoms())
-        except ValueError:
-            return None
-        layers.append((names[0].value, " ".join(symbols(shape)), w, h))
-    return tuple(layers)
-
-
 class _Writer:
     """One design being written for one target: its emitters, projections and collected errors."""
 
@@ -1887,7 +1873,7 @@ class _Writer:
                 if model
                 else None
             )
-            if _padstack_key(entity, child) != expected:
+            if padstack_key(entity, child) != expected:
                 self.read_only("padstack", _locator(entity), "per-layer pad shapes are written as read")
             return "padstack"
         if isinstance(entity, Graphic) and name == "stroke":

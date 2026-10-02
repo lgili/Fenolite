@@ -338,6 +338,52 @@ major M. An install of another major is never used, because a 9.0 KiCad refuses 
 Errors are raised as `LibraryError` (CLI code `FEN-3001`); warnings and infos are appended to an issue
 list. The readers also report the `kicad.version.*` issues of `versions.md`.
 
+## Writing footprints
+
+`mod.write_footprint(defn, *, target, allow_lossy=False, issues=None)` returns the text of one
+`.kicad_mod` file for KiCad `target` (9 or 10); `mod.write_pretty(defs, …)` maps `"<name>.kicad_mod"`
+to text, sorted by name. Nothing is written to disk. These are writer decisions on top of the facts
+above.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint file's header carries `(version V)`, `(generator …)` and `(generator_version …)` after the name; `V` is the footprint format constant of the target major, equal to the board constant | S-0040, S-0030 | INFERRED | H-K-LIB-READ |
+| `fp upgrade --force` re-saves a footprint library in the running major's format, and `fp export svg` loads it | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-LIB-READ |
+
+- **Editable input only.** The writer calls `require_editable` on the version the definition was read
+  at: a definition read from a future file raises `FutureFormatError` (FEN-3002). A definition without
+  a slot list raises `ValueError`: generating footprints from scratch is not supported.
+- **Header per target.** `(version V)`, `(generator "fenolite")` and `(generator_version "<target>.0")`
+  replace the source's `version`, `generator` and `generator_version` slots in place; missing ones are
+  inserted after the name, in that order.
+- **Slot order.** Every other child follows the definition's slot list. Modelled children (description,
+  attributes, pads, graphics) come from the footprint emitter shared with the board writer; opaque
+  children are written as read. Pads and graphics are never sorted, so the output does not imitate
+  KiCad's save-time order; equality is judged on the model and on load.
+- **Projections.** Before an opaque child that projects a field is written, it is projected again and
+  compared with the definition. An edited `Reference` or `Value` property rewrites only that
+  property's value atom. Any other difference (other properties, `keywords` from `tags`, `models` from
+  `model`, a graphic's width from `stroke`, a pad's padstack) is the error
+  `kicad.footprint.projection-read-only`, naming the field and the locator.
+- **Gating.** The written node goes through `check_emittable` for the target. A `kicad.token.too-new`
+  error inside an opaque child raises `LossyWriteError` (FEN-7001); with `allow_lossy` the smallest
+  opaque child holding the token is removed, with the warning `kicad.footprint.dropped-too-new`. Any
+  other error aborts. A definition read from a 10.0 file may be written for target 9 when every
+  fragment passes.
+- **Board footprints as definitions.** `mod.board_footprints(source)` reads every footprint of a board
+  as a definition, with the board's version policy and locators `/kicad_pcb/footprint[i]/…`. The
+  library is the lib_id text before its first colon (`""` without a colon). Board-only children (`at`,
+  `path`, `sheetname`, `sheetfile`, the placement `uuid`, pad `net`, `pinfunction`, `pintype`) are
+  opaque slots, and coordinates and angles are taken as stored. Two placements of one footprint give
+  equal ids, so such definitions serve round trips and comparisons, not a `Library`.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.footprint.dropped-too-new` | warning | `allow_lossy` removed an opaque child the target cannot read |
+| `kicad.footprint.projection-read-only` | error | an edited field that the writer keeps as written |
+
+These codes are `mod.WRITE_ISSUE_CODES`.
+
 ## Licence of the official libraries
 
 The official libraries are CC-BY-SA 4.0, with an exception for designs that use them (S-0048).

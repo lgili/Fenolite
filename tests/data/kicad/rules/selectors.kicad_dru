@@ -1,0 +1,42 @@
+(version 1)
+(rule "sel_net"
+	(condition "A.NetName == 'SEL_N'")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_netclass"
+	(condition "A.NetClass == 'SEL_C'")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_ref"
+	(condition "A.memberOfFootprint('SEL_R1')")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_item_kind"
+	(condition "A.Type == 'Via'")
+	(constraint hole_size (min 0.1mm))
+)
+(rule "sel_and"
+	(condition "(A.NetName == 'SEL_N' && A.Type == 'Track')")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_or"
+	(condition "(A.NetName == 'SEL_N' || A.NetName == 'SEL_M')")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_not"
+	(condition "(A.NetName == 'SEL_N' && !(A.Type == 'Via'))")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_b"
+	(condition "A.NetName == 'SEL_N' && B.NetClass == 'SEL_C'")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_layer"
+	(layer "B.Cu")
+	(condition "A.NetName == 'SEL_N'")
+	(constraint clearance (min 5mm))
+)
+(rule "sel_glob"
+	(condition "A.NetName == 'SEL_*'")
+	(constraint clearance (min 5mm))
+)

@@ -318,3 +318,51 @@ path = "tests/data/kicad/drc/report_mm.json"
 origin = "authored"
 corpus_id = ""
 notes = "authored DRC report for the reader's unit tests (c0017); key names from S-0055 and S-0056"
+
+[[file]]
+path = "tests/data/libs/Escapes_v9.pretty/Mini_Escapes.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "one property per string escape form and a non-ASCII value; synthetic geometry"
+
+[[file]]
+path = "tests/data/kicad/rules/comments.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "comment lines before, between and inside rules"
+
+[[file]]
+path = "tests/data/kicad/rules/units.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "rule values in mm, mil and in"
+
+[[file]]
+path = "tests/data/kicad/rules/selectors.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "every op of the closed selector table, a B side, a layer clause and a glob"
+
+[[file]]
+path = "tests/data/kicad/rules/overlap.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "two clearance rules on the same nets, 1 mm then 3 mm (rule order control)"
+
+[[file]]
+path = "tests/data/kicad/rules/ten_only.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "the canary and a 10.0-only constraint (target gating)"
+
+[[file]]
+path = "tests/data/kicad/rules/opaque.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "rules outside the closed grammar: annular width, an outer layer clause, a function condition"
+
+[[file]]
+path = "tests/data/kicad/rules/broken.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "the canary and a rule with a single-quoted name (silent-disable control)"

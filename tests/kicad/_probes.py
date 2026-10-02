@@ -22,6 +22,8 @@ from functools import cache
 from pathlib import Path
 
 import _bench
+import _fpwrite
+import _rulecases
 import _triad
 import pytest
 from _boards import FIXTURE, created_board
@@ -186,7 +188,36 @@ def _probes() -> dict[str, Probe]:
         probes[f"pcb-genver-10-{label}"] = Probe(lambda value=value: load(genver(10, value)), (10,))
     for name in ("bench", "exact", "missing-table", *_bench.CONTROLS):
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
+    probes.update(fp_write_probes())
+    for pid, (function, majors) in _rulecases.dru_probes().items():
+        probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     return probes
+
+
+# -- written footprint libraries (c0018)
+
+
+def _loaded(folder: str, target: int, allow_lossy: bool = False) -> str:
+    return "load" if _fpwrite.mini(runner(), folder, target, allow_lossy).loaded else "reject"
+
+
+def _reread(folder: str, target: int) -> str:
+    result = _fpwrite.mini(runner(), folder, target)
+    return "equal" if _fpwrite.equal_after_upgrade(result, _fpwrite.definitions(folder)) else "different"
+
+
+def fp_write_probes() -> dict[str, Probe]:
+    both = (9, 10)
+    return {
+        "fp-write-mini-10": Probe(lambda: _loaded("Mini.pretty", 10), (10,)),
+        "fp-write-mini-10-reread": Probe(lambda: _reread("Mini.pretty", 10), (10,)),
+        "fp-write-mini-v9-9": Probe(lambda: _loaded("Mini_v9.pretty", 9), both),
+        "fp-write-mini-v9-9-reread": Probe(lambda: _reread("Mini_v9.pretty", 9), both),
+        "fp-write-mini-lossy-9": Probe(lambda: _loaded("Mini.pretty", 9, True), both),
+        "fp-write-escapes-9": Probe(
+            lambda: "equal" if _fpwrite.escapes_equal(runner()) else "different", both
+        ),
+    }
 
 
 PROBES: dict[str, Probe] = _probes()
