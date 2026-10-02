@@ -212,6 +212,7 @@ The minimal scope is 4.0 dd. It drops the schematic from the library geometry (1
   - from c0032 `altium-schematic-writer`: "Altium writer package", "ASCII schematic form", "Generic component bodies", "Designator, comment and links", "Connectivity on the sheet", "Deterministic sheet layout", "Project file";
   - from c0032 `altium-build`: "Altium build target", "Altium build outputs";
   - from c0033 `altium-build`: "Altium schematic format option".
+    Its scenario "Too large refused" changes: c0033 had the ASCII build succeed with the size limit forced to 0, but this change writes libraries, which are always compound files, so that ASCII build now fails with `altium.library-too-large` (and still never gives `altium.schematic-too-large`). The rule text says so as well.
 - `openspec validate --strict` accepts this now. `openspec archive` succeeds only after the earlier changes are archived.
 - c0035 MODIFIES "Designator, comment and links" and "Project file" too, so its full text must start from this change's version.
 - The sample's two committed project files are rebuilt; the schematics are unchanged. Part A's SHA-256 values for the project files are updated, and the 2026-10-02 Viewer report stays valid, because it covers the binary schematic, whose bytes do not change.
