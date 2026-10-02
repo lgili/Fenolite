@@ -273,7 +273,7 @@ Not optional:
 - **Default zone name.** Default: the net's name, with `name=` required for a second zone on the same net or for a zone without a net. To confirm.
 - **Marker of script zones.** Resolved: the uuid derived from the zone's own name. No marker is shared with script copper: c0028 Decision 20 keeps two precedence models, and its version-8 uuids belong to the derived one.
 - **Meaning of `locked`.** Default: as c0019 reads `place(locked=True)`, the script's precedence plus KiCad's lock.
-- **c0015's question for the maintainer (`H-K-FILL-9`).** `H-K-ZONE-FAT9` bears on it: fills re-emitted for target 9 without `(filled_areas_thickness no)` are plotted 0.125 mm larger per side by 9.0.9, which can produce clearance violations. Default: c0015 relies on this change's flag; the question stays as worded.
+- **c0015's question for the maintainer (target-9 fills, `docs/roadmap.md`, "Later questions").** `H-K-ZONE-FAT9` bears on it: fills re-emitted for target 9 without `(filled_areas_thickness no)` are plotted 0.125 mm larger per side by 9.0.9, which can produce clearance violations. Default: c0015 relies on this change's flag; the question stays as worded.
 - **Hand-over to c0015.** Default: c0015 lifts `fills` and `filled` together from the 10.0-written copy and keeps `settings` from the original model, because settings are inputs of the fill.
 - **9.0 forms of hatched and smoothed zones.** Default: the 10.0 form for both targets, guarded by the reproducibility check; `INFERRED`.
 - **Budget.** 8.0 working days, with the cut order to 6.5. To accept.

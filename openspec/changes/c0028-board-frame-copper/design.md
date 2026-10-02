@@ -95,7 +95,7 @@
 5. **Positions reuse verified rows.**
    - `position` and `rotation` are the formulas of `H-G-BOTTOM-PLACE` and `H-G-PAD-ANGLE-ABS`, already `KICAD-VERIFIED (9.0.x, 10.0.x)` through IPC-D-356 and DRC library parity.
    - `test_pad_positions` re-checks `board_pads` against `pcb export ipcd356`, adding 180° and 270° on both sides. The 270° case is the one the dogfood script got wrong. Its data joins those rows; no new hypothesis is registered.
-   - Rejected: a new `H-G-FRAME-POS` row. It would restate verified formulas, and two rows for one fact can drift apart.
+   - Rejected: a new row for board-frame positions. It would restate verified formulas, and two rows for one fact can drift apart.
 
 6. **Placed extents read the footprint's own node.**
    - The pieces on `F.CrtYd` and `B.CrtYd` are read with c0018's footprint reader in the stored frame, then moved by `Transform.placement(position, rotation)` with no mirror, as pads are. `fp_poly` children whose `pts` hold arcs are read as mixed contours (`H-G-PTS-ARC`).
