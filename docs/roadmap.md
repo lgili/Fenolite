@@ -96,8 +96,9 @@ rebuilds.
 | c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | proposed | c0019, c0028 | 8 |
 
 - c0006–c0009 and c0014 were archived on 2026-10-01; c0017, c0018, c0010 and c0011 on 2026-10-02.
-- Implementation order from here: c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0012 → c0028 →
-  c0029 → c0030 → c0031 → c0015 → c0022 → c0016 → c0023 → c0024 → c0025. Changes archive in
+- Implementation order from here: c0032 (the experimental Altium schematic writer, see Phase 4) →
+  c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0012 → c0028 → c0029 → c0030 → c0031 → c0015 →
+  c0022 → c0016 → c0023 → c0024 → c0025. Changes archive in
   the same order, because several of them modify requirements that an earlier one adds; each design
   states its archive-order dependencies.
 - The last column is the size in design-days: from the designs ("Budget") for proposed and done
@@ -204,6 +205,14 @@ recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
   of v0.3.
 - `equivalent`, levels 1–4.
 - In parallel, an analyses track: current capacity, clearance and creepage distances.
+
+**Pulled forward: c0032 `altium-schematic-writer` (experimental, proposed 2026-10-02).** The
+maintainer starts a real board in Altium Designer on 2026-10-05. c0032 lets
+`fenolite build --target altium` write a project file and an ASCII schematic. The schematic has
+generic component bodies, library and footprint links, and net labels and power ports. Altium then
+creates the PCB with its engineering change order. Evidence: Fenolite's own readback, plus the
+maintainer's Altium checks as author reports. Size: 5.75 design-days. The rest of v0.3 and v0.4 stays
+as planned.
 
 **v0.4 write, about c0050–c0057.**
 
