@@ -306,3 +306,49 @@ def blink_placements(design: Design) -> dict[str, object]:
     from fenolite.dsl import placements
 
     return dict(placements(design))
+
+
+def blink_pcbdoc_spec(text: str = "", new: str = "") -> tuple[object, object]:
+    """``(spec, model)``: a ``pcbdoc.PcbDocSpec`` of the blink sample built by hand from its model, its
+    placements and the mini footprints (change c0035, unit tests of the PCB document writer)."""
+    from fenolite.backends.altium.pcbdoc import PcbDocSpec, PlacedComponent
+    from fenolite.backends.altium.pcblib import LibFootprint
+    from fenolite.backends.altium.project import component_path, unique_id
+    from fenolite.dsl import placements
+    from fenolite.lens.altium import footprint_texts, pad_extras
+
+    design = blink(text, new) if text else blink()
+    model = to_model(design)
+    wanted = placements(design)
+    with tempfile.TemporaryDirectory() as folder:
+        resolver = blink_resolver(Path(folder))
+        nets: dict[str, dict[str, str]] = {}
+        for net in model.circuit.nets:
+            for member in net.members:
+                nets.setdefault(member.component_id, {})[member.pin] = net.name
+        components = []
+        for component in sorted(model.circuit.components, key=component_path):
+            link = component.lib_footprint_ref or resolver.symbol(component.lib_symbol_ref).footprint
+            defn = resolver.footprint(link)
+            place = wanted[component_path(component)]
+            components.append(
+                PlacedComponent(
+                    ref=component.ref,
+                    unique_id=unique_id(component.id),
+                    comment=component.value,
+                    footprint=LibFootprint(defn, pad_extras(defn), footprint_texts(defn)),
+                    footprint_library="blink.PcbLib",
+                    lib_reference=component.lib_symbol_ref.split(":")[1],
+                    component_library="blink.SchLib",
+                    at=place.at,
+                    rotation=place.rotation,
+                    side=place.side,
+                    locked=place.locked,
+                    pad_nets=nets.get(component.id, {}),
+                )
+            )
+    assert model.board is not None and model.board.outline is not None
+    spec = PcbDocSpec(
+        model.board.outline.points, tuple(components), tuple(n.name for n in model.circuit.nets)
+    )
+    return spec, model
