@@ -1,0 +1,3 @@
+# Altium files keep their exact bytes: CR LF line ends are part of what is checked (change c0032).
+*.SchDoc -text
+*.PrjPcb -text

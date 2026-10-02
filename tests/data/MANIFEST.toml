@@ -588,3 +588,27 @@ path = "examples/altium_sample/design.py"
 origin = "authored"
 corpus_id = ""
 notes = "Altium sample design script (thin DSL, c0032); lib ids name libraries Fenolite does not ship"
+
+[[file]]
+path = "tests/data/altium/sample/altium_sample.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file written by fenolite build --target altium from examples/altium_sample (c0032 golden file)"
+
+[[file]]
+path = "tests/data/altium/sample/altium_sample.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "ASCII schematic written by fenolite build --target altium from examples/altium_sample (c0032 golden file)"
+
+[[file]]
+path = "tests/data/altium/sample/variants/altium_sample_lf.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "the sample schematic with every CR LF replaced by LF (c0032 check variant)"
+
+[[file]]
+path = "tests/data/altium/sample/variants/altium_sample_nouid.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "the sample schematic with every UNIQUEID field removed (c0032 check variant)"
