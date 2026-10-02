@@ -22,7 +22,7 @@
 
 ## 2. First library: the sample's, and its kicad-cli round trip
 
-- [ ] 2.1 Extend `tests/_cfb_read.py` from `compound-file.md` (storage entries with start 0 and size 0, sibling trees per storage, paths). Then add `Storage`, `Entry`, nested `write_compound` and `storage_from_paths` to `cfb.py` (design Decision 3). Write `tests/unit/backends/altium/test_cfb_storage.py`. Proof: `uv run pytest tests/unit/backends/altium/test_cfb_storage.py tests/unit/backends/altium/test_cfb.py tests/unit/backends/altium/test_cfb_reader.py tests/unit/lens/test_altium_binary_golden.py`. This covers every scenario of "Compound file storages"; the binary golden is unchanged.
+- [x] 2.1 Extend `tests/_cfb_read.py` from `compound-file.md` (storage entries with start 0 and size 0, sibling trees per storage, paths). Then add `Storage`, `Entry`, nested `write_compound` and `storage_from_paths` to `cfb.py` (design Decision 3). Write `tests/unit/backends/altium/test_cfb_storage.py`. Proof: `uv run pytest tests/unit/backends/altium/test_cfb_storage.py tests/unit/backends/altium/test_cfb.py tests/unit/backends/altium/test_cfb_reader.py tests/unit/lens/test_altium_binary_golden.py`. This covers every scenario of "Compound file storages"; the binary golden is unchanged.
 - [ ] 2.2 Write `read_schlib` in `tests/_altium_read.py` from `schematic-library.md`.
   - Then write `altsym.py` (`AltiumPin`, `AltiumSymbol`, `from_generic`) and `schlib.py` (`pin_record`, `data_stream`, `write_schlib`, `storage_name`).
   - Add `project.schlib_name` and the generic lib-id union to `lens.altium.generic_pins`.

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """A writer of MS-CFB version 3 compound files, the container of Altium's binary schematic (change c0033,
-capability altium-schematic-writer, "Compound file container").
+capability altium-schematic-writer, "Compound file container") and of its libraries (change c0034,
+"Compound file storages").
 
 Written from ``docs/formats/altium/compound-file.md`` (facts of [MS-CFB], S-0145) with the standard library
 only. ``write_compound`` lays the streams out in one fixed layout: the header, then the FAT sectors, the
@@ -9,13 +10,18 @@ directory, the mini FAT, the mini stream and each large stream, every chain over
 directory entry is black, with zero CLSIDs, state bits and times, so the bytes depend only on the streams.
 No DIFAT sector is written: output whose FAT needs more sectors than the header can list is refused with
 ``CompoundTooLarge``.
+
+Storages (change c0034): ``write_compound`` takes streams ``(name, data)`` and ``Storage`` values at any
+depth. Entries are numbered in pre-order; each storage gets its own sibling tree. ``Storage`` and
+``Entry`` are the public API that PCB documents and libraries build on.
 """
 
 from __future__ import annotations
 
 import struct
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 SIGNATURE = bytes((0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1))
 """Bytes 0-7 of every compound file."""
@@ -44,6 +50,7 @@ FAT_ENTRIES_PER_SECTOR = SECTOR_SIZE // 4
 MAX_NAME = 31
 FORBIDDEN = "/\\:!"
 ROOT_NAME = "Root Entry"
+TYPE_STORAGE = 1
 TYPE_STREAM = 2
 TYPE_ROOT = 5
 BLACK = 1
@@ -57,8 +64,29 @@ class CompoundTooLarge(ValueError):
 
 
 @dataclass(frozen=True)
-class _Stream:
+class Storage:
+    """A storage named ``name`` holding ``entries``: streams ``(name, data)`` and storages, in order."""
+
     name: str
+    entries: tuple[Entry, ...]
+
+
+Entry = tuple[str, bytes] | Storage
+"""One item of a storage: a stream ``(name, data)`` or a ``Storage``."""
+
+
+@dataclass(frozen=True)
+class _Node:
+    """One directory entry in pre-order: a stream (``data`` set) or a storage (``children`` its ids)."""
+
+    name: str
+    data: bytes | None
+    children: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Stream:
+    index: int
     data: bytes
     small: bool
     start: int = 0
@@ -75,19 +103,79 @@ def name_key(name: str) -> tuple[int, tuple[int, ...]]:
     return len(units), units
 
 
-def _check_names(streams: Sequence[tuple[str, bytes]]) -> None:
-    keys: set[tuple[int, tuple[int, ...]]] = set()
-    for name, data in streams:
-        if not 1 <= len(name.encode("utf-16-le")) // 2 <= MAX_NAME:
-            raise ValueError(f"the stream name {name!r} does not hold 1 to {MAX_NAME} characters")
-        if any(ch in FORBIDDEN for ch in name) or "\0" in name:
-            raise ValueError(f"the stream name {name!r} holds one of / \\ : ! or NUL")
-        key = name_key(name)
-        if key in keys:
-            raise ValueError(f"the stream name {name!r} repeats another under the MS-CFB order")
-        keys.add(key)
-        if not data:
-            raise ValueError(f"the stream {name!r} is empty")
+def _check_name(name: str, what: str) -> None:
+    if not 1 <= len(name.encode("utf-16-le")) // 2 <= MAX_NAME:
+        raise ValueError(f"the {what} name {name!r} does not hold 1 to {MAX_NAME} characters")
+    if any(ch in FORBIDDEN for ch in name) or "\0" in name:
+        raise ValueError(f"the {what} name {name!r} holds one of / \\ : ! or NUL")
+
+
+def _flatten(entries: Sequence[Entry]) -> list[_Node]:
+    """The entries in pre-order after the root (index 0), every rule of names and contents checked."""
+    nodes: list[_Node] = [_Node(ROOT_NAME, None)]
+
+    def add(items: Sequence[Entry], owner: str) -> tuple[int, ...]:
+        keys: set[tuple[int, tuple[int, ...]]] = set()
+        ids: list[int] = []
+        for item in items:
+            if isinstance(item, Storage):
+                name, what = item.name, "storage"
+            else:
+                name, what = item[0], "stream"
+            _check_name(name, what)
+            key = name_key(name)
+            if key in keys:
+                raise ValueError(f"the {what} name {name!r} repeats another of {owner} in the MS-CFB order")
+            keys.add(key)
+            index = len(nodes)
+            ids.append(index)
+            if isinstance(item, Storage):
+                if not item.entries:
+                    raise ValueError(f"the storage {name!r} is empty")
+                nodes.append(_Node(name, None))
+                children = add(item.entries, f"the storage {name!r}")
+                nodes[index] = _Node(name, None, children)
+            else:
+                data = bytes(item[1])
+                if not data:
+                    raise ValueError(f"the stream {name!r} is empty")
+                nodes.append(_Node(name, data))
+        return tuple(ids)
+
+    nodes[0] = _Node(ROOT_NAME, None, add(entries, "the root"))
+    return nodes
+
+
+def storage_from_paths(mapping: Mapping[str, bytes]) -> tuple[Entry, ...]:
+    """Entries from ``{"A/B/Data": data, …}``: storages and streams in the order their paths first appear.
+
+    ``ValueError`` when a path is both a stream and a storage, or holds an empty part.
+    """
+    tree: dict[str, object] = {}
+    for path, data in mapping.items():
+        parts = path.split("/")
+        if any(not part for part in parts):
+            raise ValueError(f"the path {path!r} holds an empty name")
+        level = tree
+        for part in parts[:-1]:
+            child = level.setdefault(part, {})
+            if not isinstance(child, dict):
+                raise ValueError(f"{part!r} in {path!r} is both a stream and a storage")
+            level = cast(dict[str, object], child)
+        if parts[-1] in level:
+            raise ValueError(f"the path {path!r} is both a stream and a storage, or repeats")
+        level[parts[-1]] = bytes(data)
+
+    def build(level: dict[str, object]) -> tuple[Entry, ...]:
+        out: list[Entry] = []
+        for name, value in level.items():
+            if isinstance(value, dict):
+                out.append(Storage(name, build(cast(dict[str, object], value))))
+            else:
+                out.append((name, cast(bytes, value)))
+        return tuple(out)
+
+    return build(tree)
 
 
 def _tree(order: list[int], links: dict[int, list[int]]) -> int:
@@ -116,23 +204,27 @@ def _pad(data: bytes, unit: int) -> bytes:
     return data + bytes(-len(data) % unit)
 
 
-def write_compound(streams: Sequence[tuple[str, bytes]]) -> bytes:
-    """The bytes of a version 3 compound file whose root storage holds exactly ``streams``.
+def write_compound(entries: Sequence[Entry]) -> bytes:
+    """The bytes of a version 3 compound file whose root storage holds exactly ``entries``.
 
-    ``streams`` are ``(name, data)`` pairs, written as directory entries 1 … n in the given order.
-    ``ValueError`` for an invalid, repeated or empty stream; ``CompoundTooLarge`` past the FAT limit.
+    ``entries`` are streams ``(name, data)`` and ``Storage`` values, numbered in pre-order from 1: each
+    storage is followed at once by its own entries. ``ValueError`` for an invalid, repeated or empty
+    stream or storage; ``CompoundTooLarge`` past the FAT limit. Streams only give c0033's bytes.
     """
-    _check_names(streams)
+    nodes = _flatten(entries)
     mini_used = 0
     placed: list[_Stream] = []
-    for name, data in streams:
+    for index, node in enumerate(nodes):
+        data = node.data
+        if data is None:
+            continue
         if len(data) < MINI_STREAM_CUTOFF:
-            placed.append(_Stream(name, bytes(data), True, mini_used))
+            placed.append(_Stream(index, data, True, mini_used))
             mini_used += _ceil(len(data), MINI_SECTOR_SIZE)
         else:
-            placed.append(_Stream(name, bytes(data), False))
+            placed.append(_Stream(index, data, False))
     mini_stream = b"".join(_pad(s.data, MINI_SECTOR_SIZE) for s in placed if s.small)
-    directory_sectors = _ceil(1 + len(placed), ENTRIES_PER_SECTOR)
+    directory_sectors = _ceil(len(nodes), ENTRIES_PER_SECTOR)
     minifat_sectors = _ceil(mini_used, FAT_ENTRIES_PER_SECTOR)
     mini_sectors = _ceil(len(mini_stream), SECTOR_SIZE)
     large = [_ceil(len(s.data), SECTOR_SIZE) for s in placed if not s.small]
@@ -165,7 +257,7 @@ def write_compound(streams: Sequence[tuple[str, bytes]]) -> bytes:
     first_directory = chain(directory_sectors)
     first_minifat = chain(minifat_sectors)
     mini_start = chain(mini_sectors)
-    starts = [s.start if s.small else chain(_ceil(len(s.data), SECTOR_SIZE)) for s in placed]
+    starts = {s.index: s.start if s.small else chain(_ceil(len(s.data), SECTOR_SIZE)) for s in placed}
 
     minifat = [FREESECT] * (minifat_sectors * FAT_ENTRIES_PER_SECTOR)
     for s in placed:
@@ -176,23 +268,30 @@ def write_compound(streams: Sequence[tuple[str, bytes]]) -> bytes:
             minifat[s.start + count - 1] = ENDOFCHAIN
 
     links: dict[int, list[int]] = {}
-    order = sorted(range(1, len(placed) + 1), key=lambda i: name_key(placed[i - 1].name))
-    top = _tree(order, links)
-    entries = [
+    tops: dict[int, int] = {}
+    for index, node in enumerate(nodes):
+        if node.data is None:
+            order = sorted(node.children, key=lambda i: name_key(nodes[i].name))
+            tops[index] = _tree(order, links)
+    records = [
         _entry(
             ROOT_NAME,
             TYPE_ROOT,
             NOSTREAM,
             NOSTREAM,
-            top,
+            tops[0],
             mini_start,
             mini_used * MINI_SECTOR_SIZE,
         )
     ]
-    for index, (s, start) in enumerate(zip(placed, starts, strict=True), start=1):
+    for index, node in enumerate(nodes[1:], start=1):
         left, right = links[index]
-        entries.append(_entry(s.name, TYPE_STREAM, left, right, NOSTREAM, start, len(s.data)))
-    entries += [_UNUSED] * (directory_sectors * ENTRIES_PER_SECTOR - len(entries))
+        if node.data is None:
+            records.append(_entry(node.name, TYPE_STORAGE, left, right, tops[index], 0, 0))
+        else:
+            start, size = starts[index], len(node.data)
+            records.append(_entry(node.name, TYPE_STREAM, left, right, NOSTREAM, start, size))
+    records += [_UNUSED] * (directory_sectors * ENTRIES_PER_SECTOR - len(records))
 
     difat = list(range(fat_sectors)) + [FREESECT] * (HEADER_DIFAT_ENTRIES - fat_sectors)
     header = _HEADER.pack(
@@ -218,7 +317,7 @@ def write_compound(streams: Sequence[tuple[str, bytes]]) -> bytes:
     parts = [
         header,
         struct.pack(f"<{len(fat)}I", *fat),
-        b"".join(entries),
+        b"".join(records),
         struct.pack(f"<{len(minifat)}I", *minifat),
         _pad(mini_stream, SECTOR_SIZE),
         *(_pad(s.data, SECTOR_SIZE) for s in placed if not s.small),
@@ -237,6 +336,9 @@ __all__ = [
     "SECTOR_SIZE",
     "SIGNATURE",
     "CompoundTooLarge",
+    "Entry",
+    "Storage",
     "name_key",
+    "storage_from_paths",
     "write_compound",
 ]

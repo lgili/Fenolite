@@ -6,7 +6,10 @@
 It is written from ``docs/formats/altium/compound-file.md`` alone, independently of the product's writer,
 which it never imports. ``read_compound`` returns every stream by its path and raises ``CfbError`` naming
 the first rule the bytes break; ``parse_compound`` returns the same reading with the header, FAT, mini FAT,
-directory and chains, for tests that look at the layout. ``deframe`` splits a ``FileHeader`` stream of a
+directory and chains, for tests that look at the layout. Storages (change c0034, the schematic library)
+are walked to any depth: each holds its own sibling tree, its entry has starting sector 0 and size 0,
+and its streams are returned under ``<storage>/<stream>`` paths; ``Compound.storages`` lists the
+storage paths in directory order. ``deframe`` splits a ``FileHeader`` stream of a
 binary schematic into its records (``docs/formats/altium/schematic-binary.md``).
 
 A misreading of the specification that this reader shares with the writer is caught only by an Altium
@@ -95,6 +98,7 @@ class Compound:
     chains: dict[str, list[int]] = field(default_factory=dict)
     mini_chains: dict[str, list[int]] = field(default_factory=dict)
     streams: dict[str, bytes] = field(default_factory=dict)
+    storages: list[str] = field(default_factory=list)
 
 
 def name_key(name: str) -> tuple[int, list[int]]:
@@ -304,6 +308,12 @@ def parse_compound(data: bytes) -> Compound:
             reached.add(entry.index)
             path = prefix + entry.name
             if entry.kind == STORAGE:
+                if entry.start != 0 or entry.size != 0:
+                    where = f"starting sector {entry.start} and size {entry.size}"
+                    raise CfbError(f"storage {path}: {where}, not 0 and 0")
+                if entry.child == NOSTREAM:
+                    raise CfbError(f"storage {path}: a storage without children has no recorded rule")
+                compound.storages.append(path)
                 visit(entry, path + "/")
                 continue
             if entry.child != NOSTREAM:
