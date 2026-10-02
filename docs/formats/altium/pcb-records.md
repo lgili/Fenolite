@@ -12,27 +12,28 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 - The KiCad importer is a reader: a record it accepts may still be refused by Altium. Rows therefore stay
   `INFERRED` until an author report (`docs/evidence/altium-pcb.md`); a `kicad-cli` round trip settles
   only `H-A-PCB-KICAD-LIB` and `H-A-PCB-KICAD-DOC`.
+- Rows that only say what KiCad's importer reads carry `ORACLE-VERIFIED(kicad-cli)` since the round trips of 2026-10-03 passed on 10.0.6; that label says nothing about Altium.
 - `tests/unit/test_format_facts.py` checks the tables.
 
 ## Units, framing and texts
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| Binary lengths and coordinates are signed 32-bit integers in 1/10 000 mil, so one unit is exactly 2.54 nm; a length in nanometres is `nm · 50 / 127` units, which is not an integer in general | S-0002, S-0160, S-0163 | INFERRED | H-A-PCB-KICAD-LIB |
+| Binary lengths and coordinates are signed 32-bit integers in 1/10 000 mil, so one unit is exactly 2.54 nm; a length in nanometres is `nm · 50 / 127` units, which is not an integer in general | S-0002, S-0160, S-0163 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
 | Angles are IEEE-754 doubles in degrees; positive angles turn counter-clockwise, and the Y axis points up (a reader from a Y-down tool negates Y) | S-0002, S-0160 | INFERRED | H-A-PCB-GRAPHICS |
-| Lengths in property text are decimal mils followed by `mil`, such as `10mil` or `0.5mil` | S-0163 | INFERRED | H-A-PCB-KICAD-DOC |
-| Every integer is little-endian | S-0002, S-0160 | INFERRED | H-A-PCB-KICAD-LIB |
-| A property block is a 32-bit word (the payload length in the low 24 bits, record type 0 in the top byte), then `\|KEY=VALUE…` text and one NUL that the length counts; it is the framing of a schematic text record | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-KICAD-LIB |
-| A string block is a 32-bit length, then one length byte and the 8-bit characters, without NUL; the 32-bit length is the length byte plus the characters | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-KICAD-LIB |
-| A primitive record is one type byte (1 arc, 2 pad, 3 via, 4 track, 5 text, 6 fill, 11 region, 12 component body), then subrecords, each a 32-bit length and that many bytes. A reader skips to the end of a subrecord after the fields it knows, so a longer subrecord is read and a shorter one is refused; an unknown type stops a reader | S-0002, S-0160 | INFERRED | H-A-PCB-KICAD-LIB |
+| Lengths in property text are decimal mils followed by `mil`, such as `10mil` or `0.5mil` | S-0163 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
+| Every integer is little-endian | S-0002, S-0160 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
+| A property block is a 32-bit word (the payload length in the low 24 bits, record type 0 in the top byte), then `\|KEY=VALUE…` text and one NUL that the length counts; it is the framing of a schematic text record | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
+| A string block is a 32-bit length, then one length byte and the 8-bit characters, without NUL; the 32-bit length is the length byte plus the characters | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
+| A primitive record is one type byte (1 arc, 2 pad, 3 via, 4 track, 5 text, 6 fill, 11 region, 12 component body), then subrecords, each a 32-bit length and that many bytes. A reader skips to the end of a subrecord after the fields it knows, so a longer subrecord is read and a shorter one is refused; an unknown type stops a reader | S-0002, S-0160 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
 
 ## Common prefix
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| Tracks, arcs, pads (subrecord 5) and texts start with 13 bytes: offset 0 the layer id (one byte), 1 and 2 two flag bytes, 3-4 the net index, 5-6 the polygon index, 7-8 the component index (unsigned 16-bit; `0xFFFF` means none), 9-12 four bytes that readers skip | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-KICAD-LIB |
+| Tracks, arcs, pads (subrecord 5) and texts start with 13 bytes: offset 0 the layer id (one byte), 1 and 2 two flag bytes, 3-4 the net index, 5-6 the polygon index, 7-8 the component index (unsigned 16-bit; `0xFFFF` means none), 9-12 four bytes that readers skip | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
 | In the first flag byte, bit 2 set means unlocked. A writer writes `0x0C` and `0x00` as the two flag bytes, and `FF FF FF FF` at 9-12 | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-GRAPHICS |
-| Nets and components are indexed by their zero-based position in their own storage; in a library footprint every index is `0xFFFF` | S-0160, S-0161, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-KICAD-DOC |
+| Nets and components are indexed by their zero-based position in their own storage; in a library footprint every index is `0xFFFF` | S-0160, S-0161, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 
 ## Track and arc
 
@@ -61,9 +62,9 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 |---|---|---|---|
 | A text (type 5) has two subrecords. The first is at least 40 bytes: the prefix (with the component index at 7), 13 x, 17 y, 21 the height, 25 a 16-bit stroke font (1 default), 27 the rotation (double), 35 mirrored (one byte), 36 the stroke width (32-bit) | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-DOC-VIEWER |
 | The long form of the first subrecord, at least 123 bytes, adds 40 is-comment and 41 is-designator (one byte each), 42 one byte, 43 the font type (0 stroke), 44 bold, 45 italic, 46 the font name as 64 bytes of UTF-16LE, 110 inverted, 111 the margin (32-bit) and 115 the wide-string index (32-bit). The MIT writer writes 137 bytes; the offsets after 43 follow the field sizes in order and are inferred | S-0002, S-0160, S-0143 | INFERRED | H-A-PCB-DOC-VIEWER |
-| `kicad-cli` 10.0.6 refuses a document whose texts use a 123-byte first subrecord ("Texts6 stream was not parsed correctly") and reads 137-byte ones, the MIT writer's length (local runs on Fenolite's own files, 2026-10-03) | S-0020, S-0143 | INFERRED | H-A-PCB-KICAD-DOC |
+| `kicad-cli` 10.0.6 refuses a document whose texts use a 123-byte first subrecord ("Texts6 stream was not parsed correctly") and reads 137-byte ones, the MIT writer's length (local runs on Fenolite's own files, 2026-10-03) | S-0020, S-0143 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | The second subrecord is the text as one length byte and up to 255 8-bit characters. When the wide-string index names an entry of `WideStrings6`, a reader takes that entry instead | S-0002, S-0160 | INFERRED | H-A-PCB-DOC-VIEWER |
-| In a PCB document a component's designator and comment are texts with the is-designator or is-comment flag and the component's index; KiCad places the reference at the designator text | S-0161, S-0020 | INFERRED | H-A-PCB-KICAD-DOC |
+| In a PCB document a component's designator and comment are texts with the is-designator or is-comment flag and the component's index; KiCad places the reference at the designator text | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 
 ## Layers
 
@@ -71,7 +72,7 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 |---|---|---|---|
 | Layer ids: 1 Top Layer, 2 to 31 Mid-Layer 1 to 30, 32 Bottom Layer, 33 Top Overlay, 34 Bottom Overlay, 35 Top Paste, 36 Bottom Paste, 37 Top Solder, 38 Bottom Solder, 39 to 54 Internal Plane 1 to 16, 55 Drill Guide, 56 Keep-Out Layer, 57 to 72 Mechanical 1 to 16, 73 Drill Drawing, 74 Multi-Layer | S-0002, S-0160 | INFERRED | H-A-PCB-GRAPHICS |
 | Newer files add a 32-bit layer id in optional tail bytes; readers fall back to the one-byte id, so a record without the tail stays within Mechanical 1 to 16 | S-0160 | INFERRED | H-A-PCB-GRAPHICS |
-| KiCad's library import maps Mechanical n to `User.n`, with or without mechanical-kind keys, so no KiCad round trip can check which mechanical layer stands for fabrication or courtyard (local probe of the format research) | S-0020, S-0162 | INFERRED | H-A-PCB-KICAD-LIB |
+| KiCad's library import maps Mechanical n to `User.n`, with or without mechanical-kind keys, so no KiCad round trip can check which mechanical layer stands for fabrication or courtyard (local probe of the format research) | S-0020, S-0162 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
 | Altium has no fixed fabrication or courtyard layer | S-0002 | INFERRED | H-A-PCB-GRAPHICS |
 
 ## Fenolite's choices
