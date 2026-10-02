@@ -164,6 +164,19 @@ Reserved families: ids that no row extends yet but that later changes will regis
 | H-A-SCHLIB-SECTIONKEY | altium | Altium finds a symbol stored under a section key listed in `SectionKeys` (S-0150, S-0151, S-0152) | INFERRED | kit request (author report, step L1 of Part L of `docs/evidence/altium-schematic.md`, with a keyed symbol) | the keyed symbol is listed under its full name | pending (author report) | 2026-10-02 |
 | H-A-SCHLIB-KICAD | altium | `kicad-cli` 10.0.6 converts the libraries Fenolite writes with the source's pins and units: `sym upgrade` reads the storages, header text, framing, pin layout, units, Part Zero, reference prefix and footprint name (S-0131, S-0153) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | `tests/kicad/altium/test_schlib_oracle.py` in `kicad-10` | every symbol converts with the source's units and per-pin fields; every negative control exits non-zero | confirmed: `tests/kicad/altium/test_schlib_oracle.py` passed with local `kicad-cli` 10.0.6 (macOS, 2026-10-02): the sample's six generic symbols and the example's four symbols (units, Part Zero, every pin's number, name, type, hot end, angle, length, unit and visibility, reference prefix, footprint name) convert as written; the four negative controls exit 2 | 2026-10-02 |
 | H-A-SCHLIB-KICAD9 | altium | `kicad-cli` 9.0 converts the same libraries as 10.0.6 does (S-0153) | ORACLE-VERIFIED(kicad-cli) (9.0.9, pinned image, local run; 2026-10-02) | `tests/kicad/altium/test_schlib_oracle.py` in `kicad-9` | the same comparisons pass, or the failure message is recorded and the test is expected to fail on major 9 | confirmed locally: the same test passed with `kicad-cli` 9.0.9 from the pinned image (local run, 2026-10-02), the only difference being a pin name `~` read back as empty from the 9.0 file version (S-0031); the `kicad-9` CI job has not run it (the branch is not pushed) | 2026-10-02 |
+| H-A-PCB-KICAD-LIB | altium | `kicad-cli fp upgrade` converts the PCB library Fenolite writes with the source geometry: storages, `Library/Data`, `Parameters`, pads, tracks and arcs (S-0160, S-0162, S-0166) | INFERRED | `tests/kicad/altium/test_pcblib_oracle.py` in `kicad-10` and `kicad-9` | one `.kicad_mod` per footprint; pads and graphics within 10 nm | pending (oracle) | 2026-10-02 |
+| H-A-PCB-KICAD-DOC | altium | `kicad-cli pcb import` reads the PCB document Fenolite writes with its components, nets and pads (S-0160, S-0161) | INFERRED | `tests/kicad/altium/test_pcbdoc_oracle.py` in `kicad-10` | exit 0; no error in the report or on stdout; equal references, pad nets and relative positions | pending (oracle) | 2026-10-02 |
+| H-A-PCB-LIB-OPEN | altium | Altium Designer opens a PCB library holding only the streams AltiumSharp version 1 writes (S-0150, S-0162) | INFERRED | kit request (author report, step D1 of `docs/evidence/altium-pcb.md`) | the footprints are listed, with no repair prompt | pending (author report) | 2026-10-02 |
+| H-A-PCB-LIB-NAME | altium | Altium shows a footprint stored under a section key with its full name (S-0150, S-0145) | INFERRED | kit request (author report, step D1 of `docs/evidence/altium-pcb.md`) | the long name is shown | pending (author report) | 2026-10-02 |
+| H-A-PCB-PAD | altium | Pads with AltiumSharp version 1's defaults, rounded rectangles by alternate shape 9 and holes on Multi-Layer show as written (S-0150, S-0160, S-0161) | INFERRED | kit request (author report, steps D1 and P1 of `docs/evidence/altium-pcb.md`) | shapes, sizes and holes as in the page's pad table | pending (author report) | 2026-10-02 |
+| H-A-PCB-GRAPHICS | altium | 36-byte tracks and 47-byte arcs on overlay and mechanical layers render (S-0150, S-0160) | INFERRED | kit request (author report, steps D1 and P1 of `docs/evidence/altium-pcb.md`) | the outlines are visible on the mapped layers | pending (author report) | 2026-10-02 |
+| H-A-PCB-ECO | altium | With the PCB library in the project, the change order into a blank PCB document places every footprint (S-0135, S-0141) | INFERRED | kit request (author report, step D2 of `docs/evidence/altium-pcb.md`) | no footprint is reported as not found | pending (author report) | 2026-10-02 |
+| H-A-PCB-PRJ | altium | Altium shows the PCB library and the PCB document that the project file lists (S-0132, S-0134) | INFERRED | kit request (author report, step D1 of `docs/evidence/altium-pcb.md`) | both are listed in the project | pending (author report) | 2026-10-02 |
+| H-A-PCB-DOC-VIEWER | altium | The Altium 365 Viewer renders the sample PCB document (S-0143, S-0149) | INFERRED | kit request (author report, steps P1 and P2 of `docs/evidence/altium-pcb.md`) | the outline, three components, their pads and designators are shown | pending (author report) | 2026-10-02 |
+| H-A-PCB-DOC-OPEN | altium | Altium Designer opens the PCB document: both headers, empty storages and streams, the two-layer stack and the offset frame (S-0143, S-0145, S-0161) | INFERRED | kit request (author report, step D3 of `docs/evidence/altium-pcb.md`) | no repair prompt | pending (author report) | 2026-10-02 |
+| H-A-PCB-DOC-LINK | altium | "Design » Update PCB Document" adds and removes no component when `SOURCEUNIQUEID` is `\<id>` of the schematic component (S-0139, S-0164) | INFERRED | kit request (author report, step D3 of `docs/evidence/altium-pcb.md`) | no component is added or removed | pending (author report) | 2026-10-02 |
+| H-A-PCB-DOC-NETS | altium | The same change order changes no net (S-0141, S-0164) | INFERRED | kit request (author report, step D3 of `docs/evidence/altium-pcb.md`) | no net change | pending (author report) | 2026-10-02 |
+| H-A-PCB-DOC-BOTTOM | altium | A bottom component's `ROTATION`, layer swap and mirrored pads match the design (S-0161, S-0164) | INFERRED | `tests/kicad/altium/test_pcbdoc_oracle.py`; kit request (author report, steps P1 and D3 of `docs/evidence/altium-pcb.md`) | `D1` matches its KiCad build | pending (oracle) | 2026-10-02 |
 
 Change c0001 (repository bootstrap) added no hypothesis. The first rows (`H-K-UNIT`, `H-A-UNIT`,
 `H-G-ANGLE`) came with the design model (change c0004) and stay `INFERRED` until corpus files confirm them.
@@ -291,6 +304,19 @@ maintainer may use for it (LEGAL.md block A, P4); the free Altium 365 Viewer ref
 `kicad-9` CI job has not run it yet. No Part L report exists, so the nine author-report rows stay
 pending. `H-A-WRITE-SCHLIB` is the roadmap row about the
 author's earlier writer and is unchanged.
+
+Change c0035 (Altium PCB library and document) adds `H-A-PCB-KICAD-LIB`, `H-A-PCB-KICAD-DOC`,
+`H-A-PCB-LIB-OPEN`, `H-A-PCB-LIB-NAME`, `H-A-PCB-PAD`, `H-A-PCB-GRAPHICS`, `H-A-PCB-ECO`, `H-A-PCB-PRJ`,
+`H-A-PCB-DOC-VIEWER`, `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-LINK`, `H-A-PCB-DOC-NETS` and `H-A-PCB-DOC-BOTTOM`.
+`H-A-PCB-KICAD-LIB` is settled by the `kicad-cli fp upgrade` round trip of
+`tests/kicad/altium/test_pcblib_oracle.py` (10.0.6; the 9.0.9 result is recorded on the same row), and
+`H-A-PCB-KICAD-DOC` by the `kicad-cli pcb import` of `tests/kicad/altium/test_pcbdoc_oracle.py` (10.0.x
+only). `H-A-PCB-DOC-BOTTOM` is checked by the same import, then waits for the maintainer like the other
+ten rows, which only an author report settles (`docs/evidence/altium-pcb.md`): Part P with the free Altium
+365 Viewer, which lists `.PcbDoc` and not `.PcbLib`, and Part D in Altium Designer, recorded only with a
+licence the maintainer may use for Fenolite (LEGAL.md block A, P4). The oracles check what KiCad's
+importer reads, never an Altium-only key, so the build envelope stays `INFERRED`. `H-A-WRITE-PCBLIB` is
+the roadmap row about the author's earlier writer and is unchanged.
 
 Change c0013 (read-only check v0, inspect and doctor) adds `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY`,
 `H-K-CLI-HELP` and `H-K-CHECK-ERC`. The first three gate the design and are settled by the `check-*` probes

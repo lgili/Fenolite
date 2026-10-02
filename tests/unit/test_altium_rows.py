@@ -27,7 +27,7 @@ from fenolite.verify import HypothesisRow, load_register, parse_level
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
-STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-")
+STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-")
 REGISTERED_BY_C0032 = frozenset(
     {
         "H-A-SCH-OPEN",
@@ -58,8 +58,30 @@ REGISTERED_BY_C0034 = frozenset(
         "H-A-SCHLIB-SECTIONKEY",
     }
 )
-ORACLE_ROWS = frozenset({"H-A-SCHLIB-KICAD", "H-A-SCHLIB-KICAD9"})
-"""Rows settled by the ``kicad-cli sym upgrade`` round trip, not by an author report (change c0034)."""
+ORACLE_ROWS = frozenset({"H-A-SCHLIB-KICAD", "H-A-SCHLIB-KICAD9", "H-A-PCB-KICAD-LIB", "H-A-PCB-KICAD-DOC"})
+"""Rows settled by a ``kicad-cli`` round trip, not by an author report (changes c0034 and c0035)."""
+ORACLE_TESTS = {
+    "H-A-SCHLIB-KICAD": "test_schlib_oracle.py",
+    "H-A-SCHLIB-KICAD9": "test_schlib_oracle.py",
+    "H-A-PCB-KICAD-LIB": "test_pcblib_oracle.py",
+    "H-A-PCB-KICAD-DOC": "test_pcbdoc_oracle.py",
+}
+ORACLE_THEN_REPORT = frozenset({"H-A-PCB-DOC-BOTTOM"})
+"""Rows checked by an oracle first (``pending (oracle)``), then settled by an author report (c0035)."""
+REGISTERED_BY_C0035 = frozenset(
+    {
+        "H-A-PCB-LIB-OPEN",
+        "H-A-PCB-LIB-NAME",
+        "H-A-PCB-PAD",
+        "H-A-PCB-GRAPHICS",
+        "H-A-PCB-ECO",
+        "H-A-PCB-PRJ",
+        "H-A-PCB-DOC-VIEWER",
+        "H-A-PCB-DOC-OPEN",
+        "H-A-PCB-DOC-LINK",
+        "H-A-PCB-DOC-NETS",
+    }
+)
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -117,6 +139,8 @@ def row_problems(rows: Sequence[HypothesisRow]) -> list[str]:
                 problems.append(f"{row.id}: a refuted row needs a registered successor; expected {FORM}")
             continue
         pending = row.level_text == "INFERRED" and row.result.startswith("pending (author report)")
+        if row.id in ORACLE_THEN_REPORT:
+            pending = pending or (row.level_text == "INFERRED" and row.result.startswith("pending (oracle)"))
         if not pending and not report_label_ok(row.level_text):
             problems.append(f"{row.id}: level {row.level_text!r} and result break the form; expected {FORM}")
     return problems
@@ -132,12 +156,20 @@ def test_rows_are_well_formed() -> None:
 
 def test_the_change_registered_its_rows() -> None:
     rows = {row.id: row for row in load_register(REGISTER)}
-    ids = REGISTERED_BY_C0032 | REGISTERED_BY_C0033 | REGISTERED_BY_C0034
+    ids = REGISTERED_BY_C0032 | REGISTERED_BY_C0033 | REGISTERED_BY_C0034 | REGISTERED_BY_C0035
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
     assert all(rows[i].test.startswith("kit request") for i in ids)
     assert ORACLE_ROWS <= set(rows)
-    assert all(rows[i].backend == "altium" and "test_schlib_oracle.py" in rows[i].test for i in ORACLE_ROWS)
+    assert all(rows[i].backend == "altium" and ORACLE_TESTS[i] in rows[i].test for i in ORACLE_ROWS)
+    assert ORACLE_THEN_REPORT <= set(rows)
+    assert all("test_pcbdoc_oracle.py" in rows[i].test for i in ORACLE_THEN_REPORT)
+
+
+def test_oracle_then_report_rows() -> None:
+    assert row_problems([_row("H-A-PCB-DOC-BOTTOM", result="pending (oracle)")]) == []
+    assert row_problems([_row("H-A-PCB-DOC-BOTTOM")]) == []
+    assert row_problems([_row("H-A-PCB-PAD", result="pending (oracle)")]) != []
 
 
 def test_oracle_rows() -> None:

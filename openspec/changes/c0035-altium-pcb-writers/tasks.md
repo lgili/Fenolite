@@ -1,6 +1,6 @@
 ## 1. Source restriction, sources, hypotheses, provenance and fact pages
 
-- [ ] 1.1 Register the sources, the restriction and the hypotheses (first commit of the implementation; c0032's, c0033's and c0034's groups 1 must already be on the branch).
+- [x] 1.1 Register the sources, the restriction and the hypotheses (first commit of the implementation; c0032's, c0033's and c0034's groups 1 must already be on the branch).
   - Add S-0160 to S-0166 to `docs/evidence/sources.md` from the design table "Sources registered by this change". Widen the "used for" cells of S-0150 (the PCB files of AltiumSharp version 1 at commit `afe796434b6d2110c745c90abe44a6ddf64f5bca`), S-0143 (altiumts at commit `1fad5fa2b7b9f4e83b06072d5b965f153aae1c48`), S-0002, S-0145 and S-0149.
   - Record the source restriction: S-0142's cell gains "unpinned; Fenolite uses AltiumSharp only through S-0150 (version 1); version 2 is not a source (`LEGAL.md` P1)", and `LEGAL-ANNEX.md` gains a session row naming the version 1 files read for PCB facts and stating that version 2 was not used.
   - Add the thirteen `H-A-PCB-*` rows to `docs/hypotheses.md` (backend `altium`) with the paragraph "Change c0035 (Altium PCB library and document) adds …". The level is `INFERRED` with the result `pending (author report)`, except `H-A-PCB-KICAD-LIB`, `H-A-PCB-KICAD-DOC` and `H-A-PCB-DOC-BOTTOM` (`INFERRED`, `pending (oracle)`).
