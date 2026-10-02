@@ -1,24 +1,31 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Helpers of the Altium writer tests (change c0032): the CC0 sample, models with generic pins, a plain
-split of written records into dictionaries, and the layout bounds check."""
+"""Helpers of the Altium writer tests (change c0032): the CC0 sample and its script text, models with
+generic pins, a plain split of written records into dictionaries, and the layout bounds check."""
 
 from __future__ import annotations
 
-import dataclasses
 import runpy
 from collections.abc import Iterator
 from pathlib import Path
 
 from fenolite.backends.altium.layout import MARGIN, SheetPlan
-from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, to_model
-from fenolite.model.circuit import Pin
+from fenolite.lens.altium import generic_pins
 from fenolite.model.design import Design as ModelDesign
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = ROOT / "examples" / "altium_sample" / "design.py"
 SAMPLE_PATHS = ("J1", "R2", "U2", "led/D1", "led/R1", "power/C1", "power/C2", "power/U1")
+SAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
+    "VIN": {("J1", "1"), ("U1", "1"), ("C1", "1")},
+    "GND": {("J1", "2"), ("U1", "2"), ("C1", "2"), ("C2", "2"), ("D1", "1"), ("U2", "2")},
+    "+5V": {("U1", "3"), ("C2", "1"), ("U2", "1"), ("R2", "1")},
+    "EN": {("R2", "2"), ("U2", "4")},
+    "LED_DRV": {("U2", "3"), ("R1", "1")},
+    "LED_A": {("R1", "2"), ("D1", "2")},
+}
+"""The sample's nets as (ref, pin) pairs, written out by hand from the script."""
 
 
 def sample() -> Design:
@@ -27,28 +34,20 @@ def sample() -> Design:
     return design
 
 
-def with_pins(model: ModelDesign) -> ModelDesign:
-    """Each component with one passive pin per designator its nets name (name = designator), keyed as
-    the DSL keys pins; the writer tests' stand-in for ``lens.altium.generic_pins``."""
-    used: dict[str, set[str]] = {c.id: set() for c in model.circuit.components}
-    for net in model.circuit.nets:
-        for member in net.members:
-            used[member.component_id].add(member.pin)
-    components = tuple(
-        dataclasses.replace(
-            c,
-            pins=tuple(
-                Pin(id=derived_id("pin", "dsl", f"pin:{c.properties['fenolite.path']}:{d}"), number=d, name=d)
-                for d in sorted(used[c.id])
-            ),
-        )
-        for c in model.circuit.components
-    )
-    return dataclasses.replace(model, circuit=dataclasses.replace(model.circuit, components=components))
+def variant_script(folder: Path, old: str = "", new: str = "", *, append: str = "") -> Path:
+    """A copy of the sample script under ``folder`` with ``old`` replaced by ``new`` and ``append`` added."""
+    text = SAMPLE.read_text(encoding="utf-8")
+    if old:
+        assert old in text, old
+        text = text.replace(old, new)
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / "design.py"
+    script.write_text(text + append, encoding="utf-8")
+    return script
 
 
 def model_of(design: Design) -> ModelDesign:
-    return with_pins(to_model(design))
+    return generic_pins(to_model(design))
 
 
 def sample_model() -> ModelDesign:

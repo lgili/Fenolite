@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite build DESIGN.py --out DIR``: a design script built into a self-contained KiCad project.
+"""``fenolite build DESIGN.py --out DIR``: a design script built into a self-contained KiCad project, or,
+with ``--target altium``, into an experimental Altium project (``docs/altium.md``).
 
 ``build`` executes ``design.py`` as your own code and must never be run on an untrusted script
 (``docs/dsl.md``, "Scripts"). Outputs changed since the last build are refused until c0019 preserves
@@ -11,28 +12,35 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import fenolite.dsl
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
-from fenolite.cli._script import DesignScriptError, run_design_script
+from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.dsl import DslError, placements, to_model
+from fenolite.lens.altium import TARGET as ALTIUM_TARGET
+from fenolite.lens.altium import build_altium
 from fenolite.lens.build import build_design, check_existing, read_record
+from fenolite.model.design import Design as ModelDesign
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
 HELP = (
     "build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an "
     "untrusted script)"
 )
+TARGETS = ("kicad", ALTIUM_TARGET)
 _KINDS = {
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
     ".kicad_dru": "kicad_dru",
     ".kicad_mod": "kicad_mod",
+    ".PrjPcb": "altium_prjpcb",
+    ".SchDoc": "altium_schdoc_ascii",
 }
 
 
@@ -46,6 +54,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--discard-layout",
         action="store_true",
         help="replace outputs changed since the last build (backups kept)",
+    )
+    parser.add_argument(
+        "--target",
+        choices=TARGETS,
+        default="kicad",
+        help="kicad (default), or altium: an experimental Altium project file and ASCII schematic instead",
     )
 
 
@@ -71,6 +85,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         requested = placements(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    if args.target == ALTIUM_TARGET:
+        return _run_altium(args, run, model, tuple(requested), script_path, out, out_dir)
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
@@ -95,6 +111,54 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "out": str(out),
         "files": [w.path for w in writes],
         **built.summary,
+        "script_output": run.output,
+    }
+    data = script_path.read_bytes()
+    return Result(
+        result=result,
+        issues=built.issues,
+        evidence=built.evidence,
+        input=InputRef(
+            path=str(args.design),
+            sha256=hashlib.sha256(data).hexdigest(),
+            kind="fenolite-dsl",
+            format_version=None,
+        ),
+        writes=writes,
+    )
+
+
+def _run_altium(
+    args: argparse.Namespace,
+    run: ScriptRun,
+    model: ModelDesign,
+    placed: tuple[str, ...],
+    script_path: Path,
+    out: Path,
+    out_dir: Path,
+) -> Result:
+    """The ``--target altium`` branch (capability altium-build, "Altium build target"): no library is
+    resolved and no external tool runs; the project file is planned only when ``DIR`` has none."""
+    name = run.design.name
+    built = build_altium(
+        model, name=name, placed=placed, project_exists=(out_dir / f"{name}.PrjPcb").is_file()
+    )
+    files = dict(built.files)
+    if files:
+        check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
+    writes = tuple(
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
+    )
+    summary = built.summary
+    kept = cast(Sequence[str], summary["kept"])
+    result: dict[str, Any] = {
+        "design": name,
+        "target": ALTIUM_TARGET,
+        "out": str(out),
+        "files": [w.path for w in writes],
+        **{key: summary[key] for key in ("components", "nets", "labels", "power_ports", "sheet")},
+        "kept": [str(out / rel) for rel in kept],
+        "experimental": summary["experimental"],
         "script_output": run.output,
     }
     data = script_path.read_bytes()

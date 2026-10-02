@@ -9,12 +9,14 @@ import importlib.metadata
 import re
 import shutil
 import subprocess
+from collections.abc import Mapping, Sequence
 from functools import cache
 from typing import Any
 
 from fenolite import __version__
 from fenolite.backends import registry
 from fenolite.cli.api import Command, Context, Result, discover
+from fenolite.core.evidence import Evidence
 
 _EXTRA_MARKER = re.compile(r"extra\s*==\s*['\"]([^'\"]+)['\"]")
 _DIST_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -81,7 +83,26 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-tools", action="store_true", help="skip external tool detection")
 
 
+def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> list[dict[str, Any]]:
+    """One entry per experimental feature, sorted by name, its evidence written as a backend's
+    (``docs/cli-contract.md``, "Discovery")."""
+    entries: list[dict[str, Any]] = [
+        {
+            **entry,
+            "evidence": {
+                "level": evidence.level.value,
+                "oracle": evidence.oracle,
+                "hypotheses": list(evidence.hypotheses),
+            },
+        }
+        for entry, evidence in features
+    ]
+    return sorted(entries, key=lambda e: str(e["name"]))
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL
+
     commands = [
         {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
         for c in sorted(discover().values(), key=lambda c: c.name)
@@ -90,6 +111,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "fenolite_version": __version__,
         "commands": commands,
         "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
+        "experimental": _experimental([(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE)]),
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "sends_data_offsite": False,
