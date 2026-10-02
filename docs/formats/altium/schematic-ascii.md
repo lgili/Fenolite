@@ -7,8 +7,8 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
   transcribed or followed; the GPL importer sources (S-0131, S-0132) were read for facts only.
 - Sources are listed in `docs/evidence/sources.md`. Altium publishes no specification of the format:
   the facts come from the documentation of an open-source converter (S-0130), KiCad's developer
-  documentation (S-0002), facts read in open-source readers and writers (S-0131, S-0142, S-0143,
-  S-0144) and Altium's user documentation (S-0133 to S-0141).
+  documentation (S-0002), facts read in open-source readers and writers (S-0131, S-0143,
+  S-0144, and AltiumSharp version 1 as S-0150; S-0142 is not used, see `schematic-library.md`) and Altium's user documentation (S-0133 to S-0141).
 - Every fact is `INFERRED` until the maintainer reports what Altium Designer does with the committed
   sample (`docs/evidence/altium-schematic.md`); a confirmed row then names the author report. An author
   report never promotes an operation.
@@ -31,7 +31,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | No source documents an escape for `\|` or for a line end inside a value: a reader ends a value at the next `\|` and a record at the line end | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |
 | A reader joins a line that ends with the two characters `\|>` to the next line (long records), and trims spaces around values | S-0131 | INFERRED | H-A-SCH-OPEN |
 | Plain values are 8-bit text in a Windows code page. A value may be repeated in UTF-8 under the key prefixed with `%UTF8%`. Altium Designer 17 and later save ASCII schematics as UTF-8, older versions in the system code page, and non-Latin text has been reported garbled | S-0130, S-0131, S-0133 | INFERRED | H-A-SCH-OPEN |
-| No source states the line end Altium writes in an ASCII schematic. Open-source readers accept CR LF and LF; an open-source project writer states that Altium writes its project files with CR LF | S-0131, S-0142, S-0143 | INFERRED | H-A-SCH-LINEEND |
+| No source states the line end Altium writes in an ASCII schematic. Open-source readers accept CR LF and LF; an open-source project writer writes CR LF | S-0131, S-0143 | INFERRED | H-A-SCH-LINEEND |
 | Records after the header are numbered from 0 in file order (the header is not counted), and record 0 is the sheet record `RECORD=31` | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |
 | A child record names its owner by `OWNERINDEX`, the owner's record number; sheet-level records have no `OWNERINDEX`. Records are stored depth first, every owner before its children; a reader drops a child whose owner it has not read yet | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |
 | `OWNERPARTID` is -1 for sheet-level records and for a component's designator and parameters, and the part number (1 for a single-part component, equal to its `CURRENTPARTID`) for the component's graphics and pins | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |
@@ -87,7 +87,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | A placed part shows its "Design Item ID" and "Source" (the source library); the source library name and the model names are stored in the placed component, and models are linked by name, never copied | S-0137 | INFERRED | H-A-SCH-LINK |
 | "Design Item ID" is the component's `DESIGNITEMID` (equal to the symbol name `LIBREFERENCE` for a part from a file-based library) and "Source" its `SOURCELIBRARYNAME`; the mapping is read from the key names | S-0002, S-0130, S-0137 | INFERRED | H-A-SCH-LINK |
 | "Tools » Update From Libraries" takes each component's source from its library link and lists a part whose library is not available as `<Not Found>`. It offers a full replacement of the symbol or "Replace selected attributes", with separate switches for graphical attributes, parameters and models | S-0136 | INFERRED | H-A-SCH-UPDATE |
-| A footprint link is a chain owned by the component: `RECORD=44` (the implementation list), then `RECORD=45` (one implementation) owned by the 44, then `RECORD=46` (its map definer list) and `RECORD=48` (its parameters), both owned by the 45. Record 47 (a pin-to-pad map) is a child of 46 and is needed only for an explicit map | S-0130, S-0131, S-0142 (record numbers 44, 45, 46 and 48 confirmed in S-0150; the ownership chain not), S-0144 | INFERRED | H-A-SCH-LINK |
+| A footprint link is a chain owned by the component: `RECORD=44` (the implementation list), then `RECORD=45` (one implementation) owned by the 44, then `RECORD=46` (its map definer list) and `RECORD=48` (its parameters), both owned by the 45. Record 47 (a pin-to-pad map) is a child of 46 and is needed only for an explicit map | S-0130, S-0131, S-0144; record numbers 44, 45, 46 and 48 also in S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), which shows no ownership chain | INFERRED | H-A-SCH-LINK |
 | An implementation record holds `MODELNAME` (the footprint name), `MODELTYPE=PCBLIB`, `DATAFILECOUNT=1`, `MODELDATAFILEENTITY0` (the footprint name), `MODELDATAFILEKIND0=PCBLIB`, `MODELDATAFILE0` (the footprint library file the model comes from, such as `X.PcbLib`) and `ISCURRENT=T` for the current footprint | S-0130, S-0131, S-0144 | INFERRED | H-A-SCH-LINK |
 | Model type `PCBLIB` is a footprint, and data-file kind `PCBLIB` is a footprint library (`*.PcbLib`) | S-0135 | INFERRED | H-A-SCH-LINK |
 | The PCB model of a part has a footprint name and a "PCB Library" mode: any library, a library name, a library path, or the component's own library. Which keys give which mode is not documented; a bare file name in `MODELDATAFILE0` is read as the "Library name" mode | S-0135, S-0144 | INFERRED | H-A-SCH-LINK |

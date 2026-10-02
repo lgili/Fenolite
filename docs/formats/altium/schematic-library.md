@@ -200,7 +200,24 @@ Task 1.3 of change c0034 read only the version-1 files at the pinned commit (`Sc
 | `project.md`: every project-file fact | not given (no project code in version 1) |
 | `schematic-ascii.md`: Altium writes project files with CR LF | not given |
 
-Confirmed rows carry "confirmed in S-0150" in their source cell.
+Confirmed rows first carried "confirmed in S-0150" in their source cell.
+
+### Audit of S-0142 (2026-10-02, before change c0035)
+
+S-0142 is now marked "not used" in `docs/evidence/sources.md`: it names AltiumSharp without a commit,
+and its version 2 cites non-public decompiled material (`LEGAL.md` P1). Every row of the Altium pages
+that cited it was changed, with no change to any written byte:
+
+- re-sourced, S-0142 dropped and the other sources kept: `project.md` (INI layout, `[DocumentN]`
+  sections, relative `DocumentPath`, CR LF from S-0143, Altium rewriting the file); `schematic-ascii.md`
+  (line ends, footprint-link chain); `schematic-binary.md` (root streams, record word and code page now
+  cite S-0150 at the pinned commit; text pins in documents rest on S-0131 alone);
+- S-0142 only, kept as `INFERRED` hypotheses with no permitted source: `project.md` `Version=1.0` and
+  optional keys, and the byte-order mark (`H-A-PRJ-OPEN`); `schematic-binary.md` the writer's container
+  version (`H-A-SCHBIN-CFB`, version 3 itself cited from S-0145);
+- contradiction recorded: `schematic-binary.md` `Storage` without images. Version 1 writes a `WEIGHT`
+  key (0 without images); the row keeps "no weight key", which S-0130 and S-0131 give and which the
+  Viewer opened (step V1). The writer keeps its 25-byte record: no test asks for the key.
 
 ## Fenolite's choices
 

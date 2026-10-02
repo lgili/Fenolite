@@ -30,6 +30,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Source audit of S-0142: the unpinned AltiumSharp entry is marked not used (version 2 cites non-public decompiled material); the Altium fact rows that cited it are re-sourced (S-0130, S-0131, S-0132, S-0134, S-0143, S-0145, S-0150 at version 1) or kept as `INFERRED` hypotheses with no permitted source, and the `Storage` weight-key contradiction with version 1 is recorded. No written byte changes.
 - Roadmap (`docs/roadmap.md`): the gaps found by a board built only through the public API are proposed as c0026–c0031; change sizes are design-days, and a pace measured from the git history replaces the old time ratio as the forecast; the implementation order now runs c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0012 → c0028–c0031.
 - Tests: the KiCad oracle conftest adds `tests/kicad/sheets/` to the helper path, and the fake probe run of `tests/unit/test_kicad_probes.py` lists every helper folder, so it also passes when run alone.
 - Repository: `.gitignore` ignores the local `dogfood/` folder.
