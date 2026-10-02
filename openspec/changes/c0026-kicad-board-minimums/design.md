@@ -136,7 +136,7 @@
 
 11. **One ADDED requirement, and two MODIFIED deltas that open an exception path.** "Project files carry the board-setup minimums" takes precedence, for the five keys, over the template-value and keep rules of c0010's "Project files are synthesised and preserved", and extends c0010's closed table "Project issue codes", as c0012 does for its keys.
     - Those living texts state the opposite without an exception: every other key keeps its template value, an update keeps every other key's value and spelling, and the table is closed. So this change MODIFIES both, copying the living texts in full and adding one sentence each: another requirement of `kicad-file-backend` MAY take named keys out of those rules, or add rows to the table, when it names the requirement. The ADDED requirement names both.
-    - Archive order: c0010 is archived (2026-10-02), so the bases are the living texts. No other active change modifies either requirement. c0012 archives later and uses the same exception paths for its own keys (`pcbnew.page_layout_descr_file`, `text_variables`) and codes, so neither change rebases on the other.
+    - Archive order: c0010 and c0012 are archived (2026-10-02), so the bases are the living texts as c0012 left them: `pro.apply_sheet_keys` and the three `kicad.project.*-variable` codes are kept. No other active change modifies either requirement.
     - No requirement of c0011 is modified, so none of the six that c0019 modifies is touched.
     - Rejected: ADDED precedence alone (after archive, the living texts would still state the opposite with no exception). Rejected: moving the whole minimum rule into the MODIFIED text (one long requirement for two concerns, copied again by any later change of it).
 

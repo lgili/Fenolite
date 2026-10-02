@@ -65,7 +65,7 @@ Synthesis MUST set:
 - `net_settings.classes` to the template's `Default` entry followed by one lowered entry per model `NetClass` other than `Default`, sorted by name; a model class named `Default` MUST update the four lowered values of the first entry;
 - `net_settings.netclass_patterns` to one entry `{"netclass": <class name>, "pattern": <net name>}` per net whose `netclass_id` names a class other than `Default`, sorted by net name.
 
-Every other key, `boards`, `netclass_assignments`, `text_variables` and `pcbnew.page_layout_descr_file` included, MUST keep its template value. Synthesis MUST add no key path absent from the template other than those of `pro.PATTERN_ENTRY_PATHS`: `/net_settings/netclass_patterns/*`, `/net_settings/netclass_patterns/*/netclass` and `/net_settings/netclass_patterns/*/pattern`. A `netclass_id` that names no class MUST raise `ConsistencyError` naming `model.unknown-netclass`; callers run `Design.validate()` first, which reports that error as a finding, so the CLI's `FEN-1001` for the exception marks a caller bug.
+Every other key, `boards`, `netclass_assignments`, `text_variables` and `pcbnew.page_layout_descr_file` included, MUST keep its template value; `write_triad` then sets `text_variables` and `pcbnew.page_layout_descr_file` from the design with `pro.apply_sheet_keys` ("Projects carry the drawing sheet and text variables"), which leaves the text unchanged when the design sets neither. Synthesis MUST add no key path absent from the template other than those of `pro.PATTERN_ENTRY_PATHS`: `/net_settings/netclass_patterns/*`, `/net_settings/netclass_patterns/*/netclass` and `/net_settings/netclass_patterns/*/pattern`. A `netclass_id` that names no class MUST raise `ConsistencyError` naming `model.unknown-netclass`; callers run `Design.validate()` first, which reports that error as a finding, so the CLI's `FEN-1001` for the exception marks a caller bug.
 
 An update MUST:
 - replace the four lowered values of each class entry whose name matches a model class, keeping the original text of a value that is equal in nanometres;
@@ -129,6 +129,9 @@ Another requirement of this capability MAY take named keys out of the template-v
 | `kicad.project.inexact-value` | info |
 | `kicad.project.unlowered-field` | info |
 | `kicad.project.unread-entry` | info |
+| `kicad.project.reserved-variable` | error |
+| `kicad.project.dropped-variable` | warning |
+| `kicad.project.unread-variable` | info |
 
 Every issue the project functions append MUST use a code from this table or a `kicad.version.*` code of `kicad-version-gating`, and every code MUST match `ISSUE_CODE`. Another requirement of this capability MAY add rows to the table, as "Project files carry the board-setup minimums" does; it names this requirement, and its rows belong to the closed table `ISSUE_CODES`.
 

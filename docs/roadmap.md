@@ -38,7 +38,7 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | phase | milestone | changes | scope | state |
 |---|---|---|---|---|
 | 1. Foundations | — (`0.0.1.dev0` was cut after c0004) | c0001–c0005 | repository, CLI contract, IP hygiene, neutral model, geometry kernel | done |
-| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | c0006–c0011, c0014, c0017 and c0018 done; c0012, c0013, c0019–c0021 and c0026–c0031 proposed; the rest roadmap |
+| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | c0006–c0012, c0014, c0017 and c0018 done; c0013, c0019–c0021 and c0026–c0031 proposed; the rest roadmap |
 | 3. KiCad complete | v0.2a | about c0032–c0037 | schematic write, ERC oracle, netlist, BOM, more commands | estimate |
 | 3. KiCad complete | v0.2b | about c0038–c0041 | full layout lens, full rules, parity, interfaces | estimate |
 | 4. Second backend | v0.3 | about c0042–c0049 | read, equivalence levels 1–4, analyses | estimate |
@@ -74,7 +74,7 @@ rebuilds.
 | c0009 | `kicad-board-backend` | board reader, backend protocol, `kicad-cli` runner | done | c0014 | 7.75 |
 | c0010 | `kicad-project-file` | `.kicad_pro` writer, net classes | done | c0017, c0018 | 6.5 |
 | c0011 | `dsl-thin-build` | thin Python DSL and `build` | done | c0010, c0017, c0018 | 8.5 |
-| c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | proposed | c0010, c0017 | 9.5 |
+| c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | done | c0010, c0017 | 9.5 |
 | c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | proposed | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
 | c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept | roadmap | c0013, c0019, c0031 | 5 |
@@ -95,10 +95,10 @@ rebuilds.
 | c0030 | `footprint-fields` | Reference, Value and other footprint fields: placed, read, written, kept | proposed | c0019, c0028 | 10.25 |
 | c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | proposed | c0019, c0028 | 8 |
 
-- c0006–c0009 and c0014 were archived on 2026-10-01; c0017, c0018, c0010 and c0011 on 2026-10-02.
+- c0006–c0009 and c0014 were archived on 2026-10-01; c0017, c0018, c0010, c0011 and c0012 on 2026-10-02.
 - Implementation order from here: c0032 (the experimental Altium schematic writer, see Phase 4) →
-  c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0012 → c0028 → c0029 → c0030 → c0031 → c0015 →
-  c0022 → c0016 → c0023 → c0024 → c0025. Changes archive in
+  c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0028 → c0029 → c0030 → c0031 → c0015 → c0022 →
+  c0016 → c0023 → c0024 → c0025. Changes archive in
   the same order, because several of them modify requirements that an earlier one adds; each design
   states its archive-order dependencies.
 - The last column is the size in design-days: from the designs ("Budget") for proposed and done
@@ -297,13 +297,13 @@ All numbers are estimates.
 | | design-days |
 |---|---|
 | first batch: c0014 3, c0009 7.75, c0017 7.75, c0018 5.75, c0010 6.5 (all done) | 30.75 |
-| c0011 8.5 (done), c0012 9.5, c0013 8.5 | 26.5 |
+| c0011 8.5 and c0012 9.5 (done), c0013 8.5 | 26.5 |
 | c0019 8.25, c0020 8.75, c0021 9.5 | 26.5 |
 | dogfood gaps: c0026 6.5, c0027 5.25, c0028 21.5, c0029 12, c0030 10.25, c0031 8 | 63.5 |
 | roadmap: c0015 5, c0016 6, c0022 4.5, c0023 10, c0024 4.5, c0025 5 | 35 |
 | **total to v0.1** | **about 182** |
-| done (c0009–c0011, c0014, c0017, c0018) | about 39 |
-| **left** | **about 143** |
+| done (c0009–c0012, c0014, c0017, c0018) | about 49 |
+| **left** | **about 134** |
 
 **Measured pace.** From the git history:
 
@@ -316,7 +316,7 @@ All numbers are estimates.
 
 **Forecast.**
 
-- At that pace the 143 design-days left are about 4 calendar days of agent work.
+- At that pace the 134 design-days left are about 3–4 calendar days of agent work.
 - With the proposals of the six roadmap changes, CI runs and review, v0.1 is about 1–2 weeks away.
 - The limits are not size:
   - CI time per change (`kicad-9` and `kicad-10`);
