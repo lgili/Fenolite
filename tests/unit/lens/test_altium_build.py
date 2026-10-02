@@ -9,15 +9,25 @@ import hashlib
 import json
 from pathlib import Path
 
-from _altium import SAMPLE_NETS, records, sample
+import pytest
+from _altium import EXAMPLE_NETS, SAMPLE_NETS, example, example_resolver, records, sample
+from _altium_read import read_schlib
 from _cfb_read import deframe, read_compound
 
 from fenolite.backends.altium import binary, project
 from fenolite.backends.altium.cfb import SIGNATURE
 from fenolite.core.evidence import Level
 from fenolite.dsl import Design, Net, Part, connect, to_model
-from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, TARGET, build_altium, generic_pins
-from fenolite.lens.build import RECORD_FILE, RECORD_SCHEMA, BuildOutput
+from fenolite.lens.altium import (
+    ALTIUM_BUILD_EVIDENCE,
+    EXPERIMENTAL,
+    TARGET,
+    build_altium,
+    generic_pins,
+    kicad_lib_ids,
+    symbol_source,
+)
+from fenolite.lens.build import RECORD_FILE, RECORD_SCHEMA, BuildOutput, UnresolvedLibrariesError
 from fenolite.model import canonical
 from fenolite.verify import load_register
 
@@ -188,3 +198,84 @@ def test_binary_by_default() -> None:
     assert default.files["altium_sample.PrjPcb"] == ascii_form.files["altium_sample.PrjPcb"]
     found = [dict(r) for r in deframe(read_compound(schdoc)["FileHeader"])[1:]]
     assert found == records(ascii_form.files["altium_sample.SchDoc"])
+
+
+# --- symbol sources (change c0034) ------------------------------------------------------------------
+
+
+def test_symbol_sources() -> None:
+    assert symbol_source("FenoliteSample.SchLib:RES") == "altium"
+    assert symbol_source("my.SCHLIB:X") == "altium"
+    assert symbol_source("Device:R") == "kicad"
+    assert kicad_lib_ids(to_model(sample())) == ()
+    assert kicad_lib_ids(to_model(example())) == (
+        "FenoliteDemo:CONN2",
+        "FenoliteDemo:DUAL_OPAMP",
+        "FenoliteDemo:MCU8",
+        "FenoliteDemo:R_V",
+    )
+
+
+def test_sample_needs_no_resolver() -> None:
+    output = build(sample(), resolver=None)
+    assert output.files and not any(i.code.startswith("kicad.lib.") for i in output.issues)
+
+
+def build_example(tmp_path: Path, design: Design | None = None) -> BuildOutput:
+    return build_altium(
+        to_model(design or example()), name="altium_kicad", resolver=example_resolver(tmp_path)
+    )
+
+
+def test_example_resolves_from_its_own_table(tmp_path: Path) -> None:
+    output = build_example(tmp_path)
+    assert sorted(p for p in output.files if not p.startswith(".fenolite/")) == [
+        "altium_kicad.PrjPcb",
+        "altium_kicad.SchDoc",
+        "altium_kicad.SchLib",
+    ]
+    assert not [i for i in output.issues if i.severity != "info"]
+    library = read_schlib(output.files["altium_kicad.SchLib"])
+    assert sorted(library) == ["CONN2", "DUAL_OPAMP", "MCU8", "R_V"]
+    assert b"DocumentPath=altium_kicad.SchLib" in output.files["altium_kicad.PrjPcb"]
+
+
+def test_example_components_take_symbol_pins_and_fields(tmp_path: Path) -> None:
+    model = build_example(tmp_path).design
+    by_ref = {c.ref: c for c in model.circuit.components}
+    u1 = by_ref["U1"]
+    assert [p.number for p in u1.pins] == ["8", "4", "1", "2", "3", "7", "6", "5"]
+    assert {p.number: p.name for p in u1.pins}["8"] == "VCC"
+    assert {p.number: p.etype for p in u1.pins}["8"] == "power_in"
+    assert u1.lib_footprint_ref == "FenoliteDemo:SOIC8" and u1.value == "DUAL_OPAMP"
+    assert by_ref["R1"].value == "1k" and by_ref["U2"].lib_footprint_ref == "FenoliteDemo:SOIC8"
+    refs = {c.id: c.ref for c in model.circuit.components}
+    nets = {n.name: {(refs[m.component_id], m.pin) for m in n.members} for n in model.circuit.nets}
+    assert nets == EXAMPLE_NETS
+
+
+def test_kicad_lib_id_links_to_the_design_library(tmp_path: Path) -> None:
+    files = build_example(tmp_path).files
+    text = files["altium_kicad.SchDoc"]
+    assert b"|SOURCELIBRARYNAME=altium_kicad.SchLib|" in text
+    assert b"|SOURCELIBRARYNAME=FenoliteDemo|" not in text
+
+
+def test_unknown_kicad_symbol(tmp_path: Path) -> None:
+    design = example('f"{LIB}:CONN2"', '"FenoliteDemo:NOPE"')
+    with pytest.raises(UnresolvedLibrariesError) as caught:
+        build_example(tmp_path, design)
+    assert caught.value.cli_code == "FEN-3001"
+    assert all(i.code.startswith("kicad.lib.") for i in caught.value.issues)
+
+
+def test_net_member_by_pin_name(tmp_path: Path) -> None:
+    by_name = example("u1[8]", 'u1["VCC"]')
+    model = build_example(tmp_path, by_name).design
+    u1 = next(c for c in model.circuit.components if c.ref == "U1")
+    vin = next(n for n in model.circuit.nets if n.name == "VIN")
+    assert any(m.component_id == u1.id and m.pin == "8" for m in vin.members)
+    unknown = build_example(tmp_path, example("u1[8]", 'u1["XYZ"]'))
+    assert unknown.files == {}
+    (found,) = [i for i in unknown.issues if i.code == "altium.unknown-pin"]
+    assert found.severity == "error" and "XYZ" in found.message and "U1" in found.message

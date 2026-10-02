@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from fenolite.backends.altium.layout import MARGIN, SheetPlan
+from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, to_model
@@ -20,6 +21,17 @@ from fenolite.model.library import SymbolDef, SymbolPin, SymbolUnit
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = ROOT / "examples" / "altium_sample" / "design.py"
+EXAMPLE_DIR = ROOT / "examples" / "altium_kicad"
+EXAMPLE = EXAMPLE_DIR / "design.py"
+EXAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
+    "VIN": {("J1", "1"), ("U1", "8"), ("U2", "1"), ("U2", "6"), ("R1", "1")},
+    "GND": {("J1", "2"), ("U1", "4"), ("U2", "7"), ("R2", "2")},
+    "SIG": {("R1", "2"), ("U1", "3")},
+    "FB_A": {("U1", "1"), ("U1", "2"), ("U1", "5")},
+    "FB_B": {("U1", "6"), ("U1", "7"), ("U2", "3")},
+    "OE_N": {("U2", "5"), ("R2", "1")},
+}
+"""The KiCad example's nets as (ref, pin) pairs, written out by hand from the script (change c0034)."""
 SAMPLE_PATHS = ("J1", "R2", "U2", "led/D1", "led/R1", "power/C1", "power/C2", "power/U1")
 SAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
     "VIN": {("J1", "1"), ("U1", "1"), ("C1", "1")},
@@ -74,6 +86,33 @@ def dual_symbol() -> SymbolDef:
         units=(SymbolUnit(1, 1), SymbolUnit(2, 1)),
         pins=pins,
     )
+
+
+def example(text: str = "", new: str = "") -> Design:
+    """The KiCad-sourced example (change c0034), with ``text`` replaced by ``new`` in its script."""
+    if not text:
+        design = runpy.run_path(str(EXAMPLE))["design"]
+    else:
+        source = EXAMPLE.read_text(encoding="utf-8")
+        assert text in source, text
+        namespace: dict[str, object] = {}
+        exec(compile(source.replace(text, new), str(EXAMPLE), "exec"), namespace)  # noqa: S102
+        design = namespace["design"]
+    assert isinstance(design, Design)
+    return design
+
+
+def example_resolver(folder: Path, project_dir: Path = EXAMPLE_DIR) -> LibraryResolver:
+    """A resolver that sees only the example's own ``sym-lib-table``: no global table, no install."""
+    config = LibraryConfig(
+        project_dir=project_dir,
+        env={},
+        config_home=folder / "config",
+        install_dir=folder / "absent",
+        use_global_table=False,
+        home=folder,
+    )
+    return LibraryResolver(config)
 
 
 def sample() -> Design:

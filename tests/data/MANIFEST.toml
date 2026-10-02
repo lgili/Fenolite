@@ -590,6 +590,24 @@ corpus_id = ""
 notes = "Altium sample design script (thin DSL, c0032); lib ids name libraries Fenolite does not ship"
 
 [[file]]
+path = "examples/altium_kicad/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Altium target example from KiCad symbols (thin DSL, c0034); lib ids of FenoliteDemo.kicad_sym"
+
+[[file]]
+path = "examples/altium_kicad/FenoliteDemo.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 KiCad symbol library of the Altium example (c0034): vertical pins, four sides, hidden pin, inverted and clock shapes, overbars, two units with common power pins"
+
+[[file]]
+path = "examples/altium_kicad/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "project symbol table of the Altium example, naming FenoliteDemo.kicad_sym (c0034)"
+
+[[file]]
 path = "tests/data/altium/sample/altium_sample.PrjPcb"
 origin = "authored"
 corpus_id = ""

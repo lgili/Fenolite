@@ -18,20 +18,25 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
+from typing import Literal
 
-from fenolite.backends.altium import binary, project
+from fenolite.backends.altium import binary, project, schlib
+from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
+from fenolite.backends.kicad.liberrors import LibraryError
+from fenolite.backends.kicad.libs import LibraryResolver
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.lens.build import CACHE_DIR, RECORD_FILE, RECORD_SCHEMA, BuildOutput
+from fenolite.lens.build import CACHE_DIR, RECORD_FILE, RECORD_SCHEMA, BuildOutput, UnresolvedLibrariesError
 from fenolite.model import canonical
-from fenolite.model.circuit import Component, Pin
+from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
+from fenolite.model.library import SymbolDef
 
 TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
@@ -46,9 +51,13 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",
         "altium.library-too-large": "error",
+        "altium.unknown-pin": "error",
+        "altium.symbol-off-grid": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
+        "altium.pin-lossy": "warning",
         "altium.generic-symbols": "info",
+        "altium.symbol-simplified": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
     }
@@ -113,6 +122,135 @@ def generic_pins(design: Design) -> Design:
         components.append(component)
     circuit = dataclasses.replace(design.circuit, components=tuple(components))
     return dataclasses.replace(design, circuit=circuit)
+
+
+SymbolSource = Literal["altium", "kicad"]
+
+
+def symbol_source(lib_id: str) -> SymbolSource:
+    """``altium`` for a lib id whose library part ends with ``.SchLib`` in any letter case (an Altium link,
+    which gets a generic symbol), ``kicad`` for any other (a KiCad lib id, resolved like c0011)."""
+    return "altium" if project.is_altium_link(lib_id) else "kicad"
+
+
+def kicad_lib_ids(design: Design) -> tuple[str, ...]:
+    """The well-formed KiCad lib ids of ``design``, sorted: the symbols the build must resolve."""
+    ids = {c.lib_symbol_ref for c in design.circuit.components}
+    return tuple(sorted(i for i in ids if split_link(i) is not None and symbol_source(i) == "kicad"))
+
+
+def resolve_symbols(design: Design, resolver: LibraryResolver | None) -> dict[str, SymbolDef]:
+    """Lib id → resolved ``SymbolDef`` of every KiCad lib id; ``UnresolvedLibrariesError`` (FEN-3001)
+    with one ``kicad.lib.*`` issue per lib id that does not resolve."""
+    wanted = kicad_lib_ids(design)
+    if not wanted:
+        return {}
+    if resolver is None:
+        raise ValueError(f"the KiCad lib ids {', '.join(wanted)} need a library resolver")
+    found: dict[str, SymbolDef] = {}
+    errors: list[LibraryError] = []
+    for lib_id in wanted:
+        try:
+            found[lib_id] = resolver.symbol(lib_id)
+        except LibraryError as error:
+            errors.append(error)
+    if errors:
+        raise UnresolvedLibrariesError(errors)
+    return found
+
+
+def _with_symbol_fields(design: Design, symbols: Mapping[str, SymbolDef]) -> Design:
+    """Components of KiCad lib ids take the symbol's ``Footprint`` when they name none, and its ``Value``
+    when theirs is empty."""
+    components: list[Component] = []
+    for component in design.circuit.components:
+        symbol = symbols.get(component.lib_symbol_ref)
+        if symbol is not None:
+            component = dataclasses.replace(
+                component,
+                lib_footprint_ref=component.lib_footprint_ref or symbol.footprint,
+                value=component.value or symbol.value,
+            )
+        components.append(component)
+    return dataclasses.replace(
+        design, circuit=dataclasses.replace(design.circuit, components=tuple(components))
+    )
+
+
+def symbol_pins(symbol: SymbolDef, path: str) -> tuple[Pin, ...]:
+    """One pin per pin number of body style 1 and the common style, over units 1 … n in order, with the
+    pin's name and electrical type, ids keyed ``pin:<path>:<number>``."""
+    pins: dict[str, Pin] = {}
+    for unit in range(1, symbol.unit_count + 1):
+        for pin in symbol.pins_of(unit, body_style=1):
+            if pin.number not in pins:
+                ident = derived_id("pin", DSL_BACKEND, f"pin:{path}:{pin.number}")
+                pins[pin.number] = Pin(id=ident, number=pin.number, name=pin.name, etype=pin.etype)
+    return tuple(pins.values())
+
+
+def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design, list[Issue]]:
+    """``design`` with the symbol's pins on every component of a KiCad lib id, and net members that name a
+    pin name rewritten to every pin number with that name; a member that names neither gives
+    ``altium.unknown-pin``."""
+    issues: list[Issue] = []
+    components: list[Component] = []
+    pins_of: dict[str, tuple[Pin, ...]] = {}
+    refs: dict[str, str] = {}
+    for component in design.circuit.components:
+        symbol = symbols.get(component.lib_symbol_ref)
+        if symbol is not None and not component.pins:
+            component = dataclasses.replace(component, pins=symbol_pins(symbol, component_path(component)))
+            pins_of[component.id] = component.pins
+            refs[component.id] = component.ref
+        components.append(component)
+    nets: list[Net] = []
+    for net in design.circuit.nets:
+        members: list[PinRef] = []
+        for member in net.members:
+            pins = pins_of.get(member.component_id)
+            if pins is None or member.pin in {p.number for p in pins}:
+                members.append(member)
+                continue
+            numbers = [p.number for p in pins if p.name == member.pin]
+            if not numbers:
+                issues.append(
+                    issue(
+                        "altium.unknown-pin",
+                        f"{refs[member.component_id]} {member.pin}: neither a pin number nor a pin name of "
+                        "its symbol",
+                        net.name,
+                        "connect the pin by its number",
+                    )
+                )
+                continue
+            members += [PinRef(member.component_id, number) for number in numbers]
+        unique = tuple(dict.fromkeys(members))
+        nets.append(dataclasses.replace(net, members=unique))
+    circuit = dataclasses.replace(design.circuit, components=tuple(components), nets=tuple(nets))
+    return dataclasses.replace(design, circuit=circuit), issues
+
+
+def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
+    """Lib id → the Altium symbol of every resolved KiCad symbol; an off-grid pin gives
+    ``altium.symbol-off-grid`` and no symbol."""
+    mapped: dict[str, AltiumSymbol] = {}
+    for lib_id, symbol in sorted(symbols.items()):
+        link = split_link(lib_id)
+        assert link is not None
+        footprint = split_link(symbol.footprint) if symbol.footprint else None
+        try:
+            mapped[lib_id] = from_symbol_def(symbol, lib_ref=link[1], footprint=footprint, issues=issues)
+        except ValueError as error:
+            issues.append(
+                issue(
+                    "altium.symbol-off-grid",
+                    f"{error}; Altium library pins lie on the 10-mil grid",
+                    lib_id,
+                    "move the pin onto a 10-mil grid (KiCad's 50-mil grid is on it)",
+                )
+            )
+    return mapped
 
 
 def _unwritable(issues: list[Issue], text: str, what: str, where: str, *, parameter: bool = False) -> None:
@@ -264,16 +402,20 @@ def build_altium(
     placed: Sequence[str] = (),
     project_exists: bool = False,
     form: project.SchematicForm = project.DEFAULT_FORM,
+    resolver: LibraryResolver | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
     ``placed`` are the component paths the script placed; ``project_exists`` tells that
     ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned; ``form`` is the
     form of ``<name>.SchDoc`` (``binary`` or ``ascii``). A binary schematic past the compound file's size
-    limit is reported as ``altium.schematic-too-large`` and gives no file.
+    limit is reported as ``altium.schematic-too-large`` and gives no file. ``resolver`` resolves the KiCad
+    lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``.
     """
-    evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE)
+    evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
+    resolved = resolve_symbols(design, resolver)
+    design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed)
     if project_exists:
         issues.append(
@@ -284,7 +426,10 @@ def build_altium(
                 f"{name}.PrjPcb",
             )
         )
-    model = generic_pins(design)
+    model, pin_issues = kicad_pins(design, resolved)
+    issues += pin_issues
+    symbols = library_symbols(resolved, issues)
+    model = generic_pins(model)
     issues += list(model.validate())
     if any(i.severity == "error" for i in issues):
         return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
@@ -299,7 +444,9 @@ def build_altium(
         )
     )
     try:
-        files = project.write_project(model, name=name, project=not project_exists, issues=issues, form=form)
+        files = project.write_project(
+            model, name=name, project=not project_exists, issues=issues, form=form, symbols=symbols
+        )
     except project.LibraryTooLarge as error:
         issues.append(
             issue(
@@ -332,7 +479,7 @@ def build_altium(
         )
         + "\n"
     ).encode("utf-8")
-    summary = _summary(model, kept, project.plan_sheet(model), form)
+    summary = _summary(model, kept, project.plan_sheet(model, name=name), form)
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
 
@@ -343,4 +490,7 @@ __all__ = [
     "TARGET",
     "build_altium",
     "generic_pins",
+    "kicad_lib_ids",
+    "resolve_symbols",
+    "symbol_source",
 ]

@@ -146,8 +146,9 @@ def _link(text: str, what: str) -> tuple[str, str]:
     return _text(link[0], f"{what} library"), _text(link[1], f"{what} name")
 
 
-def part_specs(design: Design) -> list[PartSpec]:
-    """One ``PartSpec`` per component, in component-path order."""
+def part_specs(design: Design, *, name: str = "") -> list[PartSpec]:
+    """One ``PartSpec`` per component, in component-path order. ``name`` is the design name, which gives
+    the library file of KiCad lib ids (``schlib_name``)."""
     styles = power_styles(design)
     components = {c.id: c for c in design.circuit.components}
     joins: dict[str, dict[str, PinNet]] = {cid: {} for cid in components}
@@ -170,6 +171,8 @@ def part_specs(design: Design) -> list[PartSpec]:
     specs: list[PartSpec] = []
     for component in sorted(design.circuit.components, key=component_path):
         library, symbol = _link(component.lib_symbol_ref, f"{component.ref} lib_id")
+        if name and not is_altium_link(component.lib_symbol_ref):
+            library = schlib_name(component.lib_symbol_ref, design=name)
         footprint = (
             _link(component.lib_footprint_ref, f"{component.ref} footprint")
             if component.lib_footprint_ref
@@ -232,9 +235,9 @@ def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
     return symbols
 
 
-def plan_sheet(design: Design) -> SheetPlan:
+def plan_sheet(design: Design, *, name: str = "") -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components and stubs."""
-    return layout_sheet(part_specs(design))
+    return layout_sheet(part_specs(design, name=name))
 
 
 def library_symbols(
@@ -267,7 +270,7 @@ def write_project(
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    plan = plan_sheet(design)
+    plan = plan_sheet(design, name=name)
     if plan.size.style is None and issues is not None:
         issues.append(
             Issue(

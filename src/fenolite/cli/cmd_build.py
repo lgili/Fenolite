@@ -28,7 +28,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.dsl import DslError, moves, placements, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
-from fenolite.lens.altium import build_altium
+from fenolite.lens.altium import build_altium, kicad_lib_ids
 from fenolite.lens.build import VENDOR_MODES, build_design, check_existing, read_record
 from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
@@ -116,7 +116,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
-        return _run_altium(args, run, model, tuple(requested), script_path, out, out_dir)
+        return _run_altium(args, ctx, run, model, tuple(requested), script_path, out, out_dir)
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
@@ -171,6 +171,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
 def _run_altium(
     args: argparse.Namespace,
+    ctx: Context,
     run: ScriptRun,
     model: ModelDesign,
     placed: tuple[str, ...],
@@ -178,16 +179,24 @@ def _run_altium(
     out: Path,
     out_dir: Path,
 ) -> Result:
-    """The ``--target altium`` branch (capability altium-build, "Altium build target"): no library is
-    resolved and no external tool runs; the project file is planned only when ``DIR`` has none."""
+    """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
+    libraries of KiCad lib ids are read, through a resolver built as for ``--target kicad`` and only when
+    the design has such lib ids; no external tool runs; the project file is planned only when ``DIR`` has
+    none."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
+    resolver = None
+    if kicad_lib_ids(model):
+        resolver = LibraryResolver(
+            LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
+        )
     built = build_altium(
         model,
         name=name,
         placed=placed,
         project_exists=(out_dir / f"{name}.PrjPcb").is_file(),
         form=form,
+        resolver=resolver,
     )
     files = dict(built.files)
     if files:

@@ -9,11 +9,14 @@ case and checks that the codes produced are exactly the table's, with the table'
 
 from __future__ import annotations
 
+import shutil
+import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
-from _altium import sample
+from _altium import EXAMPLE_DIR, example, example_resolver, sample
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -97,6 +100,53 @@ CASES: dict[str, tuple[Callable[[Design], None], dict[str, object], set[str]]] =
 }
 
 
+KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
+    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified", "altium.generic-symbols"}),
+    "unknown-pin": (
+        ("u1[8]", 'u1["XYZ"]'),
+        ("", ""),
+        {"altium.unknown-pin", "altium.symbol-simplified"},
+    ),
+    "off-grid": (
+        ("", ""),
+        ("(at 0 3.81 270)", "(at 0.001 3.81 270)"),
+        {"altium.symbol-off-grid", "altium.symbol-simplified"},
+    ),
+    "lossy": (
+        ("", ""),
+        (
+            "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
+            "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
+        ),
+        {"altium.pin-lossy", "altium.symbol-simplified", "altium.generic-symbols"},
+    ),
+}
+"""KiCad-example variants (change c0034): (script change, library change, codes)."""
+
+
+def run_kicad_case(name: str) -> tuple[Issue, ...]:
+    (old, new), (lib_old, lib_new), _ = KICAD_CASES[name]
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        copy = root / "example"
+        shutil.copytree(EXAMPLE_DIR, copy)
+        if lib_old:
+            library = copy / "FenoliteDemo.kicad_sym"
+            text = library.read_text(encoding="utf-8")
+            assert lib_old in text, lib_old
+            library.write_text(text.replace(lib_old, lib_new), encoding="utf-8")
+        design = example(old, new) if old else example()
+        resolver = example_resolver(root, project_dir=copy)
+        return build_altium(to_model(design), name=design.name, resolver=resolver).issues
+
+
+@pytest.mark.parametrize("name", sorted(KICAD_CASES))
+def test_kicad_case(name: str) -> None:
+    issues = run_kicad_case(name)
+    altium = {i.code for i in issues if not i.code.startswith(PASS_THROUGH)}
+    assert altium == KICAD_CASES[name][2], [i.code for i in issues]
+
+
 def run_case(name: str) -> tuple[Issue, ...]:
     change, kwargs, _ = CASES[name]
     design = sample()
@@ -148,6 +198,9 @@ def test_closed_set() -> None:
     for name in CASES:
         for found in run_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
+    for name in KICAD_CASES:
+        for found in run_kicad_case(name):
+            produced.setdefault(found.code, set()).add(found.severity)
     for found in (*run_unique_id_case(), *run_too_large_case(), *run_too_large_case("ascii")):
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
@@ -167,9 +220,13 @@ def test_the_table() -> None:
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",
         "altium.library-too-large": "error",
+        "altium.unknown-pin": "error",
+        "altium.symbol-off-grid": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
+        "altium.pin-lossy": "warning",
         "altium.generic-symbols": "info",
+        "altium.symbol-simplified": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
     }

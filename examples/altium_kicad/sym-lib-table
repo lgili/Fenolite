@@ -1,0 +1,4 @@
+(sym_lib_table
+	(version 7)
+	(lib (name "FenoliteDemo") (type "KiCad") (uri "${KIPRJMOD}/FenoliteDemo.kicad_sym") (options "") (descr "Authored CC0 example library of the Altium target"))
+)

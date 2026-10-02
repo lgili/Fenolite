@@ -40,7 +40,7 @@
 ## 3. Symbols from KiCad libraries
 
 - [x] 3.1 Write `altsym.from_symbol_def` (design Decisions 6 and 7): directions, body ends, tables, Part Zero, rectangles, overbars, refusals and the `issues` it appends. Write `tests/unit/backends/altium/test_altsym.py`. Proof: `uv run pytest tests/unit/backends/altium/test_altsym.py`. This covers every scenario of "Library symbols from KiCad symbols".
-- [ ] 3.2 Author `examples/altium_kicad/` (CC0): `design.py`, `FenoliteDemo.kicad_sym` and `sym-lib-table`, covering every symbol feature that "Schematic library samples" lists. Then in `lens.altium` add:
+- [x] 3.2 Author `examples/altium_kicad/` (CC0): `design.py`, `FenoliteDemo.kicad_sym` and `sym-lib-table`, covering every symbol feature that "Schematic library samples" lists. Then in `lens.altium` add:
   - `symbol_source`, `kicad_lib_ids` and the `resolver` argument;
   - the symbol's pins and the rewriting of members to pin numbers;
   - the `Footprint` and `Value` fallbacks;
