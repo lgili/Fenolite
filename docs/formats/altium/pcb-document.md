@@ -39,6 +39,8 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | Net names equal to the schematic's keep the connectivity in the change order | S-0164, S-0141 | INFERRED | H-A-PCB-DOC-NETS |
 | The Altium 365 Viewer lists `*.PcbDoc` among its inputs and not `*.PcbLib` | S-0149 | INFERRED | H-A-PCB-DOC-VIEWER |
 | `kicad-cli pcb import --format altium` reads a PCB document from 10.0; 9.0 has no `pcb import` | S-0166 | INFERRED | H-A-PCB-KICAD-DOC |
+| `kicad-cli` 10.0.6 imports the PCB document Fenolite writes for the blink sample: exit 0, no error in the report or on stdout, three footprints with their references, pad nets and relative positions, the outline as four `Edge.Cuts` segments, the copper layers "Top Layer" and "Bottom Layer", `D1` on the bottom (`tests/kicad/altium/test_pcbdoc_oracle.py`, 2026-10-03) | S-0020, S-0166 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
+| The only warnings of that import, on stdout and not in the report, are "Layer 'Internal Plane n' could not be mapped and will be skipped" for n from 1 to 16; the mechanical layers 69 to 72 and the other names give none | S-0020 | INFERRED | H-A-PCB-KICAD-DOC |
 | KiCad moves an imported board to the middle of its sheet, so an import keeps relative positions only; it warns about each `Board6` layer it cannot map (local probe of the format research) | S-0020 | INFERRED | H-A-PCB-KICAD-DOC |
 
 ## Fenolite's choices
