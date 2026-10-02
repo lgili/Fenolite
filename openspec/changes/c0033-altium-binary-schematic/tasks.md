@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and fact pages
 
-- [ ] 1.1 Register sources and hypotheses (first commit of the implementation; c0032's group 1 must already be on the branch).
+- [x] 1.1 Register sources and hypotheses (first commit of the implementation; c0032's group 1 must already be on the branch).
   - Add rows S-0145 to S-0149 to `docs/evidence/sources.md` from the design table "Sources registered by this change", with the consultation date and the licence each page states. If a URL is already registered, cite that id and leave the freed id unused. Widen the "used for" cells of S-0002, S-0130, S-0131, S-0133, S-0142 and S-0143 as the design says.
   - Add the five `H-A-SCHBIN-*` rows to `docs/hypotheses.md`, with backend `altium`, level `INFERRED`, the test and criterion of `design.md` and the result `pending (author report)`, and the paragraph "Change c0033 (binary Altium schematic) adds …".
   - Extend `tests/unit/test_altium_rows.py`: `STEMS` gains `H-A-SCHBIN-`; the tool field accepts `A365 Viewer` as well as `AD <major>.<minor or x>`; the five ids join the registered-rows check; add the cases of the scenario "Viewer report form".
