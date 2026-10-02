@@ -43,5 +43,6 @@ until its change is proposed.
 | c0030 | `footprint-fields` | dogfood gap | — |
 | c0031 | `zone-settings` | dogfood gap | — |
 | c0032 | `altium-schematic-writer` | v0.4, first item pulled forward | — |
+| c0033 | `altium-binary-schematic` | follow-up | c0032 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
