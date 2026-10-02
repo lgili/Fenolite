@@ -75,6 +75,14 @@ def _nothing(d: Design) -> None:
     return None
 
 
+def _library_case(d: Design) -> None:
+    d.parts["J1"].lib_id = "fenolitesample.schlib:HDR2"
+
+
+def _long_lib_ref(d: Design) -> None:
+    d.parts["J1"].lib_id = "FenoliteSample.SchLib:" + "HEADER_" * 6
+
+
 @contextmanager
 def _same_unique_ids() -> Iterator[None]:
     original = lens_altium.unique_id
@@ -92,16 +100,43 @@ CASES: dict[str, tuple[Callable[[Design], None], dict[str, object], set[str]]] =
     "comment-reference": (_comment_reference, {}, {"altium.text-unwritable"}),
     "net-pipe": (_net_pipe, {}, {"altium.text-unwritable"}),
     "case": (_case, {}, {"altium.name-case-collision"}),
-    "no-footprint": (_no_footprint, {}, {"altium.no-footprint", "altium.generic-symbols"}),
-    "not-lowered": (_not_lowered, {"placed": ("J1",)}, {"altium.not-lowered", "altium.generic-symbols"}),
-    "project-kept": (_nothing, {"project_exists": True}, {"altium.project-kept", "altium.generic-symbols"}),
-    "custom-sheet": (_custom_sheet, {}, {"altium.sheet-custom", "altium.generic-symbols"}),
-    "clean": (_nothing, {}, {"altium.generic-symbols"}),
+    "no-footprint": (
+        _no_footprint,
+        {},
+        {"altium.no-footprint", "altium.generic-symbols", "altium.schlib-generic"},
+    ),
+    "not-lowered": (
+        _not_lowered,
+        {"placed": ("J1",)},
+        {"altium.not-lowered", "altium.generic-symbols", "altium.schlib-generic"},
+    ),
+    "project-kept": (
+        _nothing,
+        {"project_exists": True},
+        {
+            "altium.project-kept",
+            "altium.schlib-not-in-project",
+            "altium.generic-symbols",
+            "altium.schlib-generic",
+        },
+    ),
+    "custom-sheet": (
+        _custom_sheet,
+        {},
+        {"altium.sheet-custom", "altium.generic-symbols", "altium.schlib-generic"},
+    ),
+    "clean": (_nothing, {}, {"altium.generic-symbols", "altium.schlib-generic"}),
+    "library-case": (_library_case, {}, {"altium.symbol-name-collision", "altium.schlib-generic"}),
+    "section-key": (
+        _long_lib_ref,
+        {},
+        {"altium.section-key", "altium.generic-symbols", "altium.schlib-generic"},
+    ),
 }
 
 
 KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
-    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified", "altium.generic-symbols"}),
+    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified"}),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
@@ -118,7 +153,17 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
             "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
             "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
         ),
-        {"altium.pin-lossy", "altium.symbol-simplified", "altium.generic-symbols"},
+        {"altium.pin-lossy", "altium.symbol-simplified"},
+    ),
+    "pin-text-too-long": (
+        ("", ""),
+        ('"CLK"', '"' + "C" * 256 + '"'),
+        {"altium.pin-text-too-long", "altium.symbol-simplified"},
+    ),
+    "description": (
+        ("", ""),
+        ("Resistor drawn upright", "Résistance"),
+        {"altium.text-unwritable", "altium.symbol-simplified"},
     ),
 }
 """KiCad-example variants (change c0034): (script change, library change, codes)."""
@@ -222,11 +267,16 @@ def test_the_table() -> None:
         "altium.library-too-large": "error",
         "altium.unknown-pin": "error",
         "altium.symbol-off-grid": "error",
+        "altium.pin-text-too-long": "error",
+        "altium.symbol-name-collision": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
+        "altium.section-key": "info",
+        "altium.schlib-generic": "info",
+        "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
     }
@@ -262,3 +312,23 @@ def test_model_issues_pass_through() -> None:
     connect(Net("FLOATING"), design.parts["Z1"][1])
     codes = [i.code for i in build_altium(to_model(design), name=design.name).issues]
     assert "model.single-pin-net" in codes
+
+
+def test_library_infos_name_the_libraries() -> None:
+    (generic,) = [i for i in run_case("clean") if i.code == "altium.schlib-generic"]
+    assert generic.where == "FenoliteSample.SchLib" and "stands in for a real library" in generic.message
+    (listing,) = [i for i in run_case("project-kept") if i.code == "altium.schlib-not-in-project"]
+    assert "FenoliteSample.SchLib" in listing.message
+    (key,) = [i for i in run_case("section-key") if i.code == "altium.section-key"]
+    assert "HEADER_HEADER_" in key.message
+
+
+def test_generic_symbols_only_for_altium_links() -> None:
+    assert "altium.generic-symbols" not in {i.code for i in run_kicad_case("kicad-clean")}
+    (info,) = [i for i in run_case("clean") if i.code == "altium.generic-symbols"]
+    assert info.message.startswith("8 component(s) of Altium links")
+
+
+def test_off_grid_names_symbol_and_pin() -> None:
+    (found,) = [i for i in run_kicad_case("off-grid") if i.code == "altium.symbol-off-grid"]
+    assert "FenoliteDemo:R_V pin 1" in found.message and found.where == "FenoliteDemo:R_V"

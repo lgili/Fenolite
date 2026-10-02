@@ -63,7 +63,7 @@
 
 ## 5. Build rules, issue codes and capabilities
 
-- [ ] 5.1 Add the ten issue codes and their checks (unknown pin, off-grid, long pin text, name collisions, library size, lossy pins, simplified symbols, section keys, generic libraries, libraries not in a kept project), and restrict `altium.generic-symbols` to Altium links. Proof: `uv run pytest tests/unit/lens/test_altium_issues.py -q`. This covers "Schematic library issue codes" and "Net member by pin name".
+- [x] 5.1 Add the ten issue codes and their checks (unknown pin, off-grid, long pin text, name collisions, library size, lossy pins, simplified symbols, section keys, generic libraries, libraries not in a kept project), and restrict `altium.generic-symbols` to Altium links. Proof: `uv run pytest tests/unit/lens/test_altium_issues.py -q`. This covers "Schematic library issue codes" and "Net member by pin name".
 - [ ] 5.2 Add `result.libraries`, `result.symbols` and the summary fields, the edited-output and kept-project rules for libraries, and the evidence and capabilities entry with four write kinds. Proof: `uv run pytest tests/unit/lens tests/unit/cli -q`; `uv run fenolite capabilities --json --no-tools | python3 -c "import json,sys; e=json.load(sys.stdin)['result']['experimental'][0]; print(sorted(e['write_kinds']))"` prints the four kinds. This covers "Schematic library outputs", "Schematic library evidence and capabilities", "Altium build outputs" and "Altium schematic format option".
 - [ ] 5.3 Extend `tests/unit/lens/test_altium_determinism.py` to the example (two in-process builds and two subprocess builds with different seeds, timestamps and hash seeds; the example's own library table). Proof: `uv run pytest tests/unit/lens/test_altium_determinism.py -q`.
 

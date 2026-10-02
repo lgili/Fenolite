@@ -23,7 +23,7 @@ from typing import Literal
 from fenolite.backends.altium import binary, project, schlib
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
-from fenolite.backends.altium.cfb import CompoundTooLarge
+from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
@@ -42,6 +42,8 @@ TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
 DSL_BACKEND = "dsl"
 UPDATE_COMMAND = "Tools » Update From Libraries"
+MAX_PIN_TEXT = 255
+"""The longest pin name or number a binary pin's short string holds."""
 ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "altium.lib-id-form": "error",
@@ -53,11 +55,16 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.library-too-large": "error",
         "altium.unknown-pin": "error",
         "altium.symbol-off-grid": "error",
+        "altium.pin-text-too-long": "error",
+        "altium.symbol-name-collision": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
+        "altium.section-key": "info",
+        "altium.schlib-generic": "info",
+        "altium.schlib-not-in-project": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
     }
@@ -253,6 +260,122 @@ def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> di
     return mapped
 
 
+def _library_checks(
+    model: Design,
+    name: str,
+    symbols: Mapping[str, AltiumSymbol],
+    project_exists: bool,
+) -> list[Issue]:
+    """The checks of the planned libraries (change c0034): texts and lengths of KiCad symbols, storage
+    and file name collisions, section keys, generic stand-in libraries and libraries a kept project file
+    does not list."""
+    found: list[Issue] = []
+    for lib_id, symbol in sorted(symbols.items()):
+        if symbol.description:
+            _unwritable(found, symbol.description, f"{lib_id} description", lib_id)
+        for pin in symbol.pins:
+            where = f"{lib_id} pin {pin.designator[:20]}"
+            too_long = [t for t in (pin.name, pin.designator) if len(t.encode("utf-8")) > MAX_PIN_TEXT]
+            if too_long:
+                found.append(
+                    issue(
+                        "altium.pin-text-too-long",
+                        f"{where}: a pin text of {len(too_long[0].encode('utf-8'))} bytes is longer than "
+                        f"{MAX_PIN_TEXT} bytes, which needs the PinWideText stream Fenolite does not write",
+                        lib_id,
+                    )
+                )
+                continue
+            _unwritable(found, pin.designator, f"{where} number", lib_id)
+            if pin.name:
+                _unwritable(found, pin.name, f"{where} name", lib_id)
+    libraries = project.library_symbols(model, name=name, symbols=symbols)
+    _case_collision_of_files(found, list(libraries))
+    for library, members in libraries.items():
+        keys: dict[tuple[int, tuple[int, ...]], str] = {}
+        for symbol in members:
+            try:
+                key_name = schlib.storage_name(symbol.lib_ref)
+            except ValueError:
+                found.append(
+                    issue(
+                        "altium.text-unwritable",
+                        f"{library}: the lib ref {symbol.lib_ref!r} holds \\, : or !, which no storage name "
+                        "may hold",
+                        library,
+                    )
+                )
+                continue
+            key = name_key(key_name)
+            other = keys.get(key)
+            if other is not None:
+                found.append(
+                    issue(
+                        "altium.symbol-name-collision",
+                        f"{library}: the symbols {other!r} and {symbol.lib_ref!r} get one storage name "
+                        f"{key_name!r}",
+                        library,
+                        "rename one of the symbols; lib ids of one library need distinct names",
+                    )
+                )
+                continue
+            keys[key] = symbol.lib_ref
+            if key_name != symbol.lib_ref:
+                found.append(
+                    issue(
+                        "altium.section-key",
+                        f"{library}: {symbol.lib_ref!r} is longer than 31 characters and is stored under "
+                        f"the section key {key_name!r}",
+                        library,
+                    )
+                )
+    generic = sorted(
+        library
+        for library in libraries
+        if any(
+            project.is_altium_link(c.lib_symbol_ref)
+            and project.schlib_name(c.lib_symbol_ref, design=name) == library
+            for c in model.circuit.components
+        )
+    )
+    for library in generic:
+        found.append(
+            issue(
+                "altium.schlib-generic",
+                f"{library} is written with generic symbols; it stands in for a real library of the same "
+                "name, which it does not copy",
+                library,
+                "keep the real library elsewhere; Fenolite refuses to overwrite an edited library in --out",
+            )
+        )
+    if project_exists and libraries:
+        found.append(
+            issue(
+                "altium.schlib-not-in-project",
+                f"the kept {name}.PrjPcb does not list {', '.join(libraries)}; add them in Altium "
+                "(Project » Add Existing to Project)",
+                f"{name}.PrjPcb",
+            )
+        )
+    return found
+
+
+def _case_collision_of_files(issues: list[Issue], names: Sequence[str]) -> None:
+    seen: dict[str, str] = {}
+    for library in sorted(names):
+        other = seen.get(library.lower())
+        if other is not None:
+            issues.append(
+                issue(
+                    "altium.symbol-name-collision",
+                    f"the library files {other!r} and {library!r} differ only in letter case",
+                    library,
+                    "name one library file the same way in every lib id",
+                )
+            )
+        seen.setdefault(library.lower(), library)
+
+
 def _unwritable(issues: list[Issue], text: str, what: str, where: str, *, parameter: bool = False) -> None:
     problem = text_problem(text, parameter=parameter)
     if problem is not None:
@@ -431,18 +554,21 @@ def build_altium(
     symbols = library_symbols(resolved, issues)
     model = generic_pins(model)
     issues += list(model.validate())
+    if not any(i.severity == "error" for i in issues):
+        issues += _library_checks(model, name, symbols, project_exists)
     if any(i.severity == "error" for i in issues):
         return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
-    count = len(model.circuit.components)
-    issues.append(
-        issue(
-            "altium.generic-symbols",
-            f"{count} component(s) got generic bodies with the pins the design uses; "
-            f"'{UPDATE_COMMAND}' replaces them with the library symbols",
-            f"{name}.SchDoc",
-            "use 'Replace selected attributes' with graphical attributes off to keep every connection",
+    count = sum(1 for c in model.circuit.components if symbol_source(c.lib_symbol_ref) == "altium")
+    if count:
+        issues.append(
+            issue(
+                "altium.generic-symbols",
+                f"{count} component(s) of Altium links got generic bodies with the pins the design uses, "
+                f"as in the generated libraries; with the real libraries, '{UPDATE_COMMAND}' replaces them",
+                f"{name}.SchDoc",
+                "use 'Replace selected attributes' with graphical attributes off to keep every connection",
+            )
         )
-    )
     try:
         files = project.write_project(
             model, name=name, project=not project_exists, issues=issues, form=form, symbols=symbols
