@@ -65,7 +65,7 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert {kinds[Path(c).name] for c in CACHE} == {"fenolite"}
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "sheet", "kept",
-        "schematic_format", "experimental", "script_output", "plan",
+        "schematic_format", "libraries", "symbols", "experimental", "script_output", "plan",
     ]  # fmt: skip
 
 

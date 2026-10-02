@@ -215,6 +215,8 @@ def _run_altium(
         **{key: summary[key] for key in ("components", "nets", "labels", "power_ports", "sheet")},
         "kept": [str(out / rel) for rel in kept],
         "schematic_format": form,
+        "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],
+        "symbols": summary["symbols"],
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

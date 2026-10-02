@@ -88,9 +88,22 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
         ),
     ),
     binary.EVIDENCE,
+    Evidence(
+        Level.INFERRED,
+        hypotheses=(
+            "H-A-SCHLIB-KICAD9",
+            "H-A-SCHLIB-MULTIPART",
+            "H-A-SCHLIB-PRJ",
+            "H-A-SCHLIB-SCHDOC",
+            "H-A-SCHLIB-UPDATE",
+        ),
+    ),
+    schlib.EVIDENCE,
 )
-"""``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design.
-It names the rows of both schematic forms (``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows)."""
+"""``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
+the kicad-cli oracle checks only what KiCad's importer reads. It names the rows of both schematic forms
+(``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows) and of the libraries (every ``H-A-SCHLIB-*`` row,
+``schlib.EVIDENCE`` holding those of the library file)."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -502,16 +515,23 @@ def _not_lowered(design: Design, placed: Sequence[str]) -> list[Issue]:
 
 
 def _summary(
-    design: Design, kept: Sequence[str], plan: SheetPlan | None, form: project.SchematicForm
+    design: Design,
+    kept: Sequence[str],
+    plan: SheetPlan | None,
+    form: project.SchematicForm,
+    libraries: Mapping[str, Sequence[AltiumSymbol]] | None = None,
 ) -> dict[str, object]:
     labels = sum(1 for s in plan.stubs if s.net.kind == "label") if plan is not None else 0
     ports = sum(1 for s in plan.stubs if s.net.kind == "port") if plan is not None else 0
+    found = libraries or {}
     return {
         "components": len(design.circuit.components),
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
         "sheet": plan.size.name if plan is not None else None,
+        "libraries": list(found),
+        "symbols": sum(len(symbols) for symbols in found.values()),
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -605,7 +625,9 @@ def build_altium(
         )
         + "\n"
     ).encode("utf-8")
-    summary = _summary(model, kept, project.plan_sheet(model, name=name, symbols=symbols), form)
+    plan = project.plan_sheet(model, name=name, symbols=symbols)
+    libraries = project.library_symbols(model, name=name, symbols=symbols)
+    summary = _summary(model, kept, plan, form, libraries)
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
 

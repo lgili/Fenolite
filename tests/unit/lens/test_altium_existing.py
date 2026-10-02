@@ -145,3 +145,45 @@ def test_unchanged_rebuild_and_lost_record(monkeypatch: pytest.MonkeyPatch, buil
     shutil.rmtree(built / ".fenolite")
     _edit_one_byte(built / SCHDOC)
     assert run(monkeypatch, built, "--confirm")[0] == 7, "without a record only identical bytes pass"
+
+
+# --- the schematic library (change c0034) -----------------------------------------------------------
+
+SCHLIB = "FenoliteSample.SchLib"
+
+
+def test_library_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, out, "--confirm")
+    assert code == 0 and (out / SCHLIB).is_file()
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert result["libraries"] == [str(out / SCHLIB)] and result["symbols"] == 6
+    assert (out / PRJPCB).read_bytes().endswith(b"[Document2]\r\nDocumentPath=FenoliteSample.SchLib\r\n")
+
+
+def test_kept_project_names_the_libraries(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:
+    (built / PRJPCB).write_bytes(
+        (built / PRJPCB).read_bytes() + b"\r\n[Document3]\r\nDocumentPath=x.PcbDoc\r\n"
+    )
+    code, env, _ = run(monkeypatch, built, "--confirm")
+    issues = env["issues"]
+    assert code == 0 and isinstance(issues, list)
+    codes = [i["code"] for i in issues]
+    assert "altium.project-kept" in codes
+    (listing,) = [i for i in issues if i["code"] == "altium.schlib-not-in-project"]
+    assert SCHLIB in listing["message"]
+
+
+def test_edited_library_refused(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:
+    library = built / SCHLIB
+    data = bytearray(library.read_bytes())
+    data[-1] ^= 0x01
+    library.write_bytes(bytes(data))
+    before = files_under(built)
+    code, env, err = run(monkeypatch, built, "--confirm")
+    assert code == 7 and json.loads(err)["code"] == "FEN-7001"
+    issues = env["issues"]
+    assert isinstance(issues, list) and [i["code"] for i in issues] == ["build.layout-exists"]
+    assert issues[0]["where"] == str(library)
+    assert files_under(built) == before
