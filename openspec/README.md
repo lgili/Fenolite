@@ -11,7 +11,7 @@ No code lands without a change. Archive a change with `openspec archive <id>` on
 
 ## Change ids
 
-Changes c0001–c0008 are archived under `changes/archive/`. Plan items keep their numbers (c0009–c0016);
+Changes c0001–c0010, c0014, c0017 and c0018 are archived under `changes/archive/`. Plan items keep their numbers (c0009–c0016);
 split-offs and follow-ups take c0017 and later numbers in implementation order, and a new split-off
 takes the next free number. Ids follow the form `cNNNN-<slug>`, a project convention (the `openspec`
 CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A slug may still change
@@ -36,5 +36,11 @@ until its change is proposed.
 | c0023 | `specctra-freerouting` | split-off | 0016 |
 | c0024 | `manufacturing-exports` | unowned deliverables | — |
 | c0025 | `release-v0-1` | unowned deliverables | — |
+| c0026 | `kicad-board-minimums` | dogfood gap | c0010 |
+| c0027 | `build-properties-vendoring` | dogfood gap | c0011 |
+| c0028 | `board-frame-copper` | dogfood gap | — |
+| c0029 | `copper-check` | dogfood gap | — |
+| c0030 | `footprint-fields` | dogfood gap | — |
+| c0031 | `zone-settings` | dogfood gap | — |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

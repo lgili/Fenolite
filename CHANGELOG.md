@@ -22,6 +22,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Roadmap (`docs/roadmap.md`): the gaps found by a board built only through the public API are proposed as c0026–c0031; change sizes are design-days, and a pace measured from the git history replaces the old time ratio as the forecast; the implementation order now runs c0026 → c0027 → c0013 → c0019 → c0020 → c0021 → c0012 → c0028–c0031.
 - Repository: `.gitignore` ignores only the root `build/` and `dist/`, and pytest no longer skips folders named `build`, so `tests/kicad/build/` is committed and collected.
 - CLI: `--fields` now also restricts the `plan` that the dispatcher adds to `result` on `--dry-run` or without `--confirm`, as the contract says; a refused command lists the `issues` of the raised error in its envelope; `GeometryError` maps to `FEN-3005` (exit 3).
 - The KiCad capability report lists `kicad_pro` in `write_kinds` and `lower` in `operations` (`KicadBackend.lower` returns the board, project and rules files).
