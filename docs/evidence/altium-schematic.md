@@ -166,3 +166,26 @@ Outcome per step:
 - The ASCII refusal concerns the Viewer only. The `H-A-SCH-*` and `H-A-PRJ-*` rows concern Altium
   Designer (Part A) and stay pending; no writer behaviour changes for it.
 - The report names no fault of the binary sample, so its bytes and SHA-256 values are unchanged.
+
+### 2026-10-02, KiCad 10.0.6 schematic import (supporting data, not Altium)
+
+- Tool: KiCad 10.0.6 on macOS, schematic editor, "Import non-KiCad schematic" (the GUI importer;
+  `kicad-cli` still cannot read a `.SchDoc`, S-0020). File: the committed ASCII sample
+  `altium_sample.SchDoc` (CR LF), from a local copy of Part A.
+- Outcome: it opened. It showed the 8 components with their designators and comments, the 13 power
+  ports and the 6 net labels, and the nets read from the drawing equal the table of expected nets
+  exactly: `J1` VIN and GND; `R2` +5V and EN; `U2` +5V, GND, LED_DRV and EN; `D1` GND and LED_A; `R1`
+  LED_DRV and LED_A; `C1` VIN and GND; `C2` +5V and GND; `U1` VIN, GND and +5V.
+- Cosmetic fault: the power ports of adjacent pins overlap, on `U1` and `U2` pins 1 and 2 (100 mil
+  apart). Fixed by staggering the port stubs of adjacent pins (c0032 task 4.2, fact in
+  `docs/formats/altium/schematic-ascii.md`); the files above are the rebuilt ones.
+- KiCad also marks the free end of each net-label stub with its dangling-end square. That is KiCad's
+  marker for a wire end that touches nothing else; the stub ends where it should, so nothing changes.
+- KiCad is not Altium: this import is supporting data for the writer's geometry and settles no
+  `H-A-*` row.
+
+### Status of Part A and Part B
+
+- No Altium Designer run of Part A or Part B has been reported. Every `H-A-SCH-*` and `H-A-PRJ-*` row
+  stays `INFERRED` with `pending (author report)`.
+- The Altium 365 Viewer's refusal of the ASCII files (V3 above) concerns the Viewer only.

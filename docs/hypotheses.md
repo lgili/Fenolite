@@ -243,6 +243,9 @@ libraries the maintainer may use. `kicad-cli` cannot read a `.SchDoc` (S-0132, S
 an oracle. An author report never promotes an operation: `lens.altium.ALTIUM_BUILD_EVIDENCE` stays
 `INFERRED`. `tests/unit/test_altium_rows.py` checks the form of these rows, because
 `test_hypotheses_register.py` checks the author-report form only for `H-A-WRITE-*` and `H-A-PH-*`.
+The maintainer's import of the ASCII sample in KiCad 10.0.6's schematic editor (2026-10-02) showed every
+object and exactly the sample's nets; KiCad is not Altium, so it is supporting data and settles no row.
+No Altium Designer report exists yet, so all ten rows stay pending.
 
 Change c0027 (build properties and vendoring) adds `H-K-VENDOR-GLOBAL`, `H-K-VENDOR-SHADOW`,
 `H-K-VENDOR-PROPS` and `H-K-VENDOR-DUPNAME`, probed first on boards made without its build code (stop
