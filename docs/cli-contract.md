@@ -96,14 +96,22 @@ each dropped part is reported as a warning, and without the flag the command fai
 
 `fenolite build DESIGN.py --out DIR` takes `--target {kicad,altium}`, default `kicad`. With
 `--target kicad`, or without the option, it builds the KiCad project of `docs/dsl.md`. With
-`--target altium` it builds an experimental Altium project instead, a project file and an ASCII
-schematic (`docs/altium.md`): it reads no library, `result.target` is the string `altium`,
+`--target altium` it builds an experimental Altium project instead, a project file and a schematic
+(`docs/altium.md`): it reads no library, `result.target` is the string `altium`,
 `result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
 Any other `--target` value is a usage error (`FEN-2001`, exit 2).
 
+`--altium-format {binary,ascii}` picks the form of the Altium schematic: `binary` (the default, a
+compound file, write kind `altium_schdoc_binary`) or `ascii` (c0032's text form, write kind
+`altium_schdoc_ascii`). `result.schematic_format` names the form written. Any other value, or the
+option with `--target kicad` (given or by default), is a usage error (`FEN-2001`, exit 2), and nothing
+is written. A binary schematic too large for the writer gives the error `altium.schematic-too-large`
+(exit 5).
+
 ## `build`
 
-`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project]` runs the design script
+`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]
+[--altium-format binary|ascii]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -126,7 +134,7 @@ holds the Altium schematic writer:
 
 ```json
 {"name": "altium-schematic-writer", "command": "build", "option": "--target altium",
- "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii"],
+ "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PRJ-KEEP", "H-A-PRJ-OPEN", "…"]}}
 ```
 

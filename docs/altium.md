@@ -1,11 +1,12 @@
 # Building for Altium (experimental)
 
 `fenolite build design.py --out DIR --target altium` builds a DSL design into an Altium Designer project
-instead of a KiCad project: a project file `<name>.PrjPcb` and a schematic `<name>.SchDoc` in Altium's
-ASCII form. Altium compiles the schematic, and its engineering change order creates the PCB from it.
-Fenolite writes no PCB document.
+instead of a KiCad project: a project file `<name>.PrjPcb` and a schematic `<name>.SchDoc`, in Altium's
+binary form by default or in its ASCII form with `--altium-format ascii` (see "Schematic forms"). Altium
+compiles the schematic, and its engineering change order creates the PCB from it. Fenolite writes no PCB
+document.
 
-The target is **experimental** (change c0032): its output, options and issue codes may change in any
+The target is **experimental** (changes c0032 and c0033): its output, options and issue codes may change in any
 release. `fenolite capabilities` lists it under `result.experimental`, and its evidence stays `INFERRED`
 (see "Evidence" below). Format facts and their sources are in `docs/formats/altium/`; everything else on
 this page is a Fenolite choice.
@@ -15,6 +16,7 @@ this page is a Fenolite choice.
 ```bash
 fenolite build design.py --out build/myboard --target altium --dry-run    # plan only
 fenolite build design.py --out build/myboard --target altium --confirm    # write
+fenolite build design.py --out build/myboard --target altium --altium-format ascii --confirm
 ```
 
 - `--target kicad` stays the default, and a KiCad build is unchanged. `--target` accepts `kicad` and
@@ -25,8 +27,13 @@ fenolite build design.py --out build/myboard --target altium --confirm    # writ
   `--allow-lossy`.
 - The build reads only the script: no library, no KiCad or Altium file, no external tool.
 - `result` holds `design`, `target` (`"altium"`), `out`, `files`, the counts `components`, `nets`,
-  `labels` and `power_ports`, `sheet` (`A4` … `A0` or `custom`), `kept`, `experimental` (`true`) and
-  `script_output`. Planned writes have the kinds `altium_prjpcb`, `altium_schdoc_ascii` and `fenolite`.
+  `labels` and `power_ports`, `sheet` (`A4` … `A0` or `custom`), `kept`, `schematic_format` (`binary`
+  or `ascii`), `experimental` (`true`) and `script_output`. Planned writes have the kinds
+  `altium_prjpcb`, `altium_schdoc_binary` or `altium_schdoc_ascii` (by form, since both forms are
+  `.SchDoc` files) and `fenolite`.
+- `--altium-format {binary,ascii}` picks the schematic form; without it the form is `binary`. Any other
+  value, or the option with `--target kicad` (given or by default), is a usage error (`FEN-2001`,
+  exit 2), and nothing is written.
 
 ## Lib ids, footprints and pins
 
@@ -66,6 +73,41 @@ fenolite build design.py --out build/myboard --target altium --confirm    # writ
   files. They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. Modules only order
   the layout; the schematic is one flat sheet.
 
+## Schematic forms
+
+Altium reads a `.SchDoc` in two forms, and both use the same extension, so the form is chosen by option,
+never by file name.
+
+- **Binary (default).** Altium's own default save format: a compound file (Microsoft's MS-CFB container)
+  with two streams. `FileHeader` holds a header record, then every record of the schematic, each a
+  length word and the record's text ending with a NUL; `Storage` holds an empty icon store. The records,
+  their keys, order and values are exactly those of the ASCII form; only the header text and the framing
+  differ. Facts: `docs/formats/altium/compound-file.md` and `schematic-binary.md`.
+- **ASCII (`--altium-format ascii`).** One record per CR LF line (change c0032). Its bytes are exactly
+  what c0032 writes; the ASCII golden files under `tests/data/altium/sample/` are this form.
+- **Size limit.** Fenolite's compound-file writer writes no DIFAT sector, so the header can list at most
+  109 FAT sectors, about 7 MB of file. A larger binary schematic is refused with the error
+  `altium.schematic-too-large` (exit 5, nothing written); `--altium-format ascii` has no such limit. A
+  schematic that size has thousands of parts.
+- **Switching forms.** A rebuild that only changes `--altium-format` replaces an unchanged schematic
+  without `--discard-layout`: the edited-output check compares the file on disk with the last build
+  record, not with the new form.
+
+### Checking a build without an Altium licence: the Altium 365 Viewer
+
+The free Altium 365 Viewer (a web page, S-0149) renders Altium design files without Altium Designer. It
+takes one file, or one project in a Zip archive, up to 200 MB, and lists `*.SchDoc` among its inputs.
+
+1. Build with the default (binary) form.
+2. Open the Viewer page and upload `<name>.SchDoc` alone, or a Zip holding `<name>.PrjPcb` and
+   `<name>.SchDoc`.
+3. Check the sheet: every part with its pin numbers, designator and comment, the power ports and the net
+   labels.
+
+The Viewer only renders: it neither compiles the project nor runs a change order, so nets and the PCB
+update still need Altium Designer. Upload only files you may share with Altium's service. The
+maintainer's own Viewer check of the sample is recorded in `docs/evidence/altium-schematic.md`, Part V.
+
 ## Project file and outputs
 
 Under `--out DIR`:
@@ -74,7 +116,8 @@ Under `--out DIR`:
   folder has no `<name>.PrjPcb` yet. An existing project file is kept, whatever `--discard-layout`
   says, listed in `result.kept` and reported with `altium.project-kept`, because Altium rewrites it when
   you add the PCB document. Delete it to get a new one.
-- `<name>.SchDoc`: the ASCII schematic, with CR LF line ends.
+- `<name>.SchDoc`: the schematic, a binary compound file by default, or ASCII text with CR LF line ends
+  with `--altium-format ascii`.
 - `.fenolite/`: the six layer files of the model, with the generic pins, and `build.json` with
   `"target": "altium"`.
 
@@ -92,6 +135,7 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.text-unwritable` | error | a written text is not printable 7-bit ASCII, holds `\|`, is empty, has a leading or trailing space, or is a value that starts with `=` |
 | `altium.name-case-collision` | error | two net names, or two refs, differ only in letter case |
 | `altium.unique-id-collision` | error | two components get the same unique id |
+| `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
 | `altium.no-footprint` | warning | a part names no footprint |
 | `altium.sheet-custom` | warning | the layout does not fit A0, so a custom sheet is written |
 | `altium.generic-symbols` | info | the components got generic bodies |
@@ -121,9 +165,11 @@ Model findings (`model.*`) pass through. A build with an error exits 5 and write
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a
-  `.SchDoc` (S-0132, S-0020), so no oracle checks these files.
+  `.SchDoc` (S-0132, S-0020), so no oracle checks these files. The binary form's facts are the
+  `H-A-SCHBIN-*` rows; the build's evidence names them in both forms.
 - The maintainer checks the committed sample (`examples/altium_sample/`, files under
-  `tests/data/altium/sample/`) in Altium Designer following `docs/evidence/altium-schematic.md`. Each
+  `tests/data/altium/sample/`, the binary build under `binary/`) in Altium Designer and in the Altium
+  365 Viewer following `docs/evidence/altium-schematic.md`. Each
   confirmed `H-A-SCH-*` or `H-A-PRJ-*` row becomes an author report,
   `ALTIUM-VERIFIED(author-report; …)`, which never promotes an operation: the envelope of
   `build --target altium` stays `INFERRED` for every design.

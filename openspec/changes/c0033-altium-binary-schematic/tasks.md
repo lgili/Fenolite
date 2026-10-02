@@ -27,7 +27,7 @@
   - add the issue-code row `altium.schematic-too-large`, `binary.EVIDENCE` in `ALTIUM_BUILD_EVIDENCE`, the third kind in `WRITE_KINDS`, and binary cases in the determinism and edited-output tests.
 
   Proof: `uv run pytest tests/unit/backends/altium tests/unit/lens tests/unit/cli -q`; `uv run fenolite build examples/altium_sample/design.py --out "$(mktemp -d)/b" --target altium --dry-run --json | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['schematic_format'])"` prints `binary`; `uv run fenolite build examples/blink_2layer/design.py --out "$(mktemp -d)/k" --altium-format binary --dry-run; echo $?` prints `2`; `REPO="$PWD"; (cd "$(mktemp -d)" && uv run --project "$REPO" pytest "$REPO/tests/consistency" -q)`. Covers every scenario of "Altium schematic format option".
-- [ ] 3.3 Document the two forms: a section of `docs/altium.md` (default, `--altium-format`, the size limit, uploading to the Altium 365 Viewer) and `--altium-format` in `docs/cli-contract.md`. Proof: `grep -c -- '--altium-format' docs/altium.md docs/cli-contract.md` prints a non-zero count for each file; `grep -c 'Altium 365 Viewer' docs/altium.md` prints a non-zero count; `uv run python tools/residue/scan.py` exits 0; covering the scenario "Option documented".
+- [x] 3.3 Document the two forms: a section of `docs/altium.md` (default, `--altium-format`, the size limit, uploading to the Altium 365 Viewer) and `--altium-format` in `docs/cli-contract.md`. Proof: `grep -c -- '--altium-format' docs/altium.md docs/cli-contract.md` prints a non-zero count for each file; `grep -c 'Altium 365 Viewer' docs/altium.md` prints a non-zero count; `uv run python tools/residue/scan.py` exits 0; covering the scenario "Option documented".
 
 ## 4. The maintainer's report
 
