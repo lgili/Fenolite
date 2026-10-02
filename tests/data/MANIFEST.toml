@@ -648,3 +648,21 @@ path = "tests/data/altium/sample/FenoliteSample.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file)"
+
+[[file]]
+path = "tests/data/altium/kicad_example/altium_kicad.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of examples/altium_kicad listing its schematic and library (c0034 golden file)"
+
+[[file]]
+path = "tests/data/altium/kicad_example/altium_kicad.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of examples/altium_kicad drawn from its library symbols (c0034 golden file)"
+
+[[file]]
+path = "tests/data/altium/kicad_example/altium_kicad.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file)"

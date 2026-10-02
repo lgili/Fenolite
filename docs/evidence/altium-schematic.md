@@ -12,6 +12,9 @@ This page is the protocol by which the maintainer checks, in Altium Designer, th
   libraries that the maintainer may use (conditions below).
 - Part V uses the committed binary sample (change c0033) in the free Altium 365 Viewer, and step A7 opens
   it in Altium Designer.
+- Part L (change c0034) opens the committed schematic libraries and their projects in Altium Designer.
+  The Viewer refuses library files, so Part L needs Altium Designer under a licence the maintainer may
+  use for it.
 - `kicad-cli` cannot read a `.SchDoc` (S-0132, S-0020), so this check is the first reading of the files by
   a program other than Fenolite.
 
@@ -131,6 +134,64 @@ on it.
 | B2 | Change one value in the design script and rebuild with `--target altium --confirm` (the project file is kept). Compile, and run the change order again. | The changes listed (expected: one comment changed, nothing added or removed); whether the project still lists both documents. | `H-A-SCH-RELINK`, `H-A-PRJ-KEEP` |
 | B3 | On a copy, run "Tools » Update From Libraries" with full replacement. On another copy, run it with "Replace selected attributes" and graphical attributes off. | Parts listed as `<Not Found>`; whether the bodies were replaced and how many pins were left unconnected; whether every net is kept after the selected-attributes update. | `H-A-SCH-UPDATE` |
 
+## Part L: the schematic libraries in Altium Designer
+
+Change c0034 writes one schematic library per library that the lib ids name. The committed files are
+the sample's generic library and the build of `examples/altium_kicad/design.py`, whose symbols come
+from its authored CC0 `FenoliteDemo.kicad_sym`. `tests/unit/lens/test_altium_schlib_golden.py` checks
+that fresh builds give these bytes and that this table names them.
+
+| library or project file | SHA-256 |
+|---|---|
+| `tests/data/altium/sample/FenoliteSample.SchLib` | `f071c2fe861fb5a80fb219ccdc8a207b2c6429094fcf4a3002f366109912fdff` |
+| `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
+| `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
+| `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `6e7366b3be51414f7649b4354aa61a2c4636d416ead64b7b0ceb6b2cabf5ff44` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `ccdfe416efa57324236b30f0e7e73c0c9a3bbd229babf9aae150427feb7ed6b4` |
+
+- `FenoliteSample.SchLib` holds the six generic symbols of the sample (`CAP`, `DRV4`, `HDR2`, `LDO3`,
+  `LED`, `RES`), each of one part with the passive pins its components use, the designator `<prefix>?`
+  and the footprint link. Put it beside `binary/altium_sample.PrjPcb` (or the ASCII project) to open
+  the project of Part A or V with its library.
+- `altium_kicad.SchLib` holds `CONN2` (two pins on the left), `R_V` (an upright resistor: one pin up,
+  one down, names hidden), `MCU8` (pins on four sides; `~{RST}` written `R\S\T\` with an inverted
+  edge, `CLK` with a clock edge, `~{OE}` inverted, and the hidden pin `8`) and `DUAL_OPAMP` (parts A and
+  B of three pins each, and the Part Zero power pins `8` VCC and `4` VEE). `DUAL_OPAMP` and `MCU8` link
+  the footprint `SOIC8` of `FenoliteDemo` (no such library exists). Every body is a synthesised
+  rectangle.
+- `altium_kicad.SchDoc` is the binary schematic of the example: `U1` is placed twice (parts A and B),
+  the up and down pins have vertical stubs, and its nets are those of the table below.
+- `kicad-cli sym upgrade` converts both libraries with the written pins and units on 10.0.6 and 9.0.9
+  (`tests/kicad/altium/test_schlib_oracle.py`); KiCad is not Altium, so that settles only
+  `H-A-SCHLIB-KICAD` and `H-A-SCHLIB-KICAD9`.
+
+Expected nets of the example (pins `U2` 2, 4 and 8 are left unconnected):
+
+| net | pins as (ref, pin) |
+|---|---|
+| `FB_A` | (U1, 1), (U1, 2), (U1, 5) |
+| `FB_B` | (U1, 6), (U1, 7), (U2, 3) |
+| `GND` | (J1, 2), (R2, 2), (U1, 4), (U2, 7) |
+| `OE_N` | (R2, 1), (U2, 5) |
+| `SIG` | (R1, 2), (U1, 3) |
+| `VIN` | (J1, 1), (R1, 1), (U1, 8), (U2, 1), (U2, 6) |
+
+Part L is recorded only when every condition of Part B holds: Altium Designer runs under a licence the
+maintainer may use for this purpose (`LEGAL.md`, block A, P3 and P4). A result obtained with a licence
+the maintainer may not use for it, such as an employer's, is not recorded, and the rows stay pending.
+Only generic outcomes and key names are recorded; no file opened or saved in the session enters the
+repository. Check the SHA-256 values first and work on copies.
+
+| step | what to do | what to note | rows |
+|---|---|---|---|
+| L1 | Open `FenoliteSample.SchLib` and `altium_kicad.SchLib`. | Any prompt, repair offer or error; the components listed in the SCH Library panel and their descriptions. | `H-A-SCHLIB-OPEN`; `H-A-SCHLIB-SECTIONKEY` when a library with a keyed symbol is added |
+| L2 | In `altium_kicad.SchLib`, look at each component's pins (Pin Editor) and parts. | Per pin: number, name, electrical type, direction, length, shape (`MCU8` pins 2, 3 and 5) and the hidden pin `8` of `MCU8`; parts A and B of `DUAL_OPAMP` and whether pins `8` and `4` show on both parts. | `H-A-SCHLIB-PIN`, `H-A-SCHLIB-PARTS` |
+| L3 | Open the footprint model of `DUAL_OPAMP` and of `RES`. | The footprint name (written `SOIC8`, `R0603`) and the PCB Library mode with its library (expected "Library name" with `FenoliteDemo` and `FenoliteSample.PcbLib`). | `H-A-SCHLIB-IMPLIDX`, `H-A-SCH-LINK` |
+| L4 | Open `altium_kicad.PrjPcb` with its schematic and library beside it, check that the library is listed under the project, and compile ("Project » Validate PCB Project"). Do the same with `binary/altium_sample.PrjPcb` and `FenoliteSample.SchLib`. | Whether each library is listed as a project document; every message of level error or fatal; the nets in the Navigator panel, compared with this table and Part A's; whether `U1` compiles as one component of two parts. | `H-A-SCHLIB-PRJ`, `H-A-SCHLIB-SCHDOC`, `H-A-SCHLIB-MULTIPART` |
+| L5 | On a copy of each project, run "Tools » Update From Libraries" with full replacement. | Components listed as not found; whether any pin moved off its stub; the nets after the update, compared with the tables. | `H-A-SCHLIB-UPDATE`, `H-A-SCHLIB-PRJ` |
+| L6 | Save a copy of each library under a new name in Altium. | Only the names of the keys Altium added or removed in `FileHeader` and in a component's records (no values). | data for `H-A-SCHLIB-OPEN` |
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the
@@ -194,4 +255,7 @@ Outcome per step:
 
 - No Altium Designer run of Part A or Part B has been reported. Every `H-A-SCH-*` and `H-A-PRJ-*` row
   stays `INFERRED` with `pending (author report)`.
+- No Part L report exists: the `H-A-SCHLIB-*` rows other than the two oracle rows stay `INFERRED` with
+  `pending (author report)`. The maintainer may hold only a work licence, whose results are not
+  recorded (`LEGAL.md`, P4).
 - The Altium 365 Viewer's refusal of the ASCII files (V3 above) concerns the Viewer only.
