@@ -60,7 +60,8 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A text (type 5) has two subrecords. The first is at least 40 bytes: the prefix (with the component index at 7), 13 x, 17 y, 21 the height, 25 a 16-bit stroke font (1 default), 27 the rotation (double), 35 mirrored (one byte), 36 the stroke width (32-bit) | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-DOC-VIEWER |
-| The long form of the first subrecord, at least 123 bytes, adds 40 is-comment and 41 is-designator (one byte each), 42 one byte, 43 the font type (0 stroke), 44 bold, 45 italic, 46 the font name as 64 bytes of UTF-16LE, 110 inverted, 111 the margin (32-bit) and 115 the wide-string index (32-bit). The MIT writer writes 137 bytes. Fenolite writes 123 bytes, zero where it sets nothing; the offsets after 43 follow the field sizes in order and are inferred | S-0002, S-0160, S-0143 | INFERRED | H-A-PCB-DOC-VIEWER |
+| The long form of the first subrecord, at least 123 bytes, adds 40 is-comment and 41 is-designator (one byte each), 42 one byte, 43 the font type (0 stroke), 44 bold, 45 italic, 46 the font name as 64 bytes of UTF-16LE, 110 inverted, 111 the margin (32-bit) and 115 the wide-string index (32-bit). The MIT writer writes 137 bytes; the offsets after 43 follow the field sizes in order and are inferred | S-0002, S-0160, S-0143 | INFERRED | H-A-PCB-DOC-VIEWER |
+| `kicad-cli` 10.0.6 refuses a document whose texts use a 123-byte first subrecord ("Texts6 stream was not parsed correctly") and reads 137-byte ones, the MIT writer's length (local runs on Fenolite's own files, 2026-10-03) | S-0020, S-0143 | INFERRED | H-A-PCB-KICAD-DOC |
 | The second subrecord is the text as one length byte and up to 255 8-bit characters. When the wide-string index names an entry of `WideStrings6`, a reader takes that entry instead | S-0002, S-0160 | INFERRED | H-A-PCB-DOC-VIEWER |
 | In a PCB document a component's designator and comment are texts with the is-designator or is-comment flag and the component's index; KiCad places the reference at the designator text | S-0161, S-0020 | INFERRED | H-A-PCB-KICAD-DOC |
 
@@ -104,7 +105,7 @@ These are choices of the writer, not format facts:
   solder mode 1. Subrecord 6 is empty except for a rounded rectangle: 596 bytes, every inner size the
   pad size, every inner shape 1, hole shape 0, no slot, zero offsets, the rounded flag 1, every alternate
   shape 9 and every percentage `round(200 · ratio)` clamped to 0 … 100.
-- Text subrecord 1 is the 123-byte long form; the font name is empty (zeros).
+- Text subrecord 1 is the long form of 137 bytes, zero where nothing is set; the font name is empty.
 
 ### Worked pad
 

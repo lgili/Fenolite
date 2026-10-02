@@ -76,3 +76,59 @@ def test_degrees_text() -> None:
     assert [degrees_text(u) for u in (0, 90_000_000, 12_500_000, -90_000_000, 1)] == [
         "0", "90", "12.5", "270", "0.000001",
     ]  # fmt: skip
+
+
+# --- 4.2: components, texts, links and nets ------------------------------------------------------
+
+
+def test_link_keys_of_the_components() -> None:
+    """``SOURCEUNIQUEID`` is a backslash and the schematic unique id; the other source keys follow."""
+    from fenolite.backends.altium.project import component_path, unique_id
+
+    doc, spec = blink_doc()
+    _spec, model = blink_pcbdoc_spec()
+    by_ref = {c.ref: c for c in model.circuit.components}  # type: ignore[attr-defined]
+    assert [c["SOURCEDESIGNATOR"] for c in doc.components] == ["D1", "R1", "U1"]
+    for record in doc.components:
+        component = by_ref[record["SOURCEDESIGNATOR"]]
+        assert record["SOURCEUNIQUEID"] == "\\" + unique_id(component.id)
+        assert record["SOURCEFOOTPRINTLIBRARY"] == "blink.PcbLib"
+        assert record["SOURCECOMPONENTLIBRARY"] == "blink.SchLib"
+        assert record["SOURCEHIERARCHICALPATH"] == ""
+        assert record["NAMEON"] == "TRUE" and record["COMMENTON"] == "FALSE"
+        assert component_path(component) == record["SOURCEDESIGNATOR"]
+    assert {c["SOURCEDESIGNATOR"]: c["PATTERN"] for c in doc.components} == {
+        "D1": "Mini_LED_THT_3mm",
+        "R1": "Mini_R_0603",
+        "U1": "Mini_QFP-32_7x7mm_P0.8mm",
+    }
+    assert {c["SOURCEDESIGNATOR"]: c["LOCKED"] for c in doc.components}["U1"] == "TRUE"
+
+
+def test_pad_nets() -> None:
+    """Scenario "Pad nets": R1's pad 1 on LED_DRV, pad 2 on LED_A; unconnected pads carry no net."""
+    doc, _spec = blink_doc()
+    names = [n["NAME"] for n in doc.nets]
+    r1 = [c["SOURCEDESIGNATOR"] for c in doc.components].index("R1")
+    pads = {p.name: p.prefix.net for p in doc.pads if p.prefix.component == r1}
+    assert pads == {"1": names.index("LED_DRV"), "2": names.index("LED_A")}
+    u1 = [c["SOURCEDESIGNATOR"] for c in doc.components].index("U1")
+    u1_pads = {p.name: p.prefix.net for p in doc.pads if p.prefix.component == u1}
+    assert u1_pads["9"] == names.index("VIN") and u1_pads["2"] == 0xFFFF and len(u1_pads) == 32
+
+
+def test_designator_and_comment_texts() -> None:
+    doc, _spec = blink_doc()
+    assert len(doc.texts) == 6
+    refs = [c["SOURCEDESIGNATOR"] for c in doc.components]
+    for index, ref in enumerate(refs):
+        designator, comment = doc.texts[2 * index], doc.texts[2 * index + 1]
+        assert designator.text == ref and designator.is_designator == 1 and designator.is_comment == 0
+        assert comment.is_comment == 1 and comment.is_designator == 0
+        assert designator.prefix.component == comment.prefix.component == index
+        assert designator.size == 137 and designator.height == 393701 and designator.width == 59055
+        assert designator.y > comment.y
+        assert doc.wide_strings[designator.wide_index or 0] == ref
+    d1 = refs.index("D1")
+    assert doc.texts[2 * d1].prefix.layer == 34 and doc.texts[2 * d1].mirrored == 1
+    assert doc.texts[0 if d1 else 2].prefix.layer in (33, 34)
