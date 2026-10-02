@@ -19,12 +19,12 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, cast
 
-from fenolite.backends.kicad import embed, lowering, mod, pro, sym, versions
+from fenolite.backends.kicad import dru, embed, lowering, mod, pcb, pro, sym, versions
 from fenolite.backends.kicad.embed import PATH_PROPERTY, footprint_extent, place_footprint, with_property
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
-from fenolite.backends.kicad.pcb import WRITE_EVIDENCE
+from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.core.coords import Point
@@ -32,6 +32,8 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
+from fenolite.lens import preserve
+from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical
 from fenolite.model.board import FootprintInstance, Pad, Side
 from fenolite.model.circuit import Component, Pin, PinRef
@@ -68,6 +70,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.pad-without-pin": "info",
         "build.global-library": "info",
         "build.interface-not-lowered": "info",
+        **PRESERVE_ISSUE_CODES,
     }
 )
 BUILD_EVIDENCE = Evidence(
@@ -133,11 +136,15 @@ class LayoutExistsError(FenoliteError):
 
 @dataclass(frozen=True)
 class BuildOutput:
+    """``design`` is the model built from the script at the given placements; ``layout`` is the design
+    read back from the written board and merged with it, which ``.fenolite/`` caches (c0019)."""
+
     design: Design
     files: Mapping[str, bytes]
     issues: tuple[Issue, ...]
     evidence: Evidence
     summary: Mapping[str, object]
+    layout: Design | None = None
 
 
 @dataclass
@@ -341,6 +348,7 @@ def build_design(
     allow_lossy: bool = False,
     vendor: Literal["all", "project"] = "all",
     record: Mapping[str, str] | None = None,
+    prepared: Prepared | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -349,7 +357,7 @@ def build_design(
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
-    issues: list[Issue] = []
+    issues: list[Issue] = [*prepared.issues] if prepared is not None else []
     parts, libraries = _resolve(design, resolver, issues)
     plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
@@ -445,22 +453,55 @@ def build_design(
         circuit=dataclasses.replace(design.circuit, components=tuple(components), nets=nets),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
-    issues += list(built.validate())
+    existing = prepared.existing if prepared is not None else preserve.ExistingProject()
+    board_read = prepared is not None and prepared.board is not None
+    preserved: dict[str, object] = {}
+    target_design = built
+    if prepared is not None and prepared.board is not None and prepared.match is not None:
+        merged = preserve.merge_layout(built, prepared.board, prepared.match)
+        issues += merged.issues
+        preserved.update(merged.summary)
+        target_design = merged.design
+    issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
-    files: dict[str, bytes] = {
-        n: t.encode("utf-8")
-        for n, t in write_triad(
-            built, name=name, target=target, allow_lossy=allow_lossy, issues=issues
-        ).items()
-    }
+    texts = write_triad(
+        target_design,
+        name=name,
+        target=target,
+        existing_project=existing.project,
+        allow_lossy=allow_lossy,
+        issues=issues,
+    )
+    pcb_name, pro_name, dru_name = (f"{name}.kicad_pcb", f"{name}.kicad_pro", f"{name}.kicad_dru")
+    if existing.rules is not None:
+        texts[dru_name] = preserve.merge_rules(
+            texts[dru_name],
+            existing.rules,
+            target=target,
+            file=dru_name,
+            allow_lossy=allow_lossy,
+            issues=issues,
+        )
+    if prepared is not None and prepared.board is not None:
+        stale, fill_issues = preserve.drop_stale_fills(
+            prepared.board, target_design, existing=existing, project=texts[pro_name], rules=texts[dru_name]
+        )
+        if fill_issues:
+            issues += fill_issues
+            written = write_board(stale, target=target, allow_lossy=allow_lossy)
+            texts[pcb_name] = written.text
+        preserved["fills"] = preserve.fill_counts(prepared.board, stale)
+    files: dict[str, bytes] = {n: t.encode("utf-8") for n, t in texts.items()}
+    readback = read_board(texts[pcb_name], file=pcb_name, issues=[])
+    layout = preserve.merge_layout(built, readback, preserve.match_footprints(built, readback)).design
     vendored = _vendor(plan, target, files, record, issues)
     rows = tuple(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
-    for file_name, text in canonical.dump_texts(built).items():
+    for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
     files[RECORD_FILE] = (
         json.dumps(
@@ -485,6 +526,10 @@ def build_design(
         evidence_items.append(PROPERTY_EVIDENCE)
     if any(location.origin != "project" for location in plan.values()):
         evidence_items.append(VENDOR_EVIDENCE)
+    if board_read:
+        evidence_items += [preserve.EVIDENCE, pcb.EVIDENCE]
+    if existing.rules is not None:
+        evidence_items.append(dru.EVIDENCE)
     summary: dict[str, object] = {
         "components": len(components),
         "nets": len(nets),
@@ -492,10 +537,28 @@ def build_design(
         "staged": staged,
         "vendored": [f"lib/{nick}.pretty/{entry}" for nick, entry in vendored],
         "libraries": libraries,
+        "preserved": _preserved(prepared, preserved),
     }
     return BuildOutput(
-        built, dict(sorted(files.items())), tuple(issues), Evidence.combine(*evidence_items), summary
+        built, dict(sorted(files.items())), tuple(issues), Evidence.combine(*evidence_items), summary, layout
     )
+
+
+def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[str, object]:
+    """``result.preserved`` (``layout-lens``, "Layout preservation evidence")."""
+    zero = {"tracks": 0, "arcs": 0, "vias": 0, "zones": 0}
+    return {
+        "board": prepared is not None and prepared.board is not None,
+        "kept": merged.get("kept", []),
+        "replaced": merged.get("replaced", []),
+        "added": merged.get("added", []),
+        "orphans": merged.get("orphans", []),
+        "board_only": merged.get("board_only", []),
+        "dropped": merged.get("dropped", zero),
+        "fills": merged.get("fills", {"kept": 0, "dropped": 0}),
+        "aliases": dict(prepared.aliases) if prepared is not None else {},
+        "reader_infos": prepared.reader_infos if prepared is not None else 0,
+    }
 
 
 def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) -> BuildOutput:
@@ -506,6 +569,7 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "staged": [],
         "vendored": [],
         "libraries": dict(libraries),
+        "preserved": _preserved(None, {}),
     }
     return BuildOutput(design, {}, tuple(issues), BUILD_EVIDENCE, summary)
 

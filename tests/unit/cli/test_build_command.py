@@ -90,41 +90,77 @@ def test_output_folder_is_the_script_folder(monkeypatch: pytest.MonkeyPatch) -> 
     assert code == 2 and json.loads(err)["code"] == "FEN-2001"
 
 
-def test_edited_board_refused_and_discarded(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_edited_board_is_merged_not_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """c0019: the board, project and rules files are merged instead of refused."""
+    from _layout_edit import add_items, net_ref
+
     out = tmp_path / "B"
     design = str(BLINK_DIR / "design.py")
     assert run(monkeypatch, design, "--out", str(out), "--confirm")[0] == 0
     board = out / "blink.kicad_pcb"
-    edited = board.read_bytes() + b" "
-    board.write_bytes(edited)
+    text = board.read_text(encoding="utf-8")
+    uuid = "00000000-0000-4000-8000-0000000c1901"
+    segment = (
+        f'(segment (start 120 120) (end 125 120) (width 0.25) (layer "F.Cu") {net_ref(text, "GND")} '
+        f'(uuid "{uuid}"))'
+    )
+    board.write_text(add_items(text, segment), encoding="utf-8")
+    code, env, _ = run(monkeypatch, design, "--out", str(out), "--confirm")
+    assert code == 0 and uuid in board.read_text(encoding="utf-8")
+    assert "build.layout-exists" not in [i["code"] for i in env["issues"]]  # type: ignore[index]
+
+
+def _edited_footprint(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[str, Path, bytes]:
+    out = tmp_path / "B"
+    design = str(BLINK_DIR / "design.py")
+    assert run(monkeypatch, design, "--out", str(out), "--confirm")[0] == 0
+    path = out / "lib" / "Mini.pretty" / "Mini_R_0603.kicad_mod"
+    edited = path.read_bytes() + b" "
+    path.write_bytes(edited)
+    return design, path, edited
+
+
+def test_edited_vendored_footprint_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    design, path, edited = _edited_footprint(monkeypatch, tmp_path)
+    out = tmp_path / "B"
+    before = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
     for flags in (["--confirm"], ["--dry-run"], ["--allow-lossy", "--confirm"]):
         code, env, err = run(monkeypatch, design, "--out", str(out), *flags)
         assert code == 7 and json.loads(err)["code"] == "FEN-7001"
-        assert [i["code"] for i in env["issues"]] == ["build.layout-exists"]  # type: ignore[index]
-        assert board.read_bytes() == edited
-    code, _, _ = run(monkeypatch, design, "--out", str(out), "--discard-layout", "--confirm")
-    assert code == 0 and (out / "blink.kicad_pcb.bak").read_bytes() == edited
+        found = [i for i in env["issues"] if i["code"] == "build.layout-exists"]  # type: ignore[index, union-attr]
+        assert len(found) == 1 and found[0]["where"].endswith("lib/Mini.pretty/Mini_R_0603.kicad_mod")
+        assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == before
+
+
+def test_discarding_the_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    design, path, edited = _edited_footprint(monkeypatch, tmp_path)
+    code, _, _ = run(monkeypatch, design, "--out", str(tmp_path / "B"), "--discard-layout", "--confirm")
+    assert code == 0 and path.with_name(path.name + ".bak").read_bytes() == edited
 
 
 def test_dsl_edit_needs_no_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     script = blink_copy(tmp_path)
     out = tmp_path / "B"
     assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
-    script.write_text(script.read_text().replace("r1.place(mm(32), mm(9))", "r1.place(mm(33), mm(9))"))
+    script.write_text(script.read_text().replace('value="330"', 'value="4k7"'))
     assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
-    assert "(at 133 109" in (out / "blink.kicad_pcb").read_text()
+    assert '"4k7"' in (out / "blink.kicad_pcb").read_text()
 
 
 def test_lost_record(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     script = blink_copy(tmp_path)
-    out = tmp_path / "B"
-    assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
-    shutil.rmtree(out / ".fenolite")
-    assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
-    shutil.rmtree(out / ".fenolite")
-    script.write_text(script.read_text().replace("r1.place(mm(32), mm(9))", "r1.place(mm(33), mm(9))"))
-    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
-    assert code == 7 and any("blink.kicad_pcb" in i["where"] for i in env["issues"])  # type: ignore[index]
+    first, second = tmp_path / "B1", tmp_path / "B2"
+    for out in (first, second):
+        assert run(monkeypatch, str(script), "--out", str(out), "--confirm")[0] == 0
+        shutil.rmtree(out / ".fenolite")
+    before = {p.name: p.read_bytes() for p in first.iterdir() if p.is_file()}
+    assert run(monkeypatch, str(script), "--out", str(first), "--confirm")[0] == 0
+    after = {p.name: p.read_bytes() for p in first.iterdir() if p.is_file() and not p.name.endswith(".bak")}
+    assert after == before
+    table = second / "fp-lib-table"
+    table.write_bytes(table.read_bytes() + b" ")
+    code, env, _ = run(monkeypatch, str(script), "--out", str(second), "--confirm")
+    assert code == 7 and any(i["where"].endswith("fp-lib-table") for i in env["issues"])  # type: ignore[index]
 
 
 def test_errors_write_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

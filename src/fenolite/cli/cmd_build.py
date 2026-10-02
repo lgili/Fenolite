@@ -26,10 +26,11 @@ from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.dsl import DslError, placements, to_model
+from fenolite.dsl import DslError, moves, placements, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import build_altium
 from fenolite.lens.build import VENDOR_MODES, build_design, check_existing, read_record
+from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
@@ -110,6 +111,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     try:
         model = to_model(design)
         requested = placements(design)
+        aliases = moves(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
@@ -118,9 +120,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
     record = read_record(out_dir)
+    prepared = None
+    if not args.discard_layout:
+        prepared = prepare(
+            model, requested, read_existing(out_dir, design.name), name=design.name, moves=aliases
+        )
     built = build_design(
         model,
-        requested,
+        prepared.placements if prepared is not None else requested,
         name=design.name,
         copper=design.copper,  # type: ignore[arg-type]
         resolver=resolver,
@@ -128,10 +135,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         allow_lossy=ctx.allow_lossy,
         vendor=cast(Literal["all", "project"], args.vendor),
         record=record,
+        prepared=prepared,
     )
     files = dict(built.files)
     if files:
-        check_existing(out_dir, files, record=record, discard_layout=bool(args.discard_layout))
+        merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
+        guarded = {rel: data for rel, data in files.items() if rel not in merged}
+        check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
     writes = tuple(
         PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
     )

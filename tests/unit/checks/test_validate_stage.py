@@ -26,7 +26,7 @@ def _design(*components: Component, placed: tuple[str, ...] = ()) -> Design:
 
 
 def test_unresolved_footprint_and_symbol() -> None:
-    bare = Component(id="cmp_1", ref="U1")
+    bare = Component(id="cmp_1", ref="U1", properties={"fenolite.path": "U1"})
     dnp = Component(id="cmp_2", ref="U2", dnp=True, lib_symbol_ref="L:S")
     result = validate_stage(_design(bare, dnp), built=True, evidence=BUILT_EVIDENCE)
     found = [(i.code, i.where) for i in result.issues if i.code.startswith("check.")]
@@ -39,6 +39,19 @@ def test_clean_built_model() -> None:
     result = validate_stage(_design(part, placed=("cmp_1",)), built=True, evidence=BUILT_EVIDENCE)
     assert result.status == "ok" and result.issues == ()
     assert result.evidence.level == Level.INFERRED
+
+
+def test_board_only_component_not_asked_for_a_symbol() -> None:
+    hole = Component(id="cmp_1", ref="H1", lib_footprint_ref="L:F")
+    result = validate_stage(_design(hole, placed=("cmp_1",)), built=True, evidence=BUILT_EVIDENCE)
+    assert [(i.code, i.where) for i in result.issues if i.code.startswith("check.")] == []
+
+
+def test_path_key_is_the_embed_property() -> None:
+    from fenolite.backends.kicad.embed import PATH_PROPERTY
+    from fenolite.checks.validate import PATH_KEY
+
+    assert PATH_KEY == PATH_PROPERTY
 
 
 def test_native_input_needs_no_symbol() -> None:

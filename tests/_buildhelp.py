@@ -40,11 +40,13 @@ def resolver(
 
 
 def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
+    """``build_design`` of ``design``; ``placements_override`` replaces ``placements(design)`` (c0019)."""
     project_dir = kwargs.pop("project_dir", BLINK_DIR)
     config_home = kwargs.pop("config_home", None)
+    override = kwargs.pop("placements_override", None)
     return build_design(
         to_model(design),
-        placements(design),
+        override if override is not None else placements(design),  # type: ignore[arg-type]
         name=design.name,
         copper=design.copper,  # type: ignore[arg-type]
         resolver=resolver(target, project_dir, config_home),  # type: ignore[arg-type]

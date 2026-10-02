@@ -65,6 +65,8 @@
     "fp-write-mini-lossy-9": "load",
     "fp-write-mini-v9-9": "load",
     "fp-write-mini-v9-9-reread": "equal",
+    "lens-keep-t9": "equal",
+    "lens-rewrite-t9": "equal",
     "pcb-drc-ignored-checks": "absent",
     "pcb-genver-9-10.0": "load",
     "pcb-genver-9-9.0": "load",

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Build issue codes and evidence (capability design-dsl, "Build issue codes" and "Build evidence";
-changes c0011 and c0027)."""
+changes c0011, c0027 and c0019; preservation codes are build codes)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from _buildhelp import blink, build, codes
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES
+from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 
 ROOT = Path(__file__).resolve().parents[3]
 TESTS = ROOT / "tests" / "unit" / "lens"
@@ -30,16 +31,19 @@ def test_closed_set() -> None:
         "build.property-reserved": "error", "build.property-invalid": "error",
         "build.property-conflict": "error", "build.vendor-unsafe-name": "error",
         "build.library-changed": "warning",
+        **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     literals: set[str] = set()
     for path in (ROOT / "src" / "fenolite" / "lens").glob("*.py"):
-        literals |= set(re.findall(r'"((?:build|layout)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
+        literals |= set(
+            re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+        )
     assert literals == set(table)
     tested: set[str] = set()
-    for path in TESTS.glob("test_build_*.py"):
-        tested |= set(re.findall(r'"((?:build|layout)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
-    assert set(table) <= tested, set(table) - tested
+    for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py")]:
+        tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
+    assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
 
 
 def test_warnings_do_not_fail() -> None:

@@ -71,3 +71,4 @@ written from the pages under `docs/formats/kicad/`.
 | project pairing by stem, `fp-lib-table` rows and `${KIPRJMOD}` library folders: the copy set of `fenolite check` (c0013) | S-0045, S-0046 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
 | the check canary: rule precedence, a scoped `clearance` rule on its own net, coordinate range of a board (c0013) | S-0010, S-0038 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
 | `java -version` and `docker version` output read by `fenolite doctor` (c0013) | S-0080, S-0081 | not stated (Docker docs, all rights reserved); GPLv2 (JEP 223 page) | 2026-10-02 | facts only |
+| `pcb upgrade --force`, `pcb export pos` and `pcb drc` on rebuilt boards, on `kicad-cli` 9.0.9 and 10.0.6 (c0019) | S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |

@@ -119,6 +119,14 @@ keep their library's licence. `--vendor project` copies only those of project ta
 footprint gives the info `build.global-library`. `result.vendored` lists the copied files and
 `result.libraries` the row origin of each lib id.
 
+Over an existing project, `build` preserves the layout (`docs/lens.md`): the board, project and rules
+files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib-table` and the
+vendored footprints under `lib/`. `--discard-layout` reads no existing file and builds from scratch.
+`result.preserved` reports `board` (whether an existing board was read), `kept`, `replaced` and `added`
+(component paths), `orphans` and `board_only` (references), `dropped` (counts of tracks, arcs, vias and
+zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path → old path) and
+`reader_infos` (a count of the board reader's infos).
+
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
@@ -194,7 +202,7 @@ file, or no project file next to it).
 | `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
 | `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; both model stages are skipped |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
-| `check.symbol-unresolved` | error | a built component has no symbol reference |
+| `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
 | `check.oracle-failed` | error | `kicad-cli` wrote no DRC report, or timed out (`retryable: true`) |
 | `check.copy-skipped` | info | a file or folder the project names was left out of the copy |

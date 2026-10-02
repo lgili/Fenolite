@@ -1,0 +1,850 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Layout preservation: a rebuild keeps the work done in KiCad (``docs/lens.md``).
+
+The existing board is the layout authority; there is no stored base. ``match_footprints`` pairs the
+design's parts with the board's footprints (uuid, ``fenolite.path``, then a ``moved()`` alias);
+``effective_placements`` applies the precedence locked ``place()`` > board > ``place()`` > staging;
+``merge_layout`` keeps matched footprint nodes, copper on surviving nets and every other board content;
+``drop_stale_fills`` drops fills whose text digests changed; ``merge_rules`` keeps the user's custom
+rules after Fenolite's. Geometry is never computed: positions are integers and digests are text.
+"""
+
+from __future__ import annotations
+
+import dataclasses
+import hashlib
+from collections import Counter
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import MappingProxyType
+from typing import Literal, Protocol
+
+from fenolite.backends.kicad import dru, pcb, pro, slots
+from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
+from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
+from fenolite.core.coords import Point
+from fenolite.core.errors import FormatError, Issue, Severity
+from fenolite.core.evidence import Evidence, Level
+from fenolite.core.units import Udeg
+from fenolite.model.base import Opaque, Slot
+from fenolite.model.board import Arc, FootprintInstance, Graphic, Pad, Side, Track, Via, Zone
+from fenolite.model.circuit import Component, PinRef
+from fenolite.model.design import Design
+
+PRESERVE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
+    {
+        "layout.copper-mismatch": "error",
+        "layout.orphan": "warning",
+        "layout.alias-unused": "warning",
+        "layout.place-forced": "warning",
+        "layout.footprint-replaced": "warning",
+        "layout.net-removed": "warning",
+        "layout.outline-kept": "warning",
+        "zone.fill-stale": "warning",
+        "layout.place-overridden": "info",
+        "layout.alias-used": "info",
+        "layout.board-only": "info",
+    }
+)
+EVIDENCE = Evidence(
+    Level.INFERRED, hypotheses=("H-K-LENS-KEEP", "H-K-LENS-FILL", "H-K-UUID-KEEP-2", "H-K-BUILD-PATHPROP")
+)
+"""Joins the ``build`` envelope only when an existing board was read; stays ``INFERRED`` because the oracle
+covers the edited blink, not every board."""
+OVERRIDE_HINT = (
+    "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout"
+)
+BAG = "kicad"
+
+
+def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
+    return Issue(code, PRESERVE_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+# --- existing files -------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class ExistingProject:
+    """The texts of the triad already in the output folder (``None`` when a file is absent)."""
+
+    board: str | None = None
+    project: str | None = None
+    rules: str | None = None
+
+
+def read_existing(out_dir: Path, name: str) -> ExistingProject:
+    """The texts of ``<name>.kicad_pcb``, ``.kicad_pro`` and ``.kicad_dru`` in ``out_dir``."""
+    texts: list[str | None] = []
+    for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru"):
+        path = out_dir / f"{name}{suffix}"
+        if not path.is_file():
+            texts.append(None)
+            continue
+        try:
+            texts.append(path.read_bytes().decode("utf-8"))
+        except UnicodeDecodeError as error:
+            raise FormatError(f"{name}{suffix} is not UTF-8 text: {error}", file=f"{name}{suffix}") from error
+    return ExistingProject(*texts)
+
+
+def footprint_uuid(path: str) -> str:
+    """The KiCad uuid that the build gives the footprint of the part at component path ``path``."""
+    return placement_uuid(path, "/footprint")
+
+
+# --- matching -------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FootprintMatch:
+    path: str
+    footprint: FootprintInstance
+    key: Literal["uuid", "path", "alias"]
+
+
+@dataclass(frozen=True)
+class LayoutMatch:
+    matches: Mapping[str, FootprintMatch]
+    orphans: tuple[FootprintInstance, ...] = ()
+    board_only: tuple[FootprintInstance, ...] = ()
+    unused_aliases: tuple[tuple[str, str], ...] = ()
+
+
+def _paths(design: Design) -> dict[str, Component]:
+    """Component path → component, for components that carry ``fenolite.path``."""
+    out: dict[str, Component] = {}
+    for component in design.circuit.components:
+        path = component.properties.get(PATH_PROPERTY)
+        if path is not None:
+            out.setdefault(path, component)
+    return dict(sorted(out.items()))
+
+
+def _footprint_paths(board: Design) -> dict[str, str | None]:
+    """Footprint id → the ``fenolite.path`` of its component (``None`` without one)."""
+    components = {c.id: c for c in board.circuit.components}
+    out: dict[str, str | None] = {}
+    for fp in board.board.footprints if board.board is not None else ():
+        component = components.get(fp.component_id)
+        out[fp.id] = component.properties.get(PATH_PROPERTY) if component is not None else None
+    return out
+
+
+def match_footprints(design: Design, board: Design, *, moves: Mapping[str, str] | None = None) -> LayoutMatch:
+    """Each part of ``design`` paired with at most one footprint of ``board`` (``docs/lens.md``, "Keys")."""
+    aliases = dict(moves or {})
+    footprints = board.board.footprints if board.board is not None else ()
+    fp_paths = _footprint_paths(board)
+    by_uuid = {fp.native_ids.get(BAG): fp for fp in footprints if fp.native_ids.get(BAG)}
+    used: set[str] = set()
+    matches: dict[str, FootprintMatch] = {}
+    paths = list(_paths(design))
+
+    def by_property(path: str) -> FootprintInstance | None:
+        return next((fp for fp in footprints if fp.id not in used and fp_paths.get(fp.id) == path), None)
+
+    def take(path: str, fp: FootprintInstance | None, key: Literal["uuid", "path", "alias"]) -> None:
+        if fp is not None and fp.id not in used:
+            used.add(fp.id)
+            matches[path] = FootprintMatch(path, fp, key)
+
+    for path in paths:
+        take(path, by_uuid.get(footprint_uuid(path)), "uuid")
+    for path in paths:
+        if path not in matches:
+            take(path, by_property(path), "path")
+    for path in paths:
+        old = aliases.get(path)
+        if path in matches or old is None:
+            continue
+        fp = by_uuid.get(footprint_uuid(old))
+        take(path, fp if fp is not None and fp.id not in used else by_property(old), "alias")
+    unused = tuple(
+        (new, old)
+        for new, old in sorted(aliases.items())
+        if new not in matches or matches[new].key != "alias"
+    )
+    rest = [fp for fp in footprints if fp.id not in used]
+    return LayoutMatch(
+        dict(sorted(matches.items())),
+        tuple(fp for fp in rest if fp_paths.get(fp.id) is not None),
+        tuple(fp for fp in rest if fp_paths.get(fp.id) is None),
+        unused,
+    )
+
+
+# --- placement precedence -------------------------------------------------------------------------
+
+
+class PlacementLike(Protocol):
+    """A requested placement, read by attribute (the structural twin of ``lens.build.PlacementRequest``)."""
+
+    @property
+    def at(self) -> Point: ...
+
+    @property
+    def rotation(self) -> Udeg: ...
+
+    @property
+    def side(self) -> Side: ...
+
+    @property
+    def locked(self) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class KeptPlacement:
+    """A footprint's placement taken from the existing board."""
+
+    at: Point
+    rotation: Udeg
+    side: Side
+    locked: bool
+
+
+def _edge_graphics(design: Design) -> list[Graphic]:
+    board = design.board
+    if board is None:
+        return []
+    edge = {layer.name for layer in board.layers if layer.kind == "edge"} or {"Edge.Cuts"}
+    return [g for g in board.graphics if g.layer in edge]
+
+
+def _outline_edges(points: Sequence[Point]) -> set[frozenset[Point]]:
+    return {frozenset((points[i], points[(i + 1) % len(points)])) for i in range(len(points))}
+
+
+def _edges_are_outline(design: Design, board: Design) -> bool:
+    """The board's edge content is absent or exactly the lines of ``design``'s outline."""
+    graphics = _edge_graphics(board)
+    if not graphics:
+        return True
+    outline = design.board.outline if design.board is not None else None
+    if outline is None or any(g.kind != "line" or len(g.points) != 2 for g in graphics):
+        return False
+    lines = [frozenset(g.points) for g in graphics]
+    return len(lines) == len(set(lines)) == len(outline.points) and set(lines) == _outline_edges(
+        outline.points
+    )
+
+
+def _off_board(fp: FootprintInstance, design: Design, board: Design) -> bool:
+    outline = design.board.outline if design.board is not None else None
+    if outline is None or not outline.points or not _edges_are_outline(design, board):
+        return False
+    xs, ys = [p.x for p in outline.points], [p.y for p in outline.points]
+    return not (min(xs) <= fp.position.x <= max(xs) and min(ys) <= fp.position.y <= max(ys))
+
+
+def _same(a: PlacementLike, fp: FootprintInstance, *, lock: bool) -> bool:
+    same = (a.at, a.rotation, a.side) == (fp.position, fp.rotation, fp.side)
+    return same and (not lock or a.locked == fp.locked)
+
+
+def _describe(at: Point, rotation: Udeg, side: Side) -> str:
+    return f"({at.x / 1e6:g} mm, {at.y / 1e6:g} mm, {rotation / 1e6:g}°, {side})"
+
+
+def effective_placements(
+    placements: Mapping[str, PlacementLike],
+    match: LayoutMatch,
+    *,
+    design: Design,
+    board: Design,
+) -> tuple[Mapping[str, PlacementLike], tuple[Issue, ...]]:
+    """Each part's placement: locked ``place()`` > existing board > ``place()`` > staging (omitted)."""
+    out: dict[str, PlacementLike] = {}
+    issues: list[Issue] = []
+    for path in _paths(design):
+        request = placements.get(path)
+        found = match.matches.get(path)
+        if found is None:
+            if request is not None:
+                out[path] = request
+            continue
+        fp = found.footprint
+        if request is not None and request.locked:
+            out[path] = request
+            if not _same(request, fp, lock=True):
+                issues.append(
+                    issue(
+                        "layout.place-forced",
+                        f"{path}: the locked place() {_describe(request.at, request.rotation, request.side)} "
+                        f"re-places the footprint from {_describe(fp.position, fp.rotation, fp.side)}",
+                        path,
+                    )
+                )
+            continue
+        if _off_board(fp, design, board):
+            if request is not None:
+                out[path] = request
+            continue
+        out[path] = KeptPlacement(fp.position, fp.rotation, fp.side, fp.locked)
+        if request is not None and not _same(request, fp, lock=False):
+            issues.append(
+                issue(
+                    "layout.place-overridden",
+                    f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                    f"overridden by the board's {_describe(fp.position, fp.rotation, fp.side)}",
+                    path,
+                    OVERRIDE_HINT,
+                )
+            )
+    return MappingProxyType(out), tuple(issues)
+
+
+@dataclass(frozen=True)
+class Prepared:
+    """What ``build_design`` needs to merge with an existing project."""
+
+    existing: ExistingProject
+    board: Design | None
+    match: LayoutMatch | None
+    placements: Mapping[str, PlacementLike]
+    issues: tuple[Issue, ...] = ()
+    reader_infos: int = 0
+    aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+
+
+def prepare(
+    design: Design,
+    placements: Mapping[str, PlacementLike],
+    existing: ExistingProject,
+    *,
+    name: str,
+    moves: Mapping[str, str] | None = None,
+) -> Prepared:
+    """Read the existing board, match its footprints and decide the effective placements."""
+    aliases = MappingProxyType(dict(moves or {}))
+    if existing.board is None:
+        return Prepared(existing, None, None, placements, aliases=aliases)
+    found: list[Issue] = []
+    board = pcb.read_board(existing.board, file=f"{name}.kicad_pcb", issues=found)
+    issues = [i for i in found if i.severity != "info"]
+    match = match_footprints(design, board, moves=aliases)
+    for new, old in match.unused_aliases:
+        issues.append(
+            issue(
+                "layout.alias-unused",
+                f"moved({old!r}, {new!r}) matched nothing to re-place; remove the alias",
+                new,
+            )
+        )
+    effective, more = effective_placements(placements, match, design=design, board=board)
+    infos = sum(1 for i in found if i.severity == "info")
+    return Prepared(existing, board, match, effective, (*issues, *more), infos, aliases)
+
+
+# --- merging --------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Merged:
+    design: Design
+    issues: tuple[Issue, ...]
+    summary: Mapping[str, object]
+
+
+def _slots(entity: FootprintInstance) -> tuple[Slot, ...]:
+    bag = entity.ext.get(BAG)
+    return slots.from_ext(bag) if bag is not None else ()
+
+
+def _property_name(slot: Slot) -> str | None:
+    if not isinstance(slot, Opaque) or not slot.fragment.startswith("(property"):
+        return None
+    node = parse_fragment(slot.fragment)
+    if not isinstance(node, Node):
+        return None
+    atoms = node.atoms()
+    return atoms[0].value if atoms else None
+
+
+def _user_property_slots(built: FootprintInstance) -> list[tuple[str, Opaque]]:
+    """The property slots that the built copy holds after its ``fenolite.path`` slot (the script's)."""
+    out: list[tuple[str, Opaque]] = []
+    seen_path = False
+    for slot in _slots(built):
+        name = _property_name(slot)
+        if name is None:
+            continue
+        if name == PATH_PROPERTY:
+            seen_path = True
+        elif seen_path:
+            assert isinstance(slot, Opaque)
+            out.append((name, slot))
+    return out
+
+
+def _with_name_and_value(fragment: str, name: str, value: str) -> str:
+    node = parse_fragment(fragment)
+    assert isinstance(node, Node)
+    children = list(node.children)
+    atoms = [i for i, c in enumerate(children) if isinstance(c, Atom)]
+    children[atoms[0]] = Atom.string(name)
+    children[atoms[1]] = Atom.string(value)
+    return dumps(node.with_children(children), style="compact")
+
+
+def _with_uuid(fragment: str, value: str) -> str:
+    node = parse_fragment(fragment)
+    assert isinstance(node, Node)
+    children = [
+        Node(c.head, (Atom.string(value),)) if isinstance(c, Node) and c.name == "uuid" else c
+        for c in node.children
+    ]
+    return dumps(node.with_children(children), style="compact")
+
+
+def _apply_user_properties(
+    kept: FootprintInstance, built: FootprintInstance, path: str
+) -> tuple[FootprintInstance, dict[str, str]]:
+    """``kept`` with the script's user properties: same-named nodes take name and value, missing ones are
+    appended after the last property; returns the node and the user properties written."""
+    wanted = _user_property_slots(built)
+    current = list(_slots(kept))
+    names = {i: _property_name(s) for i, s in enumerate(current)}
+    if PATH_PROPERTY not in names.values() or not wanted:
+        return kept, {}
+    written: dict[str, str] = {}
+    for name, slot in wanted:
+        node = parse_fragment(slot.fragment)
+        assert isinstance(node, Node)
+        value = node.atoms()[1].value
+        written[name] = value
+        index = next(
+            (
+                i
+                for i, n in names.items()
+                if n is not None and n.casefold() == name.casefold() and n != PATH_PROPERTY
+            ),
+            None,
+        )
+        if index is not None:
+            old = current[index]
+            assert isinstance(old, Opaque)
+            current[index] = Opaque(_with_name_and_value(old.fragment, name, value), old.min_version)
+            names[index] = name
+            continue
+        last = max(i for i, n in names.items() if n is not None)
+        uuid = placement_uuid(path, f"/footprint/property:{name}")
+        current.insert(last + 1, Opaque(_with_uuid(slot.fragment, uuid), slot.min_version))
+        names = {i: _property_name(s) for i, s in enumerate(current)}
+    bag = slots.to_ext(current, kept.ext.get(BAG))
+    return dataclasses.replace(kept, ext={**kept.ext, BAG: bag}), written
+
+
+def _net_names(design: Design) -> dict[str, str]:
+    return {n.id: n.name for n in design.circuit.nets}
+
+
+def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
+    """The layout to write: the existing board with the built design's circuit and footprints merged."""
+    assert built.board is not None and board.board is not None
+    issues: list[Issue] = []
+    copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
+    wanted_copper = [layer.name for layer in built.board.layers if layer.kind == "copper"]
+    if copper != wanted_copper:
+        issues.append(
+            issue(
+                "layout.copper-mismatch",
+                f"the board's copper layers {copper} differ from the design's {wanted_copper}",
+                "board",
+                "rebuild with --discard-layout to create the board on the new stack-up",
+            )
+        )
+        return Merged(built, tuple(issues), {})
+    components = {c.id: c for c in built.circuit.components}
+    by_path = {p: c for p, c in _paths(built).items()}
+    built_fps = {fp.component_id: fp for fp in built.board.footprints}
+    board_components = {c.id: c for c in board.circuit.components}
+    board_nets = _net_names(board)
+    nets_by_name = {n.name: n for n in built.circuit.nets}
+    matched_ids = {m.footprint.id: m for m in match.matches.values()}
+    orphan_ids = {fp.id for fp in match.orphans}
+    kept_paths: list[str] = []
+    replaced: list[str] = []
+    placed: list[FootprintInstance] = []
+    new_components: dict[str, Component] = {}
+    board_only_components: list[Component] = []
+    extra_members: dict[str, list[PinRef]] = {}
+    lost_pads: Counter[str] = Counter()
+    board_only_refs: list[str] = []
+    orphans: list[str] = []
+    for fp in board.board.footprints:
+        found = matched_ids.get(fp.id)
+        if found is not None:
+            component = by_path[found.path]
+            copy = built_fps.get(component.id)
+            same = copy is not None and (copy.position, copy.rotation, copy.side, copy.locked) == (
+                fp.position,
+                fp.rotation,
+                fp.side,
+                fp.locked,
+            )
+            if (
+                found.key != "alias"
+                and fp.lib_ref == component.lib_footprint_ref
+                and same
+                and copy is not None
+            ):
+                node, written = _apply_user_properties(fp, copy, found.path)
+                pad_nets = {p.number: p.net_id for p in copy.pads}
+                kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
+                placed.append(dataclasses.replace(node, component_id=component.id, pads=kept_pads))
+                read = board_components.get(fp.component_id)
+                props = dict(read.properties) if read is not None else {}
+                for name in [k for k in props if k.casefold() in {w.casefold() for w in written}]:
+                    del props[name]
+                props.update(written)
+                props.update({"Reference": component.ref, "Value": component.value})
+                new_components[component.id] = dataclasses.replace(
+                    component, properties=dict(sorted(props.items()))
+                )
+                kept_paths.append(found.path)
+                continue
+            replaced.append(found.path)
+            if found.key == "alias":
+                issues.append(
+                    issue(
+                        "layout.alias-used",
+                        f"{found.path} takes the layout of {fp.native_ids.get(BAG)}",
+                        found.path,
+                    )
+                )
+            elif fp.lib_ref != component.lib_footprint_ref:
+                issues.append(
+                    issue(
+                        "layout.footprint-replaced",
+                        f"{found.path}: footprint {fp.lib_ref} replaced by {component.lib_footprint_ref}",
+                        found.path,
+                    )
+                )
+            continue
+        read = board_components.get(fp.component_id)
+        ref = read.ref if read is not None else "?"
+        if fp.id in orphan_ids:
+            path = read.properties.get(PATH_PROPERTY, "") if read is not None else ""
+            orphans.append(ref)
+            issues.append(
+                issue(
+                    "layout.orphan",
+                    f"{ref} ({path}, uuid {fp.native_ids.get(BAG)}) at "
+                    f"{_describe(fp.position, fp.rotation, fp.side)} is no longer in the design "
+                    "and is removed",
+                    path,
+                )
+            )
+            continue
+        pads: list[Pad] = []
+        for pad in fp.pads:
+            name = board_nets.get(pad.net_id or "")
+            net = nets_by_name.get(name or "")
+            if name and net is None:
+                lost_pads[name] += 1
+            pads.append(dataclasses.replace(pad, net_id=net.id if net is not None else None))
+            if net is not None and pad.number:
+                extra_members.setdefault(net.id, []).append(PinRef(fp.component_id, pad.number))
+        placed.append(dataclasses.replace(fp, pads=tuple(pads)))
+        if read is not None:
+            board_only_components.append(read)
+        board_only_refs.append(ref)
+        issues.append(issue("layout.board-only", f"{ref} has no fenolite.path and is kept", ref))
+    added = [p for p, c in by_path.items() if p not in kept_paths and c.id in built_fps]
+    for path in sorted(added):
+        placed.append(built_fps[by_path[path].id])
+    added_paths = [p for p in added if p not in replaced]
+    # copper items follow their nets
+    dropped: dict[str, Counter[str]] = {}
+
+    def keep(item_net: str | None, kind: str) -> tuple[bool, str | None]:
+        if item_net is None:
+            return True, None
+        name = board_nets.get(item_net)
+        net = nets_by_name.get(name or "")
+        if net is None:
+            dropped.setdefault(name or "?", Counter())[kind] += 1
+            return False, None
+        return True, net.id
+
+    tracks: list[Track] = []
+    arcs: list[Arc] = []
+    vias: list[Via] = []
+    zones: list[Zone] = []
+    for track in board.board.tracks:
+        ok, nid = keep(track.net_id, "tracks")
+        if ok:
+            tracks.append(dataclasses.replace(track, net_id=nid))
+    for arc in board.board.arcs:
+        ok, nid = keep(arc.net_id, "arcs")
+        if ok:
+            arcs.append(dataclasses.replace(arc, net_id=nid))
+    for via in board.board.vias:
+        ok, nid = keep(via.net_id, "vias")
+        if ok:
+            vias.append(dataclasses.replace(via, net_id=nid))
+    for zone in board.board.zones:
+        ok, nid = keep(zone.net_id, "zones")
+        if ok:
+            zones.append(dataclasses.replace(zone, net_id=nid))
+    for name in sorted(set(dropped) | set(lost_pads)):
+        counts = dropped.get(name, Counter())
+        issues.append(
+            issue(
+                "layout.net-removed",
+                f"net {name!r} is no longer in the design: dropped {counts['tracks']} tracks, "
+                f"{counts['arcs']} arcs, {counts['vias']} vias and {counts['zones']} zones; "
+                f"{lost_pads[name]} board-only pads left without a net",
+                name,
+            )
+        )
+    # board content and the outline rule
+    edge = _edge_graphics(board)
+    outline = None if edge else built.board.outline
+    if edge and not _edges_are_outline(built, board):
+        issues.append(
+            issue(
+                "layout.outline-kept",
+                "the board's edge content differs from the design's board() outline and is kept",
+                "board",
+                "change the outline in KiCad, or re-run with --discard-layout",
+            )
+        )
+    merged_board = dataclasses.replace(
+        board.board,
+        outline=outline,
+        footprints=tuple(placed),
+        tracks=tuple(tracks),
+        arcs=tuple(arcs),
+        vias=tuple(vias),
+        zones=tuple(zones),
+    )
+    nets = tuple(
+        dataclasses.replace(net, members=tuple(sorted({*net.members, *extra_members.get(net.id, [])})))
+        for net in built.circuit.nets
+    )
+    circuit = dataclasses.replace(
+        built.circuit,
+        components=(*(new_components.get(c.id, c) for c in built.circuit.components), *board_only_components),
+        nets=nets,
+    )
+    del components
+    summary: dict[str, object] = {
+        "kept": sorted(kept_paths),
+        "replaced": sorted(replaced),
+        "added": sorted(added_paths),
+        "orphans": orphans,
+        "board_only": board_only_refs,
+        "dropped": {
+            kind: sum(c[kind] for c in dropped.values()) for kind in ("tracks", "arcs", "vias", "zones")
+        },
+    }
+    return Merged(dataclasses.replace(built, circuit=circuit, board=merged_board), tuple(issues), summary)
+
+
+# --- fill staleness -------------------------------------------------------------------------------
+
+
+def _digest(lines: Sequence[str]) -> str:
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def _zone_slots(zone: Zone) -> tuple[Slot, ...]:
+    bag = zone.ext.get(BAG)
+    return slots.from_ext(bag) if bag is not None else ()
+
+
+SKIPPED_ZONE_HEADS = frozenset({"net", "net_name", "uuid", "filled_polygon", "fill_segments"})
+
+
+def _obsolete(head: str) -> bool:
+    """A zone child that some KiCad major no longer writes, so the board's format would change the digest."""
+    row = load_inventory().match(FileKind.BOARD, ("kicad_pcb", "zone", head))
+    return row is not None and row.until_major is not None
+
+
+def zone_digest(design: Design, zone: Zone) -> str:
+    """SHA-256 of the zone's outline (or opaque polygons), net name, layers, priority and other opaque
+    slots (its fill settings); fills, uuids and net forms never enter it."""
+    names = _net_names(design)
+    opaque: list[str] = []
+    polygons: list[str] = []
+    for slot in _zone_slots(zone):
+        if not isinstance(slot, Opaque):
+            continue
+        node = parse_fragment(slot.fragment)
+        head = node.name if isinstance(node, Node) else ""
+        if head in SKIPPED_ZONE_HEADS or _obsolete(head):
+            continue
+        (polygons if head == "polygon" else opaque).append(slot.fragment)
+    outline = [f"{p.x},{p.y}" for p in zone.outline] if zone.outline else polygons
+    lines = [
+        "outline " + " ".join(outline),
+        f"net {names.get(zone.net_id or '', '')}",
+        "layers " + " ".join(zone.layers),
+        f"priority {zone.priority}",
+        *sorted(opaque),
+    ]
+    return _digest(lines)
+
+
+def fill_inputs_digest(design: Design, *, project: str | None, rules: str | None) -> str:
+    """SHA-256 of what a rebuild can change around a zone: footprints and pads, tracks, arcs, vias, zones,
+    rule areas, edge content and outline, the project's classes and patterns, and the rule items."""
+    board = design.board
+    names = _net_names(design)
+    lines: list[str] = []
+    if board is not None:
+        for fp in board.footprints:
+            pads = sorted(
+                f"{p.number}|{p.shape}|{p.size.w}x{p.size.h}|{p.position.x},{p.position.y}|{p.kind}|{p.rotation}|"
+                f"{p.drill}|{'+'.join(p.layers)}|{names.get(p.net_id or '', '')}"
+                for p in fp.pads
+            )
+            lines.append(
+                f"fp {fp.lib_ref} {fp.position.x},{fp.position.y} {fp.rotation} {fp.side} " + ";".join(pads)
+            )
+        for t in board.tracks:
+            lines.append(f"track {t.start} {t.end} {t.width} {t.layer} {names.get(t.net_id or '', '')}")
+        for a in board.arcs:
+            lines.append(f"arc {a.start} {a.mid} {a.end} {a.width} {a.layer} {names.get(a.net_id or '', '')}")
+        for v in board.vias:
+            lines.append(
+                f"via {v.position} {v.diameter} {v.drill} {'+'.join(v.layers)} {v.via_type} "
+                f"{names.get(v.net_id or '', '')}"
+            )
+        for z in board.zones:
+            lines.append(f"zone {zone_digest(design, z)}")
+        for k in board.keepouts:
+            lines.append(
+                f"keepout {k.outline} {'+'.join(k.layers)} {k.no_tracks}{k.no_vias}{k.no_pads}"
+                f"{k.no_copper_pour}{k.no_footprints}"
+            )
+        for g in _edge_graphics(design):
+            lines.append(f"edge {g.kind} {g.points} {g.width}")
+        if board.outline is not None:
+            lines.append(f"outline {board.outline.points} {board.outline.cutouts}")
+    if project is not None:
+        info = pro.read_project(project, issues=[])
+        for cls in info.classes:
+            lines.append(f"class {cls}")
+        for entry in info.patterns:
+            lines.append(f"pattern {entry}")
+        for entry in info.assignments:
+            lines.append(f"assignment {entry}")
+    if rules is not None:
+        for item in dru.parse_rules(rules).items:
+            if isinstance(item, dru.RuleItem):
+                lines.append(f"rule {item.text}")
+    return _digest(sorted(lines))
+
+
+def drop_stale_fills(
+    board: Design, layout: Design, *, existing: ExistingProject, project: str, rules: str
+) -> tuple[Design, tuple[Issue, ...]]:
+    """``layout`` with the fills of each zone whose digests changed dropped (``zone.fill-stale``)."""
+    assert layout.board is not None and board.board is not None
+    before = {z.native_ids.get(BAG): z for z in board.board.zones}
+    same_inputs = fill_inputs_digest(
+        board, project=existing.project, rules=existing.rules
+    ) == fill_inputs_digest(layout, project=project, rules=rules)
+    issues: list[Issue] = []
+    zones: list[Zone] = []
+    for zone in layout.board.zones:
+        old = before.get(zone.native_ids.get(BAG))
+        stale = not same_inputs or old is None or zone_digest(board, old) != zone_digest(layout, zone)
+        if zone.fills and stale:
+            label = zone.name or zone.native_ids.get(BAG, zone.id)
+            issues.append(
+                issue("zone.fill-stale", f"zone {label}: its inputs changed, so its fills are dropped", label)
+            )
+            zone = dataclasses.replace(zone, fills=())
+        zones.append(zone)
+    if not issues:
+        return layout, ()
+    return dataclasses.replace(layout, board=dataclasses.replace(layout.board, zones=tuple(zones))), tuple(
+        issues
+    )
+
+
+def fill_counts(before: Design, after: Design) -> dict[str, int]:
+    """Zones whose fills were kept and dropped between two layouts."""
+    old = {z.native_ids.get(BAG): bool(z.fills) for z in (before.board.zones if before.board else ())}
+    kept = dropped = 0
+    for zone in after.board.zones if after.board else ():
+        if old.get(zone.native_ids.get(BAG)):
+            if zone.fills:
+                kept += 1
+            else:
+                dropped += 1
+    return {"kept": kept, "dropped": dropped}
+
+
+# --- rules ----------------------------------------------------------------------------------------
+
+FENOLITE_RULE_PREFIX = "fenolite_"
+
+
+def _rule_name(item: dru.RuleItem) -> str:
+    atoms = item.node.atoms()
+    return atoms[0].value if atoms else ""
+
+
+def merge_rules(
+    lowered: str,
+    existing: str,
+    *,
+    target: int,
+    file: str = "",
+    allow_lossy: bool = False,
+    issues: list[Issue] | None = None,
+) -> str:
+    """Fenolite's rules (``lowered``), then the user's rules of ``existing`` in file order, through c0018's
+    target gating and self-check (``docs/lens.md``, "Project and rules files")."""
+    theirs = dru.parse_rules(existing, file=file)  # refuses a broken file with its line
+    if theirs.version > dru.RULES_VERSION:
+        raise FutureFormatError(
+            f"{file or 'the rules file'} has version {theirs.version}; "
+            f"Fenolite writes version {dru.RULES_VERSION}",
+            hint="re-save the rules in a KiCad that Fenolite supports, or rebuild with --discard-layout",
+        )
+    dru.read_rules(existing, file=file, issues=[])
+    mine = dru.parse_rules(lowered)
+    user = [
+        item
+        for item in theirs.items
+        if not isinstance(item, dru.VersionItem)
+        and not (isinstance(item, dru.RuleItem) and _rule_name(item).startswith(FENOLITE_RULE_PREFIX))
+    ]
+    text = dru.print_rules([*mine.items, *user])
+    return dru.write_rules(
+        dru.read_rules(text, file=file), target=target, allow_lossy=allow_lossy, issues=issues
+    )
+
+
+__all__ = [
+    "EVIDENCE",
+    "PRESERVE_ISSUE_CODES",
+    "ExistingProject",
+    "FootprintMatch",
+    "KeptPlacement",
+    "LayoutMatch",
+    "Merged",
+    "PlacementLike",
+    "Prepared",
+    "drop_stale_fills",
+    "effective_placements",
+    "fill_counts",
+    "fill_inputs_digest",
+    "footprint_uuid",
+    "match_footprints",
+    "merge_layout",
+    "merge_rules",
+    "prepare",
+    "read_existing",
+    "zone_digest",
+]

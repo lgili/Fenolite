@@ -12,7 +12,7 @@ from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
-from fenolite.dsl.part import Net, Part
+from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.units import as_nm
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -90,6 +90,8 @@ class Design(Container):
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
+        self.aliases: dict[str, str] = {}
+        """``moved()`` aliases: new component path → old component path."""
 
     @property
     def design(self) -> Design:
@@ -106,6 +108,20 @@ class Design(Container):
             raise DslError("the board width and height must be positive")
         self.size = (w, h)
         self.copper = copper
+
+    def moved(self, old: str, new: str) -> None:
+        """Record that the part at component path ``new`` was at ``old`` in an earlier build, so a rebuild
+        keeps its layout (``docs/lens.md``, "moved()")."""
+        for what, path in (("old", old), ("new", new)):
+            if not isinstance(path, str) or not all(NAME.fullmatch(p) for p in path.split("/")):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"moved(): {what} path {path!r} is not a component path")
+        if old == new:
+            raise DslError(f"moved(): old and new are both {old!r}")
+        if new in self.aliases:
+            raise DslError(f"moved(): {new!r} already has an alias ({self.aliases[new]!r})")
+        if old in self.aliases.values():
+            raise DslError(f"moved(): {old!r} is already the old path of an alias")
+        self.aliases[new] = old
 
     # -- registration (called by add(), connect() and netclass())
 

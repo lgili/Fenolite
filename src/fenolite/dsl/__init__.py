@@ -7,7 +7,7 @@ model design with ids keyed by names and paths. It reads no library, file or env
 (``fenolite.lens.build``) resolves libraries and writes the KiCad project.
 """
 
-from fenolite.dsl.convert import BOARD_ORIGIN, DSL_BACKEND, KEYS, placements, to_model
+from fenolite.dsl.convert import BOARD_ORIGIN, DSL_BACKEND, KEYS, moves, placements, to_model
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import DiffPair, Interface, Power
@@ -33,6 +33,7 @@ __all__ = [
     "inch",
     "mil",
     "mm",
+    "moves",
     "nm",
     "placements",
     "to_model",

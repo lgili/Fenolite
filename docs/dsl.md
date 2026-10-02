@@ -42,6 +42,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   its `Value` property. `properties` maps user property names to text ("User properties").
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
+- `Design.moved(old, new)`: a path alias that keeps a renamed part's layout ("Path aliases").
 - `Design.board(width, height, copper=2)`, once per design.
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
   is optional; a net belongs to at most one class.
@@ -199,6 +200,16 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
   the footprints of project tables, as before c0027; the others give `build.global-library` and need
   the same global tables wherever the project is opened.
 
+## Path aliases (`moved()`)
+
+`design.moved(old, new)` records that the part at component path `new` was at `old` in an earlier
+build, so a rebuild keeps its layout (`docs/lens.md`). `dsl.moves(design)` returns the aliases, new path
+to old path. Both paths must be component paths (`R1`, `power/R1`); `old == new`, a malformed path and a
+second alias with the same `old` or the same `new` raise `DslError` at the call. `moves` raises it when
+`new` is not an added part or `old` still is one, so chains are refused; `fenolite build` reports this
+as `FEN-3004`. Aliases are not model data: `to_model` and every id ignore them. One build is enough:
+the footprint is re-placed under its new path, and the alias can then be removed.
+
 ## Determinism
 
 A build is a pure function of the script and the Fenolite version: ids come from keys, files hold no
@@ -222,11 +233,13 @@ The folder is self-contained and can be moved or copied whole.
 
 ## Edited outputs
 
-Before the plan is returned (so `--dry-run` refuses too), each planned file that already exists must
-either have the planned bytes or the SHA-256 recorded in `.fenolite/build.json`. Anything else, for
-example a board saved from KiCad, is refused with `FEN-7001` (exit 7) and one `build.layout-exists`
-issue per file. `--discard-layout` replaces those files, keeping `.bak` copies unless `--no-backup`.
-Without a readable record only identical bytes pass.
+A rebuild over an existing project keeps the work done in KiCad: the board, project and rules files are
+merged, not replaced (`docs/lens.md`). The other outputs have no merge: before the plan is returned (so
+`--dry-run` refuses too), `fp-lib-table` and each vendored footprint under `lib/` that already exists
+must either have the planned bytes or the SHA-256 recorded in `.fenolite/build.json`. Anything else is
+refused with `FEN-7001` (exit 7) and one `build.layout-exists` issue per file. `--discard-layout` builds
+from scratch and replaces those files, keeping `.bak` copies unless `--no-backup`. Without a readable
+record only identical bytes pass.
 
 ## Stale vendored files
 

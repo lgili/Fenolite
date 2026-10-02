@@ -16,6 +16,7 @@ from fenolite import __version__
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.dsl.design import Design
+from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import Part, Placement
 from fenolite.model.board import Board, Outline
@@ -155,4 +156,27 @@ def placements(design: Design) -> Mapping[str, Placement]:
     return MappingProxyType(out)
 
 
-__all__ = ["BOARD_ORIGIN", "DSL_BACKEND", "KEYS", "PATH_PROPERTY", "key_id", "placements", "to_model"]
+def moves(design: Design) -> Mapping[str, str]:
+    """The ``moved()`` aliases, new component path → old, in path order (``docs/lens.md``, "moved()").
+
+    A ``new`` path that is not an added part, or an ``old`` path that still is one, raises ``DslError``:
+    the old part would lose its layout to the new one, so chains are refused too.
+    """
+    for new, old in sorted(design.aliases.items()):
+        if new not in design.parts:
+            raise DslError(f"moved({old!r}, {new!r}): {new!r} is not a part of the design")
+        if old in design.parts:
+            raise DslError(f"moved({old!r}, {new!r}): {old!r} is still a part of the design")
+    return MappingProxyType(dict(sorted(design.aliases.items())))
+
+
+__all__ = [
+    "BOARD_ORIGIN",
+    "DSL_BACKEND",
+    "KEYS",
+    "PATH_PROPERTY",
+    "key_id",
+    "moves",
+    "placements",
+    "to_model",
+]
