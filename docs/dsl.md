@@ -2,7 +2,8 @@
 
 `fenolite.dsl` describes a board in plain Python: parts, nets, net classes, interfaces, an outline and
 placements. `fenolite build design.py --out DIR` runs the script and writes a KiCad 9.0 or 10.0
-project from it. The DSL uses the standard library and Fenolite's own `core` and `model` only.
+project from it, or, with `--target altium`, an experimental Altium project (see "Building for
+Altium"). The DSL uses the standard library and Fenolite's own `core` and `model` only.
 
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
@@ -171,3 +172,12 @@ Without a readable record only identical bytes pass.
 A build writes files; it never deletes them. A footprint vendored by an earlier build stays in `lib/`
 after its part is removed from the script, and is no longer listed in `build.json`. Delete the folder,
 or `lib/`, to start clean.
+
+## Building for Altium
+
+`fenolite build design.py --out DIR --target altium` builds the same script into an experimental Altium
+Designer project instead: a project file and an ASCII schematic with one generic body per part, net
+labels and power ports on wire stubs, and a grid layout. Altium's engineering change order then creates
+the PCB. This build reads no library, so lib ids and footprints name Altium library files
+(`"MyParts.SchLib:LDO"`, `"MyParts.PcbLib:SOT23"`), and designators must be pin numbers. The board,
+placements, net classes and diff pairs stay in `.fenolite/` only. See `docs/altium.md`.

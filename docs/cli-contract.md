@@ -92,11 +92,33 @@ each dropped part is reported as a warning, and without the flag the command fai
 (exit 7). Content the model holds is never dropped, with or without the flag. Any other
 `--kicad-version` value is a usage error (`FEN-2001`, exit 2).
 
+## Build target
+
+`fenolite build DESIGN.py --out DIR` takes `--target {kicad,altium}`, default `kicad`. With
+`--target kicad`, or without the option, it builds the KiCad project of `docs/dsl.md`. With
+`--target altium` it builds an experimental Altium project instead, a project file and an ASCII
+schematic (`docs/altium.md`): it reads no library, `result.target` is the string `altium`,
+`result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
+Any other `--target` value is a usage error (`FEN-2001`, exit 2).
+
 ## Discovery
 
-`fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends, installed
-extras, detected external tools (`kicad-cli`, `java`, `docker`) with versions, and whether any
-enabled feature sends data off the machine. Agents should call it first.
+`fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
+experimental features, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
+versions, and whether any enabled feature sends data off the machine. Agents should call it first.
+
+`result.experimental` lists, sorted by `name`, the features that may change their output, options or
+issue codes in any release. Each entry has exactly the keys `name`, `command`, `option`, `write_kinds`
+and `evidence` (written as a backend's evidence), and its level is never one that counts as verified for
+a release. Listing them runs no external tool, so the list is the same with `--no-tools`. An
+experimental feature appears in `result.backends` only when it is a registered backend. Today the list
+holds the Altium schematic writer:
+
+```json
+{"name": "altium-schematic-writer", "command": "build", "option": "--target altium",
+ "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii"],
+ "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PRJ-KEEP", "H-A-PRJ-OPEN", "…"]}}
+```
 
 Each entry of `result.backends` is one backend's capability report, sorted by name:
 
