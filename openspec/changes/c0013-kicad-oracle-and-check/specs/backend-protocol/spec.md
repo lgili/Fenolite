@@ -6,7 +6,7 @@
 - `Validation(read: ReadResult, roundtrip: RoundTrip)`, a frozen dataclass.
 - `Validator`, a `@runtime_checkable` `typing.Protocol` with `name: str` and `validate(path, *, issues=None) -> Validation`. `validate` MUST raise the reader's `FormatError` (its subclasses included, such as `UnsupportedFormatError`, `FEN-3003`) for a file it cannot read, and `ValueError` naming the kind for a file kind it cannot validate. A caller holding a `Backend` MUST narrow it with `isinstance(backend, Validator)` before calling `validate`.
 
-A backend that lists `"validate"` in `operations` MUST satisfy `Validator`. `src/fenolite/backends/kicad/backend.py` MUST hold the typed statement `_VALIDATOR: Validator = KicadBackend()`, which `pyright` checks. The KiCad backend MUST list `"validate"` in its `operations`, beside the operations that earlier changes added ("Write capability fields", as modified below). The pinned capability tests (`tests/unit/backends/test_registry.py`, `tests/unit/backends/test_base_types.py`, `tests/unit/cli/test_capabilities_backends.py`) MUST be updated in the same commit.
+A backend that lists `"validate"` in `operations` MUST satisfy `Validator`. `src/fenolite/backends/kicad/backend.py` MUST hold the typed statement `_VALIDATOR: Validator = KicadBackend()`, which `pyright` checks. The KiCad backend MUST list `"validate"` in its `operations`, beside the operations that earlier changes added (as "Write capability fields" states). The pinned capability tests (`tests/unit/backends/test_registry.py`, `tests/unit/backends/test_base_types.py`, `tests/unit/cli/test_capabilities_backends.py`) MUST be updated in the same commit.
 
 #### Scenario: KiCad backend is a validator
 - **GIVEN** the statement `_VALIDATOR: Validator = KicadBackend()` in `backends/kicad/backend.py`, and the `isinstance(backend, Validator)` narrowing in `cli/cmd_check.py`
@@ -63,23 +63,23 @@ These types MUST be frozen dataclasses. `fenolite.backends.kicad.oracle.KicadOra
 - `default_target`: the target used when the caller names none, which MUST be one of `targets`;
 - `downgrade`: `"unsupported"` when a file read at a newer version cannot be written for an older target, or `"supported"`.
 
-A backend that lists `"write"` in `operations` MUST have a non-empty `write_kinds` and MUST provide `write(design, *, target=None, allow_lossy=False) -> WriteResult`, which writes the design's board for `target` (`default_target` when `None`) and never writes a file. A backend with a non-empty `write_kinds` MUST list `"write"` in `operations`.
+A backend that lists `"write"` in `operations` MUST have a non-empty `write_kinds` and MUST provide `write(design, *, target=None, allow_lossy=False) -> WriteResult`, which writes the design's board for `target` (`default_target` when `None`) and never writes a file. A backend with a non-empty `write_kinds` MUST list `"write"` in `operations`. A backend that lists `"lower"` in `operations` MUST provide `lower(design, *, name, target=None, allow_lossy=False, issues=None) -> dict[str, str]`, which returns the coherent set of files for `design` (file name → text) for `target` (`default_target` when `None`), appends its warnings and infos to `issues` when a list is given, and never writes a file; a backend MAY accept further keyword arguments.
 
-The KiCad backend MUST include `"kicad_pcb"` in `write_kinds`, MUST report `targets == (9, 10)`, `default_target == 10` and `downgrade == "unsupported"`, and MUST list `"detect"`, `"read"` and `"write"` in `operations`. It MUST list `"lower"` exactly when it provides a callable `lower` method, and `"validate"` exactly when it satisfies `Validator` ("Validation operation"), as "Capability reports" requires; the changes that implement them add them to the same tuple. `KicadBackend.write` MUST return what `fenolite.backends.kicad.pcb.write_board` returns for the same arguments. Later writers add their kinds to the same tuple. These values replace the pre-writer values of c0009 (`write_kinds == ()`, `targets == ()`, `default_target is None`, `operations == ("detect", "read")`). `fenolite capabilities` MUST show them for the `kicad` entry of `result.backends`.
+The KiCad backend MUST include `"kicad_pcb"` in `write_kinds`, MUST report `targets == (9, 10)`, `default_target == 10` and `downgrade == "unsupported"`, MUST list `"detect"`, `"read"`, `"write"` and `"lower"` in `operations`, MUST list `"validate"` exactly when it satisfies `Validator` ("Validation operation"), as "Capability reports" requires, and MUST list no other operation it does not implement. The order of the tuple is not pinned. `KicadBackend.write` MUST return what `fenolite.backends.kicad.pcb.write_board` returns for the same arguments. Later writers add their kinds to the same tuple. These values replace the pre-writer values of c0009 (`write_kinds == ()`, `targets == ()`, `default_target is None`, `operations == ("detect", "read")`) and the exact tuple `("detect", "read", "write")` of c0017. `KicadBackend.lower` MUST return what `fenolite.backends.kicad.triad.write_triad` returns for the same arguments (c0010, "Generated projects are coherent"). `fenolite capabilities` MUST show them for the `kicad` entry of `result.backends`.
 
 #### Scenario: KiCad write fields in capabilities
 - **WHEN** `fenolite capabilities --json` runs
-- **THEN** the `kicad` entry of `result.backends` has `"kicad_pcb"` in `write_kinds`, `targets == [9, 10]`, `default_target == 10` and `downgrade == "unsupported"`, and its `operations` contain `detect`, `read` and `write`
+- **THEN** the `kicad` entry of `result.backends` has `"kicad_pcb"` in `write_kinds`, `targets == [9, 10]`, `default_target == 10`, `downgrade == "unsupported"`, and its `operations` contain `"detect"`, `"read"`, `"write"`, `"lower"` and `"validate"`
 
 #### Scenario: Write operation advertised and implemented
 - **GIVEN** `KicadBackend()` and the created test board `tests/_boards.py::created_board()`
 - **WHEN** an agent finds `"write"` in `capabilities().operations` and calls `backend.write(design)`
-- **THEN** it returns a `WriteResult` equal to `write_board(design, target=10)`, and every other entry of `operations` names a callable method of the backend
+- **THEN** it returns a `WriteResult` equal to `write_board(design, target=10)`, `"lower"` is listed and `backend.lower` is callable, and every other entry of `operations` names a callable method of the backend
 
 #### Scenario: Later operations by membership
 - **GIVEN** `KicadBackend()` once `KicadBackend.validate` exists
 - **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k capability_write_advertised` reads `capabilities().operations`
-- **THEN** it contains `validate`, and it contains `lower` exactly when `KicadBackend` has a callable `lower` method
+- **THEN** it contains `lower` and `validate`, and `backend.lower` and `backend.validate` are callable
 
 #### Scenario: Default target among the targets
 - **GIVEN** every registered backend

@@ -41,5 +41,5 @@ Estimated at 5.75 days (design, "Budget").
 ## Impact
 
 - New modules `dru.py`, `rulemap.py` and `lowering.py`; `mod.py` extended. Tests under `tests/unit/`, `tests/corpus/` and `tests/kicad/`. Rows in `PROVENANCE.md`, `LEGAL-ANNEX.md`, both registers and the per-version probe files.
-- No runtime dependency, no model or schema change, and no new CLI code (FEN-7001 exists). The KiCad capability report lists `kicad_mod` and `kicad_dru` as written kinds, and `lower` as an operation.
+- No runtime dependency, no model or schema change, and no new CLI code (FEN-7001 exists). The KiCad capability report lists `kicad_mod` and `kicad_dru` as written kinds; `operations` is unchanged (c0010 adds `lower`).
 - Depends on c0017 (board writer, footprint emitter, `LossyWriteError`, DRC reader, `_probes`), and through it on c0009 and c0014.

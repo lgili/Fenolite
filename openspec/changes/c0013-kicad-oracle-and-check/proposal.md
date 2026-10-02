@@ -23,7 +23,7 @@ Budget: 8.5 days against the roadmap's 7, with a cut order (design, "Budget").
 - `verification-loop`: `check` input, stages, evidence, read-only guarantee, ERC lite, DRC rules verdict, RT1, unreadable inputs, issue and exit codes, determinism.
 
 ### Modified Capabilities
-- `backend-protocol`: ADDED the `Oracle` protocol and the `validate` operation. MODIFIED Write capability fields: c0017's exact `operations` pin becomes membership (`lower`, `validate` when implemented).
+- `backend-protocol`: ADDED the `Oracle` protocol and the `validate` operation. MODIFIED Write capability fields, on c0010's version: `validate` joins `operations`.
 - `kicad-file-backend`: ADDED the round-trip verdict.
 - `kicad-oracle`: ADDED the copy set, the canary and the help-text subcommand matrix.
 - `cli-contract`: ADDED `inspect` and `doctor`.

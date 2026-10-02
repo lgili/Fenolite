@@ -177,7 +177,7 @@ Every issue the project functions append MUST use a code from this table or a `k
 - the rules from c0018's `lower_rules`, from an empty `RuleSet` when `design.rules is None`;
 - the project from `update_project(existing_project, …)` when one is given, else from `synthesize_project(…, board_name=name)`.
 
-An error of any of the three writers MUST abort the whole set. Functions of `fenolite` MUST NOT read or write a `.kicad_prl` file. Every `kicad-cli` run on a generated set MUST go through c0009's `KicadCli`, which works on a temporary copy. The KiCad backend's capability report MUST list `kicad_pro` in `write_kinds` and `lower` in `operations`, and MUST NOT list `kicad_pro` in `read_kinds`, because `Backend.read` returns a `Design` or a `Library` and `read_project` returns a `ProjectInfo`. `KicadBackend.lower(design, *, name, target=None, existing_project=None, allow_lossy=False)` MUST return the files of `write_triad` for the same arguments, `target=None` meaning `default_target`.
+An error of any of the three writers MUST abort the whole set. Functions of `fenolite` MUST NOT read or write a `.kicad_prl` file. Every `kicad-cli` run on a generated set MUST go through c0009's `KicadCli`, which works on a temporary copy. The KiCad backend's capability report MUST list `kicad_pro` in `write_kinds` and `lower` in `operations`, and MUST NOT list `kicad_pro` in `read_kinds`, because `Backend.read` returns a `Design` or a `Library` and `read_project` returns a `ProjectInfo`. `KicadBackend.lower(design, *, name, target=None, existing_project=None, allow_lossy=False, issues=None)` MUST return the files of `write_triad` for the same arguments, appending the same issues, `target=None` meaning `default_target`.
 
 #### Scenario: Three files, always
 - **GIVEN** a design with no rules
@@ -203,6 +203,11 @@ An error of any of the three writers MUST abort the whole set. Functions of `fen
 - **GIVEN** a design with no rules
 - **WHEN** `KicadBackend().lower(design, name="blink")` is called
 - **THEN** it returns exactly `blink.kicad_pcb`, `blink.kicad_pro` and `blink.kicad_dru`, equal to `write_triad(design, name="blink", target=10)`
+
+#### Scenario: Backend lowering keeps the issues
+- **GIVEN** `bench_design(target=10, hv_clearance=500_000)` and `text`, a target-10 project from `pro.template(10)` whose `board.design_settings.rules.min_clearance` is 1.5
+- **WHEN** `KicadBackend().lower(design, name="b", existing_project=text, issues=issues)` is called with an empty list
+- **THEN** `issues` is not empty, holds the warning `kicad.project.below-floor` naming `HV`, and equals what `write_triad(design, name="b", target=10, existing_project=text, issues=other)` puts in `other`
 
 ### Requirement: Project format facts are documented
 `docs/formats/kicad/project.md` SHALL record, in Fenolite's own words and in fact tables with the header `| fact | source | label | hypothesis |`:

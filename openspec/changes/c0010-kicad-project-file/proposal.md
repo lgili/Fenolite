@@ -13,7 +13,7 @@ Net classes live only in the project file (S-0010, S-0038), and KiCad reads cust
 - Oracle tests on 9.0.9 and 10.0.6, pinned as c0017 probes: a three-way net-class proof with a canary, patterns read as wildcards and regular expressions (S-0046) with decoys, the board-setup floor, and `.kicad_pro` left untouched by `kicad-cli`.
 - `docs/formats/kicad/project.md`; sources S-0065 and S-0066; hypotheses `H-K-PRO-*`, which also answer c0007's question on tuning profiles.
 
-Estimated at 6.5 working days (design, "Budget") against the plan's one-week line.
+Estimated at 6.5 working days (design, "Budget").
 
 ## Capabilities
 
@@ -26,6 +26,7 @@ Estimated at 6.5 working days (design, "Budget") against the plan's one-week lin
 - `rules-model` (created by c0018): ADDED "Net classes lower to the project file".
 - `corpus-policy`: ADDED "Project and rules corpus rows" and "Project fixtures saved by the KiCad GUI".
 - `kicad-oracle`: ADDED "Net-class rules are enforced by kicad-cli" and "Project files survive kicad-cli runs".
+- `backend-protocol`: MODIFIED "Write capability fields" (`lower` joins `operations`).
 
 ## Non-goals
 

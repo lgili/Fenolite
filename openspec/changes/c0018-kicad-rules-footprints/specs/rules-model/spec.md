@@ -7,7 +7,7 @@
 - An empty `RuleSet` MUST lower to the text `"(version 1)\n"` with no issues.
 - The text MUST start with `(version 1)`, followed by one `rule` list per rule and per layer (see "Rule layers and lowered names").
 - A `RuleSet` whose `ext["kicad"]` holds slots (one read from a file) MUST raise `ValueError` naming `write_rules`.
-- The KiCad backend's capability report MUST list `lower` in `operations`.
+- `lower_rules` is a module function, not a backend operation. The backend's `lower` operation is defined by `backend-protocol` "Write capability fields".
 
 #### Scenario: Empty rule set
 - **GIVEN** `RuleSet(id=..., rules=())`
@@ -19,9 +19,9 @@
 - **WHEN** it is lowered for target 9
 - **THEN** the text holds exactly one `rule` list, whose constraint is `(constraint clearance (min 2mm))`
 
-#### Scenario: Lowering listed in capabilities
+#### Scenario: Written kinds in capabilities
 - **WHEN** `fenolite capabilities --json` runs
-- **THEN** the `operations` of the `kicad` entry of `result.backends` contain `lower`
+- **THEN** the `write_kinds` of the `kicad` entry of `result.backends` contain `kicad_mod` and `kicad_dru`
 
 #### Scenario: Rule set read from a file is refused
 - **GIVEN** the result of `read_rules` on `tests/data/kicad/rules/comments.kicad_dru`
