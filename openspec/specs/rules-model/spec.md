@@ -1,7 +1,7 @@
 # rules-model Specification
 
 ## Purpose
-TBD - created by archiving change c0018-kicad-rules-footprints. Update Purpose after archive.
+Specify the neutral design-rule model (rule sets, selectors and constraints) and how it is lowered to a backend's rules files, with a closed selector grammar, target gating and a self-check.
 ## Requirements
 ### Requirement: Fenolite lowers only the design's rules
 `fenolite.backends.kicad.lowering.lower_rules(ruleset, *, target=DEFAULT_TARGET, allow_lossy=False)` SHALL write the rules of `ruleset` and nothing else, and SHALL return `LoweredRules(text, issues)`, where `lowering.LoweredRules` is c0017's `backends.base.WriteResult`.
