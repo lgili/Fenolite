@@ -79,7 +79,7 @@
 ## 8. Closing
 
 - [ ] 8.1 Run the residue and full test suites. Proof: `make check`; `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0 (model unchanged); `uv run pytest tests/unit/test_import_graph.py` passes with no `ALLOWED` change; `grep -c '^dependencies = \[\]' pyproject.toml` prints `1`; `openspec validate c0034-altium-schlib-writer --strict --no-interactive` passes.
-- [ ] 8.2 Update the evidence labels from the results:
+- [x] 8.2 Update the evidence labels from the results:
   - `H-A-SCHLIB-KICAD` and the KiCad-read rows of `schematic-library.md` become `ORACLE-VERIFIED(kicad-cli)` with the version and date;
   - `H-A-SCHLIB-KICAD9` gets the observed result;
   - the other rows follow task 7.1.
