@@ -5,16 +5,14 @@ sheet layout" and "Connectivity on the sheet"; change c0032)."""
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 import pytest
+from _altium import check_plan
 
 from fenolite.backends.altium.layout import (
     MARGIN,
     SHEET_SIZES,
     PartSpec,
     PinNet,
-    SheetPlan,
     layout_sheet,
     stub_length,
 )
@@ -32,35 +30,6 @@ def spec(key: str, nets: dict[str, PinNet], *, ref: str | None = None, comment: 
 
 def two_pin_parts(count: int) -> list[PartSpec]:
     return [spec(f"R{n}", {"1": LABEL_A, "2": LABEL_B}) for n in range(1, count + 1)]
-
-
-def points(plan: SheetPlan) -> Iterator[tuple[int, int]]:
-    """Every point the writer would write: body corners, pin ends, stub ends, marks and text locations."""
-    for part in plan.parts:
-        body = part.spec.body
-        yield part.x, part.y
-        yield part.x + body.width, part.y + body.height
-        yield part.x, part.y - 100
-        yield part.x, part.y + body.height + 200
-        for pin in body.pins:
-            for dx, dy in (pin.body_end(body.width), pin.hot_end(body.width)):
-                yield part.x + dx, part.y + dy
-    for stub in plan.stubs:
-        yield stub.start
-        yield stub.end
-        yield stub.mark
-
-
-def check_plan(plan: SheetPlan) -> None:
-    size = plan.size
-    for x, y in points(plan):
-        assert x % 100 == 0 and y % 100 == 0, (x, y)
-        assert MARGIN <= x <= size.width - MARGIN and MARGIN <= y <= size.height - MARGIN, (x, y)
-    cells = [p.cell for p in plan.parts]
-    for i, (ax0, ay0, ax1, ay1) in enumerate(cells):
-        assert MARGIN <= ax0 < ax1 <= size.width - MARGIN and MARGIN <= ay0 < ay1 <= size.height - MARGIN
-        for bx0, by0, bx1, by1 in cells[i + 1 :]:
-            assert ax1 <= bx0 or bx1 <= ax0 or ay1 <= by0 or by1 <= ay0, "cells overlap"
 
 
 def test_sheet_sizes() -> None:
