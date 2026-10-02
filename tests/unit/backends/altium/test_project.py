@@ -29,7 +29,7 @@ from fenolite.core.evidence import Level
 from fenolite.dsl import Design, Net, Part, Power, connect
 
 PACKAGE = Path(project.__file__).parent
-STDLIB_ALLOWED = {"__future__", "collections", "dataclasses", "hashlib", "re", "typing"}
+STDLIB_ALLOWED = {"__future__", "collections", "dataclasses", "hashlib", "re", "struct", "typing"}
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
