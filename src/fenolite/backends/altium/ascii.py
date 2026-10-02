@@ -6,8 +6,8 @@
 A record is a sequence of ``(key, value)`` fields in the order they are written. ``encode_records`` puts
 the header record first, with the number of records after it, ends every line with CR LF and checks
 that every byte is printable 7-bit ASCII. Texts that the form cannot carry are refused, never escaped
-or replaced (``text_problem``). Lengths are passed in mils on a 100-mil grid and written in the file's
-unit of 10 mil.
+or replaced (``text_problem``). Lengths are passed in mils on the 10-mil grid (library pins may sit on
+a 50-mil grid, change c0034) and written in the file's unit of 10 mil, so no ``_FRAC`` key is needed.
 """
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ LINE_END = b"\r\n"
 """Every line, the last one included, ends with CR LF (a Fenolite choice, ``H-A-SCH-LINEEND``)."""
 MILS_PER_UNIT = 10
 """A file length unit is 10 mil."""
-GRID = 100
-"""Every length the writer passes is a multiple of 100 mil, so no ``_FRAC`` key is ever needed."""
+GRID = 10
+"""Every length the writer passes is a multiple of 10 mil, so no ``_FRAC`` key is ever needed."""
 FIRST_PRINTABLE = 0x20
 LAST_PRINTABLE = 0x7E
 
@@ -83,7 +83,7 @@ def text_problem(text: str, *, parameter: bool = False) -> str | None:
 
 
 def to_units(mils: int) -> int:
-    """A length in mils as file units of 10 mil; ``ValueError`` when negative or off the 100-mil grid."""
+    """A length in mils as file units of 10 mil; ``ValueError`` when negative or off the 10-mil grid."""
     if mils < 0 or mils % GRID:
         raise ValueError(f"{mils} mil is not a non-negative multiple of {GRID} mil")
     return mils // MILS_PER_UNIT

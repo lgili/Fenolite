@@ -2,10 +2,12 @@
 # Copyright (c) 2026 Fenolite contributors
 """The records of an ASCII schematic, in their fixed order (capability altium-schematic-writer).
 
-Record 0 is the sheet. Then, per component in component-path order: the component, its body rectangle,
-its pins in natural order, its designator, its comment and, when it has a footprint, the footprint chain
-44 → 45 → 46, 48. Then, per component and per pin, the pin's wire stub followed by its net label or
-power port. Every record and key is a fact of ``docs/formats/altium/schematic-ascii.md``; the key order
+Record 0 is the sheet. Then, per component in component-path order and per part of its symbol: the
+component record of that part, every rectangle and pin of the symbol (with their ``OWNERPARTID``), its
+designator, its comment and, when it has a footprint, the footprint chain 44 → 45 → 46, 48. Then, per
+component, part and pin drawn on that part, the pin's wire stub followed by its net label or power port.
+Bodies come from the library symbol, placed with its origin at the component's location (change c0034).
+Every record and key is a fact of ``docs/formats/altium/schematic-ascii.md``; the key order
 and the values marked as choices are Fenolite's.
 """
 
@@ -13,7 +15,6 @@ from __future__ import annotations
 
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
 from fenolite.backends.altium.layout import COMMENT_DROP, DESIGNATOR_RISE, PlacedPart, SheetPlan, Stub
-from fenolite.backends.altium.symbols import PIN_LENGTH
 
 FONT_NAME = "Times New Roman"
 """The sheet's one font (a Fenolite choice)."""
@@ -22,14 +23,12 @@ COMPONENT_COLOR = "128"
 COMPONENT_FILL = "11599871"
 TEXT_COLOR = "8388608"
 SHEET_COLOR = "16317695"
-PASSIVE = "4"
-DIRECTION_RIGHT = 0
-DIRECTION_LEFT = 2
-NUMBER_SHOWN = 0x10
-NAME_SHOWN = 0x08
 PORT_STYLES = {"bar": "2", "ground": "4"}
-PORT_ORIENTATION = {"left": "2", "right": "0"}
-"""A port points away from the body: leftwards on a left pin, rightwards on a right pin."""
+PORT_ORIENTATION = {"left": "2", "right": "0", "up": "1", "down": "3"}
+"""A port points away from the body: leftwards on a left pin, rightwards on a right pin, up or down on a
+top or bottom pin."""
+VERTICAL_TEXT = "1"
+"""``ORIENTATION`` of a net label that runs upwards along a vertical stub."""
 
 Record = list[Field]
 
@@ -82,57 +81,63 @@ class _Writer:
 
     def component(self, placed: PlacedPart) -> None:
         spec, body = placed.spec, placed.spec.body
-        x, y = placed.x, placed.y
         owner = self.add(
             [
                 ("RECORD", "1"),
                 ("LIBREFERENCE", spec.symbol),
                 ("DESIGNITEMID", spec.symbol),
                 ("SOURCELIBRARYNAME", spec.library),
-                ("PARTCOUNT", "2"),
+                ("PARTCOUNT", str(body.parts + 1)),
                 ("DISPLAYMODECOUNT", "1"),
-                ("CURRENTPARTID", "1"),
+                ("CURRENTPARTID", str(placed.part)),
                 ("OWNERPARTID", "-1"),
-                *self.at("LOCATION", x, y),
-                ("UNIQUEID", spec.unique_id),
+                *self.at("LOCATION", placed.x, placed.y),
+                ("UNIQUEID", spec.part_id(placed.part)),
                 ("COLOR", COMPONENT_COLOR),
                 ("AREACOLOR", COMPONENT_FILL),
             ]
         )
-        self.add(
-            [
-                ("RECORD", "14"),
-                ("OWNERINDEX", str(owner)),
-                ("OWNERPARTID", "1"),
-                *self.at("LOCATION", x, y + body.height),
-                *self.at("CORNER", x + body.width, y),
-                ("LINEWIDTH", "1"),
-                ("COLOR", COMPONENT_COLOR),
-                ("AREACOLOR", COMPONENT_FILL),
-                ("ISSOLID", "T"),
-            ]
-        )
+        for rect in body.rectangles:
+            self.add(
+                [
+                    ("RECORD", "14"),
+                    ("OWNERINDEX", str(owner)),
+                    ("OWNERPARTID", str(rect.part)),
+                    *self.at("LOCATION", *placed.at(rect.x0, rect.y0)),
+                    *self.at("CORNER", *placed.at(rect.x1, rect.y1)),
+                    ("LINEWIDTH", "1"),
+                    ("COLOR", COMPONENT_COLOR),
+                    ("AREACOLOR", COMPONENT_FILL),
+                    ("ISSOLID", "T"),
+                ]
+            )
         for pin in body.pins:
-            bx, by = pin.body_end(body.width)
-            direction = DIRECTION_LEFT if pin.side == "left" else DIRECTION_RIGHT
-            conglomerate = direction | NUMBER_SHOWN | (NAME_SHOWN if pin.name_shown else 0)
+            edges: list[Field] = []
+            if pin.inner_edge:
+                edges.append(("SYMBOL_INNEREDGE", str(pin.inner_edge)))
+            if pin.outer_edge:
+                edges.append(("SYMBOL_OUTEREDGE", str(pin.outer_edge)))
             self.add(
                 [
                     ("RECORD", "2"),
                     ("OWNERINDEX", str(owner)),
-                    ("OWNERPARTID", "1"),
+                    ("OWNERPARTID", str(pin.part)),
+                    *edges,
                     ("FORMALTYPE", "1"),
-                    ("ELECTRICAL", PASSIVE),
-                    ("PINCONGLOMERATE", str(conglomerate)),
-                    ("PINLENGTH", str(to_units(PIN_LENGTH))),
-                    *self.at("LOCATION", x + bx, y + by),
+                    ("ELECTRICAL", str(pin.electrical)),
+                    ("PINCONGLOMERATE", str(pin.conglomerate)),
+                    ("PINLENGTH", str(to_units(pin.length))),
+                    *self.at("LOCATION", *placed.at(pin.x, pin.y)),
                     ("NAME", pin.name),
                     ("DESIGNATOR", pin.designator),
                 ]
             )
+        first = body.rectangle(1)
+        left, top = placed.at(first.x0, first.y1)
+        bottom = placed.at(first.x0, first.y0)[1]
         for record, name, text, ty in (
-            ("34", "Designator", spec.ref, y - DESIGNATOR_RISE),
-            ("41", "Comment", spec.comment, y + body.height + COMMENT_DROP),
+            ("34", "Designator", spec.ref, top - DESIGNATOR_RISE),
+            ("41", "Comment", spec.comment, bottom + COMMENT_DROP),
         ):
             self.add(
                 [
@@ -141,7 +146,7 @@ class _Writer:
                     ("OWNERPARTID", "-1"),
                     ("NAME", name),
                     ("TEXT", text),
-                    *self.at("LOCATION", x, ty),
+                    *self.at("LOCATION", left, ty),
                     ("FONTID", "1"),
                     ("COLOR", TEXT_COLOR),
                 ]
@@ -188,6 +193,7 @@ class _Writer:
                     ("RECORD", "25"),
                     ("OWNERPARTID", "-1"),
                     *self.at("LOCATION", mx, my),
+                    *((("ORIENTATION", VERTICAL_TEXT),) if stub.vertical else ()),
                     ("TEXT", net.net),
                     ("FONTID", "1"),
                     ("COLOR", TEXT_COLOR),

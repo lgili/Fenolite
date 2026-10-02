@@ -51,7 +51,7 @@
 
 ## 4. The schematic from the library geometry (cut here for the minimal scope)
 
-- [ ] 4.1 Change the layout and the schematic records to `AltiumSymbol` bodies:
+- [x] 4.1 Change the layout and the schematic records to `AltiumSymbol` bodies:
   - component origin at `LOCATION`;
   - stubs in four directions, with `ORIENTATION` on vertical labels and ports;
   - edge-code keys on text pins;

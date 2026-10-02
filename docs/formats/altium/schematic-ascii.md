@@ -124,8 +124,9 @@ These are decisions of the writer, not format facts (design of change c0032, cap
 - Bytes are printable 7-bit ASCII (0x20 to 0x7E) and every line ends with CR LF, the last one included.
   `ascii.text_problem` refuses `|`, any other character, an empty text, a leading or trailing space,
   and a comment that starts with `=`; nothing is escaped or replaced.
-- Every written length is a multiple of 100 mil (10 units), so no `_FRAC` key is written, and every
-  point lies inside the sheet, so every coordinate is positive.
+- Every written length is a multiple of 10 mil (1 unit), so no `_FRAC` key is written, and every
+  point lies inside the sheet, so every coordinate is positive. Component origins and cells lie on the
+  100-mil grid; since change c0034, pins of KiCad symbols may sit on their 50-mil grid.
 - Keys are written in the fixed order of `altium-schematic-writer`; record 0 is the sheet; component
   blocks come in component-path order, then the sheet-level wires, labels and ports.
 - The sheet has one font, `Times New Roman` at size 10, used by every text record (`FONTID=1`).
@@ -139,3 +140,14 @@ These are decisions of the writer, not format facts (design of change c0032, cap
   estimates). Ports of adjacent pins thus alternate between short and long stubs. With 200-mil stubs on
   pins 100 mil apart, the ports of the sample's `U1` and `U2` pins 1 and 2 overlapped in KiCad 10.0.6's
   import of the sample (2026-10-02; supporting data, `docs/evidence/altium-schematic.md`).
+- Change c0034 draws every component from its library symbol (`schematic-library.md`), placed with
+  the symbol's origin at `LOCATION`: generic symbols keep c0032's bodies (origin at the body's top-left
+  corner), so designs of Altium links keep their bytes. Pins point in four directions: stubs of up and
+  down pins are vertical, their net labels carry `ORIENTATION=1` (text running upwards along the stub)
+  with the hotspot at the outer end of a down stub or 100 mil from the pin on an up stub, and their
+  ports point up (`ORIENTATION=1`) or down (`3`). Text pins carry `SYMBOL_INNEREDGE` and
+  `SYMBOL_OUTEREDGE` when not 0, and the symbol's electrical type and direction. A symbol of n parts
+  gives n component records (`CURRENTPARTID` 1 … n, `PARTCOUNT` n + 1), each carrying every rectangle
+  and pin of the symbol with its `OWNERPARTID`; part k > 1 gets the unique id of
+  `<component id>#<k>`; Part Zero pins get stubs on part 1 only (`H-A-SCHLIB-SCHDOC`,
+  `H-A-SCHLIB-MULTIPART`).

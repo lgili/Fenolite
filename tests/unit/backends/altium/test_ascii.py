@@ -76,9 +76,11 @@ def test_units() -> None:
     assert coord_fields("LOCATION", 1000, 500) == (("LOCATION.X", "100"), ("LOCATION.Y", "50"))
     assert coord_fields("CORNER", 0, 11500) == (("CORNER.X", "0"), ("CORNER.Y", "1150"))
     assert to_units(200) == 20
+    assert coord_fields("LOCATION", 1050, 500) == (("LOCATION.X", "105"), ("LOCATION.Y", "50"))
+    assert coord_fields("LOCATION", 1000, 510) == (("LOCATION.X", "100"), ("LOCATION.Y", "51"))
 
 
-@pytest.mark.parametrize(("x", "y"), [(1050, 500), (1000, 510), (1000, 5), (-100, 0)])
+@pytest.mark.parametrize(("x", "y"), [(1055, 500), (1000, 515), (1000, 5), (-100, 0)])
 def test_units_off_the_grid(x: int, y: int) -> None:
     with pytest.raises(ValueError):
         coord_fields("LOCATION", x, y)

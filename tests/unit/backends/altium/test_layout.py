@@ -6,8 +6,9 @@ sheet layout" and "Connectivity on the sheet"; change c0032)."""
 from __future__ import annotations
 
 import pytest
-from _altium import check_plan, sample_model
+from _altium import check_plan, sample_model, upright_symbol
 
+from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
 from fenolite.backends.altium.layout import (
     MARGIN,
     PORT_GAP,
@@ -23,12 +24,17 @@ from fenolite.backends.altium.layout import (
 from fenolite.backends.altium.project import plan_sheet
 from fenolite.backends.altium.symbols import generic_symbol
 
+
+def generic_body(pins: list[tuple[str, str]]) -> AltiumSymbol:
+    return from_generic(generic_symbol(pins), lib_ref="SYM", prefix="U", comment="SYM", footprint=None)
+
+
 LABEL_A = PinNet("A", "label")
 LABEL_B = PinNet("B", "label")
 
 
 def spec(key: str, nets: dict[str, PinNet], *, ref: str | None = None, comment: str = "10k") -> PartSpec:
-    body = generic_symbol([(d, d) for d in nets])
+    body = generic_body([(d, d) for d in nets])
     name = ref or key.rsplit("/", 1)[-1]
     return PartSpec(key, name, comment, "L.SchLib", "SYM", ("L.PcbLib", "FP"), "AAAAAAAA", body, nets)
 
@@ -150,7 +156,7 @@ def test_sample_ports_on_adjacent_pins() -> None:
 
 
 def test_pin_without_a_net_gets_no_stub() -> None:
-    body = generic_symbol([("1", "1"), ("2", "2")])
+    body = generic_body([("1", "1"), ("2", "2")])
     part = PartSpec("X1", "X1", "SYM", "L.SchLib", "SYM", None, "AAAAAAAA", body, {"1": LABEL_A})
     plan = layout_sheet([part])
     assert [s.designator for s in plan.stubs] == ["1"]
@@ -170,3 +176,22 @@ def test_repeated_path_is_refused() -> None:
 def test_empty_design() -> None:
     plan = layout_sheet([])
     assert plan.size.name == "A4" and plan.parts == () and plan.stubs == ()
+
+
+# --- library-symbol bodies (change c0034) -----------------------------------------------------------
+
+
+def test_vertical_stubs_and_marks() -> None:
+    port = PinNet("VCC", "port", "bar")
+    nets = {"1": LABEL_A, "2": LABEL_B, "3": port}
+    part = PartSpec("X1", "X1", "X", "b.SchLib", "X", None, "AAAAAAAA", upright_symbol(), nets)
+    plan = layout_sheet([part])
+    (placed,) = plan.parts
+    stubs = {s.designator: s for s in plan.stubs}
+    one, two, three = stubs["1"], stubs["2"], stubs["3"]
+    assert one.side == "up" and one.start == (placed.x, placed.y - 150) and one.vertical
+    assert one.end[0] == one.start[0] and one.end[1] < one.start[1]
+    assert one.mark == (one.start[0], one.start[1] - 100), "an up pin's label sits 100 mil from the pin"
+    assert two.side == "down" and two.mark == two.end and two.end[1] > two.start[1]
+    assert three.side == "left" and three.mark == three.end and not three.vertical
+    check_plan(plan, grid=10)

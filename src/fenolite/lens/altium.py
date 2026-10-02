@@ -479,7 +479,7 @@ def build_altium(
         )
         + "\n"
     ).encode("utf-8")
-    summary = _summary(model, kept, project.plan_sheet(model, name=name), form)
+    summary = _summary(model, kept, project.plan_sheet(model, name=name, symbols=symbols), form)
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
 

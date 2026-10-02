@@ -3,9 +3,12 @@
 """Deterministic sheet layout: components in rows of cells, wire stubs, labels and ports (capability
 altium-schematic-writer, "Deterministic sheet layout" and "Connectivity on the sheet").
 
-Every length is in mils on a 100-mil grid, in the layout frame: X rightwards and Y downwards from the
-top-left corner of the sheet's drawing area. ``schdoc`` turns Y upwards from the sheet height when it
-writes the records. The sheet sizes and the connection rules are facts of
+Lengths are in mils, in the layout frame: X rightwards and Y downwards from the top-left corner of the
+sheet's drawing area. ``schdoc`` turns Y upwards from the sheet height when it writes the records. Each
+component is drawn from its library symbol (``altsym.AltiumSymbol``, Y upwards from the symbol's origin),
+placed with that origin at the component's location (change c0034). Cell corners and component origins
+lie on the 100-mil grid; pins may lie on the 10-mil grid. A symbol of n parts takes n consecutive cells,
+one per part. The sheet sizes and the connection rules are facts of
 ``docs/formats/altium/schematic-ascii.md``; the cell sizes and text estimates are Fenolite choices.
 """
 
@@ -15,7 +18,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from fenolite.backends.altium.symbols import CHAR_WIDTH, GRID, GenericSymbol, Side
+from fenolite.backends.altium.altsym import DOWN, LEFT, RIGHT, UP, AltiumPin, AltiumSymbol
+from fenolite.backends.altium.symbols import CHAR_WIDTH, GRID, PIN_PITCH
 
 MARGIN = 500
 """Free border inside the drawing area, on each side."""
@@ -70,10 +74,18 @@ class PinNet:
     style: Literal["ground", "bar"] | None = None
 
 
+Side = Literal["left", "right", "up", "down"]
+"""The way a pin points away from its body, on the sheet."""
+SIDES: Mapping[int, Side] = {LEFT: "left", RIGHT: "right", UP: "up", DOWN: "down"}
+STEPS: Mapping[Side, tuple[int, int]] = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
+"""A unit step outwards in the layout frame (Y downwards)."""
+
+
 @dataclass(frozen=True)
 class PartSpec:
-    """Everything the writer needs of one component. ``key`` is its component path; ``nets`` maps a pin
-    designator to the way that pin joins its net (a pin without an entry gets no stub)."""
+    """Everything the writer needs of one component. ``key`` is its component path; ``body`` is its
+    library symbol; ``nets`` maps a pin designator to the way that pin joins its net (a pin without an
+    entry gets no stub); ``unique_id`` is part 1's unique id and ``part_ids`` those of parts 2 … n."""
 
     key: str
     ref: str
@@ -82,24 +94,35 @@ class PartSpec:
     symbol: str
     footprint: tuple[str, str] | None
     unique_id: str
-    body: GenericSymbol
+    body: AltiumSymbol
     nets: Mapping[str, PinNet]
+    part_ids: tuple[str, ...] = ()
+
+    def part_id(self, part: int) -> str:
+        """The unique id of part ``part`` (1-based)."""
+        return self.unique_id if part == 1 else self.part_ids[part - 2]
 
 
 @dataclass(frozen=True)
 class PlacedPart:
-    """A component with its body's top-left corner at (``x``, ``y``) and its cell ``(x0, y0, x1, y1)``."""
+    """Part ``part`` of a component, with its symbol origin at (``x``, ``y``) and its cell
+    ``(x0, y0, x1, y1)``."""
 
     spec: PartSpec
     x: int
     y: int
     cell: tuple[int, int, int, int]
+    part: int = 1
+
+    def at(self, sx: int, sy: int) -> tuple[int, int]:
+        """A symbol point (Y upwards) in the layout frame."""
+        return self.x + sx, self.y - sy
 
 
 @dataclass(frozen=True)
 class Stub:
-    """A horizontal wire from a pin's electrical end (``start``) outwards to ``end``, and the point
-    ``mark`` where its net label (hotspot) or power port (connection point) sits."""
+    """A wire from a pin's electrical end (``start``) outwards to ``end``, and the point ``mark`` where
+    its net label (hotspot) or power port (connection point) sits; ``side`` is the way it points."""
 
     key: str
     designator: str
@@ -111,7 +134,11 @@ class Stub:
 
     @property
     def length(self) -> int:
-        return abs(self.end[0] - self.start[0])
+        return abs(self.end[0] - self.start[0]) + abs(self.end[1] - self.start[1])
+
+    @property
+    def vertical(self) -> bool:
+        return self.side in ("up", "down")
 
 
 @dataclass(frozen=True)
@@ -147,64 +174,75 @@ def _beyond(net: PinNet) -> int:
     return PORT_ROOM + CHAR_WIDTH * len(net.net) if net.kind == "port" else 0
 
 
-def _staggered(spec: PartSpec) -> dict[str, tuple[PinNet, ...]]:
+def _edge(pin: AltiumPin) -> tuple[int, int]:
+    """A pin's edge (its direction) and its place along the edge, in mils: a lower place comes first
+    (higher pins on left and right edges, pins further left on top and bottom edges)."""
+    return pin.direction, (-pin.y if pin.direction in (LEFT, RIGHT) else pin.x)
+
+
+def _staggered(spec: PartSpec, pins: Sequence[AltiumPin]) -> dict[str, tuple[PinNet, ...]]:
     """The ports with a long stub, each with the ports it must clear: in a run of ports on adjacent pins
-    of one edge, the second, fourth, … port clears the ports one row above and one row below it."""
+    (100 mil apart) of one edge, the second, fourth, … port clears the ports before and after it."""
     ports = {
-        (pin.side, pin.row): net
-        for pin in spec.body.pins
+        _edge(pin): net
+        for pin in pins
         if (net := spec.nets.get(pin.designator)) is not None and net.kind == "port"
     }
     long: dict[str, tuple[PinNet, ...]] = {}
-    for pin in spec.body.pins:
-        if (pin.side, pin.row) not in ports:
+    for pin in pins:
+        edge, place = _edge(pin)
+        if (edge, place) not in ports:
             continue
         run = 0
-        while (pin.side, pin.row - run - 1) in ports:
+        while (edge, place - PIN_PITCH * (run + 1)) in ports:
             run += 1
         if run % 2 == 1:
-            rows = (pin.row - 1, pin.row + 1)
-            long[pin.designator] = tuple(ports[(pin.side, r)] for r in rows if (pin.side, r) in ports)
+            near = (place - PIN_PITCH, place + PIN_PITCH)
+            long[pin.designator] = tuple(ports[(edge, n)] for n in near if (edge, n) in ports)
     return long
 
 
-def part_stubs(spec: PartSpec, x: int, y: int) -> tuple[Stub, ...]:
-    """The stubs of ``spec`` with its body's top-left corner at (``x``, ``y``), pins in natural order."""
+def part_stubs(spec: PartSpec, x: int, y: int, part: int = 1) -> tuple[Stub, ...]:
+    """The stubs of part ``part`` of ``spec`` with its symbol origin at (``x``, ``y``): its pins and, on
+    part 1, the Part Zero pins, in symbol order."""
     stubs: list[Stub] = []
-    staggered = _staggered(spec)
-    width = spec.body.width
-    for pin in spec.body.pins:
+    pins = spec.body.pins_of(part)
+    staggered = _staggered(spec, pins)
+    for pin in pins:
         net = spec.nets.get(pin.designator)
         if net is None:
             continue
-        hx, hy = pin.hot_end(width)
-        start = (x + hx, y + hy)
+        hx, hy = pin.hot_end
+        start = (x + hx, y - hy)
+        side = SIDES[pin.direction]
+        dx, dy = STEPS[side]
         length = stub_length(net, staggered.get(pin.designator, ()))
-        if pin.side == "left":
-            end = (start[0] - length, start[1])
+        end = (start[0] + dx * length, start[1] + dy * length)
+        if net.kind == "port" or side in ("left", "down"):
             mark = end
         else:
-            end = (start[0] + length, start[1])
-            mark = end if net.kind == "port" else (start[0] + LABEL_OFFSET, start[1])
-        stubs.append(Stub(spec.key, pin.designator, net, pin.side, start, end, mark))
+            mark = (start[0] + dx * LABEL_OFFSET, start[1] + dy * LABEL_OFFSET)
+        stubs.append(Stub(spec.key, pin.designator, net, side, start, end, mark))
     return tuple(stubs)
 
 
-def _extent(spec: PartSpec) -> tuple[int, int, int, int]:
-    """The cell of ``spec`` relative to its body's top-left corner, margins included, on the grid."""
+def _extent(spec: PartSpec, part: int = 1) -> tuple[int, int, int, int]:
+    """The cell of part ``part`` relative to its symbol origin, margins included, on the grid."""
     body = spec.body
-    x0, x1 = 0, body.width
-    for pin in body.pins:
-        hx = pin.hot_end(body.width)[0]
-        x0, x1 = min(x0, hx), max(x1, hx)
-    for stub in part_stubs(spec, 0, 0):
-        if stub.side == "left":
-            x0 = min(x0, stub.end[0] - _beyond(stub.net))
-        else:
-            x1 = max(x1, stub.end[0] + _beyond(stub.net))
-    x1 = max(x1, CHAR_WIDTH * len(spec.ref), CHAR_WIDTH * len(spec.comment))
-    y0 = -(DESIGNATOR_RISE + TEXT_HEIGHT)
-    y1 = body.height + COMMENT_DROP
+    rect = body.rectangle(part)
+    x0, x1, y0, y1 = rect.x0, rect.x1, -rect.y1, -rect.y0
+    for pin in body.pins_of(part):
+        hx, hy = pin.hot_end
+        x0, x1, y0, y1 = min(x0, hx), max(x1, hx), min(y0, -hy), max(y1, -hy)
+    for stub in part_stubs(spec, 0, 0, part):
+        dx, dy = STEPS[stub.side]
+        far = _beyond(stub.net)
+        ex, ey = stub.end[0] + dx * far, stub.end[1] + dy * far
+        x0, x1, y0, y1 = min(x0, ex), max(x1, ex), min(y0, ey), max(y1, ey)
+    first = body.rectangle(1)
+    x1 = max(x1, first.x0 + CHAR_WIDTH * len(spec.ref), first.x0 + CHAR_WIDTH * len(spec.comment))
+    y0 = min(y0, -first.y1 - (DESIGNATOR_RISE + TEXT_HEIGHT))
+    y1 = max(y1, -first.y0 + COMMENT_DROP)
     return (
         _down(x0 - CELL_MARGIN),
         _down(y0 - CELL_MARGIN),
@@ -235,13 +273,15 @@ def _fits(cells: Sequence[tuple[int, int]], size: SheetSize) -> bool:
 
 
 def layout_sheet(parts: Sequence[PartSpec], *, sizes: Sequence[SheetSize] = SHEET_SIZES) -> SheetPlan:
-    """Place ``parts`` in component-path order on the first of ``sizes`` that holds them, else on a
-    custom sheet as wide as A0 (or as the widest cell plus the margins) and as high as needed."""
+    """Place ``parts`` in component-path order, each part of a symbol in its own consecutive cell, on the
+    first of ``sizes`` that holds them, else on a custom sheet as wide as A0 (or as the widest cell plus
+    the margins) and as high as needed."""
     ordered = sorted(parts, key=lambda p: p.key)
     keys = [p.key for p in ordered]
     if len(set(keys)) != len(keys):
         raise ValueError("two parts share a component path")
-    extents = [_extent(p) for p in ordered]
+    units = [(spec, part) for spec in ordered for part in range(1, spec.body.parts + 1)]
+    extents = [_extent(spec, part) for spec, part in units]
     cells = [(x1 - x0, y1 - y0) for x0, y0, x1, y1 in extents]
     size = next((s for s in sizes if _fits(cells, s)), None)
     if size is None:
@@ -252,11 +292,11 @@ def layout_sheet(parts: Sequence[PartSpec], *, sizes: Sequence[SheetSize] = SHEE
     offsets = _pack(cells, size.width - 2 * MARGIN)[0]
     placed: list[PlacedPart] = []
     stubs: list[Stub] = []
-    for spec, (x0, y0, x1, y1), (ox, oy) in zip(ordered, extents, offsets, strict=True):
+    for (spec, part), (x0, y0, x1, y1), (ox, oy) in zip(units, extents, offsets, strict=True):
         left, top = MARGIN + ox, MARGIN + oy
         x, y = left - x0, top - y0
-        placed.append(PlacedPart(spec, x, y, (left, top, left + x1 - x0, top + y1 - y0)))
-        stubs.extend(part_stubs(spec, x, y))
+        placed.append(PlacedPart(spec, x, y, (left, top, left + x1 - x0, top + y1 - y0), part))
+        stubs.extend(part_stubs(spec, x, y, part))
     return SheetPlan(size, tuple(placed), tuple(stubs))
 
 
@@ -272,8 +312,11 @@ __all__ = [
     "PartSpec",
     "PinNet",
     "PlacedPart",
+    "SIDES",
+    "STEPS",
     "SheetPlan",
     "SheetSize",
+    "Side",
     "Stub",
     "layout_sheet",
     "part_stubs",

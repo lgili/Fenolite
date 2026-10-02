@@ -9,9 +9,20 @@ from __future__ import annotations
 from collections import Counter
 from functools import cache
 
-from _altium import SAMPLE_PATHS, check_plan, component_index, model_of, owned_by, records, sample_model
+from _altium import (
+    SAMPLE_PATHS,
+    check_plan,
+    component_index,
+    model_of,
+    owned_by,
+    records,
+    sample_model,
+    upright_symbol,
+)
 
+from fenolite.backends.altium.layout import PartSpec, PinNet, layout_sheet
 from fenolite.backends.altium.project import plan_sheet, write_project
+from fenolite.backends.altium.schdoc import schdoc_records
 from fenolite.dsl import Design, Net, Part, connect
 
 SHEET_LINE = (
@@ -241,3 +252,20 @@ def test_sample_on_a4() -> None:
                 value = int(record[key])
                 limit = 1150 - 50 if key.endswith("X") or key[0] == "X" else 760 - 50
                 assert 50 <= value <= limit, (key, value)
+
+
+# --- library-symbol bodies (change c0034) -----------------------------------------------------------
+
+
+def test_vertical_labels_ports_and_edge_codes() -> None:
+    nets = {"1": PinNet("A", "label"), "2": PinNet("GND", "port", "ground"), "3": PinNet("B", "label")}
+    part = PartSpec("X1", "X1", "X", "b.SchLib", "X", None, "AAAAAAAA", upright_symbol(), nets)
+    found = [dict(r) for r in schdoc_records(layout_sheet([part]))]
+    labels = [r for r in found if r["RECORD"] == "25"]
+    assert [r.get("ORIENTATION") for r in labels] == ["1", None]
+    (port,) = [r for r in found if r["RECORD"] == "17"]
+    assert port["ORIENTATION"] == "3"
+    pins = {r["DESIGNATOR"]: r for r in found if r["RECORD"] == "2"}
+    assert pins["3"]["SYMBOL_INNEREDGE"] == "3" and "SYMBOL_OUTEREDGE" not in pins["3"]
+    assert "SYMBOL_INNEREDGE" not in pins["1"] and pins["1"]["PINCONGLOMERATE"] == str(1 | 0x08 | 0x10)
+    assert pins["1"]["PINLENGTH"] == "5" and pins["3"]["ELECTRICAL"] == "0"

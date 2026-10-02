@@ -9,6 +9,7 @@ import runpy
 from collections.abc import Iterator
 from pathlib import Path
 
+from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.layout import MARGIN, SheetPlan
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.core.coords import Point
@@ -115,6 +116,18 @@ def example_resolver(folder: Path, project_dir: Path = EXAMPLE_DIR) -> LibraryRe
     return LibraryResolver(config)
 
 
+def upright_symbol() -> AltiumSymbol:
+    """A one-part library symbol with an up pin ``1``, a down pin ``2`` (50 mil long) and a left clock pin
+    ``3``."""
+    pins = (
+        symbol_pin("1", 0, 150, 270, 1, "passive", length=50 * MIL),
+        symbol_pin("2", 0, -150, 90, 1, "passive", length=50 * MIL),
+        symbol_pin("3", -250, 0, 0, 1, "input", shape="clock"),
+    )
+    symbol = SymbolDef(id=derived_id("sym", "kicad", "D:X"), name="X", library="D", pins=pins)
+    return from_symbol_def(symbol, lib_ref="X", footprint=None)
+
+
 def sample() -> Design:
     design = runpy.run_path(str(SAMPLE))["design"]
     assert isinstance(design, Design)
@@ -166,27 +179,34 @@ def component_index(found: list[dict[str, str]], ref: str) -> int:
 
 
 def plan_points(plan: SheetPlan) -> Iterator[tuple[int, int]]:
-    """Every point the writer writes for ``plan``: body corners, pin ends, texts, stub ends and marks."""
+    """Every point the writer writes for ``plan``: origins, body corners, pin ends, texts, stub ends and
+    marks."""
     for part in plan.parts:
         body = part.spec.body
         yield part.x, part.y
-        yield part.x + body.width, part.y + body.height
-        yield part.x, part.y - 100
-        yield part.x, part.y + body.height + 200
+        for rect in body.rectangles:
+            yield part.at(rect.x0, rect.y0)
+            yield part.at(rect.x1, rect.y1)
+        first = body.rectangle(1)
+        yield part.at(first.x0, first.y1 + 100)
+        yield part.at(first.x0, first.y0 - 200)
         for pin in body.pins:
-            for dx, dy in (pin.body_end(body.width), pin.hot_end(body.width)):
-                yield part.x + dx, part.y + dy
+            yield part.at(pin.x, pin.y)
+            yield part.at(*pin.hot_end)
     for stub in plan.stubs:
         yield stub.start
         yield stub.end
         yield stub.mark
 
 
-def check_plan(plan: SheetPlan) -> None:
-    """On the grid, inside the drawing area less the margins, and no two cells overlap."""
+def check_plan(plan: SheetPlan, grid: int = 100) -> None:
+    """Origins and cells on the 100-mil grid, every point on ``grid`` (100 mil for generic bodies, 10 mil
+    for library symbols), inside the drawing area less the margins, and no two cells overlap."""
     size = plan.size
+    for part in plan.parts:
+        assert part.x % 100 == 0 and part.y % 100 == 0 and all(c % 100 == 0 for c in part.cell)
     for x, y in plan_points(plan):
-        assert x % 100 == 0 and y % 100 == 0, (x, y)
+        assert x % grid == 0 and y % grid == 0, (x, y)
         assert MARGIN <= x <= size.width - MARGIN and MARGIN <= y <= size.height - MARGIN, (x, y)
     cells = [p.cell for p in plan.parts]
     for i, (ax0, ay0, ax1, ay1) in enumerate(cells):

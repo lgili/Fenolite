@@ -146,9 +146,13 @@ def _link(text: str, what: str) -> tuple[str, str]:
     return _text(link[0], f"{what} library"), _text(link[1], f"{what} name")
 
 
-def part_specs(design: Design, *, name: str = "") -> list[PartSpec]:
-    """One ``PartSpec`` per component, in component-path order. ``name`` is the design name, which gives
-    the library file of KiCad lib ids (``schlib_name``)."""
+def part_specs(
+    design: Design, *, name: str = "", symbols: Mapping[str, AltiumSymbol] | None = None
+) -> list[PartSpec]:
+    """One ``PartSpec`` per component, in component-path order, its body the library symbol of its lib id
+    (``symbols`` first, generic otherwise). ``name`` is the design name, which gives the library file of
+    KiCad lib ids (``schlib_name``)."""
+    bodies = {**generic_symbols(design), **(symbols or {})}
     styles = power_styles(design)
     components = {c.id: c for c in design.circuit.components}
     joins: dict[str, dict[str, PinNet]] = {cid: {} for cid in components}
@@ -178,13 +182,10 @@ def part_specs(design: Design, *, name: str = "") -> list[PartSpec]:
             if component.lib_footprint_ref
             else None
         )
-        pins = [
-            (
-                _text(p.number, f"{component.ref} pin designator"),
-                _text(p.name or p.number, f"{component.ref} pin name"),
-            )
-            for p in component.pins
-        ]
+        body = bodies[component.lib_symbol_ref]
+        for pin in body.pins:
+            _text(pin.designator, f"{component.ref} pin designator")
+            _text(pin.name or pin.designator, f"{component.ref} pin name")
         specs.append(
             PartSpec(
                 key=component_path(component),
@@ -194,11 +195,12 @@ def part_specs(design: Design, *, name: str = "") -> list[PartSpec]:
                 symbol=symbol,
                 footprint=footprint,
                 unique_id=unique_id(component.id),
-                body=generic_symbol(pins),
+                body=body,
                 nets=joins[component.id],
+                part_ids=tuple(unique_id(f"{component.id}#{k}") for k in range(2, body.parts + 1)),
             )
         )
-    ids = [s.unique_id for s in specs]
+    ids = [s.part_id(k) for s in specs for k in range(1, s.body.parts + 1)]
     if len(set(ids)) != len(ids):
         raise ValueError("two components share a unique id")
     return specs
@@ -235,9 +237,11 @@ def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
     return symbols
 
 
-def plan_sheet(design: Design, *, name: str = "") -> SheetPlan:
+def plan_sheet(
+    design: Design, *, name: str = "", symbols: Mapping[str, AltiumSymbol] | None = None
+) -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components and stubs."""
-    return layout_sheet(part_specs(design, name=name))
+    return layout_sheet(part_specs(design, name=name, symbols=symbols))
 
 
 def library_symbols(
@@ -270,7 +274,7 @@ def write_project(
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    plan = plan_sheet(design, name=name)
+    plan = plan_sheet(design, name=name, symbols=symbols)
     if plan.size.style is None and issues is not None:
         issues.append(
             Issue(
