@@ -132,3 +132,64 @@ def test_designator_and_comment_texts() -> None:
     d1 = refs.index("D1")
     assert doc.texts[2 * d1].prefix.layer == 34 and doc.texts[2 * d1].mirrored == 1
     assert doc.texts[0 if d1 else 2].prefix.layer in (33, 34)
+
+
+# --- 4.3: placement --------------------------------------------------------------------------------
+
+UNIT = 2.54
+
+
+def _expected(spec: PcbDocSpec, ref: str) -> list[tuple[str, float, float, float]]:
+    """(pad, x, y, rotation) of ``ref``'s pads by the rule of "PCB document placement", in units."""
+    from fenolite.geometry.transform import Transform
+
+    component = next(c for c in spec.components if c.ref == ref)
+    min_x = min(p.x for p in spec.outline)
+    max_y = max(p.y for p in spec.outline)
+    transform = Transform.placement(component.at, component.rotation, mirror=component.side == "bottom")
+    out = []
+    for pad in component.footprint.defn.pads:
+        at = transform.apply(pad.position)
+        x = (at.x - min_x) / UNIT + 10_000_000
+        y = (max_y - at.y) / UNIT + 10_000_000
+        out.append((pad.number, x, y, transform.apply_angle(pad.rotation) / 1e6))
+    return out
+
+
+def test_place_pads_of_every_component() -> None:
+    doc, spec = blink_doc()
+    refs = [c["SOURCEDESIGNATOR"] for c in doc.components]
+    for index, ref in enumerate(refs):
+        pads = {p.name: p for p in doc.pads if p.prefix.component == index}
+        for number, x, y, rotation in _expected(spec, ref):
+            pad = pads[number]
+            assert abs(pad.x - x) <= 0.5 and abs(pad.y - y) <= 0.5, (ref, number)
+            assert pad.rotation == rotation, (ref, number)
+
+
+def test_place_component_origin() -> None:
+    doc, spec = blink_doc()
+    min_x = min(p.x for p in spec.outline)
+    max_y = max(p.y for p in spec.outline)
+    for record in doc.components:
+        component = next(c for c in spec.components if c.ref == record["SOURCEDESIGNATOR"])
+        x = round((component.at.x - min_x) * 50 / 127) + 10_000_000
+        y = round((max_y - component.at.y) * 50 / 127) + 10_000_000
+        from fenolite.backends.altium.pcbrecords import mil_text
+
+        assert (record["X"], record["Y"]) == (mil_text(x), mil_text(y))
+        assert record["ROTATION"] == degrees_text(component.rotation)
+
+
+def test_bottom_part() -> None:
+    """Scenario "A bottom part": D1 on the bottom, its overlay arcs on 34 and courtyard on 72."""
+    doc, _spec = blink_doc()
+    d1 = [c["SOURCEDESIGNATOR"] for c in doc.components].index("D1")
+    assert doc.components[d1]["LAYER"] == "BOTTOM"
+    arcs = [a for a in doc.arcs if a.prefix.component == d1]
+    tracks = [t for t in doc.tracks if t.prefix.component == d1]
+    assert sorted({a.prefix.layer for a in arcs}) == [34, 70]
+    assert {t.prefix.layer for t in tracks} == {72}
+    assert {p.prefix.layer for p in doc.pads if p.prefix.component == d1} == {74}
+    top = [c["SOURCEDESIGNATOR"] for c in doc.components].index("R1")
+    assert {t.prefix.layer for t in doc.tracks if t.prefix.component == top} == {33, 69, 71}
