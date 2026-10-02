@@ -33,6 +33,11 @@ templates come only from GUI saves** (see "Templates").
 | A `min_clearance` above a class clearance governs: HV at 0.5 mm gives no violation at a 1.0 mm gap, and does once `min_clearance` is 1.5 | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-FLOOR |
 | `kicad-cli pcb drc` and `pcb export svg` never rewrite `.kicad_pro`; 10.0.6 writes a `.kicad_prl` next to the board, 9.0.9 does not | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PRL |
 | A `.kicad_dru` next to the board is read without a project file; only the net classes need the project | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-SILENT |
+| `board.design_settings.rules` also holds `min_copper_edge_clearance` (0.5 mm in the empty save); `kicad-cli` 9.0.9 and 10.0.6 apply all five minimum keys to items that no custom rule governs | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-KEYS |
+| A board-wide custom rule governs below the board-setup minimums: an item between the rule's `min` and a higher minimum is not reported, although the manuals call the minimums absolute | S-0038, S-0010, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-2 |
+| The project Fenolite writes from board-wide rules lets every rule value take effect | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-WRITE |
+| A board-wide custom clearance rule governs the items of a class with a larger clearance: the class clearance is not applied | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-CLASS |
+| Net-class track widths and via sizes are defaults for new items, not DRC limits | S-0038, S-0010 | INFERRED | H-K-PRO-MIN-CLASS |
 
 ## Versions
 
@@ -75,7 +80,49 @@ templates come only from GUI saves** (see "Templates").
 Class values are written by `lowering.lower_netclass` from the `Default` entry of the project being
 written: the four values as exact millimetre texts, every other key copied. A value below its
 board-setup minimum is still written, with the warning `kicad.project.below-floor`, because the
-minimum governs.
+minimum governs. The minimums themselves are written first ("Board-setup minimums").
+
+## Board-setup minimums
+
+`board.design_settings.rules` (`pro.MINIMUM_POINTER`) holds the board-setup minimums. Five of them are
+derived from the design's board-wide rules (change c0026); the other 14 members are kept verbatim.
+
+| rule kind (normal form) | key, targets 9 and 10 |
+|---|---|
+| `clearance` | `min_clearance` |
+| `track_width` | `min_track_width` |
+| `via_diameter` | `min_via_diameter` |
+| `hole_size` (with `via_drill`) | `min_through_hole_diameter` |
+| `edge_clearance` | `min_copper_edge_clearance` |
+
+These are Fenolite's choices on top of the facts above:
+
+- **Board-wide.** A rule is board-wide when its normal form has selector `all`, no second selector and
+  no layers. A `via_drill` rule on `all` selects vias only, so it is not board-wide.
+- **Value.** Per kind, the governing board-wide rule is the last one in KiCad's order
+  (`H-K-DRU-ORDER`). With severity `error` and a `min`, its key gets the least `min` among it and the
+  later rules of its kind, so no rule's `min` is below the written minimum. Rules before it never
+  govern and do not count. Otherwise the key is kept (`kicad.project.minimum-kept`). Without a
+  board-wide rule of the kind, nothing is written.
+- **Writing.** Synthesis and updates write the minimums before the classes, so
+  `kicad.project.below-floor` compares class values with the written minimums. A value equal in
+  nanometres keeps its text; a new value is the exact millimetre text. A missing key is appended to
+  the rules object, a missing parent object to its parent, and a parent that is not an object raises
+  `FormatError` with its pointer. Updates report each changed or added key
+  (`kicad.project.minimum-replaced`); synthesis does not. Without a board-wide rule the text is the
+  same as without rules.
+- **Read-back.** `pro.project_minimums(data)` reads the five values; they are never lifted into the
+  model's rules. The rules come back from `.kicad_dru`, and writing again gives the same minimums.
+- **Conflicts.** `kicad.project.rule-below-minimum` would name a rule below a minimum that is not
+  written, on the majors of `lowering.FLOOR_OVER_RULES`; that table is empty, because a custom rule
+  governs below the minimums on 9.0.9 and 10.0.6 (`H-K-PRO-MIN-RULE-2`). After the classes,
+  `lowering.class_conflicts` compares every class clearance with the governing board-wide clearance
+  rule. On the majors of `RULES_OVER_CLASSES` (9 and 10, `H-K-PRO-MIN-CLASS`) a larger class clearance
+  is not applied, so `kicad.project.class-shadowed` names the class, unless it is a `Default` entry
+  that the model does not set, or a later clearance rule on `netclass <name>` restores it. Elsewhere
+  `kicad.project.default-over-rule` would name a template `Default` clearance above the rule.
+- **Not seen.** Opaque rules and rules kept verbatim by other changes are not read, and micro-via
+  minimums are not written.
 
 ## Patterns
 
@@ -126,6 +173,11 @@ net.
 | `kicad.project.inexact-value` | info | a class value or floor that is not a whole number of nm |
 | `kicad.project.unlowered-field` | info | a non-empty `NetClass.description` |
 | `kicad.project.unread-entry` | info | a pattern or assignment entry of unexpected shape |
+| `kicad.project.minimum-replaced` | info | an update writes a minimum that is absent, not a number, or different in nanometres |
+| `kicad.project.minimum-kept` | info | the governing board-wide rule has a severity other than `error` or no `min` |
+| `kicad.project.rule-below-minimum` | warning | a rule asks for less than a minimum that is not written, on a major of `FLOOR_OVER_RULES` |
+| `kicad.project.class-shadowed` | warning | a board-wide clearance rule overrides a larger class clearance |
+| `kicad.project.default-over-rule` | warning | the template `Default` clearance stays above a board-wide clearance rule, on a major outside `RULES_OVER_CLASSES` |
 
 ## Census
 

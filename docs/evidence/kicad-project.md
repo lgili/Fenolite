@@ -19,6 +19,12 @@ are listed once, at 10.0.6; the folder with a non-commercial licence is not list
 | `time_domain_parameters` | 3 | 0 |
 | `legacy` | 3 | 2 |
 | custom rules rows | 2 | 0 (the 9.0.9.1 file equals one at 10.0.6) |
+| `min_clearance` | 19 | 10 |
+| `min_track_width` | 19 | 10 |
+| `min_via_diameter` | 19 | 10 |
+| `min_through_hole_diameter` | 19 | 10 |
+| `min_copper_edge_clearance` | 21 | 11 |
+| all five minimum keys (c0026) | 19 | 10 |
 
 Every key of `pro.TEN_ONLY_PATHS` occurs only in 10.0.6 rows (`H-K-PRO-VERSION`, `H-K-PRO-TUNING`).
 Both custom rules rows are read with `read_rules`, written for target 10 and read back equal

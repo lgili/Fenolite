@@ -61,3 +61,6 @@ written from the pages under `docs/formats/kicad/`.
 | worksheet text variables, default corner, label increment, bitmap plotting (c0012) | S-0075, S-0076 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
 | board `paper` forms and `title_block` children; the `User` paper spelling (c0012) | S-0001, S-0058 | not stated on the page; CC-BY-SA-4.0 (demo files read for facts only) | 2026-10-02 | facts only |
 | drawing-sheet oracle: `pcb export svg --drawing-sheet` on `kicad-cli` 9.0.9 and 10.0.6 (c0012) | S-0020, S-0022, S-0037, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
+| board-setup minimum keys of `board.design_settings.rules` and their template values from the 10.0.6 GUI save; minimums oracle on `kicad-cli` 9.0.9 and 10.0.6 (c0026) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
+| board-setup minimums called absolute, class values raised to them, class track and via sizes no DRC limits (c0026) | S-0038, S-0010 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| demo project census: rows holding each minimum key, names and counts only (c0026) | S-0024, S-0058 | CC-BY-SA-4.0 (notice); API metadata | 2026-10-02 | facts only |

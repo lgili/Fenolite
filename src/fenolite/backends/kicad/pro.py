@@ -23,7 +23,16 @@ from typing import Any, cast
 
 from fenolite.backends.kicad import _json
 from fenolite.backends.kicad._json import JsonNumber, JsonObject
-from fenolite.backends.kicad.lowering import FLOOR_KEYS, NETCLASS_KEYS, lower_netclass
+from fenolite.backends.kicad.lowering import (
+    FLOOR_KEYS,
+    MINIMUM_KEYS,
+    NETCLASS_KEYS,
+    class_conflicts,
+    governing_rule,
+    lower_minimums,
+    lower_netclass,
+    millimetres,
+)
 from fenolite.backends.kicad.pcb import source_info
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
 from fenolite.backends.kicad.versions import (
@@ -60,6 +69,8 @@ PATTERN_ENTRY_PATHS: frozenset[str] = frozenset(
 )
 """The key paths a pattern entry adds; the only paths synthesis may add to the template's."""
 DEFAULT_CLASS = "Default"
+MINIMUM_POINTER = "/board/design_settings/rules"
+"""Where the board-setup minimums live (``project.md``, "Board-setup minimums")."""
 REWRITE_HINT = "re-save the project in KiCad 9 or 10, or let Fenolite synthesise a new one"
 
 
@@ -235,6 +246,23 @@ def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> di
         if value is not None:
             floors[model_field] = value
     return floors
+
+
+def project_minimums(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
+    """Key → the nm value of each ``MINIMUM_KEYS`` member of ``board.design_settings.rules`` that is a
+    JSON number; an inexact value reads as absent with ``kicad.project.inexact-value``."""
+    found = issues if issues is not None else []
+    rules = _json.get(data, MINIMUM_POINTER)
+    if not isinstance(rules, dict):
+        return {}
+    table = cast(JsonObject, rules)
+    keys = dict.fromkeys(key for kinds in MINIMUM_KEYS.values() for key in kinds.values())
+    minimums: dict[str, Nm] = {}
+    for key in keys:
+        value = _nm(table.get(key), f"{MINIMUM_POINTER}/{key}", found)
+        if value is not None:
+            minimums[key] = value
+    return minimums
 
 
 def _source(source: str | os.PathLike[str], file: str) -> tuple[str, str]:
@@ -554,6 +582,77 @@ def _exact_entries(design: Design, *, allow_lossy: bool, issues: list[Issue]) ->
     return entries
 
 
+def _rules_object(data: JsonObject) -> JsonObject:
+    """``board.design_settings.rules``, with missing objects appended to their parents."""
+    node = data
+    pointer = ""
+    for part in MINIMUM_POINTER.split("/")[1:]:
+        pointer += "/" + part
+        child = node.setdefault(part, {})
+        if not isinstance(child, dict):
+            raise FormatError(f"{pointer} is not an object; the board-setup minimums cannot be written",
+                              locator=pointer)  # fmt: skip
+        node = cast(JsonObject, child)
+    return node
+
+
+def _write_minimums(
+    data: JsonObject, design: Design, *, target: int, update: bool, issues: list[Issue]
+) -> None:
+    """Decision 5 of c0026: the minimums that ``lower_minimums`` derives from the board-wide rules."""
+    current = {**project_minimums(template(target)), **project_minimums(data)}
+    minimums = lower_minimums(design.rules, target=target, current=current, issues=issues)
+    if not minimums:
+        return
+    rules = _rules_object(data)
+    for kind, key in MINIMUM_KEYS[target].items():
+        if key not in minimums:
+            continue
+        value = minimums[key]
+        present, old = key in rules, rules.get(key)
+        if isinstance(old, JsonNumber) and _same_nm(old, millimetres(value)):
+            continue
+        rules[key] = millimetres(value)
+        if update:
+            rule = governing_rule(design.rules, kind)
+            before = _text(old) if present else "absent"
+            issues.append(
+                project_issue(
+                    "kicad.project.minimum-replaced",
+                    f"{key}: {before} → {millimetres(value).text} mm, from the board-wide rule "
+                    f"{rule.name if rule is not None else '?'!r}",
+                    where=f"{MINIMUM_POINTER}/{key}",
+                )
+            )
+
+
+def _text(value: Any) -> str:
+    return value.text if isinstance(value, JsonNumber) else repr(value)
+
+
+def _class_clearances(classes: Sequence[Any]) -> dict[str, Nm]:
+    out: dict[str, Nm] = {}
+    for entry in classes:
+        item = cast(JsonObject, entry) if isinstance(entry, dict) else {}
+        name, value = item.get("name"), item.get("clearance")
+        if isinstance(name, str) and isinstance(value, JsonNumber):
+            try:
+                out[name] = parse_length(value.text, default_unit="mm")
+            except ValueError:
+                continue
+    return out
+
+
+def _check_classes(data: JsonObject, design: Design, *, target: int, issues: list[Issue]) -> None:
+    class_conflicts(
+        design.rules,
+        target=target,
+        clearances=_class_clearances(_classes(data)),
+        model_names={c.name for c in design.circuit.netclasses},
+        issues=issues,
+    )
+
+
 def synthesize_project(
     design: Design,
     *,
@@ -566,6 +665,7 @@ def synthesize_project(
     found = issues if issues is not None else []
     data = template(target)
     cast(JsonObject, data.setdefault("meta", {}))["filename"] = f"{board_name}.kicad_pro"
+    _write_minimums(data, design, target=target, update=False, issues=found)
     classes = _classes(data)
     base = cast(JsonObject, classes[0])
     floors = project_floors(data, issues=found)
@@ -578,6 +678,7 @@ def synthesize_project(
         else:
             written.append(entry)
     classes[1:] = written
+    _check_classes(data, design, target=target, issues=found)
     settings = cast(JsonObject, data["net_settings"])
     settings["netclass_patterns"] = _exact_entries(design, allow_lossy=allow_lossy, issues=found)
     return _json.dumps(data)
@@ -663,6 +764,7 @@ def update_project(
         )
     if target == 9:
         _gate_nine(data, design, pair, allow_lossy=allow_lossy, issues=found)
+    _write_minimums(data, design, target=target, update=True, issues=found)
     classes = _classes(data)
     by_name = {cast(JsonObject, c).get("name"): i for i, c in enumerate(classes) if isinstance(c, dict)}
     default_index = by_name.get(DEFAULT_CLASS, 0)
@@ -682,6 +784,7 @@ def update_project(
             if not same:
                 entry[key] = new
     classes.extend(appended)
+    _check_classes(data, design, target=target, issues=found)
     settings = cast(JsonObject, data["net_settings"])
     names = _net_class_names(design)
     existing = settings.get("netclass_patterns")
@@ -736,6 +839,7 @@ __all__ = [
     "DEFAULT_CLASS",
     "EVIDENCE",
     "ISSUE_CODES",
+    "MINIMUM_POINTER",
     "NET_SETTINGS_READ_MAX",
     "PAGE_LAYOUT_POINTER",
     "PATTERN_ENTRY_PATHS",
@@ -751,6 +855,7 @@ __all__ = [
     "classify_project",
     "pattern_matches",
     "project_floors",
+    "project_minimums",
     "project_major",
     "read_project",
     "read_project_text",

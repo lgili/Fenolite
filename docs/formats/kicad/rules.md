@@ -23,12 +23,19 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | When several rules match an item pair, the rule later in the file takes precedence | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-ORDER |
 | A rule's severity is `error`, `warning`, `ignore` or `exclusion`; ignored rules are still matched and can override earlier rules | S-0010, S-0038 | INFERRED | H-K-DRU-ORDER |
 | Constraint limits are `min`, `opt` and `max`; `clearance` and `edge_clearance` take `min`, `hole_size` takes `min` and `max`, `track_width` and `via_diameter` take all three; the `min` limit of each lowered kind is enforced | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND |
-| Board-setup minimums are absolute floors: a custom rule cannot lower them | S-0038 | INFERRED | H-K-DRU-KIND |
+| The manuals call the board-setup minimums absolute floors that no rule may override, but on 9.0.9 and 10.0.6 a board-wide custom rule governs below them | S-0038, S-0010, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-2 |
+| A board-wide custom clearance rule governs the items of a net class with a larger clearance | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-CLASS |
 | Any error disables every custom rule with exit 0; a `.kicad_dru` next to the board is read with or without a project file (the net classes need one) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-SILENT |
 | 9.0.9 drops the whole file when one rule uses one of seven 10.0-only constructs (`bridged_mask`, `solder_mask_expansion`, `solder_paste_abs_margin`, `solder_paste_rel_margin`, `via_dangling`, the disallow kinds `through_via` and `blind_via`) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-DRIFT |
 | Every constraint type and clause of the 9.0 manual loads on 9.0.9 and 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-FLOOR |
 | A rule with a single-quoted name makes 9.0.9 and 10.0.6 drop the whole file, with exit 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-QUOTE |
 | `assign_component_class` is a rules keyword at tag 10.0.6 and not at 9.0.0; no public page documents its shape | S-0034 | INFERRED | H-K-TOK-CONSTANTS |
+
+## Board-wide rules and board-setup minimums
+
+A board-wide rule (selector `all`, no second selector, no layers) is written here as a custom rule, as
+every modelled rule is, and also sets the matching board-setup minimum of the project file. The
+mapping, the value rule and the conflict reports are in `project.md`, "Board-setup minimums".
 
 ## The dialect front end
 

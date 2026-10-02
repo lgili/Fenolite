@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Project files read, printed and read again (capability kicad-file-backend, "Project JSON is
 preserved exactly"; change c0010): the GUI fixtures, and the cached demo projects (``needs_corpus``)
-with a key-name census written only to ``FENOLITE_CENSUS_OUT``."""
+with a key-name census written only to ``FENOLITE_CENSUS_OUT``; c0026 adds the rows per tag that hold
+each board-setup minimum key."""
 
 from __future__ import annotations
 
@@ -14,7 +15,13 @@ from pathlib import Path
 import pytest
 
 from fenolite.backends.kicad import _json
-from fenolite.backends.kicad.pro import TEN_ONLY_PATHS, read_project_text, write_project_text
+from fenolite.backends.kicad.lowering import MINIMUM_KEYS
+from fenolite.backends.kicad.pro import (
+    MINIMUM_POINTER,
+    TEN_ONLY_PATHS,
+    read_project_text,
+    write_project_text,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 FIXTURES = sorted((ROOT / "tests" / "data" / "kicad" / "project").glob("*.kicad_pro"))
@@ -67,6 +74,13 @@ def test_demo_projects_round_trip() -> None:
         settings = _json.get(data, "/net_settings/meta/version")
         counts[f"pair:{getattr(meta, 'text', None)},{getattr(settings, 'text', None)}"] += 1
         counts.update(f"ten-only:{p}" for p in _json.key_paths(data) & TEN_ONLY_PATHS)
+        held = {
+            key
+            for key in MINIMUM_KEYS[10].values()
+            if isinstance(_json.get(data, f"{MINIMUM_POINTER}/{key}"), _json.JsonNumber)
+        }
+        counts.update(f"minimum:{key}" for key in MINIMUM_KEYS[10].values() if key in held)
+        counts["minimum:all-five"] += all(key in held for key in MINIMUM_KEYS[10].values())
     out = os.environ.get("FENOLITE_CENSUS_OUT")
     if out:
         Path(out).write_text(json.dumps({k: dict(sorted(v.items())) for k, v in census.items()}, indent=1))

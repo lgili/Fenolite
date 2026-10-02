@@ -12,12 +12,13 @@ from fenolite.backends.kicad.dru import read_rules, write_rules
 from fenolite.backends.kicad.embed import footprint_extent, place_footprint
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, split_lib_id
-from fenolite.backends.kicad.lowering import lower_rules
+from fenolite.backends.kicad.lowering import lower_minimums, lower_rules
 from fenolite.backends.kicad.mod import board_footprints, read_footprint, write_footprint, write_pretty
 from fenolite.backends.kicad.pcb import opaque_count, read_board, rebuild_board, write_board
 from fenolite.backends.kicad.pro import (
     PROJECT_VERSIONS,
     apply_project,
+    project_minimums,
     read_project,
     synthesize_project,
     update_project,
@@ -60,12 +61,14 @@ __all__ = [
     "first_difference",
     "footprint_extent",
     "load",
+    "lower_minimums",
     "lower_rules",
     "opaque_count",
     "parse",
     "parse_bytes",
     "parse_fragment",
     "place_footprint",
+    "project_minimums",
     "read_board",
     "read_drawing_sheet",
     "read_drc_report",

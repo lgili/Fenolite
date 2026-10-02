@@ -28,6 +28,11 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.project.reserved-variable": "error",
         "kicad.project.dropped-variable": "warning",
         "kicad.project.unread-variable": "info",
+        "kicad.project.minimum-replaced": "info",
+        "kicad.project.minimum-kept": "info",
+        "kicad.project.rule-below-minimum": "warning",
+        "kicad.project.class-shadowed": "warning",
+        "kicad.project.default-over-rule": "warning",
     }
 )
 
