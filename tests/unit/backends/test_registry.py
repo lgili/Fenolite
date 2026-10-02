@@ -149,11 +149,11 @@ def test_symbol_library_read_through_the_backend() -> None:
 
 def test_kicad_capability_report() -> None:
     """The write fields of c0017 replace c0009's pre-writer values (write kinds empty, no targets);
-    c0010 adds ``lower`` (membership, the order is not pinned)."""
+    c0010 adds ``lower`` and c0013 ``validate`` (membership, the order is not pinned)."""
     report = KicadBackend().capabilities().to_json()
     assert {"kicad_pcb", "kicad_pro"} <= set(report.pop("write_kinds"))
     operations = report.pop("operations")
-    assert {"detect", "read", "write", "lower"} == set(operations)
+    assert {"detect", "read", "write", "lower", "validate"} == set(operations)
     assert report == {
         "name": "kicad",
         "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
@@ -162,7 +162,7 @@ def test_kicad_capability_report() -> None:
         "downgrade": "unsupported",
         "evidence": {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]},
     }
-    assert "validate" not in operations and "kicad_pro" not in report["read_kinds"]
+    assert "kicad_pro" not in report["read_kinds"]
     json.dumps(report)
 
 

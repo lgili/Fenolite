@@ -45,3 +45,31 @@ These are decisions of the reader, not facts about KiCad.
   file was loaded.
 
 `drc.EVIDENCE` is `KICAD-VERIFIED` (`H-K-DRC-JSON`, settled on 9.0.9 and 10.0.6 by `tests/kicad/board/test_drc_report.py`).
+
+## Check canary
+
+`fenolite check` proves in the same DRC run whether a project's custom rules were loaded
+(`backends/kicad/canary.py`, `oracle.py`; change c0013). The canary applies only when the copy set holds
+both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary copies.
+
+- **Rule.** A `clearance` rule named `fenolite_check_canary`, minimum 3 mm, selecting the net
+  `FENOLITE_CANARY_A`, written for the running major by the rules lowering; it is appended after the
+  user's bytes, which are kept unchanged, because the later rule governs.
+- **Tracks.** Two `F.Cu` segments, 0.25 mm wide and 2 mm long, on nets `FENOLITE_CANARY_A` and
+  `FENOLITE_CANARY_B`, 1 mm apart, starting 25 mm beyond every coordinate of the board, inserted as text
+  before the root's closing parenthesis (two numbered `net` rows after the last net row in the 9.0 form).
+- **Verdict.** `fired` when a `clearance` violation names exactly the two canary track uuids, `absent`
+  otherwise; `inconclusive` with a reason (`placement-unproven`, `selector-unproven`, `clearance-ignored`,
+  `names-taken`, `board-unparsed`, `extent-too-large`, `no-front-copper`, `no-report`) when it cannot be
+  judged; `not-applicable` without a project or rules file.
+- **Stripping.** Every violation and unconnected item that names a canary uuid is removed before the
+  report is counted (`canary_removed`).
+- **Support.** `CANARY_SUPPORT` holds the majors whose probes recorded the canary firing and silenced
+  by a dropped rules file (9 and 10); `CANARY_TWO_RUN`, the majors where it was not neutral (none).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A `clearance` rule on its own net, appended after the user's rules, fires exactly once on two 0.25 mm `F.Cu` tracks 1 mm apart placed 25 mm beyond every board coordinate, on 9.0.9 and 10.0.6 | S-0010, S-0038, S-0020 | INFERRED | H-K-CHECK-CANARY |
+| The canary gives no violation when the rules file is dropped (`broken.kicad_dru`) or the project sets the `clearance` severity to `ignore` | S-0038, S-0020 | INFERRED | H-K-CHECK-CANARY |
+| With the canary violations removed, the report equals a run without the canary, for the authored projects on both majors | S-0020 | INFERRED | H-K-CHECK-CANARY |
+| KiCad can report a clearance between two tracks in some runs and not in others when one of them also runs over a pad of the other's net (observed on 10.0.6): two plain runs of such a board can differ, so a comparison first repeats its reference run | S-0020 | INFERRED | H-K-CHECK-CANARY |

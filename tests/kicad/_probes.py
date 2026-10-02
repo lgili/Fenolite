@@ -24,6 +24,7 @@ from pathlib import Path
 import _acceptance
 import _bench
 import _buildcases
+import _checkcases
 import _fpwrite
 import _mincases
 import _procases
@@ -207,6 +208,8 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _acceptance.accept_probes().items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
+    for pid, (function, majors) in _checkcases.check_probes().items():
+        probes[pid] = Probe(function, majors)
     return probes
 
 

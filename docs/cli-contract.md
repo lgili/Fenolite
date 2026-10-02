@@ -144,7 +144,7 @@ Each entry of `result.backends` is one backend's capability report, sorted by na
 {"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
  "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks"],
  "targets": [9, 10], "default_target": 10, "downgrade": "unsupported",
- "operations": ["detect", "read", "write", "lower"],
+ "operations": ["detect", "read", "write", "lower", "validate"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}
 ```
 
@@ -154,3 +154,88 @@ the kinds it writes, its `targets` (oldest first), the `default_target` used whe
 whether a file read at a newer version can be written for an older target (`downgrade`). Listing backends runs no external
 tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
 by `fenolite.backends.kicad.cli.find_kicad_cli()`.
+
+## check
+
+`fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
+read-only. `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
+`.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
+(board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
+drawing sheet): nothing under the project folder is created or changed. `--timeout` defaults to 300 s.
+The input is *built* when `.fenolite/meta.json` or `.fenolite/build.json` exists next to the board.
+
+The stages run in this order; `--stages` selects a subset, and unselected stages are left out:
+
+| stage | runs on | evidence |
+|---|---|---|
+| `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
+| `erc.lite` | built input only; skipped with `native-input` otherwise | `INFERRED` (`H-K-CHECK-ERC`) |
+| `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
+| `roundtrip` | RT1 of the board, native and built alike | the reader's level |
+
+Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `status` is `ok` (ran, no
+error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused` or
+`cache-unreadable`. A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
+the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
+none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
+project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_reason`,
+`canary_removed`, `violations`, `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes` and
+`violations_judged`; DRC violations are counted, not yet mapped to issues (`violations_judged` is
+`false`).
+
+**Rules canary.** KiCad drops a rules file with one error whole and still reports success, so
+`drc.kicad` appends a clearance rule on a net of its own to a copy of `<stem>.kicad_dru` and inserts two
+tracks of that net beyond the board in a copy of the board. Its state is `fired` (the rules were
+loaded), `absent` (they were not), `inconclusive` (with `canary_reason`) or `not-applicable` (no rules
+file, or no project file next to it).
+
+| code | severity | when |
+|---|---|---|
+| `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
+| `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; both model stages are skipped |
+| `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
+| `check.symbol-unresolved` | error | a built component has no symbol reference |
+| `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
+| `check.oracle-failed` | error | `kicad-cli` wrote no DRC report, or timed out (`retryable: true`) |
+| `check.copy-skipped` | info | a file or folder the project names was left out of the copy |
+| `kicad.drc.rules-not-loaded` | error (built), info (native) | the canary is `absent`, or a rules file has no project file next to it |
+| `kicad.drc.rules-unchecked` | warning | the canary is `inconclusive`; the message names the reason |
+| `erc.lite.output-conflict` | warning | two or more driving outputs on one net |
+| `erc.lite.power-undriven` | warning | a power input without a power output or a power interface |
+| `erc.lite.floating-pin` | warning | a pin on no net |
+
+`model.*` findings and reader codes pass through unchanged. Exit codes: 0 without an error issue, 5
+with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
+neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when `drc.kicad` is
+selected and `kicad-cli` is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),
+of an unsupported major, or older than the board's format (`FEN-6002`). Two runs on the same project
+give the same stdout apart from `elapsed_ms`.
+
+## inspect
+
+`fenolite inspect FILE [--summary]` summarises one KiCad file and runs no tool. Boards, footprint
+files and symbol libraries (file or `.kicad_symdir`) are read by their reader; `.kicad_sch` and
+`.kicad_wks` are read header-only, with counts of the root children by head. `result` holds `kind`,
+`format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count` (boards
+only) and `model_findings` (the `model.*` findings counted by severity, not reported as issues).
+`input.path` is the file name. `.kicad_pro`, `.kicad_dru` and other files exit 2 (`FEN-2001`); a read
+error exits 3 with its code.
+
+## doctor
+
+`fenolite doctor [--kicad-cli PATH]... [--no-run]` reports the external tools. `result.kicad_cli` holds
+one entry per `kicad-cli` candidate (each `--kicad-cli`, `FENOLITE_KICAD_CLI`, `kicad-cli` on `PATH`,
+the macOS application bundle; one entry per binary) with `path`, `source`, `version`, `major`,
+`supported`, `selected`, `matrix` (each command and option of the matrix `true`, `false` or `"unknown"`,
+read from the help pages through the package runner) and `evidence`. `result.by_major` maps each major
+to its candidates' paths; `result.java` (`path`, `version`, `major`) and `result.docker` (`path`,
+`version`, `daemon`) are `null` when missing. `--no-run` lists the candidates and runs no tool.
+
+| code | severity | when |
+|---|---|---|
+| `doctor.tool-missing` | warning | a tool is absent, or `--kicad-cli` or `FENOLITE_KICAD_CLI` names a missing file |
+| `doctor.tool-unsupported` | warning | a candidate's major is not 9 or 10, or it reports no version |
+| `doctor.help-unparsed` | warning | a help page did not parse |
+
+`doctor` exits 0. Its evidence is the help-matrix evidence with the oracle of the selected candidate
+when every help page parsed, `UNVERIFIED` otherwise and with `--no-run`.

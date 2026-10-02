@@ -41,7 +41,7 @@ def test_kicad_backend_listed(capsys: pytest.CaptureFixture[str]) -> None:
     assert set(kicad) == keys | {"evidence"}
     assert {"kicad_pcb", "kicad_mod", "kicad_sym"} <= set(kicad["read_kinds"])
     assert "kicad_pcb" in kicad["write_kinds"] and "kicad_pro" in kicad["write_kinds"]
-    assert {"detect", "read", "write", "lower"} == set(kicad["operations"])
+    assert {"detect", "read", "write", "lower", "validate"} == set(kicad["operations"])
     assert (
         kicad["targets"] == [9, 10] and kicad["default_target"] == 10 and kicad["downgrade"] == "unsupported"
     )

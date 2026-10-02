@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The KiCad backend as seen through ``fenolite.backends.base``: detection, reading, writing and
-capabilities."""
+"""The KiCad backend as seen through ``fenolite.backends.base``: detection, reading, writing, validation
+and capabilities."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from fenolite.backends.base import CapabilityReport, ReadResult, WriteResult
+from fenolite.backends.base import CapabilityReport, ReadResult, Validation, Validator, WriteResult
 from fenolite.backends.kicad import versions
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -23,7 +23,7 @@ CAPABILITIES = CapabilityReport(
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",
-    operations=("detect", "read", "write", "lower"),
+    operations=("detect", "read", "write", "lower", "validate"),
     evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ", "H-K-PCB-WRITE")),
 )
 
@@ -122,8 +122,26 @@ class KicadBackend:
         assert chosen is not None
         return write_drawing_sheet(sheet, target=chosen, allow_lossy=allow_lossy)
 
+    def validate(self, path: Path, *, issues: list[Issue] | None = None) -> Validation:
+        """Read a board once and check its same-version rebuild (RT1, ``roundtrip.rt1``).
+
+        The reader's ``FormatError`` is raised unchanged; any other kind raises ``ValueError``.
+        """
+        from fenolite.backends.kicad.roundtrip import rt1
+
+        kind = _kind(path)
+        if kind is not versions.FileKind.BOARD:
+            what = kind.value if kind is not None else "an unknown kind"
+            raise ValueError(f"{path.name!r} is {what}; only a KiCad board can be validated")
+        read = self.read(path, issues=issues)  # raises the reader's FormatError, invalid UTF-8 included
+        return Validation(read, rt1(path.read_bytes().decode("utf-8"), file=path.name))
+
     def capabilities(self) -> CapabilityReport:
         return CAPABILITIES
+
+
+_VALIDATOR: Validator = KicadBackend()
+"""The KiCad backend satisfies ``Validator`` (checked by pyright)."""
 
 
 __all__ = ["CAPABILITIES", "SYMBOL_DIR_SUFFIX", "KicadBackend"]

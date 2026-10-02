@@ -45,6 +45,41 @@ def find_kicad_cli(explicit: str | os.PathLike[str] | None = None) -> Path | Non
     return MACOS_KICAD_CLI if MACOS_KICAD_CLI.is_file() else None
 
 
+CandidateSource = Literal["explicit", "env", "path", "macos-app"]
+
+
+@dataclass(frozen=True, slots=True)
+class CliCandidate:
+    """An existing ``kicad-cli`` file and where it was found."""
+
+    path: Path
+    source: CandidateSource
+
+
+def kicad_cli_candidates(explicit: Sequence[str | os.PathLike[str]] = ()) -> tuple[CliCandidate, ...]:
+    """Every existing ``kicad-cli``: each ``explicit`` path, ``FENOLITE_KICAD_CLI``, ``kicad-cli`` in each
+    ``PATH`` entry, then the macOS bundle; deduplicated by resolved path, keeping the first source."""
+    found: list[tuple[Path, CandidateSource]] = [(Path(os.fspath(p)), "explicit") for p in explicit]
+    override = os.environ.get("FENOLITE_KICAD_CLI")
+    if override:
+        found.append((Path(override), "env"))
+    for entry in os.environ.get("PATH", "").split(os.pathsep):
+        if entry:
+            found.append((Path(entry) / "kicad-cli", "path"))
+    found.append((MACOS_KICAD_CLI, "macos-app"))
+    seen: set[Path] = set()
+    candidates: list[CliCandidate] = []
+    for path, source in found:
+        if not path.is_file():
+            continue
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        candidates.append(CliCandidate(path, source))
+    return tuple(candidates)
+
+
 @dataclass(frozen=True)
 class CliRun:
     """One ``kicad-cli`` run: its outcome, output streams and the files it created or changed."""
@@ -294,10 +329,13 @@ def _sanitise(text: str, tmp: Path) -> str:
 __all__ = [
     "DRC_REPORT",
     "MACOS_KICAD_CLI",
+    "CandidateSource",
+    "CliCandidate",
     "CliRun",
     "DrcRun",
     "KicadCli",
     "KicadCliError",
     "KicadCliVersionError",
     "find_kicad_cli",
+    "kicad_cli_candidates",
 ]

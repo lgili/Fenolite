@@ -13,7 +13,7 @@ import pytest
 TESTS = Path(__file__).resolve().parents[1]
 FAKE = """
 import sys
-sys.path[:0] = [{kicad!r}, {board!r}, {rules!r}, {project!r}, {build!r}, {sheets!r}, {tests!r}]
+sys.path[:0] = [{kicad!r}, {board!r}, {rules!r}, {project!r}, {build!r}, {sheets!r}, {check!r}, {tests!r}]
 from pathlib import Path
 import _probes
 
@@ -44,6 +44,7 @@ def fake(pytester: pytest.Pytester, tmp_path: Path) -> Path:
         project=str(TESTS / "kicad" / "project"),
         build=str(TESTS / "kicad" / "build"),
         sheets=str(TESTS / "kicad" / "sheets"),
+        check=str(TESTS / "kicad" / "check"),
         tests=str(TESTS),
         folder=str(folder),
     )

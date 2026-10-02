@@ -149,3 +149,13 @@ def test_non_mutating_commands_reject_protocol_flags(name: str, capsys: CapSys) 
         pytest.skip("mutating")
     code, _, _ = _invoke(capsys, [name, "--confirm", "--json"])
     assert code == 2
+
+
+def test_check_codes_documented() -> None:
+    """Every check and doctor issue code appears in docs/cli-contract.md (``kicad`` for ``<oracle>``)."""
+    from fenolite.checks.codes import ISSUE_CODES as CHECK_CODES
+    from fenolite.cli.cmd_doctor import ISSUE_CODES as DOCTOR_CODES
+
+    contract = (Path(__file__).resolve().parents[2] / "docs" / "cli-contract.md").read_text(encoding="utf-8")
+    for code in [*CHECK_CODES, *DOCTOR_CODES]:
+        assert f"`{code.replace('<oracle>', 'kicad')}`" in contract, code

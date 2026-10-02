@@ -9,9 +9,10 @@ another backend.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, Literal, Protocol
+from pathlib import Path, PurePosixPath
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
@@ -126,6 +127,116 @@ class CapabilityReport:
         }
 
 
+SkipReason = Literal[
+    "outside-root", "variable", "relative", "missing", "nested-table", "too-large", "reserved-name"
+]
+
+
+@dataclass(frozen=True, slots=True)
+class SkippedFile:
+    """A file or folder that a project names but that is not copied for an oracle run, and why."""
+
+    name: str
+    reason: SkipReason
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectSet:
+    """The closed set of project files an oracle sees: POSIX names relative to ``root`` → source paths.
+
+    ``board`` is one of the names; ``has_project`` and ``has_rules`` say whether the board's project and
+    rules files are among them.
+    """
+
+    root: Path
+    board: str
+    files: Mapping[str, Path]
+    skipped: tuple[SkippedFile, ...] = ()
+    has_project: bool = False
+    has_rules: bool = False
+
+    def __post_init__(self) -> None:
+        for name in self.files:
+            rel = PurePosixPath(name)
+            if not name or rel.is_absolute() or ".." in rel.parts or "\\" in name or rel.as_posix() != name:
+                raise ValueError(f"project file name {name!r} is not a relative POSIX name")
+        if self.board not in self.files:
+            raise ValueError(f"the board {self.board!r} is not one of the project files")
+
+
+@dataclass(frozen=True, slots=True)
+class RoundTrip:
+    """A same-version rebuild verdict: ``passed`` is the conjunction of the three equalities.
+
+    ``difference`` locates the first failing part (a tree locator, ``model`` or ``opaque``), ``""`` when
+    it passed.
+    """
+
+    level: Literal["RT1"]
+    passed: bool
+    tree_equal: bool
+    model_equal: bool
+    opaque_equal: bool
+    opaque_count: int
+    difference: str = ""
+
+    def __post_init__(self) -> None:
+        if self.passed != (self.tree_equal and self.model_equal and self.opaque_equal):
+            raise ValueError("RoundTrip.passed must equal tree_equal and model_equal and opaque_equal")
+
+
+@dataclass(frozen=True, slots=True)
+class Validation:
+    """What ``Validator.validate`` returns: the read and its round-trip verdict."""
+
+    read: ReadResult
+    roundtrip: RoundTrip
+
+
+@runtime_checkable
+class Validator(Protocol):
+    """A backend that validates a file: reads it and checks its round trip.
+
+    ``validate`` raises the reader's ``FormatError`` (subclasses included) for a file it cannot read, and
+    ``ValueError`` naming the kind for a kind it cannot validate.
+    """
+
+    name: str
+
+    def validate(self, path: Path, *, issues: list[Issue] | None = None) -> Validation: ...
+
+
+CanaryState = Literal["fired", "absent", "inconclusive", "not-applicable"]
+
+
+@dataclass(frozen=True, slots=True)
+class DrcOutcome:
+    """An oracle's DRC run: the report (``None`` when none was written, canary items removed), the canary
+    state, the files the tool wrote in its copy, and the evidence of the run."""
+
+    report: DrcReport | None
+    tool_version: str
+    canary: CanaryState
+    canary_reason: str = ""
+    canary_removed: int = 0
+    tool_writes: tuple[str, ...] = ()
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+
+
+class Oracle(Protocol):
+    """An external tool that gives DRC verdicts on a project copy set; it never writes under its root and
+    reports a timeout as ``outcome == "timeout"``."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def drc(self, project: ProjectSet) -> DrcOutcome: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -146,11 +257,20 @@ class Backend(Protocol):
 __all__ = [
     "Backend",
     "BackendOperation",
+    "CanaryState",
     "CapabilityReport",
     "Downgrade",
     "DrcItem",
+    "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "Oracle",
+    "ProjectSet",
     "ReadResult",
+    "RoundTrip",
+    "SkipReason",
+    "SkippedFile",
+    "Validation",
+    "Validator",
     "WriteResult",
 ]

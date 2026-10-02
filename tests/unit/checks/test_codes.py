@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""The closed set of check issue codes (capability verification-loop, "Check issue codes"; change c0013)."""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+import pytest
+
+from fenolite.checks import codes
+from fenolite.checks.codes import ISSUE_CODES, issue, oracle_code, table_key
+
+CHECKS = Path(codes.__file__).resolve().parent
+CODE = ("check.", "erc.lite.")
+TABLE = {
+    "check.read-refused": ("error",),
+    "check.cache-unreadable": ("warning",),
+    "check.footprint-unresolved": ("error",),
+    "check.symbol-unresolved": ("error",),
+    "check.rt1-failed": ("error",),
+    "check.oracle-failed": ("error",),
+    "check.copy-skipped": ("info",),
+    "<oracle>.drc.rules-not-loaded": ("error", "info"),
+    "<oracle>.drc.rules-unchecked": ("warning",),
+    "erc.lite.output-conflict": ("warning",),
+    "erc.lite.power-undriven": ("warning",),
+    "erc.lite.floating-pin": ("warning",),
+}
+
+
+def code_literals(paths: list[Path]) -> set[str]:
+    """Every issue-code literal in ``paths``: ``check.*`` and ``erc.lite.*`` strings, and the codes built by
+    ``oracle_code(…, "<suffix>")`` as ``<oracle>.drc.<suffix>``."""
+    found: set[str] = set()
+    for path in paths:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                text = node.value
+                if text.startswith(CODE) and " " not in text and text.count(".") >= 1 and text[-1] != ".":
+                    found.add(text)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "oracle_code"
+            ):
+                suffix = node.args[1] if len(node.args) > 1 else None
+                if isinstance(suffix, ast.Constant) and isinstance(suffix.value, str):
+                    found.add(f"<oracle>.drc.{suffix.value}")
+    return found
+
+
+def unknown(paths: list[Path]) -> set[str]:
+    return {c for c in code_literals(paths) if c not in ISSUE_CODES}
+
+
+def test_codes_closed_set() -> None:
+    sources = sorted(CHECKS.glob("*.py"))
+    assert unknown(sources) == set()
+    assert code_literals(sources) >= {k for k in TABLE if not k.startswith("erc.lite.")}
+
+
+def test_codes_closed_set_detects_an_unknown_code(tmp_path: Path) -> None:
+    module = tmp_path / "rogue.py"
+    module.write_text('issue("check.unknown-code", "x")\n', encoding="utf-8")
+    assert unknown([module]) == {"check.unknown-code"}
+
+
+def test_codes_table_severities() -> None:
+    assert dict(ISSUE_CODES) == TABLE
+
+
+def test_codes_oracle_prefix() -> None:
+    assert oracle_code("kicad", "rules-unchecked") == "kicad.drc.rules-unchecked"
+    assert table_key("kicad.drc.rules-unchecked") == "<oracle>.drc.rules-unchecked"
+    assert table_key("check.rt1-failed") == "check.rt1-failed"
+    made = issue("kicad.drc.rules-not-loaded", "m", severity="info")
+    assert (made.code, made.severity) == ("kicad.drc.rules-not-loaded", "info")
+
+
+def test_codes_refuse_unknown_codes_and_severities() -> None:
+    with pytest.raises(KeyError):
+        issue("check.unknown-code", "m")
+    with pytest.raises(ValueError):
+        issue("check.rt1-failed", "m", severity="warning")
