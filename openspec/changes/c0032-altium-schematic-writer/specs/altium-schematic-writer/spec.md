@@ -127,7 +127,7 @@ Each component SHALL carry its designator, its comment, its library link and, wh
 
 ### Requirement: Connectivity on the sheet
 Every pin SHALL get one wire stub from its hot end outward, ended by a power port when its net is a member of a `power` interface, and carrying a net label otherwise (S-0130, S-0131, S-0140).
-- Wire record: `RECORD=27`, `OWNERPARTID=-1`, `LINEWIDTH=1`, `COLOR=8388608`, `LOCATIONCOUNT=2`, `X1`, `Y1` (the pin's hot end), `X2`, `Y2` (the stub's outer end). Stubs are horizontal: 200 mil long for a port, `max(300, 100 · ⌈(70 · L + 150) / 100⌉)` mil for a label of `L` characters.
+- Wire record: `RECORD=27`, `OWNERPARTID=-1`, `LINEWIDTH=1`, `COLOR=8388608`, `LOCATIONCOUNT=2`, `X1`, `Y1` (the pin's hot end), `X2`, `Y2` (the stub's outer end). Stubs are horizontal: `max(300, 100 · ⌈(70 · L + 150) / 100⌉)` mil for a label of `L` characters; for a port, 200 mil, except for the second, fourth, … port of a run of ports on adjacent pins of one edge: its stub is `200 + 100 · ⌈(100 + 70 · M + 100) / 100⌉` mil, `M` being the longest net name of the ports one row above and one row below it, so ports of adjacent pins alternate between short and long stubs and never overlap.
 - Net label record: `RECORD=25`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `TEXT=<net name>`, `FONTID=1`, `COLOR=8388608`. Its location, the label's lower-left hotspot, MUST lie on its stub: at the outer end for a left pin, 100 mil from the hot end for a right pin (S-0140).
 - Power port record: `RECORD=17`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (the stub's outer end), `STYLE`, `ORIENTATION` (2 for a left pin, 0 for a right pin, pointing away from the body), `SHOWNETNAME=T`, `TEXT=<net name>`, `FONTID=1`, `COLOR=8388608`. `STYLE` MUST be 4 (power ground) for a net that is only ever the `lv` member of power interfaces, and 2 (bar) otherwise (S-0131, S-0140).
 - A net MUST NOT get both labels and ports. No junction record is written: no two stubs touch.
@@ -141,6 +141,10 @@ Every pin SHALL get one wire stub from its hot end outward, ended by a power por
 - **GIVEN** a variant with `Power(VMID, GND)` and `Power(VCC, VMID)`
 - **WHEN** it is written
 - **THEN** the ports of `VMID` have `STYLE=2` and the ports of `GND` have `STYLE=4`
+
+#### Scenario: Ports on adjacent pins
+- **WHEN** the stubs of the sample's `power/U1` pins 1 (`VIN`) and 2 (`GND`), 100 mil apart on the left edge, are read
+- **THEN** the stub of pin 1 is 200 mil long, the stub of pin 2 is 700 mil long, and the port of pin 2 lies at least 100 mil past the port of pin 1 and its text
 
 #### Scenario: Label on its stub
 - **WHEN** the label of the sample's `U2` pin 3 and the stub of that pin are read

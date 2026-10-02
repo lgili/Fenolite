@@ -24,14 +24,15 @@ same bytes and that this table names them.
 | file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `608d67d64ad32c26dc8c91d67cf271a26ab797d09c1ba4e4115451c75032c50d` |
-| `tests/data/altium/sample/altium_sample.SchDoc` | `4321d13f3f51f4088611676ac2c787a12df6970b39679aa570caa6e083915bc4` |
-| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `ae32cc71f50a4eaf55f4704f9a8ed173d73391a2977f2dc9f45c80e778fcaaec` |
-| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `dade6d1fb12846fa5b6bf7f03162178d8ddc5e3a397aa58ed071182778980fe3` |
+| `tests/data/altium/sample/altium_sample.SchDoc` | `d4df14ba6cd1220a1b4eaed0aa266360a9364f57036312b7c36391f18125a584` |
+| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `f5595a9dc5ecf4172cb83f4f0298fa3683fe4b59f8dcce4d28b39f816004b63c` |
+| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `b0fec55671a9aad36be1b9734bcfc21af8afa633978c6f8ff2a94349023877e3` |
 
 - `altium_sample.SchDoc` is an ASCII schematic ("SCH ASCII Version 5.0") with CR LF line ends: 123 lines,
   the header and 122 records. It holds an A4 sheet, 8 components with 19 pins, 19 wire stubs, 13 power
   ports (`GND` 6, `VIN` 3, `+5V` 4) and 6 net labels (`EN`, `LED_DRV` and `LED_A`, two each). Row one
-  holds `J1`, `R2`, `U2`, `D1`; row two holds `R1`, `C1`, `C2`, `U1`.
+  holds `J1`, `R2`, `U2`; row two holds `D1`, `R1`, `C1`, `C2`; row three holds `U1`. The ports of `U1`
+  and `U2` pins 1 and 2 alternate between a 200-mil and a 700-mil stub, so they do not overlap.
 - `altium_sample_lf.SchDoc` is the same file with every CR LF replaced by LF.
   `altium_sample_nouid.SchDoc` is the same file with every `|UNIQUEID=…` field removed.
 - The project file lists `altium_sample.SchDoc` only. The libraries the sample names,
@@ -91,7 +92,7 @@ ASCII sample's project file.
 | binary file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `608d67d64ad32c26dc8c91d67cf271a26ab797d09c1ba4e4115451c75032c50d` |
-| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `2dada3a9095802ae98c4ab77cda9f4dda907e3fc6daa03dfd1af98b159e33007` |
+| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `80ad9ea254cf57522527128fbe4e1a0cafb18e1eb8ee0610f341548672ee1c88` |
 
 - The free Altium 365 Viewer (S-0149) needs no Altium licence. It takes one file, or one project in a Zip
   archive, up to 200 MB.
@@ -165,7 +166,10 @@ Outcome per step:
 
 - The ASCII refusal concerns the Viewer only. The `H-A-SCH-*` and `H-A-PRJ-*` rows concern Altium
   Designer (Part A) and stay pending; no writer behaviour changes for it.
-- The report names no fault of the binary sample, so its bytes and SHA-256 values are unchanged.
+- The report names no fault of the binary sample. It was made on the earlier binary bytes, SHA-256
+  `2dada3a9095802ae98c4ab77cda9f4dda907e3fc6daa03dfd1af98b159e33007`, laid out in two rows. c0032
+  task 4.2 later changed only the stub lengths and positions of the records (same records, keys,
+  container and framing), so the confirmed rows stand; V2 and A7 use the bytes of Part V above.
 
 ### 2026-10-02, KiCad 10.0.6 schematic import (supporting data, not Altium)
 

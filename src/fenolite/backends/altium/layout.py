@@ -22,6 +22,9 @@ MARGIN = 500
 CELL_MARGIN = 200
 """Free border around everything a component draws, on each side of its cell."""
 PORT_STUB = 200
+"""A port's stub, except for the second, fourth, … port in a run of ports on adjacent pins of one edge."""
+PORT_GAP = 100
+"""A staggered port's connection point lies at least this far past the port above and its text."""
 LABEL_STUB_MIN = 300
 LABEL_SLACK = 150
 """A label stub is at least the label text plus this much, so the text stays on its own stub."""
@@ -106,6 +109,10 @@ class Stub:
     end: tuple[int, int]
     mark: tuple[int, int]
 
+    @property
+    def length(self) -> int:
+        return abs(self.end[0] - self.start[0])
+
 
 @dataclass(frozen=True)
 class SheetPlan:
@@ -124,11 +131,15 @@ def _down(value: int, step: int = GRID) -> int:
     return (value // step) * step
 
 
-def stub_length(net: PinNet) -> int:
-    """200 mil for a port; ``max(300, 100 · ⌈(70 · L + 150) / 100⌉)`` for a label of ``L`` characters."""
-    if net.kind == "port":
-        return PORT_STUB
-    return max(LABEL_STUB_MIN, _up(CHAR_WIDTH * len(net.net) + LABEL_SLACK))
+def stub_length(net: PinNet, beside: Sequence[PinNet] = ()) -> int:
+    """``max(300, 100 · ⌈(70 · L + 150) / 100⌉)`` for a label of ``L`` characters; 200 mil for a port, or
+    ``200 + 100 · ⌈(100 + 70 · M + 100) / 100⌉`` for a port that must clear the ports ``beside`` it,
+    ``M`` being their longest net name."""
+    if net.kind == "label":
+        return max(LABEL_STUB_MIN, _up(CHAR_WIDTH * len(net.net) + LABEL_SLACK))
+    if beside:
+        return PORT_STUB + _up(max(_beyond(other) for other in beside) + PORT_GAP)
+    return PORT_STUB
 
 
 def _beyond(net: PinNet) -> int:
@@ -136,9 +147,31 @@ def _beyond(net: PinNet) -> int:
     return PORT_ROOM + CHAR_WIDTH * len(net.net) if net.kind == "port" else 0
 
 
+def _staggered(spec: PartSpec) -> dict[str, tuple[PinNet, ...]]:
+    """The ports with a long stub, each with the ports it must clear: in a run of ports on adjacent pins
+    of one edge, the second, fourth, … port clears the ports one row above and one row below it."""
+    ports = {
+        (pin.side, pin.row): net
+        for pin in spec.body.pins
+        if (net := spec.nets.get(pin.designator)) is not None and net.kind == "port"
+    }
+    long: dict[str, tuple[PinNet, ...]] = {}
+    for pin in spec.body.pins:
+        if (pin.side, pin.row) not in ports:
+            continue
+        run = 0
+        while (pin.side, pin.row - run - 1) in ports:
+            run += 1
+        if run % 2 == 1:
+            rows = (pin.row - 1, pin.row + 1)
+            long[pin.designator] = tuple(ports[(pin.side, r)] for r in rows if (pin.side, r) in ports)
+    return long
+
+
 def part_stubs(spec: PartSpec, x: int, y: int) -> tuple[Stub, ...]:
     """The stubs of ``spec`` with its body's top-left corner at (``x``, ``y``), pins in natural order."""
     stubs: list[Stub] = []
+    staggered = _staggered(spec)
     width = spec.body.width
     for pin in spec.body.pins:
         net = spec.nets.get(pin.designator)
@@ -146,7 +179,7 @@ def part_stubs(spec: PartSpec, x: int, y: int) -> tuple[Stub, ...]:
             continue
         hx, hy = pin.hot_end(width)
         start = (x + hx, y + hy)
-        length = stub_length(net)
+        length = stub_length(net, staggered.get(pin.designator, ()))
         if pin.side == "left":
             end = (start[0] - length, start[1])
             mark = end
@@ -233,6 +266,8 @@ __all__ = [
     "DESIGNATOR_RISE",
     "LABEL_OFFSET",
     "MARGIN",
+    "PORT_GAP",
+    "PORT_STUB",
     "SHEET_SIZES",
     "PartSpec",
     "PinNet",

@@ -63,7 +63,9 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
 - **Connections.** Every pin gets a short horizontal wire stub. A net of a `Power(hv, lv)` interface ends
   each stub with a power port named after the net: the "power ground" symbol for a net that is only ever
   the `lv` member, a bar otherwise. Every other net gets a net label on each stub. Labels of one name
-  join within the sheet; ports of one name join across the design. No wire runs between parts.
+  join within the sheet; ports of one name join across the design. No wire runs between parts. When
+  adjacent pins on one edge both end in ports, their stubs alternate between short and long, so no port
+  overlaps its neighbour.
 - **Layout.** Parts are placed in component-path order, so a module's parts stay together, in rows on
   the smallest ISO sheet, A4 to A0 landscape, that holds them. A design too large for A0 gets a custom
   sheet and the warning `altium.sheet-custom`.

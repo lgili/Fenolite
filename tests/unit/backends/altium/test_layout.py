@@ -6,16 +6,21 @@ sheet layout" and "Connectivity on the sheet"; change c0032)."""
 from __future__ import annotations
 
 import pytest
-from _altium import check_plan
+from _altium import check_plan, sample_model
 
 from fenolite.backends.altium.layout import (
     MARGIN,
+    PORT_GAP,
+    PORT_STUB,
     SHEET_SIZES,
     PartSpec,
     PinNet,
+    SheetPlan,
+    Stub,
     layout_sheet,
     stub_length,
 )
+from fenolite.backends.altium.project import plan_sheet
 from fenolite.backends.altium.symbols import generic_symbol
 
 LABEL_A = PinNet("A", "label")
@@ -92,6 +97,56 @@ def test_stubs_labels_and_ports() -> None:
     assert three.end == (part.x + 1500, part.y + 100) and three.mark == (part.x + 900, part.y + 100)
     left_label = layout_sheet([spec("R1", {"1": bar, "2": LABEL_A})]).stubs[0]
     assert left_label.mark == left_label.end and left_label.start[0] - left_label.end[0] == 700
+
+
+def _port_reach(stub: Stub) -> int:
+    """How far outward from its pin a port's symbol and text reach (100 mil plus 70 mil per character)."""
+    return stub.length + 100 + 70 * len(stub.net.net)
+
+
+def _adjacent_ports(plan: SheetPlan) -> list[tuple[Stub, Stub]]:
+    """Pairs (upper, lower) of port stubs on pins one row apart on the same edge of one part."""
+    ports = [s for s in plan.stubs if s.net.kind == "port"]
+    return [
+        (a, b)
+        for a in ports
+        for b in ports
+        if a.key == b.key and a.side == b.side and a.start[0] == b.start[0] and b.start[1] - a.start[1] == 100
+    ]
+
+
+def test_ports_on_adjacent_pins_alternate() -> None:
+    """Regression of the maintainer's KiCad 10.0.6 import (2026-10-02): ports of adjacent pins overlapped
+    with 200-mil stubs. Supporting data only; the Altium rows stay H-A-SCH-OPEN and H-A-SCH-NETS."""
+    names = ("VIN", "GND", "VBAT_LONG", "+5V")
+    nets = {str(n): PinNet(names[(n - 1) % 4], "port", "bar") for n in range(1, 9)}
+    nets["7"] = LABEL_A
+    plan = layout_sheet([spec("U9", nets)])
+    lengths = {s.designator: s.length for s in plan.stubs}
+    assert [lengths[d] for d in ("1", "2", "3", "4")] == [200, 1100, 200, 1100], "clears both"
+    assert [lengths[d] for d in ("5", "6", "7", "8")] == [200, 700, 300, 200], "a label breaks the run"
+    pairs = _adjacent_ports(plan)
+    assert len(pairs) == 4
+    for upper, lower in pairs:
+        short, long = (upper, lower) if upper.length <= lower.length else (lower, upper)
+        assert short.length == PORT_STUB
+        assert long.length - _port_reach(short) >= PORT_GAP, (short, long)
+    check_plan(plan)
+    ground, vin = PinNet("GND", "port", "ground"), PinNet("VIN", "port", "bar")
+    assert stub_length(ground) == PORT_STUB and stub_length(ground, (vin,)) == 700
+
+
+def test_sample_ports_on_adjacent_pins() -> None:
+    """Scenario "Ports on adjacent pins": U1 pins 1 and 2 (and U2 pins 1 and 2) no longer overlap."""
+    plan = plan_sheet(sample_model())
+    stubs = {(s.key, s.designator): s for s in plan.stubs}
+    for key in ("power/U1", "U2"):
+        one, two = stubs[(key, "1")], stubs[(key, "2")]
+        assert one.length == 200 and two.length == 700, key
+        assert two.length - _port_reach(one) >= PORT_GAP
+    assert len(_adjacent_ports(plan)) == 2
+    assert plan.size.name == "A4"
+    check_plan(plan)
 
 
 def test_pin_without_a_net_gets_no_stub() -> None:

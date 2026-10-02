@@ -131,3 +131,11 @@ These are decisions of the writer, not format facts (design of change c0032, cap
 - The sheet has one font, `Times New Roman` at size 10, used by every text record (`FONTID=1`).
 - Generic bodies, stubs, label and port positions, the layout and the unique-id derivation are choices
   of the `altium-schematic-writer` capability (change c0032).
+- Stub lengths: a label stub is `max(300, 100 · ⌈(70 · L + 150) / 100⌉)` mil for a label of `L`
+  characters. A port stub is 200 mil, except for the second, fourth, … port of a run of ports on
+  adjacent pins of one edge: its stub is `200 + 100 · ⌈(100 + 70 · M + 100) / 100⌉` mil, `M` being the
+  longest net name of the ports one row above and one row below it, so that port sits at least 100 mil
+  past both neighbours and their texts (100 mil for the symbol and 70 mil per character are Fenolite
+  estimates). Ports of adjacent pins thus alternate between short and long stubs. With 200-mil stubs on
+  pins 100 mil apart, the ports of the sample's `U1` and `U2` pins 1 and 2 overlapped in KiCad 10.0.6's
+  import of the sample (2026-10-02; supporting data, `docs/evidence/altium-schematic.md`).
