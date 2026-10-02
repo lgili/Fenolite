@@ -13,6 +13,8 @@ from _altium import (
     SAMPLE_PATHS,
     check_plan,
     component_index,
+    example_files,
+    example_plan,
     model_of,
     owned_by,
     records,
@@ -269,3 +271,38 @@ def test_vertical_labels_ports_and_edge_codes() -> None:
     assert pins["3"]["SYMBOL_INNEREDGE"] == "3" and "SYMBOL_OUTEREDGE" not in pins["3"]
     assert "SYMBOL_INNEREDGE" not in pins["1"] and pins["1"]["PINCONGLOMERATE"] == str(1 | 0x08 | 0x10)
     assert pins["1"]["PINLENGTH"] == "5" and pins["3"]["ELECTRICAL"] == "0"
+
+
+# --- multi-part symbols (change c0034) --------------------------------------------------------------
+
+
+def test_dual_unit_placed_twice() -> None:
+    found = records(example_files("ascii")["altium_kicad.SchDoc"])
+    parts = [(i, r) for i, r in enumerate(found) if r["RECORD"] == "1" and r["LIBREFERENCE"] == "DUAL_OPAMP"]
+    assert [r["CURRENTPARTID"] for _, r in parts] == ["1", "2"]
+    assert all(r["PARTCOUNT"] == "3" for _, r in parts)
+    assert len({r["UNIQUEID"] for _, r in parts}) == 2
+    for index, _ in parts:
+        children = [r for _, r in owned_by(found, index)]
+        assert [r["TEXT"] for r in children if r["RECORD"] == "34"] == ["U1"]
+        pins = [r for r in children if r["RECORD"] == "2"]
+        assert sorted(r["DESIGNATOR"] for r in pins) == ["1", "2", "3", "4", "5", "6", "7", "8"]
+        assert {r["DESIGNATOR"]: r["OWNERPARTID"] for r in pins}["8"] == "0"
+        assert [r["OWNERPARTID"] for r in children if r["RECORD"] == "14"] == ["1", "2"]
+        (listing,) = [i for i, r in owned_by(found, index) if r["RECORD"] == "44"]
+        assert [r["MODELNAME"] for _, r in owned_by(found, listing)] == ["SOIC8"]
+
+
+def test_part_zero_stubs_on_part_one_only() -> None:
+    plan = example_plan()
+    stubs = [s for s in plan.stubs if s.key == "U1"]
+    designators = [s.designator for s in stubs]
+    assert sorted(designators) == ["1", "2", "3", "4", "5", "6", "7", "8"]
+    assert designators.count("8") == 1 and designators.count("4") == 1
+    first, second = (p for p in plan.parts if p.spec.key == "U1")
+    assert (first.part, second.part) == (1, 2)
+    index = plan.parts.index(first)
+    assert plan.parts[index + 1] is second, "the parts of one symbol take consecutive cells"
+    check_plan(plan, grid=10)
+    on_first = {s.designator for s in stubs if first.cell[0] <= s.start[0] <= first.cell[2]}
+    assert {"4", "8", "1", "2", "3"} <= on_first

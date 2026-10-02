@@ -6,6 +6,7 @@ generic pins, a plain split of written records into dictionaries, and the layout
 from __future__ import annotations
 
 import runpy
+import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -126,6 +127,35 @@ def upright_symbol() -> AltiumSymbol:
     )
     symbol = SymbolDef(id=derived_id("sym", "kicad", "D:X"), name="X", library="D", pins=pins)
     return from_symbol_def(symbol, lib_ref="X", footprint=None)
+
+
+def example_files(form: str = "ascii") -> dict[str, bytes]:
+    """The KiCad example built into the Altium files of ``form``, with its own library table."""
+    from fenolite.lens.altium import build_altium
+
+    with tempfile.TemporaryDirectory() as folder:
+        design = example()
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            form=form,
+            resolver=example_resolver(Path(folder)),  # type: ignore[arg-type]
+        )
+    assert output.files, [i.message for i in output.issues]
+    return output.files
+
+
+def example_plan() -> SheetPlan:
+    """The sheet plan of the KiCad example (resolved symbols, generic pins for nothing)."""
+    from fenolite.backends.altium.project import plan_sheet
+    from fenolite.lens.altium import kicad_pins, library_symbols, resolve_symbols
+
+    with tempfile.TemporaryDirectory() as folder:
+        model = to_model(example())
+        resolved = resolve_symbols(model, example_resolver(Path(folder)))
+    model, issues = kicad_pins(model, resolved)
+    symbols = library_symbols(resolved, issues)
+    return plan_sheet(model, name="altium_kicad", symbols=symbols)
 
 
 def sample() -> Design:

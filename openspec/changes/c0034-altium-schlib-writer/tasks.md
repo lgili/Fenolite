@@ -58,7 +58,7 @@
   - `coord_fields` on 10 mil.
 
   Proof: `uv run pytest tests/unit/backends/altium -q`; `git diff --exit-code tests/data/altium/sample/` exits 0 after a golden run without `FENOLITE_GOLDEN_WRITE`. This covers "ASCII schematic form", "Generic component bodies", "Designator, comment and links", "Connectivity on the sheet", "Deterministic sheet layout" and "Sample schematic unchanged".
-- [ ] 4.2 Place multi-part symbols: one component record per part, `CURRENTPARTID`, all children, per-part unique ids, Part Zero stubs on part 1, consecutive cells. Proof: `uv run pytest tests/unit/backends/altium/test_schdoc.py tests/unit/backends/altium/test_layout.py -q`. This covers "Dual unit placed twice".
+- [x] 4.2 Place multi-part symbols: one component record per part, `CURRENTPARTID`, all children, per-part unique ids, Part Zero stubs on part 1, consecutive cells. Proof: `uv run pytest tests/unit/backends/altium/test_schdoc.py tests/unit/backends/altium/test_layout.py -q`. This covers "Dual unit placed twice".
 - [ ] 4.3 Extend the net readback in `tests/_altium_read.py` to vertical stubs, rotated labels and part records, and compare the example's nets and pin positions with its model and library. Proof: `uv run pytest tests/unit/backends/altium/test_readback.py -q`. This covers "Pins at the library positions" and "Vertical stubs of the example".
 
 ## 5. Build rules, issue codes and capabilities

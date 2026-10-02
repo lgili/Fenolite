@@ -491,6 +491,8 @@ __all__ = [
     "build_altium",
     "generic_pins",
     "kicad_lib_ids",
+    "kicad_pins",
+    "library_symbols",
     "resolve_symbols",
     "symbol_source",
 ]
