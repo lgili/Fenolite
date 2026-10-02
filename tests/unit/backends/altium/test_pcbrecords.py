@@ -181,3 +181,82 @@ def test_evidence_names_every_pcb_row() -> None:
     assert pcbrecords.EVIDENCE.level.value == "INFERRED"
     assert len(pcbrecords.EVIDENCE.hypotheses) == 13
     assert all(h.startswith("H-A-PCB-") for h in pcbrecords.EVIDENCE.hypotheses)
+
+
+# --- pads (task 3.1) ------------------------------------------------------------------------------
+
+
+def _decode_one(data: bytes):  # type: ignore[no-untyped-def]
+    from _altium_pcb_read import decode_primitives
+
+    (item,) = decode_primitives(data)
+    return item
+
+
+def test_pad_roundrect() -> None:
+    """Scenario "Roundrect pad": 0.9 × 0.95 mm at (−0.8, 0) mm with ratio 0.25."""
+    from decimal import Decimal
+
+    from fenolite.backends.altium.pcbrecords import corner_percent, pad_record
+
+    data = pad_record(
+        name="1",
+        layer=1,
+        x=to_units(-800_000),
+        y=0,
+        size=(to_units(900_000), to_units(950_000)),
+        shape=1,
+        rotation=0.0,
+        corner=corner_percent(Decimal("0.25")),
+    )
+    pad = _decode_one(data)
+    assert pad.geometry_size == 114 and pad.shapes == (1, 1, 1)
+    assert pad.sizes == ((354331, 374016),) * 3 and (pad.x, pad.y) == (-314961, 0)
+    assert pad.layers_size == 596 and set(pad.alternate_shapes) == {9} and set(pad.corners) == {50}
+    assert pad.rounded == 1 and pad.hole_shape == 0 and set(pad.inner_shapes) == {1}
+    assert pad.mask_modes == (0, 1) and pad.expansions == (0, 0)
+    assert pad.tail_63 == (0, 0, 100_000, 4, 100_000, 200_000, 200_000)
+    assert pad.subrecords_2_to_4 == (b"\0", b"\x04|&|0", b"\0")
+
+
+def test_pad_through_hole() -> None:
+    """Scenario "Through-hole pads": the mini LED's pads on layer 74, hole 0.9 mm, plated."""
+    from fenolite.backends.altium.pcbrecords import pad_record
+
+    drill, size = to_units(900_000), to_units(1_800_000)
+    pads = [
+        _decode_one(
+            pad_record(
+                name=n,
+                layer=74,
+                x=to_units(x),
+                y=0,
+                size=(size, size),
+                shape=s,
+                rotation=0.0,
+                hole=drill,
+                plated=True,
+            )
+        )  # fmt: skip
+        for n, x, s in (("1", 0, 2), ("2", 2_540_000, 1))
+    ]
+    assert [p.prefix.layer for p in pads] == [74, 74]
+    assert [p.hole for p in pads] == [354331, 354331] and [p.plated for p in pads] == [1, 1]
+    assert [p.shapes[0] for p in pads] == [2, 1] and [p.layers_size for p in pads] == [0, 0]
+
+
+def test_pad_corner_percent() -> None:
+    from decimal import Decimal
+
+    from fenolite.backends.altium.pcbrecords import corner_percent
+
+    assert [corner_percent(Decimal(v)) for v in ("0", "0.25", "0.5", "0.6", "0.0025")] == [0, 50, 100, 100, 1]
+
+
+def test_pad_rotation() -> None:
+    from fenolite.backends.altium.pcbrecords import degrees_of, pad_record
+
+    pad = _decode_one(
+        pad_record(name="9", layer=1, x=0, y=0, size=(10, 20), shape=2, rotation=degrees_of(90_000_000))
+    )
+    assert pad.rotation == 90.0 and pad.layers_size == 0

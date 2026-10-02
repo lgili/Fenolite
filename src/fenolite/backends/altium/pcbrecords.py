@@ -305,6 +305,63 @@ def arc_record(
     return bytes((ARC,)) + subrecord(body)
 
 
+PAD_SHAPES: Mapping[str, int] = MappingProxyType({"circle": 1, "oval": 1, "rect": 2, "roundrect": 1})
+"""Fenolite pad shape → Altium main shape: an oval is round with unequal sizes; a rounded rectangle is round
+with alternate shape 9 in subrecord 6."""
+ROUNDED_ALTERNATE = 9
+PAD_GEOMETRY_SIZE = 114
+PAD_LAYERS_SIZE = 596
+_INNER = 29
+_STACK = 32
+_V1_DEFAULTS = (0, 0, 100_000, 4, 100_000, 200_000, 200_000)
+"""The values AltiumSharp version 1 writes at pad offsets 63 to 85 (``pcb-records.md``)."""
+SOLDER_FROM_RULES = 1
+PAD_SUBRECORD_3 = b"\x04|&|0"
+"""What version 1 writes in pad subrecord 3: one length byte and ``|&|0``."""
+
+
+def corner_percent(ratio: Fraction | Decimal) -> int:
+    """KiCad's corner ratio as Altium's corner percentage ``round(200 · ratio)``, clamped to 0 … 100."""
+    return max(0, min(100, _round_away(Fraction(ratio) * 200)))
+
+
+def pad_record(
+    *,
+    name: str,
+    layer: int,
+    x: int,
+    y: int,
+    size: tuple[int, int],
+    shape: int,
+    rotation: float,
+    hole: int = 0,
+    plated: bool = False,
+    corner: int | None = None,
+    net: int = NO_INDEX,
+    component: int = NO_INDEX,
+) -> bytes:
+    """A pad (type 2): six subrecords. Lengths in binary units, ``rotation`` in degrees; ``corner`` is the
+    corner percentage of a rounded rectangle, which adds the 596-byte subrecord 6."""
+    w, h = size
+    geometry = prefix(layer, net=net, component=component)
+    geometry += struct.pack("<2i6ii3Bd3B", x, y, w, h, w, h, w, h, hole, shape, shape, shape, rotation,
+                            1 if plated else 0, 0, 0)  # fmt: skip
+    geometry += struct.pack("<Biihiii", *_V1_DEFAULTS)
+    geometry += struct.pack("<2i", 0, 0) + bytes(7) + struct.pack("<2B", 0, SOLDER_FROM_RULES) + bytes(3)
+    geometry += struct.pack("<iHh", 0, 0, 0)
+    assert len(geometry) == PAD_GEOMETRY_SIZE
+    layers = b""
+    if corner is not None:
+        if not 0 <= corner <= 100:
+            raise ValueError(f"corner percentage {corner} is outside 0 … 100")
+        layers = struct.pack(f"<{_INNER}i", *[w] * _INNER) + struct.pack(f"<{_INNER}i", *[h] * _INNER)
+        layers += bytes([shape] * _INNER) + bytes(2) + struct.pack("<id", 0, 0.0)
+        layers += bytes(8 * _STACK) + b"\x01" + bytes([ROUNDED_ALTERNATE] * _STACK) + bytes([corner] * _STACK)
+        assert len(layers) == PAD_LAYERS_SIZE
+    parts = (short_string(name), b"\0", PAD_SUBRECORD_3, b"\0", geometry, layers)
+    return bytes((PAD,)) + b"".join(subrecord(part) for part in parts)
+
+
 __all__ = [
     "ARC",
     "ARC_SIZE",
@@ -316,6 +373,10 @@ __all__ = [
     "MULTI_LAYER",
     "NO_INDEX",
     "PAD",
+    "PAD_GEOMETRY_SIZE",
+    "PAD_LAYERS_SIZE",
+    "PAD_SHAPES",
+    "ROUNDED_ALTERNATE",
     "TEXT",
     "TRACK",
     "TRACK_SIZE",
@@ -324,8 +385,10 @@ __all__ = [
     "arc_from_points",
     "arc_record",
     "circle_geometry",
+    "corner_percent",
     "degrees_of",
     "mil_text",
+    "pad_record",
     "prefix",
     "property_block",
     "short_string",
