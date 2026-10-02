@@ -30,6 +30,7 @@ Lengths are `int` nanometres, angles `int` microdegrees; floats are rejected eve
 | imported, without one | `uuid5(FENOLITE_NS, "<backend>:<document id>:<section>:<content hash>")` |
 | created by Fenolite | `uuid4` from a seeded generator (`--seed`) |
 | placed copy of a library definition | from the caller's key, never from the seed (see "Placed copies") |
+| created from a design script | `derived_id(prefix, "dsl", "<kind>:<key>")`, never from the seed (see "Ids of design scripts") |
 
 A file hash never enters an id. Ids of objects without a native id are stable when *other*
 objects change; the diff matches such objects by content.
@@ -116,6 +117,19 @@ Placing again with the same key gives the same ids; two keys share none; adding 
 placement changes no id of a copy. The copy records the definition in `FootprintInstance.lib_ref`,
 belongs to the caller's component, and its pads have no net until the caller assigns one. The
 definition stays unchanged.
+
+## Ids of design scripts
+
+Normative text: the fourth case of requirement "Identifier derivation" of the `design-model`
+capability (change c0011); the key table is in `docs/dsl.md` ("Ids: the key table").
+
+Every object that `fenolite.dsl.to_model` or `fenolite build` creates gets
+`derived_id(prefix, "dsl", "<kind>:<key>")`, where the key is a name or a path from the script
+(`component:<path>`, `net:<name>`, `pin:<path>:<number>`, …) from the closed table `dsl.KEYS`.
+Footprints and pads are placed copies keyed by the component path (see "Placed copies"), and the
+board layers are keyed by their KiCad names. These ids are not generated: they do not depend on
+`--seed`, on `PYTHONHASHSEED` or on the order in which the script creates objects, so inserting a part
+changes no id of another object, and two builds of one script give byte-identical files.
 
 ## Canonical JSON
 

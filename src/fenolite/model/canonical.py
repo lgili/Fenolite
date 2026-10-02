@@ -96,10 +96,8 @@ def dumps(value: Any) -> str:
     return json.dumps(to_data(value), indent=2, ensure_ascii=False) + "\n"
 
 
-def dump_dir(design: Design, path: str | Path) -> list[Path]:
-    """Write the six layer files of ``design`` under ``path``; return the paths written."""
-    root = Path(path)
-    written: list[Path] = []
+def dump_texts(design: Design) -> dict[str, str]:
+    """The six layer files of ``design`` as texts, by file name (what ``dump_dir`` writes)."""
     header = dataclasses.replace(design.header, schema_version=SCHEMA_VERSION, fenolite_version=__version__)
     parts: dict[str, Any] = {
         "header": header,
@@ -109,9 +107,16 @@ def dump_dir(design: Design, path: str | Path) -> list[Path]:
         "manufacturing": design.manufacturing or Manifest(id=_placeholder_id("mfn", design)),
         "findings": design.findings,
     }
-    for file_name, attr, _cls in LAYER_FILES:
+    return {file_name: dumps(parts[attr]) for file_name, attr, _cls in LAYER_FILES}
+
+
+def dump_dir(design: Design, path: str | Path) -> list[Path]:
+    """Write the six layer files of ``design`` under ``path``; return the paths written."""
+    root = Path(path)
+    written: list[Path] = []
+    for file_name, text in dump_texts(design).items():
         target = root / file_name
-        atomic_write(target, dumps(parts[attr]).encode("utf-8"), backup=False)
+        atomic_write(target, text.encode("utf-8"), backup=False)
         written.append(target)
     return written
 
@@ -245,4 +250,4 @@ def load_dir(path: str | Path) -> Design:
     return Design(**parts)
 
 
-__all__ = ["LAYER_FILES", "decode", "dump_dir", "dumps", "load_dir", "loads", "to_data"]
+__all__ = ["LAYER_FILES", "decode", "dump_dir", "dump_texts", "dumps", "load_dir", "loads", "to_data"]

@@ -18,9 +18,10 @@ from decimal import Decimal
 from typing import get_args
 
 from fenolite.backends.kicad import pcb, versions
+from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, emit_footprint, node
 from fenolite.backends.kicad.layers import flip_layer
-from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, parse_fragment, walk
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, parse_fragment, walk
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -28,6 +29,7 @@ from fenolite.core.ids import FENOLITE_NS
 from fenolite.core.units import Udeg
 from fenolite.geometry.shapes import Arc, BBox, Circle
 from fenolite.geometry.transform import Transform
+from fenolite.model.base import Modeled, Opaque
 from fenolite.model.board import FootprintAttribute, FootprintInstance, Graphic, Pad, Side
 from fenolite.model.circuit import Component
 from fenolite.model.library import FootprintDef
@@ -44,6 +46,8 @@ FLIP_UNSUPPORTED: frozenset[str] = frozenset(
 HEADER = frozenset({"version", "generator", "generator_version"})
 TEXT_HEADS = frozenset({"property", "fp_text"})
 FLIP_CODE = "kicad.board.flip-unsupported"
+PATH_PROPERTY = "fenolite.path"
+"""The hidden property that names a built footprint's component path (c0011; read by c0019)."""
 _ATTRIBUTES = frozenset(get_args(FootprintAttribute))
 
 
@@ -292,6 +296,50 @@ def place_footprint(
     return dataclasses.replace(instance, provenance=None, component_id=component.id, attributes=attributes)  # type: ignore[arg-type]
 
 
+def with_property(defn: FootprintDef, *, name: str, value: str) -> FootprintDef:
+    """A copy of ``defn`` with one hidden property appended after its last ``property`` child.
+
+    The property has the form of the ``Datasheet`` property of the mini library and of boards written
+    by 10.0.6 (``board.md``); its uuid is a placeholder that ``place_footprint`` replaces. ``defn`` is
+    unchanged.
+    """
+    bag = defn.ext.get("kicad")
+    slots = list(slotlib.from_ext(bag)) if bag is not None else []
+    if not slots:
+        raise ValueError(f"{defn.lib_id!r} has no KiCad slot list; only definitions read from a file")
+    prop = node(
+        "property",
+        Atom.string(name),
+        Atom.string(value),
+        node("at", Atom.integer(0), Atom.integer(0), Atom.integer(0)),
+        node("layer", Atom.string("F.Fab")),
+        node("hide", Atom.symbol("yes")),
+        node("uuid", Atom.string(str(uuid.uuid5(FENOLITE_NS, f"{PLACE_PREFIX}-property:{name}")))),
+        node(
+            "effects",
+            node(
+                "font",
+                node("size", Atom.integer(1), Atom.integer(1)),
+                node("thickness", Atom("0.15", AtomKind.NUMBER)),
+            ),
+        ),
+    )
+    last = max(
+        (i for i, s in enumerate(slots) if isinstance(s, Opaque) and s.fragment.startswith("(property ")),
+        default=-1,
+    )
+    if last < 0:
+        last = max(
+            (i for i, s in enumerate(slots) if isinstance(s, Modeled) and s.field == "name"), default=0
+        )
+    slots.insert(last + 1, Opaque(dumps(prop, style="compact"), bag.min_version if bag is not None else None))
+    return dataclasses.replace(
+        defn,
+        ext={**defn.ext, "kicad": slotlib.to_ext(slots, base=bag)},
+        properties={**defn.properties, name: value},
+    )
+
+
 def footprint_extent(defn: FootprintDef) -> BBox:
     """The courtyard box of ``defn`` in its own frame, else the union of its pad boxes, else empty."""
     boxes = [_graphic_box(g) for g in defn.graphics_on("F.CrtYd")]
@@ -323,8 +371,10 @@ __all__ = [
     "EVIDENCE",
     "FLIP_UNSUPPORTED",
     "MIRROR_HEADS",
+    "PATH_PROPERTY",
     "PLACE_PREFIX",
     "footprint_extent",
     "place_footprint",
     "placement_uuid",
+    "with_property",
 ]

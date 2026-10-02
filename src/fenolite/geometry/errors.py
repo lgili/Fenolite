@@ -28,6 +28,8 @@ def format_point(p: Point) -> str:
 class GeometryError(FenoliteError):
     """A geometric input or result that the kernel cannot represent (see ``GEOMETRY_CODES``)."""
 
+    cli_code = "FEN-3005"
+
     def __init__(self, message: str, *, code: str = DEGENERATE, points: tuple[Point, ...] = ()) -> None:
         if not ISSUE_CODE.match(code) or not code.startswith("geometry."):
             raise ValueError(f"invalid geometry error code {code!r}")

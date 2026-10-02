@@ -1,6 +1,18 @@
 {
   "version": "10.0.6",
   "probes": {
+    "build-baseline-t10": "absent",
+    "build-baseline-t9": "absent",
+    "build-canary-t10": "present",
+    "build-canary-t9": "present",
+    "build-class-t10": "present",
+    "build-class-t9": "present",
+    "build-libtable-t10": "equal",
+    "build-libtable-t9": "equal",
+    "build-offboard-t10": "absent",
+    "build-offboard-t9": "absent",
+    "build-pathprop-t10": "present",
+    "build-pathprop-t9": "present",
     "dru-broken-silent": "absent",
     "dru-cond-and": "present",
     "dru-cond-case": "present",

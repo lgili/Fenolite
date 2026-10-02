@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 
 import _bench
+import _buildcases
 import _fpwrite
 import _procases
 import _rulecases
@@ -190,7 +191,11 @@ def _probes() -> dict[str, Probe]:
     for name in ("bench", "exact", "missing-table", *_bench.CONTROLS):
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
-    for pid, (function, majors) in {**_rulecases.dru_probes(), **_procases.pro_probes()}.items():
+    for pid, (function, majors) in {
+        **_rulecases.dru_probes(),
+        **_procases.pro_probes(),
+        **_buildcases.build_probes(),
+    }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     return probes
 

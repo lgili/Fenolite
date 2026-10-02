@@ -149,3 +149,81 @@ def test_text_mode(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) 
 
     code, stderr = run_raising(raiser, ["--text"])
     assert code == 3 and "FEN-3004" in stderr
+
+
+# --- refusals carry their issues and geometry errors (change c0011) ---------------------------------
+
+
+@pytest.fixture
+def run_raising_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[Callable[[Raiser, list[str]], tuple[int, str, str]]]:
+    """Like ``run_raising``, and also returns stdout, so the envelope's ``issues`` can be read."""
+    holder: dict[str, Raiser] = {}
+
+    def run(args: argparse.Namespace, ctx: Context) -> Result:
+        holder["raise"]()
+        return Result()
+
+    command = Command(
+        name="_raise", help="test-only command", mutates=False, register=lambda p: None, run=run
+    )
+    real = cli_main.discover
+    monkeypatch.setattr(cli_main, "discover", lambda: {**real(), "_raise": command})
+
+    def invoke(raiser: Raiser, extra: list[str]) -> tuple[int, str, str]:
+        holder["raise"] = raiser
+        out, err = io.StringIO(), io.StringIO()
+        monkeypatch.setattr("sys.stderr", err)
+        monkeypatch.setattr("sys.stdout", out)
+        code = cli_main.main(["_raise", *extra])
+        return code, out.getvalue(), err.getvalue()
+
+    yield invoke
+
+
+def test_geometry_error_maps_to_exit_3(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) -> None:
+    from fenolite.geometry.errors import GeometryError
+
+    def boom() -> None:
+        raise GeometryError("zero-length segment", points=())
+
+    code, err = run_raising(boom, ["--json"])
+    assert code == 3 and json.loads(err)["code"] == "FEN-3005"
+
+
+def test_registry_row_and_codes_table() -> None:
+    from pathlib import Path
+
+    from fenolite.cli.errors import REGISTRY
+    from fenolite.cli.exitcodes import ExitCode
+
+    assert REGISTRY["FEN-3005"].exit_code is ExitCode.INPUT
+    contract = (Path(__file__).resolve().parents[3] / "docs" / "cli-contract.md").read_text(encoding="utf-8")
+    assert "| `FEN-3005` |" in contract
+
+
+def test_lossy_refusal_lists_its_issues(
+    run_raising_out: Callable[[Raiser, list[str]], tuple[int, str, str]],
+) -> None:
+    issues = [
+        Issue("kicad.token.too-new", "error", "a", where="/x"),
+        Issue("kicad.token.too-new", "error", "b"),
+    ]
+
+    def boom() -> None:
+        raise LossyWriteError(issues, droppable=True)
+
+    code, out, err = run_raising_out(boom, ["--json"])
+    assert code == 7 and json.loads(err)["code"] == "FEN-7001"
+    assert [i["message"] for i in json.loads(out)["issues"]] == ["a", "b"]
+
+
+def test_exceptions_without_issues_are_unchanged(
+    run_raising_out: Callable[[Raiser, list[str]], tuple[int, str, str]],
+) -> None:
+    def boom() -> None:
+        raise FormatError("bad", file="x")
+
+    code, out, _ = run_raising_out(boom, ["--json"])
+    assert code == 3 and json.loads(out)["issues"] == []

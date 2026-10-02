@@ -8,7 +8,7 @@ bumps the schema id.
 
 - **JSON when stdout is not a terminal**, text when it is. `--json` / `--text` override.
 - One JSON document per invocation on stdout, followed by a newline.
-- `--fields a,b.c` keeps only those dotted paths of `result` (the rest of the envelope stays).
+- `--fields a,b.c` keeps only those dotted paths of `result` (the rest of the envelope stays); the `plan` of a mutating command is part of `result`, so `--fields` keeps it only when listed.
 
 ## Envelope — `schemas/fenolite.envelope.v0.json`
 
@@ -52,13 +52,16 @@ Whenever the exit code is not 0, stderr carries exactly one error object
 Errors raised by the library inside a command keep a registered code: a Fenolite exception whose class
 has a `cli_code` becomes that code, a plain `FormatError` becomes `FEN-3004`, and any other exception is
 `FEN-1001`. For a `FormatError` the message is the bare message and `where` is `file:locator:@offset`;
-an exception's own `hint` replaces the registry hint.
+an exception's own `hint` replaces the registry hint. When such an exception carries `issues` (a
+non-empty sequence of issues, as `LossyWriteError`, `UnresolvedLibrariesError` and `LayoutExistsError`
+do), they are put in the envelope's `issues`, so a refusal says which lib ids, nets or files it refused.
 
 | Code | Meaning | Raised by |
 |---|---|---|
 | `FEN-3002` | input uses a newer format version than supported | `FutureFormatError` (editing a future file) |
 | `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
-| `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …) |
+| `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |
+| `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; downgrade is not supported | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
@@ -76,7 +79,9 @@ Commands that write are **mutating**. They never write unless asked:
 ## Determinism
 
 `--seed INT` and `--timestamp ISO8601` fix every generated id and date: the same inputs and flags
-produce byte-identical outputs.
+produce byte-identical outputs. Keyed ids (placed copies, objects of design scripts) are not generated
+and do not depend on `--seed`, and a command that writes no date ignores `--timestamp`; `build` is
+such a command, so its outputs are byte-identical whatever both flags say.
 
 ## KiCad output
 

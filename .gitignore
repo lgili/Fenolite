@@ -16,8 +16,8 @@ __pycache__/
 .hypothesis/
 .coverage
 htmlcov/
-dist/
-build/
+/dist/
+/build/
 *.egg-info/
 
 # Editor/OS

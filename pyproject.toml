@@ -63,6 +63,8 @@ exclude = ["/private", "/.claude", "/.github", "/verify_results"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# pytest's default list without "build", so tests/kicad/build/ is collected (the root build/ is outside testpaths)
+norecursedirs = ["*.egg", ".*", "_darcs", "CVS", "dist", "node_modules", "venv", "{arch}"]
 addopts = "-ra --strict-markers --import-mode=importlib"
 markers = [
     "needs_kicad: requires a kicad-cli binary (skipped when absent)",

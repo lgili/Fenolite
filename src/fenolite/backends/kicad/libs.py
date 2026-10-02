@@ -594,7 +594,42 @@ class LibraryResolver:
         return tuple(out)
 
 
+_BARE = re.compile(r'^[^\s()"]+$')
+
+
+def _atom(value: str, *, quoted: bool) -> str:
+    if quoted or not _BARE.match(value):
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return value
+
+
+def write_lib_table(table: LibTable, *, target: int = versions.DEFAULT_TARGET) -> str:
+    """A project library table in the syntax of KiCad ``target`` (libraries.md, "Writing tables").
+
+    Target 10 writes ``(version 7)`` and quotes every atom; target 9 writes no version and bare atoms,
+    quoting only atoms that cannot be bare. Tab indentation and a final newline.
+    """
+    if target not in versions.TARGET_MAJORS:
+        raise ValueError(f"unsupported target KiCad {target}; supported targets: {versions.TARGET_MAJORS}")
+    root = next(name for name, kind in TABLE_ROOTS.items() if kind == table.kind)
+    quoted = target >= 10
+    lines = [f"({root}"]
+    if quoted:
+        lines.append("\t(version 7)")
+    for row in table.rows:
+        fields = " ".join(
+            f"({key} {_atom(value, quoted=quoted)})"
+            for key, value in zip(
+                _ROW_FIELDS, (row.nickname, row.type, row.uri, row.options, row.descr), strict=True
+            )
+        )
+        flags = (" (disabled)" if row.disabled else "") + (" (hidden)" if row.hidden else "")
+        lines.append(f"\t(lib {fields}{flags})")
+    return "\n".join(lines) + "\n)\n"
+
+
 __all__ = [
+    "write_lib_table",
     "SUPPORTED_TYPES",
     "TABLE_FILES",
     "LibRow",

@@ -49,6 +49,12 @@ _SPECS = (
     ),
     ErrorSpec("FEN-3004", ExitCode.INPUT, "malformed input file", "the message and where locate the problem"),
     ErrorSpec(
+        "FEN-3005",
+        ExitCode.INPUT,
+        "geometry in the input cannot be represented",
+        "the message names the geometry code and the points",
+    ),
+    ErrorSpec(
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",

@@ -384,6 +384,19 @@ above.
 
 These codes are `mod.WRITE_ISSUE_CODES`.
 
+## Writing library tables
+
+`libs.write_lib_table(table, *, target)` returns the text of one `fp-lib-table` or `sym-lib-table` for
+KiCad `target` (9 or 10). `fenolite build` writes one beside the project, with one row per vendored
+nickname, sorted by nickname, type `KiCad`, uri `${KIPRJMOD}/lib/<nickname>.pretty`, and empty options
+and description.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 10.0 tables start with `(version 7)` and quote every atom; the 9.0.9 tables of the official repositories have no version line and leave atoms bare unless they need quotes | S-0042, S-0043, S-0046 | INFERRED | H-K-BUILD-LIBTABLE |
+| A project table sits beside the project file, and `${KIPRJMOD}` in a row expands to the project folder | S-0045, S-0046 | INFERRED | H-K-BUILD-LIBTABLE |
+| On 10.0.6, a table written for target 9 or 10 whose rows name footprints copied under `${KIPRJMOD}/lib/` is read: DRC gives no `lib_footprint_issues` and no `lib_footprint_mismatch` with the table, and `lib_footprint_issues` without it, for 9-format definitions placed in boards of either target; 9.0.9 records the same outcome for target 9 | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-BUILD-LIBTABLE |
+
 ## Licence of the official libraries
 
 The official libraries are CC-BY-SA 4.0, with an exception for designs that use them (S-0048).

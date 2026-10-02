@@ -54,3 +54,6 @@ written from the pages under `docs/formats/kicad/`.
 | project key names, defaults and version pairs from a KiCad 10.0.6 GUI save; net-class oracle on `kicad-cli` 9.0.9 and 10.0.6 (c0010) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
 | demo project census: key names and counts only (c0010) | S-0023, S-0024 | CC-BY-SA-4.0 (notice); API metadata | 2026-10-02 | facts only |
 | template project census: key names and counts only, never template content (c0010) | S-0066 | CC-BY-SA-4.0 with the library exception | 2026-10-02 | facts only |
+| hidden user property `fenolite.path` on board footprints, in the form of KiCad-written boards (c0011) | S-0010, S-0038, S-0058 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 (notice) | 2026-10-02 | facts only |
+| project `fp-lib-table` forms per major and `${KIPRJMOD}` rows of vendored libraries (c0011) | S-0042, S-0043, S-0045, S-0046 | CC-BY-SA-4.0 with the library exception; GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| `pcb drc`, `pcb export pos` and `pcb upgrade` on built projects, on `kicad-cli` 9.0.9 and 10.0.6 (c0011) | S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |

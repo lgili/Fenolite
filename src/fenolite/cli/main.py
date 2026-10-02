@@ -12,7 +12,7 @@ import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn, TextIO
+from typing import NoReturn, TextIO, cast
 
 from fenolite import __version__
 from fenolite.cli.api import Command, Context, Result, discover
@@ -31,6 +31,7 @@ from fenolite.cli.output import (
     resolve_mode,
     write_error,
 )
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.io import atomic_write, sha256_bytes
 
 KICAD_TARGETS = (9, 10)
@@ -131,6 +132,17 @@ def _envelope(command: Command, outcome: Result, result: dict[str, object], *, o
     )
 
 
+def _refusal(exc: Exception) -> Result:
+    """A refusal's own issues for the envelope (a ``FenoliteError`` whose ``issues`` holds ``Issue``s)."""
+    found: object = getattr(exc, "issues", None) if isinstance(exc, FenoliteError) else None
+    if not isinstance(found, (list, tuple)):
+        return Result()
+    items = tuple(cast(Sequence[object], found))
+    if items and all(isinstance(i, Issue) for i in items):
+        return Result(issues=cast(tuple[Issue, ...], items))
+    return Result()
+
+
 def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started: float,
               out: TextIO, err: TextIO) -> int:  # fmt: skip
     dry_run = bool(getattr(args, "dry_run", False))
@@ -148,40 +160,38 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         write_error(exc.info(), ctx.mode, err)
         return int(exc.exit_code)
     except Exception as exc:  # library errors keep their code; any other exception is a bug (FEN-1001)
-        _emit(_envelope(command, Result(), {}, ok=False, receipt=None, started=started), ctx.mode, out)
+        _emit(_envelope(command, _refusal(exc), {}, ok=False, receipt=None, started=started), ctx.mode, out)
         failure = from_exception(exc, command.name)
         write_error(failure.info(), ctx.mode, err)
         return int(failure.exit_code)
 
-    try:
-        result = project_fields(outcome.result, fields) if fields else dict(outcome.result)
-    except FieldNotFoundError as exc:
-        raise CliError("FEN-2002", f"unknown field {exc.args[0]!r} in --fields") from exc
-
     code = ExitCode.OK
     error: ErrorInfo | None = None
     receipt: Receipt | None = None
-    if outcome.writes:
-        plan = [
+    result = dict(outcome.result)
+    if outcome.writes and (dry_run or not confirm):
+        result["plan"] = [
             {"path": w.path, "kind": w.kind, "bytes": len(w.data), "sha256": sha256_bytes(w.data),
              "overwrite": (ctx.cwd / w.path).exists()}
             for w in outcome.writes
         ]  # fmt: skip
-        if dry_run:
-            result["plan"] = plan
-        elif not confirm:
-            result["plan"] = plan
+        if not dry_run:
             code = ExitCode.CONFIRM_REQUIRED
             error = CliError("FEN-4001", where=command.name).info()
-        else:
-            written: list[WrittenFile] = []
-            backups: list[str] = []
-            for w in outcome.writes:
-                receipt_io = atomic_write(ctx.cwd / w.path, w.data, backup=not ctx.no_backup)
-                written.append(WrittenFile(path=w.path, sha256=receipt_io.sha256))
-                if receipt_io.backup_path is not None:
-                    backups.append(w.path + ".bak")
-            receipt = Receipt(written=tuple(written), backup=tuple(backups))
+    try:  # the plan is part of `result`, so --fields keeps it only when asked
+        result = project_fields(result, fields) if fields else result
+    except FieldNotFoundError as exc:
+        raise CliError("FEN-2002", f"unknown field {exc.args[0]!r} in --fields") from exc
+
+    if outcome.writes and confirm and not dry_run:
+        written: list[WrittenFile] = []
+        backups: list[str] = []
+        for w in outcome.writes:
+            receipt_io = atomic_write(ctx.cwd / w.path, w.data, backup=not ctx.no_backup)
+            written.append(WrittenFile(path=w.path, sha256=receipt_io.sha256))
+            if receipt_io.backup_path is not None:
+                backups.append(w.path + ".bak")
+        receipt = Receipt(written=tuple(written), backup=tuple(backups))
 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     if code is ExitCode.OK and n_errors:
