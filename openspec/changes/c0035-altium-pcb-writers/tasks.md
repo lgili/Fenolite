@@ -8,7 +8,7 @@
   - Compare this change's MODIFIED texts with the texts of c0034 and c0033 on the branch (design "Spec deltas and archive order"); copy again any base text that changed.
 
   Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_legal_docs.py`; `grep -cE '^\| H-A-PCB-' docs/hypotheses.md` prints `13`; `grep -cE '^\| S-016[0-6] ' docs/evidence/sources.md` prints `7`; `openspec validate c0035-altium-pcb-writers --strict --no-interactive` passes.
-- [ ] 1.2 Write the fact pages in Fenolite's own words.
+- [x] 1.2 Write the fact pages in Fenolite's own words.
   - `docs/formats/altium/pcb-library.md` (container, `Library/Data`, `Parameters`, `SectionKeys`, unique-id streams, the section "Version 2 not used" with the facts of design Decision 17), `pcb-records.md` (units, blocks, prefix, track, arc and pad records with offsets and a worked pad, layer map, flip pairs) and `pcb-document.md` (headers, `Board6` keys and layer names, `Nets6`, `Components6`, `Texts6`, `WideStrings6`, empty storages, frame, the oracle observations and the warnings KiCad gives for unmapped layers), one row each (`| fact | source | label | hypothesis |`); every S-0150 row says "version 1 at commit `afe7964`".
   - `compound-file.md` gains the empty-stream row with the MS-CFB section on its starting sector, or `INFERRED` under `H-A-PCB-DOC-OPEN` (Open Question 6).
   - `ALTIUM_HYPOTHESES` in `tests/unit/test_format_facts.py` widened to `H-A-PCB-`; `PROVENANCE.md` rows for PCB records, library, document and layer map.

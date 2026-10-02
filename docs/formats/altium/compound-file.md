@@ -67,6 +67,7 @@ also name `H-A-SCHLIB-KICAD`.
 | A storage may have a zero CLSID, zero state bits and zero creation and modification times | S-0145 | INFERRED | H-A-SCHLIB-OPEN |
 | Names are unique among the children of one storage only: the same name may appear in two storages (each component storage of a library holds its own `Data`) | S-0145 | INFERRED | H-A-SCHLIB-OPEN, H-A-SCHLIB-KICAD |
 | The order of the entries in the directory array is free: links, not positions, give the trees | S-0145 | INFERRED | H-A-SCHLIB-OPEN |
+| A stream may be empty: its directory entry gives the size 0. Such a stream needs no sector and no mini sector; Fenolite writes ENDOFCHAIN as its starting sector, a choice no section of the specification states for a size of 0 (change c0035, which needs empty `Data` streams; KiCad reads them in a local probe) | S-0145, S-0020 | INFERRED | H-A-PCB-DOC-OPEN |
 
 ## Fenolite's choices
 

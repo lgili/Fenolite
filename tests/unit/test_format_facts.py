@@ -32,9 +32,9 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB)-[A-Z0-9-]+\b"
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
-c0033, c0034)."""
+c0033, c0034, c0035)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -94,6 +94,9 @@ def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
     assert [p.name for p in pages] == [
         "compound-file.md",
+        "pcb-document.md",
+        "pcb-library.md",
+        "pcb-records.md",
         "project.md",
         "schematic-ascii.md",
         "schematic-binary.md",
@@ -219,3 +222,15 @@ def test_library_page_pins_altiumsharp_to_version_1() -> None:
     assert rows
     unpinned = [line for line in rows if line.count("S-0150") != line.count(S0150_PIN)]
     assert not unpinned, "\n".join(unpinned)
+
+
+def test_pcb_pages_pin_altiumsharp_to_version_1() -> None:
+    """Every fact row of the ``pcb-*.md`` pages that cites S-0150 names version 1 at the pinned commit, and
+    ``pcb-library.md`` lists what version 2 alone gives (change c0035; LEGAL.md P1)."""
+    for name in ("pcb-library.md", "pcb-records.md", "pcb-document.md"):
+        text = (ALTIUM_PAGES / name).read_text(encoding="utf-8")
+        rows = [line for line in text.splitlines() if line.startswith("|") and "S-0150" in line]
+        unpinned = [line for line in rows if line.count("S-0150") != line.count(S0150_PIN)]
+        assert not unpinned, "\n".join(unpinned)
+    library = (ALTIUM_PAGES / "pcb-library.md").read_text(encoding="utf-8")
+    assert library.count("## Version 2 not used") == 1
