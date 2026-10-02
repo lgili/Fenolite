@@ -33,7 +33,7 @@ Public sources (ids from `docs/evidence/sources.md`), tests or hypotheses that b
 | [0002](0002-kicad-file-backend.md) | KiCad file backend: Fenolite's own readers and writers, `kicad-cli` as the oracle | Accepted |
 | [0003](0003-clean-room-and-provenance.md) | Clean-room development and provenance of format knowledge | Accepted |
 | [0004](0004-licence-apache-2.0.md) | Licence: Apache-2.0; copyleft only behind a process boundary | Accepted |
-| [0005](0005-sheet-templates.md) | Sheet templates: a neutral drawing sheet built from closed, sourced specifications | Proposed |
+| [0005](0005-sheet-templates.md) | Sheet templates: a neutral drawing sheet built from closed, sourced specifications | Accepted |
 
 **Numbering.**
 

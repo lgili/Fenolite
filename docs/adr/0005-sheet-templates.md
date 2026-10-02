@@ -1,7 +1,7 @@
 # ADR-0005: Sheet templates: a neutral drawing sheet built from closed, sourced specifications
 
 ## Status
-Proposed
+Accepted (2026-10-02)
 
 ## Context
 Plan item 0012 and v0.1 acceptance item 4 ask for one drawing sheet, generated from a neutral template,
