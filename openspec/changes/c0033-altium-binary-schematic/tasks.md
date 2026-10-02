@@ -20,7 +20,7 @@
 
 ## 3. Reader hardening, the build option and documentation, while the maintainer tests
 
-- [ ] 3.1 Write `tests/unit/backends/altium/test_cfb_reader.py`: the MS-CFB section 3 example rebuilt from the values in its tables, and one negative control per rule of "Compound files read back", each a mutation of a written container that `read_compound` must reject by naming the rule. Proof: `uv run pytest tests/unit/backends/altium/test_cfb_reader.py`, covering the scenarios "Spec example" and "Broken chain caught".
+- [x] 3.1 Write `tests/unit/backends/altium/test_cfb_reader.py`: the MS-CFB section 3 example rebuilt from the values in its tables, and one negative control per rule of "Compound files read back", each a mutation of a written container that `read_compound` must reject by naming the rule. Proof: `uv run pytest tests/unit/backends/altium/test_cfb_reader.py`, covering the scenarios "Spec example" and "Broken chain caught".
 - [ ] 3.2 Flip `DEFAULT_FORM` to `"binary"`. In the same task:
   - pass `form="ascii"` in every c0032 test that reads the schematic as text, golden test included;
   - add `--altium-format {binary,ascii}` to `cmd_build`, with the usage error under `--target kicad`, the write kind by form and `result.schematic_format`;
