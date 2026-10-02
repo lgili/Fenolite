@@ -96,9 +96,10 @@ enabled feature sends data off the machine. Agents should call it first.
 Each entry of `result.backends` is one backend's capability report, sorted by name:
 
 ```json
-{"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"], "write_kinds": ["kicad_pcb"],
+{"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
+ "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro"],
  "targets": [9, 10], "default_target": 10, "downgrade": "unsupported",
- "operations": ["detect", "read", "write"],
+ "operations": ["detect", "read", "write", "lower"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}
 ```
 

@@ -33,9 +33,10 @@ def test_capability_default_target_among_targets() -> None:
 def test_capability_write_advertised_and_implemented() -> None:
     backend = KicadBackend()
     operations = backend.capabilities().operations
-    assert "write" in operations and "lower" not in operations and "validate" not in operations
+    assert "write" in operations and "lower" in operations and "validate" not in operations
     design = created_board()
     assert backend.write(design) == write_board(design, target=10)
+    assert callable(backend.lower)
     assert backend.write(design, target=9, allow_lossy=True) == write_board(design, target=9)
 
 

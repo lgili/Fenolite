@@ -18,3 +18,8 @@ paths = ["tests/data/**", "examples/**"]
 # path = "examples/blink_2layer/bom.csv"
 # pattern = "numeric-code"
 # reason = "LCSC-style catalogue numbers written for this example"
+
+[[waiver]]
+path = "tests/data/kicad/project/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX Default class priority 2147483647"

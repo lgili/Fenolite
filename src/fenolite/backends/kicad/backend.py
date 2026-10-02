@@ -18,11 +18,11 @@ SYMBOL_DIR_SUFFIX = ".kicad_symdir"
 CAPABILITIES = CapabilityReport(
     name="kicad",
     read_kinds=("kicad_pcb", "kicad_mod", "kicad_sym"),
-    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru"),
+    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro"),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",
-    operations=("detect", "read", "write"),
+    operations=("detect", "read", "write", "lower"),
     evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ", "H-K-PCB-WRITE")),
 )
 
@@ -82,6 +82,33 @@ class KicadBackend:
         chosen = CAPABILITIES.default_target if target is None else target
         assert chosen is not None
         return pcb.write_board(design, target=chosen, allow_lossy=allow_lossy)
+
+    def lower(
+        self,
+        design: Design,
+        *,
+        name: str,
+        target: int | None = None,
+        existing_project: str | None = None,
+        allow_lossy: bool = False,
+        issues: list[Issue] | None = None,
+    ) -> dict[str, str]:
+        """The coherent set (board, project, rules) of ``design``: ``triad.write_triad``'s files.
+
+        ``target=None`` means the default target; nothing is written to disk.
+        """
+        from fenolite.backends.kicad.triad import write_triad
+
+        chosen = CAPABILITIES.default_target if target is None else target
+        assert chosen is not None
+        return write_triad(
+            design,
+            name=name,
+            target=chosen,
+            existing_project=existing_project,
+            allow_lossy=allow_lossy,
+            issues=issues,
+        )
 
     def capabilities(self) -> CapabilityReport:
         return CAPABILITIES

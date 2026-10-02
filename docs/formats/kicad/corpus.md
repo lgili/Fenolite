@@ -13,7 +13,7 @@
 
 | origin | rows | source | licence reading |
 |---|---|---|---|
-| `kicad-demos` | 18 boards at tag 10.0.6, 6 boards that differ from or are absent at 10.0.6 at tag 9.0.9.1, and one schematic, symbol library, footprint, footprint-library table and worksheet at 10.0.6 | S-0024, S-0026 | see "Licence reading" below |
+| `kicad-demos` | 18 boards at tag 10.0.6, 6 boards that differ from or are absent at 10.0.6 at tag 9.0.9.1, and one schematic, symbol library, footprint, footprint-library table and worksheet at 10.0.6; 35 project files and 2 custom rules files at 10.0.6 and 17 project files that differ from or are absent at 10.0.6 at tag 9.0.9.1 (use `project`) | S-0024, S-0026 | see "Licence reading" below |
 | `third-party` | 3 boards (formats 20221018 ×2 and 20171130) | S-0027, S-0028 | `license = "Apache-2.0"` from each repository's `LICENSE` file |
 
 Licence reading for the `kicad-demos` rows:
@@ -33,6 +33,7 @@ Every row is `embeddable = false`, so these files are measurement material only.
 | `oracle` | a board that `tests/kicad/test_rt0_oracle.py` loads and upgrades with `kicad-cli` |
 | `heavy` | a file over 20 MB; excluded from CI and from local runs unless `FENOLITE_HEAVY=1` |
 | `malformed` | published malformed; the parser must keep rejecting it with the rule named in `notes` |
+| `project` | a demo `.kicad_pro` or `.kicad_dru`; read for a key-name census and round trips only (`tests/unit/backends/kicad/test_pro.py`, `test_dru_demos.py`), never `rt0` or `oracle` |
 
 ## Format versions
 

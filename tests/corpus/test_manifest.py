@@ -22,6 +22,7 @@ EMBEDDABLE_LICENSES = {"CC0-1.0"}
 KEYS = {"id", "url", "ref", "sha256", "license", "license_variant", "embeddable", "uses", "notes"}
 RT0_ID = re.compile(r"^(kicad-demo-\d+(-\d+){2,3}|third-party)-(pcb|sch|sym|mod|fplib|wks)-\d{2}$")
 ORIGINS = {"origin:kicad-demos", "origin:third-party"}
+PROJECT_ID = re.compile(r"^kicad-demo-\d+(-\d+){2,3}-(pro|dru)-\d{2}$")
 NON_COMMERCIAL = re.compile(r"\bNC\b|-NC-|non-?commercial", re.IGNORECASE)
 HEAVY_BYTES = 20 * 1024 * 1024
 
@@ -64,6 +65,14 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
             origins = [u for u in uses if u.startswith("origin:")]
             if len(origins) != 1 or origins[0] not in ORIGINS:
                 problems.append(f"{ident}: rt0 rows need exactly one of {sorted(ORIGINS)} in uses")
+        if "project" in uses:
+            if not PROJECT_ID.fullmatch(ident):
+                problems.append(f"{ident}: project ids must match {PROJECT_ID.pattern}")
+            for use in ("rt0", "oracle", "malformed"):
+                if use in uses:
+                    problems.append(f"{ident}: project rows never carry {use}")
+            if "origin:kicad-demos" not in uses:
+                problems.append(f"{ident}: project rows need origin:kicad-demos in uses")
     return problems
 
 
@@ -270,3 +279,101 @@ def test_encoded_space_in_a_url(tmp_path: Path) -> None:
     assert "%20" in manifest.read_text()
     assert tool.main(["--manifest", str(manifest), "--cache", str(cache)]) == 0
     assert (cache / "spaced" / "demo board.kicad_pcb").is_file()
+
+
+# --- project fixtures saved by the KiCad GUI (c0010) ----------------------------------------------
+
+PROJECT_FIXTURES = "tests/data/kicad/project/"
+VERSION_NOTE = re.compile(r"\b(9|10)\.\d+\.\d+\b")
+SHA_NOTE = re.compile(r"\b[0-9a-f]{64}\b")
+ABSOLUTE = re.compile(r"^(/|~/|[A-Za-z]:[\\/])")
+
+
+def project_fixture_problems(root: Path, declared: list[dict[str, Any]]) -> list[str]:
+    """Notes name a KiCad version and the file's SHA-256; no JSON string is an absolute path."""
+    import json
+
+    problems: list[str] = []
+    for decl in declared:
+        rel = str(decl.get("path", ""))
+        if not rel.startswith(PROJECT_FIXTURES):
+            continue
+        notes = str(decl.get("notes", ""))
+        if not VERSION_NOTE.search(notes):
+            problems.append(f"{rel}: the notes name no KiCad version")
+        path = root / rel
+        if not path.is_file():
+            continue
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        noted = SHA_NOTE.findall(notes)
+        if noted != [actual]:
+            problems.append(f"{rel}: notes SHA-256 {noted or 'none'} differs from the file's {actual}")
+
+        def walk(value: Any, pointer: str, rel: str = rel) -> None:
+            if isinstance(value, dict):
+                for key, item in value.items():  # type: ignore[union-attr]
+                    walk(item, f"{pointer}/{key}", rel)
+            elif isinstance(value, list):
+                for index, item in enumerate(value):  # type: ignore[arg-type]
+                    walk(item, f"{pointer}/{index}", rel)
+            elif isinstance(value, str) and ABSOLUTE.match(value):
+                problems.append(f"{rel}: absolute path at {pointer}")
+
+        walk(json.loads(path.read_text(encoding="utf-8")), "")
+    return problems
+
+
+def test_project_fixtures() -> None:
+    declared = tomllib.loads(DATA_MANIFEST.read_text(encoding="utf-8")).get("file", [])
+    assert project_fixture_problems(ROOT, declared) == []
+    assert any(str(d["path"]).startswith(PROJECT_FIXTURES) for d in declared)
+
+
+def _fixture(tmp_path: Path, body: str, notes: str | None = None) -> list[str]:
+    path = tmp_path / "tests" / "data" / "kicad" / "project" / "empty_10.kicad_pro"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body, encoding="utf-8")
+    sha = hashlib.sha256(path.read_bytes()).hexdigest()
+    entry = {"path": "tests/data/kicad/project/empty_10.kicad_pro", "notes": notes or f"KiCad 10.0.6, {sha}"}
+    return project_fixture_problems(tmp_path, [entry])
+
+
+def test_absolute_path_in_a_fixture(tmp_path: Path) -> None:
+    problems = _fixture(tmp_path, '{"schematic": {"plot_directory": "/tmp/out/"}, "a": "~A", "b": "C:\\\\x"}')
+    assert problems == [
+        "tests/data/kicad/project/empty_10.kicad_pro: absolute path at /schematic/plot_directory",
+        "tests/data/kicad/project/empty_10.kicad_pro: absolute path at /b",
+    ]
+
+
+def test_fixture_edited_after_the_save(tmp_path: Path) -> None:
+    problems = _fixture(tmp_path, "{}", notes="KiCad 10.0.6, " + "0" * 64)
+    assert len(problems) == 1 and "0" * 64 in problems[0] and "differs" in problems[0]
+
+
+def test_notes_without_a_version(tmp_path: Path) -> None:
+    sha = hashlib.sha256(b"{}").hexdigest()
+    problems = _fixture(tmp_path, "{}", notes=f"saved by KiCad, {sha}")
+    assert problems == ["tests/data/kicad/project/empty_10.kicad_pro: the notes name no KiCad version"]
+
+
+def _project_row(ident: str, uses: list[str]) -> dict[str, Any]:
+    return {
+        "id": ident, "url": "https://example.org/x.kicad_pro", "ref": "10.0.6", "sha256": "0" * 64,
+        "license": "CC-BY-SA-4.0", "license_variant": "", "embeddable": False, "uses": uses, "notes": "",
+    }  # fmt: skip
+
+
+def test_project_rows() -> None:
+    good = _project_row("kicad-demo-10-0-6-pro-01", ["project", "origin:kicad-demos"])
+    assert manifest_problems([good]) == []
+    named = _project_row("kicad-demo-10-0-6-cm5-minima", ["project", "origin:kicad-demos"])
+    assert manifest_problems([named]) == [
+        f"kicad-demo-10-0-6-cm5-minima: project ids must match {PROJECT_ID.pattern}"
+    ]
+    tagged = _project_row("kicad-demo-10-0-6-pro-01", ["project", "rt0", "origin:kicad-demos"])
+    assert "kicad-demo-10-0-6-pro-01: project rows never carry rt0" in manifest_problems([tagged])
+    entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
+    rows = [e for e in entries if "project" in e["uses"]]
+    assert rows and all(not e["embeddable"] for e in rows)
+    assert not any("stickhub" in e["url"] for e in rows)

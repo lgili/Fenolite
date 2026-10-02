@@ -50,6 +50,19 @@
     "pcb-write-triad-10": "reject",
     "pcb-write-triad-9": "load",
     "pcb-write-two-layer-10": "reject",
-    "pcb-write-two-layer-9": "load"
+    "pcb-write-two-layer-9": "load",
+    "pro-anchor-t9": "absent",
+    "pro-decoys-t9": "present",
+    "pro-file-drc": "equal",
+    "pro-file-export": "equal",
+    "pro-floor-raised-t9": "present",
+    "pro-floor-template-t9": "absent",
+    "pro-full-t9": "present",
+    "pro-minimal-t9": "equal",
+    "pro-noclass-t9": "absent",
+    "pro-noproject-t9": "absent",
+    "pro-patterns-t9": "present",
+    "pro-prl-drc": "absent",
+    "pro-prl-export": "absent"
   }
 }

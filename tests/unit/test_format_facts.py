@@ -21,7 +21,10 @@ ROOT = Path(__file__).resolve().parents[2]
 PAGES = ROOT / "docs" / "formats" / "kicad"
 HEADER = ["fact", "source", "label", "hypothesis"]
 VERIFIED = {Level.KICAD_VERIFIED.value, Level.CORPUS_VERIFIED.value}
-HYPOTHESIS_IDS: dict[str, str] = {"sexpr.md": r"\bH-K-(SEXPR|FMT)-[A-Z0-9-]+\b"}
+HYPOTHESIS_IDS: dict[str, str] = {
+    "sexpr.md": r"\bH-K-(SEXPR|FMT)-[A-Z0-9-]+\b",
+    "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
+}
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
 
 
@@ -102,3 +105,12 @@ def test_row_rules(row: str, expected: str | None) -> None:
         assert problems == []
     else:
         assert len(problems) == 1 and expected in problems[0] and "sexpr.md:3" in problems[0]
+
+
+def test_project_page_names_its_own_hypotheses() -> None:
+    """A ``project.md`` row below the verified levels names ``H-K-PRO-*`` or ``H-K-TOK-RULES-SILENT``."""
+    header = "| fact | source | label | hypothesis |\n|---|---|---|---|\n"
+    table = header + "| a fact | S-0045 | INFERRED | H-K-SEXPR-STRICT |\n"
+    assert table_problems("project.md", table) == ["project.md:3: INFERRED row names no hypothesis"]
+    ok = table.replace("H-K-SEXPR-STRICT", "H-K-PRO-MIN")
+    assert table_problems("project.md", ok) == []

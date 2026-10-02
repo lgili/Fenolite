@@ -24,7 +24,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | A rule's severity is `error`, `warning`, `ignore` or `exclusion`; ignored rules are still matched and can override earlier rules | S-0010, S-0038 | INFERRED | H-K-DRU-ORDER |
 | Constraint limits are `min`, `opt` and `max`; `clearance` and `edge_clearance` take `min`, `hole_size` takes `min` and `max`, `track_width` and `via_diameter` take all three; the `min` limit of each lowered kind is enforced | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND |
 | Board-setup minimums are absolute floors: a custom rule cannot lower them | S-0038 | INFERRED | H-K-DRU-KIND |
-| Rules are read only with a project file next to the board, and any error disables every custom rule with exit 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-SILENT |
+| Any error disables every custom rule with exit 0; a `.kicad_dru` next to the board is read with or without a project file (the net classes need one) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-SILENT |
 | 9.0.9 drops the whole file when one rule uses one of seven 10.0-only constructs (`bridged_mask`, `solder_mask_expansion`, `solder_paste_abs_margin`, `solder_paste_rel_margin`, `via_dangling`, the disallow kinds `through_via` and `blind_via`) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-DRIFT |
 | Every constraint type and clause of the 9.0 manual loads on 9.0.9 and 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-FLOOR |
 | A rule with a single-quoted name makes 9.0.9 and 10.0.6 drop the whole file, with exit 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-QUOTE |

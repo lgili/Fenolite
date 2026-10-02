@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """KiCad backend: S-expression syntax layer, slots, format versions, library and board readers, the
-board, footprint and custom-rules writers, and the ``kicad-cli`` runner.
+board, footprint, custom-rules and project writers, and the ``kicad-cli`` runner.
 
 Facts and sources: ``docs/formats/kicad/`` and ``PROVENANCE.md`` in this package.
 """
@@ -15,6 +15,13 @@ from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, split_l
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.mod import board_footprints, read_footprint, write_footprint, write_pretty
 from fenolite.backends.kicad.pcb import opaque_count, read_board, rebuild_board, write_board
+from fenolite.backends.kicad.pro import (
+    PROJECT_VERSIONS,
+    apply_project,
+    read_project,
+    synthesize_project,
+    update_project,
+)
 from fenolite.backends.kicad.sexpr import (
     MAX_DEPTH,
     Atom,
@@ -30,10 +37,12 @@ from fenolite.backends.kicad.sexpr import (
     walk,
 )
 from fenolite.backends.kicad.sym import read_symbol_library, resolve_extends
+from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import LegacyEditRefusedError, LossyWriteError
 
 __all__ = [
     "MAX_DEPTH",
+    "PROJECT_VERSIONS",
     "Atom",
     "AtomKind",
     "KicadCli",
@@ -43,6 +52,7 @@ __all__ = [
     "LibraryResolver",
     "LossyWriteError",
     "Node",
+    "apply_project",
     "board_footprints",
     "dumps",
     "find_kicad_cli",
@@ -58,15 +68,19 @@ __all__ = [
     "read_board",
     "read_drc_report",
     "read_footprint",
+    "read_project",
     "read_rules",
     "read_symbol_library",
     "rebuild_board",
     "resolve_extends",
+    "synthesize_project",
     "split_lib_id",
     "tree_equal",
+    "update_project",
     "walk",
     "write_board",
     "write_footprint",
     "write_pretty",
     "write_rules",
+    "write_triad",
 ]

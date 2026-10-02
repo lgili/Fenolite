@@ -9,7 +9,7 @@ The bench is built by `tests/_netclass_bench.py` through the model and written w
 - the canary: a 3 mm clearance rule restricted by a `net` condition to `CANARY_A`, whose track runs 0.75 mm from a `CANARY_B` track, at least 10 mm from other copper. The canary is scoped because the unconditional canary of "Rules proofs carry a canary" would flag every 1.0 mm row.
 
 A row's HV violation is a `clearance` violation whose items are that row's two tracks, and the canary violation is the `clearance` violation between the two canary tracks; both MUST be identified by item uuids. Every run MUST go through c0009's `KicadCli` on a temporary copy with an empty `KICAD_CONFIG_HOME`. On 10.0 the target-10 and target-9 sets run; on 9.0 the target-9 set runs, and the target-10 cases are skipped by `kicad_min_major(10)`.
-- In every case that loads the project, a report without the canary violation MUST fail the test with a message saying the rules file was not loaded, and MUST NOT pass or skip. In the no-project case, a canary violation MUST fail the test. The outcome MUST be computed by the pure function `judge(report, *, case, design)` of `tests/_netclass_bench.py`, and the failure raised by `assert_loaded(outcome, case)`, so that both are tested without KiCad.
+- In every case, the no-project case included, a report without the canary violation MUST fail the test with a message saying the rules file was not loaded, and MUST NOT pass or skip. `kicad-cli` 9.0.9 and 10.0.6 read a `.kicad_dru` next to the board without a project file (measured by this change), so in the no-project case the canary proves that DRC ran the rules while the classes, which live only in the project file, are absent. The outcome MUST be computed by the pure function `judge(report, *, case, design)` of `tests/_netclass_bench.py`, and the failure raised by `assert_loaded(outcome, case)`, so that both are tested without KiCad.
 - Each case MUST be a probe of `tests/kicad/_probes.py` with id `pro-<case>-t<target>`, and the tests MUST assert on `run(…)`. The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, so that `tests/kicad/test_probe_results.py` detects a change of behaviour in a later image.
 
 #### Scenario: Full set
@@ -20,7 +20,7 @@ A row's HV violation is a `clearance` violation whose items are that row's two t
 #### Scenario: No project file
 - **GIVEN** the same set without `bench.kicad_pro`
 - **WHEN** `test_three_way` runs it
-- **THEN** the report has neither an HV violation nor the canary violation
+- **THEN** the report has no HV violation and has the canary violation
 
 #### Scenario: Class removed
 - **GIVEN** the set synthesised from the bench without class HV
@@ -44,7 +44,7 @@ A row's HV violation is a `clearance` violation whose items are that row's two t
 
 #### Scenario: Canary missing
 - **GIVEN** an authored DRC report text holding the HV violations of the bench and no canary violation, read with c0017's `read_drc_report`
-- **WHEN** `uv run pytest tests/unit/test_netclass_bench.py -k canary` judges it as the `full` case, and judges a report holding the canary as the `noproject` case
+- **WHEN** `uv run pytest tests/unit/test_netclass_bench.py -k canary` judges it as the `full` case and as the `noproject` case
 - **THEN** `judge` returns `inconclusive` for both, and `assert_loaded` fails with a message saying the rules file was not loaded
 
 #### Scenario: Probe outcomes pinned

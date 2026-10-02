@@ -47,3 +47,10 @@ written from the pages under `docs/formats/kicad/`.
 | custom rules dialect (comment lines, units, `'…'` literals), rule precedence and condition syntax, `assign_component_class` per tag (c0018) | S-0010, S-0038, S-0034, S-0020 | GPL-3.0-or-later or CC-BY-3.0-or-later; GPL-3.0-or-later (single names only); GPL-3.0-or-later tool run as a subprocess | 2026-10-02 | facts only |
 | footprint writer header and format constants (c0018) | S-0040, S-0030, S-0022, S-0037 | GPL-3.0-or-later or CC-BY-3.0-or-later; GPL-3.0-or-later (names and dated facts only, nothing copied) | 2026-10-02 | facts only |
 | rules oracle: `pcb drc` with a canary rule on `kicad-cli` 9.0.9 and 10.0.6 (c0018) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
+| project and local-state files: roles of `.kicad_pro` and `.kicad_prl` (c0010) | S-0045 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| net classes and pattern assignment: wildcards and regular expressions, aggregate class by priority (c0010) | S-0010, S-0038, S-0046 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| board-setup minimums as floors under class values (c0010) | S-0038 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| absence of a public project-file specification (c0010) | S-0065 | not stated on the page | 2026-10-02 | facts only |
+| project key names, defaults and version pairs from a KiCad 10.0.6 GUI save; net-class oracle on `kicad-cli` 9.0.9 and 10.0.6 (c0010) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
+| demo project census: key names and counts only (c0010) | S-0023, S-0024 | CC-BY-SA-4.0 (notice); API metadata | 2026-10-02 | facts only |
+| template project census: key names and counts only, never template content (c0010) | S-0066 | CC-BY-SA-4.0 with the library exception | 2026-10-02 | facts only |

@@ -238,3 +238,16 @@ def test_unsupported_target() -> None:
 def test_rules_target() -> None:
     info = inspect(parse("(kicad_dru (version 1))"))
     assert check_target(info, 9) == 1 and check_target(info, 10) == 1
+
+
+def test_project_stays_outside_file_kind() -> None:
+    """The project file is JSON (c0010): ``FileKind`` keeps its six members and knows no ``.kicad_pro``."""
+    assert kind_for_suffix("bench.kicad_pro") is None
+    assert [k.value for k in FileKind] == [
+        "kicad_pcb",
+        "kicad_mod",
+        "kicad_sch",
+        "kicad_sym",
+        "kicad_wks",
+        "kicad_dru",
+    ]

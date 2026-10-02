@@ -152,7 +152,7 @@
 
     Violations are attributed by the uuids of their items as `read_drc_report` returns them, never by description text or exit code. Cases, each on 10.0.6 (target 10 and target 9 sets) and 9.0.9 (target 9 set):
     - (a) full set: a `clearance` violation for each HV row, and the canary;
-    - (b) the same set without `bench.kicad_pro`: neither;
+    - (b) the same set without `bench.kicad_pro`: no HV violation, and the canary (measured: `kicad-cli` 9.0.9 and 10.0.6 read a `.kicad_dru` without a project file, which partly refutes `H-K-TOK-RULES-SILENT`; the expectation "neither" of the draft was corrected after the measurement);
     - (c) the set synthesised without HV: the canary only;
     - minimal: `bench.kicad_pro` cut to `meta` and `net_settings` gives the same violations as (a) (`H-K-PRO-MIN`);
     - patterns: (a) plus raw entries → HV added by the test: `Net-(R1-Pad1)`, `D[0]`, `IN+`, `VCC_3.3` and the wildcard `SW?_*`. Each of those rows and `SW1_A` fires. The decoys `Net-R1-Pad1`, `D0`, `INN` and `VCC_3V3` are expected to fire too, since S-0046 reads patterns as regular expressions as well (`H-K-PRO-PATTERNS`);
@@ -164,7 +164,7 @@
     - `absent`: no watched row has one;
     - `equal`: for `minimal`, the same violations, by type and item uuids, as `full`;
     - `different`: any other mix;
-    - `inconclusive`: the canary is missing in a case that loads the project, or present in `noproject`.
+    - `inconclusive`: the canary is missing, in any case.
 
     Expected outcomes: `present` for `full`, `patterns`, `decoys` (as documented by S-0046) and `floor-raised`; `absent` for `noproject`, `noclass`, `anchor` and `floor-template`; `equal` for `minimal`. A pure function `judge(report, *, case, design)` of `tests/_netclass_bench.py` computes the outcome from a `DrcReport`, and `assert_loaded(outcome, case)` fails with "rules file not loaded" on `inconclusive`; `tests/unit/test_netclass_bench.py` checks both on authored report texts, so the canary path is proved without KiCad. `test_project_files.py` runs `pcb drc` (`KicadCli.drc`) and `pcb export svg` (`KicadCli.run`) on the target-9 set and reads `CliRun.outputs`, which lists every file a run created or changed. It adds `pro-file-drc` and `pro-file-export` (`equal` when `bench.kicad_pro` is absent from `outputs`) and `pro-prl-drc` and `pro-prl-export` (`present` when `bench.kicad_prl` is in `outputs`, else `absent`, recorded as measured). Tasks 7.1 to 7.3 regenerate `docs/evidence/kicad/probes/10.0.6.json` and `9.0.9.json` with `FENOLITE_PROBES_WRITE=1`, so a later image with other behaviour fails `tests/kicad/test_probe_results.py`.
     - Rejected: judging by `--exit-code-violations`, and a bench without a no-project control.

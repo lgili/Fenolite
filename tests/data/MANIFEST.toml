@@ -366,3 +366,9 @@ path = "tests/data/kicad/rules/broken.kicad_dru"
 origin = "authored"
 corpus_id = ""
 notes = "the canary and a rule with a single-quoted name (silent-disable control)"
+
+[[file]]
+path = "tests/data/kicad/project/empty_10.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "saved by the KiCad 10.0.6 GUI on macOS on 2026-10-02 from KiCad's default project template; PCB Editor and Schematic Editor opened and saved; sha256 c1b02f307b1963b2b370ca83e9b354842d666eb354c3706d8cd0df54d6cca1b2"
