@@ -323,7 +323,7 @@ def parse_compound(data: bytes) -> Compound:
             if entry.size == 0:
                 # compound-file.md, "Storages" (c0035): size 0, no sector, starting sector ENDOFCHAIN
                 if entry.start != ENDOFCHAIN:
-                    raise CfbError(f"stream {path}: an empty stream starts at {entry.start:#x}, not ENDOFCHAIN")
+                    raise CfbError(f"stream {path}: an empty stream starts at {entry.start:#x}")
                 compound.streams[path] = b""
                 continue
             if entry.size < CUTOFF:
