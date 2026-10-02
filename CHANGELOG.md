@@ -35,6 +35,10 @@ All notable changes to Fenolite are documented here. The format follows
 - The `kicad-9` CI job runs `pytest -q -rA`, so its log lists the outcome of every oracle test.
 - CI evidence recorded: the first green `kicad-10` run and the `kicad-9` run confirm the geometry hypotheses (`H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-ARC-ROUND`, `H-G-ARC-DIR`, `H-G-PTS-ARC`) on 9.0.9 and settle `H-K-02`; `main` now requires the `kicad-9` and `kicad-10` checks. Changes c0006 and c0007 archived.
 
+### Fixed
+
+- Tests: `test_clip_result_inside_both` now checks what the geometry kernel promises, that each vertex of `clip_convex` is within 0.5 nm per axis of both operands, exactly (coordinates doubled). The old check looked for a lattice point within 1 nm inside each operand and failed on slivers thinner than 1 nm, although the kernel was right; the falsifying case is pinned with `@example`.
+
 ## [0.0.1.dev0] - 2026-09-30
 
 Pre-alpha repository bootstrap; not usable for real boards yet. Published to PyPI as `fenolite` and its

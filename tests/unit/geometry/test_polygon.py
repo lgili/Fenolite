@@ -7,7 +7,7 @@ from __future__ import annotations
 from fractions import Fraction
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from strategies import rings, small_points
 
@@ -147,19 +147,27 @@ def test_concave_clip_operand_rejected() -> None:
         clip_convex(square(0, 0, 5, 5), l_shape)
 
 
+def _doubled(ring: tuple[Point, ...]) -> Polygon:
+    return Polygon(tuple(P(2 * p.x, 2 * p.y) for p in ring))
+
+
 @settings(max_examples=150)
 @given(rings(), rings())
+@example(  # a sliver about 0.2 nm wide near its tip: no lattice point within 1 nm of the vertex is inside it
+    (P(0, -15), P(710, 1), P(0, 0)), (P(-378, -310), P(2, -267), P(793, 33))
+)
 def test_clip_result_inside_both(a: tuple[Point, ...], b: tuple[Point, ...]) -> None:
     result = clip_convex(Polygon(a), Polygon(b))
     if result is None:
         return
     assert result.area2 > 0
     assert result.normalize() == result
-    # Each vertex is within 1 nm (per axis) of a point of both operands: check the rounding window.
+    # Each vertex is the rounding (error <= 0.5 nm per axis) of a point of both operands: the closed
+    # half-nanometre box around it meets each operand, checked exactly with all coordinates doubled.
     for v in result.outer:
-        for poly in (Polygon(a), Polygon(b)):
-            window = [P(v.x + dx, v.y + dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)]
-            assert any(poly.locate(w) != Location.OUTSIDE for w in window)
+        box = square(2 * v.x - 1, 2 * v.y - 1, 2 * v.x + 1, 2 * v.y + 1)
+        for ring in (a, b):
+            assert polygons_intersect(_doubled(ring), box)
 
 
 def test_self_intersecting_ring_detected() -> None:
