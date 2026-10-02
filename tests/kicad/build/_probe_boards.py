@@ -4,15 +4,17 @@
 
 Parts come from ``Mini_v9.pretty`` for both targets on a 50 mm × 30 mm board made with
 ``layers.created_layers(2)`` and ``embed.place_footprint``. ``offboard=True`` moves ``R1`` 10 mm right of
-the outline.
+the outline. ``properties`` (c0027) gives a part the hidden ``fenolite.path`` property and then its user
+properties in code-point order, each through ``embed.with_property`` before ``place_footprint``.
 """
 
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from pathlib import Path
 
-from fenolite.backends.kicad.embed import place_footprint
+from fenolite.backends.kicad.embed import PATH_PROPERTY, place_footprint, with_property
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.core.coords import Point
@@ -41,8 +43,11 @@ def _id(prefix: str, n: int) -> str:
     return f"{prefix}_00000000-0000-4000-8000-{n:012d}"
 
 
-def probe_board(target: int, *, offboard: bool = False) -> Design:
-    """The blink layout for ``target`` (the design is the same for 9 and 10)."""
+def probe_board(
+    target: int, *, offboard: bool = False, properties: Mapping[str, Mapping[str, str]] | None = None
+) -> Design:
+    """The blink layout for ``target`` (the design is the same for 9 and 10); ``properties``: ref → user
+    properties, written after ``fenolite.path`` on every part when given."""
     del target
     nets = {name: Net(id=_id("net", i), name=name) for i, name in enumerate(NETS, start=1)}
     by_pin = {pin: nets[name].id for name, pins in NETS.items() for pin in pins}
@@ -50,6 +55,10 @@ def probe_board(target: int, *, offboard: bool = False) -> Design:
     footprints: list[FootprintInstance] = []
     for n, (ref, value, name, x, y, rot, side, locked) in enumerate(PARTS, start=1):
         defn = read_footprint(LIBS / f"{name}.kicad_mod", library="Mini")
+        if properties is not None:
+            defn = with_property(defn, name=PATH_PROPERTY, value=ref)
+            for key, text in sorted(properties.get(ref, {}).items()):
+                defn = with_property(defn, name=key, value=text)
         component = Component(id=_id("cmp", n), ref=ref, value=value, lib_footprint_ref=defn.lib_id)
         if ref == "R1" and offboard:
             x = 60

@@ -86,3 +86,23 @@ def test_diff_pair_reported() -> None:
     d.add(DiffPair(Net("USB_P"), Net("USB_N")))
     found = [i for i in build(d).issues if i.code == "build.interface-not-lowered"]
     assert len(found) == 1 and "USB_P/USB_N" in found[0].message
+
+
+def test_staged_parts_carry_their_properties() -> None:
+    """c0027: a staged part gets its user properties after ``fenolite.path``, as a placed one does."""
+    d = unplaced("R1")
+    d.parts["R1"].properties = {"Part number": "PN-330"}
+    out = build(d)
+    assert codes(out).count("layout.unplaced") == 1 and out.files
+    from fenolite.backends.kicad.sexpr import parse
+
+    root = parse(out.files["blink.kicad_pcb"].decode("utf-8"))
+    r1 = next(
+        fp
+        for fp in root.nodes("footprint")
+        if any(p.atoms()[:2] and p.atoms()[1].value == "R1" for p in fp.nodes("property"))
+    )
+    names = [p.atoms()[0].value for p in r1.nodes("property")]
+    assert names[-2:] == ["fenolite.path", "Part number"]
+    back = {c.ref: c for c in read_board(out.files["blink.kicad_pcb"].decode("utf-8")).circuit.components}
+    assert back["R1"].properties["Part number"] == "PN-330"

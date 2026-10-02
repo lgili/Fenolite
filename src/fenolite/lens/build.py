@@ -2,9 +2,10 @@
 # Copyright (c) 2026 Fenolite contributors
 """Building a model design into a self-contained KiCad project (``docs/dsl.md``, "Build").
 
-``build_design`` resolves libraries, fills pins, places and stages parts, checks, writes the triad
-through ``triad.write_triad``, vendors the project-table footprints with a per-target ``fp-lib-table``,
-and adds the ``.fenolite/`` layer texts and build record. A design with an error gives no file.
+``build_design`` resolves libraries, fills pins, places and stages parts with their user properties,
+checks, writes the triad through ``triad.write_triad``, vendors the placed footprints of every row origin
+(or of project rows only) with a per-target ``fp-lib-table``, and adds the ``.fenolite/`` layer texts and
+build record. A design with an error gives no file.
 """
 
 from __future__ import annotations
@@ -55,9 +56,14 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.no-board": "error",
         "build.name-case-collision": "error",
         "build.layout-exists": "error",
+        "build.property-reserved": "error",
+        "build.property-invalid": "error",
+        "build.property-conflict": "error",
+        "build.vendor-unsafe-name": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
+        "build.library-changed": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
@@ -69,6 +75,18 @@ BUILD_EVIDENCE = Evidence(
     hypotheses=("H-K-BUILD-TRIAD", "H-K-BUILD-CLASS", "H-K-BUILD-LIBTABLE", "H-K-BUILD-PATHPROP"),
 )
 """The blink is proved by the build oracle; arbitrary designs reach forms the oracle has not run."""
+PROPERTY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-PROPS", "H-K-VENDOR-DUPNAME"))
+"""Joins the envelope when a user property is written (c0027)."""
+VENDOR_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-GLOBAL", "H-K-VENDOR-SHADOW"))
+"""Joins the envelope when a footprint of a row whose origin is not ``project`` is vendored (c0027)."""
+VENDOR_MODES: tuple[str, ...] = ("all", "project")
+"""``vendor="all"`` copies every placed footprint; ``"project"`` only those of project rows (c0011)."""
+RESERVED_PROPERTIES: frozenset[str] = frozenset(
+    {"Reference", "Value", "Footprint", "Datasheet", "Description"}
+)
+"""User property names refused after ``str.casefold`` (equal to ``fenolite.dsl.part.RESERVED_PROPERTIES``)."""
+RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
+"""User property name prefixes refused after ``str.casefold`` (equal to the DSL's)."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -250,6 +268,62 @@ def _case_collisions(design: Design, issues: list[Issue]) -> None:
             seen.setdefault(name.lower(), name)
 
 
+def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
+    """The user properties to append to ``part``'s footprint, in code-point order, after the checks of
+    "User properties on built footprints"; a property equal to a library property is not appended."""
+    user = {k: v for k, v in part.component.properties.items() if k != PATH_PROPERTY}
+    library = {name.casefold(): (name, value) for name, value in part.footprint.properties.items()}
+    folded: dict[str, str] = {}
+    out: list[tuple[str, str]] = []
+    for name in sorted(user):
+        value = user[name]
+        key = name.casefold()
+        reserved = any(r.casefold() == key for r in RESERVED_PROPERTIES) or key.startswith(RESERVED_PREFIXES)
+        if reserved:
+            issues.append(
+                issue(
+                    "build.property-reserved",
+                    f"{part.path}: property {name!r} has a reserved name",
+                    part.path,
+                )
+            )
+            continue
+        if not name or name != name.strip() or not name.isprintable() or not value.isprintable():
+            issues.append(
+                issue(
+                    "build.property-invalid",
+                    f"{part.path}: property {name!r} must be printable text, "
+                    "its name without surrounding spaces",
+                    part.path,
+                )
+            )
+            continue
+        if key in folded:
+            issues.append(
+                issue(
+                    "build.property-invalid",
+                    f"{part.path}: properties {folded[key]!r} and {name!r} differ only in letter case",
+                    part.path,
+                )
+            )
+            continue
+        folded[key] = name
+        own = library.get(key)
+        if own is not None:
+            if own == (name, value):
+                continue
+            issues.append(
+                issue(
+                    "build.property-conflict",
+                    f"{part.path}: property {name!r} conflicts with the footprint's {own[0]!r} = {own[1]!r}",
+                    part.path,
+                )
+            )
+            continue
+        out.append((name, value))
+    return out
+
+
 def _staging(design: Design) -> tuple[int, int]:
     assert design.board is not None and design.board.outline is not None
     points = design.board.outline.points
@@ -265,10 +339,19 @@ def build_design(
     resolver: LibraryResolver,
     target: int = versions.DEFAULT_TARGET,
     allow_lossy: bool = False,
+    vendor: Literal["all", "project"] = "all",
+    record: Mapping[str, str] | None = None,
 ) -> BuildOutput:
-    """Every file of the built project as bytes, or no file when an issue is an error."""
+    """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``vendor`` is ``"all"`` (every placed footprint is copied into ``lib/``) or ``"project"`` (only those
+    of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
+    """
+    if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
+        raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
     issues: list[Issue] = []
     parts, libraries = _resolve(design, resolver, issues)
+    plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
     _case_collisions(design, issues)
     for itf in design.circuit.interfaces:
@@ -293,8 +376,12 @@ def build_design(
     placed: list[str] = []
     staged: list[str] = []
     bottom = False
+    written_properties = False
     for part in parts:
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
+        for prop_name, prop_value in _user_properties(part, issues):
+            extended = with_property(extended, name=prop_name, value=prop_value)
+            written_properties = True
         component = dataclasses.replace(
             part.component,
             pins=tuple(pins[part.component.id]),
@@ -367,7 +454,7 @@ def build_design(
             built, name=name, target=target, allow_lossy=allow_lossy, issues=issues
         ).items()
     }
-    vendored = _vendor(parts, target, files, issues)
+    vendored = _vendor(plan, target, files, record, issues)
     rows = tuple(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
@@ -394,6 +481,10 @@ def build_design(
     ]
     if bottom:
         evidence_items.append(embed.EVIDENCE)
+    if written_properties:
+        evidence_items.append(PROPERTY_EVIDENCE)
+    if any(location.origin != "project" for location in plan.values()):
+        evidence_items.append(VENDOR_EVIDENCE)
     summary: dict[str, object] = {
         "components": len(components),
         "nets": len(nets),
@@ -445,15 +536,16 @@ def _pad_nets(
     return tuple(dataclasses.replace(p, net_id=on_net.get(p.number)) if p.number else p for p in pads)
 
 
-def _vendor(
-    parts: list[_Part], target: int, files: dict[str, bytes], issues: list[Issue]
-) -> list[tuple[str, str]]:
-    vendored: list[tuple[str, str]] = []
-    newest = versions.FORMAT_VERSIONS[versions.FileKind.FOOTPRINT][target]
+def _vendor_plan(
+    parts: list[_Part], vendor: Literal["all", "project"], issues: list[Issue]
+) -> dict[str, Location]:
+    """Vendored path → the location it is copied from, with ``build.global-library`` for the footprints
+    left out by ``vendor="project"`` and ``build.vendor-unsafe-name`` for unsafe nicknames."""
+    plan: dict[str, Location] = {}
     for part in parts:
         location = part.location
         nick, entry = location.row.nickname, location.item_path.name
-        if location.origin != "project":
+        if vendor == "project" and location.origin != "project":
             issues.append(
                 issue(
                     "build.global-library",
@@ -462,18 +554,59 @@ def _vendor(
                 )
             )
             continue
-        path = f"lib/{nick}.pretty/{entry}"
-        if path in files:
+        if any(c in nick for c in "/\\") or not nick.isprintable():
+            issues.append(
+                issue(
+                    "build.vendor-unsafe-name",
+                    f"nickname {nick!r} of {location.lib_id} cannot name a folder under lib/",
+                    nick,
+                )
+            )
             continue
+        plan.setdefault(f"lib/{nick}.pretty/{entry}", location)
+    folded: dict[str, str] = {}
+    for path in sorted(plan):
+        other = folded.setdefault(path.casefold(), path)
+        if other != path:
+            issues.append(
+                issue(
+                    "build.vendor-unsafe-name",
+                    f"vendored paths {other!r} and {path!r} differ only in letter case",
+                    path,
+                )
+            )
+    return plan
+
+
+def _vendor(
+    plan: Mapping[str, Location],
+    target: int,
+    files: dict[str, bytes],
+    record: Mapping[str, str] | None,
+    issues: list[Issue],
+) -> list[tuple[str, str]]:
+    """Copy each planned footprint byte for byte; report newer formats and changed libraries."""
+    vendored: list[tuple[str, str]] = []
+    newest = versions.FORMAT_VERSIONS[versions.FileKind.FOOTPRINT][target]
+    for path, location in sorted(plan.items()):
         data = location.item_path.read_bytes()
         files[path] = data
-        vendored.append((nick, entry))
+        vendored.append((location.row.nickname, location.item_path.name))
         version = versions.detect_version(parse_bytes(data, file=path))
         if version > newest:
             issues.append(
                 issue(
                     "build.library-too-new",
                     f"{path} has format version {version}, newer than KiCad {target}.0's {newest}",
+                    path,
+                )
+            )
+        recorded = None if record is None else record.get(path)
+        if recorded is not None and recorded != hashlib.sha256(data).hexdigest():
+            issues.append(
+                issue(
+                    "build.library-changed",
+                    f"{path} differs from the copy of the last build: its library changed",
                     path,
                 )
             )
@@ -526,10 +659,15 @@ def check_existing(
 __all__ = [
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
+    "PROPERTY_EVIDENCE",
     "RECORD_FILE",
     "RECORD_SCHEMA",
+    "RESERVED_PREFIXES",
+    "RESERVED_PROPERTIES",
     "STAGING_GAP",
     "STAGING_OFFSET",
+    "VENDOR_EVIDENCE",
+    "VENDOR_MODES",
     "BuildOutput",
     "LayoutExistsError",
     "PlacementRequest",

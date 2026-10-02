@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The official-library blink builds where the official libraries are installed (capability design-dsl,
-"Blink examples", scenario "Official variant where libraries exist"; change c0011). Built only into
-``tmp_path``; nothing generated from the official libraries is committed."""
+"Blink examples", scenario "Official variant where libraries exist"; change c0011), with every placed
+footprint vendored and, where ``kicad-cli`` runs, a clean library check (kicad-oracle, "Official libraries
+where they are installed"; change c0027). Built only into ``tmp_path``; nothing generated from the
+official libraries is committed, and only counts are recorded."""
 
 from __future__ import annotations
 
@@ -12,15 +14,17 @@ from pathlib import Path
 
 import pytest
 from _libcensus import census_sources
+from _resources import kicad_cli
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.kicad.cli import KicadCli
 
 pytestmark = pytest.mark.needs_libs
 ROOT = Path(__file__).resolve().parents[2]
 OFFICIAL = ROOT / "examples" / "blink_official" / "design.py"
 
 
-def test_official_variant_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def _build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     if not census_sources():
         pytest.skip("no official library source with a known major")
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kc"))
@@ -31,4 +35,29 @@ def test_official_variant_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert code == 0, err.getvalue()
     envelope = json.loads(out.getvalue())
     assert (tmp_path / "O" / "blink_official.kicad_pcb").is_file()
-    assert envelope["result"]["vendored"] == []  # official footprints come from template or global rows
+    return envelope
+
+
+def test_official_variant_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    envelope = _build(tmp_path, monkeypatch)
+    vendored = envelope["result"]["vendored"]  # type: ignore[index]
+    assert len(vendored) == 3 and all(v.startswith("lib/") for v in vendored)  # type: ignore[union-attr]
+    for rel in vendored:  # type: ignore[union-attr]
+        assert (tmp_path / "O" / rel).is_file()
+
+
+@pytest.mark.needs_kicad
+def test_official_variant_passes_the_library_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _build(tmp_path, monkeypatch)
+    path = kicad_cli()
+    assert path is not None
+    folder = tmp_path / "O"
+    files = {
+        p.name: p for p in folder.iterdir() if p.name != "blink_official.kicad_pcb" and p.name != ".fenolite"
+    }
+    run = KicadCli(Path(path), timeout=600).drc(folder / "blink_official.kicad_pcb", files=files)
+    assert run.report is not None
+    types = [v.type for v in run.report.violations]
+    print(f"official blink: lib_footprint_issues {types.count('lib_footprint_issues')}, "
+          f"lib_footprint_mismatch {types.count('lib_footprint_mismatch')}")  # fmt: skip
+    assert "lib_footprint_issues" not in types and "lib_footprint_mismatch" not in types

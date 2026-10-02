@@ -5,7 +5,9 @@ with ``--target altium``, into an experimental Altium project (``docs/altium.md`
 
 ``build`` executes ``design.py`` as your own code and must never be run on an untrusted script
 (``docs/dsl.md``, "Scripts"). Outputs changed since the last build are refused until c0019 preserves
-layouts; ``--discard-layout`` replaces them, keeping backups.
+layouts; ``--discard-layout`` replaces them, keeping backups. ``--vendor all`` (the default) copies the
+placed footprints of every library into ``DIR/lib/``; ``--vendor project`` copies only those of project
+tables (``docs/dsl.md``, "Vendored libraries").
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import argparse
 import hashlib
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import fenolite.dsl
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
@@ -25,7 +27,7 @@ from fenolite.cli.output import InputRef
 from fenolite.dsl import DslError, placements, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import build_altium
-from fenolite.lens.build import build_design, check_existing, read_record
+from fenolite.lens.build import VENDOR_MODES, build_design, check_existing, read_record
 from fenolite.model.design import Design as ModelDesign
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
@@ -61,6 +63,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default="kicad",
         help="kicad (default), or altium: an experimental Altium project file and ASCII schematic instead",
     )
+    parser.add_argument(
+        "--vendor",
+        choices=VENDOR_MODES,
+        default="all",
+        help="all: copy the placed footprints of every library into DIR/lib/ (the copies keep their "
+        "library's licence); project: copy only those of project tables",
+    )
 
 
 def _kind(rel: str) -> str:
@@ -90,6 +99,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
+    record = read_record(out_dir)
     built = build_design(
         model,
         requested,
@@ -98,10 +108,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         resolver=resolver,
         target=ctx.kicad_target,
         allow_lossy=ctx.allow_lossy,
+        vendor=cast(Literal["all", "project"], args.vendor),
+        record=record,
     )
     files = dict(built.files)
     if files:
-        check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
+        check_existing(out_dir, files, record=record, discard_layout=bool(args.discard_layout))
     writes = tuple(
         PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
     )

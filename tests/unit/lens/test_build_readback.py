@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Built boards read back with the same connectivity (capability design-dsl; change c0011), compared by
-keys (reference, pad number, net name), because ids differ by design."""
+keys (reference, pad number, net name), because ids differ by design; user properties read back unchanged
+(change c0027)."""
 
 from __future__ import annotations
 
@@ -26,7 +27,9 @@ def pairs(design: Design) -> dict[str, set[tuple[str, str]]]:
 
 @pytest.mark.parametrize("target", [9, 10])
 def test_blink_reads_back(target: int) -> None:
-    out = build(blink(), target)
+    d = blink()
+    d.parts["R1"].properties = {"Part number": "PN-330", "Supplier code": 'S-1 "q" \\ µ'}  # c0027
+    out = build(d, target)
     back = read_board(out.files["blink.kicad_pcb"].decode("utf-8"))
     assert pairs(back) == pairs(out.design)
     assert pairs(back)["LED_A"] == {("R1", "2"), ("D1", "2")}

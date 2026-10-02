@@ -37,8 +37,9 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 
 - `Design(name)`, `Module(name)`: containers; `add(*objs)` adds parts, modules, nets and interfaces.
   There is no implicit "current design".
-- `Part(ref, lib_id, footprint=None, value="")`: `lib_id` is a symbol `Library:Name`; `footprint=None`
-  falls back to the symbol's `Footprint` property, and `value=""` to its `Value` property.
+- `Part(ref, lib_id, footprint=None, value="", *, properties=None)`: `lib_id` is a symbol
+  `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
+  its `Value` property. `properties` maps user property names to text ("User properties").
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
 - `Design.board(width, height, copper=2)`, once per design.
@@ -130,13 +131,73 @@ warning.
 
 - Libraries are resolved by KiCad's tables: `fp-lib-table` and `sym-lib-table` next to `design.py` are
   the recommended source; global and template tables follow `docs/formats/kicad/libraries.md`. Every
-  unresolved lib id is listed in the refusal's `issues` (`FEN-3001`).
+  unresolved lib id is listed in the refusal's `issues` (`FEN-3001`). Whatever the table, the placed
+  footprints are vendored into the output ("Vendored libraries").
 - A designator is a pin number first; otherwise it names every pin with that name. A pin number that
   is also another pin's name gives `build.pin-ambiguous`, and the number wins.
 - Pads get the net of the pin with their number. Hidden and power pins create no implicit nets.
 - Net or class names that differ only in letter case are refused (`build.name-case-collision`).
   KiCad 9.0.9 and 10.0.6 compare net names in custom-rule conditions without regard to case
   (`H-K-DRU-COND`, `docs/formats/kicad/rules.md`); the build refuses such names whatever is measured.
+
+## User properties
+
+`Part(..., properties={"Part number": "PN-330", "Supplier code": "S-1"})` gives a part user properties,
+such as a part number or a supplier code, as text.
+
+- **Text rules.** Names and values are `str`. A name is non-empty, has no leading or trailing
+  whitespace and is printable (`str.isprintable`, S-0105); a value is printable and may be empty. A tab
+  or a newline is refused: a multi-line part number is a mistake, and CSV exports would have to quote it.
+  Numbers are refused like elsewhere in the DSL (`{"Qty": 2}` is more likely a mistake than a field).
+- **Reserved names,** compared after `str.casefold` (S-0105):
+  - `Reference` and `Value` come from `ref` and `value`;
+  - `Datasheet` and `Description` are fields of the footprint library: every mini footprint carries
+    them, and a KiCad 10.0.6 re-save merges a second `Datasheet` node into the field
+    (`H-K-VENDOR-DUPNAME`, `KICAD-VERIFIED (10.0.x)`);
+  - `Footprint` is removed by a 10.0.6 re-save (`H-K-UUID-KEEP-2`);
+  - the prefix `fenolite.` is Fenolite's namespace (`fenolite.path` holds the component path), and the
+    prefix `ki_` holds KiCad's own names (`ki_fp_filters`).
+
+  KiCad itself keeps `datasheet` apart from `Datasheet`, but BOM columns and agents would read them as
+  one field, so two names equal after `casefold` are refused too. Errors are raised at the `Part` call.
+- **Build checks.** The build checks the properties of any model `Design` again: a reserved name gives
+  `build.property-reserved`, other invalid text `build.property-invalid`, and a property that the
+  footprint library already holds with another value `build.property-conflict` (with the same value,
+  nothing is appended). The DSL reads no library, so only the build can see the last case.
+- **Order and form.** The properties are written after `fenolite.path`, in code-point order of names,
+  each hidden on `F.Fab` at the footprint origin with a 1 mm font (on `B.Fab`, mirrored, for a bottom
+  part). Adding one moves no other uuid. KiCad 9.0.9 and 10.0.6 load them without a library mismatch,
+  and a 10.0.6 re-save keeps names, values and visibility (`H-K-VENDOR-PROPS`). `Component.properties`
+  holds what `read_board` reads back.
+- Position, layer, visibility and size of these fields cannot be set yet (field placement, c0030).
+
+## Vendored libraries
+
+`fenolite build` copies every footprint it places into `lib/<nickname>.pretty/`, whatever the table row
+that resolved it (project, global, template), and writes one `fp-lib-table` row per nickname. A built
+project therefore needs no global or template table: `kicad-cli`, which runs with an empty
+configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL`: one
+`lib_footprint_issues` per footprint without vendoring, none with it, on 9.0.9 and 10.0.6).
+
+- **Nicknames.** The copy keeps the row's nickname, so lib ids, the board and `.fenolite/` keep the
+  design's names. In KiCad's library check the vendored project row hides a global row of the same
+  nickname, and with it the global library's other items (`H-K-VENDOR-SHADOW`, measured for DRC on both
+  majors). The GUI footprint chooser is expected to behave the same; this is not probed.
+- **Only placed footprints:** no whole library, no 3D models (they stay at their `${KICAD…_3DMODEL_DIR}`
+  paths), no symbols and no `sym-lib-table` before schematics (v0.2a).
+- **Unsafe names.** A nickname holding `/`, `\` or a non-printable character, or two vendored paths
+  that differ only in letter case, give `build.vendor-unsafe-name` and no file.
+- **Library changes.** Every build copies the footprints again from their libraries. When a copy
+  differs from the one the last build recorded, `build.library-changed` names it, so a library update
+  shows in the `--dry-run` plan before `--confirm`. An untouched old copy is replaced; one edited by
+  hand is protected like any output ("Edited outputs").
+- **Stale copies** of removed parts stay in `lib/` ("Stale vendored files").
+- **Licence.** The copies keep their library's licence. KiCad's official libraries are CC-BY-SA 4.0
+  with an exception for designs that use them, and the exception does not cover redistributing the
+  collection (S-0048). Fenolite gives no legal advice; copies are written only into `--out`.
+- **Opt-out.** `fenolite build --vendor project` (or `build_design(..., vendor="project")`) copies only
+  the footprints of project tables, as before c0027; the others give `build.global-library` and need
+  the same global tables wherever the project is opened.
 
 ## Determinism
 
@@ -151,8 +212,8 @@ Under `--out DIR` (never the script folder):
 - `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`;
 - `fp-lib-table` with one row per vendored nickname, uri `${KIPRJMOD}/lib/<nickname>.pretty`, in the
   table form of the target (`docs/formats/kicad/libraries.md`, "Writing library tables");
-- `lib/<nickname>.pretty/<entry>.kicad_mod`: every footprint resolved through a project table, copied
-  byte for byte. Footprints from global or template tables are not vendored (`build.global-library`);
+- `lib/<nickname>.pretty/<entry>.kicad_mod`: every placed footprint, whatever the table that resolved
+  it, copied byte for byte; with `--vendor project` only those of project tables ("Vendored libraries");
 - `.fenolite/{meta,circuit,board,rules,manufacturing,findings}.json`: the model, as `dump_dir` writes it;
 - `.fenolite/build.json`: `{"design", "files": {path: sha256}, "schema": "fenolite.build-record.v0",
   "target"}`, with every file outside `.fenolite/` that the build wrote, and no date.

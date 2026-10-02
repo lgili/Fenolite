@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
 from fenolite.core.units import Udeg
@@ -20,6 +22,43 @@ if TYPE_CHECKING:
 Side = Literal["top", "bottom"]
 NAME = re.compile(r"[A-Za-z0-9_.+-]+")
 """Module names and refs."""
+RESERVED_PROPERTIES: frozenset[str] = frozenset(
+    {"Reference", "Value", "Footprint", "Datasheet", "Description"}
+)
+"""Property names a part cannot set (compared after ``str.casefold``): ``ref`` and ``value`` give the first
+two, the others are fields of the footprint library (``docs/dsl.md``, "User properties")."""
+RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
+"""Property-name prefixes a part cannot use: Fenolite's namespace and KiCad's own names."""
+
+
+def _properties(ref: str, properties: object) -> Mapping[str, str]:
+    """The user properties of part ``ref``, checked, in code-point order of names."""
+    if properties is None:
+        return MappingProxyType({})
+    if not isinstance(properties, Mapping):
+        raise DslError(f"part {ref}: properties must be a mapping of str to str, not {properties!r}")
+    folded: dict[str, str] = {}
+    for name, value in cast(Mapping[object, object], properties).items():
+        if not isinstance(name, str) or not isinstance(value, str):
+            raise DslError(f"part {ref}: property {name!r} must map a str name to a str value, not {value!r}")
+        if not name or name != name.strip() or not name.isprintable():
+            raise DslError(
+                f"part {ref}: property name {name!r} must be printable text without surrounding spaces"
+            )
+        if not value.isprintable():
+            raise DslError(f"part {ref}: property {name!r} has a value with a non-printable character")
+        key = name.casefold()
+        reserved = next((r for r in sorted(RESERVED_PROPERTIES) if r.casefold() == key), None)
+        if reserved is not None:
+            raise DslError(f"part {ref}: property {name!r} is the reserved name {reserved!r}")
+        prefix = next((p for p in RESERVED_PREFIXES if key.startswith(p)), None)
+        if prefix is not None:
+            raise DslError(f"part {ref}: property {name!r} starts with the reserved prefix {prefix!r}")
+        if key in folded:
+            raise DslError(f"part {ref}: properties {folded[key]!r} and {name!r} differ only in letter case")
+        folded[key] = name
+    names = cast(Mapping[str, str], properties)
+    return MappingProxyType({name: names[name] for name in sorted(names)})
 
 
 def check_name(value: object, what: str) -> str:
@@ -73,9 +112,17 @@ class PinHandle:
 
 
 class Part:
-    """A component: reference, symbol lib id, optional footprint lib id and value."""
+    """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
 
-    def __init__(self, ref: str, lib_id: str, footprint: str | None = None, value: str = "") -> None:
+    def __init__(
+        self,
+        ref: str,
+        lib_id: str,
+        footprint: str | None = None,
+        value: str = "",
+        *,
+        properties: Mapping[str, str] | None = None,
+    ) -> None:
         self.ref = check_name(ref, "ref")
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: lib_id must be a non-empty string")
@@ -86,6 +133,7 @@ class Part:
         self.lib_id = lib_id
         self.footprint = footprint
         self.value = value
+        self.properties: Mapping[str, str] = _properties(ref, properties)
         self.parent: Container | None = None
         self.request: Request | None = None
         self.connections: dict[str, Net] = {}

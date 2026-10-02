@@ -30,6 +30,7 @@ import _procases
 import _rulecases
 import _sheetcases
 import _triad
+import _vendorcases
 import pytest
 from _boards import FIXTURE, created_board
 from _resources import kicad_cli
@@ -199,6 +200,7 @@ def _probes() -> dict[str, Probe]:
         **_procases.pro_probes(),
         **_buildcases.build_probes(),
         **_mincases.min_probes(),
+        **_vendorcases.vendor_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

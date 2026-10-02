@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Build issue codes and evidence (capability design-dsl, "Build issue codes" and "Build evidence";
-change c0011)."""
+changes c0011 and c0027)."""
 
 from __future__ import annotations
 
@@ -26,6 +26,10 @@ def test_closed_set() -> None:
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning", "layout.unplaced": "warning", "build.pad-without-pin": "info",
         "build.global-library": "info", "build.interface-not-lowered": "info",
+        # c0027
+        "build.property-reserved": "error", "build.property-invalid": "error",
+        "build.property-conflict": "error", "build.vendor-unsafe-name": "error",
+        "build.library-changed": "warning",
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     literals: set[str] = set()

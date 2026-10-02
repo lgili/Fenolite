@@ -64,3 +64,6 @@ written from the pages under `docs/formats/kicad/`.
 | board-setup minimum keys of `board.design_settings.rules` and their template values from the 10.0.6 GUI save; minimums oracle on `kicad-cli` 9.0.9 and 10.0.6 (c0026) | S-0020, S-0029 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |
 | board-setup minimums called absolute, class values raised to them, class track and via sizes no DRC limits (c0026) | S-0038, S-0010 | GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
 | demo project census: rows holding each minimum key, names and counts only (c0026) | S-0024, S-0058 | CC-BY-SA-4.0 (notice); API metadata | 2026-10-02 | facts only |
+| user properties on board footprints: hidden, after `fenolite.path`, in code-point order (c0027) | S-0058, S-0038 | CC-BY-SA-4.0 (notice); GPL-3.0-or-later or CC-BY-3.0-or-later | 2026-10-02 | facts only |
+| vendoring placed footprints of every row origin; project rows over global rows (c0027) | S-0045, S-0046, S-0048 | GPL-3.0-or-later or CC-BY-3.0-or-later; CC-BY-SA-4.0 with the library exception | 2026-10-02 | facts only |
+| `pcb drc` and `pcb upgrade` on vendored and property boards, on `kicad-cli` 9.0.9 and 10.0.6 (c0027) | S-0020, S-0029, S-0022, S-0037 | GPL-3.0-or-later tool run as a subprocess; pinned image | 2026-10-02 | oracle |

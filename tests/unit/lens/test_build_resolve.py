@@ -10,7 +10,7 @@ import pytest
 from _buildhelp import LIBS, blink, build, project
 
 from fenolite.dsl import Design, Part, mm
-from fenolite.lens.build import UnresolvedLibrariesError
+from fenolite.lens.build import BuildOutput, UnresolvedLibrariesError
 
 
 def test_two_unknown_lib_ids() -> None:
@@ -52,7 +52,8 @@ def test_row_origins_reported() -> None:
     assert out.summary["libraries"]["Mini:Mini_R_0603"] == "project"  # type: ignore[index]
 
 
-def test_global_footprint_not_vendored(tmp_path: Path) -> None:
+def _global_variant(tmp_path: Path, **kwargs: object) -> BuildOutput:
+    """The blink whose ``R1`` footprint ``G:Mini_R_0603`` comes from a global row (c0027)."""
     config = tmp_path / "config"
     (config / "10.0").mkdir(parents=True)
     row = f'(lib (name "G") (type "KiCad") (uri "{LIBS / "Mini_v9.pretty"}") (options "") (descr ""))'
@@ -65,8 +66,28 @@ def test_global_footprint_not_vendored(tmp_path: Path) -> None:
     )
     d = blink()
     d.parts["R1"].footprint = "G:Mini_R_0603"
-    out = build(d, project_dir=folder, config_home=config)
+    return build(d, project_dir=folder, config_home=config, **kwargs)
+
+
+def test_global_footprint_vendored(tmp_path: Path) -> None:
+    out = _global_variant(tmp_path)
+    source = (LIBS / "Mini_v9.pretty" / "Mini_R_0603.kicad_mod").read_bytes()
+    assert out.files["lib/G.pretty/Mini_R_0603.kicad_mod"] == source
+    table = out.files["fp-lib-table"].decode("utf-8")
+    assert table.index('(name "G")') < table.index('(name "Mini")')
+    assert "${KIPRJMOD}/lib/G.pretty" in table
+    assert not any(i.code == "build.global-library" for i in out.issues)
+    assert out.summary["libraries"]["G:Mini_R_0603"] == "global"  # type: ignore[index]
+
+
+def test_global_footprint_kept_out_on_request(tmp_path: Path) -> None:
+    out = _global_variant(tmp_path, vendor="project")
     found = [i for i in out.issues if i.code == "build.global-library"]
     assert len(found) == 1 and "G:Mini_R_0603" in found[0].message
     assert not any(k.startswith("lib/G.pretty/") for k in out.files)
     assert b'"G"' not in out.files["fp-lib-table"] and b"(name G)" not in out.files["fp-lib-table"]
+
+
+def test_unknown_vendoring_policy() -> None:
+    with pytest.raises(ValueError, match="all, project"):
+        build(blink(), vendor="none")

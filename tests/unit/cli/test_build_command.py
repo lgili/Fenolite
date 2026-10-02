@@ -142,3 +142,63 @@ def test_help_warns_about_untrusted_scripts(
 ) -> None:
     assert cli_main.main(["build", "--help"]) == 0
     assert "untrusted script" in capsys.readouterr().out
+
+
+def _variant(tmp_path: Path, extra: str) -> Path:
+    """The blink copy with ``extra`` lines appended to its script (c0027)."""
+    script = blink_copy(tmp_path)
+    script.write_text(script.read_text(encoding="utf-8") + extra, encoding="utf-8")
+    return script
+
+
+def _global_row(tmp_path: Path) -> None:
+    """Row ``G`` in the global footprint table of the test's ``KICAD_CONFIG_HOME``."""
+    folder = tmp_path / "kicad-config" / "10.0"
+    folder.mkdir(parents=True, exist_ok=True)
+    uri = ROOT / "tests" / "data" / "libs" / "Mini_v9.pretty"
+    row = f'(lib (name "G") (type "KiCad") (uri "{uri}") (options "") (descr ""))'
+    (folder / "fp-lib-table").write_text(f"(fp_lib_table\n\t(version 7)\n\t{row}\n)\n", encoding="utf-8")
+
+
+def test_vendoring_policy_on_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _global_row(tmp_path)
+    script = _variant(tmp_path, '\nr1.footprint = "G:Mini_R_0603"\n')
+    out = str(tmp_path / "B")
+    code, env, _ = run(monkeypatch, str(script), "--out", out, "--dry-run")
+    assert code == 0 and "lib/G.pretty/Mini_R_0603.kicad_mod" in env["result"]["vendored"]  # type: ignore[index]
+    code, env, _ = run(monkeypatch, str(script), "--out", out, "--dry-run", "--vendor", "project")
+    assert code == 0
+    assert not any(v.startswith("lib/G.pretty/") for v in env["result"]["vendored"])  # type: ignore[index, union-attr]
+    found = [i for i in env["issues"] if i["code"] == "build.global-library"]  # type: ignore[index, union-attr]
+    assert found and "G:Mini_R_0603" in found[0]["message"]
+
+
+def test_unknown_vendoring_policy_is_a_usage_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, _, err = run(
+        monkeypatch, str(BLINK_DIR / "design.py"), "--out", str(tmp_path / "B"), "--vendor", "none"
+    )
+    assert code == 2 and "FEN-200" in err
+
+
+def test_properties_and_vendoring_add_their_rows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    plain = BLINK_DIR / "design.py"
+    props = _variant(tmp_path / "p", '\nr1.properties = {"Part number": "PN-330"}\n')
+    _global_row(tmp_path)
+    glob = _variant(tmp_path / "g", '\nr1.footprint = "G:Mini_R_0603"\n')
+    envelopes = []
+    for script in (plain, props, glob):
+        code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+        assert code == 0
+        envelopes.append(env["evidence"])
+    hyps = [set(e["hypotheses"]) for e in envelopes]  # type: ignore[index]
+    assert ["H-K-VENDOR-PROPS" in h for h in hyps] == [False, True, False]
+    assert ["H-K-VENDOR-GLOBAL" in h for h in hyps] == [False, False, True]
+    assert {e["level"] for e in envelopes} == {"INFERRED"}  # type: ignore[index]
+
+
+def test_help_names_the_vendoring_licence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cli_main.main(["build", "--help"]) == 0
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--vendor" in text and "licence" in text

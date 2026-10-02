@@ -8,7 +8,7 @@ import runpy
 from pathlib import Path
 
 from fenolite.core.coords import Point
-from fenolite.dsl import DSL_BACKEND, Design, Module, Part, to_model
+from fenolite.dsl import DSL_BACKEND, Design, Module, Part, mm, to_model
 from fenolite.dsl.convert import key_id
 from fenolite.model import canonical
 from fenolite.model.design import iter_entities
@@ -79,3 +79,21 @@ def test_to_model_does_not_change_the_design() -> None:
     before = (dict(design.parts), dict(design.nets), dict(design.rules.netclasses))
     to_model(design)
     assert (dict(design.parts), dict(design.nets), dict(design.rules.netclasses)) == before
+
+
+def test_user_properties_in_the_model() -> None:
+    """c0027: ``Part.properties`` join ``fenolite.path`` in ``Component.properties``, in code-point order."""
+    design = Design("u")
+    design.board(mm(10), mm(10))
+    design.add(
+        Part(
+            "R1",
+            "Mini:Mini_R",
+            footprint="Mini:Mini_R_0603",
+            value="330",
+            properties={"Supplier code": "S-1", "Part number": "PN-330"},
+        )
+    )
+    (r1,) = to_model(design).circuit.components
+    assert r1.properties == {"Part number": "PN-330", "Supplier code": "S-1", "fenolite.path": "R1"}
+    assert list(r1.properties) == ["Part number", "Supplier code", "fenolite.path"]

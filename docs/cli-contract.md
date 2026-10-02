@@ -101,6 +101,16 @@ schematic (`docs/altium.md`): it reads no library, `result.target` is the string
 `result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
 Any other `--target` value is a usage error (`FEN-2001`, exit 2).
 
+## `build`
+
+`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project]` runs the design script
+(your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
+(`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
+`--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
+keep their library's licence. `--vendor project` copies only those of project tables, and each other
+footprint gives the info `build.global-library`. `result.vendored` lists the copied files and
+`result.libraries` the row origin of each lib id.
+
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
