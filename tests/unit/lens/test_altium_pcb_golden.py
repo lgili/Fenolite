@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2].parent
 BLINK_DIR = ROOT / "tests" / "data" / "altium" / "blink"
 SAMPLE_DIR = ROOT / "tests" / "data" / "altium" / "sample"
 PROTOCOL = ROOT / "docs" / "evidence" / "altium-pcb.md"
-FILES = ("blink.PcbLib", "blink.PrjPcb", "blink.SchDoc", "blink.SchLib")
+FILES = ("blink.PcbDoc", "blink.PcbLib", "blink.PrjPcb", "blink.SchDoc", "blink.SchLib")
 WRITE = os.environ.get("FENOLITE_GOLDEN_WRITE") == "1"
 
 
@@ -116,3 +116,13 @@ def test_protocol_pad_tables() -> None:
                 w, h = pad.sizes[0]
                 expected.add((name, pad.name, shape, str(w), str(h), str(pad.hole)))
     assert expanded == expected
+
+
+def test_protocol_pad_nets_equal_the_model() -> None:
+    """Scenario "Protocol names the PCB bytes": the page's (ref, pad, net) table equals the model's nets."""
+    text = PROTOCOL.read_text(encoding="utf-8")
+    rows = set(re.findall(r"^\| ([A-Z]+\d+) \| (\d+) \| ([A-Z_]+) \|$", text, flags=re.MULTILINE))
+    model = to_model(blink())
+    refs = {c.id: c.ref for c in model.circuit.components}
+    expected = {(refs[m.component_id], m.pin, n.name) for n in model.circuit.nets for m in n.members}
+    assert rows == expected

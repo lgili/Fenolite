@@ -690,3 +690,9 @@ path = "tests/data/altium/blink/blink.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file)"
+
+[[file]]
+path = "tests/data/altium/blink/blink.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of examples/blink_2layer: outline, placed footprints, pads, nets and designators (c0035 golden file)"

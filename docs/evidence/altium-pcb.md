@@ -23,6 +23,7 @@ names them.
 
 | file | SHA-256 |
 |---|---|
+| `tests/data/altium/blink/blink.PcbDoc` | `192a827d0f6f76fe313b6b3cd06d24d2cd4d090a212f218762b8b2dd80cae479` |
 | `tests/data/altium/blink/blink.PcbLib` | `dbe1aef899cb7a8d16ad0dfb88fa10fe44715612c1144c66ec4cce948e05025a` |
 | `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
 | `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
@@ -45,6 +46,42 @@ Graphics: silkscreen lines and two arcs on Top Overlay; the fabrication outline 
 Mechanical 13; the courtyard on Mechanical 15. The filled pin-1 triangle of the QFP is not written
 (`altium.primitive-dropped`); texts, properties and 3D model links are not written.
 
+### The document
+
+`blink.PcbDoc` is experimental: a 50 × 30 mm two-layer board whose lower-left corner lies at (1000 mil,
+1000 mil), the three components at their script placements, their pads, silkscreen, fabrication and
+courtyard graphics, the designators (comments hidden) and the nets on the pads; no routing.
+
+| component | layer | rotation | footprint |
+|---|---|---|---|
+| `D1` | BOTTOM | 0 | `Mini_LED_THT_3mm` |
+| `R1` | TOP | 0 | `Mini_R_0603` |
+| `U1` | TOP | 0 | `Mini_QFP-32_7x7mm_P0.8mm` |
+
+Pad nets (every other pad has no net):
+
+| ref | pad | net |
+|---|---|---|
+| D1 | 1 | GND |
+| D1 | 2 | LED_A |
+| R1 | 1 | LED_DRV |
+| R1 | 2 | LED_A |
+| U1 | 1 | LED_DRV |
+| U1 | 9 | VIN |
+| U1 | 10 | GND |
+
+## Part P: the Altium 365 Viewer
+
+No licence is needed. Upload only the files named here.
+
+- **P1** (`blink.PcbDoc`, SHA-256 above): upload the document alone. Expected: the board outline, three
+  components with their pads and designators, the silkscreen arcs and lines, and `D1` on the bottom side
+  (its graphics on Bottom Overlay, Mechanical 14 and 16). Settles `H-A-PCB-DOC-VIEWER`, and supports
+  `H-A-PCB-PAD`, `H-A-PCB-GRAPHICS` and `H-A-PCB-DOC-BOTTOM` for what the Viewer shows.
+- **P2** (a Zip of `blink.PrjPcb`, `blink.SchDoc`, `blink.SchLib`, `blink.PcbLib` and `blink.PcbDoc`): upload
+  the Zip as one project. Note whether the Viewer lists the project, the library and the document;
+  supports `H-A-PCB-DOC-VIEWER` (the Viewer does not list `.PcbLib` among its inputs, S-0149).
+
 ## Part D: Altium Designer
 
 Each step needs a licence the maintainer may use for Fenolite (licence rule above). Work on copies.
@@ -59,6 +96,12 @@ Each step needs a licence the maintainer may use for Fenolite (licence rule abov
 - **D2** (same files): add a new blank PCB document to the project and run "Design » Update PCB Document"
   from `blink.SchDoc`. Expected: every footprint is found in `blink.PcbLib`; no "footprint not found".
   Settles `H-A-PCB-ECO`.
+
+- **D3** (`blink.PcbDoc` with the project, SHA-256 above, on a copy): open the document. Expected: no repair
+  prompt, two copper layers, the board at the offset frame. Then run "Design » Update PCB Document" from
+  `blink.SchDoc`: no component is added or removed (the unique ids match), no net changes, and `D1` stays
+  on the bottom as in its KiCad build. Settles `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-LINK`, `H-A-PCB-DOC-NETS`
+  and `H-A-PCB-DOC-BOTTOM`.
 
 Report per step: the tool and version, the date, and one generic outcome (as expected, or the first
 message shown). Do not describe Altium's internals beyond what the step asks.
