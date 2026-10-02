@@ -141,6 +141,8 @@ payload has 34 bytes, so the record is:
 | On kicad-cli 10.0.6, a component storage without `Data` crashes the tool (exit 139); the oracle never runs that case | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
 | On kicad-cli 10.0.6, a library whose header has no component list and that has no `Storage` stream converts; a symbol stored under a section key is named after the key | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
 | Converting the same library twice gives byte-identical KiCad libraries | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
+| Fenolite's oracle (`tests/kicad/altium/test_schlib_oracle.py`, kicad-cli 10.0.6, 2026-10-02): the sample's `FenoliteSample.SchLib` converts (exit 0) into six symbols named after their storages, with the generic pins (number, name, passive, hot end, angle, length, unit 1), the reference prefix and the footprint name; two conversions are byte-identical | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
+| Fenolite's negative controls on kicad-cli 10.0.6 (2026-10-02), built from the writer's records: another header text, a `Data` whose first record is not the component, a stray byte after the last record, and a pin without its last two short strings each exit 2 with "Unable to convert library"; the same library without the change converts | S-0020, S-0153 | INFERRED | H-A-SCHLIB-KICAD |
 
 ## Facts awaiting a permitted source
 

@@ -35,7 +35,7 @@
   - rebuild the two committed project files with `FENOLITE_GOLDEN_WRITE=1`, and add `tests/unit/lens/test_altium_schlib_golden.py` with the committed `tests/data/altium/sample/FenoliteSample.SchLib`, declared in `MANIFEST.toml`, and `*.SchLib -text` in `.gitattributes`.
 
   Proof: `uv run pytest tests/unit/backends/altium tests/unit/lens -q`; `git diff --exit-code tests/data/altium/sample/altium_sample.SchDoc tests/data/altium/sample/binary/altium_sample.SchDoc` exits 0. This covers "Project file", "Altium writer package" and "Library of the sample".
-- [ ] 2.4 Write `tests/kicad/altium/test_schlib_oracle.py` for the sample's library: conversion, the generic pins, and the four negative controls. Record the observed exits on the fact page. Hand `FenoliteSample.SchLib` and the rebuilt project to the maintainer for step L1. Proof: `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium/test_schlib_oracle.py -q` passes with kicad-cli 10.0.6; `uv run pytest tests/kicad/altium -q` skips without kicad-cli.
+- [x] 2.4 Write `tests/kicad/altium/test_schlib_oracle.py` for the sample's library: conversion, the generic pins, and the four negative controls. Record the observed exits on the fact page. Hand `FenoliteSample.SchLib` and the rebuilt project to the maintainer for step L1. Proof: `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium/test_schlib_oracle.py -q` passes with kicad-cli 10.0.6; `uv run pytest tests/kicad/altium -q` skips without kicad-cli.
 
 ## 3. Symbols from KiCad libraries
 
