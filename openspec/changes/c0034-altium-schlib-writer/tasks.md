@@ -70,7 +70,7 @@
 ## 6. Goldens, protocol and documentation
 
 - [x] 6.1 Commit the example's build under `tests/data/altium/kicad_example/` and declare it in `MANIFEST.toml`. Add Part L to `docs/evidence/altium-schematic.md` (L1 to L6, the SHA-256 values, the rows each step settles, the example's net table, and the licence rule), and update Part A's project-file SHA-256 values. Hand both libraries and projects to the maintainer. Proof: `uv run pytest tests/unit/lens/test_altium_schlib_golden.py tests/corpus/test_manifest.py -q`. This covers "Schematic library samples" and "Schematic library author reports".
-- [ ] 6.2 Document the libraries in `docs/altium.md`: the two symbol sources, `<name>.SchLib`, the generic stand-in libraries and their risk, the project listing, the kept project file and the oracle. Proof: `grep -c 'SchLib' docs/altium.md` prints a non-zero count; `uv run python tools/residue/scan.py` exits 0. This covers "Schematic library is documented".
+- [x] 6.2 Document the libraries in `docs/altium.md`: the two symbol sources, `<name>.SchLib`, the generic stand-in libraries and their risk, the project listing, the kept project file and the oracle. Proof: `grep -c 'SchLib' docs/altium.md` prints a non-zero count; `uv run python tools/residue/scan.py` exits 0. This covers "Schematic library is documented".
 
 ## 7. The maintainer's report
 
