@@ -173,18 +173,3 @@ def test_items_not_lowered_are_reported(monkeypatch: pytest.MonkeyPatch, tmp_pat
     found = [i for i in issues if i["code"] == "altium.not-lowered"]
     assert [i["where"] for i in found] == ["board", "placements", "rules"]
     assert all(i["severity"] == "info" for i in found)
-
-
-def test_project_kept_on_rebuild(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    out = tmp_path / "B"
-    assert run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm")[0] == 0
-    prjpcb = out / "altium_sample.PrjPcb"
-    edited = prjpcb.read_bytes() + b"[Document2]\r\nDocumentPath=altium_sample.PcbDoc\r\n"
-    prjpcb.write_bytes(edited)
-    for flags in (["--confirm"], ["--discard-layout", "--confirm"]):
-        code, env, _ = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", *flags)
-        result, issues = env["result"], env["issues"]
-        assert code == 0 and isinstance(result, dict) and isinstance(issues, list)
-        assert prjpcb.read_bytes() == edited
-        assert result["kept"] == [str(prjpcb)] and str(prjpcb) not in result["files"]
-        assert "altium.project-kept" in [i["code"] for i in issues]

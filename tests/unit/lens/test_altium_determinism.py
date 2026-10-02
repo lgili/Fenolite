@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Reproducible Altium builds (capability altium-build, "Reproducible Altium builds"; change c0032)."""
+
+from __future__ import annotations
+
+import os
+import runpy
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+from _altium import SAMPLE, records, variant_script
+
+import fenolite.cli.main as cli_main
+from fenolite.dsl import Design, to_model
+from fenolite.lens.altium import build_altium
+
+LAYERS = ("board", "build", "circuit", "findings", "manufacturing", "meta", "rules")
+PLANNED = {"altium_sample.PrjPcb", "altium_sample.SchDoc", *(f".fenolite/{n}.json" for n in LAYERS)}
+
+
+def files_under(folder: Path) -> dict[str, bytes]:
+    """Every file under ``folder`` by relative path, with its bytes."""
+    return {
+        p.relative_to(folder).as_posix(): p.read_bytes() for p in sorted(folder.rglob("*")) if p.is_file()
+    }
+
+
+def test_twice_in_process_and_twice_by_subprocess(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    before = files_under(SAMPLE.parent)
+    outs = [tmp_path / "in1", tmp_path / "in2"]
+    for out in outs:
+        args = ["build", str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm", "--json"]
+        assert cli_main.main(args) == 0, capsys.readouterr().err
+    capsys.readouterr()
+    for seed, stamp in ((1, "2026-01-01T00:00:00Z"), (2, "2027-06-01T00:00:00Z")):
+        out = tmp_path / f"sub{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+        argv = [sys.executable, "-m", "fenolite", "build", str(SAMPLE), "--out", str(out)]
+        argv += ["--target", "altium", "--confirm", "--json", "--seed", str(seed), "--timestamp", stamp]
+        proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr
+        outs.append(out)
+    builds = [files_under(out) for out in outs]
+    assert set(builds[0]) == PLANNED
+    assert all(build == builds[0] for build in builds[1:])
+    assert files_under(SAMPLE.parent) == before, "the build changed the script folder"
+    assert not list(SAMPLE.parent.rglob("__pycache__"))
+
+
+def _unique_ids(design: Design) -> dict[str, str]:
+    files = build_altium(to_model(design), name=design.name).files
+    found = records(files[f"{design.name}.SchDoc"])
+    owners = {int(r["OWNERINDEX"]): r["TEXT"] for r in found if r["RECORD"] == "34"}
+    return {owners[i]: r["UNIQUEID"] for i, r in enumerate(found) if r["RECORD"] == "1"}
+
+
+def test_inserting_a_part_keeps_the_other_unique_ids(tmp_path: Path) -> None:
+    extra = (
+        '\nr9 = Part("R9", f"{SCHLIB}:RES", footprint=f"{PCBLIB}:R0603", value="1k")\n'
+        "design.add(r9)\n"
+        "connect(en, r9[1])\n"
+        "connect(gnd, r9[2])\n"
+    )
+    script = variant_script(tmp_path / "V", append=extra)
+    base = _unique_ids(runpy.run_path(str(SAMPLE))["design"])
+    more = _unique_ids(runpy.run_path(str(script))["design"])
+    assert set(more) == set(base) | {"R9"}
+    assert {ref: more[ref] for ref in base} == base
+
+
+def test_a_changed_value_keeps_every_unique_id() -> None:
+    design = runpy.run_path(str(SAMPLE))["design"]
+    base = _unique_ids(design)
+    design.parts["R2"].value = "4k7"
+    assert _unique_ids(design) == base
