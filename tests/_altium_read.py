@@ -89,6 +89,13 @@ def pin_end(pin: Record) -> Point:
     return x + dx * length, y + dy * length
 
 
+def pin_shown(records: Sequence[Record], pin: Record) -> bool:
+    """A pin is drawn when its ``OWNERPARTID`` is 0 (Part Zero) or the ``CURRENTPARTID`` of its owner
+    (change c0034: a part record carries the pins of every part)."""
+    owner = records[int(pin["OWNERINDEX"])]
+    return pin.get("OWNERPARTID", "1") in ("0", owner.get("CURRENTPARTID", "1"))
+
+
 def _on_segment(point: Point, a: Point, b: Point) -> bool:
     (x, y), (x1, y1), (x2, y2) = point, a, b
     cross = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)
@@ -100,7 +107,9 @@ def _touches(point: Point, wire: Sequence[Point]) -> bool:
 
 
 def nets_from_sheet(records: Sequence[Record]) -> Nets:
-    """Net name → {(designator of the owning component, pin designator)}, rebuilt from geometry.
+    """Net name → {(designator of the owning component, pin designator)}, rebuilt from geometry. Wires,
+    labels and ports may be horizontal or vertical; only the pins drawn on a part record count, and one
+    pin drawn on several parts of a component is one pin.
 
     A group of pins that no label or port names is returned under ``<unnamed ref-pin>`` (its first pin),
     so a broken connection shows up; a group that two names join raises ``ReadError``.
@@ -111,7 +120,9 @@ def nets_from_sheet(records: Sequence[Record]) -> Nets:
         if r["RECORD"] == "34" and r.get("NAME") == "Designator"
     }
     pins = [
-        ((refs[int(r["OWNERINDEX"])], r["DESIGNATOR"]), pin_end(r)) for r in records if r["RECORD"] == "2"
+        ((refs[int(r["OWNERINDEX"])], r["DESIGNATOR"]), pin_end(r))
+        for r in records
+        if r["RECORD"] == "2" and pin_shown(records, r)
     ]
     wires = [
         [(int(r[f"X{i}"]), int(r[f"Y{i}"])) for i in range(1, int(r["LOCATIONCOUNT"]) + 1)]
@@ -131,8 +142,12 @@ def nets_from_sheet(records: Sequence[Record]) -> Nets:
     def union(a: tuple[str, object], b: tuple[str, object]) -> None:
         parent[find(a)] = find(b)
 
-    for i in range(len(pins)):
+    first_of: dict[tuple[str, str], int] = {}
+    for i, (key, _) in enumerate(pins):
         find(("pin", i))
+        if key in first_of:  # one pin drawn on several parts (Part Zero) is one electrical pin
+            union(("pin", i), ("pin", first_of[key]))
+        first_of.setdefault(key, i)
     for j, wire in enumerate(wires):
         find(("wire", j))
         for i, (_, end) in enumerate(pins):

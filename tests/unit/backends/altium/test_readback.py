@@ -9,8 +9,8 @@ import re
 from pathlib import Path
 
 import pytest
-from _altium import SAMPLE_NETS, model_of, sample_model
-from _altium_read import ReadError, net_differences, nets_from_sheet, read_records
+from _altium import EXAMPLE_NETS, SAMPLE_NETS, example_files, model_of, sample_model
+from _altium_read import ReadError, net_differences, nets_from_sheet, read_records, read_schlib
 
 from fenolite.backends.altium.project import write_project
 from fenolite.dsl import Design, Net, Part, Power, connect
@@ -136,3 +136,44 @@ def test_other_designs_read_back(make: object) -> None:
 def test_the_reader_is_test_code_only() -> None:
     sources = (ROOT / "src").rglob("*.py")
     assert not [p for p in sources if "_altium_read" in p.read_text(encoding="utf-8")]
+
+
+# --- the KiCad example (change c0034) ----------------------------------------------------------------
+
+
+def test_vertical_stubs_of_the_example() -> None:
+    files = example_files("ascii")
+    found = read_records(files["altium_kicad.SchDoc"])
+    nets = nets_from_sheet(found)
+    unconnected = {k: v for k, v in nets.items() if k.startswith("<unnamed ")}
+    assert sorted(unconnected.values()) == [{("U2", "2")}, {("U2", "4")}, {("U2", "8")}]
+    named = {k: v for k, v in nets.items() if k not in unconnected}
+    assert net_differences(named, EXAMPLE_NETS) == []
+    vertical = [r for r in found if r["RECORD"] == "27" and r["X1"] == r["X2"]]
+    assert vertical, "the example has up and down pins"
+    labels = [r for r in found if r["RECORD"] == "25" and r.get("ORIENTATION") == "1"]
+    assert labels and all(any(r["X1"] == label["LOCATION.X"] for r in vertical) for label in labels), (
+        "each rotated label lies on a vertical stub"
+    )
+
+
+def test_pins_at_the_library_positions() -> None:
+    files = example_files("ascii")
+    found = read_records(files["altium_kicad.SchDoc"])
+    library = read_schlib(files["altium_kicad.SchLib"])
+    body_ends = {
+        (storage, str(r["DESIGNATOR"])): (r["LOCATION.X"], r["LOCATION.Y"])
+        for storage, rows in library.items()
+        for r in rows
+        if r.get("BINARY")
+    }
+    checked = 0
+    for index, record in enumerate(found):
+        if record["RECORD"] != "1":
+            continue
+        ox, oy = int(record["LOCATION.X"]), int(record["LOCATION.Y"])
+        for pin in (r for r in found if r.get("OWNERINDEX") == str(index) and r["RECORD"] == "2"):
+            relative = (int(pin["LOCATION.X"]) - ox, int(pin["LOCATION.Y"]) - oy)
+            assert relative == body_ends[(record["LIBREFERENCE"], pin["DESIGNATOR"])]
+            checked += 1
+    assert checked == 2 + 2 + 2 + 8 + 8 + 8  # J1, R1, R2, U1 parts A and B, U2
