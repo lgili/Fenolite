@@ -176,3 +176,69 @@ def test_links_of_a_kicad_footprint(tmp_path: Path) -> None:
 def test_sample_links_unchanged() -> None:
     found = records(build_altium(to_model(sample()), name="altium_sample").files["altium_sample.SchDoc"])
     assert {r["MODELDATAFILE0"] for r in found if r.get("RECORD") == "45"} == {"FenoliteSample.PcbLib"}
+
+
+# --- the PCB document in the build (task 4.4) ------------------------------------------------------
+
+
+def build_blink_placed(root: Path, text: str = "", new: str = "", **kwargs: object) -> BuildOutput:
+    project = blink_tree(root)
+    design = blink(text, new) if text else blink()
+    return build_altium(
+        to_model(design),
+        name=design.name,
+        placed=tuple(placements(design)),
+        placements=placements(design),
+        resolver=blink_resolver(root, project),
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def test_document_of_the_blink_build(tmp_path: Path) -> None:
+    """Scenario "Document of the KiCad-footprint sample"."""
+    from _altium_pcb_read import read_pcbdoc
+
+    output = build_blink_placed(tmp_path)
+    assert output.summary["pcb_document"] == "blink.PcbDoc"
+    assert b"[Document2]\r\nDocumentPath=blink.PcbDoc\r\n" in output.files["blink.PrjPcb"]
+    lowered = [i for i in output.issues if i.code == "altium.not-lowered"]
+    assert len(lowered) == 1 and "PWR" in lowered[0].message
+    assert "altium.pcb-staged" not in {i.code for i in output.issues}
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    assert sorted(c["SOURCEDESIGNATOR"] for c in doc.components) == ["D1", "R1", "U1"]
+
+
+def test_no_board_no_document(tmp_path: Path) -> None:
+    """Scenario "No board, no document"."""
+    output = build_blink_placed(tmp_path, "design.board(mm(50), mm(30))\n", "")
+    assert "blink.PcbLib" in output.files and "blink.PcbDoc" not in output.files
+    found = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    assert len(found) == 1 and "no board outline" in found[0].message
+    assert output.summary["pcb_document"] is None
+
+
+def test_unplaced_part_is_staged(tmp_path: Path) -> None:
+    """Scenario "Unplaced part is staged": R1 lands where the KiCad build of the variant stages it."""
+    from _altium_pcb_read import read_pcbdoc
+
+    from fenolite.backends.altium.pcbrecords import mil_text, to_units
+    from fenolite.lens.build import build_design
+
+    text, new = "r1.place(mm(32), mm(9))", ""
+    output = build_blink_placed(tmp_path, text, new)
+    staged = [i for i in output.issues if i.code == "altium.pcb-staged"]
+    assert len(staged) == 1 and "R1" in staged[0].message
+    design = blink(text, new)
+    kicad = build_design(
+        to_model(design), placements(design), name="blink", copper=2, resolver=blink_resolver(tmp_path / "k")
+    )
+    assert kicad.design.board is not None and kicad.design.board.outline is not None
+    by_id = {c.id: c.ref for c in kicad.design.circuit.components}
+    (r1,) = [f for f in kicad.design.board.footprints if by_id[f.component_id] == "R1"]
+    outline = kicad.design.board.outline.points
+    x = to_units(r1.position.x - min(p.x for p in outline)) + 10_000_000
+    y = to_units(max(p.y for p in outline) - r1.position.y) + 10_000_000
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    (record,) = [c for c in doc.components if c["SOURCEDESIGNATOR"] == "R1"]
+    assert (record["X"], record["Y"]) == (mil_text(x), mil_text(y))
+    assert record["LAYER"] == "TOP" and record["ROTATION"] == "0"

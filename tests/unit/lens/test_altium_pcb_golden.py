@@ -40,6 +40,7 @@ def blink_files() -> dict[str, bytes]:
             to_model(design),
             name=design.name,
             placed=tuple(placements(design)),
+            placements=placements(design),
             resolver=blink_resolver(Path(folder)),
         )
     return {name: data for name, data in output.files.items() if not name.startswith(".fenolite/")}

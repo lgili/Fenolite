@@ -24,7 +24,7 @@ names them.
 | file | SHA-256 |
 |---|---|
 | `tests/data/altium/blink/blink.PcbLib` | `dbe1aef899cb7a8d16ad0dfb88fa10fe44715612c1144c66ec4cce948e05025a` |
-| `tests/data/altium/blink/blink.PrjPcb` | `352fcc0d17f675eb84781538a5189a7a6c0c01de9c4e43289906e05d2494f75f` |
+| `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
 | `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
 | `tests/data/altium/blink/blink.SchLib` | `4f3accb1f9634c7cedd305240493e6d6e9a2cfde3d3e0ff0aee0a75e6387517e` |
 

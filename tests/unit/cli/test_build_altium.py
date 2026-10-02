@@ -240,3 +240,38 @@ def test_items_not_lowered_are_reported(monkeypatch: pytest.MonkeyPatch, tmp_pat
     found = [i for i in issues if i["code"] == "altium.not-lowered"]
     assert [i["where"] for i in found] == ["board", "placements", "rules"]
     assert all(i["severity"] == "info" for i in found)
+
+
+BLINK = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
+
+
+def test_dry_run_with_kicad_footprints(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``altium-build`` "Altium build target", "Dry run with KiCad footprints" (change c0035)."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    out = tmp_path / "B"
+    out.mkdir()
+    code, env, _ = run(monkeypatch, str(BLINK), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0
+    result = env["result"]
+    assert isinstance(result, dict)
+    kinds = {Path(p["path"]).name: p["kind"] for p in result["plan"]}
+    assert kinds["blink.PcbLib"] == "altium_pcblib" and kinds["blink.PcbDoc"] == "altium_pcbdoc"
+    assert {"blink.PrjPcb", "blink.SchDoc", "blink.SchLib"} <= set(kinds)
+    assert result["footprints"] == 3 and result["pcb_document"] == str(out / "blink.PcbDoc")
+    assert list(out.iterdir()) == []
+
+
+def test_edited_library_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``altium-build`` "PCB library outputs", "Edited library refused" (change c0035)."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    out = tmp_path / "B"
+    code, _env, _ = run(monkeypatch, str(BLINK), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 0
+    library = out / "blink.PcbLib"
+    data = bytearray(library.read_bytes())
+    data[-1] ^= 0xFF
+    library.write_bytes(bytes(data))
+    before = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    code, _env, err = run(monkeypatch, str(BLINK), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 7 and "FEN-7001" in err and "blink.PcbLib" in err
+    assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == before

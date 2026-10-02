@@ -5,7 +5,10 @@ Version=1.0
 DocumentPath=blink.SchDoc
 
 [Document2]
-DocumentPath=blink.PcbLib
+DocumentPath=blink.PcbDoc
 
 [Document3]
+DocumentPath=blink.PcbLib
+
+[Document4]
 DocumentPath=blink.SchLib

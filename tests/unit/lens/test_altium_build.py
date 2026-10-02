@@ -51,7 +51,12 @@ def test_files_of_the_sample() -> None:
         ]
     )
     assert not [i for i in output.issues if i.severity in ("warning", "error")]
-    assert [i.code for i in output.issues] == ["altium.schlib-generic", "altium.generic-symbols"]
+    assert [i.code for i in output.issues] == [
+        "altium.schlib-generic",
+        "altium.pcbdoc-not-written",
+        "altium.generic-symbols",
+    ]
+    assert "no board outline" in output.issues[1].message
 
 
 def test_files_are_the_writer_bytes() -> None:

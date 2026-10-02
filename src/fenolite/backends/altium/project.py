@@ -23,6 +23,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
+from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import write_schdoc
@@ -302,13 +303,14 @@ def write_project(
     form: SchematicForm = DEFAULT_FORM,
     symbols: Mapping[str, AltiumSymbol] | None = None,
     footprints: Sequence[LibFootprint] = (),
+    pcb: PcbDocSpec | None = None,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
     lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
     every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit. ``footprints`` (change
-    c0035) are written into ``<name>.PcbLib`` when not empty, which the project file lists; its size limit
-    raises ``PcbTooLarge``."""
+    c0035) are written into ``<name>.PcbLib`` when not empty, and ``pcb`` into ``<name>.PcbDoc``; the
+    project file lists both; their size limit raises ``PcbTooLarge``."""
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
@@ -329,7 +331,11 @@ def write_project(
     if footprints:
         listed.append(f"{name}.PcbLib")
     if project:
-        files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc", libraries=tuple(listed))
+        files[f"{name}.PrjPcb"] = write_prjpcb(
+            schematic=f"{name}.SchDoc",
+            pcb=f"{name}.PcbDoc" if pcb is not None else None,
+            libraries=tuple(listed),
+        )
     files[f"{name}.SchDoc"] = write_schdoc_binary(plan) if form == "binary" else write_schdoc(plan)
     for library, found in libraries.items():
         try:
@@ -343,6 +349,11 @@ def write_project(
             files[f"{name}.PcbLib"] = write_pcblib(footprints)
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
+    if pcb is not None:
+        try:
+            files[f"{name}.PcbDoc"] = write_pcbdoc(pcb)
+        except CompoundTooLarge as error:
+            raise PcbTooLarge(f"{name}.PcbDoc", error) from error
     return files
 
 

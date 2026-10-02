@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -36,7 +36,7 @@ from fenolite.cli.output import InputRef
 from fenolite.dsl import DslError, moves, placements, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import build_altium, kicad_footprint_ids, kicad_lib_ids
-from fenolite.lens.build import VENDOR_MODES, build_design, check_existing, read_record
+from fenolite.lens.build import VENDOR_MODES, PlacementRequest, build_design, check_existing, read_record
 from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
 
@@ -125,7 +125,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
-        return _run_altium(args, ctx, run, model, tuple(requested), script_path, out, out_dir)
+        return _run_altium(args, ctx, run, model, requested, script_path, out, out_dir)
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
@@ -183,7 +183,7 @@ def _run_altium(
     ctx: Context,
     run: ScriptRun,
     model: ModelDesign,
-    placed: tuple[str, ...],
+    requested: Mapping[str, PlacementRequest],
     script_path: Path,
     out: Path,
     out_dir: Path,
@@ -203,7 +203,8 @@ def _run_altium(
     built = build_altium(
         model,
         name=name,
-        placed=placed,
+        placed=tuple(requested),
+        placements=requested,
         project_exists=(out_dir / f"{name}.PrjPcb").is_file(),
         form=form,
         resolver=resolver,

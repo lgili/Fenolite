@@ -22,7 +22,7 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, pcblib, project, schlib
+from fenolite.backends.altium import binary, pcbdoc, pcblib, project, schlib
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -30,13 +30,24 @@ from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
+from fenolite.backends.kicad.embed import footprint_extent
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver
 from fenolite.backends.kicad.sexpr import Atom, Node, parse_fragment
+from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.lens.build import CACHE_DIR, RECORD_FILE, RECORD_SCHEMA, BuildOutput, UnresolvedLibrariesError
+from fenolite.lens.build import (
+    CACHE_DIR,
+    RECORD_FILE,
+    RECORD_SCHEMA,
+    STAGING_GAP,
+    STAGING_OFFSET,
+    BuildOutput,
+    PlacementRequest,
+    UnresolvedLibrariesError,
+)
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
 from fenolite.model.circuit import Component, Net, Pin, PinRef
@@ -78,6 +89,8 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.pcbdoc-not-written": "info",
+        "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
     }
 )
@@ -441,6 +454,109 @@ def resolve_footprints(
     return resolved, issues
 
 
+def _comment(component: Component) -> str:
+    link = split_link(component.lib_symbol_ref)
+    return component.value or (link[1] if link is not None else component.ref)
+
+
+def pcb_document(
+    design: Design,
+    *,
+    name: str,
+    footprints: Mapping[str, pcblib.LibFootprint],
+    placements: Mapping[str, PlacementRequest],
+) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
+    """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
+    ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
+    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info."""
+    issues: list[Issue] = []
+    board = design.board
+    reason = ""
+    concerned: list[str] = []
+    components = sorted(design.circuit.components, key=component_path)
+    with_links = [c for c in components if c.lib_footprint_ref]
+    if board is None or board.outline is None or len(board.outline.points) < 3:
+        reason = "the design has no board outline"
+    elif board.outline.cutouts:
+        reason = "the board outline has cutouts, which the document does not write"
+    else:
+        altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
+        missing = [
+            c.ref
+            for c in with_links
+            if footprint_source(c.lib_footprint_ref) == "kicad" and c.lib_footprint_ref not in footprints
+        ]
+        if altium:
+            reason, concerned = (
+                "components link Altium footprint libraries, whose footprints Fenolite does not have",
+                altium,
+            )
+        elif missing:
+            reason, concerned = "the footprints of some components are not written", missing
+        elif not with_links:
+            reason = "no component has a footprint"
+    if reason:
+        names = f" ({', '.join(concerned)})" if concerned else ""
+        issues.append(
+            issue(
+                "altium.pcbdoc-not-written",
+                f"{name}.PcbDoc is not written: {reason}{names}",
+                f"{name}.PcbDoc",
+                "Altium's change order places the parts from the PCB library",
+            )
+        )
+        return None, issues
+    assert board is not None and board.outline is not None
+    nets: dict[str, dict[str, str]] = {}
+    for net in design.circuit.nets:
+        for member in net.members:
+            nets.setdefault(member.component_id, {})[member.pin] = net.name
+    outline = board.outline.points
+    cursor = max(p.x for p in outline) + STAGING_OFFSET
+    top = min(p.y for p in outline)
+    staged: list[str] = []
+    placed: list[pcbdoc.PlacedComponent] = []
+    for component in with_links:
+        footprint = footprints[component.lib_footprint_ref]
+        request = placements.get(component_path(component))
+        if request is None:
+            box = footprint_extent(footprint.defn)
+            at, rotation, side, locked = Point(cursor - box.x0, top - box.y0), 0, "top", False
+            cursor += (box.x1 - box.x0) + STAGING_GAP
+            staged.append(component.ref)
+        else:
+            at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
+        link = split_link(component.lib_symbol_ref)
+        assert link is not None
+        placed.append(
+            pcbdoc.PlacedComponent(
+                ref=component.ref,
+                unique_id=unique_id(component.id),
+                comment=_comment(component),
+                footprint=footprint,
+                footprint_library=project.pcblib_name(component.lib_footprint_ref, design=name),
+                lib_reference=link[1],
+                component_library=project.schlib_name(component.lib_symbol_ref, design=name),
+                at=at,
+                rotation=rotation,
+                side=side,  # type: ignore[arg-type]
+                locked=locked,
+                pad_nets=nets.get(component.id, {}),
+            )
+        )
+    if staged:
+        issues.append(
+            issue(
+                "altium.pcb-staged",
+                f"{', '.join(staged)} not placed: staged right of the board outline in {name}.PcbDoc",
+                f"{name}.PcbDoc",
+                "place the parts in the script, or move them in Altium",
+            )
+        )
+    spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
+    return spec, issues
+
+
 def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
     """Lib id → the Altium symbol of every resolved KiCad symbol; an off-grid pin gives
     ``altium.symbol-off-grid`` and no symbol."""
@@ -740,6 +856,7 @@ def build_altium(
     *,
     name: str,
     placed: Sequence[str] = (),
+    placements: Mapping[str, PlacementRequest] | None = None,
     project_exists: bool = False,
     form: project.SchematicForm = project.DEFAULT_FORM,
     resolver: LibraryResolver | None = None,
@@ -778,11 +895,20 @@ def build_altium(
     footprints, footprint_issues = resolve_footprints(model, resolver)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
-    if project_exists and written:
+    spec, document_issues = pcb_document(model, name=name, footprints=footprints, placements=placements or {})
+    issues += document_issues
+    if spec is not None:
+        issues = [
+            i for i in issues if not (i.code == "altium.not-lowered" and i.where in ("board", "placements"))
+        ]
+    pcb_files = [
+        f for f, wanted in ((f"{name}.PcbDoc", spec is not None), (f"{name}.PcbLib", bool(written))) if wanted
+    ]
+    if project_exists and pcb_files:
         issues.append(
             issue(
                 "altium.pcb-not-in-project",
-                f"the kept {name}.PrjPcb does not list {name}.PcbLib; add it in Altium "
+                f"the kept {name}.PrjPcb does not list {', '.join(pcb_files)}; add them in Altium "
                 "(Project » Add Existing to Project)",
                 f"{name}.PrjPcb",
             )
@@ -807,6 +933,7 @@ def build_altium(
             form=form,
             symbols=symbols,
             footprints=written,
+            pcb=spec,
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -853,7 +980,14 @@ def build_altium(
     plan = project.plan_sheet(model, name=name, symbols=symbols)
     libraries = project.library_symbols(model, name=name, symbols=symbols)
     summary = _summary(
-        model, kept, plan, form, libraries, footprints=len(written), pcb_library=f"{name}.PcbLib"
+        model,
+        kept,
+        plan,
+        form,
+        libraries,
+        footprints=len(written),
+        pcb_library=f"{name}.PcbLib",
+        pcb_document=f"{name}.PcbDoc" if spec is not None else None,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
@@ -869,6 +1003,7 @@ __all__ = [
     "generic_pins",
     "kicad_footprint_ids",
     "kicad_lib_ids",
+    "pcb_document",
     "kicad_pins",
     "library_symbols",
     "pad_extras",

@@ -21,7 +21,7 @@ from _altium import EXAMPLE_DIR, blink, blink_resolver, blink_tree, example, exa
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
 from fenolite.core.errors import Issue
-from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, to_model
+from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, placements, to_model
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
 
 PASS_THROUGH = ("model.", "build.layout-exists")
@@ -103,12 +103,22 @@ CASES: dict[str, tuple[Callable[[Design], None], dict[str, object], set[str]]] =
     "no-footprint": (
         _no_footprint,
         {},
-        {"altium.no-footprint", "altium.generic-symbols", "altium.schlib-generic"},
+        {
+            "altium.no-footprint",
+            "altium.generic-symbols",
+            "altium.pcbdoc-not-written",
+            "altium.schlib-generic",
+        },
     ),
     "not-lowered": (
         _not_lowered,
         {"placed": ("J1",)},
-        {"altium.not-lowered", "altium.generic-symbols", "altium.schlib-generic"},
+        {
+            "altium.not-lowered",
+            "altium.generic-symbols",
+            "altium.pcbdoc-not-written",
+            "altium.schlib-generic",
+        },
     ),
     "project-kept": (
         _nothing,
@@ -117,26 +127,41 @@ CASES: dict[str, tuple[Callable[[Design], None], dict[str, object], set[str]]] =
             "altium.project-kept",
             "altium.schlib-not-in-project",
             "altium.generic-symbols",
+            "altium.pcbdoc-not-written",
             "altium.schlib-generic",
         },
     ),
     "custom-sheet": (
         _custom_sheet,
         {},
-        {"altium.sheet-custom", "altium.generic-symbols", "altium.schlib-generic"},
+        {
+            "altium.sheet-custom",
+            "altium.generic-symbols",
+            "altium.pcbdoc-not-written",
+            "altium.schlib-generic",
+        },
     ),
-    "clean": (_nothing, {}, {"altium.generic-symbols", "altium.schlib-generic"}),
+    "clean": (_nothing, {}, {"altium.generic-symbols", "altium.schlib-generic", "altium.pcbdoc-not-written"}),
     "library-case": (_library_case, {}, {"altium.symbol-name-collision", "altium.schlib-generic"}),
     "section-key": (
         _long_lib_ref,
         {},
-        {"altium.section-key", "altium.generic-symbols", "altium.schlib-generic"},
+        {
+            "altium.section-key",
+            "altium.generic-symbols",
+            "altium.pcbdoc-not-written",
+            "altium.schlib-generic",
+        },
     ),
 }
 
 
 KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
-    "kicad-clean": (("", ""), ("", ""), {"altium.symbol-simplified", "altium.footprint-unresolved"}),
+    "kicad-clean": (
+        ("", ""),
+        ("", ""),
+        {"altium.symbol-simplified", "altium.footprint-unresolved", "altium.pcbdoc-not-written"},
+    ),
     "unknown-pin": (
         ("u1[8]", 'u1["XYZ"]'),
         ("", ""),
@@ -153,7 +178,12 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
             "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
             "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
         ),
-        {"altium.pin-lossy", "altium.symbol-simplified", "altium.footprint-unresolved"},
+        {
+            "altium.pin-lossy",
+            "altium.symbol-simplified",
+            "altium.footprint-unresolved",
+            "altium.pcbdoc-not-written",
+        },
     ),
     "pin-text-too-long": (
         ("", ""),
@@ -243,10 +273,17 @@ PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
         {"project_exists": True},
         BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
     ),
-    "blink-unsupported": ({"footprint": TRAPEZOID}, BLINK_CODES | {"altium.footprint-unsupported"}),
+    "blink-unplaced": (
+        {"script": ("r1.place(mm(32), mm(9))", "")},
+        BLINK_CODES | {"altium.pcb-staged"},
+    ),
+    "blink-unsupported": (
+        {"footprint": TRAPEZOID},
+        BLINK_CODES | {"altium.footprint-unsupported", "altium.pcbdoc-not-written"},
+    ),
     "blink-collision": (
         {"fp_table": OTHER_ROW, "script": SECOND_R},
-        BLINK_CODES | {"altium.footprint-name-collision"},
+        BLINK_CODES | {"altium.footprint-name-collision", "altium.pcbdoc-not-written"},
     ),
 }
 """Blink variants (change c0035): tree edits and build arguments, and the codes the build reports."""
@@ -267,6 +304,8 @@ def run_pcb_case(name: str) -> tuple[Issue, ...]:
         return build_altium(
             to_model(design),
             name=design.name,
+            placed=tuple(placements(design)),
+            placements=placements(design),
             resolver=blink_resolver(root, project),
             **kwargs,  # type: ignore[arg-type]
         ).issues
@@ -372,6 +411,8 @@ def test_the_table() -> None:
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
         "altium.footprint-extras-dropped": "info",
+        "altium.pcbdoc-not-written": "info",
+        "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
     }
 
