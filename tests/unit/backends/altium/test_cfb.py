@@ -168,7 +168,6 @@ def test_limit_is_read_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
         [("a!b", b"x")],
         [("", b"x")],
         [("Storage", b"x"), ("STORAGE", b"y")],
-        [("Empty", b"")],
     ],
 )
 def test_invalid_streams(streams: list[tuple[str, bytes]]) -> None:
@@ -192,3 +191,26 @@ def test_reader_is_independent() -> None:
     text = READER.read_text(encoding="utf-8")
     assert "import fenolite" not in text and "from fenolite" not in text
     assert "backends.altium.cfb" not in text
+
+
+def test_empty_streams() -> None:
+    """``altium-schematic-writer`` "Compound file container", "Empty streams" (change c0035)."""
+    data = write_compound([("Header", b"\x00\x00\x00\x00"), ("Data", b"")])
+    compound = parse_compound(data)
+    assert compound.streams == {"Header": b"\x00\x00\x00\x00", "Data": b""}
+    entries = {e.name: e for e in compound.entries}
+    assert entries["Data"].size == 0 and entries["Data"].start == ENDOFCHAIN
+    assert entries["Root Entry"].size == 64
+    assert "Data" not in compound.mini_chains and "Data" not in compound.chains
+
+
+def test_only_empty_streams() -> None:
+    compound = parse_compound(write_compound([("Data", b"")]))
+    assert compound.streams == {"Data": b""}
+    root = next(e for e in compound.entries if e.name == "Root Entry")
+    assert root.size == 0 and root.start == ENDOFCHAIN
+
+
+def test_empty_stream_bytes_are_stable() -> None:
+    entries = [cfb.Storage("Arcs6", (("Header", bytes(4)), ("Data", b"")))]
+    assert write_compound(entries) == write_compound(entries)

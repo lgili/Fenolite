@@ -13,7 +13,8 @@ No DIFAT sector is written: output whose FAT needs more sectors than the header 
 
 Storages (change c0034): ``write_compound`` takes streams ``(name, data)`` and ``Storage`` values at any
 depth. Entries are numbered in pre-order; each storage gets its own sibling tree. ``Storage`` and
-``Entry`` are the public API that PCB documents and libraries build on.
+``Entry`` are the public API that PCB documents and libraries build on. Empty streams (change c0035) take
+no sector or mini sector; their entry has size 0 and starts at ENDOFCHAIN.
 """
 
 from __future__ import annotations
@@ -136,10 +137,7 @@ def _flatten(entries: Sequence[Entry]) -> list[_Node]:
                 children = add(item.entries, f"the storage {name!r}")
                 nodes[index] = _Node(name, None, children)
             else:
-                data = bytes(item[1])
-                if not data:
-                    raise ValueError(f"the stream {name!r} is empty")
-                nodes.append(_Node(name, data))
+                nodes.append(_Node(name, bytes(item[1])))
         return tuple(ids)
 
     nodes[0] = _Node(ROOT_NAME, None, add(entries, "the root"))
@@ -209,14 +207,15 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
 
     ``entries`` are streams ``(name, data)`` and ``Storage`` values, numbered in pre-order from 1: each
     storage is followed at once by its own entries. ``ValueError`` for an invalid, repeated or empty
-    stream or storage; ``CompoundTooLarge`` past the FAT limit. Streams only give c0033's bytes.
+    or empty storage; ``CompoundTooLarge`` past the FAT limit. Streams only give c0033's bytes. An empty
+    stream (change c0035) takes no sector: its entry has size 0 and starting sector ENDOFCHAIN.
     """
     nodes = _flatten(entries)
     mini_used = 0
     placed: list[_Stream] = []
     for index, node in enumerate(nodes):
         data = node.data
-        if data is None:
+        if data is None or not data:
             continue
         if len(data) < MINI_STREAM_CUTOFF:
             placed.append(_Stream(index, data, True, mini_used))
@@ -289,7 +288,7 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
         if node.data is None:
             records.append(_entry(node.name, TYPE_STORAGE, left, right, tops[index], 0, 0))
         else:
-            start, size = starts[index], len(node.data)
+            start, size = starts.get(index, ENDOFCHAIN), len(node.data)
             records.append(_entry(node.name, TYPE_STREAM, left, right, NOSTREAM, start, size))
     records += [_UNUSED] * (directory_sectors * ENTRIES_PER_SECTOR - len(records))
 

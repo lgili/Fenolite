@@ -84,7 +84,6 @@ def test_same_name_in_two_storages() -> None:
         [Storage("S", (("Data", b"1"),)), ("s", b"2")],
         [Storage("A/B", (("Data", b"1"),))],
         [Storage("x" * 32, (("Data", b"1"),))],
-        [Storage("S", (("Data", b""),))],
     ],
 )
 def test_invalid_storages(entries: list[object]) -> None:

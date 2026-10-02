@@ -321,7 +321,11 @@ def parse_compound(data: bytes) -> Compound:
             if entry.clsid != bytes(16) or entry.created or entry.modified:
                 raise CfbError(f"stream {path}: the CLSID or a timestamp is not zero")
             if entry.size == 0:
-                raise CfbError(f"stream {path}: an empty stream has no recorded rule")
+                # compound-file.md, "Storages" (c0035): size 0, no sector, starting sector ENDOFCHAIN
+                if entry.start != ENDOFCHAIN:
+                    raise CfbError(f"stream {path}: an empty stream starts at {entry.start:#x}, not ENDOFCHAIN")
+                compound.streams[path] = b""
+                continue
             if entry.size < CUTOFF:
                 chain = _chain(minifat, entry.start, mini_count, path)
                 if len(chain) != _ceil(entry.size, MINI_SECTOR):
