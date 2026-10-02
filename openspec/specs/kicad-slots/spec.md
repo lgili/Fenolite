@@ -137,6 +137,7 @@ Opaque fragments MUST be re-emitted tree-equal to their source, at their positio
 - nodes of an `until_major = 9` inventory row converted or dropped for target 10 ("Board writing per target");
 - opaque slots removed under `allow_lossy` ("Lossy writes are refused unless allowed");
 - the value atom of a Reference or Value property, and spelling-only projections re-emitted from a changed model value ("Projected fields on write").
+- a changed `paper` fragment re-emitted whole from `Board.sheet`, and a changed `title_block` fragment rewritten in place from `Board.title_block`, or inserted right after `paper` when the source has none ("Projected fields on write", "Paper and title block on boards").
 
 The `design-model` requirement "Slots for lossless round-trip" refers to this list for the KiCad writer.
 
@@ -164,4 +165,9 @@ The `design-model` requirement "Slots for lossless round-trip" refers to this li
 - **GIVEN** `tests/data/kicad/board/dimension.kicad_pcb` read with `read_board`, and one segment moved
 - **WHEN** it is written for target 9
 - **THEN** the `dimension` node is tree-equal to the source node and at its source index
+
+#### Scenario: Title block edit touches only the title block
+- **GIVEN** `two_layer.kicad_pcb` read with `read_board`, and its board's `title_block` set to `TitleBlock(title="Bench")`
+- **WHEN** the design is written for target 9
+- **THEN** the root holds `(title_block (title "Bench"))` right after `paper`, and every other node of the board is tree-equal to the source apart from the header atoms and net numbers
 
