@@ -24,7 +24,7 @@ COORDINATES = ("LOCATION.X", "LOCATION.Y", "CORNER.X", "CORNER.Y", "X1", "Y1", "
 
 @cache
 def sample_bytes() -> bytes:
-    return write_project(sample_model(), name="altium_sample")["altium_sample.SchDoc"]
+    return write_project(sample_model(), name="altium_sample", form="ascii")["altium_sample.SchDoc"]
 
 
 def sample_records() -> list[dict[str, str]]:
@@ -97,7 +97,7 @@ def test_a_part_without_connected_pins() -> None:
     design.add(x1, r1)
     connect(Net("A"), r1[1])
     connect(Net("B"), r1[2])
-    found = records(write_project(model_of(design), name="lone")["lone.SchDoc"])
+    found = records(write_project(model_of(design), name="lone", form="ascii")["lone.SchDoc"])
     x1_index = component_index(found, "X1")
     assert found[x1_index]["RECORD"] == "1"
     kinds = [r["RECORD"] for _, r in owned_by(found, x1_index)]
@@ -161,7 +161,7 @@ def test_empty_value_and_no_footprint() -> None:
     design.add(x1, r1)
     connect(Net("A"), x1[1], r1[1])
     connect(Net("B"), x1[2], r1[2])
-    found = records(write_project(model_of(design), name="bare")["bare.SchDoc"])
+    found = records(write_project(model_of(design), name="bare", form="ascii")["bare.SchDoc"])
     x1_index = component_index(found, "X1")
     children = owned_by(found, x1_index)
     assert [r["TEXT"] for _, r in children if r["RECORD"] == "41"] == ["SYM"]

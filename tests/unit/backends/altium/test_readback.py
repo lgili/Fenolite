@@ -31,7 +31,7 @@ def model_nets(model: ModelDesign) -> dict[str, set[tuple[str, str]]]:
 
 
 def schdoc(model: ModelDesign, name: str = "x") -> bytes:
-    return write_project(model, name=name, project=False)[f"{name}.SchDoc"]
+    return write_project(model, name=name, project=False, form="ascii")[f"{name}.SchDoc"]
 
 
 def read(data: bytes) -> dict[str, set[tuple[str, str]]]:

@@ -3,9 +3,10 @@
 """Building a model design into an experimental Altium project (capability altium-build, change c0032).
 
 ``build_altium`` runs the build checks of ``ALTIUM_ISSUE_CODES``, gives every component the generic pins
-its nets name, validates, writes ``<name>.PrjPcb`` (only when the output folder has none) and the ASCII
-``<name>.SchDoc`` through ``fenolite.backends.altium.project.write_project``, and adds the ``.fenolite/``
-layer texts and build record of c0011 (``lens.build``). A design with an error gives no file. It reads no
+its nets name, validates, writes ``<name>.PrjPcb`` (only when the output folder has none) and
+``<name>.SchDoc``, binary by default or ASCII (change c0033), through
+``fenolite.backends.altium.project.write_project``, and adds the ``.fenolite/`` layer texts and build
+record of c0011 (``lens.build``). A design with an error gives no file. It reads no
 library and no Altium or KiCad file: the board, placements, net classes and diff pairs stay in the model
 and are reported as not lowered.
 """
@@ -18,8 +19,9 @@ import json
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 
-from fenolite.backends.altium import project
+from fenolite.backends.altium import binary, project
 from fenolite.backends.altium.ascii import text_problem
+from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
@@ -42,6 +44,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.text-unwritable": "error",
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
+        "altium.schematic-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.generic-symbols": "info",
@@ -51,22 +54,26 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
 through)."""
-ALTIUM_BUILD_EVIDENCE = Evidence(
-    Level.INFERRED,
-    hypotheses=(
-        "H-A-PRJ-KEEP",
-        "H-A-PRJ-OPEN",
-        "H-A-SCH-ECO",
-        "H-A-SCH-LINEEND",
-        "H-A-SCH-LINK",
-        "H-A-SCH-NETS",
-        "H-A-SCH-OPEN",
-        "H-A-SCH-RELINK",
-        "H-A-SCH-UID",
-        "H-A-SCH-UPDATE",
+ALTIUM_BUILD_EVIDENCE = Evidence.combine(
+    Evidence(
+        Level.INFERRED,
+        hypotheses=(
+            "H-A-PRJ-KEEP",
+            "H-A-PRJ-OPEN",
+            "H-A-SCH-ECO",
+            "H-A-SCH-LINEEND",
+            "H-A-SCH-LINK",
+            "H-A-SCH-NETS",
+            "H-A-SCH-OPEN",
+            "H-A-SCH-RELINK",
+            "H-A-SCH-UID",
+            "H-A-SCH-UPDATE",
+        ),
     ),
+    binary.EVIDENCE,
 )
-"""``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design."""
+"""``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design.
+It names the rows of both schematic forms (``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows)."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -229,7 +236,9 @@ def _not_lowered(design: Design, placed: Sequence[str]) -> list[Issue]:
     return found
 
 
-def _summary(design: Design, kept: Sequence[str], plan: SheetPlan | None) -> dict[str, object]:
+def _summary(
+    design: Design, kept: Sequence[str], plan: SheetPlan | None, form: project.SchematicForm
+) -> dict[str, object]:
     labels = sum(1 for s in plan.stubs if s.net.kind == "label") if plan is not None else 0
     ports = sum(1 for s in plan.stubs if s.net.kind == "port") if plan is not None else 0
     return {
@@ -239,6 +248,7 @@ def _summary(design: Design, kept: Sequence[str], plan: SheetPlan | None) -> dic
         "power_ports": ports,
         "sheet": plan.size.name if plan is not None else None,
         "kept": list(kept),
+        "schematic_format": form,
         "experimental": True,
     }
 
@@ -255,7 +265,8 @@ def build_altium(
 
     ``placed`` are the component paths the script placed; ``project_exists`` tells that
     ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned; ``form`` is the
-    form of ``<name>.SchDoc`` (``binary`` or ``ascii``).
+    form of ``<name>.SchDoc`` (``binary`` or ``ascii``). A binary schematic past the compound file's size
+    limit is reported as ``altium.schematic-too-large`` and gives no file.
     """
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
@@ -272,7 +283,7 @@ def build_altium(
     model = generic_pins(design)
     issues += list(model.validate())
     if any(i.severity == "error" for i in issues):
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None))
+        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
     count = len(model.circuit.components)
     issues.append(
         issue(
@@ -283,7 +294,18 @@ def build_altium(
             "use 'Replace selected attributes' with graphical attributes off to keep every connection",
         )
     )
-    files = project.write_project(model, name=name, project=not project_exists, issues=issues, form=form)
+    try:
+        files = project.write_project(model, name=name, project=not project_exists, issues=issues, form=form)
+    except CompoundTooLarge as error:
+        issues.append(
+            issue(
+                "altium.schematic-too-large",
+                f"{name}.SchDoc is too large for the binary form: {error}",
+                f"{name}.SchDoc",
+                "build with --altium-format ascii",
+            )
+        )
+        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(model).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
@@ -296,7 +318,7 @@ def build_altium(
         )
         + "\n"
     ).encode("utf-8")
-    summary = _summary(model, kept, project.plan_sheet(model))
+    summary = _summary(model, kept, project.plan_sheet(model), form)
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
 

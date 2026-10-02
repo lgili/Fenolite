@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite build DESIGN.py --out DIR``: a design script built into a self-contained KiCad project, or,
-with ``--target altium``, into an experimental Altium project (``docs/altium.md``).
+with ``--target altium``, into an experimental Altium project (``docs/altium.md``), whose schematic is
+binary by default and ASCII with ``--altium-format ascii``.
 
 ``build`` executes ``design.py`` as your own code and must never be run on an untrusted script
 (``docs/dsl.md``, "Scripts"). Outputs changed since the last build are refused until c0019 preserves
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
+from fenolite.backends.altium.project import DEFAULT_FORM, SCHDOC_KINDS, SchematicForm
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -36,13 +38,13 @@ HELP = (
     "untrusted script)"
 )
 TARGETS = ("kicad", ALTIUM_TARGET)
+ALTIUM_FORMATS: tuple[SchematicForm, ...] = ("binary", "ascii")
 _KINDS = {
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
     ".kicad_dru": "kicad_dru",
     ".kicad_mod": "kicad_mod",
     ".PrjPcb": "altium_prjpcb",
-    ".SchDoc": "altium_schdoc_ascii",
 }
 
 
@@ -61,7 +63,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--target",
         choices=TARGETS,
         default="kicad",
-        help="kicad (default), or altium: an experimental Altium project file and ASCII schematic instead",
+        help="kicad (default), or altium: an experimental Altium project file and schematic instead",
+    )
+    parser.add_argument(
+        "--altium-format",
+        choices=ALTIUM_FORMATS,
+        default=None,
+        help=f"the form of the Altium schematic with --target altium: binary (default, Altium's own) or "
+        f"ascii; a usage error with --target kicad (default form: {DEFAULT_FORM})",
     )
     parser.add_argument(
         "--vendor",
@@ -72,11 +81,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _kind(rel: str) -> str:
+def _kind(rel: str, form: SchematicForm | None = None) -> str:
     if rel.startswith(".fenolite/"):
         return "fenolite"
     if rel == "fp-lib-table":
         return "fp-lib-table"
+    if form is not None and Path(rel).suffix == ".SchDoc":
+        return SCHDOC_KINDS[form]
     return _KINDS.get(Path(rel).suffix, "file")
 
 
@@ -87,6 +98,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     out_dir = out if out.is_absolute() else ctx.cwd / out
     if out_dir.resolve() == script_path.resolve().parent:
         raise CliError("FEN-2001", "--out must not be the folder of the design script", where="--out")
+    if args.altium_format is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-format needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-format",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-format",
+        )
     run = run_design_script(script_path)
     design = run.design
     try:
@@ -152,14 +170,20 @@ def _run_altium(
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): no library is
     resolved and no external tool runs; the project file is planned only when ``DIR`` has none."""
     name = run.design.name
+    form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     built = build_altium(
-        model, name=name, placed=placed, project_exists=(out_dir / f"{name}.PrjPcb").is_file()
+        model,
+        name=name,
+        placed=placed,
+        project_exists=(out_dir / f"{name}.PrjPcb").is_file(),
+        form=form,
     )
     files = dict(built.files)
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
-        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, form))
+        for rel, data in sorted(files.items())
     )
     summary = built.summary
     kept = cast(Sequence[str], summary["kept"])
@@ -170,6 +194,7 @@ def _run_altium(
         "files": [w.path for w in writes],
         **{key: summary[key] for key in ("components", "nets", "labels", "power_ports", "sheet")},
         "kept": [str(out / rel) for rel in kept],
+        "schematic_format": form,
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

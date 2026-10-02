@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Golden files of the Altium sample and the protocol page that names them (capability altium-build,
 "Altium sample project" and scenario "Protocol names the sample bytes" of "Altium author reports"; change
-c0032).
+c0032). These are the ASCII build (``form="ascii"``); the binary sample is checked by
+``test_altium_binary_golden.py`` (change c0033).
 
 ``FENOLITE_GOLDEN_WRITE=1`` rewrites the four files under ``tests/data/altium/sample/`` instead of comparing
 them; the SHA-256 values of ``docs/evidence/altium-schematic.md`` are then updated by hand.
@@ -49,7 +50,7 @@ def nouid_variant(schdoc: bytes) -> bytes:
 @cache
 def fresh() -> dict[str, bytes]:
     design = sample()
-    files = build_altium(to_model(design), name=design.name).files
+    files = build_altium(to_model(design), name=design.name, form="ascii").files
     schdoc = files["altium_sample.SchDoc"]
     return {
         "altium_sample.PrjPcb": files["altium_sample.PrjPcb"],

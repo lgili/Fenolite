@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The Altium build's closed table of issue codes (capability altium-build, "Altium build issue codes";
-change c0032).
+change c0032; ``altium.schematic-too-large`` of change c0033, "Altium schematic format option").
 
 Each case below is a sample variant and the codes its build must report; ``test_closed_set`` runs every
 case and checks that the codes produced are exactly the table's, with the table's severities.
@@ -16,6 +16,7 @@ import pytest
 from _altium import sample
 
 import fenolite.lens.altium as lens_altium
+from fenolite.backends.altium import cfb
 from fenolite.core.errors import Issue
 from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, to_model
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
@@ -103,6 +104,24 @@ def run_case(name: str) -> tuple[Issue, ...]:
     return build_altium(to_model(design), name=design.name, **kwargs).issues  # type: ignore[arg-type]
 
 
+@contextmanager
+def _no_fat_sector() -> Iterator[None]:
+    original = cfb.MAX_FAT_SECTORS
+    cfb.MAX_FAT_SECTORS = 0
+    try:
+        yield
+    finally:
+        cfb.MAX_FAT_SECTORS = original
+
+
+def run_too_large_case(form: str = "binary") -> tuple[Issue, ...]:
+    with _no_fat_sector():
+        design = sample()
+        output = build_altium(to_model(design), name=design.name, form=form)  # type: ignore[arg-type]
+        assert (output.files == {}) is (form == "binary")
+        return output.issues
+
+
 def run_unique_id_case() -> tuple[Issue, ...]:
     with _same_unique_ids():
         design = sample()
@@ -127,7 +146,7 @@ def test_closed_set() -> None:
     for name in CASES:
         for found in run_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
-    for found in run_unique_id_case():
+    for found in (*run_unique_id_case(), *run_too_large_case()):
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -144,12 +163,21 @@ def test_the_table() -> None:
         "altium.text-unwritable": "error",
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
+        "altium.schematic-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.generic-symbols": "info",
         "altium.not-lowered": "info",
         "altium.project-kept": "info",
     }
+
+
+def test_too_large_refused() -> None:
+    """With ``cfb.MAX_FAT_SECTORS`` patched to 0 the binary build gives no file; ASCII is not limited."""
+    found = [i for i in run_too_large_case() if i.code == "altium.schematic-too-large"]
+    assert len(found) == 1 and found[0].severity == "error" and found[0].where == "altium_sample.SchDoc"
+    assert "--altium-format ascii" in found[0].hint
+    assert "altium.schematic-too-large" not in {i.code for i in run_too_large_case("ascii")}
 
 
 def test_not_lowered_names_each_kind() -> None:

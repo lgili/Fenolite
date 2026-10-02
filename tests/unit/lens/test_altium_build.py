@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``lens.altium.build_altium`` (capability altium-build, "Altium build outputs" and "Altium build
-evidence"; change c0032)."""
+evidence"; change c0032; the schematic form of change c0033, "Altium schematic format option")."""
 
 from __future__ import annotations
 
@@ -10,8 +10,10 @@ import json
 from pathlib import Path
 
 from _altium import SAMPLE_NETS, records, sample
+from _cfb_read import deframe, read_compound
 
-from fenolite.backends.altium import project
+from fenolite.backends.altium import binary, project
+from fenolite.backends.altium.cfb import SIGNATURE
 from fenolite.core.evidence import Level
 from fenolite.dsl import Design, Net, Part, connect, to_model
 from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, TARGET, build_altium, generic_pins
@@ -106,8 +108,10 @@ def test_summary_of_the_sample() -> None:
         "power_ports": 13,
         "sheet": "A4",
         "kept": [],
+        "schematic_format": "binary",
         "experimental": True,
     }
+    assert build(sample(), form="ascii").summary["schematic_format"] == "ascii"
 
 
 def test_written_nets_equal_the_model() -> None:
@@ -149,10 +153,12 @@ def test_evidence() -> None:
     assert output.evidence.level is Level.INFERRED
     assert {"H-A-SCH-OPEN", "H-A-SCH-NETS", "H-A-PRJ-OPEN"} <= set(output.evidence.hypotheses)
     assert ALTIUM_BUILD_EVIDENCE.level is Level.INFERRED
+    assert "H-A-SCHBIN-VIEWER" in output.evidence.hypotheses
     registered = {r.id for r in load_register(ROOT / "docs" / "hypotheses.md")}
-    rows = {i for i in registered if i.startswith(("H-A-SCH-", "H-A-PRJ-"))}
+    rows = {i for i in registered if i.startswith(("H-A-SCH-", "H-A-SCHBIN-", "H-A-PRJ-"))}
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
+    assert set(binary.EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-SCHBIN-")}
 
 
 def test_experimental_entry() -> None:
@@ -161,12 +167,23 @@ def test_experimental_entry() -> None:
         "name": "altium-schematic-writer",
         "command": "build",
         "option": "--target altium",
-        "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii"],
+        "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"],
     }
 
 
 def test_sample_schematic_holds_every_component() -> None:
-    found = records(build(sample()).files["altium_sample.SchDoc"])
+    found = records(build(sample(), form="ascii").files["altium_sample.SchDoc"])
     assert sorted(r["TEXT"] for r in found if r["RECORD"] == "34") == sorted(
         ["J1", "R2", "U2", "R1", "D1", "U1", "C1", "C2"]
     )
+
+
+def test_binary_by_default() -> None:
+    """The default form is binary; both forms hold the same records and the same project file."""
+    default, ascii_form = build(sample()), build(sample(), form="ascii")
+    schdoc = default.files["altium_sample.SchDoc"]
+    assert project.DEFAULT_FORM == "binary" and schdoc.startswith(SIGNATURE)
+    assert ascii_form.files["altium_sample.SchDoc"].startswith(b"|HEADER=")
+    assert default.files["altium_sample.PrjPcb"] == ascii_form.files["altium_sample.PrjPcb"]
+    found = [dict(r) for r in deframe(read_compound(schdoc)["FileHeader"])[1:]]
+    assert found == records(ascii_form.files["altium_sample.SchDoc"])

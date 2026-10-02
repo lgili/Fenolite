@@ -41,9 +41,10 @@ def test_altium_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]
     assert list(entry) == KEYS
     assert entry["name"] == "altium-schematic-writer" and entry["command"] == "build"
     assert entry["option"] == "--target altium"
-    assert entry["write_kinds"] == ["altium_prjpcb", "altium_schdoc_ascii"]
+    assert entry["write_kinds"] == ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"]
     assert entry["evidence"]["level"] == "INFERRED" and entry["evidence"]["oracle"] is None
     assert "H-A-SCH-OPEN" in entry["evidence"]["hypotheses"]
+    assert "H-A-SCHBIN-VIEWER" in entry["evidence"]["hypotheses"]
     assert all(b["name"] != "altium" for b in result["backends"])
 
 

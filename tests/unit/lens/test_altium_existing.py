@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Edited Altium outputs are not overwritten (capability altium-build, "Edited Altium outputs are not
-overwritten"; change c0032)."""
+overwritten"; change c0032), in the binary form by default and in the ASCII form, and a rebuild that only
+switches the form is not an edit (scenario "Switching the form is not an edit"; change c0033)."""
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import shutil
@@ -69,8 +71,36 @@ def test_discarding_the_edited_schematic(monkeypatch: pytest.MonkeyPatch, built:
     edited = _edit_one_byte(schdoc)
     code, _, _ = run(monkeypatch, built, "--discard-layout", "--confirm")
     assert code == 0
-    assert schdoc.read_bytes() == (GOLDEN / SCHDOC).read_bytes()
+    assert schdoc.read_bytes() == (GOLDEN / "binary" / SCHDOC).read_bytes()
     assert (built / f"{SCHDOC}.bak").read_bytes() == edited
+
+
+def test_edited_ascii_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "A"
+    assert run(monkeypatch, out, "--altium-format", "ascii", "--confirm")[0] == 0
+    schdoc = out / SCHDOC
+    edited = _edit_one_byte(schdoc)
+    code, env, _ = run(monkeypatch, out, "--altium-format", "ascii", "--confirm")
+    assert code == 7 and [i["code"] for i in env["issues"]] == ["build.layout-exists"]  # type: ignore[union-attr]
+    assert schdoc.read_bytes() == edited
+    assert run(monkeypatch, out, "--altium-format", "ascii", "--discard-layout", "--confirm")[0] == 0
+    assert schdoc.read_bytes() == (GOLDEN / SCHDOC).read_bytes()
+
+
+def test_switching_the_form_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The edited-output rule compares the existing file with the build record, not with the new form."""
+    out = tmp_path / "B"
+    schdoc = out / SCHDOC
+    assert run(monkeypatch, out, "--altium-format", "ascii", "--confirm")[0] == 0
+    assert schdoc.read_bytes() == (GOLDEN / SCHDOC).read_bytes()
+    code, env, _ = run(monkeypatch, out, "--confirm")
+    assert code == 0 and env["result"]["schematic_format"] == "binary"  # type: ignore[index]
+    binary = (GOLDEN / "binary" / SCHDOC).read_bytes()
+    assert schdoc.read_bytes() == binary
+    record = json.loads((out / ".fenolite" / "build.json").read_bytes())
+    assert record["files"][SCHDOC] == hashlib.sha256(binary).hexdigest()
+    assert run(monkeypatch, out, "--altium-format", "ascii", "--confirm")[0] == 0
+    assert schdoc.read_bytes() == (GOLDEN / SCHDOC).read_bytes()
 
 
 def test_discarding_without_a_backup(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:

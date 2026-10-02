@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite build --target altium`` (capability altium-build: "Altium build target", "Altium build
-issue codes", "Altium build evidence" and "Altium sample project"; change c0032)."""
+issue codes", "Altium build evidence" and "Altium sample project"; change c0032; "Altium schematic format
+option"; change c0033)."""
 
 from __future__ import annotations
 
@@ -14,8 +15,10 @@ import pytest
 from _altium import SAMPLE, variant_script
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium import cfb
 
 ROOT = Path(__file__).resolve().parents[3]
+GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
 BLINK = ROOT / "examples" / "blink_2layer" / "design.py"
 CACHE = (".fenolite/board.json", ".fenolite/build.json", ".fenolite/circuit.json", ".fenolite/findings.json",
          ".fenolite/manufacturing.json", ".fenolite/meta.json", ".fenolite/rules.json")  # fmt: skip
@@ -56,12 +59,70 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert list(out.iterdir()) == []
     kinds = {Path(p["path"]).name: p["kind"] for p in result["plan"]}
     assert kinds["altium_sample.PrjPcb"] == "altium_prjpcb"
-    assert kinds["altium_sample.SchDoc"] == "altium_schdoc_ascii"
+    assert kinds["altium_sample.SchDoc"] == "altium_schdoc_binary"
+    assert result["schematic_format"] == "binary"
     assert {kinds[Path(c).name] for c in CACHE} == {"fenolite"}
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "sheet", "kept",
-        "experimental", "script_output", "plan",
+        "schematic_format", "experimental", "script_output", "plan",
     ]  # fmt: skip
+
+
+def test_binary_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm")
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict) and result["schematic_format"] == "binary"
+    assert (out / "altium_sample.SchDoc").read_bytes() == (
+        GOLDEN / "binary" / "altium_sample.SchDoc"
+    ).read_bytes()
+    assert (out / "altium_sample.PrjPcb").read_bytes() == (GOLDEN / "altium_sample.PrjPcb").read_bytes()
+
+
+def test_ascii_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "B"
+    args = ("--out", str(out), "--target", "altium", "--altium-format", "ascii")
+    code, env, _ = run(monkeypatch, str(SAMPLE), *args, "--dry-run")
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict) and result["schematic_format"] == "ascii"
+    kinds = {Path(p["path"]).name: p["kind"] for p in result["plan"]}
+    assert kinds["altium_sample.SchDoc"] == "altium_schdoc_ascii"
+    code, env, _ = run(monkeypatch, str(SAMPLE), *args, "--confirm")
+    assert code == 0
+    assert (out / "altium_sample.SchDoc").read_bytes() == (GOLDEN / "altium_sample.SchDoc").read_bytes()
+
+
+@pytest.mark.parametrize("target", [(), ("--target", "kicad")], ids=["default-target", "kicad"])
+def test_option_without_the_altium_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target: tuple[str, ...]
+) -> None:
+    out = tmp_path / "B"
+    code, env, err = run(
+        monkeypatch, str(BLINK), "--out", str(out), *target, "--altium-format", "binary", "--dry-run"
+    )
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--altium-format"
+    assert env["ok"] is False
+    assert not out.exists()
+
+
+def test_unknown_altium_format(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "B"
+    args = ("--out", str(out), "--target", "altium", "--altium-format", "utf8", "--dry-run")
+    code, _, err = run(monkeypatch, str(SAMPLE), *args)
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001" and not out.exists()
+
+
+def test_too_large_exits_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(cfb, "MAX_FAT_SECTORS", 0)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm")
+    issues = env["issues"]
+    assert code == 5 and json.loads(err)["code"] == "FEN-5001" and isinstance(issues, list)
+    assert "altium.schematic-too-large" in [i["code"] for i in issues]
+    assert not out.exists() or files_under(out) == []
+    ascii_args = ("--out", str(out), "--target", "altium", "--altium-format", "ascii", "--confirm")
+    assert run(monkeypatch, str(SAMPLE), *ascii_args)[0] == 0
 
 
 def test_confirmed_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

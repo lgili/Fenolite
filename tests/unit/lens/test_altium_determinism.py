@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Reproducible Altium builds (capability altium-build, "Reproducible Altium builds"; change c0032)."""
+"""Reproducible Altium builds (capability altium-build, "Reproducible Altium builds"; change c0032), in
+the binary form by default and in the ASCII form (scenario "Reproducible binary builds"; change c0033)."""
 
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import pytest
 from _altium import SAMPLE, records, variant_script
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium.cfb import SIGNATURE
 from fenolite.dsl import Design, to_model
 from fenolite.lens.altium import build_altium
 
@@ -28,30 +30,46 @@ def files_under(folder: Path) -> dict[str, bytes]:
     }
 
 
-def test_twice_in_process_and_twice_by_subprocess(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize(
+    ("flags", "head"), [((), SIGNATURE), (("--altium-format", "ascii"), b"|HEADER=")], ids=["binary", "ascii"]
+)
+def test_twice_in_process_and_twice_by_subprocess(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flags: tuple[str, ...], head: bytes
+) -> None:
     before = files_under(SAMPLE.parent)
     outs = [tmp_path / "in1", tmp_path / "in2"]
     for out in outs:
-        args = ["build", str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm", "--json"]
+        args = ["build", str(SAMPLE), "--out", str(out), "--target", "altium", *flags, "--confirm", "--json"]
         assert cli_main.main(args) == 0, capsys.readouterr().err
     capsys.readouterr()
     for seed, stamp in ((1, "2026-01-01T00:00:00Z"), (2, "2027-06-01T00:00:00Z")):
         out = tmp_path / f"sub{seed}"
         env = {**os.environ, "PYTHONHASHSEED": str(seed)}
         argv = [sys.executable, "-m", "fenolite", "build", str(SAMPLE), "--out", str(out)]
-        argv += ["--target", "altium", "--confirm", "--json", "--seed", str(seed), "--timestamp", stamp]
+        argv += [
+            "--target",
+            "altium",
+            *flags,
+            "--confirm",
+            "--json",
+            "--seed",
+            str(seed),
+            "--timestamp",
+            stamp,
+        ]
         proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
         assert proc.returncode == 0, proc.stderr
         outs.append(out)
     builds = [files_under(out) for out in outs]
     assert set(builds[0]) == PLANNED
+    assert builds[0]["altium_sample.SchDoc"].startswith(head)
     assert all(build == builds[0] for build in builds[1:])
     assert files_under(SAMPLE.parent) == before, "the build changed the script folder"
     assert not list(SAMPLE.parent.rglob("__pycache__"))
 
 
 def _unique_ids(design: Design) -> dict[str, str]:
-    files = build_altium(to_model(design), name=design.name).files
+    files = build_altium(to_model(design), name=design.name, form="ascii").files
     found = records(files[f"{design.name}.SchDoc"])
     owners = {int(r["OWNERINDEX"]): r["TEXT"] for r in found if r["RECORD"] == "34"}
     return {owners[i]: r["UNIQUEID"] for i, r in enumerate(found) if r["RECORD"] == "1"}

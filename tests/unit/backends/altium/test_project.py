@@ -81,7 +81,7 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
     }
-    assert WRITE_KINDS == ("altium_prjpcb", "altium_schdoc_ascii")
+    assert WRITE_KINDS == ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary")
 
 
 @pytest.mark.parametrize(
@@ -116,7 +116,7 @@ def test_unique_id_pinned_value() -> None:
 
 def test_component_unique_ids_are_keyed_by_component_id() -> None:
     model = sample_model()
-    found = records(write_project(model, name="altium_sample")["altium_sample.SchDoc"])
+    found = records(write_project(model, name="altium_sample", form="ascii")["altium_sample.SchDoc"])
     for component in model.circuit.components:
         assert found[component_index(found, component.ref)]["UNIQUEID"] == unique_id(component.id)
     assert [r["RECORD"] for r in found if "UNIQUEID" in r] == ["1"] * 8
@@ -151,7 +151,7 @@ def _vmid() -> Design:
 
 
 def test_a_net_high_in_one_supply_and_low_in_another() -> None:
-    found = records(write_project(model_of(_vmid()), name="vmid")["vmid.SchDoc"])
+    found = records(write_project(model_of(_vmid()), name="vmid", form="ascii")["vmid.SchDoc"])
     styles = {(r["TEXT"], r["STYLE"]) for r in found if r["RECORD"] == "17"}
     assert styles == {("VCC", "2"), ("VMID", "2"), ("GND", "4")}
 
@@ -205,7 +205,7 @@ def test_custom_sheet_issue() -> None:
         connect(a, part[1])
         connect(b, part[2])
     issues: list[Issue] = []
-    files = write_project(model_of(design), name="big", issues=issues)
+    files = write_project(model_of(design), name="big", issues=issues, form="ascii")
     assert [(i.code, i.severity) for i in issues] == [("altium.sheet-custom", "warning")]
     sheet = files["big.SchDoc"].split(b"\r\n")[1].decode("ascii")
     assert re.search(r"\|USECUSTOMSHEET=T\|CUSTOMX=\d+\|CUSTOMY=\d+$", sheet) and "SHEETSTYLE" not in sheet

@@ -30,8 +30,8 @@ PATH_PROPERTY = "fenolite.path"
 UNIQUE_ID_SALT = "fenolite.altium.uniqueid:"
 UNIQUE_ID_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXY"
 UNIQUE_ID_LENGTH = 8
-WRITE_KINDS: tuple[str, str] = ("altium_prjpcb", "altium_schdoc_ascii")
-"""The kinds of the planned writes of an Altium build."""
+WRITE_KINDS: tuple[str, ...] = ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary")
+"""The kinds of the planned writes of an Altium build: the project file and the schematic in each form."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
@@ -48,8 +48,10 @@ EVIDENCE = Evidence(
 PowerStyle = Literal["ground", "bar"]
 SchematicForm = Literal["binary", "ascii"]
 """The two forms of ``<name>.SchDoc``: a compound file of framed records, or text lines."""
-DEFAULT_FORM: SchematicForm = "ascii"
+DEFAULT_FORM: SchematicForm = "binary"
 """The one default of the schematic form for the writer, the lens and the CLI (change c0033)."""
+SCHDOC_KINDS: dict[SchematicForm, str] = {"binary": "altium_schdoc_binary", "ascii": "altium_schdoc_ascii"}
+"""The write kind of ``<name>.SchDoc`` by form: both forms share the extension."""
 
 
 def split_link(text: str) -> tuple[str, str] | None:
@@ -198,6 +200,7 @@ __all__ = [
     "EVIDENCE",
     "PATH_PROPERTY",
     "WRITE_KINDS",
+    "SCHDOC_KINDS",
     "SchematicForm",
     "component_path",
     "part_specs",
