@@ -3,10 +3,12 @@
 """The form of the Altium schematic-writer rows of ``docs/hypotheses.md`` (capability altium-build,
 "Altium author reports", change c0032; "Binary sample and Viewer check", change c0033).
 
-Every ``H-A-SCH-*``, ``H-A-SCHBIN-*`` and ``H-A-PRJ-*`` row is refuted with a registered successor, or
-is ``INFERRED`` with a result starting ``pending (author report)``, or carries the author-report label
-with its four fields; the tool field is ``AD <major>.<minor or x>`` or ``A365 Viewer`` (the Altium 365
-Viewer shows no version).
+Every ``H-A-SCH-*``, ``H-A-SCHBIN-*``, ``H-A-SCHLIB-*`` and ``H-A-PRJ-*`` row is refuted with a
+registered successor, or is ``INFERRED`` with a result starting ``pending (author report)``, or carries
+the author-report label with its four fields; the tool field is ``AD <major>.<minor or x>`` or
+``A365 Viewer`` (the Altium 365 Viewer shows no version). The two oracle rows of change c0034
+(``ORACLE_ROWS``) are settled by ``kicad-cli`` instead: ``pending (oracle)`` or ``pending (kicad-9 job)``
+until it runs, then a KiCad or oracle label.
 ``test_hypotheses_register.register_problems`` checks that form only for ``H-A-WRITE-*`` and ``H-A-PH-*``,
 so this change checks its own rows here. The unit cases use registered ids only.
 """
@@ -25,7 +27,7 @@ from fenolite.verify import HypothesisRow, load_register, parse_level
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
-STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-PRJ-")
+STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-")
 REGISTERED_BY_C0032 = frozenset(
     {
         "H-A-SCH-OPEN",
@@ -43,6 +45,22 @@ REGISTERED_BY_C0032 = frozenset(
 REGISTERED_BY_C0033 = frozenset(
     {"H-A-SCHBIN-CFB", "H-A-SCHBIN-FRAME", "H-A-SCHBIN-STORAGE", "H-A-SCHBIN-VIEWER", "H-A-SCHBIN-AD"}
 )
+REGISTERED_BY_C0034 = frozenset(
+    {
+        "H-A-SCHLIB-OPEN",
+        "H-A-SCHLIB-PIN",
+        "H-A-SCHLIB-PARTS",
+        "H-A-SCHLIB-IMPLIDX",
+        "H-A-SCHLIB-PRJ",
+        "H-A-SCHLIB-SCHDOC",
+        "H-A-SCHLIB-MULTIPART",
+        "H-A-SCHLIB-UPDATE",
+        "H-A-SCHLIB-SECTIONKEY",
+    }
+)
+ORACLE_ROWS = frozenset({"H-A-SCHLIB-KICAD", "H-A-SCHLIB-KICAD9"})
+"""Rows settled by the ``kicad-cli sym upgrade`` round trip, not by an author report (change c0034)."""
+ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
     "(tool field A365 Viewer for the Altium 365 Viewer), "
@@ -80,6 +98,14 @@ def row_problems(rows: Sequence[HypothesisRow]) -> list[str]:
     for row in rows:
         if not row.id.startswith(STEMS):
             continue
+        if row.id in ORACLE_ROWS:
+            pending = row.level_text in ("INFERRED", "UNKNOWN") and row.result.startswith("pending (")
+            settled = ORACLE_LEVELS.fullmatch(row.level_text) is not None and not row.result.startswith(
+                "pending"
+            )
+            if not (pending or settled or row.refuted):
+                problems.append(f"{row.id}: an oracle row is pending or carries a KiCad or oracle label")
+            continue
         if row.refuted:
             successor = row.successor
             if (
@@ -106,10 +132,23 @@ def test_rows_are_well_formed() -> None:
 
 def test_the_change_registered_its_rows() -> None:
     rows = {row.id: row for row in load_register(REGISTER)}
-    ids = REGISTERED_BY_C0032 | REGISTERED_BY_C0033
+    ids = REGISTERED_BY_C0032 | REGISTERED_BY_C0033 | REGISTERED_BY_C0034
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
     assert all(rows[i].test.startswith("kit request") for i in ids)
+    assert ORACLE_ROWS <= set(rows)
+    assert all(rows[i].backend == "altium" and "test_schlib_oracle.py" in rows[i].test for i in ORACLE_ROWS)
+
+
+def test_oracle_rows() -> None:
+    assert row_problems([_row("H-A-SCHLIB-KICAD", result="pending (oracle)")]) == []
+    assert row_problems([_row("H-A-SCHLIB-KICAD9", level="UNKNOWN", result="pending (kicad-9 job)")]) == []
+    done = _row("H-A-SCHLIB-KICAD", level="ORACLE-VERIFIED(kicad-cli) (10.0.6)", result="confirmed")
+    assert row_problems([done]) == []
+    assert (
+        row_problems([_row("H-A-SCHLIB-KICAD", level="ORACLE-VERIFIED(kicad-cli)", result="pending")]) != []
+    )
+    assert row_problems([_row("H-A-SCHLIB-KICAD", result="confirmed")]) != []
 
 
 # --- unit cases -------------------------------------------------------------------------------------

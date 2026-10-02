@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and the fact page
 
-- [ ] 1.1 Register sources and hypotheses (first commit of the implementation; c0032's and c0033's groups 1 must already be on the branch).
+- [x] 1.1 Register sources and hypotheses (first commit of the implementation; c0032's and c0033's groups 1 must already be on the branch).
   - Add S-0150 to S-0155 to `docs/evidence/sources.md` from the design table "Sources registered by this change". S-0150's URL is the AltiumSharp tree at commit `afe796434b6d2110c745c90abe44a6ddf64f5bca`, and its cell says "version 1 only; version 2 not used (LEGAL.md P1)". Widen the "used for" cells of S-0002, S-0131 and S-0148 as the design says.
   - Add the eleven `H-A-SCHLIB-*` rows to `docs/hypotheses.md` (backend `altium`), with the paragraph "Change c0034 (Altium schematic library) adds …". The level is `INFERRED`, with the result `pending (author report)`, except `H-A-SCHLIB-KICAD` (`INFERRED`, `pending (oracle)`) and `H-A-SCHLIB-KICAD9` (`UNKNOWN`, `pending (kicad-9 job)`).
   - In `tests/unit/test_altium_rows.py`, `STEMS` gains `H-A-SCHLIB-`.
