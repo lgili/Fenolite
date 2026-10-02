@@ -26,9 +26,10 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   script folder, writes follow `--dry-run` and `--confirm`, and `--discard-layout` and `--no-backup` work
   the same. `--seed` and `--timestamp` change nothing, and neither do `--kicad-version` and
   `--allow-lossy`.
-- The build reads the script and, only for KiCad lib ids, their symbol libraries, through the same
-  library tables as `--target kicad` (the script folder's `sym-lib-table`, then the global table). It
-  reads no footprint library, no Altium file, and starts no external tool. `--kicad-version` changes
+- The build reads the script and, only for KiCad lib ids and KiCad footprint links, their symbol and
+  footprint libraries, through the same library tables as `--target kicad` (the script folder's
+  `sym-lib-table` and `fp-lib-table`, then the global tables). It reads no Altium file and starts no
+  external tool. `--kicad-version` changes
   bytes only through the library configuration it selects.
 - `result` holds `design`, `target` (`"altium"`), `out`, `files`, the counts `components`, `nets`,
   `labels` and `power_ports`, `sheet` (`A4` … `A0` or `custom`), `kept`, `schematic_format` (`binary`
@@ -170,6 +171,62 @@ every component (change c0034). Facts: `docs/formats/altium/schematic-library.md
 - **Example.** `examples/altium_kicad/` builds from its own `FenoliteDemo.kicad_sym` through its
   `sym-lib-table`; its build is committed under `tests/data/altium/kicad_example/`.
 
+## PCB library and PCB document (change c0035)
+
+**Footprint sources.** A footprint link whose library part ends with `.PcbLib` (any letter case) is an
+Altium link: the link is written as given and no footprint is written. Every other link is a KiCad
+footprint id, resolved with the same library tables as `--target kicad` (`fp-lib-table` beside the
+script, then the global table). A link that does not resolve gives `altium.footprint-unresolved`
+(warning) and the build goes on.
+
+**`<name>.PcbLib`.** Every resolved KiCad footprint goes into one PCB library named after the design,
+beside `<name>.SchLib`; the schematic links each KiCad footprint to it (`MODELDATAFILE0=<name>.PcbLib`),
+whether or not that footprint could be written. Written: surface and through-hole pads (round, oval,
+rectangular and rounded-rectangle shapes, round holes, plated or not), lines, rectangles, arcs and circles
+on the mapped layers. Refused, with `altium.footprint-unsupported` (warning; the footprint is not
+written): trapezoid and custom pads, connector pads, padstacks, slots and oval or offset drills, chamfered
+corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
+`altium.primitive-dropped` (warning): polygons, filled rectangles and circles, graphics on unmapped layers,
+and pad settings the Altium record has no field for (mask and paste margins, zone and thermal settings).
+Texts, properties and 3D model links are not written (`altium.footprint-extras-dropped`, info); Altium adds
+the designator and comment when it places a footprint. Two KiCad links with one footprint name give
+`altium.footprint-name-collision` and neither is written.
+
+**Layer map.** One table, Fenolite's choice for fabrication and courtyard (Altium has no fixed layer for
+them, and no KiCad oracle can check it; tell us which mechanical layers you use):
+
+| Fenolite layer | Altium layer |
+|---|---|
+| `F.Cu`, `B.Cu` | Top Layer (1), Bottom Layer (32) |
+| `F.SilkS`, `B.SilkS` | Top Overlay (33), Bottom Overlay (34) |
+| `F.Fab`, `B.Fab` | Mechanical 13 (69), Mechanical 14 (70) |
+| `F.CrtYd`, `B.CrtYd` | Mechanical 15 (71), Mechanical 16 (72) |
+| through-hole pads | Multi-Layer (74) |
+
+**`<name>.PcbDoc` (experimental).** Written when the design has a board outline without cutouts and every
+component with a footprint link has a KiCad link whose footprint is in `<name>.PcbLib`; otherwise
+`altium.pcbdoc-not-written` (info) names the reason. It holds the outline, a two-layer stack, every
+component with a footprint at its script placement (unplaced ones are staged right of the outline as the
+KiCad build stages them, with `altium.pcb-staged`), its pads at absolute coordinates with their nets, its
+graphics, and its designator (the comment is written hidden). No routing, vias, zones, rules or classes.
+The frame: Y up, the board's lower-left corner and the origin at (1000 mil, 1000 mil); bottom-side parts
+are mirrored as KiCad places them and their layers swapped. Each component carries
+`SOURCEUNIQUEID=\<id>`, the unique id of the same component in `<name>.SchDoc`, so "Design » Update PCB
+Document" should match every component (`H-A-PCB-DOC-LINK`). When the document is written, the board and
+the placements are no longer reported by `altium.not-lowered`. A document edited in Altium is refused on
+the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
+
+**Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
+9.0); `tests/kicad/altium/test_pcblib_oracle.py` counts the files, since a footprint KiCad cannot find
+still exits 0, and compares the geometry. `kicad-cli pcb import --format altium` (10.0 only) reads the
+document; `tests/kicad/altium/test_pcbdoc_oracle.py` reads its JSON report and its standard output, where
+missing storages are reported. Both check only what KiCad's importer reads.
+
+**In Altium.** With `<name>.PcbLib` in the project, the change order into a new PCB document finds every
+KiCad footprint (step 5 below). With `<name>.PcbDoc` in the project, open it and run "Design » Update PCB
+Document": no component should be added or removed. The checks are in `docs/evidence/altium-pcb.md`; the
+free Altium 365 Viewer opens `.PcbDoc` files but not `.PcbLib`.
+
 ## Project file and outputs
 
 Under `--out DIR`:
@@ -182,6 +239,9 @@ Under `--out DIR`:
   with `--altium-format ascii`.
 - `<library>.SchLib`: one schematic library per library file the lib ids give (see "Schematic
   libraries"), always a compound file.
+- `<name>.PcbLib` and `<name>.PcbDoc` (change c0035, see above), listed in a new project file as
+  `[Document2]` (the document) and with the libraries. A kept project file does not list them:
+  `altium.pcb-not-in-project` names them.
 - `.fenolite/`: the six layer files of the model, with the pins the build gave the components, and
   `build.json` with `"target": "altium"`.
 
@@ -215,6 +275,15 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
 | `altium.not-lowered` | info | the board, placements, net classes or diff pairs are kept in the model only |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
+| `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
+| `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
+| `altium.footprint-unsupported` | warning | a footprint is refused (a pad or graphic with no exact Altium form) |
+| `altium.footprint-name-collision` | warning | two KiCad footprint links give one footprint name |
+| `altium.primitive-dropped` | warning | a footprint graphic or pad setting is left out |
+| `altium.footprint-extras-dropped` | info | a footprint's texts, properties or 3D model links are not written |
+| `altium.pcbdoc-not-written` | info | the PCB document's conditions do not hold |
+| `altium.pcb-staged` | info | unplaced components are staged beside the outline |
+| `altium.pcb-not-in-project` | info | the project file is kept, so the PCB files are not listed in it |
 
 Model findings (`model.*`) pass through. A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
@@ -255,7 +324,7 @@ that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.li
 
 ## Limits
 
-One flat sheet; no buses, harnesses, variants, rules, net classes or output jobs; no PCB document and no
-PCB library; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
+One flat sheet; no buses, harnesses, variants, rules, net classes or output jobs; the PCB document has
+no routing and two copper layers, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. Reading Altium files is planned for v0.3.

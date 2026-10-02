@@ -96,8 +96,10 @@ each dropped part is reported as a warning, and without the flag the command fai
 
 `fenolite build DESIGN.py --out DIR` takes `--target {kicad,altium}`, default `kicad`. With
 `--target kicad`, or without the option, it builds the KiCad project of `docs/dsl.md`. With
-`--target altium` it builds an experimental Altium project instead, a project file and a schematic
-(`docs/altium.md`): it reads no library, `result.target` is the string `altium`,
+`--target altium` it builds an experimental Altium project instead: a project file, a schematic, its
+libraries and, for KiCad footprints, a PCB library and an experimental PCB document (`docs/altium.md`).
+It reads only the KiCad libraries that KiCad lib ids and footprint links name, `result.target` is the
+string `altium`, `result.footprints` and `result.pcb_document` describe the PCB files,
 `result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
 Any other `--target` value is a usage error (`FEN-2001`, exit 2).
 
@@ -138,11 +140,15 @@ issue codes in any release. Each entry has exactly the keys `name`, `command`, `
 and `evidence` (written as a backend's evidence), and its level is never one that counts as verified for
 a release. Listing them runs no external tool, so the list is the same with `--no-tools`. An
 experimental feature appears in `result.backends` only when it is a registered backend. Today the list
-holds the Altium schematic writer:
+holds two entries, which share no write kind: the Altium PCB writer (`altium-pcb-writer`, write kinds
+`altium_pcbdoc` and `altium_pcblib`, change c0035) and the Altium schematic writer:
 
 ```json
+{"name": "altium-pcb-writer", "command": "build", "option": "--target altium",
+ "write_kinds": ["altium_pcbdoc", "altium_pcblib"],
+ "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PCB-DOC-BOTTOM", "…"]}}
 {"name": "altium-schematic-writer", "command": "build", "option": "--target altium",
- "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"],
+ "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PRJ-KEEP", "H-A-PRJ-OPEN", "…"]}}
 ```
 
