@@ -6,7 +6,10 @@ c0032. Every fact this package relies on comes from a public source listed in
 and `docs/formats/altium/project.md`. The code is written from those pages. No third-party code was
 copied, transcribed or followed: the GPL sources (S-0131, S-0132) and the other open-source projects
 (S-0130, S-0142, S-0143, S-0144) were read for facts only. No Altium file, sample or vendor binary was
-downloaded, opened or decompiled, and no file of any organisation was used.
+downloaded, opened or decompiled, and no file of any organisation was used. The binary form (change
+c0033) adds the compound-file container, written from `docs/formats/altium/compound-file.md` (MS-CFB,
+S-0145, under the Open Specification Promise, S-0146), and the record framing of
+`docs/formats/altium/schematic-binary.md`.
 
 | fact-or-area | public source | licence of source | date | how used |
 |---|---|---|---|---|
@@ -20,3 +23,6 @@ downloaded, opened or decompiled, and no file of any organisation was used.
 | component unique ids: form, schematic-to-PCB link, duplicates not repaired | S-0130, S-0139 | WTFPL v2; all rights reserved (read for facts) | 2026-10-02 | facts only |
 | project file: sections, `Version`, `DocumentPath`, line ends, byte-order mark; the engineering change order | S-0132, S-0134, S-0141, S-0142, S-0143 | GPL-3.0-or-later (facts only); all rights reserved (read for facts); Apache-2.0 or MIT; MIT | 2026-10-02 | facts only |
 | `kicad-cli` cannot read a `.SchDoc`: it picks its schematic reader by extension, and authored files exit 3 | S-0020, S-0132 | GPL-3.0-or-later tool run as a subprocess; GPL-3.0-or-later (facts only) | 2026-10-02 | oracle |
+| compound-file container (c0033): header, sectors, FAT, mini FAT and mini stream, directory entries, the sibling tree | S-0145, S-0146 | Microsoft Open Specifications notice (copies allowed to develop implementations); Microsoft patent non-assert | 2026-10-02 | facts only |
+| binary schematic (c0033): streams `FileHeader` and `Storage`, the 32-bit length word and NUL framing, the binary header text, text pins, the empty `Storage` record | S-0002, S-0130, S-0131, S-0133, S-0142, S-0147, S-0148 | not stated on the page; WTFPL v2; GPL-2.0-or-later (facts only); all rights reserved (read for facts); Apache-2.0 or MIT | 2026-10-02 | facts only |
+| the Altium 365 Viewer's inputs, and a third-party report of a binary schematic checked in it (c0033) | S-0143, S-0149 | MIT; all rights reserved (read for facts) | 2026-10-02 | facts only |

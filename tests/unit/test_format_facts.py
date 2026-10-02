@@ -8,7 +8,7 @@ A fact table has the header ``| fact | source | label | hypothesis |``. Every ro
 label is a value of ``fenolite.core.evidence.Level`` (optionally followed by a parenthesised scope,
 such as ``KICAD-VERIFIED (10.0.x)``), and a row that is neither ``KICAD-VERIFIED`` nor
 ``CORPUS-VERIFIED`` names a hypothesis (``H-K-SEXPR-*`` or ``H-K-FMT-*`` on the S-expression page,
-``H-A-SCH-*`` or ``H-A-PRJ-*`` on the Altium pages).
+``H-A-SCH-*``, ``H-A-SCHBIN-*`` or ``H-A-PRJ-*`` on the Altium pages).
 """
 
 from __future__ import annotations
@@ -32,8 +32,9 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|PRJ)-[A-Z0-9-]+\b"
-"""Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032)."""
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|PRJ)-[A-Z0-9-]+\b"
+"""Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
+c0033)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -91,7 +92,12 @@ def test_fact_tables() -> None:
 
 def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
-    assert [p.name for p in pages] == ["project.md", "schematic-ascii.md"]
+    assert [p.name for p in pages] == [
+        "compound-file.md",
+        "project.md",
+        "schematic-ascii.md",
+        "schematic-binary.md",
+    ]
     problems: list[str] = []
     for page in pages:
         text = page.read_text(encoding="utf-8")
@@ -105,7 +111,7 @@ def test_altium_pages_name_the_writer_hypotheses() -> None:
     table = TABLE + "| a fact | S-0130 | INFERRED | H-K-PRO-MIN |\n"
     problems = table_problems("altium/project.md", table, ALTIUM_HYPOTHESES)
     assert problems == ["altium/project.md:3: INFERRED row names no hypothesis"]
-    for ident in ("H-A-PRJ-OPEN", "H-A-SCH-NETS"):
+    for ident in ("H-A-PRJ-OPEN", "H-A-SCH-NETS", "H-A-SCHBIN-CFB"):
         fixed = table.replace("H-K-PRO-MIN", ident)
         assert table_problems("altium/project.md", fixed, ALTIUM_HYPOTHESES) == []
 
