@@ -46,7 +46,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | KiCad's developer page calls the base value "mils", but its own sheet table (A4 drawing area 1150 × 760) fits only 10-mil units; the 10-mil reading is used | S-0002, S-0130 | INFERRED | H-A-SCH-OPEN |
 | The origin is the sheet's bottom-left corner; X grows rightwards and Y upwards | S-0002, S-0130 | INFERRED | H-A-SCH-OPEN |
 | A component's children (body graphics, pins, designator, parameters) carry absolute sheet coordinates, already rotated and mirrored with the component | S-0131 | INFERRED | H-A-SCH-OPEN |
-| A colour is an integer with red in bits 0 to 7, green in bits 8 to 15 and blue in bits 16 to 23. Values seen in files: `128` (dark red) for component outlines, `11599871` (pale yellow) for component fills, `8388608` (dark blue) for wires and texts, `16317695` (off-white) for the sheet | S-0130 | INFERRED | H-A-SCH-OPEN |
+| A colour is an integer with red in bits 0 to 7, green in bits 8 to 15 and blue in bits 16 to 23. Values seen in files: `128` (dark red) for component outlines, `11599871` (pale yellow) for component fills, `8388608` (dark blue) for designators, `16317695` (off-white) for the sheet. A wire takes any colour; the writer uses the same dark blue for wires, labels and ports | S-0130 | INFERRED | H-A-SCH-OPEN |
 | The sheet record holds a font table: `FONTIDCOUNT=<n>`, then for each font `SIZE<i>` and `FONTNAME<i>` (optionally `ITALIC<i>`, `BOLD<i>`, …); text records name a font by its 1-based `FONTID`, and `SYSTEMFONT` names the default font | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |
 
 ## Sheet record
