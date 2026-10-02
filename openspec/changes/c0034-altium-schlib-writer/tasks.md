@@ -29,7 +29,7 @@
   - Write `tests/unit/backends/altium/test_schlib.py`: the worked pin, header keys, record order, and one negative control per reader check.
 
   Proof: `uv run pytest tests/unit/backends/altium/test_schlib.py tests/unit/test_import_graph.py tests/unit/test_spdx_headers.py`. This covers "Binary pin record", "Schematic library file", "Library component records", "Generic library symbols", "Library and storage names" and "Schematic libraries read back".
-- [ ] 2.3 Plumb the library into the build:
+- [x] 2.3 Plumb the library into the build:
   - `write_project(..., symbols=None)` returns `FenoliteSample.SchLib`, and `write_prjpcb(..., libraries=...)` lists it;
   - `cmd_build` gives `.SchLib` the kind `altium_schlib`, and `WRITE_KINDS` gains it;
   - rebuild the two committed project files with `FENOLITE_GOLDEN_WRITE=1`, and add `tests/unit/lens/test_altium_schlib_golden.py` with the committed `tests/data/altium/sample/FenoliteSample.SchLib`, declared in `MANIFEST.toml`, and `*.SchLib -text` in `.gitattributes`.

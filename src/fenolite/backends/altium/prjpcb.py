@@ -2,24 +2,41 @@
 # Copyright (c) 2026 Fenolite contributors
 """The minimal PCB project file (capability altium-schematic-writer, "Project file").
 
-Facts: ``docs/formats/altium/project.md``. The file lists one document, the schematic beside it, by its
-bare file name; Altium takes defaults for every other key (``H-A-PRJ-OPEN``).
+Facts: ``docs/formats/altium/project.md``. The file lists the schematic beside it, by its bare file name,
+then the schematic libraries the build writes (change c0034, ``H-A-SCHLIB-PRJ``); Altium takes defaults
+for every other key (``H-A-PRJ-OPEN``).
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fenolite.backends.altium.ascii import LINE_END, text_problem
+from fenolite.backends.altium.cfb import name_key
 
 VERSION = "1.0"
 
 
-def write_prjpcb(*, schematic: str) -> bytes:
-    """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``,
-    each line ending with CR LF, in 7-bit ASCII without a byte-order mark."""
-    problem = text_problem(schematic)
-    if problem is not None or "/" in schematic or "\\" in schematic:
-        raise ValueError(f"the schematic file name {schematic!r} cannot be written: {problem or 'a path'}")
-    lines = ("[Design]", f"Version={VERSION}", "", "[Document1]", f"DocumentPath={schematic}")
+def _file_name(name: str, what: str) -> str:
+    problem = text_problem(name)
+    if problem is not None or "/" in name or "\\" in name:
+        raise ValueError(f"the {what} file name {name!r} cannot be written: {problem or 'a path'}")
+    return name
+
+
+def write_prjpcb(*, schematic: str, libraries: Sequence[str] = ()) -> bytes:
+    """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``, then
+    per library, in the MS-CFB order of the names and numbered from 2, an empty line, ``[Document<i>]`` and
+    ``DocumentPath=<library>``; each line ends with CR LF, in 7-bit ASCII without a byte-order mark."""
+    lines = [
+        "[Design]",
+        f"Version={VERSION}",
+        "",
+        "[Document1]",
+        f"DocumentPath={_file_name(schematic, 'schematic')}",
+    ]
+    for index, library in enumerate(sorted(libraries, key=name_key), start=2):
+        lines += ["", f"[Document{index}]", f"DocumentPath={_file_name(library, 'library')}"]
     return b"".join(line.encode("ascii") + LINE_END for line in lines)
 
 

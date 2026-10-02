@@ -3,3 +3,6 @@ Version=1.0
 
 [Document1]
 DocumentPath=altium_sample.SchDoc
+
+[Document2]
+DocumentPath=FenoliteSample.SchLib

@@ -37,10 +37,14 @@ PINNED_ID = "WIEFALXV"
 def test_files_of_the_sample() -> None:
     model = sample_model()
     assert sorted(write_project(model, name="altium_sample")) == [
+        "FenoliteSample.SchLib",
         "altium_sample.PrjPcb",
         "altium_sample.SchDoc",
     ]
-    assert list(write_project(model, name="altium_sample", project=False)) == ["altium_sample.SchDoc"]
+    assert sorted(write_project(model, name="altium_sample", project=False)) == [
+        "FenoliteSample.SchLib",
+        "altium_sample.SchDoc",
+    ]
 
 
 def test_not_a_registered_backend() -> None:
@@ -81,7 +85,7 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
     }
-    assert WRITE_KINDS == ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary")
+    assert WRITE_KINDS == ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")
 
 
 @pytest.mark.parametrize(

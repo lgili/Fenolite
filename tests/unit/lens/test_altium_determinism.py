@@ -20,7 +20,12 @@ from fenolite.dsl import Design, to_model
 from fenolite.lens.altium import build_altium
 
 LAYERS = ("board", "build", "circuit", "findings", "manufacturing", "meta", "rules")
-PLANNED = {"altium_sample.PrjPcb", "altium_sample.SchDoc", *(f".fenolite/{n}.json" for n in LAYERS)}
+PLANNED = {
+    "altium_sample.PrjPcb",
+    "altium_sample.SchDoc",
+    "FenoliteSample.SchLib",
+    *(f".fenolite/{n}.json" for n in LAYERS),
+}
 
 
 def files_under(folder: Path) -> dict[str, bytes]:

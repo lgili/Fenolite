@@ -138,8 +138,8 @@ def test_unchanged_rebuild_and_lost_record(monkeypatch: pytest.MonkeyPatch, buil
     after = {k: v for k, v in files_under(built).items() if not k.endswith(".bak")}
     record = ".fenolite/build.json"
     assert {k: v for k, v in after.items() if k != record} == {k: v for k, v in before.items() if k != record}
-    assert list(json.loads(before[record])["files"]) == [PRJPCB, SCHDOC]
-    assert list(json.loads(after[record])["files"]) == [SCHDOC]
+    assert list(json.loads(before[record])["files"]) == ["FenoliteSample.SchLib", PRJPCB, SCHDOC]
+    assert list(json.loads(after[record])["files"]) == ["FenoliteSample.SchLib", SCHDOC]
     shutil.rmtree(built / ".fenolite")
     assert run(monkeypatch, built, "--confirm")[0] == 0, "identical bytes pass without a record"
     shutil.rmtree(built / ".fenolite")

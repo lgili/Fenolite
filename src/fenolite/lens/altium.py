@@ -45,6 +45,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",
+        "altium.library-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.generic-symbols": "info",
@@ -299,6 +300,16 @@ def build_altium(
     )
     try:
         files = project.write_project(model, name=name, project=not project_exists, issues=issues, form=form)
+    except project.LibraryTooLarge as error:
+        issues.append(
+            issue(
+                "altium.library-too-large",
+                f"{error.library} is too large for a compound file without DIFAT sectors: {error}",
+                error.library,
+                "split the design's symbols over fewer or smaller libraries",
+            )
+        )
+        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
     except CompoundTooLarge as error:
         issues.append(
             issue(

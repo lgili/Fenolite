@@ -22,7 +22,7 @@ GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
 BLINK = ROOT / "examples" / "blink_2layer" / "design.py"
 CACHE = (".fenolite/board.json", ".fenolite/build.json", ".fenolite/circuit.json", ".fenolite/findings.json",
          ".fenolite/manufacturing.json", ".fenolite/meta.json", ".fenolite/rules.json")  # fmt: skip
-PLANNED = ("altium_sample.PrjPcb", "altium_sample.SchDoc", *CACHE)
+PLANNED = ("altium_sample.PrjPcb", "altium_sample.SchDoc", "FenoliteSample.SchLib", *CACHE)
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +60,7 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     kinds = {Path(p["path"]).name: p["kind"] for p in result["plan"]}
     assert kinds["altium_sample.PrjPcb"] == "altium_prjpcb"
     assert kinds["altium_sample.SchDoc"] == "altium_schdoc_binary"
+    assert kinds["FenoliteSample.SchLib"] == "altium_schlib"
     assert result["schematic_format"] == "binary"
     assert {kinds[Path(c).name] for c in CACHE} == {"fenolite"}
     assert list(result) == [
@@ -122,7 +123,9 @@ def test_too_large_exits_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     assert "altium.schematic-too-large" in [i["code"] for i in issues]
     assert not out.exists() or files_under(out) == []
     ascii_args = ("--out", str(out), "--target", "altium", "--altium-format", "ascii", "--confirm")
-    assert run(monkeypatch, str(SAMPLE), *ascii_args)[0] == 0
+    code, env, _ = run(monkeypatch, str(SAMPLE), *ascii_args)
+    codes = [i["code"] for i in env["issues"]]  # type: ignore[union-attr]
+    assert code == 5 and "altium.library-too-large" in codes and "altium.schematic-too-large" not in codes
 
 
 def test_confirmed_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

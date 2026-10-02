@@ -624,3 +624,9 @@ path = "tests/data/altium/sample/binary/altium_sample.SchDoc"
 origin = "authored"
 corpus_id = ""
 notes = "binary (MS-CFB) schematic written from examples/altium_sample with form=binary (c0033 golden file)"
+
+[[file]]
+path = "tests/data/altium/sample/FenoliteSample.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file)"

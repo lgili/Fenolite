@@ -118,7 +118,9 @@ def run_too_large_case(form: str = "binary") -> tuple[Issue, ...]:
     with _no_fat_sector():
         design = sample()
         output = build_altium(to_model(design), name=design.name, form=form)  # type: ignore[arg-type]
-        assert (output.files == {}) is (form == "binary")
+        assert output.files == {}
+        expected = "altium.schematic-too-large" if form == "binary" else "altium.library-too-large"
+        assert expected in {i.code for i in output.issues}
         return output.issues
 
 
@@ -146,7 +148,7 @@ def test_closed_set() -> None:
     for name in CASES:
         for found in run_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
-    for found in (*run_unique_id_case(), *run_too_large_case()):
+    for found in (*run_unique_id_case(), *run_too_large_case(), *run_too_large_case("ascii")):
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -164,6 +166,7 @@ def test_the_table() -> None:
         "altium.name-case-collision": "error",
         "altium.unique-id-collision": "error",
         "altium.schematic-too-large": "error",
+        "altium.library-too-large": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.generic-symbols": "info",
@@ -173,11 +176,14 @@ def test_the_table() -> None:
 
 
 def test_too_large_refused() -> None:
-    """With ``cfb.MAX_FAT_SECTORS`` patched to 0 the binary build gives no file; ASCII is not limited."""
+    """With ``cfb.MAX_FAT_SECTORS`` patched to 0 the binary build gives no file. The ASCII schematic is not
+    limited, but the libraries are always compound files, so the ASCII build gives
+    ``altium.library-too-large`` instead (change c0034)."""
     found = [i for i in run_too_large_case() if i.code == "altium.schematic-too-large"]
     assert len(found) == 1 and found[0].severity == "error" and found[0].where == "altium_sample.SchDoc"
     assert "--altium-format ascii" in found[0].hint
-    assert "altium.schematic-too-large" not in {i.code for i in run_too_large_case("ascii")}
+    ascii_codes = {i.code for i in run_too_large_case("ascii")}
+    assert "altium.schematic-too-large" not in ascii_codes and "altium.library-too-large" in ascii_codes
 
 
 def test_not_lowered_names_each_kind() -> None:

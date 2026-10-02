@@ -35,6 +35,7 @@ def test_files_of_the_sample() -> None:
         [
             "altium_sample.PrjPcb",
             "altium_sample.SchDoc",
+            "FenoliteSample.SchLib",
             RECORD_FILE,
             *(f".fenolite/{n}.json" for n in LAYERS),
         ]
@@ -59,7 +60,7 @@ def test_build_record() -> None:
     assert record["design"] == "altium_sample"
     assert record["files"] == {
         name: hashlib.sha256(output.files[name]).hexdigest()
-        for name in ("altium_sample.PrjPcb", "altium_sample.SchDoc")
+        for name in ("altium_sample.PrjPcb", "altium_sample.SchDoc", "FenoliteSample.SchLib")
     }
     assert b"2026" not in data and b'"date' not in data
 
@@ -96,7 +97,7 @@ def test_project_exists_keeps_the_project_file() -> None:
     assert output.summary["kept"] == ["altium_sample.PrjPcb"]
     assert "altium.project-kept" in [i.code for i in output.issues]
     record = json.loads(output.files[RECORD_FILE])
-    assert list(record["files"]) == ["altium_sample.SchDoc"]
+    assert list(record["files"]) == ["FenoliteSample.SchLib", "altium_sample.SchDoc"]
 
 
 def test_summary_of_the_sample() -> None:
@@ -167,7 +168,7 @@ def test_experimental_entry() -> None:
         "name": "altium-schematic-writer",
         "command": "build",
         "option": "--target altium",
-        "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"],
+        "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"],
     }
 
 

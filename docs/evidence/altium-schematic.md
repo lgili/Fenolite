@@ -23,7 +23,7 @@ same bytes and that this table names them.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/sample/altium_sample.PrjPcb` | `608d67d64ad32c26dc8c91d67cf271a26ab797d09c1ba4e4115451c75032c50d` |
+| `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/altium_sample.SchDoc` | `d4df14ba6cd1220a1b4eaed0aa266360a9364f57036312b7c36391f18125a584` |
 | `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `f5595a9dc5ecf4172cb83f4f0298fa3683fe4b59f8dcce4d28b39f816004b63c` |
 | `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `b0fec55671a9aad36be1b9734bcfc21af8afa633978c6f8ff2a94349023877e3` |
@@ -35,8 +35,10 @@ same bytes and that this table names them.
   and `U2` pins 1 and 2 alternate between a 200-mil and a 700-mil stub, so they do not overlap.
 - `altium_sample_lf.SchDoc` is the same file with every CR LF replaced by LF.
   `altium_sample_nouid.SchDoc` is the same file with every `|UNIQUEID=…` field removed.
-- The project file lists `altium_sample.SchDoc` only. The libraries the sample names,
-  `FenoliteSample.SchLib` and `FenoliteSample.PcbLib`, do not exist; Part A needs none.
+- Since change c0034 the project file lists `altium_sample.SchDoc` and, as `[Document2]`, the schematic
+  library `FenoliteSample.SchLib` that the build writes beside it (committed with Part L). Part A needs
+  no library: without the library file Altium lists it as missing, which is not a fault of Part A.
+  `FenoliteSample.PcbLib` does not exist.
 - Work on a copy of the folder, and put the two variants beside the project file when you open them.
   Check the SHA-256 values first: `Get-FileHash -Algorithm SHA256 <file>` in PowerShell, or
   `shasum -a 256 <file>`. A different value means the bytes changed on the way (for example, line ends
@@ -91,7 +93,7 @@ ASCII sample's project file.
 
 | binary file | SHA-256 |
 |---|---|
-| `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `608d67d64ad32c26dc8c91d67cf271a26ab797d09c1ba4e4115451c75032c50d` |
+| `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.SchDoc` | `80ad9ea254cf57522527128fbe4e1a0cafb18e1eb8ee0610f341548672ee1c88` |
 
 - The free Altium 365 Viewer (S-0149) needs no Altium licence. It takes one file, or one project in a Zip

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
-from fenolite.backends.altium.project import DEFAULT_FORM, SCHDOC_KINDS, SchematicForm
+from fenolite.backends.altium.project import DEFAULT_FORM, SCHDOC_KINDS, SCHLIB_KIND, SchematicForm
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -46,6 +46,7 @@ _KINDS = {
     ".kicad_dru": "kicad_dru",
     ".kicad_mod": "kicad_mod",
     ".PrjPcb": "altium_prjpcb",
+    ".SchLib": SCHLIB_KIND,
 }
 
 

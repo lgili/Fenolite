@@ -1,27 +1,31 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""A model design as the files of an Altium project: ``<name>.PrjPcb`` and ``<name>.SchDoc`` in the ASCII or
-the binary form (capability altium-schematic-writer, "Altium writer package" and "Binary schematic form").
+"""A model design as the files of an Altium project: ``<name>.PrjPcb``, ``<name>.SchDoc`` in the ASCII or
+the binary form, and one ``.SchLib`` per library that the lib ids name (capability
+altium-schematic-writer, "Altium writer package", "Binary schematic form" and, change c0034, "Schematic
+library file").
 
-``write_project`` takes a design whose components hold their pins (``lens.altium.generic_pins`` gives
-them), lays the sheet out and returns the file bytes. It writes no file, starts no process and reads no
-environment. A design it cannot write raises ``ValueError``; ``lens.altium`` reports the same problems
-as issues before it calls the writer.
+``write_project`` takes a design whose components hold their pins (``lens.altium`` gives them), lays the
+sheet out and returns the file bytes. It writes no file, starts no process, reads no environment and
+resolves no library: ``lens.altium`` passes the resolved symbols in. A design it cannot write raises
+``ValueError``; ``lens.altium`` reports the same problems as issues before it calls the writer.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from typing import Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
+from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import write_schdoc
-from fenolite.backends.altium.schlib import storage_name
+from fenolite.backends.altium.schlib import storage_name, write_schlib
 from fenolite.backends.altium.symbols import generic_symbol
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -33,8 +37,15 @@ PATH_PROPERTY = "fenolite.path"
 UNIQUE_ID_SALT = "fenolite.altium.uniqueid:"
 UNIQUE_ID_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXY"
 UNIQUE_ID_LENGTH = 8
-WRITE_KINDS: tuple[str, ...] = ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary")
-"""The kinds of the planned writes of an Altium build: the project file and the schematic in each form."""
+WRITE_KINDS: tuple[str, ...] = (
+    "altium_prjpcb",
+    "altium_schdoc_ascii",
+    "altium_schdoc_binary",
+    "altium_schlib",
+)
+"""The kinds of the planned writes of an Altium build: the project file, the schematic in each form and
+the schematic libraries (change c0034)."""
+SCHLIB_KIND = "altium_schlib"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
@@ -55,6 +66,14 @@ DEFAULT_FORM: SchematicForm = "binary"
 """The one default of the schematic form for the writer, the lens and the CLI (change c0033)."""
 SCHDOC_KINDS: dict[SchematicForm, str] = {"binary": "altium_schdoc_binary", "ascii": "altium_schdoc_ascii"}
 """The write kind of ``<name>.SchDoc`` by form: both forms share the extension."""
+
+
+class LibraryTooLarge(CompoundTooLarge):
+    """A schematic library is past the compound file's size limit; ``library`` names it."""
+
+    def __init__(self, library: str, error: CompoundTooLarge) -> None:
+        super().__init__(f"{library}: {error}")
+        self.library = library
 
 
 def split_link(text: str) -> tuple[str, str] | None:
@@ -218,6 +237,20 @@ def plan_sheet(design: Design) -> SheetPlan:
     return layout_sheet(part_specs(design))
 
 
+def library_symbols(
+    design: Design, *, name: str, symbols: Mapping[str, AltiumSymbol] | None = None
+) -> dict[str, list[AltiumSymbol]]:
+    """Library file → its symbols, one per lib id of the design (``symbols`` first, generic otherwise),
+    with the library files in the MS-CFB order of their names."""
+    generic = generic_symbols(design)
+    given = symbols or {}
+    libraries: dict[str, list[AltiumSymbol]] = {}
+    for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
+        library = schlib_name(lib_id, design=name)
+        libraries.setdefault(library, []).append(given.get(lib_id) or generic[lib_id])
+    return {key: libraries[key] for key in sorted(libraries, key=name_key)}
+
+
 def write_project(
     design: Design,
     *,
@@ -225,9 +258,12 @@ def write_project(
     project: bool = True,
     issues: list[Issue] | None = None,
     form: SchematicForm = DEFAULT_FORM,
+    symbols: Mapping[str, AltiumSymbol] | None = None,
 ) -> dict[str, bytes]:
-    """``<name>.SchDoc`` in ``form`` and, when ``project`` is true, ``<name>.PrjPcb``, as bytes; no file is
-    written. The binary form raises ``cfb.CompoundTooLarge`` past the compound file's size limit."""
+    """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
+    ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
+    lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
+    every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit."""
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
@@ -242,22 +278,33 @@ def write_project(
                 where=f"{name}.SchDoc",
             )
         )
+    libraries = library_symbols(design, name=name, symbols=symbols)
     files: dict[str, bytes] = {}
     if project:
-        files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc")
+        files[f"{name}.PrjPcb"] = write_prjpcb(schematic=f"{name}.SchDoc", libraries=tuple(libraries))
     files[f"{name}.SchDoc"] = write_schdoc_binary(plan) if form == "binary" else write_schdoc(plan)
+    for library, found in libraries.items():
+        try:
+            files[library] = write_schlib(found, library=library)
+        except LibraryTooLarge:
+            raise
+        except CompoundTooLarge as error:
+            raise LibraryTooLarge(library, error) from error
     return files
 
 
 __all__ = [
     "DEFAULT_FORM",
     "EVIDENCE",
+    "LibraryTooLarge",
     "PATH_PROPERTY",
     "WRITE_KINDS",
     "SCHDOC_KINDS",
+    "SCHLIB_KIND",
     "SchematicForm",
     "component_path",
     "generic_symbols",
+    "library_symbols",
     "is_altium_link",
     "prefix_of",
     "schlib_name",
