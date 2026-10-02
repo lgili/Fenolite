@@ -177,3 +177,87 @@ def test_pad_record_of_a_mini_pad() -> None:
     )
     assert isinstance(decoded, PadRecord)
     assert (decoded.x, decoded.y, decoded.prefix.layer, decoded.corners[0]) == (-314961, 0, 1, 50)
+
+
+# --- the library file (task 3.3) --------------------------------------------------------------------
+
+
+def _library(*footprints: LibFootprint) -> bytes:
+    from fenolite.backends.altium.pcblib import write_pcblib
+
+    return write_pcblib(list(footprints))
+
+
+def test_library_of_the_mini_footprints() -> None:
+    """Scenario "Library of the mini footprints"."""
+    from _altium_pcb_read import read_pcblib
+
+    lib = read_pcblib(_library(*(lib_footprint(n) for n in NAMES)))
+    assert lib.names == sorted(NAMES, key=lambda n: (len(n), n.upper()))
+    assert lib.library_fields == {"HEADER": "PCB 6.0 Binary Library File", "WEIGHT": "3"}
+    assert "SectionKeys" not in lib.streams
+    for name in NAMES:
+        footprint = lib.footprints[name]
+        assert footprint.parameters["PATTERN"] == name and footprint.parameters["HEIGHT"] == "0mil"
+        assert footprint.parameters["DESCRIPTION"] == mini(name).description
+        assert footprint.header_count == len(footprint.primitives) == len(footprint.unique_ids)
+        assert footprint.wide_strings == [{}]
+    qfp = lib.footprints[NAMES[1]]
+    assert sum(isinstance(p, PadRecord) for p in qfp.primitives) == 32
+    kinds = [u["PRIMITIVEOBJECTID"] for u in lib.footprints["Mini_R_0603"].unique_ids]
+    assert kinds == ["Pad"] * 2 + ["Track"] * 10
+
+
+def test_library_streams_and_nothing_else() -> None:
+    from _altium_pcb_read import read_pcblib
+
+    lib = read_pcblib(_library(lib_footprint("Mini_R_0603")))
+    assert sorted(lib.streams) == sorted(
+        [
+            "FileHeader",
+            "Library/Header",
+            "Library/Data",
+            "Library/Models/Header",
+            "Library/Models/Data",
+            "Mini_R_0603/Header",
+            "Mini_R_0603/Parameters",
+            "Mini_R_0603/WideStrings",
+            "Mini_R_0603/Data",
+            "Mini_R_0603/UniqueIdPrimitiveInformation/Header",
+            "Mini_R_0603/UniqueIdPrimitiveInformation/Data",
+        ]
+    )
+
+
+def test_long_name() -> None:
+    """Scenario "Long name": 43 characters stored under a 31-character key with SectionKeys."""
+    from _altium_pcb_read import read_pcblib
+
+    footprint = lib_footprint("Mini_R_0603")
+    long_name = "Mini_R_0603_with_a_name_of_forty_three_char"
+    assert len(long_name) == 43
+    renamed = LibFootprint(dataclasses.replace(footprint.defn, name=long_name), footprint.extras)
+    lib = read_pcblib(_library(renamed))
+    assert lib.section_keys == {long_name: long_name[:31]}
+    assert lib.footprints[long_name].storage == long_name[:31]
+    assert lib.footprints[long_name].parameters["PATTERN"] == long_name
+
+
+def test_storage_name_clash() -> None:
+    footprint = lib_footprint("Mini_R_0603")
+    other = LibFootprint(dataclasses.replace(footprint.defn, name="MINI_R_0603"), footprint.extras)
+    with pytest.raises(ValueError, match="one storage name"):
+        _library(footprint, other)
+
+
+def test_refused_footprint_raises() -> None:
+    footprint = lib_footprint("Mini_R_0603")
+    refused = LibFootprint(_pad_variant(footprint.defn, shape="trapezoid"), footprint.extras)
+    with pytest.raises(ValueError, match="trapezoid"):
+        _library(refused)
+
+
+def test_bytes_depend_only_on_the_footprints() -> None:
+    first = _library(*(lib_footprint(n) for n in NAMES))
+    second = _library(*(lib_footprint(n) for n in reversed(NAMES)))
+    assert first == second

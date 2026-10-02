@@ -12,17 +12,35 @@ The KiCad-only facts the model keeps opaque (corner ratio, drill forms, margins)
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import struct
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal
 
 from fenolite.backends.altium import pcbrecords as rec
 from fenolite.backends.altium.ascii import text_problem
+from fenolite.backends.altium.cfb import Entry, Storage, name_key, write_compound
+from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.board import Graphic, Pad
 from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
+LIBRARY_HEADER_TEXT = "PCB 6.0 Binary Library File"
+"""The text of ``FileHeader`` and the ``HEADER`` of ``Library/Data``."""
+HEIGHT = "0mil"
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-PCB-GRAPHICS",
+        "H-A-PCB-KICAD-LIB",
+        "H-A-PCB-LIB-NAME",
+        "H-A-PCB-LIB-OPEN",
+        "H-A-PCB-PAD",
+    ),
+)
+"""The library file is inferred from public sources; the kicad-cli oracle checks only what KiCad reads."""
 COPPER_WILDCARDS = ("*.Cu", "F&B.Cu")
 
 
@@ -253,14 +271,124 @@ def pad_bytes(
     )
 
 
+def _u32(value: int) -> bytes:
+    return struct.pack("<I", value)
+
+
+def _file_header() -> bytes:
+    text = LIBRARY_HEADER_TEXT.encode("ascii")
+    return _u32(len(text)) + bytes((len(text),)) + text
+
+
+def _section_keys(keyed: list[tuple[str, str]]) -> bytes:
+    out = struct.pack("<i", len(keyed))
+    for full, key in keyed:
+        text = full.encode("ascii") + b"\0"
+        out += _u32(len(text)) + text + rec.string_block(key)
+    return out
+
+
+def _parameters(defn: FootprintDef) -> bytes:
+    fields: list[tuple[str, str]] = [("PATTERN", defn.name), ("HEIGHT", HEIGHT)]
+    if defn.description and text_problem(defn.description) is None:
+        fields.append(("DESCRIPTION", defn.description))
+    return rec.property_block(fields)
+
+
+def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
+    """``(object id, record)`` of each written primitive: the pads in definition order, then the tracks and
+    arcs in graphic order; ``ValueError`` for a refused footprint."""
+    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+    if check.refusal is not None:
+        raise ValueError(f"{footprint.defn.name}: {check.refusal}")
+    out: list[tuple[str, bytes]] = []
+    for pad in check.pads:
+        extras = footprint.extras.get(pad.id, PadExtras())
+        out.append(
+            ("Pad", pad_bytes(pad, extras, at=library_frame(pad.position), rotation_udeg=pad.rotation))
+        )
+    for graphic in check.graphics:
+        for record in graphic_records(graphic):
+            out.append(("Track" if record[0] == rec.TRACK else "Arc", record))
+    return out
+
+
+def _footprint_storage(key: str, footprint: LibFootprint) -> Storage:
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
+    defn = footprint.defn
+    primitives = footprint_primitives(footprint)
+    unique = b"".join(
+        rec.property_block(
+            (
+                ("PRIMITIVEINDEX", str(index)),
+                ("PRIMITIVEOBJECTID", kind),
+                ("UNIQUEID", unique_id(f"pcblib:{defn.name}:{index}")),
+            )
+        )
+        for index, (kind, _record) in enumerate(primitives)
+    )
+    entries: tuple[Entry, ...] = (
+        ("Header", _u32(len(primitives))),
+        ("Parameters", _parameters(defn)),
+        ("WideStrings", rec.EMPTY_PROPERTY_BLOCK),
+        ("Data", rec.string_block(defn.name) + b"".join(record for _kind, record in primitives)),
+        Storage("UniqueIdPrimitiveInformation", (("Header", _u32(len(primitives))), ("Data", unique))),
+    )
+    return Storage(key, entries)
+
+
+def write_pcblib(footprints: Sequence[LibFootprint]) -> bytes:
+    """The bytes of one PCB library holding ``footprints`` (``pcb-library.md``, "Fenolite's choices").
+    ``ValueError`` for a refused footprint or two equal storage names; ``cfb.CompoundTooLarge`` past the
+    size limit."""
+    keyed: dict[tuple[int, tuple[int, ...]], tuple[str, LibFootprint]] = {}
+    for footprint in footprints:
+        key = storage_name(footprint.defn.name)
+        order = name_key(key)
+        if order in keyed:
+            other = keyed[order][1].defn.name
+            raise ValueError(
+                f"the footprints {other!r} and {footprint.defn.name!r} get one storage name {key!r}"
+            )
+        keyed[order] = (key, footprint)
+    ordered = [keyed[order] for order in sorted(keyed)]
+    names = b"".join(rec.string_block(f.defn.name) for _key, f in ordered)
+    library_data = (
+        rec.property_block((("HEADER", LIBRARY_HEADER_TEXT), ("WEIGHT", str(len(ordered)))))
+        + _u32(len(ordered))
+        + names
+    )
+    entries: list[Entry] = [("FileHeader", _file_header())]
+    section = [(f.defn.name, key) for key, f in ordered if key != f.defn.name]
+    if section:
+        entries.append(("SectionKeys", _section_keys(section)))
+    entries.append(
+        Storage(
+            "Library",
+            (
+                ("Header", _u32(1)),
+                ("Data", library_data),
+                Storage("Models", (("Header", _u32(0)), ("Data", b""))),
+            ),
+        )
+    )
+    entries += [_footprint_storage(key, footprint) for key, footprint in ordered]
+    return write_compound(entries)
+
+
 __all__ = [
+    "EVIDENCE",
+    "LIBRARY_HEADER_TEXT",
     "FootprintCheck",
     "Frame",
     "LibFootprint",
     "PadExtras",
     "check_footprint",
+    "footprint_primitives",
     "graphic_records",
     "library_frame",
     "pad_bytes",
     "pad_layer",
+    "write_pcblib",
 ]
