@@ -8,7 +8,7 @@ A fact table has the header ``| fact | source | label | hypothesis |``. Every ro
 label is a value of ``fenolite.core.evidence.Level`` (optionally followed by a parenthesised scope,
 such as ``KICAD-VERIFIED (10.0.x)``), and a row that is neither ``KICAD-VERIFIED`` nor
 ``CORPUS-VERIFIED`` names a hypothesis (``H-K-SEXPR-*`` or ``H-K-FMT-*`` on the S-expression page,
-``H-A-SCH-*``, ``H-A-SCHBIN-*`` or ``H-A-PRJ-*`` on the Altium pages).
+``H-A-SCH-*``, ``H-A-SCHBIN-*``, ``H-A-SCHLIB-*`` or ``H-A-PRJ-*`` on the Altium pages).
 """
 
 from __future__ import annotations
@@ -32,9 +32,9 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|PRJ)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ)-[A-Z0-9-]+\b"
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
-c0033)."""
+c0033, c0034)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -97,6 +97,7 @@ def test_altium_fact_tables() -> None:
         "project.md",
         "schematic-ascii.md",
         "schematic-binary.md",
+        "schematic-library.md",
     ]
     problems: list[str] = []
     for page in pages:
@@ -111,7 +112,7 @@ def test_altium_pages_name_the_writer_hypotheses() -> None:
     table = TABLE + "| a fact | S-0130 | INFERRED | H-K-PRO-MIN |\n"
     problems = table_problems("altium/project.md", table, ALTIUM_HYPOTHESES)
     assert problems == ["altium/project.md:3: INFERRED row names no hypothesis"]
-    for ident in ("H-A-PRJ-OPEN", "H-A-SCH-NETS", "H-A-SCHBIN-CFB"):
+    for ident in ("H-A-PRJ-OPEN", "H-A-SCH-NETS", "H-A-SCHBIN-CFB", "H-A-SCHLIB-PIN"):
         fixed = table.replace("H-K-PRO-MIN", ident)
         assert table_problems("altium/project.md", fixed, ALTIUM_HYPOTHESES) == []
 
@@ -205,3 +206,16 @@ def test_sheets_rows_without_registered_source_refused() -> None:
 def test_worksheet_row_without_hypothesis_refused() -> None:
     table = TABLE + "| a corner fact | S-0035 | INFERRED |  |\n"
     assert table_problems("worksheet.md", table) == ["worksheet.md:3: INFERRED row names no hypothesis"]
+
+
+S0150_PIN = "S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca)"
+
+
+def test_library_page_pins_altiumsharp_to_version_1() -> None:
+    """Every fact row of ``schematic-library.md`` that cites S-0150 names version 1 at the pinned commit
+    (change c0034; LEGAL.md P1)."""
+    text = (ALTIUM_PAGES / "schematic-library.md").read_text(encoding="utf-8")
+    rows = [line for line in text.splitlines() if line.startswith("|") and "S-0150" in line]
+    assert rows
+    unpinned = [line for line in rows if line.count("S-0150") != line.count(S0150_PIN)]
+    assert not unpinned, "\n".join(unpinned)

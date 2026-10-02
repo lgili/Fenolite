@@ -6,7 +6,7 @@
   - In `tests/unit/test_altium_rows.py`, `STEMS` gains `H-A-SCHLIB-`.
 
   Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py`; `grep -cE '^\| H-A-SCHLIB-' docs/hypotheses.md` prints `11`; `grep -cE '^\| S-015[0-5] ' docs/evidence/sources.md` prints `6`.
-- [ ] 1.2 Write the fact pages in Fenolite's own words.
+- [x] 1.2 Write the fact pages in Fenolite's own words.
   - `docs/formats/altium/schematic-library.md`: every fact of design Decisions 3 to 10 and the oracle observations, one row each (`| fact | source | label | hypothesis |`). It holds the binary pin table with offsets and the worked pin, the `FORMALTYPE`, implementation-index and name-list differences between sources, and a note on each S-0150 row that it is version 1 at the pinned commit.
   - The storage rows in `compound-file.md`.
   - `ALTIUM_HYPOTHESES` in `tests/unit/test_format_facts.py` widened to `H-A-(SCH|SCHBIN|SCHLIB|PRJ)-`.
