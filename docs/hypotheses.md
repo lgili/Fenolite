@@ -198,6 +198,16 @@ Reserved families: ids that no row extends yet but that later changes will regis
 | H-A-SCH-HARN-FILE | altium | Listed `.Harness` files with Fenolite's lines are accepted and match the drawn connectors (S-0186, S-0187, S-0188) | INFERRED | kit request (author report, steps H2 and H3 of Part H of `docs/evidence/altium-schematic.md`) | no "conflicting harness definition" message; the files are not rewritten with other content | pending (author report) | 2026-10-03 |
 | H-A-SCH-HARN-NETS | altium | A net on a harness entry keeps the name of its label and joins the same entry on the other side of the port and sheet entry (S-0131, S-0186, S-0187) | INFERRED | kit request (author report, step H4 of Part H of `docs/evidence/altium-schematic.md`) | each `SPI_*` net has one pin on each module sheet | pending (author report) | 2026-10-03 |
 | H-A-SCH-HARN-UNUSED | altium | A harness entry without a wire gives at most a warning and breaks no net (S-0186) | INFERRED | kit request (author report, step H6 of Part H of `docs/evidence/altium-schematic.md`) | no error names `HOLD`; the nets equal the model's | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-KICAD | altium | `kicad-cli pcb import` reads the tracks, arcs, vias and zone outlines of the document on two and on four copper layers, with the model's nets and geometry, and reads a plane of the stack as a `power` layer at its position (S-0160, S-0161, S-0166) | INFERRED | `tests/kicad/altium/test_pcbdoc_copper_oracle.py` in `kicad-10` | exit 0, no error; every item within 10 nm; four copper layers with the expected types | pending (oracle) | 2026-10-03 |
+| H-A-PCB-CU-ROUNDTRIP | altium | Copper copied from a KiCad board with `--copper-from` and imported back by `kicad-cli` equals the copper of the source board (S-0161, S-0166) | INFERRED | `tests/kicad/altium/test_copper_from_oracle.py` in `kicad-10` | every track, arc, via and zone outline within 10 nm, none added, footprints at the source's placements | pending (oracle) | 2026-10-03 |
+| H-A-PCB-CU-TRACK | altium | Altium Designer shows free 36-byte tracks and 47-byte arcs with their nets, on outer and mid layers, and treats the routed nets as connected (S-0150, S-0160, S-0200) | INFERRED | kit request (author report, step C1 of `docs/evidence/altium-pcb.md`) | no prompt; no connection line on a routed net | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-VIA | altium | Altium Designer shows the 321-byte through vias with their diameter, hole and net (S-0150, S-0160, S-0173, S-0176) | INFERRED | kit request (author report, step C1 of `docs/evidence/altium-pcb.md`) | three vias with the listed sizes and nets | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-STACK | altium | Altium Designer shows a stack of four signal layers written in the form S-0199 saves (13 list entries, `COMPONENTPLACEMENT=1` on mid layers, three dielectrics) (S-0199, S-0200) | INFERRED | kit request (author report, step C2 of `docs/evidence/altium-pcb.md`) | four signal layers in the Layer Stack Manager; no repair | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-PLANE | altium | Altium Designer shows an internal plane written as its stack entry and `PLANE<n>NETNAME` only, on its net, beside a signal mid layer, and connects the pads and vias of that net to it (S-0176, S-0198) | INFERRED | kit request (author report, step C6 of `docs/evidence/altium-pcb.md`) | Internal Plane 1 on `GND` in the Layer Stack Manager; no connection line on `GND` | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-REPOUR | altium | Polygons written without regions open as unpoured outlines, and "Repour All" fills them on their net (S-0176, S-0195, S-0196) | INFERRED | kit request (author report, step C3 of `docs/evidence/altium-pcb.md`) | two outlines; after the repour, copper on `In1.Cu` and `B.Cu` connected to `GND` | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-CLASS | altium | Altium Designer lists a `KIND=0` class with its member nets when no super class is written (S-0160, S-0176) | INFERRED | kit request (author report, step C4 of `docs/evidence/altium-pcb.md`) | `PWR` with `GND` and `VIN` | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-RULES | altium | Altium Designer accepts a `Rules6` of Clearance, Width and Routing Via Style rules only, and shows them (S-0160, S-0174) | INFERRED | kit request (author report, step C4 of `docs/evidence/altium-pcb.md`) | five rules in the rules editor; the design rule check runs | pending (author report) | 2026-10-03 |
+| H-A-PCB-CU-VIEWER | altium | The Altium 365 Viewer renders the copper on four layers (S-0149) | INFERRED | kit request (author report, step C5 of `docs/evidence/altium-pcb.md`) | tracks, vias and four layers visible | pending (author report) | 2026-10-03 |
 
 Change c0001 (repository bootstrap) added no hypothesis. The first rows (`H-K-UNIT`, `H-A-UNIT`,
 `H-G-ANGLE`) came with the design model (change c0004) and stay `INFERRED` until corpus files confirm them.
@@ -355,6 +365,15 @@ is no oracle. Fenolite's own readback (`tests/_altium_read.py`, `nets_from_proje
 sheets join the model's nets under the hierarchical scope and raises no label. The records were checked
 against files that Altium saved in two public repositories (S-0187, S-0188), read in a scratch folder and
 never committed. The build envelope stays `INFERRED`.
+
+Change c0038 (Altium PCB copper) adds `H-A-PCB-CU-KICAD`, `H-A-PCB-CU-ROUNDTRIP`, `H-A-PCB-CU-TRACK`,
+`H-A-PCB-CU-VIA`, `H-A-PCB-CU-STACK`, `H-A-PCB-CU-PLANE`, `H-A-PCB-CU-REPOUR`, `H-A-PCB-CU-CLASS`,
+`H-A-PCB-CU-RULES` and `H-A-PCB-CU-VIEWER`. `H-A-PCB-CU-KICAD` is settled by the `kicad-cli pcb import` of
+`tests/kicad/altium/test_pcbdoc_copper_oracle.py` and `H-A-PCB-CU-ROUNDTRIP` by the round trip of
+`tests/kicad/altium/test_copper_from_oracle.py` (10.0.x only). The other eight rows wait for the
+maintainer's report of Part C of `docs/evidence/altium-pcb.md`. Net classes, rules and a plane's net have
+no oracle: KiCad's import writes no project file and makes no zone from a plane. The oracles check what
+KiCad's importer reads, so the build envelope stays `INFERRED`.
 
 Change c0013 (read-only check v0, inspect and doctor) adds `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY`,
 `H-K-CLI-HELP` and `H-K-CHECK-ERC`. The first three gate the design and are settled by the `check-*` probes

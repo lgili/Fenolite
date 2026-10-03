@@ -58,13 +58,24 @@ REGISTERED_BY_C0034 = frozenset(
         "H-A-SCHLIB-SECTIONKEY",
     }
 )
-ORACLE_ROWS = frozenset({"H-A-SCHLIB-KICAD", "H-A-SCHLIB-KICAD9", "H-A-PCB-KICAD-LIB", "H-A-PCB-KICAD-DOC"})
-"""Rows settled by a ``kicad-cli`` round trip, not by an author report (changes c0034 and c0035)."""
+ORACLE_ROWS = frozenset(
+    {
+        "H-A-SCHLIB-KICAD",
+        "H-A-SCHLIB-KICAD9",
+        "H-A-PCB-KICAD-LIB",
+        "H-A-PCB-KICAD-DOC",
+        "H-A-PCB-CU-KICAD",
+        "H-A-PCB-CU-ROUNDTRIP",
+    }
+)
+"""Rows settled by a ``kicad-cli`` round trip, not by an author report (changes c0034, c0035 and c0038)."""
 ORACLE_TESTS = {
     "H-A-SCHLIB-KICAD": "test_schlib_oracle.py",
     "H-A-SCHLIB-KICAD9": "test_schlib_oracle.py",
     "H-A-PCB-KICAD-LIB": "test_pcblib_oracle.py",
     "H-A-PCB-KICAD-DOC": "test_pcbdoc_oracle.py",
+    "H-A-PCB-CU-KICAD": "test_pcbdoc_copper_oracle.py",
+    "H-A-PCB-CU-ROUNDTRIP": "test_copper_from_oracle.py",
 }
 ORACLE_THEN_REPORT = frozenset({"H-A-PCB-DOC-BOTTOM"})
 """Rows checked by an oracle first (``pending (oracle)``), then settled by an author report (c0035)."""
@@ -97,6 +108,19 @@ REGISTERED_BY_C0037 = frozenset(
     }
 )
 """The hierarchy and harness rows (change c0037), settled by Part H of the schematic evidence page."""
+REGISTERED_BY_C0038 = frozenset(
+    {
+        "H-A-PCB-CU-TRACK",
+        "H-A-PCB-CU-VIA",
+        "H-A-PCB-CU-STACK",
+        "H-A-PCB-CU-PLANE",
+        "H-A-PCB-CU-REPOUR",
+        "H-A-PCB-CU-CLASS",
+        "H-A-PCB-CU-RULES",
+        "H-A-PCB-CU-VIEWER",
+    }
+)
+"""The author-report rows of the PCB copper (change c0038); its two oracle rows are in ``ORACLE_ROWS``."""
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -178,6 +202,7 @@ def test_the_change_registered_its_rows() -> None:
         | REGISTERED_BY_C0035
         | REGISTERED_BY_C0036
         | REGISTERED_BY_C0037
+        | REGISTERED_BY_C0038
     )
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
@@ -186,6 +211,8 @@ def test_the_change_registered_its_rows() -> None:
     assert all(rows[i].backend == "altium" and ORACLE_TESTS[i] in rows[i].test for i in ORACLE_ROWS)
     assert ORACLE_THEN_REPORT <= set(rows)
     assert all("test_pcbdoc_oracle.py" in rows[i].test for i in ORACLE_THEN_REPORT)
+    copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
+    assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"}
 
 
 def test_oracle_then_report_rows() -> None:

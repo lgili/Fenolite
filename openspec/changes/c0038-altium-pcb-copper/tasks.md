@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and the fact page
 
-- [ ] 1.1 Register the sources and the hypotheses (first commit; c0035 must already be on the branch).
+- [x] 1.1 Register the sources and the hypotheses (first commit; c0035 must already be on the branch).
   - Add rows S-0195 to S-0200 to `docs/evidence/sources.md` from the design table, with the consultation date and the licence each page or repository states; S-0199 and S-0200 with their commit and SHA-256. Widen the "used for" cells of S-0150, S-0160, S-0161, S-0172 to S-0176 and S-0173 as the design says.
   - Add the ten `H-A-PCB-CU-*` rows to `docs/hypotheses.md` (backend `altium`, level `INFERRED`, the test and criterion of `design.md`, result `pending (author report)`; `H-A-PCB-CU-KICAD` and `H-A-PCB-CU-ROUNDTRIP` with result `pending (oracle)`), and the paragraph "Change c0038 (Altium PCB copper) adds …".
   - Add the ten ids to the registered-rows check of `tests/unit/test_altium_rows.py`, with the two oracle rows in `ORACLE_ROWS` and `ORACLE_TESTS`, a row to `src/fenolite/backends/altium/PROVENANCE.md` and a session row to `LEGAL-ANNEX.md` that names the two downloaded boards as scratch-only.
