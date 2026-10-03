@@ -83,6 +83,20 @@ REGISTERED_BY_C0035 = frozenset(
     }
 )
 REGISTERED_BY_C0036 = frozenset({"H-A-SCH-NC-RECORD", "H-A-SCH-NC-ERC", "H-A-SCH-NC-VIEWER"})
+REGISTERED_BY_C0037 = frozenset(
+    {
+        "H-A-SCH-HIER-OPEN",
+        "H-A-SCH-HIER-PRJ",
+        "H-A-SCH-HIER-COMPILE",
+        "H-A-SCH-HIER-NAMES",
+        "H-A-SCH-HIER-ECO",
+        "H-A-SCH-HARN-OPEN",
+        "H-A-SCH-HARN-FILE",
+        "H-A-SCH-HARN-NETS",
+        "H-A-SCH-HARN-UNUSED",
+    }
+)
+"""The hierarchy and harness rows (change c0037), settled by Part H of the schematic evidence page."""
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -163,6 +177,7 @@ def test_the_change_registered_its_rows() -> None:
         | REGISTERED_BY_C0034
         | REGISTERED_BY_C0035
         | REGISTERED_BY_C0036
+        | REGISTERED_BY_C0037
     )
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
