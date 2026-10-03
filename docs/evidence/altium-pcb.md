@@ -257,4 +257,22 @@ Outcome per step:
 No step named a fault, so no fact of `docs/formats/altium/pcb-copper.md` changed.
 
 The schematic steps of the same session are recorded in `docs/evidence/altium-schematic.md`, "Reports".
-Part P (the Viewer) is not reported.
+
+### 2026-10-03, `A365 Viewer`, Part P
+
+- Tool: the free Altium 365 Viewer (web), `A365 Viewer`; it shows no version and needs no licence. Label:
+  `ALTIUM-VERIFIED(author-report; A365 Viewer; 2026-10-03; no artefact)`.
+- File: `blink.PcbDoc`, uploaded alone from a local copy that the maintainer built from the committed
+  sample after the document fix (the form Altium saves). The committed bytes are those of the table above:
+  the SHA-256 on this page, `f0940168…3c01`, equals the golden file's. The digest of the uploaded copy was
+  not reported. Only Fenolite's authored sample was uploaded.
+
+Outcome per step:
+
+- **P1.** The document opened in the Viewer and was rendered, with no refusal. Confirms
+  `H-A-PCB-DOC-VIEWER`. The report lists no object: the pad shapes, the graphics per layer and the side of
+  `D1` were not reported, so it adds nothing to `H-A-PCB-PAD` or `H-A-PCB-DOC-BOTTOM`, which stay pending.
+- **P2.** Not reported: the Zip of the project.
+
+The report names no fault, so no fact and no golden file changed. Step C5 (the routed sample in the
+Viewer, `H-A-PCB-CU-VIEWER`) is not part of this report.

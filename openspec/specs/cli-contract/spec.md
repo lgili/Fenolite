@@ -420,11 +420,14 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - Listing the entries MUST NOT run an external tool, so `result.experimental` is the same with `--no-tools`. The module that defines an entry MUST be imported inside `cmd_capabilities._run`, not when `fenolite.cli.cmd_capabilities` is imported.
 - An experimental feature MUST NOT appear in `result.backends` unless it is a registered `Backend` (`backend-protocol`, "Backend registry").
 - `docs/cli-contract.md` MUST describe `result.experimental` under "Discovery".
-- This change lists one entry: `name` `altium-schematic-writer`, `command` `build`, `option` `--target altium`, `write_kinds` `["altium_prjpcb", "altium_schdoc_ascii"]`, and the evidence of `fenolite.lens.altium.ALTIUM_BUILD_EVIDENCE` (`altium-build`, "Altium build evidence").
+- Two entries are listed, in this order:
+  - `name` `altium-pcb-writer`, `command` `build`, `option` `--target altium`, `write_kinds` `["altium_pcbdoc", "altium_pcblib"]` (`fenolite.lens.altium.PCB_WRITE_KINDS`), and the evidence of `fenolite.lens.altium.PCB_BUILD_EVIDENCE` (`altium-build`, "PCB evidence and capabilities");
+  - `name` `altium-schematic-writer`, `command` `build`, `option` `--target altium`, `write_kinds` equal to `fenolite.backends.altium.project.WRITE_KINDS` (`["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"]`, c0033 and c0034), and the evidence of `fenolite.lens.altium.ALTIUM_BUILD_EVIDENCE` (`altium-build`, "Altium build evidence").
+- The two entries MUST NOT share a write kind, so each can be cut or promoted on its own.
 
-#### Scenario: Altium writer listed as experimental
+#### Scenario: Altium writers listed as experimental
 - **WHEN** `uv run fenolite capabilities --json --no-tools` runs
-- **THEN** the exit code is 0, `result.experimental` holds one entry whose `name` is `altium-schematic-writer`, whose `command` is `build`, whose `option` is `--target altium` and whose `evidence.level` is `INFERRED`, no entry of `result.backends` is named `altium`, and the envelope validates against `schemas/fenolite.envelope.v0.json`
+- **THEN** the exit code is 0, `result.experimental` holds two entries named `altium-pcb-writer` and `altium-schematic-writer`, in that order, each with `command` `build`, `option` `--target altium` and `evidence.level` `INFERRED`, the first with `write_kinds` `["altium_pcbdoc", "altium_pcblib"]`, no entry of `result.backends` is named `altium`, and the envelope validates against `schemas/fenolite.envelope.v0.json`
 
 #### Scenario: Same entry without tool detection
 - **WHEN** `uv run fenolite capabilities --json` and `uv run fenolite capabilities --json --no-tools` run
