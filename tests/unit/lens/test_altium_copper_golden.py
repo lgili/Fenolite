@@ -42,7 +42,7 @@ def test_variants_build_and_read_back() -> None:
     """Scenario "Variants stay outside the repository": every variant holds its five files, and
     ``FENOLITE_ALTIUM_VARIANTS`` writes them to a folder that is not in the repository."""
     built = variant_files()
-    assert list(built)[:2] == ["c0", "c1"]
+    assert list(built)[:3] == ["c0", "c1", "c2"]
     for name, files in built.items():
         assert set(FILES) <= set(files), name
         document = read_pcbdoc(files[f"{NAME}.PcbDoc"])
@@ -60,7 +60,9 @@ def test_variants_build_and_read_back() -> None:
 
 def test_variants_add_one_feature_each() -> None:
     built = variant_files()
-    c0, c1 = (read_pcbdoc(built[name][f"{NAME}.PcbDoc"]) for name in ("c0", "c1"))
+    c0, c1, c2 = (read_pcbdoc(built[name][f"{NAME}.PcbDoc"]) for name in ("c0", "c1", "c2"))
     assert (len(c0.free_tracks), len(c0.free_arcs), len(c0.vias)) == (3, 1, 0)
     assert (len(c1.free_tracks), len(c1.free_arcs), len(c1.vias)) == (3, 1, 3)
     assert {t.prefix.layer for t in c0.free_tracks} == {1, 32}
+    assert c0.copper_chain == c1.copper_chain == [1, 32] and c2.copper_chain == [1, 2, 3, 32]
+    assert sorted(t.prefix.layer for t in c2.free_tracks) == [1, 1, 2, 3, 32] and len(c2.vias) == 3
