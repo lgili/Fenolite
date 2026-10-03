@@ -5,8 +5,10 @@ c0032. Every fact this package relies on comes from a public source listed in
 `docs/evidence/sources.md`, recorded in Fenolite's own words in `docs/formats/altium/schematic-ascii.md`
 and `docs/formats/altium/project.md`. The code is written from those pages. No third-party code was
 copied, transcribed or followed: the GPL sources (S-0131, S-0132) and the other open-source projects
-(S-0130, S-0143, S-0144; AltiumSharp only as version 1, S-0150; S-0142 not used) were read for facts only. No Altium file, sample or vendor binary was
-downloaded, opened or decompiled, and no file of any organisation was used. The binary form (change
+(S-0130, S-0143, S-0144; AltiumSharp only as version 1, S-0150; S-0142 not used) were read for facts only. No vendor binary was
+downloaded or decompiled, and no file of any organisation was used; until 2026-10-03 no Altium-saved file
+was opened, and since then only the published, licensed libraries and document of S-0170, S-0171 and S-0172
+(read in a scratch folder, never committed). The binary form (change
 c0033) adds the compound-file container, written from `docs/formats/altium/compound-file.md` (MS-CFB,
 S-0145, under the Open Specification Promise, S-0146), and the record framing of
 `docs/formats/altium/schematic-binary.md`. The schematic library (change c0034) adds storages to the
@@ -39,3 +41,4 @@ is used only as version 1 at commit `afe796434b6d2110c745c90abe44a6ddf64f5bca` (
 | PCB document (c0035): `FileHeader` and `FileHeaderSix`, storages and empty storages, `Board6` stack and outline, `Nets6`, `Components6`, `Texts6`, `WideStrings6`, component links by unique id | S-0002, S-0139, S-0143, S-0149, S-0160, S-0161, S-0164, S-0165 | not stated on the page; all rights reserved (read for facts); MIT; GPL-2.0-or-later and GPL-3.0-or-later (facts only) | 2026-10-02 | facts only |
 | PCB layer ids and the layer map (c0035): ids 1 to 74; Fenolite's mechanical layers for fabrication and courtyard | S-0002, S-0160, S-0020 | not stated on the page; GPL-2.0-or-later (facts only); GPL-3.0-or-later tool run as a subprocess | 2026-10-02 | facts only; the mechanical choice is Fenolite's |
 | `kicad-cli fp upgrade` and `pcb import` read the PCB library and document (c0035 oracles) | S-0020, S-0166 | GPL-3.0-or-later tool run as a subprocess; GPL (facts only) | 2026-10-02 | oracle |
+| PCB library as Altium saves it (c0035, after the open failure of 2026-10-03): the 53-byte `FileHeader`, the `Library` streams, the board record of `Library/Data` (written by `libboard.py` from the rules of `pcb-library.md`), `ComponentParamsTOC`, `PadViaLibrary`, the `Parameters` keys; the PCB document's storage set and `Board6` keys | S-0170, S-0171, S-0172, S-0173 | MIT; GPL-2.0 (data files read for facts); Apache-2.0; GPL-3.0 (format page and reports, facts only) | 2026-10-03 | facts only; the Altium-saved files were read in a scratch folder with the test readers and are not in the repository |
