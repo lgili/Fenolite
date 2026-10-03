@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import base64
+import dataclasses
 import struct
 import zlib
 from functools import cache
@@ -330,3 +331,37 @@ def test_bottom_part() -> None:
     assert {p.prefix.layer for p in doc.pads if p.prefix.component == d1} == {74}
     top = [c["SOURCEDESIGNATOR"] for c in doc.components].index("R1")
     assert {t.prefix.layer for t in doc.tracks if t.prefix.component == top} == {33, 69, 71}
+
+
+# --- the link of a part on a module sheet (change c0037) ---------------------------------------------
+
+
+def test_sheet_link_of_a_part_on_a_module_sheet() -> None:
+    """``PlacedComponent.sheet`` gives the two-id path and the hierarchical path; ``None`` keeps the one-id
+    form and the empty path."""
+    _doc, spec = blink_doc()
+    assert all(c.sheet is None for c in spec.components)
+    first, *rest = spec.components
+    moved = dataclasses.replace(first, sheet=("ABCDEFGH", "led"))
+    doc = read_pcbdoc(
+        write_pcbdoc(dataclasses.replace(spec, components=(moved, *rest)), filename="blink.PcbDoc")
+    )
+    record, *others = doc.components
+    assert record["SOURCEDESIGNATOR"] == first.ref
+    assert record["SOURCEUNIQUEID"] == f"\\ABCDEFGH\\{first.unique_id}"
+    assert record["SOURCEHIERARCHICALPATH"] == "blink\\led"
+    assert list(record) == COMPONENT_KEYS
+    for other, component in zip(others, rest, strict=True):
+        assert other["SOURCEUNIQUEID"] == "\\" + component.unique_id
+        assert other["SOURCEHIERARCHICALPATH"] == ""
+
+
+def test_sheet_link_changes_only_the_two_link_keys() -> None:
+    _doc, spec = blink_doc()
+    plain = read_pcbdoc(write_pcbdoc(spec, filename="blink.PcbDoc"))
+    linked = tuple(dataclasses.replace(c, sheet=("ABCDEFGH", "m")) for c in spec.components)
+    doc = read_pcbdoc(write_pcbdoc(dataclasses.replace(spec, components=linked), filename="blink.PcbDoc"))
+    for before, after in zip(plain.components, doc.components, strict=True):
+        changed = {key for key in before if before[key] != after[key]}
+        assert changed == {"SOURCEUNIQUEID", "SOURCEHIERARCHICALPATH"}
+    assert plain.pads == doc.pads and plain.nets == doc.nets

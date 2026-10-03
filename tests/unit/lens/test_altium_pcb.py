@@ -11,7 +11,16 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from _altium import blink, blink_resolver, blink_tree, example, sample
+from _altium import (
+    BLINK_DIR,
+    HIER_BOARD_DIR,
+    blink,
+    blink_resolver,
+    blink_tree,
+    example,
+    hier_board,
+    sample,
+)
 from _altium_pcb_read import read_pcblib
 from _cfb_read import deframe, read_compound
 
@@ -242,3 +251,143 @@ def test_unplaced_part_is_staged(tmp_path: Path) -> None:
     (record,) = [c for c in doc.components if c["SOURCEDESIGNATOR"] == "R1"]
     assert (record["X"], record["Y"]) == (mil_text(x), mil_text(y))
     assert record["LAYER"] == "TOP" and record["ROTATION"] == " 0.00000000000000E+0000"
+
+
+# --- the PCB link of parts on module sheets (change c0037) -------------------------------------------
+
+
+def build_hier_board(folder: Path, **kwargs: object) -> BuildOutput:
+    design = hier_board()
+    return build_altium(
+        to_model(design),
+        name=design.name,
+        placed=tuple(placements(design)),
+        placements=placements(design),
+        resolver=blink_resolver(folder, HIER_BOARD_DIR),
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+def _schematic_ids(files: dict[str, bytes]) -> tuple[dict[str, str], dict[str, str]]:
+    """(designator → component ``UNIQUEID``, sheet name → sheet symbol ``UNIQUEID``) of the binary sheets."""
+    components: dict[str, str] = {}
+    symbols: dict[str, str] = {}
+    for name, data in files.items():
+        if not name.endswith(".SchDoc"):
+            continue
+        rows = records(data)[1:]
+        for row in rows:
+            if row["RECORD"] == "34":
+                components.setdefault(row["TEXT"], rows[int(row["OWNERINDEX"])]["UNIQUEID"])
+            if row["RECORD"] == "32":
+                symbols[row["TEXT"]] = rows[int(row["OWNERINDEX"])]["UNIQUEID"]
+    return components, symbols
+
+
+def test_hier_board_example_is_the_blink_circuit_in_two_modules() -> None:
+    board, plain = to_model(hier_board()), to_model(blink())
+    assert hier_board().name == "altium_hier_board"
+
+    def parts(model: object) -> set[tuple[str, str, str, str]]:
+        found = model.circuit.components  # type: ignore[attr-defined]
+        return {(c.ref, c.lib_symbol_ref, c.lib_footprint_ref, c.value) for c in found}
+
+    def nets(model: object) -> dict[str, set[tuple[str, str]]]:
+        refs = {c.id: c.ref for c in model.circuit.components}  # type: ignore[attr-defined]
+        return {n.name: {(refs[m.component_id], m.pin) for m in n.members} for n in model.circuit.nets}  # type: ignore[attr-defined]
+
+    assert parts(board) == parts(plain) and nets(board) == nets(plain)
+    assert board.board is not None and plain.board is not None
+    assert board.board.outline == plain.board.outline
+    paths = sorted(c.properties["fenolite.path"] for c in board.circuit.components)
+    assert paths == ["driver/R1", "driver/U1", "led/D1"]
+    wanted = {path.rsplit("/", 1)[-1]: request for path, request in placements(hier_board()).items()}
+    assert wanted == dict(placements(blink()))
+    for table in ("fp-lib-table", "sym-lib-table"):
+        assert (HIER_BOARD_DIR / table).read_bytes() == (BLINK_DIR / table).read_bytes()
+
+
+def test_link_of_a_part_on_a_module_sheet(tmp_path: Path) -> None:
+    """Scenario "Link of a part on a module sheet"."""
+    from _altium_pcb_read import read_pcbdoc
+
+    from fenolite.backends.altium.project import unique_id
+
+    output = build_hier_board(tmp_path, sheets="modules")
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert output.summary["pcb_document"] == "altium_hier_board.PcbDoc"
+    assert output.summary["sheets"] == [
+        "altium_hier_board.SchDoc",
+        "altium_hier_board_driver.SchDoc",
+        "altium_hier_board_led.SchDoc",
+    ]
+    components, symbols = _schematic_ids(output.files)
+    assert symbols == {"driver": unique_id("sheet:driver"), "led": unique_id("sheet:led")}
+    doc = read_pcbdoc(output.files["altium_hier_board.PcbDoc"])
+    by_ref = {c["SOURCEDESIGNATOR"]: c for c in doc.components}
+    assert sorted(by_ref) == ["D1", "R1", "U1"]
+    d1 = by_ref["D1"]
+    assert d1["SOURCEUNIQUEID"] == f"\\{symbols['led']}\\{components['D1']}"
+    assert d1["SOURCEHIERARCHICALPATH"] == "altium_hier_board\\led"
+    for ref in ("R1", "U1"):
+        assert by_ref[ref]["SOURCEUNIQUEID"] == f"\\{symbols['driver']}\\{components[ref]}"
+        assert by_ref[ref]["SOURCEHIERARCHICALPATH"] == "altium_hier_board\\driver"
+    assert b"DocumentPath=altium_hier_board.PcbDoc" in output.files["altium_hier_board.PrjPcb"]
+
+
+def test_flat_links_are_unchanged(tmp_path: Path) -> None:
+    """Scenario "Flat links are unchanged"."""
+    from _altium_pcb_read import read_pcbdoc
+
+    output = build_hier_board(tmp_path)
+    components, symbols = _schematic_ids(output.files)
+    assert symbols == {} and output.summary["sheet_mode"] == "flat"
+    doc = read_pcbdoc(output.files["altium_hier_board.PcbDoc"])
+    for record in doc.components:
+        assert record["SOURCEUNIQUEID"] == "\\" + components[record["SOURCEDESIGNATOR"]]
+        assert record["SOURCEHIERARCHICALPATH"] == ""
+
+
+def test_hier_link_of_a_top_sheet_part_keeps_the_one_id_form(tmp_path: Path) -> None:
+    """A part outside any module is on the top sheet: its link is the flat one in both modes."""
+    from _altium_pcb_read import read_pcbdoc
+
+    design = blink()
+    for mode in ("flat", "modules"):
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            placed=tuple(placements(design)),
+            placements=placements(design),
+            resolver=blink_resolver(tmp_path / mode),
+            sheets=mode,  # type: ignore[arg-type]
+        )
+        doc = read_pcbdoc(output.files["blink.PcbDoc"])
+        assert all(c["SOURCEHIERARCHICALPATH"] == "" for c in doc.components)
+        assert all(c["SOURCEUNIQUEID"].count("\\") == 1 for c in doc.components)
+
+
+def test_hier_board_pads_and_nets_do_not_depend_on_the_mode(tmp_path: Path) -> None:
+    from _altium_pcb_read import read_pcbdoc
+
+    flat = read_pcbdoc(build_hier_board(tmp_path / "f").files["altium_hier_board.PcbDoc"])
+    split = read_pcbdoc(build_hier_board(tmp_path / "m", sheets="modules").files["altium_hier_board.PcbDoc"])
+    assert flat.nets == split.nets and flat.pads == split.pads
+    for before, after in zip(flat.components, split.components, strict=True):
+        assert {k for k in before if before[k] != after[k]} == {"SOURCEUNIQUEID", "SOURCEHIERARCHICALPATH"}
+
+
+def test_hier_board_sheets_read_back(tmp_path: Path) -> None:
+    """The module sheets of the board example join the model's nets under the hierarchical scope."""
+    from _altium_read import nets_from_project, read_sheet
+
+    output = build_hier_board(tmp_path, sheets="modules")
+    sheets = {name: read_sheet(data) for name, data in output.files.items() if name.endswith(".SchDoc")}
+    refs = {c.id: c.ref for c in output.design.circuit.components}
+    expected = {
+        n.name: {(refs[m.component_id], m.pin) for m in n.members} for n in output.design.circuit.nets
+    }
+    found = nets_from_project(sheets, "altium_hier_board.SchDoc")
+    assert {name: pins for name, pins in found.items() if not name.startswith("<unnamed ")} == expected
+    assert all(len(pins) == 1 for name, pins in found.items() if name.startswith("<unnamed "))
+    assert sorted(expected) == ["GND", "LED_A", "LED_DRV", "VIN"]

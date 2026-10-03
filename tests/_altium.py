@@ -343,6 +343,17 @@ BLINK = BLINK_DIR / "design.py"
 LIBS = ROOT / "tests" / "data" / "libs"
 
 
+HIER_BOARD_DIR = ROOT / "examples" / "altium_hier_board"
+HIER_BOARD = HIER_BOARD_DIR / "design.py"
+
+
+def hier_board() -> Design:
+    """The hierarchy board example of change c0037 (``examples/altium_hier_board``)."""
+    design = runpy.run_path(str(HIER_BOARD))["design"]
+    assert isinstance(design, Design)
+    return design
+
+
 def blink(text: str = "", new: str = "") -> Design:
     """The KiCad-footprint sample of change c0035 (``examples/blink_2layer``), with ``text`` replaced by
     ``new`` in its script."""

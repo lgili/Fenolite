@@ -9,7 +9,10 @@ The storages, the ``Board6`` record (``docboard``) and the net and component rec
 Altium saves ("The document as Altium saves it"); Altium Designer refuses the shorter form of the public
 writers. Footprint primitives are placed as KiCad places them (``Transform.placement``), then Y is negated
 and the board shifted so that its lower-left corner lies at (1000 mil, 1000 mil). Components link to the
-schematic through ``SOURCEUNIQUEID=\\<unique id>``. No routing, via, zone, rule or class is written.
+schematic through ``SOURCEUNIQUEID=\\<unique id>``, or, for a part on a module sheet of a hierarchical
+project (change c0037), through ``\\<sheet symbol id>\\<unique id>`` with ``SOURCEHIERARCHICALPATH`` set to
+``<design name>\\<module name>``, the design name being the stem the document shares with the top sheet.
+No routing, via, zone, rule or class is written.
 """
 
 from __future__ import annotations
@@ -161,7 +164,9 @@ EVIDENCE = Evidence(
 
 @dataclass(frozen=True, slots=True)
 class PlacedComponent:
-    """One component on the board: its schematic link, its footprint and its placement (KiCad frame)."""
+    """One component on the board: its schematic link, its footprint and its placement (KiCad frame).
+    ``sheet`` (change c0037) is ``(sheet symbol unique id, module name)`` for a component on a module sheet
+    of a hierarchical project, and ``None`` for a component on the top sheet or on a single sheet."""
 
     ref: str
     unique_id: str
@@ -175,6 +180,7 @@ class PlacedComponent:
     side: Side = "top"
     locked: bool = False
     pad_nets: Mapping[str, str] = field(default_factory=lambda: {})
+    sheet: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,6 +288,11 @@ def _component_record(component: PlacedComponent, index: int, frame: Frame, file
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     at = frame(component.at)
+    link, path = "\\" + component.unique_id, ""
+    if component.sheet is not None:
+        symbol, module = component.sheet
+        link = f"\\{symbol}{link}"
+        path = f"{filename.rsplit('.', 1)[0]}\\{module}"
     fields: list[Field] = [
         ("SELECTION", "FALSE"),
         ("LAYER", "BOTTOM" if component.side == "bottom" else "TOP"),
@@ -301,8 +312,8 @@ def _component_record(component: PlacedComponent, index: int, frame: Frame, file
         ("UNIONINDEX", "0"),
         ("CHANNELOFFSET", str(index)),
         ("SOURCEDESIGNATOR", component.ref),
-        ("SOURCEUNIQUEID", "\\" + component.unique_id),
-        ("SOURCEHIERARCHICALPATH", ""),
+        ("SOURCEUNIQUEID", link),
+        ("SOURCEHIERARCHICALPATH", path),
         ("SOURCEFOOTPRINTLIBRARY", component.footprint_library),
         ("SOURCECOMPONENTLIBRARY", component.component_library),
         ("SOURCELIBREFERENCE", component.lib_reference),

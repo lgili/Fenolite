@@ -514,10 +514,12 @@ def pcb_document(
     name: str,
     footprints: Mapping[str, pcblib.LibFootprint],
     placements: Mapping[str, PlacementRequest],
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
-    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info."""
+    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. In the ``modules`` sheet
+    mode (change c0037) a component on a module sheet links through the sheet symbol of its module."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -577,6 +579,7 @@ def pcb_document(
             at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
         link = split_link(component.lib_symbol_ref)
         assert link is not None
+        module = hierarchy.sheet_of(component) if sheets == "modules" else None
         placed.append(
             pcbdoc.PlacedComponent(
                 ref=component.ref,
@@ -591,6 +594,7 @@ def pcb_document(
                 side=side,  # type: ignore[arg-type]
                 locked=locked,
                 pad_nets=nets.get(component.id, {}),
+                sheet=(unique_id(hierarchy.symbol_key(module)), module) if module is not None else None,
             )
         )
     if staged:
@@ -1080,7 +1084,9 @@ def build_altium(
     footprints, footprint_issues = resolve_footprints(model, resolver)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
-    spec, document_issues = pcb_document(model, name=name, footprints=footprints, placements=placements or {})
+    spec, document_issues = pcb_document(
+        model, name=name, footprints=footprints, placements=placements or {}, sheets=sheets
+    )
     issues += document_issues
     if spec is not None:
         issues = [

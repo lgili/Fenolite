@@ -602,6 +602,24 @@ corpus_id = ""
 notes = "the hierarchy sample with a fifth harness entry whose net does not leave its sheet (thin DSL, c0037, step H6)"
 
 [[file]]
+path = "examples/altium_hier_board/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the blink circuit in two modules with a board, for the PCB link of parts on module sheets (thin DSL, c0037, step H7)"
+
+[[file]]
+path = "examples/altium_hier_board/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "project footprint table of the hierarchy board example, naming the authored mini library (c0037)"
+
+[[file]]
+path = "examples/altium_hier_board/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "project symbol table of the hierarchy board example, naming the authored mini library (c0037)"
+
+[[file]]
 path = "examples/altium_kicad/design.py"
 origin = "authored"
 corpus_id = ""

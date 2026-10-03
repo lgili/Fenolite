@@ -37,7 +37,7 @@
 
 ## 7. PCB link, while the maintainer tests
 
-- [ ] 7.1 Add `PlacedComponent.sheet` and the two-id link to `backends/altium/pcbdoc.py`, and set it in `lens.altium.pcb_document` in the `modules` mode. Write `examples/altium_hier_board/` (the script and the two library tables, CC0-1.0, authored; the tables name the authored libraries under `tests/data/libs/`, as those of `examples/blink_2layer/`) and declare the three files in `tests/data/MANIFEST.toml`. Extend `tests/unit/backends/altium/test_pcbdoc.py` and `tests/unit/lens/test_altium_pcb.py`. Proof: `uv run pytest tests/unit/backends/altium/test_pcbdoc.py tests/unit/lens/test_altium_pcb.py -k "sheet or hier or link"`; `uv run pytest tests/unit/lens/test_altium_pcb_golden.py tests/corpus/test_manifest.py` passes with no golden file rewritten; covering the two new scenarios of "PCB document links and nets".
+- [x] 7.1 Add `PlacedComponent.sheet` and the two-id link to `backends/altium/pcbdoc.py`, and set it in `lens.altium.pcb_document` in the `modules` mode. Write `examples/altium_hier_board/` (the script and the two library tables, CC0-1.0, authored; the tables name the authored libraries under `tests/data/libs/`, as those of `examples/blink_2layer/`) and declare the three files in `tests/data/MANIFEST.toml`. Extend `tests/unit/backends/altium/test_pcbdoc.py` and `tests/unit/lens/test_altium_pcb.py`. Proof: `uv run pytest tests/unit/backends/altium/test_pcbdoc.py tests/unit/lens/test_altium_pcb.py -k "sheet or hier or link"`; `uv run pytest tests/unit/lens/test_altium_pcb_golden.py tests/corpus/test_manifest.py` passes with no golden file rewritten; covering the two new scenarios of "PCB document links and nets".
 
 ## 8. Documentation and the maintainer's report
 
