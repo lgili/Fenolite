@@ -25,7 +25,7 @@
 ## 4. Polygons
 
 - [x] 4.1 Write the polygon records: `docboard.polygon_fields` shared with the board outline, `pcbdoc.polygon_name`, `PcbDocSpec.zones`, the pour index order and the generated names; the reader's polygon decoding and checks. Extend `test_docboard.py`, `test_pcbdoc.py` and `test_altium_pcb_read.py`. Proof: `uv run pytest tests/unit/backends/altium -k "polygon or zone"`; `uv run pytest tests/unit/backends/altium/test_docboard.py` passes with the outline's pinned text unchanged; covering every scenario of "Polygon pour records" and the polygon cases of "Copper negative controls".
-- [ ] 4.2 Lower zones in `lens/altium.py`: one polygon per zone layer, `altium.zone-unsupported`, `altium.zones-unpoured`; add variant `c3`. Extend `tests/unit/lens/test_altium_pcb.py` and `test_altium_issues.py`. Proof: `uv run pytest tests/unit/lens/test_altium_pcb.py tests/unit/lens/test_altium_issues.py -k "zone or closed_set"`; covering the scenario "Routed model" of "Copper in an Altium build" except its net-class count, and the scenario "Copper on a missing layer" of "Copper issue codes".
+- [x] 4.2 Lower zones in `lens/altium.py`: one polygon per zone layer, `altium.zone-unsupported`, `altium.zones-unpoured`; add variant `c3`. Extend `tests/unit/lens/test_altium_pcb.py` and `test_altium_issues.py`. Proof: `uv run pytest tests/unit/lens/test_altium_pcb.py tests/unit/lens/test_altium_issues.py -k "zone or closed_set"`; covering the scenario "Routed model" of "Copper in an Altium build" except its net-class count, and the scenario "Copper on a missing layer" of "Copper issue codes".
 
 ## 5. Internal planes
 

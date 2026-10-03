@@ -378,11 +378,20 @@ def _copper_invalid(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]
     ), {}
 
 
-COPPER_PARTS = ("tracks", "arc", "vias", "inner", "class")
+def _zone_opaque(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    assert model.board is not None
+    (zone,) = model.board.zones
+    opaque = dataclasses.replace(zone, outline=())
+    nowhere = dataclasses.replace(zone, id="zon_00000000-0000-4000-8000-000000000002", layers=())
+    return _copper_board(model, zones=(opaque, nowhere)), {}
+
+
+COPPER_PARTS = ("tracks", "arc", "vias", "inner", "zones", "class")
 COPPER_CASES: dict[
     str, tuple[Callable[[ModelDesign], tuple[ModelDesign, dict[str, object]]], dict[str, int]]
 ] = {
-    "layer": (_copper_layer, {"altium.copper-layer": 2}),
+    "layer": (_copper_layer, {"altium.copper-layer": 3}),
+    "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
     "stack": (_copper_stack, {"altium.copper-stack": 1}),
     "via": (_via_blind, {"altium.via-unsupported": 2}),
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
@@ -401,10 +410,31 @@ def run_copper_case(name: str) -> tuple[Issue, ...]:
     return output.issues
 
 
+def run_routed_sample() -> tuple[Issue, ...]:
+    from _altium_copper import routed_build
+
+    with tempfile.TemporaryDirectory() as folder:
+        output = routed_build(Path(folder))
+    assert "routed.PcbDoc" in output.files
+    return output.issues
+
+
+def test_zone_on_a_missing_layer() -> None:
+    """Scenario "Copper on a missing layer": the routed model built with ``copper=2``."""
+    found = [i for i in run_copper_case("layer") if i.code == "altium.copper-layer"]
+    assert sorted(i.message.split(":")[0].split(" at ")[0] for i in found) == [
+        "track on In1.Cu",
+        "track on In2.Cu",
+        "zone on In1.Cu, B.Cu",
+    ]
+    assert all("In1.Cu is not a copper layer" in i.message or "In2.Cu is not" in i.message for i in found)
+
+
 @pytest.mark.parametrize("name", sorted(COPPER_CASES))
 def test_copper_case(name: str) -> None:
     """One issue per entity, an error each, with the entity id in ``where``; no file is written."""
-    issues = [i for i in run_copper_case(name) if i.code.startswith(("altium.copper", "altium.via"))]
+    codes = ("altium.copper", "altium.via", "altium.zone")
+    issues = [i for i in run_copper_case(name) if i.code.startswith(codes)]
     counts: dict[str, int] = {}
     for found in issues:
         counts[found.code] = counts.get(found.code, 0) + 1
@@ -473,6 +503,8 @@ def test_closed_set() -> None:
     for name in COPPER_CASES:
         for found in run_copper_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_routed_sample():
+        produced.setdefault(found.code, set()).add(found.severity)
     for found in (
         *run_unique_id_case(),
         *run_too_large_case(),
@@ -529,6 +561,8 @@ def test_the_table() -> None:
         "altium.copper-layer": "error",
         "altium.via-unsupported": "error",
         "altium.copper-invalid": "error",
+        "altium.zone-unsupported": "error",
+        "altium.zones-unpoured": "info",
     }
 
 

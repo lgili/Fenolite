@@ -166,11 +166,12 @@ class Variant:
 
 def variants() -> dict[str, Variant]:
     """The bisection variants: ``c0`` two layers with tracks and an arc, ``c1`` adds the vias, ``c2`` the
-    stack of four signal layers with the inner tracks."""
+    stack of four signal layers with the inner tracks, ``c3`` adds the polygons."""
     return {
         "c0": Variant(routed_model(("tracks", "arc")), copper=2),
         "c1": Variant(routed_model(("tracks", "arc", "vias")), copper=2),
         "c2": Variant(routed_model(("tracks", "arc", "vias", "inner"))),
+        "c3": Variant(routed_model(("tracks", "arc", "vias", "inner", "zones"))),
     }
 
 

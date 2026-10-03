@@ -623,3 +623,63 @@ def test_layer_count_comes_from_the_script_or_the_board(tmp_path: Path) -> None:
     assert read_pcbdoc(four.files["routed.PcbDoc"]).copper_chain == [1, 2, 3, 32]
     two = routed_build(tmp_path, routed_model(()), copper=2)
     assert read_pcbdoc(two.files["routed.PcbDoc"]).copper_chain == [1, 32]
+
+
+# --- zones (change c0038, task 4.2) -----------------------------------------------------------------
+
+
+def test_zone_of_the_routed_model_becomes_two_unpoured_polygons(tmp_path: Path) -> None:
+    """Scenario "Routed model" of "Copper in an Altium build" (the net-class count comes with task 7.1)."""
+    from _altium_copper import routed_build
+    from _altium_pcb_read import read_pcbdoc
+
+    output = routed_build(tmp_path)
+    assert not [i for i in output.issues if i.severity == "error"] and "routed.PcbDoc" in output.files
+    copper = dict(output.summary["copper"])  # type: ignore[call-overload]
+    copper.pop("net_classes")
+    assert copper == {
+        "source": "model",
+        "from": None,
+        "layers": 4,
+        "planes": {},
+        "tracks": 5,
+        "arcs": 1,
+        "vias": 3,
+        "zones": 2,
+        "placements_from_board": 0,
+    }
+    (info,) = [i for i in output.issues if i.code == "altium.zones-unpoured"]
+    assert (
+        info.severity == "info" and info.message.startswith("2 polygon(s)") and info.where == "routed.PcbDoc"
+    )
+    assert "Tools » Polygon Pours » Repour All" in info.message
+    doc = read_pcbdoc(output.files["routed.PcbDoc"])
+    names = [n["NAME"] for n in doc.nets]
+    assert [(p.layer, names[p.net or 0], len(p.vertices)) for p in doc.polygons] == [
+        ("MID1", "GND", 5),
+        ("BOTTOM", "GND", 5),
+    ]
+    assert doc.storages["Regions6"] == (0, b"")
+
+
+def test_zone_fills_of_the_model_are_not_written(tmp_path: Path) -> None:
+    import dataclasses
+
+    from _altium_copper import routed_build, routed_model
+
+    from fenolite.model.board import ZoneFill
+
+    model = routed_model()
+    assert model.board is not None
+    (zone,) = model.board.zones
+    filled = dataclasses.replace(zone, fills=(ZoneFill("B.Cu", zone.outline),))
+    board = dataclasses.replace(model.board, zones=(filled,))
+    first = routed_build(tmp_path, model).files["routed.PcbDoc"]
+    assert routed_build(tmp_path, dataclasses.replace(model, board=board)).files["routed.PcbDoc"] == first
+
+
+def test_design_without_a_zone_gives_no_unpoured_info(tmp_path: Path) -> None:
+    from _altium_copper import routed_build, routed_model
+
+    output = routed_build(tmp_path, routed_model(("tracks", "arc", "vias", "inner", "class")))
+    assert "altium.zones-unpoured" not in {i.code for i in output.issues}

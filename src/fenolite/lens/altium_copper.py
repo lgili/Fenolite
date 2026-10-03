@@ -3,8 +3,9 @@
 """The copper of the Altium PCB document, lowered from the model (change c0038, capability altium-build,
 "Copper in an Altium build" and "Copper issue codes").
 
-``lower_copper`` turns the tracks, arcs and vias of a design into what ``pcbdoc.PcbDocSpec`` takes: the
-board's copper layers and the entities with their net **names**. It finds every case the writer would
+``lower_copper`` turns the tracks, arcs, vias and zones of a design into what ``pcbdoc.PcbDocSpec`` takes:
+the board's copper layers and the entities with their net **names**. A zone becomes one unpoured polygon
+per layer, which Altium fills on a repour. It finds every case the writer would
 refuse and reports it as an issue of ``COPPER_ISSUE_CODES``, so no ``ValueError`` of the writer reaches the
 user. Nothing is dropped to make a document fit: copper that cannot be written exactly is an error.
 ``fenolite.lens.altium`` calls it from ``pcb_document`` and adds the codes to its closed table.
@@ -19,10 +20,11 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from fenolite.backends.altium import pcbdoc, pcbrecords
+from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
-from fenolite.model.board import Arc, Board, Stackup, Track, Via
+from fenolite.model.board import Arc, Board, Stackup, Track, Via, Zone
 from fenolite.model.design import Design
 
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
@@ -31,6 +33,8 @@ COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.copper-layer": "error",
         "altium.via-unsupported": "error",
         "altium.copper-invalid": "error",
+        "altium.zone-unsupported": "error",
+        "altium.zones-unpoured": "info",
     }
 )
 """The copper rows of ``lens.altium.ALTIUM_ISSUE_CODES`` (change c0038, "Copper issue codes")."""
@@ -39,6 +43,8 @@ COPPER_COUNTS: Mapping[int, tuple[str, ...]] = MappingProxyType(
 )
 """Copper layer count of the script → the board's copper layers, top to bottom."""
 STACK_HINT = "use design.board(..., copper=2) or copper=4"
+REPOUR_COMMAND = "Tools » Polygon Pours » Repour All"
+"""The Altium Designer command that fills the unpoured polygons (``pcb-copper.md``, "Polygon pour")."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -68,6 +74,7 @@ class CopperPlan:
     vias: tuple[Via, ...] = ()
     issues: tuple[Issue, ...] = ()
     stack: StackSpec | None = None
+    zones: tuple[Zone, ...] = ()
 
     @property
     def failed(self) -> bool:
@@ -218,6 +225,34 @@ def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]
     return out
 
 
+def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue]) -> list[Zone]:
+    out: list[Zone] = []
+    for zone in zones:
+        where = f" at {low.at(zone.outline[0])}" if zone.outline else ""
+        what = f"zone on {', '.join(zone.layers) or 'no layer'}{where}"
+        before = len(issues)
+        outline = (
+            zone.outline[:-1]
+            if len(zone.outline) > 1 and zone.outline[0] == zone.outline[-1]
+            else zone.outline
+        )
+        if len(outline) < 3 or not zone.layers:
+            reason = "names no layer" if len(outline) >= 3 else f"has an outline of {len(outline)} points"
+            message = f"{what}: the zone {reason}, so no polygon can be written"
+            hint = "an outline kept as an opaque slot cannot be lowered; redraw the zone as a polygon"
+            issues.append(issue("altium.zone-unsupported", low.text(message), zone.id, hint))
+        outside = [layer for layer in zone.layers if layer not in low.layers]
+        if outside:
+            _layer_ok(zone.id, outside[0], low, issues, what)
+        if zone.name and text_problem(zone.name) is not None:
+            message = f"{what}: the name {zone.name!r} {text_problem(zone.name)}"
+            issues.append(issue("altium.copper-invalid", low.text(message), zone.id))
+        name = _net_name(zone.id, zone.net_id, low, issues, what)
+        if len(issues) == before:
+            out.append(dataclasses.replace(zone, net_id=name, fills=()))
+    return out
+
+
 DIELECTRIC_KINDS = {1: ("core",), 3: ("prepreg", "core", "prepreg")}
 """The kind of each dielectric of a stack-up, by their count: one core, or prepreg, core, prepreg."""
 
@@ -269,9 +304,10 @@ def outline_corner(board: Board | None) -> Point:
     return Point(min(p.x for p in points), min(p.y for p in points))
 
 
-def lower_copper(design: Design, *, copper: int = 2) -> CopperPlan:
+def lower_copper(design: Design, *, copper: int = 2, document: str = "") -> CopperPlan:
     """The copper of ``design.board`` for the document (the ``model`` source): the board's copper layers
-    and its tracks, arcs and vias with net names, or the issues that refuse them."""
+    and its tracks, arcs, vias and zones with net names, or the issues that refuse them. ``document``
+    is the document's file name, named by the info about unpoured polygons."""
     layers, issues = board_layers(design, copper)
     board = design.board
     if board is None or issues:
@@ -285,9 +321,17 @@ def lower_copper(design: Design, *, copper: int = 2) -> CopperPlan:
     tracks = _tracks(board.tracks, low, issues)
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
+    zones = _zones(board.zones, low, issues)
     stack, stack_issues = stack_values(design, layers)
     issues += stack_issues
-    return CopperPlan(layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack)
+    polygons = sum(len(zone.layers) for zone in zones)
+    if polygons and not any(found.severity == "error" for found in issues):
+        message = (
+            f"{polygons} polygon(s) are written without poured copper: run '{REPOUR_COMMAND}' in Altium "
+            "Designer to fill them"
+        )
+        issues.append(issue("altium.zones-unpoured", message, document, f"{REPOUR_COMMAND}"))
+    return CopperPlan(layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack, tuple(zones))
 
 
 def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
@@ -299,6 +343,7 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
         tracks=plan.tracks,
         arcs=plan.arcs,
         vias=plan.vias,
+        zones=plan.zones,
     )
 
 
@@ -312,7 +357,7 @@ def copper_summary(spec: pcbdoc.PcbDocSpec, *, source: str, where: str | None = 
         "tracks": len(spec.tracks),
         "arcs": len(spec.arcs),
         "vias": len(spec.vias),
-        "zones": 0,
+        "zones": sum(len(zone.layers) for zone in spec.zones),
         "net_classes": 0,
         "placements_from_board": 0,
     }

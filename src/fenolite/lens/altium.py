@@ -612,7 +612,7 @@ def pcb_document(
             )
         )
     spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
-    plan = altium_copper.lower_copper(design, copper=copper)
+    plan = altium_copper.lower_copper(design, copper=copper, document=f"{name}.PcbDoc")
     issues += plan.issues
     if plan.failed:
         return None, issues
