@@ -288,10 +288,25 @@ def plan_points(plan: SheetPlan) -> Iterator[tuple[int, int]]:
         for pin in body.pins:
             yield part.at(pin.x, pin.y)
             yield part.at(*pin.hot_end)
-    for stub in plan.stubs:
+    for stub in (*plan.links, *plan.stubs):
         yield stub.start
         yield stub.end
         yield stub.mark
+    for symbol in plan.symbols:
+        yield symbol.x, symbol.y
+        yield symbol.x + symbol.width, symbol.y + symbol.height
+        yield symbol.x, symbol.y - 100
+        for entry in symbol.entries:
+            yield entry.point
+    for port in plan.ports:
+        yield port.x, port.y
+        yield port.end
+    for block in plan.harnesses:
+        yield block.x, block.y
+        yield block.x + block.width, block.y + block.height
+        yield from block.line
+        for k in range(1, len(block.entries) + 1):
+            yield block.entry_point(k)
 
 
 def check_plan(plan: SheetPlan, grid: int = 100) -> None:
@@ -303,7 +318,14 @@ def check_plan(plan: SheetPlan, grid: int = 100) -> None:
     for x, y in plan_points(plan):
         assert x % grid == 0 and y % grid == 0, (x, y)
         assert MARGIN <= x <= size.width - MARGIN and MARGIN <= y <= size.height - MARGIN, (x, y)
-    cells = [p.cell for p in plan.parts]
+    for symbol in plan.symbols:
+        assert symbol.x % 100 == 0 and symbol.y % 100 == 0 and all(c % 100 == 0 for c in symbol.cell)
+        assert symbol.width % 100 == 0 and symbol.height % 100 == 0
+    for port in plan.ports:
+        assert port.x % 100 == 0 and port.y % 100 == 0 and all(c % 100 == 0 for c in port.cell)
+    for block in plan.harnesses:
+        assert block.x % 100 == 0 and block.y % 100 == 0
+    cells = [*(s.cell for s in plan.symbols), *(p.cell for p in plan.ports), *(p.cell for p in plan.parts)]
     for i, (ax0, ay0, ax1, ay1) in enumerate(cells):
         assert MARGIN <= ax0 < ax1 <= size.width - MARGIN and MARGIN <= ay0 < ay1 <= size.height - MARGIN
         for bx0, by0, bx1, by1 in cells[i + 1 :]:

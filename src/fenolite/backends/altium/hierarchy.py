@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fenolite.backends.altium.altsym import AltiumSymbol
-from fenolite.backends.altium.layout import Crossing, PartSpec, SheetPlan, layout_sheet
+from fenolite.backends.altium.layout import Crossing, PartSpec, SheetPlan, SymbolSpec, layout_sheet
 from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
@@ -150,12 +150,15 @@ def plan_sheets(
     for spec in part_specs(design, name=name, symbols=symbols):
         head, slash, _rest = spec.key.partition(PATH_SEPARATOR)
         by_sheet[head if slash else None].append(spec)
-    found = [SheetFile(sheet_file(name), layout_sheet(by_sheet[None]))]
-    for module in crossing:
-        found.append(
-            SheetFile(sheet_file(name, module), layout_sheet(by_sheet[module]), module, symbol_id(module))
-        )
-    return ProjectSheets("modules", tuple(found))
+    specs = [
+        SymbolSpec(module, sheet_file(name, module), symbol_id(module), found)
+        for module, found in crossing.items()
+    ]
+    planned = [SheetFile(sheet_file(name), layout_sheet(by_sheet[None], symbols=specs))]
+    for module, found in crossing.items():
+        plan = layout_sheet(by_sheet[module], ports=found)
+        planned.append(SheetFile(sheet_file(name, module), plan, module, symbol_id(module)))
+    return ProjectSheets("modules", tuple(planned))
 
 
 __all__ = [

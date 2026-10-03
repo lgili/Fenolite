@@ -6,25 +6,32 @@ sheet layout" and "Connectivity on the sheet"; change c0032)."""
 from __future__ import annotations
 
 import pytest
-from _altium import check_plan, sample_model, upright_symbol
+from _altium import check_plan, hier_model, sample_model, upright_symbol
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
+from fenolite.backends.altium.hierarchy import plan_sheets
 from fenolite.backends.altium.layout import (
+    ENTRY_PITCH,
     MARGIN,
     PORT_GAP,
     PORT_STUB,
     SHEET_SIZES,
+    SYMBOL_MIN_WIDTH,
+    Crossing,
     NoConnectMark,
     PartSpec,
     PinNet,
     SheetPlan,
     Stub,
+    SymbolSpec,
     layout_sheet,
     part_marks,
     part_stubs,
+    port_width,
     stub_length,
+    text_width,
 )
-from fenolite.backends.altium.project import plan_sheet
+from fenolite.backends.altium.project import part_specs, plan_sheet
 from fenolite.backends.altium.symbols import generic_symbol
 
 
@@ -259,3 +266,111 @@ def test_no_connect_marks_follow_component_then_part_order() -> None:
     assert [(m.key, m.designator) for m in plan.no_connects] == [
         ("R1", "1"), ("R1", "2"), ("R3", "1"), ("R3", "2"),
     ]  # fmt: skip
+
+
+# --- sheet symbols and ports (change c0037) ---------------------------------------------------------
+
+
+def _symbol(module: str, *names: str) -> SymbolSpec:
+    return SymbolSpec(module, f"d_{module}.SchDoc", "AAAAAAAA", tuple(Crossing(n) for n in names))
+
+
+def test_plan_without_symbols_is_unchanged() -> None:
+    """Scenario "Plan without symbols is unchanged": the keyword defaults change nothing."""
+    specs = part_specs(sample_model(), name="altium_sample")
+    plain = layout_sheet(specs)
+    assert (
+        layout_sheet(specs, symbols=(), ports=()) == plain == plan_sheet(sample_model(), name="altium_sample")
+    )
+    assert plain.symbols == () and plain.ports == () and plain.harnesses == () and plain.links == ()
+
+
+def test_symbol_and_port_cells_come_before_the_component_cells() -> None:
+    parts = two_pin_parts(2)
+    plan = layout_sheet(parts, symbols=[_symbol("b", "N1"), _symbol("a")], ports=[Crossing("P1")])
+    cells = [*(s.cell for s in plan.symbols), *(p.cell for p in plan.ports), *(p.cell for p in plan.parts)]
+    assert [s.spec.module for s in plan.symbols] == ["b", "a"], "symbols keep the order given"
+    assert [(c[1], c[0]) for c in cells] == sorted((c[1], c[0]) for c in cells), "one packing, in order"
+    assert cells[0][:2] == (MARGIN, MARGIN)
+    check_plan(plan)
+
+
+def test_sheet_symbol_geometry() -> None:
+    plan = layout_sheet([], symbols=[_symbol("mcu", "RESET_N", "A_LONGER_NET")])
+    (symbol,) = plan.symbols
+    assert symbol.width == SYMBOL_MIN_WIDTH == 1500 and symbol.height == 300, "(slots + 1) x 100 mil"
+    assert [(e.crossing.name, e.slot) for e in symbol.entries] == [
+        ("RESET_N", 1),
+        ("A_LONGER_NET", 2),
+    ]
+    for entry in symbol.entries:
+        assert entry.point == (symbol.x + symbol.width, symbol.y + ENTRY_PITCH * entry.slot)
+        assert entry.block is None and entry.stub is not None
+        stub = entry.stub
+        assert (
+            stub.side == "right"
+            and stub.start == entry.point
+            and stub.net == PinNet(entry.crossing.name, "label")
+        )
+        assert stub.length == stub_length(stub.net) and stub.mark == (stub.start[0] + 100, stub.start[1])
+        assert stub.end[0] + 200 <= symbol.cell[2], "the label stays inside the cell"
+    assert plan.links == tuple(e.stub for e in symbol.entries)
+    assert symbol.cell[1] <= symbol.y - 400, "room for the name and file name above the symbol"
+    check_plan(plan)
+
+
+def test_sheet_symbol_is_wide_enough_for_its_texts() -> None:
+    long = "N" * 40
+    plan = layout_sheet([], symbols=[_symbol("m", long)])
+    assert plan.symbols[0].width == text_width(long) == 3000
+    empty = layout_sheet([], symbols=[_symbol("m")]).symbols[0]
+    assert empty.entries == () and empty.height == 100 and empty.width == 1500
+
+
+def test_port_geometry() -> None:
+    plan = layout_sheet(two_pin_parts(1), ports=[Crossing("EN"), Crossing("A_RATHER_LONG_NET_NAME")])
+    short, long = plan.ports
+    assert (
+        short.width == port_width("EN") == 300 and long.width == port_width("A_RATHER_LONG_NET_NAME") == 1700
+    )
+    for port in plan.ports:
+        assert port.end == (port.x + port.width, port.y) and port.block is None and port.stub is not None
+        assert port.stub.start == port.end and port.stub.side == "right"
+        assert port.stub.net == PinNet(port.crossing.name, "label")
+    assert plan.links == (short.stub, long.stub) and len(plan.stubs) == 2
+    check_plan(plan)
+
+
+def test_hierarchical_sheet_picks_its_own_size() -> None:
+    many = [_symbol(f"m{n:03d}", "A", "B") for n in range(60)]
+    assert layout_sheet([], symbols=many[:4]).size.name == "A4"
+    larger = layout_sheet([], symbols=many)
+    assert larger.size.name != "A4"
+    check_plan(larger)
+    wide = layout_sheet([], ports=[Crossing("N" * 700)])
+    assert wide.size.name == "custom"
+    check_plan(wide)
+
+
+def test_repeated_port_or_entry_name_is_refused() -> None:
+    with pytest.raises(ValueError, match="share a name"):
+        layout_sheet([], ports=[Crossing("A"), Crossing("A")])
+    with pytest.raises(ValueError, match="share a name"):
+        layout_sheet([], symbols=[_symbol("m", "A", "A")])
+
+
+def test_top_sheet_of_the_sample_in_the_ascii_form() -> None:
+    project = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="ascii")
+    top = project.top.plan
+    assert [s.spec.module for s in top.symbols] == ["flash", "mcu"] and [p.spec.ref for p in top.parts] == [
+        "J1"
+    ]
+    assert [s.spec.file for s in top.symbols] == ["altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
+    assert [len(s.entries) for s in top.symbols] == [5, 6]
+    assert top.size.name == "A4"
+    for sheet in project.sheets:
+        check_plan(sheet.plan)
+    assert [[p.crossing.name for p in s.plan.ports] for s in project.modules] == [
+        ["FLASH_WP", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK"],
+        ["FLASH_WP", "RESET_N", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK"],
+    ]
