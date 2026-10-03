@@ -6,9 +6,9 @@ project" and "Harness definition files"; change c0037)."""
 from __future__ import annotations
 
 import pytest
-from _altium import hier_model, model_of, sample_model
+from _altium import HIER_PARTIAL, check_plan, hier_model, model_of, sample_model
 
-from fenolite.backends.altium.hierarchy import crossings, plan_sheets, sheet_file, sheet_of
+from fenolite.backends.altium.hierarchy import crossings, plan_sheets, port_id, sheet_file, sheet_of
 from fenolite.backends.altium.project import DEFAULT_SHEETS, component_path, plan_sheet
 from fenolite.dsl import Design, Net, Part, connect
 
@@ -129,3 +129,83 @@ def test_sheets_refuse_unknown_values() -> None:
         plan_sheets(model, name="x", sheets="modules", form="text")  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="schematic form"):
         crossings(model, form="text")  # type: ignore[arg-type]
+
+
+# --- harness crossings (binary form only) -----------------------------------------------------------
+
+SPI = (("CS", "SPI_CS"), ("MISO", "SPI_MISO"), ("MOSI", "SPI_MOSI"), ("SCK", "SPI_SCK"))
+DBG = '\ndesign.add(Harness("DBG", {"RST": reset_n}))\n'
+
+
+def test_harness_sheets_of_the_hierarchy_sample() -> None:
+    """Scenario "Sheets of the hierarchy sample" (binary form)."""
+    model = hier_model()
+    project = plan_sheets(model, name="altium_hier", sheets="modules", form="binary")
+    assert [(s.file, _refs(s.plan)) for s in project.sheets] == [
+        ("altium_hier.SchDoc", ["J1"]),
+        ("altium_hier_flash.SchDoc", ["C2", "R1", "U2"]),
+        ("altium_hier_mcu.SchDoc", ["C1", "U1"]),
+    ]
+    found = crossings(model, form="binary")
+    assert [(c.name, c.harness) for c in found["flash"]] == [("FLASH_WP", False), ("SPI", True)]
+    assert [(c.name, c.harness) for c in found["mcu"]] == [
+        ("FLASH_WP", False),
+        ("RESET_N", False),
+        ("SPI", True),
+    ]
+    assert found["flash"][1].entries == found["mcu"][2].entries == SPI
+    assert found["flash"][1].port_id == port_id("flash", "SPI") != found["mcu"][2].port_id
+    crossing = {c.name for module in found.values() for c in module}
+    carried = {net for module in found.values() for c in module for _, net in c.entries or ()}
+    assert not (crossing | carried) & {"VDD", "GND", "FLASH_HOLD_N"}
+    assert [[p.crossing.name for p in s.plan.ports] for s in project.modules] == [
+        ["FLASH_WP", "SPI"],
+        ["FLASH_WP", "RESET_N", "SPI"],
+    ]
+    assert [len(s.plan.harnesses) for s in project.sheets] == [2, 1, 1]
+    for sheet in project.sheets:
+        check_plan(sheet.plan)
+
+
+def test_harness_entry_whose_net_does_not_cross_is_not_wired() -> None:
+    """``partial.py``: the entry ``HOLD`` is in every block and wired in none."""
+    model = hier_model(script=HIER_PARTIAL)
+    found = crossings(model, form="binary")
+    for module in ("flash", "mcu"):
+        (spi,) = (c for c in found[module] if c.harness)
+        assert spi.entries == (
+            ("CS", "SPI_CS"),
+            ("HOLD", None),
+            ("MISO", "SPI_MISO"),
+            ("MOSI", "SPI_MOSI"),
+            ("SCK", "SPI_SCK"),
+        )
+    project = plan_sheets(model, name="altium_hier_partial", sheets="modules", form="binary")
+    blocks = [block for sheet in project.sheets for block in sheet.plan.harnesses]
+    assert len(blocks) == 4
+    for block in blocks:
+        assert [entry for entry, _ in block.entries] == ["CS", "HOLD", "MISO", "MOSI", "SCK"]
+        assert [s.designator for s in block.stubs] == ["CS", "MISO", "MOSI", "SCK"]
+        assert block.entry_point(2) not in {s.start for s in block.stubs}
+
+
+def test_harness_that_crosses_no_module_gives_no_crossing() -> None:
+    model = hier_model(append='\ndesign.add(Harness("LOCAL", {"HOLD": flash_hold_n}))\n')
+    found = crossings(model, form="binary")
+    assert [c.name for c in found["flash"]] == ["FLASH_WP", "SPI"]
+
+
+def test_harness_crosses_only_the_modules_its_nets_cross() -> None:
+    """``RESET_N`` runs between the top sheet and ``mcu``: the harness ``DBG`` crosses ``mcu`` only."""
+    found = crossings(hier_model(append=DBG), form="binary")
+    assert [c.name for c in found["mcu"]] == ["DBG", "FLASH_WP", "SPI"]
+    assert [c.name for c in found["flash"]] == ["FLASH_WP", "SPI"]
+    assert found["mcu"][0].entries == (("RST", "RESET_N"),)
+
+
+def test_harness_net_listed_twice_travels_in_the_first_harness() -> None:
+    """A net of two harnesses is refused by the build; the split still gives one owner, by type name."""
+    model = hier_model(append='\ndesign.add(Harness("AUX", {"CLK": spi_sck}))\n')
+    found = crossings(model, form="binary")
+    aux, _wp, spi = found["flash"]
+    assert aux.entries == (("CLK", "SPI_SCK"),) and dict(spi.entries or ())["SCK"] is None

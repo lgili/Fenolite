@@ -18,6 +18,7 @@ from fenolite.backends.altium.layout import (
     SHEET_SIZES,
     SYMBOL_MIN_WIDTH,
     Crossing,
+    HarnessBlock,
     NoConnectMark,
     PartSpec,
     PinNet,
@@ -374,3 +375,98 @@ def test_top_sheet_of_the_sample_in_the_ascii_form() -> None:
         ["FLASH_WP", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK"],
         ["FLASH_WP", "RESET_N", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK"],
     ]
+
+
+# --- harness blocks (change c0037, design Decision 17) ----------------------------------------------
+
+SPI = Crossing(
+    "SPI", "AAAAAAAB", (("CS", "SPI_CS"), ("MISO", "SPI_MISO"), ("MOSI", "SPI_MOSI"), ("SCK", "SPI_SCK"))
+)
+
+
+def _check_block(block: HarnessBlock, start: tuple[int, int]) -> None:
+    count = len(block.entries)
+    assert block.height == (count + 1) * 100 and block.width >= 500 and block.width % 100 == 0
+    assert block.position == 100 * ((count + 1) // 2)
+    assert block.line == (start, (start[0] + 200, start[1])), "a 200 mil harness line on one horizontal line"
+    assert (block.x, block.y + block.position) == block.line[1], "it ends on the connector's left edge"
+    wired = [(k, net) for k, (_, net) in enumerate(block.entries, start=1) if net is not None]
+    assert [(s.start, s.net.net) for s in block.stubs] == [(block.entry_point(k), net) for k, net in wired]
+    for stub in block.stubs:
+        assert stub.side == "right" and stub.length == stub_length(stub.net)
+        assert stub.mark == (stub.start[0] + 100, stub.start[1])
+
+
+def test_harness_block_beside_a_port() -> None:
+    plan = layout_sheet(two_pin_parts(1), ports=[Crossing("EN"), SPI])
+    net, harness = plan.ports
+    assert net.block is None and harness.stub is None and harness.block is not None
+    assert plan.harnesses == (harness.block,)
+    _check_block(harness.block, harness.end)
+    assert harness.block.name == "SPI" and harness.block.height == 500 and harness.block.position == 200
+    assert [s.designator for s in harness.block.stubs] == ["CS", "MISO", "MOSI", "SCK"]
+    assert plan.links == (net.stub, *harness.block.stubs)
+    assert harness.cell[1] <= harness.block.y - 300 and harness.cell[3] >= harness.block.y + 700
+    check_plan(plan)
+
+
+def test_harness_entry_takes_m_plus_two_slots() -> None:
+    spec = SymbolSpec("mcu", "d_mcu.SchDoc", "AAAAAAAA", (Crossing("A"), SPI, Crossing("Z")))
+    plan = layout_sheet([], symbols=[spec])
+    (symbol,) = plan.symbols
+    first, harness, last = symbol.entries
+    assert (first.slot, harness.slot, last.slot) == (1, 4, 8), "slots 2 to 7 belong to the harness"
+    assert symbol.height == 900, "(8 slots + 1) x 100 mil"
+    assert harness.block is not None and harness.stub is None
+    _check_block(harness.block, harness.point)
+    assert harness.block.y == symbol.y + 200, "the connector spans the harness's slots"
+    assert harness.block.y + harness.block.height == symbol.y + 700
+    ys = [s.start[1] for s in plan.links]
+    assert ys == sorted(ys) and len(set(ys)) == len(ys), "no two wires share a row"
+    assert plan.harnesses == (harness.block,)
+    check_plan(plan)
+
+
+def test_harness_blocks_of_two_harness_entries_do_not_touch() -> None:
+    other = Crossing("DBG", "AAAAAAAC", (("RX", "DBG_RX"), ("TX", None), ("VREF", "DBG_VREF")))
+    spec = SymbolSpec("m", "d_m.SchDoc", "AAAAAAAA", (other, SPI))
+    (symbol,) = layout_sheet([], symbols=[spec]).symbols
+    one, two = (entry.block for entry in symbol.entries)
+    assert one is not None and two is not None
+    assert [e.slot for e in symbol.entries] == [3, 8] and symbol.height == 1200
+    assert one.position == 200 and one.height == 400
+    assert one.y + one.height < two.y, "a free row between two connectors"
+    assert [s.designator for s in one.stubs] == ["RX", "VREF"], "an entry without a net gets no wire"
+    assert one.entry_point(2) not in {s.start for s in one.stubs}
+
+
+def test_harness_connector_is_wide_enough_for_its_names() -> None:
+    wide = Crossing("T", "AAAAAAAD", (("A_VERY_LONG_ENTRY_NAME", "N"),))
+    block = layout_sheet([], ports=[wide]).harnesses[0]
+    assert block.width == text_width("A_VERY_LONG_ENTRY_NAME") == 1700 and block.height == 200
+    assert block.position == 100
+
+
+def test_harness_top_sheet_of_the_sample() -> None:
+    """Scenario "Top sheet of the sample": the cells are the symbols ``flash`` and ``mcu`` and the part
+    ``J1``, nothing overlaps, every point is inside the margins, and the sheet is A4."""
+    project = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="binary")
+    top = project.top.plan
+    assert [s.spec.module for s in top.symbols] == ["flash", "mcu"] and [p.spec.ref for p in top.parts] == [
+        "J1"
+    ]
+    cells = [*(s.cell for s in top.symbols), *(p.cell for p in top.parts)]
+    assert [(c[1], c[0]) for c in cells] == sorted((c[1], c[0]) for c in cells)
+    assert top.size.name == "A4" and top.ports == ()
+    flash, mcu = top.symbols
+    assert [(e.crossing.name, e.slot) for e in flash.entries] == [("FLASH_WP", 1), ("SPI", 4)]
+    assert [(e.crossing.name, e.slot) for e in mcu.entries] == [("FLASH_WP", 1), ("RESET_N", 2), ("SPI", 5)]
+    assert (flash.height, mcu.height) == (800, 900)
+    assert len(top.harnesses) == 2 and len(top.links) == 11
+    for symbol in top.symbols:
+        block = symbol.entries[-1].block
+        assert block is not None
+        _check_block(block, symbol.entries[-1].point)
+    for sheet in project.sheets:
+        check_plan(sheet.plan)
+        assert sheet.plan.size.name == "A4"

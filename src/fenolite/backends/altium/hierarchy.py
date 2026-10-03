@@ -7,7 +7,9 @@ With the sheet mode ``modules`` the top sheet holds the parts outside any module
 top-level module, and each top-level module gets its own sheet; deeper modules are flattened into the sheet
 of their top-level module. A net **crosses** a module when it has pins on that module's sheet and on
 another sheet: it then gets a port on the module's sheet and a sheet entry of the same name on the sheet
-symbol. Nets of a ``power`` interface never cross, because their power ports are global. The facts are in
+symbol. Nets of a ``power`` interface never cross, because their power ports are global. In the binary
+form a ``harness`` interface whose nets cross a module crosses it as one port and one sheet entry, each with
+a harness block (``layout.HarnessBlock``). The facts are in
 ``docs/formats/altium/schematic-ascii.md`` ("Sheet symbols, sheet entries and ports") and
 ``docs/formats/altium/project.md``; the split itself is a Fenolite choice.
 """
@@ -29,7 +31,7 @@ from fenolite.backends.altium.project import (
     unique_id,
 )
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.circuit import Component
+from fenolite.model.circuit import Component, Interface
 from fenolite.model.design import Design
 
 EVIDENCE = Evidence(
@@ -106,15 +108,28 @@ def _form(form: str) -> None:
         raise ValueError(f"unknown schematic form {form!r}")
 
 
+HARNESS_KIND = "harness"
+"""The kind of the model interfaces that ``fenolite.dsl.Harness`` records."""
+
+
+def harness_interfaces(design: Design) -> list[Interface]:
+    """The ``harness`` interfaces of ``design``, in code-point order of their names."""
+    found = [i for i in design.circuit.interfaces if i.kind == HARNESS_KIND]
+    return sorted(found, key=lambda i: i.name)
+
+
 def crossings(design: Design, *, form: SchematicForm) -> dict[str, tuple[Crossing, ...]]:
     """Top-level module → its crossings, in code-point order of their names; every top-level module of the
     design has an entry, in module-name order. A net that is not a member of a ``power`` interface crosses a
-    module when the module's sheet and another sheet each hold one of its pins."""
+    module when the module's sheet and another sheet each hold one of its pins. In the binary form a
+    ``harness`` interface crosses a module when one of its member nets does: those nets then travel in the
+    harness and get no port of their own there. In the ASCII form no harness crosses."""
     _form(form)
     sheets = {c.id: sheet_of(c) for c in design.circuit.components}
     modules = sorted({module for module in sheets.values() if module is not None})
     power = set(power_styles(design))
-    found: dict[str, list[Crossing]] = {module: [] for module in modules}
+    names = {net.id: net.name for net in design.circuit.nets}
+    crossing: dict[str, set[str]] = {module: set() for module in modules}
     for net in design.circuit.nets:
         if net.id in power:
             continue
@@ -123,8 +138,33 @@ def crossings(design: Design, *, form: SchematicForm) -> dict[str, tuple[Crossin
             continue
         for module in on:
             if module is not None:
-                found[module].append(Crossing(net.name, port_id(module, net.name)))
-    return {module: tuple(sorted(found[module], key=lambda c: c.name)) for module in modules}
+                crossing[module].add(net.id)
+    harnesses = harness_interfaces(design) if form == "binary" else []
+    owner: dict[str, str] = {}
+    for interface in harnesses:
+        for _entry, net_id in sorted(interface.members.items()):
+            owner.setdefault(net_id, interface.id)
+    found: dict[str, tuple[Crossing, ...]] = {}
+    for module in modules:
+        carried: set[str] = set()
+        here: list[Crossing] = []
+        for interface in harnesses:
+            mine = {
+                n for n in interface.members.values() if n in crossing[module] and owner[n] == interface.id
+            }
+            if not mine:
+                continue
+            carried |= mine
+            entries = tuple(
+                (entry, names[net_id] if net_id in mine else None)
+                for entry, net_id in sorted(interface.members.items())
+            )
+            here.append(Crossing(interface.name, port_id(module, interface.name), entries))
+        here += [
+            Crossing(names[net_id], port_id(module, names[net_id])) for net_id in crossing[module] - carried
+        ]
+        found[module] = tuple(sorted(here, key=lambda c: c.name))
+    return found
 
 
 def plan_sheets(
@@ -163,9 +203,11 @@ def plan_sheets(
 
 __all__ = [
     "EVIDENCE",
+    "HARNESS_KIND",
     "ProjectSheets",
     "SheetFile",
     "crossings",
+    "harness_interfaces",
     "plan_sheets",
     "port_id",
     "sheet_file",
