@@ -47,7 +47,7 @@ STEPS = {
     "H4": {"H-A-SCH-HIER-NAMES", "H-A-SCH-HARN-NETS"},
     "H5": {"H-A-SCH-HIER-ECO"},
     "H6": {"H-A-SCH-HARN-UNUSED"},
-    "H7": {"H-A-SCH-HIER-ECO"},
+    "H7": {"H-A-SCH-HIER-ECO", "H-A-SCH-HIER-ORDER"},
 }
 WRITE = os.environ.get("FENOLITE_GOLDEN_WRITE") == "1"
 
@@ -93,9 +93,9 @@ def test_committed_project_lists_the_sheets_and_harness_files() -> None:
     paths = [line.partition("=")[2] for line in text.split("\r\n") if line.startswith("DocumentPath=")]
     assert paths == [
         "altium_hier.SchDoc",
-        "FenoliteHier.SchLib",
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
+        "FenoliteHier.SchLib",
         "altium_hier_mcu.Harness",
         "altium_hier_flash.Harness",
     ]
@@ -137,6 +137,7 @@ def test_protocol_steps_name_their_hypotheses() -> None:
     assert found == STEPS
     assert set().union(*STEPS.values()) == {
         "H-A-SCH-HIER-OPEN",
+        "H-A-SCH-HIER-ORDER",
         "H-A-SCH-HIER-PRJ",
         "H-A-SCH-HIER-COMPILE",
         "H-A-SCH-HIER-NAMES",

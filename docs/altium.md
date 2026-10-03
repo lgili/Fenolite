@@ -160,11 +160,13 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`. Its channel
   offset counts the parts of its own sheet from 0. Every module gets its sheet symbol on the top sheet,
   also when none of its nets leaves it.
-- **Small sheets.** A binary sheet whose records take less than 4096 bytes gets one hidden sheet
-  parameter, `FenoliteNote`, as its last record, so that the compound file stores the records in regular
-  sectors, as in every sheet Altium saves. Altium Designer 26.5 left a smaller module sheet outside the
-  hierarchy until it was loaded in full (maintainer's report of 2026-10-03; the cause is inferred). The
-  parameter is hidden and can be deleted in Altium.
+- **Project file order.** A new project file lists the schematic documents first and together: the
+  top sheet, then the module sheets in module-name order, then the PCB document, the libraries and the
+  harness files. With the PCB document and the libraries between the top sheet and the module sheets,
+  Altium Designer 26.5 took only the first module sheet into the hierarchy, and the parts of the other
+  sheets were missing from the compiled design (maintainer's report of 2026-10-03). An existing
+  `<name>.PrjPcb` is kept as it is: if it comes from an earlier build with the other order, delete it
+  and build again, or move its module-sheet sections up in Altium.
 - **Switching the mode later.** On a design whose PCB was already made in Altium, switching between
   `flat` and `modules` changes the links of the parts on module sheets. "Project » Component Links"
   matches them again by designator (S-0164). Decide the mode before the first change order.
@@ -431,12 +433,12 @@ Under `--out DIR`:
   with `--altium-format ascii`.
 - `<library>.SchLib`: one schematic library per library file the lib ids give (see "Schematic
   libraries"), always a compound file.
-- `<name>.PcbLib` and `<name>.PcbDoc` (change c0035, see above), listed in a new project file as
-  `[Document2]` (the document) and with the libraries. A kept project file does not list them:
+- `<name>.PcbLib` and `<name>.PcbDoc` (change c0035, see above), listed in a new project file right
+  after the schematic documents (the document, `[Document2]` in a flat build) and with the libraries. A kept project file does not list them:
   `altium.pcb-not-in-project` names them.
 - With `--altium-sheets modules`: `<name>_<module>.SchDoc` per top-level module and `<sheet stem>.Harness`
-  per sheet with a harness block, listed in a new project file after the libraries ("Sheets and
-  harnesses").
+  per sheet with a harness block. A new project file lists the top sheet, then the module sheets, then
+  the PCB document, the libraries and the harness files ("Sheets and harnesses").
 - `.fenolite/`: the six layer files of the model, with the pins the build gave the components, and
   `build.json` with `"target": "altium"`.
 

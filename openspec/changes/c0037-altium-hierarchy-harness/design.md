@@ -20,8 +20,9 @@ this change and, at implementation, in `docs/formats/altium/`:
 - **Harness definitions.** A `.Harness` text file holds `<type>=<entry>,<entry>` lines. Altium
   generates one per sheet that has connectors and lists each in the project file (S-0186, S-0187,
   S-0188).
-- **Project.** Every sheet is a `[Document<n>]` section, in no particular order. The top sheet is the
-  one no sheet symbol names (S-0132, S-0185, S-0187, S-0188).
+- **Project.** Every sheet is a `[Document<n>]` section; saved, full project files hold them in no
+  particular order. The top sheet is the one no sheet symbol names (S-0132, S-0185, S-0187, S-0188).
+  For Fenolite's minimal file the order matters (decision 16, after the second report of step H7).
 - **Net scope.** With the default scope, "Automatic", Altium uses the hierarchical scope when the top
   sheet has sheet entries: net labels are local to a sheet, a port joins the sheet entry of the same
   name, and power ports are global (S-0185).
@@ -137,9 +138,12 @@ import. Evidence is Fenolite's readback plus the maintainer's author reports.
     writer emits the two-id path and `SOURCEHIERARCHICALPATH=<design>\<module>`. A top-sheet part
     keeps today's one-id path and empty hierarchical path, the form verified for a flat sheet; no
     saved file shows a part on a hierarchical top sheet (`H-A-SCH-HIER-ECO`).
-16. **Project file order: top sheet, PCB document, libraries, module sheets, harness files.** New
-    documents are appended, so `[Document1]` and `[Document2]` keep their meaning in c0035's
-    requirements, and the bytes without module sheets do not change.
+16. **Project file order: top sheet, module sheets, PCB document, libraries, harness files.** Every
+    schematic document precedes every other document. The first build appended the module sheets
+    after the libraries, to keep `[Document2]` the PCB document as in c0035; with that order Altium
+    Designer 26.5 took only the first module sheet into the hierarchy (second report of step H7,
+    `H-A-SCH-HIER-ORDER`). The bytes without module sheets do not change: there `[Document1]` is the
+    schematic and `[Document2]` the PCB document.
 17. **Layout.** Sheet symbols and ports are cells of the existing packing, before the component
     cells. Constants in `layout.py`:
     - `ENTRY_PITCH = 100` mil (one `DISTANCEFROMTOP` step); `SYMBOL_MIN_WIDTH = 1500`;
@@ -162,7 +166,7 @@ import. Evidence is Fenolite's readback plus the maintainer's author reports.
 | `src/fenolite/backends/altium/hierarchy.py` | new | `SheetFile`, `ProjectSheets`, `plan_sheets(design, *, name, sheets, form, symbols=None) -> ProjectSheets`, `sheet_of(component) -> str \| None`, `crossings(design, *, form) -> dict[str, tuple[Crossing, ...]]`, `write_harness(types) -> bytes` |
 | `src/fenolite/backends/altium/layout.py` | plan | `Crossing`, `HarnessBlock`, `SymbolSpec`, `PlacedSymbol`, `PlacedPort`; `layout_sheet(parts, *, symbols=(), ports=())`; `SheetPlan.symbols`, `.ports`, `.harnesses` |
 | `src/fenolite/backends/altium/schdoc.py` | records | records 15, 16, 18, 32, 33 in `schdoc_records(plan)`; `additional_records(plan)`; `write_schdoc` refuses a harness block |
-| `src/fenolite/backends/altium/binary.py` | stream | `additional_stream(records)`; `write_schdoc_binary` adds `Additional` when needed; after the report: `MINI_CUTOFF`, `note_record(fill)`, `padded_records(records)` |
+| `src/fenolite/backends/altium/binary.py` | stream | `additional_stream(records)`; `write_schdoc_binary` adds `Additional` when needed; the padding added after the first report (`padded_records`) was removed after the second |
 | `src/fenolite/backends/altium/prjpcb.py` | arguments | `write_prjpcb(*, schematic, pcb=None, libraries=(), sheets=(), harnesses=())` |
 | `src/fenolite/backends/altium/project.py` | mode | `SheetMode`, `DEFAULT_SHEETS`, `HARNESS_KIND`; `write_project(..., sheets=DEFAULT_SHEETS)`; `WRITE_KINDS` gains `altium_harness` |
 | `src/fenolite/backends/altium/pcbdoc.py` | link | `PlacedComponent.sheet: tuple[str, str] \| None = None`; after the report: `channel_offsets(components)` |
@@ -202,7 +206,7 @@ All rows: backend `altium`, level `INFERRED`, result `pending (author report)`.
 | id | statement | test | criterion |
 |---|---|---|---|
 | `H-A-SCH-HIER-OPEN` | Altium Designer opens a top sheet with records 15, 16, 32 and 33 and module sheets with record 18, written with Fenolite's keys, without `INDEXINSHEET` and with `UNIQUEID` on sheet symbols and ports only | Part H, H1 | no prompt or repair offer; two sheet symbols with five entries; five ports |
-| `H-A-SCH-HIER-PRJ` | A project file that lists the module sheets and harness files after the libraries, with no other key, is accepted, and Altium takes the sheet no symbol names as the top | Part H, H1 and H3 | the Projects panel shows the top sheet with two children |
+| `H-A-SCH-HIER-PRJ` | A project file that lists the top sheet, then the module sheets, then the PCB document, the libraries and the harness files, with no other key, is accepted (restated after the second report of step H7; it first read "the module sheets and harness files after the libraries"), and Altium takes the sheet no symbol names as the top | Part H, H1 and H3 | the Projects panel shows the top sheet with two children |
 | `H-A-SCH-HIER-COMPILE` | Without a scope key, compilation uses the hierarchical scope and matches each port with its sheet entry | Part H, H3 | no message about ports, sheet entries or duplicate net names |
 | `H-A-SCH-HIER-NAMES` | Each net keeps the name of its labels on every sheet, and power ports join across sheets | Part H, H4 | exactly the nine net names of the sample, each with the model's pins |
 | `H-A-SCH-HIER-ECO` | The change order matches components by `\<sheet symbol id>\<component id>` for module-sheet parts and `\<component id>` for top-sheet parts, and nets by name | Part H, H5 and H7 | H5: six components and nine nets added, validated; H7: no component or net change proposed |
@@ -304,9 +308,8 @@ The report of Part H is in `docs/evidence/altium-schematic.md`, "Reports". It ch
   is its size: its `FileHeader` stream is 2303 bytes and so lies in the compound file's mini stream,
   while every child so far, and every sheet Altium saved, holds 4096 bytes or more (`H-A-SCHBIN-MINI`).
   What was done:
-  - **the probable cause is removed**: the binary form keeps `FileHeader` at 4096 bytes or more, with
-    one hidden sheet parameter as the last record of a small sheet ("Binary schematic form"). Sheets of
-    4096 bytes or more keep their bytes, so no golden file changes;
+  - the supposed cause was removed: the binary form padded a sheet under 4096 bytes with one hidden
+    sheet parameter. The second report refuted the guess, and the padding is withdrawn (below);
   - one difference from a saved board was found and corrected: `CHANNELOFFSET` restarts at 0 on every
     sheet (S-0188), and Fenolite wrote the index over the whole board, which gave `D1` the offset 2
     on a sheet of one part. Nothing shows that this explains H7;
@@ -329,6 +332,33 @@ The report of Part H is in `docs/evidence/altium-schematic.md`, "Reports". It ch
     Altium rewrites it, as the project file), and a written tree could hide a sheet that the compiler
     still does not read. So the default stays as c0032 decided, and variants a and b measure whether
     either file changes anything before the question is opened again (Open Question 7).
+
+- **H7, second report (2026-10-03, AD 26.5): the cause is the order of the documents.** Each test used a
+  fresh copy and "Validate PCB Project" alone. The padded example and variant c still had the second
+  module sheet outside the hierarchy, variant d failed as well, and so did variants a, b, f and g. In
+  variant e, where the sheet of `D1` is listed first, that sheet was a child and `driver` was outside:
+  only the first module sheet listed joins. The project file that Altium saved in full works in the
+  first order, alone, with its structure file, and with its document sections cut down to
+  `DocumentPath` (variants h, j and n). Fenolite's minimal file works when its documents are in the
+  order top sheet, `driver`, `led`, PCB document, PCB library, schematic library (variant l), and was
+  not reported as working with Altium's `[Design]` section or with `HierarchyMode=0` (variants k and
+  m). What was done:
+  - **decision 16 is changed**: `write_prjpcb` lists the top sheet, the module sheets, the PCB
+    document, the libraries and the harness files. For the board example it gives the bytes of
+    variant l. A flat build keeps its bytes. The rule that an existing project file is kept stays, so
+    a folder with a project file of the first build needs it deleted;
+  - **the padding is removed**: `MINI_CUTOFF`, `note_record`, `padded_records` and the `FenoliteNote`
+    parameter, with their tests. `H-A-SCHBIN-MINI` is refuted and superseded by `H-A-SCH-HIER-ORDER`,
+    which variant l confirms. The sheets of the board example are again the bytes of the first build;
+  - **`CHANNELOFFSET` per sheet stays**: it follows a saved board (S-0188), not the refuted guess;
+  - why the full project file is accepted in the other order is not known and not needed. The
+    hierarchy sample also had both module sheets as children; its built project file held the
+    schematic library between the top sheet and the module sheets, and no PCB document or PCB
+    library, so which documents in between stop the second sheet is not settled. Listing the
+    schematic documents first makes the question moot;
+  - a regression test checks, on the board example, that every schematic document precedes every
+    other document of the project file, with the top sheet first;
+  - open for the next report: the change order of H7 on the rebuilt example, and steps H3 to H5.
 
 ## Migration Plan
 

@@ -106,10 +106,11 @@ REGISTERED_BY_C0037 = frozenset(
         "H-A-SCH-HARN-NETS",
         "H-A-SCH-HARN-UNUSED",
         "H-A-SCHBIN-MINI",
+        "H-A-SCH-HIER-ORDER",
     }
 )
 """The hierarchy and harness rows (change c0037), settled by Part H of the schematic evidence page; the
-last one was registered after the report of step H7."""
+last two were registered after the reports of step H7: the first is refuted and the second succeeds it."""
 REGISTERED_BY_C0038 = frozenset(
     {
         "H-A-PCB-CU-TRACK",
@@ -128,7 +129,7 @@ FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
     "(tool field A365 Viewer for the Altium 365 Viewer), "
     "INFERRED with a result starting 'pending (author report)', "
-    "or a result starting 'refuted; superseded by <id>-2' naming a registered successor"
+    "or a result starting 'refuted; superseded by <successor id>' naming a registered successor"
 )
 _LABEL = re.compile(r"ALTIUM-VERIFIED\(([^()]*)\)")
 

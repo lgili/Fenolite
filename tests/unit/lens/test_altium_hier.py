@@ -111,9 +111,9 @@ def test_harness_not_lowered_in_the_ascii_form() -> None:
     ]
     assert paths == [
         "DocumentPath=altium_hier.SchDoc",
-        "DocumentPath=FenoliteHier.SchLib",
         "DocumentPath=altium_hier_flash.SchDoc",
         "DocumentPath=altium_hier_mcu.SchDoc",
+        "DocumentPath=FenoliteHier.SchLib",
     ]
 
 
@@ -133,9 +133,9 @@ def test_project_of_the_hierarchy_sample() -> None:
     paths = [line.partition("=")[2] for line in text.split("\r\n") if line.startswith("DocumentPath=")]
     assert paths == [
         "altium_hier.SchDoc",
-        "FenoliteHier.SchLib",
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
+        "FenoliteHier.SchLib",
         "altium_hier_mcu.Harness",
         "altium_hier_flash.Harness",
     ]
@@ -189,7 +189,7 @@ def test_envelope_evidence() -> None:
     assert output.evidence.level is Level.INFERRED and ALTIUM_BUILD_EVIDENCE.level is Level.INFERRED
     assert set(hierarchy.EVIDENCE.hypotheses) <= set(ALTIUM_BUILD_EVIDENCE.hypotheses)
     assert {"H-A-SCH-HIER-OPEN", "H-A-SCH-HIER-ECO", "H-A-SCH-HARN-OPEN"} <= set(output.evidence.hypotheses)
-    assert len(hierarchy.EVIDENCE.hypotheses) == 9
+    assert len(hierarchy.EVIDENCE.hypotheses) == 10
 
 
 def test_write_project_modes() -> None:

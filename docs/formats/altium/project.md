@@ -21,7 +21,7 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | KiCad's developer page sketches one `[Design]` section with repeated `DocumentPath=` lines, a layout that KiCad's own project importer does not read; numbered `[DocumentN]` sections are used instead | S-0002, S-0132 | INFERRED | H-A-PRJ-OPEN |
 | Altium rewrites the project file when the user adds a document, such as a new PCB document, and saves the project; keys it adds are expected | S-0134 | INFERRED | H-A-PRJ-KEEP |
 | "Design » Update PCB Document" opens the engineering change order of a compiled project: "Validate Changes" fills its check column, "Execute Changes" its done column, and a change that cannot be made is marked with a red cross and a message | S-0141 | INFERRED | H-A-SCH-ECO |
-| A multi-sheet project lists every document in its own `[Document<n>]` section: each schematic sheet, the PCB document, the libraries and the harness definition files, in no particular order; the top sheet need not be first | S-0132, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
+| A multi-sheet project lists every document in its own `[Document<n>]` section: each schematic sheet, the PCB document, the libraries and the harness definition files. The saved projects read, which are full project files, hold them in no particular order, and their top sheet need not be first; for Fenolite's minimal file the order matters (`H-A-SCH-HIER-ORDER`, below) | S-0132, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
 | The top sheet is found from the structure, as the sheet that no sheet symbol names, not from the order of the sections | S-0185, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
 | Saved project files hold scope and net-naming keys under `[Design]` and a unique id per document section; Fenolite's verified project file holds none of them and relies on Altium's defaults | S-0187, S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
 | The project option "Net Identifier Scope" has the values Automatic, Flat, Hierarchical, Strict Hierarchical and Global. Automatic picks Hierarchical when the top sheet has sheet entries, Flat when there are ports but no sheet entry, and Global otherwise | S-0185 | INFERRED | H-A-SCH-HIER-COMPILE |
@@ -35,6 +35,10 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | Altium Designer 26.5 writes `<project>.PrjPcbStructure` on "Save All" once it holds the whole hierarchy; Fenolite's files had none and Altium did not ask for one. Its lines end with CR LF: first `Record=TopLevelDocument`, `FileName=<top sheet>` and `SheetNumber=` followed by one space; then, per sheet symbol, `Record=SheetSymbol`, `SourceDocument=<sheet that holds the symbol>`, `Designator` and `SchDesignator` (the symbol's name), `FileName` and `RawFileName` (the child's file name), `SymbolType=Normal`, `ObjectKind=Sheet Symbol`, and the keys `SheetNumber`, `DesignItemId`, `SourceLibraryName`, `RevisionGUID`, `ItemGUID` and `VaultGUID`, each with one space as its value (maintainer's report of step H7, 2026-10-03) | S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 | Altium Designer 26.5 saves the project file in UTF-8 with a byte-order mark and CR LF lines. It keeps `[Design]` and `Version=1.0`, adds `HierarchyMode=0` and some forty more keys there, keeps the `[Document<n>]` sections in the written order and adds 14 keys to each, the last one `DocumentUniqueId`, and adds sections for preferences, a configuration, output groups, rule checks, annotation, class generation and comparison (maintainer's report of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PRJ-KEEP |
 | In that saved project `DocumentUniqueId` held eight letters for the top sheet, for the PCB document and for the module sheet that a dialog had just loaded, and was empty for the two libraries and for the other module sheet, which was a child all the same. The save changed no schematic file, and none of the ids is one that Fenolite writes. So Altium gives a document an id when it loads it in full, and a sheet can be a child without one (maintainer's report of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
+| With a minimal project file (`[Design]`, `Version=1.0` and one `DocumentPath` per section), Altium Designer 26.5 builds the whole hierarchy when the schematic documents are listed together: the top sheet, then the module sheets, then the PCB document and the libraries. Both module sheets are then under the top sheet after "Project » Validate PCB Project" on a fresh copy, with no dialog (variant l of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-ORDER |
+| With the same minimal file in the order top sheet, PCB document, PCB library, schematic library, module sheets, Altium Designer 26.5 takes only the first module sheet listed as a child: the second one stays outside the hierarchy, whatever its size, and "Validate PCB Project" does not bring it in. With the module sheets listed in the other order, the other sheet is the child (variant e). Neither a `.PrjPcbStructure` file with Altium's lines, nor a `DocumentUniqueId` in every section, nor leaving out the PCB document, nor a design without ports changed that (variants a, b, f and g), and the minimal file with Altium's full `[Design]` section or with `HierarchyMode=0` alone was not reported as working (variants k and m) (maintainer's second report of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-ORDER |
+| The project file that Altium Designer 26.5 saved in full is accepted in that first order: with it, alone, with its structure file, or with every `[Document<n>]` section cut down to `DocumentPath`, both module sheets are children (variants h, j and n of step H7, 2026-10-03). Which of its other sections makes the difference is not known, and Fenolite does not need it | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-ORDER |
+| In the hierarchy sample both module sheets are under the top sheet in Altium Designer 26.5 (maintainer's report, 2026-10-03). The maintainer's note gives its documents as top sheet, `flash`, `mcu`, schematic library; the project file built for that session held the schematic library as its second document, between the top sheet and the two module sheets, and no PCB document or PCB library. So one schematic library in between may not be what stops the second sheet; which of the documents in between does is not known, and the order written now avoids the question | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 
 ## Fenolite's choices
 
@@ -44,15 +48,20 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 - It is written once: an existing `<name>.PrjPcb` in the output folder is kept, because Altium rewrites
   it when the PCB document is added (capability `altium-build`, "Edited Altium outputs are not
   overwritten").
-- Change c0037 (`--altium-sheets modules`) appends, after the libraries and numbered from the next free
-  number, one section per module sheet in module-name order and then one per harness definition file in
-  the MS-CFB order of the names. `[Document1]` stays the top sheet and `[Document2]` the PCB document
-  when there is one; without module sheets the bytes do not change. No key names the top sheet or the
-  net scope, and no project structure file is written (`H-A-SCH-HIER-PRJ`, `H-A-SCH-HIER-COMPILE`).
-  The structure file stays unwritten after the report of step H7: Altium derives it from the sheets and
-  writes it itself, and a written copy could show a tree in the Projects panel that the compiler does
-  not build. Whether a written structure file, or document ids in the project file, would bring a
-  skipped sheet into the hierarchy is tested by two variants of step H7, not assumed.
+- Change c0037 (`--altium-sheets modules`) lists the documents in this order: the top sheet as
+  `[Document1]`, one section per module sheet in module-name order, the PCB document when there is one,
+  the libraries in the MS-CFB order of their names, and one section per harness definition file in the
+  MS-CFB order of the names. Every schematic document so precedes every other document, the top sheet
+  first (`H-A-SCH-HIER-ORDER`). The first build listed the module sheets after the libraries, and Altium
+  Designer then took only the first module sheet into the hierarchy. Without module sheets the bytes do
+  not change: `[Document1]` is the schematic and `[Document2]` the PCB document when there is one.
+- No key names the top sheet or the net scope, and no project structure file is written
+  (`H-A-SCH-HIER-PRJ`, `H-A-SCH-HIER-COMPILE`). Altium derives the structure file from the sheets and
+  writes it itself; a written copy, or document ids in the project file, did not bring a skipped sheet
+  into the hierarchy (variants a and b of step H7).
+- The order holds for a project file that Fenolite writes. An existing `<name>.PrjPcb` is kept as it
+  is, so a project file of the first build has to be deleted, or its sections reordered, before the
+  build is repeated.
 - A harness definition file is `<sheet file stem>.Harness`, one per sheet that holds a harness block
   (a harness connector). A top sheet that only joins two sheet entries by a signal harness line holds no
   connector and gets no file, as the saved top sheets. The file holds

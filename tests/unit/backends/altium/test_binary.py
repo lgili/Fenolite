@@ -51,7 +51,6 @@ def test_constants_and_evidence() -> None:
         "H-A-SCHBIN-AD",
         "H-A-SCHBIN-CFB",
         "H-A-SCHBIN-FRAME",
-        "H-A-SCHBIN-MINI",
         "H-A-SCHBIN-STORAGE",
         "H-A-SCHBIN-VIEWER",
     }
@@ -217,52 +216,3 @@ def test_additional_streams_of_the_module_sheets() -> None:
 def test_additional_stream_framing() -> None:
     records = [(("RECORD", "215"), ("OWNERPARTID", "-1"))]
     assert additional_stream(records) == frame_record(header_record(1)) + frame_record(records[0])
-
-
-# --- FileHeader stays out of the mini stream (H-A-SCHBIN-MINI, step H7) ------------------------------
-
-
-def test_small_file_header_is_padded_to_the_mini_cutoff() -> None:
-    """``H-A-SCHBIN-MINI``: a record list whose stream is under 4096 bytes gets one hidden sheet parameter
-    that brings it to exactly 4096; a larger one is unchanged."""
-    wire = (("RECORD", "27"), ("OWNERPARTID", "-1"), ("X1", "100"))
-    for count in (0, 1, 9, 10, 37, 99, 100):
-        records = [wire] * count
-        if len(binary.file_header_stream(records)) >= binary.MINI_CUTOFF:
-            assert binary.padded_records(records) == records
-            continue
-        padded = binary.padded_records(records)
-        assert padded[:-1] == records and len(binary.file_header_stream(padded)) == binary.MINI_CUTOFF
-        note = dict(padded[-1])
-        assert list(note) == ["RECORD", "OWNERPARTID", "COLOR", "FONTID", "ISHIDDEN", "TEXT", "NAME"]
-        assert (note["RECORD"], note["ISHIDDEN"], note["NAME"]) == ("41", "T", "FenoliteNote")
-        assert note["TEXT"].startswith(binary.NOTE_TEXT) and set(note["TEXT"][len(binary.NOTE_TEXT) :]) <= {
-            "."
-        }
-    with pytest.raises(ValueError):
-        binary.note_record(-1)
-
-
-def test_stream_just_under_the_cutoff_gets_the_bare_note() -> None:
-    """When the note alone takes the stream past 4096 bytes it has no filler."""
-    filler = (("RECORD", "27"), ("X", "1" * 3990))
-    assert len(binary.file_header_stream([filler])) < binary.MINI_CUTOFF
-    padded = binary.padded_records([filler])
-    assert dict(padded[-1])["TEXT"] == binary.NOTE_TEXT
-    assert len(binary.file_header_stream(padded)) > binary.MINI_CUTOFF
-
-
-def test_every_written_sheet_keeps_file_header_in_regular_sectors() -> None:
-    """Every sheet of the hierarchy sample, and a sheet with one sheet symbol only, stores ``FileHeader`` in
-    regular sectors: the stream is 4096 bytes or more, and its count equals its records."""
-    from _cfb_read import parse_compound
-
-    plans = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="binary")
-    for sheet in plans.sheets:
-        data = write_schdoc_binary(sheet.plan)
-        streams = read_compound(data)
-        assert len(streams["FileHeader"]) >= binary.MINI_CUTOFF, sheet.file
-        assert "FileHeader" not in parse_compound(data).mini_chains
-        records = deframe(streams["FileHeader"])
-        assert dict(records[0])["WEIGHT"] == str(len(records) - 1)
-        assert all(dict(r).get("NAME") != "FenoliteNote" for r in records), "the sample needs no note"

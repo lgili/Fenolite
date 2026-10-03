@@ -153,9 +153,11 @@ A harness crossing SHALL be drawn on the module sheet, and on the top sheet unle
 - **THEN** it raises `ValueError`
 
 ### Requirement: Project file of a multi-sheet project
-`backends.altium.prjpcb.write_prjpcb(*, schematic, pcb=None, libraries=(), sheets=(), harnesses=())` SHALL list, after the documents of "Project file", each module sheet and then each harness definition file in its own section, numbered from the next free number: an empty line, `[Document<i>]` and `DocumentPath=<file>` (S-0132, S-0187, S-0188). This requirement extends "Project file", whose rules hold.
-- `sheets` MUST be written in the order given (module-name order). `harnesses` MUST be written in the MS-CFB order of their names (`cfb.name_key`). A name holding `/` or `\` MUST raise `ValueError`.
-- With both empty, the bytes MUST equal those of "Project file", so `[Document1]` stays the top sheet and `[Document2]` the PCB document when there is one.
+`backends.altium.prjpcb.write_prjpcb(*, schematic, pcb=None, libraries=(), sheets=(), harnesses=())` SHALL list every document in its own section, an empty line, `[Document<i>]` and `DocumentPath=<file>`, numbered from 1 without a gap, in this order: the top sheet `schematic`, each module sheet of `sheets`, the PCB document `pcb` when given, the libraries, and each harness definition file of `harnesses` (S-0132, S-0134, S-0187, S-0188). This requirement extends "Project file", whose rules hold.
+- `sheets` MUST be written in the order given (module-name order). The libraries and `harnesses` MUST each be written in the MS-CFB order of their names (`cfb.name_key`). A name holding `/` or `\` MUST raise `ValueError`.
+- Every schematic document MUST precede every other document, and the top sheet MUST be `[Document1]`. With the minimal project file, Altium Designer 26.5 took only the first module sheet into the hierarchy when the PCB document and the libraries stood between the top sheet and the module sheets, and took both with the schematic documents listed first (variant l of step H7 of the report of 2026-10-03; `H-A-SCH-HIER-ORDER`).
+- With `sheets` and `harnesses` empty, the bytes MUST equal those of "Project file": `[Document1]` is the schematic and `[Document2]` the PCB document when there is one.
+- The order holds for a file that is written. An existing `<name>.PrjPcb` is kept as it is (`altium-build`, "Edited Altium outputs are not overwritten").
 - No key names the top sheet or the net scope: Altium finds the top sheet from the sheet symbols and takes its default scope (S-0185, S-0187, S-0188; `H-A-SCH-HIER-PRJ`, `H-A-SCH-HIER-COMPILE`).
 
 #### Scenario: Project with a module sheet and a harness file
@@ -168,7 +170,11 @@ A harness crossing SHALL be drawn on the module sheet, and on the top sheet unle
 
 #### Scenario: Project of the hierarchy sample
 - **WHEN** `altium_hier.PrjPcb` of the sample's `modules` build is read
-- **THEN** its `DocumentPath` lines are, in order, `altium_hier.SchDoc`, `FenoliteHier.SchLib`, `altium_hier_flash.SchDoc`, `altium_hier_mcu.SchDoc`, `altium_hier_mcu.Harness` and `altium_hier_flash.Harness`
+- **THEN** its `DocumentPath` lines are, in order, `altium_hier.SchDoc`, `altium_hier_flash.SchDoc`, `altium_hier_mcu.SchDoc`, `FenoliteHier.SchLib`, `altium_hier_mcu.Harness` and `altium_hier_flash.Harness`
+
+#### Scenario: Project of the board example
+- **WHEN** `examples/altium_hier_board/design.py` is built with `sheets="modules"` and its project file is read
+- **THEN** its `DocumentPath` lines are, in order, `altium_hier_board.SchDoc`, `altium_hier_board_driver.SchDoc`, `altium_hier_board_led.SchDoc`, `altium_hier_board.PcbDoc`, `altium_hier_board.PcbLib` and `altium_hier_board.SchLib`, so every `.SchDoc` precedes every other document
 
 ### Requirement: Hierarchical sheet layout
 `backends.altium.layout.layout_sheet(parts, *, symbols=(), ports=())` SHALL place the sheet symbols of a top sheet and the ports of a module sheet as cells of the same packing as the components, before them. This requirement extends "Deterministic sheet layout", whose rules hold for every sheet.
@@ -215,9 +221,8 @@ The test suite SHALL read a written multi-sheet project back with a reader that 
 ## MODIFIED Requirements
 
 ### Requirement: Binary schematic form
-`backends.altium.binary.write_schdoc_binary(plan)` SHALL return the binary form of the schematic of `plan`: a compound file (`write_compound`) with the streams `FileHeader` and then `Storage`, then `Additional` only when the plan holds harness records ("Harness records"), and no other stream (S-0002, S-0130, S-0131, S-0142, S-0147, S-0187, S-0188). This requirement extends c0032's "ASCII schematic form": the records, their keys, their order and every value are those of `schdoc.schdoc_records(plan)`, and only the header text, the framing and, on a small sheet, one last record differ.
-- `FileHeader` MUST be the header record `|HEADER=Protel for Windows - Schematic Capture Binary File Version 5.0|WEIGHT=<n>`, with `<n>` the number of records after it, followed by every record of `binary.padded_records(schdoc_records(plan))`.
-- `binary.padded_records(records)` MUST return `records` unchanged when their `FileHeader` stream is 4096 bytes (`binary.MINI_CUTOFF`) or more. Otherwise it MUST append one hidden sheet parameter, `RECORD=41`, `OWNERPARTID=-1`, `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT`, `NAME=FenoliteNote` (the keys of a saved sheet parameter; S-0130, S-0188), whose text is `binary.NOTE_TEXT` followed by as many `.` as bring the stream to exactly 4096 bytes, or by none when the sentence alone takes it past 4096. So `FileHeader` is never stored in the compound file's mini stream, as in every sheet Altium saves (S-0187, S-0188). A module sheet whose `FileHeader` lay in the mini stream was left outside the hierarchy by Altium Designer 26.5 (step H7 of the report of 2026-10-03); that the size is the cause is `H-A-SCHBIN-MINI`.
+`backends.altium.binary.write_schdoc_binary(plan)` SHALL return the binary form of the schematic of `plan`: a compound file (`write_compound`) with the streams `FileHeader` and then `Storage`, then `Additional` only when the plan holds harness records ("Harness records"), and no other stream (S-0002, S-0130, S-0131, S-0142, S-0147, S-0187, S-0188). This requirement extends c0032's "ASCII schematic form": the records, their keys, their order and every value are those of `schdoc.schdoc_records(plan)`, and only the header text and the framing differ.
+- `FileHeader` MUST be the header record `|HEADER=Protel for Windows - Schematic Capture Binary File Version 5.0|WEIGHT=<n>`, with `<n>` the number of records after it, followed by every record of `schdoc_records(plan)`. A sheet whose stream is under 4096 bytes is written as it is, in the compound file's mini stream: Altium Designer 26.5 reads it, and the hidden sheet parameter that padded such a sheet after the first report of step H7 is removed (`H-A-SCHBIN-MINI`, refuted by the second report of 2026-10-03).
 - Every record MUST be framed as a 32-bit little-endian word whose low 24 bits are the payload length and whose top byte is 0 (a property list), followed by the payload: the record's `ascii.format_record` text, then one NUL byte, counted in the length (S-0130, S-0147, S-0148). A payload of 65 536 bytes or more MUST raise `ValueError`.
 - Payload text MUST follow the byte rules of "ASCII schematic form" and "Text the ASCII form cannot carry": printable 7-bit ASCII and no `|` inside a value. No CR or LF is written in a binary schematic.
 - Pins MUST stay text records (`RECORD=2`), as in the ASCII form. No record of type 1 is written (S-0131, S-0142).
@@ -242,13 +247,9 @@ The test suite SHALL read a written multi-sheet project back with a reader that 
 - **WHEN** `write_project(model, name="altium_sample")` and `write_project(model, name="altium_sample", form="ascii")` are called on the sample's model with generic pins
 - **THEN** the first `altium_sample.SchDoc` starts with the CFB signature, the second starts with `|HEADER=`, and both `altium_sample.PrjPcb` values are equal
 
-#### Scenario: Small sheet is padded
-- **WHEN** `examples/altium_hier_board/design.py` is built with `sheets="modules"` and its three sheets are read with `tests/_cfb_read.py`
-- **THEN** the `FileHeader` stream of the top sheet and of the sheet `led` is exactly 4096 bytes, stored in regular sectors, and ends with one record 41 named `FenoliteNote`; the sheet `driver` holds no such record; and in each sheet `WEIGHT` equals the number of records after the header
-
-#### Scenario: Large sheet is unchanged
-- **WHEN** `padded_records` runs on the records of the sample's schematic
-- **THEN** it returns them unchanged, and the golden files of c0033 keep their bytes
+#### Scenario: Small sheet is not padded
+- **WHEN** `examples/altium_hier_board/design.py` is built with `sheets="modules"` and its three sheets are read with `tests/_altium_read.py`
+- **THEN** no sheet holds a record named `FenoliteNote`, and in each sheet `WEIGHT` equals the number of records after the header
 
 #### Scenario: No Additional stream without harnesses
 - **WHEN** the sample's binary schematic and the binary top sheet of `examples/altium_hier/design.py` built with `sheets="flat"` are read with `tests/_cfb_read.py`

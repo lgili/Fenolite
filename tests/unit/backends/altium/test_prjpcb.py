@@ -78,6 +78,8 @@ def test_unchanged_without_sheets() -> None:
 
 
 def test_sheets_keep_their_order_and_harnesses_are_sorted() -> None:
+    """``H-A-SCH-HIER-ORDER``: the top sheet, the module sheets in the order given, then the PCB document,
+    the libraries and the harness files; every schematic document precedes every other document."""
     data = write_prjpcb(
         schematic="d.SchDoc",
         pcb="d.PcbDoc",
@@ -88,17 +90,19 @@ def test_sheets_keep_their_order_and_harnesses_are_sorted() -> None:
     paths = [line.partition("=")[2] for line in data.decode("ascii").split("\r\n") if line.startswith("Doc")]
     assert paths == [
         "d.SchDoc",
-        "d.PcbDoc",
-        "L.SchLib",
         "d_flash.SchDoc",
         "d_mcu.SchDoc",
         "d_Adc.SchDoc",
+        "d.PcbDoc",
+        "L.SchLib",
         "d.Harness",
         "d_mcu.Harness",
         "d_flash.Harness",
     ]
     numbers = [line for line in data.decode("ascii").split("\r\n") if line.startswith("[Document")]
     assert numbers == [f"[Document{n}]" for n in range(1, 10)]
+    last_sheet = max(i for i, path in enumerate(paths) if path.endswith(".SchDoc"))
+    assert all(path.endswith(".SchDoc") for path in paths[: last_sheet + 1])
 
 
 @pytest.mark.parametrize("name", ["sub/a_x.SchDoc", "sub\\a_x.SchDoc", "a|x.SchDoc", ""])

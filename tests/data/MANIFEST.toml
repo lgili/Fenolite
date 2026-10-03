@@ -767,7 +767,7 @@ notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_
 path = "tests/data/altium/hier/altium_hier.PrjPcb"
 origin = "authored"
 corpus_id = ""
-notes = "project file of examples/altium_hier listing its three sheets, its library and its two harness definition files (c0037 golden file)"
+notes = "project file of examples/altium_hier listing its three sheets first, then its library and its two harness definition files (c0037 golden file)"
 
 [[file]]
 path = "tests/data/altium/hier/altium_hier.SchDoc"

@@ -5,13 +5,13 @@ Version=1.0
 DocumentPath=altium_hier.SchDoc
 
 [Document2]
-DocumentPath=FenoliteHier.SchLib
-
-[Document3]
 DocumentPath=altium_hier_flash.SchDoc
 
-[Document4]
+[Document3]
 DocumentPath=altium_hier_mcu.SchDoc
+
+[Document4]
+DocumentPath=FenoliteHier.SchLib
 
 [Document5]
 DocumentPath=altium_hier_mcu.Harness

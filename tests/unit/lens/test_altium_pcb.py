@@ -957,11 +957,18 @@ def test_hier_board_link_faults_are_caught(tmp_path: Path) -> None:
     from _altium_pcb_read import read_pcbdoc
     from _altium_read import ReadError, board_link_problems, component_links
 
+    from fenolite.backends.altium.prjpcb import write_prjpcb
+
     files = dict(build_hier_board(tmp_path, sheets="modules").files)
     project, top = files["altium_hier_board.PrjPcb"], "altium_hier_board.SchDoc"
     led = b"altium_hier_board_led.SchDoc"
-    unlisted = project.replace(b"\r\n[Document6]\r\nDocumentPath=" + led + b"\r\n", b"")
-    assert unlisted != project
+    unlisted = write_prjpcb(
+        schematic=top,
+        sheets=("altium_hier_board_driver.SchDoc",),
+        pcb="altium_hier_board.PcbDoc",
+        libraries=("altium_hier_board.PcbLib", "altium_hier_board.SchLib"),
+    )
+    assert led in project and led not in unlisted
     with pytest.raises(ReadError, match="altium_hier_board_led.SchDoc, which the project does not list"):
         component_links(unlisted, files, top)
     upper = "altium_hier_board_LED.SchDoc"
@@ -1006,35 +1013,34 @@ def test_module_without_a_crossing_still_gets_its_sheet_symbol(tmp_path: Path) -
     assert output.summary["sheets"] == ["lonely.SchDoc", "lonely_a.SchDoc", "lonely_b.SchDoc"]
     assert (output.summary["ports"], output.summary["sheet_entries"]) == (0, 0)
     top = records(output.files["lonely.SchDoc"])[1:]
-    assert [r["RECORD"] for r in top] == ["31", "15", "32", "33", "15", "32", "33", "41"]
-    assert top[-1]["NAME"] == "FenoliteNote", "a small sheet ends with the note that fills its stream"
+    assert [r["RECORD"] for r in top] == ["31", "15", "32", "33", "15", "32", "33"]
     assert [r["TEXT"] for r in top if r["RECORD"] == "33"] == ["lonely_a.SchDoc", "lonely_b.SchDoc"]
     links = component_links(output.files["lonely.PrjPcb"], output.files, "lonely.SchDoc")
     assert sorted(links.values()) == [("R1", "lonely\\a"), ("R2", "lonely\\b")]
 
 
-def test_hier_board_sheets_keep_file_header_out_of_the_mini_stream(tmp_path: Path) -> None:
-    """``H-A-SCHBIN-MINI``, step H7: the top sheet and the sheet ``led`` of the board example are small, and
-    the first build stored their ``FileHeader`` in the compound file's mini stream; Altium Designer then
-    left ``led`` outside the hierarchy. Each sheet now holds a ``FileHeader`` of 4096 bytes or more, the
-    small ones through one hidden sheet parameter as their last record."""
-    from _cfb_read import parse_compound
-
+def test_hier_board_project_lists_the_schematics_first(tmp_path: Path) -> None:
+    """``H-A-SCH-HIER-ORDER``, step H7: in a multi-sheet build every schematic document precedes every
+    other document of the project file, and the top sheet is the first. With the PCB document and the
+    libraries between the top sheet and the module sheets, Altium Designer took only the first module
+    sheet into the hierarchy. No sheet is padded: the records of a small sheet are written as they are."""
     output = build_hier_board(tmp_path, sheets="modules")
-    notes: dict[str, bool] = {}
-    for name in output.summary["sheets"]:  # type: ignore[union-attr]
-        compound = parse_compound(output.files[name])
-        assert len(compound.streams["FileHeader"]) >= 4096, name
-        assert "FileHeader" not in compound.mini_chains, name
+    project = output.files["altium_hier_board.PrjPcb"].decode("ascii")
+    paths = [line.partition("=")[2] for line in project.split("\r\n") if line.startswith("DocumentPath=")]
+    assert paths == [
+        "altium_hier_board.SchDoc",
+        "altium_hier_board_driver.SchDoc",
+        "altium_hier_board_led.SchDoc",
+        "altium_hier_board.PcbDoc",
+        "altium_hier_board.PcbLib",
+        "altium_hier_board.SchLib",
+    ]
+    sheets = list(output.summary["sheets"])  # type: ignore[call-overload]
+    assert paths[: len(sheets)] == sheets, "the top sheet, then the module sheets in their order"
+    assert not any(path.endswith(".SchDoc") for path in paths[len(sheets) :])
+    sections = [line for line in project.split("\r\n") if line.startswith("[Document")]
+    assert sections == [f"[Document{n}]" for n in range(1, len(paths) + 1)]
+    for name in sheets:
         rows = records(output.files[name])
         assert rows[0]["WEIGHT"] == str(len(rows) - 1)
-        notes[name] = rows[-1].get("NAME") == "FenoliteNote"
-        assert sum(r.get("NAME") == "FenoliteNote" for r in rows) == int(notes[name])
-        if notes[name]:
-            assert len(compound.streams["FileHeader"]) == 4096
-            assert rows[-1]["ISHIDDEN"] == "T" and "OWNERINDEX" not in rows[-1]
-    assert notes == {
-        "altium_hier_board.SchDoc": True,
-        "altium_hier_board_driver.SchDoc": False,
-        "altium_hier_board_led.SchDoc": True,
-    }
+        assert all(r.get("NAME") != "FenoliteNote" for r in rows), name

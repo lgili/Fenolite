@@ -55,6 +55,7 @@ EVIDENCE = Evidence(
         "H-A-SCH-HIER-ECO",
         "H-A-SCH-HIER-NAMES",
         "H-A-SCH-HIER-OPEN",
+        "H-A-SCH-HIER-ORDER",
         "H-A-SCH-HIER-PRJ",
     ),
 )
