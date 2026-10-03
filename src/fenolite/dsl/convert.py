@@ -160,6 +160,18 @@ def placements(design: Design) -> Mapping[str, Placement]:
     return MappingProxyType(out)
 
 
+def planes(design: Design) -> Mapping[str, str]:
+    """The internal planes of ``design.board(planes=…)``: inner layer name → net name, in layer order.
+
+    A plane on a net that the design does not hold raises ``DslError`` naming it. The model gets no plane
+    entity: a plane is a build parameter, as the copper count is.
+    """
+    for layer, net in design.planes.items():
+        if net not in design.nets:
+            raise DslError(f"the plane on {layer} names the net {net!r}, which the design does not hold")
+    return MappingProxyType(dict(design.planes))
+
+
 def moves(design: Design) -> Mapping[str, str]:
     """The ``moved()`` aliases, new component path → old, in path order (``docs/lens.md``, "moved()").
 
@@ -182,5 +194,6 @@ __all__ = [
     "key_id",
     "moves",
     "placements",
+    "planes",
     "to_model",
 ]

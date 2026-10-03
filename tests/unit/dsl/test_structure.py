@@ -7,7 +7,7 @@ from __future__ import annotations
 import pytest
 
 from fenolite.core.coords import Point
-from fenolite.dsl import Design, DslError, Module, Net, Part, mm, placements, to_model
+from fenolite.dsl import Design, DslError, Module, Net, Part, mm, placements, planes, to_model
 from fenolite.dsl.convert import BOARD_ORIGIN
 from fenolite.dsl.part import Placement
 
@@ -114,3 +114,66 @@ def test_no_hidden_membership() -> None:
     d = Design("t")
     Part("R9", "Mini:Mini_R")
     assert all(c.ref != "R9" for c in to_model(d).circuit.components)
+
+
+# --- internal planes (change c0038, "Board and placements in the DSL") -------------------------------
+
+
+def _with_gnd() -> tuple[Design, Net]:
+    design, gnd = Design("t"), Net("GND")
+    design.add(gnd, Net("VIN"))
+    return design, gnd
+
+
+def test_planes_default_to_none() -> None:
+    design, _ = _with_gnd()
+    design.board(mm(50), mm(30), copper=4)
+    assert design.planes == {} and dict(planes(design)) == {}
+    assert dict(planes(Design("empty"))) == {}
+
+
+def test_ground_plane_declared() -> None:
+    """Scenario "Ground plane declared"."""
+    design, gnd = _with_gnd()
+    design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})
+    assert dict(planes(design)) == {"In1.Cu": "GND"} and design.copper == 4
+    plain, _ = _with_gnd()
+    plain.board(mm(50), mm(30), copper=4)
+    assert to_model(design) == to_model(plain)
+
+
+def test_planes_by_name_in_layer_order() -> None:
+    design, gnd = _with_gnd()
+    design.board(mm(50), mm(30), copper=4, planes={"In2.Cu": "VIN", "In1.Cu": gnd})
+    assert list(planes(design).items()) == [("In1.Cu", "GND"), ("In2.Cu", "VIN")]
+    assert design.planes == {"In1.Cu": "GND", "In2.Cu": "VIN"}
+
+
+def test_malformed_planes_fail_at_the_call() -> None:
+    """Scenario "Malformed planes fail at the call"."""
+    design, gnd = _with_gnd()
+    with pytest.raises(DslError, match="planes need copper=4"):
+        design.board(mm(50), mm(30), planes={"In1.Cu": gnd})
+    with pytest.raises(DslError, match="F.Cu"):
+        design.board(mm(50), mm(30), copper=4, planes={"F.Cu": gnd})
+    with pytest.raises(DslError, match="needs a Net or a net name, not 3"):
+        design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": 3})  # type: ignore[dict-item]
+    with pytest.raises(DslError, match="needs a Net or a net name"):
+        design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": " GND"})
+    with pytest.raises(DslError, match="planes must map"):
+        design.board(mm(50), mm(30), copper=4, planes=["In1.Cu"])  # type: ignore[arg-type]
+    assert design.size is None and design.planes == {}  # a refused call declares nothing
+    design.board(mm(50), mm(30), copper=4, planes={})
+    assert design.planes == {}
+
+
+def test_plane_on_a_net_that_is_not_in_the_design() -> None:
+    """Scenario "Plane on a net that is not in the design"."""
+    design, _ = _with_gnd()
+    design.board(mm(50), mm(30), copper=4, planes={"In2.Cu": "NOPE"})
+    with pytest.raises(DslError, match="NOPE"):
+        planes(design)
+    other = Design("u")
+    other.board(mm(50), mm(30), copper=4, planes={"In1.Cu": Net("LOOSE")})
+    with pytest.raises(DslError, match="LOOSE"):
+        planes(other)

@@ -71,6 +71,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.pad-without-pin": "info",
         "build.global-library": "info",
         "build.interface-not-lowered": "info",
+        "build.plane-not-lowered": "info",
         **PRESERVE_ISSUE_CODES,
     }
 )
@@ -95,6 +96,20 @@ RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, BUILD_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+def plane_issues(planes: Mapping[str, str]) -> list[Issue]:
+    """One ``build.plane-not-lowered`` info per internal plane of the script (layer name → net name): the
+    KiCad target writes the layer as the signal layer it is, and no plane (change c0038)."""
+    return [
+        issue(
+            "build.plane-not-lowered",
+            f"the plane on {layer} (net {net}) is not written: {layer} stays a signal layer of the board",
+            layer,
+            f"draw a zone on {layer} for the net {net} in KiCad",
+        )
+        for layer, net in planes.items()
+    ]
 
 
 class PlacementRequest(Protocol):

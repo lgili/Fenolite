@@ -238,3 +238,51 @@ def test_help_names_the_vendoring_licence(
     assert cli_main.main(["build", "--help"]) == 0
     text = " ".join(capsys.readouterr().out.split())
     assert "--vendor" in text and "licence" in text
+
+
+# --- internal planes (change c0038, design-dsl "Planes in a build") ----------------------------------
+
+BOARD_LINE = "design.board(mm(50), mm(30))"
+PLANE_NET = "vin, gnd, led_drv, led_a = "
+
+
+def plane_script(tmp_path: Path, board: str) -> Path:
+    """The blink script with its nets declared before the board line ``board``."""
+    script = blink_copy(tmp_path)
+    lines = script.read_text(encoding="utf-8").splitlines()
+    nets = next(line for line in lines if line.startswith(PLANE_NET))
+    lines.remove(nets)
+    lines[lines.index(BOARD_LINE)] = f"{nets}\n{board}"
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return script
+
+
+def test_plane_in_a_kicad_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane in a KiCad build": one info, and the board of the variant without ``planes``."""
+    board = "design.board(mm(50), mm(30), copper=4)"
+    plain = plane_script(tmp_path / "a", board)
+    code, expected, _ = run(monkeypatch, str(plain), "--out", str(tmp_path / "A"), "--dry-run")
+    assert code == 0 and "build.plane-not-lowered" not in [i["code"] for i in expected["issues"]]  # type: ignore[index]
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
+    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "A"), "--dry-run")
+    assert code == 0
+    found = [i for i in env["issues"] if i["code"] == "build.plane-not-lowered"]  # type: ignore[index]
+    assert len(found) == 1 and found[0]["severity"] == "info"
+    assert "In1.Cu" in found[0]["message"] and "GND" in found[0]["message"]
+
+    def digests(envelope: dict[str, object]) -> dict[str, str]:
+        plan = envelope["result"]["plan"]  # type: ignore[index]
+        return {Path(p["path"]).name: p["sha256"] for p in plan if not Path(p["path"]).name.endswith(".json")}
+
+    assert digests(env) == digests(expected) and "blink.kicad_pcb" in digests(env)
+
+
+def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Unknown plane net stops the build"."""
+    script = plane_script(tmp_path, 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": "NOPE"})')
+    out = tmp_path / "B"
+    code, _env, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 3 and "FEN-3004" in err and "NOPE" in err and not out.exists()
+    for target in ("kicad", "altium"):
+        code, _env, err = run(monkeypatch, str(script), "--out", str(out), "--target", target, "--dry-run")
+        assert code == 3 and "FEN-3004" in err

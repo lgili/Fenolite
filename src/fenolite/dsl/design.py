@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from fenolite.core.units import Nm
@@ -17,6 +17,8 @@ from fenolite.dsl.units import as_nm
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
+INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
+"""The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,8 @@ class Design(Container):
         self.name = name
         self.rules = Rules(self)
         self.copper = 2
+        self.planes: dict[str, str] = {}
+        """``board(planes=…)``: inner layer name → net name, in layer order; empty by default."""
         self.size: tuple[Nm, Nm] | None = None
         self.parts: dict[str, Part] = {}
         self.modules: dict[str, Module] = {}
@@ -97,8 +101,17 @@ class Design(Container):
     def design(self) -> Design:
         return self
 
-    def board(self, width: object, height: object, copper: int = 2) -> None:
-        """A rectangular board of ``width`` × ``height`` with 2 or 4 copper layers."""
+    def board(
+        self,
+        width: object,
+        height: object,
+        copper: int = 2,
+        planes: Mapping[str, Net | str] | None = None,
+    ) -> None:
+        """A rectangular board of ``width`` × ``height`` with 2 or 4 copper layers. An inner layer is a
+        signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an internal
+        plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build parameter, as
+        ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``)."""
         if self.size is not None:
             raise DslError("board() is called once")
         if copper not in (2, 4):
@@ -106,8 +119,31 @@ class Design(Container):
         w, h = as_nm(width, name="width"), as_nm(height, name="height")
         if w <= 0 or h <= 0:
             raise DslError("the board width and height must be positive")
+        declared = self._planes(copper, planes)
         self.size = (w, h)
         self.copper = copper
+        self.planes = declared
+
+    @staticmethod
+    def _planes(copper: int, planes: object) -> dict[str, str]:
+        if planes is None:
+            return {}
+        if not isinstance(planes, Mapping):
+            raise DslError(f"planes must map an inner layer name to a net, not {planes!r}")
+        found: dict[str, str] = {}
+        for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
+            if copper != 4:
+                raise DslError(f"planes need copper=4: a board of {copper} copper layers has no inner layer")
+            if layer not in INNER_LAYERS:
+                names = " or ".join(INNER_LAYERS)
+                raise DslError(f"a plane lies on an inner layer ({names}), not on {layer!r}")
+            if isinstance(net, Net):
+                found[layer] = net.name
+            elif isinstance(net, str) and net and net == net.strip():
+                found[layer] = net
+            else:
+                raise DslError(f"the plane on {layer} needs a Net or a net name, not {net!r}")
+        return {layer: found[layer] for layer in INNER_LAYERS if layer in found}
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part at component path ``new`` was at ``old`` in an earlier build, so a rebuild
@@ -162,4 +198,4 @@ class Design(Container):
         return f"Design({self.name!r})"
 
 
-__all__ = ["DESIGN_NAME", "Design", "NetClassSpec", "Rules"]
+__all__ = ["DESIGN_NAME", "INNER_LAYERS", "Design", "NetClassSpec", "Rules"]

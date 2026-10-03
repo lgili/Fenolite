@@ -12,7 +12,7 @@ from _buildhelp import blink, build, codes
 
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
-from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES
+from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -32,6 +32,7 @@ def test_closed_set() -> None:
         "build.property-conflict": "error", "build.vendor-unsafe-name": "error",
         "build.library-changed": "warning",
         "build.no-connect-on-net": "error",  # c0036
+        "build.plane-not-lowered": "info",  # c0038
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
@@ -70,3 +71,12 @@ def test_bottom_parts_add_the_flip_rows() -> None:
     d.parts["D1"].place("38mm", "20mm")
     out = build(d)
     assert not set(embed.EVIDENCE.hypotheses) & set(out.evidence.hypotheses)
+
+
+def test_plane_issues() -> None:
+    """``design-dsl`` "Planes in a build" (change c0038): one info per plane, naming the layer and the net."""
+    assert plane_issues({}) == []
+    first, second = plane_issues({"In1.Cu": "GND", "In2.Cu": "VIN"})
+    assert (first.code, first.severity, first.where) == ("build.plane-not-lowered", "info", "In1.Cu")
+    assert "In1.Cu" in first.message and "GND" in first.message and "zone on In1.Cu" in first.hint
+    assert second.where == "In2.Cu" and "VIN" in second.message

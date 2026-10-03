@@ -37,10 +37,17 @@ from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.dsl import DslError, moves, placements, to_model
+from fenolite.dsl import DslError, moves, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import build_altium, kicad_footprint_ids, kicad_lib_ids
-from fenolite.lens.build import VENDOR_MODES, PlacementRequest, build_design, check_existing, read_record
+from fenolite.lens.build import (
+    VENDOR_MODES,
+    PlacementRequest,
+    build_design,
+    check_existing,
+    plane_issues,
+    read_record,
+)
 from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
 
@@ -143,6 +150,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
+        plane_nets = planes(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
@@ -187,7 +195,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=built.issues,
+        issues=(*built.issues, *plane_issues(plane_nets)),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),
