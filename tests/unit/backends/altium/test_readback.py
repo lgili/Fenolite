@@ -8,15 +8,20 @@ from __future__ import annotations
 import json
 import re
 import struct
+from collections import Counter
 from pathlib import Path
 
 import pytest
 from _altium import (
     EXAMPLE_NETS,
+    HIER_NETS,
+    HIER_PARTIAL,
     NO_CONNECT_MARKS,
     NO_CONNECT_NETS,
     SAMPLE_NETS,
     example_files,
+    hier,
+    hier_model,
     model_of,
     no_connect_example,
     no_connect_files,
@@ -24,17 +29,21 @@ from _altium import (
 )
 from _altium_read import (
     ReadError,
+    SheetRecords,
     net_differences,
+    nets_from_project,
     nets_from_sheet,
     pin_end,
     read_no_connects,
     read_records,
     read_schlib,
+    read_sheet,
 )
 from _cfb_read import deframe, read_compound
 
 from fenolite.backends.altium.project import write_project
 from fenolite.dsl import Design, Net, Part, Power, connect, to_model
+from fenolite.lens.altium import build_altium
 from fenolite.model.design import Design as ModelDesign
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -361,3 +370,199 @@ def test_no_connect_reader_does_not_use_the_writer() -> None:
     text = (ROOT / "tests" / "_altium_read.py").read_text(encoding="utf-8")
     assert "fenolite.backends.altium.schdoc" not in text and "import fenolite" not in text
     assert read_no_connects(read_records(schdoc(sample_model(), "altium_sample"))) == set()
+
+
+# --- hierarchy read back (change c0037, "Hierarchy read back") ---------------------------------------
+
+HIER_SHEETS = ("altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc")
+
+
+def hierarchy_sheets(form: str = "binary", **variant: object) -> dict[str, SheetRecords]:
+    """File name → the records read from each written sheet of the hierarchy sample's ``modules`` build."""
+    design = hier(**variant)  # type: ignore[arg-type]
+    output = build_altium(to_model(design), name=design.name, sheets="modules", form=form)  # type: ignore[arg-type]
+    assert output.files, [i.message for i in output.issues]
+    return {name: read_sheet(data) for name, data in output.files.items() if name.endswith(".SchDoc")}
+
+
+def _edited(
+    sheets: dict[str, SheetRecords], file: str, stream: int, match: dict[str, str], **change: str | None
+) -> None:
+    """Change (or, with ``None``, remove) keys of the one record of ``file`` that holds ``match``."""
+    (record,) = (r for r in sheets[file][stream] if all(r.get(k) == v for k, v in match.items()))
+    for key, value in change.items():
+        if value is None:
+            del record[key]
+        else:
+            record[key] = value
+
+
+@pytest.mark.parametrize("form", ["binary", "ascii"])
+def test_hierarchy_sample_reads_back_in_both_forms(form: str) -> None:
+    """Scenario "Sample reads back in both forms": the nine nets of the model, each with one name."""
+    sheets = hierarchy_sheets(form)
+    assert sorted(sheets) == sorted(HIER_SHEETS)
+    nets = nets_from_project(sheets, "altium_hier.SchDoc")
+    assert nets == model_nets(hier_model()) == HIER_NETS and len(nets) == 9
+    assert net_differences(nets, HIER_NETS) == []
+    has_harness = [bool(extra) for _main, extra in sheets.values()]
+    assert has_harness == ([True, True, True] if form == "binary" else [False, False, False])
+
+
+def test_hierarchy_record_counts_of_the_written_sample() -> None:
+    """Scenarios "Symbols of the hierarchy sample" and "Ports of the hierarchy sample", on the written
+    bytes."""
+    sheets = hierarchy_sheets("binary")
+
+    def counts(file: str) -> Counter[str]:
+        return Counter(r["RECORD"] for r in sheets[file][0])
+
+    top = counts("altium_hier.SchDoc")
+    assert (top["15"], top["16"], top["32"], top["33"], top["27"], top["25"], top["17"]) == (
+        2,
+        5,
+        2,
+        2,
+        14,
+        12,
+        2,
+    )
+    entries = [r for r in sheets["altium_hier.SchDoc"][0] if r["RECORD"] == "16"]
+    assert sum("HARNESSTYPE" not in r for r in entries) == 3
+    assert [r["HARNESSTYPE"] for r in entries if "HARNESSTYPE" in r] == ["SPI", "SPI"]
+    mcu, flash = counts("altium_hier_mcu.SchDoc"), counts("altium_hier_flash.SchDoc")
+    assert (mcu["18"], mcu["27"], mcu["25"], mcu["17"]) == (3, 16, 12, 4)
+    assert (flash["18"], flash["27"], flash["25"], flash["17"]) == (2, 17, 12, 5)
+    additional = Counter(r["RECORD"] for r in sheets["altium_hier.SchDoc"][1])
+    assert additional == {"215": 2, "216": 8, "217": 2, "218": 2}
+
+
+@pytest.mark.parametrize("form", ["binary", "ascii"])
+def test_hierarchy_unwired_entry_joins_nothing(form: str) -> None:
+    """Scenario "Unwired entry joins nothing" (``partial.py``)."""
+    sheets = hierarchy_sheets(form, script=HIER_PARTIAL)
+    nets = nets_from_project(sheets, "altium_hier_partial.SchDoc")
+    assert nets["FLASH_HOLD_N"] == {("U2", "7"), ("R1", "2")}
+    assert nets == model_nets(hier_model(script=HIER_PARTIAL)) == HIER_NETS
+    if form == "binary":
+        entries = [r["NAME"] for _main, extra in sheets.values() for r in extra if r["RECORD"] == "216"]
+        assert entries.count("HOLD") == 4 and len(entries) == 20
+
+
+def test_hierarchy_nested_module_and_second_harness_read_back() -> None:
+    variant = {
+        "text": "mcu.add(u1, c1)",
+        "new": 'decoupling = Module("decoupling")\ndecoupling.add(c1)\nmcu.add(u1, decoupling)',
+        "append": '\ndesign.add(Harness("DBG", {"RST": reset_n}))\n',
+    }
+    nets = nets_from_project(hierarchy_sheets("binary", **variant), "altium_hier.SchDoc")
+    assert nets == HIER_NETS
+
+
+def test_hierarchy_renamed_port_is_caught() -> None:
+    """Scenario "A renamed port is caught"."""
+    sheets = hierarchy_sheets("binary")
+    _edited(sheets, "altium_hier_mcu.SchDoc", 0, {"RECORD": "18", "NAME": "RESET_N"}, NAME="RESET")
+    with pytest.raises(ReadError, match=r"port RESET of altium_hier_mcu\.SchDoc .* sheet symbol mcu"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_entry_without_a_port_is_caught() -> None:
+    sheets = hierarchy_sheets("ascii")
+    main, extra = sheets["altium_hier_flash.SchDoc"]
+    index = next(i for i, r in enumerate(main) if r["RECORD"] == "18" and r["NAME"] == "FLASH_WP")
+    sheets["altium_hier_flash.SchDoc"] = (main[:index] + main[index + 1 :], extra)
+    with pytest.raises(ReadError, match="sheet entry FLASH_WP of the sheet symbol flash has no port"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_missing_sheet_file_is_caught() -> None:
+    sheets = hierarchy_sheets("binary")
+    _edited(
+        sheets,
+        "altium_hier.SchDoc",
+        0,
+        {"RECORD": "33", "TEXT": "altium_hier_mcu.SchDoc"},
+        TEXT="other.SchDoc",
+    )
+    with pytest.raises(ReadError, match=r"names the file other\.SchDoc, which is not a sheet"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+    with pytest.raises(ReadError, match="top sheet"):
+        nets_from_project(hierarchy_sheets("binary"), "missing.SchDoc")
+
+
+def test_hierarchy_loose_harness_line_is_caught() -> None:
+    sheets = hierarchy_sheets("binary")
+    (line,) = (r for r in sheets["altium_hier_flash.SchDoc"][1] if r["RECORD"] == "218")
+    line["X2"] = str(int(line["X2"]) - 5)
+    with pytest.raises(ReadError, match="signal harness line ends at"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_blocks_of_one_type_must_agree() -> None:
+    sheets = hierarchy_sheets("binary")
+    _edited(sheets, "altium_hier_mcu.SchDoc", 1, {"RECORD": "216", "NAME": "MISO"}, NAME="SDO")
+    with pytest.raises(ReadError, match="harness type SPI has the entries"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_moved_connector_position_is_caught() -> None:
+    """The connection point comes from the connector's own keys: a wrong position leaves the line loose."""
+    sheets = hierarchy_sheets("binary")
+    _edited(sheets, "altium_hier_mcu.SchDoc", 1, {"RECORD": "215"}, PRIMARYCONNECTIONPOSITION="30")
+    with pytest.raises(ReadError, match="signal harness line ends at"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_shifted_harness_entry_breaks_the_net() -> None:
+    """An entry moved one step no longer meets its wire: the net splits into two with one name."""
+    sheets = hierarchy_sheets("binary")
+    extra = sheets["altium_hier_flash.SchDoc"][1]
+    cs = next(r for r in extra if r["RECORD"] == "216" and r["NAME"] == "CS")
+    sck = next(r for r in extra if r["RECORD"] == "216" and r["NAME"] == "SCK")
+    cs["DISTANCEFROMTOP"], sck["DISTANCEFROMTOP"] = sck["DISTANCEFROMTOP"], cs["DISTANCEFROMTOP"]
+    with pytest.raises(ReadError, match=r"net names \['SPI_CS', 'SPI_SCK'\] are joined"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_port_off_its_wire_splits_the_net() -> None:
+    sheets = hierarchy_sheets("ascii")
+    port = next(
+        r for r in sheets["altium_hier_mcu.SchDoc"][0] if r["RECORD"] == "18" and r["NAME"] == "RESET_N"
+    )
+    port["LOCATION.Y"] = str(int(port["LOCATION.Y"]) + 5)
+    with pytest.raises(ReadError, match="RESET_N is on two separate nets"):
+        nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_power_ports_join_across_sheets_and_labels_do_not() -> None:
+    """Without its ports and sheet entries a labelled net falls apart, while power nets stay whole."""
+    sheets = hierarchy_sheets("ascii")
+    stripped = {
+        name: (
+            [r if r["RECORD"] not in ("15", "16", "18", "32", "33") else {"RECORD": "0"} for r in main],
+            extra,
+        )
+        for name, (main, extra) in sheets.items()
+    }
+    with pytest.raises(ReadError, match="is on two separate nets"):
+        nets_from_project(stripped, "altium_hier.SchDoc")
+    nets = nets_from_project(sheets, "altium_hier.SchDoc")
+    assert nets["VDD"] == HIER_NETS["VDD"] and nets["GND"] == HIER_NETS["GND"]
+
+
+def test_hierarchy_harness_records_belong_to_the_additional_stream() -> None:
+    files = build_altium(to_model(hier()), name="altium_hier", sheets="modules").files
+    main, extra = read_sheet(files["altium_hier_flash.SchDoc"])
+    assert not {r["RECORD"] for r in main} & {"215", "216", "217", "218"}
+    assert {r["RECORD"] for r in extra} == {"215", "216", "217", "218"}
+    flat = build_altium(to_model(hier()), name="altium_hier").files["altium_hier.SchDoc"]
+    assert read_sheet(flat)[1] == []
+    assert nets_from_sheet(read_sheet(flat)[0]) == HIER_NETS
+
+
+def test_hierarchy_reader_does_not_import_the_writer() -> None:
+    """Scenario "Reader does not import the writer"."""
+    source = (ROOT / "tests" / "_altium_read.py").read_text(encoding="utf-8")
+    assert "fenolite.backends.altium" not in source and "import fenolite" not in source
+    assert "from fenolite" not in source

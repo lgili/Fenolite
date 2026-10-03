@@ -13,6 +13,11 @@ the maintainer's check in Altium Designer (``docs/evidence/altium-schematic.md``
 directives (record 22): each must sit on exactly one pin's electrical end, away from every wire, label
 and port.
 
+``nets_from_project`` (change c0037) reads a multi-sheet project: it also takes the ends of ports, the
+connection points of sheet entries, harness connectors and harness entries, each from the record's own keys
+(``schematic-ascii.md``, "Sheet symbols, sheet entries and ports"; ``schematic-binary.md``, "Additional
+stream and harness records"), and joins the sheets under the hierarchical scope (``project.md``).
+
 ``read_schlib`` (change c0034) reads a schematic library as the product writes it, from
 ``docs/formats/altium/schematic-library.md``, with every binary pin decoded field by field.
 """
@@ -236,6 +241,332 @@ def net_differences(
         if got != want:
             problems.append(f"{name}: missing {sorted(want - got)}, extra {sorted(got - want)}")
     return problems
+
+
+# --- hierarchical projects (change c0037) ------------------------------------------------------------
+
+BINARY_HEADER = "Protel for Windows - Schematic Capture Binary File Version 5.0"
+CFB_SIGNATURE = bytes.fromhex("d0cf11e0a1b11ae1")
+HARNESS_RECORDS = ("215", "216", "217", "218")
+
+SheetRecords = tuple[list[Record], list[Record]]
+"""The records of one sheet: those of ``FileHeader`` (or of the ASCII file) and those of ``Additional``,
+each without its header record. Owner indexes count inside their own list."""
+Node = tuple[object, ...]
+
+
+def _framed(stream: bytes, where: str) -> list[Record]:
+    """The records of a binary stream after its header record, with the header and ``WEIGHT`` checked."""
+    records = [dict(_fields(text, number)) for number, text in enumerate(_payloads(stream, where))]
+    if not records:
+        raise ReadError(f"{where}: no header record")
+    header, rest = records[0], records[1:]
+    if header.get("HEADER") != BINARY_HEADER:
+        raise ReadError(f"{where}: header {header.get('HEADER')!r}")
+    if rest and header.get("WEIGHT") != str(len(rest)):
+        raise ReadError(f"{where}: WEIGHT={header.get('WEIGHT')} but {len(rest)} records follow the header")
+    return rest
+
+
+def _payloads(stream: bytes, where: str) -> list[str]:
+    texts: list[str] = []
+    offset = 0
+    while offset < len(stream):
+        if offset + 4 > len(stream):
+            raise ReadError(f"{where}: the length word at byte {offset} is cut")
+        (word,) = struct.unpack_from("<I", stream, offset)
+        length, kind = word & 0xFFFFFF, word >> 24
+        payload = stream[offset + 4 : offset + 4 + length]
+        if kind != 0 or len(payload) != length or not payload.endswith(b"\0") or b"\0" in payload[:-1]:
+            raise ReadError(f"{where}: the record at byte {offset} is not a text record with one final NUL")
+        texts.append(payload[:-1].decode("ascii"))
+        offset += 4 + length
+    return texts
+
+
+def read_sheet(data: bytes) -> SheetRecords:
+    """The records of one written sheet, in either form: a compound file gives its ``FileHeader`` records
+    and, when the stream is there, its ``Additional`` records; an ASCII file gives its records and no
+    harness record. A harness record outside ``Additional``, or any other record inside it, is refused."""
+    if data.startswith(CFB_SIGNATURE):
+        streams = parse_compound(data).streams
+        if "FileHeader" not in streams:
+            raise ReadError("FileHeader: the stream is missing")
+        if "Additional" in streams and not streams["Additional"]:
+            raise ReadError("Additional: the stream is empty")
+        main = _framed(streams["FileHeader"], "FileHeader")
+        extra = _framed(streams["Additional"], "Additional") if "Additional" in streams else []
+        other = sorted(set(streams) - {"FileHeader", "Storage", "Additional"})
+        if other:
+            raise ReadError(f"unexpected streams {other}")
+    else:
+        main, extra = read_records(data), []
+    if any(r.get("RECORD") in HARNESS_RECORDS for r in main):
+        raise ReadError("a harness record lies outside the Additional stream")
+    if any(r.get("RECORD") not in HARNESS_RECORDS for r in extra):
+        raise ReadError("the Additional stream holds a record that is not a harness record")
+    return main, extra
+
+
+def _side_point(box: Record, side: int, distance: int) -> Point:
+    """A point on the edge ``side`` (0 left, 1 right, 2 top, 3 bottom) of a box whose location is its
+    top-left corner, ``distance`` units from that corner along the edge."""
+    x, y = _point(box, "LOCATION")
+    if side == 0:
+        return x, y - distance
+    if side == 1:
+        return x + int(box["XSIZE"]), y - distance
+    if side == 2:
+        return x + distance, y
+    return x + distance, y - int(box["YSIZE"])
+
+
+class _Sheet:
+    """The connection points of one sheet's hierarchy and harness records, each from the record's own
+    keys."""
+
+    def __init__(self, name: str, records: SheetRecords) -> None:
+        self.name = name
+        self.main, self.extra = records
+        main, extra = self.main, self.extra
+        self.wires = [
+            [(int(r[f"X{i}"]), int(r[f"Y{i}"])) for i in range(1, int(r["LOCATIONCOUNT"]) + 1)]
+            for r in main
+            if r["RECORD"] == "27"
+        ]
+        self.ports: dict[str, tuple[Record, tuple[Point, Point]]] = {}
+        for r in main:
+            if r["RECORD"] == "18":
+                if r["NAME"] in self.ports:
+                    raise ReadError(f"{name}: two ports are named {r['NAME']}")
+                x, y = _point(r, "LOCATION")
+                self.ports[r["NAME"]] = (r, ((x, y), (x + int(r["WIDTH"]), y)))
+        self.symbols: dict[int, tuple[str, str]] = {}
+        self.entries: dict[int, dict[str, tuple[Record, Point]]] = {}
+        for index, r in enumerate(main):
+            if r["RECORD"] == "15":
+                owned = [o for o in main if o.get("OWNERINDEX") == str(index)]
+                names = [o["TEXT"] for o in owned if o["RECORD"] == "32"]
+                files = [o["TEXT"] for o in owned if o["RECORD"] == "33"]
+                if len(names) != 1 or len(files) != 1:
+                    raise ReadError(f"{name}: the sheet symbol at record {index} needs one name and one file")
+                self.symbols[index] = (names[0], files[0])
+                self.entries[index] = {}
+                for o in owned:
+                    if o["RECORD"] != "16":
+                        continue
+                    if o["NAME"] in self.entries[index]:
+                        raise ReadError(f"{name}: the sheet symbol {names[0]} has two entries {o['NAME']}")
+                    point = _side_point(r, int(o.get("SIDE", "0")), 10 * int(o.get("DISTANCEFROMTOP", "0")))
+                    self.entries[index][o["NAME"]] = (o, point)
+        self.connectors: dict[int, tuple[Point, str, dict[str, Point]]] = {}
+        for index, r in enumerate(extra):
+            if r["RECORD"] != "215":
+                continue
+            owned = [
+                o for o in extra if int(o.get("OWNERINDEX", "0")) == index and o["RECORD"] in ("216", "217")
+            ]
+            owned = [o for o in owned if o.get("OWNERINDEXADDITIONALLIST") == "T"]
+            kinds = [o["TEXT"] for o in owned if o["RECORD"] == "217"]
+            if len(kinds) != 1:
+                raise ReadError(f"{name}: the harness connector at record {index} needs one type record")
+            points: dict[str, Point] = {}
+            for o in owned:
+                if o["RECORD"] == "216":
+                    if o["NAME"] in points:
+                        raise ReadError(f"{name}: the harness {kinds[0]} has two entries {o['NAME']}")
+                    side, distance = int(o.get("SIDE", "0")), 10 * int(o.get("DISTANCEFROMTOP", "0"))
+                    points[o["NAME"]] = _side_point(r, side, distance)
+            hot = _side_point(r, int(r.get("HARNESSCONNECTORSIDE", "0")), int(r["PRIMARYCONNECTIONPOSITION"]))
+            self.connectors[index] = (hot, kinds[0], points)
+        claimed = {i for i in self.connectors}
+        for index, r in enumerate(extra):
+            if r["RECORD"] in ("216", "217") and int(r.get("OWNERINDEX", "0")) not in claimed:
+                raise ReadError(f"{name}: harness record {index} names an owner that is not a connector")
+        self.lines = [
+            [(int(r[f"X{i}"]), int(r[f"Y{i}"])) for i in range(1, int(r["LOCATIONCOUNT"]) + 1)]
+            for r in extra
+            if r["RECORD"] == "218"
+        ]
+
+    def connector_at(self, point: Point, what: str) -> int:
+        """The connector that a signal harness line joins to ``point`` (an end of a port, or the connection
+        point of a sheet entry)."""
+        found: list[int] = []
+        for line in self.lines:
+            ends = (line[0], line[-1])
+            if point not in ends:
+                continue
+            other = ends[1] if ends[0] == point else ends[0]
+            found += [i for i, (hot, _kind, _points) in self.connectors.items() if hot == other]
+        if len(found) != 1:
+            raise ReadError(f"{self.name}: {what} is joined to {len(found)} harness connectors, not one")
+        return found[0]
+
+
+def nets_from_project(sheets: Mapping[str, SheetRecords], top: str) -> Nets:
+    """Net name → {(designator, pin designator)} of a written multi-sheet project, rebuilt from geometry
+    under the hierarchical scope (``docs/formats/altium/project.md``): a net label is local to its sheet; a
+    power port joins its name on every sheet; a port joins the sheet entry of the same name on the sheet
+    symbol whose file name is the port's sheet; a harness joins, entry by entry, the wires on the connector
+    beside the port with those on the connector beside the sheet entry. Nothing else joins two sheets.
+
+    It fails on a port without a sheet entry of its name, a sheet entry without a port, a sheet symbol whose
+    file is not in ``sheets``, a signal harness line whose end touches neither a port, a sheet entry nor a
+    connector, two connectors of one type with different entries, a net with two names, and one name on two
+    separate nets."""
+    if top not in sheets:
+        raise ReadError(f"the top sheet {top} is not among the sheets")
+    found = {name: _Sheet(name, records) for name, records in sheets.items()}
+    parent: dict[Node, Node] = {}
+
+    def find(node: Node) -> Node:
+        parent.setdefault(node, node)
+        while parent[node] != node:
+            parent[node] = parent[parent[node]]
+            node = parent[node]
+        return node
+
+    def union(a: Node, b: Node) -> None:
+        parent[find(a)] = find(b)
+
+    pins: list[tuple[str, tuple[str, str]]] = []
+    names: list[tuple[Node, str]] = []
+    definitions: dict[str, tuple[str, frozenset[str]]] = {}
+    for sheet in found.values():
+        s, main = sheet.name, sheet.main
+        refs = {
+            int(r["OWNERINDEX"]): r["TEXT"]
+            for r in main
+            if r["RECORD"] == "34" and r.get("NAME") == "Designator"
+        }
+        local = [
+            ((refs[int(r["OWNERINDEX"])], r["DESIGNATOR"]), pin_end(r))
+            for r in main
+            if r["RECORD"] == "2" and pin_shown(main, r)
+        ]
+        for key, end in local:
+            find(("pin", key))
+            pins.append((s, key))
+            for j, wire in enumerate(sheet.wires):
+                if _touches(end, wire):
+                    union(("pin", key), ("wire", s, j))
+        for j, wire in enumerate(sheet.wires):
+            for k, other in enumerate(sheet.wires):
+                if k != j and (_touches(other[0], wire) or _touches(other[-1], wire)):
+                    union(("wire", s, k), ("wire", s, j))
+        for r in main:
+            if r["RECORD"] not in ("25", "17"):
+                continue
+            node: Node = ("label", s, r["TEXT"]) if r["RECORD"] == "25" else ("power", r["TEXT"])
+            names.append((node, r["TEXT"]))
+            point = _point(r, "LOCATION")
+            find(node)
+            for j, wire in enumerate(sheet.wires):
+                if _touches(point, wire):
+                    union(node, ("wire", s, j))
+            for key, end in local:
+                if end == point:
+                    union(node, ("pin", key))
+
+        def wired(points: Sequence[Point], node: Node, sheet: _Sheet = sheet) -> None:
+            find(node)
+            for j, wire in enumerate(sheet.wires):
+                if any(_touches(point, wire) for point in points):
+                    union(node, ("wire", sheet.name, j))
+
+        for name, (_record, ends) in sheet.ports.items():
+            wired(ends, ("port", s, name))
+        for owner, entries in sheet.entries.items():
+            for name, (_record, point) in entries.items():
+                wired((point,), ("entry", s, owner, name))
+        for index, (_hot, kind, points) in sheet.connectors.items():
+            entry_names = frozenset(points)
+            where, known = definitions.setdefault(kind, (s, entry_names))
+            if known != entry_names:
+                raise ReadError(
+                    f"the harness type {kind} has the entries {sorted(known)} on {where} and "
+                    f"{sorted(entry_names)} on {s}"
+                )
+            for entry, point in points.items():
+                wired((point,), ("harness", s, index, entry))
+        anchors = {end for _r, ends in sheet.ports.values() for end in ends}
+        anchors |= {point for entries in sheet.entries.values() for _r, point in entries.values()}
+        anchors |= {hot for hot, _kind, _points in sheet.connectors.values()}
+        for line in sheet.lines:
+            for end in (line[0], line[-1]):
+                if end not in anchors:
+                    raise ReadError(
+                        f"{s}: a signal harness line ends at {end}, which is neither a port, a sheet entry "
+                        "nor a harness connector"
+                    )
+    named: set[str] = set()
+    for sheet in found.values():
+        for owner, (symbol, file) in sheet.symbols.items():
+            child = found.get(file)
+            if child is None:
+                raise ReadError(f"the sheet symbol {symbol} names the file {file}, which is not a sheet")
+            if file == top or file in named:
+                raise ReadError(
+                    f"the sheet {file} is named by the sheet symbol {symbol} and is the top or repeated"
+                )
+            named.add(file)
+            entries = sheet.entries[owner]
+            for name in sorted(set(child.ports) - set(entries)):
+                raise ReadError(f"the port {name} of {file} has no sheet entry on the sheet symbol {symbol}")
+            for name in sorted(set(entries) - set(child.ports)):
+                raise ReadError(f"the sheet entry {name} of the sheet symbol {symbol} has no port on {file}")
+            for name, (entry, point) in entries.items():
+                port, ends = child.ports[name]
+                kind, other = entry.get("HARNESSTYPE"), port.get("HARNESSTYPE")
+                if kind != other:
+                    raise ReadError(
+                        f"the port {name} of {file} and its sheet entry on {symbol} differ in type"
+                    )
+                if kind is None:
+                    union(("port", file, name), ("entry", sheet.name, owner, name))
+                    continue
+                below = [child.connector_at(end, f"the port {name}") for end in ends if _line_at(child, end)]
+                if len(below) != 1:
+                    raise ReadError(f"{file}: the harness port {name} needs one signal harness line")
+                above = sheet.connector_at(point, f"the sheet entry {name} of {symbol}")
+                for index, where in ((below[0], child), (above, sheet)):
+                    if where.connectors[index][1] != kind:
+                        raise ReadError(
+                            f"{where.name}: the connector beside {name} is not of the type {kind}"
+                        )
+                for item in child.connectors[below[0]][2]:
+                    union(("harness", file, below[0], item), ("harness", sheet.name, above, item))
+    for sheet in found.values():
+        if sheet.name != top and sheet.name not in named and sheet.ports:
+            port = sorted(sheet.ports)[0]
+            raise ReadError(
+                f"the port {port} of {sheet.name} has no sheet entry: no sheet symbol names the sheet"
+            )
+    if found[top].ports:
+        raise ReadError(f"the top sheet {top} holds the port {sorted(found[top].ports)[0]}")
+    members: dict[Node, set[tuple[str, str]]] = {}
+    for _sheet, key in pins:
+        members.setdefault(find(("pin", key)), set()).add(key)
+    labels: dict[Node, set[str]] = {}
+    for node, text in names:
+        labels.setdefault(find(node), set()).add(text)
+    nets: Nets = {}
+    for root, keys in members.items():
+        texts = sorted(labels.get(root, set()))
+        if len(texts) > 1:
+            raise ReadError(f"the net names {texts} are joined")
+        name = texts[0] if texts else "<unnamed {}-{}>".format(*min(keys))
+        if name in nets:
+            raise ReadError(
+                f"the name {name} is on two separate nets: {sorted(nets[name])} and {sorted(keys)}"
+            )
+        nets[name] = set(keys)
+    return nets
+
+
+def _line_at(sheet: _Sheet, point: Point) -> bool:
+    return any(point in (line[0], line[-1]) for line in sheet.lines)
 
 
 # --- schematic libraries (change c0034) --------------------------------------------------------------
