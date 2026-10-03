@@ -5,7 +5,9 @@ verification-loop, "ERC lite stage").
 
 The rules follow KiCad's own checks in spirit (the unconnected-pin check of the schematic editor, S-0046),
 and their claim is bounded by ``H-K-CHECK-ERC``: a heuristic, so warnings only. Pins of DNP components
-are ignored. ``check_removal`` makes the suite fail from 0.2 on, when the stage must go.
+are ignored, and so are the pins that ``Circuit.no_connects`` marks as intentionally unconnected (change
+c0036): a marked pin is not floating, and a marked pin on a net is ``model.no-connect-on-net``.
+``check_removal`` makes the suite fail from 0.2 on, when the stage must go.
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ def erc_lite(design: Design) -> tuple[Issue, ...]:
     live = {c.id: c for c in circuit.components if not c.dnp}
     pin_types = {(c.id, p.number): p.etype for c in live.values() for p in c.pins}
     powered = {net_id for i in circuit.interfaces if i.kind == "power" for net_id in i.members.values()}
+    marked = {(mark.component_id, mark.pin) for mark in circuit.no_connects}
     found: list[Issue] = []
     on_net: set[tuple[str, str]] = set()
     for net in circuit.nets:
@@ -47,7 +50,7 @@ def erc_lite(design: Design) -> tuple[Issue, ...]:
         for ref in net.members:
             key = (ref.component_id, ref.pin)
             on_net.add(key)
-            if key in pin_types:
+            if key in pin_types and key not in marked:
                 types[pin_types[key]] += 1
         if types["output"] + types["power_out"] >= 2:
             found.append(issue("erc.lite.output-conflict", "two or more driving outputs on one net",
@@ -57,7 +60,8 @@ def erc_lite(design: Design) -> tuple[Issue, ...]:
                                "interface", where=net.name))  # fmt: skip
     for component in live.values():
         for pin in component.pins:
-            if pin.etype != "no_connect" and (component.id, pin.number) not in on_net:
+            key = (component.id, pin.number)
+            if pin.etype != "no_connect" and key not in on_net and key not in marked:
                 found.append(issue("erc.lite.floating-pin", "a pin on no net",
                                    where=f"{component.ref}-{pin.number}"))  # fmt: skip
     return tuple(found)

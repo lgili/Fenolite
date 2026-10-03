@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 import pytest
-from _buildhelp import BLINK, LIBS, authored, blink, build, codes
+from _buildhelp import authored, blink, blink_variant, build, codes
 
 import fenolite.cli.main as cli_main
 from fenolite.dsl import Design, Net, Part, connect, mm, no_connect
@@ -130,23 +130,6 @@ def test_the_new_code_is_an_error() -> None:
 # --- through the CLI ----------------------------------------------------------------------------------
 
 
-def variant(folder: Path, old: str, new: str) -> Path:
-    """A copy of the blink script under ``folder`` with ``old`` replaced by ``new``, and library tables
-    that name the authored mini library by its absolute path."""
-    folder.mkdir(parents=True, exist_ok=True)
-    text = BLINK.read_text(encoding="utf-8")
-    assert old in text, old
-    script = folder / "design.py"
-    script.write_text(text.replace(old, new), encoding="utf-8")
-    row = '\t(lib (name "Mini") (type "KiCad") (uri "{}") (options "") (descr ""))\n'
-    for table, head, uri in (
-        ("fp-lib-table", "fp_lib_table", LIBS / "Mini_v9.pretty"),
-        ("sym-lib-table", "sym_lib_table", LIBS / "Mini_v9.kicad_sym"),
-    ):
-        (folder / table).write_text(f"({head}\n\t(version 7)\n{row.format(uri.as_posix())})\n", "utf-8")
-    return script
-
-
 def run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *args: str) -> tuple[int, dict[str, object]]:
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kc"))
     out, err = io.StringIO(), io.StringIO()
@@ -164,9 +147,8 @@ def test_cli_build_keeps_the_marks_and_the_kicad_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     flags = ("--confirm", "--seed", "7", "--timestamp", "2026-10-03T00:00:00Z")
-    plain = variant(tmp_path / "plain", IMPORT, IMPORT + ", no_connect")
-    marked = variant(tmp_path / "marked", IMPORT, IMPORT + ", no_connect")
-    marked.write_text(marked.read_text(encoding="utf-8") + MARKS, encoding="utf-8")
+    plain = blink_variant(tmp_path / "plain", IMPORT, IMPORT + ", no_connect")
+    marked = blink_variant(tmp_path / "marked", IMPORT, IMPORT + ", no_connect", append=MARKS)
     receipts: list[dict[str, str]] = []
     for script, out in ((plain, tmp_path / "a"), (marked, tmp_path / "b")):
         code, reply = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), *flags)
@@ -188,9 +170,12 @@ def test_cli_build_keeps_the_marks_and_the_kicad_files(
 
 
 def test_cli_build_refuses_a_marked_pin_on_a_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    script = variant(tmp_path / "v", "connect(gnd, u1[10], d1[1])", 'connect(gnd, u1["GND"], d1[1])')
-    text = script.read_text(encoding="utf-8").replace(IMPORT, IMPORT + ", no_connect")
-    script.write_text(text + "\nno_connect(u1[10])\n", encoding="utf-8")
+    script = blink_variant(
+        tmp_path / "v",
+        "connect(gnd, u1[10], d1[1])",
+        'from fenolite.dsl import no_connect\n\nconnect(gnd, u1["GND"], d1[1])',
+        append="\nno_connect(u1[10])\n",
+    )
     out = tmp_path / "out"
     code, reply = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), "--confirm")
     assert code == 5

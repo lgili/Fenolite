@@ -23,6 +23,25 @@ def blink() -> Design:
     return design
 
 
+def blink_variant(folder: Path, old: str = "", new: str = "", *, append: str = "") -> Path:
+    """A copy of the blink script under ``folder`` with ``old`` replaced by ``new`` and ``append`` added,
+    beside library tables that name the authored mini library by its absolute path."""
+    folder.mkdir(parents=True, exist_ok=True)
+    text = BLINK.read_text(encoding="utf-8")
+    if old:
+        assert old in text, old
+        text = text.replace(old, new)
+    script = folder / "design.py"
+    script.write_text(text + append, encoding="utf-8")
+    row = '\t(lib (name "Mini") (type "KiCad") (uri "{}") (options "") (descr ""))\n'
+    for table, head, uri in (
+        ("fp-lib-table", "fp_lib_table", LIBS / "Mini_v9.pretty"),
+        ("sym-lib-table", "sym_lib_table", LIBS / "Mini_v9.kicad_sym"),
+    ):
+        (folder / table).write_text(f"({head}\n\t(version 7)\n{row.format(uri.as_posix())})\n", "utf-8")
+    return script
+
+
 def resolver(
     target: int = 10, project_dir: Path = BLINK_DIR, config_home: Path | None = None
 ) -> LibraryResolver:
