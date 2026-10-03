@@ -98,13 +98,18 @@ import. Evidence is Fenolite's readback plus the maintainer's author reports.
    - Rejected: typed classes (`Spi`, `I2c`). They fix entry names the design may not use.
    - Entry order: the model stores a mapping, and canonical JSON sorts keys, so the writer sorts
      entry names. The order then survives a round trip through `.fenolite/`.
-9. **A harness is drawn as the same block on both sides.** On a module sheet: port, harness line,
-   connector, entries, labelled wires. On the top sheet: sheet entry, harness line, connector,
-   entries, labelled wires. The block is the construct Altium saves on child sheets (S-0187), so one
-   author report covers both sides. Labels on the top sheet join the blocks of the modules.
-   - Rejected: harness lines between sheet entries on the top sheet, as the reference top sheets
-     draw them. It needs routing, and whether crossing harness lines join is not documented. Open
-     Question 3 keeps it for later.
+9. **A harness is drawn as a block beside its port, and on the top sheet as a line between two sheet
+   entries when that is possible.** On a module sheet: port, harness line, connector, entries,
+   labelled wires; the block is the construct Altium saves on child sheets (S-0187). On the top sheet
+   (changed after the report of 2026-10-03, see "Changes after the maintainer's report"): one straight
+   signal harness line from the entry on the right side of one sheet symbol to the entry on the left
+   side of the next, as the reference top sheets draw them (S-0187, S-0188), when the harness joins
+   exactly two neighbouring modules and no other sheet holds a pin of its nets. Otherwise the top
+   sheet keeps the block beside each sheet entry, and its labels join the blocks.
+   - First form, replaced: the same block on both sides in every case. Altium Designer 26.5 compiled
+     it, but warned that each member net had multiple names (step H3).
+   - Rejected: routed harness lines between any two sheet entries. It needs a router, and whether
+     crossing harness lines join is not documented. The line is drawn only where it is straight.
    - Rejected: no harness objects, only nets. It does not give the maintainer harnesses.
 10. **Every block of a type holds all its entries; an entry is wired only when its net crosses that
     module.** All drawn definitions of a type are then equal, so no "conflicting definition" can
@@ -157,16 +162,16 @@ import. Evidence is Fenolite's readback plus the maintainer's author reports.
 | `src/fenolite/backends/altium/hierarchy.py` | new | `SheetFile`, `ProjectSheets`, `plan_sheets(design, *, name, sheets, form, symbols=None) -> ProjectSheets`, `sheet_of(component) -> str \| None`, `crossings(design, *, form) -> dict[str, tuple[Crossing, ...]]`, `write_harness(types) -> bytes` |
 | `src/fenolite/backends/altium/layout.py` | plan | `Crossing`, `HarnessBlock`, `SymbolSpec`, `PlacedSymbol`, `PlacedPort`; `layout_sheet(parts, *, symbols=(), ports=())`; `SheetPlan.symbols`, `.ports`, `.harnesses` |
 | `src/fenolite/backends/altium/schdoc.py` | records | records 15, 16, 18, 32, 33 in `schdoc_records(plan)`; `additional_records(plan)`; `write_schdoc` refuses a harness block |
-| `src/fenolite/backends/altium/binary.py` | stream | `additional_stream(records)`; `write_schdoc_binary` adds `Additional` when needed |
+| `src/fenolite/backends/altium/binary.py` | stream | `additional_stream(records)`; `write_schdoc_binary` adds `Additional` when needed; after the report: `MINI_CUTOFF`, `note_record(fill)`, `padded_records(records)` |
 | `src/fenolite/backends/altium/prjpcb.py` | arguments | `write_prjpcb(*, schematic, pcb=None, libraries=(), sheets=(), harnesses=())` |
 | `src/fenolite/backends/altium/project.py` | mode | `SheetMode`, `DEFAULT_SHEETS`, `HARNESS_KIND`; `write_project(..., sheets=DEFAULT_SHEETS)`; `WRITE_KINDS` gains `altium_harness` |
-| `src/fenolite/backends/altium/pcbdoc.py` | link | `PlacedComponent.sheet: tuple[str, str] \| None = None` |
+| `src/fenolite/backends/altium/pcbdoc.py` | link | `PlacedComponent.sheet: tuple[str, str] \| None = None`; after the report: `channel_offsets(components)` |
 | `src/fenolite/lens/altium.py` | build | `build_altium(..., sheets=DEFAULT_SHEETS)`; five issue codes; summary keys; nine hypotheses in `ALTIUM_BUILD_EVIDENCE` |
 | `src/fenolite/cli/cmd_build.py` | option | `--altium-sheets flat\|modules` |
 | `examples/altium_hier/design.py`, `partial.py` | new | designs `altium_hier`, `altium_hier_partial` |
 | `examples/altium_hier_board/design.py`, `sym-lib-table`, `fp-lib-table` | new | design `altium_hier_board` |
-| `tests/data/altium/hier/` | new | eight golden files |
-| `tests/_altium_read.py` | reader | `nets_from_project(sheets, top)` |
+| `tests/data/altium/hier/` | new | seven golden files (eight before the report of 2026-10-03) |
+| `tests/_altium_read.py` | reader | `nets_from_project(sheets, top)`; after the report: `project_documents`, `component_links`, `board_link_problems` |
 | `tests/unit/backends/altium/test_hierarchy.py`, `tests/unit/lens/test_altium_hier.py`, `tests/unit/lens/test_altium_hier_golden.py`, `tests/unit/dsl/test_harness.py` | new | tests |
 | `tests/unit/backends/altium/test_layout.py`, `test_schdoc.py`, `test_binary.py`, `test_prjpcb.py`, `test_pcbdoc.py`, `test_readback.py`, `tests/unit/lens/test_altium_issues.py`, `test_altium_determinism.py`, `tests/unit/cli/test_build_altium.py`, `test_capabilities_experimental.py`, `tests/unit/test_altium_rows.py` | extended | — |
 | `docs/altium.md`, `docs/dsl.md`, `docs/cli-contract.md` | sections | — |
@@ -275,6 +280,56 @@ A size, not calendar time. The early sample (groups 1 to 6) is 5.25 design-days.
 - **Drawing quality.** Labelled stubs are correct but busy. Routed lines are Open Question 3.
 - **Stale sheets.** A renamed module leaves its old sheet in the folder; it is no longer listed.
 
+## Changes after the maintainer's report (2026-10-03, AD 26.5)
+
+The report of Part H is in `docs/evidence/altium-schematic.md`, "Reports". It changed three things.
+
+- **H3: harness on the top sheet.** Decision 9 above. Requirement "Harness lines between sheet
+  symbols" is added; "Sheet symbols and sheet entries", "Harness records", "Harness definition files",
+  "Hierarchical sheet layout", "Hierarchy read back" and the scenarios that count the records, labels
+  and files of the sample are edited in place (the change is not archived). The sample now has seven
+  golden files: the top sheet holds no connector, so it gets no `.Harness` file. `layout.SymbolSpec`
+  gains `line_to` and `line_from`, `layout.PlacedEntry` gains `side`, `layout.SheetPlan` gains `lines`,
+  and `hierarchy.harness_lines` and `layout.SplitLine` are new.
+- **H6: bare harness entries.** A warning, not an error. Open Question 5 is closed.
+- **H7: the board example.** Altium Designer left the sheet of the module `led` outside the hierarchy,
+  so `D1` was missing from the compiled schematic and the comparison reported it as extra on the
+  board. The built files were read again with the test readers: the top sheet holds the sheet symbol
+  `led`, its file-name record equals the name the project file lists, the project file lists the sheet,
+  and the board's link of `D1` is `\<id of that sheet symbol>\<id of D1>`. The maintainer then opened
+  "Synchronize Sheet Entries and Ports" on the symbol `led`: it showed the file, one link `LED_A` and
+  nothing unmatched, and after it was closed without a change the sheet was a child. So the content is
+  consistent for Altium, and its first pass over the project skips that sheet. **The cause is not
+  proven.** The one thing that sets the sheet `led` apart from every sheet Altium has taken as a child
+  is its size: its `FileHeader` stream is 2303 bytes and so lies in the compound file's mini stream,
+  while every child so far, and every sheet Altium saved, holds 4096 bytes or more (`H-A-SCHBIN-MINI`).
+  What was done:
+  - **the probable cause is removed**: the binary form keeps `FileHeader` at 4096 bytes or more, with
+    one hidden sheet parameter as the last record of a small sheet ("Binary schematic form"). Sheets of
+    4096 bytes or more keep their bytes, so no golden file changes;
+  - one difference from a saved board was found and corrected: `CHANNELOFFSET` restarts at 0 on every
+    sheet (S-0188), and Fenolite wrote the index over the whole board, which gave `D1` the offset 2
+    on a sheet of one part. Nothing shows that this explains H7;
+  - the readback `component_links` and `board_link_problems` (`tests/_altium_read.py`) now checks, for
+    the board example, what the report asked for: every board link resolves to a schematic component
+    through an existing sheet symbol whose file the project lists, and every module sheet is reachable
+    from the top sheet, also for a module without a crossing. It passes on the files the maintainer
+    opened, so it would not have caught H7; it catches a missing symbol, a wrong file name and an
+    unlisted sheet;
+  - `H-A-SCH-HIER-ECO` and `H-A-SCH-HIER-PRJ` stay pending with the observation, `H-A-SCHBIN-MINI` is
+    registered, and step H7 is re-opened on the rebuilt example. Seven variants tell the possible
+    causes apart: a structure file, document ids in the project file, the padded sheets alone, the
+    small module sheet moved to the other module, the order of the sheet symbols and documents, the
+    PCB document, and the ports and sheet entries;
+  - **no project structure file and no document ids are written.** After the dialog and "Save All",
+    Altium wrote `<project>.PrjPcbStructure` and a full project file with a `DocumentUniqueId` per
+    document (empty for `driver`, which was a child all the same). Both are results of Altium's own
+    passes: the structure file is derived from the sheets, and an id appears when a document is loaded
+    in full. Writing them would be a second output to keep in step with the sheets (and to keep when
+    Altium rewrites it, as the project file), and a written tree could hide a sheet that the compiler
+    still does not read. So the default stays as c0032 decided, and variants a and b measure whether
+    either file changes anything before the question is opened again (Open Question 7).
+
 ## Migration Plan
 
 - No migration. Without the option every Altium output is unchanged, byte for byte.
@@ -288,9 +343,14 @@ A size, not calendar time. The early sample (groups 1 to 6) is 5.25 design-days.
 2. Should the sheet name be `U_<module>`, Altium's default, instead of `<module>`? Default:
    `<module>`. It is the DSL's name and it is what the PCB's hierarchical path then shows.
 3. Should the top sheet join two sheet entries of one harness by a direct harness line when exactly
-   two modules share it? Default: no; blocks and labels for every case.
+   two modules share it? Answered by step H3 of the report of 2026-10-03: yes. The blocks gave four
+   "multiple names" warnings; the line is now drawn when the two symbols are neighbours.
 4. Should a port carry a direction (`IOTYPE`) from pin types? Default: no; unspecified.
-5. Should an entry whose net does not cross be left out instead of drawn bare? Default: drawn bare,
-   so every block of a type is equal; H6 decides.
+5. Should an entry whose net does not cross be left out instead of drawn bare? Answered by step H6 of
+   the report of 2026-10-03: it stays drawn bare. Altium Designer 26.5 reports "Unconnected Harness
+   Entry" as a warning, once per connector, and compiles the project without an error.
 6. Should Part H include an import of the project in KiCad's GUI as a third reading? Default: no; it
    is not an oracle and adds a manual step.
+7. Should the build write `<name>.PrjPcbStructure` (from the sheet symbols, written once and then
+   kept, as the project file) and `DocumentUniqueId` keys? Default: no, until variants a and b of step
+   H7 show that Altium needs either to show or to compile the hierarchy.

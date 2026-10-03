@@ -19,7 +19,9 @@ no such group of nets.
   with its entries and type, labelled wires on the entries, and a signal harness line to the port or
   the sheet entry. The records go to the `Additional` stream of the binary schematic. Each sheet with
   a block gets a `.Harness` file, listed in the project file with the module sheets. The ASCII form
-  writes no harness.
+  writes no harness. After the maintainer's report of 2026-10-03, a harness between two neighbouring
+  modules is drawn on the top sheet as one signal harness line between the two sheet entries, without
+  blocks (design, "Changes after the maintainer's report").
 - **Unique ids and the change order.** Components keep their unique ids in both modes. A sheet symbol
   gets `unique_id("sheet:<module>")`. The PCB document links a part on a module sheet as
   `\<sheet symbol id>\<component id>`, the form Altium saves.
@@ -31,8 +33,8 @@ no such group of nets.
 ### Modified Capabilities (no new capability)
 
 - `design-dsl`: ADDED "Harness interfaces in the DSL".
-- `altium-schematic-writer`: eight ADDED requirements (sheets, sheet symbols, ports, harness records,
-  harness files, project file, layout, readback); MODIFIED "Binary schematic form" (text of c0033)
+- `altium-schematic-writer`: nine ADDED requirements (sheets, sheet symbols, ports, harness records,
+  harness lines between sheet symbols, harness files, project file, layout, readback); MODIFIED "Binary schematic form" (text of c0033)
   and "Stable component unique ids" (text of c0032).
 - `altium-pcb-writer`: MODIFIED "PCB document links and nets" (text of c0035).
 - `altium-build`: five ADDED requirements (option, module sheets, issue codes, sample and report,

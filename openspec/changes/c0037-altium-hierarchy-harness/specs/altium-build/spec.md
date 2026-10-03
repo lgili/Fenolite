@@ -17,7 +17,7 @@
 
 #### Scenario: Modules on request
 - **WHEN** the same build runs with `--altium-sheets modules --confirm` into an empty folder
-- **THEN** the exit code is 0, `result.sheets` is `["altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]`, `result.ports` is `5`, `result.sheet_entries` is `5`, `result.harnesses` is `1`, and the three `.Harness` files are written with the kind `altium_harness`
+- **THEN** the exit code is 0, `result.sheets` is `["altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]`, `result.ports` is `5`, `result.sheet_entries` is `5`, `result.harnesses` is `1`, and the two `.Harness` files are written with the kind `altium_harness`
 
 #### Scenario: Option without the Altium target
 - **WHEN** `fenolite build examples/blink_2layer/design.py --out B --altium-sheets modules --dry-run` runs
@@ -61,7 +61,7 @@
 #### Scenario: Kept project file
 - **GIVEN** `project_exists=True`
 - **WHEN** the sample is built with `sheets="modules"`
-- **THEN** `files` holds no `.PrjPcb`, and `issues` holds one `altium.sheets-not-in-project` info naming the two module sheets and the three harness files
+- **THEN** `files` holds no `.PrjPcb`, and `issues` holds one `altium.sheets-not-in-project` info naming the two module sheets and the two harness files
 
 #### Scenario: Envelope evidence
 - **WHEN** the sample is built with `--target altium --altium-sheets modules --dry-run --json`
@@ -107,7 +107,7 @@
 - The design MUST use Altium links to `FenoliteHier.SchLib` and `FenoliteHier.PcbLib`, which Fenolite does not ship. Parts: `J1` on the top sheet; `U1` and `C1` in the module `mcu`; `U2`, `C2` and `R1` in the module `flash`. Nets: `VDD` and `GND` (`Power(VDD, GND)`, on all three sheets); `RESET_N` (`J1`, `U1`); `FLASH_WP` (`U1`, `U2`); `SPI_MOSI`, `SPI_MISO`, `SPI_SCK` and `SPI_CS` (`U1`, `U2`), grouped by `Harness("SPI", {"MOSI": …, "MISO": …, "SCK": …, "CS": …})`; and `FLASH_HOLD_N` (`U2`, `R1`), local to `flash`.
 - `examples/altium_hier/partial.py` MUST be the same design, named `altium_hier_partial`, with a fifth entry `HOLD` on `FLASH_HOLD_N`.
 - `examples/altium_hier_board/design.py` MUST be a design named `altium_hier_board` with the parts, nets, footprints, board and placements of `examples/blink_2layer/design.py`, with `U1` and `R1` in a module `driver` and `D1` in a module `led`, and with library tables that name the same authored libraries under `tests/data/libs/`, so its `modules` build writes a PCB document.
-- The `modules` build of `design.py` in the binary form (`altium_hier.PrjPcb`, three `.SchDoc`, three `.Harness`, `FenoliteHier.SchLib`) MUST be committed under `tests/data/altium/hier/`, declared in `tests/data/MANIFEST.toml` with `origin = "authored"` together with the scripts, and compared byte for byte with a fresh build by `tests/unit/lens/test_altium_hier_golden.py`. `FENOLITE_GOLDEN_WRITE=1` MUST rewrite them instead.
+- The `modules` build of `design.py` in the binary form (`altium_hier.PrjPcb`, three `.SchDoc`, two `.Harness`, `FenoliteHier.SchLib`) MUST be committed under `tests/data/altium/hier/`, declared in `tests/data/MANIFEST.toml` with `origin = "authored"` together with the scripts, and compared byte for byte with a fresh build by `tests/unit/lens/test_altium_hier_golden.py`. `FENOLITE_GOLDEN_WRITE=1` MUST rewrite them instead.
 - Part H MUST name the committed files by their SHA-256 and hold these steps, each with the hypotheses it settles:
   - H1: open `altium_hier.PrjPcb` and each sheet in Altium Designer; note any prompt or repair offer, and whether the two sheet symbols, their entries and the ports show (`H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-PRJ`);
   - H2: note whether each harness connector shows with its entries and type, and whether a harness line joins it to its port or sheet entry (`H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-FILE`);
@@ -121,7 +121,7 @@
 
 #### Scenario: Golden files of the sample
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_hier_golden.py` runs
-- **THEN** the freshly built files equal the eight committed files byte for byte, and Part H names the SHA-256 of each
+- **THEN** the freshly built files equal the seven committed files byte for byte, and Part H names the SHA-256 of each
 
 #### Scenario: Sample builds without warnings
 - **WHEN** `fenolite build examples/altium_hier/design.py --out B --target altium --altium-sheets modules --confirm --json` runs into an empty folder
@@ -181,7 +181,7 @@
 
 #### Scenario: Files of the hierarchy sample
 - **WHEN** `build_altium` runs on the model of `examples/altium_hier/design.py` with `project_exists=False` and `sheets="modules"`
-- **THEN** `files` holds exactly `altium_hier.PrjPcb`, `altium_hier.SchDoc`, `altium_hier_flash.SchDoc`, `altium_hier_mcu.SchDoc`, `altium_hier.Harness`, `altium_hier_flash.Harness`, `altium_hier_mcu.Harness`, `FenoliteHier.SchLib`, the six layer files under `.fenolite/` and `.fenolite/build.json`, and `.fenolite/build.json` maps the eight project files to their SHA-256
+- **THEN** `files` holds exactly `altium_hier.PrjPcb`, `altium_hier.SchDoc`, `altium_hier_flash.SchDoc`, `altium_hier_mcu.SchDoc`, `altium_hier_flash.Harness`, `altium_hier_mcu.Harness`, `FenoliteHier.SchLib`, the six layer files under `.fenolite/` and `.fenolite/build.json`, and `.fenolite/build.json` maps the seven project files to their SHA-256
 
 #### Scenario: Flat build of the hierarchy sample
 - **WHEN** `build_altium` runs on the same model with the default `sheets`
