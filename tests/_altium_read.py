@@ -9,6 +9,10 @@ pin end, the power ports whose connection point does, and labels or ports of one
 The product never imports this module. A misreading that the writer and this reader share is caught only by
 the maintainer's check in Altium Designer (``docs/evidence/altium-schematic.md``).
 
+``read_no_connects`` (change c0036) rebuilds the pins marked as intentionally unconnected from the No ERC
+directives (record 22): each must sit on exactly one pin's electrical end, away from every wire, label
+and port.
+
 ``read_schlib`` (change c0034) reads a schematic library as the product writes it, from
 ``docs/formats/altium/schematic-library.md``, with every binary pin decoded field by field.
 """
@@ -178,6 +182,48 @@ def nets_from_sheet(records: Sequence[Record]) -> Nets:
         name = found[0] if found else "<unnamed {}-{}>".format(*min(keys))
         nets.setdefault(name, set()).update(keys)
     return nets
+
+
+def read_no_connects(records: Sequence[Record]) -> set[tuple[str, str]]:
+    """{(designator of the owning component, pin designator)} of the pins whose electrical end holds a
+    No ERC directive (``RECORD=22``). Only the pins drawn on a part record count.
+
+    Raises ``ReadError`` when a directive's location is no pin's end, when it lies on a wire, on a net
+    label's hotspot or on a power port, and when two directives share a location.
+    """
+    refs = {
+        int(r["OWNERINDEX"]): r["TEXT"]
+        for r in records
+        if r["RECORD"] == "34" and r.get("NAME") == "Designator"
+    }
+    ends: dict[Point, set[tuple[str, str]]] = {}
+    for r in records:
+        if r["RECORD"] == "2" and pin_shown(records, r):
+            ends.setdefault(pin_end(r), set()).add((refs[int(r["OWNERINDEX"])], r["DESIGNATOR"]))
+    wires = [
+        [(int(r[f"X{i}"]), int(r[f"Y{i}"])) for i in range(1, int(r["LOCATIONCOUNT"]) + 1)]
+        for r in records
+        if r["RECORD"] == "27"
+    ]
+    names = {_point(r, "LOCATION"): r["RECORD"] for r in records if r["RECORD"] in ("25", "17")}
+    seen: set[Point] = set()
+    marks: set[tuple[str, str]] = set()
+    for r in records:
+        if r["RECORD"] != "22":
+            continue
+        at = _point(r, "LOCATION")
+        if at in seen:
+            raise ReadError(f"two No ERC directives at {at}")
+        seen.add(at)
+        if any(_touches(at, wire) for wire in wires):
+            raise ReadError(f"the No ERC directive at {at} lies on a wire")
+        if at in names:
+            what = "net label" if names[at] == "25" else "power port"
+            raise ReadError(f"the No ERC directive at {at} lies on a {what}")
+        if at not in ends:
+            raise ReadError(f"the No ERC directive at {at} is on no pin's electrical end")
+        marks |= ends[at]
+    return marks
 
 
 def net_differences(
