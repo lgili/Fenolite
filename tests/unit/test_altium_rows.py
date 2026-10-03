@@ -82,6 +82,7 @@ REGISTERED_BY_C0035 = frozenset(
         "H-A-PCB-DOC-NETS",
     }
 )
+REGISTERED_BY_C0036 = frozenset({"H-A-SCH-NC-RECORD", "H-A-SCH-NC-ERC", "H-A-SCH-NC-VIEWER"})
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -156,7 +157,13 @@ def test_rows_are_well_formed() -> None:
 
 def test_the_change_registered_its_rows() -> None:
     rows = {row.id: row for row in load_register(REGISTER)}
-    ids = REGISTERED_BY_C0032 | REGISTERED_BY_C0033 | REGISTERED_BY_C0034 | REGISTERED_BY_C0035
+    ids = (
+        REGISTERED_BY_C0032
+        | REGISTERED_BY_C0033
+        | REGISTERED_BY_C0034
+        | REGISTERED_BY_C0035
+        | REGISTERED_BY_C0036
+    )
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
     assert all(rows[i].test.startswith("kit request") for i in ids)

@@ -1,6 +1,6 @@
 ## 1. Sources, hypotheses, provenance and fact rows
 
-- [ ] 1.1 Register the source and the hypotheses (first commit of the implementation; c0035 must already be on the branch).
+- [x] 1.1 Register the source and the hypotheses (first commit of the implementation; c0035 must already be on the branch).
   - Add row S-0180 to `docs/evidence/sources.md` from the design table, with the consultation date and the licence the page states. Widen the "used for" cells of S-0130, S-0131 and S-0149 as the design says.
   - Add the rows `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC` and `H-A-SCH-NC-VIEWER` to `docs/hypotheses.md`, with backend `altium`, level `INFERRED`, the test and criterion of `design.md` and the result `pending (author report)`, and the paragraph "Change c0036 (no-connect pins) adds …".
   - Add the three ids to the registered-rows check of `tests/unit/test_altium_rows.py`.
