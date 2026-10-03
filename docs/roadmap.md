@@ -357,7 +357,8 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 2 | v0.1 cut order: c0023 to v0.2a first, then c0021 to v0.2a, then c0020's measurement-only items | same | accepted |
 | 3 | Leaner 1.0 ([Proposed cuts](#proposed-cuts-for-a-leaner-10)) | this page | none; pending |
 | 4 | Dogfood gaps in v0.1: all of c0026–c0031 (about 63.5 design-days), or c0030 and c0031 moved to v0.2a (about −18 design-days, about half a calendar day at the measured pace; c0015 then writes the target-9 fill flag that c0031 adds) | this page; designs of c0026–c0031 | pending. Recommended: keep all six in v0.1 |
-| 5 | c0023 in v0.1 or in v0.2a: decided after c0016's feasibility gate (c0023 task 0.1). ADR-0006 (reading the Specctra reference for facts; running Freerouting as a subprocess) needs the maintainer's acceptance before c0023's codec is written | designs of c0016 and c0023 | pending. Recommended: move c0023 to v0.2a if c0016's gate passes |
+| 5 | c0023 in v0.1 or in v0.2a, and ADR-0006 (reading the Specctra reference for facts; running Freerouting as a subprocess) | designs of c0016 and c0023 | decided by the maintainer on 2026-10-03: c0023 stays in v0.1 whatever c0016's gate says, and the decision of ADR-0006 is accepted |
+| 6 | `macos-app` nightly job of the project plan's CI matrix | design of c0025 | decided by the maintainer on 2026-10-03: left out of v0.1 |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0015, c0016,
 c0020–c0025 and c0028–c0031).

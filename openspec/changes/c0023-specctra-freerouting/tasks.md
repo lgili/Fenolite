@@ -1,10 +1,12 @@
 ## 0. Go or no-go
 
 - [ ] 0.1 Read c0016's gate verdict in `docs/evidence/routing.md` and the maintainer's decision in `docs/roadmap.md` ("Proposed cuts", c0023). If the gate passed and the maintainer has not kept this change in v0.1, stop here: move the change to v0.2a in the roadmap and leave every task below open. Proof: the decision and its date are written under this task.
+  - Decision recorded on 2026-10-03 (`docs/roadmap.md`, Open decisions, row 5): the maintainer keeps this change in v0.1 whatever the gate verdict is. The day-6 gate of task 3.3 still applies.
 
 ## 1. Decision record, registers and fact pages
 
 - [ ] 1.1 Write `docs/adr/0006-specctra-and-freerouting.md` with `Proposed` under `## Status` (design Decision 1), add its row to `docs/adr/README.md` and `0006-specctra-and-freerouting.md` to `REQUIRED` in `tests/unit/test_adrs.py`. Ask the maintainer for the decision before task 2.1 starts, and if S-0224 may not be used, apply the black-box fallback and note it under this task. Proof: `uv run pytest tests/unit/test_adrs.py`; `grep -A1 '^## Status' docs/adr/0006-specctra-and-freerouting.md` prints `Proposed`.
+  - The maintainer accepted the decision on 2026-10-03 (same row): S-0224 may be read for facts and Freerouting may be run as a subprocess. The file is still written as `Proposed`; the maintainer's own commit sets `Accepted`.
 - [ ] 1.2 Register sources and hypotheses. This is the first commit of the implementation after the ADR.
   - Add S-0220 to S-0226 to `docs/evidence/sources.md` from design "Sources registered by this change", after opening each page: the revision or commit read, the consultation date and the licence or notice each states.
   - Add the rows `H-G-DSN-ACCEPT`, `H-G-DSN-UNITS`, `H-G-DSN-PROTECT`, `H-G-DSN-REPEAT` and `H-G-DSN-OFFLINE` (backend `specctra`) and `H-G-DSN-ROUTE` (backend `kicad`) to `docs/hypotheses.md`, level `INFERRED`, result `pending`. Remove `H-G-DSN-*` from the reserved-families table and add the paragraph "Change c0023 (Specctra and Freerouting) adds …".
