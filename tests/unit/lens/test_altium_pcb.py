@@ -241,4 +241,4 @@ def test_unplaced_part_is_staged(tmp_path: Path) -> None:
     doc = read_pcbdoc(output.files["blink.PcbDoc"])
     (record,) = [c for c in doc.components if c["SOURCEDESIGNATOR"] == "R1"]
     assert (record["X"], record["Y"]) == (mil_text(x), mil_text(y))
-    assert record["LAYER"] == "TOP" and record["ROTATION"] == "0"
+    assert record["LAYER"] == "TOP" and record["ROTATION"] == " 0.00000000000000E+0000"

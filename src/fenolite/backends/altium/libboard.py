@@ -26,6 +26,7 @@ TIME = "00:00:00"
 """Fenolite writes one fixed date and time, so equal libraries give equal bytes."""
 GUID_SALT = "fenolite.altium.guid:"
 MASTER_STACK_NAME = "Master layer stack"
+SUBSTACK_NAME = "Board Layer Stack"
 ENABLED_MECHANICAL = (13, 14, 15, 16)
 """The mechanical layers of Fenolite's layer map (``pcbrecords.LAYER_MAP``), enabled in every library."""
 SNAP_GRID = "50000.000000"
@@ -265,8 +266,12 @@ def _v8_ids() -> list[int]:
     return _stack_ids() + [_MISC + 12, _MISC + 13] + first + misc + later
 
 
-def _layer_fields(prefix: str, sep: str, long: int, used: Collection[int]) -> list[Field]:
-    """The keys of one layer of a ``V9`` list (``sep`` ``_``) or of the ``_V8`` list (``sep`` empty)."""
+def _layer_fields(
+    prefix: str, sep: str, long: int, used: Collection[int], substack: str | None = None
+) -> list[Field]:
+    """The keys of one layer of a ``V9`` list (``sep`` ``_``) or of the ``_V8`` list (``sep`` empty). With
+    ``substack`` (a document's sub-stack GUID) a layer of the physical stack first gets its two sub-stack
+    keys (``pcb-document.md``, "The ``Board6`` record")."""
     group, low = long & 0xFFFF_0000, long & 0xFFFF
     fields: list[Field] = [
         ("ID", guid(f"layer:{long}")),
@@ -285,7 +290,10 @@ def _layer_fields(prefix: str, sep: str, long: int, used: Collection[int]) -> li
         fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL)))
     elif low in (10, 11):
         fields += [*_RESIST, ("COVERLAY_EXPANSION", "0mil")]
-    return [(f"{prefix}{sep}{key}", value) for key, value in fields]
+    out = [(f"{prefix}{sep}{key}", value) for key, value in fields]
+    if substack is not None and long in _stack_ids():
+        out[:0] = [(f"{prefix}_{substack}CONTEXT", "0"), (f"{prefix}_{substack}USEDBYPRIMS", "FALSE")]
+    return out
 
 
 def _master(prefix: str, sep: str) -> list[Field]:
@@ -298,6 +306,75 @@ def _master(prefix: str, sep: str) -> list[Field]:
         ("ISFLEX", "FALSE"),
     )
     return [(f"{prefix}{sep}{key}", value) for key, value in fields]
+
+
+def _substack(prefix: str, sep: str, substack: str) -> list[Field]:
+    fields: tuple[Field, ...] = (
+        ("ID", substack),
+        ("NAME", SUBSTACK_NAME),
+        ("SHOWTOPDIELECTRIC", "FALSE"),
+        ("SHOWBOTTOMDIELECTRIC", "FALSE"),
+        ("ISFLEX", "FALSE"),
+        ("SERVICE", "FALSE"),
+        ("USEDBYPRIMS", "FALSE"),
+        ("TYPE", "1"),
+    )
+    return [(f"{prefix}{sep}{key}", value) for key, value in fields]
+
+
+def stack_fields(used_layers: Collection[int] = (), substack: str | None = None) -> list[Field]:
+    """The layer stack in its ``V9`` and ``_V8`` generations and the keys that close it: the master stack,
+    the physical stack, the cache list, the ``_V8`` list, the top and bottom dielectric and the style keys.
+    ``used_layers`` are numbered layers (1 … 74); ``substack`` is a document's sub-stack GUID, which adds
+    the sub-stack keys (a library has none)."""
+    used = {long_id(layer) for layer in used_layers}
+    out = _master("V9_MASTERSTACK", "_")
+    if substack is not None:
+        out += _substack("V9_SUBSTACK0", "_", substack)
+    for index, long in enumerate(_stack_ids()):
+        out += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used, substack)
+    for index, long in enumerate(_cache_ids()):
+        out += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used, substack)
+    out += _master("LAYERMASTERSTACK_V8", "")
+    if substack is not None:
+        out += _substack("LAYERSUBSTACK_V8_0", "", substack)
+    for index, long in enumerate(_v8_ids()):
+        out += _layer_fields(f"LAYER_V8_{index}", "", long, used, substack)
+    for side in ("TOP", "BOTTOM"):
+        out += [(f"{side}{key.removeprefix('DIEL')}", value) for key, value in _RESIST]
+    out += [("LAYERSTACKSTYLE", "0"), ("SHOWTOPDIELECTRIC", "FALSE"), ("SHOWBOTTOMDIELECTRIC", "FALSE")]
+    return out
+
+
+def legacy_lines() -> list[list[Field]]:
+    """The numbered layers and the ``LAYERV7_`` layers as lines: the first line holds layers 1 to 5 and no
+    ``RECORD=Board``; each later line starts with it."""
+    lines: list[list[Field]] = [[]]
+    for item in _legacy_layers():
+        if item == RECORD:
+            lines.append([])
+        lines[-1].append(item)
+    return lines
+
+
+def layer_sets() -> list[Field]:
+    """``LAYERSETSCOUNT`` and the five layer sets."""
+    return _layer_sets()
+
+
+def view_configurations() -> list[list[Field]]:
+    """The four lines of the 2D and 3D view configurations and their file names."""
+    view_3d: list[Field] = [
+        ("CFGALL.CONFIGURATIONKIND", "3"),
+        ("CFGALL.CONFIGURATIONDESC", "Enter%20description%20of%20new%20view%20configuration"),
+        *((f"CFG3D.{key}", value) for key, value in _VIEW_3D),
+    ]
+    return [
+        [RECORD, ("2DCONFIGTYPE", ".config_2dsimple"), ("2DCONFIGURATION", _nested(_view_2d()))],
+        [RECORD, ("2DCONFIGFULLFILENAME", "(Not Saved)")],
+        [RECORD, ("3DCONFIGTYPE", ".config_3d"), ("3DCONFIGURATION", _nested(view_3d))],
+        [RECORD, ("3DCONFIGFULLFILENAME", "(Not Saved)")],
+    ]
 
 
 def _legacy_layers() -> list[Field]:
@@ -404,36 +481,17 @@ def board_records(filename: str, used_layers: Collection[int] = ()) -> list[list
     the stacks and the first five numbered layers; every later line starts with ``RECORD=Board``.
     ``filename`` is the library's file name (no folder); ``used_layers`` are the numbered layers (1 … 74)
     that primitives lie on."""
-    used = {long_id(layer) for layer in used_layers}
     head: list[Field] = [
         ("FILENAME", filename),
         ("KIND", KIND),
         ("VERSION", VERSION),
         ("DATE", DATE),
         ("TIME", TIME),
+        *stack_fields(used_layers),
     ]
-    head += _master("V9_MASTERSTACK", "_")
-    for index, long in enumerate(_stack_ids()):
-        head += _layer_fields(f"V9_STACK_LAYER{index}", "_", long, used)
-    for index, long in enumerate(_cache_ids()):
-        head += _layer_fields(f"V9_CACHE_LAYER{index}", "_", long, used)
-    head += _master("LAYERMASTERSTACK_V8", "")
-    for index, long in enumerate(_v8_ids()):
-        head += _layer_fields(f"LAYER_V8_{index}", "", long, used)
-    for side in ("TOP", "BOTTOM"):
-        head += [(f"{side}{key.removeprefix('DIEL')}", value) for key, value in _RESIST]
-    head += [("LAYERSTACKSTYLE", "0"), ("SHOWTOPDIELECTRIC", "FALSE"), ("SHOWBOTTOMDIELECTRIC", "FALSE")]
-    lines = [head]
-    for item in _legacy_layers():
-        if item == RECORD:
-            lines.append([])
-        lines[-1].append(item)
+    first, *later = legacy_lines()
+    lines = [head + first, *later]
     view = _view_2d()
-    view_3d: list[Field] = [
-        ("CFGALL.CONFIGURATIONKIND", "3"),
-        ("CFGALL.CONFIGURATIONDESC", "Enter%20description%20of%20new%20view%20configuration"),
-        *((f"CFG3D.{key}", value) for key, value in _VIEW_3D),
-    ]
     grid: list[Field] = [
         RECORD,
         ("BIGVISIBLEGRIDSIZE", "0.000"),
@@ -459,10 +517,7 @@ def board_records(filename: str, used_layers: Collection[int] = ()) -> list[list
         grid,
         [RECORD, ("CURRENT2D3DVIEWSTATE", "2D")],
         [RECORD, *((key, str(value)) for key, value in VIEWPORT)],
-        [RECORD, ("2DCONFIGTYPE", ".config_2dsimple"), ("2DCONFIGURATION", _nested(view))],
-        [RECORD, ("2DCONFIGFULLFILENAME", "(Not Saved)")],
-        [RECORD, ("3DCONFIGTYPE", ".config_3d"), ("3DCONFIGURATION", _nested(view_3d))],
-        [RECORD, ("3DCONFIGFULLFILENAME", "(Not Saved)")],
+        *view_configurations(),
         [RECORD, *_TAIL],
     ]
     return lines
@@ -484,11 +539,17 @@ __all__ = [
     "ENABLED_MECHANICAL",
     "KIND",
     "LINE_BREAK",
+    "RECORD",
+    "SNAP_GRID",
     "TIME",
     "VERSION",
     "board_fields",
     "board_records",
     "board_text",
     "guid",
+    "layer_sets",
+    "legacy_lines",
     "long_id",
+    "stack_fields",
+    "view_configurations",
 ]

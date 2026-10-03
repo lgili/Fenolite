@@ -5,8 +5,10 @@ altium-pcb-writer, "PCB document file", "PCB document placement" and "PCB docume
 
 Written from ``docs/formats/altium/pcb-document.md`` and ``pcb-records.md``. A document is a compound file:
 two header streams, then one storage per object kind holding ``Header`` (the record count) and ``Data``.
-Footprint primitives are placed as KiCad places them (``Transform.placement``), then Y is negated and the
-board shifted so that its lower-left corner lies at (1000 mil, 1000 mil). Components link to the
+The storages, the ``Board6`` record (``docboard``) and the net and component records follow the form
+Altium saves ("The document as Altium saves it"); Altium Designer refuses the shorter form of the public
+writers. Footprint primitives are placed as KiCad places them (``Transform.placement``), then Y is negated
+and the board shifted so that its lower-left corner lies at (1000 mil, 1000 mil). Components link to the
 schematic through ``SOURCEUNIQUEID=\\<unique id>``. No routing, via, zone, rule or class is written.
 """
 
@@ -19,6 +21,7 @@ from dataclasses import dataclass, field
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
+from fenolite.backends.altium.docboard import angle_text, board_text, common_fields
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
     LibFootprint,
@@ -39,6 +42,7 @@ FILE_HEADER_SIX_VERSION = 5.01
 BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
+DEFAULT_FILENAME = "Fenolite.PcbDoc"
 EMPTY_STORAGES: tuple[str, ...] = (
     "Vias6",
     "Fills6",
@@ -52,10 +56,89 @@ EMPTY_STORAGES: tuple[str, ...] = (
     "ShapeBasedComponentBodies6",
     "DifferentialPairs6",
     "Connections6",
+    "FromTos6",
+    "Textures",
+    "Embeddeds6",
+    "Coordinates6",
+    "Models",
+    "ModelsNoEmbed",
+    "EmbeddedBoards6",
+    "PinPairsSection",
+    "PadViaLibraryLinks",
+    "ExtendedPrimitiveInformation",
+    "WaivedViolations",
+    "PrimitiveParameters",
+    "SmartUnions",
 )
-"""Storages KiCad looks for: written with ``Header`` 0 and an empty ``Data``."""
-LAYER_COUNT = 74
-MECHANICAL_ENABLED = (69, 70, 71, 72)
+"""Storages written with ``Header`` 0 and an empty ``Data``: the kinds KiCad looks for and the ones every
+Altium-saved document holds, empty in a document without such objects."""
+OPTION_STORAGES: tuple[str, ...] = (
+    "Advanced Placer Options6",
+    "Pin Swap Options6",
+    "Design Rule Checker Options6",
+    "PadViaLibrary",
+    "PadViaLibraryCache",
+    "LayerKindMapping",
+    "ConstraintManager",
+    "SignalClasses",
+)
+"""Storages with the fixed content of a document without rules, classes or pad templates."""
+UNIQUE_STORAGE = "UniqueIDPrimitiveInformation"
+NET_COLOR = "7709086"
+NO_CONSTRAINTS = "eNoDAAAAAAE="
+"""``ConstraintManager``: the base64 text of a zlib stream (best compression) that holds no data."""
+_PLACER: tuple[Field, ...] = (
+    ("RECORD", "AdvancedPlacerOptions"),
+    ("PLACELARGECLEAR", "50mil"),
+    ("PLACESMALLCLEAR", "20mil"),
+    ("PLACEUSEROTATION", "TRUE"),
+    ("PLACEUSELAYERSWAP", "FALSE"),
+    ("PLACEBYPASSNET1", ""),
+    ("PLACEBYPASSNET2", ""),
+    ("PLACEUSEADVANCEDPLACE", "TRUE"),
+    ("PLACEUSEGROUPING", "TRUE"),
+)
+_PIN_SWAP: tuple[Field, ...] = (
+    ("RECORD", "PinSwapOptions"),
+    ("QUIET", "FALSE"),
+    ("APPROXIMATEPINPOSITIONS", "FALSE"),
+    ("ALLOWPARTIALLYROUTEDCONNECTIONS", "TRUE"),
+    ("VIAPENALTYSTATE", "TRUE"),
+    ("CROSSOVERRATIO", "50"),
+    ("VIAPENALTYVALUE", "0"),
+    ("IGNORENETS", ""),
+    ("IGNORENETCLASSES", ""),
+    ("IGNORECOMPONENTS", ""),
+    ("IGNOREDIFFERENTIALPAIRS", ""),
+    ("HEURISTICNAME", ""),
+    ("HEURISTICONOFFSTATE", ""),
+    ("HEURISTICWEIGHTVALUE", ""),
+)
+_RULE_KINDS = "0,1,2,3,4,5,6,15,16,18,19,21,22,23,26,42,45,46,47,50,52,53,54,55,56,60,62,63,64"
+_ONLINE_RULE_KINDS = "0,1,2,3,4,5,9,11,15,17,18,22,23,24,45,46,47,50,51,55,60,62"
+_RULE_CHECKER: tuple[Field, ...] = (
+    ("RECORD", "DesignRuleCheckerOptions"),
+    ("DOMAKEDRCFILE", "FALSE"),
+    ("DOMAKEDRCERRORLIST", "TRUE"),
+    ("DOSUBNETDETAILS", "TRUE"),
+    ("REPORTFILENAME", ""),
+    ("EXTERNALNETLISTFILENAME", ""),
+    ("CHECKEXTERNALNETLIST", "FALSE"),
+    ("MAXVIOLATIONCOUNT", "500"),
+    ("REPORTDRILLEDSMTPADS", "TRUE"),
+    ("REPORTINVALIDMULTILAYERPADS", "TRUE"),
+    ("RULESETTOCHECK", _RULE_KINDS),
+    ("ONLINERULESETTOCHECK", _ONLINE_RULE_KINDS),
+    ("INTERNALPLANEWARNINGS", "TRUE"),
+    ("VERIFYSHORTINGCOPPER", "TRUE"),
+    ("REPORTBROKENPLANES", "TRUE"),
+    ("REPORTDEADCOPPER", "TRUE"),
+    ("DEADCOPPERMINAREA", "10000000000.000000"),
+    ("REPORTSTARVEDTHERMALS", "TRUE"),
+    ("MINSTARVEDCOPPERPERCENT", "50"),
+    ("REPORTSTRADLINGHOLES", "FALSE"),
+    ("REPORTHOLESINVOIDS", "FALSE"),
+)
 TOP, BOTTOM = 1, 32
 TEXT_SIZE = 137
 DESIGNATOR_HEIGHT = 1_000_000
@@ -155,54 +238,76 @@ def file_header_six(key: str = "") -> bytes:
     )
 
 
-def board_record(outline: Sequence[Point]) -> bytes:
-    """The one ``Board6`` record: kind, version, origin, layers 1 to 74 linked ``1 → 32 → 0``, the outline."""
+def board_record(
+    outline: Sequence[Point], *, filename: str = DEFAULT_FILENAME, used_layers: Sequence[int] = ()
+) -> bytes:
+    """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
+    lower-left corner, the layers that primitives lie on."""
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
     frame = Frame.of(outline)
-    origin = rec.mil_text(rec.to_units(_OFFSET_NM))
-    fields: list[Field] = [
-        ("KIND", "Protel_Advanced_PCB"),
-        ("VERSION", "5.00"),
-        ("ORIGINX", origin),
-        ("ORIGINY", origin),
-    ]
-    for layer in range(1, LAYER_COUNT + 1):
-        previous = TOP if layer == BOTTOM else 0
-        following = BOTTOM if layer == TOP else 0
-        fields += [
-            (f"LAYER{layer}NAME", rec.LAYER_NAMES[layer]),
-            (f"LAYER{layer}PREV", str(previous)),
-            (f"LAYER{layer}NEXT", str(following)),
-        ]
-        if layer in MECHANICAL_ENABLED:
-            fields.append((f"LAYER{layer}MECHENABLED", "TRUE"))
-    vertices = [*outline, outline[0]]
-    for index, point in enumerate(vertices):
+    origin = rec.to_units(_OFFSET_NM)
+    vertices: list[tuple[int, int]] = []
+    for point in outline:
         placed = frame(point)
-        fields += [
-            (f"KIND{index}", "0"),
-            (f"VX{index}", rec.mil_text(rec.to_units(placed.x))),
-            (f"VY{index}", rec.mil_text(rec.to_units(placed.y))),
-        ]
+        vertices.append((rec.to_units(placed.x), rec.to_units(placed.y)))
+    text = board_text(
+        filename,
+        vertices,
+        (origin, origin),
+        unique_id=unique_id(f"pcbdoc:{filename}:board"),
+        used_layers=used_layers,
+    )
+    return rec.text_block(text)
+
+
+def _net_record(name: str, filename: str) -> bytes:
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
+    fields: list[Field] = [
+        *common_fields("TOP"),
+        ("PRIMITIVELOCK", "FALSE"),
+        ("NAME", name),
+        ("VISIBLE", "TRUE"),
+        ("COLOR", NET_COLOR),
+        ("LOOPREMOVAL", "TRUE"),
+        ("OVERRIDECOLORFORDRAW", "FALSE"),
+        ("UNIQUEID", unique_id(f"pcbdoc:{filename}:net:{name}")),
+        ("JUMPERSVISIBLE", "TRUE"),
+    ]
     return rec.property_block(fields)
 
 
-def _component_record(component: PlacedComponent, frame: Frame) -> bytes:
+def _component_record(component: PlacedComponent, index: int, frame: Frame, filename: str) -> bytes:
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
     at = frame(component.at)
     fields: list[Field] = [
+        ("SELECTION", "FALSE"),
         ("LAYER", "BOTTOM" if component.side == "bottom" else "TOP"),
+        ("LOCKED", _bool(component.locked)),
+        ("POLYGONOUTLINE", "FALSE"),
+        ("USERROUTED", "TRUE"),
+        ("KEEPOUT", "FALSE"),
+        ("PRIMITIVELOCK", "TRUE"),
         ("X", rec.mil_text(rec.to_units(at.x))),
         ("Y", rec.mil_text(rec.to_units(at.y))),
-        ("ROTATION", degrees_text(component.rotation)),
-        ("LOCKED", _bool(component.locked)),
+        ("PATTERN", component.footprint.defn.name),
         ("NAMEON", "TRUE"),
         ("COMMENTON", "FALSE"),
-        ("PATTERN", component.footprint.defn.name),
+        ("GROUPNUM", "0"),
+        ("COUNT", "0"),
+        ("ROTATION", angle_text(component.rotation)),
+        ("UNIONINDEX", "0"),
+        ("CHANNELOFFSET", str(index)),
         ("SOURCEDESIGNATOR", component.ref),
         ("SOURCEUNIQUEID", "\\" + component.unique_id),
         ("SOURCEHIERARCHICALPATH", ""),
         ("SOURCEFOOTPRINTLIBRARY", component.footprint_library),
-        ("SOURCELIBREFERENCE", component.lib_reference),
         ("SOURCECOMPONENTLIBRARY", component.component_library),
+        ("SOURCELIBREFERENCE", component.lib_reference),
+        ("UNIQUEID", unique_id(f"pcbdoc:{filename}:component:{component.unique_id}")),
+        ("JUMPERSVISIBLE", "TRUE"),
     ]
     return rec.property_block(fields)
 
@@ -302,14 +407,71 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
     return _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
 
 
-def _storage(name: str, records: Sequence[bytes]) -> Storage:
-    return Storage(name, (("Header", _u32(len(records))), ("Data", b"".join(records))))
+def _storage(name: str, records: Sequence[bytes], *, count: int | None = None) -> Storage:
+    header = len(records) if count is None else count
+    return Storage(name, (("Header", _u32(header)), ("Data", b"".join(records))))
 
 
-def write_pcbdoc(spec: PcbDocSpec) -> bytes:
-    """The bytes of the PCB document of ``spec`` (``pcb-document.md``, "Fenolite's choices"). ``ValueError``
-    for an outline of fewer than three points or a refused footprint; ``cfb.CompoundTooLarge`` past the
-    size limit."""
+def _wide_string(text: str) -> bytes:
+    """A wide string: a 32-bit byte length that counts the 2-byte NUL, then UTF-16LE and the NUL."""
+    data = text.encode("utf-16-le") + b"\0\0"
+    return _u32(len(data)) + data
+
+
+def record_layer(record: bytes) -> int:
+    """The layer byte of a primitive record (the first byte of its common prefix); for a pad the prefix
+    opens the fifth subrecord."""
+    body = record[1:]
+    if record[0] == rec.PAD:
+        for _ in range(4):
+            (length,) = struct.unpack_from("<I", body)
+            body = body[4 + length :]
+    return body[4]
+
+
+def _option_storages(filename: str) -> list[Storage]:
+    """The storages of ``OPTION_STORAGES`` in that order (``pcb-document.md``, "Storages")."""
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
+    def pad_via(key: str) -> bytes:
+        return rec.property_block(
+            (
+                ("PADVIALIBRARY.LIBRARYID", guid(f"pcbdoc:{filename}:{key}")),
+                ("PADVIALIBRARY.LIBRARYNAME", "<Local>"),
+                ("PADVIALIBRARY.DISPLAYUNITS", "1"),
+            )
+        )
+
+    signals: list[Field] = [
+        *common_fields("MULTILAYER"),
+        ("NAME", "All xSignals"),
+        ("KIND", "10"),
+        ("SUPERCLASS", "TRUE"),
+        ("SELECTED", "FALSE"),
+        ("SCHAUTOGENERATEDCLUSTER", "FALSE"),
+        ("UNIQUEID", unique_id(f"pcbdoc:{filename}:signals")),
+    ]
+    contents: tuple[tuple[int, bytes], ...] = (
+        (1, rec.property_block(_PLACER)),
+        (1, rec.property_block(_PIN_SWAP)),
+        (1, rec.property_block(_RULE_CHECKER)),
+        (0, pad_via("padvia")),
+        (0, pad_via("padviacache")),
+        (1, _wide_string("1.0") + _u32(0) + _u32(0)),
+        (1, _wide_string(NO_CONSTRAINTS)),
+        (1, rec.property_block(signals)),
+    )
+    pairs = zip(OPTION_STORAGES, contents, strict=True)
+    return [_storage(name, [data], count=count) for name, (count, data) in pairs]
+
+
+def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes:
+    """The bytes of the PCB document of ``spec`` (``pcb-document.md``, "Fenolite's choices"); ``filename``
+    is the document's file name (no folder), written into the board record and the source of its ids.
+    ``ValueError`` for an outline of fewer than three points or a refused footprint;
+    ``cfb.CompoundTooLarge`` past the size limit."""
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
     frame = Frame.of(spec.outline)
     net_names = sorted(spec.nets)
     nets = {name: index for index, name in enumerate(net_names)}
@@ -320,7 +482,7 @@ def write_pcbdoc(spec: PcbDocSpec) -> bytes:
     texts: list[bytes] = []
     wide: list[bytes] = []
     for index, component in enumerate(spec.components):
-        components.append(_component_record(component, frame))
+        components.append(_component_record(component, index, frame, filename))
         placed = place_component(component, index, frame, nets)
         pads += placed.pads
         tracks += placed.tracks
@@ -346,29 +508,44 @@ def write_pcbdoc(spec: PcbDocSpec) -> bytes:
                 )
             )
             wide.append(_wide_entry(number, text))
+    used = sorted({record_layer(record) for record in (*pads, *tracks, *arcs, *texts)})
+    unique = [
+        rec.property_block(
+            (
+                ("PRIMITIVEINDEX", str(index)),
+                ("PRIMITIVEOBJECTID", "Pad"),
+                ("UNIQUEID", unique_id(f"pcbdoc:{filename}:pad:{index}")),
+            )
+        )
+        for index in range(len(pads))
+    ]
     entries: list[Entry] = [
         ("FileHeader", file_header()),
         ("FileHeaderSix", file_header_six(",".join(c.unique_id for c in spec.components))),
-        _storage("Board6", [board_record(spec.outline)]),
-        _storage("Nets6", [rec.property_block((("NAME", name),)) for name in net_names]),
+        _storage("Board6", [board_record(spec.outline, filename=filename, used_layers=used)]),
+        _storage("Nets6", [_net_record(name, filename) for name in net_names]),
         _storage("Components6", components),
         _storage("Pads6", pads),
         _storage("Tracks6", tracks),
         _storage("Arcs6", arcs),
         _storage("Texts6", texts),
         _storage("WideStrings6", wide),
+        _storage(UNIQUE_STORAGE, unique),
     ]
+    entries += _option_storages(filename)
     entries += [_storage(name, []) for name in EMPTY_STORAGES]
     return write_compound(entries)
 
 
 __all__ = [
     "BOARD_OFFSET_MIL",
+    "DEFAULT_FILENAME",
     "EMPTY_STORAGES",
     "EVIDENCE",
     "FILE_HEADER_SIX_TEXT",
     "FILE_HEADER_TEXT",
     "Frame",
+    "OPTION_STORAGES",
     "PcbDocSpec",
     "PlacedComponent",
     "board_record",
@@ -376,6 +553,7 @@ __all__ = [
     "file_header",
     "file_header_six",
     "place_component",
+    "record_layer",
     "text_record",
     "write_pcbdoc",
 ]

@@ -71,3 +71,12 @@
 - [x] 8.3 Extend `tests/_altium_pcb_read.py` and its negative controls to the new rules. Proof: `uv run pytest tests/unit/backends/altium/test_altium_pcb_read.py`.
 - [x] 8.4 Rebuild the blink PCB goldens and the digests of `docs/evidence/altium-pcb.md`; the KiCad oracles still pass. Proof: `uv run pytest tests/unit/lens tests/kicad/altium`.
 - [ ] 8.5 Record the maintainer's next Altium Designer report on the new files (step D1), under the licence rule of task 6.2.
+
+## 9. Second revision of 2026-10-03: the document in the form Altium saves
+
+- [x] 9.1 Record the facts of Altium-saved documents (S-0172, S-0174 to S-0176; files read in a scratch folder, never committed) on `pcb-document.md`, with `sources.md`, `PROVENANCE.md` and `LEGAL-ANNEX.md`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py tests/unit/test_legal_docs.py`.
+- [x] 9.2 Write the `Board6` record by rule (`docboard.py`, with `libboard.stack_fields`, `legacy_lines`, `layer_sets` and `view_configurations`), the net and component records, `UniqueIDPrimitiveInformation`, the option storages and the further empty storages (`pcbdoc.py`); `write_project` passes the file name. Proof: `uv run pytest tests/unit/backends/altium/test_docboard.py tests/unit/backends/altium/test_pcbdoc.py tests/unit/backends/altium/test_libboard.py`.
+- [x] 9.3 Extend `tests/_altium_pcb_read.py` and its negative controls to the document rules. Proof: `uv run pytest tests/unit/backends/altium/test_altium_pcb_read.py`.
+- [x] 9.4 Rebuild `blink.PcbDoc` and its digest on `docs/evidence/altium-pcb.md`; the KiCad oracles still pass. Proof: `uv run pytest tests/unit/lens/test_altium_pcb_golden.py`; `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium -q`.
+- [x] 9.5 Record the maintainer's reports of 2026-10-03 (Altium Designer 26.5, a trial licence on the maintainer's own PC) on the rows they settle. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py`.
+- [ ] 9.6 Record the maintainer's report on the new `blink.PcbDoc` and the bisection documents (step D3), under the licence rule of task 6.2.

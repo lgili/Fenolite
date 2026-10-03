@@ -168,6 +168,12 @@ class PcbDoc:
     wide_strings: dict[int, str]
     storages: dict[str, tuple[int, bytes]] = field(default_factory=dict)
     streams: dict[str, bytes] = field(default_factory=dict)
+    board_fields: list[tuple[str, str]] = field(default_factory=lambda: [])
+    """The fields of the board record in order; ``RECORD`` and the common keys repeat. ``board`` keeps the
+    first value of each key."""
+    unique_ids: list[dict[str, str]] = field(default_factory=lambda: [])
+    options: dict[str, dict[str, str]] = field(default_factory=dict)
+    """The one property block of each option storage that holds one."""
 
 
 def property_blocks(data: bytes, where: str) -> list[dict[str, str]]:
@@ -521,6 +527,19 @@ def read_pcblib(data: bytes) -> PcbLib:
     )
 
 
+OPTION_BLOCKS: dict[str, tuple[int, str]] = {
+    "Advanced Placer Options6": (1, "AdvancedPlacerOptions"),
+    "Pin Swap Options6": (1, "PinSwapOptions"),
+    "Design Rule Checker Options6": (1, "DesignRuleCheckerOptions"),
+    "PadViaLibrary": (0, ""),
+    "PadViaLibraryCache": (0, ""),
+    "SignalClasses": (1, ""),
+}
+"""Storage → its ``Header`` value and the ``RECORD`` of its one property block (empty for none)."""
+WIDE_STORAGES = ("LayerKindMapping", "ConstraintManager")
+"""Storages with ``Header`` 1 whose ``Data`` starts with a wide string."""
+
+
 def _wide_strings(data: bytes) -> dict[int, str]:
     out: dict[int, str] = {}
     offset = 0
@@ -556,9 +575,15 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         raise PcbReadError("FileHeaderSix: the id is not a GUID in braces and upper case")
     if "Board6" not in storages:
         raise PcbReadError("the document has no Board6")
-    boards = property_blocks(storages["Board6"][1], "Board6/Data")
-    if len(boards) != 1 or not boards[0]:
-        raise PcbReadError(f"Board6/Data holds {len(boards)} records, not one non-empty record")
+    board_data = storages["Board6"][1]
+    if len(board_data) < 6:
+        raise PcbReadError("Board6/Data holds 0 records, not one non-empty record")
+    board_fields, end = field_block_at(board_data, 0, "Board6/Data")
+    if end != len(board_data):
+        raise PcbReadError("Board6/Data holds more than one record")
+    board: dict[str, str] = {}
+    for key, value in board_fields:
+        board.setdefault(key, value)
     nets = property_blocks(storages.get("Nets6", (0, b""))[1], "Nets6/Data")
     components = property_blocks(storages.get("Components6", (0, b""))[1], "Components6/Data")
     decoded: dict[str, list[Primitive]] = {}
@@ -573,6 +598,34 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     }
     wide = _wide_strings(storages.get("WideStrings6", (0, b""))[1])
     counts["WideStrings6"] = len(wide)
+    unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
+    if UNIQUE_STORAGE in storages:
+        counts[UNIQUE_STORAGE] = len(unique_ids)
+        wanted = [(str(index), "Pad") for index in range(len(decoded["Pads6"]))]
+        if [(u.get("PRIMITIVEINDEX"), u.get("PRIMITIVEOBJECTID")) for u in unique_ids] != wanted:
+            raise PcbReadError(f"{UNIQUE_STORAGE}/Data does not list every pad once, in order")
+    options: dict[str, dict[str, str]] = {}
+    for name, (header, record) in OPTION_BLOCKS.items():
+        if name in storages:
+            blocks = property_blocks(storages[name][1], f"{name}/Data")
+            if len(blocks) != 1 or (record and blocks[0].get("RECORD") != record):
+                raise PcbReadError(f"{name}/Data is not one property block of {record or 'its keys'}")
+            options[name] = blocks[0]
+            counts[name] = header
+    for name in WIDE_STORAGES:
+        if name in storages:
+            body = storages[name][1]
+            length = u32(body[:4], f"{name}/Data")
+            text = body[4 : 4 + length]
+            if length % 2 or len(text) != length or not text.endswith(b"\0\0"):
+                raise PcbReadError(f"{name}/Data does not start with a wide string")
+            if name == "LayerKindMapping" and (
+                text[:-2].decode("utf-16-le") != "1.0" or body[4 + length :] != bytes(8)
+            ):
+                raise PcbReadError("LayerKindMapping/Data is not the version 1.0 and an empty table")
+            if name == "ConstraintManager" and len(body) != 4 + length:
+                raise PcbReadError("ConstraintManager/Data holds bytes after its wide string")
+            counts[name] = 1
     for path, (header, body) in storages.items():
         expected = counts.get(path, 0 if not body else None)
         if expected is None:
@@ -582,7 +635,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     return PcbDoc(
         file_header=streams["FileHeader"],
         file_header_six=streams["FileHeaderSix"],
-        board=boards[0],
+        board=board,
         nets=nets,
         components=components,
         pads=[p for p in decoded["Pads6"] if isinstance(p, PadRecord)],
@@ -592,4 +645,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         wide_strings=wide,
         storages=storages,
         streams=dict(streams),
+        board_fields=board_fields,
+        unique_ids=unique_ids,
+        options=options,
     )

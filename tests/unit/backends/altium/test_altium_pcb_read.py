@@ -107,7 +107,8 @@ HEADER_SIX = struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("
 HEADER_SIX += struct.pack("<IB", 38, 38) + b"{01234567-89AB-CDEF-0123-456789ABCDEF}"
 
 
-def document(pads: bytes, components: int = 3) -> bytes:
+def document(pads: bytes, components: int = 3, **extra: bytes) -> bytes:
+    """A small document; ``extra`` adds or replaces streams, ``/`` written ``__`` in the keyword."""
     streams = {
         "FileHeader": struct.pack("<I", 19) + "PCB 5.0 Bi".encode("utf-16-le"),
         "FileHeaderSix": HEADER_SIX,
@@ -122,6 +123,7 @@ def document(pads: bytes, components: int = 3) -> bytes:
         "Vias6/Header": struct.pack("<I", 0),
         "Vias6/Data": b"",
     }
+    streams.update({key.replace("__", "/").replace("_", " "): value for key, value in extra.items()})
     return write_compound(storage_from_paths(streams))
 
 
@@ -236,6 +238,103 @@ def test_pad_name_length() -> None:
 def test_unknown_record_type() -> None:
     with pytest.raises(PcbReadError, match="unknown record type 7"):
         decode_primitives(bytes((7,)) + sub(b"\0" * 36))
+
+
+def one(count: int) -> bytes:
+    return struct.pack("<I", count)
+
+
+def test_board_record_of_two_blocks() -> None:
+    two = prop(KIND="Protel_Advanced_PCB") * 2
+    with pytest.raises(PcbReadError, match="Board6/Data holds more than one record"):
+        read_pcbdoc(document(pad(component=0, net=0), Board6__Data=two))
+    with pytest.raises(PcbReadError, match="Board6/Data holds 0 records"):
+        read_pcbdoc(document(pad(component=0, net=0), Board6__Data=b""))
+
+
+def test_board_record_of_lines_keeps_the_first_value() -> None:
+    text = b"|LAYER=UNKNOWN|KIND=Protel_Advanced_PCB|LAYER=TOP\r|RECORD=Board|VERSION=5.01\0"
+    doc = read_pcbdoc(document(pad(component=0, net=0), Board6__Data=one(len(text)) + text))
+    assert doc.board["LAYER"] == "UNKNOWN" and doc.board["VERSION"] == "5.01"
+    assert [key for key, _ in doc.board_fields] == ["LAYER", "KIND", "LAYER", "RECORD", "VERSION"]
+
+
+def test_unique_ids_list_every_pad() -> None:
+    block = prop(PRIMITIVEINDEX="0", PRIMITIVEOBJECTID="Pad", UNIQUEID="ABCDEFGH")
+    good = document(
+        pad(component=0, net=0),
+        UniqueIDPrimitiveInformation__Header=one(1),
+        UniqueIDPrimitiveInformation__Data=block,
+    )
+    assert read_pcbdoc(good).unique_ids[0]["UNIQUEID"] == "ABCDEFGH"
+    for data in (block * 2, block.replace(b"=Pad", b"=Arc"), block.replace(b"INDEX=0", b"INDEX=1")):
+        with pytest.raises(PcbReadError, match="does not list every pad once, in order"):
+            read_pcbdoc(
+                document(
+                    pad(component=0, net=0),
+                    UniqueIDPrimitiveInformation__Header=one(1),
+                    UniqueIDPrimitiveInformation__Data=data,
+                )
+            )
+
+
+def test_option_storage_with_another_record() -> None:
+    good = prop(RECORD="PinSwapOptions", QUIET="FALSE")
+    doc = read_pcbdoc(
+        document(pad(component=0, net=0), Pin_Swap_Options6__Header=one(1), Pin_Swap_Options6__Data=good)
+    )
+    assert doc.options["Pin Swap Options6"]["QUIET"] == "FALSE"
+    for data, header in ((prop(RECORD="Other"), 1), (good * 2, 1)):
+        with pytest.raises(PcbReadError, match="Pin Swap Options6/Data is not one property block of PinSwap"):
+            read_pcbdoc(
+                document(
+                    pad(component=0, net=0),
+                    Pin_Swap_Options6__Header=one(header),
+                    Pin_Swap_Options6__Data=data,
+                )
+            )
+    with pytest.raises(PcbReadError, match="Pin Swap Options6/Header says 0, the data holds 1"):
+        read_pcbdoc(
+            document(pad(component=0, net=0), Pin_Swap_Options6__Header=one(0), Pin_Swap_Options6__Data=good)
+        )
+
+
+def test_wide_string_storages() -> None:
+    version = one(8) + "1.0\0".encode("utf-16-le")
+    doc = read_pcbdoc(
+        document(
+            pad(component=0, net=0),
+            LayerKindMapping__Header=one(1),
+            LayerKindMapping__Data=version + bytes(8),
+        )
+    )
+    assert doc.storages["LayerKindMapping"][0] == 1
+    with pytest.raises(PcbReadError, match="LayerKindMapping/Data is not the version 1.0 and an empty table"):
+        read_pcbdoc(
+            document(
+                pad(component=0, net=0),
+                LayerKindMapping__Header=one(1),
+                LayerKindMapping__Data=version + bytes(4),
+            )
+        )
+    with pytest.raises(PcbReadError, match="ConstraintManager/Data does not start with a wide string"):
+        read_pcbdoc(
+            document(
+                pad(component=0, net=0),
+                ConstraintManager__Header=one(1),
+                ConstraintManager__Data=one(3) + b"abc",
+            )
+        )
+    with pytest.raises(PcbReadError, match="ConstraintManager/Data holds bytes after its wide string"):
+        read_pcbdoc(
+            document(
+                pad(component=0, net=0),
+                ConstraintManager__Header=one(1),
+                ConstraintManager__Data=version + b"\0",
+            )
+        )
+    with pytest.raises(PcbReadError, match="a storage Fenolite does not write holds data"):
+        read_pcbdoc(document(pad(component=0, net=0), Texts__Header=one(1), Texts__Data=b"x"))
 
 
 def test_header_count_differs() -> None:

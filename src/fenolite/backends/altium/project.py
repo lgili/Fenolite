@@ -351,7 +351,7 @@ def write_project(
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
     if pcb is not None:
         try:
-            files[f"{name}.PcbDoc"] = write_pcbdoc(pcb)
+            files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbDoc", error) from error
     return files
