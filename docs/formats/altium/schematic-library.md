@@ -18,7 +18,8 @@ the test reader `tests/_altium_read.py` (`read_schlib`) checks. The container is
   (S-0153). Rows that the importer reads name `H-A-SCHLIB-KICAD` and become `ORACLE-VERIFIED(kicad-cli)`
   once `tests/kicad/altium/test_schlib_oracle.py` passes. Rows that only Altium reads stay `INFERRED`
   until the maintainer's Part L report (`docs/evidence/altium-schematic.md`).
-- The round trip passed on kicad-cli 10.0.6 and on 9.0.9 (pinned image, local run) on 2026-10-02. Rows
+- The round trip passed on kicad-cli 10.0.6 and on 9.0.9 (pinned image, local run) on 2026-10-02, and again
+  in the `kicad-9` and `kicad-10` jobs of run https://github.com/lgili/Fenolite/actions/runs/37117800828. Rows
   whose only hypothesis is `H-A-SCHLIB-KICAD` and that the test exercises now carry
   `ORACLE-VERIFIED(kicad-cli)`; rows that also name an Altium-only hypothesis, and observations the test
   does not repeat, stay `INFERRED`. The Part L report of 2026-10-03 covers steps L4 and L5 of the sample only (`H-A-SCHLIB-PRJ`), so every other Altium-only row is pending. The free Altium 365
@@ -148,7 +149,7 @@ payload has 34 bytes, so the record is:
 | Fenolite's oracle (`tests/kicad/altium/test_schlib_oracle.py`, kicad-cli 10.0.6, 2026-10-02): the sample's `FenoliteSample.SchLib` converts (exit 0) into six symbols named after their storages, with the generic pins (number, name, passive, hot end, angle, length, unit 1), the reference prefix and the footprint name; two conversions are byte-identical | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | Fenolite's negative controls on kicad-cli 10.0.6 (2026-10-02), built from the writer's records: another header text, a `Data` whose first record is not the component, a stray byte after the last record, and a pin without its last two short strings each exit 2 with "Unable to convert library"; the same library without the change converts | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | Fenolite's oracle on kicad-cli 10.0.6 (2026-10-02): `altium_kicad.SchLib` of `examples/altium_kicad/` converts into its four symbols with the source's unit count and, per pin, the number, the name (overbars back in KiCad's form), the electrical type after the lossy mapping, the hot end, the angle, the length, the unit (Part Zero as unit 0) and the hidden flag; the reference prefix, the footprint name, the inverted and clock shapes all read back | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
-| The same test with kicad-cli 9.0.9 (pinned image, local run, 2026-10-02) passes as well: 9.0 converts every library; a pin name `~` reads back as an empty name, because a 9.0 library file writes `~` for an empty name | S-0020, S-0031, S-0153 | ORACLE-VERIFIED(kicad-cli) (9.0.9, pinned image, local run; 2026-10-02) | H-A-SCHLIB-KICAD9 |
+| The same test with kicad-cli 9.0.9 (pinned image, local run, 2026-10-02; again in the `kicad-9` job of run https://github.com/lgili/Fenolite/actions/runs/37117800828) passes as well: 9.0 converts every library; a pin name `~` reads back as an empty name, because a 9.0 library file writes `~` for an empty name | S-0020, S-0031, S-0153 | ORACLE-VERIFIED(kicad-cli) (9.0.9, pinned image, local run; 2026-10-02) | H-A-SCHLIB-KICAD9 |
 
 ## Facts awaiting a permitted source
 

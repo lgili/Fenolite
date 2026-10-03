@@ -47,7 +47,8 @@
   - `<name>.SchLib` for KiCad lib ids.
 
   `cmd_build` builds the resolver only when needed. Proof: `uv run pytest tests/unit/lens/test_altium_build.py -q`; `KICAD_CONFIG_HOME="$(mktemp -d)" uv run fenolite build examples/altium_kicad/design.py --out "$(mktemp -d)/b" --target altium --dry-run --json` exits 0. This covers "Altium symbol sources" and "Altium build target".
-- [ ] 3.3 Extend the oracle test to `altium_kicad.SchLib`: per-symbol units and per-pin fields against the source `SymbolDef`, plus `Reference` and `Footprint`. Run it locally on 10.0.6 and record the result on the fact page and in `H-A-SCHLIB-KICAD`. Push and record the `kicad-9` job's outcome in `H-A-SCHLIB-KICAD9` (expected-to-fail on major 9 if it fails, with the message). Proof: `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium/test_schlib_oracle.py -q -rA`; `gh run view --log` of the `kicad-9` job shows the test's outcome. This covers "Schematic library oracle".
+- [x] 3.3 Extend the oracle test to `altium_kicad.SchLib`: per-symbol units and per-pin fields against the source `SymbolDef`, plus `Reference` and `Footprint`. Run it locally on 10.0.6 and record the result on the fact page and in `H-A-SCHLIB-KICAD`. Push and record the `kicad-9` job's outcome in `H-A-SCHLIB-KICAD9` (expected-to-fail on major 9 if it fails, with the message). Proof: `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium/test_schlib_oracle.py -q -rA`; `gh run view --log` of the `kicad-9` job shows the test's outcome. This covers "Schematic library oracle".
+  - CI proof: run https://github.com/lgili/Fenolite/actions/runs/37117800828 (commit 1876f81) is green; the log of its `kicad-9` job (kicad-cli 9.0.9) lists the eight tests of `tests/kicad/altium/test_schlib_oracle.py` as `PASSED`, and its `kicad-10` job passed. Recorded in `H-A-SCHLIB-KICAD9` and on the fact page.
 
 ## 4. The schematic from the library geometry (cut here for the minimal scope)
 
@@ -74,7 +75,8 @@
 
 ## 7. The maintainer's report
 
-- [ ] 7.1 Record the maintainer's Part L report as c0032's "Altium author reports" requires: tool `AD <major>.<minor>`, date, one generic outcome per step, and only results from a licence the maintainer may use. Fix any fault named, with a regression test naming its hypothesis, after recording the changed fact. Rebuild the goldens and update the SHA-256 values. Without a report, the rows stay `pending (author report)`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py tests/unit/lens/test_altium_schlib_golden.py`.
+- [x] 7.1 Record the maintainer's Part L report as c0032's "Altium author reports" requires: tool `AD <major>.<minor>`, date, one generic outcome per step, and only results from a licence the maintainer may use. Fix any fault named, with a regression test naming its hypothesis, after recording the changed fact. Rebuild the goldens and update the SHA-256 values. Without a report, the rows stay `pending (author report)`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py tests/unit/lens/test_altium_schlib_golden.py`.
+  - Recorded on 2026-10-03: the report of `AD 26.5` (Altium Designer 26.5.0, a trial licence on the maintainer's own PC, `LEGAL.md` block A) in `docs/evidence/altium-schematic.md`, "Reports". It covers steps L4 and L5 of the sample: the sample project with `FenoliteSample.SchLib` compiles with no error, and "Update From Libraries" works with the generated library, which confirms `H-A-SCHLIB-PRJ`. The report names no fault, so no golden changed. Steps L1 to L3 and L6 and the `altium_kicad` project are not reported; their rows stay `pending (author report)`.
 
 ## 8. Closing
 
