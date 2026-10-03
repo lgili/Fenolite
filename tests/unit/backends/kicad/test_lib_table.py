@@ -44,9 +44,9 @@ def test_10_syntax() -> None:
 def test_9_syntax() -> None:
     table = read_lib_table(PROJECT / "nested" / "fp-lib-table")
     assert table.version is None and table.kind == "footprint"
-    assert table.rows == (LibRow("NestedMini", "KiCad", "../../Mini_v9.pretty", "", "Nested relative row"),)
+    assert table.rows == (LibRow("NestedMini", "KiCad", "../Mini_v9.pretty", "", "Nested relative row"),)
     quoted = read_lib_table(
-        '(fp_lib_table (lib (name "NestedMini") (type "KiCad") (uri "../../Mini_v9.pretty") (options "")'
+        '(fp_lib_table (lib (name "NestedMini") (type "KiCad") (uri "../Mini_v9.pretty") (options "")'
         ' (descr "Nested relative row")))'
     )
     assert quoted.rows == table.rows

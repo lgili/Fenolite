@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import io
 import json
+import os
 from pathlib import Path
 
 import pytest
 from _libcensus import census_sources
-from _resources import kicad_cli
+from _resources import kicad_cli, libs_cache_dir
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.kicad.cli import KicadCli
@@ -24,10 +25,21 @@ ROOT = Path(__file__).resolve().parents[2]
 OFFICIAL = ROOT / "examples" / "blink_official" / "design.py"
 
 
+LIBRARY_VARIABLES = ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR")
+
+
+def _cached() -> bool:
+    """Whether the verified cache is one of the ``needs_libs`` sources: the build then sees what the census
+    sees (c0021 Decision 16)."""
+    return any(s.kind == "cache" and s.major == 10 for s in census_sources())
+
+
 def _build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     if not census_sources():
         pytest.skip("no official library source with a known major")
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kc"))
+    if _cached():
+        monkeypatch.setenv("FENOLITE_LIBS_CACHE", str(libs_cache_dir()))
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr("sys.stdout", out)
     monkeypatch.setattr("sys.stderr", err)
@@ -44,6 +56,9 @@ def test_official_variant_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert len(vendored) == 3 and all(v.startswith("lib/") for v in vendored)  # type: ignore[union-attr]
     for rel in vendored:  # type: ignore[union-attr]
         assert (tmp_path / "O" / rel).is_file()
+    if _cached() and not any(os.environ.get(name) for name in LIBRARY_VARIABLES):
+        # the pinned cache ranks above an install, and its rows come from the directory scan
+        assert envelope["result"]["libraries"]["Device:R"] == "scan"  # type: ignore[index]
 
 
 @pytest.mark.needs_kicad

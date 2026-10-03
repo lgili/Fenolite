@@ -239,20 +239,39 @@ fragment's own head, it is the file version. For example, a padstack fragment ca
   syntax is expanded. A name is resolved in this order:
   1. `KIPRJMOD`, the project folder. KiCad defines it and it cannot be redefined (S-0045).
   2. The process environment, which overrides KiCad's own configuration (S-0045).
-  3. Fenolite defaults for the target major M: `KICAD<M>_FOOTPRINT_DIR`, `_SYMBOL_DIR`, `_3DMODEL_DIR`
+  3. On request (`LibraryConfig.read_common`), the path variables set in KiCad: the `environment.vars`
+     object of `<config>/<M>.0/kicad_common.json` (`H-K-LIB-COMMON`, KICAD-VERIFIED (10.0.x)).
+  4. Fenolite defaults for the target major M: `KICAD<M>_FOOTPRINT_DIR`, `_SYMBOL_DIR`, `_3DMODEL_DIR`
      and `_TEMPLATE_DIR` point into the selected library source (below).
-  4. The versioned fallback: an undefined `KICAD<k>_X` with k < M resolves as `KICAD<k+1>_X`
-     (S-0045; `H-K-LIB-FALLBACK`, INFERRED).
+  5. The versioned fallback: an undefined `KICAD<k>_X` with k < M resolves as `KICAD<k+1>_X`
+     (S-0045; `H-K-LIB-FALLBACK`, KICAD-VERIFIED (10.0.x)). 9.0.9 has no such fallback for
+     `KICAD9_X`: the probe's library is not found there, with or without `KICAD10_X`.
 - A name without a value gives `kicad.lib.unresolved-variable` when a row that needs it is used. The
   hint names the variable to set.
-- **Limitation.** Values set in KiCad's own preferences (`kicad_common.json`) are not read. A path
-  set only there is unresolved for Fenolite.
+- **KiCad's own path variables (`kicad_common.json`).** KiCad keeps one configuration folder per version,
+  path variables can be set in KiCad, and the environment overrides that configuration (S-0045). No
+  public page names the file or its layout: both are observed on the file that `kicad-cli` writes into
+  an empty configuration folder, key names only (S-0020; `H-K-LIB-COMMON`, KICAD-VERIFIED (10.0.x)).
+  `kicad-cli` 10.0.6 and 9.0.9 both write `<M>.0/kicad_common.json` on a first run, with an `environment`
+  object whose only key is `vars`; a variable added there is used, and a process variable of the same
+  name wins. Fenolite's rules:
+  - **Opt-in.** By default the file is not read, so a path set only there is unresolved, and the hint of
+    such a name says to set `LibraryConfig.read_common`. Reading it by default would make results depend
+    on the machine.
+  - **Order.** Configured values rank below the process environment (S-0045) and above Fenolite's
+    source defaults, which stand in for KiCad's built-in values.
+  - **One major.** Only the file of the target major is read, in the folder of the global table.
+  - **Content.** A missing file, a file without `environment.vars`, or `vars` set to `null` give no
+    variables. Invalid JSON, or `vars` that is not an object of strings, raises `FormatError` naming
+    the file and the JSON pointer. Values are used as written: `${…}` inside a value is not expanded.
+  - The file is read at most once per resolver, the first time a name reaches step 3.
 
 ## Discovery and precedence
 
 - **Project table:** `fp-lib-table` or `sym-lib-table` in the project folder (S-0046).
 - **Global table:** `<config>/<M>.0/<table>` (S-0045). `<config>` is `LibraryConfig.config_home`,
-  else `KICAD_CONFIG_HOME` when set (`H-K-LIB-CONFIGHOME`, INFERRED), else the per-OS folder:
+  else `KICAD_CONFIG_HOME` when set (`H-K-LIB-CONFIGHOME`, KICAD-VERIFIED (10.0.x): a table directly in
+  that folder, without `<M>.0/`, is not read), else the per-OS folder:
   - Linux `~/.config/kicad`
   - macOS `~/Library/Preferences/kicad`
   - Windows `%APPDATA%\kicad`
@@ -267,11 +286,28 @@ fragment's own head, it is the file version. For example, a padstack fragment ca
   KiCad instead offers a choice of library setup when it first starts without a configuration
   (S-0045), so this is Fenolite's choice, made so that CI and containers resolve the official
   libraries.
-- **Precedence.** Project rows come first, then global (or template) rows. A nickname of the project
+- **Directory scan (Fenolite extension; `H-K-LIB-SCAN`, INFERRED).** When neither a global table nor a
+  template table exists, Fenolite scans the folder that `${KICAD<M>_FOOTPRINT_DIR}` or
+  `${KICAD<M>_SYMBOL_DIR}` expands to and makes one `KiCad` row per library, in sorted name order,
+  with origin `scan`:
+  - a footprint library is a `<X>.pretty` folder; a symbol library is a `<X>.kicad_sym` file or a
+    `<X>.kicad_symdir` folder, and the file wins for one stem;
+  - the nickname is `X`, and the uri is the variable followed by the folder or file name;
+  - a variable without a value, or one that names no folder, gives no row.
+
+  The scan matches KiCad's namespace only if the official nicknames equal the library stems, which the
+  census checks on the install and on both fetched trees.
+- **Cache sources are always scanned.** The template search is skipped for a `cache` source (below).
+  A fetched tree is a source tree, not an install: its root table is the template of an install
+  (S-0042, S-0043), and at 10.0.6 the symbol tree stores each library as a folder that an install packs
+  into a file (S-0043, S-0044). The scan follows what is on disk.
+- **Project rows only.** With `LibraryConfig.use_global_table` false, neither the global table, the
+  template nor the scan is used.
+- **Precedence.** Project rows come first, then global (or template, or scanned) rows. A nickname of the project
   table hides the same nickname of the global table (S-0046). A disabled row hides nothing.
 - **Nested tables.** `Table` rows are expanded in place, recursively, and their rows join the
   namespace of the table that holds them (S-0046, "loaded as if they were directly listed";
-  `H-K-LIB-NESTED`, INFERRED).
+  `H-K-LIB-NESTED`, KICAD-VERIFIED (9.0.x, 10.0.x): 10.0.6 expands a nested table, 9.0.9 does not).
   - Since 10.0.1, path variables are resolved in nested tables (S-0049).
   - A default 10.0 global table holds a single `Table` row pointing at the install template (S-0046).
   - A table already being expanded is skipped with the warning `kicad.lib.table-cycle`.
@@ -279,14 +315,28 @@ fragment's own head, it is the file version. For example, a padstack fragment ca
     `kicad.lib.missing-table`.
   - With target 9 every expanded nested table adds the info `kicad.lib.nested-table-target`, because
     nested tables are new in 10.0.
-- **Relative URIs** resolve against the folder of the table file that holds the row: the project
-  folder for project rows, the nested table's folder for nested rows (`H-K-LIB-RELPATH`, INFERRED).
+- **Relative URIs.** `kicad-cli` resolves a relative uri against its working directory, in the project
+  table, a nested table and the global table alike (`H-K-LIB-RELPATH-2`, KICAD-VERIFIED (10.0.x); the
+  9.0.9 outcomes agree for project and global rows). Neither the folder of the table file nor the
+  project folder counts: a library next to the board is not found when `kicad-cli` runs in the parent
+  folder, and a nested row `../<lib>` does not reach the folder above the nested table. The first
+  statement, "the folder of the table file that holds the row" (`H-K-LIB-RELPATH`), was refuted.
+  - Fenolite joins a relative uri to `LibraryConfig.project_dir`, whatever table holds the row: the
+    project folder stands for the working directory of a KiCad that runs in the project, and a result
+    must not depend on where the caller runs. Without `project_dir` the path stays relative.
+  - A relative uri therefore works in KiCad only when KiCad is started in the project folder. Rows that
+    must work everywhere use `${KIPRJMOD}` or another variable, as Fenolite's own tables do.
 
 ## Library sources
 
 `find_library_sources(config)` reports where official libraries can be found:
 
 - `env`: a `KICAD9_*` or `KICAD10_*` footprint or symbol folder of the environment that exists.
+- `cache`: the folder `<cache>/<tag>` of a pinned tag, when its `kicad-footprints` or `kicad-symbols`
+  subfolder holds a stamp equal to its pin ("Library cache", below). It is opt-in: `<cache>` is
+  `LibraryConfig.cache_dir`, else `FENOLITE_LIBS_CACHE` of the environment, and no default location is
+  searched, so results never depend on what a machine happens to hold. A subfolder whose stamp is
+  missing or differs from its pin is not used. The stamp is trusted: the resolver never re-hashes.
 - `install`: `LibraryConfig.install_dir`, or else the default install folder (S-0045):
   - macOS `/Applications/KiCad/KiCad.app/Contents/SharedSupport`
   - Linux `/usr/share/kicad`
@@ -295,9 +345,51 @@ fragment's own head, it is the file version. For example, a padstack fragment ca
   A path that does not exist means no install. The major comes from the version header of one
   symbol library, read from its first 4 KiB.
 
-For target M, the defaults of step 3 come from an `env` source of major M, else from an install of
-major M. An install of another major is never used, because a 9.0 KiCad refuses 10.0 files
-(`versions.md`).
+For target M, the defaults of step 4 come from an `env` source of major M, else from a `cache` source
+of major M, else from an install of major M: an explicit, pinned source ranks above an implicit
+install. A source of another major is never used, because a 9.0 KiCad refuses 10.0 files
+(`versions.md`). A `cache` source defines `KICAD<M>_FOOTPRINT_DIR` and `KICAD<M>_SYMBOL_DIR` only for
+its verified subfolders. It defines no `KICAD<M>_3DMODEL_DIR`, because models are not fetched, and no
+`KICAD<M>_TEMPLATE_DIR`.
+
+## Library cache
+
+The official libraries are CC-BY-SA 4.0 as a collection (S-0048), so they are fetched into a cache
+outside the repository and never committed. `tools/kicad_libs_fetch.py` makes the cache, and
+`backends/kicad/libcache.py` holds its rules. These are Fenolite's choices, built on three facts.
+
+- GitLab serves the archive of one commit through `GET /projects/:id/repository/archive[.format]` with
+  `sha` (S-0096; INFERRED).
+- `tarfile` extraction filters (`filter="data"`, `tarfile.data_filter`) exist from Python 3.11.4, and
+  `hasattr(tarfile, "data_filter")` tells whether they do. The `data` filter refuses absolute paths,
+  `..` and special files (S-0095; INFERRED).
+- `os.replace` renames atomically on POSIX when it succeeds, may fail across filesystems, and fails
+  when the target is a non-empty folder (S-0097; INFERRED).
+
+- **Pins.** `backends/kicad/data/libraries.toml` pins `kicad-footprints` and `kicad-symbols` at tags
+  10.0.6 and 9.0.9: the tag's commit (S-0042, S-0043), and the tree hash and file count measured on the
+  first verified fetch. The archive is always requested by commit, so a moved tag cannot change what is
+  fetched. The archive's own hash is not pinned: GitLab generates archives on request, and nothing
+  says their bytes are stable.
+- **Tree hash, scheme `fenolite-tree-1`.** One line `<sha256 hex> <size> <path>` per regular file, with
+  POSIX paths relative to the folder, sorted by their UTF-8 bytes, hashed with SHA-256. Modification
+  times, permissions and empty folders do not count. A symlink or a special file is refused.
+- **Stamp.** `<folder>/.fenolite-verified` is a JSON object with the keys `scheme`, `tag`, `repo`,
+  `commit`, `tree` and `files`. A folder is usable when its stamp equals its pin. The stamp is not part
+  of the tree hash.
+- **Fetch.** For each selected pin: a folder whose stamp equals the pin is `cached`. Otherwise the
+  archive of the pinned commit is downloaded into a temporary file inside `<cache>/<tag>/`, extracted
+  with the `data` filter into a temporary folder there, and must hold exactly one top-level folder
+  whose tree hash and file count equal the pin. The stamp is then written, an older folder is moved
+  aside, the new one is moved into place with `os.replace`, and the old one is removed. Temporary
+  files are removed in every case, and a failure leaves the cache as it was.
+- **Limits.** 1 GiB per archive and 4 GiB per extracted tree.
+- **Exit codes.** 0 when nothing failed; 2 for a usage or environment problem (a Python without the
+  `data` filter, before any network or cache access); 3 for bad input (a download error, a refused
+  member, a link, a top level that is not one folder); 5 when a tree differs from its pin.
+- **Verify.** `--verify` re-hashes the cached folders and exits 5 naming a folder that changed.
+- **Location.** The tool and the tests use `--cache`, else `FENOLITE_LIBS_CACHE`, else
+  `~/.cache/fenolite/libs`. The resolver uses the cache only on request (above).
 
 ## Locating items
 
@@ -413,8 +505,12 @@ into `docs/evidence/kicad-libs.md`.
 - **Mini library:** the authored CC0 library under `tests/data/libs/` is checked with `kicad-cli`
   (`tests/kicad/libs/`). Results are recorded below with version and date. The 9.0.9 runs used the
   pinned image of `versions.md`, run locally; the `kicad-9` and `kicad-10` jobs run the same tests.
-- **Resolution:** precedence, variables, the fallback, nested tables, relative URIs and the
-  configuration folder are `INFERRED` (S-0045, S-0046) until the follow-up change runs their probes.
+- **Resolution:** the versioned fallback, nested tables, relative URIs, the configuration folder and
+  the variables of `kicad_common.json` are settled by the `pcb-libtable-*` probes of
+  `tests/kicad/libs/test_lib_tables_drc.py` (change c0021; outcomes pinned per version in
+  `docs/evidence/kicad/probes/`). Each probe places an altered footprint, whose one
+  `lib_footprint_mismatch` shows that its library was found. Project-over-global precedence and the
+  `${NAME}` syntax stay `INFERRED` (S-0045, S-0046): they are not probed.
 
 | check | result |
 |---|---|

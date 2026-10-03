@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import subprocess
 from pathlib import Path
 
+from fenolite.backends.kicad import libcache
 from fenolite.backends.kicad.sexpr import Node, dumps, load
 
 MINI = Path(__file__).resolve().parent / "data" / "libs"
@@ -57,3 +59,15 @@ def make_install(root: Path, version: int = 20251024, *, template: dict[str, str
     for name, text in (template or {}).items():
         (root / "template" / name).write_text(text, encoding="utf-8")
     return root
+
+
+def verified_cache(cache: Path, tag: str, *repos: str, stale: bool = False) -> Path:
+    """A library cache holding ``<cache>/<tag>/<repo>`` for each of ``repos``, each with the stamp of its
+    pin in ``libraries.toml`` (c0021). The resolver trusts the stamp, so the folders hold whatever the test
+    puts there. ``stale`` writes a stamp that names another commit."""
+    for pin in libcache.load_pins():
+        if pin.tag == tag and pin.repo in repos:
+            folder = cache / tag / pin.repo
+            folder.mkdir(parents=True, exist_ok=True)
+            libcache.write_stamp(folder, dataclasses.replace(pin, commit="0" * 40) if stale else pin)
+    return cache

@@ -6,10 +6,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _libs import make_install
+import pytest
+from _libs import make_install, verified_cache
 
 from fenolite.backends.kicad import libs
-from fenolite.backends.kicad.libs import LibraryConfig, LibrarySource, find_library_sources
+from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, LibrarySource, find_library_sources
 
 
 def test_missing_install_path_means_no_install(tmp_path: Path) -> None:
@@ -83,3 +84,74 @@ def test_default_install_folders_per_os(tmp_path: Path) -> None:
         tmp_path / "KiCad" / "9.0" / "share" / "kicad",
     ]
     assert candidates(LibraryConfig(install_dir=tmp_path), {}) == [tmp_path]
+
+
+# -- the cache source (c0021)
+
+
+def _config(tmp_path: Path, **overrides: object) -> LibraryConfig:
+    settings: dict[str, object] = {"env": {}, "install_dir": tmp_path / "absent", "home": tmp_path / "home"}
+    settings.update(overrides)
+    return LibraryConfig(**settings)  # type: ignore[arg-type]
+
+
+def test_verified_cache_source(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "9.0.9", "kicad-footprints")
+    assert find_library_sources(_config(tmp_path, cache_dir=cache)) == (
+        LibrarySource("cache", cache / "9.0.9", 9),
+    )
+
+
+def test_stale_stamp_is_ignored(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "9.0.9", "kicad-footprints", stale=True)
+    assert find_library_sources(_config(tmp_path, cache_dir=cache)) == ()
+    (cache / "9.0.9" / "kicad-footprints" / libs.libcache.STAMP).unlink()
+    assert find_library_sources(_config(tmp_path, cache_dir=cache)) == ()
+
+
+def test_one_cache_source_per_tag_in_pin_order(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "9.0.9", "kicad-footprints", "kicad-symbols")
+    verified_cache(cache, "10.0.6", "kicad-symbols")
+    assert find_library_sources(_config(tmp_path, cache_dir=cache)) == (
+        LibrarySource("cache", cache / "10.0.6", 10),
+        LibrarySource("cache", cache / "9.0.9", 9),
+    )
+
+
+def test_cache_from_the_environment_and_order(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "10.0.6", "kicad-footprints")
+    install = make_install(tmp_path / "install")
+    footprints = tmp_path / "fp"
+    footprints.mkdir()
+    env = {"FENOLITE_LIBS_CACHE": str(cache), "KICAD10_FOOTPRINT_DIR": str(footprints)}
+    found = find_library_sources(_config(tmp_path, env=env, install_dir=install))
+    assert [s.kind for s in found] == ["env", "cache", "install"]
+    # cache_dir wins over the variable
+    other = _config(tmp_path, env={"FENOLITE_LIBS_CACHE": str(cache)}, cache_dir=tmp_path / "empty")
+    assert find_library_sources(other) == ()
+
+
+def test_cache_before_install(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "10.0.6", "kicad-footprints")
+    install = make_install(tmp_path / "install")
+    resolver = LibraryResolver(_config(tmp_path, cache_dir=cache, install_dir=install))
+    assert Path(resolver.expand("${KICAD10_FOOTPRINT_DIR}")) == cache / "10.0.6" / "kicad-footprints"
+    with pytest.raises(libs.LibraryError) as caught:
+        resolver.expand("${KICAD10_3DMODEL_DIR}")
+    assert caught.value.issue.code == "kicad.lib.unresolved-variable"
+
+
+def test_a_cache_of_another_major_is_not_used(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "9.0.9", "kicad-footprints")
+    resolver = LibraryResolver(_config(tmp_path, cache_dir=cache, target_major=10))
+    with pytest.raises(libs.LibraryError):
+        resolver.expand("${KICAD10_FOOTPRINT_DIR}")
+    nine = LibraryResolver(_config(tmp_path, cache_dir=cache, target_major=9))
+    assert Path(nine.expand("${KICAD9_FOOTPRINT_DIR}")) == cache / "9.0.9" / "kicad-footprints"
+
+
+def test_no_default_cache_location(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    verified_cache(home / ".cache" / "fenolite" / "libs", "10.0.6", "kicad-footprints")
+    assert find_library_sources(_config(tmp_path, home=home)) == ()
+    assert find_library_sources(_config(tmp_path, cache_dir=tmp_path / "does-not-exist")) == ()

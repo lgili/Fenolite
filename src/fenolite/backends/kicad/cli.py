@@ -295,17 +295,25 @@ class KicadCli:
         run = self._checked(["pcb", "upgrade", "--force", name], _with(board, files), "pcb upgrade")
         return run.outputs.get(name, Path(board).read_bytes())
 
-    def drc(self, board: Path, *, files: Mapping[str, Path] | None = None) -> DrcRun:
+    def drc(
+        self,
+        board: Path,
+        *,
+        files: Mapping[str, Path] | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> DrcRun:
         """``pcb drc --format json --severity-all``: the run and its report (``None`` when none was written).
 
         The exit code is only a load signal; ``--exit-code-violations`` is never passed, and every
-        verdict is read from the report.
+        verdict is read from the report. ``env`` is passed unchanged to ``run``, which applies its entries
+        after its own ``KICAD_CONFIG_HOME``: the way a probe names a configuration folder or a library
+        variable.
         """
         from fenolite.backends.kicad.drc import read_drc_report
 
         name = Path(board).name
         args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, name]
-        run = self.run(args, files=_with(board, files))
+        run = self.run(args, files=_with(board, files), env=env)
         data = run.outputs.get(DRC_REPORT)
         report = None if data is None else read_drc_report(data.decode("utf-8"), file=DRC_REPORT)
         return DrcRun(run, report)

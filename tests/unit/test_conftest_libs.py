@@ -44,13 +44,16 @@ def test_libs():
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delenv("FENOLITE_REQUIRE", raising=False)
     monkeypatch.setenv("FENOLITE_KICAD_INSTALL_DIR", str(pytester.path / "no-install"))
+    monkeypatch.setenv("FENOLITE_LIBS_CACHE", str(pytester.mkdir("empty-cache")))
     return pytester
 
 
 def test_no_library_source_skips(project: pytest.Pytester) -> None:
     result = project.runpytest("-p", "no:cacheprovider", "-rs")
     result.assert_outcomes(skipped=1)
-    result.stdout.fnmatch_lines(["*KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR*install KiCad*"])
+    result.stdout.fnmatch_lines(
+        ["*KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR*install KiCad*tools/kicad_libs_fetch.py*"]
+    )
     assert result.ret == 0
 
 
@@ -58,7 +61,9 @@ def test_required_libraries_missing_fail(project: pytest.Pytester, monkeypatch: 
     monkeypatch.setenv("FENOLITE_REQUIRE", "libs")
     result = project.runpytest("-p", "no:cacheprovider")
     result.assert_outcomes(errors=1)
-    result.stdout.fnmatch_lines(["*KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR*install KiCad*"])
+    result.stdout.fnmatch_lines(
+        ["*KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR*install KiCad*tools/kicad_libs_fetch.py*"]
+    )
     assert result.ret != 0
 
 
@@ -83,3 +88,33 @@ def test_install_dir_override(project: pytest.Pytester, monkeypatch: pytest.Monk
     (install / "symbols").mkdir()
     monkeypatch.setenv("FENOLITE_KICAD_INSTALL_DIR", str(install))
     project.runpytest("-p", "no:cacheprovider").assert_outcomes(passed=1)
+
+
+def _stamped(cache: Path, *, stale: bool = False) -> None:
+    """A cache folder with the stamp of its pin (or of another commit), as the fetch tool leaves it."""
+    import dataclasses
+
+    from fenolite.backends.kicad import libcache
+
+    pin = next(p for p in libcache.load_pins() if (p.tag, p.repo) == ("10.0.6", "kicad-footprints"))
+    folder = cache / pin.tag / pin.repo
+    folder.mkdir(parents=True)
+    libcache.write_stamp(folder, dataclasses.replace(pin, commit="0" * 40) if stale else pin)
+
+
+def test_verified_cache_is_a_source(project: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> None:
+    cache = project.mkdir("cache")
+    _stamped(cache)
+    monkeypatch.setenv("FENOLITE_LIBS_CACHE", str(cache))
+    project.runpytest("-p", "no:cacheprovider").assert_outcomes(passed=1)
+
+
+def test_cache_with_a_stale_stamp_is_no_source(
+    project: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache = project.mkdir("cache")
+    _stamped(cache, stale=True)
+    monkeypatch.setenv("FENOLITE_LIBS_CACHE", str(cache))
+    result = project.runpytest("-p", "no:cacheprovider", "-rs")
+    result.assert_outcomes(skipped=1)
+    result.stdout.fnmatch_lines(["*tools/kicad_libs_fetch.py*"])

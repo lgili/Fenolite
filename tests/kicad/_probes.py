@@ -29,6 +29,7 @@ import _drccases
 import _exportcases
 import _fpwrite
 import _lenscases
+import _libtables
 import _mincases
 import _netcases
 import _procases
@@ -216,6 +217,7 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _checkcases.check_probes().items():
         probes[pid] = Probe(function, majors)
+    probes.update(libtable_probes())
     for pid, (function, majors) in _drccases.drc_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _netcases.net_probes().items():
@@ -233,6 +235,16 @@ def _loaded(folder: str, target: int, allow_lossy: bool = False) -> str:
 def _reread(folder: str, target: int) -> str:
     result = _fpwrite.mini(runner(), folder, target)
     return "equal" if _fpwrite.equal_after_upgrade(result, _fpwrite.definitions(folder)) else "different"
+
+
+def libtable_probes() -> dict[str, Probe]:
+    """The ``pcb-libtable-*`` probes (c0021): every one is ``inconclusive`` when the missing-table control is
+    silent, because a library check that reports nothing proves nothing (``H-K-LIB-DRC``)."""
+
+    def guarded(function: Callable[[], str]) -> Callable[[], str]:
+        return lambda: function() if libdrc("missing-table") == "present" else "inconclusive"
+
+    return {pid: Probe(guarded(function), (9, 10)) for pid, function in _libtables.probes(runner).items()}
 
 
 def fp_write_probes() -> dict[str, Probe]:

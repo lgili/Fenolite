@@ -16,7 +16,7 @@ STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
     ("corpus cache", "uses: actions/cache"),
-    ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --exclude-uses heavy"),
+    ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --exclude-uses heavy"),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
 
@@ -46,6 +46,11 @@ def job_problems(workflow: str) -> list[str]:
     for (first, p1), (second, p2) in zip(present, present[1:], strict=False):
         if p2 < p1:
             problems.append(f"kicad-10: step {second!r} must come after {first!r}")
+    fetches = [line for line in job.splitlines() if "tools/corpus_fetch.py" in line]
+    if not any("--uses libs" in line for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
+    if not any("--exclude-uses heavy" in line for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --exclude-uses heavy")
     if "key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}" not in job:
         problems.append("kicad-10: cache key must hash tests/corpus/manifest.toml")
     if not re.search(r"FENOLITE_REQUIRE: kicad,corpus", job):
@@ -75,6 +80,11 @@ def test_steps_out_of_order() -> None:
     )
     problems = job_problems(text.replace(job, swapped))
     assert "kicad-10: step 'uv sync' must come after 'kicad-cli version'" in problems
+
+
+def test_library_rows_not_fetched() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt0 --uses libs ", "--uses rt0 ")
+    assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
 
 
 def test_unit_job_untouched() -> None:

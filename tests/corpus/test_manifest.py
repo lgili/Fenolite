@@ -42,6 +42,10 @@ RT2_9_REF = "9.0.9.1"
 """The use that the ``kicad-9`` job fetches: the readable non-heavy board rows at this tag (c0020)."""
 
 
+LIBS = "libs"
+"""The use of a demo ``fp-lib-table`` and of the footprint files its boards place (c0021)."""
+
+
 def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
     problems: list[str] = []
     seen: set[str] = set()
@@ -83,6 +87,10 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
                 f"{ident}: {state} the use {RT2_9}, which marks exactly the non-heavy rt0 boards at "
                 f"ref {RT2_9_REF}"
             )
+        if LIBS in uses:
+            for use in ("rt0", "origin:kicad-demos"):
+                if use not in uses:
+                    problems.append(f"{ident}: a {LIBS} row needs {use} in uses")
         if "project" in uses:
             if not PROJECT_ID.fullmatch(ident):
                 problems.append(f"{ident}: project ids must match {PROJECT_ID.pattern}")
@@ -194,6 +202,16 @@ def test_malformed_rows() -> None:
     assert manifest_problems([_row(uses=["rt0", "malformed", "origin:kicad-demos"])]) == [
         "kicad-demo-10-0-6-pcb-01: a malformed row cannot carry rt0"
     ]
+
+
+def test_library_rows_need_rt0_and_the_demo_origin() -> None:
+    good = _row(id="kicad-demo-10-0-6-mod-02", uses=["rt0", "libs", "origin:kicad-demos"])
+    assert manifest_problems([good]) == []
+    assert manifest_problems([good | {"uses": ["libs", "origin:kicad-demos"]}]) == [
+        "kicad-demo-10-0-6-mod-02: a libs row needs rt0 in uses"
+    ]
+    third = good | {"id": "third-party-mod-01", "uses": ["rt0", "libs", "origin:third-party"]}
+    assert manifest_problems([third]) == ["third-party-mod-01: a libs row needs origin:kicad-demos in uses"]
 
 
 def test_share_alike_demo_is_not_embeddable() -> None:

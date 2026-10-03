@@ -18,7 +18,8 @@ MODEL_ENV = ("KICAD10_3DMODEL_DIR", "KICAD9_3DMODEL_DIR")
 CORPUS_HINT = "run: uv run python tools/corpus_fetch.py"
 LIBS_HINT = (
     "official KiCad libraries not found: set KICAD10_FOOTPRINT_DIR and KICAD10_SYMBOL_DIR, "
-    "or install KiCad (FENOLITE_KICAD_INSTALL_DIR names an install outside the default location)"
+    "install KiCad (FENOLITE_KICAD_INSTALL_DIR names an install outside the default location), "
+    "or run: uv run python tools/kicad_libs_fetch.py"
 )
 
 
@@ -43,19 +44,39 @@ def kicad_install_dir() -> Path | None:
     return next((d for d in _default_installs() if d.is_dir()), None)
 
 
+def libs_cache_dir() -> Path:
+    """The library cache of the tests and of the fetch tool: ``FENOLITE_LIBS_CACHE``, else
+    ``~/.cache/fenolite/libs``."""
+    from fenolite.backends.kicad.libcache import default_cache_dir
+
+    return default_cache_dir()
+
+
+def verified_cache_dirs() -> list[Path]:
+    """The ``kicad-footprints`` and ``kicad-symbols`` folders of the cache whose stamp equals their pin."""
+    from fenolite.backends.kicad.libcache import verified_folders
+
+    cache = libs_cache_dir()
+    return [folder for _, folder in verified_folders(cache)] if cache.is_dir() else []
+
+
 def kicad_library_dirs() -> list[Path]:
-    """Official KiCad library folders: ``KICAD9_*``/``KICAD10_*`` footprint and symbol folders first,
-    else the ``footprints``, ``symbols`` and ``3dmodels`` folders of the local install."""
+    """Official KiCad library folders: ``KICAD9_*``/``KICAD10_*`` footprint and symbol folders, else the
+    ``footprints``, ``symbols`` and ``3dmodels`` folders of the local install; then the verified folders
+    of the library cache."""
     named = [Path(os.environ[v]) for v in LIB_ENV if os.environ.get(v)]
     named = [d for d in named if d.is_dir()]
     if named:
-        return named + [
+        found = named + [
             Path(os.environ[v]) for v in MODEL_ENV if os.environ.get(v) and Path(os.environ[v]).is_dir()
         ]
-    install = kicad_install_dir()
-    if install is None:
-        return []
-    return [d for d in (install / "footprints", install / "symbols", install / "3dmodels") if d.is_dir()]
+    else:
+        install = kicad_install_dir()
+        folders = (
+            () if install is None else (install / "footprints", install / "symbols", install / "3dmodels")
+        )
+        found = [d for d in folders if d.is_dir()]
+    return found + verified_cache_dirs()
 
 
 def required_resources() -> set[str]:

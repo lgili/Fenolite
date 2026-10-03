@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
 from _buildhelp import LIBS, blink, build, project
+from _libs import verified_cache
 
 from fenolite.dsl import Design, Part, mm
 from fenolite.lens.build import BuildOutput, UnresolvedLibrariesError
@@ -78,6 +80,26 @@ def test_global_footprint_vendored(tmp_path: Path) -> None:
     assert "${KIPRJMOD}/lib/G.pretty" in table
     assert not any(i.code == "build.global-library" for i in out.issues)
     assert out.summary["libraries"]["G:Mini_R_0603"] == "global"  # type: ignore[index]
+
+
+def test_footprint_from_a_scanned_cache(tmp_path: Path) -> None:
+    """A verified cache gives ``scan`` rows, which the build vendors like any non-project row (c0021)."""
+    cache = verified_cache(tmp_path / "C", "10.0.6", "kicad-footprints")
+    library = cache / "10.0.6" / "kicad-footprints" / "Cached.pretty"
+    shutil.copytree(LIBS / "Mini.pretty", library)
+    d = blink()
+    d.parts["R1"].footprint = "Cached:Mini_R_0603"
+    out = build(d, cache_dir=cache)
+    assert out.summary["libraries"]["Cached:Mini_R_0603"] == "scan"  # type: ignore[index]
+    assert (
+        out.files["lib/Cached.pretty/Mini_R_0603.kicad_mod"]
+        == (library / "Mini_R_0603.kicad_mod").read_bytes()
+    )
+    table = out.files["fp-lib-table"].decode("utf-8")
+    assert '(name "Cached")' in table and "${KIPRJMOD}/lib/Cached.pretty" in table
+    assert not any(i.code == "build.global-library" for i in out.issues)
+    kept_out = build(d, cache_dir=cache, vendor="project")
+    assert [i.code for i in kept_out.issues if i.code == "build.global-library"] == ["build.global-library"]
 
 
 def test_global_footprint_kept_out_on_request(tmp_path: Path) -> None:

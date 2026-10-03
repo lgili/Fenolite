@@ -143,7 +143,15 @@ warning.
 
 - Libraries are resolved by KiCad's tables: `fp-lib-table` and `sym-lib-table` next to `design.py` are
   the recommended source; global and template tables follow `docs/formats/kicad/libraries.md`. Every
-  unresolved lib id is listed in the refusal's `issues` (`FEN-3001`). Whatever the table, the placed
+  unresolved lib id is listed in the refusal's `issues` (`FEN-3001`).
+- Official libraries come from the environment (`KICAD<M>_FOOTPRINT_DIR`, `KICAD<M>_SYMBOL_DIR`), else from
+  a verified library cache when `FENOLITE_LIBS_CACHE` names one, else from a local install, each of the
+  target's major. The cache is the way to build an official-library design for target 9 on a machine
+  with a 10.0 install: `uv run python tools/kicad_libs_fetch.py` makes it. The build never looks for a
+  cache by itself.
+- `result.libraries` gives the origin of the row that resolved each lib id: `project`, `global`,
+  `template`, or `scan` for a row found by scanning a library folder that has no table (always the case
+  for a cache). Whatever the table, the placed
   footprints are vendored into the output ("Vendored libraries").
 - A designator is a pin number first; otherwise it names every pin with that name. A pin number that
   is also another pin's name gives `build.pin-ambiguous`, and the number wins.
@@ -215,7 +223,7 @@ such as a part number or a supplier code, as text.
 ## Vendored libraries
 
 `fenolite build` copies every footprint it places into `lib/<nickname>.pretty/`, whatever the table row
-that resolved it (project, global, template), and writes one `fp-lib-table` row per nickname. A built
+that resolved it (project, global, template, scan), and writes one `fp-lib-table` row per nickname. A built
 project therefore needs no global or template table: `kicad-cli`, which runs with an empty
 configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL`: one
 `lib_footprint_issues` per footprint without vendoring, none with it, on 9.0.9 and 10.0.6).

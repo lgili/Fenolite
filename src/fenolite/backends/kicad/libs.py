@@ -10,6 +10,7 @@ or to the ``issues`` list a lookup is given (readers).
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -17,9 +18,9 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
-from fenolite.backends.kicad import versions
+from fenolite.backends.kicad import libcache, versions
 from fenolite.backends.kicad._libread import Loaded, child_locators, load_source
 from fenolite.backends.kicad.liberrors import LibraryError, lib_error, lib_issue
 from fenolite.backends.kicad.mod import footprint_from
@@ -29,8 +30,8 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.model.library import FootprintDef, SymbolDef
 
 TableKind = Literal["footprint", "symbol"]
-RowOrigin = Literal["project", "global", "template"]
-SourceKind = Literal["env", "install"]
+RowOrigin = Literal["project", "global", "template", "scan"]
+SourceKind = Literal["env", "cache", "install"]
 
 TABLE_FILES: Mapping[TableKind, str] = {"footprint": "fp-lib-table", "symbol": "sym-lib-table"}
 TABLE_ROOTS: Mapping[str, TableKind] = {"fp_lib_table": "footprint", "sym_lib_table": "symbol"}
@@ -42,6 +43,11 @@ _VERSIONED = re.compile(r"KICAD(\d+)_(\w+)")
 _HEADER_VERSION = re.compile(rb"\(version\s+(\d+)\)")
 _ROW_FIELDS = ("name", "type", "uri", "options", "descr")
 CACHE_SIZE = 16
+COMMON_FILE = "kicad_common.json"
+"""KiCad's own settings file in ``<config>/<M>.0/``; its ``environment.vars`` object holds the path
+variables set in KiCad (observed, ``H-K-LIB-COMMON``). Read only with ``LibraryConfig.read_common``."""
+_SCAN_VARIABLE: Mapping[TableKind, str] = {"footprint": "FOOTPRINT_DIR", "symbol": "SYMBOL_DIR"}
+_CACHE_DIRS = {"FOOTPRINT_DIR": "kicad-footprints", "SYMBOL_DIR": "kicad-symbols"}
 MACOS_INSTALL = Path("/Applications/KiCad/KiCad.app/Contents/SharedSupport")
 LINUX_INSTALL = Path("/usr/share/kicad")
 
@@ -178,6 +184,8 @@ class LibraryConfig:
 
     ``env`` defaults to a snapshot of ``os.environ``; ``system`` to ``sys.platform``; ``home`` to
     ``Path.home()``; ``install_dir`` to the per-OS install folder (a missing path means no install).
+    ``cache_dir`` names a verified library cache, else ``FENOLITE_LIBS_CACHE`` of ``env`` does; no default
+    location is searched. ``read_common`` turns on the path variables of KiCad's ``kicad_common.json``.
     """
 
     target_major: int = 10
@@ -188,11 +196,14 @@ class LibraryConfig:
     use_global_table: bool = True
     system: str | None = None
     home: Path | None = None
+    cache_dir: Path | None = None
+    read_common: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class LibrarySource:
-    """Where official libraries live: a folder named by a variable, or a local install."""
+    """Where official libraries live: a folder named by a variable, a verified cache of one pinned tag,
+    or a local install."""
 
     kind: SourceKind
     root: Path
@@ -226,8 +237,73 @@ def _library_major(folder: Path) -> int | None:
     return None
 
 
+def _cache_dir(config: LibraryConfig, env: Mapping[str, str]) -> Path | None:
+    """The cache folder asked for (``cache_dir``, else ``FENOLITE_LIBS_CACHE``), when it exists."""
+    named = config.cache_dir if config.cache_dir is not None else env.get(libcache.CACHE_VARIABLE)
+    if not named:
+        return None
+    return Path(named) if Path(named).is_dir() else None
+
+
+def scan_library_folder(folder: Path, kind: TableKind, *, variable: str) -> tuple[LibRow, ...]:
+    """One ``KiCad`` row per library of ``folder``, in sorted name order (the directory scan,
+    ``H-K-LIB-SCAN``): ``<X>.pretty`` folders for footprints; ``<X>.kicad_sym`` files and
+    ``<X>.kicad_symdir`` folders for symbols, the file winning for one stem. The uri is
+    ``${<variable>}/<name>``."""
+    if not folder.is_dir():
+        return ()
+    names: dict[str, str] = {}
+    for entry in sorted(folder.iterdir(), key=lambda p: p.name):
+        if kind == "footprint":
+            if entry.suffix == ".pretty" and entry.is_dir():
+                names[entry.stem] = entry.name
+        elif entry.suffix == ".kicad_sym" and entry.is_file():
+            names[entry.stem] = entry.name
+        elif entry.suffix == ".kicad_symdir" and entry.is_dir():
+            names.setdefault(entry.stem, entry.name)
+    return tuple(LibRow(stem, "KiCad", f"${{{variable}}}/{names[stem]}") for stem in sorted(names))
+
+
+def _read_common(path: Path) -> dict[str, str]:
+    """The path variables of a ``kicad_common.json``: its ``environment.vars`` object.
+
+    A missing file, a missing ``environment`` or ``vars``, or ``vars`` set to ``null`` give no variables.
+    Anything else that is not an object of strings raises ``FormatError`` with the file and the JSON
+    pointer. Values are returned as written.
+    """
+    if not path.is_file():
+        return {}
+
+    def bad(message: str, pointer: str) -> FormatError:
+        return FormatError(message, file=str(path), locator=pointer)
+
+    try:
+        data: object = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise bad(f"not valid JSON: {exc}", "/") from exc
+    if not isinstance(data, dict):
+        raise bad("the file must hold a JSON object", "/")
+    environment = cast(dict[str, object], data).get("environment")
+    if environment is None:
+        return {}
+    if not isinstance(environment, dict):
+        raise bad("'environment' must be an object", "/environment")
+    values = cast(dict[str, object], environment).get("vars")
+    if values is None:
+        return {}
+    if not isinstance(values, dict):
+        raise bad("'vars' must be an object of strings or null", "/environment/vars")
+    found: dict[str, str] = {}
+    for name, value in cast(dict[str, object], values).items():
+        if not isinstance(value, str):
+            raise bad(f"the value of {name!r} must be a string", f"/environment/vars/{name}")
+        found[name] = value
+    return found
+
+
 def find_library_sources(config: LibraryConfig) -> tuple[LibrarySource, ...]:
-    """Every available source: ``env`` folders of ``KICAD9_*``/``KICAD10_*`` variables, then the install."""
+    """Every available source: ``env`` folders of ``KICAD9_*``/``KICAD10_*`` variables, then the verified
+    ``cache`` folder of each pinned tag, then the install."""
     env = _environment(config)
     found: list[LibrarySource] = []
     for major in sorted(versions.TARGET_MAJORS, reverse=True):
@@ -235,6 +311,13 @@ def find_library_sources(config: LibraryConfig) -> tuple[LibrarySource, ...]:
             value = env.get(f"KICAD{major}_{name}")
             if value and Path(value).is_dir():
                 found.append(LibrarySource("env", Path(value), major))
+    cache = _cache_dir(config, env)
+    if cache is not None:
+        tags: list[str] = []
+        for pin, _ in libcache.verified_folders(cache):
+            if pin.tag not in tags:
+                tags.append(pin.tag)
+                found.append(LibrarySource("cache", cache / pin.tag, pin.major))
     for root in _install_candidates(config, env):
         if root.is_dir() and (root / "symbols").is_dir():
             major = _library_major(root / "symbols")
@@ -270,6 +353,7 @@ class LibraryResolver:
         self._sources: tuple[LibrarySource, ...] | None = None
         self._rows: dict[TableKind, tuple[Entry, ...]] = {}
         self._cache: OrderedDict[tuple[str, int, int], Loaded] = OrderedDict()
+        self._common: dict[str, str] | None = None
 
     # --- variables --------------------------------------------------------------------------------
 
@@ -282,16 +366,36 @@ class LibraryResolver:
     def _source(self) -> LibrarySource | None:
         major = self.config.target_major
         ranked = [s for s in self.sources if s.major == major]
-        return next((s for s in ranked if s.kind == "env"), None) or next(iter(ranked), None)
+        for kind in ("env", "cache", "install"):
+            found = next((s for s in ranked if s.kind == kind), None)
+            if found is not None:
+                return found
+        return None
 
     def _defaults(self) -> dict[str, str]:
         source = self._source()
+        major = self.config.target_major
+        if source is not None and source.kind == "cache":
+            # only the verified subfolders; models and templates are not fetched
+            verified = {folder.name for _, folder in libcache.verified_folders(source.root.parent)}
+            return {
+                f"KICAD{major}_{var}": str(source.root / sub)
+                for var, sub in _CACHE_DIRS.items()
+                if sub in verified and libcache.read_stamp(source.root / sub) is not None
+            }
         if source is None or source.kind != "install":
             return {}
-        major = self.config.target_major
         out = {f"KICAD{major}_{var}": str(source.root / sub) for var, sub in _INSTALL_DIRS.items()}
         out[f"KICAD{major}_TEMPLATE_DIR"] = str(source.root / "template")
         return out
+
+    def _common_vars(self) -> dict[str, str]:
+        """``environment.vars`` of the target major's ``kicad_common.json``, read once and only on request."""
+        if not self.config.read_common:
+            return {}
+        if self._common is None:
+            self._common = _read_common(self._config_base() / f"{self.config.target_major}.0" / COMMON_FILE)
+        return self._common
 
     def _lookup(self, name: str) -> str | None:
         if name == "KIPRJMOD":
@@ -299,6 +403,9 @@ class LibraryResolver:
             return None if project is None else str(project)
         if name in self._env:
             return self._env[name]
+        common = self._common_vars()
+        if name in common:
+            return common[name]
         defaults = self._defaults()
         if name in defaults:
             return defaults[name]
@@ -308,8 +415,10 @@ class LibraryResolver:
         return None
 
     def variables(self) -> dict[str, str]:
-        """The values known without the fallback: ``KIPRJMOD``, the environment and the defaults."""
+        """The values known without the fallback: ``KIPRJMOD``, the environment, KiCad's configured
+        variables (on request) and the defaults."""
         out = dict(self._env)
+        out.update({k: v for k, v in self._common_vars().items() if k not in out})
         out.update({k: v for k, v in self._defaults().items() if k not in out})
         if self.config.project_dir is not None:
             out["KIPRJMOD"] = str(self.config.project_dir)
@@ -325,10 +434,22 @@ class LibraryResolver:
             )
         if name == "KIPRJMOD":
             return "pass the project folder as LibraryConfig.project_dir"
-        return f"set {name} in the environment (values set only in KiCad's preferences are not read)"
+        if self.config.read_common:
+            return f"set {name} in the environment or in KiCad's path variables"
+        return (
+            f"set {name} in the environment, or read the path variables set in KiCad with "
+            "LibraryConfig.read_common"
+        )
 
     def expand(self, text: str, *, row_table: str = "") -> str:
-        """``${NAME}`` replaced by its value; a relative result is joined to ``row_table``'s folder."""
+        """``${NAME}`` replaced by its value. A relative result of a table row (``row_table`` given) is
+        joined to the project folder, whatever table holds the row; without a project folder it stays
+        relative, so it is read against the working directory.
+
+        ``kicad-cli`` resolves a relative uri against its working directory, in project, nested and global
+        tables alike, and never against the folder of the table (``H-K-LIB-RELPATH-2``). The project
+        folder stands for the working directory of a KiCad that runs in the project, so that a result
+        does not depend on where the caller runs."""
 
         def value(match: re.Match[str]) -> str:
             name = match.group(1)
@@ -344,7 +465,8 @@ class LibraryResolver:
 
         result = _VARIABLE.sub(value, text)
         if row_table and not os.path.isabs(result):
-            result = os.path.normpath(os.path.join(os.path.dirname(row_table), result))
+            project = self.config.project_dir
+            result = os.path.normpath(os.path.join(project, result) if project is not None else result)
         return result
 
     def _path(self, uri: str, table: str) -> Path:
@@ -369,6 +491,8 @@ class LibraryResolver:
         name = TABLE_FILES[kind]
         major = self.config.target_major
         source = self._source()
+        if source is not None and source.kind == "cache":
+            return None  # a fetched tree is a source tree: it is scanned, never templated
         candidates: list[Path] = []
         if source is not None and source.kind == "install":
             candidates.append(source.root / "template" / name)
@@ -444,6 +568,12 @@ class LibraryResolver:
                 template = self._template(kind)
                 if template is not None:
                     self._expand_table(template, "template", entries, ())
+                else:
+                    variable = f"KICAD{self.config.target_major}_{_SCAN_VARIABLE[kind]}"
+                    folder = self._lookup(variable)
+                    if folder:
+                        for row in scan_library_folder(Path(folder), kind, variable=variable):
+                            entries.append((row, "scan", folder))
         effective: list[Entry] = []
         enabled: set[str] = set()
         disabled: set[str] = set()
@@ -640,8 +770,11 @@ __all__ = [
     "LibrarySource",
     "Location",
     "RowOrigin",
+    "SourceKind",
     "TableKind",
+    "COMMON_FILE",
     "find_library_sources",
     "read_lib_table",
+    "scan_library_folder",
     "split_lib_id",
 ]

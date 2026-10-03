@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from _resources import kicad_install_dir
+from _resources import kicad_install_dir, libs_cache_dir
 
+from fenolite.backends.kicad import libcache
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, find_library_sources
 
 NO_INSTALL = Path("/nonexistent-fenolite-install")
@@ -27,6 +28,7 @@ class CensusSource:
     footprints: Path | None
     symbols: Path | None
     install: Path | None = None
+    cache: Path | None = None
 
 
 def census_sources() -> list[CensusSource]:
@@ -51,7 +53,29 @@ def census_sources() -> list[CensusSource]:
                         install,
                     )
                 )
+    found += cache_sources()
     return found
+
+
+def cache_sources() -> list[CensusSource]:
+    """One source per fetched tag of the verified library cache: ``cache-<major>`` (c0021)."""
+    cache = libs_cache_dir()
+    by_tag: dict[str, dict[str, Path]] = {}
+    majors: dict[str, int] = {}
+    for pin, folder in libcache.verified_folders(cache) if cache.is_dir() else ():
+        by_tag.setdefault(pin.tag, {})[pin.repo] = folder
+        majors[pin.tag] = pin.major
+    return [
+        CensusSource(
+            f"cache-{majors[tag]}",
+            "cache",
+            majors[tag],
+            folders.get("kicad-footprints"),
+            folders.get("kicad-symbols"),
+            cache=cache,
+        )
+        for tag, folders in by_tag.items()
+    ]
 
 
 def source_id(source: CensusSource | None) -> str:
@@ -59,7 +83,8 @@ def source_id(source: CensusSource | None) -> str:
 
 
 def resolver_for(source: CensusSource, tmp_path: Path) -> LibraryResolver:
-    """A resolver that sees only this source: an empty configuration folder, so the template applies."""
+    """A resolver that sees only this source: an empty configuration folder, so the template applies
+    (or the scan, for a cache source)."""
     config = tmp_path / "empty-kicad-config"
     config.mkdir(exist_ok=True)
     env: dict[str, str] = {}
@@ -74,6 +99,7 @@ def resolver_for(source: CensusSource, tmp_path: Path) -> LibraryResolver:
             env=env,
             config_home=config,
             install_dir=source.install if source.install is not None else NO_INSTALL,
+            cache_dir=source.cache,
         )
     )
 

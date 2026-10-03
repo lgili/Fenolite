@@ -11,6 +11,22 @@ Each available source is tested on its own:
 
 - `env`: folders named by `KICAD10_FOOTPRINT_DIR` / `KICAD10_SYMBOL_DIR` (or the `KICAD9_*` pair)
 - `install`: the local KiCad install, or the share folder named by `FENOLITE_KICAD_INSTALL_DIR`
+- `cache`: the verified cache made by `uv run python tools/kicad_libs_fetch.py`, at
+  `FENOLITE_LIBS_CACHE` or `~/.cache/fenolite/libs`; one source per fetched tag (`cache-10`, `cache-9`)
+
+## Fetching the cache
+
+```bash
+uv run python tools/kicad_libs_fetch.py
+```
+
+It downloads the official footprint and symbol libraries at the pinned commits of tags 10.0.6 and 9.0.9,
+checks each tree against its pin and writes a stamp. Run one fetch at a time: there is no lock.
+`--verify` re-hashes the cache.
+
+Disk needs, measured on 2026-10-03: four archives of 11 to 12 MB each (47 MB downloaded in all), and
+765 MB of extracted files (about 840 MB on disk): 149 MB and 222 MB for the 10.0.6 footprints and symbols,
+146 MB and 212 MB for 9.0.9.
 
 Without any source the tests skip; with `FENOLITE_REQUIRE=libs` they fail instead.
 

@@ -79,15 +79,15 @@ The resolver SHALL build the effective rows of each kind as follows.
   - A nested table already being expanded MUST be skipped with the warning `kicad.lib.table-cycle`.
   - A missing nested file MUST be skipped with the warning `kicad.lib.missing-table`.
   - With target major 9, the info `kicad.lib.nested-table-target` MUST be added.
-- A relative URI MUST resolve against the folder of the table file that holds the row. For a row of a nested table, this is the nested table's folder.
+- A relative URI MUST be joined to `LibraryConfig.project_dir` when it is set, whatever table holds the row: the project table, a nested table or the global table. Without `project_dir` it MUST stay relative. `kicad-cli` resolves a relative URI against its working directory and never against the folder of the table file (`H-K-LIB-RELPATH-2`); `project_dir` stands for the working directory of a KiCad that runs in the project folder, so that a result does not depend on where the caller runs.
 
 #### Scenario: Project table wins
 - **GIVEN** a project table and a global table that both define nickname `Mini` with different URIs
 - **WHEN** `locate("Mini:Mini_R_0603", "footprint")` is called
 - **THEN** the location's `origin` is `project` and its path comes from the project row
 
-#### Scenario: Nested relative row resolves against the nested table
-- **GIVEN** the mini project table with its `Table` row pointing to `nested/fp-lib-table`, which defines `NestedMini` with `uri "../../Mini_v9.pretty"`
+#### Scenario: Nested relative row resolves against the project folder
+- **GIVEN** the mini project table with its `Table` row pointing to `nested/fp-lib-table`, which defines `NestedMini` with `uri "../Mini_v9.pretty"`, and `project_dir` naming `tests/data/libs/project`
 - **WHEN** `locate("NestedMini:Mini_R_0603", "footprint")` is called
 - **THEN** the item path is `tests/data/libs/Mini_v9.pretty/Mini_R_0603.kicad_mod`
 
@@ -278,7 +278,7 @@ The stamp `<folder>/.fenolite-verified` SHALL be a JSON object with exactly the 
 ### Requirement: Install tree compared with its pin
 `tests/libs/test_install_pin.py` (`needs_libs`, `slow`) SHALL compare a local KiCad install with the verified cache of the same major. It SHALL skip, naming the missing tree and the fetch command, when either is absent.
 - Footprints: each `<X>.pretty/<Y>.kicad_mod` of either tree is counted as equal (in both trees, same bytes), different, only in the install, or only in the cache.
-- Symbols: each library is counted the same way. Equal means that the install's `<X>.kicad_sym` and the cache's `<X>.kicad_symdir` folder or `<X>.kicad_sym` file read to the same flattened definitions, ignoring provenance and `ext`, because the install packs folders into files (S-0044).
+- Symbols: each library is counted the same way. Equal means that the install's `<X>.kicad_sym` and the cache's `<X>.kicad_symdir` folder or `<X>.kicad_sym` file read to the same multiset of flattened definitions, ignoring provenance and `ext`, because the install packs folders into files (S-0044). The order of the definitions MUST NOT count, because a folder has none.
 
 The counts SHALL be written only to the report file named by `FENOLITE_CENSUS_OUT`. A difference MUST NOT fail the test. `docs/evidence/kicad-libs.md` MAY claim that an install equals its pinned tag only when every count other than "equal" is 0.
 

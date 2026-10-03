@@ -47,8 +47,12 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 
 | probe id | layout |
 |---|---|
-| `pcb-libtable-relpath-project` | project row `Mini` with uri `<lib>` (relative, no variable) |
-| `pcb-libtable-relpath-nested` | project row `Sub` of type `Table` with uri `${KIPRJMOD}/sub/fp-lib-table`; that nested table's row `Mini` has uri `../<lib>` |
+| `pcb-libtable-relpath-project` | project row `Mini` with uri `<lib>` (relative, no variable); `<lib>` lies next to the board, in the working directory |
+| `pcb-libtable-relpath-nested` | project row `Sub` of type `Table` with uri `${KIPRJMOD}/sub/fp-lib-table`; that nested table's row `Mini` has uri `<lib>`, and `<lib>` lies next to the board |
+| `pcb-libtable-relpath-nested-folder` | the same, with the nested row's uri `../<lib>`: relative to the nested table's folder |
+| `pcb-libtable-relpath-global` | no project table; `env` sets `KICAD_CONFIG_HOME` to a folder D whose `<M>.0/fp-lib-table` has the row `Mini` with uri `<lib>`; `<lib>` lies next to the board, not next to that table |
+| `pcb-libtable-relpath-cwd` | board and project table (row `Mini`, uri `<lib>`) in the subfolder `proj/` of the working directory; `<lib>` lies in the working directory |
+| `pcb-libtable-relpath-project-folder` | the same, with `<lib>` in `proj/`, next to the board |
 | `pcb-libtable-nested` | the same `Table` row; the nested row `Mini` has uri `${KIPRJMOD}/<lib>` |
 | `pcb-libtable-fallback` | project row `Mini` with uri `${KICAD9_FOOTPRINT_DIR}/<lib>`; `env` sets `KICAD10_FOOTPRINT_DIR` to a folder holding `<lib>` |
 | `pcb-libtable-fallback-defined` | the same, and `env` also sets `KICAD9_FOOTPRINT_DIR` to an empty folder |
@@ -57,10 +61,11 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 | `pcb-libtable-common` | `env` sets `KICAD_CONFIG_HOME` to D; `D/<M>.0/kicad_common.json` defines `FENOLITE_PROBE_LIBS`, in `environment.vars`, as a folder holding `<lib>`; project row `Mini` with uri `${FENOLITE_PROBE_LIBS}/<lib>` |
 | `pcb-libtable-common-env` | the same, and `env` also sets `FENOLITE_PROBE_LIBS` to an empty folder |
 
+- **Working directory.** `KicadCli.drc` runs `kicad-cli` in the folder of the board. The two probes whose project is the subfolder `proj/` therefore pass the arguments of `KicadCli.drc`, with the board named `proj/<board>`, to `KicadCli.run`; every other probe runs through `KicadCli.drc(board, files=…, env=…)`.
 - **Configuration files.** D is passed as the `env` entry `KICAD_CONFIG_HOME` of `KicadCli.drc`, because the runner refuses `files` under its `config` folder. D is always a new, empty temporary folder, never the user's configuration folder. Before writing `kicad_common.json`, the `common` probes run `KicadCli.drc` once with D empty. When that run wrote `D/<M>.0/kicad_common.json`, the probe adds the variable to its `environment.vars`; otherwise it writes `{"environment": {"vars": {…}}}`. Which case occurred SHALL be written with `_boards.census` to the file named by `FENOLITE_CENSUS_OUT`.
 - **Observation.** `test_common_file_layout` SHALL run `KicadCli.drc` once with `env` setting `KICAD_CONFIG_HOME` to an empty folder under `tmp_path`, and record with `_boards.census` whether `<M>.0/kicad_common.json` was written and whether its `environment` object holds `vars`. It records key names only, never values, and asserts nothing. No KiCad source code is read for the layout of this file.
 - **Isolation.** Tested variables reach `kicad-cli` only through the `env` argument of `KicadCli.drc`, and the runner still drops the caller's `KICAD*` variables. Every folder outside the runner's temporary directory is a temporary folder of the probe, removed afterwards. Nothing is written to the repository, except the results files with `FENOLITE_PROBES_WRITE=1`.
-- **Settling on 10.0.6.** `test_relpath` asserts `absent` for both `relpath` probes. `test_fallback` asserts `absent` for `pcb-libtable-fallback` and `present` for `pcb-libtable-fallback-defined`. `test_nested` asserts `absent`. `test_config_home` asserts `absent` for `pcb-libtable-confighome` and `present` for `pcb-libtable-confighome-flat`. `test_common_vars` asserts `absent` for `pcb-libtable-common` and `present` for `pcb-libtable-common-env`. An `inconclusive` outcome MUST fail the test with a message naming `H-K-LIB-DRC`.
+- **Settling on 10.0.6.** `test_relpath` asserts `absent` for `pcb-libtable-relpath-project`, `-relpath-nested`, `-relpath-global` and `-relpath-cwd`, and `present` for `pcb-libtable-relpath-nested-folder` and `-relpath-project-folder`: a relative uri is resolved against the working directory, and neither the folder of the table nor the project folder counts. `test_fallback` asserts `absent` for `pcb-libtable-fallback` and `present` for `pcb-libtable-fallback-defined`. `test_nested` asserts `absent`. `test_config_home` asserts `absent` for `pcb-libtable-confighome` and `present` for `pcb-libtable-confighome-flat`. `test_common_vars` asserts `absent` for `pcb-libtable-common` and `present` for `pcb-libtable-common-env`. An `inconclusive` outcome MUST fail the test with a message naming `H-K-LIB-DRC`.
 - **Settling on 9.0.9.** `test_nested` asserts `present` for `pcb-libtable-nested`, on the authored board without corpus. Every other 9.0.9 outcome is recorded by its probe id and MUST NOT fail a test.
 
 #### Scenario: Nested table on KiCad 10
@@ -76,7 +81,7 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 #### Scenario: Relative uris
 - **GIVEN** `kicad-cli` 10.0.6
 - **WHEN** `test_relpath` runs
-- **THEN** `pcb-libtable-relpath-project` and `pcb-libtable-relpath-nested` are `absent`
+- **THEN** `pcb-libtable-relpath-project`, `pcb-libtable-relpath-nested`, `pcb-libtable-relpath-global` and `pcb-libtable-relpath-cwd` are `absent`, and `pcb-libtable-relpath-nested-folder` and `pcb-libtable-relpath-project-folder` are `present`
 
 #### Scenario: Fallback only for an undefined variable
 - **GIVEN** `kicad-cli` 10.0.6

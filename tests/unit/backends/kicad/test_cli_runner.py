@@ -57,6 +57,7 @@ elif mode == "drc":
                               "items": [{"uuid": "u", "description": "t", "pos": {"x": 1.5, "y": 2}}]}],
               "unconnected_items": [], "schematic_parity": []}
     open(out, "w").write(json.dumps(report))
+    print(json.dumps({"env": dict(os.environ)}))
 elif mode == "nodrc":
     sys.exit(3)
 elif mode == "list":
@@ -314,3 +315,18 @@ def test_export_stats_needs_kicad_10(fake: Path, board: Path, monkeypatch: pytes
     with pytest.raises(KicadCliVersionError) as info:
         KicadCli(fake).export_stats(board)
     assert info.value.cli_code == "FEN-6002"
+
+
+def test_drc_env_entries(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``KicadCli.drc(env=…)`` reaches ``kicad-cli`` after the runner's own entries (c0021)."""
+    monkeypatch.setenv("FAKE_MODE", "drc")
+    monkeypatch.setenv("KICAD10_FOOTPRINT_DIR", "/from-the-caller")
+    plain = KicadCli(fake).drc(board)
+    seen = json.loads(plain.run.stdout)["env"]
+    assert seen["KICAD_CONFIG_HOME"] == "<tmp>/config" and "KICAD10_FOOTPRINT_DIR" not in seen
+    entries = {"KICAD_CONFIG_HOME": "/probe/config", "FENOLITE_PROBE_LIBS": "/probe/libs"}
+    probed = KicadCli(fake).drc(board, env=entries)
+    seen = json.loads(probed.run.stdout)["env"]
+    assert seen["KICAD_CONFIG_HOME"] == "/probe/config" and seen["FENOLITE_PROBE_LIBS"] == "/probe/libs"
+    assert "KICAD10_FOOTPRINT_DIR" not in seen and seen["LANG"] == "C"
+    assert probed.report is not None and len(probed.report.violations) == 1

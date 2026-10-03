@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Census: resolution through the template tables (kicad-library-resolution, "Resolution evidence").
+"""Census: resolution through the template tables, or the scanned rows of a cache source
+(kicad-library-resolution, "Resolution evidence"), and the scan compared with the template (``H-K-LIB-SCAN``).
 
 Counts go only to the file named by ``FENOLITE_CENSUS_OUT``.
 """
@@ -16,6 +17,7 @@ from _libcensus import CensusSource, census_sources, report, resolver_for, sourc
 
 from fenolite.backends.kicad._libread import load_source
 from fenolite.backends.kicad.liberrors import LibraryError
+from fenolite.backends.kicad.libs import TABLE_FILES, TableKind, read_lib_table, scan_library_folder
 from fenolite.backends.kicad.mod import footprint_from
 from fenolite.backends.kicad.sym import read_symbol_library, resolve_extends
 
@@ -104,3 +106,46 @@ def test_missing_models_are_warnings(source: CensusSource | None, tmp_path: Path
             counts["unresolved_variable"] += sum(1 for w in warnings if "has no value" in w.message)
     assert counts["models"] > 0
     report(src, "models", {**counts, "seconds": round(time.perf_counter() - start, 1)})
+
+
+def _template(source: CensusSource, kind: TableKind) -> tuple[Path, Path] | None:
+    """The library folder of ``kind`` and its template table: the install's, else the one in the folder."""
+    folder = source.footprints if kind == "footprint" else source.symbols
+    if folder is None:
+        return None
+    name = TABLE_FILES[kind]
+    candidates = [source.install / "template" / name] if source.install is not None else []
+    table = next((c for c in (*candidates, folder / name) if c.is_file()), None)
+    return None if table is None else (folder, table)
+
+
+def scan_comparison(folder: Path, table: Path, kind: TableKind) -> dict[str, int]:
+    """The four counts that compare a template table with a scan of its library folder."""
+    rows = [r for r in read_lib_table(table).rows if r.type == "KiCad"]
+    scanned = {r.nickname for r in scan_library_folder(folder, kind, variable="X")}
+    named = {r.nickname for r in rows}
+    return {
+        "template_rows": len(rows),
+        "scanned_rows": len(scanned),
+        "nickname_differs_from_stem": sum(1 for r in rows if Path(r.uri).stem != r.nickname),
+        "only_in_template": len(named - scanned),
+        "only_in_scan": len(scanned - named),
+        "disabled_or_hidden": sum(1 for r in rows if r.disabled or r.hidden),
+    }
+
+
+@pytest.mark.parametrize("source", SOURCES, ids=source_id)
+def test_scan_matches_template(source: CensusSource | None) -> None:
+    """``H-K-LIB-SCAN``: a directory scan gives the nicknames of the template table, on every source."""
+    src = _need(source)
+    compared: dict[str, dict[str, int]] = {}
+    for kind in ("footprint", "symbol"):
+        found = _template(src, kind)  # type: ignore[arg-type]
+        if found is not None:
+            compared[kind] = scan_comparison(*found, kind)  # type: ignore[arg-type]
+    if not compared:
+        pytest.skip(f"source {src.id} has no template table")
+    report(src, "scan_comparison", compared)
+    for kind, counts in compared.items():
+        differing = {k: v for k, v in counts.items() if k not in ("template_rows", "scanned_rows") and v}
+        assert not differing, (src.id, kind, differing)

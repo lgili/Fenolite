@@ -1,0 +1,42 @@
+# Pins of the official KiCad libraries (capability kicad-library-resolution, "Library pins"; c0021).
+# `commit` is the tag's commit from the tags API (S-0042, S-0043); `tree` (scheme fenolite-tree-1) and
+# `files` were measured on the first verified fetch with `tools/kicad_libs_fetch.py --print-pin`.
+# The libraries are CC-BY-SA 4.0 as a collection: they are fetched into a cache and never committed.
+schema = 1
+archive = "https://gitlab.com/api/v4/projects/{project}/repository/archive.tar.gz?sha={commit}"
+
+[[pin]]
+tag = "10.0.6"
+major = 10
+repo = "kicad-footprints"
+project = "kicad/libraries/kicad-footprints"
+commit = "819223b66f96508feaeaa305301b5e6bb5c1038b"
+tree = "123f8251b87b62a112f5be766da3b0624a3c4c09c3ebe574d0fa7c77327e5209"
+files = 15514
+
+[[pin]]
+tag = "10.0.6"
+major = 10
+repo = "kicad-symbols"
+project = "kicad/libraries/kicad-symbols"
+commit = "7800d91437ce44e2ed0928f2ad31a287457b8a68"
+tree = "c4c18c67c6d38f092186f866be26caa33ceab49139c4af6731dc643599e79383"
+files = 22871
+
+[[pin]]
+tag = "9.0.9"
+major = 9
+repo = "kicad-footprints"
+project = "kicad/libraries/kicad-footprints"
+commit = "2b941bf1d97862be429793b46fd52a5add09a2fc"
+tree = "649fc12471758f94520d478997df88c80c0603d7a75b7ffc1a47c5be00093ec6"
+files = 15479
+
+[[pin]]
+tag = "9.0.9"
+major = 9
+repo = "kicad-symbols"
+project = "kicad/libraries/kicad-symbols"
+commit = "ad36cd14bcd1b1cd0484f629ccdd3481366f74f3"
+tree = "6f9d65c40608681f8fc7a99dba7e2ad5dccd44a5201cee2ddf7e6e19c79cc96b"
+files = 233

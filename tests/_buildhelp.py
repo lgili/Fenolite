@@ -43,9 +43,16 @@ def blink_variant(folder: Path, old: str = "", new: str = "", *, append: str = "
 
 
 def resolver(
-    target: int = 10, project_dir: Path = BLINK_DIR, config_home: Path | None = None
+    target: int = 10,
+    project_dir: Path = BLINK_DIR,
+    config_home: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> LibraryResolver:
-    """A resolver over the project tables of ``project_dir`` only (no global table, no install)."""
+    """A resolver over the project tables of ``project_dir`` only (no global table, no install).
+
+    ``config_home`` adds a global table; ``cache_dir`` adds a verified library cache, whose rows come from
+    the directory scan (c0021). Either one turns ``use_global_table`` on.
+    """
     return LibraryResolver(
         LibraryConfig(
             target_major=target,
@@ -53,7 +60,8 @@ def resolver(
             env={},
             config_home=config_home or project_dir / "no-such-config",
             install_dir=project_dir / "no-such-install",
-            use_global_table=config_home is not None,
+            use_global_table=config_home is not None or cache_dir is not None,
+            cache_dir=cache_dir,
         )
     )
 
@@ -62,13 +70,14 @@ def build(design: Design, target: int = 10, **kwargs: object) -> BuildOutput:
     """``build_design`` of ``design``; ``placements_override`` replaces ``placements(design)`` (c0019)."""
     project_dir = kwargs.pop("project_dir", BLINK_DIR)
     config_home = kwargs.pop("config_home", None)
+    cache_dir = kwargs.pop("cache_dir", None)
     override = kwargs.pop("placements_override", None)
     return build_design(
         to_model(design),
         override if override is not None else placements(design),  # type: ignore[arg-type]
         name=design.name,
         copper=design.copper,  # type: ignore[arg-type]
-        resolver=resolver(target, project_dir, config_home),  # type: ignore[arg-type]
+        resolver=resolver(target, project_dir, config_home, cache_dir),  # type: ignore[arg-type]
         target=target,
         **kwargs,  # type: ignore[arg-type]
     )

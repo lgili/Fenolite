@@ -9,10 +9,10 @@ import shutil
 from pathlib import Path
 
 import pytest
-from _libs import MINI, make_install
+from _libs import MINI, make_install, verified_cache
 
 from fenolite.backends.kicad.liberrors import LibraryError
-from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, scan_library_folder
 
 PROJECT = MINI / "project"
 
@@ -179,3 +179,84 @@ def test_tables_load_lazily(tmp_path: Path) -> None:
     resolver.rows("footprint")
     resolver.rows("footprint")
     assert len(resolver.issues) == 1
+
+
+# -- the directory scan (c0021; H-K-LIB-SCAN)
+
+
+def _rows(resolver: LibraryResolver, kind: str = "footprint") -> list[tuple[str, str, str, str]]:
+    return [(r.nickname, r.type, r.uri, origin) for r, origin, _ in resolver.rows(kind)]  # type: ignore[arg-type]
+
+
+def test_scanned_rows_when_no_table_exists(tmp_path: Path) -> None:
+    folder = tmp_path / "fp"
+    for name in ("B.pretty", "A.pretty", "notes"):
+        (folder / name).mkdir(parents=True)
+    (folder / "C.pretty").write_text("a file, not a library", encoding="utf-8")
+    resolver = _resolver(tmp_path, env={"KICAD10_FOOTPRINT_DIR": str(folder)})
+    assert _rows(resolver) == [
+        ("A", "KiCad", "${KICAD10_FOOTPRINT_DIR}/A.pretty", "scan"),
+        ("B", "KiCad", "${KICAD10_FOOTPRINT_DIR}/B.pretty", "scan"),
+    ]
+    (row, _, _), *_ = resolver.rows("footprint")
+    assert (row.options, row.descr, row.disabled, row.hidden) == ("", "", False, False)
+
+
+def test_a_cache_source_is_scanned_not_templated(tmp_path: Path) -> None:
+    cache = verified_cache(tmp_path / "C", "10.0.6", "kicad-footprints")
+    footprints = cache / "10.0.6" / "kicad-footprints"
+    shutil.copytree(MINI / "Mini.pretty", footprints / "Mini.pretty")
+    _table(footprints / "fp-lib-table", _row("Other", "${KICAD10_FOOTPRINT_DIR}/Other.pretty"))
+    resolver = _resolver(tmp_path, cache_dir=cache)
+    assert _rows(resolver) == [("Mini", "KiCad", "${KICAD10_FOOTPRINT_DIR}/Mini.pretty", "scan")]
+    location = resolver.locate("Mini:Mini_R_0603", "footprint")
+    assert location.origin == "scan" and location.library_path == footprints / "Mini.pretty"
+    assert resolver.footprint("Mini:Mini_R_0603").lib_id == "Mini:Mini_R_0603"
+
+
+def test_a_template_still_wins_over_the_scan_for_env_and_install(tmp_path: Path) -> None:
+    folder = tmp_path / "fp"
+    (folder / "A.pretty").mkdir(parents=True)
+    _table(folder / "fp-lib-table", _row("Named", "${KICAD10_FOOTPRINT_DIR}/A.pretty"))
+    resolver = _resolver(tmp_path, env={"KICAD10_FOOTPRINT_DIR": str(folder)})
+    assert [(n, o) for n, _, _, o in _rows(resolver)] == [("Named", "template")]
+
+
+def test_symbol_file_wins_over_a_folder_of_the_same_stem(tmp_path: Path) -> None:
+    folder = tmp_path / "sym"
+    (folder / "S.kicad_symdir").mkdir(parents=True)
+    (folder / "T.kicad_symdir").mkdir()
+    (folder / "S.kicad_sym").write_text("(kicad_symbol_lib)", encoding="utf-8")
+    resolver = _resolver(tmp_path, env={"KICAD10_SYMBOL_DIR": str(folder)})
+    assert [(n, u) for n, _, u, _ in _rows(resolver, "symbol")] == [
+        ("S", "${KICAD10_SYMBOL_DIR}/S.kicad_sym"),
+        ("T", "${KICAD10_SYMBOL_DIR}/T.kicad_symdir"),
+    ]
+
+
+def test_project_rows_only(tmp_path: Path) -> None:
+    folder = tmp_path / "fp"
+    (folder / "A.pretty").mkdir(parents=True)
+    project = tmp_path / "project"
+    _table(project / "fp-lib-table", _row("Mini", "${KIPRJMOD}/Mini.pretty"))
+    resolver = _resolver(
+        tmp_path, project_dir=project, use_global_table=False, env={"KICAD10_FOOTPRINT_DIR": str(folder)}
+    )
+    assert [(n, o) for n, _, _, o in _rows(resolver)] == [("Mini", "project")]
+
+
+def test_project_row_hides_a_scanned_nickname(tmp_path: Path) -> None:
+    folder = tmp_path / "fp"
+    (folder / "Mini.pretty").mkdir(parents=True)
+    (folder / "Z.pretty").mkdir()
+    project = tmp_path / "project"
+    _table(project / "fp-lib-table", _row("Mini", "${KIPRJMOD}/Mini.pretty"))
+    resolver = _resolver(tmp_path, project_dir=project, env={"KICAD10_FOOTPRINT_DIR": str(folder)})
+    assert [(n, o) for n, _, _, o in _rows(resolver)] == [("Mini", "project"), ("Z", "scan")]
+
+
+def test_no_scan_without_a_folder(tmp_path: Path) -> None:
+    assert _resolver(tmp_path).rows("footprint") == ()
+    missing = _resolver(tmp_path, env={"KICAD10_FOOTPRINT_DIR": str(tmp_path / "absent")})
+    assert missing.rows("footprint") == ()
+    assert scan_library_folder(tmp_path / "absent", "footprint", variable="V") == ()

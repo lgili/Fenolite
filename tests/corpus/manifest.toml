@@ -313,8 +313,8 @@ sha256 = "db7d323a4d137b17a5b1355b9dcc13fd712caa70bc8ecddc18cab4c9dabd9c6d"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "origin:kicad-demos"]
-notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 7157 bytes."
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 7157 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
 id = "kicad-demo-10-0-6-fplib-01"
@@ -324,8 +324,1185 @@ sha256 = "033abebfd8e676afd8500b8ab27ead67e6fe599fd14e7898584d7fe43f3fe0fa"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "origin:kicad-demos"]
-notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 145 bytes."
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 145 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/CONN-SMD_2P-P1.00_SM02B-SRSS-TB-LF-SN.kicad_mod"
+ref = "10.0.6"
+sha256 = "1a0847becc9c4d39e05de34495bfab7fd01b66ec991def5eeb65a5779bb7acb6"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3815 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-03"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/CP_EIA-3528-21_Kemet-B.kicad_mod"
+ref = "10.0.6"
+sha256 = "ddecf22d80344006838423c4bc9a3853ad7e96d63a1882c19817ae23b6fb7ede"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4632 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-04"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/C_0402_1005Metric.kicad_mod"
+ref = "10.0.6"
+sha256 = "c3545933d62808bc9b71ff71cd6b0cb12b6a0ce285ff46d85bd72f0e64d9d4a7"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5233 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-05"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/C_0805_2012Metric.kicad_mod"
+ref = "10.0.6"
+sha256 = "40b8bacca43685af9aa2f8f78066dd30bb669990968267cd845caec500439f93"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4973 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-06"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/Crystal_SMD_3225-4Pin_3.2x2.5mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "800f960206a408ec690f6e016bced0818e650a9de2405549da266e77c7aaba20"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5035 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-07"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/DFN-8-1EP_2x2mm_P0.5mm_EP1.05x1.75mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "2833aa07c0d2503f7efb65517d9ccdf0b16249e54857b18b198a692c00c9033e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6453 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-08"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/DFN2510A-10_L2.5-W1.0-P0.50-BL.kicad_mod"
+ref = "10.0.6"
+sha256 = "c7e352338bd413d79f2679a3a5c185a5a0fa484bd33326fb2a3ddf26c2cdae8f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4774 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-09"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/EDAC%20690-019-298-412.kicad_mod"
+ref = "10.0.6"
+sha256 = "cb3a49aee00a8c9f61d7789c225373584302075d40661e8490f84f123b7ce851"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9898 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-10"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/GLPLXSMT188S7QQYG.kicad_mod"
+ref = "10.0.6"
+sha256 = "ac31f667cf23b3f65c2e25837f508904fcafce965f20c7da7236bacb6dfc444c"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9815 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-11"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/Hirose_FH12-22S-0.5SH_1x22-1MP_P0.50mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "a6468a4164056d7e5e67c88d2cdb50e9916d15040d3c5ac5bb3ccdcd41b9da2b"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 12225 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-12"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/JST_SH_BM04B-SRSS-TB_1x04-1MP_P1.00mm_Vertical.kicad_mod"
+ref = "10.0.6"
+sha256 = "93c58c4e6616677427fcfa425b72d772552a0c252d70d573620e3106eea83d5f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9271 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-13"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/JST_SUR_BM10B-SURS-TF_1x10-1MP_P0.80mm_Vertical.kicad_mod"
+ref = "10.0.6"
+sha256 = "8bb983fa89864d1e23f7d02f652a77c61ace9c2cba09685a95c44234e973956e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 7007 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-14"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/KiCad-Logo2_5mm_SilkScreen.kicad_mod"
+ref = "10.0.6"
+sha256 = "ddb68f56ea534cf8940e624f12ee09ad8363dead641140e7ac609e44145a249b"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 48739 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-15"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/LED-SMD_L1.7-W0.6-RD.kicad_mod"
+ref = "10.0.6"
+sha256 = "fcca12a6fdbe6eb9c2447d400d6f7af6bee831f1d821fe3d03b46d20a6f75ca3"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3772 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-16"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/LGA-16_3x3mm_P0.5mm_LayoutBorder3x5y.kicad_mod"
+ref = "10.0.6"
+sha256 = "28ee7dec98b9717335aaf453d712a7970d925a71e8a555a8b4173abdd06f5eb0"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8139 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-17"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/L_Coilcraft_XAL5030-XXX.kicad_mod"
+ref = "10.0.6"
+sha256 = "9abd0a83fa9f1055f128d3e3871e3a0ae6cbc1482bd8afbbb08efeaaa688c1ba"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5369 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-18"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/M.2%20M%20Key%20socket_2230_2242.kicad_mod"
+ref = "10.0.6"
+sha256 = "f4b909a1e8a6964536b946d14ae81cc8143b0cbd62c1ce5ea4759534b03dc394"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 23254 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-19"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/MountingHole_2.2mm_M2_DIN965_Pad_TopBottom.kicad_mod"
+ref = "10.0.6"
+sha256 = "d12c7919599c413cd1d24f15e14717db1f658ecd655234ca51e03556fa2234c4"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2377 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-20"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/MountingHole_2.7mm_Pad.kicad_mod"
+ref = "10.0.6"
+sha256 = "1d275e07dd1fea378a27f543c6a4c65ef336a905f789cd0f828153e38e2a5a78"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1981 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-21"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/MountingHole_3mm_Pad.kicad_mod"
+ref = "10.0.6"
+sha256 = "00ef80b4ca87f538d93f6b5a25b45dbbaf036efb0f6edbfbd31d9002c8f0f050"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2284 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-22"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/R_0402_1005Metric.kicad_mod"
+ref = "10.0.6"
+sha256 = "9c74a948a1d5b39eed04f6b3828c52ed95262a46db1b7ea0759c167f16a0817f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4660 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-23"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/Raspberry-Pi-5-Compute-Module_GPIO.kicad_mod"
+ref = "10.0.6"
+sha256 = "d64dd9490baf09b5a0f0b4c2d3489549f42272cae78d295f5f0b221f2b5695be"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 25548 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-24"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/Raspberry-Pi-5-Compute-Module_HSS.kicad_mod"
+ref = "10.0.6"
+sha256 = "4da8a2a1dc1283dd31b4b8fc62d804dff6148d67717d57384eff301fc25fd04e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 26423 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-25"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SOT-23-5.kicad_mod"
+ref = "10.0.6"
+sha256 = "4a2fe35695a01ae8b9bda3356acb2eb79caa63113a5b124323584a7ed2775fe7"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5360 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-26"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SOT-23-6.kicad_mod"
+ref = "10.0.6"
+sha256 = "1f2940bbc27eb517e71a4c8c37c8f5a5ff6ca711c94cdaadd97e307fbefcf5de"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6393 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-27"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SOT-353_SC-70-5.kicad_mod"
+ref = "10.0.6"
+sha256 = "b2c0b1307122cc2b0a0dee9f6d63d9b9277bc330e7c59f57fe0e4f3f11bdd5f7"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5241 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-28"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SOT-416.kicad_mod"
+ref = "10.0.6"
+sha256 = "a70be0485f26449087c1471c33916b7c73bfd99442d42834a6cd1abfc0615e0e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4578 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-29"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SW-SMD_MK-11C04-G013.kicad_mod"
+ref = "10.0.6"
+sha256 = "49ea6c2bdab31de3ad714014889dfd6a3d1c279f4c8aa8ebc567c8f37886f8c3"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5699 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-30"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/SW-SMD_TS-1010A-B.kicad_mod"
+ref = "10.0.6"
+sha256 = "0ba3d01c5639b5e9490f83149c5a6e202dffec92b51f9cc9708a685ab378b699"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4695 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-31"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/TestPoint_Pad_D1.0mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "d8891e503eb8de91cb9274b2586727549551f9d02048730ca7fb96a600df45da"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1727 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-32"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/TestPoint_THTPad_D1.0mm_Drill0.5mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "142fbe3d5c86efcf7f924efb1da96f85045d0f15a8988888a71337a5e457b49a"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1809 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-33"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/USB-C-SMD_TYPEC-305-ACP16H458.kicad_mod"
+ref = "10.0.6"
+sha256 = "aab45fc2dabbae914b2b7646af96dd9f6647b64341a7ab807fb7da6fa9a4a950"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8239 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-34"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/USON-10_2.5x1.0mm_P0.5mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "fbe39b3f91237978c94d534e8c10f98684fb591efd72a45927f8d34ea665e374"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6344 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-35"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-675DA838.kicad_mod"
+ref = "10.0.6"
+sha256 = "cb05c70333345ce173c8c09e8de37bb0e3f3b623835c7a4f9deb1175e5424dce"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9876 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-36"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-675DA850.kicad_mod"
+ref = "10.0.6"
+sha256 = "5efbff74cf3df30b7bef6aa14072859653a473382ff714aee9d1c4cf4006b86e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6001 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-37"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-675DA866.kicad_mod"
+ref = "10.0.6"
+sha256 = "2887a6d4efae7c07267c43a9418260f60f84e2a4f2debe95f12e52a2914f314e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4574 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-38"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-675EDCA4.kicad_mod"
+ref = "10.0.6"
+sha256 = "adcc8ac11cccfa07c2c731c99696d59b843dc6e18bfe1133681465fddea87a2d"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9377 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-39"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-675EDCB9.kicad_mod"
+ref = "10.0.6"
+sha256 = "dfc69c587852c2d3b7a5cb6175a5c78f582533eb11bff0ff233ea3c3cd1777a1"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8848 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-40"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6772D327.kicad_mod"
+ref = "10.0.6"
+sha256 = "fb8f67244984f356f66ac236a636524c26a5e76239c1388b9b585632d017b736"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5451 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-41"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6772DA33.kicad_mod"
+ref = "10.0.6"
+sha256 = "e1fed064f48c9f4827be3076dddae25e22776a92969e941b0bf7c3003e461ed9"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9003 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-42"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773B9CA.kicad_mod"
+ref = "10.0.6"
+sha256 = "5d038dc0f5468e13393fdf070c8cbafb73784a40ccad28ded4ba3c1d5206a827"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6950 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-43"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773B9F7.kicad_mod"
+ref = "10.0.6"
+sha256 = "e3453dc46dfb5bb73bfe768cdb83373dd48a17e6b05e6be099f50eb3c32db975"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5436 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-44"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773BA89.kicad_mod"
+ref = "10.0.6"
+sha256 = "4e8a886c5b8dbe5eb17c6aa1b08f6522c8f0fb610cdf891747440df11f93f4da"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5034 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-45"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773C222.kicad_mod"
+ref = "10.0.6"
+sha256 = "695afd83e14d05f8a56792ed7b907bf2e222096315d07d6aefce107cab211474"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5224 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-46"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773C2D7.kicad_mod"
+ref = "10.0.6"
+sha256 = "ed75a5dc00567b701cbd0b000223b0e3680e79fe38acae613fe807d6d78c8931"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6496 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-47"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-6773C376.kicad_mod"
+ref = "10.0.6"
+sha256 = "e52cdf97d7ce4bba45bc6e7eda3527fa2de18709c3ff472ffa83abdb93fa8bdd"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6171 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-48"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67795592.kicad_mod"
+ref = "10.0.6"
+sha256 = "2f94bfd08dec6f715b653f45447d5c9123e76c72621fca75a012975be4fab334"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 11084 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-49"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67CC6BA6.kicad_mod"
+ref = "10.0.6"
+sha256 = "916fcfea0c25ddbf2e774f7c4808bbdc09c3847356b43898537bb0a318e8ab22"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6149 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-50"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67CC6BD3.kicad_mod"
+ref = "10.0.6"
+sha256 = "ba427a6271a94f7d634c4cd0da670e2533557d00df6ef62766689b9454a2edc9"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4837 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-51"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67CC6D94.kicad_mod"
+ref = "10.0.6"
+sha256 = "ad959f6889bf253b5664732b95b43f38b14eb82f700845bb1fa460ce40a20da8"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5782 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-52"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67CC6D9E.kicad_mod"
+ref = "10.0.6"
+sha256 = "6958e4c6b7d0cb515d199b60666b8cd01159e2e6358824f2f0de96b39f5b2919"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5319 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-53"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67CC7445.kicad_mod"
+ref = "10.0.6"
+sha256 = "fd989d8d1c13cbd371f5f07bcd4444c7f00bd1bfcd5a76e5eb712f3a11c833fe"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8066 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-54"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBAC4C.kicad_mod"
+ref = "10.0.6"
+sha256 = "c0d73fe57596ba37afa9611102b0c67bdd55fbdd59b0a42ad03057c469d9f38f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8270 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-55"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBB9C1.kicad_mod"
+ref = "10.0.6"
+sha256 = "0fb3041ad3e1ef584c02c4047f46e8c003dcced1d3d0058152691306d33606f1"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 38554 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-56"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBD21C.kicad_mod"
+ref = "10.0.6"
+sha256 = "4ad1d9365dc75a4666f8da19355700168bd8bdff1c722bbe357a12d9aec1df7c"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2708 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-57"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBD221.kicad_mod"
+ref = "10.0.6"
+sha256 = "bc0a064c0fb0b691521e7273159f67306b6a0b81d4a453e872327f25a44468b7"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2679 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-58"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBEF55.kicad_mod"
+ref = "10.0.6"
+sha256 = "31e95cee624e3049a647aba17f9f180c6b428904ed931103e21a6e0df5e1eb5f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 16147 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-59"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBF015.kicad_mod"
+ref = "10.0.6"
+sha256 = "541d06190ecf457bde08e6832f7172f7e812c0689a89e2c9096081814e71961c"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9264 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-60"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBF0A0.kicad_mod"
+ref = "10.0.6"
+sha256 = "51ee585a33cffd8dec420122fd2b266b2a4f9517fc277320566db8550629c6b2"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 11976 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-61"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5IO.pretty/kibuzzard-67EBF14E.kicad_mod"
+ref = "10.0.6"
+sha256 = "cca1537000f9ad659438c521b94770018685c98ec0f25fa3c5b117de565a5045"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3036 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-62"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/Altech_AK300_1x02_P5.00mm_45-Degree.kicad_mod"
+ref = "10.0.6"
+sha256 = "ad699abe749c42684e8a45a5c07527b74b3b8dd702940a6f48c43bc25df69d4c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 5414 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-63"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/CP_Axial_L10.0mm_D4.5mm_P15.00mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "85d5482650ecb76f5367bce0e039338ffe8a683f3a6dcfc3af2a22399a3ecc65"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 7628 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-64"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/CP_Axial_L11.0mm_D6.0mm_P18.00mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "76a1e1bfd36c1dfbd24db82ae14bc8ac9688918d88be6bd2abf636af134512dd"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 7539 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-65"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/C_Disc_D5.0mm_W2.5mm_P5.00mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "8470e1280101425fecbc76612432ed9adfbc570e9c5be48f2b27560952020c62"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4648 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-66"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/D_DO-35_SOD27_P7.62mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "a36f18c7484177cadff8626f3c19f52c7b81eddc1c2c8db7098d062b281cec26"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 6265 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-67"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/D_DO-41_SOD81_P12.70mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "761f1d9976988de6de7da76167d6cc33464fdb1ffbd29aac0dca12c7151bae34"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 6317 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-68"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/Potentiometer_Bourns_3266W_Vertical.kicad_mod"
+ref = "10.0.6"
+sha256 = "01e6c2d009a76985b46495aaa7a0746e858f7381d01d1168a87519ff12692990"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 5571 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-69"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "280aa291709eecd34106c3a69169331922695374a3186c0949aac2f16b10b806"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 5048 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-70"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/complex_hierarchy.pretty/TO-92_HandSolder.kicad_mod"
+ref = "10.0.6"
+sha256 = "46bba204fab663ea16febd7686759ff16c38dd1e9bd79a4b28c60d6a020c0915"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4569 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-71"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/Altech_AK300_1x02_P5.00mm_45-Degree.kicad_mod"
+ref = "10.0.6"
+sha256 = "3417ad89f53dbf4d89a864be136abc4a7d2db54c1e0d1255827bd2b6699ff56b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4285 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-72"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/CP_Radial_D10.0mm_P5.00mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "26f2b2d92ca5f75cf3c1097d2bd25594eaa894fe9ea6ad2c5bc8aa81de38d8f0"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 35260 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-73"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/CP_Radial_D12.5mm_P7.50mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "2e88b1537e49800ead205dbc89e6de1a30bbe68bfc1ada0c1fb2c538fd823a21"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 42309 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-74"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/C_Axial_L12.0mm_D6.5mm_P20.00mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "cf734b97499f88ea309b49ed316b5b90025c7970ac48d1087ac8648fe3552154"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4513 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-75"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/C_Disc_D4.7mm_W2.5mm_P5.00mm.kicad_mod"
+ref = "10.0.6"
+sha256 = "9a6b41d0a58e122628dee55488db66868881aba635cb2ae3719f8da58d7453ce"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4205 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-76"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/MountingHole_3.2mm_M3_DIN965_Pad.kicad_mod"
+ref = "10.0.6"
+sha256 = "b5a025cc72ce2695227dd27860edcf8d62809e650310c45fbc5d7988e924a086"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 1778 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-77"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/PinHeader_1x02_P2.54mm_Vertical.kicad_mod"
+ref = "10.0.6"
+sha256 = "4872ff9a91b83db6c5f0c45d0e5992cbe164e81de719518ef0b4bd18b6ce8ca7"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4288 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-78"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal.kicad_mod"
+ref = "10.0.6"
+sha256 = "a2276fb3674895472869246be8da3974705d269f5232d3238cd08324d577c7f4"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 4622 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-79"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/Valve_ECC-83-1.kicad_mod"
+ref = "10.0.6"
+sha256 = "c7c0f37c57470682fb997a04077faf8c0c123a78a6dedaea4e5ab95a8f6ff494"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 3514 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-mod-80"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/footprints.pretty/Valve_ECC-83-2.kicad_mod"
+ref = "10.0.6"
+sha256 = "5a3454a91683f23042cf10f273ea97a00dd43f9e50f25161a1c223ab720fa591"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20241229; 3783 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-fplib-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/fp-lib-table"
+ref = "10.0.6"
+sha256 = "7546c2f069c301d990137482b1d5e4742b5c8c6c40fe61333e931e3a28a97c19"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 121 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-fplib-03"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/fp-lib-table"
+ref = "10.0.6"
+sha256 = "ceafadbd442dc7d2a61b759ecba37782de1b3eee4308235c9d012e1e0482ee23"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 131 bytes. identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.pretty/1pin.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "a34cfa6a316fdc1b11d2202b219e644d9ca0d0f5b06205e82b60dd4b9643ebec"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 2597 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.pretty/C2.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "8a37e49eec7dc8c8a2bedc484c0b422a4c09ed864609ae38887307a517ac8e21"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 3150 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-03"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.pretty/DIP-14__300_ELL.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "4a09e57fbc35ce80e3339637187e04d324dc5c85313d6bd4500a913e3c27b3fe"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 6053 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-04"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.pretty/DO-214AB.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "6a6cbbb652baf96a9b6803f3b134aa876a237a1cdaae28443ab90e7c8ea4eb7b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 2932 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-05"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/Altech_AK300_1x02_P5.00mm_45-Degree.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "6ce7139a2a99d65705bbe5172bfdbb57e96af086a846e72898bcd487e829753f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 5421 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-06"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/CP_Axial_L11.0mm_D6.0mm_P18.00mm_Horizontal.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "9d9d8a8844fe2b8899d8df38f9d984b4f7fd573b16354d177617d0f820d7c53f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 7539 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-07"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/CP_Axial_L18.0mm_D6.5mm_P25.00mm_Horizontal.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "35cbda6afa33bb8047a61ccc9e5fd169b461a4e8016aa84f98d85cf10a4cd83d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 7634 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-08"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/C_Disc_D5.1mm_W3.2mm_P5.00mm.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "9b97b25e187f4d1e9fa6d2f5dafc47d13737563d17841d2caab2a283c23e4b13"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 4670 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-09"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DIP-14_W7.62mm_LongPads.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "265338080b18f0515966e1cdf1c43e708da183d97ae4aac9aabde874be4bea27"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 9588 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-10"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DIP-18_W7.62mm_Socket_LongPads.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "cd44de6c7c58dda1d7537caddfce4ebb3a38b6f2062cbe3f61e6894f9499b697"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 12568 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-11"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DIP-28_W7.62mm_Socket_LongPads.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "19f584fca5b81666a691a4cdd9be109bea46f344c7987bc9ac16adf11a0dd7cc"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 16606 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-12"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DIP-40_W15.24mm_Socket_LongPads.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "b1d15b38f3d9a5a75e1b6c2aae1429357345ce1ba9d74d8cd3ea705681ffbcce"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 21480 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-13"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DIP-8_W7.62mm_LongPads.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "a75ca831d55bbcb16df32414dabf2c3b63e661b4254311a0b1b8c740f99acef2"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 7163 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-14"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/DSUB-9_Female_Horizontal_P2.77x2.84mm_EdgePinOffset7.70mm_Housed_MountingHolesOffset9.12mm.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "03ec01bc6d33a5d5f7c2ba76e3cb5e7ba7064652c398348ecf2aeeb8016b4835"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 12397 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-15"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/D_DO-35_SOD27_P12.70mm_Horizontal.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "5e497afb63d20975d4ea89410b27ccb47a357bcab87f98079621af323f7296e3"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 6272 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-16"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/D_DO-35_SOD27_P7.62mm_Horizontal.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "1fe3439ee8cf6647096896c73ae87f52bd71a57b0765a3669cd710f7085a7bb8"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 5925 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-17"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/INDUCTOR_V.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "b073bc157dadc27f547f7d9d046e1e8009ca03c4cad4d9bc4b39bc2545a05fbc"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 2377 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-18"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/LED_D5.0mm.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "90d6b33b7d428de92d332f5b382bf751dee8961d857427bdf41ec1e3b4cdfdca"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 4402 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-19"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/MountingHole_4.3mm_M4_DIN965.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "1ccb6d328cd23c939e8780d71e1620ac62ae62f60e5b6c4e85de3a8bf01e4bf8"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 1782 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-20"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/PinHeader_1x02_P2.54mm_Vertical.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "322d0a64bb867debe7a3b67d3fc68d7e959ab68a825f10c171912d0b1addfd27"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 4736 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-21"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/RV2X4.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "473ca5f8960ade134edbb430e65edf527c7aaadf6be3d873b23c5b9547a9251c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 5269 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-22"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "1f5dd9d3eab699c256eb8a40d227fb90586705a2a0251ceecc378cb9642dfff9"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 5074 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-23"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/TO-220-3_Horizontal_TabDown.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "931b6f733d1d42abc4ca39ead32eef23bdc249ac03764c630131bd5b786fab47"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 6882 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-mod-24"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/libs/pic_programmer_fp.pretty/TO-92.kicad_mod"
+ref = "9.0.9.1"
+sha256 = "ad77fbe9b9b5a5c8713181789be97a61fbe0e55761631661c2c47ff7a7442f1d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 4416 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-fplib-01"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/fp-lib-table"
+ref = "9.0.9.1"
+sha256 = "ec62dac925fc12a753108f86df68c441421adc22b91ed8a12fd26a9f21e54067"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 7; 143 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-fplib-02"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/fp-lib-table"
+ref = "9.0.9.1"
+sha256 = "e439a78cf69dcf7b7f5964a8a0f9d2a9e9200ce96de048b0e094fc2d7d7a1cb0"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "libs", "origin:kicad-demos"]
+notes = "Demo file at tag 9.0.9.1 (commit 70b072d9f77f); format 7; 150 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
 id = "kicad-demo-10-0-6-wks-01"

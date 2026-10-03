@@ -82,3 +82,64 @@ def test_drift_detected(pytester: pytest.Pytester, fake: Path, monkeypatch: pyte
     result = pytester.runpytest("-p", "no:cacheprovider")
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*fake-probe: recorded 'reject', now 'load'*"])
+
+
+# -- the library table probes (c0021): the outcome rule and the registered ids, without kicad-cli
+
+
+def _kicad_paths() -> None:
+    import sys
+
+    root = TESTS / "kicad"
+    subfolders = sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith("_"))
+    for folder in (str(root), *(str(p) for p in subfolders)):
+        if folder not in sys.path:
+            sys.path.insert(0, folder)
+
+
+def _report(issues: int, mismatches: int, other: int = 0):  # type: ignore[no-untyped-def]
+    from fenolite.backends.base import DrcReport, DrcViolation
+
+    violations = (
+        *(DrcViolation("lib_footprint_issues", "d", "warning") for _ in range(issues)),
+        *(DrcViolation("lib_footprint_mismatch", "d", "warning") for _ in range(mismatches)),
+        *(DrcViolation("clearance", "d", "error") for _ in range(other)),
+    )
+    return DrcReport("b.kicad_pcb", "", "10.0.6", "mm", violations=violations)
+
+
+@pytest.mark.parametrize(
+    ("issues", "mismatches", "wanted"),
+    [(0, 1, "absent"), (1, 0, "present"), (2, 0, "present"), (0, 0, "different"), (1, 1, "different"),
+     (0, 2, "different")],
+)  # fmt: skip
+def test_libtable_outcome_rule(issues: int, mismatches: int, wanted: str) -> None:
+    _kicad_paths()
+    import _libtables
+
+    assert _libtables.outcome(_report(issues, mismatches, other=3)) == wanted
+    assert _libtables.outcome(None) == "reject" and _libtables.outcome(None, timed_out=True) == "timeout"
+
+
+def test_libtable_probes_are_registered() -> None:
+    _kicad_paths()
+    import _libtables
+    import _probes
+
+    ids = [_libtables.probe_id(layout) for layout in _libtables.LAYOUTS]
+    assert len(ids) == 13 and all(i.startswith("pcb-libtable-") for i in ids)
+    for pid in ids:
+        assert _probes.PROBES[pid].majors == (9, 10), pid
+    assert "pcb-libdrc-missing-table" in _probes.PROBES  # the guard of every library table probe
+
+
+def test_libtable_rows_follow_the_major() -> None:
+    _kicad_paths()
+    import _libtables
+
+    ten = _libtables.table(
+        _libtables.row("Sub", "${KIPRJMOD}/sub/fp-lib-table", major=10, kind="Table"), major=10
+    )
+    assert "(version 7)" in ten and '(type "Table")' in ten and '(name "Sub")' in ten
+    nine = _libtables.table(_libtables.row("Mini", "Mini_v9.pretty", major=9), major=9)
+    assert "(version" not in nine and "(name Mini)(type KiCad)(uri Mini_v9.pretty)" in nine
