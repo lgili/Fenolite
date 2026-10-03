@@ -564,3 +564,33 @@ def test_track_on_a_plane() -> None:
 def test_polygon_on_a_plane() -> None:
     with pytest.raises(PcbReadError, match="a polygon on PLANE1, a plane"):
         read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(layer="PLANE1")))
+
+
+# --- net classes (change c0038) --------------------------------------------------------------------
+
+
+def net_class(name: str = "PWR", kind: str = "0", *members: str) -> bytes:
+    fields = {"LAYER": "MULTILAYER", "NAME": name, "KIND": kind, "SUPERCLASS": "FALSE"}
+    fields.update({f"M{index}": member for index, member in enumerate(members)})
+    return prop(**fields, SELECTED="FALSE")
+
+
+def test_class_reads_with_its_members() -> None:
+    data = net_class("PWR", "0", "GND") + net_class("Parts", "1", "R1", "R2")
+    doc = read_pcbdoc(copper_document(Classes6__Header=one(2), Classes6__Data=data))
+    assert [(c.name, c.kind, c.members) for c in doc.classes] == [
+        ("PWR", "0", ["GND"]),
+        ("Parts", "1", ["R1", "R2"]),
+    ]
+
+
+def test_class_lists_an_unknown_net() -> None:
+    with pytest.raises(PcbReadError, match="Classes6 record 0: the member VCC names no net of Nets6"):
+        read_pcbdoc(
+            copper_document(Classes6__Header=one(1), Classes6__Data=net_class("PWR", "0", "GND", "VCC"))
+        )
+
+
+def test_class_header_count() -> None:
+    with pytest.raises(PcbReadError, match="Classes6/Header says 0, the data holds 1 records"):
+        read_pcbdoc(copper_document(Classes6__Header=one(0), Classes6__Data=net_class()))

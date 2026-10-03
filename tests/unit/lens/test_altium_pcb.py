@@ -210,8 +210,7 @@ def test_document_of_the_blink_build(tmp_path: Path) -> None:
     output = build_blink_placed(tmp_path)
     assert output.summary["pcb_document"] == "blink.PcbDoc"
     assert b"[Document2]\r\nDocumentPath=blink.PcbDoc\r\n" in output.files["blink.PrjPcb"]
-    lowered = [i for i in output.issues if i.code == "altium.not-lowered"]
-    assert len(lowered) == 1 and "PWR" in lowered[0].message
+    assert not [i for i in output.issues if i.code == "altium.not-lowered"]  # the document holds the class
     assert "altium.pcb-staged" not in {i.code for i in output.issues}
     doc = read_pcbdoc(output.files["blink.PcbDoc"])
     assert sorted(c["SOURCEDESIGNATOR"] for c in doc.components) == ["D1", "R1", "U1"]
@@ -404,7 +403,7 @@ NO_COPPER = {
     "arcs": 0,
     "vias": 0,
     "zones": 0,
-    "net_classes": 0,
+    "net_classes": 1,
     "placements_from_board": 0,
 }
 
@@ -756,3 +755,100 @@ def test_plane_keeps_the_model_unchanged(tmp_path: Path) -> None:
     output = routed_build(tmp_path, plane_model(), planes=PLANE)
     assert output.design.board is not None
     assert {layer.kind for layer in output.design.board.layers} <= {"copper"}
+
+
+# --- net classes (change c0038, task 7.1) -----------------------------------------------------------
+
+
+def test_class_of_the_blink_sample(tmp_path: Path) -> None:
+    """Scenario "Class of the blink sample": one record, ``PWR`` with ``GND`` and ``VIN``."""
+    from _altium_pcb_read import read_pcbdoc
+
+    output = build_blink_placed(tmp_path)
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    (record,) = doc.classes
+    assert record.fields["NAME"] == "PWR" and record.fields["KIND"] == "0"
+    assert record.fields["M0"] == "GND" and record.fields["M1"] == "VIN" and "M2" not in record.fields
+    assert output.summary["copper"]["net_classes"] == 1  # type: ignore[index]
+    assert doc.storages["Vias6"] == (0, b"") and doc.storages["Polygons6"] == (0, b"")
+
+
+def test_design_without_copper_keeps_its_document(tmp_path: Path) -> None:
+    """Scenario "Design without copper keeps its document": without its net class the blink document has
+    empty copper storages, and every other stream of the committed ``blink.PcbDoc``."""
+    from _altium_pcb_read import read_pcbdoc
+
+    text = 'design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))\n'
+    output = build_blink_placed(tmp_path, text, "")
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    for name in ("Vias6", "Polygons6", "Classes6", "Rules6"):
+        assert doc.storages[name] == (0, b""), name
+    committed = read_pcbdoc((LIBS.parent / "altium" / "blink" / "blink.PcbDoc").read_bytes())
+    storages = ("Vias6", "Polygons6", "Classes6", "Rules6")
+    copper = {f"{name}/{part}" for name in storages for part in ("Header", "Data")}
+    assert set(doc.streams) == set(committed.streams)
+    for name in sorted(set(doc.streams) - copper):
+        assert doc.streams[name] == committed.streams[name], name
+    assert output.summary["copper"]["net_classes"] == 0  # type: ignore[index]
+
+
+def test_class_name_that_cannot_be_written(tmp_path: Path) -> None:
+    text, new = 'design.rules.netclass("PWR"', 'design.rules.netclass("PW|R"'
+    output = build_blink_placed(tmp_path, text, new)
+    assert output.files == {}
+    (found,) = [i for i in output.issues if i.severity == "error"]
+    assert found.code == "altium.text-unwritable" and "net class name 'PW|R'" in found.message
+    quoted = build_blink_placed(tmp_path / "q", text, 'design.rules.netclass("it\'s"')
+    (found,) = [i for i in quoted.issues if i.severity == "error"]
+    assert found.code == "altium.text-unwritable" and "apostrophe" in found.message and quoted.files == {}
+
+
+def test_class_is_reported_only_without_the_document(tmp_path: Path) -> None:
+    """The class is kept in the model only when no PCB document is planned."""
+    planned = build_blink_placed(tmp_path)
+    assert not [i for i in planned.issues if i.code == "altium.not-lowered"]
+    boardless = build_blink_placed(tmp_path / "b", "design.board(mm(50), mm(30))\n", "")
+    rules = [i for i in boardless.issues if i.code == "altium.not-lowered" and i.where == "rules"]
+    assert len(rules) == 1 and "PWR" in rules[0].message
+
+
+def test_board_items_the_document_does_not_write(tmp_path: Path) -> None:
+    """Keep-outs, board texts, graphics and holes are reported, one info per kind."""
+    import dataclasses
+
+    from _altium_copper import at, routed_build, routed_model
+
+    from fenolite.core.coords import Size
+    from fenolite.model.board import Graphic, Hole, Keepout, Text
+
+    model = routed_model()
+    assert model.board is not None
+    outline = model.board.zones[0].outline
+    board = dataclasses.replace(
+        model.board,
+        keepouts=(Keepout(id="kpo_00000000-0000-4000-8000-000000000001", outline=outline, layers=("F.Cu",)),),
+        texts=(
+            Text(
+                id="txt_00000000-0000-4000-8000-000000000001",
+                text="REV A",
+                position=at(5, 5),
+                layer="F.SilkS",
+                size=Size(1_000_000, 1_000_000),
+                thickness=150_000,
+            ),
+        ),
+        graphics=(
+            Graphic(
+                id="gfx_00000000-0000-4000-8000-000000000001",
+                kind="line",
+                layer="F.SilkS",
+                points=(at(1, 1), at(2, 1)),
+            ),
+        ),
+        holes=(Hole(id="hol_00000000-0000-4000-8000-000000000001", position=at(3, 3), drill=3_000_000),),
+    )
+    output = routed_build(tmp_path, dataclasses.replace(model, board=board))
+    found = {i.where: i for i in output.issues if i.code == "altium.not-lowered"}
+    assert sorted(found) == ["graphics", "holes", "keepouts", "texts"]
+    assert found["keepouts"].message == "1 keep-outs of the board are kept in the model only"
+    assert all(i.severity == "info" for i in found.values()) and "routed.PcbDoc" in output.files

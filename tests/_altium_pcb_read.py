@@ -153,6 +153,14 @@ class PolygonRecord:
     fields: dict[str, str]
 
 
+@dataclass
+class ClassRecord:
+    name: str
+    kind: str
+    members: list[str]
+    fields: dict[str, str]
+
+
 Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord
 
 
@@ -203,6 +211,7 @@ class PcbDoc:
     """The one property block of each option storage that holds one."""
     vias: list[ViaRecord] = field(default_factory=lambda: [])
     polygons: list[PolygonRecord] = field(default_factory=lambda: [])
+    classes: list[ClassRecord] = field(default_factory=lambda: [])
     copper_chain: list[int] = field(default_factory=lambda: [])
     """The numbered copper layers from top to bottom, read through ``LAYER<n>NEXT`` from layer 1."""
     plane_nets: dict[int, str] = field(default_factory=dict)
@@ -708,6 +717,24 @@ def read_polygons(data: bytes, nets: int) -> list[PolygonRecord]:
     return out
 
 
+def read_classes(data: bytes, nets: list[dict[str, str]]) -> list[ClassRecord]:
+    """The classes of ``Classes6/Data`` (``pcb-copper.md``, "Net classes"): the members ``M0``, ``M1`` … of
+    a net class (``KIND=0``) must name nets of ``Nets6``."""
+    names = {net.get("NAME") for net in nets}
+    out: list[ClassRecord] = []
+    for number, block in enumerate(property_blocks(data, "Classes6/Data")):
+        members: list[str] = []
+        while f"M{len(members)}" in block:
+            members.append(block[f"M{len(members)}"])
+        kind = block.get("KIND", "")
+        if kind == "0":
+            for member in members:
+                if member not in names:
+                    raise PcbReadError(f"Classes6 record {number}: the member {member} names no net of Nets6")
+        out.append(ClassRecord(block.get("NAME", ""), kind, members, block))
+    return out
+
+
 def _nothing_on_planes(primitives: list[Primitive], where: str) -> None:
     for number, item in enumerate(primitives):
         if FIRST_PLANE <= item.prefix.layer <= LAST_PLANE:
@@ -756,6 +783,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     for kind in ("Tracks6", "Arcs6"):
         _nothing_on_planes(decoded[kind], kind)
     polygons = read_polygons(storages.get("Polygons6", (0, b""))[1], len(nets))
+    classes = read_classes(storages.get("Classes6", (0, b""))[1], nets)
     counts = {
         "Board6": 1,
         "Nets6": len(nets),
@@ -765,6 +793,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     wide = _wide_strings(storages.get("WideStrings6", (0, b""))[1])
     counts["WideStrings6"] = len(wide)
     counts["Polygons6"] = len(polygons)
+    counts["Classes6"] = len(classes)
     unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
     if UNIQUE_STORAGE in storages:
         counts[UNIQUE_STORAGE] = len(unique_ids)
@@ -817,6 +846,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         options=options,
         vias=[v for v in decoded["Vias6"] if isinstance(v, ViaRecord)],
         polygons=polygons,
+        classes=classes,
         copper_chain=chain,
         plane_nets=planes,
     )

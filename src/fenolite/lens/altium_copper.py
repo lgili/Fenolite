@@ -91,6 +91,7 @@ class CopperPlan:
     issues: tuple[Issue, ...] = ()
     stack: StackSpec | None = None
     zones: tuple[Zone, ...] = ()
+    net_classes: tuple[pcbdoc.NetClassSpec, ...] = ()
 
     @property
     def failed(self) -> bool:
@@ -377,6 +378,60 @@ def stack_values(
     return StackSpec.default(copper, nets), [Issue("altium.not-lowered", "info", message, where="stackup")]
 
 
+def net_classes(design: Design, issues: list[Issue]) -> tuple[pcbdoc.NetClassSpec, ...]:
+    """One class of the document per net class of ``design``, with the names of its nets. Net classes
+    always come from the design, never from a copper source. A name that cannot be written, or that holds
+    an apostrophe (a rule scope quotes it), gives ``altium.text-unwritable``."""
+    members: dict[str, list[str]] = {}
+    for net in design.circuit.nets:
+        if net.netclass_id is not None:
+            members.setdefault(net.netclass_id, []).append(net.name)
+    found: list[pcbdoc.NetClassSpec] = []
+    for item in sorted(design.circuit.netclasses, key=lambda c: c.name):
+        problem = text_problem(item.name) or ("holds an apostrophe" if "'" in item.name else None)
+        if problem is not None:
+            message = f"net class name {item.name!r} {problem}"
+            hint = (
+                "use printable 7-bit ASCII without '|', without an apostrophe and without surrounding spaces"
+            )
+            issues.append(Issue("altium.text-unwritable", "error", message, where=item.name, hint=hint))
+            continue
+        found.append(
+            pcbdoc.NetClassSpec(
+                item.name,
+                tuple(sorted(members.get(item.id, ()))),
+                item.clearance,
+                item.track_width,
+                item.via_diameter,
+                item.via_drill,
+            )
+        )
+    return tuple(found)
+
+
+BOARD_KINDS: tuple[tuple[str, str], ...] = (
+    ("keepouts", "keep-outs"),
+    ("texts", "board texts"),
+    ("graphics", "graphics"),
+    ("holes", "holes"),
+)
+"""Board fields the document has no record for, and what a message calls them."""
+
+
+def board_not_lowered(board: Board | None) -> list[Issue]:
+    """One ``altium.not-lowered`` info per kind of board item the PCB document does not write: keep-outs,
+    board texts, graphics and holes."""
+    if board is None:
+        return []
+    found: list[Issue] = []
+    for field_name, what in BOARD_KINDS:
+        count = len(getattr(board, field_name))
+        if count:
+            message = f"{count} {what} of the board are kept in the model only"
+            found.append(Issue("altium.not-lowered", "info", message, where=field_name))
+    return found
+
+
 def outline_corner(board: Board | None) -> Point:
     """The corner that positions in messages count from: the outline's lowest X and Y (KiCad frame)."""
     if board is None or board.outline is None or not board.outline.points:
@@ -432,6 +487,7 @@ def lower_copper(
         issues.append(issue("altium.plane-zone-merged", message, document))
     stack, stack_issues = stack_values(design, layers, on_planes)
     issues += stack_issues
+    classes = net_classes(design, issues)
     polygons = sum(len(zone.layers) for zone in zones)
     if polygons and not any(found.severity == "error" for found in issues):
         message = (
@@ -439,7 +495,9 @@ def lower_copper(
             "Designer to fill them"
         )
         issues.append(issue("altium.zones-unpoured", message, document, f"{REPOUR_COMMAND}"))
-    return CopperPlan(layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack, tuple(zones))
+    return CopperPlan(
+        layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack, tuple(zones), classes
+    )
 
 
 def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
@@ -452,6 +510,7 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
         arcs=plan.arcs,
         vias=plan.vias,
         zones=plan.zones,
+        net_classes=plan.net_classes,
     )
 
 
@@ -482,7 +541,7 @@ def copper_summary(
         "arcs": len(spec.arcs),
         "vias": len(spec.vias),
         "zones": sum(len(zone.layers) for zone in spec.zones),
-        "net_classes": 0,
+        "net_classes": len(spec.net_classes),
         "placements_from_board": placed,
     }
 
@@ -703,12 +762,14 @@ __all__ = [
     "CopperSource",
     "SourcePlacement",
     "board_layers",
+    "board_not_lowered",
     "copper_summary",
     "has_copper",
     "issue",
     "lower_copper",
     "match_source",
     "mm_text",
+    "net_classes",
     "outline_corner",
     "source_not_lowered",
     "source_outline_box",

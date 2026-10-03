@@ -23,7 +23,7 @@ names them.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/blink/blink.PcbDoc` | `5e084d8537812021ad65ca87b11163ae82aaa669221862d27feaef75162e894f` |
+| `tests/data/altium/blink/blink.PcbDoc` | `6d840be7c9705d2f0fb0d4c3ba7754dce73a4137312fb51d1d79be88bf903a2a` |
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
 | `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
@@ -43,6 +43,11 @@ Since a refusal names no cause, the maintainer also gets six documents outside t
 one thing more than the one before: the outline alone; one net; one component without pads; its pads; its
 designator and comment texts; the full sample. The first that fails names what to study next. Texts, pads,
 tracks and arcs keep the short forms of `pcb-records.md`.
+
+Change c0038 rebuilt `blink.PcbDoc`: it now holds the net class `PWR` in `Classes6`
+(`docs/formats/altium/pcb-copper.md`). The document that the report of 2026-10-03 opened had the SHA-256
+`5e084d85…894f` and no class; that report stays valid for the facts it settled, and Part C names the new
+bytes.
 
 ### Pads of the library
 

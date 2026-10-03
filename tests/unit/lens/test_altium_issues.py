@@ -276,8 +276,9 @@ SECOND_R = (
     "design.add(u1, r1, d1)",
     'r2 = Part("R2", "Mini:Mini_R", footprint="Other:Mini_R_0603", value="1k")\ndesign.add(u1, r1, d1, r2)',
 )
-BLINK_CODES = {"altium.not-lowered", "altium.symbol-simplified", "altium.primitive-dropped",
-               "altium.footprint-extras-dropped"}  # fmt: skip
+BLINK_CODES = {"altium.symbol-simplified", "altium.primitive-dropped", "altium.footprint-extras-dropped"}
+NOT_PLANNED = {"altium.not-lowered", "altium.pcbdoc-not-written"}
+"""Without the PCB document the net class of the blink sample is reported as kept in the model only."""
 PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
     "blink": ({}, BLINK_CODES),
     "blink-kept": (
@@ -290,11 +291,11 @@ PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
     ),
     "blink-unsupported": (
         {"footprint": TRAPEZOID},
-        BLINK_CODES | {"altium.footprint-unsupported", "altium.pcbdoc-not-written"},
+        BLINK_CODES | NOT_PLANNED | {"altium.footprint-unsupported"},
     ),
     "blink-collision": (
         {"fp_table": OTHER_ROW, "script": SECOND_R},
-        BLINK_CODES | {"altium.footprint-name-collision", "altium.pcbdoc-not-written"},
+        BLINK_CODES | NOT_PLANNED | {"altium.footprint-name-collision"},
     ),
 }
 """Blink variants (change c0035): tree edits and build arguments, and the codes the build reports."""

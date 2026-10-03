@@ -41,7 +41,7 @@
 
 ## 7. Net classes
 
-- [ ] 7.1 Write `pcbdoc.NetClassSpec`, `PcbDocSpec.net_classes` and the `Classes6` records; lower `Circuit.netclasses` in `lens/altium.py` and stop reporting them through `altium.not-lowered` when the document is planned; report keep-outs, board texts, graphics and holes instead. Decode classes in the reader. Rebuild `tests/data/altium/blink/blink.PcbDoc` with `FENOLITE_GOLDEN_WRITE=1` and update its SHA-256 in `docs/evidence/altium-pcb.md`. Add variant `c4`. Proof: `uv run pytest tests/unit/backends/altium -k class`; `uv run pytest tests/unit/lens/test_altium_pcb.py tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_build.py`; `git status --short tests/data/altium` lists `blink/blink.PcbDoc` only; covering every scenario of "Net class records", "PCB document output" and "Design without copper keeps its document".
+- [x] 7.1 Write `pcbdoc.NetClassSpec`, `PcbDocSpec.net_classes` and the `Classes6` records; lower `Circuit.netclasses` in `lens/altium.py` and stop reporting them through `altium.not-lowered` when the document is planned; report keep-outs, board texts, graphics and holes instead. Decode classes in the reader. Rebuild `tests/data/altium/blink/blink.PcbDoc` with `FENOLITE_GOLDEN_WRITE=1` and update its SHA-256 in `docs/evidence/altium-pcb.md`. Add variant `c4`. Proof: `uv run pytest tests/unit/backends/altium -k class`; `uv run pytest tests/unit/lens/test_altium_pcb.py tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_build.py`; `git status --short tests/data/altium` lists `blink/blink.PcbDoc` only; covering every scenario of "Net class records", "PCB document output" and "Design without copper keeps its document".
 
 ## 8. Oracles, golden files and Part C
 

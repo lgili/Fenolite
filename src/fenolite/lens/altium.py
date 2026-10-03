@@ -999,6 +999,7 @@ def _not_lowered(
     if classes:
         message = f"net classes {', '.join(classes)} are kept in the model only"
         found.append(issue("altium.not-lowered", message, "rules"))
+    found += altium_copper.board_not_lowered(design.board)
     pairs = sorted(i.name for i in design.circuit.interfaces if i.kind == "diff_pair")
     if pairs:
         message = f"diff pairs {', '.join(pairs)} are kept in the model only"
@@ -1156,7 +1157,9 @@ def build_altium(
             copper_info = altium_copper.copper_summary(spec, source=source)
     if spec is not None:
         issues = [
-            i for i in issues if not (i.code == "altium.not-lowered" and i.where in ("board", "placements"))
+            i
+            for i in issues
+            if not (i.code == "altium.not-lowered" and i.where in ("board", "placements", "rules"))
         ]
     pcb_files = [
         f for f, wanted in ((f"{name}.PcbDoc", spec is not None), (f"{name}.PcbLib", bool(written))) if wanted
