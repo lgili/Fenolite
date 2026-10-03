@@ -23,7 +23,7 @@ names them.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/blink/blink.PcbDoc` | `6d840be7c9705d2f0fb0d4c3ba7754dce73a4137312fb51d1d79be88bf903a2a` |
+| `tests/data/altium/blink/blink.PcbDoc` | `f09401681747d8506fe895dfbf290d06362824a52472efd63a6a9f7b6f633c01` |
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
 | `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
@@ -44,9 +44,10 @@ one thing more than the one before: the outline alone; one net; one component wi
 designator and comment texts; the full sample. The first that fails names what to study next. Texts, pads,
 tracks and arcs keep the short forms of `pcb-records.md`.
 
-Change c0038 rebuilt `blink.PcbDoc`: it now holds the net class `PWR` in `Classes6`
+Change c0038 rebuilt `blink.PcbDoc`: it now holds the net class `PWR` in `Classes6` and five rules in
+`Rules6` (`Clearance_PWR`, `Clearance`, `Width_PWR`, `Width`, `RoutingVias`)
 (`docs/formats/altium/pcb-copper.md`). The document that the report of 2026-10-03 opened had the SHA-256
-`5e084d85…894f` and no class; that report stays valid for the facts it settled, and Part C names the new
+`5e084d85…894f` and neither class nor rule; that report stays valid for the facts it settled, and Part C names the new
 bytes.
 
 ### Pads of the library
@@ -135,12 +136,12 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/routed/routed.PcbDoc` | `66b5be6e5ee97eac8e84a97ff01bcc2e9a6ce3d519ad3010aad7828f3331c04f` |
+| `tests/data/altium/routed/routed.PcbDoc` | `aee171466b3e74da227e1a1bf66f01a9bbd6a6fca04e0d84df53858fa1940fef` |
 | `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
 | `tests/data/altium/routed/routed.PrjPcb` | `bdcd1ec084a54faa500833bc81ce9183df5a2ba7b23d057755e3d2d70566b367` |
 | `tests/data/altium/routed/routed.SchDoc` | `e195347f7c47c0e311be7333a7f5ec8cfe1702fc471207b59135cd12e1e270e9` |
 | `tests/data/altium/routed/routed.SchLib` | `d5c422088de0150389ebee25d625dbeeba298d7099973b8588bc70593680a0fe` |
-| `p0/routed.PcbDoc` | `a5713db76e4a4d2336af7a56c004d498161eead78e1287bdb5ceb7422276d3e4` |
+| `p0/routed.PcbDoc` | `cdf71fd14a3e08e540345bde9508e22cfd1fd05ea71b814e06748404f32414eb` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
 of a track or arc, or the diameter and hole of a via:
@@ -173,8 +174,8 @@ copies.
   copper. Run "Tools » Polygon Pours » Repour All": both fill, and the `GND` pads and the `GND` via connect
   to them. Settles `H-A-PCB-CU-REPOUR`.
 - **C4** (same file): the PCB panel in "Nets" mode, or "Design » Classes", lists the net class `PWR` with
-  `GND` and `VIN`; the rules editor ("Design » Rules") opens; the document holds no rule yet (the rules of change c0038
-  come with its last group, and this step then names them). Settles `H-A-PCB-CU-CLASS` and `H-A-PCB-CU-RULES`.
+  `GND` and `VIN`; the rules editor ("Design » Rules") shows five rules, `Clearance_PWR`, `Clearance`, `Width_PWR`, `Width`
+  and `RoutingVias`, and the design rule check runs. Settles `H-A-PCB-CU-CLASS` and `H-A-PCB-CU-RULES`.
 - **C5** (`routed.PcbDoc`, no licence needed): upload the document to the Altium 365 Viewer. Expected: the
   tracks, the vias and four copper layers are visible. Settles `H-A-PCB-CU-VIEWER`.
 - **C6** (`p0/routed.PcbDoc`, SHA-256 above): open the plane variant. Expected: the Layer Stack Manager
@@ -186,7 +187,7 @@ When a step fails, open the variants in order and report the first that fails. T
 the repository with `FENOLITE_ALTIUM_VARIANTS=<folder> uv run pytest
 tests/unit/lens/test_altium_copper_golden.py -k variants`: `c0` two layers with tracks and an arc; `c1` adds
 the vias; `c2` the stack of four signal layers with the inner tracks; `c3` adds the polygons; `c4` the net
-class; `c5` is the committed sample (it adds the rules once they are written); `p0` is the plane variant of C6.
+class; `c5` adds the rules (the committed sample); `p0` is the plane variant of C6.
 
 The KiCad oracles (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) check
 only what KiCad's importer reads; they settle no row of this part.

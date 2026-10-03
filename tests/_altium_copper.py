@@ -205,6 +205,8 @@ class Variant:
     copper: int = 4
     build: Mapping[str, object] = dataclasses.field(default_factory=lambda: {})
     """Further keyword arguments of ``build_altium`` (the planes of ``p0``)."""
+    rules: bool = True
+    """``False``: the document is written again without its ``Rules6`` records (``c0`` to ``c4``)."""
 
 
 def variants() -> dict[str, Variant]:
@@ -213,14 +215,35 @@ def variants() -> dict[str, Variant]:
     ``c5`` the rules (the committed sample); ``p0`` is the sample with ``In1.Cu`` as a plane on ``GND`` and
     without its track on ``In1.Cu``."""
     return {
-        "c0": Variant(routed_model(("tracks", "arc")), copper=2),
-        "c1": Variant(routed_model(("tracks", "arc", "vias")), copper=2),
-        "c2": Variant(routed_model(("tracks", "arc", "vias", "inner"))),
-        "c3": Variant(routed_model(("tracks", "arc", "vias", "inner", "zones"))),
-        "c4": Variant(routed_model()),
+        "c0": Variant(routed_model(("tracks", "arc")), copper=2, rules=False),
+        "c1": Variant(routed_model(("tracks", "arc", "vias")), copper=2, rules=False),
+        "c2": Variant(routed_model(("tracks", "arc", "vias", "inner")), rules=False),
+        "c3": Variant(routed_model(("tracks", "arc", "vias", "inner", "zones")), rules=False),
+        "c4": Variant(routed_model(), rules=False),
         "c5": Variant(routed_model()),
         "p0": Variant(plane_model(), build={"planes": PLANE}),
     }
+
+
+def document_of(root: Path, output: BuildOutput, variant: Variant, *, rules: bool) -> bytes:
+    """The PCB document of a built variant, written again from its spec with ``rules`` on or off: the
+    bisection variants before ``c5`` hold no rule."""
+    from fenolite.backends.altium.pcbdoc import write_pcbdoc
+    from fenolite.lens.altium import pcb_document, resolve_footprints
+
+    footprints, _issues = resolve_footprints(
+        output.design, blink_resolver(root, root / "examples" / "blink_2layer")
+    )
+    spec, _issues = pcb_document(
+        output.design,
+        name=NAME,
+        footprints=footprints,
+        placements=routed_placements(),  # type: ignore[arg-type]
+        copper=variant.copper,
+        **variant.build,  # type: ignore[arg-type]
+    )
+    assert spec is not None
+    return write_pcbdoc(dataclasses.replace(spec, rules=rules), filename=f"{NAME}.PcbDoc")
 
 
 def routed_build(root: Path, model: ModelDesign | None = None, **kwargs: object) -> BuildOutput:

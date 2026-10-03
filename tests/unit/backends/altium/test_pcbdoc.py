@@ -499,8 +499,9 @@ def test_vias_in_their_storage() -> None:
     assert board["V9_CACHE_LAYER0_NAME"] == "Multi-Layer" and board["V9_CACHE_LAYER0_USEDBYPRIMS"] == "TRUE"
     assert len(doc.unique_ids) == len(doc.pads)  # vias are not listed
     assert {u["PRIMITIVEOBJECTID"] for u in doc.unique_ids} == {"Pad"}
-    for name in ("Polygons6", "Classes6", "Rules6"):
+    for name in ("Polygons6", "Classes6"):
         assert doc.storages[name] == (0, b"")
+    assert [r.name for r in doc.rules] == ["Clearance", "Width", "RoutingVias"]
 
 
 def test_via_on_four_layers_spans_the_outer_layers() -> None:
@@ -759,3 +760,139 @@ def test_class_refusals(item: NetClassSpec, message: str) -> None:
         write_pcbdoc(copper_spec(net_classes=(item,)))
     with pytest.raises(ValueError, match="the net class 'PWR' is given twice"):
         write_pcbdoc(copper_spec(net_classes=(NetClassSpec("PWR"), NetClassSpec("PWR"))))
+
+
+# --- design rules (change c0038, "Design rule records") ----------------------------------------------
+
+PWR = NetClassSpec("PWR", ("GND", "VIN"), clearance=200_000, track_width=500_000)
+RULE_COMMON = [
+    *COMMON,
+    "RULEKIND",
+    "NETSCOPE",
+    "LAYERKIND",
+    "SCOPE1EXPRESSION",
+    "SCOPE2EXPRESSION",
+    "NAME",
+    "ENABLED",
+    "PRIORITY",
+    "COMMENT",
+    "UNIQUEID",
+    "DEFINEDBYLOGICALDOCUMENT",
+]
+
+
+def test_rules_of_the_blink_sample() -> None:
+    """Scenario "Rules of the blink sample": five rules of three kinds, the class rules first."""
+    from fenolite.backends.altium.project import unique_id
+
+    doc, _ = copper_doc(net_classes=(PWR,))
+    assert doc.storages["Rules6"][0] == 5
+    assert [(r.name, r.kind, r.priority, r.scope) for r in doc.rules] == [
+        ("Clearance_PWR", 0, 1, "InNetClass('PWR')"),
+        ("Clearance", 0, 2, "All"),
+        ("Width_PWR", 2, 1, "InNetClass('PWR')"),
+        ("Width", 2, 2, "All"),
+        ("RoutingVias", 11, 1, "All"),
+    ]
+    gap, default, width_pwr, width, vias = (r.fields for r in doc.rules)
+    assert gap["GAP"] == default["GAP"] == "7.874mil" and gap["GENERICCLEARANCE"] == "7.874mil"
+    assert width_pwr["PREFEREDWIDTH"] == "19.685mil" and width["PREFEREDWIDTH"] == "9.8425mil"
+    assert vias["WIDTH"] == "23.622mil" and vias["HOLEWIDTH"] == "11.811mil"
+    assert list(gap) == [
+        *RULE_COMMON,
+        "GAP",
+        "GENERICCLEARANCE",
+        "IGNOREPADTOPADCLEARANCEINFOOTPRINT",
+        "OBJECTCLEARANCES",
+    ]
+    assert list(width) == [*RULE_COMMON, "MAXLIMIT", "MINLIMIT", "PREFEREDWIDTH"]
+    assert list(vias) == [
+        *RULE_COMMON,
+        "HOLEWIDTH",
+        "WIDTH",
+        "VIASTYLE",
+        "MINHOLEWIDTH",
+        "MINWIDTH",
+        "MAXHOLEWIDTH",
+        "MAXWIDTH",
+    ]
+    assert gap["LAYER"] == "TOP" and gap["RULEKIND"] == "Clearance" and gap["NETSCOPE"] == "DifferentNets"
+    assert width["NETSCOPE"] == vias["NETSCOPE"] == "AnyNet" and vias["RULEKIND"] == "RoutingVias"
+    assert gap["LAYERKIND"] == "SameLayer" and gap["SCOPE2EXPRESSION"] == "All" and gap["ENABLED"] == "TRUE"
+    assert (
+        gap["COMMENT"] == "" and gap["OBJECTCLEARANCES"] == "" and gap["DEFINEDBYLOGICALDOCUMENT"] == "FALSE"
+    )
+    assert gap["IGNOREPADTOPADCLEARANCEINFOOTPRINT"] == "FALSE" and vias["VIASTYLE"] == "Through Hole"
+    assert gap["UNIQUEID"] == unique_id("pcbdoc:blink.PcbDoc:rule:Clearance_PWR")
+    assert len({r.fields["UNIQUEID"] for r in doc.rules}) == 5
+    assert (width["MINLIMIT"], width["MAXLIMIT"]) == ("9.8425mil", "9.8425mil")
+    assert (vias["MINWIDTH"], vias["MAXWIDTH"], vias["MINHOLEWIDTH"], vias["MAXHOLEWIDTH"]) == (
+        "23.622mil",
+        "23.622mil",
+        "11.811mil",
+        "11.811mil",
+    )
+
+
+def test_rule_limits_follow_the_copper() -> None:
+    """Scenario "Limits follow the copper"."""
+    tracks = (
+        Track(id="trk_a", start=at(1, 1), end=at(2, 1), width=400_000, layer="F.Cu", net_id="GND"),
+        Track(id="trk_b", start=at(1, 2), end=at(2, 2), width=1_000_000, layer="F.Cu", net_id="VIN"),
+        Track(id="trk_c", start=at(1, 3), end=at(2, 3), width=150_000, layer="F.Cu", net_id="LED_A"),
+    )
+    arc = Arc(id="arc_a", start=at(5, 5), mid=at(6, 4), end=at(7, 5), width=1_200_000, layer="F.Cu")
+    vias = (through("via_a", 10, 10, "GND", diameter=800_000, drill=400_000), through("via_b", 12, 10, None))
+    doc, _ = copper_doc(net_classes=(PWR,), tracks=tracks, arcs=(arc,), vias=vias)
+    rules = {r.name: r.fields for r in doc.rules}
+    pwr = rules["Width_PWR"]
+    assert (pwr["MINLIMIT"], pwr["PREFEREDWIDTH"], pwr["MAXLIMIT"]) == (
+        "15.748mil",
+        "19.685mil",
+        "39.3701mil",
+    )
+    every = rules["Width"]
+    assert (every["MINLIMIT"], every["PREFEREDWIDTH"], every["MAXLIMIT"]) == (
+        "5.9055mil",
+        "9.8425mil",
+        "47.2441mil",
+    )
+    style = rules["RoutingVias"]
+    assert (style["MINWIDTH"], style["WIDTH"], style["MAXWIDTH"]) == ("23.622mil", "23.622mil", "31.4961mil")
+    assert (style["MINHOLEWIDTH"], style["HOLEWIDTH"], style["MAXHOLEWIDTH"]) == (
+        "11.811mil",
+        "11.811mil",
+        "15.748mil",
+    )
+
+
+def test_rules_of_a_class_with_a_via_style_and_one_without_values() -> None:
+    classes = (
+        NetClassSpec("A", ("GND",), via_diameter=800_000, via_drill=400_000),
+        NetClassSpec("B", ("VIN",), via_diameter=800_000),
+        NetClassSpec("C", ("LED_A",), clearance=150_000),
+    )
+    doc, _ = copper_doc(net_classes=classes, vias=(through("via_a", 10, 10, "GND"),))
+    found = [(r.name, r.priority) for r in doc.rules]
+    assert found == [
+        ("Clearance_C", 1),
+        ("Clearance", 2),
+        ("Width", 1),
+        ("RoutingVias_A", 1),
+        ("RoutingVias", 2),
+    ]
+    style = doc.rules[3].fields
+    assert style["SCOPE1EXPRESSION"] == "InNetClass('A')" and style["WIDTH"] == "31.4961mil"
+    assert (style["MINWIDTH"], style["MINHOLEWIDTH"]) == ("23.622mil", "11.811mil")
+
+
+def test_rules_are_written_only_with_copper_or_a_class() -> None:
+    plain, _ = copper_doc()
+    assert plain.storages["Rules6"] == (0, b"") and plain.rules == []
+    track = Track(id="trk_a", start=at(1, 1), end=at(2, 1), width=250_000, layer="F.Cu")
+    routed, _ = copper_doc(tracks=(track,))
+    assert [r.name for r in routed.rules] == ["Clearance", "Width", "RoutingVias"]
+    zone = Zone(id="zon_a", outline=RECT, layers=("F.Cu",))
+    assert len(copper_doc(zones=(zone,))[0].rules) == 3
+    off, _ = copper_doc(tracks=(track,), net_classes=(PWR,), rules=False)
+    assert off.storages["Rules6"] == (0, b"") and len(off.classes) == 1

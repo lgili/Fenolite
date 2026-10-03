@@ -852,3 +852,32 @@ def test_board_items_the_document_does_not_write(tmp_path: Path) -> None:
     assert sorted(found) == ["graphics", "holes", "keepouts", "texts"]
     assert found["keepouts"].message == "1 keep-outs of the board are kept in the model only"
     assert all(i.severity == "info" for i in found.values()) and "routed.PcbDoc" in output.files
+
+
+# --- design rules (change c0038, task 9) -------------------------------------------------------------
+
+
+def test_rules_of_the_blink_build(tmp_path: Path) -> None:
+    """Scenario "Rules of the blink sample" through the build."""
+    from _altium_pcb_read import read_pcbdoc
+
+    doc = read_pcbdoc(build_blink_placed(tmp_path).files["blink.PcbDoc"])
+    assert [(r.name, r.kind, r.priority) for r in doc.rules] == [
+        ("Clearance_PWR", 0, 1),
+        ("Clearance", 0, 2),
+        ("Width_PWR", 2, 1),
+        ("Width", 2, 2),
+        ("RoutingVias", 11, 1),
+    ]
+
+
+def test_rules_of_the_routed_build_span_its_copper(tmp_path: Path) -> None:
+    from _altium_copper import routed_build
+    from _altium_pcb_read import read_pcbdoc
+
+    doc = read_pcbdoc(routed_build(tmp_path).files["routed.PcbDoc"])
+    rules = {r.name: r.fields for r in doc.rules}
+    assert len(rules) == 5
+    assert (rules["Width"]["MINLIMIT"], rules["Width"]["MAXLIMIT"]) == ("9.8425mil", "19.685mil")
+    assert (rules["Width_PWR"]["MINLIMIT"], rules["Width_PWR"]["MAXLIMIT"]) == ("19.685mil", "19.685mil")
+    assert rules["RoutingVias"]["MINWIDTH"] == rules["RoutingVias"]["MAXWIDTH"] == "23.622mil"

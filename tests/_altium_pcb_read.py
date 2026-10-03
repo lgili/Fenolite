@@ -161,6 +161,27 @@ class ClassRecord:
     fields: dict[str, str]
 
 
+@dataclass
+class RuleRecord:
+    kind: int
+    name: str
+    priority: int
+    scope: str
+    fields: dict[str, str]
+
+
+RULE_KINDS = {
+    0: "Clearance",
+    2: "Width",
+    6: "PlaneConnect",
+    9: "RoutingLayers",
+    11: "RoutingVias",
+    12: "PlaneClearance",
+    20: "PolygonConnect",
+    62: "UnpouredPolygon",
+}
+"""Rule-kind number → ``RULEKIND`` (``pcb-copper.md``, "Rules")."""
+
 Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord
 
 
@@ -212,6 +233,7 @@ class PcbDoc:
     vias: list[ViaRecord] = field(default_factory=lambda: [])
     polygons: list[PolygonRecord] = field(default_factory=lambda: [])
     classes: list[ClassRecord] = field(default_factory=lambda: [])
+    rules: list[RuleRecord] = field(default_factory=lambda: [])
     copper_chain: list[int] = field(default_factory=lambda: [])
     """The numbered copper layers from top to bottom, read through ``LAYER<n>NEXT`` from layer 1."""
     plane_nets: dict[int, str] = field(default_factory=dict)
@@ -735,6 +757,34 @@ def read_classes(data: bytes, nets: list[dict[str, str]]) -> list[ClassRecord]:
     return out
 
 
+def read_rules(data: bytes) -> list[RuleRecord]:
+    """The rules of ``Rules6/Data`` (``pcb-copper.md``, "Rules"): a 16-bit rule-kind number, then one
+    property block whose ``RULEKIND`` must be the kind of that number."""
+    out: list[RuleRecord] = []
+    offset = 0
+    while offset < len(data):
+        where = f"Rules6 record {len(out)}"
+        if offset + 2 > len(data):
+            raise PcbReadError(f"{where}: the rule-kind number is cut")
+        (kind,) = struct.unpack_from("<H", data, offset)
+        block, offset = property_block_at(data, offset + 2, "Rules6/Data")
+        wanted = RULE_KINDS.get(kind)
+        if wanted is None or block.get("RULEKIND") != wanted:
+            raise PcbReadError(
+                f"{where}: the rule starts with the number {kind} and its RULEKIND is {block.get('RULEKIND')}"
+            )
+        out.append(
+            RuleRecord(
+                kind,
+                block.get("NAME", ""),
+                int(block.get("PRIORITY", "0")),
+                block.get("SCOPE1EXPRESSION", ""),
+                block,
+            )
+        )
+    return out
+
+
 def _nothing_on_planes(primitives: list[Primitive], where: str) -> None:
     for number, item in enumerate(primitives):
         if FIRST_PLANE <= item.prefix.layer <= LAST_PLANE:
@@ -784,6 +834,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         _nothing_on_planes(decoded[kind], kind)
     polygons = read_polygons(storages.get("Polygons6", (0, b""))[1], len(nets))
     classes = read_classes(storages.get("Classes6", (0, b""))[1], nets)
+    rules = read_rules(storages.get("Rules6", (0, b""))[1])
     counts = {
         "Board6": 1,
         "Nets6": len(nets),
@@ -794,6 +845,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     counts["WideStrings6"] = len(wide)
     counts["Polygons6"] = len(polygons)
     counts["Classes6"] = len(classes)
+    counts["Rules6"] = len(rules)
     unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
     if UNIQUE_STORAGE in storages:
         counts[UNIQUE_STORAGE] = len(unique_ids)
@@ -847,6 +899,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         vias=[v for v in decoded["Vias6"] if isinstance(v, ViaRecord)],
         polygons=polygons,
         classes=classes,
+        rules=rules,
         copper_chain=chain,
         plane_nets=planes,
     )

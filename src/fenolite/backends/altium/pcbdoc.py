@@ -15,7 +15,8 @@ project (change c0037), through ``\\<sheet symbol id>\\<unique id>`` with ``SOUR
 
 Change c0038 adds the copper, written from ``docs/formats/altium/pcb-copper.md``: routed tracks and arcs
 as free primitives with their net, through vias in the 321-byte form Altium saves, and each zone as one
-unpoured polygon pour per layer, which Altium fills on a repour; and one ``KIND=0`` class per net class.
+unpoured polygon pour per layer, which Altium fills on a repour; one ``KIND=0`` class per net class; and
+Clearance, Width and Routing Via Style rules from the net classes and Fenolite's defaults.
 """
 
 from __future__ import annotations
@@ -246,6 +247,8 @@ class PcbDocSpec:
     vias: tuple[Via, ...] = ()
     zones: tuple[Zone, ...] = ()
     net_classes: tuple[NetClassSpec, ...] = ()
+    rules: bool = True
+    """``False`` leaves ``Rules6`` empty (the bisection variants without rules)."""
 
 
 def _u32(value: int) -> bytes:
@@ -676,6 +679,110 @@ def class_records(classes: Sequence[NetClassSpec], nets: Mapping[str, int], file
     return out
 
 
+DEFAULT_CLEARANCE = 200_000
+DEFAULT_TRACK_WIDTH = 250_000
+DEFAULT_VIA_DIAMETER = 600_000
+DEFAULT_VIA_DRILL = 300_000
+"""The values of the ``All`` rules in nanometres: Fenolite's choices (``pcb-copper.md``)."""
+RULE_CLEARANCE, RULE_WIDTH, RULE_VIAS = 0, 2, 11
+"""The rule-kind numbers that open a ``Rules6`` record."""
+ALL_SCOPE = "All"
+
+
+def _mil(nm: int) -> str:
+    return rec.mil_text(rec.to_units(nm))
+
+
+def _rule(
+    kind: int, kind_name: str, name: str, scope: str, priority: int, keys: Sequence[Field], filename: str
+) -> bytes:
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
+    fields: list[Field] = [
+        *common_fields("TOP"),
+        ("RULEKIND", kind_name),
+        ("NETSCOPE", "DifferentNets" if kind == RULE_CLEARANCE else "AnyNet"),
+        ("LAYERKIND", "SameLayer"),
+        ("SCOPE1EXPRESSION", scope),
+        ("SCOPE2EXPRESSION", ALL_SCOPE),
+        ("NAME", name),
+        ("ENABLED", "TRUE"),
+        ("PRIORITY", str(priority)),
+        ("COMMENT", ""),
+        ("UNIQUEID", unique_id(f"pcbdoc:{filename}:rule:{name}")),
+        ("DEFINEDBYLOGICALDOCUMENT", "FALSE"),
+        *keys,
+    ]
+    return struct.pack("<H", kind) + rec.property_block(fields)
+
+
+def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
+    """The ``Rules6`` records (``pcb-copper.md``, "Rules"): Clearance, Width and Routing Via Style, in that
+    order. Per kind, one rule ``<Kind>_<class>`` scoped ``InNetClass('<class>')`` for each net class that
+    holds the kind's value, in class-name order with priorities from 1, then one rule named after the kind
+    with the scope ``All`` and Fenolite's default. The limits of a width or via rule span its preferred
+    value and the written copper of its scope, so the document's own copper never breaks them. No rule is
+    written for a spec without copper and net classes, or with ``rules`` off."""
+    has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
+    if not spec.rules or not has_copper:
+        return []
+    classes = sorted(spec.net_classes, key=lambda c: c.name)
+    widths = [(item.net_id, item.width) for item in (*spec.tracks, *spec.arcs)]
+    vias = [(via.net_id, via.diameter, via.drill) for via in spec.vias]
+
+    def scoped(item: NetClassSpec | None) -> str:
+        return ALL_SCOPE if item is None else f"InNetClass('{item.name}')"
+
+    def named(kind: str, item: NetClassSpec | None) -> str:
+        return kind if item is None else f"{kind}_{item.name}"
+
+    def inside(net: str | None, item: NetClassSpec | None) -> bool:
+        return item is None or net in item.nets
+
+    out: list[bytes] = []
+    clearances = [(c, c.clearance) for c in classes if c.clearance is not None]
+    for priority, (item, gap) in enumerate([*clearances, (None, DEFAULT_CLEARANCE)], start=1):
+        keys: list[Field] = [
+            ("GAP", _mil(gap)),
+            ("GENERICCLEARANCE", _mil(gap)),
+            ("IGNOREPADTOPADCLEARANCEINFOOTPRINT", "FALSE"),
+            ("OBJECTCLEARANCES", ""),
+        ]
+        name = named("Clearance", item)
+        out.append(_rule(RULE_CLEARANCE, "Clearance", name, scoped(item), priority, keys, filename))
+    preferred = [(c, c.track_width) for c in classes if c.track_width is not None]
+    for priority, (item, width) in enumerate([*preferred, (None, DEFAULT_TRACK_WIDTH)], start=1):
+        found = [width, *(w for net, w in widths if inside(net, item))]
+        keys = [
+            ("MAXLIMIT", _mil(max(found))),
+            ("MINLIMIT", _mil(min(found))),
+            ("PREFEREDWIDTH", _mil(width)),
+        ]
+        out.append(_rule(RULE_WIDTH, "Width", named("Width", item), scoped(item), priority, keys, filename))
+    styles = [
+        (c, c.via_diameter, c.via_drill)
+        for c in classes
+        if c.via_diameter is not None and c.via_drill is not None
+    ]
+    for priority, (item, diameter, drill) in enumerate(
+        [*styles, (None, DEFAULT_VIA_DIAMETER, DEFAULT_VIA_DRILL)], start=1
+    ):
+        diameters = [diameter, *(d for net, d, _h in vias if inside(net, item))]
+        holes = [drill, *(h for net, _d, h in vias if inside(net, item))]
+        keys = [
+            ("HOLEWIDTH", _mil(drill)),
+            ("WIDTH", _mil(diameter)),
+            ("VIASTYLE", "Through Hole"),
+            ("MINHOLEWIDTH", _mil(min(holes))),
+            ("MINWIDTH", _mil(min(diameters))),
+            ("MAXHOLEWIDTH", _mil(max(holes))),
+            ("MAXWIDTH", _mil(max(diameters))),
+        ]
+        name = named("RoutingVias", item)
+        out.append(_rule(RULE_VIAS, "RoutingVias", name, scoped(item), priority, keys, filename))
+    return out
+
+
 def document_stack(spec: PcbDocSpec) -> StackSpec:
     """The copper stack of ``spec``: ``spec.stack``, or the default stack of its copper layers without
     planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
@@ -810,6 +917,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     filled["Vias6"] = via_records(spec.vias, copper)
     filled["Polygons6"] = polygon_records(spec.zones, copper)
     filled["Classes6"] = class_records(spec.net_classes, nets, filename)
+    filled["Rules6"] = rule_records(spec, filename)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
         {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"])} | poured
@@ -848,7 +956,11 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
 __all__ = [
     "BOARD_OFFSET_MIL",
     "COPPER_STORAGES",
+    "DEFAULT_CLEARANCE",
     "DEFAULT_FILENAME",
+    "DEFAULT_TRACK_WIDTH",
+    "DEFAULT_VIA_DIAMETER",
+    "DEFAULT_VIA_DRILL",
     "EMPTY_STORAGES",
     "EVIDENCE",
     "FILE_HEADER_SIX_TEXT",
@@ -870,6 +982,7 @@ __all__ = [
     "record_layer",
     "routed_arcs",
     "routed_tracks",
+    "rule_records",
     "text_record",
     "via_records",
     "write_pcbdoc",

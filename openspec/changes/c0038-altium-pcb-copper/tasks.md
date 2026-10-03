@@ -51,8 +51,8 @@
 
 ## 9. Rules (cut first; skip this group if it is cut)
 
-- [ ] 9.1 Write the `Rules6` records and the defaults in `pcbdoc.py`, the limits that span the written copper, and the reader's rule decoding. Extend `test_pcbdoc.py` and `test_altium_pcb_read.py`. Proof: `uv run pytest tests/unit/backends/altium -k rule`; covering every scenario of "Design rule records" and the rule case of "Copper negative controls".
-- [ ] 9.2 Rebuild the blink and routed golden documents with the rules, update their SHA-256 values in `docs/evidence/altium-pcb.md`, add variant `c5`, and hand `c5` to the maintainer. Proof: `uv run pytest tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_copper_golden.py`; `uv run pytest tests/kicad/altium/test_pcbdoc_copper_oracle.py tests/kicad/altium/test_copper_from_oracle.py`; `git status --short tests/data/altium` lists only `blink/blink.PcbDoc` and `routed/routed.PcbDoc`.
+- [x] 9.1 Write the `Rules6` records and the defaults in `pcbdoc.py`, the limits that span the written copper, and the reader's rule decoding. Extend `test_pcbdoc.py` and `test_altium_pcb_read.py`. Proof: `uv run pytest tests/unit/backends/altium -k rule`; covering every scenario of "Design rule records" and the rule case of "Copper negative controls".
+- [x] 9.2 Rebuild the blink and routed golden documents with the rules, update their SHA-256 values in `docs/evidence/altium-pcb.md`, add variant `c5`, and hand `c5` to the maintainer. Proof: `uv run pytest tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_copper_golden.py`; `uv run pytest tests/kicad/altium/test_pcbdoc_copper_oracle.py tests/kicad/altium/test_copper_from_oracle.py`; `git status --short tests/data/altium` lists only `blink/blink.PcbDoc` and `routed/routed.PcbDoc`.
 
 ## 10. Documentation and the maintainer's report
 

@@ -594,3 +594,34 @@ def test_class_lists_an_unknown_net() -> None:
 def test_class_header_count() -> None:
     with pytest.raises(PcbReadError, match="Classes6/Header says 0, the data holds 1 records"):
         read_pcbdoc(copper_document(Classes6__Header=one(0), Classes6__Data=net_class()))
+
+
+# --- design rules (change c0038) -------------------------------------------------------------------
+
+
+def rule(number: int, kind: str = "Width", name: str = "Width", priority: str = "1") -> bytes:
+    block = prop(LAYER="TOP", RULEKIND=kind, SCOPE1EXPRESSION="All", NAME=name, PRIORITY=priority)
+    return struct.pack("<H", number) + block
+
+
+def test_rule_reads() -> None:
+    data = rule(0, "Clearance", "Clearance") + rule(2) + rule(11, "RoutingVias", "RoutingVias", "3")
+    doc = read_pcbdoc(copper_document(Rules6__Header=one(3), Rules6__Data=data))
+    assert [(r.kind, r.name, r.priority, r.scope) for r in doc.rules] == [
+        (0, "Clearance", 1, "All"),
+        (2, "Width", 1, "All"),
+        (11, "RoutingVias", 3, "All"),
+    ]
+
+
+def test_rule_number_does_not_match_its_kind() -> None:
+    """A Width rule starts with the number 0."""
+    with pytest.raises(PcbReadError, match="the rule starts with the number 0 and its RULEKIND is Width"):
+        read_pcbdoc(copper_document(Rules6__Header=one(1), Rules6__Data=rule(0)))
+    with pytest.raises(PcbReadError, match="the rule starts with the number 7"):
+        read_pcbdoc(copper_document(Rules6__Header=one(1), Rules6__Data=rule(7)))
+
+
+def test_rule_header_count() -> None:
+    with pytest.raises(PcbReadError, match="Rules6/Header says 2, the data holds 1 records"):
+        read_pcbdoc(copper_document(Rules6__Header=one(2), Rules6__Data=rule(2)))

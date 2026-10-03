@@ -33,6 +33,7 @@ from _altium_copper import (
     VIAS,
     ZONE,
     Variant,
+    document_of,
     routed_build,
     variants,
 )
@@ -49,10 +50,16 @@ FILES = tuple(f"{NAME}.{suffix}" for suffix in ("PcbDoc", "PcbLib", "PrjPcb", "S
 def build_variant(variant: Variant) -> dict[str, bytes]:
     """The project files of one variant (without the ``.fenolite/`` cache); no issue may be an error."""
     with tempfile.TemporaryDirectory() as folder:
-        output = routed_build(Path(folder), variant.model, copper=variant.copper, **variant.build)
-    errors = [found for found in output.issues if found.severity == "error"]
-    assert not errors, errors
-    return {name: data for name, data in output.files.items() if not name.startswith(".fenolite/")}
+        root = Path(folder)
+        output = routed_build(root, variant.model, copper=variant.copper, **variant.build)
+        errors = [found for found in output.issues if found.severity == "error"]
+        assert not errors, errors
+        files = {name: data for name, data in output.files.items() if not name.startswith(".fenolite/")}
+        document = f"{NAME}.PcbDoc"
+        assert document_of(root, output, variant, rules=True) == files[document]
+        if not variant.rules:
+            files[document] = document_of(root, output, variant, rules=False)
+    return files
 
 
 @cache
@@ -91,7 +98,10 @@ def test_variants_add_one_feature_each() -> None:
     assert c0.copper_chain == c1.copper_chain == [1, 32] and c2.copper_chain == [1, 2, 3, 32]
     assert sorted(t.prefix.layer for t in c2.free_tracks) == [1, 1, 2, 3, 32] and len(c2.vias) == 3
     c3 = read_pcbdoc(built["c3"][f"{NAME}.PcbDoc"])
-    c4 = read_pcbdoc(built["c4"][f"{NAME}.PcbDoc"])
+    c4, c5 = (read_pcbdoc(built[name][f"{NAME}.PcbDoc"]) for name in ("c4", "c5"))
+    assert all(doc.rules == [] for doc in (c0, c1, c2, c3, c4))
+    assert [r.name for r in c5.rules] == ["Clearance_PWR", "Clearance", "Width_PWR", "Width", "RoutingVias"]
+    assert c4.streams["Classes6/Data"] == c5.streams["Classes6/Data"]
     assert c3.classes == [] and [(c.name, c.members) for c in c4.classes] == [("PWR", ["GND", "VIN"])]
     assert c2.polygons == [] and [(p.layer, p.name) for p in c3.polygons] == [
         ("MID1", "GND_L02_P000"),
