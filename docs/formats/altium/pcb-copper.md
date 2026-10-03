@@ -15,7 +15,9 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
   Nothing was decompiled, and no third-party code was transcribed.
 - Every Altium row is `INFERRED` under an `H-A-PCB-CU-*` hypothesis until the maintainer reports Part C of
   `docs/evidence/altium-pcb.md`. Rows that only say what KiCad's importer reads name `H-A-PCB-CU-KICAD` or
-  `H-A-PCB-CU-ROUNDTRIP`; an oracle label on them says nothing about Altium.
+  `H-A-PCB-CU-ROUNDTRIP`; they carry `ORACLE-VERIFIED(kicad-cli)` once their oracle
+  (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) passed on 10.0.6, and
+  that label says nothing about Altium.
 - `tests/unit/test_format_facts.py` checks the tables.
 
 ## Tracks and arcs
@@ -26,7 +28,7 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | Altium saves a track with 49 bytes and an arc with 60: after the short form come a solder-mask expansion, a paste-mask expansion, a 32-bit long layer id and a keep-out byte. Readers accept the short forms: KiCad needs 36 bytes for a track and 47 for an arc, and Altium Designer 26.5 opens them in the document of c0035 (`pcb-document.md`) | S-0160, S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
 | The first flag byte of a routed track is `0x0C` in nearly every saved track; bit 2 clear means locked | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
 | The layer byte of a track on an inner signal layer is 2 to 31 (Mid-Layer 1 to 30). A saved board holds tracks with the layer bytes 3 and 5 (Mid-Layer 2 and 4), flags `0C`, polygon and component `0xFFFF` | S-0002, S-0160, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-TRACK |
-| KiCad reads a 36-byte track and a 47-byte arc with a net index on layers 1, 2, 3 and 32 as tracks and arcs on `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` with that net | S-0160, S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
+| KiCad reads a 36-byte track and a 47-byte arc with a net index on layers 1, 2, 3 and 32 as tracks and arcs on `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` with that net | S-0160, S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 
 ## Via
 
@@ -40,7 +42,7 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | Flags of a via: `0x0C` unlocked and untented; bit 5 tents the top, bit 6 the bottom. The net index is at 3; polygon and component are `0xFFFF` for a free via | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Vias are not listed in `UniqueIDPrimitiveInformation`; only pads are | S-0174, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind, buried or micro via needs a via type and a drill pair in the layer stack. The documents read hold one pair only (`LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`) | S-0197, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
-| KiCad reads a 321-byte via with start 1 and end 32 as a through via between `F.Cu` and `B.Cu` with its net, position, diameter and drill; start 1 and end 2 reads as a blind via, start 2 and end 3 as a buried one | S-0160, S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
+| KiCad reads a 321-byte via with start 1 and end 32 as a through via between `F.Cu` and `B.Cu` with its net, position, diameter and drill; start 1 and end 2 reads as a blind via, start 2 and end 3 as a buried one | S-0160, S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 
 ## Polygon pour
 
@@ -56,7 +58,7 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | Altium documents the state: an unpoured polygon is drawn by its outline only; "Tools » Polygon Pours » Repour All" (or repour selected, modified or violating polygons) fills it; the Unpoured Polygon rule reports such polygons when the rule exists | S-0195, S-0196 | INFERRED | H-A-PCB-CU-REPOUR |
 | Clearance and connection of a pour come from design rules (Clearance, Polygon Connect Style), not from the polygon record | S-0196, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-REPOUR |
 | A polygon on a mid layer has `LAYER=MID<n>` and the keys of a polygon on an outer layer | S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-REPOUR |
-| KiCad imports a polygon as a zone with its layer, net and outline; without regions the zone has no fill. It does not take the polygon's name. A lower pour index gives a higher zone priority | S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
+| KiCad imports a polygon as a zone with its layer, net and outline; without regions the zone has no fill. It does not take the polygon's name. A lower pour index gives a higher zone priority | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 
 ## Layer stack
 
@@ -104,10 +106,10 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| KiCad builds the copper stack from the numbered keys only, by chain position: 1 → 2 → 3 → 32 gives `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, the inner layers of type `signal`; a plane in the chain (39 or 40) becomes the copper layer of its position with the type `power`. This holds for the chains 1 → 39 → 40 → 32, 1 → 39 → 3 → 32 and 1 → 2 → 39 → 32, without any split-plane record | S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
-| A track or polygon written on Mid-Layer 2 of the chain 1 → 39 → 3 → 32 arrives on `In2.Cu` | S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
-| KiCad warns once per internal plane that is outside the stack ("could not be mapped"): sixteen warnings without a plane in the chain, fifteen with one, fourteen with two | S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
-| A plane's net is not in the imported board: KiCad makes zones from split-plane records only. Net classes and rules give no error and are not in the imported `.kicad_pcb` | S-0161, S-0020 | INFERRED | H-A-PCB-CU-KICAD |
+| KiCad builds the copper stack from the numbered keys only, by chain position: 1 → 2 → 3 → 32 gives `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, the inner layers of type `signal`; a plane in the chain (39 or 40) becomes the copper layer of its position with the type `power`. This holds for the chains 1 → 39 → 40 → 32, 1 → 39 → 3 → 32 and 1 → 2 → 39 → 32, without any split-plane record | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+| A track or polygon written on Mid-Layer 2 of the chain 1 → 39 → 3 → 32 arrives on `In2.Cu` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+| KiCad warns once per internal plane that is outside the stack ("could not be mapped"): sixteen warnings without a plane in the chain, fifteen with one, fourteen with two | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+| A plane's net is not in the imported board: KiCad makes zones from split-plane records only. Net classes and rules give no error and are not in the imported `.kicad_pcb` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 | Copper copied from a KiCad board into the document and imported back equals the source board's copper | S-0161, S-0166, S-0020 | INFERRED | H-A-PCB-CU-ROUNDTRIP |
 
 ## Not written
