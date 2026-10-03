@@ -3,8 +3,9 @@
 """A reader of Altium PCB libraries and documents, for tests only (change c0035, capability
 altium-pcb-writer, "PCB files read back").
 
-Written from ``docs/formats/altium/pcb-library.md``, ``pcb-records.md`` and ``pcb-document.md`` alone, on top
-of ``tests/_cfb_read.py``; it never imports the product's PCB writers. ``read_pcblib`` and ``read_pcbdoc``
+Written from ``docs/formats/altium/pcb-library.md``, ``pcb-records.md``, ``pcb-document.md`` and
+``pcb-copper.md`` (change c0038, "Copper records read back") alone, on top of ``tests/_cfb_read.py``; it
+never imports the product's PCB writers. ``read_pcblib`` and ``read_pcbdoc``
 return the decoded files and raise ``PcbReadError`` naming the first rule the bytes break: subrecord
 minimums (pad subrecord 5 at least 110 bytes, subrecord 6 empty or at least 596, track 36, arc 47, text
 40), the pad-name length, indexes naming existing records, ``Header`` counts equal to the decoded counts,
@@ -38,8 +39,11 @@ LIBRARY_STREAMS = (
     ),
 )
 """Every stream a library holds beside its footprints (``pcb-library.md``, "Container")."""
-TRACK, ARC, PAD, TEXT = 4, 1, 2, 5
+TRACK, ARC, PAD, TEXT, VIA = 4, 1, 2, 5, 3
 MINIMUMS = {TRACK: 36, ARC: 47}
+VIA_MIN = 31
+"""A via subrecord holds at least the prefix, x, y, diameter, hole and the two layer bytes."""
+MULTI_LAYER = 74
 PAD_GEOMETRY_MIN = 110
 PAD_LAYERS_MIN = 596
 TEXT_MIN = 40
@@ -126,7 +130,20 @@ class TextRecord:
     wide_index: int | None = None
 
 
-Primitive = Track | ArcRecord | PadRecord | TextRecord
+@dataclass
+class ViaRecord:
+    prefix: Prefix
+    x: int
+    y: int
+    diameter: int
+    hole: int
+    start_layer: int
+    end_layer: int
+    size: int
+    body: bytes = b""
+
+
+Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord
 
 
 @dataclass
@@ -174,6 +191,17 @@ class PcbDoc:
     unique_ids: list[dict[str, str]] = field(default_factory=lambda: [])
     options: dict[str, dict[str, str]] = field(default_factory=dict)
     """The one property block of each option storage that holds one."""
+    vias: list[ViaRecord] = field(default_factory=lambda: [])
+
+    @property
+    def free_tracks(self) -> list[Track]:
+        """The routed tracks: those of no component."""
+        return [t for t in self.tracks if t.prefix.component == NO_INDEX]
+
+    @property
+    def free_arcs(self) -> list[ArcRecord]:
+        """The routed arcs: those of no component."""
+        return [a for a in self.arcs if a.prefix.component == NO_INDEX]
 
 
 def property_blocks(data: bytes, where: str) -> list[dict[str, str]]:
@@ -321,6 +349,20 @@ def _text(subs: list[bytes], where: str) -> TextRecord:
     return record
 
 
+def _via(body: bytes, where: str) -> ViaRecord:
+    """A via (``pcb-copper.md``, "Via"): the prefix on Multi-Layer, x, y, diameter, hole, start and end
+    layer."""
+    if len(body) < VIA_MIN:
+        raise PcbReadError(f"{where}: a via subrecord of {len(body)} bytes, fewer than {VIA_MIN}")
+    pre = _prefix(body)
+    if pre.layer != MULTI_LAYER:
+        raise PcbReadError(f"{where}: a via on layer {pre.layer}, not on Multi-Layer ({MULTI_LAYER})")
+    x, y, diameter, hole = struct.unpack_from("<4i", body, 13)
+    if not 0 <= hole < diameter:
+        raise PcbReadError(f"{where}: a via hole of {hole} units is not below its diameter of {diameter}")
+    return ViaRecord(pre, x, y, diameter, hole, body[29], body[30], len(body), bytes(body))
+
+
 def decode_primitives(data: bytes, where: str = "Data") -> list[Primitive]:
     """The primitive records of ``data``, one after another, until fewer than 4 bytes remain."""
     out: list[Primitive] = []
@@ -352,6 +394,9 @@ def decode_primitives(data: bytes, where: str = "Data") -> list[Primitive]:
         elif kind == TEXT:
             subs, offset = _subrecords(data, offset, 2, at)
             out.append(_text(subs, at))
+        elif kind == VIA:
+            (body,), offset = _subrecords(data, offset, 1, at)
+            out.append(_via(body, at))
         else:
             raise PcbReadError(f"{at}: record type {kind} is not written by Fenolite")
     if offset != len(data):
@@ -587,7 +632,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     nets = property_blocks(storages.get("Nets6", (0, b""))[1], "Nets6/Data")
     components = property_blocks(storages.get("Components6", (0, b""))[1], "Components6/Data")
     decoded: dict[str, list[Primitive]] = {}
-    for kind in ("Pads6", "Tracks6", "Arcs6", "Texts6"):
+    for kind in ("Pads6", "Tracks6", "Arcs6", "Texts6", "Vias6"):
         decoded[kind] = decode_primitives(storages.get(kind, (0, b""))[1], f"{kind}/Data")
         _indexes(decoded[kind], len(nets), len(components), kind)
     counts = {
@@ -648,4 +693,5 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         board_fields=board_fields,
         unique_ids=unique_ids,
         options=options,
+        vias=[v for v in decoded["Vias6"] if isinstance(v, ViaRecord)],
     )

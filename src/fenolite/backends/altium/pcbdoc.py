@@ -12,7 +12,9 @@ and the board shifted so that its lower-left corner lies at (1000 mil, 1000 mil)
 schematic through ``SOURCEUNIQUEID=\\<unique id>``, or, for a part on a module sheet of a hierarchical
 project (change c0037), through ``\\<sheet symbol id>\\<unique id>`` with ``SOURCEHIERARCHICALPATH`` set to
 ``<design name>\\<module name>``, the design name being the stem the document shares with the top sheet.
-No routing, via, zone, rule or class is written.
+
+Change c0038 adds the copper, written from ``docs/formats/altium/pcb-copper.md``: routed tracks and arcs
+as free primitives with their net, and through vias in the 321-byte form Altium saves.
 """
 
 from __future__ import annotations
@@ -36,7 +38,7 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Side
+from fenolite.model.board import Arc, Side, Track, Via
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -46,15 +48,14 @@ BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
+COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
+"""Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
+spec holds no such object."""
 EMPTY_STORAGES: tuple[str, ...] = (
-    "Vias6",
     "Fills6",
     "Regions6",
     "ShapeBasedRegions6",
-    "Polygons6",
     "Dimensions6",
-    "Classes6",
-    "Rules6",
     "ComponentBodies6",
     "ShapeBasedComponentBodies6",
     "DifferentialPairs6",
@@ -75,6 +76,16 @@ EMPTY_STORAGES: tuple[str, ...] = (
 )
 """Storages written with ``Header`` 0 and an empty ``Data``: the kinds KiCad looks for and the ones every
 Altium-saved document holds, empty in a document without such objects."""
+_TAIL_ORDER: tuple[str, ...] = (
+    "Vias6",
+    *EMPTY_STORAGES[:3],
+    "Polygons6",
+    EMPTY_STORAGES[3],
+    "Classes6",
+    "Rules6",
+    *EMPTY_STORAGES[4:],
+)
+"""The copper and the empty storages in the order they are written (the order of c0035's document)."""
 OPTION_STORAGES: tuple[str, ...] = (
     "Advanced Placer Options6",
     "Pin Swap Options6",
@@ -151,6 +162,16 @@ COMMENT_DROP = 1_500_000
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-PCB-CU-CLASS",
+        "H-A-PCB-CU-KICAD",
+        "H-A-PCB-CU-PLANE",
+        "H-A-PCB-CU-REPOUR",
+        "H-A-PCB-CU-ROUNDTRIP",
+        "H-A-PCB-CU-RULES",
+        "H-A-PCB-CU-STACK",
+        "H-A-PCB-CU-TRACK",
+        "H-A-PCB-CU-VIA",
+        "H-A-PCB-CU-VIEWER",
         "H-A-PCB-DOC-BOTTOM",
         "H-A-PCB-DOC-LINK",
         "H-A-PCB-DOC-NETS",
@@ -159,7 +180,8 @@ EVIDENCE = Evidence(
         "H-A-PCB-KICAD-DOC",
     ),
 )
-"""The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads."""
+"""The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
+``H-A-PCB-CU-*`` rows are those of the copper (change c0038)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,11 +207,19 @@ class PlacedComponent:
 
 @dataclass(frozen=True, slots=True)
 class PcbDocSpec:
-    """A board: its outline (KiCad frame, in order), its components and its net names."""
+    """A board: its outline (KiCad frame, in order), its components, its net names and its copper.
+
+    ``copper_layers`` are the copper layers from top to bottom (``pcbrecords.COPPER_STACKS``). ``tracks``,
+    ``arcs`` and ``vias`` are model entities in the frame of the placements whose ``net_id`` holds the
+    net's **name** (``None`` without a net); the lens puts it there."""
 
     outline: tuple[Point, ...]
     components: tuple[PlacedComponent, ...] = ()
     nets: tuple[str, ...] = ()
+    copper_layers: tuple[str, ...] = ("F.Cu", "B.Cu")
+    tracks: tuple[Track, ...] = ()
+    arcs: tuple[Arc, ...] = ()
+    vias: tuple[Via, ...] = ()
 
 
 def _u32(value: int) -> bytes:
@@ -418,6 +448,110 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
     return _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
 
 
+def _xy(point: Point) -> tuple[int, int]:
+    return (point.x, point.y)
+
+
+def _units(point: Point) -> tuple[int, int]:
+    return (rec.to_units(point.x), rec.to_units(point.y))
+
+
+@dataclass(frozen=True, slots=True)
+class _Copper:
+    """What the copper records need: the frame, the net indexes and the Altium id of each copper layer
+    (a plane has an id from ``pcbrecords.FIRST_PLANE``)."""
+
+    frame: Frame
+    nets: Mapping[str, int]
+    layers: Mapping[str, int]
+
+    def position(self, layer: str) -> int:
+        names = list(self.layers)
+        return names.index(layer) if layer in self.layers else len(names)
+
+    def net(self, ident: str, name: str | None) -> int:
+        if name is None:
+            return rec.NO_INDEX
+        if name not in self.nets:
+            raise ValueError(f"{ident}: the net {name!r} is not a net of the document")
+        return self.nets[name]
+
+    def signal_layer(self, ident: str, layer: str) -> int:
+        if layer not in self.layers:
+            raise ValueError(
+                f"{ident}: the layer {layer} is not a copper layer of the board ({', '.join(self.layers)})"
+            )
+        if self.layers[layer] >= rec.FIRST_PLANE:
+            raise ValueError(f"{ident}: the layer {layer} is an internal plane, which holds no primitive")
+        return self.layers[layer]
+
+
+def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
+    """The free 36-byte tracks of the board (``pcb-copper.md``, "Tracks and arcs"), sorted by stack
+    position of the layer, net name, start, end, width and entity id. ``ValueError`` names the id of a
+    track on an unknown or plane layer, of zero length, without a positive width or on an unknown net."""
+    out: list[bytes] = []
+    ordered = sorted(
+        tracks,
+        key=lambda t: (copper.position(t.layer), t.net_id or "", _xy(t.start), _xy(t.end), t.width, t.id),
+    )
+    for track in ordered:
+        layer = copper.signal_layer(track.id, track.layer)
+        if track.width <= 0:
+            raise ValueError(f"{track.id}: a track needs a positive width, not {track.width} nm")
+        if track.start == track.end:
+            raise ValueError(f"{track.id}: the track has zero length")
+        net = copper.net(track.id, track.net_id)
+        a, b = _units(copper.frame(track.start)), _units(copper.frame(track.end))
+        out.append(rec.track_record(layer, a, b, rec.to_units(track.width), net=net))
+    return out
+
+
+def routed_arcs(arcs: Sequence[Arc], copper: _Copper) -> list[bytes]:
+    """The free 47-byte arcs of the board, sorted like the tracks (start, then end); ``ValueError`` as for
+    a track, and for collinear points."""
+    out: list[bytes] = []
+    ordered = sorted(
+        arcs,
+        key=lambda a: (copper.position(a.layer), a.net_id or "", _xy(a.start), _xy(a.end), a.width, a.id),
+    )
+    for arc in ordered:
+        layer = copper.signal_layer(arc.id, arc.layer)
+        if arc.width <= 0:
+            raise ValueError(f"{arc.id}: an arc needs a positive width, not {arc.width} nm")
+        net = copper.net(arc.id, arc.net_id)
+        try:
+            geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
+        except ValueError as error:
+            raise ValueError(f"{arc.id}: {error}") from error
+        out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net))
+    return out
+
+
+def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
+    """The through vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and
+    entity id. ``ValueError`` names the id of a via that is not a through via from the top to the bottom
+    copper layer, whose drill is not below its diameter, or on an unknown net."""
+    names = list(copper.layers)
+    ends = {names[0], names[-1]}
+    out: list[bytes] = []
+    ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
+    for via in ordered:
+        if via.via_type != "through":
+            raise ValueError(f"{via.id}: a {via.via_type} via is not written; only through vias are")
+        if len(via.layers) != 2 or set(via.layers) != ends:
+            spans = ", ".join(via.layers) or "no layer"
+            raise ValueError(f"{via.id}: the via spans {spans}, not {names[0]} to {names[-1]}")
+        if not 0 < via.drill < via.diameter:
+            raise ValueError(
+                f"{via.id}: the drill of {via.drill} nm is not below the diameter of {via.diameter} nm"
+            )
+        net = copper.net(via.id, via.net_id)
+        x, y = _units(copper.frame(via.position))
+        out.append(rec.via_record(x, y, rec.to_units(via.diameter), rec.to_units(via.drill), net=net))
+    return out
+
+
 def _storage(name: str, records: Sequence[bytes], *, count: int | None = None) -> Storage:
     header = len(records) if count is None else count
     return Storage(name, (("Header", _u32(header)), ("Data", b"".join(records))))
@@ -431,7 +565,7 @@ def _wide_string(text: str) -> bytes:
 
 def record_layer(record: bytes) -> int:
     """The layer byte of a primitive record (the first byte of its common prefix); for a pad the prefix
-    opens the fifth subrecord."""
+    opens the fifth subrecord. A via lies on Multi-Layer."""
     body = record[1:]
     if record[0] == rec.PAD:
         for _ in range(4):
@@ -479,13 +613,16 @@ def _option_storages(filename: str) -> list[Storage]:
 def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes:
     """The bytes of the PCB document of ``spec`` (``pcb-document.md``, "Fenolite's choices"); ``filename``
     is the document's file name (no folder), written into the board record and the source of its ids.
-    ``ValueError`` for an outline of fewer than three points or a refused footprint;
-    ``cfb.CompoundTooLarge`` past the size limit."""
+    ``ValueError`` for an outline of fewer than three points, a refused footprint, copper layers that are
+    not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written exactly (the entity's id
+    is named); ``cfb.CompoundTooLarge`` past the size limit."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = Frame.of(spec.outline)
     net_names = sorted(spec.nets)
     nets = {name: index for index, name in enumerate(net_names)}
+    layer_ids = rec.copper_stack(spec.copper_layers)
+    copper = _Copper(frame, nets, dict(zip(spec.copper_layers, layer_ids, strict=True)))
     components: list[bytes] = []
     pads: list[bytes] = []
     tracks: list[bytes] = []
@@ -519,7 +656,11 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
                 )
             )
             wide.append(_wide_entry(number, text))
-    used = sorted({record_layer(record) for record in (*pads, *tracks, *arcs, *texts)})
+    tracks += routed_tracks(spec.tracks, copper)
+    arcs += routed_arcs(spec.arcs, copper)
+    filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
+    filled["Vias6"] = via_records(spec.vias, copper)
+    used = sorted({record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"])})
     unique = [
         rec.property_block(
             (
@@ -544,12 +685,13 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
         _storage(UNIQUE_STORAGE, unique),
     ]
     entries += _option_storages(filename)
-    entries += [_storage(name, []) for name in EMPTY_STORAGES]
+    entries += [_storage(name, filled.get(name, [])) for name in _TAIL_ORDER]
     return write_compound(entries)
 
 
 __all__ = [
     "BOARD_OFFSET_MIL",
+    "COPPER_STORAGES",
     "DEFAULT_FILENAME",
     "EMPTY_STORAGES",
     "EVIDENCE",
@@ -565,6 +707,9 @@ __all__ = [
     "file_header_six",
     "place_component",
     "record_layer",
+    "routed_arcs",
+    "routed_tracks",
     "text_record",
+    "via_records",
     "write_pcbdoc",
 ]

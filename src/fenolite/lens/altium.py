@@ -134,6 +134,7 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
     schlib.EVIDENCE,
     pcbrecords.EVIDENCE,
     hierarchy.EVIDENCE,
+    pcbdoc.EVIDENCE,
 )
 """``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
 the kicad-cli oracle checks only what KiCad's importer reads. It names the rows of both schematic forms

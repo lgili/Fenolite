@@ -4,11 +4,11 @@
 capability altium-pcb-writer, "PCB units and record framing", "PCB layer map", "Footprint pad records" and
 "Footprint line and arc records"; change c0038, "Copper layer map" and "Via records").
 
-Written from ``docs/formats/altium/pcb-records.md`` and ``pcb-copper.md`` only. Lengths are signed 32-bit integers in
-1/10 000 mil (2.54 nm): ``to_units`` rounds ``nm · 50 / 127`` half away from zero. Angles are doubles in
-degrees, counter-clockwise with Y up, computed with ``decimal`` and converted to a double once, so the
-bytes do not depend on the platform's C library. Every record is its type byte, then subrecords of a 32-bit
-length and their bytes.
+Written from ``docs/formats/altium/pcb-records.md`` and ``pcb-copper.md`` only. Lengths are signed 32-bit
+integers in 1/10 000 mil (2.54 nm): ``to_units`` rounds ``nm · 50 / 127`` half away from zero. Angles are
+doubles in degrees, counter-clockwise with Y up, computed with ``decimal`` and converted to a double once,
+so the bytes do not depend on the platform's C library. Every record is its type byte, then subrecords of a
+32-bit length and their bytes.
 """
 
 from __future__ import annotations

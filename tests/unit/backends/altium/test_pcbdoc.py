@@ -11,12 +11,14 @@ import struct
 import zlib
 from functools import cache
 
+import pytest
 from _altium import blink_pcbdoc_spec
 from _altium_pcb_read import PcbDoc, read_pcbdoc
 
 from fenolite.backends.altium.docboard import angle_text
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcbdoc import (
+    COPPER_STORAGES,
     EMPTY_STORAGES,
     NO_CONSTRAINTS,
     OPTION_STORAGES,
@@ -25,6 +27,8 @@ from fenolite.backends.altium.pcbdoc import (
     record_layer,
     write_pcbdoc,
 )
+from fenolite.core.coords import Point
+from fenolite.model.board import Arc, Track, Via
 
 STORAGES = (
     "Board6",
@@ -53,10 +57,10 @@ def blink_doc() -> tuple[PcbDoc, PcbDocSpec]:
 def test_storages_of_the_sample() -> None:
     """Scenario "Storages of the sample": root streams and 42 storages, counts equal, empty ones empty."""
     doc, _spec = blink_doc()
-    assert sorted(doc.storages) == sorted((*STORAGES, *OPTION_STORAGES, *EMPTY_STORAGES))
-    assert len(doc.storages) == 42 and len(EMPTY_STORAGES) == 25
+    assert sorted(doc.storages) == sorted((*STORAGES, *OPTION_STORAGES, *COPPER_STORAGES, *EMPTY_STORAGES))
+    assert len(doc.storages) == 42 and len(EMPTY_STORAGES) == 21
     assert len(doc.board_fields) == 2231
-    for name in EMPTY_STORAGES:
+    for name in (*EMPTY_STORAGES, *COPPER_STORAGES):
         assert doc.storages[name] == (0, b"")
     assert doc.file_header == struct.pack("<I", 19) + "PCB 5.0 Bi".encode("utf-16-le")
     start = struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", 5.01)
@@ -365,3 +369,173 @@ def test_sheet_link_changes_only_the_two_link_keys() -> None:
         changed = {key for key in before if before[key] != after[key]}
         assert changed == {"SOURCEUNIQUEID", "SOURCEHIERARCHICALPATH"}
     assert plain.pads == doc.pads and plain.nets == doc.nets
+
+
+# --- copper (change c0038): routed tracks and arcs, vias --------------------------------------------
+
+MM = 1_000_000
+FOUR = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+
+
+def at(x: float, y: float) -> Point:
+    """A point of the board frame of the placements (the outline starts at 100 mm, 100 mm)."""
+    return Point(100 * MM + round(x * MM), 100 * MM + round(y * MM))
+
+
+def copper_spec(**changes: object) -> PcbDocSpec:
+    spec, _model = blink_pcbdoc_spec()
+    assert isinstance(spec, PcbDocSpec)
+    changes.setdefault("nets", (*spec.nets, "SIG"))
+    return dataclasses.replace(spec, **changes)  # type: ignore[arg-type]
+
+
+def copper_doc(**changes: object) -> tuple[PcbDoc, PcbDocSpec]:
+    spec = copper_spec(**changes)
+    return read_pcbdoc(write_pcbdoc(spec, filename="blink.PcbDoc")), spec
+
+
+def test_copper_storages_are_apart_from_the_empty_ones() -> None:
+    assert COPPER_STORAGES == ("Vias6", "Polygons6", "Classes6", "Rules6")
+    assert len(EMPTY_STORAGES) == 21 and not set(COPPER_STORAGES) & set(EMPTY_STORAGES)
+
+
+def test_routed_track_on_an_inner_layer() -> None:
+    """Scenario "Track on an inner layer"."""
+    track = Track(id="trk_a", start=at(10, 10), end=at(30, 10), width=200_000, layer="In1.Cu", net_id="SIG")
+    doc, spec = copper_doc(copper_layers=FOUR, tracks=(track,))
+    plain, _ = copper_doc(copper_layers=FOUR)
+    assert len(doc.tracks) == len(plain.tracks) + 1 and len(doc.free_tracks) == 1
+    last = doc.tracks[-1]
+    assert last is doc.free_tracks[0] and last.size == 36
+    assert last.prefix.layer == 2 and last.prefix.component == 0xFFFF and last.prefix.polygon == 0xFFFF
+    assert doc.nets[last.prefix.net]["NAME"] == "SIG" and last.width == 78740
+    assert last.y1 == last.y2 and abs((last.x2 - last.x1) - 7874016) <= 1
+    assert last.x1 == 10_000_000 + 3_937_008 and last.y1 == 10_000_000 + 7_874_016  # 10 mm right, 20 mm up
+    assert sorted(spec.nets).index("SIG") == last.prefix.net
+
+
+def test_routed_records_follow_the_component_primitives_in_geometric_order() -> None:
+    tracks = (
+        Track(id="trk_z", start=at(1, 1), end=at(2, 1), width=250_000, layer="B.Cu", net_id="GND"),
+        Track(id="trk_y", start=at(5, 1), end=at(6, 1), width=250_000, layer="F.Cu", net_id="VIN"),
+        Track(id="trk_x", start=at(3, 1), end=at(4, 1), width=250_000, layer="F.Cu", net_id="VIN"),
+        Track(id="trk_w", start=at(9, 1), end=at(9, 2), width=250_000, layer="F.Cu", net_id="GND"),
+        Track(id="trk_v", start=at(7, 1), end=at(8, 1), width=250_000, layer="F.Cu"),
+    )
+    arc = Arc(
+        id="arc_a", start=at(10, 10), mid=at(11, 9), end=at(12, 10), width=250_000, layer="F.Cu", net_id="VIN"
+    )
+    doc, _ = copper_doc(tracks=tracks, arcs=(arc,))
+    plain, _ = copper_doc()
+    assert doc.tracks[: len(plain.tracks)] == plain.tracks and doc.arcs[: len(plain.arcs)] == plain.arcs
+    names = [n["NAME"] for n in doc.nets]
+    order = [(t.prefix.layer, names[t.prefix.net] if t.prefix.net != 0xFFFF else "") for t in doc.free_tracks]
+    assert order == [(1, ""), (1, "GND"), (1, "VIN"), (1, "VIN"), (32, "GND")]
+    assert doc.free_tracks[2].x1 < doc.free_tracks[3].x1
+    again, _ = copper_doc(tracks=tuple(reversed(tracks)), arcs=(arc,))
+    assert again.streams["Tracks6/Data"] == doc.streams["Tracks6/Data"]
+    (free,) = doc.free_arcs
+    assert free.size == 47 and free.prefix.layer == 1 and names[free.prefix.net] == "VIN"
+    assert free.radius == 393701 and (free.start, free.end) == (0.0, 180.0)  # it bulges up in Altium's frame
+    assert doc.storages["Tracks6"][0] == len(doc.tracks) and doc.storages["Arcs6"][0] == len(doc.arcs)
+
+
+def test_routed_track_on_an_unknown_layer_refused() -> None:
+    """Scenario "Unknown layer refused"."""
+    track = Track(id="trk_in", start=at(1, 1), end=at(2, 1), width=200_000, layer="In1.Cu")
+    with pytest.raises(ValueError, match="trk_in: the layer In1.Cu is not a copper layer"):
+        write_pcbdoc(copper_spec(tracks=(track,)))
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"width": 0}, "trk_bad: a track needs a positive width"),
+        ({"end": at(1, 1)}, "trk_bad: the track has zero length"),
+        ({"net_id": "NOPE"}, "trk_bad: the net 'NOPE' is not a net of the document"),
+        ({"layer": "F.SilkS"}, "trk_bad: the layer F.SilkS is not a copper layer"),
+    ],
+)
+def test_routed_track_refusals(changes: dict[str, object], message: str) -> None:
+    track = Track(id="trk_bad", start=at(1, 1), end=at(2, 1), width=200_000, layer="F.Cu", net_id="GND")
+    with pytest.raises(ValueError, match=message):
+        write_pcbdoc(copper_spec(tracks=(dataclasses.replace(track, **changes),)))  # type: ignore[arg-type]
+
+
+def test_routed_arc_refusals() -> None:
+    arc = Arc(id="arc_bad", start=at(1, 1), mid=at(2, 1), end=at(3, 1), width=200_000, layer="F.Cu")
+    with pytest.raises(ValueError, match="arc_bad: the arc points .* are collinear"):
+        write_pcbdoc(copper_spec(arcs=(arc,)))
+    bent = dataclasses.replace(arc, mid=at(2, 2))
+    for changes, message in (
+        ({"width": -1}, "arc_bad: an arc needs a positive width"),
+        ({"layer": "In2.Cu"}, "arc_bad: the layer In2.Cu is not a copper layer"),
+        ({"net_id": "NOPE"}, "arc_bad: the net 'NOPE'"),
+    ):
+        with pytest.raises(ValueError, match=message):
+            write_pcbdoc(copper_spec(arcs=(dataclasses.replace(bent, **changes),)))  # type: ignore[arg-type]
+
+
+def through(ident: str, x: float, y: float, net: str | None = "GND", **changes: object) -> Via:
+    via = Via(
+        id=ident, position=at(x, y), diameter=600_000, drill=300_000, layers=("F.Cu", "B.Cu"), net_id=net
+    )
+    return dataclasses.replace(via, **changes)  # type: ignore[arg-type]
+
+
+def test_vias_in_their_storage() -> None:
+    vias = (through("via_c", 20, 10, "VIN"), through("via_b", 30, 10), through("via_a", 10, 10, None))
+    doc, _ = copper_doc(vias=vias)
+    names = [n["NAME"] for n in doc.nets]
+    assert doc.storages["Vias6"][0] == 3 and len(doc.storages["Vias6"][1]) == 3 * 326
+    assert [names[v.prefix.net] if v.prefix.net != 0xFFFF else "" for v in doc.vias] == ["", "GND", "VIN"]
+    first = doc.vias[0]
+    assert (first.size, first.prefix.layer, first.start_layer, first.end_layer) == (321, 74, 1, 32)
+    assert (first.diameter, first.hole) == (236220, 118110)
+    assert (first.x, first.y) == (10_000_000 + 3_937_008, 10_000_000 + 7_874_016)
+    board = doc.board
+    assert board["V9_CACHE_LAYER0_NAME"] == "Multi-Layer" and board["V9_CACHE_LAYER0_USEDBYPRIMS"] == "TRUE"
+    assert len(doc.unique_ids) == len(doc.pads)  # vias are not listed
+    assert {u["PRIMITIVEOBJECTID"] for u in doc.unique_ids} == {"Pad"}
+    for name in ("Polygons6", "Classes6", "Rules6"):
+        assert doc.storages[name] == (0, b"")
+
+
+def test_via_on_four_layers_spans_the_outer_layers() -> None:
+    doc, _ = copper_doc(copper_layers=FOUR, vias=(through("via_a", 10, 10, layers=("F.Cu", "B.Cu")),))
+    assert [(v.start_layer, v.end_layer) for v in doc.vias] == [(1, 32)]
+
+
+def test_blind_via_refused() -> None:
+    """Scenario "Blind via refused"."""
+    blind = through("via_blind", 10, 10, via_type="blind", layers=("F.Cu", "In1.Cu"))
+    with pytest.raises(ValueError, match="via_blind: a blind via is not written"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(blind,)))
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"layers": ("F.Cu", "In1.Cu")}, "via_bad: the via spans F.Cu, In1.Cu, not F.Cu to B.Cu"),
+        ({"layers": ()}, "via_bad: the via spans no layer"),
+        ({"drill": 600_000}, "via_bad: the drill of 600000 nm is not below the diameter of 600000 nm"),
+        ({"drill": 0}, "via_bad: the drill of 0 nm"),
+        ({"net_id": "NOPE"}, "via_bad: the net 'NOPE'"),
+        ({"via_type": "micro"}, "via_bad: a micro via is not written"),
+    ],
+)
+def test_via_refusals(changes: dict[str, object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(through("via_bad", 10, 10, **changes),)))
+
+
+def test_copper_layers_must_be_a_known_stack() -> None:
+    with pytest.raises(ValueError, match="In1.Cu"):
+        write_pcbdoc(copper_spec(copper_layers=("F.Cu", "In1.Cu", "B.Cu")))
+
+
+def test_document_without_copper_keeps_its_bytes() -> None:
+    spec, _model = blink_pcbdoc_spec()
+    assert isinstance(spec, PcbDocSpec)
+    explicit = dataclasses.replace(spec, copper_layers=("F.Cu", "B.Cu"), tracks=(), arcs=(), vias=())
+    assert write_pcbdoc(spec, filename="blink.PcbDoc") == write_pcbdoc(explicit, filename="blink.PcbDoc")

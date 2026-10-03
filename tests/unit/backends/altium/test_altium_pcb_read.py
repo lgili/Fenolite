@@ -353,3 +353,67 @@ def _with_pads_header(count: int) -> bytes:
         "Pads6/Data": pads,
     }
     return write_compound(storage_from_paths(streams))
+
+
+# --- copper (change c0038, "Copper records read back") ---------------------------------------------
+
+
+def via(
+    size: int = 321, layer: int = 74, net: int = 0xFFFF, diameter: int = 236220, hole: int = 118110
+) -> bytes:
+    """A via as ``pcb-copper.md`` ("Via") lays it out: the prefix, x, y, diameter, hole, start 1, end 32."""
+    body = head(layer, net=net) + struct.pack("<4i2B", 10, 20, diameter, hole, 1, 32)
+    return bytes((3,)) + sub((body + bytes(size))[:size])
+
+
+def copper_document(**extra: bytes) -> bytes:
+    return document(pad(component=2, net=0), **extra)
+
+
+def test_via_of_the_copper_page_reads() -> None:
+    doc = read_pcbdoc(copper_document(Vias6__Header=one(2), Vias6__Data=via(net=0) + via(size=31)))
+    first, second = doc.vias
+    assert (first.x, first.y, first.diameter, first.hole) == (10, 20, 236220, 118110)
+    assert (first.start_layer, first.end_layer, first.prefix.net, first.size) == (1, 32, 0, 321)
+    assert second.size == 31 and second.prefix.net == 0xFFFF
+
+
+def test_via_of_30_bytes() -> None:
+    with pytest.raises(PcbReadError, match="a via subrecord of 30 bytes, fewer than 31"):
+        read_pcbdoc(copper_document(Vias6__Header=one(1), Vias6__Data=via(size=30)))
+
+
+def test_via_on_layer_1() -> None:
+    with pytest.raises(PcbReadError, match=r"a via on layer 1, not on Multi-Layer \(74\)"):
+        read_pcbdoc(copper_document(Vias6__Header=one(1), Vias6__Data=via(layer=1)))
+
+
+def test_via_hole_not_below_its_diameter() -> None:
+    with pytest.raises(PcbReadError, match="a via hole of 300 units is not below its diameter of 300"):
+        read_pcbdoc(copper_document(Vias6__Header=one(1), Vias6__Data=via(diameter=300, hole=300)))
+
+
+def test_via_names_net_9_of_1() -> None:
+    with pytest.raises(PcbReadError, match="Vias6 record 0: net 9 of 1"):
+        read_pcbdoc(copper_document(Vias6__Header=one(1), Vias6__Data=via(net=9)))
+
+
+def test_via_header_count() -> None:
+    with pytest.raises(PcbReadError, match="Vias6/Header says 2, the data holds 1 records"):
+        read_pcbdoc(copper_document(Vias6__Header=one(2), Vias6__Data=via()))
+
+
+def routed_track(net: int) -> bytes:
+    body = head(1, net=net) + struct.pack("<5iHB", 0, 0, 100, 0, 50, 0, 0)
+    return bytes((4,)) + sub(body)
+
+
+def test_routed_track_is_a_free_track() -> None:
+    data = track(component=1) + routed_track(0)
+    doc = read_pcbdoc(copper_document(Tracks6__Header=one(2), Tracks6__Data=data))
+    assert len(doc.tracks) == 2 and [t.prefix.net for t in doc.free_tracks] == [0] and doc.free_arcs == []
+
+
+def test_routed_track_names_net_9_of_1() -> None:
+    with pytest.raises(PcbReadError, match="Tracks6 record 0: net 9 of 1"):
+        read_pcbdoc(copper_document(Tracks6__Header=one(1), Tracks6__Data=routed_track(9)))
