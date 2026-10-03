@@ -49,6 +49,12 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   is optional; a net belongs to at most one class.
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A
   `DiffPair` is not lowered to KiCad (`build.interface-not-lowered`, info).
+- `Harness(name, members)`: a named group of nets with different names, such as
+  `Harness("SPI", {"MOSI": mosi, "MISO": miso, "SCK": sck})`. `name` is the harness type name and has no
+  default; `members` maps an entry name to its net and may not be empty. The order of the entries carries
+  no meaning. It is recorded as an interface of kind `harness`. A KiCad build keeps it in `.fenolite/`,
+  gives no issue for it and writes the same files with or without it; the Altium build draws it as a
+  signal harness with `--altium-sheets modules` (`docs/altium.md`, "Sheets and harnesses").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
 

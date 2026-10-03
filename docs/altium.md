@@ -36,7 +36,11 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   or `ascii`), `libraries` (the planned `.SchLib` paths), `symbols` (the number of library components),
   `experimental` (`true`) and `script_output`. Planned writes have the kinds `altium_prjpcb`,
   `altium_schdoc_binary` or `altium_schdoc_ascii` (by form, since both forms are `.SchDoc` files),
-  `altium_schlib` and `fenolite`.
+  `altium_schlib`, `altium_harness` and `fenolite`.
+- `--altium-sheets {flat,modules}` picks one schematic sheet (`flat`, the default) or one sheet per
+  top-level module (see "Sheets and harnesses"). `result` then also holds `sheet_mode`, `sheets` (the
+  schematic files, the top sheet first), `ports`, `sheet_entries` and `harnesses` (the harness types
+  drawn). Any other value, or the option with `--target kicad`, is a usage error (`FEN-2001`, exit 2).
 - `--altium-format {binary,ascii}` picks the schematic form; without it the form is `binary`. Any other
   value, or the option with `--target kicad` (given or by default), is a usage error (`FEN-2001`,
   exit 2), and nothing is written.
@@ -98,8 +102,64 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
 - **Unique ids.** Each component's unique id is derived from its component path. A rebuild that keeps
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
 - **Not lowered.** The board outline, placements, net classes and diff pairs have no place in these
-  files. They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. Modules only order
-  the layout; the schematic is one flat sheet.
+  files. They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
+  only order the layout and the schematic is one flat sheet; `--altium-sheets modules` gives each
+  top-level module its own sheet (next section).
+
+## Sheets and harnesses
+
+Change c0037. `--altium-sheets {flat,modules}` chooses how the schematic is split; the default, `flat`,
+writes the single sheet described above, byte for byte as before.
+
+```
+fenolite build design.py --out build/myboard --target altium --altium-sheets modules --confirm
+```
+
+- **One sheet per top-level module.** `<name>.SchDoc` becomes the top sheet and each top-level module gets
+  `<name>_<module>.SchDoc` beside it. Parts outside any module stay on the top sheet. Nested modules are
+  flattened: a part of `power/ldo` is drawn on the sheet of `power`. The hierarchy has one level and no
+  sheet is repeated.
+- **Sheet symbols.** The top sheet holds one sheet symbol per module, in module-name order, named after
+  the module, with the module sheet's file name.
+- **Ports and sheet entries.** A net with pins on a module's sheet and on another sheet gets a port on
+  the module's sheet and a sheet entry of the same name on its sheet symbol. Each has a short wire with a
+  net label, like a pin; no wire is routed between sheet symbols, the labels of the top sheet join them.
+  The port, the sheet entry and every label carry the net's name, so the nets keep the names of the flat
+  build.
+- **Power nets are global.** Nets of a `Power(hv, lv)` interface keep their power ports on every sheet,
+  which Altium joins across the project, and get neither a port nor a sheet entry.
+- **Harnesses.** `Harness(name, members)` (`docs/dsl.md`) groups nets with different names, such as
+  `Harness("SPI", {"MOSI": mosi, "MISO": miso, "SCK": sck, "CS": cs})`. When nets of a harness leave a
+  module, the build draws one port and one sheet entry named after the harness instead of one per net,
+  each with the same block: a signal harness line, a harness connector with one entry per member, the
+  harness type, and a labelled wire on each entry whose net leaves that module. Every block of a type
+  holds all its entries, so the definitions never differ; an entry whose net stays on one sheet is drawn
+  without a wire. Each sheet with a block gets `<sheet stem>.Harness`, a definition file with the line
+  `<type>=<entry>,<entry>,…`, listed in the project file after the module sheets.
+- **The ASCII form writes no harness.** With `--altium-format ascii` the hierarchy is written, and the
+  nets of a harness cross as plain nets with their own ports. A harness that is not drawn (in the `flat`
+  mode, in the ASCII form, or because none of its nets leaves a module) gives one `altium.not-lowered`
+  info and stays in `.fenolite/`.
+- **Names.** A harness type name or entry name may not hold `=`, `,` or `;`, two names may not differ
+  only in letter case, a type name may not equal a net name, a net belongs to at most one harness entry,
+  and a power net belongs to no harness. Two top-level modules may not differ only in letter case. These
+  are errors in both modes, so a design is refused before its mode is switched.
+- **Unique ids and the PCB link.** Components keep their unique ids in both modes. A sheet symbol gets
+  an id derived from its module name and a port one from its module and name. In the PCB document a part
+  on a module sheet links as `\<sheet symbol id>\<component id>` with the hierarchical path
+  `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`.
+- **Switching the mode later.** On a design whose PCB was already made in Altium, switching between
+  `flat` and `modules` changes the links of the parts on module sheets. "Project » Component Links"
+  matches them again by designator (S-0164). Decide the mode before the first change order.
+- **Rebuilds.** Every sheet and harness file follows the edited-output rule on its own. A sheet of an
+  earlier build that the new plan no longer holds (a renamed module, or a switch back to `flat`) is left
+  in the folder and is no longer listed. A kept project file does not list new sheets:
+  `altium.sheets-not-in-project` names them, to add with "Project » Add Existing to Project".
+- **Evidence.** The sheet symbols, ports, harness records, the `Additional` stream, the definition files
+  and the two-id link are `INFERRED` from public sources and checked against sheets Altium saved in two
+  public repositories (`docs/formats/altium/`). Only the maintainer's report of Part H of
+  `docs/evidence/altium-schematic.md` settles the nine `H-A-SCH-HIER-*` and `H-A-SCH-HARN-*` rows.
+  The sample is `examples/altium_hier/design.py`, with its built files under `tests/data/altium/hier/`.
 
 ## No-connect marks
 
@@ -272,6 +332,9 @@ Under `--out DIR`:
 - `<name>.PcbLib` and `<name>.PcbDoc` (change c0035, see above), listed in a new project file as
   `[Document2]` (the document) and with the libraries. A kept project file does not list them:
   `altium.pcb-not-in-project` names them.
+- With `--altium-sheets modules`: `<name>_<module>.SchDoc` per top-level module and `<sheet stem>.Harness`
+  per sheet with a harness block, listed in a new project file after the libraries ("Sheets and
+  harnesses").
 - `.fenolite/`: the six layer files of the model, with the pins the build gave the components, and
   `build.json` with `"target": "altium"`.
 
@@ -288,7 +351,7 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.footprint-form` | error | a footprint is not `<library>:<name>` with both parts |
 | `altium.text-unwritable` | error | a written text is not printable 7-bit ASCII, holds `\|`, is empty, has a leading or trailing space, or is a value that starts with `=` |
 | `altium.name-case-collision` | error | two net names, or two refs, differ only in letter case |
-| `altium.unique-id-collision` | error | two components get the same unique id |
+| `altium.unique-id-collision` | error | two components, sheet symbols or ports get the same unique id |
 | `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
 | `altium.library-too-large` | error | a schematic library needs more than 109 FAT sectors |
 | `altium.unknown-pin` | error | a net member names neither a pin number nor a pin name of a resolved symbol |
@@ -303,7 +366,7 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, net classes or diff pairs are kept in the model only |
+| `altium.not-lowered` | info | the board, placements, net classes, diff pairs or harnesses are kept in the model only |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -314,6 +377,11 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.pcbdoc-not-written` | info | the PCB document's conditions do not hold |
 | `altium.pcb-staged` | info | unplaced components are staged beside the outline |
 | `altium.pcb-not-in-project` | info | the project file is kept, so the PCB files are not listed in it |
+| `altium.sheet-name-collision` | error | two top-level module names differ only in letter case, so their sheet files would collide |
+| `altium.harness-name` | error | a harness type name or entry name holds `=`, `,` or `;`; two type names, or two entry names of one type, differ only in letter case; or a type name equals a net name in any letter case |
+| `altium.harness-net-shared` | error | a net is a member of two harnesses, or twice of one |
+| `altium.harness-power-net` | error | a member of a harness is also a member of a `power` interface |
+| `altium.sheets-not-in-project` | info | the project file is kept, so the module sheets and harness files are not listed in it |
 
 Model findings (`model.*`) pass through. A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
@@ -354,7 +422,9 @@ that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.li
 
 ## Limits
 
-One flat sheet; no buses, harnesses, variants, rules, net classes or output jobs; the PCB document has
+One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
+no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
+no nested harnesses); no buses, variants, rules, net classes or output jobs; the PCB document has
 no routing and two copper layers, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. Reading Altium files is planned for v0.3.

@@ -111,10 +111,22 @@ option with `--target kicad` (given or by default), is a usage error (`FEN-2001`
 is written. A binary schematic too large for the writer gives the error `altium.schematic-too-large`
 (exit 5).
 
+`--altium-sheets {flat,modules}` picks the sheets of the Altium schematic (change c0037): `flat` (the
+default, one sheet, the bytes of earlier releases) or `modules` (a top sheet with one sheet symbol per
+top-level module, one `<name>_<module>.SchDoc` per module, ports and sheet entries, and signal harnesses
+with their `<sheet stem>.Harness` definition files, write kind `altium_harness`). Any other value, or the
+option with `--target kicad` (given or by default), is a usage error (`FEN-2001`, exit 2), and nothing is
+written. `result` holds five more keys in both modes: `sheet_mode` (`flat` or `modules`), `sheets` (the
+schematic file names, the top sheet first), `ports`, `sheet_entries` and `harnesses` (the number of
+harness types drawn). The hierarchy has five issue codes of its own: the errors
+`altium.sheet-name-collision`, `altium.harness-name`, `altium.harness-net-shared` and
+`altium.harness-power-net` (exit 5, in both modes), and the info `altium.sheets-not-in-project` (a kept
+project file does not list the module sheets and harness files).
+
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]
-[--altium-format binary|ascii]` runs the design script
+[--altium-format binary|ascii] [--altium-sheets flat|modules]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -154,7 +166,8 @@ holds two entries, which share no write kind: the Altium PCB writer (`altium-pcb
  "write_kinds": ["altium_pcbdoc", "altium_pcblib"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PCB-DOC-BOTTOM", "…"]}}
 {"name": "altium-schematic-writer", "command": "build", "option": "--target altium",
- "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"],
+ "write_kinds": ["altium_harness", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary",
+                 "altium_schlib"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-PRJ-KEEP", "H-A-PRJ-OPEN", "…"]}}
 ```
 
