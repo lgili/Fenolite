@@ -359,6 +359,14 @@ The report of Part H is in `docs/evidence/altium-schematic.md`, "Reports". It ch
   - a regression test checks, on the board example, that every schematic document precedes every
     other document of the project file, with the top sheet first;
   - open for the next report: the change order of H7 on the rebuilt example, and steps H3 to H5.
+- **Third report (2026-10-03, AD 26.5), step H7 on the rebuilt example.** After "Validate PCB Project"
+  alone both module sheets are under the top sheet, and the change order lists no component, pin or
+  net change: `D1` matches. `H-A-SCH-HIER-PRJ` is confirmed for that project and `H-A-SCH-HIER-ECO`
+  for parts on module sheets. The order offers to remove the board's net class `PWR`, which the
+  schematic does not declare (left to change c0048), and to add the component classes, rooms and
+  supply-net rules Altium derives. Steps H3 to H5 on the rebuilt hierarchy sample were not reported:
+  `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HIER-NAMES`, `H-A-SCH-HARN-FILE` and `H-A-SCH-HARN-NETS` stay
+  pending in `docs/hypotheses.md`. No code and no golden file changed.
 
 ## Migration Plan
 

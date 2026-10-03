@@ -316,10 +316,10 @@ file the schematic documents have to be listed first and together (`H-A-SCH-HIER
 rebuilt with that order and without the padding of small sheets that the first follow-up had added. The
 project file of the rebuilt example is byte for byte the one of variant l, which the maintainer saw
 working, and its sheets are those of the first build. Its PCB document is not the one of variant l: it
-holds `CHANNELOFFSET` per sheet and whatever later changes write into a PCB document. Open: the change
-order of H7 on the rebuilt example. Expected:
+holds `CHANNELOFFSET` per sheet and whatever later changes write into a PCB document. Expected:
 after a compile on a fresh copy, without any dialog, both module sheets are children of the top sheet,
-and the change order proposes no component change and no net change.
+and the change order proposes no component change and no net change. The third report below found
+both. Open: steps H3, H4 and H5 on the rebuilt hierarchy sample.
 
 Variants of the example told the possible causes apart; each is a whole project folder and changes one
 thing. Variants a to c are the files of the first build, where `led` was outside the hierarchy, with one
@@ -613,6 +613,45 @@ Reading and consequences:
 - Still open: the change order of step H7 on the rebuilt example (`H-A-SCH-HIER-ECO`: `D1` is expected
   to match now that its sheet is compiled), the Projects panel of the hierarchy sample in the order
   written now with its harness files (`H-A-SCH-HIER-PRJ`), and steps H3 to H5.
+
+### 2026-10-03, `AD 26.5`, Part H, third report (step H7 on the rebuilt example)
+
+- Tool and label as in the first report: Altium Designer 26.5.0 under a trial licence on the
+  maintainer's own PC; `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact)`.
+- Files: a fresh copy of the board example as the writer builds it after the second report (project
+  file SHA-256 `c7c81bd2346c6070cb6a8d5aa2be76381515391db05113a615a20c6e1e9f1350`, the bytes of variant l).
+  Fenolite's built files only; no file opened or saved in the session enters the repository.
+
+Outcome per step:
+
+- **H7, Projects panel.** After "Project » Validate PCB Project" alone, with no dialog, both module
+  sheets, `driver` and `led`, are under the top sheet. This repeats variant l on the writer's own
+  output (`H-A-SCH-HIER-ORDER`) and confirms `H-A-SCH-HIER-PRJ` for this project: the top sheet, the
+  module sheets, the PCB document and the libraries, with no other key. The example holds no harness
+  file.
+- **H7, change order.** "Design » Update PCB Document" opened an Engineering Change Order. It lists no
+  component change, no pin change and no net change: `D1`, which the first report found extra on the
+  board, is matched, as `R1` and `U1` are. Confirms `H-A-SCH-HIER-ECO` for parts on module sheets. The
+  order proposes only:
+  - Remove Net Classes (1): `PWR`. The board holds this class (change c0038) and the schematic declares
+    no net class, so Altium offers to remove it. This is not a fault of the link. Change c0048 is to
+    declare the net classes in the schematic and write the classes into the board; nothing is changed
+    here.
+  - Add Component Classes (2): `driver` and `led`; Add Rooms (2); Add Rules (2), "Supply Nets". Altium
+    derives these from the sheets, as Part H expects.
+- **H7, compile messages.** The dialog showed "Errors occurred during compilation of the project".
+  They come from the electrical check of the blink circuit itself: the net `VIN` with one pin, and
+  unconnected inputs. No message about a port, a sheet entry or the hierarchy was reported.
+- **H3, H4, H5.** Not reported: the rebuilt hierarchy sample was not opened in this session. So the
+  "multiple names" warnings of H3 on the rebuilt top sheet, whether Altium makes or rewrites a
+  `.Harness` file, the nets in the Navigator panel and the change order into a new PCB document stay
+  open. `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HIER-NAMES`, `H-A-SCH-HARN-FILE` and `H-A-SCH-HARN-NETS` stay
+  `INFERRED` with `pending (author report)`.
+- **Not reported:** a part on the top sheet of a hierarchical project with a board (the example holds
+  none), and the project of the hierarchy sample with its harness files in the order written now.
+
+The report names no fault of the written files, so no fact changed in substance, no code changed and
+no golden file was rebuilt.
 
 ### 2026-10-03, `AD 26.5`, Part N
 

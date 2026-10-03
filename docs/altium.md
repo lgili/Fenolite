@@ -178,6 +178,11 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   and the two-id link are `INFERRED` from public sources and checked against sheets Altium saved in two
   public repositories (`docs/formats/altium/`). Only the maintainer's report of Part H of
   `docs/evidence/altium-schematic.md` settles the nine `H-A-SCH-HIER-*` and `H-A-SCH-HARN-*` rows.
+  On 2026-10-03, in Altium Designer 26.5, the sheets and harness blocks of the sample opened, and on
+  the board example (`examples/altium_hier_board/`) both module sheets were under the top sheet after
+  a compile and "Design » Update PCB Document" listed no component, pin or net change. It offered to
+  remove the board's net class, which the schematic does not declare yet. The compile messages, the
+  net list and the change order of the rebuilt hierarchy sample (steps H3 to H5) are not reported.
   The sample is `examples/altium_hier/design.py`, with its built files under `tests/data/altium/hier/`.
 
 ## No-connect marks
