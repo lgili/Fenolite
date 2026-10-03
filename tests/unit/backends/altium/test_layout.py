@@ -14,11 +14,14 @@ from fenolite.backends.altium.layout import (
     PORT_GAP,
     PORT_STUB,
     SHEET_SIZES,
+    NoConnectMark,
     PartSpec,
     PinNet,
     SheetPlan,
     Stub,
     layout_sheet,
+    part_marks,
+    part_stubs,
     stub_length,
 )
 from fenolite.backends.altium.project import plan_sheet
@@ -195,3 +198,64 @@ def test_vertical_stubs_and_marks() -> None:
     assert two.side == "down" and two.mark == two.end and two.end[1] > two.start[1]
     assert three.side == "left" and three.mark == three.end and not three.vertical
     check_plan(plan, grid=10)
+
+
+# --- no-connect marks (change c0036) ----------------------------------------------------------------
+
+
+def test_no_connect_defaults_are_empty() -> None:
+    part = spec("R1", {"1": LABEL_A})
+    assert part.no_connects == frozenset()
+    plan = layout_sheet([part])
+    assert plan.no_connects == () and part_marks(part, 0, 0) == ()
+
+
+def test_no_connect_marks_sit_on_hot_ends_in_stub_pin_order() -> None:
+    nets = {"3": LABEL_A}
+    part = PartSpec(
+        "X1", "X1", "X", "b.SchLib", "X", None, "AAAAAAAA", upright_symbol(), nets,
+        no_connects=frozenset({"2", "1"}),
+    )  # fmt: skip
+    plan = layout_sheet([part])
+    (placed,) = plan.parts
+    assert plan.no_connects == (
+        NoConnectMark("X1", "1", (placed.x, placed.y - 150)),
+        NoConnectMark("X1", "2", (placed.x, placed.y + 150)),
+    )
+    assert plan.no_connects == part_marks(part, placed.x, placed.y)
+    assert [s.designator for s in plan.stubs] == ["3"], "a marked pin gets no stub"
+    check_plan(plan, grid=10)
+
+
+def test_no_connect_cell_is_the_cell_of_an_unconnected_pin() -> None:
+    body = generic_body([("1", "1"), ("2", "2")])
+    args = ("X1", "X1", "SYM", "L.SchLib", "SYM", None, "AAAAAAAA", body, {"1": LABEL_A})
+    plain, marked = PartSpec(*args), PartSpec(*args, no_connects=frozenset({"2"}))
+    one, two = layout_sheet([plain]), layout_sheet([marked])
+    assert (one.size, one.stubs) == (two.size, two.stubs)
+    assert [(p.x, p.y, p.cell) for p in one.parts] == [(p.x, p.y, p.cell) for p in two.parts]
+    assert part_stubs(marked, 0, 0) == part_stubs(plain, 0, 0)
+    assert [m.designator for m in two.no_connects] == ["2"]
+
+
+def test_no_connect_marks_follow_component_then_part_order() -> None:
+    first = spec("R2", {"1": LABEL_A, "2": LABEL_B})
+    marked = [
+        PartSpec(
+            key,
+            key,
+            "SYM",
+            "L.SchLib",
+            "SYM",
+            None,
+            uid,
+            generic_body([("1", "1"), ("2", "2")]),
+            {},
+            no_connects=frozenset({"1", "2"}),
+        )  # fmt: skip
+        for key, uid in (("R3", "AAAAAAAB"), ("R1", "AAAAAAAC"))
+    ]
+    plan = layout_sheet([first, *marked])
+    assert [(m.key, m.designator) for m in plan.no_connects] == [
+        ("R1", "1"), ("R1", "2"), ("R3", "1"), ("R3", "2"),
+    ]  # fmt: skip

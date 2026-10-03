@@ -6,6 +6,8 @@ Record 0 is the sheet. Then, per component in component-path order and per part 
 component record of that part, every rectangle and pin of the symbol (with their ``OWNERPARTID``), its
 designator, its comment and, when it has a footprint, the footprint chain 44 → 45 → 46, 48. Then, per
 component, part and pin drawn on that part, the pin's wire stub followed by its net label or power port.
+Last come the No ERC directives of the pins marked as intentionally unconnected (change c0036), so a
+design without marks keeps its bytes.
 Bodies come from the library symbol, placed with its origin at the component's location (change c0034).
 Every record and key is a fact of ``docs/formats/altium/schematic-ascii.md``; the key order
 and the values marked as choices are Fenolite's.
@@ -14,7 +16,14 @@ and the values marked as choices are Fenolite's.
 from __future__ import annotations
 
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
-from fenolite.backends.altium.layout import COMMENT_DROP, DESIGNATOR_RISE, PlacedPart, SheetPlan, Stub
+from fenolite.backends.altium.layout import (
+    COMMENT_DROP,
+    DESIGNATOR_RISE,
+    NoConnectMark,
+    PlacedPart,
+    SheetPlan,
+    Stub,
+)
 
 FONT_NAME = "Times New Roman"
 """The sheet's one font (a Fenolite choice)."""
@@ -29,6 +38,9 @@ PORT_ORIENTATION = {"left": "2", "right": "0", "up": "1", "down": "3"}
 top or bottom pin."""
 VERTICAL_TEXT = "1"
 """``ORIENTATION`` of a net label that runs upwards along a vertical stub."""
+NO_ERC_COLOR = "255"
+"""Red in the page's colour encoding (a Fenolite choice)."""
+NO_ERC_SYMBOL = "Thin Cross"
 
 Record = list[Field]
 
@@ -214,6 +226,20 @@ class _Writer:
                 ]
             )
 
+    def no_connect(self, mark: NoConnectMark) -> None:
+        """``RECORD=22``: a No ERC directive in the "Suppress All Violations" mode at a pin's hot end."""
+        self.add(
+            [
+                ("RECORD", "22"),
+                ("OWNERPARTID", "-1"),
+                *self.at("LOCATION", *mark.at),
+                ("COLOR", NO_ERC_COLOR),
+                ("ISACTIVE", "T"),
+                ("SUPPRESSALL", "T"),
+                ("SYMBOL", NO_ERC_SYMBOL),
+            ]
+        )
+
 
 def schdoc_records(plan: SheetPlan) -> list[Record]:
     """Every record after the header, in file order."""
@@ -223,6 +249,8 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
         writer.component(placed)
     for stub in plan.stubs:
         writer.stub(stub)
+    for mark in plan.no_connects:
+        writer.no_connect(mark)
     return writer.records
 
 

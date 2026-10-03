@@ -85,7 +85,9 @@ STEPS: Mapping[Side, tuple[int, int]] = {"left": (-1, 0), "right": (1, 0), "up":
 class PartSpec:
     """Everything the writer needs of one component. ``key`` is its component path; ``body`` is its
     library symbol; ``nets`` maps a pin designator to the way that pin joins its net (a pin without an
-    entry gets no stub); ``unique_id`` is part 1's unique id and ``part_ids`` those of parts 2 … n."""
+    entry gets no stub); ``unique_id`` is part 1's unique id and ``part_ids`` those of parts 2 … n;
+    ``no_connects`` holds the designators of the pins marked as intentionally unconnected, which get a
+    No ERC directive and no stub (change c0036)."""
 
     key: str
     ref: str
@@ -97,6 +99,7 @@ class PartSpec:
     body: AltiumSymbol
     nets: Mapping[str, PinNet]
     part_ids: tuple[str, ...] = ()
+    no_connects: frozenset[str] = frozenset()
 
     def part_id(self, part: int) -> str:
         """The unique id of part ``part`` (1-based)."""
@@ -142,12 +145,24 @@ class Stub:
 
 
 @dataclass(frozen=True)
+class NoConnectMark:
+    """A No ERC directive: pin ``designator`` of the component ``key`` (its path) is unconnected on
+    purpose; ``at`` is the pin's electrical hot end in the layout frame."""
+
+    key: str
+    designator: str
+    at: tuple[int, int]
+
+
+@dataclass(frozen=True)
 class SheetPlan:
-    """The sheet, the placed components in component-path order, and the stubs in write order."""
+    """The sheet, the placed components in component-path order, the stubs in write order and the
+    no-connect marks in write order."""
 
     size: SheetSize
     parts: tuple[PlacedPart, ...]
     stubs: tuple[Stub, ...]
+    no_connects: tuple[NoConnectMark, ...] = ()
 
 
 def _up(value: int, step: int = GRID) -> int:
@@ -226,6 +241,18 @@ def part_stubs(spec: PartSpec, x: int, y: int, part: int = 1) -> tuple[Stub, ...
     return tuple(stubs)
 
 
+def part_marks(spec: PartSpec, x: int, y: int, part: int = 1) -> tuple[NoConnectMark, ...]:
+    """The no-connect marks of part ``part`` of ``spec`` with its symbol origin at (``x``, ``y``): one per
+    marked pin drawn on that part (its pins and, on part 1, the Part Zero pins), in the pin order of
+    ``part_stubs``, each at the pin's hot end."""
+    marks: list[NoConnectMark] = []
+    for pin in spec.body.pins_of(part):
+        if pin.designator in spec.no_connects:
+            hx, hy = pin.hot_end
+            marks.append(NoConnectMark(spec.key, pin.designator, (x + hx, y - hy)))
+    return tuple(marks)
+
+
 def _extent(spec: PartSpec, part: int = 1) -> tuple[int, int, int, int]:
     """The cell of part ``part`` relative to its symbol origin, margins included, on the grid."""
     body = spec.body
@@ -292,12 +319,14 @@ def layout_sheet(parts: Sequence[PartSpec], *, sizes: Sequence[SheetSize] = SHEE
     offsets = _pack(cells, size.width - 2 * MARGIN)[0]
     placed: list[PlacedPart] = []
     stubs: list[Stub] = []
+    marks: list[NoConnectMark] = []
     for (spec, part), (x0, y0, x1, y1), (ox, oy) in zip(units, extents, offsets, strict=True):
         left, top = MARGIN + ox, MARGIN + oy
         x, y = left - x0, top - y0
         placed.append(PlacedPart(spec, x, y, (left, top, left + x1 - x0, top + y1 - y0), part))
         stubs.extend(part_stubs(spec, x, y, part))
-    return SheetPlan(size, tuple(placed), tuple(stubs))
+        marks.extend(part_marks(spec, x, y, part))
+    return SheetPlan(size, tuple(placed), tuple(stubs), tuple(marks))
 
 
 __all__ = [
@@ -309,6 +338,7 @@ __all__ = [
     "PORT_GAP",
     "PORT_STUB",
     "SHEET_SIZES",
+    "NoConnectMark",
     "PartSpec",
     "PinNet",
     "PlacedPart",
@@ -319,6 +349,7 @@ __all__ = [
     "Side",
     "Stub",
     "layout_sheet",
+    "part_marks",
     "part_stubs",
     "stub_length",
 ]

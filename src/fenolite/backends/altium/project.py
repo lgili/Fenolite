@@ -185,7 +185,9 @@ def part_specs(
 ) -> list[PartSpec]:
     """One ``PartSpec`` per component, in component-path order, its body the library symbol of its lib id
     (``symbols`` first, generic otherwise). ``name`` is the design name, which gives the library file of
-    KiCad lib ids (``schlib_name``)."""
+    KiCad lib ids (``schlib_name``). ``Circuit.no_connects`` fills ``PartSpec.no_connects``; a mark on an
+    unknown component, on a pin the component does not hold or on a pin that a net lists raises
+    ``ValueError``."""
     bodies = {**generic_symbols(design), **(symbols or {})}
     styles = power_styles(design)
     components = {c.id: c for c in design.circuit.components}
@@ -206,6 +208,19 @@ def part_specs(
                     f"{component.ref} pin {member.pin} is on the nets {current.net} and {net.name}"
                 )
             joins[component.id][member.pin] = how
+    marks: dict[str, set[str]] = {cid: set() for cid in components}
+    for mark in design.circuit.no_connects:
+        component = components.get(mark.component_id)
+        if component is None:
+            raise ValueError(f"no-connect mark: unknown component {mark.component_id}")
+        if mark.pin not in {p.number for p in component.pins}:
+            raise ValueError(f"no-connect mark: {component.ref} holds no pin {mark.pin!r}")
+        joined = joins[component.id].get(mark.pin)
+        if joined is not None:
+            raise ValueError(
+                f"{component.ref} pin {mark.pin} is marked as not connected and is on net {joined.net}"
+            )
+        marks[component.id].add(mark.pin)
     specs: list[PartSpec] = []
     for component in sorted(design.circuit.components, key=component_path):
         library, symbol = _link(component.lib_symbol_ref, f"{component.ref} lib_id")
@@ -234,6 +249,7 @@ def part_specs(
                 body=body,
                 nets=joins[component.id],
                 part_ids=tuple(unique_id(f"{component.id}#{k}") for k in range(2, body.parts + 1)),
+                no_connects=frozenset(marks[component.id]),
             )
         )
     ids = [s.part_id(k) for s in specs for k in range(1, s.body.parts + 1)]

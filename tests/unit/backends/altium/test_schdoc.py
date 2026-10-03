@@ -6,9 +6,11 @@ and "Deterministic sheet layout"; change c0032)."""
 
 from __future__ import annotations
 
+import dataclasses
 from collections import Counter
 from functools import cache
 
+import pytest
 from _altium import (
     SAMPLE_PATHS,
     check_plan,
@@ -23,9 +25,11 @@ from _altium import (
 )
 
 from fenolite.backends.altium.layout import PartSpec, PinNet, layout_sheet
-from fenolite.backends.altium.project import plan_sheet, write_project
+from fenolite.backends.altium.project import part_specs, plan_sheet, write_project
 from fenolite.backends.altium.schdoc import schdoc_records
 from fenolite.dsl import Design, Net, Part, connect
+from fenolite.model import Design as ModelDesign
+from fenolite.model import PinRef
 
 SHEET_LINE = (
     "|RECORD=31|FONTIDCOUNT=1|SIZE1=10|FONTNAME1=Times New Roman|SYSTEMFONT=1|BORDERON=T|SNAPGRIDON=T"
@@ -306,3 +310,81 @@ def test_part_zero_stubs_on_part_one_only() -> None:
     check_plan(plan, grid=10)
     on_first = {s.designator for s in stubs if first.cell[0] <= s.start[0] <= first.cell[2]}
     assert {"4", "8", "1", "2", "3"} <= on_first
+
+
+# --- No ERC directives (change c0036) ---------------------------------------------------------------
+
+NO_ERC_KEYS = [
+    "RECORD", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "COLOR", "ISACTIVE", "SUPPRESSALL", "SYMBOL",
+]  # fmt: skip
+
+
+def _marked(model: ModelDesign, *marks: tuple[str, str]) -> ModelDesign:
+    refs = tuple(PinRef(model.by_ref[ref].id if ref in model.by_ref else ref, pin) for ref, pin in marks)
+    return dataclasses.replace(model, circuit=dataclasses.replace(model.circuit, no_connects=refs))
+
+
+def test_no_erc_record_keys_and_order() -> None:
+    nets = {"3": PinNet("A", "label")}
+    part = PartSpec(
+        "X1", "X1", "X", "b.SchLib", "X", None, "AAAAAAAA", upright_symbol(), nets,
+        no_connects=frozenset({"1", "2"}),
+    )  # fmt: skip
+    found = schdoc_records(layout_sheet([part]))
+    last = found[-2:]
+    assert [[key for key, _ in record] for record in last] == [NO_ERC_KEYS, NO_ERC_KEYS]
+    as_dicts = [dict(r) for r in found]
+    for record in as_dicts[-2:]:
+        assert record["RECORD"] == "22" and record["OWNERPARTID"] == "-1" and record["COLOR"] == "255"
+        assert record["ISACTIVE"] == "T" and record["SUPPRESSALL"] == "T"
+        assert record["SYMBOL"] == "Thin Cross"
+    assert [r["RECORD"] for r in as_dicts].count("22") == 2
+    pins = {r["DESIGNATOR"]: _hot_end(r) for r in as_dicts if r["RECORD"] == "2"}
+    places = [(int(r["LOCATION.X"]), int(r["LOCATION.Y"])) for r in as_dicts[-2:]]
+    assert places == [pins["1"], pins["2"]]
+    starts = {(int(w["X1"]), int(w["Y1"])) for w in as_dicts if w["RECORD"] == "27"}
+    assert starts == {pins["3"]}, "a marked pin gets no wire"
+
+
+def test_no_erc_directives_follow_every_stub_label_and_port() -> None:
+    model = generic_pins_with_spare()
+    found = records(write_project(model, name="lone", form="ascii")["lone.SchDoc"])
+    kinds = [r["RECORD"] for r in found]
+    first = kinds.index("22")
+    assert kinds[first:] == ["22"] and not {"27", "25", "17"} & set(kinds[first:])
+    assert max(i for i, k in enumerate(kinds) if k in ("27", "25", "17")) == first - 1
+    header = write_project(model, name="lone", form="ascii")["lone.SchDoc"].split(b"\r\n", 1)[0]
+    assert header.endswith(f"|WEIGHT={len(found)}".encode()), "WEIGHT counts the directive"
+
+
+def generic_pins_with_spare() -> ModelDesign:
+    """Two resistors of one lib id; ``R2`` uses pin 1 only, and its pin 2 is marked."""
+    design = Design("lone")
+    r1 = Part("R1", "L.SchLib:RES", "L.PcbLib:R0603", "1k")
+    r2 = Part("R2", "L.SchLib:RES", "L.PcbLib:R0603", "1k")
+    design.add(r1, r2)
+    a, b = Net("A"), Net("B")
+    connect(a, r1[1], r2[1])
+    connect(b, r1[2])
+    return _marked(model_of(design), ("R2", "2"))
+
+
+def test_no_connect_free_design_has_no_no_erc_record() -> None:
+    assert all(r["RECORD"] != "22" for r in sample_records())
+    assert plan_sheet(sample_model()).no_connects == ()
+
+
+@pytest.mark.parametrize(
+    ("mark", "match"),
+    [
+        (("U2", "1"), r"U2 pin 1 .*net"),
+        (("U2", "9"), r"U2 holds no pin '9'"),
+        (("cmp_nope", "1"), r"unknown component cmp_nope"),
+    ],
+)
+def test_no_connect_mark_refused_by_the_writer(mark: tuple[str, str], match: str) -> None:
+    model = _marked(sample_model(), mark)
+    with pytest.raises(ValueError, match=match):
+        part_specs(model)
+    with pytest.raises(ValueError, match=match):
+        write_project(model, name="altium_sample")
