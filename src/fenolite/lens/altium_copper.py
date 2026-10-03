@@ -19,9 +19,10 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from fenolite.backends.altium import pcbdoc, pcbrecords
+from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
-from fenolite.model.board import Arc, Board, Track, Via
+from fenolite.model.board import Arc, Board, Stackup, Track, Via
 from fenolite.model.design import Design
 
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
@@ -66,6 +67,7 @@ class CopperPlan:
     arcs: tuple[Arc, ...] = ()
     vias: tuple[Via, ...] = ()
     issues: tuple[Issue, ...] = ()
+    stack: StackSpec | None = None
 
     @property
     def failed(self) -> bool:
@@ -216,6 +218,49 @@ def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]
     return out
 
 
+DIELECTRIC_KINDS = {1: ("core",), 3: ("prepreg", "core", "prepreg")}
+"""The kind of each dielectric of a stack-up, by their count: one core, or prepreg, core, prepreg."""
+
+
+def stack_from_stackup(stackup: Stackup, layers: Sequence[str], copper: tuple[int, ...]) -> StackSpec | None:
+    """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
+    board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
+    Solder mask, silkscreen and paste layers of the stack-up are passed over."""
+    physical = [layer for layer in stackup.layers if layer.kind in ("copper", "dielectric")]
+    if len(physical) != 2 * len(layers) - 1:
+        return None
+    coppers, between = physical[0::2], physical[1::2]
+    if [layer.kind for layer in coppers] != ["copper"] * len(layers):
+        return None
+    if [layer.name for layer in coppers] != list(layers) or any(d.kind != "dielectric" for d in between):
+        return None
+    try:
+        dielectrics = tuple(
+            Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
+            for kind, layer in zip(DIELECTRIC_KINDS[len(between)], between, strict=True)
+        )
+        return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics)
+    except ValueError:
+        return None
+
+
+def stack_values(design: Design, layers: Sequence[str]) -> tuple[StackSpec, list[Issue]]:
+    """The stack of the document: the values of ``design.board.stackup`` when it fits
+    (``stack_from_stackup``), else Fenolite's defaults with one ``altium.not-lowered`` info."""
+    copper = pcbrecords.copper_stack(layers)
+    stackup = design.board.stackup if design.board is not None else None
+    if stackup is None:
+        return StackSpec.default(copper), []
+    found = stack_from_stackup(stackup, layers, copper)
+    if found is not None:
+        return found, []
+    message = (
+        "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
+        "between neighbours; the document gets Fenolite's default stack values"
+    )
+    return StackSpec.default(copper), [Issue("altium.not-lowered", "info", message, where="stackup")]
+
+
 def outline_corner(board: Board | None) -> Point:
     """The corner that positions in messages count from: the outline's lowest X and Y (KiCad frame)."""
     if board is None or board.outline is None or not board.outline.points:
@@ -240,13 +285,20 @@ def lower_copper(design: Design, *, copper: int = 2) -> CopperPlan:
     tracks = _tracks(board.tracks, low, issues)
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
-    return CopperPlan(layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues))
+    stack, stack_issues = stack_values(design, layers)
+    issues += stack_issues
+    return CopperPlan(layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack)
 
 
 def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
     """``spec`` with the layers and the copper of ``plan``."""
     return dataclasses.replace(
-        spec, copper_layers=plan.layers, tracks=plan.tracks, arcs=plan.arcs, vias=plan.vias
+        spec,
+        copper_layers=plan.layers,
+        stack=plan.stack,
+        tracks=plan.tracks,
+        arcs=plan.arcs,
+        vias=plan.vias,
     )
 
 
@@ -277,5 +329,7 @@ __all__ = [
     "lower_copper",
     "mm_text",
     "outline_corner",
+    "stack_from_stackup",
+    "stack_values",
     "with_copper",
 ]

@@ -433,3 +433,25 @@ def test_hierarchy_envelope_evidence(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     evidence = env["evidence"]
     assert isinstance(evidence, dict) and evidence["level"] == "INFERRED"
     assert {"H-A-SCH-HIER-OPEN", "H-A-SCH-HIER-ECO", "H-A-SCH-HARN-OPEN"} <= set(evidence["hypotheses"])
+
+
+def test_layer_count_from_the_script(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``altium-build`` "Copper in an Altium build", "Layer count from the script" (change c0038)."""
+    from _altium import blink_tree
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    project = blink_tree(tmp_path / "tree")
+    script = project / "design.py"
+    text = script.read_text(encoding="utf-8")
+    assert "design.board(mm(50), mm(30))" in text
+    script.write_text(text.replace("design.board(mm(50), mm(30))", "design.board(mm(50), mm(30), copper=4)"))
+    code, env, _ = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    assert code == 0
+    result = env["result"]
+    assert isinstance(result, dict)
+    copper = result["copper"]
+    assert copper["layers"] == 4 and copper["source"] == "none" and copper["from"] is None
+    assert copper["planes"] == {} and copper["placements_from_board"] == 0
+    assert [copper[key] for key in ("tracks", "arcs", "vias", "zones")] == [0, 0, 0, 0]

@@ -527,3 +527,99 @@ def test_copper_stack_of_three_layers_refused(tmp_path: Path) -> None:
         i for i in routed_build(tmp_path, model4, copper=2).issues if i.code == "altium.copper-stack"
     ]
     assert "4 copper layers" in differs.message and "asks for 2" in differs.message
+
+
+# --- stack values (change c0038, task 3.2) ----------------------------------------------------------
+
+
+def _with_stackup(model: object, names: tuple[str, ...], between: tuple[tuple[int, str, str], ...]) -> object:
+    """``model`` with a stack-up of the copper layers ``names`` (35 um each) and one dielectric
+    (thickness, constant, material) between neighbours, under a solder mask."""
+    import dataclasses
+
+    from fenolite.model.board import StackLayer, Stackup
+
+    def layer(n: int, name: str, kind: str, thickness: int, **more: str) -> StackLayer:
+        ident = f"sly_00000000-0000-4000-8000-0000000000{n:02d}"
+        return StackLayer(id=ident, name=name, kind=kind, thickness=thickness, **more)  # type: ignore[arg-type]
+
+    layers = [layer(0, "F.Mask", "soldermask", 10_000)]
+    for position, name in enumerate(names):
+        if position:
+            thickness, constant, material = between[position - 1]
+            layers.append(
+                layer(
+                    20 + position,
+                    f"dielectric {position}",
+                    "dielectric",
+                    thickness,
+                    epsilon_r=constant,
+                    material=material,
+                )  # fmt: skip
+            )
+        layers.append(layer(10 + position, name, "copper", 35_000))
+    stackup = Stackup(id="stk_00000000-0000-4000-8000-000000000001", layers=tuple(layers))
+    assert model.board is not None  # type: ignore[attr-defined]
+    return dataclasses.replace(model, board=dataclasses.replace(model.board, stackup=stackup))  # type: ignore[type-var,attr-defined]
+
+
+def test_stack_values_come_from_the_stackup(tmp_path: Path) -> None:
+    from _altium_copper import FOUR, routed_build, routed_model
+    from _altium_pcb_read import read_pcbdoc
+
+    between = ((180_000, "4.4", "PP"), (710_000, "4.5", ""), (180_000, "", "PP"))
+    output = routed_build(tmp_path, _with_stackup(routed_model(()), FOUR, between))  # type: ignore[arg-type]
+    assert not [i for i in output.issues if i.where == "stackup"]
+    board = read_pcbdoc(output.files["routed.PcbDoc"]).board
+    assert [board[f"V9_STACK_LAYER{i}_DIELTYPE"] for i in (4, 6, 8)] == ["2", "1", "2"]
+    assert (
+        board["V9_STACK_LAYER6_DIELHEIGHT"] == "27.9528mil" and board["V9_STACK_LAYER6_DIELCONST"] == "4.500"
+    )
+    assert board["V9_STACK_LAYER6_DIELMATERIAL"] == "FR-4" and board["V9_STACK_LAYER4_DIELMATERIAL"] == "PP"
+    assert board["V9_STACK_LAYER8_DIELCONST"] == "4.800" and board["LAYER1DIELHEIGHT"] == "7.0866mil"
+    assert board["LAYER2COPTHICK"] == board["V9_STACK_LAYER3_COPTHICK"] == "1.378mil"
+    two = routed_build(
+        tmp_path, _with_stackup(routed_model(()), ("F.Cu", "B.Cu"), ((1_500_000, "4.6", "FR-4"),)), copper=2
+    )  # type: ignore[arg-type]
+    board = read_pcbdoc(two.files["routed.PcbDoc"]).board
+    assert board["V9_STACK_LAYER4_DIELTYPE"] == "1" and board["V9_STACK_LAYER4_DIELHEIGHT"] == "59.0551mil"
+
+
+def test_stack_up_that_does_not_fit_gives_the_default_values(tmp_path: Path) -> None:
+    from _altium_copper import routed_build, routed_model
+    from _altium_pcb_read import read_pcbdoc
+
+    two_layer_stackup = _with_stackup(routed_model(()), ("F.Cu", "B.Cu"), ((1_500_000, "4.6", "FR-4"),))
+    output = routed_build(tmp_path, two_layer_stackup)  # type: ignore[arg-type]
+    (found,) = [i for i in output.issues if i.where == "stackup"]
+    assert (
+        found.code == "altium.not-lowered"
+        and found.severity == "info"
+        and "default stack values" in found.message
+    )
+    board = read_pcbdoc(output.files["routed.PcbDoc"]).board
+    assert [board[f"V9_STACK_LAYER{i}_DIELHEIGHT"] for i in (4, 6, 8)] == [
+        "7.874mil",
+        "39.3701mil",
+        "7.874mil",
+    ]
+    assert board["LAYER1COPTHICK"] == "1.4mil"
+
+
+def test_layer_names_of_the_stack_up_must_match(tmp_path: Path) -> None:
+    from _altium_copper import routed_build, routed_model
+
+    other = _with_stackup(routed_model(()), ("F.Cu", "In2.Cu", "In1.Cu", "B.Cu"), ((1, "4", "A"),) * 3)
+    output = routed_build(tmp_path, other)  # type: ignore[arg-type]
+    assert [i.code for i in output.issues if i.where == "stackup"] == ["altium.not-lowered"]
+
+
+def test_layer_count_comes_from_the_script_or_the_board(tmp_path: Path) -> None:
+    from _altium_copper import routed_build, routed_model
+    from _altium_pcb_read import read_pcbdoc
+
+    four = routed_build(tmp_path, routed_model(()))
+    assert four.summary["copper"]["layers"] == 4  # type: ignore[index]
+    assert read_pcbdoc(four.files["routed.PcbDoc"]).copper_chain == [1, 2, 3, 32]
+    two = routed_build(tmp_path, routed_model(()), copper=2)
+    assert read_pcbdoc(two.files["routed.PcbDoc"]).copper_chain == [1, 32]
