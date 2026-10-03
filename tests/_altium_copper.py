@@ -15,6 +15,7 @@ from the outline's top-left corner (Y down), is the table ``TRACKS``, ``ARC``, `
 from __future__ import annotations
 
 import dataclasses
+import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,7 +26,7 @@ from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.dsl import BOARD_ORIGIN, Design, placements, to_model
 from fenolite.lens.altium import build_altium
-from fenolite.lens.build import BuildOutput
+from fenolite.lens.build import BuildOutput, build_design
 from fenolite.model.board import Arc, Track, Via, Zone
 from fenolite.model.design import Design as ModelDesign
 
@@ -162,6 +163,27 @@ def plane_model() -> ModelDesign:
     return dataclasses.replace(model, board=dataclasses.replace(model.board, tracks=tracks))
 
 
+def routed_kicad_build(board: str = "design.board(mm(50), mm(30), copper=4)") -> BuildOutput:
+    """The KiCad build of the sample's script in memory (no file is written to disk)."""
+    design = routed_design(board)
+    with tempfile.TemporaryDirectory() as folder:
+        built = build_design(
+            to_model(design),
+            placements(design),
+            name=NAME,
+            copper=design.copper,  # type: ignore[arg-type]
+            resolver=blink_resolver(Path(folder)),
+        )
+    assert built.files and not [found for found in built.issues if found.severity == "error"]
+    return built
+
+
+def routed_kicad_design(features: tuple[str, ...] = FEATURES) -> ModelDesign:
+    """The sample as the KiCad build of its script holds it in memory, with the sample's copper put into
+    its model: what change c0028 hands over as script copper (a ``CopperSource`` of origin ``script``)."""
+    return with_copper(routed_kicad_build().design, features)
+
+
 def routed_placements() -> Mapping[str, object]:
     return placements(routed_design())
 
@@ -196,11 +218,11 @@ def routed_build(root: Path, model: ModelDesign | None = None, **kwargs: object)
         project = blink_tree(root)
     requested = routed_placements()
     kwargs.setdefault("copper", 4)
+    kwargs.setdefault("placed", tuple(requested))
+    kwargs.setdefault("placements", requested)
     return build_altium(
         routed_model() if model is None else model,
         name=NAME,
-        placed=tuple(requested),
-        placements=requested,  # type: ignore[arg-type]
         resolver=blink_resolver(root, project),
         **kwargs,  # type: ignore[arg-type]
     )

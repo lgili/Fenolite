@@ -437,6 +437,58 @@ def run_routed_sample() -> tuple[Issue, ...]:
     return output.issues
 
 
+def run_source_cases() -> tuple[Issue, ...]:
+    """The four codes of a copper source: a board that places ``R1`` elsewhere, one with a footprint the
+    design lacks and copper on an unknown net, and a source given to a design without a board."""
+    from _altium_copper import at, routed_build, routed_design, routed_kicad_design
+
+    from fenolite.lens.altium import CopperSource
+
+    script = to_model(routed_design())
+    kicad = routed_kicad_design()
+    assert kicad.board is not None
+    refs = {c.id: c.ref for c in kicad.circuit.components}
+    moved = tuple(
+        dataclasses.replace(f, position=at(33, 9)) if refs[f.component_id] == "R1" else f
+        for f in kicad.board.footprints
+    )
+    extra_net = dataclasses.replace(
+        kicad.circuit.nets[0], id="net_00000000-0000-4000-8000-000000000009", name="EXTRA"
+    )
+    odd = dataclasses.replace(
+        kicad,
+        circuit=dataclasses.replace(kicad.circuit, nets=(*kicad.circuit.nets, extra_net)),
+        board=dataclasses.replace(
+            kicad.board,
+            footprints=kicad.board.footprints[1:],
+            tracks=(dataclasses.replace(kicad.board.tracks[0], net_id=extra_net.id), *kicad.board.tracks[1:]),
+        ),
+    )
+    found: list[Issue] = []
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        placed = routed_build(
+            root,
+            script,
+            copper_source=CopperSource(_copper_board(kicad, footprints=moved), "board", "b.kicad_pcb"),
+        )
+        assert "routed.PcbDoc" in placed.files
+        found += placed.issues
+        for source in (CopperSource(odd, "board", "b.kicad_pcb"),):
+            refused = routed_build(root, script, copper_source=source)
+            assert refused.files == {}
+            found += refused.issues
+        boardless = dataclasses.replace(script, board=None)
+        refused = routed_build(root, boardless, copper_source=CopperSource(kicad, "script"))
+        assert "routed.PcbDoc" not in refused.files
+        found += refused.issues
+        net_only = dataclasses.replace(
+            odd, board=dataclasses.replace(odd.board, footprints=kicad.board.footprints)
+        )  # type: ignore[arg-type]
+        found += routed_build(root, script, copper_source=CopperSource(net_only, "script")).issues
+    return tuple(found)
+
+
 def test_zone_on_a_missing_layer() -> None:
     """Scenario "Copper on a missing layer": the routed model built with ``copper=2``."""
     found = [i for i in run_copper_case("layer") if i.code == "altium.copper-layer"]
@@ -521,7 +573,7 @@ def test_closed_set() -> None:
     for name in COPPER_CASES:
         for found in run_copper_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
-    for found in run_routed_sample():
+    for found in (*run_routed_sample(), *run_source_cases()):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in (
         *run_unique_id_case(),
@@ -581,8 +633,12 @@ def test_the_table() -> None:
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
         "altium.plane-copper": "error",
+        "altium.copper-board-mismatch": "error",
+        "altium.copper-net-missing": "error",
+        "altium.copper-no-document": "error",
         "altium.zones-unpoured": "info",
         "altium.plane-zone-merged": "info",
+        "altium.placement-from-board": "info",
     }
 
 

@@ -39,6 +39,7 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.lens import altium_copper
+from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
     CACHE_DIR,
     RECORD_FILE,
@@ -520,13 +521,15 @@ def pcb_document(
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: int = 2,
     planes: Mapping[str, str] | None = None,
+    copper_source: altium_copper.CopperSource | None = None,
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
     outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. ``copper`` is the
     script's copper layer count and ``planes`` its internal planes (layer name → net name); the board's
     copper is lowered by ``altium_copper`` (change c0038), and copper that cannot be written gives its
-    errors and ``None``."""
+    errors and ``None``. With ``copper_source`` the copper and the placements come from that source, after
+    ``altium_copper.match_source`` checked it against the design; none is staged."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -563,7 +566,20 @@ def pcb_document(
                 "Altium's change order places the parts from the PCB library",
             )
         )
+        if copper_source is not None:
+            message = (
+                f"{copper_source.label}the copper cannot be written: {name}.PcbDoc is not planned ({reason})"
+            )
+            issues.append(altium_copper.issue("altium.copper-no-document", message, f"{name}.PcbDoc"))
         return None, issues
+    if copper_source is not None:
+        placements, source_issues = altium_copper.match_source(
+            design, copper_source, footprints, requested=placements
+        )
+        issues += source_issues
+        issues += altium_copper.source_not_lowered(copper_source)
+        if any(found.severity == "error" for found in source_issues):
+            return None, issues
     assert board is not None and board.outline is not None
     nets: dict[str, dict[str, str]] = {}
     for net in design.circuit.nets:
@@ -614,7 +630,9 @@ def pcb_document(
             )
         )
     spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
-    plan = altium_copper.lower_copper(design, copper=copper, planes=planes, document=f"{name}.PcbDoc")
+    plan = altium_copper.lower_copper(
+        design, copper=copper, planes=planes, source=copper_source, document=f"{name}.PcbDoc"
+    )
     issues += plan.issues
     if plan.failed:
         return None, issues
@@ -1058,6 +1076,7 @@ def build_altium(
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: int = 2,
     planes: Mapping[str, str] | None = None,
+    copper_source: altium_copper.CopperSource | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1070,10 +1089,17 @@ def build_altium(
     module, their harness definition files and a project file that lists them.
     ``copper`` is the script's copper layer count (2 or 4) and ``planes`` its internal planes (inner layer
     name → net name); the copper of ``design.board`` is written into the PCB document (change c0038), and
-    copper that cannot be written exactly gives an error and no file.
+    copper that cannot be written exactly gives an error and no file. ``copper_source`` gives the copper
+    and the placements from outside the model (the script's resolved copper, or a routed KiCad board); a
+    build takes one source, so a source given with copper in ``design.board`` raises ``ValueError``.
     """
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
+    if copper_source is not None and altium_copper.has_copper(design.board):
+        raise ValueError(
+            "two copper sources: the design's board holds copper (the model source) and a copper source "
+            f"of origin {copper_source.origin} is given; a build takes one"
+        )
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     resolved = resolve_symbols(design, resolver)
@@ -1103,15 +1129,31 @@ def build_altium(
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
     spec, document_issues = pcb_document(
-        model, name=name, footprints=footprints, placements=placements or {}, copper=copper, planes=planes, sheets=sheets
+        model,
+        name=name,
+        footprints=footprints,
+        placements=placements or {},
+        copper=copper,
+        planes=planes,
+        copper_source=copper_source,
+        sheets=sheets,
     )
     issues += document_issues
     if any(i.severity == "error" for i in issues):
         return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
     copper_info = None
     if spec is not None:
-        source = "model" if altium_copper.has_copper(model.board) else "none"
-        copper_info = altium_copper.copper_summary(spec, source=source)
+        if copper_source is not None:
+            from_board = copper_source.origin == "board"
+            copper_info = altium_copper.copper_summary(
+                spec,
+                source=copper_source.origin,
+                where=copper_source.where if from_board else None,
+                placed=len(spec.components) if from_board else 0,
+            )
+        else:
+            source = "model" if altium_copper.has_copper(model.board) else "none"
+            copper_info = altium_copper.copper_summary(spec, source=source)
     if spec is not None:
         issues = [
             i for i in issues if not (i.code == "altium.not-lowered" and i.where in ("board", "placements"))
@@ -1230,6 +1272,7 @@ __all__ = [
     "ALTIUM_BUILD_EVIDENCE",
     "ALTIUM_ISSUE_CODES",
     "EXPERIMENTAL",
+    "CopperSource",
     "PCB_BUILD_EVIDENCE",
     "PCB_EXPERIMENTAL",
     "PCB_WRITE_KINDS",
@@ -1243,6 +1286,7 @@ __all__ = [
     "pcb_document",
     "kicad_pins",
     "library_symbols",
+    "match_source",
     "pad_extras",
     "resolve_footprints",
     "resolve_symbols",
