@@ -683,3 +683,76 @@ def test_design_without_a_zone_gives_no_unpoured_info(tmp_path: Path) -> None:
 
     output = routed_build(tmp_path, routed_model(("tracks", "arc", "vias", "inner", "class")))
     assert "altium.zones-unpoured" not in {i.code for i in output.issues}
+
+
+# --- internal planes (change c0038, "Internal planes in an Altium build") ----------------------------
+
+
+def test_plane_variant_builds(tmp_path: Path) -> None:
+    """Scenario "Plane variant builds": ``p0`` has the plane on ``GND``, four tracks and one polygon."""
+    from _altium_copper import PLANE, plane_model, routed_build
+    from _altium_pcb_read import read_pcbdoc
+
+    output = routed_build(tmp_path, plane_model(), planes=PLANE)
+    assert not [i for i in output.issues if i.severity == "error"]
+    copper = output.summary["copper"]
+    assert copper["planes"] == {"In1.Cu": "GND"} and copper["tracks"] == 4 and copper["zones"] == 1  # type: ignore[index]
+    assert copper["layers"] == 4 and copper["vias"] == 3  # type: ignore[index]
+    doc = read_pcbdoc(output.files["routed.PcbDoc"])
+    assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
+    assert doc.board["PLANE1NETNAME"] == "GND" and [p.layer for p in doc.polygons] == ["BOTTOM"]
+    assert sorted(t.prefix.layer for t in doc.free_tracks) == [1, 1, 3, 32] and len(doc.vias) == 3
+    (merged,) = [i for i in output.issues if i.code == "altium.plane-zone-merged"]
+    assert merged.severity == "info" and "the GND zone on In1.Cu at (1, 1) mm" in merged.message
+    (unpoured,) = [i for i in output.issues if i.code == "altium.zones-unpoured"]
+    assert unpoured.message.startswith("1 polygon(s)")
+
+
+def test_ground_plane_from_the_script_refuses_the_track_on_the_plane(tmp_path: Path) -> None:
+    """Scenario "Ground plane from the script": the whole sample with the plane gives one error for its
+    track on ``In1.Cu``; the lowering still shows the stack and the polygon that would be written."""
+    from _altium_copper import PLANE, routed_build, routed_model
+
+    from fenolite.lens.altium_copper import lower_copper
+
+    output = routed_build(tmp_path, planes=PLANE)
+    assert output.files == {}
+    (error,) = [i for i in output.issues if i.severity == "error"]
+    assert (
+        error.code == "altium.plane-copper" and "track on In1.Cu" in error.message and "GND" in error.message
+    )
+    assert len([i for i in output.issues if i.code == "altium.plane-zone-merged"]) == 1
+    plan = lower_copper(routed_model(), copper=4, planes=PLANE, document="routed.PcbDoc")
+    assert (
+        plan.stack is not None and plan.stack.copper == (1, 39, 3, 32) and plan.stack.plane_nets == ("GND",)
+    )
+    assert [zone.layers for zone in plan.zones] == [("B.Cu",)] and len(plan.tracks) == 4 and plan.failed
+
+
+def test_plane_on_an_unknown_net(tmp_path: Path) -> None:
+    """Scenario "Plane on an unknown net"."""
+    output = build_blink_placed(tmp_path, copper=4, planes={"In1.Cu": "NOPE"})
+    assert output.files == {}
+    (found,) = [i for i in output.issues if i.code == "altium.copper-stack"]
+    assert "In1.Cu" in found.message and "NOPE" in found.message and found.where == "In1.Cu"
+    two = build_blink_placed(tmp_path / "two", planes={"In1.Cu": "GND"})
+    (found,) = [i for i in two.issues if i.code == "altium.copper-stack"]
+    assert "is not on an inner copper layer" in found.message and two.files == {}
+
+
+def test_two_planes_and_a_zone_on_another_net(tmp_path: Path) -> None:
+    from _altium_pcb_read import read_pcbdoc
+
+    output = build_blink_placed(tmp_path, copper=4, planes={"In2.Cu": "VIN", "In1.Cu": "GND"})
+    assert output.summary["copper"]["planes"] == {"In1.Cu": "GND", "In2.Cu": "VIN"}  # type: ignore[index]
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    assert doc.copper_chain == [1, 39, 40, 32] and doc.plane_nets == {1: "GND", 2: "VIN"}
+
+
+def test_plane_keeps_the_model_unchanged(tmp_path: Path) -> None:
+    """A plane layer stays a copper layer of the model: no layer kind is added."""
+    from _altium_copper import PLANE, plane_model, routed_build
+
+    output = routed_build(tmp_path, plane_model(), planes=PLANE)
+    assert output.design.board is not None
+    assert {layer.kind for layer in output.design.board.layers} <= {"copper"}

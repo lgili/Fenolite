@@ -5,7 +5,9 @@
 
 ``lower_copper`` turns the tracks, arcs, vias and zones of a design into what ``pcbdoc.PcbDocSpec`` takes:
 the board's copper layers and the entities with their net **names**. A zone becomes one unpoured polygon
-per layer, which Altium fills on a repour. It finds every case the writer would
+per layer, which Altium fills on a repour. An inner layer that the script declares as a plane becomes an
+internal plane on its net ("Internal planes in an Altium build"): it holds no primitive, and a zone of
+the plane's net on that layer is left to the plane. It finds every case the writer would
 refuse and reports it as an issue of ``COPPER_ISSUE_CODES``, so no ``ValueError`` of the writer reaches the
 user. Nothing is dropped to make a document fit: copper that cannot be written exactly is an error.
 ``fenolite.lens.altium`` calls it from ``pcb_document`` and adds the codes to its closed table.
@@ -34,7 +36,9 @@ COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.via-unsupported": "error",
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
+        "altium.plane-copper": "error",
         "altium.zones-unpoured": "info",
+        "altium.plane-zone-merged": "info",
     }
 )
 """The copper rows of ``lens.altium.ALTIUM_ISSUE_CODES`` (change c0038, "Copper issue codes")."""
@@ -113,6 +117,8 @@ class _Lowering:
     net_names: Mapping[str, str]
     corner: Point
     label: str
+    planes: Mapping[str, str] = MappingProxyType({})
+    """Plane layer → the plane's net name."""
 
     def at(self, point: Point) -> str:
         return f"({mm_text(point.x - self.corner.x)}, {mm_text(point.y - self.corner.y)}) mm"
@@ -134,7 +140,16 @@ def _net_name(
     return name
 
 
+PLANE_HINT = "a plane holds one net and no primitive; route on a signal layer, or drop the plane"
+
+
 def _layer_ok(entity_id: str, layer: str, low: _Lowering, issues: list[Issue], what: str) -> bool:
+    if layer in low.planes:
+        message = (
+            f"{what}: {layer} is an internal plane (net {low.planes[layer]}); split planes are not written"
+        )
+        issues.append(issue("altium.plane-copper", low.text(message), entity_id, PLANE_HINT))
+        return False
     if layer in low.layers:
         return True
     message = f"{what}: {layer} is not a copper layer of the board ({', '.join(low.layers)})"
@@ -225,7 +240,9 @@ def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]
     return out
 
 
-def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue]) -> list[Zone]:
+def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue], merged: list[str]) -> list[Zone]:
+    """The zones to write. A zone layer on a plane whose net is the plane's net is left to the plane and
+    described in ``merged``; with another net, or none, it gives ``altium.plane-copper``."""
     out: list[Zone] = []
     for zone in zones:
         where = f" at {low.at(zone.outline[0])}" if zone.outline else ""
@@ -248,16 +265,57 @@ def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue]) -> list[Z
             message = f"{what}: the name {zone.name!r} {text_problem(zone.name)}"
             issues.append(issue("altium.copper-invalid", low.text(message), zone.id))
         name = _net_name(zone.id, zone.net_id, low, issues, what)
-        if len(issues) == before:
-            out.append(dataclasses.replace(zone, net_id=name, fills=()))
+        kept: list[str] = []
+        for layer in zone.layers:
+            if layer not in low.planes:
+                kept.append(layer)
+            elif name is not None and low.planes[layer] == name:
+                merged.append(f"the {name} zone on {layer}{where}")
+            else:
+                _layer_ok(zone.id, layer, low, issues, what)
+        if len(issues) == before and kept:
+            out.append(dataclasses.replace(zone, layers=tuple(kept), net_id=name, fills=()))
     return out
+
+
+def plane_nets(
+    design: Design, layers: Sequence[str], planes: Mapping[str, str] | None
+) -> tuple[dict[str, str], list[Issue]]:
+    """The planes of the document, layer → net name, in stack order. A plane on a layer that is not an
+    inner copper layer of the board, or on a net that the design does not hold, gives
+    ``altium.copper-stack``."""
+    issues: list[Issue] = []
+    nets = {net.name for net in design.circuit.nets}
+    inner = list(layers[1:-1])
+    found: dict[str, str] = {}
+    for layer, net in (planes or {}).items():
+        if layer not in inner:
+            held = ", ".join(inner) or "none"
+            message = (
+                f"the plane on {layer} (net {net}) is not on an inner copper layer of the board ({held})"
+            )
+            issues.append(
+                issue(
+                    "altium.copper-stack", message, layer, "declare planes on In1.Cu or In2.Cu with copper=4"
+                )
+            )
+        elif net not in nets:
+            message = f"the plane on {layer} names the net {net}, which the design does not hold"
+            issues.append(
+                issue("altium.copper-stack", message, layer, "connect a pin to the net, or name another net")
+            )
+        else:
+            found[layer] = net
+    return {layer: found[layer] for layer in inner if layer in found}, issues
 
 
 DIELECTRIC_KINDS = {1: ("core",), 3: ("prepreg", "core", "prepreg")}
 """The kind of each dielectric of a stack-up, by their count: one core, or prepreg, core, prepreg."""
 
 
-def stack_from_stackup(stackup: Stackup, layers: Sequence[str], copper: tuple[int, ...]) -> StackSpec | None:
+def stack_from_stackup(
+    stackup: Stackup, layers: Sequence[str], copper: tuple[int, ...], nets: tuple[str, ...] = ()
+) -> StackSpec | None:
     """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
     board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
     Solder mask, silkscreen and paste layers of the stack-up are passed over."""
@@ -274,26 +332,31 @@ def stack_from_stackup(stackup: Stackup, layers: Sequence[str], copper: tuple[in
             Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
             for kind, layer in zip(DIELECTRIC_KINDS[len(between)], between, strict=True)
         )
-        return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics)
+        return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
     except ValueError:
         return None
 
 
-def stack_values(design: Design, layers: Sequence[str]) -> tuple[StackSpec, list[Issue]]:
-    """The stack of the document: the values of ``design.board.stackup`` when it fits
-    (``stack_from_stackup``), else Fenolite's defaults with one ``altium.not-lowered`` info."""
-    copper = pcbrecords.copper_stack(layers)
+def stack_values(
+    design: Design, layers: Sequence[str], planes: Mapping[str, str] | None = None
+) -> tuple[StackSpec, list[Issue]]:
+    """The stack of the document: the ids of ``pcbrecords.copper_stack(layers, planes)`` with the plane
+    nets, and the values of ``design.board.stackup`` when it fits (``stack_from_stackup``), else Fenolite's
+    defaults with one ``altium.not-lowered`` info."""
+    on_planes = planes or {}
+    copper = pcbrecords.copper_stack(layers, tuple(on_planes))
+    nets = tuple(on_planes.values())
     stackup = design.board.stackup if design.board is not None else None
     if stackup is None:
-        return StackSpec.default(copper), []
-    found = stack_from_stackup(stackup, layers, copper)
+        return StackSpec.default(copper, nets), []
+    found = stack_from_stackup(stackup, layers, copper, nets)
     if found is not None:
         return found, []
     message = (
         "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
         "between neighbours; the document gets Fenolite's default stack values"
     )
-    return StackSpec.default(copper), [Issue("altium.not-lowered", "info", message, where="stackup")]
+    return StackSpec.default(copper, nets), [Issue("altium.not-lowered", "info", message, where="stackup")]
 
 
 def outline_corner(board: Board | None) -> Point:
@@ -304,25 +367,39 @@ def outline_corner(board: Board | None) -> Point:
     return Point(min(p.x for p in points), min(p.y for p in points))
 
 
-def lower_copper(design: Design, *, copper: int = 2, document: str = "") -> CopperPlan:
-    """The copper of ``design.board`` for the document (the ``model`` source): the board's copper layers
-    and its tracks, arcs, vias and zones with net names, or the issues that refuse them. ``document``
-    is the document's file name, named by the info about unpoured polygons."""
+def lower_copper(
+    design: Design, *, copper: int = 2, planes: Mapping[str, str] | None = None, document: str = ""
+) -> CopperPlan:
+    """The copper of ``design.board`` for the document (the ``model`` source): the board's copper layers,
+    its stack with the planes of ``planes`` (layer name → net name), and its tracks, arcs, vias and zones
+    with net names, or the issues that refuse them. ``document`` is the document's file name, named by the
+    infos about unpoured polygons and zones left to a plane."""
     layers, issues = board_layers(design, copper)
     board = design.board
     if board is None or issues:
+        return CopperPlan(layers, issues=tuple(issues))
+    on_planes, plane_issues = plane_nets(design, layers, planes)
+    issues += plane_issues
+    if plane_issues:
         return CopperPlan(layers, issues=tuple(issues))
     low = _Lowering(
         layers=layers,
         net_names={net.id: net.name for net in design.circuit.nets},
         corner=outline_corner(board),
         label="",
+        planes=on_planes,
     )
     tracks = _tracks(board.tracks, low, issues)
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
-    zones = _zones(board.zones, low, issues)
-    stack, stack_issues = stack_values(design, layers)
+    merged: list[str] = []
+    zones = _zones(board.zones, low, issues, merged)
+    if merged:
+        message = (
+            f"{'; '.join(merged)}: left to the internal plane of that layer and net, not written as a polygon"
+        )
+        issues.append(issue("altium.plane-zone-merged", message, document))
+    stack, stack_issues = stack_values(design, layers, on_planes)
     issues += stack_issues
     polygons = sum(len(zone.layers) for zone in zones)
     if polygons and not any(found.severity == "error" for found in issues):
@@ -347,13 +424,25 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
     )
 
 
+def spec_planes(spec: pcbdoc.PcbDocSpec) -> dict[str, str]:
+    """The planes of a spec: layer name → net name, in stack order."""
+    if spec.stack is None:
+        return {}
+    layers = [
+        name
+        for name, layer in zip(spec.copper_layers, spec.stack.copper, strict=True)
+        if layer >= pcbrecords.FIRST_PLANE
+    ]
+    return dict(zip(layers, spec.stack.plane_nets, strict=True))
+
+
 def copper_summary(spec: pcbdoc.PcbDocSpec, *, source: str, where: str | None = None) -> dict[str, object]:
     """The ``copper`` object of the build's summary: what the planned document holds."""
     return {
         "source": source,
         "from": where,
         "layers": len(spec.copper_layers),
-        "planes": {},
+        "planes": spec_planes(spec),
         "tracks": len(spec.tracks),
         "arcs": len(spec.arcs),
         "vias": len(spec.vias),
@@ -374,6 +463,8 @@ __all__ = [
     "lower_copper",
     "mm_text",
     "outline_corner",
+    "plane_nets",
+    "spec_planes",
     "stack_from_stackup",
     "stack_values",
     "with_copper",

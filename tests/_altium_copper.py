@@ -150,6 +150,18 @@ def routed_model(features: tuple[str, ...] = FEATURES) -> ModelDesign:
     return model if "class" in features else without_class(model)
 
 
+PLANE = {"In1.Cu": "GND"}
+"""The plane of the variant ``p0``."""
+
+
+def plane_model() -> ModelDesign:
+    """The sample without its track on ``In1.Cu``, which the plane of ``p0`` replaces."""
+    model = routed_model()
+    assert model.board is not None
+    tracks = tuple(track for track in model.board.tracks if track.layer != "In1.Cu")
+    return dataclasses.replace(model, board=dataclasses.replace(model.board, tracks=tracks))
+
+
 def routed_placements() -> Mapping[str, object]:
     return placements(routed_design())
 
@@ -166,12 +178,14 @@ class Variant:
 
 def variants() -> dict[str, Variant]:
     """The bisection variants: ``c0`` two layers with tracks and an arc, ``c1`` adds the vias, ``c2`` the
-    stack of four signal layers with the inner tracks, ``c3`` adds the polygons."""
+    stack of four signal layers with the inner tracks, ``c3`` adds the polygons; ``p0`` is the
+    sample with ``In1.Cu`` as a plane on ``GND`` and without its track on ``In1.Cu``."""
     return {
         "c0": Variant(routed_model(("tracks", "arc")), copper=2),
         "c1": Variant(routed_model(("tracks", "arc", "vias")), copper=2),
         "c2": Variant(routed_model(("tracks", "arc", "vias", "inner"))),
         "c3": Variant(routed_model(("tracks", "arc", "vias", "inner", "zones"))),
+        "p0": Variant(plane_model(), build={"planes": PLANE}),
     }
 
 

@@ -455,3 +455,25 @@ def test_layer_count_from_the_script(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert copper["layers"] == 4 and copper["source"] == "none" and copper["from"] is None
     assert copper["planes"] == {} and copper["placements_from_board"] == 0
     assert [copper[key] for key in ("tracks", "arcs", "vias", "zones")] == [0, 0, 0, 0]
+
+
+def test_plane_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``design-dsl`` "Planes in a build", "Plane in an Altium build" (change c0038)."""
+    from _altium import blink_tree
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = blink_tree(tmp_path / "tree") / "design.py"
+    lines = script.read_text(encoding="utf-8").splitlines()
+    nets = next(line for line in lines if line.startswith("vin, gnd, led_drv, led_a = "))
+    lines.remove(nets)
+    board = lines.index("design.board(mm(50), mm(30))")
+    lines[board] = nets + '\ndesign.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})'
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    code, env, _ = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    assert code == 0
+    result = env["result"]
+    assert isinstance(result, dict) and result["copper"]["planes"] == {"In1.Cu": "GND"}
+    issues = env["issues"]
+    assert isinstance(issues, list) and "build.plane-not-lowered" not in [i["code"] for i in issues]

@@ -386,12 +386,30 @@ def _zone_opaque(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
     return _copper_board(model, zones=(opaque, nowhere)), {}
 
 
+def _plane_copper(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    """The sample's track on ``In1.Cu``, an arc moved there and a ``VIN`` zone on the ``GND`` plane."""
+    assert model.board is not None
+    (arc,), (zone,) = model.board.arcs, model.board.zones
+    vin = next(net.id for net in model.circuit.nets if net.name == "VIN")
+    other = dataclasses.replace(
+        zone, id="zon_00000000-0000-4000-8000-000000000003", net_id=vin, layers=("In1.Cu",)
+    )
+    board = _copper_board(model, arcs=(dataclasses.replace(arc, layer="In1.Cu"),), zones=(zone, other))
+    return board, {"planes": {"In1.Cu": "GND"}}
+
+
+def _plane_unknown(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    return model, {"planes": {"In1.Cu": "NOPE", "F.Cu": "GND"}}
+
+
 COPPER_PARTS = ("tracks", "arc", "vias", "inner", "zones", "class")
 COPPER_CASES: dict[
     str, tuple[Callable[[ModelDesign], tuple[ModelDesign, dict[str, object]]], dict[str, int]]
 ] = {
     "layer": (_copper_layer, {"altium.copper-layer": 3}),
     "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
+    "plane": (_plane_copper, {"altium.plane-copper": 3}),
+    "plane-net": (_plane_unknown, {"altium.copper-stack": 2}),
     "stack": (_copper_stack, {"altium.copper-stack": 1}),
     "via": (_via_blind, {"altium.via-unsupported": 2}),
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
@@ -433,7 +451,7 @@ def test_zone_on_a_missing_layer() -> None:
 @pytest.mark.parametrize("name", sorted(COPPER_CASES))
 def test_copper_case(name: str) -> None:
     """One issue per entity, an error each, with the entity id in ``where``; no file is written."""
-    codes = ("altium.copper", "altium.via", "altium.zone")
+    codes = ("altium.copper", "altium.via", "altium.zone-unsupported", "altium.plane-copper")
     issues = [i for i in run_copper_case(name) if i.code.startswith(codes)]
     counts: dict[str, int] = {}
     for found in issues:
@@ -562,7 +580,9 @@ def test_the_table() -> None:
         "altium.via-unsupported": "error",
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
+        "altium.plane-copper": "error",
         "altium.zones-unpoured": "info",
+        "altium.plane-zone-merged": "info",
     }
 
 

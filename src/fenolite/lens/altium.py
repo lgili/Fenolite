@@ -519,12 +519,14 @@ def pcb_document(
     placements: Mapping[str, PlacementRequest],
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: int = 2,
+    planes: Mapping[str, str] | None = None,
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
     outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. ``copper`` is the
-    script's copper layer count; the board's copper is lowered by ``altium_copper`` (change c0038), and
-    copper that cannot be written gives its errors and ``None``."""
+    script's copper layer count and ``planes`` its internal planes (layer name → net name); the board's
+    copper is lowered by ``altium_copper`` (change c0038), and copper that cannot be written gives its
+    errors and ``None``."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -612,7 +614,7 @@ def pcb_document(
             )
         )
     spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
-    plan = altium_copper.lower_copper(design, copper=copper, document=f"{name}.PcbDoc")
+    plan = altium_copper.lower_copper(design, copper=copper, planes=planes, document=f"{name}.PcbDoc")
     issues += plan.issues
     if plan.failed:
         return None, issues
@@ -1055,6 +1057,7 @@ def build_altium(
     resolver: LibraryResolver | None = None,
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: int = 2,
+    planes: Mapping[str, str] | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1065,8 +1068,9 @@ def build_altium(
     lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``. ``sheets``
     (change c0037) is ``flat`` for one sheet or ``modules`` for a top sheet with one sheet per top-level
     module, their harness definition files and a project file that lists them.
-    ``copper`` is the script's copper layer count (2 or 4); the copper of ``design.board`` is written into
-    the PCB document (change c0038), and copper that cannot be written exactly gives an error and no file.
+    ``copper`` is the script's copper layer count (2 or 4) and ``planes`` its internal planes (inner layer
+    name → net name); the copper of ``design.board`` is written into the PCB document (change c0038), and
+    copper that cannot be written exactly gives an error and no file.
     """
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
@@ -1099,7 +1103,7 @@ def build_altium(
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
     spec, document_issues = pcb_document(
-        model, name=name, footprints=footprints, placements=placements or {}, copper=copper, sheets=sheets
+        model, name=name, footprints=footprints, placements=placements or {}, copper=copper, planes=planes, sheets=sheets
     )
     issues += document_issues
     if any(i.severity == "error" for i in issues):

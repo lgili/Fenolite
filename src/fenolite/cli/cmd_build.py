@@ -154,7 +154,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
-        return _run_altium(args, ctx, run, model, requested, script_path, out, out_dir)
+        return _run_altium(args, ctx, run, model, requested, plane_nets, script_path, out, out_dir)
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
@@ -213,6 +213,7 @@ def _run_altium(
     run: ScriptRun,
     model: ModelDesign,
     requested: Mapping[str, PlacementRequest],
+    plane_nets: Mapping[str, str],
     script_path: Path,
     out: Path,
     out_dir: Path,
@@ -241,6 +242,7 @@ def _run_altium(
         resolver=resolver,
         sheets=sheets,
         copper=run.design.copper,
+        planes=plane_nets,
     )
     files = dict(built.files)
     if files:

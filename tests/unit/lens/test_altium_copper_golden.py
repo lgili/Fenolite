@@ -42,7 +42,7 @@ def test_variants_build_and_read_back() -> None:
     """Scenario "Variants stay outside the repository": every variant holds its five files, and
     ``FENOLITE_ALTIUM_VARIANTS`` writes them to a folder that is not in the repository."""
     built = variant_files()
-    assert list(built)[:4] == ["c0", "c1", "c2", "c3"]
+    assert list(built)[:4] == ["c0", "c1", "c2", "c3"] and "p0" in built
     for name, files in built.items():
         assert set(FILES) <= set(files), name
         document = read_pcbdoc(files[f"{NAME}.PcbDoc"])
