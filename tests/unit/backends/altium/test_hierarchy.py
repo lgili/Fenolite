@@ -8,7 +8,15 @@ from __future__ import annotations
 import pytest
 from _altium import HIER_PARTIAL, check_plan, hier_model, model_of, sample_model
 
-from fenolite.backends.altium.hierarchy import crossings, plan_sheets, port_id, sheet_file, sheet_of
+from fenolite.backends.altium.hierarchy import (
+    crossings,
+    harness_file,
+    plan_sheets,
+    port_id,
+    sheet_file,
+    sheet_of,
+    write_harness,
+)
 from fenolite.backends.altium.project import DEFAULT_SHEETS, component_path, plan_sheet
 from fenolite.dsl import Design, Net, Part, connect
 
@@ -209,3 +217,64 @@ def test_harness_net_listed_twice_travels_in_the_first_harness() -> None:
     found = crossings(model, form="binary")
     aux, _wp, spi = found["flash"]
     assert aux.entries == (("CLK", "SPI_SCK"),) and dict(spi.entries or ())["SCK"] is None
+
+
+# --- harness definition files ("Harness definition files") -------------------------------------------
+
+
+def test_harness_file_of_the_sample() -> None:
+    """Scenario "File of the sample"."""
+    assert write_harness({"SPI": ("MOSI", "MISO", "SCK", "CS")}) == b"SPI=CS,MISO,MOSI,SCK\r\n"
+
+
+def test_harness_file_sorts_types_and_entries() -> None:
+    data = write_harness({"b": ("Z", "A"), "SPI": ("SCK",), "A B": ("x",)})
+    assert data == b"A B=x\r\nSPI=SCK\r\nb=A,Z\r\n"
+    assert not data.startswith(b"\xef\xbb\xbf") and all(byte < 0x80 for byte in data)
+    assert write_harness({}) == b""
+
+
+@pytest.mark.parametrize(
+    "types",
+    [
+        {"A=B": ("X",)},
+        {"A,B": ("X",)},
+        {"A;B": ("X",)},
+        {"A": ("X=1",)},
+        {"A": ("CS,1",)},
+        {"A": ("X;",)},
+        {"A": ("",)},
+        {"": ("X",)},
+        {"A": ("X|Y",)},
+        {"A": ("é",)},
+        {"A": (" X",)},
+        {"A": ()},
+    ],
+)
+def test_harness_file_refuses_a_separator_or_unwritable_name(types: dict[str, tuple[str, ...]]) -> None:
+    """Scenario "Separator in a name"."""
+    with pytest.raises(ValueError):
+        write_harness(types)
+
+
+def test_harness_files_of_the_sample_sheets() -> None:
+    """One file per sheet that holds a block, named after the sheet; all three hold the same type."""
+    assert harness_file("altium_hier_flash.SchDoc") == "altium_hier_flash.Harness"
+    project = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="binary")
+    files = project.harness_files
+    assert list(files) == ["altium_hier.Harness", "altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
+    assert {write_harness(types) for types in files.values()} == {b"SPI=CS,MISO,MOSI,SCK\r\n"}
+    assert project.top.harness_types == {"SPI": ("CS", "MISO", "MOSI", "SCK")}
+    for mode, form in (("modules", "ascii"), ("flat", "binary")):
+        assert plan_sheets(hier_model(), name="altium_hier", sheets=mode, form=form).harness_files == {}  # type: ignore[arg-type]
+
+
+def test_harness_file_only_for_sheets_with_a_block() -> None:
+    """``DBG`` crosses ``mcu`` only: the flash sheet's file holds ``SPI`` alone."""
+    project = plan_sheets(hier_model(append=DBG), name="altium_hier", sheets="modules", form="binary")
+    files = {name: write_harness(types) for name, types in project.harness_files.items()}
+    assert files == {
+        "altium_hier.Harness": b"DBG=RST\r\nSPI=CS,MISO,MOSI,SCK\r\n",
+        "altium_hier_flash.Harness": b"SPI=CS,MISO,MOSI,SCK\r\n",
+        "altium_hier_mcu.Harness": b"DBG=RST\r\nSPI=CS,MISO,MOSI,SCK\r\n",
+    }

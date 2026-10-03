@@ -25,6 +25,7 @@ from fenolite.backends.altium.layout import (
     DESIGNATOR_RISE,
     PORT_HEIGHT,
     SHEET_NAME_RISE,
+    HarnessBlock,
     NoConnectMark,
     PlacedEntry,
     PlacedPart,
@@ -54,6 +55,12 @@ ENTRY_FILL = "8454143"
 RIGHT_SIDE = "1"
 """``SIDE`` of a sheet entry on the right side of its symbol."""
 ENTRY_ARROW = "Block & Triangle"
+CONNECTOR_COLOR = "13213327"
+"""The border of a harness connector."""
+CONNECTOR_FILL = "16511725"
+HARNESS_ENTRY_COLOR = "7354880"
+"""The border and the text of a harness entry; its fill is ``ENTRY_FILL``."""
+HARNESS_LINE_COLOR = "15187117"
 VERTICAL_TEXT = "1"
 """``ORIENTATION`` of a net label that runs upwards along a vertical stub."""
 NO_ERC_COLOR = "255"
@@ -358,9 +365,96 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
     return writer.records
 
 
+def block_records(block: HarnessBlock, index: int, height: int) -> list[Record]:
+    """The records of one harness block, whose connector is record ``index`` of the ``Additional`` list
+    (counted from 0 after the header), on a sheet ``height`` mil high: the connector (215), its entries
+    (216), its type (217) and the signal harness line (218). Entries and type name their connector through
+    ``OWNERINDEX``, which is left out when it is 0 (``docs/formats/altium/schematic-binary.md``,
+    "Additional stream and harness records")."""
+    owner: tuple[Field, ...] = (("OWNERINDEX", str(index)),) if index else ()
+    found: list[Record] = [
+        [
+            ("RECORD", "215"),
+            ("OWNERPARTID", "-1"),
+            *coord_fields("LOCATION", block.x, height - block.y),
+            ("XSIZE", str(to_units(block.width))),
+            ("YSIZE", str(to_units(block.height))),
+            ("LINEWIDTH", "1"),
+            ("COLOR", CONNECTOR_COLOR),
+            ("AREACOLOR", CONNECTOR_FILL),
+            ("PRIMARYCONNECTIONPOSITION", str(to_units(block.position))),
+        ]
+    ]
+    for k, (entry, _net) in enumerate(block.entries, start=1):
+        found.append(
+            [
+                ("RECORD", "216"),
+                *owner,
+                ("OWNERINDEXADDITIONALLIST", "T"),
+                ("OWNERPARTID", "-1"),
+                ("SIDE", RIGHT_SIDE),
+                ("DISTANCEFROMTOP", str(k)),
+                ("COLOR", HARNESS_ENTRY_COLOR),
+                ("AREACOLOR", ENTRY_FILL),
+                ("TEXTCOLOR", HARNESS_ENTRY_COLOR),
+                ("TEXTFONTID", "1"),
+                ("TEXTSTYLE", "Full"),
+                ("NAME", entry),
+            ]
+        )
+    found.append(
+        [
+            ("RECORD", "217"),
+            *owner,
+            ("OWNERINDEXADDITIONALLIST", "T"),
+            ("OWNERPARTID", "-1"),
+            *coord_fields("LOCATION", block.x, height - block.y),
+            ("COLOR", TEXT_COLOR),
+            ("FONTID", "1"),
+            ("TEXT", block.name),
+        ]
+    )
+    (x1, y1), (x2, y2) = block.line
+    found.append(
+        [
+            ("RECORD", "218"),
+            ("OWNERPARTID", "-1"),
+            ("LINEWIDTH", "2"),
+            ("COLOR", HARNESS_LINE_COLOR),
+            ("LOCATIONCOUNT", "2"),
+            ("X1", str(to_units(x1))),
+            ("Y1", str(to_units(height - y1))),
+            ("X2", str(to_units(x2))),
+            ("Y2", str(to_units(height - y2))),
+        ]
+    )
+    return found
+
+
+def additional_records(plan: SheetPlan) -> list[Record]:
+    """The records of the ``Additional`` stream after its header (change c0037, "Harness records"): per
+    harness block of ``plan``, in block order, the connector, its entries in code-point order of their
+    names, the type and the line. A sheet without a block gives no record."""
+    found: list[Record] = []
+    for block in plan.harnesses:
+        found += block_records(block, len(found), plan.size.height)
+    return found
+
+
 def write_schdoc(plan: SheetPlan) -> bytes:
-    """The bytes of the ASCII schematic of ``plan``."""
+    """The bytes of the ASCII schematic of ``plan``. A plan with a harness block is refused: the place of
+    harness records in the ASCII form is not documented (``hierarchy.plan_sheets`` makes none for it)."""
+    if plan.harnesses:
+        names = ", ".join(sorted({block.name for block in plan.harnesses}))
+        raise ValueError(f"the ASCII form cannot carry the harness {names}: harness records are binary only")
     return encode_records(schdoc_records(plan))
 
 
-__all__ = ["FONT_NAME", "schdoc_records", "sheet_record", "write_schdoc"]
+__all__ = [
+    "FONT_NAME",
+    "additional_records",
+    "block_records",
+    "schdoc_records",
+    "sheet_record",
+    "write_schdoc",
+]

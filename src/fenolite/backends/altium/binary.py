@@ -5,7 +5,9 @@ schematic form"; ``docs/formats/altium/schematic-binary.md``).
 
 A binary schematic is a compound file (``cfb.write_compound``) with two streams: ``FileHeader``, the binary
 header record and then the records of ``schdoc.schdoc_records`` unchanged, and ``Storage``, the empty icon
-storage. Each record is framed as a 4-byte little-endian word (payload length in the low 24 bits, type 0 in
+storage. A sheet with a harness block (change c0037) has a third stream, ``Additional``, with its own header
+record and the harness records of ``schdoc.additional_records``. Each record is framed as a 4-byte
+little-endian word (payload length in the low 24 bits, type 0 in
 the top byte) and the payload: the record's ASCII text (``ascii.format_record``) and one NUL that the length
 counts. Both forms therefore share every key, value, order and text check; only the header text and the
 framing differ. Pins stay text records.
@@ -19,7 +21,7 @@ from collections.abc import Sequence
 from fenolite.backends.altium.ascii import Field, format_record
 from fenolite.backends.altium.cfb import write_compound
 from fenolite.backends.altium.layout import SheetPlan
-from fenolite.backends.altium.schdoc import schdoc_records
+from fenolite.backends.altium.schdoc import additional_records, schdoc_records
 from fenolite.core.evidence import Evidence, Level
 
 HEADER_TEXT = "Protel for Windows - Schematic Capture Binary File Version 5.0"
@@ -32,6 +34,8 @@ PROPERTY_LIST = 0
 """The record type of a property list, in the top byte of the length word."""
 FILE_HEADER_STREAM = "FileHeader"
 STORAGE_STREAM = "Storage"
+ADDITIONAL_STREAM = "Additional"
+"""The stream of the harness records (215 to 218), written only when a sheet holds one."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
@@ -70,21 +74,33 @@ def storage_stream() -> bytes:
     return frame_record((("HEADER", STORAGE_HEADER_TEXT),))
 
 
+def additional_stream(records: Sequence[Sequence[Field]]) -> bytes:
+    """The ``Additional`` stream (change c0037): its own binary header record with the number of records
+    after it, then every record, framed as those of ``FileHeader``."""
+    return file_header_stream(records)
+
+
 def write_schdoc_binary(plan: SheetPlan) -> bytes:
-    """The bytes of the binary schematic of ``plan``; ``cfb.CompoundTooLarge`` past the size limit."""
-    return write_compound(
-        [
-            (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan))),
-            (STORAGE_STREAM, storage_stream()),
-        ]
-    )
+    """The bytes of the binary schematic of ``plan``; ``cfb.CompoundTooLarge`` past the size limit. The
+    stream ``Additional`` is written only when the plan holds harness records, so a sheet without a harness
+    keeps the two streams and the bytes of change c0033."""
+    streams = [
+        (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan))),
+        (STORAGE_STREAM, storage_stream()),
+    ]
+    additional = additional_records(plan)
+    if additional:
+        streams.append((ADDITIONAL_STREAM, additional_stream(additional)))
+    return write_compound(streams)
 
 
 __all__ = [
+    "ADDITIONAL_STREAM",
     "EVIDENCE",
     "HEADER_TEXT",
     "MAX_PAYLOAD",
     "STORAGE_HEADER_TEXT",
+    "additional_stream",
     "file_header_stream",
     "frame_record",
     "header_record",

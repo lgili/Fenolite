@@ -12,6 +12,7 @@ from functools import cache
 
 import pytest
 from _altium import (
+    HIER_PARTIAL,
     SAMPLE_PATHS,
     check_plan,
     component_index,
@@ -29,7 +30,7 @@ from _altium import (
 from fenolite.backends.altium.hierarchy import plan_sheets
 from fenolite.backends.altium.layout import PartSpec, PinNet, layout_sheet
 from fenolite.backends.altium.project import part_specs, plan_sheet, write_project
-from fenolite.backends.altium.schdoc import schdoc_records, write_schdoc
+from fenolite.backends.altium.schdoc import additional_records, schdoc_records, write_schdoc
 from fenolite.dsl import Design, Module, Net, Part, connect
 from fenolite.model import Design as ModelDesign
 from fenolite.model import PinRef
@@ -568,3 +569,198 @@ def test_port_free_module_gets_a_symbol_without_entries() -> None:
     top, sheet = (_dicts(s.plan) for s in project.sheets)
     assert [r["RECORD"] for r in top] == ["31", "15", "32", "33"]
     assert "18" not in {r["RECORD"] for r in sheet}
+
+
+# --- harness records (change c0037, "Harness records") -----------------------------------------------
+
+DBG = '\ndesign.add(Harness("DBG", {"RST": reset_n}))\n'
+
+
+def hier_plans(**variant: object) -> dict[str, object]:
+    """File name → the plan of each sheet of the hierarchy sample's binary ``modules`` build."""
+    model = hier_model(**variant)  # type: ignore[arg-type]
+    name = "altium_hier_partial" if variant.get("script") else "altium_hier"
+    project = plan_sheets(model, name=name, sheets="modules", form="binary")
+    return {sheet.file: sheet.plan for sheet in project.sheets}
+
+
+def _additional(plan: object) -> list[dict[str, str]]:
+    return [dict(record) for record in additional_records(plan)]  # type: ignore[arg-type]
+
+
+def _wires(found: list[dict[str, str]]) -> dict[tuple[int, int], dict[str, str]]:
+    """Start point → the label that follows each wire."""
+    return {
+        (int(r["X1"]), int(r["Y1"])): found[i + 1]
+        for i, r in enumerate(found)
+        if r["RECORD"] == "27" and found[i + 1]["RECORD"] == "25"
+    }
+
+
+def test_harness_block_of_the_flash_sheet() -> None:
+    """Scenario "Block of the flash sheet"."""
+    found = _additional(hier_plans()["altium_hier_flash.SchDoc"])
+    assert [r["RECORD"] for r in found] == ["215", "216", "216", "216", "216", "217", "218"]
+    connector, *entries, kind, line = found
+    assert list(connector) == [
+        "RECORD", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "XSIZE", "YSIZE", "LINEWIDTH", "COLOR",
+        "AREACOLOR", "PRIMARYCONNECTIONPOSITION",
+    ]  # fmt: skip
+    assert (connector["XSIZE"], connector["YSIZE"], connector["PRIMARYCONNECTIONPOSITION"]) == (
+        "50",
+        "50",
+        "20",
+    )
+    assert (connector["LINEWIDTH"], connector["COLOR"], connector["AREACOLOR"]) == (
+        "1",
+        "13213327",
+        "16511725",
+    )
+    assert "HARNESSCONNECTORSIDE" not in connector
+    assert [(r["NAME"], r["DISTANCEFROMTOP"]) for r in entries] == [
+        ("CS", "1"),
+        ("MISO", "2"),
+        ("MOSI", "3"),
+        ("SCK", "4"),
+    ]
+    for entry in entries:
+        assert list(entry) == [
+            "RECORD", "OWNERINDEXADDITIONALLIST", "OWNERPARTID", "SIDE", "DISTANCEFROMTOP", "COLOR",
+            "AREACOLOR", "TEXTCOLOR", "TEXTFONTID", "TEXTSTYLE", "NAME",
+        ]  # fmt: skip
+        assert (entry["OWNERINDEXADDITIONALLIST"], entry["OWNERPARTID"], entry["SIDE"]) == ("T", "-1", "1")
+        assert (entry["COLOR"], entry["AREACOLOR"], entry["TEXTCOLOR"]) == ("7354880", "8454143", "7354880")
+        assert (entry["TEXTFONTID"], entry["TEXTSTYLE"]) == ("1", "Full")
+    assert list(kind) == [
+        "RECORD", "OWNERINDEXADDITIONALLIST", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "COLOR", "FONTID",
+        "TEXT",
+    ]  # fmt: skip
+    assert (kind["TEXT"], kind["COLOR"], kind["FONTID"]) == ("SPI", "8388608", "1")
+    assert (kind["LOCATION.X"], kind["LOCATION.Y"]) == (connector["LOCATION.X"], connector["LOCATION.Y"])
+    assert list(line) == [
+        "RECORD", "OWNERPARTID", "LINEWIDTH", "COLOR", "LOCATIONCOUNT", "X1", "Y1", "X2", "Y2",
+    ]  # fmt: skip
+    assert (line["LINEWIDTH"], line["COLOR"], line["LOCATIONCOUNT"]) == ("2", "15187117", "2")
+    assert not any("UNIQUEID" in r or "INDEXINSHEET" in r for r in found)
+
+
+def test_harness_line_joins_port_and_connector() -> None:
+    """Scenario "Line joins port and connector"."""
+    plan = hier_plans()["altium_hier_flash.SchDoc"]
+    (port,) = (r for r in _dicts(plan) if r["RECORD"] == "18" and r["NAME"] == "SPI")
+    assert port["HARNESSTYPE"] == "SPI" and list(port)[-3:] == ["HARNESSTYPE", "UNIQUEID", "HEIGHT"]
+    connector, *_, line = _additional(plan)
+    start = (int(port["LOCATION.X"]) + int(port["WIDTH"]), int(port["LOCATION.Y"]))
+    assert (int(line["X1"]), int(line["Y1"])) == start
+    end = (
+        int(connector["LOCATION.X"]),
+        int(connector["LOCATION.Y"]) - int(connector["PRIMARYCONNECTIONPOSITION"]),
+    )
+    assert (int(line["X2"]), int(line["Y2"])) == end
+    assert end == (start[0] + 20, start[1]), "200 mil apart on one horizontal line"
+
+
+def test_harness_entry_stubs_carry_net_names() -> None:
+    """Scenario "Entry stubs carry net names"."""
+    plan = hier_plans()["altium_hier_flash.SchDoc"]
+    connector = _additional(plan)[0]
+    edge = int(connector["LOCATION.X"]) + int(connector["XSIZE"])
+    top = int(connector["LOCATION.Y"])
+    wires = _wires(_dicts(plan))
+    on_edge = {point: label["TEXT"] for point, label in wires.items() if point[0] == edge}
+    assert on_edge == {
+        (edge, top - 10): "SPI_CS",
+        (edge, top - 20): "SPI_MISO",
+        (edge, top - 30): "SPI_MOSI",
+        (edge, top - 40): "SPI_SCK",
+    }
+
+
+def test_harness_sheet_entries_and_ports_carry_the_type() -> None:
+    """Scenarios "Symbols of the hierarchy sample" and "Ports of the hierarchy sample" (record counts)."""
+    plans = hier_plans()
+    top = _dicts(plans["altium_hier.SchDoc"])
+    kinds = Counter(r["RECORD"] for r in top)
+    assert (kinds["15"], kinds["16"], kinds["32"], kinds["33"]) == (2, 5, 2, 2)
+    assert (kinds["27"], kinds["25"], kinds["17"], kinds["18"]) == (14, 12, 2, 0)
+    entries = [r for r in top if r["RECORD"] == "16"]
+    assert [r.get("HARNESSTYPE") for r in entries] == [None, "SPI", None, None, "SPI"]
+    assert [r["NAME"] for r in entries] == ["FLASH_WP", "SPI", "FLASH_WP", "RESET_N", "SPI"]
+    assert [r["DISTANCEFROMTOP"] for r in entries] == ["1", "4", "1", "2", "5"]
+    harness = entries[1]
+    assert list(harness)[-3:] == ["NAME", "HARNESSTYPE", "ARROWKIND"] and "IOTYPE" not in harness
+    assert [r["TEXT"] for r in top if r["RECORD"] == "32"] == ["flash", "mcu"]
+    assert [r["TEXT"] for r in top if r["RECORD"] == "33"] == [
+        "altium_hier_flash.SchDoc",
+        "altium_hier_mcu.SchDoc",
+    ]
+    for file, ports, wires, labels, power in (
+        ("altium_hier_mcu.SchDoc", [("FLASH_WP", None), ("RESET_N", None), ("SPI", "SPI")], 16, 12, 4),
+        ("altium_hier_flash.SchDoc", [("FLASH_WP", None), ("SPI", "SPI")], 17, 12, 5),
+    ):
+        found = _dicts(plans[file])
+        kinds = Counter(r["RECORD"] for r in found)
+        assert [(r["NAME"], r.get("HARNESSTYPE")) for r in found if r["RECORD"] == "18"] == ports
+        assert (kinds["27"], kinds["25"], kinds["17"]) == (wires, labels, power), file
+
+
+def test_harness_entry_of_a_net_that_does_not_cross() -> None:
+    """Scenario "Entry of a net that does not cross" (``partial.py``): every block holds five entries, and
+    no wire starts at the connection point of a ``HOLD`` entry."""
+    plans = hier_plans(script=HIER_PARTIAL)
+    blocks = 0
+    for plan in plans.values():
+        found = _additional(plan)
+        starts = set(_wires(_dicts(plan)))
+        connectors = [r for r in found if r["RECORD"] == "215"]
+        blocks += len(connectors)
+        for connector in connectors:
+            index = found.index(connector)
+            entries = found[index + 1 : index + 6]
+            assert [r["NAME"] for r in entries] == ["CS", "HOLD", "MISO", "MOSI", "SCK"]
+            assert found[index + 6]["RECORD"] == "217" and connector["YSIZE"] == "60"
+            edge = int(connector["LOCATION.X"]) + int(connector["XSIZE"])
+            points = {
+                r["NAME"]: (edge, int(connector["LOCATION.Y"]) - 10 * int(r["DISTANCEFROMTOP"]))
+                for r in entries
+            }
+            assert points["HOLD"] not in starts
+            assert all(points[name] in starts for name in ("CS", "MISO", "MOSI", "SCK"))
+    assert blocks == 4
+    labels = [r["TEXT"] for plan in plans.values() for r in _dicts(plan) if r["RECORD"] == "25"]
+    assert labels.count("FLASH_HOLD_N") == 2, "only the two pins on the flash sheet"
+
+
+def test_harness_second_connector_names_its_index() -> None:
+    """Scenario "Second connector names its index": a second harness ``DBG`` crosses ``mcu``."""
+    found = _additional(hier_plans(append=DBG)["altium_hier.SchDoc"])
+    connectors = [i for i, r in enumerate(found) if r["RECORD"] == "215"]
+    assert connectors == [0, 7, 11]
+    assert [found[i + 1]["NAME"] for i in connectors] == ["CS", "RST", "CS"]
+    for position, index in enumerate(connectors):
+        end = connectors[position + 1] if position + 1 < len(connectors) else len(found)
+        children = [r for r in found[index:end] if r["RECORD"] in ("216", "217")]
+        assert children and found[end - 1]["RECORD"] == "218"
+        if index == 0:
+            assert all("OWNERINDEX" not in r for r in children)
+        else:
+            assert all(r["OWNERINDEX"] == str(index) for r in children)
+            assert all(list(r)[:3] == ["RECORD", "OWNERINDEX", "OWNERINDEXADDITIONALLIST"] for r in children)
+    assert all("OWNERINDEX" not in r for r in found if r["RECORD"] in ("215", "218"))
+    assert [r["TEXT"] for r in found if r["RECORD"] == "217"] == ["SPI", "DBG", "SPI"]
+
+
+def test_ascii_writer_refuses_a_harness_block() -> None:
+    """Scenario "ASCII writer refuses a block"."""
+    plan = hier_plans()["altium_hier_flash.SchDoc"]
+    with pytest.raises(ValueError, match="SPI"):
+        write_schdoc(plan)  # type: ignore[arg-type]
+
+
+def test_no_harness_block_in_the_flat_mode_or_the_ascii_form() -> None:
+    model = hier_model()
+    flat = plan_sheets(model, name="altium_hier", sheets="flat", form="binary")
+    assert additional_records(flat.top.plan) == [] and additional_records(plan_sheet(sample_model())) == []
+    for sheet in plan_sheets(model, name="altium_hier", sheets="modules", form="ascii").sheets:
+        assert additional_records(sheet.plan) == []
+        assert write_schdoc(sheet.plan).startswith(b"|HEADER=")

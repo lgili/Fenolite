@@ -14,7 +14,7 @@ from functools import cache
 from typing import get_args
 
 import pytest
-from _altium import sample_model
+from _altium import hier_model, sample_model
 from _cfb_read import CfbError, deframe, read_compound
 
 from fenolite.backends.altium import binary, project
@@ -23,6 +23,7 @@ from fenolite.backends.altium.binary import (
     EVIDENCE,
     HEADER_TEXT,
     MAX_PAYLOAD,
+    additional_stream,
     file_header_stream,
     frame_record,
     header_record,
@@ -30,8 +31,9 @@ from fenolite.backends.altium.binary import (
     write_schdoc_binary,
 )
 from fenolite.backends.altium.cfb import SIGNATURE
+from fenolite.backends.altium.hierarchy import plan_sheets
 from fenolite.backends.altium.project import DEFAULT_FORM, plan_sheet, write_project
-from fenolite.backends.altium.schdoc import schdoc_records
+from fenolite.backends.altium.schdoc import additional_records, schdoc_records
 from fenolite.core.evidence import Level
 
 
@@ -158,3 +160,55 @@ def test_deframe_rejects_bad_records() -> None:
         deframe(struct.pack("<I", 1 << 24 | 5) + b"|K=v\0")
     assert format_record((("K", "v"),)) == "|K=v"
     assert get_args(project.SchematicForm) == ("binary", "ascii")
+
+
+# --- the Additional stream (change c0037) -----------------------------------------------------------
+
+
+def hier_binary(sheets: str = "modules") -> dict[str, dict[str, bytes]]:
+    """File name → the streams of each binary sheet of the hierarchy sample."""
+    found = plan_sheets(hier_model(), name="altium_hier", sheets=sheets, form="binary")  # type: ignore[arg-type]
+    return {sheet.file: read_compound(write_schdoc_binary(sheet.plan)) for sheet in found.sheets}
+
+
+def test_no_additional_stream_without_harnesses() -> None:
+    """Scenario "No Additional stream without harnesses"."""
+    assert sorted(sample_streams()) == ["FileHeader", "Storage"]
+    (flat,) = hier_binary("flat").values()
+    assert sorted(flat) == ["FileHeader", "Storage"]
+
+
+def test_additional_stream_of_the_hierarchy_sample() -> None:
+    """Scenario "Additional stream of the hierarchy sample"."""
+    streams = hier_binary()["altium_hier.SchDoc"]
+    assert sorted(streams) == ["Additional", "FileHeader", "Storage"]
+    stream = streams["Additional"]
+    records = deframe(stream)
+    assert len(records) == 15
+    (word,) = struct.unpack_from("<I", stream, 0)
+    first = stream[4 : 4 + (word & 0xFFFFFF)]
+    assert first == b"|HEADER=Protel for Windows - Schematic Capture Binary File Version 5.0|WEIGHT=14\0"
+    kinds = [dict(r)["RECORD"] for r in records[1:]]
+    assert sorted(kinds) == sorted(["215"] * 2 + ["216"] * 8 + ["217"] * 2 + ["218"] * 2)
+    assert kinds == ["215", *["216"] * 4, "217", "218"] * 2
+    assert b"\r" not in stream and b"\n" not in stream
+
+
+def test_additional_streams_of_the_module_sheets() -> None:
+    plans = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="binary")
+    for sheet in plans.modules:
+        streams = read_compound(write_schdoc_binary(sheet.plan))
+        assert sorted(streams) == ["Additional", "FileHeader", "Storage"]
+        expected = [list(r) for r in additional_records(sheet.plan)]
+        records = deframe(streams["Additional"])
+        assert records[0] == [("HEADER", HEADER_TEXT), ("WEIGHT", "7")] and records[1:] == expected
+        assert streams["Additional"] == additional_stream(additional_records(sheet.plan))
+        header = deframe(streams["FileHeader"])
+        assert header[1:] == [list(r) for r in schdoc_records(sheet.plan)]
+        assert not any(dict(r)["RECORD"] in ("215", "216", "217", "218") for r in header[1:])
+        assert streams["Storage"] == storage_stream()
+
+
+def test_additional_stream_framing() -> None:
+    records = [(("RECORD", "215"), ("OWNERPARTID", "-1"))]
+    assert additional_stream(records) == frame_record(header_record(1)) + frame_record(records[0])

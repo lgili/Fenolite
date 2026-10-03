@@ -16,10 +16,11 @@ a harness block (``layout.HarnessBlock``). The facts are in
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from fenolite.backends.altium.altsym import AltiumSymbol
+from fenolite.backends.altium.ascii import LINE_END, text_problem
 from fenolite.backends.altium.layout import Crossing, PartSpec, SheetPlan, SymbolSpec, layout_sheet
 from fenolite.backends.altium.project import (
     SchematicForm,
@@ -51,6 +52,9 @@ EVIDENCE = Evidence(
 """The hierarchy and harness facts are inferred from public sources until the maintainer's report of Part
 H (``docs/evidence/altium-schematic.md``); no oracle reads a schematic document."""
 SHEET_SUFFIX = ".SchDoc"
+HARNESS_SUFFIX = ".Harness"
+HARNESS_SEPARATORS = "=,;"
+"""The characters that separate a type from its entries, the entries, and the ``Locked`` mark."""
 PATH_SEPARATOR = "/"
 
 
@@ -63,6 +67,12 @@ class SheetFile:
     plan: SheetPlan
     module: str | None = None
     symbol_id: str | None = None
+
+    @property
+    def harness_types(self) -> dict[str, tuple[str, ...]]:
+        """Type name → entry names of the harness blocks of this sheet. Every block of a type holds all the
+        type's entries, so two blocks of one type agree."""
+        return {block.name: tuple(entry for entry, _ in block.entries) for block in self.plan.harnesses}
 
 
 @dataclass(frozen=True)
@@ -79,6 +89,12 @@ class ProjectSheets:
     @property
     def modules(self) -> tuple[SheetFile, ...]:
         return self.sheets[1:]
+
+    @property
+    def harness_files(self) -> dict[str, dict[str, tuple[str, ...]]]:
+        """Harness definition file → the types of the blocks of its sheet (type name → entry names), one
+        file per sheet that holds a harness block, in sheet order."""
+        return {harness_file(s.file): s.harness_types for s in self.sheets if s.plan.harnesses}
 
 
 def sheet_of(component: Component) -> str | None:
@@ -167,6 +183,43 @@ def crossings(design: Design, *, form: SchematicForm) -> dict[str, tuple[Crossin
     return found
 
 
+def harness_file(sheet: str) -> str:
+    """The harness definition file of the sheet file ``sheet``: its stem and ``.Harness``."""
+    return sheet.removesuffix(SHEET_SUFFIX) + HARNESS_SUFFIX
+
+
+def write_harness(types: Mapping[str, Sequence[str]]) -> bytes:
+    """The bytes of a harness definition file: one line ``<type>=<entry>,<entry>,…`` per type, the types
+    and the entries in code-point order, each line ending with CR LF, in 7-bit ASCII without a byte-order
+    mark (``docs/formats/altium/project.md``). A name that holds ``=``, ``,`` or ``;``, or that
+    ``ascii.text_problem`` refuses, raises ``ValueError``."""
+    lines: list[bytes] = []
+    for name in sorted(types):
+        entries = sorted(types[name])
+        if not entries:
+            raise ValueError(f"the harness type {name!r} has no entry")
+        for text, what in (
+            (name, "harness type name"),
+            *((entry, "harness entry name") for entry in entries),
+        ):
+            problem = harness_name_problem(text)
+            if problem is not None:
+                raise ValueError(f"the {what} {text!r} {problem}")
+        lines.append(f"{name}={','.join(entries)}".encode("ascii") + LINE_END)
+    return b"".join(lines)
+
+
+def harness_name_problem(text: str) -> str | None:
+    """Why ``text`` cannot be a harness type name or entry name in a definition file, or ``None``."""
+    problem = text_problem(text)
+    if problem is not None:
+        return problem
+    for separator in HARNESS_SEPARATORS:
+        if separator in text:
+            return f"holds the character {separator!r}, a separator of the harness definition file"
+    return None
+
+
 def plan_sheets(
     design: Design,
     *,
@@ -207,10 +260,13 @@ __all__ = [
     "ProjectSheets",
     "SheetFile",
     "crossings",
+    "harness_file",
     "harness_interfaces",
+    "harness_name_problem",
     "plan_sheets",
     "port_id",
     "sheet_file",
     "sheet_of",
     "symbol_id",
+    "write_harness",
 ]
