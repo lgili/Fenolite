@@ -2,9 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """Units, framing and primitive records shared by the Altium PCB library and PCB document (change c0035,
 capability altium-pcb-writer, "PCB units and record framing", "PCB layer map", "Footprint pad records" and
-"Footprint line and arc records").
+"Footprint line and arc records"; change c0038, "Copper layer map" and "Via records").
 
-Written from ``docs/formats/altium/pcb-records.md`` only. Lengths are signed 32-bit integers in
+Written from ``docs/formats/altium/pcb-records.md`` and ``pcb-copper.md`` only. Lengths are signed 32-bit integers in
 1/10 000 mil (2.54 nm): ``to_units`` rounds ``nm · 50 / 127`` half away from zero. Angles are doubles in
 degrees, counter-clockwise with Y up, computed with ``decimal`` and converted to a double once, so the
 bytes do not depend on the platform's C library. Every record is its type byte, then subrecords of a 32-bit
@@ -38,14 +38,19 @@ TRACK = 4
 ARC = 1
 PAD = 2
 TEXT = 5
+VIA = 3
 TRACK_SIZE = 36
 ARC_SIZE = 47
+VIA_SIZE = 321
+"""The via subrecord in the form Altium saves (``pcb-copper.md``, "Via")."""
 MULTI_LAYER = 74
 """The layer of every through-hole pad."""
 
 LAYER_MAP: Mapping[str, int] = MappingProxyType(
     {
         "F.Cu": 1,
+        "In1.Cu": 2,
+        "In2.Cu": 3,
         "B.Cu": 32,
         "F.SilkS": 33,
         "B.SilkS": 34,
@@ -55,7 +60,16 @@ LAYER_MAP: Mapping[str, int] = MappingProxyType(
         "B.CrtYd": 72,
     }
 )
-"""Fenolite layer → Altium layer id; the mechanical choices (13 to 16) are Fenolite's."""
+"""Fenolite layer → Altium layer id; the mechanical choices (13 to 16) are Fenolite's. An inner copper
+layer is here as a signal layer (Mid-Layer 1 and 2); a plane has no entry (``copper_stack``)."""
+COPPER_LAYER_TEXT: Mapping[str, str] = MappingProxyType(
+    {"F.Cu": "TOP", "In1.Cu": "MID1", "In2.Cu": "MID2", "B.Cu": "BOTTOM"}
+)
+"""Signal copper layer → its ``LAYER`` text in a property record (a polygon pour)."""
+COPPER_STACKS: tuple[tuple[str, ...], ...] = (("F.Cu", "B.Cu"), ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"))
+"""The copper stacks the document writes, top to bottom."""
+FIRST_PLANE = 39
+"""Internal Plane 1; planes are numbered from the top of the stack."""
 FLIP_PAIRS: Mapping[int, int] = MappingProxyType(
     {1: 32, 32: 1, 33: 34, 34: 33, 69: 70, 70: 69, 71: 72, 72: 71, MULTI_LAYER: MULTI_LAYER}
 )
@@ -84,6 +98,29 @@ def _layer_names() -> dict[int, str]:
 
 LAYER_NAMES: Mapping[int, str] = MappingProxyType(_layer_names())
 """Altium layer id → its name, ids 1 to 74."""
+
+
+def copper_stack(names: Sequence[str], planes: Sequence[str] = ()) -> tuple[int, ...]:
+    """The Altium ids of a board's copper layers from top to bottom. ``names`` is one of ``COPPER_STACKS``;
+    ``planes`` names the inner layers that are internal planes, numbered from the top (39, then 40). A
+    signal inner layer keeps its id of ``LAYER_MAP``. ``ValueError`` names any other input."""
+    layers = tuple(names)
+    if layers not in COPPER_STACKS:
+        raise ValueError(f"the copper layers {layers!r} are not {COPPER_STACKS[0]!r} or {COPPER_STACKS[1]!r}")
+    wanted = tuple(planes)
+    inner = layers[1:-1]
+    if len(set(wanted)) != len(wanted) or any(name not in inner for name in wanted):
+        raise ValueError(f"the planes {wanted!r} are not distinct inner layers of {layers!r}")
+    ids: list[int] = []
+    plane = FIRST_PLANE
+    for name in layers:
+        if name in wanted:
+            ids.append(plane)
+            plane += 1
+        else:
+            ids.append(LAYER_MAP[name])
+    return tuple(ids)
+
 
 EVIDENCE = Evidence(
     Level.INFERRED,
@@ -316,6 +353,32 @@ def arc_record(
     return bytes((ARC,)) + subrecord(body)
 
 
+VIA_START, VIA_END = 1, 32
+"""A through via runs from the top layer to the bottom layer on any layer count."""
+_MIL = UNITS_PER_MIL
+_VIA_LAYERS = 32
+
+
+def via_record(x: int, y: int, diameter: int, hole: int, *, net: int = NO_INDEX) -> bytes:
+    """A through via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
+    ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units."""
+    body = bytearray(VIA_SIZE)
+    body[0:13] = prefix(MULTI_LAYER, net=net)
+    struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, VIA_START, VIA_END)
+    struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
+    struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
+    struct.pack_into("<i", body, 54, 4 * _MIL)  # solder-mask expansion
+    struct.pack_into(f"<{_VIA_LAYERS}i", body, 75, *[diameter] * _VIA_LAYERS)
+    struct.pack_into("<Hi", body, 203, 15, 259)
+    struct.pack_into("<i", body, 242, 4 * _MIL)  # back solder-mask expansion
+    body[254] = 0x2A
+    struct.pack_into("<2i", body, 291, 0x7FFFFFFF, 0x7FFFFFFF)  # hole tolerances
+    struct.pack_into("<i", body, 304, 30)  # polygon-connect entry size; the count at 300 is 0
+    body[308] = 9
+    body[320] = 1
+    return bytes((VIA,)) + subrecord(bytes(body))
+
+
 PAD_SHAPES: Mapping[str, int] = MappingProxyType({"circle": 1, "oval": 1, "rect": 2, "roundrect": 1})
 """Fenolite pad shape → Altium main shape: an oval is round with unequal sizes; a rounded rectangle is round
 with alternate shape 9 in subrecord 6."""
@@ -376,6 +439,8 @@ def pad_record(
 __all__ = [
     "ARC",
     "ARC_SIZE",
+    "COPPER_LAYER_TEXT",
+    "COPPER_STACKS",
     "EMPTY_PROPERTY_BLOCK",
     "EVIDENCE",
     "FLIP_PAIRS",
@@ -391,11 +456,14 @@ __all__ = [
     "TEXT",
     "TRACK",
     "TRACK_SIZE",
+    "VIA",
+    "VIA_SIZE",
     "ArcGeometry",
     "angle_degrees",
     "arc_from_points",
     "arc_record",
     "circle_geometry",
+    "copper_stack",
     "corner_percent",
     "degrees_of",
     "mil_text",
@@ -408,4 +476,5 @@ __all__ = [
     "text_block",
     "to_units",
     "track_record",
+    "via_record",
 ]

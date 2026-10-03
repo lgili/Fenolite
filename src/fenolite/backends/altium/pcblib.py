@@ -140,7 +140,7 @@ def _pad_drops(pad: Pad, extras: PadExtras) -> list[str]:
 
 
 def _graphic_drop(graphic: Graphic) -> str | None:
-    if graphic.layer not in rec.LAYER_MAP:
+    if rec.LAYER_MAP.get(graphic.layer) not in rec.FLIP_PAIRS:  # unmapped, or an inner copper layer
         return f"{graphic.kind} on {graphic.layer}"
     if graphic.kind == "polygon":
         return f"{'filled ' if graphic.filled else ''}polygon on {graphic.layer}"

@@ -76,6 +76,8 @@ def test_prefix() -> None:
 def test_map_and_pairs() -> None:
     assert dict(LAYER_MAP) == {
         "F.Cu": 1,
+        "In1.Cu": 2,
+        "In2.Cu": 3,
         "B.Cu": 32,
         "F.SilkS": 33,
         "B.SilkS": 34,
@@ -84,8 +86,9 @@ def test_map_and_pairs() -> None:
         "F.CrtYd": 71,
         "B.CrtYd": 72,
     }
-    for layer in (*LAYER_MAP.values(), 74):
+    for layer in (*(v for k, v in LAYER_MAP.items() if not k.startswith("In")), 74):
         assert FLIP_PAIRS[FLIP_PAIRS[layer]] == layer
+    assert 2 not in FLIP_PAIRS and 3 not in FLIP_PAIRS and len(FLIP_PAIRS) == 9
     assert FLIP_PAIRS[74] == 74 and FLIP_PAIRS[1] == 32 and FLIP_PAIRS[69] == 70
 
 
@@ -260,3 +263,99 @@ def test_pad_rotation() -> None:
         pad_record(name="9", layer=1, x=0, y=0, size=(10, 20), shape=2, rotation=degrees_of(90_000_000))
     )
     assert pad.rotation == 90.0 and pad.layers_size == 0
+
+
+# --- copper (change c0038) ------------------------------------------------------------------------
+
+FOUR = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+
+
+def test_copper_layer_text() -> None:
+    assert dict(pcbrecords.COPPER_LAYER_TEXT) == {
+        "F.Cu": "TOP",
+        "In1.Cu": "MID1",
+        "In2.Cu": "MID2",
+        "B.Cu": "BOTTOM",
+    }
+    assert all(name in LAYER_MAP for name in pcbrecords.COPPER_LAYER_TEXT)
+    assert not any(value >= 39 for name, value in LAYER_MAP.items() if name.endswith(".Cu"))
+
+
+def test_copper_stack_signal_layers() -> None:
+    assert pcbrecords.copper_stack(("F.Cu", "B.Cu")) == (1, 32)
+    assert pcbrecords.copper_stack(FOUR) == (1, 2, 3, 32)
+    assert pcbrecords.copper_stack(list(FOUR), []) == (1, 2, 3, 32)
+
+
+def test_copper_stack_planes_numbered_from_the_top() -> None:
+    assert pcbrecords.copper_stack(FOUR, planes=("In1.Cu",)) == (1, 39, 3, 32)
+    assert pcbrecords.copper_stack(FOUR, planes=("In2.Cu",)) == (1, 2, 39, 32)
+    assert pcbrecords.copper_stack(FOUR, planes=("In1.Cu", "In2.Cu")) == (1, 39, 40, 32)
+    assert pcbrecords.copper_stack(FOUR, planes=("In2.Cu", "In1.Cu")) == (1, 39, 40, 32)
+
+
+@pytest.mark.parametrize(
+    ("names", "planes", "named"),
+    [
+        (("F.Cu", "In1.Cu", "B.Cu"), (), "In1.Cu"),
+        (("F.Cu", "In2.Cu", "In1.Cu", "B.Cu"), (), "In2.Cu"),
+        (FOUR, ("F.Cu",), "F.Cu"),
+        (("F.Cu", "B.Cu"), ("In1.Cu",), "In1.Cu"),
+        (FOUR, ("In1.Cu", "In1.Cu"), "In1.Cu"),
+    ],
+)
+def test_copper_stack_refuses_other_layers(
+    names: tuple[str, ...], planes: tuple[str, ...], named: str
+) -> None:
+    with pytest.raises(ValueError, match=named):
+        pcbrecords.copper_stack(names, planes)
+
+
+def test_via_record_bytes() -> None:
+    data = pcbrecords.via_record(393701, 393701, 236220, 118110, net=2)
+    assert data[0] == pcbrecords.VIA == 3
+    assert struct.unpack_from("<I", data, 1) == (pcbrecords.VIA_SIZE,) == (321,)
+    body = data[5:]
+    assert len(body) == 321 and len(data) == 326
+    assert body[:5] == bytes.fromhex("4A0C000200")
+    assert struct.unpack_from("<HH", body, 5) == (NO_INDEX, NO_INDEX) and body[9:13] == b"\xff" * 4
+    assert struct.unpack_from("<2i", body, 13) == (393701, 393701)
+    assert body[29:31] == bytes.fromhex("0120")
+    for offset in (21, 75, 199):
+        assert struct.unpack_from("<i", body, offset) == (236220,)
+    assert struct.unpack_from("<i", body, 25) == (118110,)
+    assert struct.unpack_from("<32i", body, 75) == (236220,) * 32
+
+
+def test_via_record_fixed_bytes() -> None:
+    """Every byte the fact page fixes, and zero elsewhere (``pcb-copper.md``, "Via")."""
+    body = bytearray(pcbrecords.via_record(0, 0, 0, 0)[5:])
+    mil = 10_000
+    expected = {
+        32: struct.pack("<i", 10 * mil),
+        36: struct.pack("<h", 4),
+        38: struct.pack("<i", 10 * mil),
+        42: struct.pack("<i", 20 * mil),
+        46: struct.pack("<i", 20 * mil),
+        54: struct.pack("<i", 4 * mil),
+        203: struct.pack("<H", 15),
+        205: struct.pack("<i", 259),
+        242: struct.pack("<i", 4 * mil),
+        254: b"\x2a",
+        291: struct.pack("<i", 0x7FFFFFFF),
+        295: struct.pack("<i", 0x7FFFFFFF),
+        304: struct.pack("<i", 30),
+        308: b"\x09",
+        320: b"\x01",
+    }
+    for offset, value in expected.items():
+        assert bytes(body[offset : offset + len(value)]) == value, offset
+        body[offset : offset + len(value)] = bytes(len(value))
+    body[0:13] = bytes(13)
+    body[29:31] = bytes(2)
+    assert bytes(body) == bytes(321)
+
+
+def test_via_without_a_net() -> None:
+    body = pcbrecords.via_record(1, 2, 3, 1)[5:]
+    assert struct.unpack_from("<H", body, 3) == (NO_INDEX,)
