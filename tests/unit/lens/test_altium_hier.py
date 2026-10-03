@@ -227,3 +227,36 @@ def test_layer_files_keep_the_harness_interface() -> None:
     assert texts == canonical.dump_texts(output.design)
     kinds = {i.kind for i in output.design.circuit.interfaces}
     assert kinds == {"power", "harness"} and '"harness"' in texts["circuit.json"]
+
+
+def test_no_connect_directives_stay_on_the_sheet_of_their_pin() -> None:
+    """Changes c0036 and c0037 together: a marked pin of a module part gets its No ERC directive on the
+    module's sheet, in both modes, and the nets still read back."""
+    from _altium_read import nets_from_project, read_no_connects, read_sheet
+
+    mark = "\nfrom fenolite.dsl import no_connect\nno_connect(u2[9], j1[4])\n"
+    design = hier(append=mark)
+    flat = build_altium(to_model(design), name=design.name, form="ascii")
+    split = build_altium(to_model(hier(append=mark)), name=design.name, sheets="modules", form="ascii")
+    assert flat.summary["no_connects"] == split.summary["no_connects"] == 2
+    assert not [i for i in split.issues if i.severity in ("warning", "error")]
+    marks = {
+        name: read_no_connects(records(data))
+        for name, data in split.files.items()
+        if name.endswith(".SchDoc")
+    }
+    assert marks == {
+        "altium_hier.SchDoc": {("J1", "4")},
+        "altium_hier_flash.SchDoc": {("U2", "9")},
+        "altium_hier_mcu.SchDoc": set(),
+    }
+    binary = build_altium(to_model(hier(append=mark)), name=design.name, sheets="modules")
+    sheets = {name: read_sheet(data) for name, data in binary.files.items() if name.endswith(".SchDoc")}
+    nets = nets_from_project(sheets, "altium_hier.SchDoc")
+    named = {name: pins for name, pins in nets.items() if not name.startswith("<unnamed ")}
+    assert sorted(named) == sorted(n.name for n in binary.design.circuit.nets) and len(named) == 9
+    for sheet in sheets.values():
+        kinds = [r["RECORD"] for r in sheet[0]]
+        assert "22" not in kinds or kinds.index("22") > max(
+            i for i, k in enumerate(kinds) if k in ("27", "25", "17")
+        )
