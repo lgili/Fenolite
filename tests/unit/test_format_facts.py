@@ -94,6 +94,7 @@ def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
     assert [p.name for p in pages] == [
         "compound-file.md",
+        "pcb-copper.md",
         "pcb-document.md",
         "pcb-library.md",
         "pcb-records.md",
@@ -227,7 +228,7 @@ def test_library_page_pins_altiumsharp_to_version_1() -> None:
 def test_pcb_pages_pin_altiumsharp_to_version_1() -> None:
     """Every fact row of the ``pcb-*.md`` pages that cites S-0150 names version 1 at the pinned commit, and
     ``pcb-library.md`` lists what version 2 alone gives (change c0035; LEGAL.md P1)."""
-    for name in ("pcb-library.md", "pcb-records.md", "pcb-document.md"):
+    for name in ("pcb-library.md", "pcb-records.md", "pcb-document.md", "pcb-copper.md"):
         text = (ALTIUM_PAGES / name).read_text(encoding="utf-8")
         rows = [line for line in text.splitlines() if line.startswith("|") and "S-0150" in line]
         unpinned = [line for line in rows if line.count("S-0150") != line.count(S0150_PIN)]
