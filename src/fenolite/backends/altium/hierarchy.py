@@ -109,14 +109,24 @@ def sheet_file(name: str, module: str | None = None) -> str:
     return f"{name}{SHEET_SUFFIX}" if module is None else f"{name}_{module}{SHEET_SUFFIX}"
 
 
+def symbol_key(module: str) -> str:
+    """The key of the unique id of the sheet symbol of ``module``."""
+    return f"sheet:{module}"
+
+
+def port_key(module: str, name: str) -> str:
+    """The key of the unique id of the port ``name`` on the sheet of ``module``."""
+    return f"port:{module}:{name}"
+
+
 def symbol_id(module: str) -> str:
-    """The unique id of the sheet symbol of ``module``."""
-    return unique_id(f"sheet:{module}")
+    """The unique id of the sheet symbol of ``module``: ``unique_id("sheet:<module>")``."""
+    return unique_id(symbol_key(module))
 
 
 def port_id(module: str, name: str) -> str:
-    """The unique id of the port ``name`` on the sheet of ``module``."""
-    return unique_id(f"port:{module}:{name}")
+    """The unique id of the port ``name`` of ``module``: ``unique_id("port:<module>:<name>")``."""
+    return unique_id(port_key(module, name))
 
 
 def _form(form: str) -> None:
@@ -124,13 +134,13 @@ def _form(form: str) -> None:
         raise ValueError(f"unknown schematic form {form!r}")
 
 
-HARNESS_KIND = "harness"
+HARNESS_INTERFACE = "harness"
 """The kind of the model interfaces that ``fenolite.dsl.Harness`` records."""
 
 
 def harness_interfaces(design: Design) -> list[Interface]:
     """The ``harness`` interfaces of ``design``, in code-point order of their names."""
-    found = [i for i in design.circuit.interfaces if i.kind == HARNESS_KIND]
+    found = [i for i in design.circuit.interfaces if i.kind == HARNESS_INTERFACE]
     return sorted(found, key=lambda i: i.name)
 
 
@@ -256,7 +266,7 @@ def plan_sheets(
 
 __all__ = [
     "EVIDENCE",
-    "HARNESS_KIND",
+    "HARNESS_INTERFACE",
     "ProjectSheets",
     "SheetFile",
     "crossings",
@@ -265,8 +275,10 @@ __all__ = [
     "harness_name_problem",
     "plan_sheets",
     "port_id",
+    "port_key",
     "sheet_file",
     "sheet_of",
     "symbol_id",
+    "symbol_key",
     "write_harness",
 ]

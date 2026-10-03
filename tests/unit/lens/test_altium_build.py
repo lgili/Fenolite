@@ -142,6 +142,11 @@ def test_summary_of_the_sample() -> None:
         "schematic_format": "binary",
         "footprints": 0,
         "pcb_document": None,
+        "sheet_mode": "flat",
+        "sheets": ["altium_sample.SchDoc"],
+        "ports": 0,
+        "sheet_entries": 0,
+        "harnesses": 0,
         "experimental": True,
     }
     assert build(sample(), form="ascii").summary["schematic_format"] == "ascii"
@@ -206,7 +211,13 @@ def test_experimental_entry() -> None:
         "name": "altium-schematic-writer",
         "command": "build",
         "option": "--target altium",
-        "write_kinds": ["altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib"],
+        "write_kinds": [
+            "altium_harness",
+            "altium_prjpcb",
+            "altium_schdoc_ascii",
+            "altium_schdoc_binary",
+            "altium_schlib",
+        ],
     }
 
 

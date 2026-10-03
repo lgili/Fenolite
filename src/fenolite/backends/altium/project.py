@@ -40,13 +40,16 @@ UNIQUE_ID_SALT = "fenolite.altium.uniqueid:"
 UNIQUE_ID_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXY"
 UNIQUE_ID_LENGTH = 8
 WRITE_KINDS: tuple[str, ...] = (
+    "altium_harness",
     "altium_prjpcb",
     "altium_schdoc_ascii",
     "altium_schdoc_binary",
     "altium_schlib",
 )
-"""The kinds of the planned writes of an Altium build: the project file, the schematic in each form and
-the schematic libraries (change c0034)."""
+"""The kinds of the planned writes of an Altium build: the harness definition files (change c0037), the
+project file, the schematic sheets in each form and the schematic libraries (change c0034)."""
+HARNESS_KIND = "altium_harness"
+"""The write kind of a harness definition file, ``<sheet stem>.Harness`` (change c0037)."""
 SCHLIB_KIND = "altium_schlib"
 PCBLIB_KIND = "altium_pcblib"
 """The write kind of ``<name>.PcbLib`` (change c0035; listed by the ``altium-pcb-writer`` entry, not in
@@ -325,27 +328,36 @@ def write_project(
     symbols: Mapping[str, AltiumSymbol] | None = None,
     footprints: Sequence[LibFootprint] = (),
     pcb: PcbDocSpec | None = None,
+    sheets: SheetMode = DEFAULT_SHEETS,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
     lib id to its library symbol; a lib id missing from it gets its generic symbol. The binary form and
     every library raise ``cfb.CompoundTooLarge`` past the compound file's size limit. ``footprints`` (change
     c0035) are written into ``<name>.PcbLib`` when not empty, and ``pcb`` into ``<name>.PcbDoc``; the
-    project file lists both; their size limit raises ``PcbTooLarge``."""
+    project file lists both; their size limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
+    c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
+    sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
+    libraries do not depend on the mode."""
+    from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
+
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    plan = plan_sheet(design, name=name, symbols=symbols)
-    if plan.size.style is None and issues is not None:
-        issues.append(
-            Issue(
-                "altium.sheet-custom",
-                "warning",
-                f"the layout does not fit an A0 sheet; a custom sheet of {plan.size.width} x "
-                f"{plan.size.height} mil is written",
-                where=f"{name}.SchDoc",
+    planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols)
+    for sheet in planned.sheets:
+        size = sheet.plan.size
+        if size.style is None and issues is not None:
+            issues.append(
+                Issue(
+                    "altium.sheet-custom",
+                    "warning",
+                    f"the layout does not fit an A0 sheet; a custom sheet of {size.width} x "
+                    f"{size.height} mil is written",
+                    where=sheet.file,
+                )
             )
-        )
+    harness_files = planned.harness_files
     libraries = library_symbols(design, name=name, symbols=symbols)
     files: dict[str, bytes] = {}
     listed = list(libraries)
@@ -356,8 +368,13 @@ def write_project(
             schematic=f"{name}.SchDoc",
             pcb=f"{name}.PcbDoc" if pcb is not None else None,
             libraries=tuple(listed),
+            sheets=tuple(sheet.file for sheet in planned.modules),
+            harnesses=tuple(harness_files),
         )
-    files[f"{name}.SchDoc"] = write_schdoc_binary(plan) if form == "binary" else write_schdoc(plan)
+    for sheet in planned.sheets:
+        files[sheet.file] = write_schdoc_binary(sheet.plan) if form == "binary" else write_schdoc(sheet.plan)
+    for harness, types in harness_files.items():
+        files[harness] = write_harness(types)
     for library, found in libraries.items():
         try:
             files[library] = write_schlib(found, library=library)
@@ -382,6 +399,7 @@ __all__ = [
     "DEFAULT_FORM",
     "DEFAULT_SHEETS",
     "EVIDENCE",
+    "HARNESS_KIND",
     "LibraryTooLarge",
     "PCBDOC_KIND",
     "PCBLIB_KIND",

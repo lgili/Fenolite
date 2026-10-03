@@ -26,7 +26,7 @@ from fenolite.backends.altium import binary, hierarchy, pcbdoc, pcblib, pcbrecor
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
-from fenolite.backends.altium.layout import SheetPlan
+from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
@@ -74,6 +74,10 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",
         "altium.pcb-too-large": "error",
+        "altium.sheet-name-collision": "error",
+        "altium.harness-name": "error",
+        "altium.harness-net-shared": "error",
+        "altium.harness-power-net": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -92,6 +96,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
+        "altium.sheets-not-in-project": "info",
     }
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
@@ -769,7 +774,13 @@ def _case_collisions(issues: list[Issue], what: str, names: Sequence[str]) -> No
             seen[name.lower()] = name
 
 
-def _check(design: Design, name: str, placed: Sequence[str]) -> list[Issue]:
+def _check(
+    design: Design,
+    name: str,
+    placed: Sequence[str],
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    form: project.SchematicForm = project.DEFAULT_FORM,
+) -> list[Issue]:
     """The build checks of the closed table, before any pin is set."""
     issues: list[Issue] = []
     _unwritable(issues, name, "design name", name)
@@ -827,24 +838,117 @@ def _check(design: Design, name: str, placed: Sequence[str]) -> list[Issue]:
         _unwritable(issues, mark.pin, f"{ref} pin designator", where)
     _case_collisions(issues, "net", [n.name for n in design.circuit.nets])
     _case_collisions(issues, "ref", [c.ref for c in components])
+    issues += _hierarchy_checks(design)
     ids: dict[str, str] = {}
-    for component in components:
-        uid = unique_id(component.id)
+    keyed = [(c.id, c.ref, component_path(c)) for c in components]
+    if not any(i.severity == "error" for i in issues):
+        for module, found in hierarchy.crossings(design, form=form).items():
+            keyed.append((hierarchy.symbol_key(module), f"the sheet symbol {module}", module))
+            keyed += [
+                (hierarchy.port_key(module, c.name), f"the port {c.name} of {module}", module) for c in found
+            ]
+    for key, what, where in keyed:
+        uid = unique_id(key)
         other = ids.get(uid)
         if other is not None:
             issues.append(
-                issue(
-                    "altium.unique-id-collision",
-                    f"{other} and {component.ref} get the same unique id {uid}",
-                    component_path(component),
-                )
+                issue("altium.unique-id-collision", f"{other} and {what} get the same unique id {uid}", where)
             )
-        ids.setdefault(uid, component.ref)
-    issues += _not_lowered(design, placed)
+        ids.setdefault(uid, what)
+    issues += _not_lowered(design, placed, sheets, form)
     return issues
 
 
-def _not_lowered(design: Design, placed: Sequence[str]) -> list[Issue]:
+def _hierarchy_checks(design: Design) -> list[Issue]:
+    """The checks of "Hierarchy issue codes" (change c0037), reported in both sheet modes so a design is
+    refused before its mode is switched: module names whose sheet files would collide, harness names a
+    definition file cannot hold, a net in two harnesses, and a power net in a harness."""
+    found: list[Issue] = []
+    modules = sorted({m for c in design.circuit.components if (m := hierarchy.sheet_of(c)) is not None})
+    seen: dict[str, str] = {}
+    for module in modules:
+        _unwritable(found, module, "module name", module)
+        other = seen.setdefault(module.lower(), module)
+        if other != module:
+            message = (
+                f"the modules {other!r} and {module!r} differ only in letter case, so their sheet files "
+                "would collide"
+            )
+            found.append(issue("altium.sheet-name-collision", message, module, "rename one of the modules"))
+    names = {net.id: net.name for net in design.circuit.nets}
+    net_names = {net.name.lower(): net.name for net in design.circuit.nets}
+    power = set(project.power_styles(design))
+    types: dict[str, str] = {}
+    owners: dict[str, list[str]] = {}
+    for interface in hierarchy.harness_interfaces(design):
+        kind = interface.name
+        _harness_text(found, kind, "harness type name", kind)
+        other = types.setdefault(kind.lower(), kind)
+        if other != kind:
+            message = f"the harness type names {other!r} and {kind!r} differ only in letter case"
+            found.append(issue("altium.harness-name", message, kind))
+        net = net_names.get(kind.lower())
+        if net is not None:
+            message = (
+                f"the harness type name {kind!r} equals the net name {net!r}; a port and a sheet entry are "
+                "named after each"
+            )
+            found.append(issue("altium.harness-name", message, kind, "rename the harness or the net"))
+        entries: dict[str, str] = {}
+        for entry, net_id in sorted(interface.members.items()):
+            _harness_text(found, entry, f"harness {kind} entry name", kind)
+            before = entries.setdefault(entry.lower(), entry)
+            if before != entry:
+                message = (
+                    f"harness {kind}: the entry names {before!r} and {entry!r} differ only in letter case"
+                )
+                found.append(issue("altium.harness-name", message, kind))
+            owners.setdefault(net_id, []).append(kind)
+            if net_id in power:
+                message = (
+                    f"harness {kind}: the entry {entry} is on {names.get(net_id, net_id)}, a net of a power "
+                    "interface; power nets join through global power ports and travel in no harness"
+                )
+                hint = "take the net out of the harness"
+                found.append(issue("altium.harness-power-net", message, kind, hint))
+    for net_id, kinds in sorted(owners.items(), key=lambda item: names.get(item[0], item[0])):
+        if len(kinds) > 1:
+            net = names.get(net_id, net_id)
+            where = " and ".join(dict.fromkeys(kinds))
+            twice = "twice in the harness" if len(set(kinds)) == 1 else "in the harnesses"
+            message = f"the net {net} is {twice} {where}; a net travels in one harness entry"
+            hint = "keep the net in one harness, under one entry"
+            found.append(issue("altium.harness-net-shared", message, net, hint))
+    return found
+
+
+def _harness_text(issues: list[Issue], text: str, what: str, where: str) -> None:
+    """A harness type or entry name: ``altium.text-unwritable`` when no record can hold it, else
+    ``altium.harness-name`` when it holds a separator of the harness definition file."""
+    if text_problem(text) is not None:
+        _unwritable(issues, text, what, where)
+    elif any(separator in text for separator in hierarchy.HARNESS_SEPARATORS):
+        message = (
+            f"{what} {text!r} holds '=', ',' or ';', which separate the fields of a harness definition file"
+        )
+        issues.append(issue("altium.harness-name", message, where, "use a name without '=', ',' and ';'"))
+
+
+def lowered_harnesses(design: Design, sheets: project.SheetMode, form: project.SchematicForm) -> set[str]:
+    """The names of the ``harness`` interfaces the build draws: those that cross a module, in the
+    ``modules`` mode and the binary form (change c0037)."""
+    if sheets != "modules" or form != "binary":
+        return set()
+    found = hierarchy.crossings(design, form=form)
+    return {c.name for module in found.values() for c in module if c.harness}
+
+
+def _not_lowered(
+    design: Design,
+    placed: Sequence[str],
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    form: project.SchematicForm = project.DEFAULT_FORM,
+) -> list[Issue]:
     """One info per kind of design item the Altium files have no place for."""
     found: list[Issue] = []
     if design.board is not None and design.board.outline is not None:
@@ -866,21 +970,40 @@ def _not_lowered(design: Design, placed: Sequence[str]) -> list[Issue]:
     if pairs:
         message = f"diff pairs {', '.join(pairs)} are kept in the model only"
         found.append(issue("altium.not-lowered", message, "interfaces"))
+    drawn = lowered_harnesses(design, sheets, form)
+    harnesses = [i.name for i in hierarchy.harness_interfaces(design) if i.name not in drawn]
+    if harnesses:
+        if sheets != "modules":
+            why, hint = "the schematic is one sheet", "build with --altium-sheets modules to draw them"
+        elif form != "binary":
+            why, hint = "the ASCII form writes no harness", "build with --altium-format binary to draw them"
+        else:
+            why, hint = "none of their nets leaves a module's sheet", ""
+        message = (
+            f"harnesses {', '.join(harnesses)} are kept in the model only ({why}); their nets are written "
+            "as plain nets"
+        )
+        found.append(issue("altium.not-lowered", message, "harnesses", hint))
     return found
 
 
 def _summary(
     design: Design,
     kept: Sequence[str],
-    plan: SheetPlan | None,
+    planned: ProjectSheets | None,
     form: project.SchematicForm,
     libraries: Mapping[str, Sequence[AltiumSymbol]] | None = None,
     footprints: int = 0,
     pcb_document: str | None = None,
     pcb_library: str = "",
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> dict[str, object]:
-    labels = sum(1 for s in plan.stubs if s.net.kind == "label") if plan is not None else 0
-    ports = sum(1 for s in plan.stubs if s.net.kind == "port") if plan is not None else 0
+    """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
+    entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
+    types drawn) are 0 on a single sheet (change c0037)."""
+    plans = [sheet.plan for sheet in planned.sheets] if planned is not None else []
+    labels = sum(1 for plan in plans for s in (*plan.links, *plan.stubs) if s.net.kind == "label")
+    ports = sum(1 for plan in plans for s in plan.stubs if s.net.kind == "port")
     found = list(libraries or {})
     if footprints:
         found = sorted([*found, pcb_library], key=name_key)
@@ -889,12 +1012,17 @@ def _summary(
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
-        "no_connects": len(plan.no_connects) if plan is not None else 0,
-        "sheet": plan.size.name if plan is not None else None,
+        "no_connects": sum(len(plan.no_connects) for plan in plans),
+        "sheet": planned.top.plan.size.name if planned is not None else None,
         "libraries": found,
         "symbols": sum(len(symbols) for symbols in (libraries or {}).values()),
         "footprints": footprints,
         "pcb_document": pcb_document,
+        "sheet_mode": sheets,
+        "sheets": [sheet.file for sheet in planned.sheets] if planned is not None else [],
+        "ports": sum(len(plan.ports) for plan in plans),
+        "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
+        "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -910,6 +1038,7 @@ def build_altium(
     project_exists: bool = False,
     form: project.SchematicForm = project.DEFAULT_FORM,
     resolver: LibraryResolver | None = None,
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -917,13 +1046,17 @@ def build_altium(
     ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned; ``form`` is the
     form of ``<name>.SchDoc`` (``binary`` or ``ascii``). A binary schematic past the compound file's size
     limit is reported as ``altium.schematic-too-large`` and gives no file. ``resolver`` resolves the KiCad
-    lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``.
+    lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``. ``sheets``
+    (change c0037) is ``flat`` for one sheet or ``modules`` for a top sheet with one sheet per top-level
+    module, their harness definition files and a project file that lists them.
     """
+    if sheets not in ("flat", "modules"):
+        raise ValueError(f"unknown sheet mode {sheets!r}")
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     resolved = resolve_symbols(design, resolver)
     design = _with_symbol_fields(design, resolved)
-    issues = _check(design, name, placed)
+    issues = _check(design, name, placed, sheets, form)
     if project_exists:
         issues.append(
             issue(
@@ -941,7 +1074,9 @@ def build_altium(
     if not any(i.severity == "error" for i in issues):
         issues += _library_checks(model, name, symbols, project_exists)
     if any(i.severity == "error" for i in issues):
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     footprints, footprint_issues = resolve_footprints(model, resolver)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
@@ -959,6 +1094,17 @@ def build_altium(
             issue(
                 "altium.pcb-not-in-project",
                 f"the kept {name}.PrjPcb does not list {', '.join(pcb_files)}; add them in Altium "
+                "(Project » Add Existing to Project)",
+                f"{name}.PrjPcb",
+            )
+        )
+    planned = hierarchy.plan_sheets(model, name=name, sheets=sheets, form=form, symbols=symbols)
+    unlisted = [*(sheet.file for sheet in planned.modules), *sorted(planned.harness_files, key=name_key)]
+    if project_exists and unlisted:
+        issues.append(
+            issue(
+                "altium.sheets-not-in-project",
+                f"the kept {name}.PrjPcb does not list {', '.join(unlisted)}; add them in Altium "
                 "(Project » Add Existing to Project)",
                 f"{name}.PrjPcb",
             )
@@ -984,6 +1130,7 @@ def build_altium(
             symbols=symbols,
             footprints=written,
             pcb=spec,
+            sheets=sheets,
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -994,7 +1141,9 @@ def build_altium(
                 "build fewer footprints into one design",
             )
         )
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     except project.LibraryTooLarge as error:
         issues.append(
             issue(
@@ -1004,7 +1153,9 @@ def build_altium(
                 "split the design's symbols over fewer or smaller libraries",
             )
         )
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     except CompoundTooLarge as error:
         issues.append(
             issue(
@@ -1014,7 +1165,9 @@ def build_altium(
                 "build with --altium-format ascii",
             )
         )
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(model).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
@@ -1027,17 +1180,17 @@ def build_altium(
         )
         + "\n"
     ).encode("utf-8")
-    plan = project.plan_sheet(model, name=name, symbols=symbols)
     libraries = project.library_symbols(model, name=name, symbols=symbols)
     summary = _summary(
         model,
         kept,
-        plan,
+        planned,
         form,
         libraries,
         footprints=len(written),
         pcb_library=f"{name}.PcbLib",
         pcb_document=f"{name}.PcbDoc" if spec is not None else None,
+        sheets=sheets,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 

@@ -17,7 +17,16 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from _altium import EXAMPLE_DIR, blink, blink_resolver, blink_tree, example, example_resolver, sample
+from _altium import (
+    EXAMPLE_DIR,
+    blink,
+    blink_resolver,
+    blink_tree,
+    example,
+    example_resolver,
+    hier,
+    sample,
+)
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -354,7 +363,9 @@ def test_case(name: str) -> None:
 def test_unique_id_collision() -> None:
     issues = run_unique_id_case()
     found = [i for i in issues if i.code == "altium.unique-id-collision"]
-    assert len(found) == 7 and all(i.severity == "error" for i in found)
+    assert len(found) == 10 and all(i.severity == "error" for i in found)
+    assert sum("sheet symbol" in i.message for i in found) == 2, "the symbols of led and power (c0037)"
+    assert sum("the port LED_DRV of led" in i.message for i in found) == 1
 
 
 def test_closed_set() -> None:
@@ -367,6 +378,9 @@ def test_closed_set() -> None:
             produced.setdefault(found.code, set()).add(found.severity)
     for name in PCB_CASES:
         for found in run_pcb_case(name):
+            produced.setdefault(found.code, set()).add(found.severity)
+    for name in HIER_CASES:
+        for found in run_hier_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
     for found in (
         *run_unique_id_case(),
@@ -397,6 +411,10 @@ def test_the_table() -> None:
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",
         "altium.pcb-too-large": "error",
+        "altium.sheet-name-collision": "error",
+        "altium.harness-name": "error",
+        "altium.harness-net-shared": "error",
+        "altium.harness-power-net": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",
@@ -415,6 +433,7 @@ def test_the_table() -> None:
         "altium.pcbdoc-not-written": "info",
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
+        "altium.sheets-not-in-project": "info",
     }
 
 
@@ -495,3 +514,158 @@ def test_no_connect_adds_no_altium_code() -> None:
     assert output.files == {}
     (found,) = [i for i in output.issues if i.code == "model.no-connect-on-net"]
     assert found.severity == "error" and found.where == f"U2-{member.pin}"
+
+
+# --- hierarchy issue codes (change c0037, "Hierarchy issue codes") -----------------------------------
+
+CLEAN = {"altium.generic-symbols", "altium.schlib-generic", "altium.pcbdoc-not-written"}
+SECOND_HARNESS = '\ndesign.add(Harness("DBG", {"CLK": spi_sck}))\n'
+HIER_CASES: dict[str, tuple[dict[str, str], dict[str, object], set[str]]] = {
+    "hier-flat": ({}, {}, CLEAN | {"altium.not-lowered"}),
+    "hier-modules": ({}, {"sheets": "modules"}, CLEAN),
+    "hier-ascii": ({}, {"sheets": "modules", "form": "ascii"}, CLEAN | {"altium.not-lowered"}),
+    "hier-kept": (
+        {},
+        {"sheets": "modules", "project_exists": True},
+        CLEAN | {"altium.project-kept", "altium.schlib-not-in-project", "altium.sheets-not-in-project"},
+    ),
+    "net-shared": ({"append": SECOND_HARNESS}, {}, {"altium.harness-net-shared", "altium.not-lowered"}),
+    "net-twice": (
+        {"text": '"CS": spi_cs}', "new": '"CS": spi_cs, "SEL": spi_cs}'},
+        {"sheets": "modules"},
+        {"altium.harness-net-shared"},
+    ),
+    "power-net": (
+        {"text": '"CS": spi_cs}', "new": '"CS": spi_cs, "GND": gnd}'},
+        {},
+        {"altium.harness-power-net", "altium.not-lowered"},
+    ),
+    "entry-separator": (
+        {"text": '"CS": spi_cs}', "new": '"CS,1": spi_cs}'},
+        {},
+        {"altium.harness-name", "altium.not-lowered"},
+    ),
+    "type-separator": (
+        {"text": 'Harness("SPI",', "new": 'Harness("SPI=1",'},
+        {"sheets": "modules"},
+        {"altium.harness-name"},
+    ),
+    "type-is-a-net": (
+        {"text": 'Harness("SPI",', "new": 'Harness("reset_n",'},
+        {"sheets": "modules"},
+        {"altium.harness-name"},
+    ),
+    "type-case": (
+        {"append": '\ndesign.add(Harness("spi", {"X": reset_n}))\n'},
+        {"sheets": "modules"},
+        {"altium.harness-name"},
+    ),
+    "entry-case": (
+        {"text": '"CS": spi_cs}', "new": '"CS": spi_cs, "cs": reset_n}'},
+        {"sheets": "modules"},
+        {"altium.harness-name"},
+    ),
+    "entry-unwritable": (
+        {"text": '"CS": spi_cs}', "new": '"C|S": spi_cs}'},
+        {"sheets": "modules"},
+        {"altium.text-unwritable"},
+    ),
+    "module-case": (
+        {"text": 'flash = Module("flash")', "new": 'flash = Module("MCU")'},
+        {},
+        {"altium.sheet-name-collision", "altium.not-lowered"},
+    ),
+}
+"""Variants of the hierarchy sample (change c0037): script edits, build arguments, and the codes."""
+
+
+def run_hier_case(name: str) -> tuple[Issue, ...]:
+    edits, kwargs, _ = HIER_CASES[name]
+    design = hier(edits.get("text", ""), edits.get("new", ""), append=edits.get("append", ""))
+    return build_altium(to_model(design), name=design.name, **kwargs).issues  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("name", sorted(HIER_CASES))
+def test_hier_case(name: str) -> None:
+    issues = run_hier_case(name)
+    altium = {i.code for i in issues if not i.code.startswith(PASS_THROUGH)}
+    assert altium == HIER_CASES[name][2], [(i.code, i.message) for i in issues]
+
+
+@pytest.mark.parametrize(
+    "name", ["net-shared", "net-twice", "power-net", "entry-separator", "type-separator", "module-case"]
+)
+@pytest.mark.parametrize("sheets", ["flat", "modules"])
+def test_hierarchy_errors_are_reported_in_both_modes(name: str, sheets: str) -> None:
+    """Each error is reported in both modes, so a design is refused before its mode is switched."""
+    edits, _, codes = HIER_CASES[name]
+    design = hier(edits.get("text", ""), edits.get("new", ""), append=edits.get("append", ""))
+    output = build_altium(to_model(design), name=design.name, sheets=sheets)  # type: ignore[arg-type]
+    errors = {i.code for i in output.issues if i.severity == "error"}
+    assert errors == codes - {"altium.not-lowered"} and output.files == {}
+
+
+def test_net_in_two_harnesses_names_the_net_and_both_harnesses() -> None:
+    (found,) = [i for i in run_hier_case("net-shared") if i.code == "altium.harness-net-shared"]
+    assert all(text in found.message for text in ("SPI_SCK", "SPI", "DBG")) and found.where == "SPI_SCK"
+    (twice,) = [i for i in run_hier_case("net-twice") if i.code == "altium.harness-net-shared"]
+    assert "SPI_CS" in twice.message and "twice in the harness SPI" in twice.message
+
+
+def test_power_net_in_a_harness_names_the_net() -> None:
+    (found,) = [i for i in run_hier_case("power-net") if i.code == "altium.harness-power-net"]
+    assert "GND" in found.message and found.where == "SPI"
+
+
+def test_harness_name_issues_name_the_name() -> None:
+    (entry,) = [i for i in run_hier_case("entry-separator") if i.code == "altium.harness-name"]
+    assert "'CS,1'" in entry.message
+    (kind,) = [i for i in run_hier_case("type-separator") if i.code == "altium.harness-name"]
+    assert "'SPI=1'" in kind.message
+    (net,) = [i for i in run_hier_case("type-is-a-net") if i.code == "altium.harness-name"]
+    assert "'reset_n'" in net.message and "'RESET_N'" in net.message
+    (case,) = [i for i in run_hier_case("type-case") if i.code == "altium.harness-name"]
+    assert "'SPI'" in case.message and "'spi'" in case.message
+    (entries,) = [i for i in run_hier_case("entry-case") if i.code == "altium.harness-name"]
+    assert "'CS'" in entries.message and "'cs'" in entries.message
+    (unwritable,) = [i for i in run_hier_case("entry-unwritable") if i.code == "altium.text-unwritable"]
+    assert "'C|S'" in unwritable.message
+
+
+def test_module_names_that_differ_in_case() -> None:
+    (found,) = [i for i in run_hier_case("module-case") if i.code == "altium.sheet-name-collision"]
+    assert "'MCU'" in found.message and "'mcu'" in found.message
+
+
+def test_harness_not_lowered_names_the_harness_and_the_reason() -> None:
+    (flat,) = [i for i in run_hier_case("hier-flat") if i.code == "altium.not-lowered"]
+    assert flat.where == "harnesses" and "SPI" in flat.message and "--altium-sheets modules" in flat.hint
+    (text,) = [i for i in run_hier_case("hier-ascii") if i.code == "altium.not-lowered"]
+    assert "SPI" in text.message and "--altium-format binary" in text.hint
+    design = hier(append='\ndesign.add(Harness("LOCAL", {"HOLD": flash_hold_n}))\n')
+    issues = build_altium(to_model(design), name=design.name, sheets="modules").issues
+    (local,) = [i for i in issues if i.code == "altium.not-lowered"]
+    assert "LOCAL" in local.message and "SPI" not in local.message and "leaves" in local.message
+
+
+def test_sheets_not_in_project_names_the_sheets_and_harness_files() -> None:
+    (found,) = [i for i in run_hier_case("hier-kept") if i.code == "altium.sheets-not-in-project"]
+    for file in (
+        "altium_hier_flash.SchDoc",
+        "altium_hier_mcu.SchDoc",
+        "altium_hier.Harness",
+        "altium_hier_flash.Harness",
+        "altium_hier_mcu.Harness",
+    ):
+        assert file in found.message
+    assert found.where == "altium_hier.PrjPcb" and found.severity == "info"
+
+
+def test_unique_id_collision_covers_sheet_symbols_and_ports() -> None:
+    with _same_unique_ids():
+        design = hier()
+        output = build_altium(to_model(design), name=design.name, sheets="modules")
+    found = [i for i in output.issues if i.code == "altium.unique-id-collision"]
+    assert len(found) == 6 + 2 + 5 - 1 and output.files == {}
+    assert sum("the sheet symbol" in i.message for i in found) == 2
+    assert sum("the port" in i.message for i in found) == 5

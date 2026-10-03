@@ -96,7 +96,14 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
     }
-    assert WRITE_KINDS == ("altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")
+    assert WRITE_KINDS == (
+        "altium_harness",
+        "altium_prjpcb",
+        "altium_schdoc_ascii",
+        "altium_schdoc_binary",
+        "altium_schlib",
+    )
+    assert project.HARNESS_KIND == "altium_harness" and project.HARNESS_KIND in WRITE_KINDS
 
 
 @pytest.mark.parametrize(

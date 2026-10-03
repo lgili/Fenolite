@@ -44,6 +44,7 @@ def test_altium_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]
     assert entry["name"] == "altium-schematic-writer" and entry["command"] == "build"
     assert entry["option"] == "--target altium"
     assert entry["write_kinds"] == [
+        "altium_harness",
         "altium_prjpcb",
         "altium_schdoc_ascii",
         "altium_schdoc_binary",
