@@ -8,10 +8,23 @@ every rule of ``docs/formats/altium/pcb-library.md``, "The board record of ``Lib
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 import pytest
 
-from fenolite.backends.altium.libboard import board_fields, board_records, board_text, guid, long_id
+from fenolite.backends.altium.libboard import (
+    STACKS,
+    Dielectric,
+    StackSpec,
+    board_fields,
+    board_records,
+    board_text,
+    guid,
+    layer_sets,
+    legacy_lines,
+    long_id,
+    stack_fields,
+)
 
 GUID = re.compile(r"\{[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}\}")
 STACK = [
@@ -294,3 +307,159 @@ def test_lines_start_with_record_and_join_with_one_cr() -> None:
 def test_every_field_is_printable_ascii_without_a_pipe() -> None:
     for key, value in fields((1, 32, 33, 34, 69, 70, 71, 72, 74)):
         assert key and all(0x20 <= ord(ch) <= 0x7E and ch != "|" for ch in key + value), key
+
+
+# --- copper stack (change c0038, "Four-layer stack") -----------------------------------------------
+
+FOUR_SIGNAL = StackSpec.default((1, 2, 3, 32))
+
+
+def stack_values(stack: StackSpec | None, substack: str | None = None) -> dict[str, str]:
+    return dict(stack_fields((), substack, stack))
+
+
+def stack_names(values: dict[str, str], prefix: str, sep: str) -> list[str]:
+    out: list[str] = []
+    while f"{prefix}{len(out)}{sep}NAME" in values:
+        out.append(values[f"{prefix}{len(out)}{sep}NAME"])
+    return out
+
+
+def test_stack_default_values() -> None:
+    two = StackSpec.default((1, 32))
+    assert two.thicknesses == (35_560, 35_560) and two.dielectrics == (Dielectric("unspecified", 320_040),)
+    assert two.dielectrics[0].fields() == (
+        ("DIELTYPE", "0"),
+        ("DIELCONST", "4.800"),
+        ("DIELHEIGHT", "12.6mil"),
+        ("DIELMATERIAL", "FR-4"),
+    )
+    assert [(d.kind, d.thickness) for d in FOUR_SIGNAL.dielectrics] == [
+        ("prepreg", 200_000),
+        ("core", 1_000_000),
+        ("prepreg", 200_000),
+    ]
+    assert FOUR_SIGNAL.thicknesses == (35_560,) * 4 and FOUR_SIGNAL.planes == ()
+    assert StackSpec.default((1, 39, 40, 32), ("GND", "VIN")).planes == (39, 40)
+    assert STACKS == ((1, 32), (1, 2, 3, 32), (1, 39, 3, 32), (1, 2, 39, 32), (1, 39, 40, 32))
+
+
+def test_stack_of_two_layers_keeps_the_fields() -> None:
+    assert stack_fields((1, 74)) == stack_fields((1, 74), None, StackSpec.default((1, 32)))
+    assert legacy_lines() == legacy_lines(StackSpec.default((1, 32)))
+    assert layer_sets() == layer_sets(StackSpec.default((1, 32)))
+
+
+def test_stack_of_four_signal_layers_in_the_lists() -> None:
+    values = stack_values(FOUR_SIGNAL)
+    copper = ["Top Layer", "Dielectric 1", "Mid-Layer 1", "Dielectric 2", "Mid-Layer 2", "Dielectric 3"]
+    physical = [*STACK[:3], *copper, *STACK[5:]]
+    assert stack_names(values, "V9_STACK_LAYER", "_") == physical and len(physical) == 13
+    assert stack_names(values, "LAYER_V8_", "")[:13] == physical
+    assert len(stack_names(values, "LAYER_V8_", "")) == 60
+    cache = stack_names(values, "V9_CACHE_LAYER", "_")
+    assert len(cache) == 104 and cache[:102] == stack_names(stack_values(None), "V9_CACHE_LAYER", "_")
+    assert cache[102:] == ["Dielectric 2", "Dielectric 3"] and len(set(cache)) == 104
+    assert [values[f"V9_STACK_LAYER{i}_LAYERID"] for i in (4, 5, 6, 7, 8)] == [
+        "17039361",
+        "16777218",
+        "17039362",
+        "16777219",
+        "17039363",
+    ]
+    for prefix in ("V9_STACK_LAYER5_", "V9_STACK_LAYER7_", "V9_CACHE_LAYER21_", "V9_CACHE_LAYER22_"):
+        assert values[f"{prefix}COMPONENTPLACEMENT"] == "1" and values[f"{prefix}COPTHICK"] == "1.4mil"
+        assert f"{prefix}COPPERORIENTATION" not in values and f"{prefix}PULLBACKDISTANCE" not in values
+    assert (
+        values["V9_CACHE_LAYER23_NAME"] == "Mid-Layer 3"
+        and values["V9_CACHE_LAYER23_COMPONENTPLACEMENT"] == "0"
+    )
+    assert [values[f"V9_STACK_LAYER{i}_DIELTYPE"] for i in (4, 6, 8)] == ["2", "1", "2"]
+    assert [values[f"V9_STACK_LAYER{i}_DIELHEIGHT"] for i in (4, 6, 8)] == [
+        "7.874mil",
+        "39.3701mil",
+        "7.874mil",
+    ]
+    assert values["LAYER_V8_5COMPONENTPLACEMENT"] == "1" and values["LAYER_V8_6DIELTYPE"] == "1"
+
+
+def test_stack_sub_stack_keys_follow_the_physical_stack() -> None:
+    sub = guid("substack")
+    values = stack_values(FOUR_SIGNAL, sub)
+    for index in range(13):
+        assert values[f"V9_STACK_LAYER{index}_{sub}CONTEXT"] == "0"
+        assert values[f"LAYER_V8_{index}_{sub}USEDBYPRIMS"] == "FALSE"
+    assert f"LAYER_V8_13_{sub}CONTEXT" not in values
+    marked = [i for i in range(104) if f"V9_CACHE_LAYER{i}_{sub}CONTEXT" in values]
+    assert marked == [*range(12, 23), 102, 103]  # the outer run, both mid layers and the further dielectrics
+
+
+def test_stack_links_of_the_numbered_layers() -> None:
+    values = dict(item for line in legacy_lines(FOUR_SIGNAL) for item in line if item[0] != "RECORD")
+    links = {n: (values[f"LAYER{n}PREV"], values[f"LAYER{n}NEXT"]) for n in (1, 2, 3, 4, 32, 39)}
+    assert links == {
+        1: ("0", "2"),
+        2: ("1", "3"),
+        3: ("2", "32"),
+        4: ("0", "0"),
+        32: ("3", "0"),
+        39: ("0", "0"),
+    }
+    assert [values[f"LAYER{n}DIELTYPE"] for n in (1, 2, 3, 32, 4)] == ["2", "1", "2", "0", "0"]
+    assert [values[f"LAYER{n}DIELHEIGHT"] for n in (1, 2, 3, 32)] == [
+        "7.874mil",
+        "39.3701mil",
+        "7.874mil",
+        "12.6mil",
+    ]
+    assert values["LAYER33PREV"] == "0" and values["LAYER33NEXT"] == "1" and values["LAYER34PREV"] == "32"
+    thin = StackSpec((1, 2, 3, 32), (35_560, 17_780, 17_780, 35_560), FOUR_SIGNAL.dielectrics)
+    values = dict(item for line in legacy_lines(thin) for item in line if item[0] != "RECORD")
+    assert [values[f"LAYER{n}COPTHICK"] for n in (1, 2, 3, 32, 4)] == [
+        "1.4mil",
+        "0.7mil",
+        "0.7mil",
+        "1.4mil",
+        "1.4mil",
+    ]
+
+
+def test_stack_layer_sets_of_four_signal_layers() -> None:
+    values = dict(layer_sets(FOUR_SIGNAL))
+    assert values["LAYERSET2LAYERS"] == "MultiLayer,TopLayer,MidLayer1,MidLayer2,BottomLayer"
+    assert values["LAYERSET3LAYERS"] == "" and values["LAYERSET3ACTIVELAYER.7"] == "UNKNOWN"
+    assert ",TopLayer,MidLayer1,MidLayer2,BottomLayer,BottomSolder," in values["LAYERSET1LAYERS"]
+
+
+def test_stack_dielectric_values_from_the_spec() -> None:
+    """Scenario "Dielectric values from the spec"."""
+    dielectrics = (
+        Dielectric("prepreg", 200_000),
+        Dielectric("core", 710_000, "4.5", "FR-4"),
+        Dielectric("prepreg", 200_000),
+    )
+    values = stack_values(StackSpec((1, 2, 3, 32), (35_560,) * 4, dielectrics))
+    assert values["V9_STACK_LAYER6_DIELHEIGHT"] == "27.9528mil"
+    assert values["V9_STACK_LAYER6_DIELCONST"] == "4.500" and values["V9_STACK_LAYER6_DIELTYPE"] == "1"
+
+
+@pytest.mark.parametrize(
+    ("build", "message"),
+    [
+        (
+            lambda: StackSpec((1, 2, 32), (1, 1, 1), (Dielectric("core", 1),) * 2),
+            "are not a stack that is written",
+        ),
+        (lambda: StackSpec((1, 3, 2, 32), (1,) * 4, (Dielectric("core", 1),) * 3), "are not a stack"),
+        (lambda: StackSpec((1, 32), (1,), (Dielectric("core", 1),)), "as many positive thicknesses"),
+        (lambda: StackSpec((1, 32), (1, 0), (Dielectric("core", 1),)), "positive thicknesses"),
+        (lambda: StackSpec((1, 32), (1, 1), ()), "needs 1 dielectrics, not 0"),
+        (lambda: Dielectric("air", 1), "unspecified, core or prepreg"),  # type: ignore[arg-type]
+        (lambda: Dielectric("core", 0), "positive thickness"),
+        (lambda: Dielectric("core", 1, "x"), "not a positive decimal number"),
+        (lambda: Dielectric("core", 1, "4.5", "FR|4"), "dielectric material"),
+    ],
+)
+def test_stack_refusals(build: Callable[[], object], message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        build()

@@ -35,11 +35,11 @@
 - `StackSpec.default(copper, plane_nets=())` MUST give 1.4 mil copper and, for two layers, the dielectric of c0035 (`unspecified`, 12.6 mil, `4.800`, `FR-4`); for four layers a prepreg of 0.2 mm, a core of 1.0 mm and a prepreg of 0.2 mm, each `4.800` and `FR-4`. These values are Fenolite's choices.
 - For two copper layers and the default stack, the record MUST equal the record of c0035 byte for byte.
 - For four copper layers the numbered keys MUST link the four ids of `copper` in order through `LAYER<id>PREV` and `LAYER<id>NEXT` (0 before the first and after the last); every other copper link stays 0. Each linked layer MUST carry its `COPTHICK`, and each but the bottom the dielectric below it (`DIELTYPE`, `DIELCONST`, `DIELHEIGHT`, `DIELMATERIAL`).
-- The physical stack of the `V9_STACK_LAYER<i>` list and the head of the `LAYER_V8_<i>` and `V9_CACHE_LAYER<i>` lists MUST hold 13 layers: paste, overlay, solder, `Top Layer`, `Dielectric 1`, the first inner layer, `Dielectric 2`, the second inner layer, `Dielectric 3`, `Bottom Layer`, solder, overlay, paste. The dielectrics MUST have the long ids 17039361, 17039362 and 17039363 from the top (the numbering S-0199 saves).
+- The physical stack of the `V9_STACK_LAYER<i>` list and the head of the `LAYER_V8_<i>` list MUST hold 13 layers: paste, overlay, solder, `Top Layer`, `Dielectric 1`, the first inner layer, `Dielectric 2`, the second inner layer, `Dielectric 3`, `Bottom Layer`, solder, overlay, paste. The dielectrics MUST have the long ids 17039361, 17039362 and 17039363 from the top (the numbering S-0199 saves).
 - A **signal** inner layer MUST be written as S-0199 and S-0200 save it: `NAME` (`Mid-Layer <n>`), `LAYERID` (16777217 + n), `USEDBYPRIMS`, `COPTHICK` and `COMPONENTPLACEMENT=1`.
 - A **plane** MUST be written as S-0176 saves it: `NAME` (`Internal Plane <k>`), `LAYERID` (16842752 + k), `USEDBYPRIMS`, `COPTHICK` and `PULLBACKDISTANCE=20mil`; and line 1 of the record MUST hold `PLANE<k>NETNAME=<net name>`. Every other `PLANE<n>NETNAME` stays `(No Net)`.
 - No primitive is written for a plane: no `Split Plane` polygon record, no pull-back track and no region (`H-A-PCB-CU-PLANE`); its `USEDBYPRIMS` is `FALSE`. Split planes are not written.
-- The cache list MUST NOT repeat a mid layer or a plane of the stack among its unused layers.
+- The cache list MUST hold every layer once, in the form S-0176 saves (found when the written stack was compared with it, 2026-10-03): the 102 layers of a two-layer document in their order, then `Dielectric 2` and `Dielectric 3`. A mid layer or a plane of the stack keeps its place in its run and carries its stack keys.
 - `pcbdoc.write_pcbdoc` MUST take the stack from `PcbDocSpec.stack` (`None` is `StackSpec.default` for `PcbDocSpec.copper_layers` without planes) and MUST raise `ValueError` when `stack.copper` does not hold one id per name of `copper_layers`, or when a plane's net is not in `PcbDocSpec.nets`.
 - `DIELTYPE` MUST be 0 for `unspecified`, 1 for `core` and 2 for `prepreg`; `DIELCONST` three decimals; `DIELHEIGHT` and `COPTHICK` mil text.
 - The layer set `&Signal Layers` MUST also list the signal inner layers (`MidLayer1`, `MidLayer2`), `&Plane Layers` the planes (`InternalPlane1`, `InternalPlane2`), and `&All Layers` both. The drill pair stays `LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`.
@@ -59,7 +59,7 @@
 
 #### Scenario: Two planes
 - **WHEN** `board_fields` runs with `StackSpec.default((1, 39, 40, 32), plane_nets=("GND", "VIN"))`
-- **THEN** the chain is 1, 39, 40, 32; `PLANE1NETNAME` is `GND` and `PLANE2NETNAME` is `VIN`; `&Signal Layers` lists no mid layer; and no cache entry after the stack is named `Internal Plane 1` or `Internal Plane 2`
+- **THEN** the chain is 1, 39, 40, 32; `PLANE1NETNAME` is `GND` and `PLANE2NETNAME` is `VIN`; `&Signal Layers` lists no mid layer; and the cache list names `Internal Plane 1` and `Internal Plane 2` once each, with `PULLBACKDISTANCE`
 
 #### Scenario: Dielectric values from the spec
 - **WHEN** `board_fields` runs with a four-layer `StackSpec` whose core is 0.71 mm of `4.5`

@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
-from fenolite.backends.altium.docboard import angle_text, board_text, common_fields
+from fenolite.backends.altium.docboard import StackSpec, angle_text, board_text, common_fields
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
     LibFootprint,
@@ -209,7 +209,9 @@ class PlacedComponent:
 class PcbDocSpec:
     """A board: its outline (KiCad frame, in order), its components, its net names and its copper.
 
-    ``copper_layers`` are the copper layers from top to bottom (``pcbrecords.COPPER_STACKS``). ``tracks``,
+    ``copper_layers`` are the copper layers from top to bottom (``pcbrecords.COPPER_STACKS``); ``stack``
+    holds their Altium ids, thicknesses, dielectrics and plane nets (``None``: ``StackSpec.default`` for
+    ``copper_layers`` without planes). ``tracks``,
     ``arcs`` and ``vias`` are model entities in the frame of the placements whose ``net_id`` holds the
     net's **name** (``None`` without a net); the lens puts it there."""
 
@@ -217,6 +219,7 @@ class PcbDocSpec:
     components: tuple[PlacedComponent, ...] = ()
     nets: tuple[str, ...] = ()
     copper_layers: tuple[str, ...] = ("F.Cu", "B.Cu")
+    stack: StackSpec | None = None
     tracks: tuple[Track, ...] = ()
     arcs: tuple[Arc, ...] = ()
     vias: tuple[Via, ...] = ()
@@ -275,7 +278,11 @@ def file_header_six(key: str = "") -> bytes:
 
 
 def board_record(
-    outline: Sequence[Point], *, filename: str = DEFAULT_FILENAME, used_layers: Sequence[int] = ()
+    outline: Sequence[Point],
+    *,
+    filename: str = DEFAULT_FILENAME,
+    used_layers: Sequence[int] = (),
+    stack: StackSpec | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on."""
@@ -293,6 +300,7 @@ def board_record(
         (origin, origin),
         unique_id=unique_id(f"pcbdoc:{filename}:board"),
         used_layers=used_layers,
+        stack=stack,
     )
     return rec.text_block(text)
 
@@ -552,6 +560,30 @@ def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
     return out
 
 
+def document_stack(spec: PcbDocSpec) -> StackSpec:
+    """The copper stack of ``spec``: ``spec.stack``, or the default stack of its copper layers without
+    planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
+    ``pcbrecords.LAYER_MAP``, or a plane on an inner layer), or when a plane's net is not a net of the
+    document."""
+    signal = rec.copper_stack(spec.copper_layers)
+    if spec.stack is None:
+        return StackSpec.default(signal)
+    stack = spec.stack
+    planes = [
+        name
+        for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
+        if layer >= rec.FIRST_PLANE
+    ]
+    if len(stack.copper) != len(signal) or rec.copper_stack(spec.copper_layers, planes) != stack.copper:
+        raise ValueError(
+            f"the stack {stack.copper!r} does not hold one id per copper layer of {spec.copper_layers!r}"
+        )
+    for layer, net in zip(stack.planes, stack.plane_nets, strict=True):
+        if net not in spec.nets:
+            raise ValueError(f"the net {net!r} of {rec.LAYER_NAMES[layer]} is not a net of the document")
+    return stack
+
+
 def _storage(name: str, records: Sequence[bytes], *, count: int | None = None) -> Storage:
     header = len(records) if count is None else count
     return Storage(name, (("Header", _u32(header)), ("Data", b"".join(records))))
@@ -621,8 +653,8 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     frame = Frame.of(spec.outline)
     net_names = sorted(spec.nets)
     nets = {name: index for index, name in enumerate(net_names)}
-    layer_ids = rec.copper_stack(spec.copper_layers)
-    copper = _Copper(frame, nets, dict(zip(spec.copper_layers, layer_ids, strict=True)))
+    stack = document_stack(spec)
+    copper = _Copper(frame, nets, dict(zip(spec.copper_layers, stack.copper, strict=True)))
     components: list[bytes] = []
     pads: list[bytes] = []
     tracks: list[bytes] = []
@@ -674,7 +706,10 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     entries: list[Entry] = [
         ("FileHeader", file_header()),
         ("FileHeaderSix", file_header_six(",".join(c.unique_id for c in spec.components))),
-        _storage("Board6", [board_record(spec.outline, filename=filename, used_layers=used)]),
+        _storage(
+            "Board6",
+            [board_record(spec.outline, filename=filename, used_layers=used, stack=stack)],
+        ),
         _storage("Nets6", [_net_record(name, filename) for name in net_names]),
         _storage("Components6", components),
         _storage("Pads6", pads),
@@ -703,6 +738,7 @@ __all__ = [
     "PlacedComponent",
     "board_record",
     "degrees_text",
+    "document_stack",
     "file_header",
     "file_header_six",
     "place_component",

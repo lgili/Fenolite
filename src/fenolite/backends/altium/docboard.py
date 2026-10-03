@@ -9,6 +9,9 @@ documents carry: a first line with the board keys and the outline, then the line
 record (``libboard``) with the sub-stack keys, the drill pair, the routing keys, the view and the closing
 keys. Every key and value follows a rule of the fact page; nothing is copied from a file. The inputs are the
 file name, the outline, the used layers and the eight-letter id, so the bytes are deterministic.
+
+Change c0038 adds the copper stack (``StackSpec``, "Four-layer stack"): the links of the numbered layers,
+the physical lists, the layer sets and ``PLANE<k>NETNAME`` follow it (``pcb-copper.md``, "Layer stack").
 """
 
 from __future__ import annotations
@@ -24,9 +27,12 @@ from fenolite.backends.altium.libboard import (
     RECORD,
     SNAP_GRID,
     TIME,
+    Dielectric,
+    StackSpec,
     guid,
     layer_sets,
     legacy_lines,
+    plane_net_fields,
     stack_fields,
     view_configurations,
 )
@@ -181,7 +187,7 @@ def _outline(vertices: Sequence[tuple[int, int]]) -> list[Field]:
     return fields
 
 
-def _routing() -> list[Field]:
+def _routing(stack: StackSpec | None = None) -> list[Field]:
     fields: list[Field] = [RECORD, ("TOGGLELAYERS", "1" * _LEGACY_COUNT)]
     for index in range(1, 11):
         fields += [(f"PLACEMARKERX{index}", "-0.0001mil"), (f"PLACEMARKERY{index}", "-0.0001mil")]
@@ -198,7 +204,7 @@ def _routing() -> list[Field]:
         ("MRLASTVIAHOLE", "28mil"),
         ("LASTTARGETLENGTH", "99999mil"),
         ("SHOWDEFAULTSETS", "TRUE"),
-        *layer_sets(),
+        *layer_sets(stack),
         ("BOARDINSIGHTVIEWCONFIGURATIONNAME", ""),
     ]
     return fields
@@ -211,12 +217,14 @@ def board_records(
     *,
     unique_id: str,
     used_layers: Collection[int] = (),
+    stack: StackSpec | None = None,
 ) -> list[list[Field]]:
     """The ``Board6`` record as its 27 lines, in Altium's order. ``filename`` is the document's file name
     (no folder); ``vertices`` is the outline in binary units in the Altium frame, without the closing
     vertex; ``origin`` is ``ORIGINX``/``ORIGINY`` in binary units; ``unique_id`` is the board's eight-letter
-    id; ``used_layers`` are the numbered layers (1 … 74) that primitives lie on. ``ValueError`` for fewer
-    than three vertices."""
+    id; ``used_layers`` are the numbered layers (1 … 74) that primitives lie on; ``stack`` is the copper
+    stack (``None``: the two-layer stack of c0035, whose bytes it keeps). ``ValueError`` for fewer than
+    three vertices."""
     if len(vertices) < 3:
         raise ValueError("a board outline needs at least three points")
     origin_x, origin_y = rec.mil_text(origin[0]), rec.mil_text(origin[1])
@@ -250,9 +258,9 @@ def board_records(
         *_outline(vertices),
         *_POLYGON_TAIL,
         *_SHEET,
-        *((f"PLANE{index}NETNAME", "(No Net)") for index in range(1, 17)),
+        *plane_net_fields(stack),
     ]
-    first, *later = legacy_lines()
+    first, *later = legacy_lines(stack)
     later[-1] += [
         ("LAYERPAIR0LOW", "TOP"),
         ("LAYERPAIR0HIGH", "BOTTOM"),
@@ -303,9 +311,9 @@ def board_records(
     ]
     return [
         head,
-        [RECORD, *stack_fields(used_layers, substack), *first],
+        [RECORD, *stack_fields(used_layers, substack, stack), *first],
         *later,
-        _routing(),
+        _routing(stack),
         [
             RECORD,
             ("VISIBLEGRIDMULTFACTOR", "1.000"),
@@ -347,9 +355,12 @@ def board_fields(
     *,
     unique_id: str,
     used_layers: Collection[int] = (),
+    stack: StackSpec | None = None,
 ) -> list[Field]:
     """Every field of ``board_records`` in order, the lines joined."""
-    lines = board_records(filename, vertices, origin, unique_id=unique_id, used_layers=used_layers)
+    lines = board_records(
+        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack
+    )
     return [item for line in lines for item in line]
 
 
@@ -360,14 +371,19 @@ def board_text(
     *,
     unique_id: str,
     used_layers: Collection[int] = (),
+    stack: StackSpec | None = None,
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR."""
-    lines = board_records(filename, vertices, origin, unique_id=unique_id, used_layers=used_layers)
+    lines = board_records(
+        filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack
+    )
     return LINE_BREAK.join(format_line(line) for line in lines)
 
 
 __all__ = [
     "KIND",
+    "Dielectric",
+    "StackSpec",
     "VERSION",
     "VIEW_MARGIN",
     "ZOOM_WIDTH",

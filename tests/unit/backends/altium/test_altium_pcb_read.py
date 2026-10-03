@@ -417,3 +417,66 @@ def test_routed_track_is_a_free_track() -> None:
 def test_routed_track_names_net_9_of_1() -> None:
     with pytest.raises(PcbReadError, match="Tracks6 record 0: net 9 of 1"):
         read_pcbdoc(copper_document(Tracks6__Header=one(1), Tracks6__Data=routed_track(9)))
+
+
+# --- the copper stack (change c0038): the chain of the numbered layers and the V9_STACK list ---------
+
+LONG = {1: 16777217, 2: 16777218, 3: 16777219, 32: 16842751, 39: 16842753, 40: 16842754}
+STACK_NAMES = {1: "Top Layer", 2: "Mid-Layer 1", 3: "Mid-Layer 2", 32: "Bottom Layer", 39: "Internal Plane 1"}
+
+
+def board_with_chain(
+    chain: tuple[int, ...] = (1, 2, 3, 32), listed: tuple[int, ...] | None = None, **more: str
+) -> bytes:
+    """A ``Board6`` record whose numbered layers link ``chain`` and whose ``V9_STACK`` list holds ``listed``
+    with a dielectric between neighbours (``pcb-copper.md``, "Layer stack")."""
+    fields = {"KIND": "Protel_Advanced_PCB"}
+    links = (0, *chain, 0)
+    for position, layer in enumerate(chain):
+        fields[f"LAYER{layer}NAME"] = STACK_NAMES[layer]
+        fields[f"LAYER{layer}PREV"] = str(links[position])
+        fields[f"LAYER{layer}NEXT"] = str(links[position + 2])
+    index = 0
+    for position, layer in enumerate(chain if listed is None else listed):
+        if position:
+            fields[f"V9_STACK_LAYER{index}_NAME"] = f"Dielectric {position}"
+            fields[f"V9_STACK_LAYER{index}_LAYERID"] = str(17039360 + position)
+            index += 1
+        fields[f"V9_STACK_LAYER{index}_NAME"] = STACK_NAMES[layer]
+        fields[f"V9_STACK_LAYER{index}_LAYERID"] = str(LONG[layer])
+        index += 1
+    fields.update(more)
+    return prop(**fields)
+
+
+def test_stack_chain_reads() -> None:
+    doc = read_pcbdoc(copper_document(Board6__Data=board_with_chain()))
+    assert doc.copper_chain == [1, 2, 3, 32] and doc.plane_nets == {}
+    assert read_pcbdoc(copper_document()).copper_chain == []  # a record without the numbered links
+    two = read_pcbdoc(copper_document(Board6__Data=board_with_chain((1, 32))))
+    assert two.copper_chain == [1, 32]
+
+
+def test_stack_chain_broken() -> None:
+    """``LAYER2NEXT`` is 0 while ``LAYER1NEXT`` is 2."""
+    message = r"the copper chain \[1, 2\] from layer 1 does not end at layer 32"
+    with pytest.raises(PcbReadError, match=message):
+        read_pcbdoc(copper_document(Board6__Data=board_with_chain(LAYER2NEXT="0")))
+
+
+def test_stack_chain_prev_does_not_match() -> None:
+    with pytest.raises(PcbReadError, match="LAYER3PREV does not name layer 2"):
+        read_pcbdoc(copper_document(Board6__Data=board_with_chain(LAYER3PREV="1")))
+
+
+def test_stack_chain_loops() -> None:
+    with pytest.raises(PcbReadError, match="goes on to layer 2, which cannot follow"):
+        read_pcbdoc(copper_document(Board6__Data=board_with_chain(LAYER3NEXT="2")))
+
+
+def test_stack_list_lacks_a_mid_layer() -> None:
+    """The ``V9_STACK`` list lacks ``Mid-Layer 2``."""
+    broken = board_with_chain(listed=(1, 2, 32))
+    message = r"V9_STACK list holds the copper layers \[1, 2, 32\], the chain is \[1, 2, 3, 32\]"
+    with pytest.raises(PcbReadError, match=message):
+        read_pcbdoc(copper_document(Board6__Data=broken))

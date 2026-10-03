@@ -15,7 +15,7 @@ import pytest
 from _altium import blink_pcbdoc_spec
 from _altium_pcb_read import PcbDoc, read_pcbdoc
 
-from fenolite.backends.altium.docboard import angle_text
+from fenolite.backends.altium.docboard import StackSpec, angle_text
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcbdoc import (
     COPPER_STORAGES,
@@ -539,3 +539,39 @@ def test_document_without_copper_keeps_its_bytes() -> None:
     assert isinstance(spec, PcbDocSpec)
     explicit = dataclasses.replace(spec, copper_layers=("F.Cu", "B.Cu"), tracks=(), arcs=(), vias=())
     assert write_pcbdoc(spec, filename="blink.PcbDoc") == write_pcbdoc(explicit, filename="blink.PcbDoc")
+
+
+# --- copper stack (change c0038, "Four-layer stack") -----------------------------------------------
+
+
+def test_stack_chain_of_four_signal_layers_in_the_document() -> None:
+    """Scenario "Chain of four signal layers"."""
+    track = Track(id="trk_a", start=at(10, 10), end=at(30, 10), width=200_000, layer="In2.Cu", net_id="SIG")
+    doc, _ = copper_doc(copper_layers=FOUR, tracks=(track,))
+    assert doc.copper_chain == [1, 2, 3, 32] and doc.plane_nets == {}
+    board = doc.board
+    assert board["LAYER1NEXT"] == "2" and board["LAYER2NEXT"] == "3" and board["LAYER3NEXT"] == "32"
+    assert board["LAYER32NEXT"] == "0" and board["V9_STACK_LAYER4_NAME"] == "Dielectric 1"
+    assert board["V9_STACK_LAYER5_LAYERID"] == "16777218"
+    assert board["V9_STACK_LAYER5_COMPONENTPLACEMENT"] == "1"
+    assert sum(key == "RECORD" for key, _ in doc.board_fields) == 26  # 27 lines
+    assert board["V9_STACK_LAYER7_USEDBYPRIMS"] == "TRUE" and board["V9_STACK_LAYER5_USEDBYPRIMS"] == "FALSE"
+    two, _ = copper_doc()
+    assert two.copper_chain == [1, 32] and len(two.board_fields) == 2231
+
+
+def test_stack_spec_of_the_document() -> None:
+    dielectrics = StackSpec.default((1, 2, 3, 32)).dielectrics
+    values = StackSpec((1, 2, 3, 32), (35_560, 17_780, 17_780, 35_560), dielectrics)
+    doc, _ = copper_doc(copper_layers=FOUR, stack=values)
+    assert doc.board["LAYER2COPTHICK"] == "0.7mil" and doc.board["V9_STACK_LAYER5_COPTHICK"] == "0.7mil"
+    default, _ = copper_doc(copper_layers=FOUR, stack=StackSpec.default((1, 2, 3, 32)))
+    plain, _ = copper_doc(copper_layers=FOUR)
+    assert default.streams["Board6/Data"] == plain.streams["Board6/Data"]
+
+
+def test_stack_that_does_not_fit_the_copper_layers() -> None:
+    with pytest.raises(ValueError, match="does not hold one id per copper layer"):
+        write_pcbdoc(copper_spec(stack=StackSpec.default((1, 2, 3, 32))))
+    with pytest.raises(ValueError, match="does not hold one id per copper layer"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, stack=StackSpec.default((1, 32))))

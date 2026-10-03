@@ -5,12 +5,14 @@ file"): each rule of ``docs/formats/altium/pcb-document.md``, "The ``Board6`` re
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 import pytest
 
 from fenolite.backends.altium import libboard
 from fenolite.backends.altium.docboard import (
+    StackSpec,
     angle_text,
     board_fields,
     board_records,
@@ -354,3 +356,64 @@ def test_deterministic_and_printable() -> None:
     assert one == board_text("X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", used_layers=(32, 1))
     assert one != board_text("Y.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", used_layers=(1, 32))
     assert all(ch == "\r" or 0x20 <= ord(ch) <= 0x7E for ch in one)
+
+
+# --- copper stack (change c0038, "Four-layer stack") -----------------------------------------------
+
+TWO_LAYER_TEXT = "892a675da67316eaf7bd749bafb85b2c5d10cdeae41a429c67bcc412b513a621"
+"""SHA-256 of the two-layer record of ``SQUARE`` as change c0035 wrote it."""
+
+
+def stack_board(stack: StackSpec | None) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for key, value in board_fields("X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", stack=stack):
+        out.setdefault(key, value)
+    return out
+
+
+def chain_of(board: dict[str, str]) -> list[int]:
+    layer, walk = 1, []
+    while layer:
+        walk.append(layer)
+        layer = int(board[f"LAYER{layer}NEXT"])
+    return walk
+
+
+def test_stack_of_two_layers_keeps_its_bytes() -> None:
+    """Scenario "Two layers keep their bytes"."""
+    plain = board_text("X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", used_layers=(1, 32))
+    default = StackSpec.default((1, 32))
+    assert plain == board_text(
+        "X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", used_layers=(1, 32), stack=default
+    )
+    assert hashlib.sha256(plain.encode("ascii")).hexdigest() == TWO_LAYER_TEXT
+
+
+def test_stack_chain_of_four_signal_layers() -> None:
+    """Scenario "Chain of four signal layers" on the board record alone."""
+    stack = StackSpec.default((1, 2, 3, 32))
+    board = stack_board(stack)
+    assert chain_of(board) == [1, 2, 3, 32] and board["LAYER32PREV"] == "3"
+    assert board["V9_STACK_LAYER4_NAME"] == "Dielectric 1" and board["V9_STACK_LAYER5_LAYERID"] == "16777218"
+    assert board["V9_STACK_LAYER5_COMPONENTPLACEMENT"] == "1"
+    records = board_records("X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", stack=stack)
+    assert len(records) == 27 and all(line[0] == ("RECORD", "Board") for line in records[1:])
+    assert board["LAYERSET2LAYERS"] == "MultiLayer,TopLayer,MidLayer1,MidLayer2,BottomLayer"
+    assert all(board[f"PLANE{k}NETNAME"] == "(No Net)" for k in range(1, 17))
+    assert board["LAYERPAIR0LOW"] == "TOP" and board["LAYERPAIR0HIGH"] == "BOTTOM"
+    sub = libboard.guid("substack")
+    assert board[f"V9_STACK_LAYER5_{sub}CONTEXT"] == "0" and board[f"LAYER_V8_12_{sub}USEDBYPRIMS"] == "FALSE"
+
+
+def test_stack_used_layers_mark_the_mid_layers() -> None:
+    stack = StackSpec.default((1, 2, 3, 32))
+    fields_of = dict(
+        board_fields("X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", used_layers=(2,), stack=stack)
+    )
+    assert (
+        fields_of["V9_STACK_LAYER5_USEDBYPRIMS"] == "TRUE"
+        and fields_of["V9_STACK_LAYER7_USEDBYPRIMS"] == "FALSE"
+    )
+    assert (
+        fields_of["LAYER_V8_5USEDBYPRIMS"] == "TRUE" and fields_of["V9_CACHE_LAYER21_USEDBYPRIMS"] == "TRUE"
+    )

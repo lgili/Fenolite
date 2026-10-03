@@ -68,7 +68,8 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
-        "libraries", "symbols", "footprints", "pcb_document", "experimental", "script_output", "plan",
+        "libraries", "symbols", "footprints", "pcb_document", "copper", "experimental", "script_output",
+        "plan",
     ]  # fmt: skip
 
 

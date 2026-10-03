@@ -192,6 +192,10 @@ class PcbDoc:
     options: dict[str, dict[str, str]] = field(default_factory=dict)
     """The one property block of each option storage that holds one."""
     vias: list[ViaRecord] = field(default_factory=lambda: [])
+    copper_chain: list[int] = field(default_factory=lambda: [])
+    """The numbered copper layers from top to bottom, read through ``LAYER<n>NEXT`` from layer 1."""
+    plane_nets: dict[int, str] = field(default_factory=dict)
+    """Plane number k → the net of ``PLANE<k>NETNAME``, for the planes of the chain."""
 
     @property
     def free_tracks(self) -> list[Track]:
@@ -598,8 +602,77 @@ def _wide_strings(data: bytes) -> dict[int, str]:
     return out
 
 
+TOP_LAYER, BOTTOM_LAYER, FIRST_PLANE, LAST_PLANE = 1, 32, 39, 54
+SIGNAL_GROUP, PLANE_GROUP, BOTTOM_LONG = 0x0100_0000, 0x0101_0000, 0x0100_FFFF
+NO_NET = "(No Net)"
+
+
+def copper_chain(board: dict[str, str]) -> list[int]:
+    """The copper stack of the numbered keys (``pcb-copper.md``, "Layer stack"): ``NEXT`` followed from
+    layer 1 must reach layer 32, each layer naming the one before it as ``PREV``; and the ``V9_STACK`` list
+    must hold the same copper layers in that order. Empty for a board record without ``LAYER1NEXT``."""
+    if "LAYER1NEXT" not in board:
+        return []
+    chain = [TOP_LAYER]
+    while True:
+        following = int(board.get(f"LAYER{chain[-1]}NEXT", "0"))
+        if following == 0:
+            break
+        if following in chain or f"LAYER{following}PREV" not in board:
+            raise PcbReadError(
+                f"Board6: the copper chain {chain} goes on to layer {following}, which cannot follow"
+            )
+        if int(board[f"LAYER{following}PREV"]) != chain[-1]:
+            raise PcbReadError(
+                f"Board6: LAYER{following}PREV does not name layer {chain[-1]} of the copper chain"
+            )
+        chain.append(following)
+    if chain[-1] != BOTTOM_LAYER:
+        raise PcbReadError(f"Board6: the copper chain {chain} from layer 1 does not end at layer 32")
+    listed: list[int] = []
+    index = 0
+    while f"V9_STACK_LAYER{index}_LAYERID" in board:
+        long = int(board[f"V9_STACK_LAYER{index}_LAYERID"])
+        if long == BOTTOM_LONG:
+            listed.append(BOTTOM_LAYER)
+        elif long & 0xFFFF_0000 == SIGNAL_GROUP:
+            listed.append(long & 0xFFFF)
+        elif long & 0xFFFF_0000 == PLANE_GROUP:
+            listed.append(FIRST_PLANE - 1 + (long & 0xFFFF))
+        index += 1
+    if index and listed != chain:
+        raise PcbReadError(
+            f"Board6: the V9_STACK list holds the copper layers {listed}, the chain is {chain}"
+        )
+    return chain
+
+
+def chain_planes(board: dict[str, str], chain: list[int], nets: list[dict[str, str]]) -> dict[int, str]:
+    """Plane number → net name for the planes of ``chain``; each must have a ``PLANE<k>NETNAME`` that
+    names a record of ``Nets6``."""
+    names = {net.get("NAME") for net in nets}
+    out: dict[int, str] = {}
+    for layer in chain:
+        if FIRST_PLANE <= layer <= LAST_PLANE:
+            number = layer - FIRST_PLANE + 1
+            name = board.get(f"PLANE{number}NETNAME", NO_NET)
+            if name not in names:
+                raise PcbReadError(
+                    f"Board6: Internal Plane {number} is in the copper chain and PLANE{number}NETNAME={name} "
+                    "names no net of Nets6"
+                )
+            out[number] = name
+    return out
+
+
+def _nothing_on_planes(primitives: list[Primitive], where: str) -> None:
+    for number, item in enumerate(primitives):
+        if FIRST_PLANE <= item.prefix.layer <= LAST_PLANE:
+            raise PcbReadError(f"{where} record {number}: a primitive on layer {item.prefix.layer}, a plane")
+
+
 def read_pcbdoc(data: bytes) -> PcbDoc:
-    """A PCB document (``pcb-document.md``)."""
+    """A PCB document (``pcb-document.md``; the copper of ``pcb-copper.md``)."""
     compound = parse_compound(data)
     streams = compound.streams
     storages: dict[str, tuple[int, bytes]] = {}
@@ -635,6 +708,10 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     for kind in ("Pads6", "Tracks6", "Arcs6", "Texts6", "Vias6"):
         decoded[kind] = decode_primitives(storages.get(kind, (0, b""))[1], f"{kind}/Data")
         _indexes(decoded[kind], len(nets), len(components), kind)
+    chain = copper_chain(board)
+    planes = chain_planes(board, chain, nets)
+    for kind in ("Tracks6", "Arcs6"):
+        _nothing_on_planes(decoded[kind], kind)
     counts = {
         "Board6": 1,
         "Nets6": len(nets),
@@ -694,4 +771,6 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         unique_ids=unique_ids,
         options=options,
         vias=[v for v in decoded["Vias6"] if isinstance(v, ViaRecord)],
+        copper_chain=chain,
+        plane_nets=planes,
     )
