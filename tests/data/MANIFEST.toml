@@ -738,3 +738,51 @@ path = "tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc"
 origin = "authored"
 corpus_id = ""
 notes = "ASCII schematic of examples/altium_kicad/no_connect.py with three No ERC directives (c0036 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/FenoliteHier.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_hier (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier.Harness"
+origin = "authored"
+corpus_id = ""
+notes = "harness definition file of the top sheet of examples/altium_hier, written by fenolite build --target altium --altium-sheets modules (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of examples/altium_hier listing its three sheets, its library and its three harness definition files (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary (MS-CFB) top sheet of examples/altium_hier: two sheet symbols, their entries and two harness blocks (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier_flash.Harness"
+origin = "authored"
+corpus_id = ""
+notes = "harness definition file of the flash sheet of examples/altium_hier (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier_flash.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary (MS-CFB) module sheet flash of examples/altium_hier: two ports and one harness block (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier_mcu.Harness"
+origin = "authored"
+corpus_id = ""
+notes = "harness definition file of the mcu sheet of examples/altium_hier (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/hier/altium_hier_mcu.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary (MS-CFB) module sheet mcu of examples/altium_hier: three ports and one harness block (c0037 golden file)"

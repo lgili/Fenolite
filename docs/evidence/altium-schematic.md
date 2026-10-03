@@ -17,6 +17,8 @@ This page is the protocol by which the maintainer checks, in Altium Designer, th
   use for it.
 - Part N (change c0036) compiles the committed no-connect example in Altium Designer and uploads its
   binary schematic to the Viewer.
+- Part H (change c0037) opens the committed hierarchy sample in Altium Designer: a top sheet, two module
+  sheets and one signal harness.
 - `kicad-cli` cannot read a `.SchDoc` (S-0132, S-0020), so this check is the first reading of the files by
   a program other than Fenolite.
 
@@ -236,6 +238,71 @@ repository. Check the SHA-256 values first and work on copies.
 | N2 | Compile the project ("Project » Validate PCB Project"). | Every message that names `U1`, with its pin. Expected: none for pins `2`, `4` and `8`; a floating-input message for pin `3`. | `H-A-SCH-NC-ERC` |
 | N3 | Repeat N1 and N2 on a copy of the folder with `ascii/altium_no_connect.SchDoc` in place of the binary schematic. | The same notes as N1 and N2, for the ASCII form. | `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC` |
 | N4 | Upload the binary `altium_no_connect.SchDoc` alone to the Altium 365 Viewer. | Whether the three directives are drawn as crosses at the marked pins. | `H-A-SCH-NC-VIEWER` |
+
+## Part H: sheets per module and harnesses in Altium Designer
+
+Change c0037 writes, with `--altium-sheets modules`, a top sheet with one sheet symbol per top-level
+module, one sheet per module with ports, and signal harnesses drawn with Altium's own harness objects. The
+committed files are the build of `examples/altium_hier/design.py` (CC0-1.0, authored): `J1` on the top
+sheet, `U1` and `C1` in the module `mcu`, `U2`, `C2` and `R1` in the module `flash`, and the harness `SPI`
+with the entries `CS`, `MISO`, `MOSI` and `SCK`. `tests/unit/lens/test_altium_hier_golden.py` checks that a
+fresh build gives these bytes and that this table names them.
+
+| sheet, library or project file | SHA-256 |
+|---|---|
+| `tests/data/altium/hier/FenoliteHier.SchLib` | `3013953bfd734233a33dbd17396d1b3049c2b215f13e46d2a0c4c9d75c0c8a4a` |
+| `tests/data/altium/hier/altium_hier.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
+| `tests/data/altium/hier/altium_hier.PrjPcb` | `c47f551a04d36f53a86a1ced92812abc20c12f6bac5cbd0ff8cd44239eb0a63a` |
+| `tests/data/altium/hier/altium_hier.SchDoc` | `f82dccdb8b0c6fc796e65b7e9b434b9a6367d0c0370c5554b540cf749988409d` |
+| `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
+| `tests/data/altium/hier/altium_hier_flash.SchDoc` | `7c51ef59965632ae74686b5c868bcb8d4c89c64b3f097a9a1dd6d72ee87d8b61` |
+| `tests/data/altium/hier/altium_hier_mcu.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
+| `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `eed364bf61d5be9f4771fba64edd5dd6c8a0e2728573fa95bb056bc3f52d5ffe` |
+
+- `altium_hier.SchDoc` is the top sheet: the sheet symbols `flash` (entries `FLASH_WP` and `SPI`) and
+  `mcu` (entries `FLASH_WP`, `RESET_N` and `SPI`), and `J1`. Each net entry has a short wire with a net
+  label; each `SPI` entry has a harness line to a harness connector with four entries, each with a
+  labelled wire. No wire runs between the two sheet symbols: the labels join them.
+- `altium_hier_mcu.SchDoc` holds the ports `FLASH_WP`, `RESET_N` and `SPI`; `altium_hier_flash.SchDoc`
+  holds the ports `FLASH_WP` and `SPI`. The port `SPI` has the same harness block beside it.
+- The harness records are in the stream `Additional` of each sheet; the three `.Harness` files hold the
+  line `SPI=CS,MISO,MOSI,SCK`, and the project file lists the sheets and then the harness files.
+- `VDD` and `GND` are power ports on all three sheets and get neither a port nor a sheet entry.
+  `FLASH_HOLD_N` stays on the `flash` sheet.
+- The libraries `FenoliteHier.SchLib` (generic symbols, written) and `FenoliteHier.PcbLib` (not written)
+  are stand-ins: a change order into a blank PCB document reports missing footprints, which is expected.
+- There is no oracle: `kicad-cli` reads no schematic document. Fenolite's own readback
+  (`tests/_altium_read.py`, `nets_from_project`) finds the nets below in both forms, which proves only
+  that the written geometry is consistent with the fact pages.
+
+Expected nets of the sample:
+
+| net | pins as (ref, pin) |
+|---|---|
+| `FLASH_HOLD_N` | (R1, 2), (U2, 7) |
+| `FLASH_WP` | (U1, 2), (U2, 3) |
+| `GND` | (C1, 2), (C2, 2), (J1, 2), (U1, 4), (U2, 4) |
+| `RESET_N` | (J1, 3), (U1, 1) |
+| `SPI_CS` | (U1, 3), (U2, 1) |
+| `SPI_MISO` | (U1, 5), (U2, 2) |
+| `SPI_MOSI` | (U1, 6), (U2, 5) |
+| `SPI_SCK` | (U1, 7), (U2, 6) |
+| `VDD` | (C1, 1), (C2, 1), (J1, 1), (R1, 1), (U1, 8), (U2, 8) |
+
+Part H is recorded under the conditions of Part B and Part L (`LEGAL.md`, block A, P3 and P4): a licence
+the maintainer may use for Fenolite, only Fenolite's authored or built files opened, generic outcomes
+only, no artefact. Check the SHA-256 values first and work on copies. Steps H6 and H7 build their files
+with `fenolite build <script> --out <folder> --target altium --altium-sheets modules --confirm`.
+
+| step | what to do | what to note | rows |
+|---|---|---|---|
+| H1 | Open `altium_hier.PrjPcb` and each of the three sheets. | Any prompt, repair offer or error. Expected: two sheet symbols with five entries in all on the top sheet, three ports on `mcu` and two on `flash`. | `H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-PRJ` |
+| H2 | Look at the four harness blocks (two on the top sheet, one on each module sheet). | Whether each harness connector shows with its entries `CS`, `MISO`, `MOSI` and `SCK` and the type `SPI`, and whether a harness line joins it to its port or sheet entry; whether the three `.Harness` files are listed under the project. | `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-FILE` |
+| H3 | Compile the project ("Project » Validate PCB Project"). | The sheet tree of the Projects panel (it also settles the project row of H1) and every message. Expected: `altium_hier.SchDoc` on top with two children, and no message about ports, sheet entries, harnesses, duplicate net names or a conflicting harness definition; whether Altium rewrote a `.Harness` file. | `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HARN-FILE` |
+| H4 | List the nets in the Navigator panel. | Expected: exactly the nine net names of the table above, each with its pins; `VDD` and `GND` on all three sheets; each `SPI_*` net with one pin on each module sheet. | `H-A-SCH-HIER-NAMES`, `H-A-SCH-HARN-NETS` |
+| H5 | Add a new PCB document to the project and run "Design » Update PCB Document". | Whether the change order adds six components and nine nets and "Validate Changes" passes, apart from the missing footprints of the stand-in library. | `H-A-SCH-HIER-ECO` |
+| H6 | Build `examples/altium_hier/partial.py` (a fifth entry `HOLD` whose net stays on the `flash` sheet, so it is wired on no sheet), open its project and compile it. | Every message that names the entry `HOLD`, with its level; whether the nets still equal the table above. | `H-A-SCH-HARN-UNUSED` |
+| H7 | Build `examples/altium_hier_board/design.py`, open its project and its PCB document, and run "Design » Update PCB Document". | Whether the change order proposes no component change and no net change: the parts of the modules `driver` and `led` link through their sheet symbols. | `H-A-SCH-HIER-ECO` |
 
 ## Recording a report
 
