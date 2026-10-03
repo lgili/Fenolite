@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
-from _altium import SAMPLE, variant_script
+from _altium import HIER, SAMPLE, variant_script
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium import cfb
@@ -67,8 +67,8 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert not [p for p in plan if p.endswith((".PcbLib", ".PcbDoc"))]
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
-        "sheet", "kept", "schematic_format", "libraries", "symbols", "footprints", "pcb_document",
-        "experimental", "script_output", "plan",
+        "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
+        "libraries", "symbols", "footprints", "pcb_document", "experimental", "script_output", "plan",
     ]  # fmt: skip
 
 
@@ -275,3 +275,160 @@ def test_edited_library_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     code, _env, err = run(monkeypatch, str(BLINK), "--out", str(out), "--target", "altium", "--confirm")
     assert code == 7 and "FEN-7001" in err and "blink.PcbLib" in err
     assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == before
+
+
+# --- the sheets option (change c0037, "Altium sheets option") ----------------------------------------
+
+HIER_SHEETS = ["altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
+HIER_HARNESSES = ["altium_hier.Harness", "altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
+MODULES = ("--target", "altium", "--altium-sheets", "modules")
+
+
+def hier_variant(folder: Path, old: str = "", new: str = "", *, append: str = "") -> Path:
+    """A copy of the hierarchy sample script under ``folder`` with one edit."""
+    text = HIER.read_text(encoding="utf-8")
+    if old:
+        assert old in text, old
+        text = text.replace(old, new)
+    folder.mkdir(parents=True, exist_ok=True)
+    script = folder / "design.py"
+    script.write_text(text + append, encoding="utf-8")
+    return script
+
+
+def test_flat_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Flat by default"."""
+    out = tmp_path / "B"
+    out.mkdir()
+    code, env, _ = run(monkeypatch, str(HIER), "--out", str(out), "--target", "altium", "--dry-run")
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    assert result["sheet_mode"] == "flat" and result["sheets"] == ["altium_hier.SchDoc"]
+    assert (result["ports"], result["sheet_entries"], result["harnesses"]) == (0, 0, 0)
+    assert list(out.iterdir()) == []
+    flat = ("--target", "altium", "--altium-sheets", "flat")
+    code, explicit, _ = run(monkeypatch, str(HIER), "--out", str(out), *flat, "--dry-run")
+    assert code == 0 and explicit["result"] == result
+
+
+def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Modules on request" and "Sample builds without warnings"."""
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(HIER), "--out", str(out), *MODULES, "--confirm")
+    result, receipt, issues = env["result"], env["receipt"], env["issues"]
+    assert code == 0 and isinstance(result, dict) and isinstance(receipt, dict) and isinstance(issues, list)
+    assert result["sheet_mode"] == "modules" and result["sheets"] == HIER_SHEETS
+    assert (result["ports"], result["sheet_entries"], result["harnesses"]) == (5, 5, 1)
+    assert (result["components"], result["nets"]) == (6, 9)
+    assert not [i for i in issues if i["severity"] in ("warning", "error")]
+    assert len(receipt["written"]) == len([p for p in out.rglob("*") if p.is_file()])
+    dry = ("--out", str(tmp_path / "P"), *MODULES, "--dry-run")
+    _, planned, _ = run(monkeypatch, str(HIER), *dry)
+    kinds = {Path(p["path"]).name: p["kind"] for p in planned["result"]["plan"]}  # type: ignore[index]
+    assert {kinds[name] for name in HIER_HARNESSES} == {"altium_harness"}
+    assert {kinds[name] for name in HIER_SHEETS} == {"altium_schdoc_binary"}
+    assert all((out / name).read_bytes() == b"SPI=CS,MISO,MOSI,SCK\r\n" for name in HIER_HARNESSES)
+    expected = [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib", *CACHE]
+    assert files_under(out) == sorted(expected)
+    record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
+    assert sorted(record["files"]) == sorted(
+        [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib"]
+    )
+    ascii_args = ("--out", str(tmp_path / "A"), *MODULES, "--altium-format", "ascii", "--dry-run")
+    code, env, _ = run(monkeypatch, str(HIER), *ascii_args)
+    plan = {Path(p["path"]).name: p["kind"] for p in env["result"]["plan"]}  # type: ignore[index]
+    assert code == 0 and {plan[name] for name in HIER_SHEETS} == {"altium_schdoc_ascii"}
+    assert not [name for name in plan if name.endswith(".Harness")]
+
+
+def test_result_keys_of_the_sheets_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _ = run(monkeypatch, str(HIER), "--out", str(tmp_path / "B"), *MODULES, "--dry-run")
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    keys = list(result)
+    at = keys.index("schematic_format")
+    assert keys[at + 1 : at + 6] == ["sheet_mode", "sheets", "ports", "sheet_entries", "harnesses"]
+
+
+@pytest.mark.parametrize("target", [(), ("--target", "kicad")], ids=["default-target", "kicad"])
+def test_sheets_option_without_the_altium_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target: tuple[str, ...]
+) -> None:
+    """Scenario "Option without the Altium target"."""
+    out = tmp_path / "B"
+    code, env, err = run(
+        monkeypatch, str(BLINK), "--out", str(out), *target, "--altium-sheets", "modules", "--dry-run"
+    )
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--altium-sheets"
+    assert env["ok"] is False and not out.exists()
+
+
+def test_unknown_altium_sheets_value(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "B"
+    args = ("--out", str(out), "--target", "altium", "--altium-sheets", "pages", "--dry-run")
+    code, _, err = run(monkeypatch, str(HIER), *args)
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001" and not out.exists()
+
+
+def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Switching the mode is not an edit"; a sheet the new plan no longer holds is left in place
+    and is not in the new build record."""
+    out = tmp_path / "B"
+    code, _, _ = run(monkeypatch, str(HIER), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 0
+    flat_top = (out / "altium_hier.SchDoc").read_bytes()
+    code, env, _ = run(monkeypatch, str(HIER), "--out", str(out), *MODULES, "--confirm")
+    assert code == 0
+    top = (out / "altium_hier.SchDoc").read_bytes()
+    reference = tmp_path / "R"
+    assert run(monkeypatch, str(HIER), "--out", str(reference), *MODULES, "--confirm")[0] == 0
+    assert top == (reference / "altium_hier.SchDoc").read_bytes() != flat_top
+    codes = [i["code"] for i in env["issues"]]  # type: ignore[union-attr]
+    assert "altium.project-kept" in codes and "altium.sheets-not-in-project" in codes
+    module_sheet = (out / "altium_hier_flash.SchDoc").read_bytes()
+    code, _, _ = run(monkeypatch, str(HIER), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 0 and (out / "altium_hier.SchDoc").read_bytes() == flat_top
+    assert (out / "altium_hier_flash.SchDoc").read_bytes() == module_sheet, "left in place"
+    record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
+    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.SchDoc"]
+
+
+@pytest.mark.parametrize("name", ["altium_hier_mcu.SchDoc", "altium_hier_flash.Harness"])
+def test_edited_module_sheet_or_harness_file_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, name: str
+) -> None:
+    """Every planned sheet and harness file follows the edited-output rule on its own."""
+    out = tmp_path / "B"
+    assert run(monkeypatch, str(HIER), "--out", str(out), *MODULES, "--confirm")[0] == 0
+    target = out / name
+    original = target.read_bytes()
+    edited = original + b"\r\n"
+    target.write_bytes(edited)
+    before = {p: p.read_bytes() for p in out.rglob("*") if p.is_file()}
+    code, _, err = run(monkeypatch, str(HIER), "--out", str(out), *MODULES, "--confirm")
+    assert code == 7 and "FEN-7001" in err and name in err
+    assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == before
+    code, _, _ = run(monkeypatch, str(HIER), "--out", str(out), *MODULES, "--discard-layout", "--confirm")
+    assert code == 0 and target.read_bytes() == original
+    assert target.with_name(name + ".bak").read_bytes() == edited
+
+
+def test_net_in_two_harnesses_exits_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Net in two harnesses"."""
+    script = hier_variant(tmp_path / "V", append='\ndesign.add(Harness("DBG", {"CLK": spi_sck}))\n')
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--confirm")
+    issues = env["issues"]
+    assert code == 5 and isinstance(issues, list) and json.loads(err)["code"] == "FEN-5001"
+    (found,) = [i for i in issues if i["code"] == "altium.harness-net-shared"]
+    assert all(text in found["message"] for text in ("SPI_SCK", "SPI", "DBG"))
+    assert not out.exists() or files_under(out) == []
+
+
+def test_hierarchy_envelope_evidence(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Envelope evidence"."""
+    _, env, _ = run(monkeypatch, str(HIER), "--out", str(tmp_path / "B"), *MODULES, "--dry-run")
+    evidence = env["evidence"]
+    assert isinstance(evidence, dict) and evidence["level"] == "INFERRED"
+    assert {"H-A-SCH-HIER-OPEN", "H-A-SCH-HIER-ECO", "H-A-SCH-HARN-OPEN"} <= set(evidence["hypotheses"])

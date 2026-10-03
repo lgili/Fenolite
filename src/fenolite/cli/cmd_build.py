@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite build DESIGN.py --out DIR``: a design script built into a self-contained KiCad project, or,
 with ``--target altium``, into an experimental Altium project (``docs/altium.md``), whose schematic is
-binary by default and ASCII with ``--altium-format ascii``.
+binary by default and ASCII with ``--altium-format ascii``, and is one sheet by default or, with
+``--altium-sheets modules``, a top sheet with one sheet per top-level module (change c0037).
 
 ``build`` executes ``design.py`` as your own code and must never be run on an untrusted script
 (``docs/dsl.md``, "Scripts"). Outputs changed since the last build are refused until c0019 preserves
@@ -22,11 +23,14 @@ from typing import Any, Literal, cast
 import fenolite.dsl
 from fenolite.backends.altium.project import (
     DEFAULT_FORM,
+    DEFAULT_SHEETS,
+    HARNESS_KIND,
     PCBDOC_KIND,
     PCBLIB_KIND,
     SCHDOC_KINDS,
     SCHLIB_KIND,
     SchematicForm,
+    SheetMode,
 )
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
@@ -47,6 +51,7 @@ HELP = (
 )
 TARGETS = ("kicad", ALTIUM_TARGET)
 ALTIUM_FORMATS: tuple[SchematicForm, ...] = ("binary", "ascii")
+ALTIUM_SHEETS: tuple[SheetMode, ...] = ("flat", "modules")
 _KINDS = {
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
@@ -56,6 +61,7 @@ _KINDS = {
     ".SchLib": SCHLIB_KIND,
     ".PcbLib": PCBLIB_KIND,
     ".PcbDoc": PCBDOC_KIND,
+    ".Harness": HARNESS_KIND,
 }
 
 
@@ -82,6 +88,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=f"the form of the Altium schematic with --target altium: binary (default, Altium's own) or "
         f"ascii; a usage error with --target kicad (default form: {DEFAULT_FORM})",
+    )
+    parser.add_argument(
+        "--altium-sheets",
+        choices=ALTIUM_SHEETS,
+        default=None,
+        help=f"the sheets of the Altium schematic with --target altium: flat (default, one sheet) or modules "
+        f"(a top sheet with sheet symbols and one sheet per top-level module, with ports, sheet entries and "
+        f"signal harnesses); a usage error with --target kicad (default: {DEFAULT_SHEETS})",
     )
     parser.add_argument(
         "--vendor",
@@ -115,6 +129,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             f"--altium-format needs --target {ALTIUM_TARGET}; the target is {args.target}",
             where="--altium-format",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-format",
+        )
+    if args.altium_sheets is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-sheets needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-sheets",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
     run = run_design_script(script_path)
     design = run.design
@@ -192,9 +213,11 @@ def _run_altium(
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
     resolver built as for ``--target kicad`` and only when
     the design has such lib ids; no external tool runs; the project file is planned only when ``DIR`` has
-    none."""
+    none. ``--altium-sheets`` picks one sheet or one sheet per top-level module (change c0037); every planned
+    sheet and harness definition file follows the edited-output rule on its own."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
+    sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
     resolver = None
     if kicad_lib_ids(model) or kicad_footprint_ids(model):
         resolver = LibraryResolver(
@@ -208,6 +231,7 @@ def _run_altium(
         project_exists=(out_dir / f"{name}.PrjPcb").is_file(),
         form=form,
         resolver=resolver,
+        sheets=sheets,
     )
     files = dict(built.files)
     if files:
@@ -229,6 +253,7 @@ def _run_altium(
         },
         "kept": [str(out / rel) for rel in kept],
         "schematic_format": form,
+        **{key: summary[key] for key in ("sheet_mode", "sheets", "ports", "sheet_entries", "harnesses")},
         "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],
         "symbols": summary["symbols"],
         "footprints": summary["footprints"],

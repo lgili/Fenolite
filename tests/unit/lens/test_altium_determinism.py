@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from _altium import EXAMPLE, SAMPLE, records, variant_script
+from _altium import EXAMPLE, HIER, SAMPLE, records, variant_script
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium.cfb import SIGNATURE
@@ -195,3 +195,48 @@ def test_blink_twice_in_process_and_twice_by_subprocess(
     builds = [files_under(out) for out in outs]
     assert set(builds[0]) == BLINK_PLANNED
     assert all(build == builds[0] for build in builds[1:])
+
+
+# --- module sheets (change c0037, "Altium sheets option", "Reproducible module sheets") --------------
+
+HIER_PLANNED = {
+    "altium_hier.PrjPcb",
+    "altium_hier.SchDoc",
+    "altium_hier_flash.SchDoc",
+    "altium_hier_mcu.SchDoc",
+    "altium_hier.Harness",
+    "altium_hier_flash.Harness",
+    "altium_hier_mcu.Harness",
+    "FenoliteHier.SchLib",
+    *(f".fenolite/{n}.json" for n in LAYERS),
+}
+
+
+@pytest.mark.parametrize(
+    ("flags", "head"), [((), SIGNATURE), (("--altium-format", "ascii"), b"|HEADER=")], ids=["binary", "ascii"]
+)
+def test_hierarchy_twice_in_process_and_twice_by_subprocess(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], flags: tuple[str, ...], head: bytes
+) -> None:
+    before = files_under(HIER.parent)
+    common = ["--target", "altium", "--altium-sheets", "modules", *flags, "--confirm", "--json"]
+    outs = [tmp_path / "in1", tmp_path / "in2"]
+    for out in outs:
+        assert cli_main.main(["build", str(HIER), "--out", str(out), *common]) == 0, capsys.readouterr().err
+    capsys.readouterr()
+    for seed, stamp in ((1, "2026-01-01T00:00:00Z"), (2, "2027-06-01T00:00:00Z")):
+        out = tmp_path / f"sub{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+        argv = [sys.executable, "-m", "fenolite", "build", str(HIER), "--out", str(out), *common]
+        argv += ["--seed", str(seed), "--timestamp", stamp]
+        proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr
+        outs.append(out)
+    builds = [files_under(out) for out in outs]
+    harnesses = {name for name in HIER_PLANNED if name.endswith(".Harness")}
+    assert set(builds[0]) == (HIER_PLANNED if not flags else HIER_PLANNED - harnesses)
+    for name in ("altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"):
+        assert builds[0][name].startswith(head)
+    assert all(build == builds[0] for build in builds[1:])
+    assert files_under(HIER.parent) == before, "the build changed the script folder"
+    assert not list(HIER.parent.rglob("__pycache__"))
