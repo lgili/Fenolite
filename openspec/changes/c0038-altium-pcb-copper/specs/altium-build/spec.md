@@ -84,7 +84,7 @@ When the design carries resolved script copper, the Altium build SHALL write it.
 - **Copper.** Via types, layers and planes follow "Copper issue codes" and "Internal planes in an Altium build"; a zone's `fills` are not copied. Keep-outs, texts, graphics and holes of the board are not copied and give one `altium.not-lowered` info per kind with `where` = the path.
 - Every issue of this requirement MUST name the path, and an issue about a copper item MUST name its layer and its position in millimetres from the outline's corner.
 - A copper source given while the PCB document is not planned MUST give `altium.copper-no-document` (error).
-- `result.copper.source` MUST be `board`, `result.copper.from` the path as given, and `result.copper.placements_from_board` the number of components placed from the board. The envelope's `input` MUST also hold the board's path and SHA-256 with the kind `kicad-board`.
+- `result.copper.source` MUST be `board`, `result.copper.from` the path as given, and `result.copper.placements_from_board` the number of components placed from the board. The result MUST also hold `copper_input`, the board's `path` (as given), `sha256`, the kind `kicad-board` and its `format_version`: the envelope's `input` is one object in contract v0 (`schemas/fenolite.envelope.v0.json`) and stays the script.
 - The bytes MUST NOT depend on the ids or uuids of the board's items, on `--seed`, `--timestamp` or `PYTHONHASHSEED`.
 
 #### Scenario: Copper copied from the board

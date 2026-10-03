@@ -32,14 +32,17 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
 )
+from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 from fenolite.dsl import DslError, moves, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
-from fenolite.lens.altium import build_altium, kicad_footprint_ids, kicad_lib_ids
+from fenolite.lens.altium import CopperSource, build_altium, kicad_footprint_ids, kicad_lib_ids
 from fenolite.lens.build import (
     VENDOR_MODES,
     PlacementRequest,
@@ -105,6 +108,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         f"signal harnesses); a usage error with --target kicad (default: {DEFAULT_SHEETS})",
     )
     parser.add_argument(
+        "--copper-from",
+        metavar="BOARD.kicad_pcb",
+        default=None,
+        help=f"with --target {ALTIUM_TARGET}: copy the tracks, arcs, vias and zones of a routed KiCad board "
+        "of the same design into the PCB document, after checking that the board matches the design; the "
+        "board's placements win; a usage error with --target kicad",
+    )
+    parser.add_argument(
         "--vendor",
         choices=VENDOR_MODES,
         default="all",
@@ -144,6 +155,26 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
+    )
+    parser.add_argument(
+    board_path: Path | None = None
+    if args.copper_from is not None:
+        if args.target != ALTIUM_TARGET:
+            raise CliError(
+                "FEN-2001",
+                f"--copper-from needs --target {ALTIUM_TARGET}; the target is {args.target}",
+                where="--copper-from",
+                hint=f"add --target {ALTIUM_TARGET}, or drop --copper-from",
+            )
+        given = Path(args.copper_from)
+        board_path = given if given.is_absolute() else ctx.cwd / given
+        if not board_path.is_file():
+            raise CliError(
+                "FEN-2001",
+                f"--copper-from: {args.copper_from} is not a file",
+                where="--copper-from",
+                hint="pass the routed .kicad_pcb of the same design",
+            )
     run = run_design_script(script_path)
     design = run.design
     try:
@@ -154,7 +185,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
-        return _run_altium(args, ctx, run, model, requested, plane_nets, script_path, out, out_dir)
+        return _run_altium(
+            args, ctx, run, model, requested, plane_nets, script_path, out, out_dir, board_path
+        )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
     )
@@ -217,13 +250,18 @@ def _run_altium(
     script_path: Path,
     out: Path,
     out_dir: Path,
+    board_path: Path | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
     resolver built as for ``--target kicad`` and only when
     the design has such lib ids; no external tool runs; the project file is planned only when ``DIR`` has
     none. ``--altium-sheets`` picks one sheet or one sheet per top-level module (change c0037); every planned
-    sheet and harness definition file follows the edited-output rule on its own."""
+    sheet and harness definition file follows the edited-output rule on its own.
+
+    With ``--copper-from`` (change c0038, "Copper from a routed KiCad board") the board ``board_path`` is
+    read in this process with ``backends.kicad.pcb.read_board`` and handed to the build as a
+    ``CopperSource`` of origin ``board``; the reader's issues and evidence join the build's."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
@@ -232,6 +270,19 @@ def _run_altium(
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
+    source: CopperSource | None = None
+    reader_issues: list[Issue] = []
+    copper_input: dict[str, object] | None = None
+    if board_path is not None:
+        board = kicad_pcb.read_board(board_path, issues=reader_issues)
+        source = CopperSource(board, "board", str(args.copper_from))
+        info = kicad_pcb.source_info(board)
+        copper_input = {
+            "path": str(args.copper_from),
+            "sha256": hashlib.sha256(board_path.read_bytes()).hexdigest(),
+            "kind": "kicad-board",
+            "format_version": str(info.version) if info is not None else None,
+        }
     built = build_altium(
         model,
         name=name,
@@ -243,6 +294,7 @@ def _run_altium(
         sheets=sheets,
         copper=run.design.copper,
         planes=plane_nets,
+        copper_source=source,
     )
     files = dict(built.files)
     if files:
@@ -273,11 +325,14 @@ def _run_altium(
         "experimental": summary["experimental"],
         "script_output": run.output,
     }
+    if copper_input is not None:
+        result["copper_input"] = copper_input
     data = script_path.read_bytes()
+    evidence = built.evidence if source is None else Evidence.combine(built.evidence, kicad_pcb.EVIDENCE)
     return Result(
         result=result,
-        issues=built.issues,
-        evidence=built.evidence,
+        issues=(*reader_issues, *built.issues),
+        evidence=evidence,
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(data).hexdigest(),

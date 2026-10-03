@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import dataclasses
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from _altium import BLINK, blink_resolver, blink_tree
 
+from fenolite.backends.kicad.pcb import write_board
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
 from fenolite.dsl import BOARD_ORIGIN, Design, placements, to_model
@@ -182,6 +183,14 @@ def routed_kicad_design(features: tuple[str, ...] = FEATURES) -> ModelDesign:
     """The sample as the KiCad build of its script holds it in memory, with the sample's copper put into
     its model: what change c0028 hands over as script copper (a ``CopperSource`` of origin ``script``)."""
     return with_copper(routed_kicad_build().design, features)
+
+
+def routed_board_text(edit: Callable[[ModelDesign], ModelDesign] | None = None) -> str:
+    """The text of the sample's routed KiCad board: the KiCad build of the script with the sample's copper,
+    as a ``.kicad_pcb``; ``edit`` changes the model first (a moved part, a mismatch)."""
+    design = routed_kicad_design()
+    written = write_board(design if edit is None else edit(design))
+    return written.text
 
 
 def routed_placements() -> Mapping[str, object]:
