@@ -23,3 +23,8 @@ paths = ["tests/data/**", "examples/**"]
 path = "tests/data/kicad/project/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647"
+
+[[waiver]]
+path = "tests/data/altium/blink/blink.PcbLib"
+pattern = "numeric-code"
+reason = "the view window VP.LX/HX/LY/HY that libboard.py writes: 499000000 and 501000000 units around the library origin at 50 000 mil"
