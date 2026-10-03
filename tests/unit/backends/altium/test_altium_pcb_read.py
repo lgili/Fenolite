@@ -530,3 +530,37 @@ def test_polygon_names_net_9_of_1() -> None:
 def test_polygon_header_count() -> None:
     with pytest.raises(PcbReadError, match="Polygons6/Header says 1, the data holds 2 records"):
         read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(0) + polygon(1)))
+
+
+# --- internal planes (change c0038) ----------------------------------------------------------------
+
+
+def test_plane_of_the_chain_reads_with_its_net() -> None:
+    board = board_with_chain((1, 39, 3, 32), PLANE1NETNAME="GND")
+    doc = read_pcbdoc(copper_document(Board6__Data=board))
+    assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
+
+
+def test_plane_of_the_chain_without_a_net() -> None:
+    """The chain holds layer 39 while ``PLANE1NETNAME`` is ``(No Net)``."""
+    board = board_with_chain((1, 39, 3, 32), PLANE1NETNAME="(No Net)")
+    with pytest.raises(
+        PcbReadError, match=r"Internal Plane 1 is in the copper chain and PLANE1NETNAME=\(No Net\)"
+    ):
+        read_pcbdoc(copper_document(Board6__Data=board))
+    with pytest.raises(PcbReadError, match="PLANE1NETNAME=VCC names no net of Nets6"):
+        read_pcbdoc(copper_document(Board6__Data=board_with_chain((1, 39, 3, 32), PLANE1NETNAME="VCC")))
+
+
+def test_track_on_a_plane() -> None:
+    """A track lies on layer 39."""
+    body = head(39, net=0) + struct.pack("<5iHB", 0, 0, 100, 0, 50, 0, 0)
+    data = bytes((4,)) + sub(body)
+    board = board_with_chain((1, 39, 3, 32), PLANE1NETNAME="GND")
+    with pytest.raises(PcbReadError, match="Tracks6 record 0: a primitive on layer 39, a plane"):
+        read_pcbdoc(copper_document(Board6__Data=board, Tracks6__Header=one(1), Tracks6__Data=data))
+
+
+def test_polygon_on_a_plane() -> None:
+    with pytest.raises(PcbReadError, match="a polygon on PLANE1, a plane"):
+        read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(layer="PLANE1")))

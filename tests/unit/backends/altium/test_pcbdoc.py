@@ -657,3 +657,42 @@ def test_zone_refusals(changes: dict[str, object], message: str) -> None:
     zone = Zone(id="zon_bad", outline=RECT, layers=("F.Cu",), net_id="GND")
     with pytest.raises(ValueError, match=message):
         write_pcbdoc(copper_spec(zones=(dataclasses.replace(zone, **changes),)))  # type: ignore[arg-type]
+
+
+# --- internal planes (change c0038, "Four-layer stack") --------------------------------------------
+
+PLANE_STACK = StackSpec.default((1, 39, 3, 32), ("GND",))
+
+
+def test_plane_in_the_document() -> None:
+    track = Track(id="trk_m", start=at(10, 10), end=at(30, 10), width=200_000, layer="In2.Cu", net_id="SIG")
+    zone = Zone(id="zon_b", outline=RECT, layers=("B.Cu",), net_id="GND")
+    doc, _ = copper_doc(copper_layers=FOUR, stack=PLANE_STACK, tracks=(track,), zones=(zone,))
+    assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
+    assert doc.board["PLANE1NETNAME"] == "GND" and doc.board["V9_STACK_LAYER5_USEDBYPRIMS"] == "FALSE"
+    assert [t.prefix.layer for t in doc.free_tracks] == [3]
+    assert [(p.layer, p.name) for p in doc.polygons] == [("BOTTOM", "GND_L04_P000")]
+    assert all(p.fields["POLYGONTYPE"] == "Polygon" for p in doc.polygons)  # no split-plane record
+
+
+def test_plane_holds_no_primitive() -> None:
+    track = Track(id="trk_p", start=at(1, 1), end=at(2, 1), width=200_000, layer="In1.Cu", net_id="GND")
+    with pytest.raises(ValueError, match="trk_p: the layer In1.Cu is an internal plane"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, stack=PLANE_STACK, tracks=(track,)))
+    arc = Arc(id="arc_p", start=at(1, 1), mid=at(2, 2), end=at(3, 1), width=200_000, layer="In1.Cu")
+    with pytest.raises(ValueError, match="arc_p: the layer In1.Cu is an internal plane"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, stack=PLANE_STACK, arcs=(arc,)))
+    zone = Zone(id="zon_p", outline=RECT, layers=("B.Cu", "In1.Cu"), net_id="GND")
+    with pytest.raises(ValueError, match="zon_p: the layer In1.Cu is an internal plane"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, stack=PLANE_STACK, zones=(zone,)))
+
+
+def test_plane_net_must_be_a_net_of_the_document() -> None:
+    stack = StackSpec.default((1, 2, 39, 32), ("NOPE",))
+    with pytest.raises(ValueError, match="the net 'NOPE' of Internal Plane 1 is not a net of the document"):
+        write_pcbdoc(copper_spec(copper_layers=FOUR, stack=stack))
+
+
+def test_plane_stack_must_fit_the_copper_layers() -> None:
+    with pytest.raises(ValueError, match="does not hold one id per copper layer"):
+        write_pcbdoc(copper_spec(stack=PLANE_STACK))

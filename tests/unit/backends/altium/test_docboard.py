@@ -499,3 +499,46 @@ def test_polygon_keys_are_the_outline_keys_with_a_net_a_name_and_an_index() -> N
     differing = sorted(key for key in shared if pour[key] != outline[key])
     assert differing == ["GRIDSIZE", "HATCHSTYLE", "POUROVER", "POUROVERSTYLE", "REMOVEDEAD", "TRACKWIDTH"]
     assert outline["POURINDEX"] == "-1" and outline["NAME"] == "" and outline["HATCHSTYLE"] == "None"
+
+
+# --- internal planes (change c0038, "Four-layer stack") --------------------------------------------
+
+
+def test_ground_plane_under_the_top_layer() -> None:
+    """Scenario "Ground plane under the top layer"."""
+    board = stack_board(StackSpec.default((1, 39, 3, 32), plane_nets=("GND",)))
+    assert chain_of(board) == [1, 39, 3, 32]
+    assert board["PLANE1NETNAME"] == "GND" and board["PLANE2NETNAME"] == "(No Net)"
+    assert (
+        board["V9_STACK_LAYER5_NAME"] == "Internal Plane 1" and board["V9_STACK_LAYER5_LAYERID"] == "16842753"
+    )
+    assert board["V9_STACK_LAYER5_PULLBACKDISTANCE"] == "20mil"
+    assert "V9_STACK_LAYER5_COMPONENTPLACEMENT" not in board
+    assert board["V9_STACK_LAYER7_NAME"] == "Mid-Layer 2" and board["LAYERSET3LAYERS"] == "InternalPlane1"
+    assert board["LAYERSET2LAYERS"] == "MultiLayer,TopLayer,MidLayer2,BottomLayer"
+    assert board["LAYERPAIR0LOW"] == "TOP" and board["LAYERPAIR0HIGH"] == "BOTTOM"
+
+
+def test_two_planes_in_the_stack() -> None:
+    """Scenario "Two planes"."""
+    board = stack_board(StackSpec.default((1, 39, 40, 32), plane_nets=("GND", "VIN")))
+    assert chain_of(board) == [1, 39, 40, 32]
+    assert board["PLANE1NETNAME"] == "GND" and board["PLANE2NETNAME"] == "VIN"
+    assert board["LAYERSET2LAYERS"] == "MultiLayer,TopLayer,BottomLayer"
+    assert board["LAYERSET3LAYERS"] == "InternalPlane1,InternalPlane2"
+    cache = [value for key, value in board.items() if re.fullmatch(r"V9_CACHE_LAYER\d+_NAME", key)]
+    assert cache.count("Internal Plane 1") == 1 and cache.count("Internal Plane 2") == 1
+    for index in (51, 52):
+        assert board[f"V9_CACHE_LAYER{index}_PULLBACKDISTANCE"] == "20mil"
+    assert (
+        board["V9_STACK_LAYER7_NAME"] == "Internal Plane 2" and board["V9_STACK_LAYER7_LAYERID"] == "16842754"
+    )
+
+
+def test_plane_lines_of_the_record() -> None:
+    records = board_records(
+        "X.PcbDoc", SQUARE, ORIGIN, unique_id="ABCDEFGH", stack=StackSpec.default((1, 2, 39, 32), ("GND",))
+    )
+    assert len(records) == 27
+    first = dict(records[0])
+    assert first["PLANE1NETNAME"] == "GND" and sum(key.endswith("NETNAME") for key in first) == 16

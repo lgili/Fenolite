@@ -463,3 +463,78 @@ def test_stack_dielectric_values_from_the_spec() -> None:
 def test_stack_refusals(build: Callable[[], object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         build()
+
+
+# --- internal planes (change c0038, "Four-layer stack") --------------------------------------------
+
+
+def test_plane_entries_in_the_lists() -> None:
+    stack = StackSpec.default((1, 39, 3, 32), ("GND",))
+    values = stack_values(stack, guid("substack"))
+    names_of = stack_names(values, "V9_STACK_LAYER", "_")
+    assert names_of[3:10] == [
+        "Top Layer",
+        "Dielectric 1",
+        "Internal Plane 1",
+        "Dielectric 2",
+        "Mid-Layer 2",
+        "Dielectric 3",
+        "Bottom Layer",
+    ]
+    assert (
+        values["V9_STACK_LAYER5_LAYERID"] == "16842753"
+        and values["V9_STACK_LAYER5_PULLBACKDISTANCE"] == "20mil"
+    )
+    assert values["V9_STACK_LAYER5_COPTHICK"] == "1.4mil" and values["V9_STACK_LAYER5_USEDBYPRIMS"] == "FALSE"
+    assert "V9_STACK_LAYER5_COMPONENTPLACEMENT" not in values
+    assert (
+        values["V9_STACK_LAYER7_LAYERID"] == "16777219"
+        and values["V9_STACK_LAYER7_COMPONENTPLACEMENT"] == "1"
+    )
+    cache = stack_names(values, "V9_CACHE_LAYER", "_")
+    assert cache.count("Internal Plane 1") == 1 and cache.index("Internal Plane 1") == 51
+    assert values["V9_CACHE_LAYER51_PULLBACKDISTANCE"] == "20mil"
+    sub = guid("substack")
+    assert f"V9_CACHE_LAYER51_{sub}CONTEXT" in values and f"V9_CACHE_LAYER52_{sub}CONTEXT" not in values
+    assert f"V9_CACHE_LAYER22_{sub}CONTEXT" in values and f"V9_CACHE_LAYER21_{sub}CONTEXT" not in values
+    assert values["V9_CACHE_LAYER21_COMPONENTPLACEMENT"] == "0"  # Mid-Layer 1 is not in this stack
+
+
+def test_plane_links_and_layer_sets() -> None:
+    stack = StackSpec.default((1, 2, 39, 32), ("VIN",))
+    values = dict(item for line in legacy_lines(stack) for item in line if item[0] != "RECORD")
+    links = {n: (values[f"LAYER{n}PREV"], values[f"LAYER{n}NEXT"]) for n in (1, 2, 3, 39, 40, 32)}
+    assert links == {
+        1: ("0", "2"),
+        2: ("1", "39"),
+        3: ("0", "0"),
+        39: ("2", "32"),
+        40: ("0", "0"),
+        32: ("39", "0"),
+    }
+    assert values["LAYER39DIELTYPE"] == "2" and values["LAYER39DIELHEIGHT"] == "7.874mil"
+    sets = dict(layer_sets(stack))
+    assert sets["LAYERSET2LAYERS"] == "MultiLayer,TopLayer,MidLayer1,BottomLayer"
+    assert sets["LAYERSET3LAYERS"] == "InternalPlane1" and sets["LAYERSET3ACTIVELAYER.7"] == "PLANE1"
+    assert ",BottomPaste,InternalPlane1,DrillGuide," in sets["LAYERSET1LAYERS"]
+    assert ",TopLayer,MidLayer1,BottomLayer," in sets["LAYERSET1LAYERS"]
+
+
+def test_plane_net_fields() -> None:
+    from fenolite.backends.altium.libboard import plane_net_fields
+
+    assert plane_net_fields() == [(f"PLANE{k}NETNAME", "(No Net)") for k in range(1, 17)]
+    nets = dict(plane_net_fields(StackSpec.default((1, 39, 40, 32), ("GND", "VIN"))))
+    assert (nets["PLANE1NETNAME"], nets["PLANE2NETNAME"], nets["PLANE3NETNAME"]) == ("GND", "VIN", "(No Net)")
+
+
+def test_plane_without_a_net_refused() -> None:
+    """Scenario "Plane without a net refused"."""
+    with pytest.raises(ValueError, match="Internal Plane 1 has no net"):
+        StackSpec.default((1, 39, 3, 32))
+    with pytest.raises(ValueError, match="Internal Plane 2 has no net"):
+        StackSpec.default((1, 39, 40, 32), ("GND",))
+    with pytest.raises(ValueError, match="0 plane.s. and 1 plane nets"):
+        StackSpec.default((1, 2, 3, 32), ("GND",))
+    with pytest.raises(ValueError, match="the plane net 'G|D'"):
+        StackSpec.default((1, 39, 3, 32), ("G|D",))
