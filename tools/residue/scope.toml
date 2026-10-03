@@ -28,3 +28,8 @@ reason = "KiCad INT_MAX Default class priority 2147483647"
 path = "tests/data/altium/blink/blink.PcbLib"
 pattern = "numeric-code"
 reason = "the view window VP.LX/HX/LY/HY that libboard.py writes: 499000000 and 501000000 units around the library origin at 50 000 mil"
+
+[[waiver]]
+path = "tests/data/altium/routed/routed.PcbLib"
+pattern = "numeric-code"
+reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every PCB library (c0038 golden file of the routed sample)"
