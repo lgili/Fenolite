@@ -1,0 +1,111 @@
+(footprint "Frame_Shapes"
+	(version 20241229)
+	(generator "fenolite-tests")
+	(generator_version "9.0")
+	(layer "F.Cu")
+	(descr "Frame bench: one circle, rect, oval, roundrect and custom pad in a rectangle courtyard. Synthetic geometry for Fenolite tests, not a validated land pattern")
+	(tags "frame bench")
+	(property "Reference" "REF**"
+		(at 0 -5 0)
+		(layer "F.SilkS")
+		(uuid "f1000000-0000-4000-8000-000000000001")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "Frame_Shapes"
+		(at 0 5 0)
+		(layer "F.Fab")
+		(uuid "f1000000-0000-4000-8000-000000000002")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f1000000-0000-4000-8000-000000000003")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Description" "Frame bench: one circle, rect, oval, roundrect and custom pad in a rectangle courtyard. Synthetic geometry for Fenolite tests, not a validated land pattern"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "f1000000-0000-4000-8000-000000000004")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(attr smd)
+	(fp_rect
+		(start -3 -2)
+		(end 3 4)
+		(stroke
+			(width 0.05)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+		(uuid "f1000000-0000-4000-8000-000000000005")
+	)
+	(pad "1" smd circle
+		(at -2 -1)
+		(size 0.8 0.8)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f1000000-0000-4000-8000-000000000006")
+	)
+	(pad "2" smd rect
+		(at 0 -1)
+		(size 0.8 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f1000000-0000-4000-8000-000000000007")
+	)
+	(pad "3" smd oval
+		(at 2 -1)
+		(size 1 0.6)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(uuid "f1000000-0000-4000-8000-000000000008")
+	)
+	(pad "4" smd roundrect
+		(at -1.5 2)
+		(size 1 0.8)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(roundrect_rratio 0.25)
+		(uuid "f1000000-0000-4000-8000-000000000009")
+	)
+	(pad "5" smd custom
+		(at 1.5 2)
+		(size 0.4 0.4)
+		(layers "F.Cu" "F.Mask" "F.Paste")
+		(options
+			(clearance outline)
+			(anchor rect)
+		)
+		(primitives
+			(gr_poly
+				(pts
+					(xy -0.5 -0.4) (xy 0.5 -0.4) (xy 0 0.5)
+				)
+				(width 0)
+				(fill yes)
+			)
+		)
+		(uuid "f1000000-0000-4000-8000-000000000010")
+	)
+	(embedded_fonts no)
+)

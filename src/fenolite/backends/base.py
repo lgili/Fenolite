@@ -17,6 +17,8 @@ from typing import Any, Literal, Protocol, runtime_checkable
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.units import Nm, Udeg
+from fenolite.model.board import PadKind, Side
 from fenolite.model.design import Design
 from fenolite.model.library import Library
 
@@ -369,6 +371,85 @@ class Plotter(Protocol):
     def plot(self, project: ProjectSet) -> PlotOutcome: ...
 
 
+@dataclass(frozen=True, slots=True)
+class PadCopper:
+    """The copper of a pad on one copper layer: the points within ``width / 2`` of ``core``, boundary
+    included.
+
+    The core is one point (a disc of diameter ``width``), two or more points with ``filled`` false (an
+    open polyline; a closed outline repeats its first point), or three or more points with ``filled`` true
+    (the region a ring in the normal form encloses). ``exact`` is false for a conservative superset.
+    """
+
+    layer: str
+    core: tuple[Point, ...]
+    width: Nm
+    filled: bool = False
+    exact: bool = True
+
+    def __post_init__(self) -> None:
+        if not self.core:
+            raise ValueError("a copper entry needs a core of at least one point")
+        if self.width < 0:
+            raise ValueError(f"a copper entry cannot have the negative width {self.width}")
+        if len(self.core) == 1 and self.width == 0:
+            raise ValueError("a copper entry of one point needs a width above 0")
+        if self.filled and len(self.core) < 3:
+            raise ValueError("a filled copper entry needs a ring of at least three points")
+
+
+@dataclass(frozen=True, slots=True)
+class BoardPad:
+    """A pad in the board frame: where it is, how it is turned, its layers and net, its copper entries
+    per copper layer, and its drilled hole (a point, or the two ends of a slot) with the drill size."""
+
+    footprint_id: str
+    ref: str
+    path: str
+    pad_id: str
+    number: str
+    kind: PadKind
+    position: Point
+    rotation: Udeg
+    side: Side
+    layers: tuple[str, ...]
+    net_id: str | None
+    net: str | None
+    copper: tuple[PadCopper, ...] = ()
+    hole: tuple[Point, ...] = ()
+    drill: Nm | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PlacedExtent:
+    """The courtyard of a placed footprint in the board frame: the rings of its front and back faces, where
+    they come from, and whether they are exact. Each ring is in the normal form."""
+
+    footprint_id: str
+    side: Side
+    front: tuple[tuple[Point, ...], ...] = ()
+    back: tuple[tuple[Point, ...], ...] = ()
+    source: Literal["courtyard", "definition", "pads", "none"] = "none"
+    exact: bool = True
+
+    @property
+    def own(self) -> tuple[tuple[Point, ...], ...]:
+        """The face of the footprint's own side: ``front`` on the top, ``back`` on the bottom."""
+        return self.front if self.side == "top" else self.back
+
+
+@runtime_checkable
+class BoardFrame(Protocol):
+    """A backend that gives the board-frame geometry of a design: every pad, and every footprint's
+    courtyard. Both are pure queries."""
+
+    def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]: ...
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -389,6 +470,8 @@ class Backend(Protocol):
 __all__ = [
     "Backend",
     "BackendOperation",
+    "BoardFrame",
+    "BoardPad",
     "CanaryState",
     "CapabilityReport",
     "Downgrade",
@@ -400,7 +483,9 @@ __all__ = [
     "NetlistOutcome",
     "Oracle",
     "PadAssignment",
+    "PadCopper",
     "PadNetList",
+    "PlacedExtent",
     "PlotOutcome",
     "PlotView",
     "Plotter",

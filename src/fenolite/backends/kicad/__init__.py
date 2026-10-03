@@ -7,9 +7,11 @@ Facts and sources: ``docs/formats/kicad/`` and ``PROVENANCE.md`` in this package
 """
 
 from fenolite.backends.kicad.cli import KicadCli, find_kicad_cli
+from fenolite.backends.kicad.copper import resolve_copper
 from fenolite.backends.kicad.drc import read_drc_report
 from fenolite.backends.kicad.dru import read_rules, write_rules
 from fenolite.backends.kicad.embed import footprint_extent, place_footprint
+from fenolite.backends.kicad.frame import board_pads, find_pads, placed_extent, placed_extents
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, split_lib_id
 from fenolite.backends.kicad.lowering import lower_minimums, lower_rules
@@ -56,8 +58,10 @@ __all__ = [
     "Node",
     "apply_project",
     "board_footprints",
+    "board_pads",
     "dumps",
     "find_kicad_cli",
+    "find_pads",
     "first_difference",
     "footprint_extent",
     "load",
@@ -68,6 +72,8 @@ __all__ = [
     "parse_bytes",
     "parse_fragment",
     "place_footprint",
+    "placed_extent",
+    "placed_extents",
     "project_minimums",
     "read_board",
     "read_drawing_sheet",
@@ -78,6 +84,7 @@ __all__ = [
     "read_symbol_library",
     "rebuild_board",
     "rebuild_drawing_sheet",
+    "resolve_copper",
     "resolve_extends",
     "synthesize_project",
     "split_lib_id",

@@ -7,6 +7,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import sys
+import typing
 from pathlib import Path
 
 import pytest
@@ -14,13 +15,17 @@ from _boards import created_board
 
 from fenolite.backends import base, registry
 from fenolite.backends.base import (
+    BoardFrame,
+    BoardPad,
     DrcItem,
     DrcOutcome,
     DrcReport,
     DrcViolation,
     NetlistOracle,
     PadAssignment,
+    PadCopper,
     PadNetList,
+    PlacedExtent,
     ProjectSet,
     RoundTrip,
     RoundTripOracle,
@@ -163,3 +168,53 @@ def test_new_outcomes_are_immutable() -> None:
     listed = PadNetList("board", (PadAssignment("R1-1", ""),))
     with pytest.raises(dataclasses.FrozenInstanceError):
         listed.source = "model"  # type: ignore[misc]
+
+
+# -- board-frame records (backend-protocol, "Board-frame protocol"; change c0028)
+
+
+def test_board_frame_protocol() -> None:
+    backend = KicadBackend()
+    assert isinstance(backend, BoardFrame)
+    operations = backend.capabilities().operations
+    assert "board_pads" not in operations and "placed_extents" not in operations
+    assert not isinstance(object(), BoardFrame)
+
+
+def _names(annotation: object) -> set[str]:
+    """The modules of every type an annotation names."""
+    found = {getattr(annotation, "__module__", "builtins")}
+    for arg in typing.get_args(annotation):
+        found |= _names(arg) if not isinstance(arg, (str, type(None), type(...))) else set()
+    return found
+
+
+def test_frame_records_are_plain_data() -> None:
+    for record in (PadCopper, BoardPad, PlacedExtent):
+        assert dataclasses.is_dataclass(record) and record.__dataclass_params__.frozen  # type: ignore[attr-defined]
+        assert hasattr(record, "__slots__")
+        for annotation in typing.get_type_hints(record).values():
+            modules = _names(annotation)
+            assert all(
+                m in ("builtins", "typing", "types", base.__name__)  # a record may hold a sibling record
+                or m.startswith(("fenolite.core", "fenolite.model"))
+                for m in modules
+            ), modules
+    for core, width, filled in (((), 0, False), ((Point(0, 0),), -1, False), ((Point(0, 0),), 0, False)):
+        with pytest.raises(ValueError):
+            PadCopper("F.Cu", core, width, filled)
+    with pytest.raises(ValueError):
+        PadCopper("F.Cu", (Point(0, 0), Point(1, 0)), 0, filled=True)
+    entry = PadCopper("F.Cu", (Point(0, 0),), 2)
+    assert (entry.filled, entry.exact) == (False, True)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        entry.width = 4  # type: ignore[misc]
+    assert PadCopper("F.Cu", (Point(0, 0), Point(1, 0)), 0).width == 0  # a hairline polyline is allowed
+
+
+def test_own_face_by_side() -> None:
+    ring = (Point(0, 0), Point(10, 0), Point(10, 10))
+    bottom = PlacedExtent("fp_x", "bottom", front=(), back=(ring,))
+    assert bottom.own == bottom.back == (ring,)
+    top = PlacedExtent("fp_x", "top", front=(ring,))
+    assert top.own == (ring,) and top.source == "none" and top.exact

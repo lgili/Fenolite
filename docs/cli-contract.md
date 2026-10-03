@@ -178,6 +178,14 @@ vendored footprints under `lib/`. `--discard-layout` reads no existing file and 
 zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path → old path) and
 `reader_infos` (a count of the board reader's infos).
 
+A script may declare copper (`docs/dsl.md`, "Copper"; `docs/copper.md`). The build resolves it after
+placement, and the KiCad `result.copper` reports `intents`, `tracks` and `vias` (created), and
+`regenerated`, `stale` and `duplicates` (from the merge with an existing board; 0 without one). A
+copper error (a `kicad.copper.*` issue of severity error) exits 5 and writes nothing; the
+`kicad.copper.*` and `kicad.frame.*` codes are listed in `docs/copper.md`. With intents, the envelope
+evidence also combines the copper and board-frame evidence, which are `INFERRED`. `--seed`,
+`--timestamp` and `PYTHONHASHSEED` change no byte of a build with intents.
+
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,

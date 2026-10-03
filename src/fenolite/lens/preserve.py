@@ -21,6 +21,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol
 
+from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, pcb, pro, slots
 from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
@@ -558,7 +559,9 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
     for path in sorted(added):
         placed.append(built_fps[by_path[path].id])
     added_paths = [p for p in added if p not in replaced]
-    # copper items follow their nets
+    # script copper is regenerated (c0028); the copper that stays follows its nets
+    script = copper_mod.merge_copper(board, built)
+    issues += script.issues
     dropped: dict[str, Counter[str]] = {}
 
     def keep(item_net: str | None, kind: str) -> tuple[bool, str | None]:
@@ -576,17 +579,25 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
     vias: list[Via] = []
     zones: list[Zone] = []
     for track in board.board.tracks:
+        if track.id not in script.kept:
+            continue
         ok, nid = keep(track.net_id, "tracks")
         if ok:
             tracks.append(dataclasses.replace(track, net_id=nid))
     for arc in board.board.arcs:
+        if arc.id not in script.kept:
+            continue
         ok, nid = keep(arc.net_id, "arcs")
         if ok:
             arcs.append(dataclasses.replace(arc, net_id=nid))
     for via in board.board.vias:
+        if via.id not in script.kept:
+            continue
         ok, nid = keep(via.net_id, "vias")
         if ok:
             vias.append(dataclasses.replace(via, net_id=nid))
+    tracks += [t for t in built.board.tracks if copper_mod.is_copper_uuid(t.native_ids.get(BAG, ""))]
+    vias += [v for v in built.board.vias if copper_mod.is_copper_uuid(v.native_ids.get(BAG, ""))]
     for zone in board.board.zones:
         ok, nid = keep(zone.net_id, "zones")
         if ok:
@@ -641,6 +652,11 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
         "board_only": board_only_refs,
         "dropped": {
             kind: sum(c[kind] for c in dropped.values()) for kind in ("tracks", "arcs", "vias", "zones")
+        },
+        "copper": {
+            "regenerated": script.regenerated,
+            "stale": script.stale,
+            "duplicates": script.duplicates,
         },
     }
     return Merged(dataclasses.replace(built, circuit=circuit, board=merged_board), tuple(issues), summary)

@@ -90,7 +90,7 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 
 ### Requirement: Placed extents
 `placed_extent(footprint, *, definition=None, tol=DEFAULT_TOL, issues=None) -> PlacedExtent` SHALL return the courtyard of a placed footprint in the board frame, and `placed_extents(design, *, definitions=None, tol=DEFAULT_TOL, issues=None)` SHALL return one extent per footprint of `design.board`, in board order, `definitions` mapping a `lib_ref` to its definition.
-- **Pieces.** The pieces of `front` and `back` MUST be the graphics on `F.CrtYd` and `B.CrtYd` among the footprint's own children, read in the stored frame as c0018's `mod.board_footprints` reads a placed footprint, `fp_poly` children whose `pts` hold arcs included (`H-G-PTS-ARC`), and moved by `Transform.placement(footprint.position, footprint.rotation)` with no mirror; `source` is then `courtyard`. A footprint without KiCad slots MUST use, when a definition is given, its graphics on those layers moved by `Transform.placement(position, rotation, mirror=side == "bottom")`, front and back swapped on the bottom side, with `source` `definition`.
+- **Pieces.** The pieces of `front` and `back` MUST be the graphics on `F.CrtYd` and `B.CrtYd` among the footprint's own children, read in the stored frame, the frame in which c0018's `mod.board_footprints` reads a placed footprint, `fp_poly` children whose `pts` hold arcs included (`H-G-PTS-ARC`), and moved by `Transform.placement(footprint.position, footprint.rotation)` with no mirror; `source` is then `courtyard`. A footprint without KiCad slots MUST use, when a definition is given, its graphics on those layers moved by `Transform.placement(position, rotation, mirror=side == "bottom")`, front and back swapped on the bottom side, with `source` `definition`.
 - **Rings.** A `rect` MUST give its four corners and a `polygon` its points; a `circle` MUST give `Circle.polygonize(tol, outer=True)` of its moved centre and its squared radius; `line` and `arc` pieces MUST be chained exactly with `assemble_rings` and each closed contour polygonised with `tol`. Rings MUST be in the normal form and each face sorted as `normalize_polygons` sorts. `exact` MUST be false when a curve was polygonised.
 - **Malformed.** When the pieces of a face do not close (`geometry.open-contour` or `geometry.branching-contour`), that face MUST be the convex hull of the points of its pieces, curves polygonised, with `exact` false and one `kicad.frame.courtyard-malformed` warning naming the footprint and the layer.
 - **Fallback.** When neither face has a piece, `source` MUST be `pads` and the face of the footprint's side MUST hold the convex hull of the corners of the boxes of all copper entries of its pads (a core's box grown by `⌈width / 2⌉`), with `exact` false; without copper entries `source` MUST be `none` and both faces empty. Both MUST give one `kicad.frame.no-courtyard` info.
@@ -150,8 +150,8 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 - **THEN** each is a key of `FRAME_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
 
 ### Requirement: Board-frame evidence
-`frame.EVIDENCE` SHALL be `Evidence(Level.INFERRED, hypotheses=("H-G-ROT-DIR", "H-G-BOTTOM-PLACE", "H-G-PAD-ANGLE-ABS", "H-G-FRAME-SHAPE", "H-G-FRAME-CRTYD"))`.
-- The level MUST stay `INFERRED` when `H-G-FRAME-SHAPE` and `H-G-FRAME-CRTYD` become `KICAD-VERIFIED`: those rows cover the bench footprints, not every pad token or courtyard. Positions and rotations rest on the three reused rows, which are `KICAD-VERIFIED (9.0.x, 10.0.x)`.
+`frame.EVIDENCE` SHALL be `Evidence(Level.INFERRED, hypotheses=("H-G-ROT-DIR", "H-G-BOTTOM-PLACE", "H-G-PAD-ANGLE-ABS", "H-G-FRAME-SHAPE", "H-G-FRAME-CRTYD-2"))`; `H-G-FRAME-CRTYD-2` succeeds `H-G-FRAME-CRTYD`, refuted for circle courtyards at 20 µm.
+- The level MUST stay `INFERRED` when `H-G-FRAME-SHAPE` and `H-G-FRAME-CRTYD-2` become `KICAD-VERIFIED`: those rows cover the bench footprints, not every pad token or courtyard. Positions and rotations rest on the three reused rows, which are `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 
 #### Scenario: Evidence constant
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_frame_issues.py -k evidence` reads `frame.EVIDENCE`
@@ -161,11 +161,11 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 The board-frame rules and the KiCad facts they rely on SHALL be documented in Fenolite's own words, with sources and evidence labels.
 - `docs/formats/kicad/frame.md` (new) MUST hold, as fact rows with source, label and hypothesis, the pad tokens and their entries (S-0001), the drill forms, the courtyard layers and pieces, the DRC key `courtyards_overlap` (S-0038, S-0058), and the load and re-save of version-8 uuids (S-0110, S-0020, S-0022), and MUST point to the existing frame rows of `docs/formats/kicad/board.md` and `geometry.md`.
 - `docs/copper.md` (new) MUST describe the records and `BoardFrame`, the entry conventions, the supersets, the placed extents and their fallbacks, the copper API of `manual-copper`, the issue codes and the evidence.
-- `docs/hypotheses.md` MUST register `H-G-FRAME-UUID`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD` and `H-G-FRAME-ROUTE`, and `docs/evidence/sources.md` MUST register S-0110 and S-0111.
+- `docs/hypotheses.md` MUST register `H-G-FRAME-UUID`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD`, its successor `H-G-FRAME-CRTYD-2` and `H-G-FRAME-ROUTE`, and `docs/evidence/sources.md` MUST register S-0110 and S-0111.
 
 #### Scenario: Registers hold the new rows
 - **WHEN** `grep -c '^| H-G-FRAME-' docs/hypotheses.md` runs
-- **THEN** it prints `4`
+- **THEN** it prints `5`
 
 #### Scenario: Fact tables are labelled
 - **WHEN** `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py` runs

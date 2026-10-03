@@ -130,7 +130,7 @@ class _Lowering:
     net_names: Mapping[str, str]
     corner: Point
     label: str
-    planes: Mapping[str, str] = MappingProxyType({})
+    planes: Mapping[str, str] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
     """Plane layer → the plane's net name."""
     known: frozenset[str] | None = None
     """The net names of the design, when the copper comes from a source (``None``: the model itself)."""

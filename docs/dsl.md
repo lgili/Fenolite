@@ -248,6 +248,44 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
   the footprints of project tables, as before c0027; the others give `build.global-library` and need
   the same global tables wherever the project is opened.
 
+## Copper
+
+A script can declare copper: tracks, single vias and stitching vias. It declares what to join, not where
+the pads are. The build decides each placement after the script ran, and a footprint moved in KiCad keeps
+its place, so the build resolves the copper after placement (`docs/copper.md`). The runnable example is
+`examples/blink_routed/design.py`.
+
+```python
+design.track(
+    "led_a", r1.pad(2), (mm(36), mm(9)), via_step(mm(36), mm(14), to="B.Cu"), d1.pad(2), width=mm(0.3)
+)
+design.via("gnd_tie", mm(20), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3))
+design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36), mm(26))))
+```
+
+| call | records |
+|---|---|
+| `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
+| `via_step(x, y, *, to, diameter=None, drill=None)` | a through via inside a track path, after which the track runs on the copper layer `to` |
+| `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points and via steps, starting on `layer` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None)` | one through via |
+| `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None)` | through vias every `pitch` along a polyline, or on a grid inside a region |
+| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd` and `ViaStep`), which the build resolves |
+
+- **Points** are `(x, y)` pairs of lengths in the frame of `place()`: the origin is the board's corner.
+- **Keys** name intents (`^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$`, one use each). Every id of the copper
+  an intent creates derives from its key, so a rebuild keeps the ids, and the seed plays no part.
+- **Nets.** A track takes the net of its pads; pads on two nets, or a pad on no net, is an error. `net=`
+  is only needed for a track without a pad end, and must be a `Net`. Vias and stitches name their net.
+- **Sizes.** A width, a via size or a stitch clearance that is not given comes from the class of the net;
+  when the class sets none, the build reports `kicad.copper.size-missing`.
+- **Errors at the call.** A malformed key, path, size or stitch raises `DslError` where it is written.
+  What needs the board (an unknown pad, a pad without copper on the layer, two nets joined) is reported
+  by the build, which then writes nothing.
+- **The script owns its copper.** Each build regenerates it. Removing an intent removes its copper, and
+  an edit of it in KiCad is replaced. Copper drawn in KiCad is the board's and is kept.
+- `to_model` does not change: intents are not model objects.
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part at component path `new` was at `old` in an earlier

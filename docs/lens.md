@@ -90,6 +90,34 @@ When opaque content names a removed net (a teardrop zone, or a net inside an opa
 writer refuses with `kicad.board.opaque-net-ref` (exit 7). There are two ways out: delete that content
 in KiCad, or rebuild from scratch with `--discard-layout`.
 
+## Script copper in a merge
+
+Copper declared by the script (`docs/copper.md`) is derived output: its source is the intents, and
+every build regenerates it from the effective placements. It is told from copper drawn in KiCad by its
+version-8 uuid. `merge_layout` therefore handles it before the net rule above:
+
+- an existing track, arc or via with a copper uuid is dropped; the build's copy takes its place, with
+  `kicad.copper.regenerated` (info) when a field differs, or nothing takes it, with `kicad.copper.stale`
+  (warning), when its intent is gone;
+- an existing item without a copper uuid that equals a script item is dropped as a duplicate
+  (`kicad.copper.duplicate`, info);
+- every other item stays and follows its net, as described above;
+- the build's script copper follows the kept items in the layout, in the built order.
+
+So a footprint moved in KiCad pulls its script copper along on the next build, an intent removed from the
+script removes its copper, and copper drawn in KiCad stays. `result.copper` counts the three outcomes.
+
+Two precedence models are used on purpose, one per kind of item:
+
+| item | model | who wins | marker | when its declaration is gone |
+|---|---|---|---|---|
+| footprint (c0019) | edited in place | the board, unless `place()` is locked | `fenolite.path` | `layout.orphan`, removed |
+| script copper (c0028) | derived output | the script, always | the copper uuid | `kicad.copper.stale`, removed |
+
+A footprint placement is the thing a user edits, and nothing derives it. A track's geometry is a
+function of the pads it joins, which the board owns: a kept edit of a script track would point at old
+pad positions after a move. To keep a hand edit, redraw the copper in KiCad, where it is board copper.
+
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,
@@ -155,6 +183,9 @@ still guarded by `build.layout-exists`: they have no merge.
 | `layout.place-overridden` | info | an unlocked `place()` differs from the kept board placement |
 | `layout.alias-used` | info | a part was matched through `moved()` and re-placed under its new path |
 | `layout.board-only` | info | a footprint without `fenolite.path` matched no part and is kept |
+| `kicad.copper.stale` | warning | script copper whose intent is gone was removed (`docs/copper.md`) |
+| `kicad.copper.regenerated` | info | script copper was edited in KiCad, or its pads moved, and was replaced |
+| `kicad.copper.duplicate` | info | an item equal to script copper was removed |
 
 ## Evidence
 

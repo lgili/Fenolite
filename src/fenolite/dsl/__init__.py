@@ -10,6 +10,17 @@ model design with ids keyed by names and paths. It reads no library, file or env
 from fenolite.dsl.convert import BOARD_ORIGIN, DSL_BACKEND, KEYS, moves, placements, planes, to_model
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.intents import (
+    CopperIntent,
+    PadEnd,
+    PadRef,
+    StitchIntent,
+    TrackIntent,
+    ViaIntent,
+    ViaStep,
+    copper,
+    via_step,
+)
 from fenolite.dsl.interfaces import DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import Net, Part, Placement, connect, no_connect
@@ -19,6 +30,7 @@ __all__ = [
     "BOARD_ORIGIN",
     "DSL_BACKEND",
     "KEYS",
+    "CopperIntent",
     "Design",
     "DiffPair",
     "DslError",
@@ -27,10 +39,17 @@ __all__ = [
     "Length",
     "Module",
     "Net",
+    "PadEnd",
+    "PadRef",
     "Part",
     "Placement",
     "Power",
+    "StitchIntent",
+    "TrackIntent",
+    "ViaIntent",
+    "ViaStep",
     "connect",
+    "copper",
     "inch",
     "mil",
     "mm",
@@ -40,4 +59,5 @@ __all__ = [
     "placements",
     "planes",
     "to_model",
+    "via_step",
 ]

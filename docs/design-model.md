@@ -179,6 +179,17 @@ board layers are keyed by their KiCad names. These ids are not generated: they d
 `--seed`, on `PYTHONHASHSEED` or on the order in which the script creates objects, so inserting a part
 changes no id of another object, and two builds of one script give byte-identical files.
 
+## Ids of script copper
+
+Normative text: the fifth case of requirement "Identifier derivation" (change c0028); the uuid layout
+is in `docs/copper.md` ("Ids and markers").
+
+A track or via created from a copper intent takes the KiCad uuid `copper_uuid(key, locator)` as its
+native id, and the id that an imported object with that native id gets:
+`derived_id("trk" | "via", "kicad", uuid)`. A design read back from the written board therefore has
+the same ids. The key is the intent's key and the locator numbers the item inside that intent, so
+adding, removing or reordering intents changes no id, and neither do `--seed` and `PYTHONHASHSEED`.
+
 ## Canonical JSON
 
 `fenolite.model.canonical`: UTF-8, LF, two-space indent, keys in field order, defaults omitted,

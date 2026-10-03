@@ -17,6 +17,7 @@ from fenolite.dsl.units import as_nm, as_udeg
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
+    from fenolite.dsl.intents import PadRef
     from fenolite.dsl.module import Container
 
 Side = Literal["top", "bottom"]
@@ -160,6 +161,13 @@ class Part:
         if not text:
             raise DslError(f"part {self.ref}: empty designator")
         return PinHandle(self, text)
+
+    def pad(self, number: str | int, *, index: int | None = None) -> PadRef:
+        """The pads of this part numbered ``number``, for a copper intent; ``index`` picks one of several
+        pads sharing the number (the build takes the nearest otherwise)."""
+        from fenolite.dsl.intents import pad_ref
+
+        return pad_ref(self, number, index)
 
     def place(
         self,

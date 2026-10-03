@@ -40,7 +40,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
-from fenolite.dsl import DslError, moves, placements, planes, to_model
+from fenolite.dsl import DslError, copper, moves, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import CopperSource, build_altium, kicad_footprint_ids, kicad_lib_ids
 from fenolite.lens.build import (
@@ -180,6 +180,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         requested = placements(design)
         aliases = moves(design)
         plane_nets = planes(design)
+        intents = copper(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
@@ -206,6 +207,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         vendor=cast(Literal["all", "project"], args.vendor),
         record=record,
         prepared=prepared,
+        copper_intents=intents,
     )
     files = dict(built.files)
     if files:

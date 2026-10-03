@@ -7,7 +7,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fenolite.backends.base import CapabilityReport, ReadResult, Validation, Validator, WriteResult
+from fenolite.backends.base import (
+    BoardFrame,
+    BoardPad,
+    CapabilityReport,
+    PlacedExtent,
+    ReadResult,
+    Validation,
+    Validator,
+    WriteResult,
+)
 from fenolite.backends.kicad import versions
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -111,6 +120,20 @@ class KicadBackend:
             issues=issues,
         )
 
+    def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]:
+        """Every pad of the board in the board frame (``frame.board_pads``; ``BoardFrame`` protocol)."""
+        from fenolite.backends.kicad import frame
+
+        return frame.board_pads(design, issues=issues)
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        """Every footprint's courtyard in the board frame (``frame.placed_extents``)."""
+        from fenolite.backends.kicad import frame
+
+        return frame.placed_extents(design, issues=issues)
+
     def write_sheet(
         self, sheet: DrawingSheet, *, target: int | None = None, allow_lossy: bool = False
     ) -> WriteResult:
@@ -142,6 +165,8 @@ class KicadBackend:
 
 _VALIDATOR: Validator = KicadBackend()
 """The KiCad backend satisfies ``Validator`` (checked by pyright)."""
+_FRAME: BoardFrame = KicadBackend()
+"""The KiCad backend satisfies ``BoardFrame`` (checked by pyright)."""
 
 
 __all__ = ["CAPABILITIES", "SYMBOL_DIR_SUFFIX", "KicadBackend"]

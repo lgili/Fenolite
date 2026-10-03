@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
@@ -14,6 +15,9 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.units import as_nm
+
+if TYPE_CHECKING:
+    from fenolite.dsl.intents import Recorded
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -96,6 +100,8 @@ class Design(Container):
         self.interfaces: dict[str, Interface] = {}
         self.aliases: dict[str, str] = {}
         """``moved()`` aliases: new component path → old component path."""
+        self.copper_intents: dict[str, Recorded] = {}
+        """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
 
     @property
     def design(self) -> Design:
@@ -158,6 +164,58 @@ class Design(Container):
         if old in self.aliases.values():
             raise DslError(f"moved(): {old!r} is already the old path of an alias")
         self.aliases[new] = old
+
+    # -- copper intents (resolved by the build after placement; ``docs/dsl.md``, "Copper")
+
+    def track(
+        self, key: str, *path: object, layer: str = "F.Cu", width: object = None, net: Net | None = None
+    ) -> None:
+        """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()`` and
+        ``via_step(…)`` layer changes. The net comes from the pads; the width from ``width`` or the net's
+        class. ``key`` names the intent, so its copper keeps its ids across builds."""
+        from fenolite.dsl import intents
+
+        intents.record_track(self, key, path, layer, width, net)
+
+    def via(
+        self, key: str, x: object, y: object, *, net: Net, diameter: object = None, drill: object = None
+    ) -> None:
+        """One through via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class."""
+        from fenolite.dsl import intents
+
+        intents.record_via(self, key, x, y, net, diameter, drill)
+
+    def stitch(
+        self,
+        key: str,
+        *,
+        net: Net,
+        pitch: object,
+        along: Sequence[object] = (),
+        region: Sequence[object] = (),
+        origin: object = None,
+        diameter: object = None,
+        drill: object = None,
+        clearance: object = None,
+        margin: object = None,
+    ) -> None:
+        """Through vias of ``net`` every ``pitch`` along a polyline, or on a grid inside a region (the grid
+        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper."""
+        from fenolite.dsl import intents
+
+        intents.record_stitch(
+            self,
+            key,
+            net=net,
+            pitch=pitch,
+            along=along,
+            region=region,
+            origin=origin,
+            diameter=diameter,
+            drill=drill,
+            clearance=clearance,
+            margin=margin,
+        )
 
     # -- registration (called by add(), connect() and netclass())
 

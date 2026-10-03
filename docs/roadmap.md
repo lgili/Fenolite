@@ -90,7 +90,7 @@ rebuilds.
 | c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | proposed | every v0.1 change | 5.75 |
 | c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | proposed | c0010 | 6.5 |
 | c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | proposed | c0011 | 5.25 |
-| c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | proposed | c0019, c0021 | 21.5 |
+| c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | being implemented (all tasks done locally on 9.0.9 and 10.0.6; CI proof pending) | c0019, c0021 | 21.5 |
 | c0029 | `copper-check` | Fenolite's own short and clearance check, build guard, via re-net probe | proposed | c0020, c0026, c0028 | 12 |
 | c0030 | `footprint-fields` | Reference, Value and other footprint fields: placed, read, written, kept | proposed | c0019, c0028 | 10.25 |
 | c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | proposed | c0019, c0028 | 8 |

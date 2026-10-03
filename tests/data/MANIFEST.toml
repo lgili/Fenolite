@@ -828,3 +828,57 @@ path = "tests/data/altium/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of the routed sample with the mini symbols (c0038 golden file)"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_NoCourtyard.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_OpenCourtyard.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Round.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Shapes.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Trapezoid.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "examples/blink_routed/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "routed blink example: the blink with four copper intents (c0028)"
+
+[[file]]
+path = "examples/blink_routed/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint table naming the authored mini library through ${KIPRJMOD}"
+
+[[file]]
+path = "examples/blink_routed/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol table naming the authored mini library through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Loop.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"

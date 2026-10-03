@@ -19,7 +19,9 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, cast
 
-from fenolite.backends.kicad import dru, embed, lowering, mod, pcb, pro, sym, versions
+from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import dru, embed, frame, lowering, mod, pcb, pro, sym, versions
+from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import PATH_PROPERTY, footprint_extent, place_footprint, with_property
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
@@ -397,11 +399,14 @@ def build_design(
     vendor: Literal["all", "project"] = "all",
     record: Mapping[str, str] | None = None,
     prepared: Prepared | None = None,
+    copper_intents: Sequence[CopperIntentLike] = (),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
     ``vendor`` is ``"all"`` (every placed footprint is copied into ``lib/``) or ``"project"`` (only those
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
+    ``copper_intents`` are resolved into tracks and vias after the parts are placed, so script copper
+    follows a footprint that an existing board placed elsewhere (``docs/copper.md``).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -504,6 +509,13 @@ def build_design(
         ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
+    copper_counts = {"intents": len(copper_intents), "tracks": 0, "vias": 0}
+    if copper_intents:
+        assert built.board is not None
+        built = resolve_copper(built, copper_intents, unplaced=staged, issues=issues)
+        assert built.board is not None
+        for kind, items in (("tracks", built.board.tracks), ("vias", built.board.vias)):
+            copper_counts[kind] = sum(1 for i in items if is_copper_uuid(i.native_ids.get("kicad", "")))
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
@@ -581,6 +593,9 @@ def build_design(
         evidence_items += [preserve.EVIDENCE, pcb.EVIDENCE]
     if existing.rules is not None:
         evidence_items.append(dru.EVIDENCE)
+    if copper_intents:
+        evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    merged_copper = cast(Mapping[str, int], preserved.get("copper", {}))
     summary: dict[str, object] = {
         "components": len(components),
         "nets": len(nets),
@@ -589,6 +604,10 @@ def build_design(
         "vendored": [f"lib/{nick}.pretty/{entry}" for nick, entry in vendored],
         "libraries": libraries,
         "preserved": _preserved(prepared, preserved),
+        "copper": {
+            **copper_counts,
+            **{key: merged_copper.get(key, 0) for key in ("regenerated", "stale", "duplicates")},
+        },
     }
     return BuildOutput(
         built, dict(sorted(files.items())), tuple(issues), Evidence.combine(*evidence_items), summary, layout

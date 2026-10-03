@@ -20,6 +20,7 @@ for folder in (
     HERE / "check",
     HERE / "lens",
     HERE / "export",
+    HERE / "frame",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
