@@ -331,6 +331,9 @@ def check_plan(plan: SheetPlan, grid: int = 100) -> None:
         assert port.x % 100 == 0 and port.y % 100 == 0 and all(c % 100 == 0 for c in port.cell)
     for block in plan.harnesses:
         assert block.x % 100 == 0 and block.y % 100 == 0
+    points = {e.point: e.side for s in plan.symbols for e in s.entries}
+    for start, end in plan.lines:
+        assert (points[start], points[end]) == ("right", "left") and start[1] == end[1] and start[0] < end[0]
     cells = [*(s.cell for s in plan.symbols), *(p.cell for p in plan.ports), *(p.cell for p in plan.parts)]
     for i, (ax0, ay0, ax1, ay1) in enumerate(cells):
         assert MARGIN <= ax0 < ax1 <= size.width - MARGIN and MARGIN <= ay0 < ay1 <= size.height - MARGIN

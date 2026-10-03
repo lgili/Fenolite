@@ -682,11 +682,15 @@ def test_harness_sheet_entries_and_ports_carry_the_type() -> None:
     top = _dicts(plans["altium_hier.SchDoc"])
     kinds = Counter(r["RECORD"] for r in top)
     assert (kinds["15"], kinds["16"], kinds["32"], kinds["33"]) == (2, 5, 2, 2)
-    assert (kinds["27"], kinds["25"], kinds["17"], kinds["18"]) == (14, 12, 2, 0)
+    assert (kinds["27"], kinds["25"], kinds["17"], kinds["18"]) == (6, 4, 2, 0)
     entries = [r for r in top if r["RECORD"] == "16"]
     assert [r.get("HARNESSTYPE") for r in entries] == [None, "SPI", None, None, "SPI"]
     assert [r["NAME"] for r in entries] == ["FLASH_WP", "SPI", "FLASH_WP", "RESET_N", "SPI"]
-    assert [r["DISTANCEFROMTOP"] for r in entries] == ["1", "4", "1", "2", "5"]
+    assert [r["DISTANCEFROMTOP"] for r in entries] == ["1", "2", "1", "2", "2"]
+    assert [r.get("SIDE") for r in entries] == ["1", "1", "1", "1", None], (
+        "the left side is written as no key"
+    )
+    assert not {"SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK"} & {r["TEXT"] for r in top if r["RECORD"] == "25"}
     harness = entries[1]
     assert list(harness)[-3:] == ["NAME", "HARNESSTYPE", "ARROWKIND"] and "IOTYPE" not in harness
     assert [r["TEXT"] for r in top if r["RECORD"] == "32"] == ["flash", "mcu"]
@@ -726,17 +730,17 @@ def test_harness_entry_of_a_net_that_does_not_cross() -> None:
             }
             assert points["HOLD"] not in starts
             assert all(points[name] in starts for name in ("CS", "MISO", "MOSI", "SCK"))
-    assert blocks == 4
+    assert blocks == 2, "one per module sheet; the top sheet joins the two sheet entries by a line"
     labels = [r["TEXT"] for plan in plans.values() for r in _dicts(plan) if r["RECORD"] == "25"]
     assert labels.count("FLASH_HOLD_N") == 2, "only the two pins on the flash sheet"
 
 
 def test_harness_second_connector_names_its_index() -> None:
     """Scenario "Second connector names its index": a second harness ``DBG`` crosses ``mcu``."""
-    found = _additional(hier_plans(append=DBG)["altium_hier.SchDoc"])
+    found = _additional(hier_plans(append=DBG)["altium_hier_mcu.SchDoc"])
     connectors = [i for i, r in enumerate(found) if r["RECORD"] == "215"]
-    assert connectors == [0, 7, 11]
-    assert [found[i + 1]["NAME"] for i in connectors] == ["CS", "RST", "CS"]
+    assert connectors == [0, 4]
+    assert [found[i + 1]["NAME"] for i in connectors] == ["RST", "CS"]
     for position, index in enumerate(connectors):
         end = connectors[position + 1] if position + 1 < len(connectors) else len(found)
         children = [r for r in found[index:end] if r["RECORD"] in ("216", "217")]
@@ -747,7 +751,31 @@ def test_harness_second_connector_names_its_index() -> None:
             assert all(r["OWNERINDEX"] == str(index) for r in children)
             assert all(list(r)[:3] == ["RECORD", "OWNERINDEX", "OWNERINDEXADDITIONALLIST"] for r in children)
     assert all("OWNERINDEX" not in r for r in found if r["RECORD"] in ("215", "218"))
-    assert [r["TEXT"] for r in found if r["RECORD"] == "217"] == ["SPI", "DBG", "SPI"]
+    assert [r["TEXT"] for r in found if r["RECORD"] == "217"] == ["DBG", "SPI"]
+    top = _additional(hier_plans(append=DBG)["altium_hier.SchDoc"])
+    assert [r["RECORD"] for r in top] == ["215", "216", "217", "218", "218"], (
+        "the DBG block, then the SPI line"
+    )
+
+
+def test_harness_line_between_two_sheet_symbols() -> None:
+    """Scenario "Line between two sheet symbols": the top sheet of the sample holds one record 218 and no
+    connector; it runs from the entry ``SPI`` on the right edge of ``flash`` to the entry ``SPI`` on the
+    left edge of ``mcu``."""
+    plan = hier_plans()["altium_hier.SchDoc"]
+    (line,) = _additional(plan)
+    keys = ["RECORD", "OWNERPARTID", "LINEWIDTH", "COLOR", "LOCATIONCOUNT", "X1", "Y1", "X2", "Y2"]
+    assert list(line) == keys
+    assert (line["RECORD"], line["LINEWIDTH"], line["LOCATIONCOUNT"]) == ("218", "2", "2")
+    top = _dicts(plan)
+    flash, mcu = (r for r in top if r["RECORD"] == "15")
+    out, into = (r for r in top if r["RECORD"] == "16" and r.get("HARNESSTYPE") == "SPI")
+    y = int(flash["LOCATION.Y"]) - 10 * int(out["DISTANCEFROMTOP"])
+    assert (int(line["X1"]), int(line["Y1"])) == (int(flash["LOCATION.X"]) + int(flash["XSIZE"]), y)
+    assert (int(line["X2"]), int(line["Y2"])) == (int(mcu["LOCATION.X"]), y)
+    assert int(mcu["LOCATION.Y"]) - 10 * int(into["DISTANCEFROMTOP"]) == y and "SIDE" not in into
+    with pytest.raises(ValueError, match="signal harness line"):
+        write_schdoc(plan)
 
 
 def test_ascii_writer_refuses_a_harness_block() -> None:

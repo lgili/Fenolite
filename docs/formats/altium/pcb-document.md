@@ -50,6 +50,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | `Components6/Data` holds one property record per component: `LAYER` (`TOP` or `BOTTOM`), `X`, `Y` (mil text), `ROTATION` (degrees), `LOCKED`, `NAMEON`, `COMMENTON`, `PATTERN` (the footprint name), `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY` and `SOURCELIBREFERENCE` | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | KiCad takes the reference from `SOURCEDESIGNATOR`, the footprint id from `SOURCEFOOTPRINTLIBRARY` without path and extension plus `PATTERN`, and the footprint path from `SOURCEHIERARCHICALPATH` and `SOURCEUNIQUEID` with one leading backslash removed | S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | A PCB component made from a part on a child sheet holds `SOURCEUNIQUEID=\<sheet symbol unique id>\<component unique id>`, one id per level of the hierarchy (a repeated sheet adds one more), and `SOURCEHIERARCHICALPATH=<top sheet stem>\<sheet symbol designator>`. The link of a part placed on the top sheet of a hierarchical project was not observed: the saved top sheets hold no part | S-0164, S-0188 | INFERRED | H-A-SCH-HIER-ECO |
+| `CHANNELOFFSET` counts the components of one sheet: in the saved board of a hierarchical project the components of each hierarchical path hold 0, 1, 2, …, and every instance of a repeated sheet starts again at 0. It is not an index over the whole board. A few sheets that were edited later hold one value twice | S-0188 | INFERRED | H-A-SCH-HIER-ECO |
 | Altium links a schematic component and its PCB component by the schematic component's unique id, stored on the PCB side as the path `\<id>` (one sheet level); when ids do not match it offers to link by designator, comment and footprint | S-0164, S-0139 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-LINK |
 | Net names equal to the schematic's keep the connectivity in the change order | S-0164, S-0141 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | The Altium 365 Viewer lists `*.PcbDoc` among its inputs and not `*.PcbLib` | S-0149 | INFERRED | H-A-PCB-DOC-VIEWER |
@@ -149,7 +150,8 @@ starting with `\|RECORD=Board`.
 - Nets are written in name order with the 15 keys of the table (`VISIBLE=TRUE`, `COLOR=7709086`);
   components in component-path order with the 25 keys of the table. `SOURCEUNIQUEID` is `\` followed by
   the schematic `UNIQUEID`, `SOURCEHIERARCHICALPATH` is empty, `NAMEON=TRUE`, `COMMENTON=FALSE`,
-  `CHANNELOFFSET` is the component's index; `ROTATION` is in the angle form.
+  `CHANNELOFFSET` is the component's index among the components of its sheet, which in a `flat` build
+  is its index in the document; `ROTATION` is in the angle form.
 - A pad whose number is a pin of its component on a net carries that net's index; other pads `0xFFFF`.
 - Each component gets a designator text 0.5 mm above the middle of the top edge of the box of its pads and
   graphics, 1 mm high with a 0.15 mm stroke on the overlay of its side, and a comment text 1.5 mm below
@@ -162,4 +164,7 @@ starting with `\|RECORD=Board`.
   `\<sheet symbol UNIQUEID>\<component UNIQUEID>` and `SOURCEHIERARCHICALPATH` is
   `<design name>\<module name>`, the sheet symbol's designator being the module name. A component on
   the top sheet, and every component of a `flat` build, keeps the one-id form and the empty path
-  (`H-A-SCH-HIER-ECO`).
+  (`H-A-SCH-HIER-ECO`). `CHANNELOFFSET` starts at 0 on every module sheet and on the top sheet, in
+  component-path order. The first build of c0037 wrote the index over the whole document instead; the
+  maintainer's check of step H7 (`docs/evidence/altium-schematic.md`, report of 2026-10-03) found that
+  difference from the saved files while looking for another fault, and it was corrected.

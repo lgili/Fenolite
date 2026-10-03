@@ -8,8 +8,10 @@ top-level module, and each top-level module gets its own sheet; deeper modules a
 of their top-level module. A net **crosses** a module when it has pins on that module's sheet and on
 another sheet: it then gets a port on the module's sheet and a sheet entry of the same name on the sheet
 symbol. Nets of a ``power`` interface never cross, because their power ports are global. In the binary
-form a ``harness`` interface whose nets cross a module crosses it as one port and one sheet entry, each with
-a harness block (``layout.HarnessBlock``). The facts are in
+form a ``harness`` interface whose nets cross a module crosses it as one port and one sheet entry; the
+port has a harness block (``layout.HarnessBlock``) beside it, and so has the sheet entry, unless a signal
+harness line joins it directly to the sheet entry of the one other module that the harness reaches
+(``harness_lines``). The facts are in
 ``docs/formats/altium/schematic-ascii.md`` ("Sheet symbols, sheet entries and ports") and
 ``docs/formats/altium/project.md``; the split itself is a Fenolite choice.
 """
@@ -21,7 +23,14 @@ from dataclasses import dataclass
 
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import LINE_END, text_problem
-from fenolite.backends.altium.layout import Crossing, PartSpec, SheetPlan, SymbolSpec, layout_sheet
+from fenolite.backends.altium.layout import (
+    Crossing,
+    PartSpec,
+    SheetPlan,
+    SplitLine,
+    SymbolSpec,
+    layout_sheet,
+)
 from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
@@ -193,6 +202,36 @@ def crossings(design: Design, *, form: SchematicForm) -> dict[str, tuple[Crossin
     return found
 
 
+def harness_lines(design: Design, found: Mapping[str, Sequence[Crossing]]) -> dict[str, tuple[str, str]]:
+    """Harness name → the two modules whose sheet symbols a signal harness line joins directly on the top
+    sheet (change c0037, "Harness lines between sheet symbols"), given the crossings ``found`` of
+    ``crossings``. A harness is joined by a line when it crosses exactly two modules, those two are
+    neighbours in module-name order (their sheet symbols are placed side by side), both crossings wire the
+    same entries to the same nets, and every pin of those nets is on one of the two module sheets. Any
+    other harness keeps a harness block beside each of its sheet entries, whose labels join the sheets."""
+    modules = list(found)
+    sheets = {c.id: sheet_of(c) for c in design.circuit.components}
+    pins: dict[str, set[str | None]] = {}
+    for net in design.circuit.nets:
+        pins[net.name] = {sheets[m.component_id] for m in net.members if m.component_id in sheets}
+    where: dict[str, list[str]] = {}
+    for module, here in found.items():
+        for crossing in here:
+            if crossing.harness:
+                where.setdefault(crossing.name, []).append(module)
+    lines: dict[str, tuple[str, str]] = {}
+    for name, held in sorted(where.items()):
+        if len(held) != 2 or modules.index(held[1]) - modules.index(held[0]) != 1:
+            continue
+        first, second = (next(c for c in found[module] if c.name == name) for module in held)
+        if first.entries != second.entries or first.entries is None:
+            continue
+        nets = [net for _entry, net in first.entries if net is not None]
+        if all(pins[net] == set(held) for net in nets):
+            lines[name] = (held[0], held[1])
+    return lines
+
+
 def harness_file(sheet: str) -> str:
     """The harness definition file of the sheet file ``sheet``: its stem and ``.Harness``."""
     return sheet.removesuffix(SHEET_SUFFIX) + HARNESS_SUFFIX
@@ -253,11 +292,26 @@ def plan_sheets(
     for spec in part_specs(design, name=name, symbols=symbols):
         head, slash, _rest = spec.key.partition(PATH_SEPARATOR)
         by_sheet[head if slash else None].append(spec)
-    specs = [
-        SymbolSpec(module, sheet_file(name, module), symbol_id(module), found)
-        for module, found in crossing.items()
-    ]
-    planned = [SheetFile(sheet_file(name), layout_sheet(by_sheet[None], symbols=specs))]
+    lines = harness_lines(design, crossing)
+    while True:
+        specs = [
+            SymbolSpec(
+                module,
+                sheet_file(name, module),
+                symbol_id(module),
+                found,
+                frozenset(h for h, (first, _second) in lines.items() if first == module),
+                frozenset(h for h, (_first, second) in lines.items() if second == module),
+            )
+            for module, found in crossing.items()
+        ]
+        try:
+            top = layout_sheet(by_sheet[None], symbols=specs)
+        except SplitLine as split:
+            del lines[split.harness]  # the two symbols are in two rows: this harness keeps its blocks
+            continue
+        break
+    planned = [SheetFile(sheet_file(name), top)]
     for module, found in crossing.items():
         plan = layout_sheet(by_sheet[module], ports=found)
         planned.append(SheetFile(sheet_file(name, module), plan, module, symbol_id(module)))
@@ -272,6 +326,7 @@ __all__ = [
     "crossings",
     "harness_file",
     "harness_interfaces",
+    "harness_lines",
     "harness_name_problem",
     "plan_sheets",
     "port_id",

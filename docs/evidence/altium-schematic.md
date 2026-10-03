@@ -251,22 +251,27 @@ fresh build gives these bytes and that this table names them.
 | sheet, library or project file | SHA-256 |
 |---|---|
 | `tests/data/altium/hier/FenoliteHier.SchLib` | `3013953bfd734233a33dbd17396d1b3049c2b215f13e46d2a0c4c9d75c0c8a4a` |
-| `tests/data/altium/hier/altium_hier.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
-| `tests/data/altium/hier/altium_hier.PrjPcb` | `c47f551a04d36f53a86a1ced92812abc20c12f6bac5cbd0ff8cd44239eb0a63a` |
-| `tests/data/altium/hier/altium_hier.SchDoc` | `f82dccdb8b0c6fc796e65b7e9b434b9a6367d0c0370c5554b540cf749988409d` |
+| `tests/data/altium/hier/altium_hier.PrjPcb` | `b30f01387b972880235e3391da7fc93e0e5edc78af488d139dc75b318bacbead` |
+| `tests/data/altium/hier/altium_hier.SchDoc` | `47ade2caca275e6d5ac7bfab73b71dc396b2c49dc76e7a58d089f6ea4b594e4d` |
 | `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
 | `tests/data/altium/hier/altium_hier_flash.SchDoc` | `7c51ef59965632ae74686b5c868bcb8d4c89c64b3f097a9a1dd6d72ee87d8b61` |
 | `tests/data/altium/hier/altium_hier_mcu.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
 | `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `eed364bf61d5be9f4771fba64edd5dd6c8a0e2728573fa95bb056bc3f52d5ffe` |
 
+- These are the files rebuilt after the report of 2026-10-03 (below). The top sheet and the project
+  file changed; the two module sheets, their `.Harness` files and the library are the bytes that the
+  report checked.
 - `altium_hier.SchDoc` is the top sheet: the sheet symbols `flash` (entries `FLASH_WP` and `SPI`) and
   `mcu` (entries `FLASH_WP`, `RESET_N` and `SPI`), and `J1`. Each net entry has a short wire with a net
-  label; each `SPI` entry has a harness line to a harness connector with four entries, each with a
-  labelled wire. No wire runs between the two sheet symbols: the labels join them.
+  label, and the labels join the two symbols. One signal harness line joins the entry `SPI` on the right
+  side of `flash` to the entry `SPI` on the left side of `mcu`; the top sheet holds no harness connector
+  and no label of an `SPI_*` net.
 - `altium_hier_mcu.SchDoc` holds the ports `FLASH_WP`, `RESET_N` and `SPI`; `altium_hier_flash.SchDoc`
-  holds the ports `FLASH_WP` and `SPI`. The port `SPI` has the same harness block beside it.
-- The harness records are in the stream `Additional` of each sheet; the three `.Harness` files hold the
-  line `SPI=CS,MISO,MOSI,SCK`, and the project file lists the sheets and then the harness files.
+  holds the ports `FLASH_WP` and `SPI`. The port `SPI` has a harness block beside it: a harness line, a
+  connector with four entries, and a labelled wire on each entry.
+- The harness records are in the stream `Additional` of each sheet; the two `.Harness` files, one per
+  module sheet, hold the line `SPI=CS,MISO,MOSI,SCK`, and the project file lists the sheets and then
+  the harness files. The top sheet has no connector and so no `.Harness` file.
 - `VDD` and `GND` are power ports on all three sheets and get neither a port nor a sheet entry.
   `FLASH_HOLD_N` stays on the `flash` sheet.
 - The libraries `FenoliteHier.SchLib` (generic symbols, written) and `FenoliteHier.PcbLib` (not written)
@@ -297,12 +302,34 @@ with `fenolite build <script> --out <folder> --target altium --altium-sheets mod
 | step | what to do | what to note | rows |
 |---|---|---|---|
 | H1 | Open `altium_hier.PrjPcb` and each of the three sheets. | Any prompt, repair offer or error. Expected: two sheet symbols with five entries in all on the top sheet, three ports on `mcu` and two on `flash`. | `H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-PRJ` |
-| H2 | Look at the four harness blocks (two on the top sheet, one on each module sheet). | Whether each harness connector shows with its entries `CS`, `MISO`, `MOSI` and `SCK` and the type `SPI`, and whether a harness line joins it to its port or sheet entry; whether the three `.Harness` files are listed under the project. | `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-FILE` |
-| H3 | Compile the project ("Project » Validate PCB Project"). | The sheet tree of the Projects panel (it also settles the project row of H1) and every message. Expected: `altium_hier.SchDoc` on top with two children, and no message about ports, sheet entries, harnesses, duplicate net names or a conflicting harness definition; whether Altium rewrote a `.Harness` file. | `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HARN-FILE` |
+| H2 | Look at the two harness blocks (one on each module sheet) and at the harness line on the top sheet. | Whether each harness connector shows with its entries `CS`, `MISO`, `MOSI` and `SCK` and the type `SPI`, and whether a harness line joins it to its port; whether one harness line joins the two `SPI` sheet entries on the top sheet; whether the two `.Harness` files are listed under the project. | `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-FILE` |
+| H3 | Compile the project ("Project » Validate PCB Project"). | The sheet tree of the Projects panel (it also settles the project row of H1) and every message. Expected: `altium_hier.SchDoc` on top with two children, and no message about ports, sheet entries, harnesses, duplicate or multiple net names or a conflicting harness definition; whether Altium rewrote a `.Harness` file or made one for the top sheet. | `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HARN-FILE` |
 | H4 | List the nets in the Navigator panel. | Expected: exactly the nine net names of the table above, each with its pins; `VDD` and `GND` on all three sheets; each `SPI_*` net with one pin on each module sheet. | `H-A-SCH-HIER-NAMES`, `H-A-SCH-HARN-NETS` |
 | H5 | Add a new PCB document to the project and run "Design » Update PCB Document". | Whether the change order adds six components and nine nets and "Validate Changes" passes, apart from the missing footprints of the stand-in library. | `H-A-SCH-HIER-ECO` |
-| H6 | Build `examples/altium_hier/partial.py` (a fifth entry `HOLD` whose net stays on the `flash` sheet, so it is wired on no sheet), open its project and compile it. | Every message that names the entry `HOLD`, with its level; whether the nets still equal the table above. | `H-A-SCH-HARN-UNUSED` |
-| H7 | Build `examples/altium_hier_board/design.py`, open its project and its PCB document, and run "Design » Update PCB Document". | Whether the change order proposes no component change and no net change: the parts of the modules `driver` and `led` link through their sheet symbols. | `H-A-SCH-HIER-ECO` |
+| H6 | Build `examples/altium_hier/partial.py` (a fifth entry `HOLD` whose net stays on the `flash` sheet, so it is wired on no sheet), open its project and compile it. | Every message that names the entry `HOLD`, with its level (expected: the warning "Unconnected Harness Entry", once on each module sheet); whether the nets still equal the table above. | `H-A-SCH-HARN-UNUSED` |
+| H7 | Build `examples/altium_hier_board/design.py`, open its project on a fresh copy, compile it ("Project » Validate PCB Project") without opening any dialog, and from the top sheet `altium_hier_board.SchDoc` run "Design » Update PCB Document altium_hier_board.PcbDoc". | First the Projects panel: whether `altium_hier_board_driver.SchDoc` and `altium_hier_board_led.SchDoc` both show under the top sheet (this settles the small-sheet row `H-A-SCHBIN-MINI`, with the variants below); every compile message. Then whether the change order proposes no component change and no net change: the parts of the modules `driver` and `led` link through their sheet symbols. Component classes, rooms and supply-net rules that Altium derives from the sheets are expected as additions and are not a fault. | `H-A-SCH-HIER-ECO` |
+
+Step H7 was refuted as first built (report of 2026-10-03 below) and is open again on the rebuilt example,
+whose small sheets now hold a `FileHeader` stream of 4096 bytes (`H-A-SCHBIN-MINI`). Expected: after a
+compile on a fresh copy, without any dialog, both module sheets are children of the top sheet.
+
+Seven variants of the example tell the possible causes apart; each is a whole project folder and
+changes one thing. Variants a to c are the files of the first build, where `led` was outside the
+hierarchy, with one change each. Variants d to g are built from copies of the script with one edit
+each, by the writer as it was before the 4096-byte rule, so each holds one module sheet under 4096
+bytes. For each variant only the Projects panel needs to be noted, on a fresh copy, after the project is
+opened and after "Project » Validate PCB Project", without any dialog: which sheet, if any, is outside
+the hierarchy.
+
+| variant | the one change | small sheet | what it tells |
+|---|---|---|---|
+| a | first build plus a `.PrjPcbStructure` file with the lines Altium wrote | `led` | whether a structure file alone puts `led` under the top sheet; then also whether `D1` is in the compiled design (the change order of H7) |
+| b | first build with a `DocumentUniqueId` in every document section of the project file | `led` | whether document ids in the project file matter |
+| c | first build with the top sheet and the sheet `led` padded to 4096 bytes; the PCB document is the first build's | none | whether the 4096-byte rule alone is the fix (`H-A-SCHBIN-MINI`) |
+| d | `U1` moves to the module `led`, so `driver` holds `R1` alone | `driver` | if `driver` is now outside and `led` is a child, the small sheet is the cause, whatever its name, its symbol's position and size or its place in the project file |
+| e | the module `led` is renamed `a_led`, so its sheet symbol, its sheet entry and its document come first | `a_led` | if `a_led` is still outside, neither the order of the sheet symbols, nor the order of the documents, nor being the last child listed is the cause |
+| f | no board, so no PCB document | `led` | if `led` is still outside, the PCB document and its `CHANNELOFFSET` are not involved |
+| g | `D1` sits between the two power nets, so no net crosses a module: no port, no sheet entry | `led` | if `led` is still outside, ports and sheet entries are not involved |
 
 ## Recording a report
 
@@ -390,6 +417,121 @@ Outcome per step:
 - **Not checked:** the change order into a new PCB document (Part B; `H-A-SCH-ECO`, `H-A-SCH-RELINK`,
   `H-A-PRJ-KEEP`), the ASCII
   form in Altium Designer (Part A, steps A1 to A6; the `H-A-SCH-*` rows) and steps L1 to L3 and L6.
+
+### 2026-10-03, `AD 26.5`, Part H
+
+- Tool: Altium Designer 26.5 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03;
+  no artefact)`.
+- Files: Fenolite's authored and built files only: the first build of the hierarchy sample (top sheet
+  SHA-256 `f82dccdb8b0c6fc796e65b7e9b434b9a6367d0c0370c5554b540cf749988409d`, project file
+  `c47f551a04d36f53a86a1ced92812abc20c12f6bac5cbd0ff8cd44239eb0a63a`, with a third file
+  `altium_hier.Harness`; the module sheets and the library as in Part H above), the build of
+  `partial.py` and the build of `examples/altium_hier_board/design.py` (top sheet
+  `8794466c89250a0bd6b734399c38675a6c874103df44ea69072855f3523cfb7c`, sheet `led`
+  `7cb9fba1e489f3280c974b0c7b31d647f512447f9769460d59faaa1ffc759078`, PCB document
+  `f43f4f5ec70161f651ff37485b06274aa2606b06a29c245b32ae76d8d2130cb5`). No file opened or saved in the
+  session enters the repository.
+
+Outcome per step:
+
+- **H1.** The three sheets open. The two sheet symbols and their entries show, and so do the ports.
+  Confirms `H-A-SCH-HIER-OPEN`.
+- **H2.** The harness connectors, their entries and the harness lines show. Confirms
+  `H-A-SCH-HARN-OPEN`. Whether the `.Harness` files were listed is not reported separately.
+- **H3.** "Compile successful, no errors found", with four warnings on the top sheet
+  `altium_hier.SchDoc`, one per SPI member: `Nets Wire SPI_CS has multiple names (Net Label SPI_CS, Sheet
+  Entry flash-SPI.CS(Passive), Sheet Entry mcu-SPI.CS(Passive))`, and the same for `SPI_MISO`, `SPI_MOSI`
+  and `SPI_SCK`. No message about a port, about a sheet entry without a port, or about a conflicting
+  harness definition. So Altium uses the hierarchical scope without a project key and reads both sheet
+  symbols, but the criterion of `H-A-SCH-HIER-COMPILE` (no message about net names) is not met: on the
+  top sheet each wire had a net label and, from the harness block beside each sheet entry, the names
+  `SPI.CS` and so on. No such warning names a module sheet, where a port has the same block.
+  - Fix: the top sheet now joins the two `SPI` sheet entries by one signal harness line and holds no
+    block and no `SPI_*` label (`docs/formats/altium/schematic-binary.md`, "Harness lines between sheet
+    symbols"). The files of Part H above are the rebuilt ones. `H-A-SCH-HIER-COMPILE` stays pending
+    until H3 is repeated on them.
+  - Whether Altium rewrote a `.Harness` file is not reported, so `H-A-SCH-HARN-FILE` stays pending with
+    the observation that no conflicting definition was reported. Whether the Projects panel showed two
+    children is not reported either, so `H-A-SCH-HIER-PRJ` stays pending.
+- **H4.** Not reported in detail: `H-A-SCH-HIER-NAMES` and `H-A-SCH-HARN-NETS` stay pending.
+- **H5.** Not reported in detail: `H-A-SCH-HIER-ECO` stays pending.
+- **H6.** The project of `partial.py` compiles with no error. It gives the four warnings of H3 and four
+  warnings `Unconnected Harness Entry SPI-HOLD`: two on the top sheet and one on each module sheet, one
+  per connector. So a harness entry without a wire is a warning, not an error. Confirms
+  `H-A-SCH-HARN-UNUSED`; the nets were not listed, as in H4. This answers the open question on bare
+  entries: they stay drawn. On the rebuilt top sheet there is no connector, so two of the four are
+  expected to go.
+- **H7.** Refuted as built. "Design » Update PCB Document" on the project of the board example reported
+  7 differences and "None of the 7 differences detected can be resolved by automatically generated
+  ECOs": one extra component, `D1`, on the PCB document's side; two extra pins in nets, `D1-1` in `GND`
+  and `D1-2` in `LED_A`, on the PCB side; and, on the schematic's side, one extra component class
+  `driver`, one extra room `driver` and two extra rules "Supply Nets". The maintainer then confirmed that
+  the Projects panel does not show the sheet `altium_hier_board_led.SchDoc` under the top sheet: it is
+  outside the hierarchy, so `D1` is not in the compiled schematic. `R1` and `U1`, on the sheet `driver`,
+  match their board components through the two-id link, which is the first observation in favour of
+  `H-A-SCH-HIER-ECO`.
+  - The maintainer then ran "Sheet Symbol Actions » Synchronize Sheet Entries and Ports" on the sheet
+    symbol `led`. The dialog named the file `altium_hier_board_led.SchDoc`, showed one existing link,
+    `LED_A` (I/O type unspecified, no harness type), and no unmatched sheet entry or port. Nothing was
+    changed; after the dialog was closed, the sheet `led` was under the top sheet. So Altium finds the
+    content consistent, and its first pass over the project skipped that sheet.
+  - On a fresh copy, "Project » Validate PCB Project" alone did not bring the sheet `led` under the top
+    sheet; only the dialog did.
+  - After the dialog and "Save All", two files had changed, and no schematic file. Altium wrote a new
+    `altium_hier_board.PrjPcbStructure` (the top document, then one line per sheet symbol, `driver` and
+    `led`, each with its file name), and it saved the project file in its full form: UTF-8 with a
+    byte-order mark, `HierarchyMode=0` and many more keys under `[Design]`, and 14 more keys per
+    document. `DocumentUniqueId` there holds eight letters for the top sheet, the PCB document and the
+    sheet `led`, and is empty for the two libraries and for the sheet `driver`. None of these ids is in
+    a file Fenolite wrote. The maintainer kept the two saved files outside the repository; only these
+    facts are recorded (`docs/formats/altium/project.md`).
+  - Reading: the three documents with an id are those Altium had loaded in full (the top sheet, the PCB
+    document, and `led` through the dialog). `driver` has no id and was a child from the start, so the
+    pass that builds the hierarchy does not load a sheet in full, and that pass reads `driver` and not
+    `led`. The ids are a result of loading, not the reason for the difference.
+  - The cause is **not proven**. The built files were read again with `tests/_altium_read.py`,
+    `tests/_altium_pcb_read.py` and a second compound-file reader: the top sheet holds the sheet symbol
+    `led` with the same keys as the symbol `driver`; its file-name record is
+    `altium_hier_board_led.SchDoc`, letter for letter the name of the project file's sixth document; the
+    sheet `led` holds `D1`, its port `LED_A` and its two stubs; the board's `D1` holds
+    `\<id of the sheet symbol led>\<id of D1>` and the path `altium_hier_board\led`; and the readback
+    finds the model's four nets. The hierarchy sample, whose two module sheets Altium compiled as
+    children, differs in three ways only: its project holds no PCB document, its top sheet holds a
+    part, and each of its module sheets is larger than 4096 bytes. In the board example the sheet
+    `led` holds one part and is stored whole in the compound file's mini stream, as the top sheet is.
+    The sheet entry and port of `led` have the same keys and values as those of `driver` (name `LED_A`,
+    right side, first slot, no I/O type, no style, no harness type), which is also what a recent saved
+    sheet holds (S-0187).
+  - Probable cause, `H-A-SCHBIN-MINI`: the `FileHeader` stream of the sheet `led` is 2303 bytes, under
+    the compound file's cutoff of 4096 bytes, so it lies in the mini stream. The sheet `driver` (8817
+    bytes) was a child. Every sheet that Altium took as a child in any report holds 4096 bytes or more,
+    and so does every sheet Altium saved that was read (14 929 bytes at least, because a saved sheet
+    starts with some 27 hidden parameters). A full load, which the dialog needs, reads the sheet. Against
+    it: the top sheet of the example is also under 4096 bytes, and Altium read its sheet symbol
+    `driver`; whether the top sheet was open in the editor at that moment is not reported. This is an
+    inference from sizes, not an observation of the cause, and the variants below test it.
+  - Fix: the binary form now keeps `FileHeader` at 4096 bytes or more. A smaller sheet gets one hidden
+    sheet parameter as its last record (`docs/formats/altium/schematic-binary.md`, "Fenolite's
+    choices"). In the rebuilt example the top sheet and the sheet `led` are padded, and `driver` is
+    unchanged. No golden file changes: every committed sheet was already 4096 bytes or more.
+  - The component classes, the room and the supply-net rules on the schematic's side are objects that
+    Altium derives from the sheets and offers to add to the board. They are no fault of the files, and
+    Fenolite writes none of them into the PCB document. That none of the seven differences could become
+    a change order suggests that the comparison ran towards the schematic ("Update Schematics"), which
+    the wording of the first protocol allowed; step H7 now names the command and its starting sheet.
+  - One difference from a saved board was found on the way and corrected: `CHANNELOFFSET` counts the
+    parts of one sheet (S-0188), and the PCB document held the index over the whole board, so `D1` had
+    the offset 2 on a sheet of one part (`docs/formats/altium/pcb-document.md`). Nothing shows that
+    this explains the sheet outside the hierarchy.
+  - New test: `tests/unit/lens/test_altium_pcb.py` reads the built project as a second program finds
+    it (`component_links`, `board_link_problems`): every board link resolves to a schematic component
+    through an existing sheet symbol whose file the project lists, every module sheet is reachable from
+    the top sheet, and a module without a crossing still gets its sheet symbol. It passes on the files
+    of this report, so it does not explain H7 either.
+  - `H-A-SCH-HIER-ECO` and `H-A-SCH-HIER-PRJ` stay pending with this observation, `H-A-SCHBIN-MINI` is
+    registered as pending, and H7 is open again on the rebuilt example, with the notes and the seven
+    variants that Part H now lists.
 
 ### Status of Part A and Part B
 

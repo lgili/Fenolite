@@ -423,8 +423,8 @@ def test_hierarchy_record_counts_of_the_written_sample() -> None:
         5,
         2,
         2,
-        14,
-        12,
+        6,
+        4,
         2,
     )
     entries = [r for r in sheets["altium_hier.SchDoc"][0] if r["RECORD"] == "16"]
@@ -434,7 +434,9 @@ def test_hierarchy_record_counts_of_the_written_sample() -> None:
     assert (mcu["18"], mcu["27"], mcu["25"], mcu["17"]) == (3, 16, 12, 4)
     assert (flash["18"], flash["27"], flash["25"], flash["17"]) == (2, 17, 12, 5)
     additional = Counter(r["RECORD"] for r in sheets["altium_hier.SchDoc"][1])
-    assert additional == {"215": 2, "216": 8, "217": 2, "218": 2}
+    assert additional == {"218": 1}, "the top sheet joins the two SPI sheet entries by one line"
+    for file in ("altium_hier_mcu.SchDoc", "altium_hier_flash.SchDoc"):
+        assert Counter(r["RECORD"] for r in sheets[file][1]) == {"215": 1, "216": 4, "217": 1, "218": 1}
 
 
 @pytest.mark.parametrize("form", ["binary", "ascii"])
@@ -446,7 +448,7 @@ def test_hierarchy_unwired_entry_joins_nothing(form: str) -> None:
     assert nets == model_nets(hier_model(script=HIER_PARTIAL)) == HIER_NETS
     if form == "binary":
         entries = [r["NAME"] for _main, extra in sheets.values() for r in extra if r["RECORD"] == "216"]
-        assert entries.count("HOLD") == 4 and len(entries) == 20
+        assert entries.count("HOLD") == 2 and len(entries) == 10, "one block per module sheet"
 
 
 def test_hierarchy_nested_module_and_second_harness_read_back() -> None:
@@ -497,6 +499,30 @@ def test_hierarchy_loose_harness_line_is_caught() -> None:
     line["X2"] = str(int(line["X2"]) - 5)
     with pytest.raises(ReadError, match="signal harness line ends at"):
         nets_from_project(sheets, "altium_hier.SchDoc")
+
+
+def test_hierarchy_line_between_sheet_entries_joins_the_harness() -> None:
+    """Step H3: on the top sheet one signal harness line joins the two ``SPI`` sheet entries, and the nets
+    are still the model's; a line moved off an entry, a line removed, or a line onto an entry of another
+    type is caught."""
+    sheets = hierarchy_sheets("binary")
+    top = sheets["altium_hier.SchDoc"]
+    assert [r["RECORD"] for r in top[1]] == ["218"]
+    assert nets_from_project(sheets, "altium_hier.SchDoc") == HIER_NETS
+    assert not [r for r in top[0] if r["RECORD"] == "25" and r["TEXT"].startswith("SPI_")]
+    moved = hierarchy_sheets("binary")
+    moved["altium_hier.SchDoc"][1][0]["X2"] = str(int(top[1][0]["X2"]) - 5)
+    with pytest.raises(ReadError, match="signal harness line ends at"):
+        nets_from_project(moved, "altium_hier.SchDoc")
+    removed = hierarchy_sheets("binary")
+    removed["altium_hier.SchDoc"][1].clear()
+    with pytest.raises(ReadError, match="joined to 0 harness connectors"):
+        nets_from_project(removed, "altium_hier.SchDoc")
+    retyped = hierarchy_sheets("binary")
+    entry = [r for r in retyped["altium_hier.SchDoc"][0] if r.get("HARNESSTYPE") == "SPI"][1]
+    entry["HARNESSTYPE"] = "I2C"
+    with pytest.raises(ReadError, match="differ in type|does not end on one sheet entry of the type"):
+        nets_from_project(retyped, "altium_hier.SchDoc")
 
 
 def test_hierarchy_blocks_of_one_type_must_agree() -> None:

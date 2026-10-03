@@ -105,9 +105,11 @@ REGISTERED_BY_C0037 = frozenset(
         "H-A-SCH-HARN-FILE",
         "H-A-SCH-HARN-NETS",
         "H-A-SCH-HARN-UNUSED",
+        "H-A-SCHBIN-MINI",
     }
 )
-"""The hierarchy and harness rows (change c0037), settled by Part H of the schematic evidence page."""
+"""The hierarchy and harness rows (change c0037), settled by Part H of the schematic evidence page; the
+last one was registered after the report of step H7."""
 REGISTERED_BY_C0038 = frozenset(
     {
         "H-A-PCB-CU-TRACK",

@@ -130,12 +130,22 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   which Altium joins across the project, and get neither a port nor a sheet entry.
 - **Harnesses.** `Harness(name, members)` (`docs/dsl.md`) groups nets with different names, such as
   `Harness("SPI", {"MOSI": mosi, "MISO": miso, "SCK": sck, "CS": cs})`. When nets of a harness leave a
-  module, the build draws one port and one sheet entry named after the harness instead of one per net,
-  each with the same block: a signal harness line, a harness connector with one entry per member, the
-  harness type, and a labelled wire on each entry whose net leaves that module. Every block of a type
-  holds all its entries, so the definitions never differ; an entry whose net stays on one sheet is drawn
-  without a wire. Each sheet with a block gets `<sheet stem>.Harness`, a definition file with the line
-  `<type>=<entry>,<entry>,…`, listed in the project file after the module sheets.
+  module, the build draws one port and one sheet entry named after the harness instead of one per net.
+  On the module sheet the port has a block beside it: a signal harness line, a harness connector with
+  one entry per member, the harness type, and a labelled wire on each entry whose net leaves that
+  module. Every block of a type holds all its entries, so the definitions never differ; an entry whose
+  net stays on one sheet is drawn without a wire, which Altium Designer reports as the warning
+  "Unconnected Harness Entry". Each sheet with a block gets `<sheet stem>.Harness`, a definition file
+  with the line `<type>=<entry>,<entry>,…`, listed in the project file after the module sheets.
+- **Harnesses on the top sheet.** When a harness runs between exactly two modules that are neighbours
+  in name order, and no other sheet holds a pin of its nets, the top sheet joins the two sheet entries by
+  one signal harness line: the entry of the first module on the right side of its symbol, the entry of
+  the second on the left side of its symbol, and no connector, wire or label. The nets keep the names
+  their labels give them on the module sheets. In every other case (three modules, a pin on the top
+  sheet, the two symbols in different rows of the sheet) each sheet entry gets the same block as a port,
+  with labels that join the sheets; Altium Designer then warns that each of those nets has multiple
+  names, the label and the name each sheet entry derives from the harness (maintainer's report of
+  2026-10-03).
 - **The ASCII form writes no harness.** With `--altium-format ascii` the hierarchy is written, and the
   nets of a harness cross as plain nets with their own ports. A harness that is not drawn (in the `flat`
   mode, in the ASCII form, or because none of its nets leaves a module) gives one `altium.not-lowered`
@@ -147,7 +157,14 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
 - **Unique ids and the PCB link.** Components keep their unique ids in both modes. A sheet symbol gets
   an id derived from its module name and a port one from its module and name. In the PCB document a part
   on a module sheet links as `\<sheet symbol id>\<component id>` with the hierarchical path
-  `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`.
+  `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`. Its channel
+  offset counts the parts of its own sheet from 0. Every module gets its sheet symbol on the top sheet,
+  also when none of its nets leaves it.
+- **Small sheets.** A binary sheet whose records take less than 4096 bytes gets one hidden sheet
+  parameter, `FenoliteNote`, as its last record, so that the compound file stores the records in regular
+  sectors, as in every sheet Altium saves. Altium Designer 26.5 left a smaller module sheet outside the
+  hierarchy until it was loaded in full (maintainer's report of 2026-10-03; the cause is inferred). The
+  parameter is hidden and can be deleted in Altium.
 - **Switching the mode later.** On a design whose PCB was already made in Altium, switching between
   `flat` and `modules` changes the links of the parts on module sheets. "Project » Component Links"
   matches them again by designator (S-0164). Decide the mode before the first change order.

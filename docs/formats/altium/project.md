@@ -32,6 +32,9 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | Altium generates a definition when a connector with entries is built and updates it when the connector changes, unless the line starts with `Locked;`. A locked definition that differs from the drawn connector is reported as a conflicting harness definition | S-0186 | INFERRED | H-A-SCH-HARN-FILE |
 | Saved projects hold one `.Harness` file per sheet that has connectors, named after that sheet, and the project file lists each one as a document | S-0187, S-0188 | INFERRED | H-A-SCH-HARN-FILE |
 | A `.PrjPcbStructure` file beside a saved project lists the top document and each sheet symbol; Altium writes it | S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
+| Altium Designer 26.5 writes `<project>.PrjPcbStructure` on "Save All" once it holds the whole hierarchy; Fenolite's files had none and Altium did not ask for one. Its lines end with CR LF: first `Record=TopLevelDocument`, `FileName=<top sheet>` and `SheetNumber=` followed by one space; then, per sheet symbol, `Record=SheetSymbol`, `SourceDocument=<sheet that holds the symbol>`, `Designator` and `SchDesignator` (the symbol's name), `FileName` and `RawFileName` (the child's file name), `SymbolType=Normal`, `ObjectKind=Sheet Symbol`, and the keys `SheetNumber`, `DesignItemId`, `SourceLibraryName`, `RevisionGUID`, `ItemGUID` and `VaultGUID`, each with one space as its value (maintainer's report of step H7, 2026-10-03) | S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
+| Altium Designer 26.5 saves the project file in UTF-8 with a byte-order mark and CR LF lines. It keeps `[Design]` and `Version=1.0`, adds `HierarchyMode=0` and some forty more keys there, keeps the `[Document<n>]` sections in the written order and adds 14 keys to each, the last one `DocumentUniqueId`, and adds sections for preferences, a configuration, output groups, rule checks, annotation, class generation and comparison (maintainer's report of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PRJ-KEEP |
+| In that saved project `DocumentUniqueId` held eight letters for the top sheet, for the PCB document and for the module sheet that a dialog had just loaded, and was empty for the two libraries and for the other module sheet, which was a child all the same. The save changed no schematic file, and none of the ids is one that Fenolite writes. So Altium gives a document an id when it loads it in full, and a sheet can be a child without one (maintainer's report of step H7, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 
 ## Fenolite's choices
 
@@ -46,7 +49,13 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
   the MS-CFB order of the names. `[Document1]` stays the top sheet and `[Document2]` the PCB document
   when there is one; without module sheets the bytes do not change. No key names the top sheet or the
   net scope, and no project structure file is written (`H-A-SCH-HIER-PRJ`, `H-A-SCH-HIER-COMPILE`).
-- A harness definition file is `<sheet file stem>.Harness`, one per sheet that holds a harness block:
+  The structure file stays unwritten after the report of step H7: Altium derives it from the sheets and
+  writes it itself, and a written copy could show a tree in the Projects panel that the compiler does
+  not build. Whether a written structure file, or document ids in the project file, would bring a
+  skipped sheet into the hierarchy is tested by two variants of step H7, not assumed.
+- A harness definition file is `<sheet file stem>.Harness`, one per sheet that holds a harness block
+  (a harness connector). A top sheet that only joins two sheet entries by a signal harness line holds no
+  connector and gets no file, as the saved top sheets. The file holds
   one line `<type>=<entry>,<entry>,…` per type, types and entries in code-point order, each line ending
   with CR LF, in 7-bit ASCII without a byte-order mark. A name that holds `=`, `,` or `;` is refused
   (`H-A-SCH-HARN-FILE`).

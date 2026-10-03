@@ -39,42 +39,66 @@ Part H of `docs/evidence/altium-schematic.md`.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| Records 215 (harness connector), 216 (harness entry), 217 (harness type) and 218 (signal harness) are not in `FileHeader`: they are in the stream `Additional` of the binary schematic | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| `Additional` starts with its own header record: the header text of `FileHeader`, then `WEIGHT=<records after it>`. An empty `Additional` holds the header alone, without `WEIGHT` | S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| A second reader skips a missing `Additional` stream and refuses one with no bytes. Fenolite's verified sheets have no `Additional` stream and Altium Designer opens them | S-0131, S-0147 | INFERRED | H-A-SCH-HARN-OPEN |
-| A harness connector is `RECORD=215` with `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (its top-left corner, as a sheet symbol), `XSIZE`, `YSIZE`, `LINEWIDTH=1`, `COLOR=13213327`, `AREACOLOR=16511725`, `PRIMARYCONNECTIONPOSITION` and, when its connection side is not the left, `HARNESSCONNECTORSIDE` (1 right) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| The connector's connection point lies on the side `HARNESSCONNECTORSIDE` names, `PRIMARYCONNECTIONPOSITION` units of 10 mil (not steps of ten units) below the top-left corner | S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| One reader takes the connector's side from a key `SIDE`, which saved files do not hold; they hold `HARNESSCONNECTORSIDE`. The files are the fact; the reader's default (left) hides the difference | S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| A harness entry is `RECORD=216` with `OWNERINDEXADDITIONALLIST=T`, `OWNERPARTID=-1`, `SIDE`, `DISTANCEFROMTOP` (steps of 10 units, as a sheet entry), `COLOR=7354880`, `AREACOLOR=8454143`, `TEXTCOLOR=7354880`, `TEXTFONTID=1`, `TEXTSTYLE=Full` and `NAME` | S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| A harness type is `RECORD=217` with `OWNERINDEXADDITIONALLIST=T`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=8388608`, `FONTID=1` and `TEXT=<type name>`; one per connector, after its entries | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| `OWNERINDEX` of records 216 and 217 is the index of their connector inside `Additional`, counted from 0 after the header; `OWNERINDEXADDITIONALLIST=T` says so. An owner index of 0 is left out, so the children of the first connector carry no `OWNERINDEX` | S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
+| Records 215 (harness connector), 216 (harness entry), 217 (harness type) and 218 (signal harness) are not in `FileHeader`: they are in the stream `Additional` of the binary schematic | S-0130, S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| `Additional` starts with its own header record: the header text of `FileHeader`, then `WEIGHT=<records after it>`. An empty `Additional` holds the header alone, without `WEIGHT` | S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A second reader skips a missing `Additional` stream and refuses one with no bytes. Fenolite's verified sheets have no `Additional` stream and Altium Designer opens them | S-0131, S-0147 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A harness connector is `RECORD=215` with `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (its top-left corner, as a sheet symbol), `XSIZE`, `YSIZE`, `LINEWIDTH=1`, `COLOR=13213327`, `AREACOLOR=16511725`, `PRIMARYCONNECTIONPOSITION` and, when its connection side is not the left, `HARNESSCONNECTORSIDE` (1 right) | S-0130, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| The connector's connection point lies on the side `HARNESSCONNECTORSIDE` names, `PRIMARYCONNECTIONPOSITION` units of 10 mil (not steps of ten units) below the top-left corner | S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| One reader takes the connector's side from a key `SIDE`, which saved files do not hold; they hold `HARNESSCONNECTORSIDE`. The files are the fact; the reader's default (left) hides the difference | S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A harness entry is `RECORD=216` with `OWNERINDEXADDITIONALLIST=T`, `OWNERPARTID=-1`, `SIDE`, `DISTANCEFROMTOP` (steps of 10 units, as a sheet entry), `COLOR=7354880`, `AREACOLOR=8454143`, `TEXTCOLOR=7354880`, `TEXTFONTID=1`, `TEXTSTYLE=Full` and `NAME` | S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A harness type is `RECORD=217` with `OWNERINDEXADDITIONALLIST=T`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=8388608`, `FONTID=1` and `TEXT=<type name>`; one per connector, after its entries | S-0130, S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| `OWNERINDEX` of records 216 and 217 is the index of their connector inside `Additional`, counted from 0 after the header; `OWNERINDEXADDITIONALLIST=T` says so. An owner index of 0 is left out, so the children of the first connector carry no `OWNERINDEX` | S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
 | A harness entry's connection point lies on the connector's edge that the entry's `SIDE` names, `DISTANCEFROMTOP` × 10 units below the top-left corner; entries sit on the side opposite the connector's connection point | S-0131, S-0187 | INFERRED | H-A-SCH-HARN-NETS |
-| A signal harness line is `RECORD=218` with `OWNERPARTID=-1`, `LINEWIDTH=2`, `COLOR=15187117`, `LOCATIONCOUNT`, `X1`, `Y1`, …: a polyline, as a wire | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| On a child sheet the connector meets its port by touching it, or through a two-point harness line from the connector's connection point to the port | S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
-| A harness line may connect to ports, sheet entries, connectors and other harnesses. On the saved top sheets harness lines run between sheet entries that hold `HARNESSTYPE`, without a connector | S-0186, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
+| A signal harness line is `RECORD=218` with `OWNERPARTID=-1`, `LINEWIDTH=2`, `COLOR=15187117`, `LOCATIONCOUNT`, `X1`, `Y1`, …: a polyline, as a wire | S-0130, S-0131, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| On a child sheet the connector meets its port by touching it, or through a two-point harness line from the connector's connection point to the port | S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
+| A harness line may connect to ports, sheet entries, connectors and other harnesses. On the saved top sheets harness lines run between sheet entries that hold `HARNESSTYPE`, without a connector | S-0186, S-0187, S-0188 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-OPEN |
 | A wire on a harness entry may carry an ordinary net label, which names the net; without one the net is named from the harness and the entry | S-0131, S-0186, S-0187 | INFERRED | H-A-SCH-HARN-NETS |
-| The sheet defines a harness type by drawing it: a connector, its entries and the type record. Whether a connector may hold an entry without a wire is not stated | S-0186 | INFERRED | H-A-SCH-HARN-UNUSED |
+| The sheet defines a harness type by drawing it: a connector, its entries and the type record. Whether a connector may hold an entry without a wire is not stated | S-0186 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-UNUSED |
+| A sheet that Altium saves starts, right after the sheet record, with some 27 hidden sheet parameters: `RECORD=41` without `OWNERINDEX`, with `OWNERPARTID=-1`, `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT` and `NAME` (a record 41 without an owner is a parameter of the sheet). With them, the `FileHeader` stream of every saved sheet read is 14 929 bytes or more, so Altium itself never stores `FileHeader` in the compound file's mini stream (streams under 4096 bytes, `compound-file.md`) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCHBIN-MINI |
+| In a project whose module sheet held a `FileHeader` stream of 2303 bytes, in the mini stream, Altium Designer 26.5 left that sheet outside the hierarchy, although the top sheet's sheet symbol named it and its entry and port matched; the module sheet of 8817 bytes was a child. "Project » Validate PCB Project" on a fresh copy did not change that. Opening and closing "Synchronize Sheet Entries and Ports" on the symbol, which showed the file, one link and nothing unmatched, brought the sheet into the hierarchy, and a save then changed no schematic file (maintainer's report of step H7, 2026-10-03). That the stream's size is the cause is inferred | S-0145 | INFERRED | H-A-SCHBIN-MINI |
+| The top sheet needs no connector for a type that a child sheet or a harness definition file defines: the saved top sheets hold signal harness lines only | S-0186, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-FILE |
+| On a top sheet that joins a harness sheet entry to a harness connector whose entries have labelled wires, Altium Designer 26.5 compiles the project and warns once per member that the net has multiple names: the net label, and the name that each sheet entry gives it from the harness and its entry (`<sheet>-<harness>.<entry>`). On the module sheets, where a port has the same block beside it, it gives no such warning (maintainer's report of step H3, 2026-10-03) | S-0186 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-COMPILE |
+| Altium Designer 26.5 reports a harness entry without a wire as the warning "Unconnected Harness Entry", once per connector that holds it, and still compiles the project without an error (maintainer's report of step H6, 2026-10-03) | S-0186 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HARN-UNUSED |
 
 ## Fenolite's choices
 
 - The binary schematic has two streams, `FileHeader` and then `Storage`, and a third, `Additional`, only
-  when the sheet holds a harness block (change c0037); a sheet without one keeps the two streams and its
-  bytes.
+  when the sheet holds a harness block or a signal harness line (change c0037); a sheet without one
+  keeps the two streams and its bytes.
 - `FileHeader` holds the binary header record with the exact record count, then the records of
   `schematic-ascii.md` in the same order with the same keys and values, each framed with type 0.
 - No CR or LF is written; payloads stay under 65 536 bytes; texts stay 7-bit, as in the ASCII form.
 - `Storage` is the single 25-byte record `|HEADER=Icon storage` (4-byte word 21, 20 text bytes, NUL).
+- `FileHeader` is never stored in the mini stream (change c0037, after the report of step H7). When the
+  records of a sheet give a stream under 4096 bytes, the binary form adds one last record, a hidden sheet
+  parameter with the keys `RECORD=41`, `OWNERPARTID=-1`, `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT`
+  and `NAME=FenoliteNote`, in the order of a saved sheet parameter. Its text is a fixed sentence followed
+  by as many `.` as bring the stream to exactly 4096 bytes (none when the sentence alone passes 4096). A
+  sheet of 4096 bytes or more gets no such record and keeps its bytes; the ASCII form never gets it
+  (`H-A-SCHBIN-MINI`).
 - The No ERC directive (record 22, change c0036, `schematic-ascii.md`) is framed as any other property
   list: type 0, the same keys and values as its ASCII line, and a closing NUL.
-- Harness blocks (change c0037). A harness that leaves a module is drawn as the same block on the
-  module sheet and on the top sheet: a two-point signal harness line of 200 mil from the port's right
-  end, or from the sheet entry's connection point, to the connection point on the connector's left edge;
+- Harness lines between sheet symbols (change c0037, after the report of step H3). When a harness
+  leaves exactly two modules, those two are neighbours in module-name order, both wire the same entries
+  to the same nets and every pin of those nets is on one of the two module sheets, the top sheet draws
+  one two-point signal harness line and nothing else for it: from the sheet entry on the right side of
+  the first module's symbol to the sheet entry of the same name on the left side of the second one, in
+  the same `DISTANCEFROMTOP` slot, so the line is horizontal. The top sheet then holds no connector, no
+  wire and no net label for that harness, and each of its nets keeps the one name its labels give it on
+  the module sheets. If the two symbols do not land side by side in one row of the sheet, or one of the
+  conditions fails, the harness keeps the block below beside each sheet entry, with its labels; Altium
+  Designer then warns of multiple net names (fact table above).
+- Harness blocks (change c0037). A harness that leaves a module is drawn as a block on the module
+  sheet and, unless a line joins its two sheet entries, on the top sheet: a two-point signal harness
+  line of 200 mil from the port's right end, or from the sheet entry's connection point, to the
+  connection point on the connector's left edge;
   the connector with one entry per entry of the type, on its right side, in code-point order of their
   names; the type record at the connector's top-left corner. A connector of `m` entries is
   `(m + 1) · 100` mil high, at least 500 mil wide, with the entries at `DISTANCEFROMTOP` 1 … `m` and
   `PRIMARYCONNECTIONPOSITION = 10 · ⌊(m + 1) / 2⌋`.
 - `Additional` holds the binary header record with `WEIGHT=<records after it>`, then per block: the
-  connector, its entries, the type, the line. Keys, in this order:
+  connector, its entries, the type, the line; then one record 218 per line between two sheet symbols.
+  Keys, in this order:
   - `RECORD=215`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `XSIZE`, `YSIZE`, `LINEWIDTH=1`,
     `COLOR=13213327`, `AREACOLOR=16511725`, `PRIMARYCONNECTIONPOSITION`; no `HARNESSCONNECTORSIDE`
     (the connection point is on the left);
@@ -88,5 +112,5 @@ Part H of `docs/evidence/altium-schematic.md`.
 - Every block of a type holds all the type's entries, so the drawn definitions never differ. An entry
   whose net leaves the block's module gets a wire stub rightwards and a net label with the **net**
   name, written in `FileHeader` as any wire and label; an entry whose net does not leave it gets
-  neither, on both sheets (`H-A-SCH-HARN-UNUSED`).
+  neither, on every sheet (`H-A-SCH-HARN-UNUSED`).
 - The ASCII form writes no harness record; `write_schdoc` refuses a plan that holds a block.

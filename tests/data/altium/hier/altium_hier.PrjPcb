@@ -14,10 +14,7 @@ DocumentPath=altium_hier_flash.SchDoc
 DocumentPath=altium_hier_mcu.SchDoc
 
 [Document5]
-DocumentPath=altium_hier.Harness
-
-[Document6]
 DocumentPath=altium_hier_mcu.Harness
 
-[Document7]
+[Document6]
 DocumentPath=altium_hier_flash.Harness

@@ -373,7 +373,8 @@ def test_hier_board_pads_and_nets_do_not_depend_on_the_mode(tmp_path: Path) -> N
     split = read_pcbdoc(build_hier_board(tmp_path / "m", sheets="modules").files["altium_hier_board.PcbDoc"])
     assert flat.nets == split.nets and flat.pads == split.pads
     for before, after in zip(flat.components, split.components, strict=True):
-        assert {k for k in before if before[k] != after[k]} == {"SOURCEUNIQUEID", "SOURCEHIERARCHICALPATH"}
+        changed = {k for k in before if before[k] != after[k]}
+        assert changed - {"CHANNELOFFSET"} == {"SOURCEUNIQUEID", "SOURCEHIERARCHICALPATH"}
 
 
 def test_hier_board_sheets_read_back(tmp_path: Path) -> None:
@@ -902,3 +903,138 @@ def test_copper_does_not_depend_on_the_sheet_mode(tmp_path: Path) -> None:
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
     assert all(c["SOURCEUNIQUEID"].count("\\") == 2 for c in doc.components)
     assert [c.name for c in doc.classes] == ["PWR"] and len(doc.rules) == 5
+
+
+# --- every board component links to a schematic component (H-A-SCH-HIER-ECO, step H7) ------------------
+
+
+def _links_and_board(files: dict[str, bytes], name: str) -> tuple[dict[str, tuple[str, str]], list[str]]:
+    from _altium_pcb_read import read_pcbdoc
+    from _altium_read import board_link_problems, component_links
+
+    links = component_links(files[f"{name}.PrjPcb"], files, f"{name}.SchDoc")
+    return links, board_link_problems(links, read_pcbdoc(files[f"{name}.PcbDoc"]).components)
+
+
+@pytest.mark.parametrize("mode", ["flat", "modules"])
+def test_hier_board_every_component_link_resolves(tmp_path: Path, mode: str) -> None:
+    """``H-A-SCH-HIER-ECO``, step H7: every board component's ``SOURCEUNIQUEID`` is the link of a schematic
+    component, through a sheet symbol of the top sheet whose file-name record is a sheet that the project
+    file lists, and every module sheet is reachable from the top sheet."""
+    output = build_hier_board(tmp_path, sheets=mode)
+    links, problems = _links_and_board(output.files, "altium_hier_board")
+    assert problems == []
+    assert sorted(ref for ref, _path in links.values()) == ["D1", "R1", "U1"]
+    paths = {ref: path for ref, path in links.values()}
+    if mode == "modules":
+        assert paths == {
+            "D1": "altium_hier_board\\led",
+            "R1": "altium_hier_board\\driver",
+            "U1": "altium_hier_board\\driver",
+        }
+    else:
+        assert set(paths.values()) == {""}
+
+
+def test_hier_board_channel_offsets_count_per_sheet(tmp_path: Path) -> None:
+    """``H-A-SCH-HIER-ECO``: ``CHANNELOFFSET`` restarts at 0 on every sheet (``pcb-document.md``); ``D1`` is
+    the only part of ``led``, so its offset is 0, not its board-wide index 2."""
+    from _altium_pcb_read import read_pcbdoc
+
+    doc = read_pcbdoc(build_hier_board(tmp_path, sheets="modules").files["altium_hier_board.PcbDoc"])
+    found = {c["SOURCEDESIGNATOR"]: (c["SOURCEHIERARCHICALPATH"], c["CHANNELOFFSET"]) for c in doc.components}
+    assert found == {
+        "R1": ("altium_hier_board\\driver", "0"),
+        "U1": ("altium_hier_board\\driver", "1"),
+        "D1": ("altium_hier_board\\led", "0"),
+    }
+    flat = read_pcbdoc(build_hier_board(tmp_path / "flat").files["altium_hier_board.PcbDoc"])
+    assert [c["CHANNELOFFSET"] for c in flat.components] == ["0", "1", "2"]
+
+
+def test_hier_board_link_faults_are_caught(tmp_path: Path) -> None:
+    """The reading of H7 fails on each fault that leaves a module sheet outside the hierarchy."""
+    from _altium_pcb_read import read_pcbdoc
+    from _altium_read import ReadError, board_link_problems, component_links
+
+    files = dict(build_hier_board(tmp_path, sheets="modules").files)
+    project, top = files["altium_hier_board.PrjPcb"], "altium_hier_board.SchDoc"
+    led = b"altium_hier_board_led.SchDoc"
+    unlisted = project.replace(b"\r\n[Document6]\r\nDocumentPath=" + led + b"\r\n", b"")
+    assert unlisted != project
+    with pytest.raises(ReadError, match="altium_hier_board_led.SchDoc, which the project does not list"):
+        component_links(unlisted, files, top)
+    upper = "altium_hier_board_LED.SchDoc"
+    cased = {**files, upper: files[led.decode()]}
+    with pytest.raises(ReadError, match=r"does not list \(the project lists altium_hier_board_LED.SchDoc\)"):
+        component_links(project.replace(led, upper.encode()), cased, top)
+    other = build_hier_board(tmp_path / "flat").files
+    lone = {**files, top: other[top]}
+    with pytest.raises(ReadError, match="is not reachable from the top sheet"):
+        component_links(project, lone, top)
+    links = component_links(project, files, top)
+    flat_board = read_pcbdoc(other["altium_hier_board.PcbDoc"]).components
+    problems = board_link_problems(links, flat_board)
+    assert len([p for p in problems if "is not a schematic component" in p]) == 3
+    assert len([p for p in problems if "is not on the board" in p]) == 3
+
+
+def test_module_without_a_crossing_still_gets_its_sheet_symbol(tmp_path: Path) -> None:
+    """Every module sheet has a sheet symbol on the top sheet, even with no sheet entry: a module whose
+    nets are all power nets or local nets crosses nothing, and its sheet must still be a child."""
+    from _altium_read import component_links
+
+    from fenolite.dsl import Design, Module, Net, Part, Power, connect
+
+    design = Design("lonely")
+    a, b = Module("a"), Module("b")
+    r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")
+    r2 = Part("R2", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="2k")
+    a.add(r1)
+    b.add(r2)
+    design.add(a, b)
+    vin, gnd = Net("VIN"), Net("GND")
+    connect(vin, r1[1], r2[1])
+    connect(gnd, r1[2], r2[2])
+    design.add(Power(vin, gnd))
+    output = build_altium(
+        to_model(design),
+        name=design.name,
+        resolver=blink_resolver(tmp_path, HIER_BOARD_DIR),
+        sheets="modules",
+    )
+    assert output.summary["sheets"] == ["lonely.SchDoc", "lonely_a.SchDoc", "lonely_b.SchDoc"]
+    assert (output.summary["ports"], output.summary["sheet_entries"]) == (0, 0)
+    top = records(output.files["lonely.SchDoc"])[1:]
+    assert [r["RECORD"] for r in top] == ["31", "15", "32", "33", "15", "32", "33", "41"]
+    assert top[-1]["NAME"] == "FenoliteNote", "a small sheet ends with the note that fills its stream"
+    assert [r["TEXT"] for r in top if r["RECORD"] == "33"] == ["lonely_a.SchDoc", "lonely_b.SchDoc"]
+    links = component_links(output.files["lonely.PrjPcb"], output.files, "lonely.SchDoc")
+    assert sorted(links.values()) == [("R1", "lonely\\a"), ("R2", "lonely\\b")]
+
+
+def test_hier_board_sheets_keep_file_header_out_of_the_mini_stream(tmp_path: Path) -> None:
+    """``H-A-SCHBIN-MINI``, step H7: the top sheet and the sheet ``led`` of the board example are small, and
+    the first build stored their ``FileHeader`` in the compound file's mini stream; Altium Designer then
+    left ``led`` outside the hierarchy. Each sheet now holds a ``FileHeader`` of 4096 bytes or more, the
+    small ones through one hidden sheet parameter as their last record."""
+    from _cfb_read import parse_compound
+
+    output = build_hier_board(tmp_path, sheets="modules")
+    notes: dict[str, bool] = {}
+    for name in output.summary["sheets"]:  # type: ignore[union-attr]
+        compound = parse_compound(output.files[name])
+        assert len(compound.streams["FileHeader"]) >= 4096, name
+        assert "FileHeader" not in compound.mini_chains, name
+        rows = records(output.files[name])
+        assert rows[0]["WEIGHT"] == str(len(rows) - 1)
+        notes[name] = rows[-1].get("NAME") == "FenoliteNote"
+        assert sum(r.get("NAME") == "FenoliteNote" for r in rows) == int(notes[name])
+        if notes[name]:
+            assert len(compound.streams["FileHeader"]) == 4096
+            assert rows[-1]["ISHIDDEN"] == "T" and "OWNERINDEX" not in rows[-1]
+    assert notes == {
+        "altium_hier_board.SchDoc": True,
+        "altium_hier_board_driver.SchDoc": False,
+        "altium_hier_board_led.SchDoc": True,
+    }

@@ -859,7 +859,6 @@ def test_sheets_not_in_project_names_the_sheets_and_harness_files() -> None:
     for file in (
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
-        "altium_hier.Harness",
         "altium_hier_flash.Harness",
         "altium_hier_mcu.Harness",
     ):

@@ -30,7 +30,6 @@ ROOT = Path(__file__).resolve().parents[3]
 GOLDEN = ROOT / "tests" / "data" / "altium" / "hier"
 FILES = (
     "FenoliteHier.SchLib",
-    "altium_hier.Harness",
     "altium_hier.PrjPcb",
     "altium_hier.SchDoc",
     "altium_hier_flash.Harness",
@@ -97,7 +96,6 @@ def test_committed_project_lists_the_sheets_and_harness_files() -> None:
         "FenoliteHier.SchLib",
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
-        "altium_hier.Harness",
         "altium_hier_mcu.Harness",
         "altium_hier_flash.Harness",
     ]

@@ -189,12 +189,18 @@ class Crossing:
 @dataclass(frozen=True)
 class SymbolSpec:
     """The sheet symbol of a module on the top sheet: the module name (the sheet's name), the file name of
-    the module's sheet, the symbol's unique id and its crossings, one sheet entry each, in order."""
+    the module's sheet, the symbol's unique id and its crossings, one sheet entry each, in order.
+
+    ``joins`` names the harness crossings that a signal harness line joins directly to the sheet entry of
+    the same name on the next sheet symbol (``line_to``) or on the one before (``line_from``): such an
+    entry has no harness block and no label beside it ("Harness lines between sheet symbols")."""
 
     module: str
     file: str
     unique_id: str
     crossings: tuple[Crossing, ...] = ()
+    line_to: frozenset[str] = frozenset()
+    line_from: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -223,14 +229,17 @@ class HarnessBlock:
 
 @dataclass(frozen=True)
 class PlacedEntry:
-    """A sheet entry on the right side of its symbol: ``slot`` is its ``DISTANCEFROMTOP`` and ``point`` its
-    connection point; a net entry has a labelled ``stub``, a harness entry a ``block``."""
+    """A sheet entry on the ``side`` of its symbol: ``slot`` is its ``DISTANCEFROMTOP`` and ``point`` its
+    connection point; a net entry has a labelled ``stub``, a harness entry a ``block``, and a harness entry
+    joined to another sheet symbol by a signal harness line has neither. An entry on the left side is the
+    end of such a line."""
 
     crossing: Crossing
     slot: int
     point: tuple[int, int]
     stub: Stub | None = None
     block: HarnessBlock | None = None
+    side: Literal["left", "right"] = "right"
 
 
 @dataclass(frozen=True)
@@ -279,6 +288,9 @@ class SheetPlan:
     symbols: tuple[PlacedSymbol, ...] = ()
     ports: tuple[PlacedPort, ...] = ()
     harnesses: tuple[HarnessBlock, ...] = ()
+    lines: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = ()
+    """The signal harness lines that join two sheet entries directly, each from the entry on the right side
+    of a sheet symbol to the entry of the same name on the left side of the next one."""
 
     @property
     def links(self) -> tuple[Stub, ...]:
@@ -450,12 +462,15 @@ def _attach(crossing: Crossing, point: tuple[int, int]) -> tuple[Stub | None, Ha
     return _link(point, crossing.name, crossing.name), None
 
 
-def _reach(stub: Stub | None, block: HarnessBlock | None) -> tuple[int, int, int]:
-    """How far the drawing of a link reaches: its right end, its top and its bottom."""
+def _reach(stub: Stub | None, block: HarnessBlock | None, point: tuple[int, int]) -> tuple[int, int, int]:
+    """How far the drawing of a link reaches: its right end, its top and its bottom. An entry at ``point``
+    with neither a stub nor a block starts a signal harness line, which needs ``HARNESS_GAP`` to its
+    right."""
     if block is not None:
         right = max((s.end[0] for s in block.stubs), default=block.x + block.width)
         return right, block.y - TEXT_HEIGHT, block.y + block.height
-    assert stub is not None
+    if stub is None:
+        return point[0] + HARNESS_GAP, point[1] - TEXT_HEIGHT, point[1]
     return stub.end[0], stub.start[1] - TEXT_HEIGHT, stub.start[1]
 
 
@@ -463,30 +478,65 @@ def _cell(x0: int, y0: int, x1: int, y1: int) -> tuple[int, int, int, int]:
     return _down(x0 - CELL_MARGIN), _down(y0 - CELL_MARGIN), _up(x1 + CELL_MARGIN), _up(y1 + CELL_MARGIN)
 
 
-def place_symbol(spec: SymbolSpec, x: int, y: int) -> PlacedSymbol:
+def place_symbol(spec: SymbolSpec, x: int, y: int, slots: Mapping[str, int] | None = None) -> PlacedSymbol:
     """The sheet symbol of ``spec`` with its top-left corner at (``x``, ``y``). Entries are on the right
     side, in slots of 100 mil that start at 1: a net entry takes one slot; a harness entry of ``m`` members
-    takes ``m + 2`` slots and sits ``⌊(m + 1) / 2⌋`` slots below the first of them, beside its connector.
-    The symbol is ``(slots + 1) · 100`` mil high, at least 1500 mil wide and wide enough for its texts."""
+    takes ``m + 2`` slots and sits ``⌊(m + 1) / 2⌋`` slots below the first of them, beside its connector; a
+    harness entry of ``spec.line_to`` takes one slot and has no connector. A harness entry of
+    ``spec.line_from`` is on the left side, in the slot that ``slots`` gives for its name (the slot of the
+    same entry on the symbol before, so the line between them is straight); the left side counts its slots
+    apart from the right side. The symbol is 100 mil higher than its lowest entry, at least 1500 mil wide
+    and wide enough for its texts."""
     names = [c.name for c in spec.crossings]
     if len(set(names)) != len(names):
         raise ValueError(f"two crossings of {spec.module} share a name")
+    joined = spec.line_to | spec.line_from
+    if spec.line_to & spec.line_from or not joined <= {c.name for c in spec.crossings if c.harness}:
+        raise ValueError(f"the harness lines of {spec.module} do not name one harness crossing each")
+    if set(slots or {}) != set(spec.line_from):
+        raise ValueError(f"the left entries of {spec.module} need the slots of {sorted(spec.line_from)}")
     width = max(SYMBOL_MIN_WIDTH, text_width(max((spec.module, spec.file, *names), key=len)))
     entries: list[PlacedEntry] = []
     slot = 1
+    lowest = 0
     x1, y0, y1 = x + width, y - SHEET_NAME_RISE - TEXT_HEIGHT, y
     for crossing in spec.crossings:
-        count = len(crossing.entries) if crossing.entries is not None else 0
-        k = slot + (count + 1) // 2 if crossing.harness else slot
+        if crossing.name in spec.line_from:
+            k = (slots or {})[crossing.name]
+            entries.append(PlacedEntry(crossing, k, (x, y + ENTRY_PITCH * k), side="left"))
+            lowest = max(lowest, k)
+            continue
+        direct = crossing.name in spec.line_to
+        count = len(crossing.entries) if crossing.entries is not None and not direct else 0
+        k = slot + (count + 1) // 2 if crossing.harness and not direct else slot
         point = (x + width, y + ENTRY_PITCH * k)
-        stub, block = _attach(crossing, point)
+        stub, block = (None, None) if direct else _attach(crossing, point)
         entries.append(PlacedEntry(crossing, k, point, stub, block))
-        right, top, bottom = _reach(stub, block)
+        right, top, bottom = _reach(stub, block, point)
         x1, y0, y1 = max(x1, right), min(y0, top), max(y1, bottom)
-        slot += count + 2 if crossing.harness else 1
-    height = ENTRY_PITCH * slot
+        slot += count + 2 if crossing.harness and not direct else 1
+    height = ENTRY_PITCH * max(slot, lowest + 1)
     cell = _cell(x, y0, x1, max(y1, y + height))
     return PlacedSymbol(spec, x, y, width, height, cell, tuple(entries))
+
+
+def _line_slots(symbols: Sequence[SymbolSpec]) -> list[dict[str, int]]:
+    """Per sheet symbol, the slot of each of its left entries: the slot of the entry of the same name on
+    the right side of the symbol before. A ``line_from`` without that ``line_to`` raises ``ValueError``."""
+    found: list[dict[str, int]] = []
+    before: dict[str, int] = {}
+    for index, spec in enumerate(symbols):
+        if not spec.line_from <= set(before):
+            raise ValueError(f"a harness line into {spec.module} does not start on the sheet symbol before")
+        if index + 1 < len(symbols) and not spec.line_to <= symbols[index + 1].line_from:
+            raise ValueError(f"a harness line from {spec.module} does not end on the next sheet symbol")
+        if index + 1 == len(symbols) and spec.line_to:
+            raise ValueError(f"a harness line from {spec.module} has no next sheet symbol")
+        mine = {name: before[name] for name in spec.line_from}
+        found.append(mine)
+        placed = place_symbol(spec, 0, 0, mine)
+        before = {e.crossing.name: e.slot for e in placed.entries if e.crossing.name in spec.line_to}
+    return found
 
 
 def place_port(crossing: Crossing, x: int, y: int) -> PlacedPort:
@@ -494,10 +544,19 @@ def place_port(crossing: Crossing, x: int, y: int) -> PlacedPort:
     block to its right."""
     width = port_width(crossing.name)
     stub, block = _attach(crossing, (x + width, y))
-    right, top, bottom = _reach(stub, block)
+    right, top, bottom = _reach(stub, block, (x + width, y))
     half = PORT_HEIGHT // 2
     cell = _cell(x, min(top, y - half), right, max(bottom, y + half))
     return PlacedPort(crossing, x, y, width, cell, stub, block)
+
+
+class SplitLine(ValueError):
+    """The two sheet symbols of a harness line are not side by side in one row of the sheet, so the line
+    would not be straight: ``harness`` between the symbols of ``first`` and ``second``."""
+
+    def __init__(self, harness: str, first: str, second: str) -> None:
+        super().__init__(f"the sheet symbols {first} and {second} of the harness {harness} are in two rows")
+        self.harness, self.first, self.second = harness, first, second
 
 
 def _pack(cells: Sequence[tuple[int, int]], usable_width: int) -> tuple[list[tuple[int, int]], int]:
@@ -532,7 +591,8 @@ def layout_sheet(
     first of ``sizes`` that holds them, else on a custom sheet as wide as A0 (or as the widest cell plus
     the margins) and as high as needed. The sheet symbols of a top sheet (``symbols``) and the ports of a
     module sheet (``ports``) are cells of the same packing, before the component cells, in the order given
-    (change c0037, "Hierarchical sheet layout")."""
+    (change c0037, "Hierarchical sheet layout"). A harness line of ``SymbolSpec.line_to`` whose two sheet
+    symbols do not land side by side in one row raises ``SplitLine``."""
     ordered = sorted(parts, key=lambda p: p.key)
     keys = [p.key for p in ordered]
     if len(set(keys)) != len(keys):
@@ -541,8 +601,9 @@ def layout_sheet(
     if len(set(port_names)) != len(port_names):
         raise ValueError("two ports share a name")
     units = [(spec, part) for spec in ordered for part in range(1, spec.body.parts + 1)]
+    slots = _line_slots(symbols)
     extents = [
-        *(place_symbol(spec, 0, 0).cell for spec in symbols),
+        *(place_symbol(spec, 0, 0, mine).cell for spec, mine in zip(symbols, slots, strict=True)),
         *(place_port(crossing, 0, 0).cell for crossing in ports),
         *(_extent(spec, part) for spec, part in units),
     ]
@@ -559,7 +620,18 @@ def layout_sheet(
         for (x0, y0, _, _), (ox, oy) in zip(extents, offsets, strict=True)
     ]
     first = len(symbols) + len(ports)
-    placed_symbols = [place_symbol(spec, *at) for spec, at in zip(symbols, origins, strict=False)]
+    placed_symbols = [
+        place_symbol(spec, *at, mine) for spec, at, mine in zip(symbols, origins, slots, strict=False)
+    ]
+    lines: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    for symbol, after in zip(placed_symbols, placed_symbols[1:], strict=False):
+        ends = {e.crossing.name: e.point for e in after.entries if e.side == "left"}
+        for entry in symbol.entries:
+            if entry.crossing.name in symbol.spec.line_to:
+                end = ends[entry.crossing.name]
+                if end[1] != entry.point[1] or end[0] <= entry.point[0]:
+                    raise SplitLine(entry.crossing.name, symbol.spec.module, after.spec.module)
+                lines.append((entry.point, end))
     placed_ports = [
         place_port(crossing, *at) for crossing, at in zip(ports, origins[len(symbols) : first], strict=True)
     ]
@@ -584,6 +656,7 @@ def layout_sheet(
         tuple(placed_symbols),
         tuple(placed_ports),
         tuple(blocks),
+        tuple(lines),
     )
 
 
@@ -602,6 +675,7 @@ __all__ = [
     "PlacedSymbol",
     "SHEET_NAME_RISE",
     "SYMBOL_MIN_WIDTH",
+    "SplitLine",
     "SymbolSpec",
     "harness_block",
     "place_port",

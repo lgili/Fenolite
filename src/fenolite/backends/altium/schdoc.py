@@ -232,7 +232,7 @@ class _Writer:
                     ("RECORD", "16"),
                     ("OWNERINDEX", str(owner)),
                     ("OWNERPARTID", "-1"),
-                    ("SIDE", RIGHT_SIDE),
+                    *((("SIDE", RIGHT_SIDE),) if entry.side == "right" else ()),
                     ("DISTANCEFROMTOP", str(entry.slot)),
                     ("COLOR", SYMBOL_COLOR),
                     ("AREACOLOR", ENTRY_FILL),
@@ -414,36 +414,44 @@ def block_records(block: HarnessBlock, index: int, height: int) -> list[Record]:
             ("TEXT", block.name),
         ]
     )
-    (x1, y1), (x2, y2) = block.line
-    found.append(
-        [
-            ("RECORD", "218"),
-            ("OWNERPARTID", "-1"),
-            ("LINEWIDTH", "2"),
-            ("COLOR", HARNESS_LINE_COLOR),
-            ("LOCATIONCOUNT", "2"),
-            ("X1", str(to_units(x1))),
-            ("Y1", str(to_units(height - y1))),
-            ("X2", str(to_units(x2))),
-            ("Y2", str(to_units(height - y2))),
-        ]
-    )
+    found.append(line_record(*block.line, height))
     return found
+
+
+def line_record(start: tuple[int, int], end: tuple[int, int], height: int) -> Record:
+    """``RECORD=218``: a signal harness line of two points, on a sheet ``height`` mil high."""
+    (x1, y1), (x2, y2) = start, end
+    return [
+        ("RECORD", "218"),
+        ("OWNERPARTID", "-1"),
+        ("LINEWIDTH", "2"),
+        ("COLOR", HARNESS_LINE_COLOR),
+        ("LOCATIONCOUNT", "2"),
+        ("X1", str(to_units(x1))),
+        ("Y1", str(to_units(height - y1))),
+        ("X2", str(to_units(x2))),
+        ("Y2", str(to_units(height - y2))),
+    ]
 
 
 def additional_records(plan: SheetPlan) -> list[Record]:
     """The records of the ``Additional`` stream after its header (change c0037, "Harness records"): per
     harness block of ``plan``, in block order, the connector, its entries in code-point order of their
-    names, the type and the line. A sheet without a block gives no record."""
+    names, the type and the line; then one line per pair of sheet entries that a signal harness line joins
+    directly (``plan.lines``). A sheet without a block and without a line gives no record."""
     found: list[Record] = []
     for block in plan.harnesses:
         found += block_records(block, len(found), plan.size.height)
+    for start, end in plan.lines:
+        found.append(line_record(start, end, plan.size.height))
     return found
 
 
 def write_schdoc(plan: SheetPlan) -> bytes:
     """The bytes of the ASCII schematic of ``plan``. A plan with a harness block is refused: the place of
     harness records in the ASCII form is not documented (``hierarchy.plan_sheets`` makes none for it)."""
+    if plan.lines:
+        raise ValueError("the ASCII form cannot carry a signal harness line: harness records are binary only")
     if plan.harnesses:
         names = ", ".join(sorted({block.name for block in plan.harnesses}))
         raise ValueError(f"the ASCII form cannot carry the harness {names}: harness records are binary only")
@@ -454,6 +462,7 @@ __all__ = [
     "FONT_NAME",
     "additional_records",
     "block_records",
+    "line_record",
     "schdoc_records",
     "sheet_record",
     "write_schdoc",

@@ -23,7 +23,6 @@ from fenolite.model import canonical
 
 PROJECT_FILES = [
     "FenoliteHier.SchLib",
-    "altium_hier.Harness",
     "altium_hier.PrjPcb",
     "altium_hier.SchDoc",
     "altium_hier_flash.Harness",
@@ -76,7 +75,7 @@ def test_summary_of_the_hierarchy_sample() -> None:
     assert summary["sheets"] == ["altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
     assert (summary["ports"], summary["sheet_entries"], summary["harnesses"]) == (5, 5, 1)
     assert (summary["components"], summary["nets"], summary["sheet"]) == (6, 9, "A4")
-    assert (summary["labels"], summary["power_ports"]) == (36, 11), "12 labels per sheet; 2 + 5 + 4 ports"
+    assert (summary["labels"], summary["power_ports"]) == (28, 11), "4 + 12 + 12 labels; 2 + 5 + 4 ports"
     assert summary["libraries"] == ["FenoliteHier.SchLib"] and summary["pcb_document"] is None
 
 
@@ -123,7 +122,7 @@ def test_kept_project_file() -> None:
     output = build(sheets="modules", project_exists=True)
     assert not [name for name in output.files if name.endswith(".PrjPcb")]
     (found,) = [i for i in output.issues if i.code == "altium.sheets-not-in-project"]
-    assert found.message.count(".SchDoc") == 2 and found.message.count(".Harness") == 3
+    assert found.message.count(".SchDoc") == 2 and found.message.count(".Harness") == 2
     assert output.summary["kept"] == ["altium_hier.PrjPcb"]
     assert "altium.sheets-not-in-project" not in {i.code for i in build(project_exists=True).issues}
 
@@ -137,18 +136,18 @@ def test_project_of_the_hierarchy_sample() -> None:
         "FenoliteHier.SchLib",
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
-        "altium_hier.Harness",
         "altium_hier_mcu.Harness",
         "altium_hier_flash.Harness",
     ]
     assert "HierarchyMode" not in text and text.startswith("[Design]\r\nVersion=1.0\r\n")
 
 
-def test_three_harness_files_of_the_sample() -> None:
-    """Scenario "Three files of the sample"."""
+def test_two_harness_files_of_the_sample() -> None:
+    """Scenario "Two files of the sample": the top sheet holds a signal harness line and no connector, so
+    it gets no definition file."""
     files = build(sheets="modules").files
     found = {name: data for name, data in files.items() if name.endswith(".Harness")}
-    assert sorted(found) == ["altium_hier.Harness", "altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
+    assert sorted(found) == ["altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
     assert set(found.values()) == {b"SPI=CS,MISO,MOSI,SCK\r\n"}
 
 

@@ -36,12 +36,19 @@ FILE_HEADER_STREAM = "FileHeader"
 STORAGE_STREAM = "Storage"
 ADDITIONAL_STREAM = "Additional"
 """The stream of the harness records (215 to 218), written only when a sheet holds one."""
+MINI_CUTOFF = 4096
+"""A compound-file stream below this size lies in the mini stream (``compound-file.md``). ``FileHeader`` is
+kept at this size or above, as in every sheet Altium saves (``H-A-SCHBIN-MINI``)."""
+NOTE_NAME = "FenoliteNote"
+NOTE_TEXT = "Fenolite: this hidden sheet parameter keeps the record stream at 4096 bytes or more"
+NOTE_FILL = "."
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
         "H-A-SCHBIN-AD",
         "H-A-SCHBIN-CFB",
         "H-A-SCHBIN-FRAME",
+        "H-A-SCHBIN-MINI",
         "H-A-SCHBIN-STORAGE",
         "H-A-SCHBIN-VIEWER",
     ),
@@ -69,6 +76,38 @@ def file_header_stream(records: Sequence[Sequence[Field]]) -> bytes:
     return frame_record(header_record(len(records))) + b"".join(frame_record(r) for r in records)
 
 
+def note_record(fill: int = 0) -> tuple[Field, ...]:
+    """A hidden sheet parameter (record 41 without an owner, the keys of the parameters a saved sheet
+    holds): the note text followed by ``fill`` filler characters."""
+    if fill < 0:
+        raise ValueError(f"a fill cannot be negative ({fill})")
+    return (
+        ("RECORD", "41"),
+        ("OWNERPARTID", "-1"),
+        ("COLOR", "8388608"),
+        ("FONTID", "1"),
+        ("ISHIDDEN", "T"),
+        ("TEXT", NOTE_TEXT + NOTE_FILL * fill),
+        ("NAME", NOTE_NAME),
+    )
+
+
+def padded_records(records: Sequence[Sequence[Field]]) -> list[Sequence[Field]]:
+    """``records``, followed by one ``note_record`` when their ``FileHeader`` stream would be smaller than
+    ``MINI_CUTOFF``: the note's filler is as long as needed for a stream of exactly ``MINI_CUTOFF`` bytes,
+    or empty when the note alone takes the stream past it. Records of a stream of ``MINI_CUTOFF`` bytes or
+    more are returned unchanged."""
+    found = list(records)
+    if len(file_header_stream(found)) >= MINI_CUTOFF:
+        return found
+    short = MINI_CUTOFF - len(file_header_stream([*found, note_record()]))
+    padded = [*found, note_record(max(short, 0))]
+    while len(file_header_stream(padded)) < MINI_CUTOFF:  # the count's digits may have grown by one
+        short += 1
+        padded = [*found, note_record(short)]
+    return padded
+
+
 def storage_stream() -> bytes:
     """The ``Storage`` stream without images: ``|HEADER=Icon storage`` alone, with no weight key."""
     return frame_record((("HEADER", STORAGE_HEADER_TEXT),))
@@ -83,9 +122,11 @@ def additional_stream(records: Sequence[Sequence[Field]]) -> bytes:
 def write_schdoc_binary(plan: SheetPlan) -> bytes:
     """The bytes of the binary schematic of ``plan``; ``cfb.CompoundTooLarge`` past the size limit. The
     stream ``Additional`` is written only when the plan holds harness records, so a sheet without a harness
-    keeps the two streams and the bytes of change c0033."""
+    keeps the two streams and the bytes of change c0033. A sheet whose ``FileHeader`` stream would lie in
+    the compound file's mini stream gets one hidden sheet parameter as its last record
+    (``padded_records``), so the stream is stored in regular sectors."""
     streams = [
-        (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan))),
+        (FILE_HEADER_STREAM, file_header_stream(padded_records(schdoc_records(plan)))),
         (STORAGE_STREAM, storage_stream()),
     ]
     additional = additional_records(plan)
@@ -99,11 +140,16 @@ __all__ = [
     "EVIDENCE",
     "HEADER_TEXT",
     "MAX_PAYLOAD",
+    "MINI_CUTOFF",
+    "NOTE_NAME",
+    "NOTE_TEXT",
     "STORAGE_HEADER_TEXT",
     "additional_stream",
     "file_header_stream",
     "frame_record",
     "header_record",
+    "note_record",
+    "padded_records",
     "storage_stream",
     "write_schdoc_binary",
 ]

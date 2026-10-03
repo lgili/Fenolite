@@ -204,7 +204,6 @@ HIER_PLANNED = {
     "altium_hier.SchDoc",
     "altium_hier_flash.SchDoc",
     "altium_hier_mcu.SchDoc",
-    "altium_hier.Harness",
     "altium_hier_flash.Harness",
     "altium_hier_mcu.Harness",
     "FenoliteHier.SchLib",

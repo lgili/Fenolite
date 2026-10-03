@@ -459,14 +459,21 @@ def test_harness_top_sheet_of_the_sample() -> None:
     assert [(c[1], c[0]) for c in cells] == sorted((c[1], c[0]) for c in cells)
     assert top.size.name == "A4" and top.ports == ()
     flash, mcu = top.symbols
-    assert [(e.crossing.name, e.slot) for e in flash.entries] == [("FLASH_WP", 1), ("SPI", 4)]
-    assert [(e.crossing.name, e.slot) for e in mcu.entries] == [("FLASH_WP", 1), ("RESET_N", 2), ("SPI", 5)]
-    assert (flash.height, mcu.height) == (800, 900)
-    assert len(top.harnesses) == 2 and len(top.links) == 11
-    for symbol in top.symbols:
-        block = symbol.entries[-1].block
-        assert block is not None
-        _check_block(block, symbol.entries[-1].point)
+    assert [(e.crossing.name, e.slot, e.side) for e in flash.entries] == [
+        ("FLASH_WP", 1, "right"),
+        ("SPI", 2, "right"),
+    ]
+    assert [(e.crossing.name, e.slot, e.side) for e in mcu.entries] == [
+        ("FLASH_WP", 1, "right"),
+        ("RESET_N", 2, "right"),
+        ("SPI", 2, "left"),
+    ]
+    assert (flash.height, mcu.height) == (300, 300)
+    assert top.harnesses == () and len(top.links) == 3, "the SPI entries have no block and no label"
+    (line,) = top.lines
+    start, end = line
+    assert start == (flash.x + flash.width, flash.y + 200) and end == (mcu.x, mcu.y + 200)
+    assert start[1] == end[1] and end[0] - start[0] >= 2 * 200, "a straight line across both cell margins"
     for sheet in project.sheets:
         check_plan(sheet.plan)
         assert sheet.plan.size.name == "A4"

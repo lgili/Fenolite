@@ -11,6 +11,7 @@ from _altium import HIER_PARTIAL, check_plan, hier_model, model_of, sample_model
 from fenolite.backends.altium.hierarchy import (
     crossings,
     harness_file,
+    harness_lines,
     plan_sheets,
     port_id,
     sheet_file,
@@ -170,7 +171,14 @@ def test_harness_sheets_of_the_hierarchy_sample() -> None:
         ["FLASH_WP", "SPI"],
         ["FLASH_WP", "RESET_N", "SPI"],
     ]
-    assert [len(s.plan.harnesses) for s in project.sheets] == [2, 1, 1]
+    assert [len(s.plan.harnesses) for s in project.sheets] == [0, 1, 1]
+    assert harness_lines(model, found) == {"SPI": ("flash", "mcu")}
+    (line,) = project.top.plan.lines
+    flash, mcu = project.top.plan.symbols
+    out = next(e for e in flash.entries if e.crossing.name == "SPI")
+    into = next(e for e in mcu.entries if e.crossing.name == "SPI")
+    assert (out.side, into.side) == ("right", "left") and line == (out.point, into.point)
+    assert out.slot == into.slot and out.stub is out.block is into.stub is into.block is None
     for sheet in project.sheets:
         check_plan(sheet.plan)
 
@@ -190,7 +198,7 @@ def test_harness_entry_whose_net_does_not_cross_is_not_wired() -> None:
         )
     project = plan_sheets(model, name="altium_hier_partial", sheets="modules", form="binary")
     blocks = [block for sheet in project.sheets for block in sheet.plan.harnesses]
-    assert len(blocks) == 4
+    assert len(blocks) == 2 and len(project.top.plan.lines) == 1, "the top sheet joins the entries by a line"
     for block in blocks:
         assert [entry for entry, _ in block.entries] == ["CS", "HOLD", "MISO", "MOSI", "SCK"]
         assert [s.designator for s in block.stubs] == ["CS", "MISO", "MOSI", "SCK"]
@@ -258,13 +266,14 @@ def test_harness_file_refuses_a_separator_or_unwritable_name(types: dict[str, tu
 
 
 def test_harness_files_of_the_sample_sheets() -> None:
-    """One file per sheet that holds a block, named after the sheet; all three hold the same type."""
+    """One file per sheet that holds a block, named after the sheet; both hold the same type."""
     assert harness_file("altium_hier_flash.SchDoc") == "altium_hier_flash.Harness"
     project = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form="binary")
     files = project.harness_files
-    assert list(files) == ["altium_hier.Harness", "altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
+    assert list(files) == ["altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
     assert {write_harness(types) for types in files.values()} == {b"SPI=CS,MISO,MOSI,SCK\r\n"}
-    assert project.top.harness_types == {"SPI": ("CS", "MISO", "MOSI", "SCK")}
+    assert project.top.harness_types == {}, "a signal harness line needs no connector on the top sheet"
+    assert project.modules[0].harness_types == {"SPI": ("CS", "MISO", "MOSI", "SCK")}
     for mode, form in (("modules", "ascii"), ("flat", "binary")):
         assert plan_sheets(hier_model(), name="altium_hier", sheets=mode, form=form).harness_files == {}  # type: ignore[arg-type]
 
@@ -274,7 +283,72 @@ def test_harness_file_only_for_sheets_with_a_block() -> None:
     project = plan_sheets(hier_model(append=DBG), name="altium_hier", sheets="modules", form="binary")
     files = {name: write_harness(types) for name, types in project.harness_files.items()}
     assert files == {
-        "altium_hier.Harness": b"DBG=RST\r\nSPI=CS,MISO,MOSI,SCK\r\n",
+        "altium_hier.Harness": b"DBG=RST\r\n",
         "altium_hier_flash.Harness": b"SPI=CS,MISO,MOSI,SCK\r\n",
         "altium_hier_mcu.Harness": b"DBG=RST\r\nSPI=CS,MISO,MOSI,SCK\r\n",
     }
+
+
+# --- harness lines between two sheet symbols (step H3 of the maintainer's report) ---------------------
+
+THIRD = """
+aux = Module("aux")
+u3 = Part("U3", f"{SCHLIB}:FLASH8", footprint=f"{PCBLIB}:SOIC8", value="FLASH8")
+aux.add(u3)
+design.add(aux)
+connect(spi_cs, u3[1])
+"""
+TOP_PIN = """
+j2 = Part("J2", f"{SCHLIB}:HDR3", footprint=f"{PCBLIB}:HDR1X3")
+design.add(j2)
+connect(spi_cs, j2[1])
+"""
+
+
+def test_harness_line_needs_two_neighbour_modules_and_no_other_pin() -> None:
+    """A harness is joined by a line only when exactly two neighbouring modules hold all the pins of its
+    wired nets; any other harness keeps its labelled blocks on the top sheet."""
+    model = hier_model()
+    assert harness_lines(model, crossings(model, form="binary")) == {"SPI": ("flash", "mcu")}
+    assert harness_lines(model, crossings(model, form="ascii")) == {}
+    partial = hier_model(script=HIER_PARTIAL)
+    assert harness_lines(partial, crossings(partial, form="binary")) == {"SPI": ("flash", "mcu")}
+    single = hier_model(append=DBG)
+    assert harness_lines(single, crossings(single, form="binary")) == {"SPI": ("flash", "mcu")}
+    three = hier_model(append=THIRD)
+    found = crossings(three, form="binary")
+    assert [c.name for c in found["aux"]] == ["SPI"] and harness_lines(three, found) == {}
+    project = plan_sheets(three, name="altium_hier", sheets="modules", form="binary")
+    assert len(project.top.plan.harnesses) == 3 and project.top.plan.lines == ()
+    assert list(project.harness_files)[0] == "altium_hier.Harness"
+    top_pin = hier_model(append=TOP_PIN)
+    assert harness_lines(top_pin, crossings(top_pin, form="binary")) == {}
+
+
+WRAP = "".join(
+    f"""
+a{k} = Module("a{k}")
+ra{k} = Part("RA{k}", f"{{SCHLIB}}:RES", footprint=f"{{PCBLIB}}:R0603", value="1k")
+a{k}.add(ra{k})
+design.add(a{k})
+connect(vdd, ra{k}[1])
+connect(gnd, ra{k}[2])
+"""
+    for k in (1, 2, 3)
+)
+
+
+def test_harness_line_falls_back_to_blocks_when_its_symbols_are_in_two_rows() -> None:
+    """Three more modules push the symbol of ``mcu`` to the next row of the top sheet: the line would not
+    be straight, so ``SPI`` keeps a labelled block beside each of its two sheet entries."""
+    model = hier_model(append=WRAP)
+    assert harness_lines(model, crossings(model, form="binary")) == {"SPI": ("flash", "mcu")}
+    project = plan_sheets(model, name="altium_hier", sheets="modules", form="binary")
+    symbols = {s.spec.module: s for s in project.top.plan.symbols}
+    assert list(symbols) == ["a1", "a2", "a3", "flash", "mcu"]
+    assert symbols["flash"].y != symbols["mcu"].y, "the premise: two rows"
+    assert project.top.plan.lines == () and len(project.top.plan.harnesses) == 2
+    assert all(e.side == "right" for s in symbols.values() for e in s.entries)
+    assert list(project.harness_files)[0] == "altium_hier.Harness"
+    for sheet in project.sheets:
+        check_plan(sheet.plan)

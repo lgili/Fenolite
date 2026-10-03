@@ -389,6 +389,20 @@ class _Sheet:
             if r["RECORD"] == "218"
         ]
 
+    def entry_line(self, point: Point) -> Point | None:
+        """The far end of the signal harness line that starts or ends at the sheet entry at ``point`` and
+        ends on another sheet entry, or ``None`` when no such line touches ``point``."""
+        entry_points = {at for entries in self.entries.values() for _r, at in entries.values()}
+        found = [
+            ends[1] if ends[0] == point else ends[0]
+            for ends in ((line[0], line[-1]) for line in self.lines)
+            if point in ends
+        ]
+        found = [far for far in found if far in entry_points and far != point]
+        if len(found) > 1:
+            raise ReadError(f"{self.name}: two signal harness lines join the sheet entry at {point}")
+        return found[0] if found else None
+
     def connector_at(self, point: Point, what: str) -> int:
         """The connector that a signal harness line joins to ``point`` (an end of a port, or the connection
         point of a sheet entry)."""
@@ -409,7 +423,9 @@ def nets_from_project(sheets: Mapping[str, SheetRecords], top: str) -> Nets:
     under the hierarchical scope (``docs/formats/altium/project.md``): a net label is local to its sheet; a
     power port joins its name on every sheet; a port joins the sheet entry of the same name on the sheet
     symbol whose file name is the port's sheet; a harness joins, entry by entry, the wires on the connector
-    beside the port with those on the connector beside the sheet entry. Nothing else joins two sheets.
+    beside the port with those on the connector beside the sheet entry, or, when a signal harness line
+    joins the sheet entry to another sheet entry of the same type, with those on the connector beside that
+    entry's port. Nothing else joins two sheets.
 
     It fails on a port without a sheet entry of its name, a sheet entry without a port, a sheet symbol whose
     file is not in ``sheets``, a signal harness line whose end touches neither a port, a sheet entry nor a
@@ -529,12 +545,30 @@ def nets_from_project(sheets: Mapping[str, SheetRecords], top: str) -> Nets:
                 below = [child.connector_at(end, f"the port {name}") for end in ends if _line_at(child, end)]
                 if len(below) != 1:
                     raise ReadError(f"{file}: the harness port {name} needs one signal harness line")
-                above = sheet.connector_at(point, f"the sheet entry {name} of {symbol}")
-                for index, where in ((below[0], child), (above, sheet)):
-                    if where.connectors[index][1] != kind:
+                if child.connectors[below[0]][1] != kind:
+                    raise ReadError(f"{file}: the connector beside {name} is not of the type {kind}")
+                far = sheet.entry_line(point)
+                if far is not None:
+                    # A signal harness line joins this sheet entry to another one: every entry of the
+                    # harness travels along it, so both child connectors join the same line, item by item.
+                    other = [
+                        e
+                        for entries_ in sheet.entries.values()
+                        for e, at in entries_.values()
+                        if at == far and e is not entry
+                    ]
+                    if len(other) != 1 or other[0].get("HARNESSTYPE") != kind:
                         raise ReadError(
-                            f"{where.name}: the connector beside {name} is not of the type {kind}"
+                            f"{sheet.name}: the signal harness line from the sheet entry {name} of {symbol} "
+                            f"does not end on one sheet entry of the type {kind}"
                         )
+                    line = tuple(sorted((point, far)))
+                    for item in child.connectors[below[0]][2]:
+                        union(("harness", file, below[0], item), ("line", sheet.name, line, item))
+                    continue
+                above = sheet.connector_at(point, f"the sheet entry {name} of {symbol}")
+                if sheet.connectors[above][1] != kind:
+                    raise ReadError(f"{sheet.name}: the connector beside {name} is not of the type {kind}")
                 for item in child.connectors[below[0]][2]:
                     union(("harness", file, below[0], item), ("harness", sheet.name, above, item))
     for sheet in found.values():
@@ -567,6 +601,130 @@ def nets_from_project(sheets: Mapping[str, SheetRecords], top: str) -> Nets:
 
 def _line_at(sheet: _Sheet, point: Point) -> bool:
     return any(point in (line[0], line[-1]) for line in sheet.lines)
+
+
+# --- the documents of a project and the links of its components (change c0037, step H7) -------------------
+
+SHEET_EXTENSION = ".SchDoc"
+
+
+def project_documents(project: bytes) -> list[str]:
+    """The ``DocumentPath`` of every ``[Document<n>]`` section of a written project file, in file order
+    (``docs/formats/altium/project.md``). The sections must be numbered 1, 2, 3, … without a gap, each with
+    one path, and no path may repeat."""
+    found: list[str] = []
+    section: str | None = None
+    for line in project.decode("ascii").split("\r\n"):
+        if line.startswith("[") and line.endswith("]"):
+            section = line[1:-1]
+            if section.startswith("Document"):
+                if section != f"Document{len(found) + 1}":
+                    raise ReadError(f"the project section {section} is out of sequence")
+                found.append("")
+        elif section is not None and section.startswith("Document") and line.startswith("DocumentPath="):
+            if found[-1]:
+                raise ReadError(f"the project section {section} holds two paths")
+            found[-1] = line.partition("=")[2]
+    if any(not path for path in found):
+        raise ReadError("a project document section holds no path")
+    if len(set(found)) != len(found):
+        raise ReadError("the project lists a document twice")
+    return found
+
+
+def component_links(project: bytes, files: Mapping[str, bytes], top: str) -> dict[str, tuple[str, str]]:
+    """Link path → (designator, hierarchical path) of every component of a written project, as a PCB
+    document names them (``docs/formats/altium/pcb-document.md``): ``\\<component id>`` and an empty path on
+    the top sheet, ``\\<sheet symbol id>\\<component id>`` and ``<top sheet stem>\\<sheet name>`` on the
+    sheet that a sheet symbol of the top sheet names.
+
+    It reads the hierarchy as a second program must find it: the sheets are the ``.SchDoc`` documents that
+    the project file lists; a sheet symbol's file-name record (33) names its child by the exact file name
+    of a listed document. It fails when the project does not list ``top``, when a listed sheet has no
+    bytes, when a sheet symbol names a file that the project does not list (in any letter case) or names
+    the top sheet, when two sheet symbols name one sheet or share a name or a unique id, when a sheet other
+    than the top holds a sheet symbol, when a listed sheet is not reachable from the top sheet, and when
+    two components share a link path."""
+    listed = [name for name in project_documents(project) if name.endswith(SHEET_EXTENSION)]
+    if top not in listed:
+        raise ReadError(f"the project does not list the top sheet {top}")
+    for name in listed:
+        if name not in files:
+            raise ReadError(f"the project lists the sheet {name}, which was not written")
+    sheets = {name: _Sheet(name, read_sheet(files[name])) for name in listed}
+    stem = top.removesuffix(SHEET_EXTENSION)
+    links: dict[str, tuple[str, str]] = {}
+
+    def add(sheet: _Sheet, prefix: str, path: str) -> None:
+        main = sheet.main
+        for record in main:
+            if record["RECORD"] != "34" or record.get("NAME") != "Designator":
+                continue
+            owner = main[int(record["OWNERINDEX"])]
+            if owner.get("CURRENTPARTID", "1") != "1":
+                continue
+            link = f"{prefix}\\{owner['UNIQUEID']}"
+            if link in links:
+                raise ReadError(f"two components share the link {link}")
+            links[link] = (record["TEXT"], path)
+
+    add(sheets[top], "", "")
+    named: dict[str, str] = {}
+    ids: set[str] = set()
+    for index, (symbol, file) in sheets[top].symbols.items():
+        if file not in sheets:
+            near = [name for name in listed if name.lower() == file.lower()]
+            hint = f" (the project lists {near[0]})" if near else ""
+            raise ReadError(f"the sheet symbol {symbol} names {file}, which the project does not list{hint}")
+        if file == top:
+            raise ReadError(f"the sheet symbol {symbol} names the top sheet")
+        if file in named:
+            raise ReadError(f"the sheet symbols {named[file]} and {symbol} name the sheet {file}")
+        if symbol in named.values():
+            raise ReadError(f"two sheet symbols are named {symbol}")
+        unique = sheets[top].main[index].get("UNIQUEID", "")
+        if not unique or unique in ids:
+            raise ReadError(f"the sheet symbol {symbol} needs a unique id of its own")
+        ids.add(unique)
+        named[file] = symbol
+        add(sheets[file], f"\\{unique}", f"{stem}\\{symbol}")
+    for name, sheet in sheets.items():
+        if name != top and sheet.symbols:
+            raise ReadError(f"the module sheet {name} holds a sheet symbol")
+        if name != top and name not in named:
+            raise ReadError(f"the sheet {name} is not reachable from the top sheet: no sheet symbol names it")
+    return links
+
+
+def board_link_problems(links: Mapping[str, tuple[str, str]], components: Sequence[Record]) -> list[str]:
+    """Why the components of a PCB document (their ``Components6`` records) do not match the schematic
+    ``links`` of ``component_links``; empty when every board component's ``SOURCEUNIQUEID`` is the link of a
+    schematic component with the same designator and hierarchical path, every schematic component is on
+    the board once, and ``CHANNELOFFSET`` counts 0, 1, 2, … on every sheet."""
+    problems: list[str] = []
+    seen: dict[str, str] = {}
+    offsets: dict[str, list[int]] = {}
+    for record in components:
+        ref, link = record["SOURCEDESIGNATOR"], record["SOURCEUNIQUEID"]
+        if link not in links:
+            problems.append(f"{ref}: its link {link} is not a schematic component")
+            continue
+        designator, path = links[link]
+        if designator != ref:
+            problems.append(f"{ref}: its link {link} is the schematic component {designator}")
+        if record["SOURCEHIERARCHICALPATH"] != path:
+            problems.append(f"{ref}: its hierarchical path is not {path!r}")
+        if link in seen:
+            problems.append(f"{ref}: {seen[link]} has the same link")
+        seen[link] = ref
+        offsets.setdefault(path, []).append(int(record["CHANNELOFFSET"]))
+    for link, (designator, _path) in links.items():
+        if link not in seen:
+            problems.append(f"{designator}: the schematic component {link} is not on the board")
+    for path, found in offsets.items():
+        if found != list(range(len(found))):
+            problems.append(f"the channel offsets on {path or 'the top sheet'} are {found}")
+    return problems
 
 
 # --- schematic libraries (change c0034) --------------------------------------------------------------

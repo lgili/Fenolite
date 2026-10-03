@@ -348,7 +348,21 @@ def _net_record(name: str, filename: str) -> bytes:
     return rec.property_block(fields)
 
 
-def _component_record(component: PlacedComponent, index: int, frame: Frame, filename: str) -> bytes:
+def channel_offsets(components: Sequence[PlacedComponent]) -> list[int]:
+    """``CHANNELOFFSET`` of each component: its index among the components of its own sheet, in the order
+    given, from 0 on every sheet (``docs/formats/altium/pcb-document.md``, ``H-A-SCH-HIER-ECO``). The
+    components without a sheet (a ``flat`` build, or the top sheet) count together, so a ``flat`` build
+    numbers them 0, 1, 2, … as before."""
+    seen: dict[str | None, int] = {}
+    offsets: list[int] = []
+    for component in components:
+        sheet = component.sheet[1] if component.sheet is not None else None
+        offsets.append(seen.get(sheet, 0))
+        seen[sheet] = offsets[-1] + 1
+    return offsets
+
+
+def _component_record(component: PlacedComponent, offset: int, frame: Frame, filename: str) -> bytes:
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     at = frame(component.at)
@@ -374,7 +388,7 @@ def _component_record(component: PlacedComponent, index: int, frame: Frame, file
         ("COUNT", "0"),
         ("ROTATION", angle_text(component.rotation)),
         ("UNIONINDEX", "0"),
-        ("CHANNELOFFSET", str(index)),
+        ("CHANNELOFFSET", str(offset)),
         ("SOURCEDESIGNATOR", component.ref),
         ("SOURCEUNIQUEID", link),
         ("SOURCEHIERARCHICALPATH", path),
@@ -884,8 +898,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     arcs: list[bytes] = []
     texts: list[bytes] = []
     wide: list[bytes] = []
+    offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
-        components.append(_component_record(component, index, frame, filename))
+        components.append(_component_record(component, offsets[index], frame, filename))
         placed = place_component(component, index, frame, nets)
         pads += placed.pads
         tracks += placed.tracks
@@ -971,6 +986,7 @@ __all__ = [
     "PcbDocSpec",
     "PlacedComponent",
     "board_record",
+    "channel_offsets",
     "class_records",
     "degrees_text",
     "document_stack",

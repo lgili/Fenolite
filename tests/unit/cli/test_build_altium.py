@@ -281,7 +281,7 @@ def test_edited_library_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
 # --- the sheets option (change c0037, "Altium sheets option") ----------------------------------------
 
 HIER_SHEETS = ["altium_hier.SchDoc", "altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
-HIER_HARNESSES = ["altium_hier.Harness", "altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
+HIER_HARNESSES = ["altium_hier_flash.Harness", "altium_hier_mcu.Harness"]
 MODULES = ("--target", "altium", "--altium-sheets", "modules")
 
 
