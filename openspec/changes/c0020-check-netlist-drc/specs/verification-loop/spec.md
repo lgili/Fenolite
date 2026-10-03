@@ -114,10 +114,11 @@
 ### Requirement: RT2 stage
 `fenolite.checks.rt2.rt2_stage(oracle, project) -> StageResult` SHALL report RT2 of the board: KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it, as the reports of `oracle.rt2(project)` show (`kicad-oracle`, "RT2 oracle").
 - **Keys.** `violation_key(group, violation, *, source)` MUST be `(group, type, severity, excluded, items)`, where `group` is `violations` or `unconnected_items` and `items` is the sorted tuple of each item's description and position. Item uuids MUST be left out, because a re-save drops or replaces some (`H-K-UUID-KEEP-2`). The parent folder of `source` MUST be replaced by `<tmp>` in descriptions.
-- **Stability.** `compare_runs(outcome) -> Rt2Verdict(holds, unstable, differences)` MUST treat a key whose count differs between the two runs of the original as unstable; such keys MUST be left out of both sides and counted. RT2 MUST hold when the remaining keys of the first run of the original and of the re-dump run have equal counts.
-- **Issues.** One `check.rt2-failed` error per differing key, with its type and both counts in the message and the `@<x>,<y>` of its first item as `where` (empty when it has none). One `check.rt2-unstable` info with the count, when the count is not 0. Fewer than two reports of the original, or no report of the re-dump, MUST give `check.oracle-failed` (error, `retryable: true` on a timeout).
-- **Summary.** `summary` MUST hold `holds`, `normalised`, `before` and `after` (violations and unconnected items of the first original run and of the re-dump run), `unstable` and `differences`.
-- **Evidence.** The stage evidence MUST be `Rt2Outcome.evidence` when both sides were compared, and `UNVERIFIED` otherwise.
+- **Stability.** `compare_runs(outcome) -> Rt2Verdict(holds, unstable, differences, judged)` MUST treat a key as unstable when its count differs between the runs of the original (`before`) or between the runs of the re-dump (`after` and `repeats`); such keys MUST be left out of both sides and counted. `holds` MUST be true when the remaining keys of the first run of the original and of the first run of the re-dump have equal counts.
+- **Judged.** A tool may not repeat its own report (`H-K-RT2-STABLE-2`), so a difference stands only when both sides repeat: `judged` MUST be true when `holds` is true or no key is unstable, and false otherwise. When `judged` is false the stage neither passes nor fails on the difference: it reports no `check.rt2-failed`, its status is `ok`, and its evidence is `UNVERIFIED`.
+- **Issues.** When `judged` is true, one `check.rt2-failed` error per differing key, with its type and both counts in the message and the `@<x>,<y>` of its first item as `where` (empty when it has none). One `check.rt2-unstable` info with the count of unstable keys, when it is not 0; when `judged` is false, its message MUST also give the count of the other differing keys and say that RT2 is not judged. Fewer than two reports of the original, or no report of the re-dump, MUST give `check.oracle-failed` (error, `retryable: true` on a timeout).
+- **Summary.** `summary` MUST hold `holds`, `judged`, `normalised`, `runs` (`original` and `redump` counts), `before` and `after` (violations and unconnected items of the first original run and of the first re-dump run), `unstable` and `differences`.
+- **Evidence.** The stage evidence MUST be `Rt2Outcome.evidence` when both sides were compared and `judged` is true, and `UNVERIFIED` otherwise.
 
 #### Scenario: Equal runs hold
 - **GIVEN** a fake `RoundTripOracle` whose two original reports and re-dump report are equal
@@ -134,6 +135,16 @@
 - **WHEN** the stage runs
 - **THEN** it reports one `check.rt2-failed` error naming `clearance` with the counts 0 and 1, and the status is `errors`
 
+#### Scenario: Difference on an unstable board is not judged
+- **GIVEN** two original reports that differ in one `silk_overlap` warning, and a re-dump report with one more `clearance` error than both
+- **WHEN** the stage runs
+- **THEN** it reports no `check.rt2-failed` and one `check.rt2-unstable` info saying that RT2 is not judged, `summary.judged` and `summary.holds` are false, the status is `ok` and the evidence level is `UNVERIFIED`
+
+#### Scenario: Repeated difference fails
+- **GIVEN** five equal original reports, and a re-dump report with one more `clearance` error that its three repeats also hold
+- **WHEN** the stage runs
+- **THEN** it reports one `check.rt2-failed` error, `summary.judged` is true and the status is `errors`
+
 #### Scenario: Item uuids masked
 - **GIVEN** a re-dump report equal to the original reports except for every item uuid
 - **WHEN** the stage runs
@@ -142,7 +153,7 @@
 #### Scenario: Real runs on both majors
 - **GIVEN** the native `two_layer` project and the authored built project
 - **WHEN** `uv run pytest tests/kicad/check/test_rt2_stage.py` runs `fenolite check <project> --stages roundtrip.rt2 --json` on 9.0.9 and on 10.0.6
-- **THEN** `roundtrip.rt2` has status `ok`, `summary.normalised` is true on 10.0.6 and false on 9.0.9, and the project snapshot is unchanged
+- **THEN** `roundtrip.rt2` has status `ok`, `summary.holds` is true, `summary.normalised` is true on 10.0.6 and false on 9.0.9, and the project snapshot is unchanged
 
 ### Requirement: Findings stage issue codes
 `fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities, and `docs/cli-contract.md` MUST document each of them, with `kicad` for `<oracle>` ("Check issue codes").
@@ -153,7 +164,7 @@
 | `netlist.assignment-differs` | error | an element whose net block differs between the two sources of a pair |
 | `netlist.uncovered` | info | elements that one side of a pair does not cover, per reason |
 | `check.rt2-failed` | error | a violation key whose counts differ between the original and the re-dump |
-| `check.rt2-unstable` | info | violation keys that differ between two runs of the original |
+| `check.rt2-unstable` | info | violation keys that differ between runs of one side; its message says when RT2 is therefore not judged |
 
 - `netlist.assignment_compare` and `roundtrip.rt2` MUST also report `check.oracle-failed` when the tool writes no export or report, or times out.
 - Every generated finding code MUST match `ISSUE_CODE` and MUST differ from every rules-verdict code.
@@ -261,7 +272,7 @@
 #### Scenario: Built project with a firing canary
 - **GIVEN** the authored built project for the running major
 - **WHEN** `uv run pytest tests/kicad/check/test_check_oracle.py -k canary` runs on 9.0.9 and on 10.0.6
-- **THEN** `summary.canary` is `fired`, `summary.canary_removed` is at least 1, `summary.violations_judged` is `true`, and no count and no issue includes a canary item
+- **THEN** `summary.canary` is `fired`, `summary.canary_removed` is 0 on a major of `CANARY_TWO_RUN` (the counted report comes from the plain run) and at least 1 otherwise, `summary.violations_judged` is `true`, and no count and no issue includes a canary item
 
 #### Scenario: Rules not loaded on a built project
 - **GIVEN** the authored built project whose `<stem>.kicad_dru` is `tests/data/kicad/rules/broken.kicad_dru` (`ten_only.kicad_dru` on 9.0.9 if `H-K-DRU-QUOTE` is refuted there)

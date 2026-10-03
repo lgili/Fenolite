@@ -77,6 +77,7 @@ jobs:
       options: --user 0
     env:
       HOME: /root
+      FENOLITE_CORPUS_CACHE: /root/.cache/fenolite/corpus
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -86,6 +87,13 @@ jobs:
         run: kicad-cli version
       - name: Sync (locked)
         run: uv sync --locked --extra dev
+      - name: Corpus cache (rt2-9 rows)
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/fenolite/corpus
+          key: corpus-rt2-9-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - name: Fetch the rt2-9 rows
+        run: uv run python tools/corpus_fetch.py --uses rt2-9
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad

@@ -23,7 +23,7 @@ Budget: 8.75 days against the roadmap's 6.75; the measurements are the first cut
 ### Modified Capabilities
 - `verification-loop`: findings, assignment compare, RT2 stage, codes, negative tests; MODIFIED "Check command input" and "DRC stage and the rules canary" (c0013's texts copied).
 - `backend-protocol`: netlist and round-trip oracles.
-- `kicad-oracle`: netlist oracle, RT2 oracle, DRC facts per major, corpus round trips.
+- `kicad-oracle`: netlist oracle, RT2 oracle, DRC facts per major, corpus round trips; MODIFIED "Check canary injection" (its first sentence, after c0013's two-run fallback).
 - `ci-baseline`: MODIFIED "KiCad 9.0 oracle job" (full text copied).
 - `corpus-policy`: rows tagged `rt2-9`.
 - `kicad-token-inventory`, `kicad-sexpr`, `kicad-file-backend`: the four measurements.

@@ -18,3 +18,28 @@ Reading: apart from the published irregularity, Fenolite's printer reproduces 9.
 rules it does not implement: the wrap of long atom-only lists (`members`, about 88 columns) and an atom
 kept on the line of the preceding list in `stackup` layers (`addsublayer`). Byte identity with 10.0
 writes is measured by the typed board writer change (`H-K-FMT-INDENT`).
+
+## 10.0 writes
+
+`tests/kicad/test_fmt_identity_10.py::test_byte_identity_kicad10` (change c0020), measured on 2026-10-03
+with kicad-cli 10.0.6 (macOS): `dumps(parse(f))` against `pcb upgrade --force` copies, made in memory, of
+the 24 non-heavy `oracle` boards of the corpus, of `tests/data/kicad/board/two_layer.kicad_pcb` and of the
+target-10 triad written by `write_board`. Each original line of a differing block is counted once.
+
+| measure (10.0 writes) | count |
+|---|---|
+| files compared | 26 |
+| byte-identical with Fenolite's printer | 19 |
+| lines holding `(xy ` (`xy-packing`) | 31 |
+| continuation lines of wrapped atom-only lists (`atom-list-wrap`) | 4933 |
+| an atom on the line of the list before it (`atom-after-list`) | 2 |
+| head and closing lines of those lists (`other`) | 84 |
+| lists glued together (`glued-lists`) | 0 |
+
+Reading: 19 of 26 files are byte-identical with Fenolite's printer, so the indentation and the head-line
+rules hold there (`H-K-FMT-INDENT`). The seven others differ where 10.0.6 wraps long atom-only lists, which
+Fenolite prints on one line (`H-K-FMT-ATOMWRAP`), in 31 lines of `xy` packing (`H-K-FMT-XYWRAP`), and in
+the two `addsublayer` lines that 9.0 also writes (`H-K-FMT-MIXED`). The printer is not changed because of
+this measurement: byte identity with KiCad's printer is not a goal, and a wrap rule belongs to
+`fmt --check` (v0.2a).
+

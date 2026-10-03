@@ -76,3 +76,63 @@ both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary 
 | With the canary violations removed, the report equals a run without the canary, for the authored projects on both majors | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY |
 | KiCad can report a clearance between two tracks in some runs and not in others when one of them also runs over a pad of the other's net (observed on 10.0.6): two plain runs of such a board can differ, so a comparison first repeats its reference run | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-CHECK-CANARY |
 | On demo boards with hundreds of violations, the canary tracks change other violations run after run: 9.0.9 and 10.0.6 name other partner items for some clearance violations, and sometimes report one violation more or less (`kicad-demo-10-0-6-pcb-01`, `-07`, `-13`), so the counted report comes from a separate plain run | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-2 |
+
+## Findings
+
+`fenolite check` turns every violation and unconnected item of the counted report into one issue
+(`checks/drc_json.py`; change c0020). What follows are facts about KiCad's report, then Fenolite's
+mapping. Facts the mapping relies on are settled per major by `tests/kicad/check/test_drc_facts.py`
+before the mapping is used.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A violation's `type` equals the key under `/board/design_settings/rule_severities` that sets the severity of its check: a `clearance` entry is governed by `clearance`, a short between nets by `shorting_items`, a missing connection by `unconnected_items` | S-0055, S-0056, S-0058 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-TYPES |
+| A project's `rule_severities` value sets the severity of its entries: `error` and `warning` are reported as set, and `ignore` removes them from the report | S-0010, S-0038 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-SEV |
+| At 10.0.6 a key set to `ignore` is listed in `ignored_checks`; the 9.0.9.1 schema has no such list | S-0055, S-0056 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-SEV |
+| An item of a violation names a pad, a track or a footprint by the `uuid` it has in the board file | S-0055, S-0056 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-UUID |
+| A violation that involves a distance carries the measured value only in its `description`, in the report's `coordinate_units` | S-0055, S-0056 | INFERRED | H-K-DRC-MEASURED |
+
+These are Fenolite's choices, not facts about KiCad:
+
+- **Codes.** `<oracle>.drc.<suffix>`, where the suffix is the type in lower case with `_` and every other
+  character outside `[a-z0-9-]` replaced by `-`, runs of `-` collapsed and the ends trimmed (`unknown`
+  when empty): `shorting_items` gives `kicad.drc.shorting-items`. A type whose suffix would be
+  `rules-not-loaded` or `rules-unchecked` becomes `type-<suffix>`, so a KiCad type never takes a
+  rules-verdict code. `summary.types` maps each code to KiCad's raw type.
+- **Severities.** An excluded entry gives `info`; `error` and `warning` stay; any other string gives
+  `error`, so a schema change is loud. Project severities reach the issue through the report.
+- **Locations.** Each item's uuid is looked up among the native ids of the re-read board: a numbered pad
+  gives `REF-PIN`, an unnumbered pad or a footprint `REF`, any other item its locator in the board file.
+  A uuid that names no item or several, and every item when the board could not be read, gives
+  `@<x>,<y>`, the report position in millimetres. A location is never guessed.
+- **Messages.** `<type>: <description>`, with the temporary folder of the run replaced by `<tmp>` and
+  the home directory by `~`.
+- **Parity.** `schematic_parity` entries are counted, not mapped: no parity check runs before v0.2a.
+
+## RT2
+
+RT2 says that KiCad's DRC gives the same violations for a board and for Fenolite's re-dump of it
+(`KicadOracle.rt2`, `checks/rt2.py`; change c0020). It is an opt-in stage of `fenolite check`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb upgrade --force` re-saves a board in place in the 10.0 format; 9.0 has no `pcb upgrade` | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-00 |
+| The upgrades of an original and of its re-dump are equal trees once `uuid` and `tstamp` are masked, except for `third-party-pcb-02` (format 20171130), whose two upgrades differ | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-FMT-RESAVE |
+| A 10.0.6 re-save drops or replaces some item uuids, so report items of the original and of the re-dump cannot be paired by uuid | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-UUID-KEEP-2 |
+| Two `pcb drc --format json --severity-all` runs on one file give equal violations and unconnected items, item uuids left out, on boards with few violations (16 of the 24 corpus boards on 10.0.6, the 5 `rt2-9` boards on 9.0.9) | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-RT2-STABLE-2 |
+| On boards with hundreds of violations, two runs on one file can differ: KiCad names other partner items, lists other items, reports one conflict as `clearance` in one run and as `hole_clearance` in the next, and sometimes gives another total (8 of the 24 corpus boards on 10.0.6; counts in `docs/evidence/kicad-rt2.md`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-RT2-STABLE-2 |
+
+These are Fenolite's choices:
+
+- **Normalisation.** On 10.0, unless turned off, the original and the re-dump are each re-saved with
+  `pcb upgrade --force` in a private copy before DRC; on 9.0 the files are checked as they are.
+  `third-party-pcb-02` runs without normalisation.
+- **Runs.** DRC runs twice on the original and once on the re-dump, with the project's files, so custom
+  rules apply to both sides. No check canary is added. When the re-dump report differs from the
+  original's, each side runs three more times, so that a difference can be told from KiCad's own spread.
+- **Keys.** A violation is keyed by its group (`violations` or `unconnected_items`), type, severity,
+  `excluded` and the sorted descriptions and positions of its items; uuids are left out. A key whose
+  count differs between the runs of one side is unstable: it is left out of both sides and counted.
+- **Verdict.** RT2 holds when the remaining keys have equal counts. A difference is a failure only when
+  no key is unstable, that is when every run of each side gave the same report. Otherwise RT2 is not
+  judged on that board: the stage says so, reports no failure and carries no evidence.

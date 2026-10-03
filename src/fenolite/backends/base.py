@@ -90,6 +90,24 @@ class DrcReport:
     ignored_checks: tuple[str, ...] = ()
     included_severities: tuple[str, ...] = ()
 
+    def entries(self) -> tuple[tuple[str, str, str, bool, tuple[tuple[str, int, int], ...]], ...]:
+        """The violations and unconnected items as a sorted tuple of ``(group, type, severity, excluded,
+        items)``, each item as its description and position: item uuids and the report order are left
+        out, so two runs of a tool on one file can be compared."""
+        groups = (("violations", self.violations), ("unconnected_items", self.unconnected_items))
+        found = [
+            (
+                group,
+                v.type,
+                v.severity,
+                v.excluded,
+                tuple(sorted((i.description, i.position.x, i.position.y) for i in v.items)),
+            )
+            for group, listed in groups
+            for v in listed
+        ]
+        return tuple(sorted(found))
+
     def of_type(self, type: str) -> tuple[DrcViolation, ...]:  # noqa: A002 (the report's own key)
         """The violations, unconnected items and parity items of ``type``, in report order."""
         groups = (self.violations, self.unconnected_items, self.schematic_parity)
@@ -237,6 +255,89 @@ class Oracle(Protocol):
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
 
 
+@dataclass(frozen=True, slots=True)
+class PadAssignment:
+    """An element ``REF-PIN`` and the source's own label for its net (``""`` for no net)."""
+
+    element: str
+    net: str
+
+
+@dataclass(frozen=True, slots=True)
+class Uncovered:
+    """An element a source names but does not assign, with the source's reason."""
+
+    element: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class PadNetList:
+    """The net-to-pad assignments of one source (``model``, ``board`` or ``export``) and its coverage."""
+
+    source: str
+    assignments: tuple[PadAssignment, ...]
+    uncovered: tuple[Uncovered, ...] = ()
+
+    def __post_init__(self) -> None:
+        both = sorted({a.element for a in self.assignments} & {u.element for u in self.uncovered})
+        if both:
+            raise ValueError(f"{self.source}: assigned and uncovered at once: {', '.join(both)}")
+
+
+@dataclass(frozen=True, slots=True)
+class NetlistOutcome:
+    """An oracle's netlist export: the list (``None`` when the tool wrote none) and the run's evidence."""
+
+    netlist: PadNetList | None
+    tool_version: str
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
+class Rt2Outcome:
+    """The DRC reports of an RT2 run: the runs on the original in run order (two, more when the oracle
+    repeated them, fewer when a run wrote no report), the first run on the re-dump, and ``repeats``, the
+    further runs on the re-dump. An oracle repeats both sides when the first re-dump report differs from
+    the original, so that a caller can tell a difference from a tool that does not repeat its own report.
+    ``normalised`` when both files were re-saved by the tool first."""
+
+    before: tuple[DrcReport, ...]
+    after: DrcReport | None
+    normalised: bool
+    tool_version: str
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+    repeats: tuple[DrcReport, ...] = ()
+
+
+@runtime_checkable
+class NetlistOracle(Protocol):
+    """An oracle that exports the netlist of a project's board; it never writes under the project root."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def netlist(self, project: ProjectSet, *, board: Design) -> NetlistOutcome: ...
+
+
+@runtime_checkable
+class RoundTripOracle(Protocol):
+    """An oracle that runs DRC on a board and on the backend's re-dump of it (RT2)."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def rt2(self, project: ProjectSet) -> Rt2Outcome: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -264,12 +365,19 @@ __all__ = [
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "NetlistOracle",
+    "NetlistOutcome",
     "Oracle",
+    "PadAssignment",
+    "PadNetList",
     "ProjectSet",
     "ReadResult",
     "RoundTrip",
+    "RoundTripOracle",
+    "Rt2Outcome",
     "SkipReason",
     "SkippedFile",
+    "Uncovered",
     "Validation",
     "Validator",
     "WriteResult",

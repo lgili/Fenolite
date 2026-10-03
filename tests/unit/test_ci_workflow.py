@@ -81,9 +81,13 @@ def test_unit_job_untouched() -> None:
     assert "run: uv run pytest -q" in job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")
 
 
+KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9"
+KICAD9_KEY = "key: corpus-rt2-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
+    ("corpus cache", "uses: actions/cache"),
+    ("corpus fetch", KICAD9_FETCH),
     ("pytest", "run: uv run pytest tests/kicad -q -rA"),
 ]
 
@@ -105,8 +109,13 @@ def kicad9_problems(workflow: str) -> list[str]:
             problems.append(f"kicad-9: step {second!r} must come after {first!r}")
     if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
         problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
-    if "corpus_fetch" in job or "actions/cache" in job:
-        problems.append("kicad-9: must not fetch the corpus")
+    if KICAD9_KEY not in job:
+        problems.append("kicad-9: cache key must be corpus-rt2-9-<hash of tests/corpus/manifest.toml>")
+    if "FENOLITE_CORPUS_CACHE:" not in job:
+        problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
+    fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
+    if fetches != [KICAD9_FETCH]:
+        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9")
     return problems
 
 
@@ -132,3 +141,20 @@ def test_unpinned_kicad_9_rejected() -> None:
         r"kicad/kicad:9\.0\.9@sha256:[0-9a-f]{64}", "kicad/kicad:9.0", WORKFLOW.read_text(encoding="utf-8")
     )
     assert any(p.startswith("kicad-9: image") for p in kicad9_problems(text))
+
+
+def test_kicad_9_wider_fetch_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt2-9", "--uses rt0")
+    problems = kicad9_problems(text)
+    assert any(p.startswith("kicad-9:") and "rt2-9" in p for p in problems)
+
+
+def test_kicad_9_cache_key_and_order() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    other_key = text.replace("corpus-rt2-9-", "corpus-")
+    assert any("cache key" in p for p in kicad9_problems(other_key))
+    job = job_text(text, "kicad-9")
+    assert (
+        job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find("run: uv run pytest tests/kicad")
+    )
+    assert "corpus-rt2-9-" not in job_text(text, "kicad-10")  # the two jobs never share a cache key

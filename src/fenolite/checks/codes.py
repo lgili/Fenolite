@@ -3,7 +3,9 @@
 """The issue codes that ``checks`` emits (capability verification-loop, "Check issue codes").
 
 ``model.*`` findings and reader codes (``kicad.board.*``, ``kicad.version.*``) pass through unchanged and
-are not in this table. Codes of an oracle start with its name, written ``<oracle>`` here.
+are not in this table. Codes of an oracle start with its name, written ``<oracle>`` here; the row
+``<oracle>.drc.<type>`` stands for every DRC finding code, whose suffix comes from the tool's own type
+(``checks.drc_json.type_code``; "Findings stage issue codes").
 """
 
 from __future__ import annotations
@@ -14,6 +16,8 @@ from types import MappingProxyType
 from fenolite.core.errors import Issue, Severity
 
 ORACLE = "<oracle>"
+FINDING = f"{ORACLE}.drc.<type>"
+"""The table key of every DRC finding code."""
 ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
     {
         "check.read-refused": ("error",),
@@ -25,6 +29,11 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.copy-skipped": ("info",),
         f"{ORACLE}.drc.rules-not-loaded": ("error", "info"),
         f"{ORACLE}.drc.rules-unchecked": ("warning",),
+        FINDING: ("error", "warning", "info"),
+        "netlist.assignment-differs": ("error",),
+        "netlist.uncovered": ("info",),
+        "check.rt2-failed": ("error",),
+        "check.rt2-unstable": ("info",),
         "erc.lite.output-conflict": ("warning",),
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
@@ -38,9 +47,13 @@ def oracle_code(oracle: str, suffix: str) -> str:
 
 
 def table_key(code: str) -> str:
-    """The ``ISSUE_CODES`` key of ``code``: an oracle's ``.drc.`` codes with ``<oracle>`` for its name."""
+    """The ``ISSUE_CODES`` key of ``code``: an oracle's ``.drc.`` codes with ``<oracle>`` for its name, and
+    ``FINDING`` for every suffix that is not a rules verdict."""
     head, sep, rest = code.partition(".drc.")
-    return f"{ORACLE}.drc.{rest}" if sep and "." not in head else code
+    if not sep or "." in head:
+        return code
+    key = f"{ORACLE}.drc.{rest}"
+    return key if key in ISSUE_CODES else FINDING
 
 
 def issue(
@@ -62,4 +75,4 @@ def issue(
     return Issue(code, chosen, message, where=where, hint=hint, retryable=retryable)
 
 
-__all__ = ["ISSUE_CODES", "ORACLE", "issue", "oracle_code", "table_key"]
+__all__ = ["FINDING", "ISSUE_CODES", "ORACLE", "issue", "oracle_code", "table_key"]

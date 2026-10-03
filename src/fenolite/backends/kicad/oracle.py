@@ -1,12 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``kicad-cli`` as the DRC oracle of ``fenolite check`` (capability kicad-oracle, "Check canary injection";
-backend-protocol, "Oracle protocol").
+"""``kicad-cli`` as the oracle of ``fenolite check`` (capability kicad-oracle, "Check canary injection",
+"Netlist oracle from IPC-D-356" and "RT2 oracle"; backend-protocol, "Oracle protocol" and "Netlist and
+round-trip oracles").
 
 ``KicadOracle.drc`` runs ``pcb drc`` on the project's copy set through the package runner, with the
 canary staged into private copies of the board and rules file when it applies, so that the report also
 says whether the custom rules were loaded. The decision order, the verdict and the stripping follow c0013
 Decision 6; facts come from here, and the issues and severities are ``checks``'s policy.
+
+``netlist`` exports IPC-D-356 and pairs its records with the board's pads (``padnets``); ``rt2`` runs DRC
+twice on the board and once on Fenolite's re-dump of it, both re-saved by ``pcb upgrade`` on 10.0 (c0020
+Decisions 9 and 10).
 """
 
 from __future__ import annotations
@@ -16,16 +21,38 @@ import shutil
 import tempfile
 from pathlib import Path, PurePosixPath
 
-from fenolite.backends.base import CanaryState, DrcOutcome, DrcReport, ProjectSet
-from fenolite.backends.kicad import canary
+from fenolite.backends.base import (
+    CanaryState,
+    DrcOutcome,
+    DrcReport,
+    NetlistOracle,
+    NetlistOutcome,
+    Oracle,
+    ProjectSet,
+    RoundTripOracle,
+    Rt2Outcome,
+)
+from fenolite.backends.kicad import canary, padnets
 from fenolite.backends.kicad import drc as drcmod
-from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli
+from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli, KicadCliError
+from fenolite.backends.kicad.ipcd356 import read_ipcd356
+from fenolite.backends.kicad.pcb import read_board, rebuild_board
+from fenolite.backends.kicad.sexpr import dumps
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-2"))
 """``KICAD-VERIFIED``: both hypotheses hold on 9.0.9 and 10.0.6; ``H-K-CHECK-CANARY-2`` succeeds the refuted
 neutrality of ``H-K-CHECK-CANARY`` (c0013 task 9.2)."""
+RT2_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-RT2-STABLE-2",))
+"""``KICAD-VERIFIED``: ``H-K-RT2-STABLE-2`` holds on 9.0.9 and 10.0.6 (c0020 task 9.2); it succeeds
+``H-K-RT2-STABLE``, which the corpus run refuted."""
+RT2_REPEATS = 3
+"""Further runs of each side when the first re-dump report differs from the original."""
+NORMALISE_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-FMT-RESAVE",))
+"""``pcb upgrade --force`` of a board and of its re-dump give equal trees (10.0.x); combined when
+normalised."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -48,8 +75,9 @@ class KicadOracle:
 
     name = "kicad"
 
-    def __init__(self, cli: KicadCli) -> None:
+    def __init__(self, cli: KicadCli, *, rt2_normalise: bool = True) -> None:
         self.cli = cli
+        self.rt2_normalise = rt2_normalise
 
     def version(self) -> str:
         return self.cli.version()
@@ -146,5 +174,120 @@ class KicadOracle:
             evidence=evidence,
         )
 
+    # -- netlist (c0020 Decision 9)
 
-__all__ = ["EVIDENCE", "KicadOracle"]
+    def netlist(self, project: ProjectSet, *, board: Design) -> NetlistOutcome:
+        """``pcb export ipcd356`` on the copy set, its records paired with the pads of ``board``."""
+        version = self.version()
+        others = {name: path for name, path in project.files.items() if name != project.board}
+        try:
+            text = self.cli.export_ipcd356(project.files[project.board], files=others)
+        except KicadCliError as exc:
+            run = exc.run
+            return NetlistOutcome(
+                None, version, outcome=run.outcome, returncode=run.returncode,
+                message=_first_line(run.stderr) or _first_line(str(exc)),
+            )  # fmt: skip
+        try:
+            export = read_ipcd356(text)
+        except FormatError as exc:
+            return NetlistOutcome(
+                None, version, message=f"unreadable IPC-D-356 export: {_first_line(str(exc))}"
+            )
+        combined = Evidence.combine(padnets.EVIDENCE, EVIDENCE)
+        return NetlistOutcome(
+            padnets.export_netlist(board, export),
+            version,
+            evidence=dataclasses.replace(combined, oracle=f"kicad-cli {version}"),
+        )
+
+    # -- RT2 (c0020 Decision 10)
+
+    def rt2(self, project: ProjectSet) -> Rt2Outcome:
+        """DRC twice on the board and once on Fenolite's re-dump, re-saved first on 10.0; no canary."""
+        version, major = self.version(), self.major()
+        normalise = major >= 10 and self.rt2_normalise
+        original = project.files[project.board]
+        others = {name: path for name, path in project.files.items() if name != project.board}
+
+        def failed(before: tuple[DrcReport, ...], message: str, run: CliRun | None = None) -> Rt2Outcome:
+            timeout = run is not None and run.outcome == "timeout"
+            return Rt2Outcome(
+                before, None, normalise, version, outcome="timeout" if timeout else "exit",
+                returncode=None if timeout else (run.returncode if run is not None else 0), message=message,
+            )  # fmt: skip
+
+        try:
+            design = read_board(original.read_text(encoding="utf-8"), file=project.board)
+            redump = dumps(rebuild_board(design))
+        except (FormatError, ValueError, UnicodeDecodeError) as exc:
+            return failed((), f"board not read: {_first_line(str(exc))}")
+        staged = Path(tempfile.mkdtemp(prefix="fenolite-rt2-"))
+        try:
+            if staged.resolve().is_relative_to(project.root.resolve()):
+                raise RuntimeError("the RT2 staging folder lies inside the project")
+            sides = {
+                "original": staged / "original" / project.board,
+                "redump": staged / "redump" / project.board,
+            }
+            for path in sides.values():
+                path.parent.mkdir(parents=True)
+            sides["original"].write_bytes(original.read_bytes())
+            sides["redump"].write_text(redump, encoding="utf-8")
+            if normalise:
+                for path in sides.values():
+                    try:
+                        path.write_bytes(self.cli.upgrade_board(path, files=others))
+                    except KicadCliError as exc:
+                        return failed((), f"pcb upgrade failed: {_first_line(str(exc))}", exc.run)
+            before: list[DrcReport] = []
+            for _ in range(2):
+                run, report, problem = self._plain(sides["original"], others)
+                if report is None:
+                    return failed(tuple(before), problem or _first_line(run.stderr) or "no DRC report", run)
+                before.append(report)
+            run, after, problem = self._plain(sides["redump"], others)
+            if after is None:
+                return failed(tuple(before), problem or _first_line(run.stderr) or "no DRC report", run)
+            repeats: list[DrcReport] = []
+            if _entries(after) != _entries(before[0]):
+                # The first re-dump report differs. On large boards KiCad does not repeat its own report,
+                # so each side runs RT2_REPEATS more times: a difference stands only where both repeat.
+                for side, reports in (("original", before), ("redump", repeats)):
+                    for _ in range(RT2_REPEATS):
+                        run, report, problem = self._plain(sides[side], others)
+                        if report is None:
+                            message = problem or _first_line(run.stderr) or "no DRC report"
+                            return failed(tuple(before), message, run)
+                        reports.append(report)
+        finally:
+            shutil.rmtree(staged, ignore_errors=True)
+        parts = [drcmod.EVIDENCE, RT2_EVIDENCE, EVIDENCE, *([NORMALISE_EVIDENCE] if normalise else [])]
+        evidence = dataclasses.replace(Evidence.combine(*parts), oracle=f"kicad-cli {version}")
+        return Rt2Outcome(tuple(before), after, normalise, version, evidence=evidence, repeats=tuple(repeats))
+
+    def _plain(self, board: Path, others: dict[str, Path]) -> tuple[CliRun, DrcReport | None, str]:
+        try:
+            result = self.cli.drc(board, files=others)
+        except FormatError as exc:
+            return CliRun("exit", None, "", "", {}), None, f"unreadable DRC report: {exc}"
+        return result.run, result.report, ""
+
+
+def _entries(report: DrcReport) -> object:
+    """``report.entries()`` with the run's temporary folder left out of the descriptions."""
+    folder = str(PurePosixPath(report.source).parent)
+    if folder in ("", ".", "/"):
+        return report.entries()
+    return tuple(
+        (group, kind, severity, excluded, tuple((d.replace(folder, "<tmp>"), x, y) for d, x, y in items))
+        for group, kind, severity, excluded, items in report.entries()
+    )
+
+
+def _protocols(oracle: KicadOracle) -> tuple[Oracle, NetlistOracle, RoundTripOracle]:  # pyright: ignore[reportUnusedFunction]
+    """``KicadOracle`` as each of the three oracle protocols; ``pyright`` checks the assignment."""
+    return oracle, oracle, oracle
+
+
+__all__ = ["EVIDENCE", "NORMALISE_EVIDENCE", "RT2_EVIDENCE", "KicadOracle"]

@@ -55,3 +55,28 @@ each canary run, so the differences are the canary tracks' effect on the rest of
 counted report holds no canary item. Two `check` runs on a board where KiCad does not repeat itself can
 still give different DRC counts; the determinism of `check` is proved on authored projects
 (`test_check_oracle.py -k deterministic`).
+
+## Findings and assignment compare (change c0020)
+
+Codes and counts only, measured on 2026-10-03 with kicad-cli 10.0.6 (macOS) by `fenolite check <project>
+--json` on projects written into temporary folders (`tests/kicad/check/_fixtures.py`); the same tests pass
+on 9.0.9 in the pinned image (`test_negatives.py`, `test_check_built.py`, `test_drc_facts.py`). Every
+project is unrouted or seeded with a fault, so every run exits 5; the canary fired in each.
+
+| project | findings (code: count) | (`model`, `board`): common / differences | (`board`, `export`): common / differences |
+|---|---|---|---|
+| authored built project (clean control) | `kicad.drc.unconnected-items`: 2 | 6 / 0 | 36 / 0 |
+| reassigned pad (`R1` pad 2 on `GND`, board only) | `netlist.assignment-differs`: 1 at `R1-2`; `kicad.drc.shorting-items`: 1; `kicad.drc.solder-mask-bridge`: 1; `kicad.drc.unconnected-items`: 3 | 6 / 1 | 36 / 0 |
+| bridging track (`VIN` across `R1`) | `kicad.drc.shorting-items`: 1 naming `R1-2`; `kicad.drc.solder-mask-bridge`: 1; `kicad.drc.tracks-crossing`: 1; `kicad.drc.unconnected-items`: 2 | 6 / 0 | 36 / 0 |
+| overlap bench, forward (positive control) | `kicad.drc.clearance`: 2 (the `ord` pair and c0018's canary pair); `kicad.drc.track-dangling`: 4 warnings | native input | 0 / 0 |
+| overlap bench, reverse | `kicad.drc.clearance`: 1 (the canary pair only); `kicad.drc.track-dangling`: 4 warnings | native input | 0 / 0 |
+| blink built for target 9 | `kicad.drc.unconnected-items`: 3, each naming `REF-PIN` pads | 36 / 0 | 36 / 0 |
+| blink built for target 10 | `kicad.drc.unconnected-items`: 3, each naming `REF-PIN` pads | 36 / 0 | 36 / 0 |
+
+Both seeded faults are located at `R1-2`. The positive control gives the `ord` clearance with the later rule
+governing (forward) and not with the rules reversed, c0018's canary firing in both. The clean control gives
+neither `netlist.assignment-differs` nor `kicad.drc.shorting-items`. The authored model lists no pins for
+its components, so its (`model`, `board`) pair covers the 6 pads that its nets name, and the 30 other pads
+are one `netlist.uncovered` info (`not-in-model`); the blink's model lists every pin. The bench has no
+footprints, so its (`board`, `export`) pair is empty.
+

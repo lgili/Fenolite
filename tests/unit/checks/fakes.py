@@ -12,10 +12,15 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    NetlistOutcome,
+    PadAssignment,
+    PadNetList,
     ProjectSet,
     ReadResult,
     RoundTrip,
+    Rt2Outcome,
     SkippedFile,
+    Uncovered,
     Validation,
 )
 from fenolite.core.coords import Point
@@ -98,6 +103,64 @@ class FakeOracle:
         return self.result
 
 
+def netlist(source: str, *pairs: tuple[str, str], uncovered: tuple[tuple[str, str], ...] = ()) -> PadNetList:
+    """A ``PadNetList`` from ``(element, label)`` pairs and ``(element, reason)`` uncovered pairs."""
+    return PadNetList(
+        source,
+        tuple(PadAssignment(e, n) for e, n in pairs),
+        tuple(Uncovered(e, r) for e, r in uncovered),
+    )
+
+
+def netlist_outcome(
+    found: PadNetList | None, *, timeout: bool = False, evidence: Evidence = VERIFIED
+) -> NetlistOutcome:
+    return NetlistOutcome(
+        netlist=None if timeout else found,
+        tool_version="1.0",
+        outcome="timeout" if timeout else "exit",
+        returncode=None if timeout else (0 if found is not None else 3),
+        message="" if found is not None and not timeout else "no export",
+        evidence=evidence if found is not None and not timeout else Evidence(),
+    )
+
+
+def rt2_outcome(
+    before: tuple[DrcReport, ...] = (), after: DrcReport | None = None, *, normalised: bool = True,
+    timeout: bool = False, evidence: Evidence = VERIFIED, repeats: tuple[DrcReport, ...] = (),
+) -> Rt2Outcome:  # fmt: skip
+    complete = len(before) >= 2 and after is not None and not timeout
+    return Rt2Outcome(
+        before=before,
+        after=after,
+        normalised=normalised,
+        tool_version="1.0",
+        outcome="timeout" if timeout else "exit",
+        returncode=None if timeout else 0,
+        message="" if complete else "no report",
+        evidence=evidence if complete else Evidence(),
+        repeats=repeats,
+    )
+
+
+@dataclass
+class FakeFullOracle(FakeOracle):
+    """A fake that also satisfies ``NetlistOracle`` and ``RoundTripOracle``."""
+
+    netlist_result: NetlistOutcome = field(default_factory=lambda: netlist_outcome(None))
+    rt2_result: Rt2Outcome = field(default_factory=rt2_outcome)
+    boards: list[Design] = field(default_factory=lambda: [])
+
+    def netlist(self, project: ProjectSet, *, board: Design) -> NetlistOutcome:
+        self.calls.append(project)
+        self.boards.append(board)
+        return self.netlist_result
+
+    def rt2(self, project: ProjectSet) -> Rt2Outcome:
+        self.calls.append(project)
+        return self.rt2_result
+
+
 def project(
     *, has_project: bool = True, has_rules: bool = True, skipped: tuple[SkippedFile, ...] = ()
 ) -> ProjectSet:
@@ -105,4 +168,16 @@ def project(
     return ProjectSet(Path("p"), "board.kicad_pcb", files, skipped, has_project, has_rules)
 
 
-__all__ = ["FakeOracle", "FakeValidator", "outcome", "project", "report", "validation", "violation"]
+__all__ = [
+    "FakeFullOracle",
+    "FakeOracle",
+    "FakeValidator",
+    "netlist",
+    "netlist_outcome",
+    "outcome",
+    "project",
+    "report",
+    "rt2_outcome",
+    "validation",
+    "violation",
+]

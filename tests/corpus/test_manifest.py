@@ -12,6 +12,7 @@ import tomllib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from urllib.parse import urlparse
 
 import pytest
 
@@ -34,6 +35,11 @@ def _load_tool() -> ModuleType:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
+
+
+RT2_9 = "rt2-9"
+RT2_9_REF = "9.0.9.1"
+"""The use that the ``kicad-9`` job fetches: the readable non-heavy board rows at this tag (c0020)."""
 
 
 def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
@@ -65,6 +71,18 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
             origins = [u for u in uses if u.startswith("origin:")]
             if len(origins) != 1 or origins[0] not in ORIGINS:
                 problems.append(f"{ident}: rt0 rows need exactly one of {sorted(ORIGINS)} in uses")
+        wanted = (
+            entry["ref"] == RT2_9_REF
+            and urlparse(str(entry["url"])).path.endswith(".kicad_pcb")
+            and "rt0" in uses
+            and "heavy" not in uses
+        )
+        if (RT2_9 in uses) != wanted:
+            state = "carries" if RT2_9 in uses else "lacks"
+            problems.append(
+                f"{ident}: {state} the use {RT2_9}, which marks exactly the non-heavy rt0 boards at "
+                f"ref {RT2_9_REF}"
+            )
         if "project" in uses:
             if not PROJECT_ID.fullmatch(ident):
                 problems.append(f"{ident}: project ids must match {PROJECT_ID.pattern}")
@@ -377,3 +395,47 @@ def test_project_rows() -> None:
     rows = [e for e in entries if "project" in e["uses"]]
     assert rows and all(not e["embeddable"] for e in rows)
     assert not any("stickhub" in e["url"] for e in rows)
+
+
+# -- rt2-9 rows (c0020; capability corpus-policy, "RT2 rows for KiCad 9.0")
+
+
+def _board_row(ident: str, ref: str, uses: list[str]) -> dict[str, Any]:
+    return _row(id=ident, ref=ref, url=f"https://example.org/{ident}.kicad_pcb", uses=uses)
+
+
+def test_rt2_9_rows_of_the_committed_manifest() -> None:
+    tagged = sorted(e["id"] for e in _load_tool().load_manifest(MANIFEST) if RT2_9 in e["uses"])
+    assert tagged == [f"kicad-demo-9-0-9-1-pcb-0{n}" for n in (1, 2, 3, 5, 6)]
+
+
+def test_rt2_9_wrong_row_tagged() -> None:
+    row = _board_row("kicad-demo-10-0-6-pcb-01", "10.0.6", ["rt0", "oracle", "origin:kicad-demos", RT2_9])
+    (problem,) = manifest_problems([row])
+    assert "kicad-demo-10-0-6-pcb-01" in problem and "carries the use rt2-9" in problem
+
+
+def test_rt2_9_tag_missing() -> None:
+    row = _board_row("kicad-demo-9-0-9-1-pcb-03", RT2_9_REF, ["rt0", "oracle", "origin:kicad-demos"])
+    (problem,) = manifest_problems([row])
+    assert "kicad-demo-9-0-9-1-pcb-03" in problem and "lacks the use rt2-9" in problem
+    tagged = _board_row(
+        "kicad-demo-9-0-9-1-pcb-03", RT2_9_REF, ["rt0", "oracle", "origin:kicad-demos", RT2_9]
+    )
+    assert manifest_problems([tagged]) == []
+
+
+def test_rt2_9_never_on_malformed_or_heavy_rows() -> None:
+    malformed = _board_row("kicad-demo-9-0-9-1-pcb-04", RT2_9_REF, ["malformed", "origin:kicad-demos"])
+    heavy = _board_row("kicad-demo-9-0-9-1-pcb-07", RT2_9_REF, ["rt0", "heavy", "origin:kicad-demos"])
+    assert manifest_problems([malformed, heavy]) == []
+    assert len(manifest_problems([malformed | {"uses": [*malformed["uses"], RT2_9]}])) == 1
+
+
+def test_fetch_by_use(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tool = _load_tool()
+    manifest = _manifest(tmp_path, [("a", "a.kicad_pcb", ["rt0"]), ("b", "b.kicad_pcb", ["rt0", RT2_9])])
+    cache = tmp_path / "cache"
+    assert tool.main(["--manifest", str(manifest), "--cache", str(cache), "--uses", RT2_9]) == 0
+    assert sorted(p.name for p in cache.iterdir()) == ["b"]
+    assert "1 item(s)" in capsys.readouterr().out

@@ -3,11 +3,15 @@
 """A fake ``kicad-cli`` for hermetic tests of ``check``, ``doctor`` and the oracle (change c0013 Decision 19).
 
 The fake is a ``#!/bin/sh`` wrapper around a Python script, as in c0009's runner tests. It answers
-``version``, ``<words> --help`` from ``help_pages`` and ``pcb drc``. Without ``drc_report`` its DRC report
+``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
+text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
+board unchanged, ``"fail"`` exits 1; c0020). Without ``drc_report`` its DRC report
 holds no violation, plus the canary ``clearance`` pair when the board it got holds both canary tracks
 and a rules file next to it holds the canary rule, as KiCad would report them. ``drc_report=""`` writes no
 report and exits 3. Every call appends ``{"args", "files"}`` to ``<folder>/calls.jsonl``: the arguments
-and the text of each board and rules file in the run folder.
+and the text of each board and rules file in the run folder. With ``log``, every board and rules file
+of every run is also copied there as ``<call number>-<name>``. With ``drc_sequence``, the n-th ``pcb drc``
+run writes the n-th report text, and the last one from then on.
 """
 
 from __future__ import annotations
@@ -16,7 +20,7 @@ import json
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fenolite.backends.kicad.canary import CANARY_RULE_NAME, CANARY_UUIDS
 
@@ -30,6 +34,11 @@ for name in sorted(os.listdir(".")):
         files[name] = open(name, encoding="utf-8", errors="replace").read()
 with open(os.path.join(HERE, "calls.jsonl"), "a") as log:
     log.write(json.dumps({"args": args, "files": files}) + "\\n")
+if config["log"]:
+    count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
+    for name, text in files.items():
+        if name.endswith((".kicad_pcb", ".kicad_dru")):
+            open(os.path.join(config["log"], f"{count}-{name}"), "w").write(text)
 if args[:1] == ["version"]:
     print(config["version"])
     sys.exit(0)
@@ -43,10 +52,29 @@ if args and args[-1] == "--help":
 time.sleep(config["sleep"])
 for name in config["writes"]:
     open(name, "w").write("{}")
+if args[:3] == ["pcb", "export", "ipcd356"]:
+    if config["ipcd356"] is None:
+        print("Failed to load board", file=sys.stderr)
+        sys.exit(3)
+    open(args[args.index("-o") + 1], "w").write(config["ipcd356"])
+    sys.exit(0)
+if args[:2] == ["pcb", "upgrade"]:
+    if config["upgrade"] == "fail":
+        print("Failed to upgrade board", file=sys.stderr)
+        sys.exit(1)
+    board = args[-1]
+    text = open(board, encoding="utf-8").read()
+    open(board, "w", encoding="utf-8").write(text)
+    sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
     if config["rewrite_input"]:
         open(board, "a").write("(rewritten)")
+    if config["drc_sequence"]:
+        done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"pcb", "drc"' in line)
+        sequence = config["drc_sequence"]
+        open(args[args.index("-o") + 1], "w").write(sequence[min(done, len(sequence)) - 1])
+        sys.exit(0)
     if config["drc_report"] == "":
         print("Failed to load board", file=sys.stderr)
         sys.exit(3)
@@ -77,6 +105,10 @@ def fake_kicad_cli(
     writes: Sequence[str] = (),
     rewrite_input: bool = False,
     sleep: float = 0.0,
+    ipcd356: str | None = None,
+    upgrade: Literal["copy", "fail"] = "copy",
+    log: Path | None = None,
+    drc_sequence: Sequence[str] = (),
 ) -> Path:
     """An executable fake ``kicad-cli`` in ``folder`` (``help_pages`` keyed by the command words, ``""``
     for the root page)."""
@@ -88,6 +120,10 @@ def fake_kicad_cli(
         "writes": list(writes),
         "rewrite_input": rewrite_input,
         "sleep": sleep,
+        "ipcd356": ipcd356,
+        "upgrade": upgrade,
+        "log": str(log) if log is not None else "",
+        "drc_sequence": list(drc_sequence),
         "canary_uuids": list(CANARY_UUIDS),
         "canary_rule": CANARY_RULE_NAME,
     }

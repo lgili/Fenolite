@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
 from collections.abc import Iterable
@@ -19,6 +20,9 @@ from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sexpr import AtomKind, Node, load, walk
 from fenolite.core.errors import Issue
+from fenolite.geometry import Arc, GeometryError, Point, Segment
+from fenolite.geometry.errors import OPEN_CONTOUR
+from fenolite.geometry.polygon import assemble_rings
 from fenolite.model.base import Opaque
 from fenolite.model.design import Design
 
@@ -182,3 +186,103 @@ def census_pintypes(entries: Iterable[Entry]) -> dict[str, dict[str, int]]:
                 if pintype is not None and pintype.atoms():
                     counts[pintype.atoms()[0].value] += 1
     return _per_origin(values)
+
+
+# --- Edge.Cuts outlines (c0020; H-G-EDGE-EXACT): counts and gap sizes only ---------------------------
+
+GAP_BUCKETS = ((1_000, "gap-up-to-1um"), (10_000, "gap-up-to-10um"))
+EDGE_ITEM_HEADS = frozenset({"fp_line", "fp_arc", "fp_rect", "fp_poly", "fp_circle", "fp_curve"})
+
+
+def gap_bucket(gap_nm: int) -> str:
+    return next((name for limit, name in GAP_BUCKETS if gap_nm <= limit), "gap-larger")
+
+
+def edge_pieces(design: Design) -> tuple[list[Segment | Arc], int, int]:
+    """The root graphics on ``edge`` layers as pieces, with the counts of circles (rings by themselves)
+    and of zero-length pieces (left out)."""
+    board = design.board
+    assert board is not None
+    edge = {layer.name for layer in board.layers if layer.kind == "edge"}
+    pieces: list[Segment | Arc] = []
+    circles = zero = 0
+    for graphic in board.graphics:
+        if graphic.layer not in edge:
+            continue
+        points = graphic.points
+        if graphic.kind == "circle":
+            circles += 1
+            continue
+        if graphic.kind == "arc" and len(points) == 3:
+            found: list[Segment | Arc] = [Arc(points[0], points[1], points[2])]
+        elif graphic.kind == "rect" and len(points) == 2:
+            (x0, y0), (x1, y1) = (points[0].x, points[0].y), (points[1].x, points[1].y)
+            corners = (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
+            found = [Segment(a, b) for a, b in zip(corners, (*corners[1:], corners[0]), strict=True)]
+        elif graphic.kind == "polygon":
+            found = [Segment(a, b) for a, b in zip(points, (*points[1:], points[0]), strict=True)]
+        else:
+            found = [Segment(a, b) for a, b in zip(points, points[1:], strict=False)]
+        for piece in found:
+            if piece.start == piece.end:
+                zero += 1
+            else:
+                pieces.append(piece)
+    return pieces, circles, zero
+
+
+def smallest_gap(pieces: list[Segment | Arc]) -> int | None:
+    """The smallest distance between two loose endpoints, in whole nanometres rounded up."""
+    uses = Counter(p for piece in pieces for p in (piece.start, piece.end))
+    loose = sorted(p for p, n in uses.items() if n == 1)
+    best: int | None = None
+    for i, a in enumerate(loose):
+        for b in loose[i + 1 :]:
+            d2 = (a.x - b.x) ** 2 + (a.y - b.y) ** 2
+            gap = math.isqrt(d2 - 1) + 1 if d2 else 0
+            best = gap if best is None else min(best, gap)
+    return best
+
+
+def outline_outcome(design: Design) -> dict[str, Any]:
+    """What ``assemble_rings`` makes of one board's root edge graphics; never raises on the outcome."""
+    pieces, circles, zero = edge_pieces(design)
+    outcome: dict[str, Any] = {"pieces": len(pieces), "circles": circles, "zero_length": zero}
+    if not pieces:
+        return outcome | {"result": "no-pieces"}
+    try:
+        return outcome | {"result": "chained", "rings": len(assemble_rings(pieces))}
+    except GeometryError as error:
+        outcome |= {"result": error.code}
+        if error.code == OPEN_CONTOUR:
+            gap = smallest_gap(pieces)
+            outcome |= {"gap_nm": gap, "bucket": "gap-none" if gap is None else gap_bucket(gap)}
+        return outcome
+
+
+def footprint_edge_items(root: Node) -> int:
+    """Edge items inside footprints: counted only, because their children stay opaque."""
+    count = 0
+    for _, node in walk(root):
+        if node.name in EDGE_ITEM_HEADS:
+            layer = node.find("layer")
+            if layer is not None and layer.atoms() and layer.atoms()[0].value == "Edge.Cuts":
+                count += 1
+    return count
+
+
+def census_outline(entries: Iterable[Entry]) -> dict[str, dict[str, int]]:
+    """Per origin: boards by outcome, gap buckets of the open contours, and the counted-only items."""
+    found: dict[str, Counter[str]] = {}
+    for e in entries:
+        counts = found.setdefault(e.origin, Counter())
+        outcome = outline_outcome(e.design)
+        counts["boards"] += 1
+        counts[f"boards:{outcome['result']}"] += 1
+        if "bucket" in outcome:
+            counts[f"boards:{outcome['bucket']}"] += 1
+        counts["rings"] += outcome.get("rings", 0)
+        counts["circles"] += outcome["circles"]
+        counts["zero-length-pieces"] += outcome["zero_length"]
+        counts["footprint-edge-items"] += footprint_edge_items(e.root)
+    return _per_origin(found)

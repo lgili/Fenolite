@@ -2,12 +2,13 @@
 # Copyright (c) 2026 Fenolite contributors
 """``check``, ``inspect`` and ``doctor`` leave the project folder untouched, even with a ``kicad-cli`` that
 writes next to its input and rewrites it (capability verification-loop, "Check is read-only", scenario
-"Fake kicad-cli that writes"; change c0013)."""
+"Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013 and c0020)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import _ipc
 import pytest
 from _checkcli import hide_kicad, run
 from _fakecli import calls, fake_kicad_cli
@@ -18,7 +19,12 @@ from _projects import authored_project, tree_snapshot
 def project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
     hide_kicad(monkeypatch, tmp_path)
     root = authored_project(tmp_path, major=10, built=True)
-    fake = fake_kicad_cli(tmp_path / "bin", writes=("x.kicad_prl",), rewrite_input=True)
+    fake = fake_kicad_cli(
+        tmp_path / "bin",
+        writes=("x.kicad_prl",),
+        rewrite_input=True,
+        ipcd356=_ipc.for_board(root / "board.kicad_pcb"),
+    )
     return root, fake
 
 
@@ -36,6 +42,20 @@ def test_check_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path
     assert any(c["args"][:2] == ["pcb", "drc"] for c in calls(fake))  # the fake ran on a copy
     drc = next(s for s in env["result"]["stages"] if s["name"] == "drc.kicad")
     assert "x.kicad_prl" in drc["summary"]["tool_writes"]
+    _untouched(root, before)
+
+
+def test_new_stages_are_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(
+        monkeypatch, root, "check", str(root), "--kicad-cli", str(fake),
+        "--stages", "netlist.assignment_compare,roundtrip.rt2",
+    )  # fmt: skip
+    assert code == 0, env["issues"]
+    words = [tuple(c["args"][:3]) for c in calls(fake)]
+    assert ("pcb", "export", "ipcd356") in words and ("pcb", "upgrade", "--force") in words
+    assert not (root / ".fenolite" / "native").exists()
     _untouched(root, before)
 
 

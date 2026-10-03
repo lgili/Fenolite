@@ -159,15 +159,27 @@ def _reversed_overlap() -> str:
 
 
 @cache
-def order(direction: str) -> Result:
+def order_bench() -> rb.Bench:
+    """The overlap bench: the canary pair and the pair ``ord`` on ``ORD_A`` and ``ORD_B``, 2 mm apart."""
     made = rb.builder()
     made.pair("ord", "ORD_A", "ORD_B", gap=2 * MM)
+    return made.build()
+
+
+def order_rules(direction: str) -> str:
+    """The rules text that ``order(direction)`` runs: ``overlap.kicad_dru`` (its two rules reversed for
+    ``reverse``) behind the canary rule."""
     text = (
         (rb.RULES / "overlap.kicad_dru").read_text(encoding="utf-8")
         if direction == "forward"
         else _reversed_overlap()
     )
-    return run(made.build(), rb.with_canary(text))
+    return rb.with_canary(text)
+
+
+@cache
+def order(direction: str) -> Result:
+    return run(order_bench(), order_rules(direction))
 
 
 # -- kinds
@@ -337,5 +349,7 @@ __all__ = [
     "kind_probe",
     "kinds",
     "order",
+    "order_bench",
+    "order_rules",
     "supported",
 ]

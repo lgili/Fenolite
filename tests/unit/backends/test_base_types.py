@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import sys
 from pathlib import Path
 
 import pytest
@@ -17,9 +18,15 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    NetlistOracle,
+    PadAssignment,
+    PadNetList,
     ProjectSet,
     RoundTrip,
+    RoundTripOracle,
+    Rt2Outcome,
     SkippedFile,
+    Uncovered,
     WriteResult,
 )
 from fenolite.backends.kicad.backend import KicadBackend
@@ -122,3 +129,37 @@ def test_base_imports_no_backend() -> None:
     names = {n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
     names |= {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     assert not {n for n in names if n.startswith("fenolite.backends.")}
+
+
+def _fakes():  # type: ignore[no-untyped-def]
+    folder = str(Path(__file__).resolve().parents[1] / "checks")
+    if folder not in sys.path:
+        sys.path.insert(0, folder)
+    import fakes
+
+    return fakes
+
+
+def test_element_assigned_and_uncovered() -> None:
+    with pytest.raises(ValueError, match="R1-1"):
+        PadNetList(
+            source="export",
+            assignments=(PadAssignment("R1-1", "VIN"),),
+            uncovered=(Uncovered("R1-1", "not-exported"),),
+        )
+
+
+def test_oracle_protocols() -> None:
+    fakes = _fakes()
+    drc_only, full = fakes.FakeOracle(), fakes.FakeFullOracle()
+    assert not isinstance(drc_only, NetlistOracle) and not isinstance(drc_only, RoundTripOracle)
+    assert isinstance(full, NetlistOracle) and isinstance(full, RoundTripOracle)
+
+
+def test_new_outcomes_are_immutable() -> None:
+    outcome = Rt2Outcome(before=(), after=None, normalised=False, tool_version="9.0.9")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.normalised = True  # type: ignore[misc]
+    listed = PadNetList("board", (PadAssignment("R1-1", ""),))
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        listed.source = "model"  # type: ignore[misc]

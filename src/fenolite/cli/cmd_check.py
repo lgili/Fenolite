@@ -21,7 +21,7 @@ from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.sexpr import parse_bytes
-from fenolite.checks import STAGE_ORDER, run_checks
+from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
 from fenolite.checks.stages import relative_file
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
@@ -31,7 +31,7 @@ from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
 
-HELP = "check a KiCad project read-only: model, ERC lite, KiCad DRC with a rules canary, round trip"
+HELP = "check a KiCad project read-only: model, ERC lite, KiCad DRC findings, pad nets, round trips"
 DEFAULT_TIMEOUT = 300.0
 BUILT_MARKERS = ("meta.json", "build.json")
 NO_TOOL_HINT = (
@@ -60,7 +60,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'check'."
     parser.add_argument("path", metavar="PATH", help="a .kicad_pcb, a .kicad_pro or a project folder")
     parser.add_argument(
-        "--stages", metavar="A,B", help=f"stages to run (default all: {','.join(STAGE_ORDER)})"
+        "--stages",
+        metavar="A,B",
+        help=f"stages to run, of {','.join(STAGE_ORDER)} (default: {','.join(DEFAULT_STAGES)})",
     )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
     parser.add_argument(
@@ -70,7 +72,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 def _stages(text: str | None) -> tuple[str, ...]:
     if text is None:
-        return STAGE_ORDER
+        return DEFAULT_STAGES
     names = [name.strip() for name in text.split(",")]
     bad = [name for name in names if name not in STAGE_ORDER]
     if not names or bad:
@@ -97,7 +99,7 @@ def _cache(root: Path) -> tuple[bool, Design | None, str]:
 
 
 def _oracle(args: argparse.Namespace, board: Path) -> KicadOracle:
-    """The pre-flight of ``drc.kicad``: a supported ``kicad-cli`` that reads this board's format."""
+    """The pre-flight of the ``ORACLE_STAGES``: a supported ``kicad-cli`` that reads this board's format."""
     path = find_kicad_cli(args.kicad_cli)
     if path is None:
         raise CliError("FEN-6001", "kicad-cli not found", hint=NO_TOOL_HINT)
@@ -132,7 +134,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if not isinstance(backend, Validator):
         raise CliError("FEN-2001", f"no backend validates {board.name}", hint="pass a KiCad .kicad_pcb")
     built, model, cache_error = _cache(root)
-    oracle = _oracle(args, board) if "drc.kicad" in stages else None
+    oracle = _oracle(args, board) if set(ORACLE_STAGES) & set(stages) else None
     report = run_checks(project=project, stages=stages, model=model, built=built, validator=backend,
                         oracle=oracle, cache_error=cache_error)  # fmt: skip
     error = report.read_error

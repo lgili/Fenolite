@@ -25,9 +25,11 @@ import _acceptance
 import _bench
 import _buildcases
 import _checkcases
+import _drccases
 import _fpwrite
 import _lenscases
 import _mincases
+import _netcases
 import _procases
 import _rulecases
 import _sheetcases
@@ -211,6 +213,10 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _acceptance.accept_probes().items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _checkcases.check_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _drccases.drc_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _netcases.net_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

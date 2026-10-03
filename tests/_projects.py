@@ -164,6 +164,19 @@ def demo_project(tmp_path: Path, item: CorpusItem) -> Path:
     return root
 
 
+def upgraded_project(tmp_path: Path, item: CorpusItem, cli: KicadCli) -> Path:
+    """``demo_project`` with the board re-saved once by ``pcb upgrade --force`` (10.0 only): the copy of a
+    board below the read floor keeps its origin (corpus-policy, "Upgraded copies keep their origin"). The
+    cached file is only read."""
+    source = require(item)
+    root = tmp_path / item.id
+    root.mkdir(parents=True)
+    (root / f"{STEM}.kicad_pcb").write_bytes(cli.upgrade_board(source))
+    (root / f"{STEM}.kicad_pro").write_text("{}\n", encoding="utf-8")
+    (root / f"{STEM}.kicad_dru").write_text("(version 1)\n", encoding="utf-8")
+    return root
+
+
 def tree_snapshot(root: Path) -> dict[str, tuple[str, str, int]]:
     """``root`` and every path under it (by ``lstat``): kind, SHA-256 of a file, ``st_mtime_ns``."""
     found: dict[str, tuple[str, str, int]] = {".": ("dir", "", root.lstat().st_mtime_ns)}
@@ -179,4 +192,12 @@ def tree_snapshot(root: Path) -> dict[str, tuple[str, str, int]]:
     return found
 
 
-__all__ = ["ONE_RULE", "STEM", "authored_project", "demo_project", "native_project", "tree_snapshot"]
+__all__ = [
+    "ONE_RULE",
+    "STEM",
+    "authored_project",
+    "demo_project",
+    "native_project",
+    "tree_snapshot",
+    "upgraded_project",
+]

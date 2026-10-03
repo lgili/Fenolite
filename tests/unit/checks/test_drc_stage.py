@@ -1,15 +1,21 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The ``drc.kicad`` stage with a fake oracle (capability verification-loop, "DRC stage and the rules
-canary"; change c0013)."""
+canary", as modified by c0020: findings are mapped whenever a report exists)."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fakes import FakeOracle, outcome, project, report, violation
 
-from fenolite.backends.base import SkippedFile
+from fenolite.backends.base import DrcItem, DrcViolation, SkippedFile
+from fenolite.backends.kicad.pcb import read_board
 from fenolite.checks.drc import drc_stage
+from fenolite.core.coords import Point
 from fenolite.core.evidence import Level
+
+TWO_LAYER = Path(__file__).resolve().parents[2] / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 
 SUMMARY_KEYS = {
     "tool_version",
@@ -23,6 +29,7 @@ SUMMARY_KEYS = {
     "excluded",
     "tool_writes",
     "violations_judged",
+    "types",
 }
 
 
@@ -34,14 +41,48 @@ def test_drc_stage_fired_counts_and_summary() -> None:
         unconnected=(violation("unconnected_items"),),
     )
     result = drc_stage(FakeOracle(outcome("fired", drc=drc)), project(), built=True)
-    assert result.status == "ok" and result.issues == ()
+    assert result.status == "errors"
+    assert sorted((i.code, i.severity, i.where) for i in result.issues) == [
+        ("fake.drc.clearance", "error", "@0,0"),
+        ("fake.drc.clearance", "error", "@0,0"),
+        ("fake.drc.track-dangling", "warning", "@0,0"),
+        ("fake.drc.unconnected-items", "error", "@0,0"),
+    ]
+    assert result.summary["types"] == {
+        "fake.drc.clearance": "clearance",
+        "fake.drc.track-dangling": "track_dangling",
+        "fake.drc.unconnected-items": "unconnected_items",
+    }
     assert set(result.summary) == SUMMARY_KEYS
     assert result.summary["violations"] == 3 and result.summary["unconnected"] == 1
     assert result.summary["by_type"] == {"clearance": 2, "track_dangling": 1}
     assert result.summary["by_severity"] == {"error": 2, "warning": 1}
     assert result.summary["tool_writes"] == ["a.kicad_prl", "z.kicad_prl"]
-    assert result.summary["violations_judged"] is False
+    assert result.summary["violations_judged"] is True
     assert result.evidence.level == Level.KICAD_VERIFIED
+
+
+def test_drc_stage_empty_report_is_clean() -> None:
+    result = drc_stage(FakeOracle(outcome("fired")), project(), built=True)
+    assert result.status == "ok" and result.issues == ()
+    assert result.summary["violations_judged"] is True and result.summary["types"] == {}
+
+
+def test_drc_stage_findings_mapped() -> None:
+    design = read_board(TWO_LAYER.read_text(encoding="utf-8"), file=TWO_LAYER.name)
+    assert design.board is not None
+    refs = {c.id: c.ref for c in design.circuit.components}
+    r1 = next(fp for fp in design.board.footprints if refs[fp.component_id] == "R1")
+    pad = next(p for p in r1.pads if p.number == "2")
+    short = DrcViolation(
+        "shorting_items", "short", "error", (DrcItem(pad.native_ids["kicad"], "Pad", Point(0, 0)),)
+    )
+    oracle = FakeOracle(outcome("fired", drc=report(short)), name="kicad")
+    result = drc_stage(oracle, project(), built=False, design=design)
+    (found,) = result.issues
+    assert (found.code, found.severity, found.where) == ("kicad.drc.shorting-items", "error", "R1-2")
+    assert result.summary["types"] == {"kicad.drc.shorting-items": "shorting_items"}
+    assert result.summary["violations_judged"] is True and result.status == "errors"
 
 
 def test_drc_stage_absent_built_is_an_error() -> None:
@@ -88,6 +129,7 @@ def test_drc_stage_missing_report() -> None:
     assert [i.code for i in result.issues] == ["check.oracle-failed"]
     assert "no board" in result.issues[0].message and not result.issues[0].retryable
     assert result.summary["violations"] == 0 and result.evidence.level == Level.UNVERIFIED
+    assert result.summary["violations_judged"] is False and result.summary["types"] == {}
 
 
 def test_drc_stage_timeout_is_retryable() -> None:

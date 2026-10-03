@@ -225,7 +225,7 @@ sha256 = "a36d3d6f7e9f82412acee8636a76ee1cbd5d0790eaa9fd7aef99c555dbb29fc5"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 124831 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -236,7 +236,7 @@ sha256 = "4bd316f0609b689c90add7426362ece5763dd3a4443a3d26fd73bce987a438aa"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 1015246 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -247,7 +247,7 @@ sha256 = "470e9b32954f3c92e1c74c5b4c29934adf28b6fd60f504803942466163da99d9"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 698533 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -269,7 +269,7 @@ sha256 = "611b0ec42ac66d520555bf60e752301491f9e0095ec84564047fd7c718f1be1c"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 13155 bytes; differs from or is absent at 10.0.6."
 
 [[file]]
@@ -280,7 +280,7 @@ sha256 = "d23c9e029e586546dd5b6c4fcc9b992740373ae2c4d0a2a774ad78b9514b11a2"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "rt2-9"]
 notes = "Demo board at tag 9.0.9.1 (commit 70b072d9f77f); format 20241229; 701695 bytes; differs from or is absent at 10.0.6."
 
 [[file]]

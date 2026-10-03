@@ -6,6 +6,7 @@ project is assembled in ``tmp_path``, so the ``kicad-9`` job needs no corpus."""
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from _projects import STEM, authored_project, native_project, tree_snapshot
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad import oracle as oraclemod
 from fenolite.backends.kicad.canary import CANARY_TWO_RUN
+from fenolite.checks import STAGE_ORDER
 from fenolite.core.evidence import Evidence
 
 pytestmark = pytest.mark.needs_kicad
@@ -45,13 +47,17 @@ def test_read_only(tmp_path: Path) -> None:
 
 def test_canary(tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=major(), built=True)
-    code, env, _, err = check(root)
+    _, env, _, err = check(root)
+    assert env, err
     drc = stage(env, "drc.kicad")
-    assert code == 0, (env.get("issues"), err)
     assert drc["summary"]["canary"] == "fired"
     # in a two-run major the counted report comes from the plain run, so nothing is stripped from it
     assert (drc["summary"]["canary_removed"] == 0) == (major() in CANARY_TWO_RUN)
-    assert drc["summary"]["violations_judged"] is False
+    assert drc["summary"]["violations_judged"] is True
+    # no count and no issue includes a canary item
+    findings = [i for i in env["issues"] if i["code"].startswith("kicad.drc.")]
+    assert len(findings) == drc["summary"]["violations"] + drc["summary"]["unconnected"]
+    assert not [i for i in findings if "FENOLITE_CANARY" in i["message"]]
     combined = Evidence.combine(drcmod.EVIDENCE, oraclemod.EVIDENCE)
     assert drc["evidence"]["level"] == combined.level.value
     assert drc["evidence"]["oracle"] == f"kicad-cli {version()}"
@@ -59,6 +65,7 @@ def test_canary(tmp_path: Path) -> None:
         "model.validate",
         "erc.lite",
         "drc.kicad",
+        "netlist.assignment_compare",
         "roundtrip",
     ]
 
@@ -67,14 +74,16 @@ def test_rules_not_loaded_built(tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=major(), built=True, rules="broken")
     code, env, _, _ = check(root)
     errors = [i["code"] for i in env["issues"] if i["severity"] == "error"]
-    assert code == 5 and errors == ["kicad.drc.rules-not-loaded"]
+    assert code == 5 and "kicad.drc.rules-not-loaded" in errors
+    assert all(code.startswith("kicad.drc.") for code in errors)  # every other error is a DRC finding
 
 
 def test_rules_not_loaded_native(tmp_path: Path) -> None:
     root = native_project(tmp_path, rules="broken")
     code, env, _, _ = check(root)
     found = [i for i in env["issues"] if i["code"] == "kicad.drc.rules-not-loaded"]
-    assert code == 0 and [i["severity"] for i in found] == ["info"]
+    assert [i["severity"] for i in found] == ["info"]
+    assert (code == 5) == any(i["severity"] == "error" for i in env["issues"])
     assert stage(env, "drc.kicad")["evidence"]["level"] == "UNVERIFIED"
 
 
@@ -89,7 +98,9 @@ def test_rules_without_a_project_file(tmp_path: Path) -> None:
 
 def test_deterministic(tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=major(), built=True)
-    first, second = check(root)[2], check(root)[2]
+    every = ("--stages", ",".join(STAGE_ORDER))
+    first, second = check(root, *every)[2], check(root, *every)[2]
+    assert [s["name"] for s in json.loads(first)["result"]["stages"]] == list(STAGE_ORDER)
     assert without_elapsed(first) == without_elapsed(second)
     for forbidden in ("<tmp>", str(Path.home()), str(tmp_path), str(root)):
         assert forbidden not in first, forbidden

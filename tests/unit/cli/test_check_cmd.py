@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite check`` without a real ``kicad-cli`` (capability verification-loop: "Check command input",
-"Check exit codes", "Inputs Fenolite cannot read" and the hermetic stage scenarios; change c0013)."""
+"Check exit codes", "Inputs Fenolite cannot read", "Stages added for findings and round trips" and the
+hermetic stage scenarios; changes c0013 and c0020)."""
 
 from __future__ import annotations
 
@@ -9,6 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import _ipc
 import pytest
 from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
@@ -149,13 +151,17 @@ def test_oracle_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
         monkeypatch, tmp_path, "check", str(root), "--kicad-cli", str(fake), "--timeout", "2"
     )
     failed = [i for i in env["issues"] if i["code"] == "check.oracle-failed"]
-    assert code == 5 and len(failed) == 1 and failed[0]["retryable"] is True
+    assert code == 5 and failed and all(i["retryable"] is True for i in failed)
+    assert {s["name"] for s in env["result"]["stages"] if s["status"] == "errors"} == {
+        "drc.kicad",
+        "netlist.assignment_compare",
+    }
 
 
 def test_rules_without_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     board = _copy(tmp_path)
     shutil.copyfile(DATA / "kicad" / "rules" / "units.kicad_dru", board.with_suffix(".kicad_dru"))
-    fake = fake_kicad_cli(tmp_path / "bin")
+    fake = fake_kicad_cli(tmp_path / "bin", ipcd356=_ipc.for_board(board))
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake))
     assert "kicad.drc.rules-not-loaded" in [i["code"] for i in env["issues"]]
     assert _stages(env)["drc.kicad"]["summary"]["canary"] == "not-applicable"
@@ -196,3 +202,62 @@ def test_unreadable_board_with_a_report(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert stages["model.validate"]["reason"] == "read-refused"
     assert stages["drc.kicad"]["summary"]["canary_reason"] == "board-unparsed"
     assert env["issues"][0]["code"] == "check.read-refused"
+
+
+# -- stages added by c0020
+
+
+def _native(tmp_path: Path) -> tuple[Path, Path]:
+    board = _copy(tmp_path)
+    board.with_suffix(".kicad_pro").write_text("{}\n", encoding="utf-8")
+    return board, fake_kicad_cli(tmp_path / "bin", ipcd356=_ipc.for_board(board))
+
+
+def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board, fake = _native(tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake))
+    assert code == 0, env["issues"]
+    assert [s["name"] for s in env["result"]["stages"]] == [
+        "model.validate",
+        "erc.lite",
+        "drc.kicad",
+        "netlist.assignment_compare",
+        "roundtrip",
+    ]
+    compare = _stages(env)["netlist.assignment_compare"]
+    assert compare["status"] == "ok"
+    assert compare["summary"]["pairs"] == [
+        {"a": "board", "b": "export", "common": 4, "only_a": 0, "only_b": 0, "differences": 0}
+    ]
+    assert _stages(env)["drc.kicad"]["summary"]["violations_judged"] is True
+
+
+def test_rt2_selected(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board, fake = _native(tmp_path)
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake),
+        "--stages", "roundtrip.rt2,roundtrip",
+    )  # fmt: skip
+    assert code == 0, env["issues"]
+    assert [s["name"] for s in env["result"]["stages"]] == ["roundtrip", "roundtrip.rt2"]
+    rt2 = _stages(env)["roundtrip.rt2"]
+    assert rt2["status"] == "ok" and rt2["summary"]["holds"] is True and rt2["summary"]["normalised"] is True
+    assert [c["args"][:2] for c in calls(fake)].count(["pcb", "upgrade"]) == 2
+
+
+@pytest.mark.parametrize("stage", ["netlist.assignment_compare", "roundtrip.rt2"])
+def test_new_stages_need_kicad_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, stage: str) -> None:
+    code, env, err, _ = run(monkeypatch, tmp_path, "check", str(TWO_LAYER), "--stages", stage)
+    assert code == 6 and err["code"] == "FEN-6001"
+    assert "stages" not in env.get("result", {})
+
+
+def test_oracle_built_only_for_oracle_stages(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _copy(tmp_path)
+    _no_subprocess(monkeypatch)
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), *HERMETIC)
+    assert code == 0 and [s["name"] for s in env["result"]["stages"]] == [
+        "model.validate",
+        "erc.lite",
+        "roundtrip",
+    ]

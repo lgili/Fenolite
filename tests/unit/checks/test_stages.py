@@ -1,24 +1,46 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The ``check`` pipeline with fakes (capability verification-loop, "Check stages and statuses" and
-"Evidence per check stage"; change c0013)."""
+"Evidence per check stage", and "Stages added for findings and round trips"; changes c0013 and c0020)."""
 
 from __future__ import annotations
 
 import dataclasses
 
 import pytest
-from fakes import VERIFIED, FakeOracle, FakeValidator, outcome, project, validation
+from fakes import (
+    VERIFIED,
+    FakeFullOracle,
+    FakeOracle,
+    FakeValidator,
+    netlist,
+    netlist_outcome,
+    outcome,
+    project,
+    report,
+    rt2_outcome,
+    validation,
+)
 
 from fenolite.checks import STAGE_ORDER, run_checks
-from fenolite.checks.stages import StageResult
+from fenolite.checks.stages import DEFAULT_STAGES, OPT_IN_STAGES, ORACLE_STAGES, StageResult
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
 
 def test_stage_order() -> None:
-    assert STAGE_ORDER == ("model.validate", "erc.lite", "drc.kicad", "roundtrip")
+    assert STAGE_ORDER == (
+        "model.validate",
+        "erc.lite",
+        "drc.kicad",
+        "netlist.assignment_compare",
+        "roundtrip",
+        "roundtrip.rt2",
+    )
+    assert OPT_IN_STAGES == ("roundtrip.rt2",)
+    assert DEFAULT_STAGES == STAGE_ORDER[:-1]
+    assert ORACLE_STAGES == ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")
 
 
 def test_fixed_order() -> None:
@@ -172,3 +194,76 @@ def test_stage_result_json_and_immutability() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         result.status = "errors"  # type: ignore[misc]
     assert StageResult("x", "skipped", Evidence()).evidence.level == Level.UNVERIFIED
+
+
+# -- stages added by c0020
+
+
+def _full(**kwargs: object) -> FakeFullOracle:
+    return FakeFullOracle(**kwargs)  # type: ignore[arg-type]
+
+
+def test_new_stages_skip_on_a_refused_read() -> None:
+    validator = FakeValidator(error=FormatError("bad", file="board.kicad_pcb"))
+    oracle = _full()
+    checked = run_checks(
+        project=project(),
+        stages=("netlist.assignment_compare", "roundtrip.rt2"),
+        model=None,
+        built=False,
+        validator=validator,
+        oracle=oracle,
+    )
+    assert [(s.name, s.status, s.reason) for s in checked.stages] == [
+        ("netlist.assignment_compare", "skipped", "read-refused"),
+        ("roundtrip.rt2", "skipped", "read-refused"),
+    ]
+    assert [i.code for i in checked.issues] == ["check.read-refused"]
+    assert oracle.calls == [] and len(validator.calls) == 1
+
+
+def test_new_stages_skip_an_oracle_without_the_operation() -> None:
+    checked = run_checks(
+        project=project(),
+        stages=("netlist.assignment_compare", "roundtrip", "roundtrip.rt2"),
+        model=None,
+        built=False,
+        validator=FakeValidator(),
+        oracle=FakeOracle(),
+    )
+    reasons = {s.name: (s.status, s.reason) for s in checked.stages}
+    assert reasons["netlist.assignment_compare"] == ("skipped", "unsupported-oracle")
+    assert reasons["roundtrip.rt2"] == ("skipped", "unsupported-oracle")
+    # only the stage that ran counts in the envelope
+    assert checked.evidence.level == Level.INFERRED and checked.issues == ()
+
+
+def test_new_stages_run_with_one_read() -> None:
+    validator = FakeValidator()
+    empty = report()
+    oracle = _full(
+        netlist_result=netlist_outcome(netlist("export")),
+        rt2_result=rt2_outcome((empty, empty), empty),
+    )
+    checked = run_checks(
+        project=project(),
+        stages=STAGE_ORDER,
+        model=None,
+        built=False,
+        validator=validator,
+        oracle=oracle,
+    )
+    assert [s.name for s in checked.stages] == list(STAGE_ORDER)
+    statuses = {s.name: s.status for s in checked.stages}
+    assert statuses["netlist.assignment_compare"] == "ok" and statuses["roundtrip.rt2"] == "ok"
+    assert len(validator.calls) == 1
+    assert len(oracle.boards) == 1  # the netlist stage got the board model of that one read
+
+
+def test_drc_stage_gets_the_board_model() -> None:
+    validator = FakeValidator()
+    checked = run_checks(
+        project=project(), stages=("drc.kicad",), model=None, built=False, validator=validator,
+        oracle=FakeOracle(),
+    )  # fmt: skip
+    assert len(validator.calls) == 1 and checked.stages[0].summary["violations_judged"] is True

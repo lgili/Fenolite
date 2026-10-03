@@ -17,7 +17,7 @@ from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import opaque_count, opaque_digests, read_board, rebuild_board
 from fenolite.backends.kicad.sexpr import dumps, first_difference, parse, tree_equal
 from fenolite.core.coords import Point, Size
-from fenolite.core.ids import new_id
+from fenolite.core.ids import derived_id, new_id
 from fenolite.model.board import (
     Arc,
     Board,
@@ -265,3 +265,49 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         nets=tuple(dataclasses.replace(n, members=members.get(n.id, ())) for n in nets.values()),
     )
     return dataclasses.replace(design, circuit=circuit, board=board)
+
+
+def large_board(*, min_bytes: int = 5 * 2**20) -> Design:
+    """A two-copper board of created tracks and vias whose target-10 text is at least ``min_bytes`` long
+    (c0020, the throughput measurement). Ids are derived, so the board is the same on every run."""
+    design = Design.new("large", seed=0)
+    nets = tuple(Net(id=derived_id("net", "large", name), name=name) for name in CREATED_NETS)
+
+    def items(count: int) -> tuple[tuple[Track, ...], tuple[Via, ...]]:
+        tracks: list[Track] = []
+        vias: list[Via] = []
+        for n in range(count):
+            x, y = 1_000_000 + (n % 400) * 500_000, 1_000_000 + (n // 400) * 500_000
+            net = nets[n % len(nets)].id
+            layer = "F.Cu" if n % 2 == 0 else "B.Cu"
+            tracks.append(
+                Track(id=derived_id("trk", "large", str(n)), start=Point(x, y), end=Point(x + 300_000, y),
+                      width=200_000, layer=layer, net_id=net)
+            )  # fmt: skip
+            if n % 4 == 0:
+                vias.append(
+                    Via(id=derived_id("via", "large", str(n)), position=Point(x, y + 250_000),
+                        diameter=600_000, drill=300_000, layers=("F.Cu", "B.Cu"), net_id=net)
+                )  # fmt: skip
+        return tuple(tracks), tuple(vias)
+
+    def built(count: int) -> Design:
+        tracks, vias = items(count)
+        height = 2_000_000 + (count // 400 + 1) * 500_000
+        board = Board(
+            id=derived_id("brd", "large", "0"),
+            outline=Outline(
+                id=derived_id("out", "large", "0"),
+                points=(Point(0, 0), Point(202_000_000, 0), Point(202_000_000, height), Point(0, height)),
+            ),
+            layers=created_layers(2),
+            tracks=tracks,
+            vias=vias,
+        )
+        return dataclasses.replace(design, circuit=Circuit(nets=nets), board=board)
+
+    from fenolite.backends.kicad.pcb import write_board
+
+    sample = 2_000
+    per_item = len(write_board(built(sample), target=10).text.encode("utf-8")) / sample
+    return built(int(min_bytes / per_item * 1.02) + sample)

@@ -18,6 +18,7 @@ from _boardcorpus import (
     census_headers,
     census_kept_opaque,
     census_numbers,
+    census_outline,
     census_pintypes,
     census_uuids,
     census_validation,
@@ -119,6 +120,22 @@ def test_upgraded_census() -> None:
     census("upgraded", "validation", census_validation(copies))
     census("upgraded", "headers", census_headers(copies))
     census("upgraded", "pins", census_pintypes(copies))
+
+
+def test_outline_census() -> None:
+    """The Edge.Cuts census (c0020, ``H-G-EDGE-EXACT``) on the upgraded third-party copies; a measurement
+    that never fails on an outcome."""
+    copies = []
+    for item in ITEMS:
+        if item.origin != "third-party" or not item.path.is_file():
+            continue
+        text = upgraded(item.path)
+        copies.append(Entry(item.origin, item.id, parse(text), read_board(text), ()))
+    if not copies:
+        pytest.skip("no third-party board is cached")
+    counts = census_outline(copies)
+    census("outline", "third-party", counts)
+    assert sum(c["boards"] for c in counts.values()) == len(copies)
 
 
 def test_upgraded_summary() -> None:

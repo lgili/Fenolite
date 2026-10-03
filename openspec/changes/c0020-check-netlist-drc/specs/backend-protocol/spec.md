@@ -6,7 +6,8 @@
 - `Uncovered(element: str, reason: str)`: an element that a source names but does not assign, with the reason.
 - `PadNetList(source: str, assignments: tuple[PadAssignment, ...], uncovered: tuple[Uncovered, ...] = ())`. Construction MUST raise `ValueError` when an element is both assigned and uncovered.
 - `NetlistOutcome(netlist: PadNetList | None, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence())`. `netlist` MUST be `None` when the tool wrote no export, and `message` MUST then be the first sanitised line of the tool's stderr or of the parse error.
-- `Rt2Outcome(before: tuple[DrcReport, ...], after: DrcReport | None, normalised: bool, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence())`. `before` MUST hold the reports of the two runs on the original in run order, and fewer when a run wrote no report; `after` is the report of the run on the re-dump.
+- `Rt2Outcome(before: tuple[DrcReport, ...], after: DrcReport | None, normalised: bool, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence(), repeats: tuple[DrcReport, ...] = ())`. `before` MUST hold the reports of the runs on the original in run order: two, more when the oracle repeated them, and fewer when a run wrote no report. `after` is the report of the first run on the re-dump, and `repeats` the reports of the further runs on the re-dump.
+- `DrcReport.entries()` MUST return the violations and unconnected items as a sorted tuple of `(group, type, severity, excluded, items)`, with `group` `violations` or `unconnected_items` and each item as `(description, x, y)`. Item uuids and the report order MUST be left out, so that two runs of a tool on one file can be compared.
 - `NetlistOracle`, a `@runtime_checkable` `typing.Protocol` with `name: str`, `version() -> str` and `netlist(project: ProjectSet, *, board: Design) -> NetlistOutcome`.
 - `RoundTripOracle`, a `@runtime_checkable` `typing.Protocol` with `name: str`, `version() -> str` and `rt2(project: ProjectSet) -> Rt2Outcome`.
 
@@ -34,3 +35,8 @@ The types MUST be frozen dataclasses. `netlist` and `rt2` MUST NOT write under `
 - **GIVEN** `Rt2Outcome(before=(), after=None, normalised=False, tool_version="9.0.9")`
 - **WHEN** code assigns `outcome.normalised = True`
 - **THEN** a `FrozenInstanceError` is raised
+
+#### Scenario: Entries leave out uuids and order
+- **GIVEN** two reports holding the same two violations in another order and with other item uuids
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle.py -k entries` compares `entries()`
+- **THEN** they are equal, and a report with one violation fewer gives other entries

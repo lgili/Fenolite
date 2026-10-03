@@ -20,10 +20,23 @@ from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
 
-STAGE_ORDER: tuple[str, ...] = ("model.validate", "erc.lite", "drc.kicad", "roundtrip")
+STAGE_ORDER: tuple[str, ...] = (
+    "model.validate",
+    "erc.lite",
+    "drc.kicad",
+    "netlist.assignment_compare",
+    "roundtrip",
+    "roundtrip.rt2",
+)
 """The order stages run in; a later change may insert a stage."""
+OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2",)
+"""Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
+DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
+ORACLE_STAGES: tuple[str, ...] = ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")
+"""Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
+_READING_STAGES = frozenset({"roundtrip", *ORACLE_STAGES})
 StageStatus = Literal["ok", "errors", "skipped"]
-StageSkip = Literal["native-input", "read-refused", "cache-unreadable"]
+StageSkip = Literal["native-input", "read-refused", "cache-unreadable", "unsupported-oracle"]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
 
@@ -112,16 +125,19 @@ def run_checks(
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once."""
+    from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc_lite import erc_stage
     from fenolite.checks.roundtrip import roundtrip_stage
+    from fenolite.checks.rt2 import rt2_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
 
     selected = [name for name in STAGE_ORDER if name in stages]
     input_issues: list[Issue] = []
     validation: Validation | None = None
     read_error: FormatError | None = None
-    if validator is not None and ("roundtrip" in selected or ("model.validate" in selected and not built)):
+    reads = bool(_READING_STAGES & set(selected)) or ("model.validate" in selected and not built)
+    if validator is not None and reads:
         try:
             validation = validator.validate(project.root / project.board)
         except FormatError as error:
@@ -149,16 +165,26 @@ def run_checks(
     def drc() -> StageResult:
         if oracle is None:
             raise ValueError("drc.kicad is selected but no oracle was given")
-        return drc_stage(oracle, project, built=built)
+        design = validation.read.design if validation is not None else None
+        return drc_stage(oracle, project, built=built, design=design)
+
+    def assignment() -> StageResult:
+        usable = None if cache_error else model
+        return assignment_stage(oracle, project, validation=validation, model=usable, built=built)
 
     def roundtrip() -> StageResult:
         return skipped("roundtrip", "read-refused") if validation is None else roundtrip_stage(validation)
+
+    def rt2() -> StageResult:
+        return skipped("roundtrip.rt2", "read-refused") if validation is None else rt2_stage(oracle, project)
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
         "erc.lite": erc,
         "drc.kicad": drc,
+        "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,
+        "roundtrip.rt2": rt2,
     }
     results = tuple(runners[name]() for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]
@@ -171,6 +197,9 @@ def run_checks(
 
 
 __all__ = [
+    "DEFAULT_STAGES",
+    "OPT_IN_STAGES",
+    "ORACLE_STAGES",
     "STAGE_ORDER",
     "CheckReport",
     "StageResult",
