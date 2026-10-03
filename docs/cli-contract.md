@@ -123,6 +123,37 @@ harness types drawn). The hierarchy has five issue codes of its own: the errors
 `altium.harness-power-net` (exit 5, in both modes), and the info `altium.sheets-not-in-project` (a kept
 project file does not list the module sheets and harness files).
 
+`--copper-from BOARD.kicad_pcb` (with `--target altium` only; a usage error `FEN-2001` otherwise, and for
+a path that is not a file) copies the tracks, arcs, vias and zones of a routed KiCad board of the same
+design into `<name>.PcbDoc`, after checking that the board matches the design; the board's placements
+win (`docs/altium.md`, "Copper"). The board is read in-process: a board the reader refuses exits 3
+with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
+
+`result.copper` is present whenever the PCB document is planned (`null` otherwise): `source` (`none`,
+`model`, `script` or `board`), `from` (the path given to `--copper-from`, else `null`), `layers`,
+`planes` (layer name to net name), `tracks`, `arcs`, `vias`, `zones`, `net_classes` (counts of what
+is written) and `placements_from_board`. With `--copper-from`, `result.copper_input` holds the board's
+`path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
+
+The copper codes of the Altium build:
+
+| code | severity | when |
+|---|---|---|
+| `altium.copper-stack` | error | the board's copper layers are not `F.Cu`, `B.Cu` or `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, their count differs from `copper`, or a plane names a layer that is not an inner layer or a net the design does not hold |
+| `altium.copper-layer` | error | a track, arc, via or zone names a layer outside the board's copper layers |
+| `altium.via-unsupported` | error | a via is blind, buried or micro, or does not span the top and the bottom layer |
+| `altium.zone-unsupported` | error | a zone has fewer than three outline points, or names no layer |
+| `altium.copper-invalid` | error | a track of zero length, a width of 0 or less, a drill not below its diameter, or a net id that names no net |
+| `altium.plane-copper` | error | a track or arc lies on a plane layer, or a zone on a plane layer has another net than the plane |
+| `altium.copper-board-mismatch` | error | a copper source does not match the design: a component, a footprint, a pad net or the outline |
+| `altium.copper-net-missing` | error | copper of a source is on a net whose name the design does not hold |
+| `altium.copper-no-document` | error | a copper source is given and the PCB document is not planned |
+| `altium.zones-unpoured` | info | polygons are written without poured copper |
+| `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
+| `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
+
+A script with `planes` built for the KiCad target gives one `build.plane-not-lowered` info per plane.
+
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]

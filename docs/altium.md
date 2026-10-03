@@ -295,15 +295,16 @@ them, and no KiCad oracle can check it; tell us which mechanical layers you use)
 
 **`<name>.PcbDoc` (experimental).** Written when the design has a board outline without cutouts and every
 component with a footprint link has a KiCad link whose footprint is in `<name>.PcbLib`; otherwise
-`altium.pcbdoc-not-written` (info) names the reason. It holds the outline, a two-layer stack, every
+`altium.pcbdoc-not-written` (info) names the reason. It holds the outline, the layer stack, every
 component with a footprint at its script placement (unplaced ones are staged right of the outline as the
 KiCad build stages them, with `altium.pcb-staged`), its pads at absolute coordinates with their nets, its
-graphics, and its designator (the comment is written hidden). No routing, vias, zones, rules or classes.
+graphics, and its designator (the comment is written hidden), and the copper of "Copper" below.
 The frame: Y up, the board's lower-left corner and the origin at (1000 mil, 1000 mil); bottom-side parts
 are mirrored as KiCad places them and their layers swapped. Each component carries
 `SOURCEUNIQUEID=\<id>`, the unique id of the same component in `<name>.SchDoc`, so "Design » Update PCB
 Document" should match every component (`H-A-PCB-DOC-LINK`). When the document is written, the board and
-the placements are no longer reported by `altium.not-lowered`. A document edited in Altium is refused on
+the placements and the net classes are no longer reported by `altium.not-lowered`; a board's keep-outs,
+texts, graphics and holes are. A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
 **Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
@@ -316,6 +317,90 @@ missing storages are reported. Both check only what KiCad's importer reads.
 KiCad footprint (step 5 below). With `<name>.PcbDoc` in the project, open it and run "Design » Update PCB
 Document": no component should be added or removed. The checks are in `docs/evidence/altium-pcb.md`; the
 free Altium 365 Viewer opens `.PcbDoc` files but not `.PcbLib`.
+
+## Copper (change c0038)
+
+`<name>.PcbDoc` holds copper, and it invents none. The format facts are in
+`docs/formats/altium/pcb-copper.md`; what Altium Designer does with them is `INFERRED` until the
+maintainer reports Part C of `docs/evidence/altium-pcb.md`.
+
+**What is written.**
+
+- Tracks and arcs as free primitives with their net, in the short forms Altium Designer 26.5 accepts.
+- Through vias in the 321-byte form Altium saves.
+- Each zone as one polygon pour per layer **without poured copper**: the outline, the net, a name and a
+  pour index. Altium fills them on a repour: run "Tools » Polygon Pours » Repour All" once after opening
+  the document. The build says so with `altium.zones-unpoured`. A zone's fills are never copied.
+- A stack of 2 or 4 copper layers, from `design.board(..., copper=…)`. The stack values come from the
+  model's stack-up when it fits, else from Fenolite's defaults (1.4 mil copper; for four layers a 0.2 mm
+  prepreg, a 1.0 mm core and a 0.2 mm prepreg).
+- One net class per `design.rules.netclass(...)`, with its nets.
+- Clearance, Width and Routing Via Style rules: one per class value, and one `All` rule per kind with
+  Fenolite's defaults (0.2 mm, 0.25 mm, a 0.6 mm via with a 0.3 mm hole). Width and via limits span the
+  written copper, so the document's own copper never breaks them.
+
+**Layers.** An inner layer is a signal layer unless the script declares it a plane:
+
+| Fenolite layer | as | Altium layer |
+|---|---|---|
+| `F.Cu` | signal | Top Layer (1) |
+| `In1.Cu` | signal | Mid-Layer 1 (2) |
+| `In2.Cu` | signal | Mid-Layer 2 (3) |
+| `B.Cu` | signal | Bottom Layer (32) |
+| first inner layer declared as a plane | plane | Internal Plane 1 (39) |
+| second inner layer declared as a plane | plane | Internal Plane 2 (40) |
+
+`design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})` makes `In1.Cu` an internal plane on
+`GND`. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
+rules decide how they join it. A zone of the plane's net on that layer is left to the plane
+(`altium.plane-zone-merged`). The KiCad target writes no plane; it reports `build.plane-not-lowered`.
+
+**Refused, with an error and no file.** Nothing is dropped to make a document fit.
+
+- Blind, buried and micro vias, and vias that do not span the top and the bottom layer
+  (`altium.via-unsupported`).
+- Copper on a layer the board does not have (`altium.copper-layer`); a stack other than 2 or 4 layers, or
+  a plane on an outer layer or an unknown net (`altium.copper-stack`).
+- A track or arc on a plane, or a zone of another net on it (`altium.plane-copper`): split planes are not
+  written.
+- A zone without an outline (`altium.zone-unsupported`); a track of zero length, a width of 0, a drill not
+  below its diameter (`altium.copper-invalid`).
+
+**Where the copper comes from.** A build takes the copper from exactly one of three routes:
+
+1. **Script copper.** The script's resolved tracks and vias, handed over by change c0028 when it lands.
+   Until then a script cannot describe copper.
+2. **`--copper-from BOARD.kicad_pcb`.** A routed KiCad board of the same design: build the KiCad project
+   from the script, route it in KiCad, then run
+   `fenolite build design.py --out DIR --target altium --copper-from DIR_KICAD/<name>.kicad_pcb`.
+3. **Routers.** The router plugins of c0016 and c0023 return model copper, which the build writes as it
+   writes any copper the model holds.
+
+**Checks of `--copper-from`.** The board must be of the same design. Fenolite reads it in-process (no
+`kicad-cli`) and checks, before any copper is copied:
+
+- every component with a footprint matches exactly one footprint of the board, by the `fenolite.path`
+  property, else by reference; a board footprint the design does not hold is a mismatch too;
+- each footprint is the linked one, with the pad numbers and positions of the library footprint;
+- every pad is on the net of the same name as the design puts its pin on;
+- the outline's box is the design's;
+- every net of the copper is a net of the design (`altium.copper-net-missing`).
+
+A difference gives `altium.copper-board-mismatch` with the component, the pad or `outline` in `where`,
+and the board's path in the message. **The board's placements win**: the copper is only right relative to
+the footprints as the board places them, so every component is written where the board has it, and
+`altium.placement-from-board` names the parts whose placement differs from the script's. Keep-outs,
+texts, graphics and holes of the board are not copied (`altium.not-lowered`).
+
+`result.copper` reports what was written: `source` (`none`, `model`, `script` or `board`), `from`,
+`layers`, `planes`, `tracks`, `arcs`, `vias`, `zones` (polygons), `net_classes` and
+`placements_from_board`.
+
+**Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
+variant with `kicad-cli pcb import` and compares the copper and the layer types;
+`test_copper_from_oracle.py` proves that copper copied with `--copper-from` equals the source board after
+the way back. KiCad reads a plane of the stack as a `power` layer; it does not import the plane's net,
+net classes or rules.
 
 ## Project file and outputs
 
@@ -366,7 +451,7 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, net classes, diff pairs or harnesses are kept in the model only |
+| `altium.not-lowered` | info | the board, placements, net classes, diff pairs or harnesses are kept in the model only (without a PCB document); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -382,6 +467,18 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.harness-net-shared` | error | a net is a member of two harnesses, or twice of one |
 | `altium.harness-power-net` | error | a member of a harness is also a member of a `power` interface |
 | `altium.sheets-not-in-project` | info | the project file is kept, so the module sheets and harness files are not listed in it |
+| `altium.copper-stack` | error | the board's copper layers are not `F.Cu`, `B.Cu` or `F.Cu`, `In1.Cu`, `In2.Cu`, `B.Cu`, their count differs from `copper`, or a plane names a layer that is not an inner layer or a net the design does not hold |
+| `altium.copper-layer` | error | a track, arc, via or zone names a layer outside the board's copper layers |
+| `altium.via-unsupported` | error | a via is blind, buried or micro, or does not span the top and the bottom layer |
+| `altium.zone-unsupported` | error | a zone has fewer than three outline points, or names no layer |
+| `altium.copper-invalid` | error | a track of zero length, a width of 0 or less, a drill not below its diameter, or a net id that names no net |
+| `altium.plane-copper` | error | a track or arc lies on a plane layer, or a zone on a plane layer has another net than the plane |
+| `altium.copper-board-mismatch` | error | a copper source does not match the design: a component, a footprint, a pad net or the outline |
+| `altium.copper-net-missing` | error | copper of a source is on a net whose name the design does not hold |
+| `altium.copper-no-document` | error | a copper source is given and the PCB document is not planned |
+| `altium.zones-unpoured` | info | polygons are written without poured copper |
+| `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
+| `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
 
 Model findings (`model.*`) pass through. A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
@@ -424,7 +521,7 @@ that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.li
 
 One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
 no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
-no nested harnesses); no buses, variants, rules, net classes or output jobs; the PCB document has
-no routing and two copper layers, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
+no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
+split planes, no blind, buried or micro vias and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. Reading Altium files is planned for v0.3.

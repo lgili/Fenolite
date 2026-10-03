@@ -44,7 +44,11 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
 - `Design.moved(old, new)`: a path alias that keeps a renamed part's layout ("Path aliases").
-- `Design.board(width, height, copper=2)`, once per design.
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
+  `copper=4`) declares an inner layer as an internal plane on a net (a `Net` or a net name); a plane
+  holds one net. It is a build parameter, as `copper` is: the model does not change. The Altium target
+  writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the signal layer and reports
+  `build.plane-not-lowered`. `planes(design)` returns the mapping from layer name to net name.
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
   is optional; a net belongs to at most one class.
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A

@@ -117,14 +117,15 @@ starting with `\|RECORD=Board`.
   `UniqueIDPrimitiveInformation` (one block per pad), the option storages `Advanced Placer Options6`,
   `Pin Swap Options6`, `Design Rule Checker Options6`, `PadViaLibrary`, `PadViaLibraryCache`,
   `LayerKindMapping` (the 20-byte form), `ConstraintManager` (the empty form) and `SignalClasses`, and the
-  empty storages (`Header` 0, empty `Data`) `Vias6`, `Fills6`, `Regions6`, `ShapeBasedRegions6`,
-  `Polygons6`, `Dimensions6`, `Classes6`, `Rules6`, `ComponentBodies6`, `ShapeBasedComponentBodies6`,
+  copper storages `Vias6`, `Polygons6`, `Classes6` and `Rules6` (`pcb-copper.md`; `Header` the record
+  count, an empty `Data` without such objects), and the empty storages (`Header` 0, empty `Data`)
+  `Fills6`, `Regions6`, `ShapeBasedRegions6`, `Dimensions6`, `ComponentBodies6`, `ShapeBasedComponentBodies6`,
   `DifferentialPairs6`, `Connections6`, `FromTos6`, `Textures`, `Embeddeds6`, `Coordinates6`, `Models`,
   `ModelsNoEmbed`, `EmbeddedBoards6`, `PinPairsSection`, `PadViaLibraryLinks`,
   `ExtendedPrimitiveInformation`, `WaivedViolations`, `PrimitiveParameters` and `SmartUnions`.
 - Not written (`H-A-PCB-DOC-OPEN`): `FileVersionInfo` (a library opens without it), `Texts`,
-  `EmbeddedFonts6`, `BoardRegions`, `UnionNames`, `PrimitiveGuids`, design rules and classes (`Rules6` and
-  `Classes6` are empty), `V9_STACKCUSTOMDATA`, the tuning keys, the mechanical pairs and the hole-shape
+  `EmbeddedFonts6`, `BoardRegions`, `UnionNames`, `PrimitiveGuids`, the super classes and every rule kind but three
+  (`pcb-copper.md`), `V9_STACKCUSTOMDATA`, the tuning keys, the mechanical pairs and the hole-shape
   pairs (`HOLESHAPEHASHSIZE=0`). An empty `Models` storage follows the empty form of `ModelsNoEmbed`; no
   Altium-saved document without a 3D model was read.
 - `Board6`: `FILENAME` is the file name without a folder, `DATE=2000-01-01`, `TIME=00:00:00`; the snap and
@@ -156,7 +157,7 @@ starting with `\|RECORD=Board`.
   wide-string index being the text's position in `Texts6`.
 - Pads, tracks, arcs and texts keep the short forms of `pcb-records.md`; Altium Designer 26.5 opens them
   (report of 2026-10-03).
-- No routing, vias, zones, rules, classes or polygons.
+- Routing, vias, polygons, classes and rules are on `pcb-copper.md` (change c0038).
 - Change c0037: for a component on a module sheet (`--altium-sheets modules`) `SOURCEUNIQUEID` is
   `\<sheet symbol UNIQUEID>\<component UNIQUEID>` and `SOURCEHIERARCHICALPATH` is
   `<design name>\<module name>`, the sheet symbol's designator being the module name. A component on

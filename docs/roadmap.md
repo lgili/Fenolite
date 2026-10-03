@@ -215,6 +215,11 @@ creates the PCB with its engineering change order. Evidence: Fenolite's own read
 maintainer's Altium checks as author reports. Size: 5.75 design-days. The rest of v0.3 and v0.4 stays
 as planned.
 
+**Copper in the Altium PCB document: c0038 `altium-pcb-copper`.** The experimental `<name>.PcbDoc` holds
+tracks, arcs, vias, unpoured polygons, a 2- or 4-layer stack with planes, net classes and rules. c0028
+(script copper), c0016 and c0023 (router plugins) feed this writer; until they land, `--copper-from`
+copies the copper of a routed KiCad board.
+
 **v0.4 write, about c0050–c0057.**
 
 - Writers for the four document kinds, starting with the ASCII schematic format.
