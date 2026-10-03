@@ -49,6 +49,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | `Nets6/Data` holds one property record per net with `NAME`; a net's index is its position | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | `Components6/Data` holds one property record per component: `LAYER` (`TOP` or `BOTTOM`), `X`, `Y` (mil text), `ROTATION` (degrees), `LOCKED`, `NAMEON`, `COMMENTON`, `PATTERN` (the footprint name), `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY` and `SOURCELIBREFERENCE` | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | KiCad takes the reference from `SOURCEDESIGNATOR`, the footprint id from `SOURCEFOOTPRINTLIBRARY` without path and extension plus `PATTERN`, and the footprint path from `SOURCEHIERARCHICALPATH` and `SOURCEUNIQUEID` with one leading backslash removed | S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
+| A PCB component made from a part on a child sheet holds `SOURCEUNIQUEID=\<sheet symbol unique id>\<component unique id>`, one id per level of the hierarchy (a repeated sheet adds one more), and `SOURCEHIERARCHICALPATH=<top sheet stem>\<sheet symbol designator>`. The link of a part placed on the top sheet of a hierarchical project was not observed: the saved top sheets hold no part | S-0164, S-0188 | INFERRED | H-A-SCH-HIER-ECO |
 | Altium links a schematic component and its PCB component by the schematic component's unique id, stored on the PCB side as the path `\<id>` (one sheet level); when ids do not match it offers to link by designator, comment and footprint | S-0164, S-0139 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-LINK |
 | Net names equal to the schematic's keep the connectivity in the change order | S-0164, S-0141 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | The Altium 365 Viewer lists `*.PcbDoc` among its inputs and not `*.PcbLib` | S-0149 | INFERRED | H-A-PCB-DOC-VIEWER |
@@ -156,3 +157,8 @@ starting with `\|RECORD=Board`.
 - Pads, tracks, arcs and texts keep the short forms of `pcb-records.md`; Altium Designer 26.5 opens them
   (report of 2026-10-03).
 - No routing, vias, zones, rules, classes or polygons.
+- Change c0037: for a component on a module sheet (`--altium-sheets modules`) `SOURCEUNIQUEID` is
+  `\<sheet symbol UNIQUEID>\<component UNIQUEID>` and `SOURCEHIERARCHICALPATH` is
+  `<design name>\<module name>`, the sheet symbol's designator being the module name. A component on
+  the top sheet, and every component of a `flat` build, keeps the one-id form and the empty path
+  (`H-A-SCH-HIER-ECO`).

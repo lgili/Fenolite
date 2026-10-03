@@ -131,6 +131,33 @@ Change c0036 writes one directive at each pin that the design marks as intention
 | Duplicate unique ids of objects other than components are corrected when the document is loaded; duplicate component ids are not repaired, and the compiler reports them | S-0139 | INFERRED | H-A-SCH-UID |
 | No source says whether Altium creates a component unique id that a file leaves out | S-0130, S-0139 | INFERRED | H-A-SCH-UID |
 
+## Sheet symbols, sheet entries and ports
+
+Change c0037. The keys below were also checked against sheets that Altium saved in two public
+repositories (S-0187, a recent Altium; S-0188, an older one), read in a scratch folder and never
+committed. No oracle reads a schematic document, so every row waits for Part H of
+`docs/evidence/altium-schematic.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A sheet symbol is `RECORD=15` with `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `XSIZE`, `YSIZE`, `COLOR`, `AREACOLOR`, `ISSOLID=T`, `UNIQUEID` and `SYMBOLTYPE=Normal` | S-0130, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| A sheet symbol's location is its **top-left** corner, unlike other objects: the box extends `XSIZE` to the right and `YSIZE` downwards | S-0130, S-0131, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| Saved sheet symbols hold `COLOR=128` and `AREACOLOR=8454016`; a second reader needs only the location, the size, the colours and `ISSOLID` | S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| The sheet's name is `RECORD=32` and its file name `RECORD=33`. Both are children of the sheet symbol (`OWNERINDEX` is the index of the record 15) with `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR`, `FONTID` and `TEXT` | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| The `TEXT` of record 33 is a bare file name beside the project; a reader descends into the sheet of that name | S-0131, S-0185, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-PRJ |
+| In saved files records 32 and 33 follow the sheet entries of their symbol; the name sits 10 units above the symbol's top edge and the file name on the top edge. That this order is required is not known | S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| A sheet entry is `RECORD=16`, a child of the sheet symbol (`OWNERINDEX`), with `OWNERPARTID=-1`, `NAME`, `SIDE` (0 or absent left, 1 right, 2 top, 3 bottom), `DISTANCEFROMTOP`, `COLOR`, `AREACOLOR`, `TEXTCOLOR`, `TEXTFONTID`, `TEXTSTYLE=Full`, `ARROWKIND=Block & Triangle` and, optionally, `IOTYPE` (0 or absent unspecified, 1 output, 2 input, 3 bidirectional), `STYLE` and `HARNESSTYPE` | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| `DISTANCEFROMTOP` counts steps of 10 units (100 mil) from the symbol's top-left corner: down the side for a left or right entry, along the edge for a top or bottom entry. The entry's connection point lies on the symbol's edge | S-0130, S-0131, S-0188 | INFERRED | H-A-SCH-HIER-COMPILE |
+| Keys whose value is zero are left out in saved files (`SIDE`, `IOTYPE`, an `INDEXINSHEET` of 0) | S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| A sheet entry that carries a harness holds `HARNESSTYPE=<type name>` and no `IOTYPE`; its `NAME` may differ from the type name | S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
+| A port is `RECORD=18` with `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `WIDTH`, `HEIGHT=10`, `NAME`, `COLOR`, `AREACOLOR`, `TEXTCOLOR`, `FONTID`, `UNIQUEID` and, optionally, `STYLE`, `IOTYPE`, `ALIGNMENT` and `HARNESSTYPE` | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| A horizontal port extends `WIDTH` to the right of its location, and wires and harness lines meet it at either end | S-0130, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-COMPILE |
+| A recent Altium leaves `STYLE`, `IOTYPE` and `ALIGNMENT` out of a port (all zero); saved ports hold `COLOR=128`, `AREACOLOR=8454143` and `TEXTCOLOR=128` | S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| A port that carries a harness holds `HARNESSTYPE=<type name>` | S-0130, S-0131, S-0187, S-0188 | INFERRED | H-A-SCH-HARN-OPEN |
+| A sheet symbol has a `UNIQUEID` of eight letters, as a component. Ports carry one in every saved file; sheet entries carry none in the older files | S-0130, S-0139, S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| Saved files hold `INDEXINSHEET` on many records; Fenolite's verified sheets hold none | S-0187, S-0188 | INFERRED | H-A-SCH-HIER-OPEN |
+| The place of harness records (215 to 218) in the ASCII form is not documented, and no ASCII file with a harness was found | S-0131 | INFERRED | H-A-SCH-HARN-OPEN |
+
 ## Fenolite's choices
 
 These are decisions of the writer, not format facts (design of change c0032, capability
@@ -175,3 +202,34 @@ These are decisions of the writer, not format facts (design of change c0032, cap
   end, where a stub would start; a marked pin gets no wire, no label and no port. The directives are
   the last records of the schematic, after every stub, label and port, in component, part and pin
   order, so a design without marks keeps its bytes (`H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC`).
+- Hierarchy (change c0037, `--altium-sheets modules`). The top sheet holds, right after the sheet
+  record and before the first component, one block per module in module-name order: the sheet symbol,
+  its sheet entries in crossing order, the sheet name and the file name. Keys, in this order:
+  - `RECORD=15`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `XSIZE`, `YSIZE`, `COLOR=128`,
+    `AREACOLOR=8454016`, `ISSOLID=T`, `UNIQUEID`, `SYMBOLTYPE=Normal`;
+  - `RECORD=16`, `OWNERINDEX`, `OWNERPARTID=-1`, `SIDE=1`, `DISTANCEFROMTOP`, `COLOR=128`,
+    `AREACOLOR=8454143`, `TEXTCOLOR=128`, `TEXTFONTID=1`, `TEXTSTYLE=Full`, `NAME`, then `HARNESSTYPE`
+    for a harness crossing only, then `ARROWKIND=Block & Triangle`; no `IOTYPE`;
+  - `RECORD=32` and `RECORD=33`: `OWNERINDEX`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`,
+    `COLOR=8388608`, `FONTID=1`, `TEXT`; the name (`<module>`) 100 mil above the symbol's top-left
+    corner, the file name (`<design>_<module>.SchDoc`) at that corner.
+- A module sheet holds one port per crossing, in crossing order, after the last component record and
+  before the first pin stub: `RECORD=18`, `OWNERPARTID=-1`, `WIDTH`, `LOCATION.X`, `LOCATION.Y` (its
+  left end), `COLOR=128`, `FONTID=1`, `AREACOLOR=8454143`, `TEXTCOLOR=128`, `NAME`, then `HARNESSTYPE`
+  for a harness crossing only, then `UNIQUEID` and `HEIGHT=10`; no `STYLE`, `IOTYPE` or `ALIGNMENT`.
+  A port's width is `max(300, 100 · ⌈(70 · L + 150) / 100⌉)` mil for a name of `L` characters.
+- No wire is routed between sheet symbols. Every sheet entry and port of a net crossing gets a wire
+  stub rightwards from its connection point (a port's right end) and a net label with the net's name,
+  by the rules of a right pin; on the top sheet these follow the last component record, per symbol and
+  per entry. The port, the sheet entry and every label of a net carry the same name, so each net has
+  one candidate name (`H-A-SCH-HIER-NAMES`). Nets of a `power` interface get no port and no sheet
+  entry: their power ports are global.
+- All sheet entries are on the right side of their symbol. Slots count from 1 in steps of 100 mil; a
+  net entry takes one slot; a harness entry of `m` members takes `m + 2` slots and sits
+  `⌊(m + 1) / 2⌋` slots below the first of them. A symbol is at least 1500 mil wide and
+  `(slots + 1) · 100` mil high.
+- Unique ids: a sheet symbol gets `unique_id("sheet:<module>")` and a port
+  `unique_id("port:<module>:<name>")`. Sheet entries, harness records, wires and labels get none, and
+  no `INDEXINSHEET` is written.
+- The ASCII form writes the hierarchy but no harness record: a harness's member nets cross as plain
+  nets there (`schematic-binary.md`, "Additional stream and harness records").
