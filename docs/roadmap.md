@@ -38,7 +38,7 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | phase | milestone | changes | scope | state |
 |---|---|---|---|---|
 | 1. Foundations | — (`0.0.1.dev0` was cut after c0004) | c0001–c0005 | repository, CLI contract, IP hygiene, neutral model, geometry kernel | done |
-| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | c0006–c0012, c0014, c0017 and c0018 done; c0013, c0019–c0021 and c0026–c0031 proposed; the rest roadmap |
+| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | c0006–c0012, c0014, c0017 and c0018 done; c0013, c0019–c0021 and c0026–c0031 proposed; c0015, c0016 and c0022–c0025 proposed on 2026-10-03 |
 | 3. KiCad complete | v0.2a | about c0032–c0037 | schematic write, ERC oracle, netlist, BOM, more commands | estimate |
 | 3. KiCad complete | v0.2b | about c0038–c0041 | full layout lens, full rules, parity, interfaces | estimate |
 | 4. Second backend | v0.3 | about c0042–c0049 | read, equivalence levels 1–4, analyses | estimate |
@@ -77,17 +77,17 @@ rebuilds.
 | c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | done | c0010, c0017 | 9.5 |
 | c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | proposed | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
-| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept | roadmap | c0013, c0019, c0031 | 5 |
-| c0016 | `routing-plugins` | routing protocol, KiCadRoutingTools plugin | roadmap | c0015, c0020, c0022 | 6 |
+| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | proposed | c0013, c0019, c0031 | 6 |
+| c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | proposed | c0015, c0020, c0022 | 7.5 |
 | c0017 | `kicad-board-writer` | board writer for 9.0 and 10.0 | done | c0009, c0014 | 7.75 |
 | c0018 | `kicad-rules-footprints` | footprint and custom-rules writers | done | c0017 | 5.75 |
 | c0019 | `layout-preserve` | layout kept across rebuilds | proposed | c0011, c0013, c0027 | 8.25 |
 | c0020 | `check-netlist-drc` | DRC findings, netlist compare, corpus RT2, negative tests | proposed | c0013 | 8.75 |
 | c0021 | `kicad-libs-cache` | library fetch, cache, resolution probes | proposed | c0017, c0019, c0027 | 9.5 |
-| c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | roadmap | c0019, c0028 | 4.5 |
-| c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed) | roadmap | c0016 | 10 |
-| c0024 | `manufacturing-exports` | exports with manifest, render | roadmap | c0013, c0015 | 4.5 |
-| c0025 | `release-v0-1` | agent loop, second example board, CI matrix, release gate | roadmap | c0012, c0016, c0024 | 5 |
+| c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | proposed | c0019, c0028, c0030 | 6 |
+| c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | proposed | c0016 | 10 |
+| c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | proposed | c0013 | 5.25 |
+| c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | proposed | every v0.1 change | 5.75 |
 | c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | proposed | c0010 | 6.5 |
 | c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | proposed | c0011 | 5.25 |
 | c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | proposed | c0019, c0021 | 21.5 |
@@ -102,7 +102,7 @@ rebuilds.
   the same order, because several of them modify requirements that an earlier one adds; each design
   states its archive-order dependencies.
 - The last column is the size in design-days: from the designs ("Budget") for proposed and done
-  changes, planning estimates for roadmap changes. c0022 gains a day for the legality check.
+  changes, planning estimates for roadmap changes. Every v0.1 change is now proposed.
 
 **Gaps found by the dogfood board.** On 2026-10-02 a testing agent built a real board (a 12–24 V to
 5 V / 3 A buck converter) only through Fenolite's public API. c0026–c0031 come from what it could not
@@ -300,10 +300,10 @@ All numbers are estimates.
 | c0011 8.5 and c0012 9.5 (done), c0013 8.5 | 26.5 |
 | c0019 8.25, c0020 8.75, c0021 9.5 | 26.5 |
 | dogfood gaps: c0026 6.5, c0027 5.25, c0028 21.5, c0029 12, c0030 10.25, c0031 8 | 63.5 |
-| roadmap: c0015 5, c0016 6, c0022 4.5, c0023 10, c0024 4.5, c0025 5 | 35 |
-| **total to v0.1** | **about 182** |
+| proposed on 2026-10-03: c0015 6, c0016 7.5, c0022 6, c0023 10, c0024 5.25, c0025 5.75 | 40.5 |
+| **total to v0.1** | **about 188** |
 | done (c0009–c0012, c0014, c0017, c0018) | about 49 |
-| **left** | **about 134** |
+| **left** | **about 139** |
 
 **Measured pace.** From the git history:
 
@@ -357,9 +357,10 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 2 | v0.1 cut order: c0023 to v0.2a first, then c0021 to v0.2a, then c0020's measurement-only items | same | accepted |
 | 3 | Leaner 1.0 ([Proposed cuts](#proposed-cuts-for-a-leaner-10)) | this page | none; pending |
 | 4 | Dogfood gaps in v0.1: all of c0026–c0031 (about 63.5 design-days), or c0030 and c0031 moved to v0.2a (about −18 design-days, about half a calendar day at the measured pace; c0015 then writes the target-9 fill flag that c0031 adds) | this page; designs of c0026–c0031 | pending. Recommended: keep all six in v0.1 |
+| 5 | c0023 in v0.1 or in v0.2a: decided after c0016's feasibility gate (c0023 task 0.1). ADR-0006 (reading the Specctra reference for facts; running Freerouting as a subprocess) needs the maintainer's acceptance before c0023's codec is written | designs of c0016 and c0023 | pending. Recommended: move c0023 to v0.2a if c0016's gate passes |
 
-Change-level questions: see Open Questions in the designs of the proposed changes (c0011–c0013,
-c0019–c0021 and c0026–c0031).
+Change-level questions: see Open Questions in the designs of the proposed changes (c0015, c0016,
+c0020–c0025 and c0028–c0031).
 
 Later questions, asked when their change is proposed:
 

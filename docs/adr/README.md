@@ -39,4 +39,4 @@ Public sources (ids from `docs/evidence/sources.md`), tests or hypotheses that b
 
 - ADR-0002 was allocated by change c0001 before 0003 and 0004 existed; change c0009 writes it, so it is the only number written out of order.
 - The next free number is one above the highest number written or allocated; a new ADR takes it when its change is proposed, and numbers are never reserved.
-- ADR numbers are not tied to planning decision numbers. With 0001 to 0005 written, the next ADR is 0006.
+- ADR numbers are not tied to planning decision numbers. With 0001 to 0005 written, the next ADR is 0006; change c0023 (proposed) allocates 0006, so the next free number is 0007.
