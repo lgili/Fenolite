@@ -95,6 +95,9 @@ def to_model(design: Design) -> ModelDesign:
         )
         for name, net in sorted(design.nets.items())
     )
+    marks = tuple(
+        sorted(PinRef(key_id("component", part.path), d) for part in parts for d in part.no_connects)
+    )
     interfaces = tuple(
         Interface(
             id=key_id("interface", itf.kind, name),
@@ -121,6 +124,7 @@ def to_model(design: Design) -> ModelDesign:
             netclasses=tuple(classes.values()),
             interfaces=interfaces,
             modules=modules,
+            no_connects=marks,
         ),
         board=Board(id=key_id("board"), outline=outline),
         rules=RuleSet(id=key_id("rules")),

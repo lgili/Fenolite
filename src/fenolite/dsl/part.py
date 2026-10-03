@@ -137,6 +137,8 @@ class Part:
         self.parent: Container | None = None
         self.request: Request | None = None
         self.connections: dict[str, Net] = {}
+        self.no_connects: set[str] = set()
+        """Designators marked as intentionally unconnected, as written (``no_connect``)."""
 
     @property
     def path(self) -> str:
@@ -193,6 +195,10 @@ def connect(net: Net, *pins: PinHandle) -> Net:
                 f"pin {pin.part.ref} {pin.designator} is already on net {current.name}; "
                 f"cannot join {net.name}"
             )
+        if pin.designator in pin.part.no_connects:
+            raise DslError(
+                f"pin {pin.part.ref} {pin.designator} is marked as not connected; cannot join {net.name}"
+            )
         pin.part.connections[pin.designator] = net
         design = pin.part.design
         if design is not None:
@@ -200,4 +206,33 @@ def connect(net: Net, *pins: PinHandle) -> Net:
     return net
 
 
-__all__ = ["NAME", "Net", "Part", "PinHandle", "Placement", "Request", "Side", "check_name", "connect"]
+def no_connect(*pins: PinHandle) -> None:
+    """Mark each pin as intentionally unconnected; a designator that is on a net is refused.
+
+    The designators are kept as written in ``Part.no_connects``; a build resolves them to pin numbers.
+    Nothing is marked when one argument is refused.
+    """
+    for pin in pins:
+        if not isinstance(pin, PinHandle):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"no_connect() takes pins such as part['1'], not {pin!r}")
+        net = pin.part.connections.get(pin.designator)
+        if net is not None:
+            raise DslError(
+                f"pin {pin.part.ref} {pin.designator} is on net {net.name}; cannot mark it as not connected"
+            )
+    for pin in pins:
+        pin.part.no_connects.add(pin.designator)
+
+
+__all__ = [
+    "NAME",
+    "Net",
+    "Part",
+    "PinHandle",
+    "Placement",
+    "Request",
+    "Side",
+    "check_name",
+    "connect",
+    "no_connect",
+]
