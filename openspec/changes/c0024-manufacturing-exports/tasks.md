@@ -1,0 +1,37 @@
+## 1. Registers and fact rows
+
+- [ ] 1.1 Register the hypotheses and widen the sources. This is the first commit of the implementation, so c0014's cited-id guard sees the ids registered.
+  - Add the rows `H-K-EXPORT-FILES`, `H-K-EXPORT-REPEAT` and `H-K-EXPORT-RENDER` to `docs/hypotheses.md`, with backend `kicad`, level `INFERRED`, the test and criterion of `design.md`, and the result `pending; observed on 10.0.6 at proposal time (2026-10-03)` with the observation of design "Context". Add the paragraph "Change c0024 (manufacturing exports) adds …".
+  - Widen the "used for" cells of S-0020 (file names per kind, the date-bearing lines, the headless render), S-0022 and S-0037 (the options of design Decision 2 and `pcb render`), each only with what its page states.
+  - Re-check every name consumed from c0009 and c0013 (design "Files and public API") against the working tree, and list each divergence in the pull request description.
+
+  Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`; `grep -c '^| H-K-EXPORT-' docs/hypotheses.md` prints `3`.
+- [ ] 1.2 Add the fact rows the code is written from to `docs/formats/kicad/cli.md`: the export commands and options per major, the file names per kind, the date-bearing lines per kind, the SVG output argument per major, and `pcb render`. Each row has a source, a label and a hypothesis. Add rows to `src/fenolite/backends/kicad/PROVENANCE.md` and a `LEGAL-ANNEX.md` session row. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py tests/unit/test_legal_docs.py`.
+
+## 2. Probes first (`kicad-cli` 10.0.6 locally, 9.0.9 in the pinned image)
+
+- [ ] 2.1 Add `KicadCli.export` and `KicadCli.render` (design Decision 3), extend `tests/_fakecli.py` with `export_files`, and write the hermetic `tests/unit/backends/kicad/test_cli_export.py` (scenarios of "Export runs through the package runner"). Proof: `uv run pytest tests/unit/backends/kicad/test_cli_export.py`; `uv run pyright src`.
+- [ ] 2.2 Write `tests/kicad/export/_exportcases.py` and `test_export_probes.py` with `test_files`, `test_repeat` and `test_render`; add `tests/kicad/export` to the `sys.path` list of `tests/kicad/conftest.py` and to the fake run of `tests/unit/test_kicad_probes.py`; add the ten probes to `PROBES`. Until group 3 exists, the tests hold the argument lists themselves. Regenerate both probe files with `FENOLITE_PROBES_WRITE=1` and write `docs/evidence/kicad-export.md` (counts and outcomes only). Note under this task each outcome that differs from design "Context" and the fallback applied. Proof: `uv run pytest tests/kicad/export/test_export_probes.py tests/kicad/test_probe_results.py -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
+
+## 3. Planning and manifest
+
+- [ ] 3.1 Write `src/fenolite/exports/__init__.py`, `codes.py` and `plan.py` (design Decisions 2 and 4) and `tests/unit/exports/test_plan.py`, covering every scenario of "Export kinds and their arguments" plus an inner copper layer, a board without a paste layer and a per-major argument difference. Switch the probes of task 2.2 to `KINDS`. Proof: `uv run pytest tests/unit/exports/test_plan.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+- [ ] 3.2 Write `src/fenolite/exports/manifest.py` and `schemas/fenolite.artifacts.v0.json` (design Decision 5), register the schema in `tools/gen_schemas.py`, and write `tests/unit/exports/test_manifest.py`, covering every scenario of "Artefact manifest" plus a binary artefact and CRLF line ends. Proof: `uv run pytest tests/unit/exports`; `uv run python tools/gen_schemas.py --check`.
+
+## 4. Commands
+
+- [ ] 4.1 Add `Command.example_tools` to `src/fenolite/cli/api.py`, list it in `capabilities`, and teach `tests/consistency/test_cli_consistency.py` and `tests/unit/cli/test_hermetic_examples.py` the rule of "Tool-backed command examples" (design Decision 9). Proof: `uv run pytest tests/consistency tests/unit/cli/test_hermetic_examples.py tests/unit/cli/test_capabilities.py`.
+- [ ] 4.2 Write `src/fenolite/cli/cmd_export.py` (design Decision 6) and `tests/unit/cli/test_export_cmd.py`, covering every scenario of "Export command" and "Export evidence" plus a timeout and `--manifest` without `--confirm`; add `export` to `tests/unit/cli/test_check_readonly.py`. Add the `export` section and its issue table to `docs/cli-contract.md`. Proof: `uv run pytest tests/unit/cli/test_export_cmd.py tests/unit/cli/test_check_readonly.py tests/consistency`.
+- [ ] 4.3 Write `src/fenolite/cli/cmd_render.py` (design Decision 7) and `tests/unit/cli/test_render_cmd.py`, covering every scenario of "Render command" and "Render views". Add the `render` section to `docs/cli-contract.md`. Proof: `uv run pytest tests/unit/cli/test_render_cmd.py tests/consistency`.
+
+## 5. Check stage and oracle proofs
+
+- [ ] 5.1 Add `PlotView`, `PlotOutcome` and `Plotter` to `src/fenolite/backends/base.py` and `KicadOracle.plot`; write `src/fenolite/checks/render.py`, append `render` to `STAGE_ORDER` as opt-in, add `plotter` to `run_checks` and `render.failed` to `checks.codes.ISSUE_CODES`, and pass the oracle from `cmd_check`. Write `tests/unit/checks/test_render_stage.py` with a fake `Plotter` in `tests/unit/checks/fakes.py` and update the tests that pin the stage order and the code table. Proof: `uv run pytest tests/unit/checks tests/unit/backends tests/unit/cli/test_check_cmd.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+- [ ] 5.2 Write `tests/kicad/export/test_export_oracle.py::test_blink_loop` (requirement "Exports are probed on both majors") and a determinism test: two exports with one `--timestamp` give manifests equal except in `sha256` and `bytes` of the non-repeatable kinds. Proof: `uv run pytest tests/kicad/export -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
+- [ ] 5.3 Write `docs/exports.md`: the two commands, the exact options per kind, the manifest's fields, `content_sha256` and why files are not byte-repeatable, what Fenolite does not claim, the advice to use a fresh `--out`, and the loop order. Link it from `README.md` and `docs/cli-contract.md`. Proof: `uv run pytest tests/residue tests/unit/test_repo_layout.py`.
+
+## 6. Closing
+
+- [ ] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `make check` passes; `openspec validate c0024-manufacturing-exports --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing.
+- [ ] 6.2 Update the evidence labels: `H-K-EXPORT-FILES` and `H-K-EXPORT-REPEAT` become `KICAD-VERIFIED (9.0.x, 10.0.x)` or are refuted with a successor and the fallback applied; `H-K-EXPORT-RENDER` records its outcome per major. Raise `exports.EVIDENCE` only if both file hypotheses hold on both majors. The rows of `docs/formats/kicad/cli.md` follow. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py`.
+- [ ] 6.3 Add to `CHANGELOG.md` under Unreleased: "`fenolite export` and `fenolite render`: fabrication files and review views through `kicad-cli` on a copy, written only with `--confirm`, with the manifest `fenolite-artifacts.json`; opt-in `render` stage in `check`". Update `docs/roadmap.md`. Proof: `git diff CHANGELOG.md docs/roadmap.md`.
