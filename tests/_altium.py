@@ -188,6 +188,41 @@ def example_plan() -> SheetPlan:
     return plan_sheet(model, name="altium_kicad", symbols=symbols)
 
 
+HIER_DIR = ROOT / "examples" / "altium_hier"
+HIER = HIER_DIR / "design.py"
+HIER_PARTIAL = HIER_DIR / "partial.py"
+HIER_NETS: dict[str, set[tuple[str, str]]] = {
+    "VDD": {("J1", "1"), ("U1", "8"), ("C1", "1"), ("U2", "8"), ("C2", "1"), ("R1", "1")},
+    "GND": {("J1", "2"), ("U1", "4"), ("C1", "2"), ("U2", "4"), ("C2", "2")},
+    "RESET_N": {("J1", "3"), ("U1", "1")},
+    "FLASH_WP": {("U1", "2"), ("U2", "3")},
+    "SPI_CS": {("U1", "3"), ("U2", "1")},
+    "SPI_MISO": {("U1", "5"), ("U2", "2")},
+    "SPI_MOSI": {("U1", "6"), ("U2", "5")},
+    "SPI_SCK": {("U1", "7"), ("U2", "6")},
+    "FLASH_HOLD_N": {("U2", "7"), ("R1", "2")},
+}
+"""The hierarchy sample's nine nets as (ref, pin) pairs, written out by hand from the script (c0037)."""
+
+
+def hier(text: str = "", new: str = "", *, script: Path = HIER, append: str = "") -> Design:
+    """The hierarchy sample of change c0037 (``examples/altium_hier``), with ``text`` replaced by ``new``
+    in its script and ``append`` added to it."""
+    source = script.read_text(encoding="utf-8")
+    if text:
+        assert text in source, text
+        source = source.replace(text, new)
+    namespace: dict[str, object] = {}
+    exec(compile(source + append, str(script), "exec"), namespace)  # noqa: S102
+    design = namespace["design"]
+    assert isinstance(design, Design)
+    return design
+
+
+def hier_model(text: str = "", new: str = "", *, script: Path = HIER, append: str = "") -> ModelDesign:
+    return model_of(hier(text, new, script=script, append=append))
+
+
 def sample() -> Design:
     design = runpy.run_path(str(SAMPLE))["design"]
     assert isinstance(design, Design)

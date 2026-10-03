@@ -22,7 +22,7 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, pcbdoc, pcblib, pcbrecords, project, schlib
+from fenolite.backends.altium import binary, hierarchy, pcbdoc, pcblib, pcbrecords, project, schlib
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -128,11 +128,13 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
     ),
     schlib.EVIDENCE,
     pcbrecords.EVIDENCE,
+    hierarchy.EVIDENCE,
 )
 """``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
 the kicad-cli oracle checks only what KiCad's importer reads. It names the rows of both schematic forms
 (``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows) and of the libraries (every ``H-A-SCHLIB-*`` row,
-``schlib.EVIDENCE`` holding those of the library file)."""
+``schlib.EVIDENCE`` holding those of the library file) and of the hierarchy and harnesses
+(``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037)."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",

@@ -43,6 +43,20 @@ COMMENT_DROP = 200
 """The comment's location lies this far below the body's bottom-left corner."""
 CUSTOM_STEP = 1000
 """A custom sheet height is rounded up to this step."""
+ENTRY_PITCH = 100
+"""One ``DISTANCEFROMTOP`` step of a sheet entry or harness entry (change c0037)."""
+SYMBOL_MIN_WIDTH = 1500
+"""A sheet symbol is at least this wide."""
+CONNECTOR_MIN_WIDTH = 500
+"""A harness connector is at least this wide."""
+HARNESS_GAP = 200
+"""The length of the signal harness line between a port or sheet entry and its harness connector."""
+PORT_MIN_WIDTH = 300
+"""A port is at least this wide."""
+PORT_HEIGHT = 100
+"""A port's height (``HEIGHT=10``): it reaches half of this above and below its location."""
+SHEET_NAME_RISE = 100
+"""A sheet symbol's name lies this far above its top-left corner; its file name lies on the corner."""
 
 
 @dataclass(frozen=True)
@@ -155,14 +169,128 @@ class NoConnectMark:
 
 
 @dataclass(frozen=True)
+class Crossing:
+    """A net or a harness that leaves a module's sheet (change c0037, "Sheets of a hierarchical project").
+
+    ``name`` is the net name or the harness type name: the name of the port on the module's sheet and of
+    the sheet entry on its sheet symbol. ``port_id`` is the port's unique id. ``entries`` is ``None`` for a
+    net; for a harness it holds every entry of the type in code-point order, each with the name of its net
+    when that net crosses the module and ``None`` when it does not."""
+
+    name: str
+    port_id: str = ""
+    entries: tuple[tuple[str, str | None], ...] | None = None
+
+    @property
+    def harness(self) -> bool:
+        return self.entries is not None
+
+
+@dataclass(frozen=True)
+class SymbolSpec:
+    """The sheet symbol of a module on the top sheet: the module name (the sheet's name), the file name of
+    the module's sheet, the symbol's unique id and its crossings, one sheet entry each, in order."""
+
+    module: str
+    file: str
+    unique_id: str
+    crossings: tuple[Crossing, ...] = ()
+
+
+@dataclass(frozen=True)
+class HarnessBlock:
+    """A harness connector with its top-left corner at (``x``, ``y``), drawn beside a port or a sheet entry
+    (change c0037, "Harness records"). ``entries`` are the type's entries in code-point order, each with
+    the name of its net when it is wired; entry ``k`` (1-based) sits on the right edge, ``k`` steps of 100
+    mil below the corner. ``position`` is how far below the corner the connection point lies on the left
+    edge; ``line`` is the signal harness line from the port or sheet entry to that point; ``stubs`` are
+    the labelled wires of the wired entries, in entry order."""
+
+    name: str
+    entries: tuple[tuple[str, str | None], ...]
+    x: int
+    y: int
+    width: int
+    height: int
+    position: int
+    line: tuple[tuple[int, int], tuple[int, int]]
+    stubs: tuple[Stub, ...]
+
+    def entry_point(self, k: int) -> tuple[int, int]:
+        """The connection point of entry ``k`` (1-based), on the right edge."""
+        return self.x + self.width, self.y + ENTRY_PITCH * k
+
+
+@dataclass(frozen=True)
+class PlacedEntry:
+    """A sheet entry on the right side of its symbol: ``slot`` is its ``DISTANCEFROMTOP`` and ``point`` its
+    connection point; a net entry has a labelled ``stub``, a harness entry a ``block``."""
+
+    crossing: Crossing
+    slot: int
+    point: tuple[int, int]
+    stub: Stub | None = None
+    block: HarnessBlock | None = None
+
+
+@dataclass(frozen=True)
+class PlacedSymbol:
+    """A sheet symbol with its top-left corner at (``x``, ``y``), its size, its cell and its entries."""
+
+    spec: SymbolSpec
+    x: int
+    y: int
+    width: int
+    height: int
+    cell: tuple[int, int, int, int]
+    entries: tuple[PlacedEntry, ...]
+
+
+@dataclass(frozen=True)
+class PlacedPort:
+    """A port with its left end at (``x``, ``y``), extending ``width`` rightwards, and its cell; a net port
+    has a labelled ``stub`` from its right end, a harness port a ``block``."""
+
+    crossing: Crossing
+    x: int
+    y: int
+    width: int
+    cell: tuple[int, int, int, int]
+    stub: Stub | None = None
+    block: HarnessBlock | None = None
+
+    @property
+    def end(self) -> tuple[int, int]:
+        """The port's right end, where its wire or harness line starts."""
+        return self.x + self.width, self.y
+
+
+@dataclass(frozen=True)
 class SheetPlan:
     """The sheet, the placed components in component-path order, the stubs in write order and the
-    no-connect marks in write order."""
+    no-connect marks in write order. A sheet of a hierarchical project (change c0037) also holds the sheet
+    symbols of a top sheet, the ports of a module sheet and their harness blocks; all three are empty on a
+    single sheet."""
 
     size: SheetSize
     parts: tuple[PlacedPart, ...]
     stubs: tuple[Stub, ...]
     no_connects: tuple[NoConnectMark, ...] = ()
+    symbols: tuple[PlacedSymbol, ...] = ()
+    ports: tuple[PlacedPort, ...] = ()
+    harnesses: tuple[HarnessBlock, ...] = ()
+
+    @property
+    def links(self) -> tuple[Stub, ...]:
+        """The labelled wires of the sheet entries and ports, in write order: per sheet symbol and per
+        entry, then per port; a harness contributes the wires of its wired entries."""
+        found: list[Stub] = []
+        for item in (*(entry for symbol in self.symbols for entry in symbol.entries), *self.ports):
+            if item.stub is not None:
+                found.append(item.stub)
+            if item.block is not None:
+                found.extend(item.block.stubs)
+        return tuple(found)
 
 
 def _up(value: int, step: int = GRID) -> int:
@@ -278,6 +406,100 @@ def _extent(spec: PartSpec, part: int = 1) -> tuple[int, int, int, int]:
     )
 
 
+def text_width(text: str) -> int:
+    """``100 · ⌈(70 · L + 150) / 100⌉`` mil for a text of ``L`` characters, as for a label."""
+    return _up(CHAR_WIDTH * len(text) + LABEL_SLACK)
+
+
+def port_width(name: str) -> int:
+    """``max(300, 100 · ⌈(70 · L + 150) / 100⌉)`` mil for a port name of ``L`` characters."""
+    return max(PORT_MIN_WIDTH, text_width(name))
+
+
+def _link(point: tuple[int, int], net: str, designator: str) -> Stub:
+    """A wire rightwards from ``point`` with the label of ``net``, by the rules of a right pin."""
+    how = PinNet(net, "label")
+    x, y = point
+    return Stub("", designator, how, "right", point, (x + stub_length(how), y), (x + LABEL_OFFSET, y))
+
+
+def harness_block(crossing: Crossing, point: tuple[int, int]) -> HarnessBlock:
+    """The block of the harness ``crossing`` whose signal harness line starts at ``point``: a connector of
+    ``m`` entries is ``(m + 1) · 100`` mil high, its connection point ``100 · ⌊(m + 1) / 2⌋`` mil below its
+    top-left corner, 200 mil right of ``point``."""
+    entries = crossing.entries
+    if entries is None:
+        raise ValueError(f"{crossing.name} is not a harness")
+    count = len(entries)
+    position = ENTRY_PITCH * ((count + 1) // 2)
+    x, y = point[0] + HARNESS_GAP, point[1] - position
+    longest = max((crossing.name, *(entry for entry, _ in entries)), key=len)
+    width = max(CONNECTOR_MIN_WIDTH, text_width(longest))
+    stubs = tuple(
+        _link((x + width, y + ENTRY_PITCH * k), net, entry)
+        for k, (entry, net) in enumerate(entries, start=1)
+        if net is not None
+    )
+    line = (point, (x, point[1]))
+    return HarnessBlock(crossing.name, entries, x, y, width, ENTRY_PITCH * (count + 1), position, line, stubs)
+
+
+def _attach(crossing: Crossing, point: tuple[int, int]) -> tuple[Stub | None, HarnessBlock | None]:
+    if crossing.harness:
+        return None, harness_block(crossing, point)
+    return _link(point, crossing.name, crossing.name), None
+
+
+def _reach(stub: Stub | None, block: HarnessBlock | None) -> tuple[int, int, int]:
+    """How far the drawing of a link reaches: its right end, its top and its bottom."""
+    if block is not None:
+        right = max((s.end[0] for s in block.stubs), default=block.x + block.width)
+        return right, block.y - TEXT_HEIGHT, block.y + block.height
+    assert stub is not None
+    return stub.end[0], stub.start[1] - TEXT_HEIGHT, stub.start[1]
+
+
+def _cell(x0: int, y0: int, x1: int, y1: int) -> tuple[int, int, int, int]:
+    return _down(x0 - CELL_MARGIN), _down(y0 - CELL_MARGIN), _up(x1 + CELL_MARGIN), _up(y1 + CELL_MARGIN)
+
+
+def place_symbol(spec: SymbolSpec, x: int, y: int) -> PlacedSymbol:
+    """The sheet symbol of ``spec`` with its top-left corner at (``x``, ``y``). Entries are on the right
+    side, in slots of 100 mil that start at 1: a net entry takes one slot; a harness entry of ``m`` members
+    takes ``m + 2`` slots and sits ``⌊(m + 1) / 2⌋`` slots below the first of them, beside its connector.
+    The symbol is ``(slots + 1) · 100`` mil high, at least 1500 mil wide and wide enough for its texts."""
+    names = [c.name for c in spec.crossings]
+    if len(set(names)) != len(names):
+        raise ValueError(f"two crossings of {spec.module} share a name")
+    width = max(SYMBOL_MIN_WIDTH, text_width(max((spec.module, spec.file, *names), key=len)))
+    entries: list[PlacedEntry] = []
+    slot = 1
+    x1, y0, y1 = x + width, y - SHEET_NAME_RISE - TEXT_HEIGHT, y
+    for crossing in spec.crossings:
+        count = len(crossing.entries) if crossing.entries is not None else 0
+        k = slot + (count + 1) // 2 if crossing.harness else slot
+        point = (x + width, y + ENTRY_PITCH * k)
+        stub, block = _attach(crossing, point)
+        entries.append(PlacedEntry(crossing, k, point, stub, block))
+        right, top, bottom = _reach(stub, block)
+        x1, y0, y1 = max(x1, right), min(y0, top), max(y1, bottom)
+        slot += count + 2 if crossing.harness else 1
+    height = ENTRY_PITCH * slot
+    cell = _cell(x, y0, x1, max(y1, y + height))
+    return PlacedSymbol(spec, x, y, width, height, cell, tuple(entries))
+
+
+def place_port(crossing: Crossing, x: int, y: int) -> PlacedPort:
+    """The port of ``crossing`` with its left end at (``x``, ``y``), with its stub and label or its harness
+    block to its right."""
+    width = port_width(crossing.name)
+    stub, block = _attach(crossing, (x + width, y))
+    right, top, bottom = _reach(stub, block)
+    half = PORT_HEIGHT // 2
+    cell = _cell(x, min(top, y - half), right, max(bottom, y + half))
+    return PlacedPort(crossing, x, y, width, cell, stub, block)
+
+
 def _pack(cells: Sequence[tuple[int, int]], usable_width: int) -> tuple[list[tuple[int, int]], int]:
     """Shelf packing: each cell's (left, top) offset, left to right and top to bottom, and the height."""
     offsets: list[tuple[int, int]] = []
@@ -299,16 +521,31 @@ def _fits(cells: Sequence[tuple[int, int]], size: SheetSize) -> bool:
     return _pack(cells, usable_width)[1] <= size.height - 2 * MARGIN
 
 
-def layout_sheet(parts: Sequence[PartSpec], *, sizes: Sequence[SheetSize] = SHEET_SIZES) -> SheetPlan:
+def layout_sheet(
+    parts: Sequence[PartSpec],
+    *,
+    symbols: Sequence[SymbolSpec] = (),
+    ports: Sequence[Crossing] = (),
+    sizes: Sequence[SheetSize] = SHEET_SIZES,
+) -> SheetPlan:
     """Place ``parts`` in component-path order, each part of a symbol in its own consecutive cell, on the
     first of ``sizes`` that holds them, else on a custom sheet as wide as A0 (or as the widest cell plus
-    the margins) and as high as needed."""
+    the margins) and as high as needed. The sheet symbols of a top sheet (``symbols``) and the ports of a
+    module sheet (``ports``) are cells of the same packing, before the component cells, in the order given
+    (change c0037, "Hierarchical sheet layout")."""
     ordered = sorted(parts, key=lambda p: p.key)
     keys = [p.key for p in ordered]
     if len(set(keys)) != len(keys):
         raise ValueError("two parts share a component path")
+    port_names = [c.name for c in ports]
+    if len(set(port_names)) != len(port_names):
+        raise ValueError("two ports share a name")
     units = [(spec, part) for spec in ordered for part in range(1, spec.body.parts + 1)]
-    extents = [_extent(spec, part) for spec, part in units]
+    extents = [
+        *(place_symbol(spec, 0, 0).cell for spec in symbols),
+        *(place_port(crossing, 0, 0).cell for crossing in ports),
+        *(_extent(spec, part) for spec, part in units),
+    ]
     cells = [(x1 - x0, y1 - y0) for x0, y0, x1, y1 in extents]
     size = next((s for s in sizes if _fits(cells, s)), None)
     if size is None:
@@ -317,21 +554,60 @@ def layout_sheet(parts: Sequence[PartSpec], *, sizes: Sequence[SheetSize] = SHEE
         height = _pack(cells, width - 2 * MARGIN)[1]
         size = SheetSize("custom", width, _up(height + 2 * MARGIN, CUSTOM_STEP), None)
     offsets = _pack(cells, size.width - 2 * MARGIN)[0]
+    origins = [
+        (MARGIN + ox - x0, MARGIN + oy - y0)
+        for (x0, y0, _, _), (ox, oy) in zip(extents, offsets, strict=True)
+    ]
+    first = len(symbols) + len(ports)
+    placed_symbols = [place_symbol(spec, *at) for spec, at in zip(symbols, origins, strict=False)]
+    placed_ports = [
+        place_port(crossing, *at) for crossing, at in zip(ports, origins[len(symbols) : first], strict=True)
+    ]
     placed: list[PlacedPart] = []
     stubs: list[Stub] = []
     marks: list[NoConnectMark] = []
-    for (spec, part), (x0, y0, x1, y1), (ox, oy) in zip(units, extents, offsets, strict=True):
-        left, top = MARGIN + ox, MARGIN + oy
-        x, y = left - x0, top - y0
+    for (spec, part), (x0, y0, x1, y1), (x, y) in zip(units, extents[first:], origins[first:], strict=True):
+        left, top = x + x0, y + y0
         placed.append(PlacedPart(spec, x, y, (left, top, left + x1 - x0, top + y1 - y0), part))
         stubs.extend(part_stubs(spec, x, y, part))
         marks.extend(part_marks(spec, x, y, part))
-    return SheetPlan(size, tuple(placed), tuple(stubs), tuple(marks))
+    blocks = [
+        item.block
+        for item in (*(entry for symbol in placed_symbols for entry in symbol.entries), *placed_ports)
+        if item.block is not None
+    ]
+    return SheetPlan(
+        size,
+        tuple(placed),
+        tuple(stubs),
+        tuple(marks),
+        tuple(placed_symbols),
+        tuple(placed_ports),
+        tuple(blocks),
+    )
 
 
 __all__ = [
     "CELL_MARGIN",
     "COMMENT_DROP",
+    "CONNECTOR_MIN_WIDTH",
+    "Crossing",
+    "ENTRY_PITCH",
+    "HARNESS_GAP",
+    "HarnessBlock",
+    "PORT_HEIGHT",
+    "PORT_MIN_WIDTH",
+    "PlacedEntry",
+    "PlacedPort",
+    "PlacedSymbol",
+    "SHEET_NAME_RISE",
+    "SYMBOL_MIN_WIDTH",
+    "SymbolSpec",
+    "harness_block",
+    "place_port",
+    "place_symbol",
+    "port_width",
+    "text_width",
     "DESIGNATOR_RISE",
     "LABEL_OFFSET",
     "MARGIN",

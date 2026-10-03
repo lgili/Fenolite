@@ -590,6 +590,18 @@ corpus_id = ""
 notes = "Altium sample design script (thin DSL, c0032); lib ids name libraries Fenolite does not ship"
 
 [[file]]
+path = "examples/altium_hier/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "Altium hierarchy sample design script (thin DSL, c0037): a top sheet, two modules and an SPI harness; lib ids name libraries Fenolite does not ship"
+
+[[file]]
+path = "examples/altium_hier/partial.py"
+origin = "authored"
+corpus_id = ""
+notes = "the hierarchy sample with a fifth harness entry whose net does not leave its sheet (thin DSL, c0037, step H6)"
+
+[[file]]
 path = "examples/altium_kicad/design.py"
 origin = "authored"
 corpus_id = ""

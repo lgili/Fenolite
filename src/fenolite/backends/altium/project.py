@@ -71,6 +71,11 @@ SchematicForm = Literal["binary", "ascii"]
 """The two forms of ``<name>.SchDoc``: a compound file of framed records, or text lines."""
 DEFAULT_FORM: SchematicForm = "binary"
 """The one default of the schematic form for the writer, the lens and the CLI (change c0033)."""
+SheetMode = Literal["flat", "modules"]
+"""How the schematic is split into sheets (change c0037): one sheet, or a top sheet with one sheet per
+top-level module."""
+DEFAULT_SHEETS: SheetMode = "flat"
+"""The one default of the sheet mode for the writer, the lens and the CLI: the verified single sheet."""
 SCHDOC_KINDS: dict[SchematicForm, str] = {"binary": "altium_schdoc_binary", "ascii": "altium_schdoc_ascii"}
 """The write kind of ``<name>.SchDoc`` by form: both forms share the extension."""
 
@@ -375,6 +380,7 @@ def write_project(
 
 __all__ = [
     "DEFAULT_FORM",
+    "DEFAULT_SHEETS",
     "EVIDENCE",
     "LibraryTooLarge",
     "PCBDOC_KIND",
@@ -385,6 +391,7 @@ __all__ = [
     "SCHDOC_KINDS",
     "SCHLIB_KIND",
     "SchematicForm",
+    "SheetMode",
     "component_path",
     "generic_symbols",
     "library_symbols",
