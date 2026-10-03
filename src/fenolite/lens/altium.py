@@ -525,7 +525,9 @@ def pcb_document(
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
-    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. ``copper`` is the
+    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. In the ``modules`` sheet
+    mode (change c0037) a component on a module sheet links through the sheet symbol of its module.
+    ``copper`` is the
     script's copper layer count and ``planes`` its internal planes (layer name → net name); the board's
     copper is lowered by ``altium_copper`` (change c0038), and copper that cannot be written gives its
     errors and ``None``. With ``copper_source`` the copper and the placements come from that source, after
@@ -1141,7 +1143,9 @@ def build_altium(
     )
     issues += document_issues
     if any(i.severity == "error" for i in issues):
-        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     copper_info = None
     if spec is not None:
         if copper_source is not None:

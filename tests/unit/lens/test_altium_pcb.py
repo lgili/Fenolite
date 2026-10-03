@@ -881,3 +881,24 @@ def test_rules_of_the_routed_build_span_its_copper(tmp_path: Path) -> None:
     assert (rules["Width"]["MINLIMIT"], rules["Width"]["MAXLIMIT"]) == ("9.8425mil", "19.685mil")
     assert (rules["Width_PWR"]["MINLIMIT"], rules["Width_PWR"]["MAXLIMIT"]) == ("19.685mil", "19.685mil")
     assert rules["RoutingVias"]["MINWIDTH"] == rules["RoutingVias"]["MAXWIDTH"] == "23.622mil"
+
+
+# --- copper together with module sheets (changes c0037 and c0038) -----------------------------------
+
+
+def test_copper_does_not_depend_on_the_sheet_mode(tmp_path: Path) -> None:
+    """The routed sample has no module, so ``modules`` gives the flat document; the hierarchical board
+    example keeps its two-id links when a copper layer count and a plane are given."""
+    from _altium_copper import routed_build
+    from _altium_pcb_read import read_pcbdoc
+
+    flat = routed_build(tmp_path / "f")
+    split = routed_build(tmp_path / "m", sheets="modules")
+    assert flat.files["routed.PcbDoc"] == split.files["routed.PcbDoc"]
+    assert split.summary["copper"] == flat.summary["copper"] and split.summary["sheet_mode"] == "modules"
+    board = build_hier_board(tmp_path / "h", sheets="modules", copper=4, planes={"In1.Cu": "GND"})
+    assert not [i for i in board.issues if i.severity == "error"]
+    doc = read_pcbdoc(board.files["altium_hier_board.PcbDoc"])
+    assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
+    assert all(c["SOURCEUNIQUEID"].count("\\") == 2 for c in doc.components)
+    assert [c.name for c in doc.classes] == ["PWR"] and len(doc.rules) == 5
