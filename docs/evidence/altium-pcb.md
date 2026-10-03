@@ -229,5 +229,32 @@ Outcome per step:
   The side, rotation and pads of `D1` were not reported, so `H-A-PCB-DOC-BOTTOM` stays pending; whether
   the project lists the PCB library is not reported (`H-A-PCB-PRJ`).
 
+### 2026-10-03, `AD 26.5`, Part C
+
+- Tool: Altium Designer 26.5 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact)`.
+- Files: the bisection variants `c0` to `c5` and `p0` of the routed sample, written outside the repository;
+  no file opened or saved in the session enters the repository. `c5` is the committed `routed.PcbDoc`.
+
+Outcome per step:
+
+- **C1, tracks, arc and vias.** `c0` (two layers, tracks and an arc), `c1` (with the vias) and `c2` (four
+  layers, tracks on both mid layers) open and look correct. The nets of the tracks, the sizes of the vias
+  and the connection lines were not reported, so `H-A-PCB-CU-TRACK` and `H-A-PCB-CU-VIA` stay pending with
+  this observation.
+- **C2, stack.** `c2` opens with its four signal layers and looks correct. The Layer Stack Manager was not
+  reported, so `H-A-PCB-CU-STACK` stays pending with this observation.
+- **C3, polygons.** `c3` opens and looks correct with its two unpoured `GND` polygons, and "Tools » Polygon
+  Pours » Repour All" filled both. Confirms `H-A-PCB-CU-REPOUR`.
+- **C4, class and rules.** In `c4` the net class `PWR` shows with its member nets. In `c5` the Clearance,
+  Width and Routing Via Style rules show correctly in the rules editor, and the design rule check ran to
+  the end with them. Confirms `H-A-PCB-CU-CLASS` and `H-A-PCB-CU-RULES`.
+- **C5, Viewer.** Not reported (`H-A-PCB-CU-VIEWER` stays pending).
+- **C6, plane.** `p0` opens, and the internal plane appears to carry `GND`. The maintainer saw `GND` on the
+  plane but did not find the plane's net in the Layer Stack Manager and did not open the split-plane
+  dialog; the connection lines were not reported. `H-A-PCB-CU-PLANE` stays pending with this observation.
+
+No step named a fault, so no fact of `docs/formats/altium/pcb-copper.md` changed.
+
 The schematic steps of the same session are recorded in `docs/evidence/altium-schematic.md`, "Reports".
 Part P (the Viewer) is not reported.
