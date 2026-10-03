@@ -399,3 +399,60 @@ def test_source_tree_helper_is_the_blink_tree(tmp_path: Path) -> None:
     """The source tests resolve the footprints through the blink folder's own tables."""
     project = blink_tree(tmp_path)
     assert (project / "fp-lib-table").is_file()
+
+
+# --- the three sources give the same document (change c0038, task 6.3) -------------------------------
+
+
+def from_board(root: Path, edit: Callable[[Design], Design] | None = None) -> BuildOutput:
+    """The build whose copper is read back from the sample's routed ``.kicad_pcb`` text."""
+    from _altium_copper import routed_board_text
+
+    from fenolite.backends.kicad.pcb import read_board
+
+    board = read_board(routed_board_text(edit), file=BOARD, issues=[])
+    return build(root, CopperSource(board, "board", BOARD))
+
+
+def test_script_source_gives_the_bytes_of_the_model_source(tmp_path: Path) -> None:
+    """Scenario "Script source equals the committed sample", against a build of the routed model; task 8.3
+    compares both with the committed file."""
+    model = routed_build(tmp_path)
+    by_script = build(tmp_path, CopperSource(kicad(), "script"))
+    assert not errors(by_script) and by_script.summary["copper"]["source"] == "script"  # type: ignore[index]
+    assert by_script.files["routed.PcbDoc"] == model.files["routed.PcbDoc"]
+    for name in ("routed.PcbLib", "routed.SchDoc", "routed.SchLib", "routed.PrjPcb"):
+        assert by_script.files[name] == model.files[name], name
+
+
+def test_three_sources_give_equal_bytes(tmp_path: Path) -> None:
+    """The same copper gives the same ``routed.PcbDoc`` from the model, the script source and the board."""
+    model = routed_build(tmp_path).files["routed.PcbDoc"]
+    by_script = build(tmp_path, CopperSource(kicad(), "script")).files["routed.PcbDoc"]
+    board = from_board(tmp_path)
+    assert not errors(board) and "altium.placement-from-board" not in {i.code for i in board.issues}
+    assert board.summary["copper"]["source"] == "board"  # type: ignore[index]
+    assert model == by_script == board.files["routed.PcbDoc"]
+
+
+def test_equal_bytes_do_not_depend_on_the_ids_of_the_board(tmp_path: Path) -> None:
+    """Other uuids on the board's copper (a board saved again by KiCad) give the same document."""
+    import re
+
+    from _altium_copper import routed_board_text
+
+    from fenolite.backends.kicad.pcb import read_board
+
+    text = routed_board_text()
+    count = 0
+
+    def renumber(match: re.Match[str]) -> str:
+        nonlocal count
+        count += 1
+        return f'(uuid "{count:08x}-0000-4000-8000-000000000000")'
+
+    head, copper = text[: text.index("(segment")], text[text.index("(segment") :]
+    other = head + re.sub(r'\(uuid "[0-9a-f-]{36}"\)', renumber, copper)
+    assert count == 10 and other != text  # five tracks, the arc, three vias, the zone
+    again = build(tmp_path, CopperSource(read_board(other, file=BOARD, issues=[]), "board", BOARD))
+    assert again.files["routed.PcbDoc"] == from_board(tmp_path).files["routed.PcbDoc"]

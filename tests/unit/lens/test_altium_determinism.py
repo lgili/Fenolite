@@ -240,3 +240,37 @@ def test_hierarchy_twice_in_process_and_twice_by_subprocess(
     assert all(build == builds[0] for build in builds[1:])
     assert files_under(HIER.parent) == before, "the build changed the script folder"
     assert not list(HIER.parent.rglob("__pycache__"))
+
+
+def test_copper_from_twice_in_process_and_twice_by_subprocess(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A ``--copper-from`` build (change c0038) gives the same files under two ``PYTHONHASHSEED`` values,
+    seeds and timestamps."""
+    from _altium import blink_tree
+    from _altium_copper import routed_board_text, routed_script
+
+    config = tmp_path / "kicad-config"
+    config.mkdir()
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(config))
+    for name in ("KICAD10_SYMBOL_DIR", "KICAD9_SYMBOL_DIR", "KICAD10_FOOTPRINT_DIR", "KICAD9_FOOTPRINT_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    project = blink_tree(tmp_path / "tree")
+    script, board = project / "design.py", project / "routed.kicad_pcb"
+    script.write_text(routed_script(), encoding="utf-8")
+    board.write_text(routed_board_text(), encoding="utf-8")
+    common = ["--target", "altium", "--copper-from", str(board), "--confirm", "--json"]
+    outs = [tmp_path / "in1", tmp_path / "in2"]
+    for out in outs:
+        assert cli_main.main(["build", str(script), "--out", str(out), *common]) == 0, capsys.readouterr().err
+    capsys.readouterr()
+    for seed, stamp in ((7, "2026-01-01T00:00:00Z"), (8, "2027-06-01T00:00:00Z")):
+        out = tmp_path / f"sub{seed}"
+        env = {**os.environ, "PYTHONHASHSEED": str(seed)}
+        argv = [sys.executable, "-m", "fenolite", "build", str(script), "--out", str(out), *common]
+        argv += ["--seed", str(seed), "--timestamp", stamp]
+        proc = subprocess.run(argv, cwd=tmp_path, env=env, capture_output=True, text=True, check=False)
+        assert proc.returncode == 0, proc.stderr
+        outs.append(out)
+    builds = [files_under(out) for out in outs]
+    assert "routed.PcbDoc" in builds[0] and all(build == builds[0] for build in builds[1:])

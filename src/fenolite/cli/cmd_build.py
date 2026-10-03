@@ -155,8 +155,6 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
-    )
-    parser.add_argument(
     board_path: Path | None = None
     if args.copper_from is not None:
         if args.target != ALTIUM_TARGET:
