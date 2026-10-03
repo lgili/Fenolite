@@ -54,6 +54,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.unknown-pin": "error",
         "build.pin-on-two-nets": "error",
         "build.pin-without-pad": "error",
+        "build.no-connect-on-net": "error",
         "build.no-footprint": "error",
         "build.no-board": "error",
         "build.name-case-collision": "error",
@@ -212,6 +213,27 @@ def _pins(symbol: SymbolDef, path: str) -> list[Pin]:
     return list(pins.values())
 
 
+def _targets(designator: str, pins: list[Pin], ref: str, issues: list[Issue]) -> list[str]:
+    """The pin numbers a designator names: itself when it is a pin number (the number wins over a name,
+    with ``build.pin-ambiguous``), else every pin of that name; none gives ``build.unknown-pin``."""
+    if designator in [p.number for p in pins]:
+        if any(p.name == designator and p.number != designator for p in pins):
+            issues.append(
+                issue(
+                    "build.pin-ambiguous",
+                    f"{ref} {designator}: a pin number that is also another pin's name; the number wins",
+                    ref,
+                )
+            )
+        return [designator]
+    targets = [p.number for p in pins if p.name == designator]
+    if not targets:
+        issues.append(
+            issue("build.unknown-pin", f"{ref} {designator}: neither a pin number nor a pin name", ref)
+        )
+    return targets
+
+
 def _resolve_pins(
     design: Design, parts: list[_Part], issues: list[Issue]
 ) -> tuple[dict[str, list[Pin]], dict[str, dict[str, str]]]:
@@ -223,37 +245,48 @@ def _resolve_pins(
         for member in net.members:
             if member.component_id not in pins:
                 continue
-            numbers = [p.number for p in pins[member.component_id]]
             ref = refs[member.component_id]
-            if member.pin in numbers:
-                targets = [member.pin]
-                if any(p.name == member.pin and p.number != member.pin for p in pins[member.component_id]):
-                    issues.append(
-                        issue(
-                            "build.pin-ambiguous",
-                            f"{ref} {member.pin}: a pin number that is also another pin's name; "
-                            "the number wins",
-                            ref,
-                        )
-                    )
-            else:
-                targets = [p.number for p in pins[member.component_id] if p.name == member.pin]
-                if not targets:
-                    issues.append(
-                        issue(
-                            "build.unknown-pin",
-                            f"{ref} {member.pin}: neither a pin number nor a pin name",
-                            ref,
-                        )
-                    )
-                    continue
-            for number in targets:
+            for number in _targets(member.pin, pins[member.component_id], ref, issues):
                 current = on_net[member.component_id].get(number)
                 if current is not None and current != net.id:
                     issues.append(issue("build.pin-on-two-nets", f"{ref} pin {number} is on two nets", ref))
                     continue
                 on_net[member.component_id][number] = net.id
     return pins, on_net
+
+
+def _resolve_marks(
+    design: Design,
+    parts: list[_Part],
+    pins: Mapping[str, list[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+    issues: list[Issue],
+) -> tuple[PinRef, ...]:
+    """The no-connect marks of ``design`` as pin numbers, in ``PinRef`` order without duplicates. A mark
+    is resolved like a net member; a marked pin that a net lists gives ``build.no-connect-on-net`` and is
+    left out, and a mark on a component the build does not hold is kept for ``Design.validate()``."""
+    refs = {p.component.id: p.component.ref for p in parts}
+    names = {n.id: n.name for n in design.circuit.nets}
+    marks: set[PinRef] = set()
+    for mark in sorted(design.circuit.no_connects):
+        if mark.component_id not in pins:
+            marks.add(mark)
+            continue
+        ref = refs[mark.component_id]
+        for number in _targets(mark.pin, pins[mark.component_id], ref, issues):
+            net_id = on_net[mark.component_id].get(number)
+            if net_id is not None:
+                issues.append(
+                    issue(
+                        "build.no-connect-on-net",
+                        f"{ref} pin {number} is marked as not connected and is on net {names[net_id]}",
+                        ref,
+                        "remove the mark or take the pin off the net",
+                    )
+                )
+                continue
+            marks.add(PinRef(mark.component_id, number))
+    return tuple(sorted(marks))
 
 
 def _case_collisions(design: Design, issues: list[Issue]) -> None:
@@ -361,6 +394,7 @@ def build_design(
     parts, libraries = _resolve(design, resolver, issues)
     plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
+    marks = _resolve_marks(design, parts, pins, on_net, issues)
     _case_collisions(design, issues)
     for itf in design.circuit.interfaces:
         if itf.kind == "diff_pair":
@@ -450,7 +484,9 @@ def build_design(
     )
     built = dataclasses.replace(
         design,
-        circuit=dataclasses.replace(design.circuit, components=tuple(components), nets=nets),
+        circuit=dataclasses.replace(
+            design.circuit, components=tuple(components), nets=nets, no_connects=marks
+        ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()

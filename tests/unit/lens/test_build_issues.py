@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Build issue codes and evidence (capability design-dsl, "Build issue codes" and "Build evidence";
-changes c0011, c0027 and c0019; preservation codes are build codes)."""
+changes c0011, c0027, c0019 and c0036; preservation codes are build codes)."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ def test_closed_set() -> None:
         "build.property-reserved": "error", "build.property-invalid": "error",
         "build.property-conflict": "error", "build.vendor-unsafe-name": "error",
         "build.library-changed": "warning",
+        "build.no-connect-on-net": "error",  # c0036
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table

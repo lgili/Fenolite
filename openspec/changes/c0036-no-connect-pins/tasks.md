@@ -22,7 +22,7 @@
 
 ## 4. KiCad build and check, while the maintainer tests
 
-- [ ] 4.1 Resolve the marks in `lens/build.py`: pin numbers and names, `build.unknown-pin`, `build.pin-ambiguous`, the new `build.no-connect-on-net`, and the rewritten marks in the built model. Write `tests/unit/lens/test_build_no_connect.py` and extend `test_build_issues.py`. Proof: `uv run pytest tests/unit/lens/test_build_no_connect.py tests/unit/lens/test_build_issues.py tests/unit/lens/test_build_determinism.py`; covering every scenario of "No-connect marks in a build".
+- [x] 4.1 Resolve the marks in `lens/build.py`: pin numbers and names, `build.unknown-pin`, `build.pin-ambiguous`, the new `build.no-connect-on-net`, and the rewritten marks in the built model. Write `tests/unit/lens/test_build_no_connect.py` and extend `test_build_issues.py`. Proof: `uv run pytest tests/unit/lens/test_build_no_connect.py tests/unit/lens/test_build_issues.py tests/unit/lens/test_build_determinism.py`; covering every scenario of "No-connect marks in a build".
 - [ ] 4.2 Exempt marked pins in `checks/erc_lite.py` and extend `tests/unit/checks/test_erc_lite.py`. Proof: `uv run pytest tests/unit/checks -k "erc_lite"`; `uv run pytest tests/unit/checks -k codes`; covering the scenarios "Marked pin is not floating" and "Marked pins of a built project".
 
 ## 5. Documentation and the maintainer's report
