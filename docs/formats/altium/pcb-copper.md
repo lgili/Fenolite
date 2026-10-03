@@ -110,7 +110,7 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | A track or polygon written on Mid-Layer 2 of the chain 1 → 39 → 3 → 32 arrives on `In2.Cu` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 | KiCad warns once per internal plane that is outside the stack ("could not be mapped"): sixteen warnings without a plane in the chain, fifteen with one, fourteen with two | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 | A plane's net is not in the imported board: KiCad makes zones from split-plane records only. Net classes and rules give no error and are not in the imported `.kicad_pcb` | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
-| Copper copied from a KiCad board into the document and imported back equals the source board's copper | S-0161, S-0166, S-0020 | INFERRED | H-A-PCB-CU-ROUNDTRIP |
+| Copper copied from a KiCad board into the document and imported back equals the source board's copper | S-0161, S-0166, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-ROUNDTRIP |
 
 ## Not written
 
