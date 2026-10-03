@@ -208,7 +208,9 @@ unconnected. Altium's compiler otherwise reports each open input as a floating p
   source says that a directive on a pin's end without a wire silences the compiler for that pin
   (`H-A-SCH-NC-ERC`), nor that the Altium 365 Viewer draws it (`H-A-SCH-NC-VIEWER`); the maintainer
   checks all three with `examples/altium_kicad/no_connect.py` (Part N of
-  `docs/evidence/altium-schematic.md`).
+  `docs/evidence/altium-schematic.md`). On 2026-10-03, in Altium Designer 26.5, a binary build of the
+  blink example with two marked pins showed the cross at each marked pin, and the compiler no longer
+  named those pins; the committed sample, the ASCII form and the Viewer are not reported.
 
 ## Schematic forms
 

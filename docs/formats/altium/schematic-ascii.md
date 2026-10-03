@@ -114,13 +114,20 @@ Change c0036 writes one directive at each pin that the design marks as intention
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| Record 22 is the No ERC directive: a cross that marks an intentional non-connection | S-0130, S-0131 | INFERRED | H-A-SCH-NC-RECORD |
+| Record 22 is the No ERC directive: a cross that marks an intentional non-connection | S-0130, S-0131 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-NC-RECORD |
 | Its keys are `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` and `COLOR`, with an optional `INDEXINSHEET` | S-0130 | INFERRED | H-A-SCH-NC-RECORD |
 | Its optional keys are `ISACTIVE=T`, `ORIENTATION` (an integer), `SUPPRESSALL=T`, `SYMBOL=Thin Cross` and `UNIQUEID` | S-0130 | INFERRED | H-A-SCH-NC-RECORD |
 | A reader takes the location from `LOCATION.X` and `LOCATION.Y`, and takes "active" and "suppress all" as true when `ISACTIVE` and `SUPPRESSALL` are missing | S-0131 | INFERRED | H-A-SCH-NC-RECORD |
 | The directive has selectable styles and two modes: "Suppress All Violations", which silences every warning and error at its point, and "Suppress Specific Violations", which silences only the chosen ones | S-0180 | INFERRED | H-A-SCH-NC-ERC |
 | Altium's documentation places the directive on a wire or another net object. No source says that a directive on a pin's electrical end without a wire suppresses that pin's violations, nor that it leaves other pins alone | S-0180 | INFERRED | H-A-SCH-NC-ERC |
 | The Altium 365 Viewer renders schematic documents; whether it draws record 22 is not stated | S-0149 | INFERRED | H-A-SCH-NC-VIEWER |
+
+The maintainer's report of 2026-10-03 (Altium Designer 26.5, a trial licence on the maintainer's own PC;
+`docs/evidence/altium-schematic.md`, "Reports", Part N) opened a binary build with two marked pins: the
+cross shows at each marked pin's end, so the first row carries `ALTIUM-VERIFIED(author-report)`. The rows
+about optional keys and a reader's defaults say more than the report saw and stay `INFERRED`. After
+"Validate PCB Project" no message names the marked pins, while the unmarked build names them; whether
+other pins keep their messages was not reported, so the `H-A-SCH-NC-ERC` rows stay `INFERRED`.
 
 ## Unique ids
 

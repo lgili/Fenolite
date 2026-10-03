@@ -614,6 +614,35 @@ Reading and consequences:
   to match now that its sheet is compiled), the Projects panel of the hierarchy sample in the order
   written now with its harness files (`H-A-SCH-HIER-PRJ`), and steps H3 to H5.
 
+### 2026-10-03, `AD 26.5`, Part N
+
+- Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03;
+  no artefact)`.
+- Files: a build of the blink example with `no_connect` on `U1` pins `11` and `12`, written outside the
+  repository, in the binary form. It is not the committed sample of Part N (`altium_no_connect`, `U1`
+  pins `2`, `4` and `8`): the two marked pins are those whose messages the report of steps A7, L4 and L5
+  names. Fenolite's authored example only; no file opened or saved in the session enters the repository.
+
+Outcome per step:
+
+- **N1, on the blink variant.** The schematic opened, and a No ERC cross shows at the end of each of the
+  two marked pins. Confirms `H-A-SCH-NC-RECORD` for the binary form. The directive's mode in the
+  Properties panel and a directive at the end of a hidden pin (pin `8` of the committed sample) were not
+  reported.
+- **N2, on the blink variant.** After "Project » Validate PCB Project" no message names `U1` pin `11` or
+  `12`. In the build without the marks the same pins gave a floating-input message and a "no driving
+  source" message for the nets `NetU1_11` and `NetU1_12`, so the unmarked build is the positive control
+  for the suppression. Whether the messages of the other, unmarked pins stayed was not reported, so the
+  half "only for that pin" of `H-A-SCH-NC-ERC` is not settled: the row stays pending with this
+  observation.
+- **N3.** Not reported: the ASCII form.
+- **N4.** Not reported: the Viewer (`H-A-SCH-NC-VIEWER` stays pending).
+- **Not reported:** the committed sample of Part N with its control pin `3`.
+
+The report names no fault, so no fact of `docs/formats/altium/schematic-ascii.md` changed in substance
+and no golden file was rebuilt.
+
 ### Status of Part A and Part B
 
 - No Altium Designer run of the ASCII sample (Part A, steps A1 to A6) or of Part B has been reported.
@@ -623,5 +652,7 @@ Reading and consequences:
   `H-A-SCHLIB-PRJ` and the two oracle rows stay `INFERRED` with `pending (author report)`. A result made
   with a work licence is not recorded (`LEGAL.md`, P4).
 - The Altium 365 Viewer's refusal of the ASCII files (V3 above) concerns the Viewer only.
-- No report of the no-connect check (N1 to N4) exists yet: `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC` and
-  `H-A-SCH-NC-VIEWER` stay `INFERRED` with `pending (author report)`.
+- Part N is reported for steps N1 and N2 on a blink variant, in the binary form (report of 2026-10-03):
+  `H-A-SCH-NC-RECORD` is confirmed for the binary form; `H-A-SCH-NC-ERC` and `H-A-SCH-NC-VIEWER` stay
+  `INFERRED` with `pending (author report)`. The committed sample of Part N, the ASCII form (N3) and the
+  Viewer (N4) are not reported.
