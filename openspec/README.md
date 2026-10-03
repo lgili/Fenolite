@@ -46,5 +46,6 @@ until its change is proposed.
 | c0033 | `altium-binary-schematic` | follow-up | c0032 |
 | c0034 | `altium-schlib-writer` | v0.4 item pulled forward | c0032 |
 | c0035 | `altium-pcb-writers` | v0.4 items pulled forward | c0032 |
+| c0036 | `no-connect-pins` | follow-up | c0032 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
