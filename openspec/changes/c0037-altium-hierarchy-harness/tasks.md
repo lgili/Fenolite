@@ -11,7 +11,7 @@
 
 ## 2. DSL
 
-- [ ] 2.1 Add `Harness` to `src/fenolite/dsl/interfaces.py` and its re-export to `dsl/__init__.py`. Write `tests/unit/dsl/test_harness.py`, with the KiCad build case (same issues, same bytes outside `.fenolite/`). Proof: `uv run pytest tests/unit/dsl tests/unit/test_import_graph.py`; `uv run python -c "from fenolite.dsl import Harness; print(Harness.__module__)"` prints `fenolite.dsl.interfaces`; covering every scenario of "Harness interfaces in the DSL".
+- [x] 2.1 Add `Harness` to `src/fenolite/dsl/interfaces.py` and its re-export to `dsl/__init__.py`. Write `tests/unit/dsl/test_harness.py`, with the KiCad build case (same issues, same bytes outside `.fenolite/`). Proof: `uv run pytest tests/unit/dsl tests/unit/test_import_graph.py`; `uv run python -c "from fenolite.dsl import Harness; print(Harness.__module__)"` prints `fenolite.dsl.interfaces`; covering every scenario of "Harness interfaces in the DSL".
 
 ## 3. Sheets, symbols and ports
 

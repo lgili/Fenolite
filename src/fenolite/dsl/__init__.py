@@ -10,7 +10,7 @@ model design with ids keyed by names and paths. It reads no library, file or env
 from fenolite.dsl.convert import BOARD_ORIGIN, DSL_BACKEND, KEYS, moves, placements, to_model
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
-from fenolite.dsl.interfaces import DiffPair, Interface, Power
+from fenolite.dsl.interfaces import DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import Net, Part, Placement, connect, no_connect
 from fenolite.dsl.units import Length, inch, mil, mm, nm
@@ -22,6 +22,7 @@ __all__ = [
     "Design",
     "DiffPair",
     "DslError",
+    "Harness",
     "Interface",
     "Length",
     "Module",
