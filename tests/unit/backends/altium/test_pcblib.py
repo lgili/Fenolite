@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import struct
 from decimal import Decimal
 from pathlib import Path
 
@@ -194,7 +195,10 @@ def test_library_of_the_mini_footprints() -> None:
 
     lib = read_pcblib(_library(*(lib_footprint(n) for n in NAMES)))
     assert lib.names == sorted(NAMES, key=lambda n: (len(n), n.upper()))
-    assert lib.library_fields == {"HEADER": "PCB 6.0 Binary Library File", "WEIGHT": "3"}
+    assert lib.library_fields["KIND"] == "Protel_Advanced_PCB_Library"
+    assert lib.library_fields["FILENAME"] == "Fenolite.PcbLib"
+    assert [row["Name"] for row in lib.toc] == lib.names
+    assert {row["Name"]: row["Pad Count"] for row in lib.toc}[NAMES[1]] == "32"
     assert "SectionKeys" not in lib.streams
     for name in NAMES:
         footprint = lib.footprints[name]
@@ -209,24 +213,76 @@ def test_library_of_the_mini_footprints() -> None:
 
 
 def test_library_streams_and_nothing_else() -> None:
-    from _altium_pcb_read import read_pcblib
+    from _altium_pcb_read import LIBRARY_STREAMS, read_pcblib
 
     lib = read_pcblib(_library(lib_footprint("Mini_R_0603")))
     assert sorted(lib.streams) == sorted(
         [
             "FileHeader",
-            "Library/Header",
-            "Library/Data",
-            "Library/Models/Header",
-            "Library/Models/Data",
+            *LIBRARY_STREAMS[1:],
             "Mini_R_0603/Header",
             "Mini_R_0603/Parameters",
             "Mini_R_0603/WideStrings",
             "Mini_R_0603/Data",
-            "Mini_R_0603/UniqueIdPrimitiveInformation/Header",
-            "Mini_R_0603/UniqueIdPrimitiveInformation/Data",
+            "Mini_R_0603/UniqueIDPrimitiveInformation/Header",
+            "Mini_R_0603/UniqueIDPrimitiveInformation/Data",
         ]
     )
+
+
+def test_file_header_and_library_ids() -> None:
+    """Scenario "Library header and side streams": 53 bytes, ids that follow the file name only."""
+    from _altium_pcb_read import read_pcblib
+
+    from fenolite.backends.altium.pcblib import write_pcblib
+
+    footprint = lib_footprint("Mini_R_0603")
+    first = read_pcblib(write_pcblib([footprint], filename="a.PcbLib"))
+    again = read_pcblib(write_pcblib([footprint], filename="a.PcbLib"))
+    other = read_pcblib(write_pcblib([footprint], filename="b.PcbLib"))
+    assert len(first.streams["FileHeader"]) == 53
+    assert first.unique_id == again.unique_id != other.unique_id
+    assert first.library_fields["FILENAME"] == "a.PcbLib"
+    pad_via = first.streams["Library/PadViaLibrary/Data"]
+    assert (
+        pad_via == again.streams["Library/PadViaLibrary/Data"] != other.streams["Library/PadViaLibrary/Data"]
+    )
+    assert b"PADVIALIBRARY.LIBRARYNAME=<Local>|PADVIALIBRARY.DISPLAYUNITS=1" in pad_via
+
+
+def test_board_record_is_whole_and_marks_the_used_layers() -> None:
+    """Scenario "Board record": the block is longer than 65 535 bytes and its length word has type 0."""
+    from _altium_pcb_read import read_pcblib
+
+    lib = read_pcblib(_library(lib_footprint("Mini_R_0603")))
+    data = lib.streams["Library/Data"]
+    (word,) = struct.unpack_from("<I", data, 0)
+    assert 65_535 < word < 1 << 24 and len(lib.board) == 2044
+    assert data[4 : 4 + word].count(b"\r") == 24 and b"\n" not in data[4 : 4 + word]
+    assert "HEADER" not in lib.library_fields and "WEIGHT" not in lib.library_fields
+    used = sorted(
+        key for key, value in lib.board if key.startswith("V9_CACHE") and value == "TRUE" and "USED" in key
+    )
+    layers = {p.prefix.layer for p in lib.footprints["Mini_R_0603"].primitives}
+    assert layers == {1, 33, 69, 71} and len(used) == len(layers)
+
+
+def test_library_without_footprints() -> None:
+    from _altium_pcb_read import read_pcblib
+
+    lib = read_pcblib(_library())
+    assert lib.names == [] and lib.toc == [] and lib.footprints == {}
+    assert lib.streams["Library/ComponentParamsTOC/Data"] == struct.pack("<I", 1) + b"\0"
+    assert not [key for key, value in lib.board if key.endswith("USEDBYPRIMS") and value == "TRUE"]
+
+
+def test_library_file_name_with_a_folder_is_refused() -> None:
+    from fenolite.backends.altium.pcblib import write_pcblib
+
+    with pytest.raises(ValueError, match="holds a folder"):
+        write_pcblib([], filename="lib/a.PcbLib")
+    with pytest.raises(ValueError, match="the library file name"):
+        write_pcblib([], filename="a|b.PcbLib")
 
 
 def test_long_name() -> None:

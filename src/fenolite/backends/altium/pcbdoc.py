@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
+from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
     LibFootprint,
     PadExtras,
@@ -138,9 +139,20 @@ def file_header() -> bytes:
     return _u32(19) + FILE_HEADER_TEXT[:10].encode("utf-16-le")
 
 
-def file_header_six() -> bytes:
+def file_header_six(key: str = "") -> bytes:
+    """``FileHeaderSix``: the header text, the version double and the document's GUID, each text as a
+    32-bit length and a length byte that both hold the text length. ``key`` names the document."""
     text = FILE_HEADER_SIX_TEXT.encode("ascii")
-    return _u32(19) + bytes((len(text),)) + text + struct.pack("<d", FILE_HEADER_SIX_VERSION)
+    unique = guid(f"pcbdoc:{key}").encode("ascii")
+    return (
+        _u32(len(text))
+        + bytes((len(text),))
+        + text
+        + struct.pack("<d", FILE_HEADER_SIX_VERSION)
+        + _u32(len(unique))
+        + bytes((len(unique),))
+        + unique
+    )
 
 
 def board_record(outline: Sequence[Point]) -> bytes:
@@ -336,7 +348,7 @@ def write_pcbdoc(spec: PcbDocSpec) -> bytes:
             wide.append(_wide_entry(number, text))
     entries: list[Entry] = [
         ("FileHeader", file_header()),
-        ("FileHeaderSix", file_header_six()),
+        ("FileHeaderSix", file_header_six(",".join(c.unique_id for c in spec.components))),
         _storage("Board6", [board_record(spec.outline)]),
         _storage("Nets6", [rec.property_block((("NAME", name),)) for name in net_names]),
         _storage("Components6", components),

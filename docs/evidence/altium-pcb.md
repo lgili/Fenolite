@@ -23,11 +23,21 @@ names them.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/blink/blink.PcbDoc` | `192a827d0f6f76fe313b6b3cd06d24d2cd4d090a212f218762b8b2dd80cae479` |
-| `tests/data/altium/blink/blink.PcbLib` | `dbe1aef899cb7a8d16ad0dfb88fa10fe44715612c1144c66ec4cce948e05025a` |
+| `tests/data/altium/blink/blink.PcbDoc` | `2b8b3379695117ff900185878dfc7cae33db98b22315f14c200443dd8cc4b256` |
+| `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
 | `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
 | `tests/data/altium/blink/blink.SchLib` | `4f3accb1f9634c7cedd305240493e6d6e9a2cfde3d3e0ff0aee0a75e6387517e` |
+
+### Report of 2026-10-03 and the files since
+
+The maintainer opened the first `blink.PcbLib` (SHA-256 `dbe1aef8…025a`, the stream set of AltiumSharp
+version 1 alone) in an Altium Designer trial: a "catastrophic" error, and the same for a library without
+footprints. The library is since written in the form Altium saves (`docs/formats/altium/pcb-library.md`:
+the 53-byte `FileHeader`, the whole board record in `Library/Data`, the `Library` side streams), and
+`blink.PcbDoc` carries the id block of `FileHeaderSix`; the digests above are the new files. Step D1 is to
+be repeated on them. If the library opens but a footprint looks wrong, report which of pads, lines or arcs:
+their records keep the short forms of `pcb-records.md` (`H-A-PCB-PAD`, `H-A-PCB-GRAPHICS`).
 
 ### Pads of the library
 

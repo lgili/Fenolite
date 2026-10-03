@@ -33,9 +33,9 @@ def test_storages_of_the_sample() -> None:
     for name in EMPTY_STORAGES:
         assert doc.storages[name] == (0, b"")
     assert doc.file_header == struct.pack("<I", 19) + "PCB 5.0 Bi".encode("utf-16-le")
-    assert doc.file_header_six == struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack(
-        "<d", 5.01
-    )
+    start = struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", 5.01)
+    assert doc.file_header_six.startswith(start + struct.pack("<IB", 38, 38) + b"{")
+    assert len(doc.file_header_six) == len(start) + 5 + 38 and doc.file_header_six.endswith(b"}")
 
 
 def test_two_layer_stack() -> None:

@@ -316,7 +316,7 @@ def run_pcb_too_large() -> tuple[Issue, ...]:
 
     original = altium_project.write_pcblib
 
-    def refuse(footprints: object) -> bytes:
+    def refuse(footprints: object, **_kwargs: object) -> bytes:
         raise cfb.CompoundTooLarge("patched")
 
     altium_project.write_pcblib = refuse  # type: ignore[assignment]

@@ -346,7 +346,7 @@ def write_project(
             raise LibraryTooLarge(library, error) from error
     if footprints:
         try:
-            files[f"{name}.PcbLib"] = write_pcblib(footprints)
+            files[f"{name}.PcbLib"] = write_pcblib(footprints, filename=f"{name}.PcbLib")
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
     if pcb is not None:

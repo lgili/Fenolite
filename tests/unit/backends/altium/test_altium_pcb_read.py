@@ -48,31 +48,69 @@ def pad(geometry: int = 114, component: int = 0xFFFF, net: int = 0xFFFF) -> byte
     return bytes((2,)) + sub(b"\x011") + sub(b"\0") + sub(b"\x04|&|0") + sub(b"\0") + sub(body) + sub(b"")
 
 
-def library(data: bytes, *, parameters: bool = True) -> bytes:
-    count = len(decode_primitives(data))
+FILE_HEADER = struct.pack("<IB", 27, 27) + b"PCB 6.0 Binary Library File" + struct.pack("<d", 5.01)
+FILE_HEADER += struct.pack("<IB", 8, 8) + b"ABCDEFGH"
+BOARD = {"FILENAME": "FP.PcbLib", "KIND": "Protel_Advanced_PCB_Library", "VERSION": "3.00"}
+BOARD["V9_MASTERSTACK_STYLE"] = "0"
+
+
+def library(
+    data: bytes,
+    *,
+    parameters: bool = True,
+    file_header: bytes = FILE_HEADER,
+    board: dict[str, str] | None = None,
+    without: str | None = None,
+    unique: str = "UniqueIDPrimitiveInformation",
+) -> bytes:
+    primitives = decode_primitives(data)
+    pads = sum(type(p).__name__ == "PadRecord" for p in primitives)
+    toc = f"Name=FP|Pad Count={pads}|Height=0|Description=\r\n".encode("ascii") + b"\0"
+    zero = struct.pack("<I", 0)
     streams = {
-        "FileHeader": struct.pack("<IB", 27, 27) + b"PCB 6.0 Binary Library File",
+        "FileHeader": file_header,
         "Library/Header": struct.pack("<I", 1),
-        "Library/Data": prop(HEADER="PCB 6.0 Binary Library File", WEIGHT="1")
-        + struct.pack("<I", 1)
-        + sblock("FP"),
-        "Library/Models/Header": struct.pack("<I", 0),
+        "Library/Data": prop(**(BOARD if board is None else board)) + struct.pack("<I", 1) + sblock("FP"),
+        "Library/EmbeddedFonts": zero,
+        "Library/Models/Header": zero,
         "Library/Models/Data": b"",
-        "FP/Header": struct.pack("<I", count),
+        "Library/ModelsNoEmbed/Header": zero,
+        "Library/ModelsNoEmbed/Data": b"",
+        "Library/Textures/Header": zero,
+        "Library/Textures/Data": b"",
+        "Library/ComponentParamsTOC/Header": struct.pack("<I", 1),
+        "Library/ComponentParamsTOC/Data": struct.pack("<I", len(toc)) + toc,
+        "Library/PadViaLibrary/Header": zero,
+        "Library/PadViaLibrary/Data": prop(
+            **{
+                "PADVIALIBRARY.LIBRARYID": "{00000000-0000-0000-0000-000000000000}",
+                "PADVIALIBRARY.LIBRARYNAME": "<Local>",
+                "PADVIALIBRARY.DISPLAYUNITS": "1",
+            }
+        ),
+        "FP/Header": struct.pack("<I", len(primitives)),
         "FP/WideStrings": struct.pack("<I", 1) + b"\0",
         "FP/Data": sblock("FP") + data,
-        "FP/UniqueIdPrimitiveInformation/Header": struct.pack("<I", 0),
-        "FP/UniqueIdPrimitiveInformation/Data": b"",
+        f"FP/{unique}/Header": zero,
+        f"FP/{unique}/Data": b"",
     }
     if parameters:
-        streams["FP/Parameters"] = prop(PATTERN="FP", HEIGHT="0mil")
+        streams["FP/Parameters"] = prop(
+            PATTERN="FP", HEIGHT="0mil", DESCRIPTION="", ITEMGUID="", REVISIONGUID=""
+        )
+    if without is not None:
+        del streams[without]
     return write_compound(storage_from_paths(streams))
+
+
+HEADER_SIX = struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", 5.01)
+HEADER_SIX += struct.pack("<IB", 38, 38) + b"{01234567-89AB-CDEF-0123-456789ABCDEF}"
 
 
 def document(pads: bytes, components: int = 3) -> bytes:
     streams = {
         "FileHeader": struct.pack("<I", 19) + "PCB 5.0 Bi".encode("utf-16-le"),
-        "FileHeaderSix": struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", 5.01),
+        "FileHeaderSix": HEADER_SIX,
         "Board6/Header": struct.pack("<I", 1),
         "Board6/Data": prop(KIND="Protel_Advanced_PCB", LAYER1NAME="Top Layer"),
         "Nets6/Header": struct.pack("<I", 1),
@@ -95,10 +133,68 @@ def test_positive_library() -> None:
     assert getattr(first, "name", None) == "1" and getattr(first, "geometry_size", None) == 114
 
 
+def test_file_header_of_32_bytes() -> None:
+    """The header that AltiumSharp version 1 writes, which Altium refuses (``pcb-library.md``)."""
+    with pytest.raises(PcbReadError, match="FileHeader holds 32 bytes, not 53"):
+        read_pcblib(library(pad(), file_header=FILE_HEADER[:32]))
+
+
+def test_file_header_with_another_version() -> None:
+    header = FILE_HEADER[:32] + struct.pack("<d", 6.0) + FILE_HEADER[40:]
+    with pytest.raises(PcbReadError, match="the version is 6.0, not 5.01"):
+        read_pcblib(library(pad(), file_header=header))
+
+
+def test_board_record_of_header_and_weight() -> None:
+    """The two-key block of version 1, which Altium refuses."""
+    with pytest.raises(PcbReadError, match="does not hold KIND=Protel_Advanced_PCB_Library"):
+        read_pcblib(library(pad(), board={"HEADER": "PCB 6.0 Binary Library File", "WEIGHT": "1"}))
+    with pytest.raises(PcbReadError, match="holds HEADER or WEIGHT"):
+        read_pcblib(library(pad(), board={**BOARD, "WEIGHT": "1"}))
+
+
+@pytest.mark.parametrize(
+    "stream",
+    [
+        "Library/EmbeddedFonts",
+        "Library/Textures/Header",
+        "Library/ModelsNoEmbed/Data",
+        "Library/PadViaLibrary/Data",
+    ],
+)
+def test_library_without_a_side_stream(stream: str) -> None:
+    with pytest.raises(PcbReadError, match=f"the library has no stream {stream}"):
+        read_pcblib(library(pad(), without=stream))
+
+
+def test_board_record_with_a_stray_cr() -> None:
+    from _altium_pcb_read import field_block_at
+
+    good = b"|KIND=X\r|RECORD=Board|A=1\0"
+    fields, end = field_block_at(struct.pack("<I", len(good)) + good, 0, "t")
+    assert fields == [("KIND", "X"), ("RECORD", "Board"), ("A", "1")] and end == 4 + len(good)
+    bad = b"|KIND=X\r|A=1\0"
+    with pytest.raises(PcbReadError, match="line 1 does not start with"):
+        field_block_at(struct.pack("<I", len(bad)) + bad, 0, "t")
+    with pytest.raises(PcbReadError, match="is not printable KEY=VALUE"):
+        field_block_at(struct.pack("<I", 9) + b"|KIND=X\n\0", 0, "t")
+
+
+def test_unique_id_storage_spelling() -> None:
+    with pytest.raises(PcbReadError, match="no storage spelled UniqueIDPrimitiveInformation"):
+        read_pcblib(library(pad(), unique="UniqueIdPrimitiveInformation"))
+
+
 def test_positive_document() -> None:
     doc = read_pcbdoc(document(pad(component=2, net=0)))
     assert len(doc.components) == 3 and doc.pads[0].prefix.component == 2 and doc.nets[0]["NAME"] == "GND"
     assert doc.storages["Vias6"] == (0, b"")
+
+
+def test_file_header_six_without_its_id() -> None:
+    cut = document(pad(component=2, net=0)).replace(HEADER_SIX[33:], bytes(len(HEADER_SIX) - 33))
+    with pytest.raises(PcbReadError, match="FileHeaderSix is not the header text"):
+        read_pcbdoc(cut)
 
 
 def test_pad_subrecord_5_of_100_bytes() -> None:
@@ -151,7 +247,7 @@ def _with_pads_header(count: int) -> bytes:
     pads = pad()
     streams = {
         "FileHeader": struct.pack("<I", 19) + "PCB 5.0 Bi".encode("utf-16-le"),
-        "FileHeaderSix": struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", 5.01),
+        "FileHeaderSix": HEADER_SIX,
         "Board6/Header": struct.pack("<I", 1),
         "Board6/Data": prop(KIND="Protel_Advanced_PCB"),
         "Pads6/Header": struct.pack("<I", count),

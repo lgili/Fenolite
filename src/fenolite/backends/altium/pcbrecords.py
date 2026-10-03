@@ -28,6 +28,8 @@ from fenolite.core.evidence import Evidence, Level
 UNITS_PER_MIL = 10_000
 """One binary unit is 1/10 000 mil, exactly 2.54 nm."""
 _INT32 = (-(2**31), 2**31 - 1)
+MAX_PAYLOAD = 0xFFFFFF
+"""The longest property block: its length lies in the low 24 bits of the length word."""
 NO_INDEX = 0xFFFF
 """A net, polygon or component index that names nothing."""
 FLAGS = (0x0C, 0x00)
@@ -154,6 +156,15 @@ def short_string(text: str) -> bytes:
 def property_block(fields: Sequence[Field]) -> bytes:
     """One property block: c0033's ``binary.frame_record``."""
     return frame_record(fields)
+
+
+def text_block(text: str) -> bytes:
+    """A property block from its text (``|KEY=VALUE…``, which may hold CR between lines): the 32-bit
+    length, the 7-bit ASCII text and the NUL; ``ValueError`` past the 24 bits of the length."""
+    payload = text.encode("ascii") + b"\0"
+    if len(payload) > MAX_PAYLOAD:
+        raise ValueError(f"a property block of {len(payload)} bytes is over {MAX_PAYLOAD} bytes")
+    return struct.pack("<I", len(payload)) + payload
 
 
 def subrecord(data: bytes) -> bytes:
@@ -394,6 +405,7 @@ __all__ = [
     "short_string",
     "string_block",
     "subrecord",
+    "text_block",
     "to_units",
     "track_record",
 ]

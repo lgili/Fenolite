@@ -13,6 +13,7 @@ and every ``Library/Data`` name found through a ``Parameters`` stream holding it
 
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass, field
 
@@ -21,6 +22,22 @@ from _cfb_read import parse_compound
 NO_INDEX = 0xFFFF
 UNITS_PER_MIL = 10_000
 LIBRARY_HEADER = "PCB 6.0 Binary Library File"
+LIBRARY_VERSION = 5.01
+LIBRARY_KIND = "Protel_Advanced_PCB_Library"
+UNIQUE_STORAGE = "UniqueIDPrimitiveInformation"
+PARAMETER_KEYS = ("PATTERN", "HEIGHT", "DESCRIPTION", "ITEMGUID", "REVISIONGUID")
+LIBRARY_STREAMS = (
+    "FileHeader",
+    "Library/Header",
+    "Library/Data",
+    "Library/EmbeddedFonts",
+    *(
+        f"Library/{storage}/{stream}"
+        for storage in ("Models", "ModelsNoEmbed", "Textures", "ComponentParamsTOC", "PadViaLibrary")
+        for stream in ("Header", "Data")
+    ),
+)
+"""Every stream a library holds beside its footprints (``pcb-library.md``, "Container")."""
 TRACK, ARC, PAD, TEXT = 4, 1, 2, 5
 MINIMUMS = {TRACK: 36, ARC: 47}
 PAD_GEOMETRY_MIN = 110
@@ -131,6 +148,10 @@ class PcbLib:
     section_keys: dict[str, str]
     streams: dict[str, bytes]
     storages: list[str]
+    board: list[tuple[str, str]] = field(default_factory=lambda: [])
+    """The fields of the board record in order; ``RECORD`` repeats."""
+    unique_id: str = ""
+    toc: list[dict[str, str]] = field(default_factory=lambda: [])
 
 
 @dataclass
@@ -341,29 +362,96 @@ def _indexes(primitives: list[Primitive], nets: int, components: int, where: str
             raise PcbReadError(f"{where} record {number}: component {pre.component} of {components}")
 
 
+def field_block_at(data: bytes, offset: int, where: str) -> tuple[list[tuple[str, str]], int]:
+    """One property block of lines as its fields in order (keys may repeat) and the offset after it; the
+    length is the low 24 bits of the length word. One CR stands between the lines, and every line after
+    the first starts with ``RECORD=Board``."""
+    (word,) = struct.unpack_from("<I", data, offset)
+    length = word & 0xFFFFFF
+    raw = data[offset + 4 : offset + 4 + length]
+    if word >> 24 or len(raw) != length or not raw.endswith(b"\0"):
+        raise PcbReadError(f"{where}: a property block is cut short or lacks its NUL")
+    text = raw[:-1].decode("ascii")
+    fields: list[tuple[str, str]] = []
+    for number, line in enumerate(text.split("\r")):
+        if not line.startswith("|" if number == 0 else "|RECORD=Board|"):
+            raise PcbReadError(f"{where}: line {number} does not start with '|' or with RECORD=Board")
+        for part in line[1:].split("|"):
+            key, found, value = part.partition("=")
+            if not found or not key or any(not 0x20 <= ord(ch) <= 0x7E for ch in part):
+                raise PcbReadError(f"{where}: the field {part[:30]!r} is not printable KEY=VALUE")
+            fields.append((key, value))
+    return fields, offset + 4 + length
+
+
+def _file_header(header: bytes) -> str:
+    """The library's unique id from the 53-byte ``FileHeader``: the counted header text, the double 5.01
+    and the counted id of eight upper-case letters."""
+    text = LIBRARY_HEADER.encode("ascii")
+    start = struct.pack("<IB", len(text), len(text)) + text
+    if not header.startswith(start):
+        raise PcbReadError("FileHeader does not start with the library header text")
+    rest = header[len(start) :]
+    if len(rest) != 8 + 4 + 1 + 8:
+        raise PcbReadError(f"FileHeader holds {len(header)} bytes, not 53")
+    (version,) = struct.unpack_from("<d", rest, 0)
+    if version != LIBRARY_VERSION:
+        raise PcbReadError(f"FileHeader: the version is {version}, not {LIBRARY_VERSION}")
+    length, short = struct.unpack_from("<IB", rest, 8)
+    unique_id = rest[13:].decode("ascii")
+    if length != 8 or short != 8 or not (unique_id.isalpha() and unique_id.isupper()):
+        raise PcbReadError("FileHeader: the unique id is not eight upper-case letters")
+    return unique_id
+
+
+def _params_toc(data: bytes) -> list[dict[str, str]]:
+    """The rows of ``ComponentParamsTOC/Data``: one block of CR LF lines of ``Key=value`` joined by ``|``."""
+    (length,) = struct.unpack_from("<I", data, 0)
+    raw = data[4:]
+    if len(raw) != length or not raw.endswith(b"\0"):
+        raise PcbReadError("ComponentParamsTOC/Data: the block is cut short or lacks its NUL")
+    text = raw[:-1].decode("ascii")
+    if text and not text.endswith("\r\n"):
+        raise PcbReadError("ComponentParamsTOC/Data: the last line has no CR LF")
+    rows: list[dict[str, str]] = []
+    for line in text.split("\r\n")[:-1]:
+        row = dict(part.partition("=")[::2] for part in line.split("|"))
+        if list(row) != ["Name", "Pad Count", "Height", "Description"]:
+            raise PcbReadError(f"ComponentParamsTOC/Data: the line {line[:40]!r} lacks its four keys")
+        rows.append(row)
+    return rows
+
+
 def read_pcblib(data: bytes) -> PcbLib:
     """A PCB library (``pcb-library.md``)."""
     compound = parse_compound(data)
     streams = compound.streams
-    for path in (
-        "FileHeader",
-        "Library/Header",
-        "Library/Data",
-        "Library/Models/Header",
-        "Library/Models/Data",
-    ):
+    for path in LIBRARY_STREAMS:
         if path not in streams:
             raise PcbReadError(f"the library has no stream {path}")
-    header = streams["FileHeader"]
-    (count,) = struct.unpack_from("<I", header, 0)
-    if count != len(LIBRARY_HEADER) or header[4:] != bytes((count,)) + LIBRARY_HEADER.encode("ascii"):
-        raise PcbReadError("FileHeader is not the library header text")
+    unique_id = _file_header(streams["FileHeader"])
     if u32(streams["Library/Header"], "Library/Header") != 1:
         raise PcbReadError("Library/Header is not 1")
+    for storage in ("Models", "ModelsNoEmbed", "Textures", "PadViaLibrary"):
+        if u32(streams[f"Library/{storage}/Header"], f"Library/{storage}/Header") != 0:
+            raise PcbReadError(f"Library/{storage}/Header is not 0")
+    if u32(streams["Library/EmbeddedFonts"], "Library/EmbeddedFonts") != 0:
+        raise PcbReadError("Library/EmbeddedFonts is not 0")
+    if u32(streams["Library/ComponentParamsTOC/Header"], "Library/ComponentParamsTOC/Header") != 1:
+        raise PcbReadError("Library/ComponentParamsTOC/Header is not 1")
+    (pad_via,) = property_blocks(streams["Library/PadViaLibrary/Data"], "Library/PadViaLibrary/Data")
+    if set(pad_via) != {"PADVIALIBRARY.LIBRARYID", "PADVIALIBRARY.LIBRARYNAME", "PADVIALIBRARY.DISPLAYUNITS"}:
+        raise PcbReadError("Library/PadViaLibrary/Data does not hold its three keys")
     library = streams["Library/Data"]
-    fields, offset = property_block_at(library, 0, "Library/Data")
-    if not fields:
-        raise PcbReadError("Library/Data: the property block is empty")
+    board, offset = field_block_at(library, 0, "Library/Data")
+    fields: dict[str, str] = {}
+    for key, value in board:
+        fields.setdefault(key, value)
+    for key, value in (("KIND", LIBRARY_KIND), ("VERSION", "3.00"), ("V9_MASTERSTACK_STYLE", "0")):
+        if fields.get(key) != value:
+            raise PcbReadError(f"Library/Data: the board record does not hold {key}={value}")
+    if "HEADER" in fields or "WEIGHT" in fields:
+        raise PcbReadError("Library/Data: the board record holds HEADER or WEIGHT")
     (names_count,) = struct.unpack_from("<I", library, offset)
     offset += 4
     names: list[str] = []
@@ -386,6 +474,9 @@ def read_pcblib(data: bytes) -> PcbLib:
             section_keys[raw[:-1].decode("ascii")] = storage
         if at != len(keys):
             raise PcbReadError("SectionKeys: bytes are left after the entries")
+    toc = _params_toc(streams["Library/ComponentParamsTOC/Data"])
+    if [row["Name"] for row in toc] != names:
+        raise PcbReadError("Library/ComponentParamsTOC/Data does not list the names of Library/Data")
     footprints: dict[str, Footprint] = {}
     roots = {path.split("/")[0] for path in streams if "/" in path} - {"Library"}
     for storage in sorted(roots):
@@ -406,18 +497,28 @@ def read_pcblib(data: bytes) -> PcbLib:
             raise PcbReadError(
                 f"{storage}/Header says {header_count}, Data holds {len(primitives)} primitives"
             )
-        uid_count = u32(streams[f"{storage}/UniqueIdPrimitiveInformation/Header"], storage)
-        uids = property_blocks(streams[f"{storage}/UniqueIdPrimitiveInformation/Data"], storage)
+        if f"{storage}/{UNIQUE_STORAGE}" not in compound.storages:
+            raise PcbReadError(f"{storage} has no storage spelled {UNIQUE_STORAGE}")
+        uid_count = u32(streams[f"{storage}/{UNIQUE_STORAGE}/Header"], storage)
+        uids = property_blocks(streams[f"{storage}/{UNIQUE_STORAGE}/Data"], storage)
         if uid_count != len(uids):
-            raise PcbReadError(
-                f"{storage}/UniqueIdPrimitiveInformation: Header {uid_count}, {len(uids)} blocks"
-            )
+            raise PcbReadError(f"{storage}/{UNIQUE_STORAGE}: Header {uid_count}, {len(uids)} blocks")
+        if list(parameters)[:5] != list(PARAMETER_KEYS):
+            raise PcbReadError(f"{storage}/Parameters does not start with {', '.join(PARAMETER_KEYS)}")
         wide = property_blocks(streams[f"{storage}/WideStrings"], f"{storage}/WideStrings")
         footprints[pattern] = Footprint(storage, name, parameters, primitives, header_count, uids, wide)
     for name in names:
         if name not in footprints:
             raise PcbReadError(f"Library/Data names {name!r}, which no Parameters stream holds as PATTERN")
-    return PcbLib(names, fields, footprints, section_keys, dict(streams), list(compound.storages))
+    for row in toc:
+        pads = sum(isinstance(p, PadRecord) for p in footprints[row["Name"]].primitives)
+        if row.get("Pad Count") != str(pads):
+            raise PcbReadError(
+                f"ComponentParamsTOC: {row['Name']} has {pads} pads, not {row.get('Pad Count')}"
+            )
+    return PcbLib(
+        names, fields, footprints, section_keys, dict(streams), list(compound.storages), board, unique_id, toc
+    )
 
 
 def _wide_strings(data: bytes) -> dict[int, str]:
@@ -446,6 +547,13 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     for name in ("FileHeader", "FileHeaderSix"):
         if name not in streams:
             raise PcbReadError(f"the document has no stream {name}")
+    six = streams["FileHeaderSix"]
+    start = struct.pack("<IB", 19, 19) + b"PCB 6.0 Binary File" + struct.pack("<d", LIBRARY_VERSION)
+    unique = six[len(start) + 5 :].decode("ascii")
+    if not six.startswith(start) or six[len(start) : len(start) + 5] != struct.pack("<IB", 38, 38):
+        raise PcbReadError("FileHeaderSix is not the header text, the double 5.01 and a 38-character id")
+    if not re.fullmatch(r"\{[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}\}", unique):
+        raise PcbReadError("FileHeaderSix: the id is not a GUID in braces and upper case")
     if "Board6" not in storages:
         raise PcbReadError("the document has no Board6")
     boards = property_blocks(storages["Board6"][1], "Board6/Data")

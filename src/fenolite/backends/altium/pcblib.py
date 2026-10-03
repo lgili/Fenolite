@@ -20,6 +20,7 @@ from decimal import Decimal
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, name_key, write_compound
+from fenolite.backends.altium.libboard import board_text, guid
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
@@ -28,7 +29,12 @@ from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
 LIBRARY_HEADER_TEXT = "PCB 6.0 Binary Library File"
-"""The text of ``FileHeader`` and the ``HEADER`` of ``Library/Data``."""
+"""The text of ``FileHeader``."""
+LIBRARY_VERSION = 5.01
+"""The double after the text of ``FileHeader``."""
+DEFAULT_FILENAME = "Fenolite.PcbLib"
+UNIQUE_STORAGE = "UniqueIDPrimitiveInformation"
+"""Altium's spelling of the per-footprint storage of unique ids."""
 HEIGHT = "0mil"
 EVIDENCE = Evidence(
     Level.INFERRED,
@@ -275,9 +281,21 @@ def _u32(value: int) -> bytes:
     return struct.pack("<I", value)
 
 
-def _file_header() -> bytes:
-    text = LIBRARY_HEADER_TEXT.encode("ascii")
-    return _u32(len(text)) + bytes((len(text),)) + text
+def _counted(text: str) -> bytes:
+    """A text of ``FileHeader``: a 32-bit length and a length byte that both hold the text length."""
+    data = text.encode("ascii")
+    return _u32(len(data)) + bytes((len(data),)) + data
+
+
+def _file_header(filename: str) -> bytes:
+    """53 bytes: the header text, the version double and the library's eight-letter id."""
+    from fenolite.backends.altium.project import unique_id  # project imports this module
+
+    return (
+        _counted(LIBRARY_HEADER_TEXT)
+        + struct.pack("<d", LIBRARY_VERSION)
+        + _counted(unique_id(f"pcblib:{filename}"))
+    )
 
 
 def _section_keys(keyed: list[tuple[str, str]]) -> bytes:
@@ -289,10 +307,71 @@ def _section_keys(keyed: list[tuple[str, str]]) -> bytes:
 
 
 def _parameters(defn: FootprintDef) -> bytes:
-    fields: list[tuple[str, str]] = [("PATTERN", defn.name), ("HEIGHT", HEIGHT)]
-    if defn.description and text_problem(defn.description) is None:
-        fields.append(("DESCRIPTION", defn.description))
+    fields: list[tuple[str, str]] = [
+        ("PATTERN", defn.name),
+        ("HEIGHT", HEIGHT),
+        ("DESCRIPTION", _description(defn)),
+        ("ITEMGUID", ""),
+        ("REVISIONGUID", ""),
+    ]
     return rec.property_block(fields)
+
+
+def _description(defn: FootprintDef) -> str:
+    """The description, or the empty text when there is none or it is not printable 7-bit ASCII."""
+    text = defn.description or ""
+    return text if text and text_problem(text) is None else ""
+
+
+def _params_toc(footprints: Sequence[LibFootprint]) -> bytes:
+    """``ComponentParamsTOC/Data``: one line per footprint, CR LF ended, then the NUL the length counts."""
+    lines = "".join(
+        f"Name={f.defn.name}|Pad Count={len(f.defn.pads)}|Height=0|Description={_description(f.defn)}\r\n"
+        for f in footprints
+    )
+    data = lines.encode("ascii") + b"\0"
+    return _u32(len(data)) + data
+
+
+def _used_layers(footprints: Sequence[LibFootprint]) -> set[int]:
+    """The layer ids the written primitives lie on (the layer byte of each record's common prefix)."""
+    used: set[int] = set()
+    for footprint in footprints:
+        for kind, record in footprint_primitives(footprint):
+            body = record[1:]
+            if kind == "Pad":
+                for _ in range(4):
+                    (length,) = struct.unpack_from("<I", body)
+                    body = body[4 + length :]
+            used.add(body[4])
+    return used
+
+
+def _library_storage(filename: str, footprints: Sequence[LibFootprint]) -> Storage:
+    """The ``Library`` storage: the board record with the name list, and the side streams Altium saves."""
+    names = b"".join(rec.string_block(f.defn.name) for f in footprints)
+    data = rec.text_block(board_text(filename, _used_layers(footprints))) + _u32(len(footprints)) + names
+    empty: tuple[Entry, ...] = (("Header", _u32(0)), ("Data", b""))
+    pad_via = rec.property_block(
+        (
+            ("PADVIALIBRARY.LIBRARYID", guid(f"padvia:{filename}")),
+            ("PADVIALIBRARY.LIBRARYNAME", "<Local>"),
+            ("PADVIALIBRARY.DISPLAYUNITS", "1"),
+        )
+    )
+    return Storage(
+        "Library",
+        (
+            ("Header", _u32(1)),
+            ("Data", data),
+            ("EmbeddedFonts", _u32(0)),
+            Storage("Models", empty),
+            Storage("ModelsNoEmbed", empty),
+            Storage("Textures", empty),
+            Storage("ComponentParamsTOC", (("Header", _u32(1)), ("Data", _params_toc(footprints)))),
+            Storage("PadViaLibrary", (("Header", _u32(0)), ("Data", pad_via))),
+        ),
+    )
 
 
 def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
@@ -333,15 +412,20 @@ def _footprint_storage(key: str, footprint: LibFootprint) -> Storage:
         ("Parameters", _parameters(defn)),
         ("WideStrings", rec.EMPTY_PROPERTY_BLOCK),
         ("Data", rec.string_block(defn.name) + b"".join(record for _kind, record in primitives)),
-        Storage("UniqueIdPrimitiveInformation", (("Header", _u32(len(primitives))), ("Data", unique))),
+        Storage(UNIQUE_STORAGE, (("Header", _u32(len(primitives))), ("Data", unique))),
     )
     return Storage(key, entries)
 
 
-def write_pcblib(footprints: Sequence[LibFootprint]) -> bytes:
+def write_pcblib(footprints: Sequence[LibFootprint], *, filename: str = DEFAULT_FILENAME) -> bytes:
     """The bytes of one PCB library holding ``footprints`` (``pcb-library.md``, "Fenolite's choices").
-    ``ValueError`` for a refused footprint or two equal storage names; ``cfb.CompoundTooLarge`` past the
-    size limit."""
+    ``filename`` is the library's file name without a folder: the board record's ``FILENAME`` and the key
+    of the library's ids. ``ValueError`` for a refused footprint, two equal storage names or a file name
+    that cannot be written; ``cfb.CompoundTooLarge`` past the size limit."""
+    if (problem := _text_refusal(filename, "the library file name")) is not None:
+        raise ValueError(problem)
+    if "/" in filename or "\\" in filename:
+        raise ValueError(f"the library file name {filename!r} holds a folder")
     keyed: dict[tuple[int, tuple[int, ...]], tuple[str, LibFootprint]] = {}
     for footprint in footprints:
         key = storage_name(footprint.defn.name)
@@ -353,33 +437,21 @@ def write_pcblib(footprints: Sequence[LibFootprint]) -> bytes:
             )
         keyed[order] = (key, footprint)
     ordered = [keyed[order] for order in sorted(keyed)]
-    names = b"".join(rec.string_block(f.defn.name) for _key, f in ordered)
-    library_data = (
-        rec.property_block((("HEADER", LIBRARY_HEADER_TEXT), ("WEIGHT", str(len(ordered)))))
-        + _u32(len(ordered))
-        + names
-    )
-    entries: list[Entry] = [("FileHeader", _file_header())]
+    entries: list[Entry] = [("FileHeader", _file_header(filename))]
     section = [(f.defn.name, key) for key, f in ordered if key != f.defn.name]
     if section:
         entries.append(("SectionKeys", _section_keys(section)))
-    entries.append(
-        Storage(
-            "Library",
-            (
-                ("Header", _u32(1)),
-                ("Data", library_data),
-                Storage("Models", (("Header", _u32(0)), ("Data", b""))),
-            ),
-        )
-    )
+    entries.append(_library_storage(filename, [f for _key, f in ordered]))
     entries += [_footprint_storage(key, footprint) for key, footprint in ordered]
     return write_compound(entries)
 
 
 __all__ = [
     "EVIDENCE",
+    "DEFAULT_FILENAME",
     "LIBRARY_HEADER_TEXT",
+    "LIBRARY_VERSION",
+    "UNIQUE_STORAGE",
     "FootprintCheck",
     "Frame",
     "LibFootprint",
