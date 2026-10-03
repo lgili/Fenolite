@@ -271,7 +271,12 @@ Outcome per step:
 - **L5.** "Tools » Update From Libraries" works with the generated `FenoliteSample.SchLib`. Confirms
   `H-A-SCHLIB-PRJ`. Whether any pin moved and the nets after the update are not reported, so
   `H-A-SCHLIB-UPDATE` stays pending with this observation.
-- **Not checked:** the change order (Part B; `H-A-SCH-ECO`, `H-A-SCH-RELINK`, `H-A-PRJ-KEEP`), the ASCII
+- **Change order.** "Design » Update PCB Document" ran without error on the blink project against
+  Fenolite's own `blink.PcbDoc`: every component matched, no difference was reported and "Validate
+  Changes" passed (`docs/evidence/altium-pcb.md`, step D3). Recorded as data for `H-A-SCH-ECO`, which is
+  about a new PCB document and stays pending.
+- **Not checked:** the change order into a new PCB document (Part B; `H-A-SCH-ECO`, `H-A-SCH-RELINK`,
+  `H-A-PRJ-KEEP`), the ASCII
   form in Altium Designer (Part A, steps A1 to A6; the `H-A-SCH-*` rows) and steps L1 to L3 and L6.
 
 ### Status of Part A and Part B

@@ -79,4 +79,4 @@
 - [x] 9.3 Extend `tests/_altium_pcb_read.py` and its negative controls to the document rules. Proof: `uv run pytest tests/unit/backends/altium/test_altium_pcb_read.py`.
 - [x] 9.4 Rebuild `blink.PcbDoc` and its digest on `docs/evidence/altium-pcb.md`; the KiCad oracles still pass. Proof: `uv run pytest tests/unit/lens/test_altium_pcb_golden.py`; `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/altium -q`.
 - [x] 9.5 Record the maintainer's reports of 2026-10-03 (Altium Designer 26.5, a trial licence on the maintainer's own PC) on the rows they settle. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py`.
-- [ ] 9.6 Record the maintainer's report on the new `blink.PcbDoc` and the bisection documents (step D3), under the licence rule of task 6.2.
+- [x] 9.6 Record the maintainer's report on the new `blink.PcbDoc` and the bisection documents (step D3), under the licence rule of task 6.2. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py`; `uv run python tools/residue/scan.py` exits 0.

@@ -38,7 +38,7 @@ the 53-byte `FileHeader`, the whole board record in `Library/Data`, the `Library
 `blink.PcbDoc` carries the id block of `FileHeaderSix`. In that form the library opens ("Reports" below).
 `blink.PcbDoc`, then still a short `Board6` record with 20 storages, failed with the same "catastrophic"
 error; it is since written in the form Altium saves (`docs/formats/altium/pcb-document.md`, "The document
-as Altium saves it"), and the digests above are the new files. Step D3 is to be made on the new document.
+as Altium saves it"), and the digests above are the new files. The new document opens ("Reports" below).
 Since a refusal names no cause, the maintainer also gets six documents outside the repository, each with
 one thing more than the one before: the outline alone; one net; one component without pads; its pads; its
 designator and comment texts; the full sample. The first that fails names what to study next. Texts, pads,
@@ -143,10 +143,20 @@ Outcome per step:
 - **D1, project.** The blink project compiles. Its ERC messages follow from the example circuit: `VIN` has
   one pin, and inputs are unconnected, `U1` pins 11 and 12 among them. Recorded as data for
   `H-A-SCHLIB-SCHDOC`; no net row is confirmed by it.
-- **D2.** Not checked: the change order was not run (`H-A-PCB-ECO` stays pending).
-- **D3.** `blink.PcbDoc` in its first form (SHA-256 `2b8b3379…b256`) failed with a "catastrophic" error.
-  The document written since is not yet reported: `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-LINK`,
-  `H-A-PCB-DOC-NETS` and `H-A-PCB-DOC-BOTTOM` stay pending.
+- **D2.** Not run: the change order into a new blank PCB document (`H-A-PCB-ECO` and `H-A-SCH-ECO` stay
+  pending, with the observation of D3).
+- **D3, first form.** `blink.PcbDoc` in its first form (SHA-256 `2b8b3379…b256`) failed with a
+  "catastrophic" error.
+- **D3, the form Altium saves.** After the document fix the six bisection documents open with no error:
+  the outline alone, one net, one component without pads, with its pads, with its designator and comment
+  texts, and the full sample. The blink project opens with its `blink.PcbDoc` (SHA-256 `5e084d85…894f`).
+  The 137-byte text records are accepted. Confirms `H-A-PCB-DOC-OPEN`.
+- **D3, change order.** "Design » Update PCB Document" ran without error on the blink project against
+  Fenolite's own `blink.PcbDoc`: Altium matched every component and reported no difference, and "Validate
+  Changes" passed. The schematic's unique ids agree with the board's `SOURCEUNIQUEID`, and the footprints
+  and nets of the schematic agree with the document. Confirms `H-A-PCB-DOC-LINK` and `H-A-PCB-DOC-NETS`.
+  The side, rotation and pads of `D1` were not reported, so `H-A-PCB-DOC-BOTTOM` stays pending; whether
+  the project lists the PCB library is not reported (`H-A-PCB-PRJ`).
 
 The schematic steps of the same session are recorded in `docs/evidence/altium-schematic.md`, "Reports".
 Part P (the Viewer) is not reported.
