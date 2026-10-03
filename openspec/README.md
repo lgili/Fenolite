@@ -49,5 +49,14 @@ until its change is proposed.
 | c0036 | `no-connect-pins` | follow-up | c0032 |
 | c0037 | `altium-hierarchy-harness` | v0.4 item pulled forward | c0032 |
 | c0038 | `altium-pcb-copper` | v0.4 item pulled forward | c0035 |
+| c0039 | `altium-compound-reader` | v0.3 | — |
+| c0040 | `altium-schematic-reader` | v0.3 | — |
+| c0041 | `altium-pcb-reader` | v0.3 | — |
+| c0042 | `altium-project-reader` | v0.3 | — |
+| c0043 | `altium-import` | v0.3 | — |
+| c0044 | `altium-inspect-check-diff` | v0.3 | — |
+| c0045 | `design-equivalence` | v0.3 | — |
+| c0046 | `altium-sheet-template-import` | v0.3 | — |
+| c0047 | `board-analyses` | v0.3 | — |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
