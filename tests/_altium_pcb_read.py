@@ -143,6 +143,16 @@ class ViaRecord:
     body: bytes = b""
 
 
+@dataclass
+class PolygonRecord:
+    layer: str
+    net: int | None
+    name: str
+    pour_index: int
+    vertices: list[tuple[str, str]]
+    fields: dict[str, str]
+
+
 Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord
 
 
@@ -192,6 +202,7 @@ class PcbDoc:
     options: dict[str, dict[str, str]] = field(default_factory=dict)
     """The one property block of each option storage that holds one."""
     vias: list[ViaRecord] = field(default_factory=lambda: [])
+    polygons: list[PolygonRecord] = field(default_factory=lambda: [])
     copper_chain: list[int] = field(default_factory=lambda: [])
     """The numbered copper layers from top to bottom, read through ``LAYER<n>NEXT`` from layer 1."""
     plane_nets: dict[int, str] = field(default_factory=dict)
@@ -665,6 +676,38 @@ def chain_planes(board: dict[str, str], chain: list[int], nets: list[dict[str, s
     return out
 
 
+def decode_name(codes: str) -> str:
+    """A polygon's ``NAME``: character codes in decimal, joined by commas."""
+    return "".join(chr(int(code)) for code in codes.split(",")) if codes else ""
+
+
+def read_polygons(data: bytes, nets: int) -> list[PolygonRecord]:
+    """The polygon pours of ``Polygons6/Data`` (``pcb-copper.md``, "Polygon pour"): each closed (the first
+    vertex repeated last), with a pour index that no other polygon has, a net index that names a net, and
+    a layer that is not a plane."""
+    out: list[PolygonRecord] = []
+    seen: set[int] = set()
+    for number, block in enumerate(property_blocks(data, "Polygons6/Data")):
+        where = f"Polygons6 record {number}"
+        vertices: list[tuple[str, str]] = []
+        while f"VX{len(vertices)}" in block:
+            vertices.append((block[f"VX{len(vertices)}"], block[f"VY{len(vertices)}"]))
+        if len(vertices) < 4 or vertices[0] != vertices[-1]:
+            raise PcbReadError(f"{where}: the polygon is not closed: its first and last vertex differ")
+        net = int(block["NET"]) if "NET" in block else None
+        if net is not None and not 0 <= net < nets:
+            raise PcbReadError(f"{where}: net {net} of {nets}")
+        index = int(block.get("POURINDEX", "-1"))
+        if index in seen:
+            raise PcbReadError(f"{where}: the pour index {index} is used by another polygon")
+        seen.add(index)
+        layer = block.get("LAYER", "")
+        if layer.startswith("PLANE"):
+            raise PcbReadError(f"{where}: a polygon on {layer}, a plane")
+        out.append(PolygonRecord(layer, net, decode_name(block.get("NAME", "")), index, vertices, block))
+    return out
+
+
 def _nothing_on_planes(primitives: list[Primitive], where: str) -> None:
     for number, item in enumerate(primitives):
         if FIRST_PLANE <= item.prefix.layer <= LAST_PLANE:
@@ -712,6 +755,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     planes = chain_planes(board, chain, nets)
     for kind in ("Tracks6", "Arcs6"):
         _nothing_on_planes(decoded[kind], kind)
+    polygons = read_polygons(storages.get("Polygons6", (0, b""))[1], len(nets))
     counts = {
         "Board6": 1,
         "Nets6": len(nets),
@@ -720,6 +764,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     }
     wide = _wide_strings(storages.get("WideStrings6", (0, b""))[1])
     counts["WideStrings6"] = len(wide)
+    counts["Polygons6"] = len(polygons)
     unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
     if UNIQUE_STORAGE in storages:
         counts[UNIQUE_STORAGE] = len(unique_ids)
@@ -771,6 +816,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         unique_ids=unique_ids,
         options=options,
         vias=[v for v in decoded["Vias6"] if isinstance(v, ViaRecord)],
+        polygons=polygons,
         copper_chain=chain,
         plane_nets=planes,
     )

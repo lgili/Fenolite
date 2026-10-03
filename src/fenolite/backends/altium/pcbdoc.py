@@ -14,7 +14,8 @@ project (change c0037), through ``\\<sheet symbol id>\\<unique id>`` with ``SOUR
 ``<design name>\\<module name>``, the design name being the stem the document shares with the top sheet.
 
 Change c0038 adds the copper, written from ``docs/formats/altium/pcb-copper.md``: routed tracks and arcs
-as free primitives with their net, and through vias in the 321-byte form Altium saves.
+as free primitives with their net, through vias in the 321-byte form Altium saves, and each zone as one
+unpoured polygon pour per layer, which Altium fills on a repour.
 """
 
 from __future__ import annotations
@@ -24,9 +25,16 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 import fenolite.backends.altium.pcbrecords as rec
-from fenolite.backends.altium.ascii import Field
+from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
-from fenolite.backends.altium.docboard import StackSpec, angle_text, board_text, common_fields
+from fenolite.backends.altium.docboard import (
+    StackSpec,
+    angle_text,
+    board_text,
+    common_fields,
+    name_codes,
+    polygon_fields,
+)
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
     LibFootprint,
@@ -38,7 +46,7 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Arc, Side, Track, Via
+from fenolite.model.board import Arc, Side, Track, Via, Zone
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -211,7 +219,7 @@ class PcbDocSpec:
 
     ``copper_layers`` are the copper layers from top to bottom (``pcbrecords.COPPER_STACKS``); ``stack``
     holds their Altium ids, thicknesses, dielectrics and plane nets (``None``: ``StackSpec.default`` for
-    ``copper_layers`` without planes). ``tracks``,
+    ``copper_layers`` without planes). ``tracks``, ``zones``,
     ``arcs`` and ``vias`` are model entities in the frame of the placements whose ``net_id`` holds the
     net's **name** (``None`` without a net); the lens puts it there."""
 
@@ -223,6 +231,7 @@ class PcbDocSpec:
     tracks: tuple[Track, ...] = ()
     arcs: tuple[Arc, ...] = ()
     vias: tuple[Via, ...] = ()
+    zones: tuple[Zone, ...] = ()
 
 
 def _u32(value: int) -> bytes:
@@ -560,6 +569,63 @@ def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
     return out
 
 
+NO_NET_NAME = "NONET"
+"""What stands for the net in the generated name of a polygon without a net."""
+
+
+def polygon_name(text: str) -> str:
+    """The ``NAME`` value of a polygon named ``text``: its character codes in decimal, joined by commas
+    (``71,78,68`` for ``GND``)."""
+    return name_codes(text)
+
+
+def polygon_records(zones: Sequence[Zone], copper: _Copper) -> list[bytes]:
+    """One unpoured polygon pour per zone layer (``pcb-copper.md``, "Polygon pour"), in pour order: by
+    falling zone priority, then net name, first outline point, zone id and stack position; the pour index
+    is the record's position. A zone without a name gets ``<NET>_L<layer position>_P<pour index>``.
+    ``ValueError`` names the id of a zone with fewer than three outline points, on a layer that is not a
+    signal copper layer of the board, on an unknown net or with a name that cannot be written."""
+    pours: list[tuple[Zone, str, list[Point]]] = []
+    for zone in zones:
+        outline = list(zone.outline)
+        if len(outline) > 1 and outline[0] == outline[-1]:
+            outline.pop()
+        if len(outline) < 3:
+            raise ValueError(f"{zone.id}: a zone needs an outline of at least three points")
+        if not zone.layers:
+            raise ValueError(f"{zone.id}: the zone names no layer")
+        problem = text_problem(zone.name) if zone.name else None
+        if problem is not None:
+            raise ValueError(f"{zone.id}: the zone name {zone.name!r} {problem}")
+        copper.net(zone.id, zone.net_id)
+        for layer in zone.layers:
+            copper.signal_layer(zone.id, layer)
+            pours.append((zone, layer, outline))
+    pours.sort(
+        key=lambda pour: (
+            -pour[0].priority,
+            pour[0].net_id or "",
+            _xy(pour[2][0]),
+            pour[0].id,
+            copper.position(pour[1]),
+        )
+    )
+    out: list[bytes] = []
+    for index, (zone, layer, outline) in enumerate(pours):
+        generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
+        net = copper.net(zone.id, zone.net_id)
+        fields = polygon_fields(
+            rec.COPPER_LAYER_TEXT[layer],
+            [_units(copper.frame(point)) for point in outline],
+            name=zone.name or generated,
+            pour_index=index,
+            net=None if net == rec.NO_INDEX else net,
+            auto_name=not zone.name,
+        )
+        out.append(rec.property_block(fields))
+    return out
+
+
 def document_stack(spec: PcbDocSpec) -> StackSpec:
     """The copper stack of ``spec``: ``spec.stack``, or the default stack of its copper layers without
     planes. ``ValueError`` when the stack does not hold one id per copper layer (a signal layer's id of
@@ -692,7 +758,11 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     arcs += routed_arcs(spec.arcs, copper)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(spec.vias, copper)
-    used = sorted({record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"])})
+    filled["Polygons6"] = polygon_records(spec.zones, copper)
+    poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
+    used = sorted(
+        {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"])} | poured
+    )
     unique = [
         rec.property_block(
             (
@@ -742,6 +812,8 @@ __all__ = [
     "file_header",
     "file_header_six",
     "place_component",
+    "polygon_name",
+    "polygon_records",
     "record_layer",
     "routed_arcs",
     "routed_tracks",

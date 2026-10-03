@@ -19,6 +19,8 @@ from fenolite.backends.altium.docboard import (
     board_text,
     common_fields,
     format_line,
+    name_codes,
+    polygon_fields,
 )
 
 SQUARE = [
@@ -417,3 +419,83 @@ def test_stack_used_layers_mark_the_mid_layers() -> None:
     assert (
         fields_of["LAYER_V8_5USEDBYPRIMS"] == "TRUE" and fields_of["V9_CACHE_LAYER21_USEDBYPRIMS"] == "TRUE"
     )
+
+
+# --- polygon pours (change c0038, "Polygon pour records") -------------------------------------------
+
+POUR_KEYS_BEFORE = [
+    *COMMON,
+    "PRIMITIVELOCK",
+    "POLYGONTYPE",
+    "POUROVER",
+    "REMOVEDEAD",
+    "GRIDSIZE",
+    "TRACKWIDTH",
+    "HATCHSTYLE",
+    "USEOCTAGONS",
+    "MINPRIMLENGTH",
+]
+POUR_KEYS_AFTER = [
+    "SHELVED",
+    "RESTORELAYER",
+    "RESTORENET",
+    "REMOVEISLANDSBYAREA",
+    "REMOVENECKS",
+    "AREATHRESHOLD",
+    "ARCRESOLUTION",
+    "NECKWIDTHTHRESHOLD",
+    "POUROVERSTYLE",
+    "NAME",
+    "POURINDEX",
+    "IGNOREVIOLATIONS",
+]
+
+
+def test_polygon_fields_of_a_named_pour() -> None:
+    found = polygon_fields("MID1", SQUARE, name="GND", pour_index=3, net=0)
+    keys = [key for key, _ in found]
+    vertex = [f"{key}{k}" for k in range(5) for key in ("KIND", "VX", "VY", "CX", "CY", "SA", "EA", "R")]
+    assert keys == [*POUR_KEYS_BEFORE, *vertex, *POUR_KEYS_AFTER, "OPTIMALVOIDROTATION", "NET"]
+    values = dict(found)
+    assert (
+        values["LAYER"] == "MID1" and values["POLYGONTYPE"] == "Polygon" and values["PRIMITIVELOCK"] == "TRUE"
+    )
+    assert (values["POUROVER"], values["REMOVEDEAD"], values["HATCHSTYLE"]) == ("TRUE", "TRUE", "Solid")
+    assert (values["GRIDSIZE"], values["TRACKWIDTH"], values["MINPRIMLENGTH"]) == ("20mil", "8mil", "3mil")
+    assert values["USEOCTAGONS"] == "FALSE" and values["SHELVED"] == "FALSE" and values["RESTORENET"] == ""
+    assert values["RESTORELAYER"] == "UNKNOWN" and values["AREATHRESHOLD"] == "250000000000.000000"
+    assert (values["REMOVEISLANDSBYAREA"], values["REMOVENECKS"]) == ("TRUE", "TRUE")
+    assert (values["ARCRESOLUTION"], values["NECKWIDTHTHRESHOLD"], values["POUROVERSTYLE"]) == (
+        "0.5mil",
+        "5mil",
+        "1",
+    )
+    assert values["NAME"] == "71,78,68" and values["POURINDEX"] == "3" and values["NET"] == "0"
+    assert values["IGNOREVIOLATIONS"] == "FALSE" and values["OPTIMALVOIDROTATION"] == "TRUE"
+    assert (values["VX0"], values["VY0"]) == (values["VX4"], values["VY4"]) == ("1000mil", "1000mil")
+    assert values["KIND2"] == "0" and values["SA2"] == " 0.00000000000000E+0000" and values["R2"] == "0mil"
+
+
+def test_polygon_fields_generated_name_and_no_net() -> None:
+    keys = [
+        key
+        for key, _ in polygon_fields("TOP", SQUARE[:3], name="NONET_L01_P000", pour_index=0, auto_name=True)
+    ]
+    assert keys[-3:] == ["IGNOREVIOLATIONS", "AUTONAME", "OPTIMALVOIDROTATION"] and "NET" not in keys
+    assert "SPLITLINECOUNT" not in keys and "VX3" in keys and "VX4" not in keys
+    assert name_codes("") == "" and name_codes("A_1") == "65,95,49"
+    with pytest.raises(ValueError, match="at least three points"):
+        polygon_fields("TOP", SQUARE[:2], name="X", pour_index=0)
+
+
+def test_polygon_keys_are_the_outline_keys_with_a_net_a_name_and_an_index() -> None:
+    """The outline of the board record keeps its own values (c0035's text is pinned above)."""
+    first = lines()[0]
+    start = [key for key, _ in first].index("PRIMITIVELOCK")
+    outline = dict(first[start - 7 :])
+    pour = dict(polygon_fields("TOP", SQUARE, name="X", pour_index=0))
+    shared = [key for key in pour if key in outline and key not in ("NAME", "POURINDEX")]
+    assert len(shared) == 7 + 9 + 40 + 9 + 1
+    differing = sorted(key for key in shared if pour[key] != outline[key])
+    assert differing == ["GRIDSIZE", "HATCHSTYLE", "POUROVER", "POUROVERSTYLE", "REMOVEDEAD", "TRACKWIDTH"]
+    assert outline["POURINDEX"] == "-1" and outline["NAME"] == "" and outline["HATCHSTYLE"] == "None"

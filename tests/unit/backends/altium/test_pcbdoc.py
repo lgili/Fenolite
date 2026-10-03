@@ -24,11 +24,12 @@ from fenolite.backends.altium.pcbdoc import (
     OPTION_STORAGES,
     PcbDocSpec,
     degrees_text,
+    polygon_name,
     record_layer,
     write_pcbdoc,
 )
 from fenolite.core.coords import Point
-from fenolite.model.board import Arc, Track, Via
+from fenolite.model.board import Arc, Track, Via, Zone
 
 STORAGES = (
     "Board6",
@@ -575,3 +576,84 @@ def test_stack_that_does_not_fit_the_copper_layers() -> None:
         write_pcbdoc(copper_spec(stack=StackSpec.default((1, 2, 3, 32))))
     with pytest.raises(ValueError, match="does not hold one id per copper layer"):
         write_pcbdoc(copper_spec(copper_layers=FOUR, stack=StackSpec.default((1, 32))))
+
+
+# --- polygon pours (change c0038, "Polygon pour records") -------------------------------------------
+
+RECT = (at(1, 1), at(49, 1), at(49, 29), at(1, 29))
+
+
+def test_zone_on_two_layers_and_a_higher_priority_zone() -> None:
+    """Scenario "Ground zone on two layers"."""
+    ground = Zone(id="zon_g", outline=RECT, layers=("In1.Cu", "B.Cu"), net_id="GND", priority=0)
+    first = Zone(id="zon_f", outline=RECT[:3], layers=("F.Cu",), net_id="VIN", priority=2)
+    doc, spec = copper_doc(copper_layers=FOUR, zones=(ground, first))
+    gnd = sorted(spec.nets).index("GND")
+    assert doc.storages["Polygons6"][0] == 3 and len(doc.polygons) == 3
+    top, mid, bottom = doc.polygons
+    assert (top.layer, top.pour_index, top.name) == ("TOP", 0, "VIN_L01_P000")
+    assert (mid.layer, mid.pour_index, mid.net, mid.name) == ("MID1", 1, gnd, "GND_L02_P001")
+    assert (bottom.layer, bottom.pour_index, bottom.net, bottom.name) == ("BOTTOM", 2, gnd, "GND_L04_P002")
+    assert len(mid.vertices) == len(bottom.vertices) == 5 and len(top.vertices) == 4
+    assert mid.vertices[0] == mid.vertices[-1] == ("1039.3701mil", "2141.7323mil")  # 1 mm in, 29 mm up
+    assert all(p.fields["AUTONAME"] == "TRUE" and p.fields["HATCHSTYLE"] == "Solid" for p in doc.polygons)
+    assert doc.storages["Regions6"] == (0, b"") and doc.storages["ShapeBasedRegions6"] == (0, b"")
+    board = doc.board
+    used = {board[f"V9_STACK_LAYER{i}_NAME"]: board[f"V9_STACK_LAYER{i}_USEDBYPRIMS"] for i in (3, 5, 7, 9)}
+    assert used == {
+        "Top Layer": "TRUE",
+        "Mid-Layer 1": "TRUE",
+        "Mid-Layer 2": "FALSE",
+        "Bottom Layer": "TRUE",
+    }
+
+
+def test_zone_order_does_not_depend_on_the_zone_ids() -> None:
+    a = Zone(id="zon_a", outline=RECT, layers=("B.Cu", "F.Cu"), net_id="GND")
+    b = Zone(id="zon_b", outline=RECT, layers=("F.Cu",), net_id="VIN", name="FEED")
+    c = Zone(id="zon_c", outline=RECT, layers=("B.Cu",))
+    doc, _ = copper_doc(zones=(a, b, c))
+    found = [(p.name, p.layer, p.pour_index, p.net is None) for p in doc.polygons]
+    assert found == [
+        ("NONET_L02_P000", "BOTTOM", 0, True),
+        ("GND_L01_P001", "TOP", 1, False),
+        ("GND_L02_P002", "BOTTOM", 2, False),
+        ("FEED", "TOP", 3, False),
+    ]
+    assert "AUTONAME" not in doc.polygons[3].fields and "NET" not in doc.polygons[0].fields
+    again, _ = copper_doc(zones=(c, dataclasses.replace(b, id="zon_0"), a))
+    assert again.streams["Polygons6/Data"] == doc.streams["Polygons6/Data"]
+
+
+def test_zone_fills_are_not_written_and_a_closed_outline_is_not_repeated() -> None:
+    from fenolite.model.board import ZoneFill
+
+    plain = Zone(id="zon_g", outline=RECT, layers=("B.Cu",), net_id="GND")
+    filled = dataclasses.replace(plain, outline=(*RECT, RECT[0]), fills=(ZoneFill("B.Cu", RECT),))
+    assert write_pcbdoc(copper_spec(zones=(plain,))) == write_pcbdoc(copper_spec(zones=(filled,)))
+
+
+def test_polygon_name_codes() -> None:
+    assert polygon_name("GND") == "71,78,68" and polygon_name("GND_L02_P001").count(",") == 11
+
+
+def test_zone_without_an_outline_refused() -> None:
+    """Scenario "Zone without an outline refused"."""
+    with pytest.raises(ValueError, match="zon_e: a zone needs an outline of at least three points"):
+        write_pcbdoc(copper_spec(zones=(Zone(id="zon_e", outline=(), layers=("F.Cu",)),)))
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"outline": RECT[:2]}, "zon_bad: a zone needs an outline"),
+        ({"layers": ("In1.Cu",)}, "zon_bad: the layer In1.Cu is not a copper layer"),
+        ({"layers": ()}, "zon_bad: the zone names no layer"),
+        ({"net_id": "NOPE"}, "zon_bad: the net 'NOPE'"),
+        ({"name": "a|b"}, "zon_bad: the zone name 'a|b'"),
+    ],
+)
+def test_zone_refusals(changes: dict[str, object], message: str) -> None:
+    zone = Zone(id="zon_bad", outline=RECT, layers=("F.Cu",), net_id="GND")
+    with pytest.raises(ValueError, match=message):
+        write_pcbdoc(copper_spec(zones=(dataclasses.replace(zone, **changes),)))  # type: ignore[arg-type]

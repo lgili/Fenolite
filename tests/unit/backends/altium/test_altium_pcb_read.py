@@ -480,3 +480,53 @@ def test_stack_list_lacks_a_mid_layer() -> None:
     message = r"V9_STACK list holds the copper layers \[1, 2, 32\], the chain is \[1, 2, 3, 32\]"
     with pytest.raises(PcbReadError, match=message):
         read_pcbdoc(copper_document(Board6__Data=broken))
+
+
+# --- polygon pours (change c0038) ------------------------------------------------------------------
+
+
+def polygon(
+    index: int = 0, net: str | None = "0", layer: str = "TOP", closed: bool = True, name: str = "71,78,68"
+) -> bytes:
+    fields = {"LAYER": layer, "POLYGONTYPE": "Polygon", "HATCHSTYLE": "Solid"}
+    points = [
+        ("0mil", "0mil"),
+        ("100mil", "0mil"),
+        ("100mil", "100mil"),
+        ("0mil", "0mil" if closed else "50mil"),
+    ]
+    for k, (x, y) in enumerate(points):
+        fields[f"KIND{k}"], fields[f"VX{k}"], fields[f"VY{k}"] = "0", x, y
+    fields["NAME"], fields["POURINDEX"] = name, str(index)
+    if net is not None:
+        fields["NET"] = net
+    return prop(**fields)
+
+
+def test_polygon_reads() -> None:
+    data = polygon(0) + polygon(1, net=None, layer="MID1", name="")
+    doc = read_pcbdoc(copper_document(Polygons6__Header=one(2), Polygons6__Data=data))
+    first, second = doc.polygons
+    assert (first.layer, first.net, first.name, first.pour_index) == ("TOP", 0, "GND", 0)
+    assert (second.layer, second.net, second.name, second.pour_index) == ("MID1", None, "", 1)
+    assert len(first.vertices) == 4 and first.vertices[0] == first.vertices[-1]
+
+
+def test_polygon_that_is_not_closed() -> None:
+    with pytest.raises(PcbReadError, match="the polygon is not closed"):
+        read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(closed=False)))
+
+
+def test_polygons_that_share_a_pour_index() -> None:
+    with pytest.raises(PcbReadError, match="record 1: the pour index 4 is used by another polygon"):
+        read_pcbdoc(copper_document(Polygons6__Header=one(2), Polygons6__Data=polygon(4) + polygon(4)))
+
+
+def test_polygon_names_net_9_of_1() -> None:
+    with pytest.raises(PcbReadError, match="Polygons6 record 0: net 9 of 1"):
+        read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(net="9")))
+
+
+def test_polygon_header_count() -> None:
+    with pytest.raises(PcbReadError, match="Polygons6/Header says 1, the data holds 2 records"):
+        read_pcbdoc(copper_document(Polygons6__Header=one(1), Polygons6__Data=polygon(0) + polygon(1)))

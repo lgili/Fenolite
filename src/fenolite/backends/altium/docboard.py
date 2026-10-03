@@ -187,6 +187,60 @@ def _outline(vertices: Sequence[tuple[int, int]]) -> list[Field]:
     return fields
 
 
+_POUR_HEAD: tuple[Field, ...] = (
+    ("PRIMITIVELOCK", "TRUE"),
+    ("POLYGONTYPE", "Polygon"),
+    ("POUROVER", "TRUE"),
+    ("REMOVEDEAD", "TRUE"),
+    ("GRIDSIZE", "20mil"),
+    ("TRACKWIDTH", "8mil"),
+    ("HATCHSTYLE", "Solid"),
+    ("USEOCTAGONS", "FALSE"),
+    ("MINPRIMLENGTH", "3mil"),
+)
+"""The keys of a solid polygon pour before its vertices (``pcb-copper.md``, "Polygon pour")."""
+_POUR_TAIL: tuple[Field, ...] = (*_POLYGON_TAIL[:8], ("POUROVERSTYLE", "1"))
+"""The keys after the vertices that a pour shares with the board outline, up to ``POUROVERSTYLE``."""
+
+
+def name_codes(text: str) -> str:
+    """A polygon's ``NAME`` value: the character codes of ``text`` in decimal, joined by commas."""
+    return ",".join(str(ord(ch)) for ch in text)
+
+
+def polygon_fields(
+    layer_text: str,
+    vertices: Sequence[tuple[int, int]],
+    *,
+    name: str,
+    pour_index: int,
+    net: int | None = None,
+    auto_name: bool = False,
+) -> list[Field]:
+    """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
+    the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
+    text (``TOP``, ``MID1`` …); ``vertices`` are in binary units in the Altium frame, without the closing
+    vertex; ``net`` is the net's index (``None``: no ``NET`` key); ``auto_name`` adds ``AUTONAME=TRUE``.
+    ``ValueError`` for fewer than three vertices."""
+    if len(vertices) < 3:
+        raise ValueError("a polygon needs at least three points")
+    fields: list[Field] = [
+        *common_fields(layer_text),
+        *_POUR_HEAD,
+        *_outline(vertices),
+        *_POUR_TAIL,
+        ("NAME", name_codes(name)),
+        ("POURINDEX", str(pour_index)),
+        ("IGNOREVIOLATIONS", "FALSE"),
+    ]
+    if auto_name:
+        fields.append(("AUTONAME", "TRUE"))
+    fields.append(("OPTIMALVOIDROTATION", "TRUE"))
+    if net is not None:
+        fields.append(("NET", str(net)))
+    return fields
+
+
 def _routing(stack: StackSpec | None = None) -> list[Field]:
     fields: list[Field] = [RECORD, ("TOGGLELAYERS", "1" * _LEGACY_COUNT)]
     for index in range(1, 11):
@@ -393,4 +447,6 @@ __all__ = [
     "board_text",
     "common_fields",
     "format_line",
+    "name_codes",
+    "polygon_fields",
 ]
