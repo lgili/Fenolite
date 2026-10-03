@@ -63,3 +63,11 @@
 
   `ALTIUM_BUILD_EVIDENCE` and `PCB_BUILD_EVIDENCE` stay `INFERRED`, and both entries stay experimental. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/cli/test_capabilities_experimental.py -q`.
 - [x] 7.3 Add to `CHANGELOG.md` under Unreleased: "Altium target writes PCB files: `fenolite build --target altium` writes `<name>.PcbLib` with the resolved KiCad footprints (SMD and through-hole pads, roundrect corners, silkscreen, fabrication and courtyard lines and arcs) and, experimentally, `<name>.PcbDoc` with the outline, two-layer stack, placed components, pads, nets and designators, linked to the schematic by unique ids; empty streams in compound files; write kinds `altium_pcblib` and `altium_pcbdoc`; new `altium.*` issue codes; kicad-cli `fp upgrade` and `pcb import` as oracles; capabilities entry `altium-pcb-writer`; evidence `INFERRED`, Altium checks as author reports". Proof: `git diff CHANGELOG.md`.
+
+## 8. Revision of 2026-10-03: the library in the form Altium saves
+
+- [x] 8.1 Record the facts of Altium-saved libraries and of a document (S-0170 to S-0173; files read in a scratch folder, never committed) on `pcb-library.md` and `pcb-document.md`, with `sources.md`, `PROVENANCE.md`, `LEGAL-ANNEX.md` and `H-A-PCB-LIB-OPEN`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
+- [x] 8.2 Write the board record by rule (`libboard.py`) and the library in Altium's form (`pcblib.py`: 53-byte `FileHeader`, `Library` side streams, `Parameters` keys, `UniqueIDPrimitiveInformation`); add the id block to `FileHeaderSix` (`pcbdoc.py`). Proof: `uv run pytest tests/unit/backends/altium`.
+- [x] 8.3 Extend `tests/_altium_pcb_read.py` and its negative controls to the new rules. Proof: `uv run pytest tests/unit/backends/altium/test_altium_pcb_read.py`.
+- [x] 8.4 Rebuild the blink PCB goldens and the digests of `docs/evidence/altium-pcb.md`; the KiCad oracles still pass. Proof: `uv run pytest tests/unit/lens tests/kicad/altium`.
+- [ ] 8.5 Record the maintainer's next Altium Designer report on the new files (step D1), under the licence rule of task 6.2.

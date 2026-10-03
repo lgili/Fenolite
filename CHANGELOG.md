@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Altium PCB library opens in Altium Designer's form: `<name>.PcbLib` now holds the 53-byte `FileHeader` (version and library id), the whole board record in `Library/Data` (layer stack, grid, layer sets and view keys, written by rule in `libboard.py`) and the `Library` side streams (`EmbeddedFonts`, `ModelsNoEmbed`, `Textures`, `ComponentParamsTOC`, `PadViaLibrary`); `FileHeaderSix` of `<name>.PcbDoc` carries its id. The first form gave a "catastrophic" error in Altium Designer (maintainer's report, c0035); the new one is not yet confirmed.
+
 ### Added
 
 - Altium target writes PCB files: `fenolite build --target altium` writes `<name>.PcbLib` with the resolved KiCad footprints (SMD and through-hole pads, roundrect corners, silkscreen, fabrication and courtyard lines and arcs) and, experimentally, `<name>.PcbDoc` with the outline, two-layer stack, placed components, pads, nets and designators, linked to the schematic by unique ids; empty streams in compound files; write kinds `altium_pcblib` and `altium_pcbdoc`; new `altium.*` issue codes; kicad-cli `fp upgrade` and `pcb import` as oracles; capabilities entry `altium-pcb-writer`; evidence `INFERRED`, Altium checks as author reports.
