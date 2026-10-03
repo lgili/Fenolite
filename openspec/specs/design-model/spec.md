@@ -51,8 +51,11 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 | layer | `lay` | `layer:<KiCad layer name>` |
 
 - Footprints and pads placed by a build MUST follow the third case, with the component path as the key.
+- Tracks and vias created from copper intents, by a build or by any other caller, MUST follow the fifth case.
 - Every key names its object by a name or a path, never by a position in a list, so inserting, removing or reordering one object MUST NOT change the id of any other object, nor any KiCad uuid derived from those ids.
 - The values of `--seed` and `PYTHONHASHSEED` MUST NOT change any id of the fourth case.
+
+Copper created from copper intents is a fifth case. Each track and via that `fenolite.backends.kicad.copper.resolve_copper` creates MUST take as its native id the KiCad uuid `copper_uuid(key, locator)` of `manual-copper` ("Copper uuids and ids"), derived from the caller's intent key and the item's locator in the intent, and MUST take the Fenolite id that imported objects with that native id get, so a design read back from the written file has the same ids. These ids MUST NOT use the seeded generator, and `--seed` and `PYTHONHASHSEED` MUST NOT change them. A locator numbers an item inside its own intent, so changing one intent MUST NOT change the id of an item of another intent, and adding, removing or reordering intents MUST NOT change any id.
 
 #### Scenario: Same native id, same Fenolite id
 - **GIVEN** two imports of the same file
@@ -87,6 +90,11 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 - **GIVEN** two DSL designs that add the same parts, nets and modules with their `add()` calls in different orders
 - **WHEN** `dsl.to_model` runs on both
 - **THEN** each object has the same id in both models, so the two sets of ids are equal
+
+#### Scenario: Script copper ignores the seed
+- **GIVEN** the routed blink of `examples/blink_routed/design.py`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_copper.py -k ids` builds it in two processes with `--seed 7` and `--seed 8`, and once more after adding a second stitch intent
+- **THEN** every track and via of the first intents has the same id and native id in all three builds, and the native id of the segment `seg[0]` of `led_a` is `copper_uuid("led_a", "seg[0]")`
 
 ### Requirement: Provenance record
 `Provenance` MUST contain `backend`, `file`, `file_sha256`, `locator` and `evidence`, and `locator` MUST be treated as an opaque string by everything except the originating backend.
