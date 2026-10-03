@@ -37,3 +37,5 @@ are pending.
   `schematic-ascii.md` in the same order with the same keys and values, each framed with type 0.
 - No CR or LF is written; payloads stay under 65 536 bytes; texts stay 7-bit, as in the ASCII form.
 - `Storage` is the single 25-byte record `|HEADER=Icon storage` (4-byte word 21, 20 text bytes, NUL).
+- The No ERC directive (record 22, change c0036, `schematic-ascii.md`) is framed as any other property
+  list: type 0, the same keys and values as its ASCII line, and a closing NUL.

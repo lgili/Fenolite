@@ -6,7 +6,7 @@
   - Add the three ids to the registered-rows check of `tests/unit/test_altium_rows.py`.
 
   Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py`; `grep -cE '^\| H-A-SCH-NC-' docs/hypotheses.md` prints `3`; `grep -cE '^\| S-0180 ' docs/evidence/sources.md` prints `1`.
-- [ ] 1.2 Record the format facts in Fenolite's own words. Add the section "No ERC directive" to `docs/formats/altium/schematic-ascii.md`, one row per fact of the design's Context (`| fact | source | label | hypothesis |`, label `INFERRED`, an `H-A-SCH-NC-*` hypothesis), and the written keys and their order under "Fenolite's choices" (design Decisions 5 to 7). Add one line to `docs/formats/altium/schematic-binary.md`: the record is framed as any property list. Add a row to `src/fenolite/backends/altium/PROVENANCE.md`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py`; `grep -c 'RECORD=22' docs/formats/altium/schematic-ascii.md` prints a non-zero count.
+- [x] 1.2 Record the format facts in Fenolite's own words. Add the section "No ERC directive" to `docs/formats/altium/schematic-ascii.md`, one row per fact of the design's Context (`| fact | source | label | hypothesis |`, label `INFERRED`, an `H-A-SCH-NC-*` hypothesis), and the written keys and their order under "Fenolite's choices" (design Decisions 5 to 7). Add one line to `docs/formats/altium/schematic-binary.md`: the record is framed as any property list. Add a row to `src/fenolite/backends/altium/PROVENANCE.md`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py`; `grep -c 'RECORD=22' docs/formats/altium/schematic-ascii.md` prints a non-zero count.
 
 ## 2. Model and DSL
 

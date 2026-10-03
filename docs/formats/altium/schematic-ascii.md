@@ -107,6 +107,21 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | A power port's style does not choose its net, its name does; same-named power ports connect across the whole design | S-0140 | INFERRED | H-A-SCH-NETS |
 | A junction is `RECORD=29`. Altium adds junctions at T joints itself, and wires that never meet need none | S-0130, S-0140 | INFERRED | H-A-SCH-NETS |
 
+## No ERC directive
+
+Change c0036 writes one directive at each pin that the design marks as intentionally unconnected
+(`Circuit.no_connects`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Record 22 is the No ERC directive: a cross that marks an intentional non-connection | S-0130, S-0131 | INFERRED | H-A-SCH-NC-RECORD |
+| Its keys are `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` and `COLOR`, with an optional `INDEXINSHEET` | S-0130 | INFERRED | H-A-SCH-NC-RECORD |
+| Its optional keys are `ISACTIVE=T`, `ORIENTATION` (an integer), `SUPPRESSALL=T`, `SYMBOL=Thin Cross` and `UNIQUEID` | S-0130 | INFERRED | H-A-SCH-NC-RECORD |
+| A reader takes the location from `LOCATION.X` and `LOCATION.Y`, and takes "active" and "suppress all" as true when `ISACTIVE` and `SUPPRESSALL` are missing | S-0131 | INFERRED | H-A-SCH-NC-RECORD |
+| The directive has selectable styles and two modes: "Suppress All Violations", which silences every warning and error at its point, and "Suppress Specific Violations", which silences only the chosen ones | S-0180 | INFERRED | H-A-SCH-NC-ERC |
+| Altium's documentation places the directive on a wire or another net object. No source says that a directive on a pin's electrical end without a wire suppresses that pin's violations, nor that it leaves other pins alone | S-0180 | INFERRED | H-A-SCH-NC-ERC |
+| The Altium 365 Viewer renders schematic documents; whether it draws record 22 is not stated | S-0149 | INFERRED | H-A-SCH-NC-VIEWER |
+
 ## Unique ids
 
 | fact | source | label | hypothesis |
@@ -151,3 +166,12 @@ These are decisions of the writer, not format facts (design of change c0032, cap
   and pin of the symbol with its `OWNERPARTID`; part k > 1 gets the unique id of
   `<component id>#<k>`; Part Zero pins get stubs on part 1 only (`H-A-SCHLIB-SCHDOC`,
   `H-A-SCHLIB-MULTIPART`).
+- No ERC directive (change c0036): one record per marked pin with the keys `RECORD=22`,
+  `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=255`, `ISACTIVE=T`, `SUPPRESSALL=T`,
+  `SYMBOL=Thin Cross`, in this order. The two flags are written although one reader takes them as
+  true by default, because no source says what Altium assumes. `COLOR=255` is red in this page's
+  colour encoding. No `ORIENTATION` (the thin cross is symmetric), no `UNIQUEID` (wires, labels and
+  ports have none either) and no `INDEXINSHEET` is written. The location is the pin's electrical hot
+  end, where a stub would start; a marked pin gets no wire, no label and no port. The directives are
+  the last records of the schematic, after every stub, label and port, in component, part and pin
+  order, so a design without marks keeps its bytes (`H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC`).
