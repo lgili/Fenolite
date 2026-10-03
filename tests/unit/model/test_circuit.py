@@ -9,7 +9,8 @@ import pytest
 
 from fenolite.core.coords import Point
 from fenolite.core.ids import new_id
-from fenolite.model import Component, ExtBag, Net, Pin, PinRef, Track
+from fenolite.model import Circuit, Component, ExtBag, Net, Pin, PinRef, Track
+from fenolite.model.canonical import dumps, loads
 
 
 def test_entities_are_immutable() -> None:
@@ -42,3 +43,25 @@ def test_net_members_are_pin_refs() -> None:
         id=new_id("net", random.Random(3)), name="GND", members=(PinRef("cmp_x", "2"), PinRef("cmp_y", "1"))
     )
     assert sorted(net.members)[0] == PinRef("cmp_x", "2")
+
+
+def test_no_connect_marks_are_the_last_field_and_empty_by_default() -> None:
+    assert [f.name for f in dataclasses.fields(Circuit)][-1] == "no_connects"
+    assert Circuit().no_connects == ()
+
+
+def test_no_connect_default_is_omitted_and_an_old_file_loads() -> None:
+    component = Component(id=new_id("cmp", random.Random(1)), ref="U1")
+    old = dumps(Circuit(components=(component,)))
+    assert "no_connects" not in old
+    loaded = loads(old, Circuit)
+    assert loaded.no_connects == () and dumps(loaded) == old
+
+
+def test_no_connect_marks_round_trip_as_text() -> None:
+    component = Component(id=new_id("cmp", random.Random(1)), ref="U1")
+    marks = (PinRef(component.id, "11"), PinRef(component.id, "12"))
+    circuit = Circuit(components=(component,), no_connects=marks)
+    text = dumps(circuit)
+    assert '"no_connects"' in text
+    assert loads(text, Circuit).no_connects == marks

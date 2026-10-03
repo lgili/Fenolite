@@ -95,6 +95,9 @@ class Circuit:
     netclasses: tuple[NetClass, ...] = ()
     interfaces: tuple[Interface, ...] = ()
     modules: tuple[Module, ...] = ()
+    #: Pins the design leaves unconnected on purpose, in the form of net members: ``pin`` holds a
+    #: designator as written until a build resolves it, and a pin number afterwards.
+    no_connects: tuple[PinRef, ...] = ()
 
 
 __all__ = ["Circuit", "Component", "Interface", "Module", "Net", "NetClass", "Pin", "PinRef", "PinType"]

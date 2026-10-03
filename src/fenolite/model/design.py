@@ -18,7 +18,7 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import new_id
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Pad
-from fenolite.model.circuit import Circuit, Component, Net
+from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
@@ -159,7 +159,8 @@ class Design:
         return dataclasses.replace(self, **changes)
 
     def validate(self) -> tuple[Issue, ...]:
-        """Structural findings: duplicate ids/refs, dangling references, single-pin and empty nets."""
+        """Structural findings: duplicate ids/refs, dangling references, single-pin and empty nets, and
+        no-connect marks on unknown or connected pins."""
         issues: list[Issue] = []
 
         def add(code: str, severity: Severity, message: str, where: str, hint: str = "") -> None:
@@ -202,6 +203,21 @@ class Design:
             elif len(net.members) == 1 and len(pads) <= 1:
                 add("model.single-pin-net", "warning", "net connects a single pin", net.name,
                     "a single-pin net is often a floating pin")  # fmt: skip
+        listed: dict[PinRef, str] = {}
+        for net in self.circuit.nets:
+            for member in net.members:
+                listed.setdefault(member, net.name)
+        for mark in self.circuit.no_connects:
+            component = components.get(mark.component_id)
+            where = f"{component.ref if component else mark.component_id}-{mark.pin}"
+            if component is None:
+                add("model.unknown-component", "error", f"unknown component {mark.component_id}", where)
+            elif component.pins and mark.pin not in {p.number for p in component.pins}:
+                add("model.unknown-pin", "error", f"{component.ref} has no pin {mark.pin}", where)
+            if mark in listed:
+                add("model.no-connect-on-net", "error",
+                    f"pin is marked as not connected and is on net {listed[mark]}", where,
+                    "remove the mark or take the pin off the net")  # fmt: skip
         if self.board is not None:
             for fp in self.board.footprints:
                 if fp.component_id and fp.component_id not in components:

@@ -10,7 +10,7 @@
 
 ## 2. Model and DSL
 
-- [ ] 2.1 Add `Circuit.no_connects` to `src/fenolite/model/circuit.py` and the three findings to `Design.validate()` in `src/fenolite/model/design.py`. Regenerate the schema with `uv run python tools/gen_schemas.py`. Extend `tests/unit/model/test_circuit.py` and `test_design.py` with `no_connect` cases. Proof: `uv run pytest tests/unit/model -k no_connect`; `uv run pytest tests/unit/test_schema_drift.py tests/unit/model`; `uv run python tools/gen_schemas.py --check` exits 0; covering every scenario of "No-connect marks in the circuit model".
+- [x] 2.1 Add `Circuit.no_connects` to `src/fenolite/model/circuit.py` and the three findings to `Design.validate()` in `src/fenolite/model/design.py`. Regenerate the schema with `uv run python tools/gen_schemas.py`. Extend `tests/unit/model/test_circuit.py` and `test_design.py` with `no_connect` cases. Proof: `uv run pytest tests/unit/model -k no_connect`; `uv run pytest tests/unit/test_schema_drift.py tests/unit/model`; `uv run python tools/gen_schemas.py --check` exits 0; covering every scenario of "No-connect marks in the circuit model".
 - [ ] 2.2 Add `no_connect`, `Part.no_connects` and the `connect` guard to `src/fenolite/dsl/part.py`, the marks to `to_model` in `dsl/convert.py`, and the re-export to `dsl/__init__.py`. Write `tests/unit/dsl/test_no_connect.py`. Proof: `uv run pytest tests/unit/dsl tests/unit/test_import_graph.py`; `uv run python -c "from fenolite.dsl import no_connect; print(no_connect.__module__)"` prints `fenolite.dsl.part`; covering every scenario of "No-connect marks in the DSL".
 
 ## 3. Altium schematic, sample and protocol

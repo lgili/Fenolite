@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import random
+from pathlib import Path
 
+import _schema
 import pytest
 from hypothesis import given, settings
 from strategies import designs
@@ -12,6 +15,7 @@ from strategies import designs
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id, new_id
 from fenolite.model import Component, Design, FootprintInstance, Net, Pad, Pin, PinRef, Track
+from fenolite.model.canonical import dump_dir, load_dir
 
 
 def _small(seed: int = 1) -> Design:
@@ -134,3 +138,72 @@ def test_replace_entity_moves_one_footprint() -> None:
 def test_generated_designs_are_valid(design: Design) -> None:
     errors = [i for i in design.validate() if i.severity == "error"]
     assert errors == []
+
+
+def _marked(design: Design, *marks: PinRef) -> Design:
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, no_connects=marks))
+
+
+def _u1(design: Design, *numbers: str) -> tuple[Design, Component]:
+    rng = random.Random(77)
+    u1 = Component(
+        id=new_id("cmp", rng), ref="U1", pins=tuple(Pin(id=new_id("pin", rng), number=n) for n in numbers)
+    )
+    circuit = dataclasses.replace(design.circuit, components=(*design.circuit.components, u1))
+    return dataclasses.replace(design, circuit=circuit), u1
+
+
+def test_no_connect_marks_survive_the_canonical_round_trip(tmp_path: Path) -> None:
+    design, u1 = _u1(_small(), "11", "12")
+    marks = (PinRef(u1.id, "11"), PinRef(u1.id, "12"))
+    design = _marked(design, *marks)
+    assert design.validate() == ()
+    dump_dir(design, tmp_path / "d")
+    assert load_dir(tmp_path / "d").circuit.no_connects == marks
+    data = json.loads((tmp_path / "d" / "circuit.json").read_text())
+    assert data["no_connects"] == [{"component_id": u1.id, "pin": "11"}, {"component_id": u1.id, "pin": "12"}]
+    schema = _schema.load("fenolite.model.v0/circuit.json")
+    assert _schema.validate(data, schema) == []
+    assert "no_connects" in schema["properties"] and "no_connects" not in schema.get("required", [])
+
+
+def test_no_connect_free_circuit_keeps_its_bytes(tmp_path: Path) -> None:
+    design = _small()
+    dump_dir(design, tmp_path / "a")
+    text = (tmp_path / "a" / "circuit.json").read_text()
+    assert "no_connects" not in text
+    loaded = load_dir(tmp_path / "a")
+    assert loaded.circuit.no_connects == ()
+    dump_dir(loaded, tmp_path / "b")
+    assert (tmp_path / "b" / "circuit.json").read_text() == text
+
+
+def test_no_connect_on_a_net_is_an_error() -> None:
+    design, u1 = _u1(_small(), "11", "12")
+    en = Net(id=new_id("net", random.Random(5)), name="EN", members=(PinRef(u1.id, "11"),))
+    circuit = dataclasses.replace(design.circuit, nets=(*design.circuit.nets, en))
+    design = _marked(dataclasses.replace(design, circuit=circuit), PinRef(u1.id, "11"))
+    found = [i for i in design.validate() if i.code == "model.no-connect-on-net"]
+    assert len(found) == 1
+    assert found[0].severity == "error" and found[0].where == "U1-11" and "EN" in found[0].message
+
+
+def test_no_connect_on_a_pin_the_component_does_not_hold() -> None:
+    design, u1 = _u1(_small(), "1", "2")
+    found = [i for i in _marked(design, PinRef(u1.id, "9")).validate()]
+    assert [(i.code, i.severity, i.where) for i in found] == [("model.unknown-pin", "error", "U1-9")]
+
+
+def test_no_connect_on_an_unknown_component() -> None:
+    found = _marked(_small(), PinRef("cmp_nope", "3")).validate()
+    assert [(i.code, i.severity, i.where) for i in found] == [
+        ("model.unknown-component", "error", "cmp_nope-3")
+    ]
+
+
+def test_no_connect_mark_before_a_build_and_net_findings() -> None:
+    """A component without pins accepts any designator, and a mark is no net member."""
+    design, u1 = _u1(_small())
+    design = _marked(design, PinRef(u1.id, "TP"))
+    assert design.validate() == ()
+    assert {name: len(pads) for name, pads in design.by_net.items()} == {"GND": 2, "VIN": 2}
