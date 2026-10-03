@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``check``, ``inspect`` and ``doctor`` leave the project folder untouched, even with a ``kicad-cli`` that
-writes next to its input and rewrites it (capability verification-loop, "Check is read-only", scenario
-"Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013 and c0020)."""
+"""``check``, ``inspect``, ``doctor``, ``export`` and ``render`` leave the project folder untouched, even
+with a ``kicad-cli`` that writes next to its input and rewrites it (capability verification-loop, "Check is
+read-only", scenario "Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013 and
+c0020; cli-contract, "Export command", scenario "Source is untouched"; change c0024)."""
 
 from __future__ import annotations
 
@@ -72,4 +73,29 @@ def test_doctor_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Pat
     before = tree_snapshot(root)
     code, _, _, _ = run(monkeypatch, root, "doctor", "--kicad-cli", str(fake))
     assert code == 0
+    _untouched(root, before)
+
+
+@pytest.mark.parametrize(
+    "command", [("export", "--all", "--manifest"), ("render", "--svg", "--png")], ids=["export", "render"]
+)
+@pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
+def test_export_and_render_leave_the_source_untouched(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    project: tuple[Path, Path],
+    command: tuple[str, ...],
+    protocol: str,
+) -> None:
+    root, fake = project
+    before = tree_snapshot(root)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    name, *flags = command
+    code, env, _, _ = run(
+        monkeypatch, elsewhere, name, str(root), "--out", "out", *flags, "--kicad-cli", str(fake), protocol
+    )
+    assert code == 0, env["issues"]
+    assert any(c["args"][:2] in (["pcb", "export"], ["pcb", "render"]) for c in calls(fake))
+    assert (elsewhere / "out").is_dir() is (protocol == "--confirm")
     _untouched(root, before)

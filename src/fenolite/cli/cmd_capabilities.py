@@ -105,6 +105,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
     commands = [
         {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
+        | ({"example_tools": list(c.example_tools)} if c.example_tools else {})
         for c in sorted(discover().values(), key=lambda c: c.name)
     ]
     result: dict[str, Any] = {

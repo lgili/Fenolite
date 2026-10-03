@@ -298,6 +298,28 @@ class NetlistOutcome:
 
 
 @dataclass(frozen=True, slots=True)
+class PlotView:
+    """A review view an oracle plotted: its name, its size in bytes and a SHA-256 that two plots of one
+    board share (the oracle leaves a date the tool stamps out of it). No bytes leave the oracle."""
+
+    name: str
+    bytes: int
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class PlotOutcome:
+    """An oracle's plot of a project: the views it produced, the names of those it could not produce
+    (``message`` says why), and the evidence of the run."""
+
+    views: tuple[PlotView, ...]
+    tool_version: str
+    failed: tuple[str, ...] = ()
+    message: str = ""
+    evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
 class Rt2Outcome:
     """The DRC reports of an RT2 run: the runs on the original in run order (two, more when the oracle
     repeated them, fewer when a run wrote no report), the first run on the re-dump, and ``repeats``, the
@@ -338,6 +360,15 @@ class RoundTripOracle(Protocol):
     def rt2(self, project: ProjectSet) -> Rt2Outcome: ...
 
 
+@runtime_checkable
+class Plotter(Protocol):
+    """An external tool that plots review views of a project copy set; it never writes under its root."""
+
+    name: str
+
+    def plot(self, project: ProjectSet) -> PlotOutcome: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -370,6 +401,9 @@ __all__ = [
     "Oracle",
     "PadAssignment",
     "PadNetList",
+    "PlotOutcome",
+    "PlotView",
+    "Plotter",
     "ProjectSet",
     "ReadResult",
     "RoundTrip",

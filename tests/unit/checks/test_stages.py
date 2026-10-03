@@ -37,10 +37,11 @@ def test_stage_order() -> None:
         "netlist.assignment_compare",
         "roundtrip",
         "roundtrip.rt2",
+        "render",
     )
-    assert OPT_IN_STAGES == ("roundtrip.rt2",)
-    assert DEFAULT_STAGES == STAGE_ORDER[:-1]
-    assert ORACLE_STAGES == ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")
+    assert OPT_IN_STAGES == ("roundtrip.rt2", "render")
+    assert DEFAULT_STAGES == STAGE_ORDER[:-2]
+    assert ORACLE_STAGES == ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
 
 
 def test_fixed_order() -> None:
@@ -143,7 +144,7 @@ def test_unsupported_format_code_in_message() -> None:
 def test_cache_unreadable_skips_both_model_stages() -> None:
     report = run_checks(
         project=project(),
-        stages=STAGE_ORDER,
+        stages=DEFAULT_STAGES,
         model=None,
         built=True,
         validator=FakeValidator(),
@@ -177,7 +178,7 @@ def test_issues_follow_input_then_stage_order() -> None:
     validator = FakeValidator(result=validation(passed=False, difference="/kicad_pcb/segment[0]"))
     oracle = FakeOracle(outcome("inconclusive", "selector-unproven"))
     report = run_checks(
-        project=project(), stages=STAGE_ORDER, model=None, built=False, validator=validator, oracle=oracle
+        project=project(), stages=DEFAULT_STAGES, model=None, built=False, validator=validator, oracle=oracle
     )
     assert [i.code for i in report.issues] == ["fake.drc.rules-unchecked", "check.rt1-failed"]
 
@@ -247,13 +248,13 @@ def test_new_stages_run_with_one_read() -> None:
     )
     checked = run_checks(
         project=project(),
-        stages=STAGE_ORDER,
+        stages=STAGE_ORDER[:-1],  # render needs a plotter (c0024)
         model=None,
         built=False,
         validator=validator,
         oracle=oracle,
     )
-    assert [s.name for s in checked.stages] == list(STAGE_ORDER)
+    assert [s.name for s in checked.stages] == list(STAGE_ORDER[:-1])
     statuses = {s.name: s.status for s in checked.stages}
     assert statuses["netlist.assignment_compare"] == "ok" and statuses["roundtrip.rt2"] == "ok"
     assert len(validator.calls) == 1

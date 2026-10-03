@@ -37,6 +37,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.output-conflict": ("warning",),
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
+        "render.failed": ("warning",),
     }
 )
 

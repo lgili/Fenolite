@@ -183,6 +183,9 @@ zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path â
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
 experimental features, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
 versions, and whether any enabled feature sends data off the machine. Agents should call it first.
+A command whose examples need an external tool also lists `example_tools` (`export` and `render`:
+`kicad-cli`); the test suites run such examples against a fake of the tool, and every other command's
+examples run with no subprocess.
 
 `result.experimental` lists, sorted by `name`, the features that may change their output, options or
 issue codes in any release. Each entry has exactly the keys `name`, `command`, `option`, `write_kinds`
@@ -241,6 +244,7 @@ re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assig
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board and of `kicad-cli pcb export ipcd356`, compared as partitions | the lowest of the reader, the export and, on built input, `INFERRED`; `UNVERIFIED` without an export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
 | `roundtrip.rt2` | opt-in: KiCad's DRC on the board and on Fenolite's re-dump of it gives the same violations | the DRC report reader, the oracle and the RT2 runs combined; `UNVERIFIED` when a report is missing |
+| `render` | opt-in: runs only when `--stages` names it; plots the four views of `fenolite render` on the copy set and writes nothing | the plot evidence, `kicad-cli <version>`; `UNVERIFIED` when no view was produced |
 
 Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `status` is `ok` (ran, no
 error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused`,
@@ -252,7 +256,9 @@ project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_
 `canary_removed`, `violations`, `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`,
 `violations_judged` and `types`. Whenever a report exists, each violation and unconnected item is one
 issue and `violations_judged` is `true`; `types` maps each emitted `kicad.drc.<type>` code to KiCad's raw
-type. An unrouted board therefore exits 5: its unconnected items are errors.
+type. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
+`tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
+`<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
 
 **Findings.** The code is `kicad.drc.` followed by KiCad's type in lower case with `_` as `-`
 (`shorting_items` gives `kicad.drc.shorting-items`). The severity is the report's, which follows the
@@ -305,6 +311,7 @@ report; `kicad-cli` then runs twice.
 | `erc.lite.output-conflict` | warning | two or more driving outputs on one net |
 | `erc.lite.power-undriven` | warning | a power input without a power output or a power interface |
 | `erc.lite.floating-pin` | warning | a pin on no net that `no_connect` does not mark |
+| `render.failed` | warning | the `render` stage could not produce a view; `where` is the view name. Never an error: a render is not a gate |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
 (error) names a pin that is marked as not connected and that a net lists (`docs/design-model.md`). Exit codes: 0 without an error issue, 5
@@ -313,6 +320,57 @@ neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 wh
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),
 of an unsupported major, or older than the board's format (`FEN-6002`). Two runs on the same project
 give the same stdout apart from `elapsed_ms`.
+
+## export
+
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest]
+[--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
+copy of the board `PATH` names (resolved as for `check`). Fenolite writes no Gerber itself: the tool runs
+once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
+becomes a planned write under `DIR` (relative to the working directory). The mutation protocol applies:
+`--dry-run` runs the tool and shows the plan, `--confirm` writes. `--all` selects the four kinds; a call
+that selects none exits 2. `--timeout` defaults to 300 s and applies to each run.
+
+| kind | `kicad-cli` call | files under `DIR` |
+|---|---|---|
+| `--gerbers` | `pcb export gerbers --no-protel-ext --layers <copper in stack order, masks, pastes, silkscreens, Edge.Cuts>` | `gerbers/<stem>-<layer>.gbr`, `gerbers/<stem>-job.gbrjob` |
+| `--drill` | `pcb export drill --format excellon --excellon-units mm --excellon-separate-th --drill-origin absolute` | `drill/<stem>-PTH.drl`, `drill/<stem>-NPTH.drl` |
+| `--pos` | `pcb export pos --format csv --units mm --side both` | `pos/<stem>-pos.csv` |
+| `--ipcd356` | `pcb export ipcd356` | `netlist/<stem>.d356` |
+
+`--check-zones` and `--board-plot-params` are never passed, so the files show the board as it is.
+`--manifest` adds `DIR/fenolite-artifacts.json` (`schemas/fenolite.artifacts.v0.json`; `docs/exports.md`).
+`result` holds `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`,
+`content_sha256`; sorted by path), `tool_version` and `tool_writes` (files the tool wrote outside its
+output folders, such as `<stem>.kicad_prl`). When a kind fails, nothing is planned or written, so a
+folder never holds a partial set.
+
+| code | severity | when |
+|---|---|---|
+| `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind |
+| `export.kind-unavailable` | error | the running `kicad-cli` major cannot export the kind; no tool run |
+
+Exit codes: 0 when the files are planned or written, 4 without `--dry-run` or `--confirm`, 5 with an
+issue above, 2 for a usage error, 3 for a missing path or a board Fenolite cannot read, 6 when
+`kicad-cli` is missing (`FEN-6001`), of an unsupported major or older than the board's format
+(`FEN-6002`). The evidence is `exports.EVIDENCE` with the oracle `kicad-cli <version>`: Fenolite claims
+the file set and the hashes, and the content of each file is KiCad's.
+
+## render
+
+`fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--kicad-cli PATH]
+[--timeout SECONDS]` writes review views of the board, through `kicad-cli` on the same copy set and
+with the same protocol and tool errors as `export`. `--svg` plots `front.svg` (`F.Cu`, `F.SilkS`,
+`F.Fab`, `Edge.Cuts`) and `back.svg` (the back layers, mirrored) with `pcb export svg --mode-single`;
+`--png` renders `top.png` and `bottom.png` with `pcb render`, at most `--width` by `--height` pixels
+(defaults 1600 and 1200, each from 64 to 8192). A call with neither flag exits 2. `result` holds `board`,
+`out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`.
+
+| code | severity | when |
+|---|---|---|
+| `render.failed` | warning | a view was not produced; `where` is the view name, and the other views are still written |
+
+A render is a review artefact, never a gate: `render` exits 0 whenever the tool is found.
 
 ## inspect
 

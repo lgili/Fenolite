@@ -14,7 +14,7 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.")
+CODE = ("check.", "erc.lite.", "netlist.", "render.")
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -33,12 +33,13 @@ TABLE = {
     "erc.lite.output-conflict": ("warning",),
     "erc.lite.power-undriven": ("warning",),
     "erc.lite.floating-pin": ("warning",),
+    "render.failed": ("warning",),
 }
 
 
 def code_literals(paths: list[Path]) -> set[str]:
-    """Every issue-code literal in ``paths``: ``check.*`` and ``erc.lite.*`` strings, and the codes built by
-    ``oracle_code(…, "<suffix>")`` as ``<oracle>.drc.<suffix>``."""
+    """Every issue-code literal in ``paths``: ``check.*``, ``erc.lite.*`` and ``render.*`` strings, and the
+    codes built by ``oracle_code(…, "<suffix>")`` as ``<oracle>.drc.<suffix>``."""
     found: set[str] = set()
     for path in paths:
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):

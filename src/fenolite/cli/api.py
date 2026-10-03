@@ -68,6 +68,8 @@ class Command:
     run: Callable[[argparse.Namespace, Context], Result]
     example_args: tuple[str, ...] = ()
     mutation_example_args: tuple[str, ...] | None = None
+    example_tools: tuple[str, ...] = ()
+    """External tools the examples need (``kicad-cli``); the test suites provide a fake for each."""
 
     @property
     def hidden(self) -> bool:

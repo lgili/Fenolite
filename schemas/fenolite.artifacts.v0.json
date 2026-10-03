@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.artifacts.v0",
+  "title": "Manifest",
+  "description": "The artefact manifest of ``fenolite export --manifest``.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "fenolite": {
+      "type": "string"
+    },
+    "generated": {
+      "type": "string"
+    },
+    "board": {
+      "$ref": "#/$defs/BoardRef"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolRef"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ArtifactEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "fenolite",
+    "generated",
+    "board",
+    "tool",
+    "artifacts"
+  ],
+  "$defs": {
+    "ArtifactEntry": {
+      "description": "One artefact: its path below the manifest's folder, its kind, the layer of a Gerber, its size, the",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "layer",
+        "bytes",
+        "sha256",
+        "content_sha256",
+        "evidence"
+      ]
+    },
+    "BoardRef": {
+      "description": "The board the artefacts were made from.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "format_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "format_version"
+      ]
+    },
+    "ToolRef": {
+      "description": "The tool that wrote the artefacts.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ]
+    }
+  }
+}

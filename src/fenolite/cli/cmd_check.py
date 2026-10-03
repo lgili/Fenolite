@@ -17,13 +17,12 @@ from typing import Any
 from fenolite.backends import registry
 from fenolite.backends.base import Validator
 from fenolite.backends.kicad import versions
-from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
-from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
 from fenolite.checks.stages import relative_file
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -32,7 +31,6 @@ from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
 
 HELP = "check a KiCad project read-only: model, ERC lite, KiCad DRC findings, pad nets, round trips"
-DEFAULT_TIMEOUT = 300.0
 BUILT_MARKERS = ("meta.json", "build.json")
 NO_TOOL_HINT = (
     "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli, or run "
@@ -100,28 +98,7 @@ def _cache(root: Path) -> tuple[bool, Design | None, str]:
 
 def _oracle(args: argparse.Namespace, board: Path) -> KicadOracle:
     """The pre-flight of the ``ORACLE_STAGES``: a supported ``kicad-cli`` that reads this board's format."""
-    path = find_kicad_cli(args.kicad_cli)
-    if path is None:
-        raise CliError("FEN-6001", "kicad-cli not found", hint=NO_TOOL_HINT)
-    cli = KicadCli(path, timeout=args.timeout)
-    try:
-        major = cli.major()
-    except (KicadCliError, ValueError) as exc:
-        raise CliError(
-            "FEN-6001", f"{path.name} did not report a kicad-cli version", hint=NO_TOOL_HINT
-        ) from exc
-    if major not in versions.TARGET_MAJORS:
-        raise CliError("FEN-6002", f"kicad-cli {cli.version()} is not supported",
-                       hint=f"use kicad-cli {' or '.join(map(str, versions.TARGET_MAJORS))}")  # fmt: skip
-    try:
-        info = versions.inspect(parse_bytes(board.read_bytes(), file=board.name), file=board.name)
-    except (FormatError, OSError):
-        info = None  # the header check is skipped; KiCad decides
-    limit = versions.FORMAT_VERSIONS[versions.FileKind.BOARD][major]
-    if info is not None and (info.status is versions.VersionStatus.FUTURE or info.version > limit):
-        raise CliError("FEN-6002", f"{board.name} (format {info.version}) is newer than kicad-cli "
-                       f"{cli.version()} reads", hint="run a newer kicad-cli")  # fmt: skip
-    return KicadOracle(cli)
+    return KicadOracle(preflight(args.kicad_cli, args.timeout, board, hint=NO_TOOL_HINT))
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -136,7 +113,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     built, model, cache_error = _cache(root)
     oracle = _oracle(args, board) if set(ORACLE_STAGES) & set(stages) else None
     report = run_checks(project=project, stages=stages, model=model, built=built, validator=backend,
-                        oracle=oracle, cache_error=cache_error)  # fmt: skip
+                        oracle=oracle, cache_error=cache_error,
+                        plotter=oracle if "render" in stages else None)  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)

@@ -27,7 +27,8 @@ first circuit boards on.
 - **Your templates, not ours.** Sheet frames and title blocks are generated from your own spec;
   Fenolite ships no organisation's templates, rules or libraries.
 
-The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
+The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`. Fabrication
+files and review renders (`fenolite export`, `fenolite render`) are described in `docs/exports.md`.
 
 ## Evidence labels
 

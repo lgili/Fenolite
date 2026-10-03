@@ -5,7 +5,10 @@
 The fake is a ``#!/bin/sh`` wrapper around a Python script, as in c0009's runner tests. It answers
 ``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
-board unchanged, ``"fail"`` exits 1; c0020). Without ``drc_report`` its DRC report
+board unchanged, ``"fail"`` exits 1; c0020), and the export and render commands of c0024
+(``export_files``): an export whose ``-o`` names a folder or a file in a folder, as ``fenolite export``
+asks for, while the netlist oracle of c0020 exports to the run folder itself. Without ``drc_report`` its
+DRC report
 holds no violation, plus the canary ``clearance`` pair when the board it got holds both canary tracks
 and a rules file next to it holds the canary rule, as KiCad would report them. ``drc_report=""`` writes no
 report and exits 3. Every call appends ``{"args", "files"}`` to ``<folder>/calls.jsonl``: the arguments
@@ -52,7 +55,7 @@ if args and args[-1] == "--help":
 time.sleep(config["sleep"])
 for name in config["writes"]:
     open(name, "w").write("{}")
-if args[:3] == ["pcb", "export", "ipcd356"]:
+if args[:3] == ["pcb", "export", "ipcd356"] and "/" not in args[args.index("-o") + 1]:
     if config["ipcd356"] is None:
         print("Failed to load board", file=sys.stderr)
         sys.exit(3)
@@ -65,6 +68,25 @@ if args[:2] == ["pcb", "upgrade"]:
     board = args[-1]
     text = open(board, encoding="utf-8").read()
     open(board, "w", encoding="utf-8").write(text)
+kind = None
+if args[:2] == ["pcb", "export"] and len(args) > 2:
+    kind = args[2]
+if args[:2] == ["pcb", "render"]:
+    kind = "render"
+if kind is not None and kind in config["export_files"]:
+    out = args[args.index("-o") + 1]
+    stem = os.path.splitext(os.path.basename(args[-1]))[0]
+    folder = out if out.endswith("/") else os.path.dirname(out)
+    if kind in config["export_fail"]:
+        print("Failed to plot " + os.path.join(os.getcwd(), args[-1]), file=sys.stderr)
+        sys.exit(1)
+    if folder and not os.path.isdir(folder):
+        print("Output folder is missing: " + folder, file=sys.stderr)
+        sys.exit(1)
+    wanted = config["export_files"][kind]
+    for name, text in wanted.items():
+        target = os.path.join(folder, name.replace("{stem}", stem)) if out.endswith("/") else out
+        open(target, "w", encoding="latin-1", newline="").write(text)
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
@@ -96,6 +118,29 @@ if args[:2] == ["pcb", "drc"]:
 """
 
 
+def _png(width: int, height: int) -> str:
+    """The first 24 bytes of a PNG of that size, as latin-1 text."""
+    header = b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR"
+    return (header + width.to_bytes(4, "big") + height.to_bytes(4, "big")).decode("latin-1")
+
+
+GERBER = "%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6*%\n%TF.CreationDate,2026-10-03T00:00:00+00:00*%\nM02*\n"
+DRILL = "M48\n; DRILL file KiCad 10.0.6 date 2026-10-03T00:00:00+0000\nM30\n"
+EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
+    "gerbers": {
+        "{stem}-F_Cu.gbr": GERBER,
+        "{stem}-Edge_Cuts.gbr": GERBER,
+        "{stem}-job.gbrjob": '{\n  "Header": {\n    "CreationDate": "2026-10-03T00:00:00+00:00"\n  }\n}\n',
+    },
+    "drill": {"{stem}-PTH.drl": DRILL, "{stem}-NPTH.drl": DRILL},
+    "pos": {"pos.csv": "Ref,Val,Package,PosX,PosY,Rot,Side\n"},
+    "ipcd356": {"board.d356": "P  CODE 00\n999\n"},
+    "svg": {"view.svg": '<svg xmlns="http://www.w3.org/2000/svg"/>\n'},
+    "render": {"view.png": _png(320, 240)},
+}
+"""What the fake writes for each export kind when ``export_files`` is not given."""
+
+
 def fake_kicad_cli(
     folder: Path,
     *,
@@ -109,9 +154,16 @@ def fake_kicad_cli(
     upgrade: Literal["copy", "fail"] = "copy",
     log: Path | None = None,
     drc_sequence: Sequence[str] = (),
+    export_files: Mapping[str, Mapping[str, str]] | None = None,
+    export_fail: Sequence[str] = (),
 ) -> Path:
     """An executable fake ``kicad-cli`` in ``folder`` (``help_pages`` keyed by the command words, ``""``
-    for the root page)."""
+    for the root page).
+
+    ``export_files`` maps an export kind (``gerbers``, ``drill``, ``pos``, ``ipcd356``, ``svg``, ``render``)
+    to the files its run writes, name → text: under the ``-o`` folder when that argument ends with ``/``
+    (``{stem}`` is the board's stem), else the first text at the ``-o`` path itself. The default is
+    ``EXPORT_FILES``; a kind mapped to ``{}`` writes nothing, and a kind in ``export_fail`` exits 1."""
     folder.mkdir(parents=True, exist_ok=True)
     config = {
         "version": version,
@@ -126,6 +178,10 @@ def fake_kicad_cli(
         "drc_sequence": list(drc_sequence),
         "canary_uuids": list(CANARY_UUIDS),
         "canary_rule": CANARY_RULE_NAME,
+        "export_files": {
+            k: dict(v) for k, v in (EXPORT_FILES if export_files is None else export_files).items()
+        },
+        "export_fail": list(export_fail),
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")
@@ -150,4 +206,4 @@ def report_with(*violations: Mapping[str, Any]) -> str:
                        "schematic_parity": []})  # fmt: skip
 
 
-__all__ = ["calls", "fake_kicad_cli", "report_with"]
+__all__ = ["DRILL", "EXPORT_FILES", "GERBER", "calls", "fake_kicad_cli", "report_with"]

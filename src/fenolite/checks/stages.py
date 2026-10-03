@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from fenolite.backends.base import Oracle, ProjectSet, Validation, Validator
+from fenolite.backends.base import Oracle, Plotter, ProjectSet, Validation, Validator
 from fenolite.checks.codes import issue
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
@@ -27,14 +27,15 @@ STAGE_ORDER: tuple[str, ...] = (
     "netlist.assignment_compare",
     "roundtrip",
     "roundtrip.rt2",
+    "render",
 )
 """The order stages run in; a later change may insert a stage."""
-OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2",)
+OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
-ORACLE_STAGES: tuple[str, ...] = ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")
+ORACLE_STAGES: tuple[str, ...] = ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
-_READING_STAGES = frozenset({"roundtrip", *ORACLE_STAGES})
+_READING_STAGES = frozenset({"roundtrip", *ORACLE_STAGES} - {"render"})
 StageStatus = Literal["ok", "errors", "skipped"]
 StageSkip = Literal["native-input", "read-refused", "cache-unreadable", "unsupported-oracle"]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
@@ -116,23 +117,26 @@ def read_refused(error: FormatError, root: Path) -> Issue:
 def run_checks(
     *,
     project: ProjectSet,
-    stages: Sequence[str],
+    stages: Sequence[str] | None = None,
     model: Design | None,
     built: bool,
     validator: Validator | None,
     oracle: Oracle | None,
     cache_error: str = "",
+    plotter: Plotter | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc_lite import erc_stage
+    from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
 
-    selected = [name for name in STAGE_ORDER if name in stages]
+    wanted = DEFAULT_STAGES if stages is None else stages
+    selected = [name for name in STAGE_ORDER if name in wanted]
     input_issues: list[Issue] = []
     validation: Validation | None = None
     read_error: FormatError | None = None
@@ -178,6 +182,11 @@ def run_checks(
     def rt2() -> StageResult:
         return skipped("roundtrip.rt2", "read-refused") if validation is None else rt2_stage(oracle, project)
 
+    def render() -> StageResult:
+        if plotter is None:
+            raise ValueError("render is selected but no plotter was given")
+        return skipped("render", "read-refused") if read_error is not None else render_stage(plotter, project)
+
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
         "erc.lite": erc,
@@ -185,6 +194,7 @@ def run_checks(
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,
         "roundtrip.rt2": rt2,
+        "render": render,
     }
     results = tuple(runners[name]() for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]

@@ -26,6 +26,7 @@ import _bench
 import _buildcases
 import _checkcases
 import _drccases
+import _exportcases
 import _fpwrite
 import _lenscases
 import _mincases
@@ -206,6 +207,7 @@ def _probes() -> dict[str, Probe]:
         **_mincases.min_probes(),
         **_vendorcases.vendor_probes(),
         **_lenscases.lens_probes(),
+        **_exportcases.export_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

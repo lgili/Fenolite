@@ -261,3 +261,40 @@ def test_oracle_built_only_for_oracle_stages(monkeypatch: pytest.MonkeyPatch, tm
         "erc.lite",
         "roundtrip",
     ]
+
+
+def test_render_stage_is_opt_in(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Capability verification-loop, "Render stage" (c0024): absent by default, selected by name."""
+    board, fake = _native(tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), "--kicad-cli", str(fake))
+    assert code == 0 and "render" not in _stages(env)
+    assert not any(c["args"][:2] == ["pcb", "render"] for c in calls(fake))
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "check", str(board), "--stages", "roundtrip,render", "--kicad-cli", str(fake)
+    )
+    assert code == 0, env["issues"]
+    render = _stages(env)["render"]
+    assert render["status"] == "ok"
+    assert [v["name"] for v in render["summary"]["views"]] == [  # type: ignore[index]
+        "back.svg",
+        "bottom.png",
+        "front.svg",
+        "top.png",
+    ]
+    assert sorted(p.name for p in board.parent.iterdir()) == ["board.kicad_pcb", "board.kicad_pro"]
+
+
+def test_a_failed_view_never_fails_the_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _copy(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", export_fail=("render",))
+    code, env, err, _ = run(
+        monkeypatch, tmp_path, "check", str(board), "--stages", "render", "--kicad-cli", str(fake)
+    )
+    assert code == 0 and err == {}
+    assert [(i["code"], i["severity"]) for i in env["issues"]] == [("render.failed", "warning")] * 2
+
+
+def test_render_stage_needs_the_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _copy(tmp_path)
+    code, _, err, _ = run(monkeypatch, tmp_path, "check", str(board), "--stages", "render")
+    assert code == 6 and err["code"] == "FEN-6001"

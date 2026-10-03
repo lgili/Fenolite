@@ -28,12 +28,15 @@ from fenolite.backends.base import (
     NetlistOracle,
     NetlistOutcome,
     Oracle,
+    PlotOutcome,
+    PlotView,
     ProjectSet,
     RoundTripOracle,
     Rt2Outcome,
 )
 from fenolite.backends.kicad import canary, padnets
 from fenolite.backends.kicad import drc as drcmod
+from fenolite.backends.kicad import plot as plotmod
 from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli, KicadCliError
 from fenolite.backends.kicad.ipcd356 import read_ipcd356
 from fenolite.backends.kicad.pcb import read_board, rebuild_board
@@ -173,6 +176,29 @@ class KicadOracle:
             message=problem or _first_line(run.stderr),
             evidence=evidence,
         )
+
+    # -- review views (c0024)
+
+    def plot(self, project: ProjectSet) -> PlotOutcome:
+        """The four review views of the copy set (``Plotter`` protocol): name, size and hash of each view
+        produced, and the names of those that were not."""
+        version = self.version()
+        board = project.files[project.board]
+        others = {name: path for name, path in project.files.items() if name != project.board}
+        views: list[PlotView] = []
+        failed: list[str] = []
+        messages: list[str] = []
+        for name in sorted(plotmod.VIEWS):
+            data, message = plotmod.plot_view(self.cli, name, board, others)
+            if data is None:
+                failed.append(name)
+                messages.append(f"{name}: {message}")
+                continue
+            views.append(PlotView(name, len(data), plotmod.view_digest(name, data)))
+        evidence = (
+            dataclasses.replace(plotmod.EVIDENCE, oracle=f"kicad-cli {version}") if views else Evidence()
+        )
+        return PlotOutcome(tuple(views), version, tuple(failed), "; ".join(messages), evidence)
 
     # -- netlist (c0020 Decision 9)
 

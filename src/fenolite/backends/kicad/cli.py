@@ -27,6 +27,7 @@ from fenolite.core.errors import FenoliteError
 MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
 CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
+RENDER_DIR = "render"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
 
 
@@ -173,9 +174,15 @@ class KicadCli:
         return int(match.group(1))
 
     def run(
-        self, args: Sequence[str], *, files: Mapping[str, Path], env: Mapping[str, str] | None = None
+        self,
+        args: Sequence[str],
+        *,
+        files: Mapping[str, Path],
+        env: Mapping[str, str] | None = None,
+        folders: Sequence[str] = (),
     ) -> CliRun:
-        """Copy ``files`` (relative name → file or folder) to a fresh folder and run there."""
+        """Copy ``files`` (relative name → file or folder) to a fresh folder, create the empty ``folders``
+        there, and run."""
         tmp = Path(tempfile.mkdtemp(prefix="fenolite-kicad-"))
         try:
             config = tmp / CONFIG_DIR
@@ -187,6 +194,8 @@ class KicadCli:
                     shutil.copytree(source, target)
                 else:
                     shutil.copyfile(source, target)
+            for name in folders:
+                (tmp / _relative(name)).mkdir(parents=True, exist_ok=True)
             before = {rel: _sha256(path) for rel, path in _files(tmp).items()}
             command = [str(self.path), *map(str, args)]
             try:
@@ -248,6 +257,27 @@ class KicadCli:
             ["pcb", "export", "ipcd356", "-o", "board.d356", name], _with(board, files), "pcb export ipcd356"
         )
         return _output(run, "board.d356", "pcb export ipcd356")
+
+    def export(
+        self, args: Sequence[str], board: Path, *, files: Mapping[str, Path] | None = None, out: str
+    ) -> CliRun:
+        """An export command (``args`` without the board) on a copy of ``board``, with the folder ``out``
+        created in the run folder first; the caller reads ``returncode`` and the files under ``out``."""
+        return self.run([*args, Path(board).name], files=_with(board, files), folders=(out,))
+
+    def render(
+        self,
+        board: Path,
+        *,
+        side: Literal["top", "bottom"],
+        width: int,
+        height: int,
+        files: Mapping[str, Path] | None = None,
+    ) -> CliRun:
+        """``pcb render --side <side>``: the PNG is ``render/<side>.png`` among the outputs. The image is at
+        most ``width`` by ``height`` (``docs/formats/kicad/cli.md``)."""
+        args = ["pcb", "render", "--side", side, "--width", str(width), "--height", str(height)]
+        return self.export([*args, "-o", f"{RENDER_DIR}/{side}.png"], board, files=files, out=RENDER_DIR)
 
     def _require_ten(self, what: str) -> None:
         if self.major() < 10:
@@ -329,6 +359,7 @@ def _sanitise(text: str, tmp: Path) -> str:
 __all__ = [
     "DRC_REPORT",
     "MACOS_KICAD_CLI",
+    "RENDER_DIR",
     "CandidateSource",
     "CliCandidate",
     "CliRun",

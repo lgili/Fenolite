@@ -14,7 +14,7 @@ import pytest
 from _fakecli import calls, fake_kicad_cli, report_with
 from _projects import STEM, authored_project, native_project, tree_snapshot
 
-from fenolite.backends.base import NetlistOracle, Oracle, RoundTripOracle
+from fenolite.backends.base import NetlistOracle, Oracle, Plotter, RoundTripOracle
 from fenolite.backends.kicad import canary
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad import oracle as oraclemod
@@ -314,3 +314,36 @@ def test_kicad_oracle_satisfies_the_three_protocols(tmp_path: Path) -> None:
     assert isinstance(oracle, NetlistOracle) and isinstance(oracle, RoundTripOracle)
     drc_only, netlist, rt2 = oraclemod._protocols(oracle)  # pyright: ignore[reportPrivateUsage]
     assert drc_only is netlist is rt2 is oracle
+
+
+def test_plot_outcome_holds_no_bytes(tmp_path: Path) -> None:
+    """``KicadOracle.plot`` (c0024): name, size and hash per view, nothing written under the project."""
+    root = authored_project(tmp_path, major=10)
+    oracle, script = _oracle(tmp_path, writes=("x.kicad_prl",))
+    assert isinstance(oracle, Plotter)
+    before = tree_snapshot(root)
+    outcome = oracle.plot(project_set(root))
+    assert [v.name for v in outcome.views] == ["back.svg", "bottom.png", "front.svg", "top.png"]
+    assert all(isinstance(v.bytes, int) and v.bytes > 0 and len(v.sha256) == 64 for v in outcome.views)
+    assert outcome.failed == () and outcome.message == "" and outcome.tool_version == "10.0.6"
+    assert outcome.evidence.oracle == "kicad-cli 10.0.6"
+    assert outcome.evidence.hypotheses == ("H-K-EXPORT-RENDER",)
+    assert str(tmp_path) not in repr(outcome) and "fenolite-kicad-" not in repr(outcome)
+    assert tree_snapshot(root) == before
+    copied = [
+        set(c["files"]) for c in calls(script) if c["args"][:2] in (["pcb", "export"], ["pcb", "render"])
+    ]
+    assert len(copied) == 4 and all(f"{STEM}.kicad_pro" in files for files in copied)
+
+
+def test_plot_names_the_views_that_failed(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    oracle, _ = _oracle(tmp_path, export_fail=("render",))
+    outcome = oracle.plot(project_set(root))
+    assert [v.name for v in outcome.views] == ["back.svg", "front.svg"]
+    assert outcome.failed == ("bottom.png", "top.png")
+    assert "bottom.png: exit 1" in outcome.message and "<tmp>" not in outcome.message
+    none, _ = _oracle(tmp_path / "second", export_fail=("render", "svg"))
+    empty = none.plot(project_set(root))
+    assert empty.views == () and len(empty.failed) == 4
+    assert strength(empty.evidence.level) == strength(Level.UNVERIFIED)

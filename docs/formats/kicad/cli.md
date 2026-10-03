@@ -82,3 +82,20 @@ The probe `check-copyset` (`tests/kicad/check/test_copy_set.py`) recorded `equal
 `sym-lib-table` and `notes.txt`, DRC on the copy set reports the same violations and unconnected items
 as DRC on a copy of the whole folder. The whole-folder run is repeated, so a board whose KiCad report
 changes between identical runs gives `inconclusive` instead of a false difference.
+
+## Exports and renders
+
+`fenolite export` and `fenolite render` (change c0024) run these commands on a copy of the project.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb export gerbers -o <folder>/ --no-protel-ext --layers <list>` writes one file per layer, named `<stem>-<layer name with dots as underscores>.gbr`, and the job file `<stem>-job.gbrjob` | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-FILES |
+| `pcb export drill -o <folder>/ --format excellon --excellon-units mm --excellon-separate-th --drill-origin absolute` writes `<stem>-PTH.drl` and `<stem>-NPTH.drl` | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-FILES |
+| `pcb export pos --format csv --units mm --side both -o <file>` and `pcb export ipcd356 -o <file>` each write the one file named | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-FILES |
+| The file name of a Gerber uses the layer name KiCad shows (`F.Silkscreen` for `F.SilkS`), which the board's layer table gives as the user name | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-FILES |
+| On 10.0 an export run also writes `<stem>.kicad_prl` next to the board copy; 9.0 does not | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-FILES |
+| Two runs on one board differ only in the lines that start with `%TF.CreationDate`, `G04 Created by KiCad`, `; DRILL file` or `; #@! TF.CreationDate`, and in the job file's `"CreationDate":` line | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-REPEAT |
+| The position CSV and the IPC-D-356 file are byte-equal across two runs | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-REPEAT |
+| `--check-zones` exists on 10.0 only and refills zones before plotting; Fenolite never passes it | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
+| `pcb export svg --mode-single -o <file> --layers <list>` writes one SVG on both majors; `--mirror` mirrors it | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
+| `pcb render --side top\|bottom --width W --height H -o <file>.png` writes a PNG no larger than that size (368 × 280 for 400 × 300) with no display | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |

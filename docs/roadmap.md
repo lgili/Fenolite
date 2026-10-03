@@ -86,7 +86,7 @@ rebuilds.
 | c0021 | `kicad-libs-cache` | library fetch, cache, resolution probes | proposed | c0017, c0019, c0027 | 9.5 |
 | c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | proposed | c0019, c0028, c0030 | 6 |
 | c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | proposed | c0016 | 10 |
-| c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | proposed | c0013 | 5.25 |
+| c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | being implemented (all tasks done locally on 9.0.9 and 10.0.6; CI proof pending) | c0013 | 5.25 |
 | c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | proposed | every v0.1 change | 5.75 |
 | c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | proposed | c0010 | 6.5 |
 | c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | proposed | c0011 | 5.25 |

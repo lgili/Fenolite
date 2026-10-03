@@ -10,7 +10,7 @@
 - `gerber_layers(design)` MUST give the board's copper layers in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`, `F.SilkS`, `B.SilkS` where the board's layer table has them (by KiCad's canonical name), then `Edge.Cuts`.
 - `--check-zones` and `--board-plot-params` MUST NOT be passed for any kind.
 - `KindResult.artifacts` MUST hold one `Artifact(path, kind, layer, data, repeatable)` per file the run wrote under the kind's output folder, sorted by path; `path` is relative to the output folder and uses `/`.
-- `Artifact.layer` MUST be the layer's canonical name for a Gerber, and `None` for any other kind.
+- `Artifact.layer` MUST be the layer's canonical name for a Gerber, found from the file name's suffix through the canonical and the user names of the board's layer table (KiCad names the file after the name it shows, `F_Silkscreen` for `F.SilkS`), and `None` for any other kind, for the job file `<stem>-job.gbrjob` and for a suffix that matches no layer.
 - Files the run wrote outside the kind's output folder MUST be listed in `KindResult.tool_writes` and MUST NOT become artefacts.
 - A run that exits non-zero, or writes no file, MUST give one `export.failed` (error; `where` = the kind) whose message is the first line of the tool's output with every temporary path removed.
 - A kind that the probes record as unavailable on the running major MUST give `export.kind-unavailable` (error) and MUST run no subprocess.
@@ -24,7 +24,7 @@
 #### Scenario: Artefacts from a fake run
 - **GIVEN** a fake `kicad-cli` whose `gerbers` run writes `gerbers/b-F_Cu.gbr`, `gerbers/b-Edge_Cuts.gbr` and `b.kicad_prl`
 - **WHEN** `run_kind(cli, "gerbers", …)` runs
-- **THEN** there are two artefacts with layers `F.Cu` and `Edge.Cuts`, and `tool_writes` is `("b.kicad_prl",)`
+- **THEN** there are two artefacts with layers `Edge.Cuts` and `F.Cu`, and `tool_writes` is `("b.kicad_prl",)`
 
 #### Scenario: Failed kind
 - **GIVEN** a fake `kicad-cli` that exits 1 for `pcb export drill` with a message holding its temporary folder
@@ -44,7 +44,7 @@
   - `board`: `path` (relative to the project root, with `/`), `sha256`, `format_version`;
   - `tool`: `name` (`kicad-cli`) and `version`;
   - `artifacts`: one object per artefact, sorted by `path`, with `path`, `kind`, `layer` (or `null`), `bytes`, `sha256`, `content_sha256` and `evidence`.
-- `content_sha256(data, kind)` MUST be the SHA-256 of `data` without the lines that start with any prefix in `exports.plan.VOLATILE_PREFIXES` for that kind. The prefixes MUST be the date-bearing lines recorded by `H-K-EXPORT-REPEAT`: `%TF.CreationDate`, `G04 Created by KiCad`, `; DRILL file` and `; #@! TF.CreationDate`.
+- `content_sha256(data, kind)` MUST be the SHA-256 of `data` without the lines that start with any prefix in `exports.plan.VOLATILE_PREFIXES` for that kind. A line is compared after its leading blanks are removed. The prefixes MUST be the date-bearing lines recorded by `H-K-EXPORT-REPEAT`: `%TF.CreationDate`, `G04 Created by KiCad`, `; DRILL file`, `; #@! TF.CreationDate` and, for the Gerber job file, `"CreationDate":`.
 - The manifest MUST NOT hold an absolute path, a temporary path, the home directory or a user name, and MUST NOT list itself.
 - `dumps(manifest)` MUST be canonical JSON (sorted keys, two-space indent, a final newline).
 - The artefact files MUST be written with the bytes `kicad-cli` produced; Fenolite MUST NOT edit them.

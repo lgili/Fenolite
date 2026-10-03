@@ -16,6 +16,7 @@ from typing import Any
 
 import _schema
 import pytest
+from _fakecli import fake_kicad_cli
 
 from fenolite.cli.api import Command, Context, Result, discover, module_name_for
 from fenolite.cli.main import main
@@ -26,6 +27,25 @@ MUTATING = sorted(n for n, c in COMMANDS.items() if c.mutates)
 ENVELOPE = _schema.load("fenolite.envelope.v0.json")
 ERROR = _schema.load("fenolite.error.v0.json")
 CapSys = pytest.CaptureFixture[str]
+EXAMPLE_TOOLS = frozenset({"kicad-cli"})
+"""The external tools a command may name in ``example_tools``; the suites hold a fake for each."""
+
+
+def unknown_tools(command: Command) -> list[str]:
+    return sorted(set(command.example_tools) - EXAMPLE_TOOLS)
+
+
+@pytest.fixture(autouse=True)
+def example_tools(
+    request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A command that names ``kicad-cli`` in ``example_tools`` runs its examples against the fake (capability
+    cli-contract, "Tool-backed command examples"); the fake lives outside the test's ``tmp_path``."""
+    callspec = getattr(request.node, "callspec", None)
+    name = callspec.params.get("name") if callspec is not None else None
+    if name in COMMANDS and "kicad-cli" in COMMANDS[name].example_tools:
+        script = fake_kicad_cli(tmp_path_factory.mktemp("fake-kicad"))
+        monkeypatch.setenv("FENOLITE_KICAD_CLI", str(script))
 
 
 def _invoke(capsys: CapSys, argv: list[str]) -> tuple[int, str, str]:
@@ -47,6 +67,16 @@ def _assert_error(err: str, exit_code: int) -> dict[str, Any]:
     assert _schema.validate(data, ERROR) == []
     assert int(data["code"][4]) == exit_code
     return data
+
+
+@pytest.mark.parametrize("name", NAMES)
+def test_example_tools_are_known(name: str) -> None:
+    assert unknown_tools(COMMANDS[name]) == [], f"{name} names a tool the suites have no fake for"
+
+
+def test_unknown_example_tool_is_named() -> None:
+    command = dataclasses.replace(COMMANDS["_echo"], example_tools=("ngspice", "kicad-cli"))
+    assert unknown_tools(command) == ["ngspice"]
 
 
 def test_there_are_commands() -> None:
@@ -157,5 +187,7 @@ def test_check_codes_documented() -> None:
     from fenolite.cli.cmd_doctor import ISSUE_CODES as DOCTOR_CODES
 
     contract = (Path(__file__).resolve().parents[2] / "docs" / "cli-contract.md").read_text(encoding="utf-8")
-    for code in [*CHECK_CODES, *DOCTOR_CODES]:
+    from fenolite.exports.codes import ISSUE_CODES as EXPORT_CODES
+
+    for code in [*CHECK_CODES, *DOCTOR_CODES, *EXPORT_CODES]:
         assert f"`{code.replace('<oracle>', 'kicad')}`" in contract, code

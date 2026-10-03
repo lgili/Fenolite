@@ -44,6 +44,12 @@ def _targets() -> list[Target]:
             "fenolite.envelope.v0", "fenolite.cli.output:Envelope", "schemas/fenolite.envelope.v0.json", True
         ),
         Target("fenolite.error.v0", "fenolite.cli.errors:ErrorInfo", "schemas/fenolite.error.v0.json", True),
+        Target(
+            "fenolite.artifacts.v0",
+            "fenolite.exports.manifest:Manifest",
+            "schemas/fenolite.artifacts.v0.json",
+            True,
+        ),
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [
