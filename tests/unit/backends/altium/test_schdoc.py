@@ -16,7 +16,9 @@ from _altium import (
     check_plan,
     component_index,
     example_files,
+    example_model,
     example_plan,
+    hier_model,
     model_of,
     owned_by,
     records,
@@ -24,10 +26,11 @@ from _altium import (
     upright_symbol,
 )
 
+from fenolite.backends.altium.hierarchy import plan_sheets
 from fenolite.backends.altium.layout import PartSpec, PinNet, layout_sheet
 from fenolite.backends.altium.project import part_specs, plan_sheet, write_project
-from fenolite.backends.altium.schdoc import schdoc_records
-from fenolite.dsl import Design, Net, Part, connect
+from fenolite.backends.altium.schdoc import schdoc_records, write_schdoc
+from fenolite.dsl import Design, Module, Net, Part, connect
 from fenolite.model import Design as ModelDesign
 from fenolite.model import PinRef
 
@@ -388,3 +391,180 @@ def test_no_connect_mark_refused_by_the_writer(mark: tuple[str, str], match: str
         part_specs(model)
     with pytest.raises(ValueError, match=match):
         write_project(model, name="altium_sample")
+
+
+# --- sheet symbols, sheet entries and ports (change c0037) -------------------------------------------
+
+HIERARCHY_RECORDS = ("15", "16", "18", "32", "33")
+
+
+def _dicts(plan: object) -> list[dict[str, str]]:
+    return [dict(record) for record in schdoc_records(plan)]  # type: ignore[arg-type]
+
+
+def hier_sheets(form: str = "ascii") -> dict[str, list[dict[str, str]]]:
+    """File name → the ``FileHeader`` records of each sheet of the hierarchy sample's ``modules`` build."""
+    project = plan_sheets(hier_model(), name="altium_hier", sheets="modules", form=form)  # type: ignore[arg-type]
+    return {sheet.file: _dicts(sheet.plan) for sheet in project.sheets}
+
+
+def test_sheet_symbol_blocks_follow_the_sheet_record() -> None:
+    top = hier_sheets()["altium_hier.SchDoc"]
+    kinds = [r["RECORD"] for r in top]
+    first_component = kinds.index("1")
+    assert kinds[:first_component] == ["31", "15", *["16"] * 5, "32", "33", "15", *["16"] * 6, "32", "33"]
+    assert not set(kinds[first_component:]) & set(HIERARCHY_RECORDS)
+    flash, mcu = (r for r in top if r["RECORD"] == "15")
+    assert list(flash) == [
+        "RECORD", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "XSIZE", "YSIZE", "COLOR", "AREACOLOR",
+        "ISSOLID", "UNIQUEID", "SYMBOLTYPE",
+    ]  # fmt: skip
+    assert (flash["OWNERPARTID"], flash["COLOR"], flash["AREACOLOR"]) == ("-1", "128", "8454016")
+    assert (flash["ISSOLID"], flash["SYMBOLTYPE"], flash["XSIZE"]) == ("T", "Normal", "190")
+    assert flash["YSIZE"] == "60" and mcu["YSIZE"] == "70", "(slots + 1) x 100 mil"
+    names = [(r["RECORD"], r["TEXT"], int(r["OWNERINDEX"])) for r in top if r["RECORD"] in ("32", "33")]
+    assert names == [
+        ("32", "flash", 1),
+        ("33", "altium_hier_flash.SchDoc", 1),
+        ("32", "mcu", 9),
+        ("33", "altium_hier_mcu.SchDoc", 9),
+    ]
+    name, file_name = (r for r in top if r["RECORD"] in ("32", "33") and r["OWNERINDEX"] == "1")
+    assert list(name) == [
+        "RECORD", "OWNERINDEX", "OWNERPARTID", "LOCATION.X", "LOCATION.Y", "COLOR", "FONTID", "TEXT",
+    ]  # fmt: skip
+    assert (file_name["LOCATION.X"], file_name["LOCATION.Y"]) == (flash["LOCATION.X"], flash["LOCATION.Y"])
+    assert (name["LOCATION.X"], int(name["LOCATION.Y"])) == (
+        flash["LOCATION.X"],
+        int(flash["LOCATION.Y"]) + 10,
+    )
+    assert not any("INDEXINSHEET" in r for r in top)
+
+
+FLASH_NETS = ("FLASH_WP", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK")
+MCU_NETS = ("FLASH_WP", "RESET_N", "SPI_CS", "SPI_MISO", "SPI_MOSI", "SPI_SCK")
+
+
+def test_sheet_entry_keys_and_order() -> None:
+    top = hier_sheets()["altium_hier.SchDoc"]
+    entries = [r for r in top if r["RECORD"] == "16"]
+    assert [(r["OWNERINDEX"], r["NAME"], r["DISTANCEFROMTOP"]) for r in entries] == [
+        *(("1", name, str(k)) for k, name in enumerate(FLASH_NETS, 1)),
+        *(("9", name, str(k)) for k, name in enumerate(MCU_NETS, 1)),
+    ]
+    keys = [
+        "RECORD", "OWNERINDEX", "OWNERPARTID", "SIDE", "DISTANCEFROMTOP", "COLOR", "AREACOLOR", "TEXTCOLOR",
+        "TEXTFONTID", "TEXTSTYLE", "NAME", "ARROWKIND",
+    ]  # fmt: skip
+    assert all(list(r) == keys for r in entries)
+    first = entries[0]
+    assert (first["SIDE"], first["COLOR"], first["AREACOLOR"], first["TEXTCOLOR"]) == (
+        "1",
+        "128",
+        "8454143",
+        "128",
+    )
+    assert (first["TEXTFONTID"], first["TEXTSTYLE"], first["ARROWKIND"]) == ("1", "Full", "Block & Triangle")
+    assert not any("IOTYPE" in r or "UNIQUEID" in r for r in entries)
+
+
+def test_sheet_entry_on_the_edge() -> None:
+    """Scenario "Entry on the edge": the stub of ``RESET_N`` on the symbol ``mcu`` starts on the right edge,
+    ``DISTANCEFROMTOP`` x 100 mil below the top-left corner, and its label lies on the stub."""
+    top = hier_sheets()["altium_hier.SchDoc"]
+    symbol = top[9]
+    assert symbol["RECORD"] == "15" and top[16]["TEXT"] == "mcu"
+    (entry,) = (r for r in top if r["RECORD"] == "16" and r["OWNERINDEX"] == "9" and r["NAME"] == "RESET_N")
+    x = int(symbol["LOCATION.X"]) + int(symbol["XSIZE"])
+    y = int(symbol["LOCATION.Y"]) - 10 * int(entry["DISTANCEFROMTOP"])
+    wires = [r for r in top if r["RECORD"] == "27" and (int(r["X1"]), int(r["Y1"])) == (x, y)]
+    assert len(wires) == 1
+    (wire,) = wires
+    label = top[top.index(wire) + 1]
+    assert label["RECORD"] == "25" and label["TEXT"] == "RESET_N"
+    assert int(wire["Y2"]) == y == int(label["LOCATION.Y"]) and int(wire["X2"]) > x
+    assert x < int(label["LOCATION.X"]) < int(wire["X2"])
+
+
+def test_sheet_entry_stubs_follow_the_last_component_and_precede_the_pin_stubs() -> None:
+    top = hier_sheets()["altium_hier.SchDoc"]
+    kinds = [r["RECORD"] for r in top]
+    first_wire = kinds.index("27")
+    assert not {"1", "2", "14", "34", "41", "44", "45", "46", "48"} & set(kinds[first_wire:])
+    tail = [(r["RECORD"], r.get("TEXT", "")) for r in top[first_wire:] if r["RECORD"] != "27"]
+    assert [text for _, text in tail] == [*FLASH_NETS, *MCU_NETS, "VDD", "GND", "RESET_N"]
+    assert [kind for kind, _ in tail] == [*["25"] * 11, "17", "17", "25"]
+
+
+def test_no_sheet_symbol_in_the_flat_mode() -> None:
+    """Scenario "No symbol in the flat mode": the sample has two modules and one flat sheet."""
+    assert not {r["RECORD"] for r in sample_records()} & set(HIERARCHY_RECORDS)
+    flat = plan_sheets(hier_model(), name="altium_hier", sheets="flat", form="binary")
+    assert not {r["RECORD"] for r in _dicts(flat.top.plan)} & set(HIERARCHY_RECORDS)
+
+
+def test_no_sheet_symbol_without_modules() -> None:
+    """Scenario "No symbol without modules": the KiCad example has no module, so both modes give one sheet
+    with the same bytes."""
+    model, symbols = example_model()
+    flat = plan_sheets(model, name="altium_kicad", sheets="flat", form="ascii", symbols=symbols)
+    split = plan_sheets(model, name="altium_kicad", sheets="modules", form="ascii", symbols=symbols)
+    assert len(split.sheets) == 1
+    data = write_schdoc(split.top.plan)
+    assert data == write_schdoc(flat.top.plan)
+    assert not {r["RECORD"] for r in records(data)} & set(HIERARCHY_RECORDS)
+
+
+def test_port_records_of_the_module_sheets() -> None:
+    sheets = hier_sheets()
+    port_keys = [
+        "RECORD", "OWNERPARTID", "WIDTH", "LOCATION.X", "LOCATION.Y", "COLOR", "FONTID", "AREACOLOR",
+        "TEXTCOLOR", "NAME", "UNIQUEID", "HEIGHT",
+    ]  # fmt: skip
+    for file, names in (("altium_hier_flash.SchDoc", FLASH_NETS), ("altium_hier_mcu.SchDoc", MCU_NETS)):
+        found = sheets[file]
+        kinds = [r["RECORD"] for r in found]
+        assert not {"15", "16", "32", "33"} & set(kinds), "no module sheet holds a sheet symbol"
+        first = kinds.index("18")
+        assert not {"1", "2", "14", "34", "41"} & set(kinds[first:]), "ports follow the last component record"
+        ports = [r for r in found if r["RECORD"] == "18"]
+        assert [r["NAME"] for r in ports] == list(names)
+        assert kinds[first : first + 3 * len(ports)] == ["18", "27", "25"] * len(ports)
+        assert all(kind in ("27", "25", "17") for kind in kinds[first + 3 * len(ports) :])
+        for port in ports:
+            assert list(port) == port_keys
+            colours = (port["COLOR"], port["FONTID"], port["AREACOLOR"], port["TEXTCOLOR"], port["HEIGHT"])
+            assert colours == ("128", "1", "8454143", "128", "10")
+            assert int(port["WIDTH"]) == max(30, -(-(70 * len(port["NAME"]) + 150) // 100) * 10)
+            wire, label = found[found.index(port) + 1], found[found.index(port) + 2]
+            right_end = (str(int(port["LOCATION.X"]) + int(port["WIDTH"])), port["LOCATION.Y"])
+            assert (wire["X1"], wire["Y1"]) == right_end
+            assert label["TEXT"] == port["NAME"] and label["LOCATION.Y"] == wire["Y1"]
+            assert int(wire["X1"]) < int(label["LOCATION.X"]) < int(wire["X2"])
+
+
+def test_port_and_sheet_entry_names_match() -> None:
+    """Scenario "Port and entry names match", in both forms."""
+    for form in ("ascii", "binary"):
+        sheets = hier_sheets(form)
+        top = sheets["altium_hier.SchDoc"]
+        files = {int(r["OWNERINDEX"]): r["TEXT"] for r in top if r["RECORD"] == "33"}
+        assert sorted(files.values()) == ["altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
+        for owner, file in files.items():
+            entries = [r["NAME"] for r in top if r["RECORD"] == "16" and int(r["OWNERINDEX"]) == owner]
+            ports = [r["NAME"] for r in sheets[file] if r["RECORD"] == "18"]
+            assert entries == ports and len(set(ports)) == len(ports) and ports
+
+
+def test_port_free_module_gets_a_symbol_without_entries() -> None:
+    """A module whose nets all stay on its sheet gets no port, and its sheet symbol no entry."""
+    design = Design("x")
+    lone = Module("lone")
+    r1, r2 = Part("R1", "L.SchLib:RES"), Part("R2", "L.SchLib:RES")
+    lone.add(r1, r2)
+    design.add(lone)
+    connect(Net("A"), r1[1], r2[1])
+    project = plan_sheets(model_of(design), name="x", sheets="modules", form="ascii")
+    top, sheet = (_dicts(s.plan) for s in project.sheets)
+    assert [r["RECORD"] for r in top] == ["31", "15", "32", "33"]
+    assert "18" not in {r["RECORD"] for r in sheet}

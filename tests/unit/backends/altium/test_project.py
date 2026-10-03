@@ -12,10 +12,11 @@ import sys
 from pathlib import Path
 
 import pytest
-from _altium import component_index, model_of, records, sample, sample_model
+from _altium import component_index, hier_model, model_of, records, sample, sample_model
 
 from fenolite.backends import registry
-from fenolite.backends.altium import project
+from fenolite.backends.altium import hierarchy, project
+from fenolite.backends.altium.hierarchy import plan_sheets
 from fenolite.backends.altium.project import (
     EVIDENCE,
     WRITE_KINDS,
@@ -24,6 +25,7 @@ from fenolite.backends.altium.project import (
     unique_id,
     write_project,
 )
+from fenolite.backends.altium.schdoc import schdoc_records
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Level
 from fenolite.dsl import Design, Net, Part, Power, connect
@@ -228,3 +230,43 @@ def test_no_issue_on_a_standard_sheet() -> None:
     issues: list[Issue] = []
     write_project(model_of(sample()), name="altium_sample", issues=issues)
     assert issues == []
+
+
+# --- unique ids of sheet symbols and ports (change c0037) --------------------------------------------
+
+
+@pytest.mark.parametrize("form", ["ascii", "binary"])
+def test_unique_ids_of_the_hierarchy_sample(form: str) -> None:
+    """Scenario "Ids of the hierarchy sample": sheet symbols and ports carry ids keyed by names, components
+    keep the ids of the flat build, and no other record holds ``UNIQUEID``."""
+    model = hier_model()
+    flat = {}
+    for record in schdoc_records(project.plan_sheet(model, name="altium_hier")):
+        fields = dict(record)
+        if fields["RECORD"] == "1":
+            flat[fields["LIBREFERENCE"], fields["UNIQUEID"]] = fields["UNIQUEID"]
+    sheets = plan_sheets(model, name="altium_hier", sheets="modules", form=form)  # type: ignore[arg-type]
+    components: set[str] = set()
+    for sheet in sheets.sheets:
+        found = [dict(record) for record in schdoc_records(sheet.plan)]
+        symbols = [r for r in found if r["RECORD"] == "15"]
+        files = [r["TEXT"] for r in found if r["RECORD"] == "33"]
+        if sheet.module is None:
+            assert files == ["altium_hier_flash.SchDoc", "altium_hier_mcu.SchDoc"]
+            assert [r["UNIQUEID"] for r in symbols] == [unique_id("sheet:flash"), unique_id("sheet:mcu")]
+        else:
+            assert not symbols and sheet.symbol_id == unique_id(f"sheet:{sheet.module}")
+        for port in (r for r in found if r["RECORD"] == "18"):
+            assert sheet.module is not None
+            assert port["UNIQUEID"] == unique_id(f"port:{sheet.module}:{port['NAME']}")
+        components |= {r["UNIQUEID"] for r in found if r["RECORD"] == "1"}
+        assert all(r["RECORD"] in ("1", "15", "18") for r in found if "UNIQUEID" in r)
+    assert components == set(flat.values()) and len(components) == 6
+    assert components == {unique_id(c.id) for c in model.circuit.components}
+
+
+def test_unique_ids_of_sheets_and_ports_depend_only_on_names() -> None:
+    assert hierarchy.symbol_id("mcu") == unique_id("sheet:mcu") != unique_id("sheet:flash")
+    assert hierarchy.port_id("mcu", "RESET_N") == unique_id("port:mcu:RESET_N")
+    assert hierarchy.port_id("mcu", "FLASH_WP") != hierarchy.port_id("flash", "FLASH_WP")
+    assert all(re.fullmatch(r"[A-Y]{8}", i) for i in (hierarchy.symbol_id("a"), hierarchy.port_id("a", "b")))

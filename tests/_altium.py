@@ -175,16 +175,22 @@ def example_files(form: str = "ascii") -> dict[str, bytes]:
     return output.files
 
 
-def example_plan() -> SheetPlan:
-    """The sheet plan of the KiCad example (resolved symbols, generic pins for nothing)."""
-    from fenolite.backends.altium.project import plan_sheet
+def example_model() -> tuple[ModelDesign, dict[str, AltiumSymbol]]:
+    """The KiCad example's model with the pins of its resolved symbols, and those symbols."""
     from fenolite.lens.altium import kicad_pins, library_symbols, resolve_symbols
 
     with tempfile.TemporaryDirectory() as folder:
         model = to_model(example())
         resolved = resolve_symbols(model, example_resolver(Path(folder)))
     model, issues = kicad_pins(model, resolved)
-    symbols = library_symbols(resolved, issues)
+    return model, library_symbols(resolved, issues)
+
+
+def example_plan() -> SheetPlan:
+    """The sheet plan of the KiCad example (resolved symbols, generic pins for nothing)."""
+    from fenolite.backends.altium.project import plan_sheet
+
+    model, symbols = example_model()
     return plan_sheet(model, name="altium_kicad", symbols=symbols)
 
 

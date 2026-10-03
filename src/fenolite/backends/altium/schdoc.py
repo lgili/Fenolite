@@ -2,10 +2,14 @@
 # Copyright (c) 2026 Fenolite contributors
 """The records of an ASCII schematic, in their fixed order (capability altium-schematic-writer).
 
-Record 0 is the sheet. Then, per component in component-path order and per part of its symbol: the
+Record 0 is the sheet. On the top sheet of a hierarchical project (change c0037) the sheet symbols follow,
+each with its sheet entries, its name and its file name. Then, per component in component-path order and
+per part of its symbol: the
 component record of that part, every rectangle and pin of the symbol (with their ``OWNERPARTID``), its
 designator, its comment and, when it has a footprint, the footprint chain 44 → 45 → 46, 48. Then, per
 component, part and pin drawn on that part, the pin's wire stub followed by its net label or power port.
+Before these pin stubs come the labelled wires of the sheet entries (top sheet) and the ports of a module
+sheet, each followed by its labelled wire or the wires of its harness block.
 Last come the No ERC directives of the pins marked as intentionally unconnected (change c0036), so a
 design without marks keeps its bytes.
 Bodies come from the library symbol, placed with its origin at the component's location (change c0034).
@@ -19,8 +23,13 @@ from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, 
 from fenolite.backends.altium.layout import (
     COMMENT_DROP,
     DESIGNATOR_RISE,
+    PORT_HEIGHT,
+    SHEET_NAME_RISE,
     NoConnectMark,
+    PlacedEntry,
     PlacedPart,
+    PlacedPort,
+    PlacedSymbol,
     SheetPlan,
     Stub,
 )
@@ -36,6 +45,15 @@ PORT_STYLES = {"bar": "2", "ground": "4"}
 PORT_ORIENTATION = {"left": "2", "right": "0", "up": "1", "down": "3"}
 """A port points away from the body: leftwards on a left pin, rightwards on a right pin, up or down on a
 top or bottom pin."""
+SYMBOL_COLOR = "128"
+"""The border of a sheet symbol, a sheet entry and a port, and the text of the last two (change c0037)."""
+SYMBOL_FILL = "8454016"
+"""The fill of a sheet symbol."""
+ENTRY_FILL = "8454143"
+"""The fill of a sheet entry and of a port."""
+RIGHT_SIDE = "1"
+"""``SIDE`` of a sheet entry on the right side of its symbol."""
+ENTRY_ARROW = "Block & Triangle"
 VERTICAL_TEXT = "1"
 """``ORIENTATION`` of a net label that runs upwards along a vertical stub."""
 NO_ERC_COLOR = "255"
@@ -182,6 +200,84 @@ class _Writer:
             self.add([("RECORD", "46"), ("OWNERINDEX", str(model))])
             self.add([("RECORD", "48"), ("OWNERINDEX", str(model))])
 
+    def sheet_symbol(self, symbol: PlacedSymbol) -> None:
+        """Records 15, 16 per entry, 32 and 33 of one sheet symbol (change c0037, "Sheet symbols and sheet
+        entries"): the symbol's location is its top-left corner."""
+        spec = symbol.spec
+        owner = self.add(
+            [
+                ("RECORD", "15"),
+                ("OWNERPARTID", "-1"),
+                *self.at("LOCATION", symbol.x, symbol.y),
+                ("XSIZE", str(to_units(symbol.width))),
+                ("YSIZE", str(to_units(symbol.height))),
+                ("COLOR", SYMBOL_COLOR),
+                ("AREACOLOR", SYMBOL_FILL),
+                ("ISSOLID", "T"),
+                ("UNIQUEID", spec.unique_id),
+                ("SYMBOLTYPE", "Normal"),
+            ]
+        )
+        for entry in symbol.entries:
+            crossing = entry.crossing
+            self.add(
+                [
+                    ("RECORD", "16"),
+                    ("OWNERINDEX", str(owner)),
+                    ("OWNERPARTID", "-1"),
+                    ("SIDE", RIGHT_SIDE),
+                    ("DISTANCEFROMTOP", str(entry.slot)),
+                    ("COLOR", SYMBOL_COLOR),
+                    ("AREACOLOR", ENTRY_FILL),
+                    ("TEXTCOLOR", SYMBOL_COLOR),
+                    ("TEXTFONTID", "1"),
+                    ("TEXTSTYLE", "Full"),
+                    ("NAME", crossing.name),
+                    *((("HARNESSTYPE", crossing.name),) if crossing.harness else ()),
+                    ("ARROWKIND", ENTRY_ARROW),
+                ]
+            )
+        for record, text, rise in (("32", spec.module, SHEET_NAME_RISE), ("33", spec.file, 0)):
+            self.add(
+                [
+                    ("RECORD", record),
+                    ("OWNERINDEX", str(owner)),
+                    ("OWNERPARTID", "-1"),
+                    *self.at("LOCATION", symbol.x, symbol.y - rise),
+                    ("COLOR", TEXT_COLOR),
+                    ("FONTID", "1"),
+                    ("TEXT", text),
+                ]
+            )
+
+    def port(self, port: PlacedPort) -> None:
+        """Record 18 (change c0037, "Ports on module sheets"): the location is the port's left end."""
+        crossing = port.crossing
+        self.add(
+            [
+                ("RECORD", "18"),
+                ("OWNERPARTID", "-1"),
+                ("WIDTH", str(to_units(port.width))),
+                *self.at("LOCATION", port.x, port.y),
+                ("COLOR", SYMBOL_COLOR),
+                ("FONTID", "1"),
+                ("AREACOLOR", ENTRY_FILL),
+                ("TEXTCOLOR", SYMBOL_COLOR),
+                ("NAME", crossing.name),
+                *((("HARNESSTYPE", crossing.name),) if crossing.harness else ()),
+                ("UNIQUEID", crossing.port_id),
+                ("HEIGHT", str(to_units(PORT_HEIGHT))),
+            ]
+        )
+
+    def links(self, item: PlacedPort | PlacedEntry) -> None:
+        """The labelled wires of a port or sheet entry: its own stub, or those of its harness block."""
+        if item.stub is not None:
+            self.stub(item.stub)
+        if item.block is not None:
+            for stub in item.block.stubs:
+                self.stub(stub)
+
     def stub(self, stub: Stub) -> None:
         (x1, y1), (x2, y2) = stub.start, stub.end
         self.add(
@@ -245,8 +341,16 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
     """Every record after the header, in file order."""
     writer = _Writer(plan)
     writer.add(sheet_record(plan))
+    for symbol in plan.symbols:
+        writer.sheet_symbol(symbol)
     for placed in plan.parts:
         writer.component(placed)
+    for symbol in plan.symbols:
+        for entry in symbol.entries:
+            writer.links(entry)
+    for port in plan.ports:
+        writer.port(port)
+        writer.links(port)
     for stub in plan.stubs:
         writer.stub(stub)
     for mark in plan.no_connects:
