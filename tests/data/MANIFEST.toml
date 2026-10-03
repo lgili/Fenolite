@@ -696,3 +696,33 @@ path = "tests/data/altium/blink/blink.PcbDoc"
 origin = "authored"
 corpus_id = ""
 notes = "experimental PCB document of examples/blink_2layer: outline, placed footprints, pads, nets and designators (c0035 golden file)"
+
+[[file]]
+path = "examples/altium_kicad/no_connect.py"
+origin = "authored"
+corpus_id = ""
+notes = "Altium target example with no-connect marks (thin DSL, c0036); lib ids of FenoliteDemo.kicad_sym, one input left open as the positive control"
+
+[[file]]
+path = "tests/data/altium/no_connect/altium_no_connect.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of examples/altium_kicad/no_connect.py listing its schematic and library (c0036 golden file)"
+
+[[file]]
+path = "tests/data/altium/no_connect/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of examples/altium_kicad/no_connect.py with three No ERC directives (c0036 golden file)"
+
+[[file]]
+path = "tests/data/altium/no_connect/altium_no_connect.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of examples/altium_kicad/no_connect.py with the symbols of FenoliteDemo.kicad_sym (c0036 golden file)"
+
+[[file]]
+path = "tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "ASCII schematic of examples/altium_kicad/no_connect.py with three No ERC directives (c0036 golden file)"

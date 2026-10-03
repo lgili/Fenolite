@@ -15,6 +15,8 @@ This page is the protocol by which the maintainer checks, in Altium Designer, th
 - Part L (change c0034) opens the committed schematic libraries and their projects in Altium Designer.
   The Viewer refuses library files, so Part L needs Altium Designer under a licence the maintainer may
   use for it.
+- Part N (change c0036) compiles the committed no-connect example in Altium Designer and uploads its
+  binary schematic to the Viewer.
 - `kicad-cli` cannot read a `.SchDoc` (S-0132, S-0020), so this check is the first reading of the files by
   a program other than Fenolite.
 
@@ -192,6 +194,49 @@ repository. Check the SHA-256 values first and work on copies.
 | L5 | On a copy of each project, run "Tools » Update From Libraries" with full replacement. | Components listed as not found; whether any pin moved off its stub; the nets after the update, compared with the tables. | `H-A-SCHLIB-UPDATE`, `H-A-SCHLIB-PRJ` |
 | L6 | Save a copy of each library under a new name in Altium. | Only the names of the keys Altium added or removed in `FileHeader` and in a component's records (no values). | data for `H-A-SCHLIB-OPEN` |
 
+## Part N: no-connect directives in Altium Designer
+
+Change c0036 writes one No ERC directive (record 22, "Suppress All Violations") at the electrical end
+of each pin that the design marks with `no_connect(...)`, and no wire for it. The committed files are
+the build of `examples/altium_kicad/no_connect.py`, whose symbols come from the authored CC0
+`FenoliteDemo.kicad_sym`. `tests/unit/lens/test_altium_no_connect_golden.py` checks that a fresh build
+gives these bytes and that this table names them.
+
+| project, library or schematic file | SHA-256 |
+|---|---|
+| `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
+| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `7cac02697be2a7b37dccaa0e2436786fb5dc55c550c0c03fa428197fe2aaaf4f` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `7ac872c78cebb8977eaaff78c29135024c4e5617991190644131c0290d990cdb` |
+| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `dd04eacceb2201fb3d8b168165bde92fb6a2cf1aae581609557b09d49d69b5c3` |
+
+- The design holds `J1` (`CONN2`), `R1` (`R_V`) and `U1` (`MCU8`) on the nets `VIN` (J1 1, R1 1, U1 1,
+  U1 6), `GND` (J1 2, U1 7) and `OE_N` (R1 2, U1 5).
+- `U1` pins `2` (`~{RST}`, an input), `4` (`OUT`, an output) and `8` (`TP`, a passive pin that the symbol
+  hides) are marked: each has a directive at its electrical end and no wire. The directive of pin `8`
+  therefore sits at the end of a pin that the sheet does not draw.
+- `U1` pin `3` (`CLK`, an input) is left open and unmarked on purpose. It is the positive control: a
+  compiler that reports nothing for pin `3` says nothing about the directives.
+- The three directives are the last records of the schematic, each with the keys `RECORD=22`,
+  `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=255`, `ISACTIVE=T`, `SUPPRESSALL=T` and
+  `SYMBOL=Thin Cross` (`docs/formats/altium/schematic-ascii.md`, "No ERC directive").
+- The footprints name `FenoliteDemo:<name>`, a library that does not exist, so no PCB library or PCB
+  document is written; footprint messages are not part of this check.
+
+Expected compiler messages: none that names `U1` pin `2`, `4` or `8`, and a floating-input message for
+`U1` pin `3`.
+
+Part N is recorded under the conditions of Part B: Altium Designer runs under a licence the maintainer
+may use for this purpose (`LEGAL.md`, block A, P3 and P4), only Fenolite's authored files are opened or
+uploaded, only generic outcomes are recorded, and no file opened or saved in the session enters the
+repository. Check the SHA-256 values first and work on copies.
+
+| step | what to do | what to note | rows |
+|---|---|---|---|
+| N1 | Put `altium_no_connect.PrjPcb`, `altium_no_connect.SchDoc` (binary) and `altium_no_connect.SchLib` in one folder; open the project and the schematic in Altium Designer. | Any prompt, repair offer or error; whether a No ERC directive shows at the ends of `U1` pins `2`, `4` and `8`, and its mode in the Properties panel (expected "Suppress All Violations"). | `H-A-SCH-NC-RECORD` |
+| N2 | Compile the project ("Project » Validate PCB Project"). | Every message that names `U1`, with its pin. Expected: none for pins `2`, `4` and `8`; a floating-input message for pin `3`. | `H-A-SCH-NC-ERC` |
+| N3 | Repeat N1 and N2 on a copy of the folder with `ascii/altium_no_connect.SchDoc` in place of the binary schematic. | The same notes as N1 and N2, for the ASCII form. | `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC` |
+| N4 | Upload the binary `altium_no_connect.SchDoc` alone to the Altium 365 Viewer. | Whether the three directives are drawn as crosses at the marked pins. | `H-A-SCH-NC-VIEWER` |
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the
@@ -288,3 +333,5 @@ Outcome per step:
   `H-A-SCHLIB-PRJ` and the two oracle rows stay `INFERRED` with `pending (author report)`. A result made
   with a work licence is not recorded (`LEGAL.md`, P4).
 - The Altium 365 Viewer's refusal of the ASCII files (V3 above) concerns the Viewer only.
+- No report of the no-connect check (N1 to N4) exists yet: `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC` and
+  `H-A-SCH-NC-VIEWER` stay `INFERRED` with `pending (author report)`.

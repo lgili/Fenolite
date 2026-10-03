@@ -1,0 +1,8 @@
+[Design]
+Version=1.0
+
+[Document1]
+DocumentPath=altium_no_connect.SchDoc
+
+[Document2]
+DocumentPath=altium_no_connect.SchLib
