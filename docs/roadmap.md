@@ -144,6 +144,7 @@ identical; RT2, `kicad-cli pcb drc` reports the same violations before and after
 **v0.2a, about c0032–c0037.**
 
 - Schematic: `.kicad_sch` writer and reader, `sch build`.
+- The schematic writer lowers `Circuit.no_connects` (c0036) to KiCad's no-connect flags.
 - ERC through `kicad-cli` in `check`, replacing v0.1's three-rule ERC; schematic parity in DRC.
 - `netlist` and `bom` through `kicad-cli`; pick-and-place.
 - BOM and pick-and-place files with a user-supplied column template: names, order, units, rotation

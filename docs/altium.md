@@ -32,7 +32,7 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   external tool. `--kicad-version` changes
   bytes only through the library configuration it selects.
 - `result` holds `design`, `target` (`"altium"`), `out`, `files`, the counts `components`, `nets`,
-  `labels` and `power_ports`, `sheet` (`A4` … `A0` or `custom`), `kept`, `schematic_format` (`binary`
+  `labels`, `power_ports` and `no_connects` (the No ERC directives written), `sheet` (`A4` … `A0` or `custom`), `kept`, `schematic_format` (`binary`
   or `ascii`), `libraries` (the planned `.SchLib` paths), `symbols` (the number of library components),
   `experimental` (`true`) and `script_output`. Planned writes have the kinds `altium_prjpcb`,
   `altium_schdoc_binary` or `altium_schdoc_ascii` (by form, since both forms are `.SchDoc` files),
@@ -100,6 +100,36 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
 - **Not lowered.** The board outline, placements, net classes and diff pairs have no place in these
   files. They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. Modules only order
   the layout; the schematic is one flat sheet.
+
+## No-connect marks
+
+`no_connect(u1[11], u1[12])` (`docs/dsl.md`, "No-connect marks") marks pins as intentionally
+unconnected. Altium's compiler otherwise reports each open input as a floating pin.
+
+- **The directive.** Each marked pin gets one No ERC directive (record 22) at its electrical end, in
+  the binary and in the ASCII form, in the "Suppress All Violations" mode, drawn as a red thin cross.
+  The directives are the last records of the schematic, so a design without marks keeps its bytes.
+  `result.no_connects` counts them.
+- **No stub.** A marked pin gets no wire, no net label and no power port; its cell on the sheet is the
+  cell of an unconnected pin.
+- **Resolution.** For a KiCad lib id a mark is resolved like a net member: a pin number stays, a pin
+  name marks every pin of that name, and a designator that is neither is refused
+  (`altium.unknown-pin`). For an Altium link the marked designator joins the generic body and the
+  generated library symbol, even when no net names it. A marked designator must be writable text
+  (`altium.text-unwritable`).
+- **Marked and connected.** A pin that is marked and on a net is refused with
+  `model.no-connect-on-net` (error, exit 5, nothing written).
+- **Libraries.** The symbols of KiCad lib ids, their pins and pin types, the project file, the PCB
+  library and the PCB document do not depend on the marks. The resolved marks are kept in
+  `.fenolite/circuit.json`.
+- **Update From Libraries.** A directive is a sheet object, not a part of the component. It stays at
+  its sheet position when "Tools » Update From Libraries" replaces a body; if the update moves a pin,
+  move the directive back onto the pin's end.
+- **Evidence.** Record 22 and its keys are `INFERRED` from public sources (`H-A-SCH-NC-RECORD`). No
+  source says that a directive on a pin's end without a wire silences the compiler for that pin
+  (`H-A-SCH-NC-ERC`), nor that the Altium 365 Viewer draws it (`H-A-SCH-NC-VIEWER`); the maintainer
+  checks all three with `examples/altium_kicad/no_connect.py` (Part N of
+  `docs/evidence/altium-schematic.md`).
 
 ## Schematic forms
 

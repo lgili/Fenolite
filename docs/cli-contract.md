@@ -100,6 +100,7 @@ each dropped part is reported as a warning, and without the flag the command fai
 libraries and, for KiCad footprints, a PCB library and an experimental PCB document (`docs/altium.md`).
 It reads only the KiCad libraries that KiCad lib ids and footprint links name, `result.target` is the
 string `altium`, `result.footprints` and `result.pcb_document` describe the PCB files,
+`result.no_connects` counts the No ERC directives written for the pins marked with `no_connect`,
 `result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
 Any other `--target` value is a usage error (`FEN-2001`, exit 2).
 
@@ -120,6 +121,11 @@ is written. A binary schematic too large for the writer gives the error `altium.
 keep their library's licence. `--vendor project` copies only those of project tables, and each other
 footprint gives the info `build.global-library`. `result.vendored` lists the copied files and
 `result.libraries` the row origin of each lib id.
+
+A pin marked with `no_connect` that a net also lists, once designators are resolved to pin numbers, is
+refused: `build.no-connect-on-net` (error) with `--target kicad`, `model.no-connect-on-net` (error) with
+`--target altium`; the exit code is 5 and nothing is written. The marks are kept in
+`.fenolite/circuit.json`, and no written KiCad file depends on them (`docs/dsl.md`, "No-connect marks").
 
 Over an existing project, `build` preserves the layout (`docs/lens.md`): the board, project and rules
 files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib-table` and the
@@ -218,9 +224,10 @@ report; `kicad-cli` then runs twice.
 | `kicad.drc.rules-unchecked` | warning | the canary is `inconclusive`; the message names the reason |
 | `erc.lite.output-conflict` | warning | two or more driving outputs on one net |
 | `erc.lite.power-undriven` | warning | a power input without a power output or a power interface |
-| `erc.lite.floating-pin` | warning | a pin on no net |
+| `erc.lite.floating-pin` | warning | a pin on no net that `no_connect` does not mark |
 
-`model.*` findings and reader codes pass through unchanged. Exit codes: 0 without an error issue, 5
+`model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
+(error) names a pin that is marked as not connected and that a net lists (`docs/design-model.md`). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when `drc.kicad` is
 selected and `kicad-cli` is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),

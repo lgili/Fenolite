@@ -41,6 +41,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   `Library:Name`; `footprint=None` falls back to the symbol's `Footprint` property, and `value=""` to
   its `Value` property. `properties` maps user property names to text ("User properties").
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
+- `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
 - `Design.moved(old, new)`: a path alias that keeps a renamed part's layout ("Path aliases").
 - `Design.board(width, height, copper=2)`, once per design.
@@ -140,6 +141,35 @@ warning.
 - Net or class names that differ only in letter case are refused (`build.name-case-collision`).
   KiCad 9.0.9 and 10.0.6 compare net names in custom-rule conditions without regard to case
   (`H-K-DRU-COND`, `docs/formats/kicad/rules.md`); the build refuses such names whatever is measured.
+
+## No-connect marks
+
+```python
+from fenolite.dsl import no_connect
+
+no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
+```
+
+- `no_connect(*pins)` takes the pin handles that `connect` takes, of one part or of several. A call
+  without arguments does nothing, and marking a designator twice keeps one mark. There is no `Part`
+  method for marks, no automatic marking of unused pins and no way to remove a mark.
+- **Errors.** Any argument that is not a pin handle raises `DslError`. Marking a designator that
+  `connect` joined to a net raises `DslError` naming the ref, the designator and the net; connecting a
+  marked designator raises `DslError` naming the ref and the designator. The earlier call stays in
+  force, and a refused `no_connect` call marks nothing.
+- **Stored form.** The designator is kept as written in `Part.no_connects` (`u1[11]` and `u1["11"]` are
+  one mark). `to_model` writes `Circuit.no_connects`, one `PinRef(<component id>, <designator>)` per
+  mark in `PinRef` order (`docs/design-model.md`), and changes nothing else. A mark belongs to its
+  part: it joins the design when the part is added.
+- **KiCad target.** The build resolves a mark like a net member: a pin number first, otherwise every
+  pin of that name (`build.unknown-pin`, `build.pin-ambiguous`). A pin that is marked and on a net,
+  for example by its name in one call and by its number in the other, gives `build.no-connect-on-net`
+  (error, exit 5, nothing written). The resolved marks are kept in `.fenolite/circuit.json`. The build
+  writes no schematic yet, so the board, project and rules files are byte for byte those of the same
+  design without marks; the schematic writer of v0.2a lowers the marks to KiCad's no-connect flags.
+- **Check.** `fenolite check` no longer reports `erc.lite.floating-pin` for a marked pin.
+- **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
+  "No-connect marks").
 
 ## User properties
 

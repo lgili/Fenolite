@@ -40,14 +40,37 @@ objects change; the diff matches such objects by content.
 | File | Class | Contents |
 |---|---|---|
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
-| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules |
+| `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
 | `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest) |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
 | `findings.json` | `Findings` | issues |
 
 `Design` aggregates them and offers read-only indexes (`by_id`, `by_ref`, `by_net`, `by_layer`)
-and `validate()` (duplicate ids and references, dangling references, empty and single-pin nets).
+and `validate()` (duplicate ids and references, dangling references, empty and single-pin nets, and
+no-connect marks on unknown or connected pins).
+
+### No-connect marks
+
+`Circuit.no_connects: tuple[PinRef, ...]` (the last field of `Circuit`, `()` by default) lists the pins
+that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
+
+- A mark is a `PinRef(component_id, pin)`, the form of a net member. `pin` has two forms: the
+  designator as written (a pin number or a pin name) in the model that `to_model` gives, and a pin
+  number after a build has resolved it. Marks are stored in `PinRef` order without duplicates.
+- A mark is a fact of the connection, not of the library pin. `Pin` and `PinType` are unchanged, and
+  `Pin.etype == "no_connect"` still means the pin type that the symbol declares. A mark has no id.
+- The field is additive: `canonical` omits the default, so a design without marks gives the
+  `circuit.json` bytes it gave before, and a file without the key `no_connects` loads with `()`.
+  `SCHEMA_VERSION` stays `"0"`; `schemas/fenolite.model.v0/circuit.json` lists `no_connects` as an
+  optional array of pin references.
+- `Design.validate()` reports three findings for a mark, each with `where` set to `<ref>-<pin>` (or
+  `<component id>-<pin>` when the component is unknown):
+  - `model.no-connect-on-net` (error): a net lists the same pin reference; the message names the net.
+  - `model.unknown-component` (error): no component has the id.
+  - `model.unknown-pin` (error): the component holds pins and none has the number.
+- A marked pin is no member of any net: `by_net`, `model.single-pin-net` and `model.dangling-net` are
+  unchanged.
 
 ## Library definitions
 
