@@ -21,7 +21,7 @@ the test reader `tests/_altium_read.py` (`read_schlib`) checks. The container is
 - The round trip passed on kicad-cli 10.0.6 and on 9.0.9 (pinned image, local run) on 2026-10-02. Rows
   whose only hypothesis is `H-A-SCHLIB-KICAD` and that the test exercises now carry
   `ORACLE-VERIFIED(kicad-cli)`; rows that also name an Altium-only hypothesis, and observations the test
-  does not repeat, stay `INFERRED`. No Part L report exists, so every Altium-only row is pending. The free Altium 365
+  does not repeat, stay `INFERRED`. The Part L report of 2026-10-03 covers steps L4 and L5 of the sample only (`H-A-SCHLIB-PRJ`), so every other Altium-only row is pending. The free Altium 365
   Viewer refuses library files (maintainer report of 2026-10-02), so it checks nothing here.
 - Units: lengths in a library are in units of 10 mil (S-0131, `schematic-ascii.md`).
 

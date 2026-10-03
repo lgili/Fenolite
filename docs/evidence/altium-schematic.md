@@ -251,11 +251,35 @@ Outcome per step:
 - KiCad is not Altium: this import is supporting data for the writer's geometry and settles no
   `H-A-*` row.
 
+### 2026-10-03, `AD 26.5`, steps A7, L4 and L5
+
+- Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03;
+  no artefact)`.
+- Files: the binary sample `binary/altium_sample.PrjPcb` and `altium_sample.SchDoc` with
+  `FenoliteSample.SchLib` beside them, and the blink project of `docs/evidence/altium-pcb.md`; Fenolite's
+  authored samples only. No file opened or saved in the session enters the repository.
+
+Outcome per step:
+
+- **A7.** The project file opens and the binary schematic opens. The project compiles with no error, and
+  the nets are as written. Confirms `H-A-PRJ-OPEN` (with the binary schematic) and `H-A-SCHBIN-AD`.
+- **L4.** The sample project with `FenoliteSample.SchLib` compiles with no error. The blink project
+  compiles with ERC messages that follow from its example circuit (`VIN` has one pin; unconnected inputs,
+  `U1` pins 11 and 12 among them). The `altium_kicad` project is not reported, so `H-A-SCHLIB-SCHDOC` and
+  `H-A-SCHLIB-MULTIPART` stay pending.
+- **L5.** "Tools » Update From Libraries" works with the generated `FenoliteSample.SchLib`. Confirms
+  `H-A-SCHLIB-PRJ`. Whether any pin moved and the nets after the update are not reported, so
+  `H-A-SCHLIB-UPDATE` stays pending with this observation.
+- **Not checked:** the change order (Part B; `H-A-SCH-ECO`, `H-A-SCH-RELINK`, `H-A-PRJ-KEEP`), the ASCII
+  form in Altium Designer (Part A, steps A1 to A6; the `H-A-SCH-*` rows) and steps L1 to L3 and L6.
+
 ### Status of Part A and Part B
 
-- No Altium Designer run of Part A or Part B has been reported. Every `H-A-SCH-*` and `H-A-PRJ-*` row
-  stays `INFERRED` with `pending (author report)`.
-- No Part L report exists: the `H-A-SCHLIB-*` rows other than the two oracle rows stay `INFERRED` with
-  `pending (author report)`. The maintainer may hold only a work licence, whose results are not
-  recorded (`LEGAL.md`, P4).
+- No Altium Designer run of the ASCII sample (Part A, steps A1 to A6) or of Part B has been reported.
+  Every `H-A-SCH-*` row and `H-A-PRJ-KEEP` stay `INFERRED` with `pending (author report)`; `H-A-PRJ-OPEN`
+  is confirmed with the binary schematic (report of 2026-10-03).
+- Part L is reported for steps L4 and L5 of the sample only: the `H-A-SCHLIB-*` rows other than
+  `H-A-SCHLIB-PRJ` and the two oracle rows stay `INFERRED` with `pending (author report)`. A result made
+  with a work licence is not recorded (`LEGAL.md`, P4).
 - The Altium 365 Viewer's refusal of the ASCII files (V3 above) concerns the Viewer only.

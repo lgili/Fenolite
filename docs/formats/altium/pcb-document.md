@@ -17,7 +17,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
   the PCB library, whose board record has the form Altium saves, opens (`docs/evidence/altium-pcb.md`,
   "Reports"). Which difference Altium refuses is not known; the writer now follows the Altium-saved form
   wherever its rule is clear, and the rest is listed under "Not written".
-- Every Altium row stays `INFERRED` until the maintainer's report (`docs/evidence/altium-pcb.md`, Parts P and D);
+- Every Altium row of this page stays `INFERRED` until the maintainer's report on the new form (`docs/evidence/altium-pcb.md`, Parts P and D);
   `kicad-cli pcb import` settles only `H-A-PCB-KICAD-DOC`.
 - Rows that only say what KiCad's importer reads carry `ORACLE-VERIFIED(kicad-cli)` since the round trips of 2026-10-03 passed on 10.0.6; that label says nothing about Altium.
 - `tests/unit/test_format_facts.py` checks the tables.

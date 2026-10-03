@@ -32,16 +32,16 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | Tracks, arcs, pads (subrecord 5) and texts start with 13 bytes: offset 0 the layer id (one byte), 1 and 2 two flag bytes, 3-4 the net index, 5-6 the polygon index, 7-8 the component index (unsigned 16-bit; `0xFFFF` means none), 9-12 four bytes that readers skip | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-LIB |
-| In the first flag byte, bit 2 set means unlocked. A writer writes `0x0C` and `0x00` as the two flag bytes, and `FF FF FF FF` at 9-12 | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-GRAPHICS |
+| In the first flag byte, bit 2 set means unlocked. A writer writes `0x0C` and `0x00` as the two flag bytes, and `FF FF FF FF` at 9-12 | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-GRAPHICS |
 | Nets and components are indexed by their zero-based position in their own storage; in a library footprint every index is `0xFFFF` | S-0160, S-0161, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 
 ## Track and arc
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A track (type 4) is one subrecord of at least 36 bytes: the prefix, then at 13 x1, 17 y1, 21 x2, 25 y2, 29 the width (32-bit each), 33 a 16-bit sub-polygon index (0) and 35 one byte (0). One open-source writer writes 35 bytes, which KiCad's reader refuses; 36 bytes satisfy both readers | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-GRAPHICS |
-| An arc (type 1) is one subrecord of at least 47 bytes: the prefix, then at 13 the centre x, 17 the centre y, 21 the radius (32-bit each), 25 the start angle and 33 the end angle (doubles), 41 the width (32-bit) and 45 a 16-bit sub-polygon index. AltiumSharp version 1 writes 45 bytes, without the index; KiCad refuses that arc (local probe of the format research) | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0020 | INFERRED | H-A-PCB-GRAPHICS |
-| An arc runs counter-clockwise from its start angle to its end angle; a full circle is 0 to 360 degrees | S-0002, S-0160 | INFERRED | H-A-PCB-GRAPHICS |
+| A track (type 4) is one subrecord of at least 36 bytes: the prefix, then at 13 x1, 17 y1, 21 x2, 25 y2, 29 the width (32-bit each), 33 a 16-bit sub-polygon index (0) and 35 one byte (0). One open-source writer writes 35 bytes, which KiCad's reader refuses; 36 bytes satisfy both readers | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-GRAPHICS |
+| An arc (type 1) is one subrecord of at least 47 bytes: the prefix, then at 13 the centre x, 17 the centre y, 21 the radius (32-bit each), 25 the start angle and 33 the end angle (doubles), 41 the width (32-bit) and 45 a 16-bit sub-polygon index. AltiumSharp version 1 writes 45 bytes, without the index; KiCad refuses that arc (local probe of the format research) | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0020 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-GRAPHICS |
+| An arc runs counter-clockwise from its start angle to its end angle; a full circle is 0 to 360 degrees | S-0002, S-0160 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-GRAPHICS |
 
 ## Pad
 

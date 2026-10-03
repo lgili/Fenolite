@@ -70,7 +70,7 @@
 - [x] 8.2 Write the board record by rule (`libboard.py`) and the library in Altium's form (`pcblib.py`: 53-byte `FileHeader`, `Library` side streams, `Parameters` keys, `UniqueIDPrimitiveInformation`); add the id block to `FileHeaderSix` (`pcbdoc.py`). Proof: `uv run pytest tests/unit/backends/altium`.
 - [x] 8.3 Extend `tests/_altium_pcb_read.py` and its negative controls to the new rules. Proof: `uv run pytest tests/unit/backends/altium/test_altium_pcb_read.py`.
 - [x] 8.4 Rebuild the blink PCB goldens and the digests of `docs/evidence/altium-pcb.md`; the KiCad oracles still pass. Proof: `uv run pytest tests/unit/lens tests/kicad/altium`.
-- [ ] 8.5 Record the maintainer's next Altium Designer report on the new files (step D1), under the licence rule of task 6.2.
+- [x] 8.5 Record the maintainer's next Altium Designer report on the new files (step D1), under the licence rule of task 6.2. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_rows.py tests/unit/test_format_facts.py`.
 
 ## 9. Second revision of 2026-10-03: the document in the form Altium saves
 

@@ -12,9 +12,9 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A PCB project file (`.PrjPcb`) is an ASCII file that lists the project's documents and its project-level settings | S-0134 | INFERRED | H-A-PRJ-OPEN |
-| The layout is INI-like: a line `[<section>]` starts a section, and `<key>=<value>` lines follow | S-0132, S-0143 | INFERRED | H-A-PRJ-OPEN |
-| Each document is a numbered section `[Document1]`, `[Document2]`, … holding `DocumentPath=<path>`; readers take every section whose name starts with `Document` and tell document kinds by extension (`.SchDoc`, `.PcbDoc`, `.SchLib`, `.PcbLib`) | S-0132, S-0143 | INFERRED | H-A-PRJ-OPEN |
-| `DocumentPath` is relative to the project folder: a bare file name names a document beside the project file | S-0132 | INFERRED | H-A-PRJ-OPEN |
+| The layout is INI-like: a line `[<section>]` starts a section, and `<key>=<value>` lines follow | S-0132, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PRJ-OPEN |
+| Each document is a numbered section `[Document1]`, `[Document2]`, … holding `DocumentPath=<path>`; readers take every section whose name starts with `Document` and tell document kinds by extension (`.SchDoc`, `.PcbDoc`, `.SchLib`, `.PcbLib`) | S-0132, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PRJ-OPEN |
+| `DocumentPath` is relative to the project folder: a bare file name names a document beside the project file | S-0132 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PRJ-OPEN |
 | A project file has a `[Design]` section. That it holds `Version=1.0` and that its other keys and the per-document keys are optional is a hypothesis: no permitted source states it | S-0143 (the `[Design]` section); `Version` and the optional keys: no permitted source (S-0142 removed by the audit of 2026-10-02; S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) does not give it) | INFERRED | H-A-PRJ-OPEN |
 | An open-source writer writes `[Design]` and `[DocumentN]` with CR LF line ends; no permitted source states the line end Altium writes | S-0143 | INFERRED | H-A-PRJ-OPEN |
 | No permitted source says that Altium needs a UTF-8 byte-order mark; the file is read as plain 7-bit ASCII | no permitted source (S-0142 removed by the audit of 2026-10-02; S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) does not give it) | INFERRED | H-A-PRJ-OPEN |

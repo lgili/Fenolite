@@ -35,9 +35,14 @@ The maintainer opened the first `blink.PcbLib` (SHA-256 `dbe1aef8…025a`, the s
 version 1 alone) in an Altium Designer trial: a "catastrophic" error, and the same for a library without
 footprints. The library is since written in the form Altium saves (`docs/formats/altium/pcb-library.md`:
 the 53-byte `FileHeader`, the whole board record in `Library/Data`, the `Library` side streams), and
-`blink.PcbDoc` carries the id block of `FileHeaderSix`; the digests above are the new files. Step D1 is to
-be repeated on them. If the library opens but a footprint looks wrong, report which of pads, lines or arcs:
-their records keep the short forms of `pcb-records.md` (`H-A-PCB-PAD`, `H-A-PCB-GRAPHICS`).
+`blink.PcbDoc` carries the id block of `FileHeaderSix`. In that form the library opens ("Reports" below).
+`blink.PcbDoc`, then still a short `Board6` record with 20 storages, failed with the same "catastrophic"
+error; it is since written in the form Altium saves (`docs/formats/altium/pcb-document.md`, "The document
+as Altium saves it"), and the digests above are the new files. Step D3 is to be made on the new document.
+Since a refusal names no cause, the maintainer also gets six documents outside the repository, each with
+one thing more than the one before: the outline alone; one net; one component without pads; its pads; its
+designator and comment texts; the full sample. The first that fails names what to study next. Texts, pads,
+tracks and arcs keep the short forms of `pcb-records.md`.
 
 ### Pads of the library
 
@@ -115,3 +120,33 @@ Each step needs a licence the maintainer may use for Fenolite (licence rule abov
 
 Report per step: the tool and version, the date, and one generic outcome (as expected, or the first
 message shown). Do not describe Altium's internals beyond what the step asks.
+
+## Reports
+
+### 2026-10-03, `AD 26.5`, Part D
+
+- Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03;
+  no artefact)`.
+- Files: Fenolite's authored samples only, from local copies; no file opened or saved in the session
+  enters the repository.
+
+Outcome per step:
+
+- **D1, library.** The first `blink.PcbLib` failed with a "catastrophic" error, and so did a library
+  without footprints. After the library fix, eight variants in the form Altium saves opened and looked
+  correct: an empty library, a footprint without primitives, one line, one rounded surface pad, one
+  rectangular surface pad, one through-hole pad, one arc, one full footprint and the three footprints of
+  the blink library. Confirms `H-A-PCB-LIB-OPEN` and `H-A-PCB-GRAPHICS`. Sizes and holes were not compared
+  with the pad table, so `H-A-PCB-PAD` stays pending with this observation. Whether the project lists the
+  library (`H-A-PCB-PRJ`) and the long name (`H-A-PCB-LIB-NAME`) are not reported.
+- **D1, project.** The blink project compiles. Its ERC messages follow from the example circuit: `VIN` has
+  one pin, and inputs are unconnected, `U1` pins 11 and 12 among them. Recorded as data for
+  `H-A-SCHLIB-SCHDOC`; no net row is confirmed by it.
+- **D2.** Not checked: the change order was not run (`H-A-PCB-ECO` stays pending).
+- **D3.** `blink.PcbDoc` in its first form (SHA-256 `2b8b3379…b256`) failed with a "catastrophic" error.
+  The document written since is not yet reported: `H-A-PCB-DOC-OPEN`, `H-A-PCB-DOC-LINK`,
+  `H-A-PCB-DOC-NETS` and `H-A-PCB-DOC-BOTTOM` stay pending.
+
+The schematic steps of the same session are recorded in `docs/evidence/altium-schematic.md`, "Reports".
+Part P (the Viewer) is not reported.
