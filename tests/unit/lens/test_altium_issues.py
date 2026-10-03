@@ -33,6 +33,7 @@ from fenolite.backends.altium import cfb
 from fenolite.core.errors import Issue
 from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, no_connect, placements, to_model
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
+from fenolite.model.design import Design as ModelDesign
 
 PASS_THROUGH = ("model.", "build.layout-exists")
 
@@ -340,6 +341,93 @@ def run_pcb_too_large() -> tuple[Issue, ...]:
     return output.issues
 
 
+def _copper_layer(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    return model, {"copper": 2}
+
+
+def _copper_stack(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    return model, {"copper": 3}
+
+
+def _copper_board(model: ModelDesign, **changes: object) -> ModelDesign:
+    assert model.board is not None
+    return dataclasses.replace(model, board=dataclasses.replace(model.board, **changes))  # type: ignore[arg-type]
+
+
+def _via_blind(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    assert model.board is not None
+    first, *rest = model.board.vias
+    blind = dataclasses.replace(first, via_type="blind", layers=("F.Cu", "In1.Cu"))
+    spans = dataclasses.replace(rest[0], layers=("F.Cu", "In2.Cu"))
+    return _copper_board(model, vias=(blind, spans, *rest[1:])), {}
+
+
+def _copper_invalid(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
+    assert model.board is not None
+    a, b, *tracks = model.board.tracks
+    (via, *vias), (arc,) = model.board.vias, model.board.arcs
+    return _copper_board(
+        model,
+        tracks=(
+            dataclasses.replace(a, end=a.start),
+            dataclasses.replace(b, width=0),
+            *tracks,
+        ),
+        vias=(dataclasses.replace(via, drill=via.diameter), *vias),
+        arcs=(dataclasses.replace(arc, mid=arc.start),),
+    ), {}
+
+
+COPPER_PARTS = ("tracks", "arc", "vias", "inner", "class")
+COPPER_CASES: dict[
+    str, tuple[Callable[[ModelDesign], tuple[ModelDesign, dict[str, object]]], dict[str, int]]
+] = {
+    "layer": (_copper_layer, {"altium.copper-layer": 2}),
+    "stack": (_copper_stack, {"altium.copper-stack": 1}),
+    "via": (_via_blind, {"altium.via-unsupported": 2}),
+    "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
+}
+"""Routed-sample variants (change c0038, "Copper issue codes"): the copper codes and their counts."""
+
+
+def run_copper_case(name: str) -> tuple[Issue, ...]:
+    from _altium_copper import routed_build, routed_model
+
+    edit, _ = COPPER_CASES[name]
+    model, kwargs = edit(routed_model(COPPER_PARTS))
+    with tempfile.TemporaryDirectory() as folder:
+        output = routed_build(Path(folder), model, **kwargs)
+    assert output.files == {}, name
+    return output.issues
+
+
+@pytest.mark.parametrize("name", sorted(COPPER_CASES))
+def test_copper_case(name: str) -> None:
+    """One issue per entity, an error each, with the entity id in ``where``; no file is written."""
+    issues = [i for i in run_copper_case(name) if i.code.startswith(("altium.copper", "altium.via"))]
+    counts: dict[str, int] = {}
+    for found in issues:
+        counts[found.code] = counts.get(found.code, 0) + 1
+        assert found.severity == "error" and found.where
+    assert counts == COPPER_CASES[name][1], [(i.code, i.where, i.message) for i in issues]
+
+
+def test_copper_net_id_that_names_no_net() -> None:
+    """The model's own validation stops a dangling net id first; the lowering still refuses it."""
+    from _altium_copper import routed_model
+
+    from fenolite.lens.altium_copper import lower_copper
+
+    model = routed_model(COPPER_PARTS)
+    assert model.board is not None
+    first, *tracks = model.board.tracks
+    lost = dataclasses.replace(first, net_id="net_00000000-0000-4000-8000-000000000000")
+    plan = lower_copper(_copper_board(model, tracks=(lost, *tracks)), copper=4)
+    (found,) = plan.issues
+    assert found.code == "altium.copper-invalid" and found.where == first.id and plan.failed
+    assert "names no net" in found.message and len(plan.tracks) == 4
+
+
 @pytest.mark.parametrize("name", sorted(PCB_CASES))
 def test_pcb_case(name: str) -> None:
     issues = run_pcb_case(name)
@@ -381,6 +469,9 @@ def test_closed_set() -> None:
             produced.setdefault(found.code, set()).add(found.severity)
     for name in HIER_CASES:
         for found in run_hier_case(name):
+            produced.setdefault(found.code, set()).add(found.severity)
+    for name in COPPER_CASES:
+        for found in run_copper_case(name):
             produced.setdefault(found.code, set()).add(found.severity)
     for found in (
         *run_unique_id_case(),
@@ -434,6 +525,10 @@ def test_the_table() -> None:
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
+        "altium.copper-stack": "error",
+        "altium.copper-layer": "error",
+        "altium.via-unsupported": "error",
+        "altium.copper-invalid": "error",
     }
 
 

@@ -391,3 +391,139 @@ def test_hier_board_sheets_read_back(tmp_path: Path) -> None:
     assert {name: pins for name, pins in found.items() if not name.startswith("<unnamed ")} == expected
     assert all(len(pins) == 1 for name, pins in found.items() if name.startswith("<unnamed "))
     assert sorted(expected) == ["GND", "LED_A", "LED_DRV", "VIN"]
+
+
+# --- copper (change c0038, "Copper in an Altium build") ---------------------------------------------
+
+NO_COPPER = {
+    "source": "none",
+    "from": None,
+    "layers": 2,
+    "planes": {},
+    "tracks": 0,
+    "arcs": 0,
+    "vias": 0,
+    "zones": 0,
+    "net_classes": 0,
+    "placements_from_board": 0,
+}
+
+
+def test_copper_summary_of_a_design_without_copper(tmp_path: Path) -> None:
+    output = build_blink_placed(tmp_path)
+    assert output.summary["copper"] == NO_COPPER
+    four = build_blink_placed(tmp_path / "four", copper=4)
+    assert four.summary["copper"] == {**NO_COPPER, "layers": 4}
+    assert (
+        build_blink_placed(tmp_path / "none", "design.board(mm(50), mm(30))\n", "").summary["copper"] is None
+    )
+
+
+def test_copper_of_a_routed_model(tmp_path: Path) -> None:
+    from _altium_copper import routed_build, routed_model
+    from _altium_pcb_read import read_pcbdoc
+
+    output = routed_build(tmp_path, routed_model(("tracks", "arc", "vias", "inner", "class")))
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert output.summary["copper"] == {
+        **NO_COPPER,
+        "source": "model",
+        "layers": 4,
+        "tracks": 5,
+        "arcs": 1,
+        "vias": 3,
+    }
+    doc = read_pcbdoc(output.files["routed.PcbDoc"])
+    names = [n["NAME"] for n in doc.nets]
+    found = sorted((t.prefix.layer, names[t.prefix.net]) for t in doc.free_tracks)
+    assert found == [(1, "LED_DRV"), (1, "LED_DRV"), (2, "VIN"), (3, "LED_A"), (32, "VIN")]
+    assert [names[a.prefix.net] for a in doc.free_arcs] == ["LED_DRV"]
+    assert [names[v.prefix.net] for v in doc.vias] == ["GND", "LED_A", "VIN"]
+    assert {(v.diameter, v.hole) for v in doc.vias} == {(236220, 118110)}
+
+
+def test_copper_bytes_do_not_depend_on_entity_ids(tmp_path: Path) -> None:
+    """Routed records are sorted by geometry and net, so the same copper under other ids gives the same
+    document."""
+    import dataclasses
+
+    from _altium_copper import routed_build, routed_model
+
+    from fenolite.core.ids import derived_id
+
+    model = routed_model(("tracks", "arc", "vias", "inner", "class"))
+    assert model.board is not None
+    renamed = dataclasses.replace(
+        model,
+        board=dataclasses.replace(
+            model.board,
+            tracks=tuple(
+                dataclasses.replace(t, id=derived_id("trk", "dsl", f"other:{n}"))
+                for n, t in enumerate(reversed(model.board.tracks))
+            ),
+            vias=tuple(
+                dataclasses.replace(v, id=derived_id("via", "dsl", f"other:{n}"))
+                for n, v in enumerate(reversed(model.board.vias))
+            ),
+        ),
+    )
+    first = routed_build(tmp_path, model).files["routed.PcbDoc"]
+    assert routed_build(tmp_path, renamed).files["routed.PcbDoc"] == first
+
+
+def test_via_blind_refused(tmp_path: Path) -> None:
+    """Scenario "Blind via refused" of "Copper issue codes"."""
+    import dataclasses
+
+    from _altium_copper import at, routed_build, routed_model
+
+    from fenolite.model.board import Via
+
+    model = routed_model(("tracks", "arc", "vias", "inner", "class"))
+    assert model.board is not None
+    blind = Via(
+        id="via_00000000-0000-4000-8000-000000000001",
+        position=at(20, 20),
+        diameter=600_000,
+        drill=300_000,
+        layers=("F.Cu", "In1.Cu"),
+        via_type="blind",
+    )
+    board = dataclasses.replace(model.board, vias=(*model.board.vias, blind))
+    output = routed_build(tmp_path, dataclasses.replace(model, board=board))
+    assert output.files == {} and output.summary["copper"] is None
+    (found,) = [i for i in output.issues if i.code == "altium.via-unsupported"]
+    assert found.where == blind.id and found.severity == "error"
+    assert "blind" in found.message and "(20, 20) mm" in found.message
+
+
+def test_copper_stack_of_three_layers_refused(tmp_path: Path) -> None:
+    """Scenario "Three copper layers refused"."""
+    import dataclasses
+
+    from _altium_copper import routed_build, routed_model
+
+    from fenolite.model.board import Layer
+
+    model = routed_model(())
+    assert model.board is not None
+    layers = tuple(
+        Layer(id=f"lay_00000000-0000-4000-8000-00000000000{n}", name=name, kind="copper", ordinal=n)
+        for n, name in enumerate(("F.Cu", "In1.Cu", "B.Cu"))
+    )
+    output = routed_build(
+        tmp_path, dataclasses.replace(model, board=dataclasses.replace(model.board, layers=layers))
+    )
+    assert output.files == {}
+    (found,) = [i for i in output.issues if i.code == "altium.copper-stack"]
+    assert "F.Cu, In1.Cu, B.Cu" in found.message
+    four = tuple(
+        Layer(id=f"lay_00000000-0000-4000-8000-00000000001{n}", name=name, kind="copper", ordinal=n)
+        for n, name in enumerate(("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"))
+    )
+    model4 = dataclasses.replace(model, board=dataclasses.replace(model.board, layers=four))
+    assert routed_build(tmp_path, model4).summary["copper"]["layers"] == 4  # type: ignore[index]
+    (differs,) = [
+        i for i in routed_build(tmp_path, model4, copper=2).issues if i.code == "altium.copper-stack"
+    ]
+    assert "4 copper layers" in differs.message and "asks for 2" in differs.message

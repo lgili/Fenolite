@@ -147,6 +147,7 @@ def test_summary_of_the_sample() -> None:
         "ports": 0,
         "sheet_entries": 0,
         "harnesses": 0,
+        "copper": None,
         "experimental": True,
     }
     assert build(sample(), form="ascii").summary["schematic_format"] == "ascii"

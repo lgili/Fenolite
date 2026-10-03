@@ -232,6 +232,7 @@ def _run_altium(
         form=form,
         resolver=resolver,
         sheets=sheets,
+        copper=run.design.copper,
     )
     files = dict(built.files)
     if files:
@@ -258,6 +259,7 @@ def _run_altium(
         "symbols": summary["symbols"],
         "footprints": summary["footprints"],
         "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
+        "copper": summary["copper"],
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

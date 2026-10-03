@@ -38,6 +38,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.lens import altium_copper
 from fenolite.lens.build import (
     CACHE_DIR,
     RECORD_FILE,
@@ -97,6 +98,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
+        **altium_copper.COPPER_ISSUE_CODES,
     }
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
@@ -516,11 +518,13 @@ def pcb_document(
     footprints: Mapping[str, pcblib.LibFootprint],
     placements: Mapping[str, PlacementRequest],
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    copper: int = 2,
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
-    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. In the ``modules`` sheet
-    mode (change c0037) a component on a module sheet links through the sheet symbol of its module."""
+    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. ``copper`` is the
+    script's copper layer count; the board's copper is lowered by ``altium_copper`` (change c0038), and
+    copper that cannot be written gives its errors and ``None``."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -608,7 +612,11 @@ def pcb_document(
             )
         )
     spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
-    return spec, issues
+    plan = altium_copper.lower_copper(design, copper=copper)
+    issues += plan.issues
+    if plan.failed:
+        return None, issues
+    return altium_copper.with_copper(spec, plan), issues
 
 
 def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
@@ -1002,6 +1010,7 @@ def _summary(
     pcb_document: str | None = None,
     pcb_library: str = "",
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    copper: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
     entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
@@ -1028,6 +1037,7 @@ def _summary(
         "ports": sum(len(plan.ports) for plan in plans),
         "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
+        "copper": copper,
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -1044,6 +1054,7 @@ def build_altium(
     form: project.SchematicForm = project.DEFAULT_FORM,
     resolver: LibraryResolver | None = None,
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    copper: int = 2,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1054,6 +1065,8 @@ def build_altium(
     lib ids (change c0034); a lib id that does not resolve raises ``UnresolvedLibrariesError``. ``sheets``
     (change c0037) is ``flat`` for one sheet or ``modules`` for a top sheet with one sheet per top-level
     module, their harness definition files and a project file that lists them.
+    ``copper`` is the script's copper layer count (2 or 4); the copper of ``design.board`` is written into
+    the PCB document (change c0038), and copper that cannot be written exactly gives an error and no file.
     """
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
@@ -1086,9 +1099,15 @@ def build_altium(
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
     spec, document_issues = pcb_document(
-        model, name=name, footprints=footprints, placements=placements or {}, sheets=sheets
+        model, name=name, footprints=footprints, placements=placements or {}, copper=copper, sheets=sheets
     )
     issues += document_issues
+    if any(i.severity == "error" for i in issues):
+        return BuildOutput(model, {}, tuple(issues), evidence, _summary(model, kept, None, form))
+    copper_info = None
+    if spec is not None:
+        source = "model" if altium_copper.has_copper(model.board) else "none"
+        copper_info = altium_copper.copper_summary(spec, source=source)
     if spec is not None:
         issues = [
             i for i in issues if not (i.code == "altium.not-lowered" and i.where in ("board", "placements"))
@@ -1198,6 +1217,7 @@ def build_altium(
         pcb_library=f"{name}.PcbLib",
         pcb_document=f"{name}.PcbDoc" if spec is not None else None,
         sheets=sheets,
+        copper=copper_info,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
