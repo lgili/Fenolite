@@ -105,6 +105,9 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
             "H-A-SCH-ECO",
             "H-A-SCH-LINEEND",
             "H-A-SCH-LINK",
+            "H-A-SCH-NC-ERC",
+            "H-A-SCH-NC-RECORD",
+            "H-A-SCH-NC-VIEWER",
             "H-A-SCH-NETS",
             "H-A-SCH-OPEN",
             "H-A-SCH-RELINK",
@@ -159,16 +162,19 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
 
 
 def generic_pins(design: Design) -> Design:
-    """``design`` with one passive pin per designator that its nets name on any component of the same lib
-    id, in natural order, for every component that holds no pin yet: components sharing a lib id share one
-    generic body, which is also their library symbol. A pin's name is its designator and its id is keyed
-    ``pin:<path>:<designator>``."""
+    """``design`` with one passive pin per designator that its nets or its no-connect marks name on any
+    component of the same lib id, in natural order, for every component that holds no pin yet: components
+    sharing a lib id share one generic body, which is also their library symbol. A pin's name is its
+    designator and its id is keyed ``pin:<path>:<designator>``."""
     lib_of = {c.id: c.lib_symbol_ref for c in design.circuit.components}
     used: dict[str, set[str]] = {lib: set() for lib in lib_of.values()}
     for net in design.circuit.nets:
         for member in net.members:
             if member.component_id in lib_of:
                 used[lib_of[member.component_id]].add(member.pin)
+    for mark in design.circuit.no_connects:
+        if mark.component_id in lib_of:
+            used[lib_of[mark.component_id]].add(mark.pin)
     components: list[Component] = []
     for component in design.circuit.components:
         if not component.pins:
@@ -249,9 +255,9 @@ def symbol_pins(symbol: SymbolDef, path: str) -> tuple[Pin, ...]:
 
 
 def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design, list[Issue]]:
-    """``design`` with the symbol's pins on every component of a KiCad lib id, and net members that name a
-    pin name rewritten to every pin number with that name; a member that names neither gives
-    ``altium.unknown-pin``."""
+    """``design`` with the symbol's pins on every component of a KiCad lib id, and net members and
+    no-connect marks that name a pin name rewritten to every pin number with that name; one that names
+    neither gives ``altium.unknown-pin``. The marks come back in ``PinRef`` order without duplicates."""
     issues: list[Issue] = []
     components: list[Component] = []
     pins_of: dict[str, tuple[Pin, ...]] = {}
@@ -286,7 +292,29 @@ def kicad_pins(design: Design, symbols: Mapping[str, SymbolDef]) -> tuple[Design
             members += [PinRef(member.component_id, number) for number in numbers]
         unique = tuple(dict.fromkeys(members))
         nets.append(dataclasses.replace(net, members=unique))
-    circuit = dataclasses.replace(design.circuit, components=tuple(components), nets=tuple(nets))
+    paths = {c.id: component_path(c) for c in components}
+    marks: set[PinRef] = set()
+    for mark in design.circuit.no_connects:
+        pins = pins_of.get(mark.component_id)
+        if pins is None or mark.pin in {p.number for p in pins}:
+            marks.add(mark)
+            continue
+        numbers = [p.number for p in pins if p.name == mark.pin]
+        if not numbers:
+            issues.append(
+                issue(
+                    "altium.unknown-pin",
+                    f"{refs[mark.component_id]} {mark.pin}: neither a pin number nor a pin name of its "
+                    "symbol, so it cannot be marked as not connected",
+                    paths[mark.component_id],
+                    "mark the pin by its number",
+                )
+            )
+            continue
+        marks.update(PinRef(mark.component_id, number) for number in numbers)
+    circuit = dataclasses.replace(
+        design.circuit, components=tuple(components), nets=tuple(nets), no_connects=tuple(sorted(marks))
+    )
     return dataclasses.replace(design, circuit=circuit), issues
 
 
@@ -790,6 +818,11 @@ def _check(design: Design, name: str, placed: Sequence[str]) -> list[Issue]:
             component = by_id.get(member.component_id)
             ref = component.ref if component is not None else member.component_id
             _unwritable(issues, member.pin, f"{ref} pin designator", net.name)
+    for mark in design.circuit.no_connects:
+        component = by_id.get(mark.component_id)
+        ref = component.ref if component is not None else mark.component_id
+        where = component_path(component) if component is not None else mark.component_id
+        _unwritable(issues, mark.pin, f"{ref} pin designator", where)
     _case_collisions(issues, "net", [n.name for n in design.circuit.nets])
     _case_collisions(issues, "ref", [c.ref for c in components])
     ids: dict[str, str] = {}
@@ -854,6 +887,7 @@ def _summary(
         "nets": len(design.circuit.nets),
         "labels": labels,
         "power_ports": ports,
+        "no_connects": len(plan.no_connects) if plan is not None else 0,
         "sheet": plan.size.name if plan is not None else None,
         "libraries": found,
         "symbols": sum(len(symbols) for symbols in (libraries or {}).values()),

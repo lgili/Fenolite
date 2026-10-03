@@ -9,6 +9,7 @@ case and checks that the codes produced are exactly the table's, with the table'
 
 from __future__ import annotations
 
+import dataclasses
 import shutil
 import tempfile
 from collections.abc import Callable, Iterator
@@ -21,7 +22,7 @@ from _altium import EXAMPLE_DIR, blink, blink_resolver, blink_tree, example, exa
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
 from fenolite.core.errors import Issue
-from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, placements, to_model
+from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, no_connect, placements, to_model
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
 
 PASS_THROUGH = ("model.", "build.layout-exists")
@@ -467,3 +468,30 @@ def test_generic_symbols_only_for_altium_links() -> None:
 def test_off_grid_names_symbol_and_pin() -> None:
     (found,) = [i for i in run_kicad_case("off-grid") if i.code == "altium.symbol-off-grid"]
     assert "FenoliteDemo:R_V pin 1" in found.message and found.where == "FenoliteDemo:R_V"
+
+
+# --- no-connect marks (change c0036) ----------------------------------------------------------------
+
+
+def test_no_connect_designator_must_be_writable() -> None:
+    design = sample()
+    no_connect(design.parts["U2"]["a|b"])
+    output = build_altium(to_model(design), name=design.name)
+    assert output.files == {}
+    found = [i for i in output.issues if i.code == "altium.text-unwritable"]
+    assert found and all(i.severity == "error" for i in found)
+    assert any(i.where == "U2" and "pin designator" in i.message for i in found)
+
+
+def test_no_connect_adds_no_altium_code() -> None:
+    """A marked pin on a net is ``model.no-connect-on-net``; the table of ``altium.*`` codes is unchanged."""
+    assert not [code for code in ALTIUM_ISSUE_CODES if "no-connect" in code]
+    design = sample()
+    model = to_model(design)
+    u2 = next(c for c in model.circuit.components if c.ref == "U2")
+    member = next(m for n in model.circuit.nets for m in n.members if m.component_id == u2.id)
+    circuit = dataclasses.replace(model.circuit, no_connects=(member,))
+    output = build_altium(dataclasses.replace(model, circuit=circuit), name=design.name)
+    assert output.files == {}
+    (found,) = [i for i in output.issues if i.code == "model.no-connect-on-net"]
+    assert found.severity == "error" and found.where == f"U2-{member.pin}"

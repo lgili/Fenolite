@@ -34,6 +34,15 @@ EXAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
     "OE_N": {("U2", "5"), ("R2", "1")},
 }
 """The KiCad example's nets as (ref, pin) pairs, written out by hand from the script (change c0034)."""
+NO_CONNECT = EXAMPLE_DIR / "no_connect.py"
+NO_CONNECT_NETS: dict[str, set[tuple[str, str]]] = {
+    "VIN": {("J1", "1"), ("U1", "1"), ("U1", "6"), ("R1", "1")},
+    "GND": {("J1", "2"), ("U1", "7")},
+    "OE_N": {("R1", "2"), ("U1", "5")},
+}
+"""The no-connect example's nets, written out by hand from the script (change c0036)."""
+NO_CONNECT_MARKS: set[tuple[str, str]] = {("U1", "2"), ("U1", "4"), ("U1", "8")}
+"""Its marked pins; ``U1`` pin 3 is left open and unmarked."""
 SAMPLE_PATHS = ("J1", "R2", "U2", "led/D1", "led/R1", "power/C1", "power/C2", "power/U1")
 SAMPLE_NETS: dict[str, set[tuple[str, str]]] = {
     "VIN": {("J1", "1"), ("U1", "1"), ("C1", "1")},
@@ -90,18 +99,39 @@ def dual_symbol() -> SymbolDef:
     )
 
 
-def example(text: str = "", new: str = "") -> Design:
+def example(text: str = "", new: str = "", *, script: Path = EXAMPLE) -> Design:
     """The KiCad-sourced example (change c0034), with ``text`` replaced by ``new`` in its script."""
     if not text:
-        design = runpy.run_path(str(EXAMPLE))["design"]
+        design = runpy.run_path(str(script))["design"]
     else:
-        source = EXAMPLE.read_text(encoding="utf-8")
+        source = script.read_text(encoding="utf-8")
         assert text in source, text
         namespace: dict[str, object] = {}
-        exec(compile(source.replace(text, new), str(EXAMPLE), "exec"), namespace)  # noqa: S102
+        exec(compile(source.replace(text, new), str(script), "exec"), namespace)  # noqa: S102
         design = namespace["design"]
     assert isinstance(design, Design)
     return design
+
+
+def no_connect_example(text: str = "", new: str = "") -> Design:
+    """The no-connect example (change c0036), with ``text`` replaced by ``new`` in its script."""
+    return example(text, new, script=NO_CONNECT)
+
+
+def no_connect_files(form: str = "binary", text: str = "", new: str = "") -> dict[str, bytes]:
+    """The no-connect example built into the Altium files of ``form``, with the folder's library table."""
+    from fenolite.lens.altium import build_altium
+
+    with tempfile.TemporaryDirectory() as folder:
+        design = no_connect_example(text, new)
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            form=form,  # type: ignore[arg-type]
+            resolver=example_resolver(Path(folder)),
+        )
+    assert output.files, [i.message for i in output.issues]
+    return output.files
 
 
 def example_resolver(folder: Path, project_dir: Path = EXAMPLE_DIR) -> LibraryResolver:

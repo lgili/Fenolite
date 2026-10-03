@@ -223,7 +223,10 @@ def _run_altium(
         "target": ALTIUM_TARGET,
         "out": str(out),
         "files": [w.path for w in writes],
-        **{key: summary[key] for key in ("components", "nets", "labels", "power_ports", "sheet")},
+        **{
+            key: summary[key]
+            for key in ("components", "nets", "labels", "power_ports", "no_connects", "sheet")
+        },
         "kept": [str(out / rel) for rel in kept],
         "schematic_format": form,
         "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],

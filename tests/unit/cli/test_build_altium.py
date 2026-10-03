@@ -66,9 +66,9 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert result["footprints"] == 0 and result["pcb_document"] is None
     assert not [p for p in plan if p.endswith((".PcbLib", ".PcbDoc"))]
     assert list(result) == [
-        "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "sheet", "kept",
-        "schematic_format", "libraries", "symbols", "footprints", "pcb_document", "experimental",
-        "script_output", "plan",
+        "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
+        "sheet", "kept", "schematic_format", "libraries", "symbols", "footprints", "pcb_document",
+        "experimental", "script_output", "plan",
     ]  # fmt: skip
 
 
