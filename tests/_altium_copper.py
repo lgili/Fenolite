@@ -160,7 +160,8 @@ class Variant:
 
     model: ModelDesign
     copper: int = 4
-    planes: Mapping[str, str] = dataclasses.field(default_factory=lambda: {})
+    build: Mapping[str, object] = dataclasses.field(default_factory=lambda: {})
+    """Further keyword arguments of ``build_altium`` (the planes of ``p0``)."""
 
 
 def variants() -> dict[str, Variant]:
