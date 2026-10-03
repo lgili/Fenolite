@@ -45,10 +45,10 @@ The same four commands SHALL be runnable locally through a `Makefile` target `ma
 3. `kicad-cli version`
 4. `uv sync --locked --extra dev`
 5. `actions/cache` of the corpus cache, keyed on `hashFiles('tests/corpus/manifest.toml')`
-6. `uv run python tools/corpus_fetch.py --uses rt0 --exclude-uses heavy`
+6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --exclude-uses heavy`
 7. `uv run pytest tests/kicad tests/corpus -q` with `FENOLITE_REQUIRE=kicad,corpus`
 
-The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--exclude-uses heavy` and the environment variable.
+The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--exclude-uses heavy` and the environment variable.
 
 #### Scenario: Oracle job runs on a pull request
 - **WHEN** a pull request is opened
@@ -63,6 +63,11 @@ The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL chec
 - **GIVEN** a `kicad-10` job that runs `uv sync` before `kicad-cli version`
 - **WHEN** the same test runs
 - **THEN** it fails naming the two steps
+
+#### Scenario: Library rows not fetched
+- **GIVEN** a `kicad-10` job whose fetch step lacks `--uses libs`
+- **WHEN** `uv run pytest tests/unit/test_ci_workflow.py` runs
+- **THEN** the test fails naming the job `kicad-10` and `--uses libs`
 
 ### Requirement: Required-resource mode
 When the environment variable `FENOLITE_REQUIRE` lists a resource (`kicad`, `corpus`, `libs`; comma-separated), tests marked with the matching `needs_*` marker MUST fail, not skip, if the resource is missing. The failure message MUST be the one the skip would have shown. With `corpus` listed, a corpus test MUST also fail when any non-heavy `rt0` manifest item is missing from the cache, naming the item. Without the variable, the skip rules of `corpus-policy` apply unchanged.

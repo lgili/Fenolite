@@ -249,7 +249,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - An `--out` folder that resolves to the script folder MUST be a usage error (exit 2, `FEN-2001`), so the design's own tables are never overwritten.
 - `input` MUST hold the script path and its SHA-256, with kind `fenolite-dsl`.
 - The triad stem MUST be the design name, and plan entries MUST be sorted by path.
-- `result` MUST hold `design` (the name), `target`, `out`, `files` (the planned paths), `components` and `nets` (counts), `placed` and `staged` (component paths), `vendored` (vendored footprint files), `libraries` (lib id to row origin `project`, `global` or `template`), `script_output` and `preserved` (`layout-lens`, "Layout preservation evidence"), plus the dispatcher's `plan`.
+- `result` MUST hold `design` (the name), `target`, `out`, `files` (the planned paths), `components` and `nets` (counts), `placed` and `staged` (component paths), `vendored` (vendored footprint files), `libraries` (lib id to row origin `project`, `global`, `template` or `scan`), `script_output` and `preserved` (`layout-lens`, "Layout preservation evidence"), plus the dispatcher's `plan`.
 - Later requirements MAY add `build` options, steps of `cmd_build` and keys of `result`; each such requirement names this one.
 - `cmd_build` MUST turn a `DslError` raised by `to_model`, `placements` or `moves`, which run after `run_design_script` has returned, into `DesignScriptError` with `file` = the script path and no locator (`FEN-3004`, exit 3).
 - Unless `--discard-layout` is given, `cmd_build` MUST read the existing triad with `read_existing(DIR, <design name>)`, call `prepare(model, placements(design), existing, name=<design name>, moves=moves(design))`, and pass `prepared.placements` as `placements` and `prepared` as `prepared` to `build_design`. With `--discard-layout`, it MUST pass `placements(design)` and no `prepared`.
@@ -289,12 +289,13 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **THEN** the exit code is 0, `result.preserved.board` is `true`, and `result.preserved.kept` lists `D1`, `R1` and `U1`
 
 ### Requirement: Library resolution during build
-The build SHALL resolve every `lib_symbol_ref` and `lib_footprint_ref` through one c0008 `LibraryResolver(LibraryConfig(target_major=ctx.kicad_target, project_dir=<script folder>))`, built with the process environment and the user's configuration folder.
-- Project tables next to `design.py` are the recommended source. Global and template tables follow c0008. Official library variables come only from an `env` or `install` source of the target major, so a 10.0 install is never used for target 9 (`kicad-library-resolution`, "Library sources").
+The build SHALL resolve every `lib_symbol_ref` and `lib_footprint_ref` through one c0008 `LibraryResolver(LibraryConfig(target_major=ctx.kicad_target, project_dir=<script folder>))`, built with the process environment and the user's configuration folder. A `cache` source is used only when `FENOLITE_LIBS_CACHE` names one: the build passes no `cache_dir`, and no default cache location is searched (`kicad-library-resolution`, "Library sources").
+- Project tables next to `design.py` are the recommended source. Global and template tables follow c0008. Official library variables come only from an `env`, `cache` or `install` source of the target major, in that order, so a 10.0 install is never used for target 9 (`kicad-library-resolution`, "Library sources").
 - Every `LibraryError` MUST be collected. If there is at least one, `lens.build.UnresolvedLibrariesError(LibraryError)` (`FEN-3001`) MUST be raised with the first error's hint and one `kicad.lib.*` issue per failure in `issues`.
 - `Part.footprint=None` MUST fall back to the symbol's `Footprint` property. When both are empty, the build MUST give `build.no-footprint` (error).
 - `value=""` MUST fall back to the symbol's `Value` property.
-- `result.libraries` MUST map each lib id to the origin of its row.
+- A row of origin `scan` (`kicad-library-resolution`, "Table discovery and precedence") MUST be handled by every build rule like any row whose origin is not `project`: its footprints are vendored ("Footprints of every row origin are vendored"), or give `build.global-library` with `vendor="project"`.
+- `result.libraries` MUST map each lib id to the origin of its row: `project`, `global`, `template` or `scan`.
 
 #### Scenario: Two unknown lib ids
 - **GIVEN** a blink variant whose parts `R1` and `D1` name `Nope:A` and `Nope:B`
@@ -319,6 +320,16 @@ The build SHALL resolve every `lib_symbol_ref` and `lib_footprint_ref` through o
 #### Scenario: Row origins reported
 - **WHEN** the blink is built with the example's own tables and an empty `KICAD_CONFIG_HOME`
 - **THEN** `result.libraries["Mini:Mini_R_0603"]` is `project`
+
+#### Scenario: Footprint from a scanned cache
+- **GIVEN** a blink variant whose `R1` footprint is `Cached:Mini_R_0603`, a folder `C` whose `10.0.6/kicad-footprints/` holds `Cached.pretty`, a copy of `tests/data/libs/Mini.pretty`, and a stamp equal to the 10.0.6 footprint pin, an empty configuration folder and an install path that does not exist
+- **WHEN** it is built for target 10 through `tests/_buildhelp.py` with `cache_dir=C`, a keyword that this change adds and that also turns on `use_global_table`
+- **THEN** `summary["libraries"]["Cached:Mini_R_0603"]` is `scan`, `files` holds `lib/Cached.pretty/Mini_R_0603.kicad_mod` byte-equal to its source, and `fp-lib-table` holds a row `Cached`
+
+#### Scenario: Official variant from the cache
+- **GIVEN** a verified 10.0.6 cache at `tests/_resources.libs_cache_dir()` and no other library source
+- **WHEN** `uv run pytest -m needs_libs tests/libs/test_build_official.py` runs
+- **THEN** the test sets `FENOLITE_LIBS_CACHE` to that folder for the build, the build exits 0, and `result.libraries["Device:R"]` is `scan`
 
 ### Requirement: Pins and pads in a build
 The build SHALL fill `Component.pins` from the resolved symbol, resolve every net member to pin numbers, and give each pad the net of the pin with its number.
