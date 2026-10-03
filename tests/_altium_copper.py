@@ -209,15 +209,16 @@ class Variant:
 
 def variants() -> dict[str, Variant]:
     """The bisection variants: ``c0`` two layers with tracks and an arc, ``c1`` adds the vias, ``c2`` the
-    stack of four signal layers with the inner tracks, ``c3`` adds the polygons, ``c4`` the net class;
-    ``p0`` is the
-    sample with ``In1.Cu`` as a plane on ``GND`` and without its track on ``In1.Cu``."""
+    stack of four signal layers with the inner tracks, ``c3`` adds the polygons, ``c4`` the net class,
+    ``c5`` the rules (the committed sample); ``p0`` is the sample with ``In1.Cu`` as a plane on ``GND`` and
+    without its track on ``In1.Cu``."""
     return {
         "c0": Variant(routed_model(("tracks", "arc")), copper=2),
         "c1": Variant(routed_model(("tracks", "arc", "vias")), copper=2),
         "c2": Variant(routed_model(("tracks", "arc", "vias", "inner"))),
         "c3": Variant(routed_model(("tracks", "arc", "vias", "inner", "zones"))),
         "c4": Variant(routed_model()),
+        "c5": Variant(routed_model()),
         "p0": Variant(plane_model(), build={"planes": PLANE}),
     }
 

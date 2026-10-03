@@ -1,0 +1,14 @@
+[Design]
+Version=1.0
+
+[Document1]
+DocumentPath=routed.SchDoc
+
+[Document2]
+DocumentPath=routed.PcbDoc
+
+[Document3]
+DocumentPath=routed.PcbLib
+
+[Document4]
+DocumentPath=routed.SchLib

@@ -126,6 +126,71 @@ Each step needs a licence the maintainer may use for Fenolite (licence rule abov
 Report per step: the tool and version, the date, and one generic outcome (as expected, or the first
 message shown). Do not describe Altium's internals beyond what the step asks.
 
+## Part C: copper (change c0038)
+
+The routed sample is the blink design named `routed` on four copper layers, with copper authored for
+Fenolite (`tests/_altium_copper.py`). `tests/unit/lens/test_altium_copper_golden.py` checks that a fresh
+build gives these bytes, that this table names them, and that the copper table below equals the sample.
+The plane variant `p0` is not committed; the test rebuilds it and checks its digest.
+
+| file | SHA-256 |
+|---|---|
+| `tests/data/altium/routed/routed.PcbDoc` | `66b5be6e5ee97eac8e84a97ff01bcc2e9a6ce3d519ad3010aad7828f3331c04f` |
+| `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
+| `tests/data/altium/routed/routed.PrjPcb` | `bdcd1ec084a54faa500833bc81ce9183df5a2ba7b23d057755e3d2d70566b367` |
+| `tests/data/altium/routed/routed.SchDoc` | `e195347f7c47c0e311be7333a7f5ec8cfe1702fc471207b59135cd12e1e270e9` |
+| `tests/data/altium/routed/routed.SchLib` | `d5c422088de0150389ebee25d625dbeeba298d7099973b8588bc70593680a0fe` |
+| `p0/routed.PcbDoc` | `a5713db76e4a4d2336af7a56c004d498161eead78e1287bdb5ceb7422276d3e4` |
+
+Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
+of a track or arc, or the diameter and hole of a via:
+
+| kind | layer | net | geometry (mm) | size (mm) |
+|---|---|---|---|---|
+| track | F.Cu | LED_DRV | (9.85, 12.2) → (9.85, 10) | 0.25 |
+| track | F.Cu | LED_DRV | (10.85, 9) → (31.2, 9) | 0.25 |
+| track | B.Cu | VIN | (11.2, 18.75) → (5, 18.75) | 0.5 |
+| track | In1.Cu | VIN | (11.2, 18.75) → (11.2, 26) | 0.5 |
+| track | In2.Cu | LED_A | (32.8, 9) → (40.54, 20) | 0.25 |
+| arc | F.Cu | LED_DRV | (9.85, 10) → (10.142893, 9.292893) → (10.85, 9) | 0.25 |
+| via | F.Cu–B.Cu | LED_A | (32.8, 9) | 0.6 / 0.3 |
+| via | F.Cu–B.Cu | VIN | (11.2, 18.75) | 0.6 / 0.3 |
+| via | F.Cu–B.Cu | GND | (12, 19.55) | 0.6 / 0.3 |
+| polygon | In1.Cu | GND | (1, 1), (49, 1), (49, 29), (1, 29) | unpoured |
+| polygon | B.Cu | GND | (1, 1), (49, 1), (49, 29), (1, 29) | unpoured |
+
+Each step needs a licence the maintainer may use for Fenolite (licence rule above), but for C5. Work on
+copies.
+
+- **C1** (`routed.PcbDoc`, SHA-256 above): open the document in Altium Designer. Expected: no repair
+  prompt; the five tracks, the arc and the three vias of the table show on their layers with their nets
+  and sizes; `LED_DRV` and `LED_A` are routed and show no connection line. Settles `H-A-PCB-CU-TRACK` and
+  `H-A-PCB-CU-VIA`.
+- **C2** (same file): open "Design » Layer Stack Manager". Expected: Top Layer, Mid-Layer 1, Mid-Layer 2
+  and Bottom Layer as signal layers with three dielectrics between them (prepreg 0.2 mm, core 1.0 mm,
+  prepreg 0.2 mm), and no repair. Settles `H-A-PCB-CU-STACK`.
+- **C3** (same file): the two `GND` polygons (Mid-Layer 1 and Bottom Layer) show as outlines without
+  copper. Run "Tools » Polygon Pours » Repour All": both fill, and the `GND` pads and the `GND` via connect
+  to them. Settles `H-A-PCB-CU-REPOUR`.
+- **C4** (same file): the PCB panel in "Nets" mode, or "Design » Classes", lists the net class `PWR` with
+  `GND` and `VIN`; the rules editor ("Design » Rules") opens; the document holds no rule yet (the rules of change c0038
+  come with its last group, and this step then names them). Settles `H-A-PCB-CU-CLASS` and `H-A-PCB-CU-RULES`.
+- **C5** (`routed.PcbDoc`, no licence needed): upload the document to the Altium 365 Viewer. Expected: the
+  tracks, the vias and four copper layers are visible. Settles `H-A-PCB-CU-VIEWER`.
+- **C6** (`p0/routed.PcbDoc`, SHA-256 above): open the plane variant. Expected: the Layer Stack Manager
+  lists Internal Plane 1 between Top Layer and Mid-Layer 2; the plane is on `GND`; the `GND` pads and the
+  `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane) and
+  one polygon on Bottom Layer. Settles `H-A-PCB-CU-PLANE`.
+
+When a step fails, open the variants in order and report the first that fails. They are written outside
+the repository with `FENOLITE_ALTIUM_VARIANTS=<folder> uv run pytest
+tests/unit/lens/test_altium_copper_golden.py -k variants`: `c0` two layers with tracks and an arc; `c1` adds
+the vias; `c2` the stack of four signal layers with the inner tracks; `c3` adds the polygons; `c4` the net
+class; `c5` is the committed sample (it adds the rules once they are written); `p0` is the plane variant of C6.
+
+The KiCad oracles (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) check
+only what KiCad's importer reads; they settle no row of this part.
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D

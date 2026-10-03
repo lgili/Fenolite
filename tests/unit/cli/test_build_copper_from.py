@@ -322,3 +322,12 @@ def test_help_names_the_option(monkeypatch: pytest.MonkeyPatch) -> None:
         pass
     text = " ".join((out.getvalue() + err.getvalue()).split())
     assert "--copper-from" in text and "placements win" in text
+
+
+def test_copper_from_equals_the_committed_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Copper copied from the board": ``B/routed.PcbDoc`` equals the committed file."""
+    committed = Path(__file__).resolve().parents[2] / "data" / "altium" / "routed" / "routed.PcbDoc"
+    script, routed = project(tmp_path)
+    code, env, _ = build(monkeypatch, tmp_path, script, routed, "--confirm")
+    assert code == 0, env
+    assert (tmp_path / "B" / "routed.PcbDoc").read_bytes() == committed.read_bytes()

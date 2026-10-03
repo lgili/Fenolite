@@ -456,3 +456,11 @@ def test_equal_bytes_do_not_depend_on_the_ids_of_the_board(tmp_path: Path) -> No
     assert count == 10 and other != text  # five tracks, the arc, three vias, the zone
     again = build(tmp_path, CopperSource(read_board(other, file=BOARD, issues=[]), "board", BOARD))
     assert again.files["routed.PcbDoc"] == from_board(tmp_path).files["routed.PcbDoc"]
+
+
+def test_script_source_equals_the_committed_sample(tmp_path: Path) -> None:
+    """Scenario "Script source equals the committed sample"."""
+    committed = Path(__file__).resolve().parents[2] / "data" / "altium" / "routed" / "routed.PcbDoc"
+    output = build(tmp_path, CopperSource(kicad(), "script"))
+    assert not errors(output) and output.summary["copper"]["source"] == "script"  # type: ignore[index]
+    assert output.files["routed.PcbDoc"] == committed.read_bytes()

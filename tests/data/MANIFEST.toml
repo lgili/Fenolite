@@ -804,3 +804,33 @@ path = "tests/data/altium/hier/altium_hier_mcu.SchDoc"
 origin = "authored"
 corpus_id = ""
 notes = "binary (MS-CFB) module sheet mcu of examples/altium_hier: three ports and one harness block (c0037 golden file)"
+
+[[file]]
+path = "tests/data/altium/routed/routed.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of the routed sample (tests/_altium_copper.py): four copper layers, five tracks, an arc, three through vias, two unpoured polygons and the net class PWR (c0038 golden file)"
+
+[[file]]
+path = "tests/data/altium/routed/routed.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of the routed sample with the three mini footprints (c0038 golden file)"
+
+[[file]]
+path = "tests/data/altium/routed/routed.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the routed sample listing its schematic, libraries and PCB document (c0038 golden file)"
+
+[[file]]
+path = "tests/data/altium/routed/routed.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of the routed sample (c0038 golden file)"
+
+[[file]]
+path = "tests/data/altium/routed/routed.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the routed sample with the mini symbols (c0038 golden file)"
