@@ -64,8 +64,8 @@ uv run fenolite capabilities --text                         # the same, for huma
 echo $?                                                     # 0 ok, 2 usage, 4 confirm, 5 findings …
 ```
 
-Optional extras: `geo` (polygon booleans), `kicad-ipc` (live KiCad session), `route` (Freerouting
-client), `mcp` (MCP server), `oracles` (Gerber re-parsers used in tests), `dev`.
+Optional extras: `geo` (polygon booleans), `kicad-ipc` (live KiCad session), `mcp` (MCP server),
+`oracles` (Gerber re-parsers used in tests), `dev`. Routers need no extra: they run as separate programs.
 
 ## Licence and provenance
 

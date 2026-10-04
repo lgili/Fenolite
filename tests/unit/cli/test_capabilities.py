@@ -34,7 +34,7 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
     assert result["sends_data_offsite"] is False
     assert {router["name"] for router in result["routers"]} == {"direct", "kicadroutingtools"}
     assert next(router for router in result["routers"] if router["name"] == "direct")["builtin"] is True
-    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles", "route"}  # type: ignore[arg-type]
+    assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles"}  # type: ignore[arg-type]
 
 
 def test_missing_tools_are_null_not_fatal(

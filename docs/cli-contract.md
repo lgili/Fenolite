@@ -256,6 +256,14 @@ Each entry of `result.backends` is one backend's capability report, sorted by na
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}
 ```
 
+The backend's `evidence` is the lowest of what its `read` and `write` return for an arbitrary board, so
+it is `INFERRED` although the two rows it names are stronger in `docs/hypotheses.md`
+(`H-K-PCB-READ` is `CORPUS-VERIFIED`, `H-K-PCB-WRITE` is `KICAD-VERIFIED`). A row states what its test
+covered: the corpus boards round-trip, and the test boards load in KiCad. The report states what holds
+for any file. The level is never stronger than a row it names
+(`tests/unit/test_capability_evidence.py`); a command that runs `kicad-cli` on your board reports the
+stronger level in its own envelope.
+
 `operations` lists only what the backend implements (`detect`, `read`, `write`, `lower`,
 `validate`); an operation that is absent is not available yet. A backend that writes lists `write`,
 the kinds it writes, its `targets` (oldest first), the `default_target` used when none is named, and
@@ -557,3 +565,51 @@ still off the board) and `legality` (the number of issues by code). The evidence
 `fenolite build` reports the same legality codes for the board it is about to write, each at most as a
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
 `result.routers` lists registered routers; `--no-run` lists names without availability probes.
+
+## template
+
+`fenolite template build SPEC --target kicad -o OUT` builds a drawing sheet (`.kicad_wks`) from a
+`*.sheet.toml` specification and runs no tool. `build` is the only action, `--target` and `-o`/`--out`
+are required, and `kicad` is the only target. It is a mutating command: without `--confirm` it exits 4
+with `FEN-4001` and writes nothing, `--dry-run` shows the plan and exits 0, and `--confirm` writes `OUT`
+and returns the `receipt`. The plan holds one write of kind `kicad_wks`. The format of the specification
+and the shipped examples are in `docs/sheet-templates.md`.
+
+`result` holds:
+
+- `sheet`: `name`, `sizes` (the page sizes the specification lists), `items` (the number of sheet items)
+  and `tokens` (the sorted token names its texts use; a user parameter is `param:<name>`);
+- `target` (`kicad`) and `kicad_version` (the `--kicad-version` major, 10 by default). The major selects
+  the writer's check only: the written bytes are the same for 9 and 10;
+- `drawn`: per listed size, the `texts` and `lines` KiCad will draw on that page, and `resolved`, the
+  texts with an empty title block (a token without a value is an empty string; `paper` and the sheet
+  number are filled);
+- `output`: `OUT` as given;
+- `plan` on a dry run or an unconfirmed run.
+
+`input` names the specification with its SHA-256 and the kind `sheet-toml`. The evidence is `INFERRED`
+(`H-K-WKS-CORNER`): the command does not open the sheet in KiCad.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run, or a confirmed write |
+| 2 | `FEN-2001` | a missing `--target` or `-o`, or a target other than `kicad` |
+| 3 | `FEN-3001` | the specification is missing or unreadable |
+| 3 | `FEN-3004` | the specification is malformed; `where` is `<file>:<key path>` of the first problem |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+| 7 | `FEN-7001` | the writer refuses an item for the target; `--allow-lossy` drops it with a warning |
+
+A malformed specification reports every problem at once, as one issue each:
+
+| code | severity | when |
+|---|---|---|
+| `template.unknown-key` | error | a key or table outside the closed set |
+| `template.bad-value` | error | a wrong type or value, a missing required key, or a TOML syntax error |
+| `template.resolution` | error | a length that is not a whole number of micrometres |
+| `template.unknown-token` | error | a cell `token` or a `label` that is not a valid token text |
+| `template.unproven-value` | error | a number missing from `[provenance.values]` when provenance is required |
+| `template.cell-overlap` | error | two cells cover one grid position |
+| `template.cell-outside` | error | a cell leaves the grid |
+| `template.zone-letters` | error | more than 8 letter rows on a listed size |
+| `template.bitmap-not-png` | error | a `[bitmap]` file without the PNG signature |
+| `template.too-wide` | warning | a title block wider or taller than the margin box of a listed size |

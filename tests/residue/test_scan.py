@@ -136,3 +136,29 @@ def test_staged_mode_reads_the_index(tmp_path: Path) -> None:
     (root / "a.md").write_text("clean now\n")  # the index still holds the leaked version
     hits, _ = scan.scan(root, scan.load_config(), scan.staged_files(root))
     assert [h.pattern for h in hits] == ["abs-user-path"]
+
+
+GATE_VARIABLES = ("FENOLITE_RESIDUE_TOKENS", "FENOLITE_RESIDUE_TOKENS_FILE", "FENOLITE_RESIDUE_BLOBS_FILE")
+GATE_SKIPPED = "private gate: skipped (no private list configured)"
+
+
+def test_gate_is_skipped_without_a_list(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code, out = _run(capsys, _tree(tmp_path / "t", {"a.txt": b"clean\n"}))
+    assert code == 0 and out.rstrip().endswith(GATE_SKIPPED)
+
+
+def test_gate_documented() -> None:
+    """docs/provenance.md explains the private gate with the variables the scan reads (capability
+    residue-scan, "Private gate is documented")."""
+    root = Path(__file__).resolve().parents[2]
+    page = (root / "docs" / "provenance.md").read_text(encoding="utf-8")
+    source = (root / "tools" / "residue" / "scan.py").read_text(encoding="utf-8")
+    heading = "\n## Private residue gate\n"
+    assert heading in page
+    section = page.split(heading)[1].split("\n## ")[0]
+    for variable in GATE_VARIABLES:
+        assert f'"{variable}"' in source, variable
+        assert f"`{variable}`" in section, variable
+    for words in ("private gate: on", GATE_SKIPPED, "--history", "docs/evidence/residue-history.md"):
+        assert words in section, words
+    assert GATE_SKIPPED.removeprefix("private gate: ") in source

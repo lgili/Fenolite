@@ -20,9 +20,9 @@ from fenolite.backends.base import (
     Validator,
     WriteResult,
 )
-from fenolite.backends.kicad import versions
+from fenolite.backends.kicad import pcb, versions
 from fenolite.core.errors import Issue
-from fenolite.core.evidence import Evidence, Level
+from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
 from fenolite.model.presentation import DrawingSheet
 
@@ -36,8 +36,10 @@ CAPABILITIES = CapabilityReport(
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",
     operations=("detect", "read", "write", "lower", "validate"),
-    evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PCB-READ", "H-K-PCB-WRITE")),
+    evidence=Evidence.combine(pcb.EVIDENCE, pcb.WRITE_EVIDENCE),
 )
+"""The evidence is what ``read`` and ``write`` return for an arbitrary board, never a literal: a register
+row may be stronger, because it states what its test covered (``backend-protocol``, "Capability reports")."""
 
 _READ_KINDS = frozenset({versions.FileKind.BOARD, versions.FileKind.FOOTPRINT, versions.FileKind.SYMBOL_LIB})
 
@@ -75,8 +77,6 @@ class KicadBackend:
             name = path.stem
             result = ReadResult(Library(name=name, symbols=symbols), tuple(found), sym.EVIDENCE)
         elif kind is versions.FileKind.BOARD:
-            from fenolite.backends.kicad import pcb
-
             design = pcb.read_board(path, issues=found)
             result = ReadResult(design, (*found, *design.validate()), pcb.EVIDENCE)
         else:
@@ -90,8 +90,6 @@ class KicadBackend:
 
         Nothing is written to disk; see ``pcb.write_board`` for the errors.
         """
-        from fenolite.backends.kicad import pcb
-
         chosen = CAPABILITIES.default_target if target is None else target
         assert chosen is not None
         return pcb.write_board(design, target=chosen, allow_lossy=allow_lossy)

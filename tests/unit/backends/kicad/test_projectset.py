@@ -5,13 +5,13 @@ c0013). Projects are assembled in ``tmp_path``; nothing is run."""
 
 from __future__ import annotations
 
-import importlib
 import json
 from pathlib import Path
 
 import pytest
 from _projects import STEM, authored_project, tree_snapshot
 
+from fenolite.backends.kicad import pro
 from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
 from fenolite.backends.kicad.projectset import (
     MAX_COPY_BYTES,
@@ -140,8 +140,4 @@ def test_board_resolution(tmp_path: Path) -> None:
 
 
 def test_worksheet_pointer_matches_pro() -> None:
-    pro = importlib.import_module("fenolite.backends.kicad.pro")
-    pointer = getattr(pro, "PAGE_LAYOUT_POINTER", None)
-    if pointer is None:
-        pytest.skip("pro.PAGE_LAYOUT_POINTER not defined yet (c0012)")
-    assert pointer == WORKSHEET_POINTER
+    assert pro.PAGE_LAYOUT_POINTER == WORKSHEET_POINTER

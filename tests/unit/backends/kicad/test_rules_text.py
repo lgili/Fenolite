@@ -66,8 +66,6 @@ def test_printing_without_the_wrapper() -> None:
 
 
 def test_canary_round_trip() -> None:
-    if not CANARY.is_file():
-        pytest.skip("canary rules file not authored yet (task 4.1)")
     node = wrap_rules(CANARY.read_text(encoding="utf-8"), file=str(CANARY))
     again = wrap_rules(rules_text(node))
     assert tree_equal(again, node) and "kicad_dru" not in rules_text(node)

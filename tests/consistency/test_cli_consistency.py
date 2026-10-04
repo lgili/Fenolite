@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -191,3 +193,48 @@ def test_check_codes_documented() -> None:
 
     for code in [*CHECK_CODES, *DOCTOR_CODES, *EXPORT_CODES]:
         assert f"`{code.replace('<oracle>', 'kicad')}`" in contract, code
+
+
+CONTRACT = Path(__file__).resolve().parents[2] / "docs" / "cli-contract.md"
+
+
+def undescribed_commands(names: Iterable[str], page: str) -> list[str]:
+    """The commands the contract page does not describe: neither the text ``fenolite <name>`` nor a
+    level-2 heading that is the name, with or without backticks (cli-contract, "Contract page names every
+    command")."""
+    headings = {
+        match.group(1) for match in re.finditer(r"^## `?([A-Za-z_][A-Za-z0-9_-]*)`?\s*$", page, re.MULTILINE)
+    }
+    return [
+        name
+        for name in names
+        if name not in headings and re.search(rf"\bfenolite {re.escape(name)}\b", page) is None
+    ]
+
+
+def test_contract_names_every_command() -> None:
+    page = CONTRACT.read_text(encoding="utf-8")
+    public = [name for name in NAMES if not COMMANDS[name].hidden]
+    assert "template" in public
+    assert undescribed_commands(public, page) == []
+
+
+def test_contract_names_detects_a_missing_section() -> None:
+    page = CONTRACT.read_text(encoding="utf-8")
+    start = page.index("\n## template\n")
+    following = page.find("\n## ", start + 1)
+    without = page[:start] + (page[following:] if following != -1 else "\n")
+    assert undescribed_commands(["template"], without) == ["template"]
+    assert undescribed_commands(["build", "fill", "nope"], "## `build`\n\nrun `fenolite fill X`\n") == [
+        "nope"
+    ]
+    assert undescribed_commands(["fill"], "see fenolite filling\n") == ["fill"]
+
+
+def test_template_codes_documented() -> None:
+    from fenolite.templates import ISSUE_CODES as TEMPLATE_CODES
+
+    page = CONTRACT.read_text(encoding="utf-8")
+    section = page[page.index("\n## template\n") :]
+    for code, severity in TEMPLATE_CODES.items():
+        assert f"| `{code}` | {severity} |" in section, code
