@@ -240,7 +240,7 @@ def read_pad(
             provenance=ctx.provenance(loc),
             hole_shape="slot",
             hole_length=hole_length,
-            hole_rotation=(hole_turn if root == ("footprint",) else (rotation + hole_turn) % 180_000_000),
+            hole_rotation=hole_turn,  # in the pad's own frame, for a footprint file and for a board
         )
     ident, native_ids = ids.of("pad", "pad", node)
     return Pad(
@@ -406,9 +406,8 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
         if stack is not None and stack.hole_shape == "slot":
             if stack.hole_length is None:
                 raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
-            # A board stores the pad's angle absolute, and the reader adds it to the slot's own turn: take
-            # it out again, so that a slot on a pad at any angle is written as it was read.
-            turn = (stack.hole_rotation - (angle or 0)) % 180_000_000
+            # The slot's axis is in the pad's own frame, as KiCad stores it: along X or along Y.
+            turn = stack.hole_rotation % 180_000_000
             if turn == 0:
                 w, h = stack.hole_length, pad.drill
             elif turn == 90_000_000:

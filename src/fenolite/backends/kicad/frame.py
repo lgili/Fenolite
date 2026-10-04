@@ -441,8 +441,7 @@ def _hole(pad: Pad, placement: _Placement, tokens: Mapping[str, Node]) -> tuple[
         and stack.hole_length is not None
     ):
         half = Fraction(stack.hole_length - pad.drill, 2)
-        relative_rotation = stack.hole_rotation - pad.rotation
-        c, s = cos_sin_fixed(relative_rotation)
+        c, s = cos_sin_fixed(stack.hole_rotation)  # the axis is in the pad's frame, as ``placement`` is
         dx, dy = half * c / _ONE, -half * s / _ONE
         x, y = 0, 0
         ends = ((x - dx, y - dy), (x + dx, y + dy))

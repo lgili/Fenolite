@@ -1086,13 +1086,7 @@ class _Reader:
                     self.keep_inexact(error, slots, index, child, FP_ROOT)
                     continue
                 local_rotation = pad_angle_from_board(pad.rotation, rotation)
-                stack = pad.padstack
-                if stack is not None and stack.hole_shape == "slot":
-                    stack = dataclasses.replace(
-                        stack,
-                        hole_rotation=(stack.hole_rotation - rotation) % FULL_TURN,
-                    )
-                pad = dataclasses.replace(pad, rotation=local_rotation, padstack=stack)
+                pad = dataclasses.replace(pad, rotation=local_rotation)
                 pad_slots = list(slotlib.from_ext(pad.ext["kicad"]))
                 emitted = _emit_board_pad(pad, rotation, self.emit_nets)
                 self.check(child, child_loc, pad_slots, emitted, (*FP_ROOT, "pad"))
