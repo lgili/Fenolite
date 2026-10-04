@@ -159,6 +159,7 @@ EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
 """The ``capabilities`` entry of this writer, without its evidence (``ALTIUM_BUILD_EVIDENCE``)."""
 PCB_WRITE_KINDS: tuple[str, ...] = (project.PCBDOC_KIND, project.PCBLIB_KIND)
 """The write kinds of the PCB writers (change c0035), listed by their own ``capabilities`` entry."""
+AUTHORED_FOOTPRINT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-DSL-FOOTPRINT",))
 PCB_BUILD_EVIDENCE = Evidence.combine(pcbrecords.EVIDENCE, pcblib.EVIDENCE, pcbdoc.EVIDENCE)
 """``INFERRED``: every ``H-A-PCB-*`` row; the kicad-cli oracles check only what KiCad reads."""
 PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
@@ -432,14 +433,19 @@ def _counted(items: Sequence[str]) -> str:
 
 
 def resolve_footprints(
-    design: Design, resolver: LibraryResolver | None
+    design: Design,
+    resolver: LibraryResolver | None,
+    authored: Mapping[str, FootprintDef] = MappingProxyType({}),
 ) -> tuple[dict[str, pcblib.LibFootprint], list[Issue]]:
     """KiCad footprint link → the footprint written into ``<name>.PcbLib``, with the warnings and infos of
     footprints that do not resolve, are refused, collide on a storage name, or lose items."""
     issues: list[Issue] = []
     resolved: dict[str, pcblib.LibFootprint] = {}
     for link in kicad_footprint_ids(design):
-        if resolver is None:
+        if link in authored:
+            reason = ""
+            defn = authored[link]
+        elif resolver is None:
             reason = "no KiCad library table was given"
             defn = None
         else:
@@ -1114,6 +1120,7 @@ def build_altium(
     copper: int = 2,
     planes: Mapping[str, str] | None = None,
     copper_source: altium_copper.CopperSource | None = None,
+    authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1138,6 +1145,8 @@ def build_altium(
             f"of origin {copper_source.origin} is given; a build takes one"
         )
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
+    if authored_footprints:
+        evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     resolved = resolve_symbols(design, resolver)
     design = _with_symbol_fields(design, resolved)
@@ -1162,7 +1171,7 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
-    footprints, footprint_issues = resolve_footprints(model, resolver)
+    footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
     spec, document_issues = pcb_document(

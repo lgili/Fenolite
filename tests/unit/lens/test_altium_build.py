@@ -28,7 +28,7 @@ from _cfb_read import deframe, read_compound
 from fenolite.backends.altium import binary, project
 from fenolite.backends.altium.cfb import SIGNATURE
 from fenolite.core.evidence import Level
-from fenolite.dsl import Design, Net, Part, connect, no_connect, to_model
+from fenolite.dsl import Design, Footprint, Net, Part, connect, mm, no_connect, placements, to_model
 from fenolite.lens.altium import (
     ALTIUM_BUILD_EVIDENCE,
     EXPERIMENTAL,
@@ -69,6 +69,32 @@ def test_files_of_the_sample() -> None:
         "altium.generic-symbols",
     ]
     assert "no board outline" in output.issues[1].message
+
+
+def test_dsl_authored_footprint_is_written_and_placed() -> None:
+    design = Design("authored_min")
+    design.board(mm(20), mm(20))
+    part = Part("R1", "Demo.SchLib:Res", footprint="Local:TwoPin", value="1k")
+    part.place(mm(10), mm(10))
+    design.add(part)
+    footprint = Footprint("Local", "TwoPin", kind="smd")
+    footprint.pad("1", at=(mm(-1), mm(0)), size=(mm(1), mm(1)))
+    footprint.pad("2", at=(mm(1), mm(0)), size=(mm(1), mm(1)))
+    footprint.rect((mm(-2), mm(-1)), (mm(2), mm(1)), layer="F.SilkS", width=mm(0.12))
+    design.add_footprint(footprint)
+
+    output = build_altium(
+        to_model(design),
+        name=design.name,
+        placed=("R1",),
+        placements=placements(design),
+        authored_footprints={footprint.lib_id: footprint.definition},
+    )
+
+    assert not [issue for issue in output.issues if issue.severity == "error"]
+    assert "authored_min.PcbLib" in output.files
+    assert "authored_min.PcbDoc" in output.files
+    assert output.evidence.level == "INFERRED"
 
 
 def test_files_are_the_writer_bytes() -> None:

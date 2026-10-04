@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- DSL footprint authoring: a design-scoped builder creates pads and graphics; exact-ID assignments resolve in KiCad and experimental Altium builds (c0055).
+
 ### Fixed
 
 - Geometry: the documented and tested bound of two successive `Transform.apply` calls is `(1 + |cos θ| + |sin θ|)/2` nm per axis, at most `(1 + √2)/2 ≈ 1.2071` nm, not 1 nm; `test_composition_rounds_once` no longer fails at random, and a test reaches the bound exactly. No code changes (c0050).

@@ -83,6 +83,7 @@ BUILD_EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=("H-K-BUILD-TRIAD", "H-K-BUILD-CLASS", "H-K-BUILD-LIBTABLE", "H-K-BUILD-PATHPROP"),
 )
+AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
 """The blink is proved by the build oracle; arbitrary designs reach forms the oracle has not run."""
 PROPERTY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-PROPS", "H-K-VENDOR-DUPNAME"))
 """Joins the envelope when a user property is written (c0027)."""
@@ -173,7 +174,7 @@ class _Part:
     path: str
     symbol: SymbolDef
     footprint: FootprintDef
-    location: Location
+    location: Location | None
 
 
 def _path(component: Component) -> str:
@@ -181,7 +182,10 @@ def _path(component: Component) -> str:
 
 
 def _resolve(
-    design: Design, resolver: LibraryResolver, issues: list[Issue]
+    design: Design,
+    resolver: LibraryResolver,
+    issues: list[Issue],
+    authored: Mapping[str, FootprintDef] = MappingProxyType({}),
 ) -> tuple[list[_Part], dict[str, str]]:
     errors: list[LibraryError] = []
     libraries: dict[str, str] = {}
@@ -203,13 +207,18 @@ def _resolve(
                 )
             )
             continue
-        try:
-            location = resolver.locate(fp_ref, "footprint")
-            footprint = resolver.footprint(fp_ref)
-        except LibraryError as error:
-            errors.append(error)
-            continue
-        libraries[fp_ref] = location.origin
+        if fp_ref in authored:
+            location = None
+            footprint = mod.prepare_authored_definition(authored[fp_ref])
+            libraries[fp_ref] = "authored"
+        else:
+            try:
+                location = resolver.locate(fp_ref, "footprint")
+                footprint = resolver.footprint(fp_ref)
+            except LibraryError as error:
+                errors.append(error)
+                continue
+            libraries[fp_ref] = location.origin
         value = component.value or symbol.properties.get("Value", "")
         component = dataclasses.replace(component, lib_footprint_ref=fp_ref, value=value)
         found.append(_Part(component, _path(component), symbol, footprint, location))
@@ -403,6 +412,7 @@ def build_design(
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
+    authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -417,7 +427,7 @@ def build_design(
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
-    parts, libraries = _resolve(design, resolver, issues)
+    parts, libraries = _resolve(design, resolver, issues, authored_footprints)
     plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
@@ -568,6 +578,13 @@ def build_design(
     readback = read_board(texts[pcb_name], file=pcb_name, issues=[])
     layout = preserve.merge_layout(built, readback, preserve.match_footprints(built, readback)).design
     vendored = _vendor(plan, target, files, record, issues)
+    authored_ids = {part.footprint.lib_id for part in parts if part.location is None}
+    for lib_id in sorted(authored_ids):
+        definition = authored_footprints[lib_id]
+        path = f"lib/{definition.library}.pretty/{definition.name}.kicad_mod"
+        files[path] = mod.write_footprint(definition, target=target, allow_lossy=allow_lossy).encode("utf-8")
+        vendored.append((definition.library, f"{definition.name}.kicad_mod"))
+    vendored.sort()
     rows = tuple(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
@@ -592,6 +609,8 @@ def build_design(
         pro.EVIDENCE,
         lowering.EVIDENCE,
     ]
+    if authored_ids:
+        evidence_items.append(mod.AUTHORING_EVIDENCE)
     if bottom:
         evidence_items.append(embed.EVIDENCE)
     if written_properties:
@@ -688,6 +707,8 @@ def _vendor_plan(
     plan: dict[str, Location] = {}
     for part in parts:
         location = part.location
+        if location is None:
+            continue
         nick, entry = location.row.nickname, location.item_path.name
         if vendor == "project" and location.origin != "project":
             issues.append(

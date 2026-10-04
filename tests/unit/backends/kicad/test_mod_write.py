@@ -190,9 +190,29 @@ def test_future_definition_refused() -> None:
         write_footprint(defn, target=10)
 
 
-def test_definition_without_slots() -> None:
-    with pytest.raises(ValueError, match="footprint generation is not supported"):
-        write_footprint(FootprintDef(id="fpd_x", name="X"))
+def test_definition_without_slots_can_be_authored() -> None:
+    text = write_footprint(FootprintDef(id="fpd_x", name="X"))
+    assert '(footprint "X"' in text
+    assert "(version " in text
+
+
+def test_dsl_authored_definition_writes_deterministically() -> None:
+    from fenolite.dsl import Footprint, mm
+
+    footprint = Footprint("Local", "TwoPin", kind="smd")
+    footprint.pad("1", at=(mm(-1), mm(0)), size=(mm(1), mm(1)))
+    footprint.pad("2", at=(mm(1), mm(0)), size=(mm(1), mm(1)))
+    footprint.rect((mm(-2), mm(-1)), (mm(2), mm(1)), layer="F.SilkS", width=mm(0.12))
+    first = write_footprint(footprint.definition, target=10)
+
+    assert first == write_footprint(footprint.definition, target=10)
+    readback = read_footprint(first, library="Local")
+    assert [(pad.number, pad.position, pad.size) for pad in readback.pads] == [
+        (pad.number, pad.position, pad.size) for pad in footprint.definition.pads
+    ]
+    assert [(graphic.kind, graphic.layer, graphic.points) for graphic in readback.graphics] == [
+        (graphic.kind, graphic.layer, graphic.points) for graphic in footprint.definition.graphics
+    ]
 
 
 def test_library_folder_mapping() -> None:

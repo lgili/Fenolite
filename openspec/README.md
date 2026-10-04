@@ -58,5 +58,6 @@ until its change is proposed.
 | c0045 | `design-equivalence` | v0.3 | — |
 | c0046 | `altium-sheet-template-import` | v0.3 | — |
 | c0047 | `board-analyses` | v0.3 | — |
+| c0055 | `dsl-footprint-authoring` | dogfood gap / v0.4 footprint generator | c0011, c0018 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

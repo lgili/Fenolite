@@ -5,6 +5,30 @@ placements. `fenolite build design.py --out DIR` runs the script and writes a Ki
 project from it, or, with `--target altium`, an experimental Altium project (see "Building for
 Altium"). The DSL uses the standard library and Fenolite's own `core` and `model` only.
 
+## Authored footprints (c0055)
+
+The DSL exposes `Footprint` for declaring a project-local definition and `Design.add_footprint()` for
+registering it. Assign it using the existing exact ID field on `Part`:
+
+```python
+from fenolite.dsl import Design, Footprint, Part, mm
+
+d = Design("example")
+fp = Footprint("Local", "TwoPad", kind="smd")
+fp.pad("1", at=(mm(-1), mm(0)), size=(mm(1), mm(1)))
+fp.pad("2", at=(mm(1), mm(0)), size=(mm(1), mm(1)))
+fp.rect((mm(-2), mm(-1)), (mm(2), mm(1)), layer="F.SilkS", width=mm(0.12))
+d.add_footprint(fp)
+part = Part("R1", "Device:R", footprint=fp.lib_id)
+d.add(part)
+```
+
+The builder validates identifiers, dimensions, pad numbers, drill rules, and supported primitives. Its
+definition is separate from the canonical design model. Both supported build paths resolve the exact
+registered ID first: the KiCad target writes the `.kicad_mod` into its project `.pretty` library and
+places it on the board; the experimental Altium target lowers the supported subset into `.PcbLib` and
+uses it in `.PcbDoc` when the design has an outline.
+
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
 

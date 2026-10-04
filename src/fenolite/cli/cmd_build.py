@@ -363,6 +363,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         prepared=prepared,
         copper_intents=intents,
         fields=field_requests,
+        authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
     )
     files = dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]
@@ -491,6 +492,7 @@ def _run_altium(
             resolver=resolver,
             target=ctx.kicad_target,
             copper_intents=intents,
+            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
         )
         refused = not resolved.files or any(found.severity == "error" for found in resolved.issues)
         script_issues = [
@@ -521,6 +523,7 @@ def _run_altium(
             copper=run.design.copper,
             planes=plane_nets,
             copper_source=source,
+            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
         )
     files = dict(built.files)
     if files:

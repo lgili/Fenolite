@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""Small builder for project-authored footprint library definitions."""
+
+from __future__ import annotations
+
+import re
+from typing import cast
+
+from fenolite.core.coords import Point, Size
+from fenolite.core.ids import derived_id
+from fenolite.core.units import Nm
+from fenolite.dsl.errors import DslError
+from fenolite.dsl.units import as_nm, as_udeg
+from fenolite.model.board import Graphic, Pad
+from fenolite.model.library import FootprintDef, FootprintKind
+
+_IDENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
+
+
+class Footprint:
+    """Author a library footprint with DSL lengths (``mm()``, ``mil()``, ``nm()`` or unit strings).
+
+    Coordinates are local to the footprint origin. The definition is immutable once exposed via
+    :attr:`definition`; pads and graphics are emitted in declaration order.
+    """
+
+    def __init__(
+        self, library: str, name: str, *, kind: FootprintKind = "unspecified", description: str = ""
+    ) -> None:
+        if not isinstance(library, str) or not _IDENT.fullmatch(library):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"unsafe footprint library name {library!r}")
+        if not isinstance(name, str) or not _IDENT.fullmatch(name):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"unsafe footprint name {name!r}")
+        if kind not in ("smd", "through_hole", "unspecified"):
+            raise DslError(f"unsupported footprint kind {kind!r}")
+        if not isinstance(description, str):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError("footprint description must be text")
+        self.library, self.name, self.kind, self.description = library, name, kind, description
+        self._pads: list[Pad] = []
+        self._graphics: list[Graphic] = []
+
+    @property
+    def lib_id(self) -> str:
+        return f"{self.library}:{self.name}"
+
+    def pad(
+        self,
+        number: str,
+        *,
+        at: tuple[object, object],
+        size: tuple[object, object],
+        shape: str = "rect",
+        kind: str | None = None,
+        drill: object | None = None,
+        layers: tuple[str, ...] | None = None,
+        rotation: object = 0,
+    ) -> None:
+        if not isinstance(number, str) or not number:  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError("pad number must be a non-empty string")
+        if any(p.number == number for p in self._pads):
+            raise DslError(f"footprint {self.lib_id}: pad {number!r} is declared twice")
+        if shape not in ("circle", "rect", "oval", "roundrect"):
+            raise DslError(f"unsupported authored pad shape {shape!r}")
+        pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
+        if pad_kind not in ("smd", "thru_hole", "np_thru_hole"):
+            raise DslError(f"unsupported authored pad kind {kind!r}")
+        x, y = as_nm(at[0], name="pad x"), as_nm(at[1], name="pad y")
+        w, h = as_nm(size[0], name="pad width"), as_nm(size[1], name="pad height")
+        if w <= 0 or h <= 0:
+            raise DslError("pad dimensions must be positive")
+        hole: Nm | None = None if drill is None else as_nm(drill, name="pad drill")
+        if pad_kind == "smd" and hole is not None:
+            raise DslError("a drill only belongs to a through-hole pad")
+        if pad_kind != "smd" and (hole is None or hole <= 0):
+            raise DslError("a through-hole pad needs a positive drill")
+        if hole is not None and hole > min(w, h):
+            raise DslError("pad drill cannot be larger than its pad")
+        if shape == "circle" and w != h:
+            raise DslError("a circular pad must have equal width and height; use shape='oval' otherwise")
+        default_layers = ("*.Cu", "*.Mask") if pad_kind != "smd" else ("F.Cu", "F.Paste", "F.Mask")
+        self._pads.append(
+            Pad(
+                id=derived_id("pad", "fenolite.dsl", f"{self.lib_id}:pad:{number}"),
+                number=number,
+                shape=shape,  # type: ignore[arg-type]
+                size=Size(w, h),
+                position=Point(x, y),
+                rotation=as_udeg(rotation, name="pad rotation"),
+                kind=pad_kind,  # type: ignore[arg-type]
+                drill=hole,
+                layers=layers or default_layers,
+            )
+        )
+
+    def graphic(
+        self, kind: str, *, layer: str, points: tuple[tuple[object, object], ...], width: object
+    ) -> None:
+        if kind not in ("line", "rect", "circle", "polygon"):
+            raise DslError(f"unsupported footprint graphic {kind!r}")
+        if not isinstance(layer, str) or not layer:  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError("graphic layer must be a non-empty string")
+        minimum = 3 if kind == "polygon" else 2
+        if len(points) < minimum:
+            raise DslError(f"{kind} needs at least {minimum} point(s)")
+        converted = tuple(Point(as_nm(x, name="graphic x"), as_nm(y, name="graphic y")) for x, y in points)
+        stroke = as_nm(width, name="graphic width")
+        if stroke < 0:
+            raise DslError("graphic width cannot be negative")
+        self._graphics.append(
+            Graphic(
+                id=derived_id("gfx", "fenolite.dsl", f"{self.lib_id}:graphic:{len(self._graphics)}"),
+                kind=kind,  # type: ignore[arg-type]
+                layer=layer,
+                points=converted,
+                width=stroke,
+            )
+        )
+
+    def line(
+        self, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+    ) -> None:
+        self.graphic("line", layer=layer, points=(start, end), width=width)
+
+    def rect(
+        self, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+    ) -> None:
+        self.graphic("rect", layer=layer, points=(start, end), width=width)
+
+    def circle(
+        self, center: tuple[object, object], edge: tuple[object, object], *, layer: str, width: object
+    ) -> None:
+        self.graphic("circle", layer=layer, points=(center, edge), width=width)
+
+    def polygon(self, points: tuple[tuple[object, object], ...], *, layer: str, width: object) -> None:
+        self.graphic("polygon", layer=layer, points=points, width=width)
+
+    @property
+    def definition(self) -> FootprintDef:
+        """Immutable library definition used by builders and backend writers."""
+        return FootprintDef(
+            id=derived_id("fpd", "fenolite.dsl", self.lib_id),
+            name=self.name,
+            library=self.library,
+            description=self.description,
+            kind=cast(FootprintKind, self.kind),
+            pads=tuple(self._pads),
+            graphics=tuple(self._graphics),
+        )
+
+
+__all__ = ["Footprint"]

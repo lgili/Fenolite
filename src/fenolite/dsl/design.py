@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
@@ -174,6 +175,7 @@ class Design(Container):
         """``board(planes=…)``: inner layer name → net name, in layer order; empty by default."""
         self.size: tuple[Nm, Nm] | None = None
         self.parts: dict[str, Part] = {}
+        self.footprints: dict[str, Footprint] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
@@ -183,6 +185,14 @@ class Design(Container):
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
+
+    def add_footprint(self, footprint: Footprint) -> None:
+        """Register a project-authored library footprint for backend builds (not model persistence)."""
+        if not isinstance(footprint, Footprint):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"add_footprint() takes a Footprint, not {footprint!r}")
+        if footprint.lib_id in self.footprints:
+            raise DslError(f"footprint {footprint.lib_id!r} is registered twice")
+        self.footprints[footprint.lib_id] = footprint
 
     @property
     def design(self) -> Design:

@@ -65,6 +65,7 @@ from fenolite.model.board import Graphic, Pad
 from fenolite.model.library import FootprintDef, FootprintKind
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
+AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
 
 GRAPHIC_HEADS = FP_GRAPHIC_HEADS
 FOOTPRINT_FIELDS: Mapping[str, str] = DEF_FIELDS
@@ -263,6 +264,58 @@ def _slots(entity: FootprintDef | Pad | Graphic) -> list[Slot]:
     return list(slotlib.from_ext(bag)) if bag is not None else []
 
 
+def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
+    """Give a slotless DSL definition the deterministic child order of a newly-authored file."""
+    if _slots(defn):
+        return defn
+    root: list[Slot] = [Modeled("name"), Modeled("description"), Modeled("kind")]
+    root.extend(Modeled("pads") for _ in defn.pads)
+    root.extend(Modeled("graphics") for _ in defn.graphics)
+    root.extend(Modeled("models") for _ in defn.models)
+    pads = tuple(
+        dataclasses.replace(
+            pad,
+            ext={
+                **pad.ext,
+                "kicad": slotlib.to_ext(
+                    [
+                        Modeled("number"),
+                        Modeled("kind"),
+                        Modeled("shape"),
+                        Modeled("position"),
+                        Modeled("size"),
+                        Modeled("drill"),
+                        Modeled("layers"),
+                        Modeled("native_ids"),
+                    ]
+                ),
+            },
+        )
+        for pad in defn.pads
+    )
+    graphics = tuple(
+        dataclasses.replace(
+            graphic,
+            ext={
+                **graphic.ext,
+                "kicad": slotlib.to_ext(
+                    [
+                        Modeled("points"),
+                        Modeled("layer"),
+                        Modeled("width"),
+                        Modeled("filled"),
+                        Modeled("native_ids"),
+                    ]
+                ),
+            },
+        )
+        for graphic in defn.graphics
+    )
+    return dataclasses.replace(
+        defn, pads=pads, graphics=graphics, ext={**defn.ext, "kicad": slotlib.to_ext(root)}
+    )
+
+
 def _locator(entity: FootprintDef | Pad | Graphic, default: str) -> str:
     return entity.provenance.locator if entity.provenance is not None else default
 
@@ -418,12 +471,8 @@ def write_footprint(
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
+    defn = prepare_authored_definition(defn)
     slots = _slots(defn)
-    if not slots:
-        raise ValueError(
-            f"{defn.lib_id!r} has no KiCad slot list: footprint generation is not supported; "
-            "write definitions read from a footprint file or a board"
-        )
     version = _source_version(defn, slots)
     if version is not None:
         kind = FileKind.FOOTPRINT

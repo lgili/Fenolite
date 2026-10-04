@@ -19,6 +19,7 @@ from fenolite.dsl.convert import (
 )
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.intents import (
     CopperIntent,
     PadEnd,
@@ -44,6 +45,7 @@ __all__ = [
     "DiffPair",
     "DslError",
     "FieldRequest",
+    "Footprint",
     "Harness",
     "Interface",
     "Length",
