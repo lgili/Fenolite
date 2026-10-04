@@ -50,6 +50,7 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 | interface | `itf` | `interface:<kind>:<interface name>` |
 | layer | `lay` | `layer:<KiCad layer name>` |
 | zone | `zon` | `zone:<zone name>` |
+| rule | `rul` | `rule:<rule kind>` for a board minimum, `rule:<rule kind>:<class name>` for a class minimum |
 
 - Footprints and pads placed by a build MUST follow the third case, with the component path as the key.
 - Tracks and vias created from copper intents, by a build or by any other caller, MUST follow the fifth case.
@@ -101,6 +102,11 @@ Copper created from copper intents is a fifth case. Each track and via that `fen
 - **GIVEN** two DSL designs that declare the zones `GND` and `VIN_POUR` with their `zone()` calls in opposite orders
 - **WHEN** `uv run pytest tests/unit/dsl/test_zones.py -k ids` runs `dsl.to_model` on both
 - **THEN** in both models the zone `GND` has the id `derived_id("zon", "dsl", "zone:GND")` and the zone `VIN_POUR` the id `derived_id("zon", "dsl", "zone:VIN_POUR")`
+
+#### Scenario: Rule ids from the kind and the class
+- **GIVEN** two DSL designs that declare a board `clearance` minimum and a `track_width` minimum for the class `PWR` with their `minimum()` calls in opposite orders
+- **WHEN** `uv run pytest tests/unit/dsl/test_minimums.py -k ids` runs `dsl.to_model` on both
+- **THEN** in both models the rules have the ids `derived_id("rul", "dsl", "rule:clearance")` and `derived_id("rul", "dsl", "rule:track_width:PWR")`
 
 ### Requirement: Provenance record
 `Provenance` MUST contain `backend`, `file`, `file_sha256`, `locator` and `evidence`, and `locator` MUST be treated as an opaque string by everything except the originating backend.
