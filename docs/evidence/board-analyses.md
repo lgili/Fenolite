@@ -10,7 +10,8 @@ KiCad 9 and 10 have a `creepage` constraint in custom rules (S-0272). On two aut
 (S-0022). Each rules text also holds the canary rule, whose violation shows that the rules file was
 loaded. Run on 2026-10-04 with `kicad-cli` 10.0.6 (local, macOS);
 `tests/kicad/analysis/test_creepage_bracket.py`; outcomes pinned in
-`docs/evidence/kicad/probes/10.0.6.json`.
+`docs/evidence/kicad/probes/10.0.6.json`. The `kicad-10` job gave the same outcomes on Linux (run
+https://github.com/lgili/Fenolite/actions/runs/37213861620).
 
 | probe | bench | Fenolite | rule 50 µm below | rule 50 µm above | outcome |
 |---|---|---|---|---|---|
