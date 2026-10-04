@@ -60,8 +60,13 @@ both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary 
   before the root's closing parenthesis (two numbered `net` rows after the last net row in the 9.0 form).
 - **Verdict.** `fired` when a `clearance` violation names exactly the two canary track uuids, `absent`
   otherwise; `inconclusive` with a reason (`placement-unproven`, `selector-unproven`, `clearance-ignored`,
-  `names-taken`, `board-unparsed`, `extent-too-large`, `no-front-copper`, `no-report`) when it cannot be
-  judged; `not-applicable` without a project or rules file.
+  `names-taken`, `board-unparsed`, `extent-too-large`, `no-front-copper`, `no-report`, `clearance-limit`)
+  when it cannot be judged; `not-applicable` without a project or rules file.
+- **Report limit.** KiCad stops reporting `clearance` violations near 499 per run
+  (`CLEARANCE_REPORT_LIMIT`). On a board with more, the canary's violation competes for a place and can
+  be missing from a run that loaded the rules. A canary run whose report holds no canary violation and
+  at least 499 `clearance` violations is `inconclusive` (`clearance-limit`), not `absent`; the run is
+  not repeated (change c0051).
 - **Stripping.** Every violation and unconnected item that names a canary uuid is removed before the
   report is counted (`canary_removed`); in a two-run major the counted report comes from the plain run,
   so nothing is removed.
@@ -71,11 +76,13 @@ both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary 
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A `clearance` rule on its own net, appended after the user's rules, fires exactly once on two 0.25 mm `F.Cu` tracks 1 mm apart placed 25 mm beyond every board coordinate, on 9.0.9 and 10.0.6 | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-2 |
-| The canary gives no violation when the rules file is dropped (`broken.kicad_dru`) or the project sets the `clearance` severity to `ignore` | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-2 |
+| A `clearance` rule on its own net, appended after the user's rules, fires exactly once on two 0.25 mm `F.Cu` tracks 1 mm apart placed 25 mm beyond every board coordinate, on 9.0.9 and 10.0.6, when its run's report holds fewer than 499 `clearance` violations | S-0010, S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-3 |
+| The canary gives no violation when the rules file is dropped (`broken.kicad_dru`) or the project sets the `clearance` severity to `ignore` | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-3 |
 | With the canary violations removed, the report equals a run without the canary, for the authored projects on both majors | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY |
 | KiCad can report a clearance between two tracks in some runs and not in others when one of them also runs over a pad of the other's net (observed on 10.0.6): two plain runs of such a board can differ, so a comparison first repeats its reference run | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-CHECK-CANARY |
-| On demo boards with hundreds of violations, the canary tracks change other violations run after run: 9.0.9 and 10.0.6 name other partner items for some clearance violations, and sometimes report one violation more or less (`kicad-demo-10-0-6-pcb-01`, `-07`, `-13`), so the counted report comes from a separate plain run | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-2 |
+| On demo boards with hundreds of violations, the canary tracks change other violations run after run: 9.0.9 and 10.0.6 name other partner items for some clearance violations, and sometimes report one violation more or less (`kicad-demo-10-0-6-pcb-01`, `-07`, `-13`), so the counted report comes from a separate plain run | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-3 |
+| `pcb drc` stops reporting `clearance` violations near 499 per run: 10.0.6 reports exactly 499 on a board with more, 9.0.9 between 499 and 508; the canary's violation then competes for a place and can be missing although the rules were loaded (4 of 110 canary runs on `kicad-demo-10-0-6-pcb-01` and `-13`); below 499 it was never missing | S-0020 (measured; no statement found in S-0010, S-0022, S-0038) | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMIT |
+| Two DRC runs of one unchanged project differ at most in the report order and in entries of the types `clearance`, `hole_clearance` and `unconnected_items` (six of the 21 demo boards); every other type, the return code and the written files repeat | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-DRC-REPEAT |
 
 ## Findings
 

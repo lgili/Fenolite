@@ -7,7 +7,8 @@ round-trip oracles").
 ``KicadOracle.drc`` runs ``pcb drc`` on the project's copy set through the package runner, with the
 canary staged into private copies of the board and rules file when it applies, so that the report also
 says whether the custom rules were loaded. The decision order, the verdict and the stripping follow c0013
-Decision 6; facts come from here, and the issues and severities are ``checks``'s policy.
+Decision 6; a canary missing from a saturated report gives no verdict (c0051 Decision 5). Facts come from
+here, and the issues and severities are ``checks``'s policy.
 
 ``netlist`` exports IPC-D-356 and pairs its records with the board's pads (``padnets``); ``rt2`` runs DRC
 twice on the board and once on Fenolite's re-dump of it, both re-saved by ``pcb upgrade`` on 10.0 (c0020
@@ -48,9 +49,10 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-2"))
-"""``KICAD-VERIFIED``: both hypotheses hold on 9.0.9 and 10.0.6; ``H-K-CHECK-CANARY-2`` succeeds the refuted
-neutrality of ``H-K-CHECK-CANARY`` (c0013 task 9.2)."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-3"))
+"""``KICAD-VERIFIED``: both hypotheses hold on 9.0.9 and 10.0.6; ``H-K-CHECK-CANARY-3`` succeeds
+``H-K-CHECK-CANARY-2`` (the canary can be missing from a saturated report, c0051), which succeeded the
+refuted neutrality of ``H-K-CHECK-CANARY`` (c0013 task 9.2)."""
 RT2_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-RT2-STABLE-2",))
 """``KICAD-VERIFIED``: ``H-K-RT2-STABLE-2`` holds on 9.0.9 and 10.0.6 (c0020 task 9.2); it succeeds
 ``H-K-RT2-STABLE``, which the corpus run refuted."""
@@ -215,21 +217,28 @@ class KicadOracle:
             if applies and major in canary.CANARY_TWO_RUN:
                 plain_run, report, problem = self._run(project, None, plan)
                 canary_run, verdict_report, _ = self._run(project, staged, plan)
-                fired = verdict_report is not None and canary.canary_fired(verdict_report)
                 run = plain_run
             else:
                 run, report, problem = self._run(project, staged, plan)
-                fired = report is not None and canary.canary_fired(report)
-                canary_run = run
+                canary_run, verdict_report = run, report
+            fired = verdict_report is not None and canary.canary_fired(verdict_report)
+            # Without the pair, a saturated report proves nothing: KiCad stops reporting clearance
+            # violations near the limit and may have left the canary's out (H-K-DRC-LIMIT).
+            saturated = verdict_report is not None and canary.clearance_saturated(verdict_report)
         finally:
             if staged is not None:
                 shutil.rmtree(staged, ignore_errors=True)
         state, reason = plan.state, plan.reason
         if applies:
             verdict_ok = report is not None and (canary_run.outcome == "exit")
-            state, reason = (
-                ("fired" if fired else "absent", "") if verdict_ok else ("inconclusive", "no-report")
-            )
+            if not verdict_ok:
+                state, reason = "inconclusive", "no-report"
+            elif fired:
+                state, reason = "fired", ""
+            elif saturated:
+                state, reason = "inconclusive", "clearance-limit"
+            else:
+                state, reason = "absent", ""
         removed = 0
         if report is not None:
             report, removed = canary.strip_canary(report)

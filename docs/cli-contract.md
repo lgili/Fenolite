@@ -405,7 +405,28 @@ tracks of that net beyond the board in a copy of the board. Its state is `fired`
 loaded), `absent` (they were not), `inconclusive` (with `canary_reason`) or `not-applicable` (no rules
 file, or no project file next to it). The canary tracks can change other violations of a large board,
 so on KiCad 9.0 and 10.0 the canary run gives only the state and a second, plain run gives the counted
-report; `kicad-cli` then runs twice.
+report; `kicad-cli` then runs twice. KiCad stops reporting `clearance` violations near 499 per run, and
+on a board with more it can leave the canary's own violation out. A canary run whose report holds 499
+or more `clearance` violations and no canary violation is therefore `inconclusive` with the reason
+`clearance-limit` (`kicad.drc.rules-unchecked`), never `absent`: on such a board `check` cannot tell
+whether the rules were loaded.
+
+**Repeatability.** Fenolite adds no difference of its own: two `check` runs on one project with one
+`kicad-cli` give the same output apart from `elapsed_ms` whenever KiCad repeats its reports. KiCad
+writes its DRC report in another order from run to run, which `check` sorts away. On boards with hundreds
+of violations KiCad also does not repeat the report itself. Measured on the KiCad demo boards with
+10.0.6 (`docs/evidence/kicad-check.md`), the difference stays within three types:
+
+- the issues `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items` can
+  name other items and positions, and their counts can change;
+- so can the `drc.kicad` summary values counted from them (`violations`, `unconnected`, `by_type`,
+  `by_severity`, `types`), and the stage status and the exit code when one of these issues decides them;
+- on a board with 499 or more `clearance` violations, the canary state can be `fired` in one run and
+  `inconclusive` (`clearance-limit`) in the next.
+
+Every issue of another code, the other stages and `tool_writes` repeat. Compare two runs of a large
+board by the codes outside those three, or run `roundtrip.rt2`, which leaves out what KiCad does not
+repeat.
 
 | code | severity | when |
 |---|---|---|

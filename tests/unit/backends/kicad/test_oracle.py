@@ -117,6 +117,39 @@ def test_absent_when_the_report_lacks_the_pair(tmp_path: Path) -> None:
     assert outcome.report is not None and len(outcome.report.violations) == 1
 
 
+def _clearances(count: int) -> str:
+    return report_with(*(
+        {"type": "clearance", "description": "user", "severity": "error",
+         "items": [{"uuid": f"u{n}", "description": "t", "pos": {"x": n, "y": 2}}]}
+        for n in range(count)
+    ))  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("count", "state", "reason"),
+    [(canary.CLEARANCE_REPORT_LIMIT, "inconclusive", "clearance-limit"),
+     (canary.CLEARANCE_REPORT_LIMIT - 1, "absent", "")],
+)  # fmt: skip
+def test_saturated_report_gives_no_verdict(tmp_path: Path, count: int, state: str, reason: str) -> None:
+    """KiCad stops reporting clearance violations near 499, so a canary missing from such a report proves
+    nothing (H-K-DRC-LIMIT); one violation below, its absence is the verdict. The run is not repeated."""
+    root = authored_project(tmp_path, major=10)
+    oracle, script = _oracle(tmp_path, drc_report=_clearances(count))
+    outcome = oracle.drc(project_set(root))
+    assert (outcome.canary, outcome.canary_reason) == (state, reason)
+    assert outcome.report is not None and len(outcome.report.violations) == count
+    assert len(_drc_calls(script)) == 2  # the plain run and the canary run
+
+
+def test_saturated_report_on_the_one_run_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(canary, "CANARY_TWO_RUN", frozenset())
+    root = authored_project(tmp_path, major=10)
+    oracle, script = _oracle(tmp_path, drc_report=_clearances(canary.CLEARANCE_REPORT_LIMIT))
+    outcome = oracle.drc(project_set(root))
+    assert (outcome.canary, outcome.canary_reason) == ("inconclusive", "clearance-limit")
+    assert len(_drc_calls(script)) == 1
+
+
 def test_unproven_major(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(canary, "CANARY_SUPPORT", frozenset())
     root = authored_project(tmp_path, major=10)
@@ -206,7 +239,7 @@ def test_evidence_never_above_its_parts(tmp_path: Path) -> None:
     assert outcome.evidence.oracle == "kicad-cli 10.0.6"
     for part in (drcmod.EVIDENCE, oraclemod.EVIDENCE):
         assert strength(outcome.evidence.level) <= strength(part.level)
-    assert set(outcome.evidence.hypotheses) >= {"H-K-DRC-JSON", "H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-2"}
+    assert set(outcome.evidence.hypotheses) >= {"H-K-DRC-JSON", "H-K-CHECK-COPYSET", "H-K-CHECK-CANARY-3"}
 
 
 # -- netlist (c0020)

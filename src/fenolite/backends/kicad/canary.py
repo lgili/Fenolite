@@ -7,7 +7,9 @@ KiCad drops a rules file with one error whole and still exits 0 (``H-K-TOK-RULES
 clean report proves nothing about custom rules. The canary appends a ``clearance`` rule on its own net
 after the user's rules, where the later rule governs (``H-K-DRU-ORDER``, S-0010, S-0038), and inserts two
 tracks of its own nets 25 mm beyond every board coordinate. Their clearance violation appears exactly
-when the rules were loaded (``H-K-CHECK-CANARY-2``). Both are inserted as text into temporary copies: every
+when the rules were loaded (``H-K-CHECK-CANARY-3``), as long as the report is not saturated: KiCad stops
+reporting clearance violations near 499 per run, and the canary's pair can then be left out
+(``H-K-DRC-LIMIT``, ``clearance_saturated``). Both are inserted as text into temporary copies: every
 byte of the user's files is kept, and nothing is written to the project.
 """
 
@@ -45,7 +47,11 @@ CANARY_SUPPORT: frozenset[int] = frozenset({9, 10})
 CANARY_TWO_RUN: frozenset[int] = frozenset({9, 10})
 """Majors where the canary is not neutral, so a plain run gives the report and the canary run the verdict:
 on boards with hundreds of violations, 9.0.9 and 10.0.6 name other partner items, and sometimes report
-one violation more or less, with the canary tracks present (``H-K-CHECK-CANARY-2``)."""
+one violation more or less, with the canary tracks present (``H-K-CHECK-CANARY-3``)."""
+CLEARANCE_REPORT_LIMIT = 499
+"""The count near which ``pcb drc`` stops reporting ``clearance`` violations (``H-K-DRC-LIMIT``): 10.0.6
+reports exactly 499 on a board with more, and 9.0.9 a few more. At or above it the canary's own violation
+competes for a place, so a report without it proves nothing."""
 CLEARANCE_SEVERITY = "/board/design_settings/rule_severities/clearance"
 
 CanaryReason = Literal[
@@ -57,6 +63,7 @@ CanaryReason = Literal[
     "extent-too-large",
     "no-front-copper",
     "no-report",
+    "clearance-limit",
 ]
 _COORDINATES = frozenset({"at", "xy", "start", "end", "mid", "center"})
 
@@ -218,6 +225,12 @@ def canary_fired(report: DrcReport) -> bool:
     )
 
 
+def clearance_saturated(report: DrcReport) -> bool:
+    """Whether ``report`` holds at least ``CLEARANCE_REPORT_LIMIT`` ``clearance`` violations, the canary's
+    own included: KiCad may then have left the canary's violation out of a run that loaded the rules."""
+    return sum(1 for v in report.violations if v.type == "clearance") >= CLEARANCE_REPORT_LIMIT
+
+
 def strip_canary(report: DrcReport) -> tuple[DrcReport, int]:
     """``report`` without the violations and unconnected items that name a canary track, and their count."""
     groups = {name: getattr(report, name) for name in ("violations", "unconnected_items", "schematic_parity")}
@@ -238,12 +251,14 @@ __all__ = [
     "CANARY_TWO_RUN",
     "CANARY_UUIDS",
     "CANARY_WIDTH_NM",
+    "CLEARANCE_REPORT_LIMIT",
     "CanaryError",
     "CanaryReason",
     "append_rule",
     "canary_fired",
     "canary_rule_text",
     "clearance_ignored",
+    "clearance_saturated",
     "inject_board",
     "insertions",
     "strip_canary",

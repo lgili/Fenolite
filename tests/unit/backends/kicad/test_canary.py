@@ -200,6 +200,15 @@ def test_strip_fired_needs_exactly_the_pair() -> None:
     assert not canary_fired(_report(other))
 
 
+def test_clearance_saturated_counts_clearance_only() -> None:
+    limit = canary.CLEARANCE_REPORT_LIMIT
+    assert limit == 499
+    assert canary.clearance_saturated(_report(*[USER] * limit))
+    assert canary.clearance_saturated(_report(CANARY_PAIR, *[USER] * (limit - 1)))  # the canary's counts
+    assert not canary.clearance_saturated(_report(*[USER] * (limit - 1), *[DANGLING] * 50))
+    assert not canary.clearance_saturated(_report(unconnected=(USER,) * limit))
+
+
 # -- ignored
 
 
@@ -229,6 +238,6 @@ def test_support_follows_the_probe_files() -> None:
         "check-canary-broken", "absent"
     )
     # Every probed major is two-run: the authored projects record ``equal``, but the canary changes the
-    # reports of large demo boards on 9.0.9 and 10.0.6 (H-K-CHECK-CANARY, refuted; H-K-CHECK-CANARY-2).
+    # reports of large demo boards on 9.0.9 and 10.0.6 (H-K-CHECK-CANARY, refuted; H-K-CHECK-CANARY-3).
     assert canary.CANARY_TWO_RUN >= _recorded("check-canary-neutral", "different")
     assert canary.CANARY_TWO_RUN == canary.CANARY_SUPPORT == frozenset({9, 10})
