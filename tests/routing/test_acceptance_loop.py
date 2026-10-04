@@ -10,8 +10,13 @@ nothing in the repository.
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import shlex
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -103,3 +108,30 @@ def test_loop(example: str, target: int, tmp_path: Path) -> None:
         assert isinstance(evidence, dict) and evidence["level"], step
     if os.environ.get(WRITE) == "1":
         record(run, example, target)
+
+
+def test_skill_block(tmp_path: Path) -> None:
+    """Scenario "Ten commands close the loop": the lines of the agent guide run as written, in a folder
+    laid out as the repository, and each envelope carries an evidence level (acceptance item 7)."""
+    guide = (ROOT / "agent" / "SKILL.md").read_text(encoding="utf-8")
+    blocks = re.findall(r"^```fenolite-loop\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
+    assert len(blocks) == 1
+    lines = [line for line in blocks[0].splitlines() if line.strip()]
+    assert 1 <= len(lines) <= 10
+    shutil.copytree(ROOT / "examples" / "blink_2layer", tmp_path / "examples" / "blink_2layer")
+    shutil.copytree(ROOT / "tests" / "data" / "libs", tmp_path / "tests" / "data" / "libs")
+    for line in lines:
+        words = shlex.split(line)
+        assert words[0] == "fenolite"
+        process = subprocess.run(
+            [sys.executable, "-m", "fenolite", *words[1:]],
+            cwd=tmp_path,
+            env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+            capture_output=True,
+            text=True,
+            timeout=900,
+            check=False,
+        )
+        assert process.returncode == 0, f"{line}\n{process.stderr or process.stdout}"
+        envelope = json.loads(process.stdout)
+        assert envelope["evidence"]["level"], line

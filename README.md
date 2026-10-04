@@ -6,8 +6,10 @@ from Python code or a JSON-speaking command line, without a GUI. KiCad is the fi
 files, with `kicad-cli` as the verification oracle); a second backend for another major commercial
 format family follows.
 
-> **Status: pre-alpha.** The repository is being bootstrapped. Nothing here is ready for real
-> boards yet. Follow `openspec/changes/` to see what is being built and in which order.
+> **Status: version 0.1.** The loop below works on two-layer boards, for KiCad 9.0 and 10.0: a design
+> script becomes a KiCad project that is placed, routed by an external router, filled, checked by
+> KiCad's own design-rule check and exported to fabrication files. What was proved for this version, and
+> its limits, are in `docs/release/v0.1.md`. The Altium target is experimental.
 
 *Fenolite* is the Portuguese word for phenolic board material — the laminate many of us etched our
 first circuit boards on.
@@ -45,7 +47,34 @@ files and review renders (`fenolite export`, `fenolite render`) are described in
 
 A command's overall label is the lowest label of the steps it ran.
 
-## Install (development)
+## Install
+
+```bash
+pip install fenolite
+```
+
+It installs no other package. `fenolite capabilities --json` then says which external tools it found:
+`kicad-cli` (KiCad 9.0 or 10.0) for the checks, the fills and the exports, and a router.
+
+## The loop
+
+The ten commands an agent runs, from a design script to fabrication files (`agent/SKILL.md` explains
+each one and what to do when one fails):
+
+```fenolite-loop
+fenolite capabilities --json
+fenolite build examples/blink_2layer/design.py --out build/blink --dry-run --json
+fenolite build examples/blink_2layer/design.py --out build/blink --confirm --json
+fenolite place build/blink --strategy grid --confirm --json
+fenolite route build/blink --router freerouting --confirm --json
+fenolite fill build/blink --confirm --json
+fenolite check build/blink --json
+fenolite export build/blink -o build/blink/fab --all --manifest --confirm --json
+fenolite render build/blink -o build/blink/views --svg --png --confirm --json
+fenolite inspect build/blink/blink.kicad_pcb --json
+```
+
+## Install for development
 
 ```bash
 git clone <this repository>
