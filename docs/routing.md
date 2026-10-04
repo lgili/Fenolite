@@ -54,9 +54,10 @@ fenolite route BOARD --router freerouting --allow-offsite --dry-run
 
 **Data leaving your machine.** Freerouting sends anonymous usage data unless told otherwise. Fenolite always
 passes the flag that disables it (`-da`), runs the tool in a temporary folder that is also its `HOME`, and
-never uses its hosted API. Until a run with the network disabled has been recorded (`H-G-DSN-OFFLINE`),
-`fenolite capabilities` lists this router with `sends_data_offsite: true` and `fenolite route` asks for
-`--allow-offsite`. `--router-path docker:<image>` runs a container image of Freerouting instead of a local
+never uses its hosted API. A run of the pinned image with the network disabled routes a board
+(`H-G-DSN-OFFLINE`, recorded on 2026-10-04), so `fenolite capabilities` lists this router with
+`sends_data_offsite: false` and `fenolite route` does not ask for `--allow-offsite`.
+`--router-path docker:<image>` runs a container image of Freerouting instead of a local
 jar, with the run folder mounted and `--network none`; Fenolite never pulls the image.
 
 ## Loop order

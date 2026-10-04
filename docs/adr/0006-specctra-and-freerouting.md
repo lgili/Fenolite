@@ -1,7 +1,7 @@
 # ADR-0006: Specctra files from a restricted reference, and Freerouting behind a process boundary
 
 ## Status
-Proposed
+Accepted (2026-10-04)
 
 ## Context
 Plan decision D11 gives v0.1 two routers. The second is Freerouting (S-0220), which reads a Specctra
@@ -35,8 +35,8 @@ Two things need a decision before any code relies on them.
    folder. Fenolite never imports it, vendors it, downloads it or reads its source code for format
    knowledge. Its documentation pages (S-0220 to S-0223, S-0226) are read for its arguments and settings.
 4. **No data leaves the machine by default.** The plugin always passes the flag that disables analytics,
-   and reports `sends_data_offsite: true` until a run with the network disabled is recorded
-   (`H-G-DSN-OFFLINE`). There is no cloud mode in v0.1.
+   and reported `sends_data_offsite: true` until a run with the network disabled was recorded
+   (`H-G-DSN-OFFLINE`, recorded on 2026-10-04; the plugin now reports `false`). There is no cloud mode in v0.1.
 5. **Fallback.** If facts may not be taken from S-0224, the codec is rebuilt black-box: the subset is
    learned from design files that KiCad's editor exports for boards authored for Fenolite (recorded as
    observations under S-0020) and from what Freerouting accepts. Every row citing S-0224 is then removed or
@@ -61,9 +61,8 @@ Two things need a decision before any code relies on them.
 - A user installs Java and the Freerouting jar themselves; `doctor` reports both.
 - If the publisher of S-0224 objected, the fallback applies and the fact pages change; the code's interface
   does not.
-- This ADR becomes `Accepted` only in the maintainer's own commit, with a `LEGAL-ANNEX.md` row; the change
-  that writes it (c0023) is not archived before that. The maintainer accepted the decision in the roadmap
-  on 2026-10-03 (Open decisions, row 5); the status line here waits for that commit.
+- The maintainer accepted this ADR on 2026-10-04, in the commit that sets the status line, with a
+  `LEGAL-ANNEX.md` row; the decision had been recorded in the roadmap on 2026-10-03 (Open decisions, row 5).
 
 ## Evidence
 S-0220 to S-0223 and S-0226 (Freerouting: licence, arguments, settings, release, image); S-0224 (the

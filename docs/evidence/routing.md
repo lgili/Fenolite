@@ -78,7 +78,7 @@ The machine-readable outcomes are in `routing/freerouting-2.4.1.json`.
 
 **Day-6 gate of c0023: passed on 2026-10-04.** `dsn-accept` and `dsn-route-t10` hold.
 
-Not run yet: `dsn-offline`. It needs the image `ghcr.io/freerouting/freerouting:2.4.1` (index digest `sha256:67794b10c4565c259461343cf6db4158e6a5c5baa7c2f93030d045974f313074`; about 160 MB compressed for `linux/arm64` and 163 MB for `linux/amd64`, read from the registry's manifests on 2026-10-04 without pulling). The image was not on the machine and was not pulled, so `test_offline` skips and the plugin's `sends_data_offsite` stays `True`.
+`dsn-offline` = `present`, recorded on 2026-10-04. The image `ghcr.io/freerouting/freerouting:2.4.1` (index digest `sha256:67794b10c4565c259461343cf6db4158e6a5c5baa7c2f93030d045974f313074`, `linux/arm64`) was pulled by the maintainer's decision and run with `--network none`: it wrote a session with one track for the two-pad board. The image's default command starts its API server, so the plugin runs `java -jar /app/freerouting-executable.jar` followed by its own arguments; the first attempt, which passed the arguments alone, failed in the image's entry script. The plugin's `sends_data_offsite` is `False` since this run.
 
 The loop `build` → `place` → `route --router freerouting` → rebuild → `fill` → `check` (`tests/routing/test_freerouting_oracle.py::test_loop`) passed on the local KiCad 10.0.6: the second build kept every routed track and via, and the DRC found no unconnected item. Its KiCad 9 run is left to the `routing` CI job, which runs inside the 9.0.9 image.
 
@@ -94,5 +94,5 @@ The loop `build` → `place` → `route --router freerouting` → rebuild → `f
 - No fact of `docs/formats/specctra/` was refuted. The labels of the fact pages and of the hypothesis rows
   stay `INFERRED` until task 6.2 of c0023 raises them from this record.
 
-These runs say nothing about the network: `-da` was passed, and the run without a network
-(`H-G-DSN-OFFLINE`) is still to do, so the plugin's `sends_data_offsite` stays `True`.
+The runs with the jar say nothing about the network: `-da` was passed. The run without a network
+(`H-G-DSN-OFFLINE`) is the container run recorded above.

@@ -180,8 +180,9 @@ lowered into the design file: the router gets the net-class width, clearance and
 which reads those rules from the project, stays the judge. Lowering clearance rules to Specctra `rule`
 lists is left for a later change.
 
-The container form is implemented and tested with a fake `docker` only. Whether the published image's
-entry point takes the jar's arguments is unknown until `dsn-offline` runs; the image was not pulled.
+The container form was first tested with a fake `docker` only. The `dsn-offline` run of 2026-10-04 showed that
+the published image's default command starts its API server and that its entry script does not take the jar's
+arguments alone: the plugin now runs `java -jar /app/freerouting-executable.jar` followed by its arguments.
 
 ## Evidence level per behaviour (before merge)
 

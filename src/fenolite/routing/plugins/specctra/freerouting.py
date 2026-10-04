@@ -9,7 +9,8 @@ vendors or downloads it (ADR-0006). The jar is ``path``, else ``FENOLITE_FREEROU
 the network disabled.
 
 The flag that disables its analytics is always passed and cannot be removed through router options.
-``sends_data_offsite`` stays ``True`` until a run without a network is recorded (``H-G-DSN-OFFLINE``).
+``sends_data_offsite`` is ``False``: the pinned image routes with the network disabled (``H-G-DSN-OFFLINE``,
+recorded on 2026-10-04).
 """
 
 from __future__ import annotations
@@ -39,6 +40,9 @@ DEFAULT_TIMEOUT = 900
 JAR_ENV = "FENOLITE_FREEROUTING_JAR"
 JAVA_ENV = "FENOLITE_JAVA"
 DOCKER_PREFIX = "docker:"
+# The jar inside the pinned image: its default command starts the API server, so the plugin names the jar
+# itself (read from the image configuration of 2.4.1, S-0226).
+IMAGE_JAR = "/app/freerouting-executable.jar"
 FALLBACK = DsnDefaults(width=200_000, clearance=200_000, via_diameter=600_000, via_drill=300_000)
 """The board defaults of ``fenolite route`` for a design without a ``Default`` class."""
 EVIDENCE = Evidence(
@@ -106,7 +110,7 @@ class FreeroutingRouter:
         "Routes nets with the external Freerouting autorouter (GPL-3.0, run as a subprocess) through a "
         "Specctra design file; its analytics are always disabled."
     )
-    sends_data_offsite = True
+    sends_data_offsite = False
 
     def __init__(
         self, path: str | Path | None = None, java: str | Path | None = None, timeout: float = DEFAULT_TIMEOUT
@@ -205,7 +209,7 @@ class FreeroutingRouter:
             mount = f"{folder}:/work"
             return [
                 "docker", "run", "--rm", "--network", "none", "-v", mount, "-w", "/work",
-                "-e", "HOME=/work", self.image, *arguments,
+                "-e", "HOME=/work", self.image, "java", "-jar", IMAGE_JAR, *arguments,
             ]  # fmt: skip
         return [self.java, "-jar", str(self.jar), *arguments]
 

@@ -19,6 +19,7 @@ from fenolite.cli import cmd_route
 from fenolite.core.coords import Point
 from fenolite.model.board import Zone
 from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
+from fenolite.routing.plugins.specctra.freerouting import FreeroutingRouter
 from fenolite.routing.protocol import RouterStatus, RoutingJob, RoutingResult
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -170,7 +171,9 @@ def test_job_extra_holds_the_board_pads_and_the_outline(monkeypatch, tmp_path: P
 
 
 def test_freerouting_is_refused_without_allow_offsite(monkeypatch, tmp_path: Path) -> None:
-    """Capability cli-contract, "Freerouting in doctor" (c0023): scenario "Refused without the flag"."""
+    """Capability cli-contract, "Freerouting in doctor" (c0023): scenario "Refused without the flag". The
+    scenario is about a plugin that sends data, which the shipped one no longer is, so the test sets it."""
+    monkeypatch.setattr(FreeroutingRouter, "sends_data_offsite", True)
     monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(create_fake_jar(tmp_path)))
     monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path)))
     board = ROOT / "tests/data/kicad/routing/two_pads.kicad_pcb"

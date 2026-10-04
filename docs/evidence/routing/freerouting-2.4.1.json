@@ -6,6 +6,10 @@
       "detail": "two-pads: 1 wire(s), 0 via(s), resolution um 10, 2 place(s), placement unit um 10, unknown lists []; blink: 5 wire(s), 1 via(s), resolution um 10, 3 place(s), placement unit um 10, unknown lists []",
       "value": "present"
     },
+    "dsn-offline": {
+      "detail": "1 track(s)",
+      "value": "present"
+    },
     "dsn-protect": {
       "detail": "1 session wire(s) on the protected net, 0 item(s) that differ from the input",
       "value": "equal"

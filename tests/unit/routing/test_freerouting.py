@@ -263,6 +263,7 @@ def test_container_command_line(tmp_path: Path, record: Path, monkeypatch: pytes
     mount = argv[argv.index("-v") + 1]
     assert mount.endswith(":/work") and "fenolite-freerouting-" in mount
     assert argv[argv.index(image) + 1 :] == [
+        "java", "-jar", "/app/freerouting-executable.jar",
         "-de", "board.dsn", "-do", "board.ses", "-mp", "20", "-mt", "1", "-da", "--gui.enabled=false",
     ]  # fmt: skip
 
@@ -278,11 +279,11 @@ def test_defaults_come_from_the_default_class(tmp_path: Path, record: Path) -> N
     assert freerouting._defaults(b.design) == freerouting.FALLBACK  # pyright: ignore[reportPrivateUsage]
 
 
-def test_registered_and_offsite_until_the_offline_probe() -> None:
-    """The entry point; ``sends_data_offsite`` stays true until ``H-G-DSN-OFFLINE`` is recorded."""
+def test_registered_and_not_offsite() -> None:
+    """The entry point; ``sends_data_offsite`` is false since ``H-G-DSN-OFFLINE`` was recorded."""
     registered = routers()
     assert "freerouting" in registered
     router: Router = registered["freerouting"]
     assert isinstance(router, FreeroutingRouter)
-    assert router.sends_data_offsite is True
+    assert router.sends_data_offsite is False
     assert "analytics" in router.description
