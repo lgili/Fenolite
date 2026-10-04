@@ -1089,3 +1089,21 @@ path = "tests/data/acceptance/board_40parts_t9/lib/Mini.pretty/Mini_R_0603.kicad
 origin = "authored"
 corpus_id = ""
 notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "examples/board_40parts/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
+
+[[file]]
+path = "examples/board_40parts/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
+
+[[file]]
+path = "examples/board_40parts/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
