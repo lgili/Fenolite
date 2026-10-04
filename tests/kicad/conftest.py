@@ -28,6 +28,7 @@ for folder in (
     HERE / "fill",
     HERE / "place",
     HERE / "analysis",
+    HERE / "acceptance",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
