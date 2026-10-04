@@ -78,7 +78,7 @@ rebuilds.
 | c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | proposed | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
 | c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | implemented in draft PR; full local check and KiCad 9/10 CI passed | c0013, c0019, c0031 | 6 |
-| c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | proposed | c0015, c0020, c0022 | 7.5 |
+| c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | done; gate and full CI passed on KiCad 9.0.9 and 10.0.6 | c0015, c0020, c0022 | 7.5 |
 | c0017 | `kicad-board-writer` | board writer for 9.0 and 10.0 | done | c0009, c0014 | 7.75 |
 | c0018 | `kicad-rules-footprints` | footprint and custom-rules writers | done | c0017 | 5.75 |
 | c0019 | `layout-preserve` | layout kept across rebuilds | proposed | c0011, c0013, c0027 | 8.25 |
@@ -285,7 +285,7 @@ wait for the kit to reproduce them.
 | KiCad 11 IPC | v0.6 | only possible once KiCad 11 is released |
 | SPICE | v0.6 | — |
 | ASCII inspection format | v0.6 | — |
-| Specctra DSN/SES and Freerouting (c0023) | v0.1 | only if c0016's feasibility gate passes: KiCadRoutingTools (c0016) then covers routing for v0.1 acceptance item 3; otherwise c0023 stays in v0.1 |
+| Specctra DSN/SES and Freerouting (c0023) | v0.1 | c0016's KiCadRoutingTools feasibility gate passed on KiCad 9.0.9 and 10.0.6; the maintainer's accepted decision in Open decisions row 5 keeps c0023 in v0.1 regardless |
 
 \* Placed by this page with the rest of its milestone; the maintainer may keep any of them.
 

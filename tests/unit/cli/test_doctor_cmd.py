@@ -99,6 +99,8 @@ def test_no_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--no-run", "--kicad-cli", str(fake))
     (entry,) = env["result"]["kicad_cli"]
     assert code == 0 and entry["version"] is None and entry["matrix"] is None
+    assert {router["name"] for router in env["result"]["routers"]} == {"direct", "kicadroutingtools"}
+    assert all("available" not in router for router in env["result"]["routers"])
     assert env["evidence"]["level"] == "UNVERIFIED"
 
 

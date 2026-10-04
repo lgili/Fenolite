@@ -17,6 +17,7 @@ from fenolite import __version__
 from fenolite.backends import registry
 from fenolite.cli.api import Command, Context, Result, discover
 from fenolite.core.evidence import Evidence
+from fenolite.routing.registry import routers as routing_routers
 
 _EXTRA_MARKER = re.compile(r"extra\s*==\s*['\"]([^'\"]+)['\"]")
 _DIST_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -117,6 +118,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
+        "routers": [
+            {
+                "name": router.name,
+                "description": router.description,
+                "sends_data_offsite": router.sends_data_offsite,
+                "builtin": router.__class__.__module__.startswith("fenolite."),
+            }
+            for router in routing_routers().values()
+        ],
         "sends_data_offsite": False,
     }
     return Result(result=result)

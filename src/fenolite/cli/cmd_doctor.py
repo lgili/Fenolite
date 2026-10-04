@@ -25,6 +25,8 @@ from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli,
 from fenolite.cli.api import Command, Context, Result
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
+from fenolite.routing.registry import routers as routing_routers
+from fenolite.routing.registry import unavailable as routing_unavailable
 
 HELP = "report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker"
 ISSUE_CODES: Mapping[str, Severity] = {
@@ -173,6 +175,25 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         version = next((v for sel, v, _ in ran if sel), ran[0][1])
         evidence = _with_oracle(version)
     result = {"kicad_cli": entries, "by_major": dict(sorted(by_major.items())), **others}
+    route_entries: list[dict[str, object]] = []
+    for router in routing_routers().values():
+        router_entry: dict[str, object] = {"name": router.name}
+        if not args.no_run:
+            status = router.available()
+            router_entry.update(
+                available=status.available,
+                path=status.path or None,
+                version=status.version or None,
+                reason=status.reason or None,
+            )
+            if not status.available:
+                issues.append(
+                    _issue("doctor.tool-missing", f"router {router.name}: {status.reason}", router.name)
+                )
+        route_entries.append(router_entry)
+    result["routers"] = route_entries
+    for name, reason in routing_unavailable().items():
+        issues.append(_issue("doctor.tool-unsupported", f"router {name} could not be loaded: {reason}", name))
     return Result(result=result, issues=tuple(issues), evidence=evidence)
 
 

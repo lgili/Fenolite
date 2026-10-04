@@ -17,6 +17,11 @@ notes = "Fenolite authored board refilled by KiCad 10.0.6"
 path = "tests/data/kicad/fill/triad_t9_filled.kicad_pcb"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/routing/two_pads.kicad_pcb"
+origin = "authored"
+corpus_id = ""
 #
 # [[file]]
 # path = "tests/data/blink.kicad_pcb"

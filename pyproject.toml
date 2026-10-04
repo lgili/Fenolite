@@ -49,6 +49,10 @@ dev = [
     "pyright>=1.1.390",
 ]
 
+[project.entry-points."fenolite.routers"]
+direct = "fenolite.routing.direct:DirectRouter"
+kicadroutingtools = "fenolite.routing.plugins.kicad.routingtools:KicadRoutingToolsRouter"
+
 [project.scripts]
 fenolite = "fenolite.cli.main:main"
 
@@ -71,6 +75,7 @@ markers = [
     "kicad_min_major(n): skip when the running kicad-cli major is below n (never a failure)",
     "needs_corpus: requires the fetched public test corpus (tools/corpus_fetch.py)",
     "needs_libs: requires the official KiCad libraries (local install or fetched tag)",
+    "needs_router: requires KiCadRoutingTools in a separate checkout and interpreter",
     "slow: long-running test",
 ]
 

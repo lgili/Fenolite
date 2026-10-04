@@ -100,37 +100,22 @@ The package `fenolite.verify` SHALL provide the modules `verify/hypotheses.py` a
 ### Requirement: Reserved id families
 `docs/hypotheses.md` SHALL state, above the register table, the following rules:
 - ids keep the prefixes `H-A-` (second backend), `H-G-` (general) and `H-K-` (KiCad);
-- rows about a tool acting on KiCad files use `H-K-`, and routing rows use `H-K-KRT-*`;
+- rows about a tool acting on KiCad files use `H-K-`, and routing rows use the `H-K-KRT-` prefix;
 - Specctra rows use `H-G-DSN-*`, with backend `specctra`.
 
 It SHALL also hold a reserved-families table with the header `| family | backend | rows for | owner |`. `fenolite.verify.load_families(path)` SHALL return the families of that table as written.
 - Family cells MUST be written in backticks. A family cell, stripped and with one pair of enclosing backticks removed, MUST fully match an id stem followed by `-*`. Otherwise `load_families` MUST raise `ValueError` naming `<path>:<line>`.
 - A file without a reserved-families table MUST give the empty tuple. A file with two such tables MUST raise `ValueError` naming the path.
-- The table MUST list `H-A-WRITE-*`, `H-A-PH-*`, `H-K-KRT-*` and `H-G-DSN-*`.
+- The table MUST list `H-A-WRITE-*`, `H-A-PH-*` and `H-G-DSN-*`; families MUST be removed once their rows are registered.
 
 #### Scenario: Families of the live register
 - **WHEN** `load_families("docs/hypotheses.md")` is called
-- **THEN** the result contains `"H-A-WRITE-*"`, `"H-A-PH-*"`, `"H-K-KRT-*"` and `"H-G-DSN-*"`
+- **THEN** the result contains `"H-A-WRITE-*"`, `"H-A-PH-*"` and `"H-G-DSN-*"`, but not `"H-K-KRT-*"` after c0016 registers its rows
 
-#### Scenario: Family cell without a wildcard is rejected
-- **GIVEN** a reserved-families table whose row on line 4 has a family cell without the trailing `-*`
-- **WHEN** `load_families` reads it
-- **THEN** a `ValueError` is raised naming line 4
-
-#### Scenario: Register without a families table
-- **GIVEN** a register file that holds only the register table
-- **WHEN** `load_families` reads it
-- **THEN** it returns `()`
-
-#### Scenario: Two families tables are rejected
-- **GIVEN** a register file `reg.md` with two reserved-families tables
-- **WHEN** `load_families` reads it
-- **THEN** a `ValueError` is raised naming `reg.md`
-
-#### Scenario: Family rows are not register rows
-- **GIVEN** `docs/hypotheses.md` with its reserved-families table
-- **WHEN** ``grep -c '^| `H-' docs/hypotheses.md`` runs
-- **THEN** it prints the number of reserved families, and `grep -c '^| H-' docs/hypotheses.md` still equals the number of rows `load_register` returns
+#### Scenario: Reserved family
+- **GIVEN** a temporary register holding only `H-K-UNIT`, whose reserved-families table lists `H-A-WRITE-*`, and `docs/x.md` citing `H-A-WRITE-*`
+- **WHEN** `citation_problems(tree)` is called
+- **THEN** it returns no problem
 
 ### Requirement: Register integrity
 `tests/unit/test_hypotheses_register.py` SHALL check the register with `register_problems(rows)`. That function SHALL return one message per problem, naming the row, for each of these rules:

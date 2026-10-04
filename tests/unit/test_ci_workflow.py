@@ -192,3 +192,14 @@ def test_kicad_9_cache_key_and_order() -> None:
         job.find("uses: actions/cache") < job.find(KICAD9_FETCH) < job.find("run: uv run pytest tests/kicad")
     )
     assert "corpus-rt2-9-" not in job_text(text, "kicad-10")  # the two jobs never share a cache key
+
+
+def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    job = job_text(text, "routing")
+    assert "kicad/kicad:9.0.9@sha256:" in job and "kicad/kicad:10.0.6@sha256:" in job
+    assert "--branch v0.22.1" in job
+    assert "grid_router-linux-x86_64.so" in job
+    assert "sha256sum --check" in job
+    assert "FENOLITE_REQUIRE: kicad,router" in job
+    assert "run: uv run pytest tests/routing -q -rA" in job

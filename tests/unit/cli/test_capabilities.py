@@ -32,6 +32,8 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
                                         "schema": "fenolite.capabilities.v0", "hidden": False}  # fmt: skip
     assert commands["_echo"]["hidden"] is True and commands["_echo"]["mutates"] is True
     assert result["sends_data_offsite"] is False
+    assert {router["name"] for router in result["routers"]} == {"direct", "kicadroutingtools"}
+    assert next(router for router in result["routers"] if router["name"] == "direct")["builtin"] is True
     assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles", "route"}  # type: ignore[arg-type]
 
 
