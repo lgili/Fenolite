@@ -135,6 +135,14 @@ with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
 is written) and `placements_from_board`. With `--copper-from`, `result.copper_input` holds the board's
 `path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
 
+`source` is `script` when the script declares copper intents (`Design.track`, `Design.via`,
+`Design.stitch`) and `--copper-from` is absent: the intents are resolved by the KiCad build of the
+script, run in memory (no KiCad file is planned), and the script's zones travel with them. An error of
+that build (`kicad.copper.*`, `kicad.frame.*`, `build.*`) exits 5 with no planned file and
+`result.copper` `null`; its `kicad.copper.*` and `kicad.frame.*` warnings and infos and its
+`layout.unplaced` warnings join `issues`. With `--copper-from` the board wins: the intents are not
+resolved, and one `altium.not-lowered` info names them.
+
 The copper codes of the Altium build:
 
 | code | severity | when |

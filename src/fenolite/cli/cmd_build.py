@@ -41,9 +41,12 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
 )
+from fenolite.backends.kicad import copper as kicad_copper
 from fenolite.backends.kicad import copperrules
+from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.backend import KicadBackend
+from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.backends.kicad.outline import board_outline
@@ -57,7 +60,14 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import DslError, copper, fields, moves, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
-from fenolite.lens.altium import CopperSource, build_altium, kicad_footprint_ids, kicad_lib_ids
+from fenolite.lens.altium import (
+    CopperSource,
+    build_altium,
+    kicad_footprint_ids,
+    kicad_lib_ids,
+    refused_altium,
+)
+from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
     VENDOR_MODES,
     PlacementRequest,
@@ -82,6 +92,10 @@ COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
 WARN_NOTE = " (copper guard in warn mode)"
+SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "layout.unplaced")
+"""The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
+(change c0053): what the copper intents created or left out, and the parts that build staged. Its other
+warnings and infos concern KiCad files that are not written. Every error passes."""
 _KINDS = {
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
@@ -325,7 +339,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
         return _run_altium(
-            args, ctx, run, model, requested, plane_nets, script_path, out, out_dir, board_path
+            args, ctx, run, model, requested, plane_nets, script_path, out, out_dir, board_path, intents
         )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
@@ -409,6 +423,7 @@ def _run_altium(
     out: Path,
     out_dir: Path,
     board_path: Path | None = None,
+    intents: Sequence[CopperIntentLike] = (),
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -419,12 +434,19 @@ def _run_altium(
 
     With ``--copper-from`` (change c0038, "Copper from a routed KiCad board") the board ``board_path`` is
     read in this process with ``backends.kicad.pcb.read_board`` and handed to the build as a
-    ``CopperSource`` of origin ``board``; the reader's issues and evidence join the build's."""
+    ``CopperSource`` of origin ``board``; the reader's issues and evidence join the build's.
+
+    Without ``--copper-from``, the script's copper ``intents`` (change c0053, "Script copper in an Altium
+    build") are resolved by the KiCad build of the script, run in memory with ``lens.build.build_design``:
+    none of its files is planned. Its model is the ``CopperSource`` of origin ``script``, and the script's
+    zones travel with it. An error of that build refuses this one; its ``SCRIPT_COPPER_CODES`` issues pass.
+    With ``--copper-from`` the board wins: the intents are not resolved, and one ``altium.not-lowered``
+    info names them."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
     resolver = None
-    if kicad_lib_ids(model) or kicad_footprint_ids(model):
+    if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:
         resolver = LibraryResolver(
             LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
         )
@@ -445,19 +467,61 @@ def _run_altium(
             "kind": "kicad-board",
             "format_version": str(info.version) if info is not None else None,
         }
-    built = build_altium(
-        model,
-        name=name,
-        placed=tuple(requested),
-        placements=requested,
-        project_exists=(out_dir / f"{name}.PrjPcb").is_file(),
-        form=form,
-        resolver=resolver,
-        sheets=sheets,
-        copper=run.design.copper,
-        planes=plane_nets,
-        copper_source=source,
-    )
+        if intents:
+            keys = ", ".join(intent.key for intent in intents)
+            reader_issues.append(
+                altium_issue(
+                    "altium.not-lowered",
+                    f"{len(intents)} copper intent(s) of the script ({keys}) are not resolved: "
+                    f"{args.copper_from} is the copper source, and --copper-from wins",
+                    str(args.copper_from),
+                    "the board of a KiCad build of this script already holds its script copper",
+                )
+            )
+    script_issues: list[Issue] = []
+    refused = False
+    project_exists = (out_dir / f"{name}.PrjPcb").is_file()
+    if intents and source is None:
+        assert resolver is not None
+        resolved = build_design(
+            model,
+            requested,
+            name=name,
+            copper=run.design.copper,  # type: ignore[arg-type]
+            resolver=resolver,
+            target=ctx.kicad_target,
+            copper_intents=intents,
+        )
+        refused = not resolved.files or any(found.severity == "error" for found in resolved.issues)
+        script_issues = [
+            found
+            for found in resolved.issues
+            if found.severity == "error" or found.code.startswith(SCRIPT_COPPER_CODES)
+        ]
+        if not refused:
+            source = CopperSource(resolved.design, "script")
+            if model.board is not None and model.board.zones:
+                # one copper source: the KiCad build kept the script's zones, so the source holds them
+                model = dataclasses.replace(model, board=dataclasses.replace(model.board, zones=()))
+    if refused:
+        built = refused_altium(
+            model, name=name, issues=script_issues, project_exists=project_exists, form=form, sheets=sheets
+        )
+        script_issues = []
+    else:
+        built = build_altium(
+            model,
+            name=name,
+            placed=tuple(requested),
+            placements=requested,
+            project_exists=project_exists,
+            form=form,
+            resolver=resolver,
+            sheets=sheets,
+            copper=run.design.copper,
+            planes=plane_nets,
+            copper_source=source,
+        )
     files = dict(built.files)
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
@@ -490,10 +554,14 @@ def _run_altium(
     if copper_input is not None:
         result["copper_input"] = copper_input
     data = script_path.read_bytes()
-    evidence = built.evidence if source is None else Evidence.combine(built.evidence, kicad_pcb.EVIDENCE)
+    evidence = built.evidence
+    if board_path is not None:
+        evidence = Evidence.combine(evidence, kicad_pcb.EVIDENCE)
+    elif intents:
+        evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
     return Result(
         result=result,
-        issues=(*reader_issues, *built.issues),
+        issues=(*reader_issues, *script_issues, *built.issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),

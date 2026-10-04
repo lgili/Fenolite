@@ -464,3 +464,15 @@ def test_script_source_equals_the_committed_sample(tmp_path: Path) -> None:
     output = build(tmp_path, CopperSource(kicad(), "script"))
     assert not errors(output) and output.summary["copper"]["source"] == "script"  # type: ignore[index]
     assert output.files["routed.PcbDoc"] == committed.read_bytes()
+
+
+def test_refused_altium_plans_nothing() -> None:
+    """Change c0053, "Script copper in an Altium build": the output of a build refused before the lens ran."""
+    from fenolite.lens.altium import refused_altium
+
+    found = Issue("kicad.copper.net-conflict", "error", "led_drv joins two nets", where="led_drv")
+    output = refused_altium(script(), name="routed", issues=[found], project_exists=True)
+    assert output.files == {} and output.issues == (found,)
+    assert output.summary["copper"] is None and output.summary["pcb_document"] is None
+    assert output.summary["kept"] == ["routed.PrjPcb"] and output.summary["experimental"] is True
+    assert output.evidence.level.value == "INFERRED"

@@ -394,13 +394,27 @@ rules decide how they join it. A zone of the plane's net on that layer is left t
 
 **Where the copper comes from.** A build takes the copper from exactly one of three routes:
 
-1. **Script copper.** The script's resolved tracks and vias, handed over by change c0028 when it lands.
-   Until then a script cannot describe copper.
+1. **Script copper.** The tracks, vias and stitching vias that the script declares with `Design.track`,
+   `Design.via` and `Design.stitch` (`docs/copper.md`), together with its `Design.zone` pours.
+   `fenolite build design.py --out DIR --target altium` resolves the intents as the KiCad build does: it
+   runs that build in memory, writes none of its files, and copies the resolved copper
+   (`result.copper.source` is `script`). `examples/blink_routed` gives 11 tracks and 7 vias.
+   - An intent that does not resolve (`kicad.copper.*` or `kicad.frame.*` error) refuses the build: exit 5,
+     no file.
+   - An intent that creates nothing is reported, never dropped silently: `kicad.copper.end-unplaced` (it
+     ends at a part that is not placed), `kicad.copper.stitch-empty`, `kicad.copper.stitch-skipped`. A part
+     that the script does not place is named by `layout.unplaced`.
+   - Shorts and clearances of script copper are not judged for this target: the copper guard runs for the
+     KiCad target only (`docs/cli-contract.md`, `build`).
 2. **`--copper-from BOARD.kicad_pcb`.** A routed KiCad board of the same design: build the KiCad project
    from the script, route it in KiCad, then run
    `fenolite build design.py --out DIR --target altium --copper-from DIR_KICAD/<name>.kicad_pcb`.
 3. **Routers.** The router plugins of c0016 and c0023 return model copper, which the build writes as it
    writes any copper the model holds.
+
+When a script with copper intents is built with `--copper-from`, the board wins: the intents are not
+resolved, and one `altium.not-lowered` info names them. The board of a KiCad build of that script
+already holds its script copper, so both routes give the same document.
 
 **Checks of `--copper-from`.** The board must be of the same design. Fenolite reads it in-process (no
 `kicad-cli`) and checks, before any copper is copied:

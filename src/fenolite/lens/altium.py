@@ -1077,6 +1077,23 @@ def _summary(
     }
 
 
+def refused_altium(
+    design: Design,
+    *,
+    name: str,
+    issues: Sequence[Issue],
+    project_exists: bool = False,
+    form: project.SchematicForm = project.DEFAULT_FORM,
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
+) -> BuildOutput:
+    """The output of an Altium build that was refused before ``build_altium`` ran (change c0053, "Script
+    copper in an Altium build": the script's copper intents did not resolve): no file, ``issues`` and the
+    summary of a refused build, whose ``copper`` and ``pcb_document`` are ``None``."""
+    evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
+    kept = [f"{name}.PrjPcb"] if project_exists else []
+    return BuildOutput(design, {}, tuple(issues), evidence, _summary(design, kept, None, form, sheets=sheets))
+
+
 def build_altium(
     design: Design,
     *,
@@ -1305,6 +1322,7 @@ __all__ = [
     "library_symbols",
     "match_source",
     "pad_extras",
+    "refused_altium",
     "resolve_footprints",
     "resolve_symbols",
     "symbol_source",

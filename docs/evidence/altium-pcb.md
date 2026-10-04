@@ -190,14 +190,25 @@ copies.
   `GND` via that cross it show no connection line. The variant holds four tracks (none on the plane) and
   one polygon on Bottom Layer. Settles `H-A-PCB-CU-PLANE`.
 
+- **C7** (script copper, change c0053; `blink_routed.PcbDoc`, SHA-256
+  `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a`): the copper comes from the design
+  script, not from a routed board. Build it outside the repository with
+  `fenolite build examples/blink_routed/design.py --out <folder> --target altium --confirm` and open the
+  document in Altium Designer. Expected: no repair prompt; 11 tracks and 7 through vias on Top Layer and
+  Bottom Layer, on the nets `LED_DRV`, `LED_A` and `GND` (five of the vias are the `GND` stitching row
+  along the bottom track); those three nets show no connection line. The step registers no new row: it
+  repeats `H-A-PCB-CU-TRACK` and `H-A-PCB-CU-VIA` on a document whose copper a script declared, and it
+  stays pending until reported. `tests/unit/cli/test_build_altium_script_copper.py -k protocol` checks the
+  digest. The bisection variants below do not apply to this step.
+
 When a step fails, open the variants in order and report the first that fails. They are written outside
 the repository with `FENOLITE_ALTIUM_VARIANTS=<folder> uv run pytest
 tests/unit/lens/test_altium_copper_golden.py -k variants`: `c0` two layers with tracks and an arc; `c1` adds
 the vias; `c2` the stack of four signal layers with the inner tracks; `c3` adds the polygons; `c4` the net
 class; `c5` adds the rules (the committed sample); `p0` is the plane variant of C6.
 
-The KiCad oracles (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) check
-only what KiCad's importer reads; they settle no row of this part.
+The KiCad oracles (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`,
+`test_script_copper_oracle.py`) check only what KiCad's importer reads; they settle no row of this part.
 
 ## Part E: the change order (change c0048)
 
