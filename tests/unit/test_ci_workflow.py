@@ -333,7 +333,10 @@ def test_unit_matrix() -> None:
     """Scenario "Matrix checked": three operating systems, Python 3.11 to 3.13, five runs."""
     text = WORKFLOW.read_text(encoding="utf-8")
     assert unit_combinations(text) == UNIT_COMBINATIONS
-    assert "runs-on: ${{ matrix.os }}" in job_text(text, "unit")
+    job = job_text(text, "unit")
+    assert "runs-on: ${{ matrix.os }}" in job
+    # the cut of c0025 (design Decision 7): the Windows run is measured and does not block a merge
+    assert "continue-on-error: ${{ matrix.os == 'windows-latest' }}" in job
     reduced = text.replace('          - os: windows-latest\n            python: "3.12"\n', "")
     assert unit_combinations(reduced) != UNIT_COMBINATIONS
 

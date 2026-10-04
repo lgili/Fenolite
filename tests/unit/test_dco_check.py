@@ -124,6 +124,9 @@ def test_this_repository_passes() -> None:
     """Scenario "History passes" (skipped in a checkout without history)."""
     if not (ROOT / ".git").exists():
         pytest.skip("not a git checkout")
+    if git(ROOT, "rev-parse", "--is-shallow-repository") == "true":
+        # a shallow clone shows the runner's merge commit of a pull request without its parents
+        pytest.skip("a shallow clone: the dco job checks the full history")
     run = check(ROOT)
     if run.returncode == 2:
         pytest.skip(f"git cannot read the history here: {run.stderr.strip()}")

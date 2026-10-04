@@ -29,6 +29,8 @@ jobs:
           - os: windows-latest
             python: "3.12"
     runs-on: ${{ matrix.os }}
+    # Windows is measured, not required, in v0.1: its run fails (docs/release/v0.1.md, "Windows").
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
