@@ -34,6 +34,7 @@ PROJECTS = sorted(path.name for path in RECORDED.iterdir() if path.is_dir()) if 
 SEED = ("--seed", "250025", "--timestamp", "2026-10-04T00:00:00Z")
 JUDGED = ("model.validate", "erc.lite", "drc.kicad", "netlist.assignment_compare", "roundtrip")
 COPPER = ("(segment", "(arc", "(via", "(zone")
+FREE_SPOT = {"blink_2layer": (46_000_000, 4_000_000), "board_40parts": (50_000_000, 72_000_000)}
 NET = re.compile(r'\(net (?:\d+ )?"[^"]*"\)')
 
 
@@ -104,7 +105,11 @@ def _mm(value: int) -> str:
 @pytest.mark.parametrize("name", PROJECTS)
 def test_check(name: str, tmp_path: Path) -> None:
     """Item 1: no DRC violation, no unconnected item, no net-assignment difference, an equal round trip."""
-    folder, _board, _example, _target = _copy(name, tmp_path)
+    folder, _board, example, target = _copy(name, tmp_path)
+    # The record leaves out Fenolite's derived cache, which holds the model that ``check`` compares the
+    # board with; a build restores it and changes no other byte (``test_rebuild_is_the_identity``).
+    code, envelope, error = _build(folder, example, target, "--confirm")
+    assert code == 0, error
     code, envelope, _out, error = check(folder)
     assert code == 0, error or envelope.get("issues")
     for judged in JUDGED:
@@ -143,19 +148,30 @@ def test_moved_footprint_survives_a_rebuild(name: str, tmp_path: Path) -> None:
     folder, board, example, target = _copy(name, tmp_path)
     design = read_board(board.read_text(encoding="utf-8"), file=board.name)
     outline = board_outline(design)
-    assert outline, "the built board has a closed outline"
-    left = min(point.x for ring in outline for point in ring)
-    top = min(point.y for ring in outline for point in ring)
+    assert outline.rings, outline.problem
+    left = min(point.x for point in outline.rings[0])
+    top = min(point.y for point in outline.rings[0])
     r1 = next(pad for pad in board_pads(design) if pad.ref == "R1" and pad.number == "1")
     assert design.board is not None
     footprint = next(fp for fp in design.board.footprints if fp.id == r1.footprint_id)
-    wanted = (footprint.position.x - left + 1_000_000, footprint.position.y - top + 500_000)
+    # a free spot of each board: a pad moved onto copper of another net would make the build refuse
+    wanted = FREE_SPOT[example]
+    assert (footprint.position.x - left, footprint.position.y - top) != wanted
     move = f"R1={_mm(wanted[0])}mm,{_mm(wanted[1])}mm"
     code, envelope, error = _fenolite(
         folder, "place", board.name, "--strategy", "manual", "--move", move, "--force", *SEED,
         "--confirm", "--no-backup",
     )  # fmt: skip
-    assert code in (0, 5), error or envelope
+    assert code == 0, error or envelope
+    if design.board.zones:
+        # The moved pads now lie on the old fill of the zone, which the build's copper guard refuses as a
+        # short, rightly. A refill comes first, as it does in KiCad's editor; ``kicad-cli`` 9 has none.
+        if major() < 10:
+            pytest.skip("a moved footprint on a board with zones needs a refill, and kicad-cli 9 has none")
+        code, envelope, error = _fenolite(
+            folder, "fill", board.name, "--kicad-cli", cli_path(), *SEED, "--confirm", "--no-backup"
+        )
+        assert code == 0, error or envelope
     moved_text = board.read_text(encoding="utf-8")
     before = _top_level(moved_text, COPPER)
     assert before
@@ -181,7 +197,8 @@ def _r1_pad_net(text: str, number: str) -> tuple[int, int]:
 @pytest.mark.parametrize("name", PROJECTS)
 def test_renetted_pad_is_detected(name: str, tmp_path: Path) -> None:
     """Negative test: pad 1 of ``R1`` on the net ``GND`` makes ``check`` exit 5 and name ``R1``."""
-    folder, board, _example, _target = _copy(name, tmp_path)
+    folder, board, example, target = _copy(name, tmp_path)
+    assert _build(folder, example, target, "--confirm")[0] == 0
     text = board.read_text(encoding="utf-8")
     ground = re.search(r'\(net (?:\d+ )?"GND"\)', text)
     assert ground is not None
@@ -197,7 +214,8 @@ def test_renetted_pad_is_detected(name: str, tmp_path: Path) -> None:
 @pytest.mark.parametrize("name", PROJECTS)
 def test_track_between_two_nets_is_detected(name: str, tmp_path: Path) -> None:
     """Negative test: a track from pad 1 to pad 2 of ``R1`` makes ``check`` exit 5 and name ``R1``."""
-    folder, board, _example, _target = _copy(name, tmp_path)
+    folder, board, example, target = _copy(name, tmp_path)
+    assert _build(folder, example, target, "--confirm")[0] == 0
     text = board.read_text(encoding="utf-8")
     design = read_board(text, file=board.name)
     ends = {pad.number: pad.position for pad in board_pads(design) if pad.ref == "R1"}
