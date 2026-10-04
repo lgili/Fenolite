@@ -4,13 +4,14 @@
 `examples/board_40parts/design.py` SHALL be an authored design of exactly forty parts that builds with no fetch, from the authored mini library through the folder's own `fp-lib-table` and `sym-lib-table`.
 - The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and the line stating that it was authored for Fenolite.
 - It MUST hold two controllers, twenty resistors and eighteen LEDs, at least two modules, one netclass, a two-copper board of 100 mm × 80 mm and one zone on the bottom copper layer.
+- It MUST state its board-wide minimums (clearance, track width, via size) through the rule constructor of the design DSL (c0054), and the built rule set MUST hold them.
 - Only the two controllers MUST have a position in the file; they MUST be locked.
 - `fenolite build examples/board_40parts/design.py --out <dir> --confirm` MUST exit 0 for `--target 9` and `--target 10`, and `validate` and `erc.lite` MUST report no error on the result.
 - `examples/README.md` MUST list the example.
 
 #### Scenario: Forty parts
 - **WHEN** `uv run pytest tests/unit/test_examples.py -k board_40parts` loads the design
-- **THEN** it holds 40 parts, 2 of them placed and locked, and at least 2 modules
+- **THEN** it holds 40 parts, 2 of them placed and locked, at least 2 modules, and a rule set with the board-wide minimums of the script
 
 #### Scenario: Builds for both targets without a subprocess
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
@@ -85,13 +86,38 @@
 - **WHEN** `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block` runs on 10.0.6
 - **THEN** every line exits 0, every envelope carries `evidence.level`, and the count of lines is at most ten
 
+### Requirement: README describes v0.1
+`README.md` SHALL describe what v0.1 does, in the same pull request as the agent guide.
+- The status paragraph MUST name the version `0.1`, MUST say what works (the loop of the agent guide on two-layer boards, for KiCad 9.0 and 10.0), MUST link to `docs/release/v0.1.md` for the limits, and MUST NOT hold the words `pre-alpha` or `being bootstrapped`.
+- A section `## Install` MUST hold the line `pip install fenolite` and say that it installs no other package; the development install stays under its own heading.
+- The file MUST NOT say that Fenolite's output is byte-identical to a file re-saved by KiCad: v0.1 claims tree identity only (`H-K-FMT-INDENT`).
+- `tests/unit/test_agent_skill.py` MUST check the three rules above textually.
+
+#### Scenario: Status and install present
+- **WHEN** `uv run pytest tests/unit/test_agent_skill.py -k readme` runs
+- **THEN** it passes only if `README.md` names `0.1`, links to `docs/release/v0.1.md` and holds `pip install fenolite` under `## Install`
+
+#### Scenario: Stale status rejected
+- **GIVEN** a copy of `README.md` that holds `Status: pre-alpha`
+- **WHEN** the README check runs on it
+- **THEN** it fails and names `pre-alpha`
+
 ### Requirement: Release record
 `docs/release/v0.1.md` SHALL be the record of the v0.1 acceptance, and `tests/unit/test_release_record.py` SHALL guard it.
 - The record MUST hold a table with the header `| item | statement | proof | job | result |` covering each of the eight acceptance items with at least one row.
 - `proof` MUST be a path under `tests/`, optionally followed by `::` and a test name, and the guard MUST fail when the file or the function does not exist.
-- `result` MUST be one of `met`, `met with a recorded limit`, `not met`, `pending`. The guard MUST fail for a `pending` row when `fenolite.__version__` is `0.1.0`, and for a `met with a recorded limit` row with no entry under `## Recorded limits`.
-- The record MUST also hold: the CI run of the release commit, the versions of `kicad-cli` and of the router, the manual checks with their dates (a footprint moved in KiCad's editor and kept by a rebuild; a live agent session with its model, turns and exit codes, labelled `UNVERIFIED`), the limits of v0.1, and `## Verdict`.
+- `result` MUST be one of `met`, `met with a recorded limit`, `not met`, `pending`. The guard MUST fail for a `pending` row when `fenolite.__version__` is `0.1.0`, and for a `met with a recorded limit` row with no entry for its item under `## Recorded limits`.
+- The record MUST also hold: the CI run of the release commit, the versions of `kicad-cli` and of the router, the manual checks with their dates (a footprint moved in KiCad's editor and kept by a rebuild; a live agent session with its model, turns and exit codes, labelled `UNVERIFIED`), `## Recorded limits`, `## Deferred after v0.1`, and `## Verdict`.
 - `## Verdict` MUST be written by the maintainer only; an agent leaves it `pending`.
+
+The record MUST state these limits, and the guard MUST fail when one is missing or when its row says `met`:
+- **Item 2 (corpus round trips).** The numbers MUST be copied from `docs/evidence/kicad-rt2.md`: RT0 and RT1 on the 21 readable non-heavy demo boards and the 3 third-party boards; the 2 rows tagged `heavy` are not run in CI; one demo file is malformed at its tag and is not round-tripped; RT2 is `not judged` on a board whose DRC report KiCad does not repeat (one board when recorded); RT2 on 9.0.9 covers the 5 `rt2-9` rows only. The entry MUST hold the words `heavy`, `not judged` and `rt2-9`.
+- **Item 5 (schemas).** The row for "every output validates against the `v0` schemas" MUST be `met with a recorded limit`, and its entry MUST hold the sentence `envelope, error and manifest schemas only`: an envelope names `fenolite.<command>.v0`, and no schema file for a command's `result` exists under `schemas/`.
+- **Residue scan.** The record MUST say that the residue scan of v0.1.0 ran with the `public gate only`, in CI, in the release workflow and over the history, and that the private gate was not run for v0.1.0.
+- **Container refill.** The record MUST say that `H-K-CLI-DOCKER` is `verified locally only`, with the date, the Docker version, the image digest and the `kicad-cli` version of the run, and that no CI job runs `tests/kicad/fill/test_docker_cli.py`.
+- **Board outlines.** The record MUST say that 3 of the 21 readable non-heavy demo boards do not chain into a closed outline without a snapping tolerance, that `place` reports `place.no-outline` on them, and that `H-G-EDGE-EXACT` and `H-G-PLACE-OUTLINE` stay `INFERRED`.
+
+`## Deferred after v0.1` MUST list `per-command result schemas` and `outline snapping tolerance` (the 1 µm tolerance and the chaining of footprint edge items), each with the milestone the roadmap gives it. It MUST NOT list the DSL rule constructor, which c0054 delivers in v0.1.
 
 #### Scenario: Missing proof
 - **GIVEN** a copy of the record with a `proof` naming `tests/kicad/acceptance/test_missing.py`
@@ -107,13 +133,70 @@
 - **WHEN** the guard reads the committed record
 - **THEN** the items 1 to 8 each have at least one row
 
+#### Scenario: Schema row cannot say met
+- **GIVEN** a copy of the record whose item 5 schema row has the result `met`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names the sentence `envelope, error and manifest schemas only`
+
+#### Scenario: Item 2 limits required
+- **GIVEN** a copy of the record whose item 2 entry under `## Recorded limits` lacks `not judged`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names item 2
+
+#### Scenario: Limits and deferrals are named
+- **WHEN** `uv run pytest tests/unit/test_release_record.py -k limits` reads the committed record
+- **THEN** it passes only if the record holds `H-K-CLI-DOCKER` with `verified locally only`, the words `public gate only`, `H-G-EDGE-EXACT` and `H-G-PLACE-OUTLINE`, and both `per-command result schemas` and `outline snapping tolerance` under `## Deferred after v0.1`
+
+#### Scenario: Rule constructor is not deferred
+- **GIVEN** a copy of the record that lists `DSL rule constructor` under `## Deferred after v0.1`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names the entry
+
+### Requirement: Release build and local checks
+The release artefacts SHALL be built from the tagged commit in a clean checkout, and never from the maintainer's working tree.
+- A clean checkout is one of: the release workflow's checkout, a fresh clone of the tag, or `git worktree add <dir> <tag>`. The maintainer's working tree MAY hold uncommitted or untracked files; that is not a condition of the release.
+- `docs/release/v0.1.md` MUST hold a section `## Release build` that states this rule and the commands.
+- Before the version commit, the build MUST be rehearsed once: `git worktree add <dir> HEAD`, then `uv build` in `<dir>`; the result (the two file names and the count of files in the source distribution) is written in that section.
+- `uv run python tools/residue/scan.py --history` MUST be run before the version commit and MUST report no hit. `docs/evidence/residue-history.md` MUST gain one row with the tag `v0.1.0`, the scanned head commit in the commit range, the private gate `not run` and `0` hits, and its first paragraph MUST say that the private gate is optional and was not run for v0.1.0.
+- `make hooks` SHALL install `tools/hooks/pre-commit`, which scans the staged files with the public patterns and needs no other file.
+- `tests/unit/test_release_record.py` MUST fail when `fenolite.__version__` is `0.1.0` and `docs/evidence/residue-history.md` has no `v0.1.0` row, or when that row claims the private gate `on`.
+
+#### Scenario: Build rehearsed in a clean worktree
+- **GIVEN** a main checkout with one untracked file `stray.txt`
+- **WHEN** `git worktree add <dir> HEAD` and then `uv build --out-dir <dir>/dist` in `<dir>` run
+- **THEN** the build succeeds and the source distribution holds no `stray.txt`
+
+#### Scenario: Record states the build rule
+- **WHEN** `uv run pytest tests/unit/test_release_record.py -k build` runs
+- **THEN** it passes only if the record has `## Release build` and that section holds `git worktree add` and the words `never from the working tree`
+
+#### Scenario: History row required
+- **GIVEN** `__version__ == "0.1.0"` and a copy of `docs/evidence/residue-history.md` with only the `v0.0.1.dev0` row
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `docs/evidence/residue-history.md`
+
+#### Scenario: Row may not claim the private gate
+- **GIVEN** a `v0.1.0` row whose private gate column says `on`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names the column
+
+#### Scenario: Hook installed
+- **GIVEN** the main checkout after `make hooks`
+- **WHEN** `test -x "$(git rev-parse --git-common-dir)/hooks/pre-commit"` runs
+- **THEN** it exits 0
+
 ### Requirement: Version 0.1.0
-The version SHALL become `0.1.0` in one commit, after every row of the release record has a result.
-- `src/fenolite/__init__.py` MUST hold `__version__ = "0.1.0"` and `packaging/phenolite/pyproject.toml` `version = "0.1.0"`.
+The version SHALL become `0.1.0` in one commit, after every row of the release record has a result and the build rehearsal and the history row are recorded.
+- `src/fenolite/__init__.py` MUST hold `__version__ = "0.1.0"`, and `packaging/phenolite/pyproject.toml` MUST hold `version = "0.1.0"` and `dependencies = ["fenolite==0.1.0"]`.
 - `CHANGELOG.md` MUST hold `## [0.1.0] - <date>` with the entries that were under Unreleased, and an empty `## [Unreleased]` above it.
-- `docs/roadmap.md` MUST show the v0.1 changes as done or moved, with no v0.1 change in the state `roadmap`.
+- The `[0.1.0]` section MUST hold each `###` heading at most once, and its entries MUST describe what a user of the CLI or the library sees: no entry names a module or function whose name starts with an underscore, and notes about tests, CI or the repository are merged into one closing entry or removed.
+- `docs/roadmap.md` MUST show the v0.1 changes as done or moved, with no v0.1 change in the state `roadmap`, and MUST list per-command result schemas under a later milestone.
 - No task of this change MUST create a tag, a GitHub Release or a PyPI upload.
 
 #### Scenario: Versions agree
-- **WHEN** `uv run pytest tests/unit/test_release_record.py -k version` runs after the version commit
-- **THEN** the package version, the alias version and the newest `CHANGELOG.md` heading are all `0.1.0`
+- **WHEN** `uv run pytest tests/unit/test_release_record.py -k version tests/unit/test_pyproject_invariants.py` runs after the version commit
+- **THEN** the package version, the alias version, the alias pin and the newest `CHANGELOG.md` heading are all `0.1.0`
+
+#### Scenario: Changelog section is clean
+- **WHEN** `uv run pytest tests/unit/test_release_record.py -k changelog` runs
+- **THEN** it passes only if no `##` section of `CHANGELOG.md` from `[0.1.0]` upwards repeats a `###` heading, and no entry of `[0.1.0]` holds a backticked name that starts with an underscore
