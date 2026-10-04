@@ -68,7 +68,9 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
 | `(drill D (offset X Y))` | `drill = D` | projected, `kicad.lib.kept-opaque` |
 | `(drill oval W H …)`, any other drill form | `drill = None` | opaque, `kicad.lib.kept-opaque` |
 | `padstack` | `padstack` | projected, `kicad.lib.kept-opaque` |
-| everything else (`roundrect_rratio`, `chamfer*`, `options`, `primitives`, margins, pad properties) | — | opaque |
+| `(zone_connect N)`, N from 0 to 3 | `zone_connection` (`none`, `thermal`, `solid`, `thru_hole_only`; c0031, `board.md`, "Zone settings") | modelled; written before `uuid` when a pad without it gains a value |
+| `(zone_connect N)` with another value, or repeated | `zone_connection` from the first child when it is a code from 0 to 3, else `None` | projected, `kicad.lib.kept-opaque` |
+| everything else (`roundrect_rratio`, `chamfer*`, `options`, `primitives`, margins, pad properties, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`) | — | opaque |
 
 - **Drill forms** are `(drill [oval] DIAMETER [WIDTH] [(offset X Y)])` (S-0001). Oval drills occur in
   the official library (S-0018).

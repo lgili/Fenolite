@@ -52,6 +52,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   holds one net. It is a build parameter, as `copper` is: the model does not change. The Altium target
   writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the signal layer and reports
   `build.plane-not-lowered`. `planes(design)` returns the mapping from layer name to net name.
+- `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
   is optional; a net belongs to at most one class.
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A
@@ -113,6 +114,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
+| zone | `zon` | `zone:<zone name>` |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
@@ -332,6 +334,56 @@ design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36
 - **The script owns its copper.** Each build regenerates it. Removing an intent removes its copper, and
   an edit of it in KiCad is replaced. Copper drawn in KiCad is the board's and is kept.
 - `to_model` does not change: intents are not model objects.
+
+## Zones
+
+A script declares its copper pours with `Design.zone`, after `board()`:
+
+```python
+gnd = Net("GND")
+design.zone(gnd, layers=("F.Cu", "B.Cu"), clearance=mm(0.3), connection="thermal")
+design.zone(
+    gnd, layers=("B.Cu",), name="GND_PAD", outline=((mm(5), mm(5)), (mm(15), mm(5)), (mm(15), mm(12)))
+)
+```
+
+| argument | meaning | default |
+|---|---|---|
+| `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
+| `layers` | the copper layers of the pour: `F.Cu`, `B.Cu`, and `In1.Cu`, `In2.Cu` with `copper=4` | required |
+| `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
+| `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
+| `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
+| `clearance` | the distance the fill keeps from other nets (at least 0) | 0.5 mm |
+| `min_thickness` | the smallest width of copper that a fill keeps (above 0) | 0.25 mm |
+| `connection` | `solid`, `thermal`, `none` or `thru_hole_only` | `thermal` |
+| `thermal_gap`, `thermal_spoke_width` | the gap and the spoke width of a thermal relief (above 0) | 0.5 mm, 0.5 mm |
+| `islands` | `always` removes unconnected copper, `never` keeps it, `below_area` keeps islands of at least `min_island_area` | `always` |
+| `min_island_area` | a string with the unit `mm2`, such as `"2.5mm2"`; only with `islands="below_area"` | 10 mm² |
+| `locked` | the script wins over an edit of the zone in KiCad, and the zone is locked there | `False` |
+
+- **Defaults are KiCad's.** A setting left out takes the value KiCad gives a new zone
+  (`docs/design-model.md`, "Zone settings"). Hatched fills and corner smoothing are not DSL arguments;
+  the model API sets them.
+- **Lengths carry a unit**, as everywhere in the DSL: `clearance=0.3` is refused.
+- **One zone, several layers.** A zone on two layers is one KiCad zone. A second zone on the same net
+  needs its own `name=`.
+- **Errors at the call.** A zone before `board()`, an unknown layer, a repeated name, a bad value or an
+  area without `islands="below_area"` raises `DslError` naming the argument.
+- **Clearance and rules.** KiCad keeps the larger of the zone's clearance and the clearance of the net
+  class or of a custom rule, so a zone clearance below the class clearance has no effect.
+- **Fills.** A build writes the zone without fills; KiCad fills it (press B in the board editor, or let a
+  plot or DRC with refill do it). A rebuild keeps the fills while nothing they depend on changed
+  (`docs/lens.md`, "Zones").
+- **Rebuilds.** The zone edited in KiCad wins over the script unless the script says `locked=True`; a
+  zone removed from the script is removed from the board (`docs/lens.md`, "Zones").
+- **Pads.** A library footprint may set `(zone_connect N)` on a pad, for example a solid exposed pad in
+  a thermal pour; the build keeps it. The DSL has no per-pad argument.
+- **Altium.** `--target altium` writes the script's zones as unpoured polygon pours
+  (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
+  instead: that board already holds the script's zones.
+- `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
+  `derived_id("zon", "dsl", "zone:<name>")`.
 
 ## Path aliases (`moved()`)
 

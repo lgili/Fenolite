@@ -36,6 +36,8 @@ DEMOS = [i for i in READABLE_ITEMS if not i.heavy]
 THIRD_PARTY = [i for i in BOARD_ITEMS if i.origin == "third-party" and not i.heavy]
 HEADER = ("(version ", "(generator ", "(generator_version ")
 COUNTS: Counter[str] = Counter()
+CONNECTS: Counter[str] = Counter()
+PAD_CONNECTS = frozenset(f"(zone_connect {n})" for n in range(4))
 
 
 def bare(defn: FootprintDef) -> FootprintDef:
@@ -69,6 +71,16 @@ def first_field(a: FootprintDef, b: FootprintDef) -> str:
 def round_trip(label: str, text: str, target: int) -> int:
     defs = board_footprints(text)
     for index, defn in enumerate(defs):
+        for pad in defn.pads:
+            opaque = [
+                s.fragment
+                for s in slotlib.from_ext(pad.ext["kicad"])
+                if isinstance(s, Opaque) and s.fragment.startswith("(zone_connect")
+            ]
+            if len(opaque) == 1 and opaque[0] in PAD_CONNECTS:
+                pytest.fail(f"{label}: footprint {index}: pad {pad.number}: {opaque[0]} is not modelled")
+            if pad.zone_connection is not None:
+                CONNECTS[pad.zone_connection] += 1
         again = read_footprint(write_footprint(defn, target=target), library=defn.library)
         if bare(again) != bare(defn) or fragments(again) != fragments(defn):
             pytest.fail(
@@ -105,3 +117,4 @@ def test_upgraded(item: CorpusItem) -> None:
 
 def test_counts_printed() -> None:
     print("footprints round-tripped per origin:", dict(COUNTS))
+    print("pads with a modelled zone_connect:", dict(CONNECTS))

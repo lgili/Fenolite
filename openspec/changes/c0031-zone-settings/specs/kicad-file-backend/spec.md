@@ -57,7 +57,7 @@ Further rules:
 
 Created and read zones differ:
 - **Created zone.** A created zone MUST hold these children, in this order: `net` and, for target 9, `net_name`, as before; `locked` when set; `layer` or `layers`; `uuid`; `name` when set; `(hatch edge 0.5)`; `priority` when not 0; `connect_pads`; `min_thickness`; `(filled_areas_thickness no)`, for target 9 only; `fill`; `polygon`; `filled_polygon`. `pcb.CANONICAL_ORDER` MUST hold this zone order, and the entries `connect_pads` (its atom `connection`, then `clearance`) and `fill` (its atom `filled`, then the children in the order above). `pcb.POSITIONAL` MUST name the two atoms.
-- **Read zone.** A `Modeled` child MUST be emitted from the model in the target's form. A child that the zone does not have MUST be inserted at its canonical position only when its part of the model differs from the defaults (`filled == True` counts), so an unchanged zone gains no child. An `Opaque` child whose values were projected MUST follow "Projected fields on write": it is kept verbatim while its projection equals the model, and any other change gives `kicad.board.projection-read-only` naming `settings`, `filled` or `locked` and the locator.
+- **Read zone.** A `Modeled` child MUST be emitted from the model in the target's form. A child that the zone does not have MUST be inserted at its canonical position only when its part of the model differs from the defaults (`filled == True` counts), so an unchanged zone gains no child. An `Opaque` child whose values were projected MUST follow "Projected fields on write": it is kept verbatim while its projection equals the model. When only `Zone.filled` differs and the atoms of the opaque `fill` child are the plain form (no atom, or `yes` alone), the child MUST be written with its `yes` atom set from the model and its lists as read. Any other change gives `kicad.board.projection-read-only` naming `settings`, `filled` or `locked` and the locator.
 - **Rule areas** MUST be written as before.
 
 Every name the writer can now create MUST be in c0007's skeleton, in the token inventory or in `pcb.FLOOR_HEADS` ("Created board header"). `FLOOR_HEADS` gains `mode`, `smoothing`, `radius`, `island_removal_mode`, `island_area_min`, `hatch_thickness`, `hatch_gap`, `hatch_orientation`, `hatch_smoothing_level`, `hatch_smoothing_value`, `hatch_border_algorithm`, `hatch_min_hole_area` and `zone_connect`. Each of them is present in the board format at tag 8.0.0 (S-0033) and recorded in `docs/formats/kicad/board.md`. `tests/_boards.py::created_board()` MUST write each of them for target 9. It gains a second zone `GND_HATCH` (net `GND`, `F.Cu`, hatched with `hatch.smoothing_level == 1`, `smoothing="fillet"` with a radius of 0.5 mm, `island_removal="below_area"`, `locked=True`), and pad `"1"` of `U1` gets `zone_connection="solid"`.
@@ -92,6 +92,11 @@ Every name the writer can now create MUST be in c0007's skeleton, in the token i
 - **WHEN** it is written for target 10
 - **THEN** `LossyWriteError` is raised with an issue `kicad.board.projection-read-only` naming `settings` and the locator of the `fill` child
 
+#### Scenario: Fill flag cleared on an opaque fill child
+- **GIVEN** the zone of the scenario "Unknown fill child" read with `read_board`, and its `filled` set to false
+- **WHEN** it is written for target 10
+- **THEN** its `fill` child is `(fill (thermal_gap 0.6) (thermal_bridge_width 0.5) (frobnicate 1))`, and no issue is reported
+
 #### Scenario: Upgrade to target 10 writes the island mode
 - **GIVEN** `two_layer.kicad_pcb` read with `read_board`
 - **WHEN** it is written for target 10
@@ -105,6 +110,7 @@ Every name the writer can now create MUST be in c0007's skeleton, in the token i
 The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` as `Pad.zone_connection`, for board pads and for `.kicad_mod` pads alike: 0 → `none`, 1 → `thermal`, 2 → `solid` and 3 → `thru_hole_only`.
 - A pad without the child MUST have `zone_connection is None` and no slot.
 - Any other value MUST keep the child as an `Opaque` slot, with `zone_connection is None` and the info `kicad.board.kept-opaque` on a board or `kicad.lib.kept-opaque` in a footprint file.
+- A pad with several `zone_connect` children MUST keep each of them as an `Opaque` slot with the same info, and `zone_connection` is projected from the first one. A model value that differs from what the opaque children hold MUST give `kicad.board.projection-read-only` on a board, and the read-only error of `mod.write_footprint` in a footprint file.
 - The emitters MUST write `(zone_connect N)` from the model. A created pad writes it after `net` and before `uuid` (`CANONICAL_ORDER["pad"]`); a read pad without the child gets it only when the value is not `None`.
 - `embed.place_footprint` MUST keep the value of the definition's pads, and `mod.write_footprint` MUST write it.
 - A footprint-level `zone_connect` child MUST stay opaque in both readers.

@@ -315,8 +315,9 @@ def test_read_entity_keeps_its_order() -> None:
 
 def test_created_zone_fill_and_rule_area() -> None:
     root = parse(write_board(created_board(), target=10).text)
-    zone, rule = root.nodes("zone")
+    zone, hatched, rule = root.nodes("zone")
     order = CANONICAL_ORDER["zone"]
+    assert heads(hatched) == [h for h in order if h in heads(hatched)] and "locked" in heads(hatched)
     assert heads(zone) == [h for h in order if h in heads(zone)] and "filled_polygon" in heads(zone)
     (fill,) = zone.nodes("filled_polygon")
     assert heads(fill) == ["layer", "island", "pts"] and fill.find("island") == parse("(island yes)")

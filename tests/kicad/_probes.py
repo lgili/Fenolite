@@ -40,6 +40,7 @@ import _rulecases
 import _sheetcases
 import _triad
 import _vendorcases
+import _zonebench
 import pytest
 from _boards import FIXTURE, created_board
 from _resources import kicad_cli
@@ -215,6 +216,7 @@ def _probes() -> dict[str, Probe]:
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),
         **_fieldbench.bench_probes(),
+        **_zonebench.zone_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

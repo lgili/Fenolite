@@ -145,17 +145,50 @@ version-8 uuid. `merge_layout` therefore handles it before the net rule above:
 So a footprint moved in KiCad pulls its script copper along on the next build, an intent removed from the
 script removes its copper, and copper drawn in KiCad stays. `result.copper` counts the three outcomes.
 
-Two precedence models are used on purpose, one per kind of item (fields share the footprints' model):
+Two precedence models are used on purpose; each kind of item follows one of them (fields and script
+zones share the footprints' model):
 
 | item | model | who wins | marker | when its declaration is gone |
 |---|---|---|---|---|
 | footprint (c0019) | edited in place | the board, unless `place()` is locked | `fenolite.path` | `layout.orphan`, removed |
 | script copper (c0028) | derived output | the script, always | the copper uuid | `kicad.copper.stale`, removed |
 | footprint field (c0030) | edited in place | the board, unless the request is locked | the field name in its footprint | the board's field stays |
+| script zone (c0031) | edited in place | the board, unless `zone()` is locked | the uuid of the zone's own name | `kicad.zone.orphan`, removed |
 
 A footprint placement is the thing a user edits, and nothing derives it. A track's geometry is a
 function of the pads it joins, which the board owns: a kept edit of a script track would point at old
 pad positions after a move. To keep a hand edit, redraw the copper in KiCad, where it is board copper.
+
+## Zones
+
+A zone declared with `Design.zone()` (`docs/dsl.md`, "Zones") is edited in place, like a footprint: after
+the first build the board owns it, and the script wins only when it says so. `merge_layout` hands the
+zones to `fenolite.backends.kicad.zones.merge_zones` before the net rule of "Copper items and removed
+nets", which keeps applying to every zone the script never declared.
+
+- **Matching is by uuid, never by name.** A script zone gets the KiCad uuid that derives from its name
+  (`zones.script_zone_uuid`), and a re-save keeps it. A zone drawn in KiCad has a random uuid, so two
+  zones may share a name without being confused.
+- **What is compared:** the outline, the layers, the net name, the priority, the lock and the effective
+  settings (`ZoneSettings.effective()`, so a value without effect never counts).
+- **The board wins.** A matched board zone is kept with everything KiCad wrote in it, and takes the
+  design's net of its name. When the script differs, `kicad.zone.overridden` (info) names the zone and
+  the values, with the hint to lock the zone, edit it in KiCad or use `--discard-layout`.
+- **A locked zone wins.** With `locked=True` in the script, a differing board zone is replaced by the
+  script's (`kicad.zone.forced`, warning). The replacement takes the board zone's fills, and the fill
+  digests then decide whether they are still current; a changed setting drops them.
+- **New zones** are added after the board's zones, in name order.
+- **Removed zones.** A board zone that carries the uuid of its own name was written by a script. When
+  the script no longer declares it, it is removed (`kicad.zone.orphan`, warning). A zone drawn in KiCad,
+  or one renamed in KiCad (its uuid no longer derives from its name), is never removed this way.
+- **A kept zone whose net left the design** takes the script's net for that zone.
+
+| you want | do |
+|---|---|
+| tune a pour in KiCad and keep it | edit it there; the next build keeps it and tells you where the script differs |
+| make the script the authority for one zone | `zone(..., locked=True)`; KiCad shows the zone as locked |
+| drop a pour | remove its `zone()` call |
+| hand a pour over to KiCad for good | rename it in KiCad, then remove the `zone()` call |
 
 ## Board content and the outline rule
 
@@ -169,12 +202,14 @@ error).
 ## Fill digests
 
 A kept zone keeps its fills when two text digests are unchanged between the existing board and the
-layout to be written; otherwise its fills are dropped with `zone.fill-stale`, and the zone needs a fill
-again:
+layout to be written; otherwise its fills are dropped and its fill flag is cleared, with
+`zone.fill-stale`, and the zone needs a fill again:
 
-- `zone_digest`: the zone's outline, net name, layers, priority and fill settings. Fills, uuids, net
-  forms and rows a KiCad major no longer writes are left out, so a target-9 and a target-10 copy give
-  the same digest.
+- `zone_digest`: the zone's outline, net name, layers, priority, its effective settings
+  (`ZoneSettings.effective()`, as canonical JSON) and the text of its other opaque children. Fills,
+  the fill flag, the lock, uuids, net forms and rows a KiCad major no longer writes are left out, so a
+  target-9 and a target-10 copy give the same digest, and so does a setting that cannot change the
+  fill, such as a hatch value of a solid fill.
 - `fill_inputs_digest`: what a rebuild can change around the zone, namely footprints and their pads,
   tracks, arcs, vias, other zones, rule areas, edge content and outline, the project's classes and
   patterns, and the rule items. Nets enter by name; ids and uuids never do.
@@ -225,6 +260,9 @@ still guarded by `build.layout-exists`: they have no merge.
 | `kicad.copper.stale` | warning | script copper whose intent is gone was removed (`docs/copper.md`) |
 | `kicad.copper.regenerated` | info | script copper was edited in KiCad, or its pads moved, and was replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper was removed |
+| `kicad.zone.forced` | warning | a locked `zone()` replaced a board zone that differed from it |
+| `kicad.zone.orphan` | warning | a zone the script wrote for a `zone()` it no longer declares was removed |
+| `kicad.zone.overridden` | info | an unlocked `zone()` differs from the kept board zone |
 
 ## Evidence
 

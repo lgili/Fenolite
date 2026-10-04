@@ -18,13 +18,14 @@ from types import MappingProxyType
 from typing import Protocol
 
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._libread import Context, child_locators, leading_atoms
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.core.units import format_angle
 from fenolite.model.base import Modeled, Opaque, Slot
-from fenolite.model.board import Graphic, GraphicKind, Pad, Padstack, PadstackLayer
+from fenolite.model.board import Graphic, GraphicKind, Pad, Padstack, PadstackLayer, ZoneConnection
 from fenolite.model.library import FootprintDef
 
 FP_GRAPHIC_HEADS: Mapping[str, GraphicKind] = MappingProxyType(
@@ -34,9 +35,21 @@ GR_GRAPHIC_HEADS: Mapping[str, GraphicKind] = MappingProxyType(
     {"gr_line": "line", "gr_arc": "arc", "gr_circle": "circle", "gr_rect": "rect", "gr_poly": "polygon"}
 )
 PAD_FIELDS: Mapping[str, str] = MappingProxyType(
-    {"at": "position", "size": "size", "layers": "layers", "uuid": "native_ids", "drill": "drill"}
+    {
+        "at": "position",
+        "size": "size",
+        "layers": "layers",
+        "uuid": "native_ids",
+        "drill": "drill",
+        "zone_connect": "zone_connection",
+    }
 )
 PAD_POSITIONAL = ("number", "kind", "shape")
+PAD_CANONICAL: tuple[str, ...] = (
+    *PAD_POSITIONAL, "position", "size", "drill", "layers", "zone_connection", "native_ids",
+)  # fmt: skip
+"""Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``."""
+ZONE_CONNECT = "zone_connect"
 DEF_FIELDS: Mapping[str, str] = MappingProxyType(
     {"descr": "description", "attr": "kind", "pad": "pads", **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics")}
 )
@@ -173,12 +186,23 @@ def read_pad(
     position, rotation, size, drill = None, 0, None, None
     layers: tuple[str, ...] = ()
     net_id: str | None = None
+    zone_connection: ZoneConnection | None = None
     padstack_at: tuple[int, Node, str] | None = None
+    connects = len(node.nodes(ZONE_CONNECT))
     for index, (child_loc, child) in enumerate(child_locators(loc, node)):
         if not isinstance(child, Node):
             continue
         head = child.name
-        if head == "at":
+        if head == ZONE_CONNECT:
+            # one child with a code from 0 to 3 is modelled; a repeated one is projected from the first
+            found = zonelib.read_pad_connect(child)
+            if child_loc.endswith("[0]"):
+                zone_connection = found
+            if found is None or connects > 1:
+                slots[index] = ctx.opaque(child, chain)
+                why = "is repeated" if found is not None else "is not a code from 0 to 3"
+                ctx.kept_opaque(f"zone_connect {why}; kept as written", child_loc)
+        elif head == "at":
             position = ctx.point(child, child_loc)
             values = child.atoms()
             if len(values) > 2:
@@ -223,6 +247,7 @@ def read_pad(
         layers=layers,
         net_id=net_id,
         padstack=padstack,
+        zone_connection=zone_connection,
     )
 
 
@@ -367,6 +392,9 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
         "layers": [layers_node("layers", pad.layers)],
         "native_ids": uuid_items(pad.native_ids),
         "drill": [] if pad.drill is None else [node("drill", Atom.from_nm(pad.drill))],
+        "zone_connection": (
+            [] if pad.zone_connection is None else [zonelib.pad_connect_node(pad.zone_connection)]
+        ),
     }
     if net is not None:
         items["net_id"] = [net]
@@ -440,7 +468,7 @@ def emit_footprint(
         raise ValueError(
             f"{defn.lib_id!r} has no KiCad slot list; only definitions read from a file are emitted"
         )
-    pads = [_rebuild(pad, emit_pad(pad, None), opaque=opaque) for pad in defn.pads]
+    pads = [_rebuild_pad(pad, opaque) for pad in defn.pads]
     graphics = [
         _rebuild(g, emit_graphic(g, _graphic_head(g)), _graphic_head(g), opaque=opaque) for g in defn.graphics
     ]
@@ -452,6 +480,34 @@ def emit_footprint(
         "graphics": list(graphics),
     }
     return slotlib.rebuild(Atom.symbol(root_chain[-1]), slots, _Items(items, _modelled(slots)), opaque=opaque)
+
+
+def opaque_zone_connects(slots: Sequence[Slot]) -> list[tuple[int, Node]]:
+    """``(slot index, child)`` of each opaque ``zone_connect`` child of a pad's slot list."""
+    out: list[tuple[int, Node]] = []
+    for index, slot in enumerate(slots):
+        if isinstance(slot, Opaque) and slot.fragment.startswith(f"({ZONE_CONNECT}"):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == ZONE_CONNECT:
+                out.append((index, child))
+    return out
+
+
+def projected_zone_connect(slots: Sequence[Slot]) -> ZoneConnection | None:
+    """The connection that the opaque ``zone_connect`` children of a pad stand for (the first one's)."""
+    found = opaque_zone_connects(slots)
+    return zonelib.read_pad_connect(found[0][1]) if found else None
+
+
+def _rebuild_pad(pad: Pad, opaque: Callable[[Opaque], Node | Atom]) -> Node:
+    """A library pad from its slots; a pad without a ``zone_connect`` child gains one when the model sets
+    ``zone_connection``."""
+    slots = _entity_slots(pad)
+    wanted = _modelled(slots)
+    if not opaque_zone_connects(slots):
+        wanted = wanted | {"zone_connection"}
+    source = _Items(emit_pad(pad, None), wanted)
+    return slotlib.rebuild(Atom.symbol("pad"), slots, source, canonical=PAD_CANONICAL, opaque=opaque)
 
 
 def _rebuild(
@@ -472,6 +528,7 @@ __all__ = [
     "GRAPHIC_FIELDS",
     "GR_GRAPHIC_HEADS",
     "PADSTACK_MODES",
+    "PAD_CANONICAL",
     "PAD_FIELDS",
     "PAD_KINDS",
     "PAD_POSITIONAL",
@@ -488,8 +545,10 @@ __all__ = [
     "emit_pad",
     "layers_node",
     "node",
+    "opaque_zone_connects",
     "padstack_key",
     "point_node",
+    "projected_zone_connect",
     "read_drill",
     "read_graphic",
     "read_pad",

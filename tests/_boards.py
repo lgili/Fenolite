@@ -32,6 +32,8 @@ from fenolite.model.board import (
     Via,
     Zone,
     ZoneFill,
+    ZoneHatch,
+    ZoneSettings,
 )
 from fenolite.model.canonical import to_data
 from fenolite.model.circuit import Circuit, Component, Net, PinRef
@@ -86,11 +88,21 @@ def footprint(n: int, *, at: str = "10 10", attr: str = "(attr smd)", pads: str 
     )
 
 
-def zone(n: int, *, inner: str, net: str = "(net 1)", layer: str = '(layer "F.Cu")') -> str:
-    return (
-        f'(zone {net} (net_name "A") {layer} (uuid "{uid(n)}") (hatch edge 0.5)'
-        f" (connect_pads (clearance 0.5)) (min_thickness 0.25) {inner})"
-    )
+ZONE_SETTINGS = "(connect_pads (clearance 0.5)) (min_thickness 0.25)"
+
+
+def zone(
+    n: int,
+    *,
+    inner: str,
+    net: str = "(net 1)",
+    layer: str = '(layer "F.Cu")',
+    settings: str = ZONE_SETTINGS,
+    head: str = "",
+) -> str:
+    """A zone; ``settings`` is the text of its setting children (before ``inner``), and ``head`` is put
+    between ``net_name`` and ``layer`` (where KiCad writes ``(locked yes)``)."""
+    return f'(zone {net} (net_name "A") {head} {layer} (uuid "{uid(n)}") (hatch edge 0.5) {settings} {inner})'
 
 
 SQUARE = "(polygon (pts (xy 0 0) (xy 10 0) (xy 10 10) (xy 0 10)))"
@@ -187,6 +199,15 @@ CREATED_TITLE_BLOCK = TitleBlock(
 )  # fmt: skip
 """The seven-field title block of the created test board (c0012), so it writes every title-block head."""
 CREATED_NETS = ("GND", "LED_A", "VIN")
+CREATED_HATCH_SETTINGS = ZoneSettings(
+    fill_mode="hatched",
+    hatch=ZoneHatch(smoothing_level=1),
+    smoothing="fillet",
+    smoothing_radius=500_000,
+    island_removal="below_area",
+)
+"""The settings of zone ``GND_HATCH`` of the created test board (c0031): together with its lock they
+write every zone setting name of ``pcb.FLOOR_HEADS``."""
 
 
 def mm(x: float, y: float) -> Point:
@@ -214,7 +235,7 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
     size = Size(MM, 3 * MM // 2)
     pads = (
         Pad(id=new_id("pad", rng), number="1", shape="rect", size=size, position=mm(-1.27, 0),
-            layers=("F.Cu", "F.Mask"), net_id=gnd),
+            layers=("F.Cu", "F.Mask"), net_id=gnd, zone_connection="solid"),
         Pad(id=new_id("pad", rng), number="2", shape="rect", size=size, position=mm(1.27, 0),
             layers=("F.Cu", "F.Mask"), net_id=led),
     )  # fmt: skip
@@ -234,6 +255,10 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         priority=1, fills=(fill,),
     )  # fmt: skip
     rule = Keepout(id=new_id("kpo", rng), outline=square(40, 5, 45, 10), layers=("F.Cu",), no_tracks=True)
+    hatched = Zone(
+        id=derived_id("zon", "created", f"GND_HATCH:{copper}"), outline=square(36, 16, 48, 28),
+        name="GND_HATCH", layers=("F.Cu",), net_id=gnd, locked=True, settings=CREATED_HATCH_SETTINGS,
+    )  # fmt: skip
     silk = "F.SilkS"
     w = 120_000
     graphics = (
@@ -260,7 +285,7 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
                   layer="F.Cu", net_id=led),),
         vias=(Via(id=new_id("via", rng), position=mm(30, 20), diameter=600_000, drill=300_000,
                   layers=("F.Cu", "B.Cu"), net_id=gnd),),
-        zones=(zone,),
+        zones=(zone, hatched),
         keepouts=(rule,),
         texts=(text,),
         graphics=graphics,

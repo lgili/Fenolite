@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Oracle tests import their helpers (``_probes``, ``_triad`` and ``_bench`` of ``board/``,
 ``_rulebench`` of ``rules/``, ``_procases`` of ``project/``, ``_buildcases`` of ``build/``, and ``_svg``
-and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/`` and ``_exportcases`` of ``export/``)."""
+and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/``, ``_exportcases`` of ``export/``, and
+``_zonebench`` and ``_gerber`` of ``zones/``)."""
 
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ for folder in (
     HERE / "lens",
     HERE / "export",
     HERE / "frame",
+    HERE / "zones",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))

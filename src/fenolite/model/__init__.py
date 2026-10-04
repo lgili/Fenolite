@@ -27,6 +27,8 @@ from fenolite.model.board import (
     ViaType,
     Zone,
     ZoneFill,
+    ZoneHatch,
+    ZoneSettings,
 )
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design, DesignHeader
@@ -115,4 +117,6 @@ __all__ = [
     "ViaType",
     "Zone",
     "ZoneFill",
+    "ZoneHatch",
+    "ZoneSettings",
 ]

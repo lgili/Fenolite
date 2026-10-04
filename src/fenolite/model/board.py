@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point, Size
@@ -39,6 +39,13 @@ FootprintAttribute = Literal[
     "allow_soldermask_bridges",
 ]
 ViaType = Literal["through", "blind", "buried", "micro"]
+ZoneConnection = Literal["solid", "thermal", "none", "thru_hole_only"]
+"""How a zone connects to a pad of its net; ``thru_hole_only`` means thermal reliefs on through-hole pads
+and solid connections on the others."""
+ZoneFillMode = Literal["solid", "hatched"]
+IslandRemoval = Literal["always", "never", "below_area"]
+ZoneSmoothing = Literal["none", "chamfer", "fillet"]
+HatchBorder = Literal["hatch_thickness", "min_thickness"]
 FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
 ORDERED = {"ordered": True}
@@ -111,6 +118,8 @@ class Pad(Entity):
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
     padstack: Padstack | None = None
+    zone_connection: ZoneConnection | None = None
+    """How zones connect to this pad; ``None`` means that the pad follows its footprint and the zone."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,10 +203,57 @@ class ZoneFill:
 
 
 @dataclass(frozen=True, slots=True)
+class ZoneHatch:
+    """The pattern of a hatched fill. Ratios are decimal strings, never floats."""
+
+    thickness: Nm = 1_000_000
+    gap: Nm = 1_500_000
+    orientation: Udeg = 0
+    smoothing_level: int = 0
+    smoothing_value: str = "0.1"
+    border: HatchBorder = "hatch_thickness"
+    min_hole_area: str = "0.15"
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneSettings:
+    """How a copper zone is filled. The defaults are the values KiCad gives a new zone
+    (``docs/design-model.md``, "Zone settings"); ``min_island_area`` is in square nanometres."""
+
+    clearance: Nm = 500_000
+    min_thickness: Nm = 250_000
+    connection: ZoneConnection = "thermal"
+    thermal_gap: Nm = 500_000
+    thermal_spoke_width: Nm = 500_000
+    island_removal: IslandRemoval = "always"
+    min_island_area: int = 10_000_000_000_000
+    smoothing: ZoneSmoothing = "none"
+    smoothing_radius: Nm = 0
+    fill_mode: ZoneFillMode = "solid"
+    hatch: ZoneHatch = ZoneHatch()
+
+    def effective(self) -> ZoneSettings:
+        """A copy in which every value that cannot change the fill is at its default: ``hatch`` of a solid
+        fill, ``smoothing_radius`` without smoothing, and ``min_island_area`` unless islands are removed
+        below an area."""
+        default = ZoneSettings()
+        return replace(
+            self,
+            hatch=self.hatch if self.fill_mode == "hatched" else default.hatch,
+            smoothing_radius=self.smoothing_radius if self.smoothing != "none" else default.smoothing_radius,
+            min_island_area=(
+                self.min_island_area if self.island_removal == "below_area" else default.min_island_area
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class Zone(Entity):
     """A copper zone (pour). ``fills`` are derived and discarded when the zone changes.
 
     An empty ``outline`` on an imported zone means the backend keeps the outline as an opaque slot.
+    ``filled`` is the board's own fill flag, kept apart from ``fills``: a zone may be filled with an empty
+    result.
     """
 
     outline: tuple[Point, ...] = field(metadata=ORDERED)
@@ -206,6 +262,9 @@ class Zone(Entity):
     net_id: str | None = None
     priority: int = 0
     fills: tuple[ZoneFill, ...] = field(default=(), metadata=ORDERED)
+    settings: ZoneSettings = ZoneSettings()
+    filled: bool = False
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,7 +340,9 @@ __all__ = [
     "FootprintInstance",
     "Graphic",
     "GraphicKind",
+    "HatchBorder",
     "Hole",
+    "IslandRemoval",
     "Keepout",
     "Layer",
     "LayerKind",
@@ -300,5 +361,10 @@ __all__ = [
     "Via",
     "ViaType",
     "Zone",
+    "ZoneConnection",
     "ZoneFill",
+    "ZoneFillMode",
+    "ZoneHatch",
+    "ZoneSettings",
+    "ZoneSmoothing",
 ]

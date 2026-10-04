@@ -11,6 +11,7 @@ never silently means 10 nm (``docs/dsl.md``, "Units").
 from __future__ import annotations
 
 from dataclasses import dataclass
+from fractions import Fraction
 
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.dsl.errors import DslError
@@ -114,6 +115,33 @@ def as_nm(value: object, *, name: str) -> Nm:
     )
 
 
+AREA_UNIT = "mm2"
+NM2_PER_MM2 = 10**12
+
+
+def as_nm2(value: object, *, name: str) -> int:
+    """An area written as a string with the unit ``mm2`` (``"2.5mm2"``) as whole square nanometres.
+
+    The conversion is exact: an area that is negative or not a whole number of square nanometres, a bare
+    number and any other unit raise ``DslError`` naming ``name``.
+    """
+    if not isinstance(value, str):
+        raise DslError(f"{name}: {value!r} is not an area; write a string such as '2.5mm2'")
+    text = value.strip()
+    if not text.endswith(AREA_UNIT):
+        raise DslError(f"{name}: {value!r} has no unit; write a string such as '2.5mm2'")
+    number = text[: -len(AREA_UNIT)].strip()
+    try:
+        if not number or number[0] in "+-" or not number.replace(".", "", 1).isdigit():
+            raise ValueError(number)
+        area = Fraction(number) * NM2_PER_MM2
+    except (ValueError, ZeroDivisionError):
+        raise DslError(f"{name}: {value!r} is not a decimal number of mm2, such as '2.5mm2'") from None
+    if area.denominator != 1:
+        raise DslError(f"{name}: {value!r} is not a whole number of square nanometres")
+    return area.numerator
+
+
 def as_udeg(value: object, *, name: str) -> Udeg:
     """Degrees (``int``, ``float`` through ``repr``, or a string with or without ``deg``) as whole
     microdegrees, normalised to [0°, 360°)."""
@@ -125,4 +153,4 @@ def as_udeg(value: object, *, name: str) -> Udeg:
     return udeg % FULL_TURN
 
 
-__all__ = ["FULL_TURN", "Length", "as_nm", "as_udeg", "inch", "mil", "mm", "nm"]
+__all__ = ["FULL_TURN", "Length", "as_nm", "as_nm2", "as_udeg", "inch", "mil", "mm", "nm"]

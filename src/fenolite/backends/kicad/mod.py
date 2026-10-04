@@ -29,6 +29,7 @@ from fenolite.backends.kicad._fpmap import (
     Ids,
     emit_footprint,
     padstack_key,
+    projected_zone_connect,
     read_graphic,
     read_pad,
     text_of,
@@ -361,6 +362,9 @@ class _Projections:
             self.read_only(
                 "padstack", stack[0][0] if stack else base, "per-layer pad shapes are written as read"
             )
+        connects = [loc for _, loc, child in self.children(slots, base) if child.name == "zone_connect"]
+        if connects and projected_zone_connect(slots) != pad.zone_connection:
+            self.read_only("zone_connection", connects[0], "the zone connection is written as read")
 
     def graphic(self, graphic: Graphic, slots: list[Slot]) -> None:
         base = _locator(graphic, "/footprint")

@@ -99,6 +99,26 @@ never taken from KiCad's writer code.
 | 8.0 boards hold fields as `property` nodes: the format notes date footprint properties to 20200808 and board fields to 20230620, both older than the 8.0 format 20240108. `hide` is described as a bare optional word of `fp_text` and of `effects`; whether 8.0 writes a hidden property with a bare `hide` or with `(hide yes)` is not stated, and no 8.0 board was observed | S-0001, S-0021, S-0030 (tag 8.0.0), S-0120 | INFERRED | H-K-FIELD-V8 |
 | Census of the 21 readable corpus boards (1 674 footprints): 15 759 properties, of which 14 953 are placed (`at` with its angle, `layer`, `uuid` and `effects` with a font `size`) and 806 are bare (`ki_fp_filters`); hiding is always `(hide yes)` (12 451); `(unlocked yes)` on 10 458; 114 placed properties have no font `thickness` (`Datasheet`, `Description`); `justify` holds only `mirror` (8 369); 6 fonts hold `bold`; no footprint repeats a property name; 572 properties of one board write the angle `-90` where the others write `270`; all 1 281 `fp_text` items are `user` texts. Read by Fenolite: 14 953 fields, 806 properties kept as footprint slots, and 578 field children kept as written (the 572 `at` with `-90` and the 6 `effects` with `bold`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
 | The names `arc`, `attr`, `center`, `copperpour`, `filled_polygon`, `footprints`, `gr_arc`, `gr_circle`, `gr_line`, `gr_poly`, `gr_text`, `hide`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`, `tracks` and `vias` exist in the 8.0 board format | S-0021, S-0033 (tag 8.0.0) | INFERRED | H-K-PCB-WRITE |
+| The names `mode`, `smoothing`, `radius`, `island_removal_mode`, `island_area_min`, `hatch_thickness`, `hatch_gap`, `hatch_orientation`, `hatch_smoothing_level`, `hatch_smoothing_value`, `hatch_border_algorithm`, `hatch_min_hole_area` and `zone_connect` exist in the 8.0 board format | S-0033 (tag 8.0.0) | INFERRED | H-K-PCB-WRITE |
+| `connect_pads` holds an optional atom and `(clearance C)`: no atom means thermal reliefs, `yes` a solid connection, `no` no connection, and `thru_hole_only` thermal reliefs on through-hole pads and solid connections on the others | S-0001, S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-CONNECT |
+| `(min_thickness T)` is the smallest width of copper a fill keeps: a 0.2 mm channel is filled with 0.15 mm and removed with 0.25 mm | S-0001, S-0010, S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-GEOM |
+| A 10.0.6 re-save writes the `fill` children in this order: the atom `yes`, `mode`, `thermal_gap`, `thermal_bridge_width`, `smoothing`, `radius`, `island_removal_mode`, `island_area_min`, `hatch_thickness`, `hatch_gap`, `hatch_orientation`, `hatch_smoothing_level`, `hatch_smoothing_value`, `hatch_border_algorithm`, `hatch_min_hole_area` | S-0020 | CORPUS-VERIFIED | H-K-ZONE-FORM |
+| The atom `yes` of `fill` is a flag of its own: a zone written with fill polygons and no `yes` is re-saved without `yes`, and a zone may hold `(fill yes …)` with no fill polygon (18 zones of the upgraded third-party copies) | S-0020, S-0058 | CORPUS-VERIFIED | H-K-ZONE-FORM |
+| `(mode hatch)` marks a hatched fill; a solid fill writes no `mode`. The hatch children are written only for a hatched fill | S-0001, S-0020 | INFERRED | H-K-ZONE-FORM |
+| `(smoothing chamfer)` or `(smoothing fillet)` with `(radius R)` smooth the corners of the fill; a zone without smoothing writes neither child | S-0001, S-0020 | INFERRED | H-K-ZONE-FORM |
+| `island_removal_mode` 0 removes every island, 1 keeps them, and 2 keeps those of at least `island_area_min` square millimetres; a kept island is written `(island yes)` | S-0001, S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-GEOM |
+| 9.0-written zones (`20241229`) write `island_removal_mode` only when it is not 0, and then also `island_area_min`; 10.0-written zones (`20250513`, `20260206`) always write `island_removal_mode`, and `island_area_min` only for mode 2 | S-0058 | CORPUS-VERIFIED | H-K-ZONE-FORM |
+| `hatch_smoothing_level` and `hatch_smoothing_value` are written only for a level above 0; `hatch_border_algorithm` takes `hatch_thickness` or `min_thickness` only | S-0020 | INFERRED | H-K-ZONE-FORM |
+| A zone without `connect_pads`, `min_thickness` and `fill` loads in 10.0.6 as clearance 0.5 mm, minimum thickness 0.25 mm, thermal reliefs, thermal gap 0.5 mm, spoke width 0.5 mm and island mode 0 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-DEFAULTS |
+| A bare `(mode hatch)` loads in 10.0.6 as thickness 1 mm, gap 1.5 mm, orientation 0°, border `hatch_thickness` and minimum hole area 0.15 | S-0020 | INFERRED | H-K-ZONE-DEFAULTS |
+| The new-project save of the 10.0.6 GUI stores the zone defaults under `board.design_settings.defaults.zones`: `min_clearance` 0.5, `min_thickness` 0.25, `pad_connection` 1, `thermal_relief_gap` 0.5, `thermal_relief_spoke_width` 0.5, `fill_mode` 0, `remove_islands` 0, `min_island_area` 10, `hatch_thickness` 1.0, `hatch_gap` 1.5, `hatch_orientation` 0, `hatch_smoothing_level` 0, `hatch_smoothing_value` 0.1, `corner_smoothing` 0, `corner_radius` 0, `border_display_style` 2 and `border_hatch_pitch` 0.5 | S-0020 | INFERRED | H-K-ZONE-DEFAULTS |
+| `(locked yes)` of a zone sits between `net` (and `net_name`) and `layer` | S-0020, S-0058 | INFERRED | H-K-ZONE-FORM |
+| A pad's `(zone_connect N)` overrides the zone's connection for that pad: 0 no connection, 1 thermal relief, 2 solid, 3 thermal relief for through-hole pads only (the format page states 0 to 2). It overrides a footprint-level `zone_connect`, which overrides the zone | S-0001, S-0038, S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-CONNECT |
+| Thermal reliefs give four spokes per pad: on the axes for a rectangular SMD pad, at 45° for a round through-hole pad. The spoke width is `thermal_bridge_width` and the gap of the relief is `thermal_gap` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-CONNECT |
+| A fill keeps the larger of the zone's clearance and the clearance that the net class or a custom rule gives, plus about 0.5 µm | S-0010, S-0038, S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-GEOM |
+| `pcb drc` without a refill applies the zone's clearance to its existing fills: a fill 0.3 mm from a pad of another net is reported with a zone clearance of 0.5 mm, and not with 0.1 mm | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-GEOM |
+| A `20241229` zone without `(filled_areas_thickness no)` has its fill polygons read as outlines drawn with a pen of `min_thickness`: 9.0.9 plots and 10.0.6 re-saves the fill grown by `min_thickness / 2` on each side. With the flag the fill is kept as written. KiCad 9 always writes the flag (53 of 53 zones in 9.0-format demo files) | S-0020, S-0029, S-0058 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ZONE-FAT9 |
+| `kicad-cli` 9.0.9 loads every zone setting form listed here; it has no `--refill-zones`, so what a setting does to a fill is not observed on 9.0 | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-ZONE-LOAD9 |
 | DRC reports a board footprint whose library is in no active library table, or whose library lacks it ("Footprint not found in libraries"), and a board footprint that differs from its library copy ("Footprint doesn't match copy in library"), both as warnings; demo projects list their severity keys `lib_footprint_issues` and `lib_footprint_mismatch` at tags 9.0.9.1 and 10.0.6 | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
 
 ## What the reader models
@@ -112,10 +132,10 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 | `kicad_pcb` | `version`, `generator`, `generator_version` (values in `Board.ext["kicad"]`), `layers`, net rows N ≥ 1, `footprint`, `segment`, `arc`, `via`, `zone` (not teardrop), `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text` | — | `general`, `paper`, `title_block`, `setup`, `(net 0 "")`, teardrop zones, `group`, `dimension`, `generated`, `image`, `table`, `barcode`, `point`, `target`, `embedded_fonts`, `embedded_files`, unknown heads |
 | `footprint` | name → `lib_ref`, `layer` → `side`, `at` → `position` and `rotation`, `uuid`, `attr` → `attributes`, `pad`, `path` → `Component.path`, placed `property` → `fields` (c0030) | a `property` that is not a field (bare, or a repeated name) → `Component.ref`, `value`, `properties`; `locked` → `locked` | `descr`, `tags`, `sheetname`, `sheetfile`, `fp_*`, `model`, `zone`, `group`, `units`, clearances, `embedded_*` |
 | `property` (a field, c0030) | name, `at` → `position` and `rotation`, `layer`, `hide` → `visible`, `uuid`, `effects` with `font` `size` and `thickness` and `justify` → `size`, `thickness`, `h_justify`, `v_justify`, `mirrored` | the value atom → `Component.ref`, `value`, `properties`; an `effects` the emitter does not reproduce (`bold`, a font `face`) | `unlocked`, a bare `hide` atom, unknown heads |
-| `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect`, `remove_unused_layers` |
+| `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid` | — | `locked`, unknown heads |
 | `via` | type atom, `at`, `size`, `drill`, `layers`, `net`, `uuid` | — | `locked`, `free`, `remove_unused_layers`, `tenting`, `padstack`, `teardrops` |
-| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout` | `layers` with wildcards | `net_name`, `hatch`, `connect_pads`, `min_thickness`, `filled_areas_thickness`, `fill`, `placement`, `attr`, `locked` |
+| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `locked`, `connect_pads`, `min_thickness` and `fill` |
 | `filled_polygon` | `layer`, `island`, points-only `pts` | — | unknown heads |
 | `gr_*` | as `fp_*` in footprint libraries (`libraries.md`) | `stroke` (width) | hatch fills, `net`, `locked` |
 | `gr_text` | text atom, `at`, `layer` with one atom, `uuid` | `effects` (font size and thickness) | `render_cache`, `locked` |
@@ -206,6 +226,66 @@ These are decisions of the reader, not facts about KiCad.
   board `kicad_pcb`. An item without a uuid gets a content id; a repeated uuid gets the occurrence
   suffix `:<k>` and the warning `kicad.board.duplicate-uuid`.
 
+## Zone settings (c0031)
+
+A copper zone carries `Zone.settings` (a `ZoneSettings`), `Zone.filled` and `Zone.locked`; a pad carries
+`Pad.zone_connection`. The codec is `fenolite.backends.kicad.zones`.
+
+- **Reading.** `connect_pads` gives `connection` (no atom → `thermal`, `yes` → `solid`, `no` → `none`,
+  `thru_hole_only`) and `clearance`. `min_thickness` gives `min_thickness`. `fill` gives `Zone.filled` (the
+  atom `yes`), `fill_mode` (`(mode hatch)` → `hatched`), `thermal_gap`, `thermal_spoke_width`
+  (`thermal_bridge_width`), `smoothing` and `smoothing_radius`, `island_removal` (0, 1, 2 → `always`,
+  `never`, `below_area`), `min_island_area` (square millimetres, converted exactly to square nanometres)
+  and the fields of `hatch`. `(locked yes)` gives `Zone.locked`.
+- **Absent children.** A zone without one of these children has the defaults of the table below for that
+  part, and no slot. The defaults are what KiCad assumes for an absent child and what its GUI gives a new
+  zone.
+- **Forms per major.** A child is a modelled slot only when `zones.emit_settings` reproduces it tree-equal
+  for the major of the file. For major 9 the emitter writes `island_removal_mode` and `island_area_min`
+  only when the mode is not `always`; for major 10 it writes `island_removal_mode` always and
+  `island_area_min` only for `below_area`. `smoothing` and `radius` are written only with smoothing, the
+  hatch children only for a hatched fill, and the two hatch smoothing children only for a level above 0.
+- **Opaque fallback.** A child that the emitter does not reproduce, that is repeated, or that holds an
+  unknown atom, child or value stays an opaque slot with the info `kicad.board.kept-opaque`. The values it
+  holds are still copied into the model (a projected slot), and a value that cannot be read keeps its
+  default. A model change to such a child is refused on write with `kicad.board.projection-read-only`,
+  except the fill flag: an opaque `fill` child whose atoms are the plain form (none, or `yes`) is
+  written with its `yes` atom set from `Zone.filled` and its lists as read, so stale fills can be
+  cleared on any zone.
+- **Rule areas.** A rule area keeps these children opaque. `hatch` (the outline display),
+  `filled_areas_thickness`, `attr` and `placement` stay opaque on every zone.
+- **Pads.** `(zone_connect N)` with N from 0 to 3 gives `none`, `thermal`, `solid` and `thru_hole_only`;
+  any other value stays opaque. A footprint-level `zone_connect` and a pad's `thermal_bridge_width`,
+  `thermal_gap` and `thermal_bridge_angle` stay opaque.
+
+| value | default | observed in |
+|---|---|---|
+| clearance, minimum thickness | 0.5 mm, 0.25 mm | the GUI save `defaults.zones`; a 10.0.6 re-save of absent children (S-0020) |
+| connection | `thermal` | `pad_connection` 1; the re-save writes no atom (S-0020) |
+| thermal gap, spoke width | 0.5 mm, 0.5 mm | `defaults.zones`; the re-save (S-0020) |
+| island removal, minimum island area | `always`, 10 mm² | `remove_islands` 0, `min_island_area` 10; the re-save writes mode 0 (S-0020) |
+| smoothing, radius | `none`, 0 | `corner_smoothing` 0, `corner_radius` 0 (S-0020) |
+| fill mode; hatch thickness, gap, orientation, smoothing level and value | `solid`; 1 mm, 1.5 mm, 0°, 0, 0.1 | `defaults.zones`; the re-save of a bare `(mode hatch)` (S-0020) |
+| hatch border, minimum hole area | `hatch_thickness`, 0.15 | the re-save of a bare `(mode hatch)` (S-0020) |
+| outline display of a created zone | `(hatch edge 0.5)` | `border_display_style` 2, `border_hatch_pitch` 0.5 (S-0020) |
+
+The values are observations of `kicad-cli` 10.0.6 and of a project saved by its GUI (`H-K-ZONE-DEFAULTS`);
+none is taken from KiCad's source code.
+
+- **Writing a created zone.** A created zone holds, in order: `net` (and `net_name` for target 9),
+  `locked` when set, `layer` or `layers`, `uuid`, `name` when set, `(hatch edge 0.5)`, `priority` when
+  not 0, `connect_pads`, `min_thickness`, `(filled_areas_thickness no)` for target 9 only, `fill`,
+  `polygon` and the `filled_polygon` lists.
+- **The target-9 pitfall.** A `20241229` zone without `(filled_areas_thickness no)` is plotted with its
+  fill grown by half the minimum thickness (`H-K-ZONE-FAT9`), so a created zone always writes the flag for
+  target 9. A read zone is written as it was read: KiCad 9 always writes the flag, and a zone without it
+  was made by another tool, whose fills mean what that tool meant.
+- **Writing a read zone.** A modelled child is emitted from the model in the target's form. A child that
+  the zone does not have is inserted at its canonical position only when its part of the model differs
+  from the defaults (`filled == True` counts), so an unchanged zone gains no child.
+- **Clearance.** KiCad keeps the larger of the zone's clearance and the class or rule clearance
+  (`H-K-ZONE-GEOM`), so Fenolite writes the zone's clearance as given and lowers no rule for it.
+
 ## Paper and title block (c0012)
 
 `paper` and `title_block` stay opaque root slots, so the closed list of modelled content, every opaque
@@ -283,11 +363,13 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   | `property` | name, value, `at`, `layer`, `hide`, `uuid`, `effects` |
   | `effects` | `font`, `justify` |
   | `font` | `size`, `thickness` |
-  | `pad` | number, type, shape, `at`, `size`, `drill`, `layers`, `net`, `uuid` |
+  | `pad` | number, type, shape, `at`, `size`, `drill`, `layers`, `net`, `zone_connect`, `uuid` |
   | `segment` | `start`, `end`, `width`, `layer`, `net`, `uuid` |
   | `arc` | `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid` |
   | `via` | type, `at`, `size`, `drill`, `layers`, `net`, `uuid` |
-  | `zone` (also rule areas) | `net`, `net_name`, `layer` or `layers`, `uuid`, `name`, `priority`, `keepout`, `polygon`, `filled_polygon` |
+  | `zone` (also rule areas) | `net`, `net_name`, `locked`, `layer` or `layers`, `uuid`, `name`, `hatch`, `priority`, `connect_pads`, `min_thickness`, `filled_areas_thickness`, `keepout`, `fill`, `polygon`, `filled_polygon` |
+  | `connect_pads` | connection atom, `clearance` |
+  | `fill` (of a zone) | `yes` atom, `mode`, `thermal_gap`, `thermal_bridge_width`, `smoothing`, `radius`, `island_removal_mode`, `island_area_min`, `hatch_thickness`, `hatch_gap`, `hatch_orientation`, `hatch_smoothing_level`, `hatch_smoothing_value`, `hatch_border_algorithm`, `hatch_min_hole_area` |
   | `polygon` | `pts` |
   | `filled_polygon` | `layer`, `island`, `pts` |
   | `keepout` | `tracks`, `vias`, `pads`, `copperpour`, `footprints` |
@@ -307,15 +389,19 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   inventory (whose scope is names introduced after 8.0) nor c0007's skeleton holds: `arc`, `attr`,
   `center`, `copperpour`, `filled_polygon`, `footprints`, `gr_arc`, `gr_circle`, `gr_line`, `gr_poly`,
   `gr_text`, `hide`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`,
-  `tracks` and `vias`. Each exists in the 8.0 format (S-0021, S-0033 at tag 8.0.0), and the created test board
-  writes each of them.
+  `tracks` and `vias`, and the zone setting names `mode`, `smoothing`, `radius`, `island_removal_mode`,
+  `island_area_min`, `hatch_thickness`, `hatch_gap`, `hatch_orientation`, `hatch_smoothing_level`,
+  `hatch_smoothing_value`, `hatch_border_algorithm`, `hatch_min_hole_area` and `zone_connect` (c0031).
+  Each exists in the 8.0 format (S-0021, S-0033 at tag 8.0.0), and the created test board writes each
+  of them.
 - **Created items.** A created footprint writes `(locked yes)` when locked, its `Reference` and
   `Value` properties at local (0, 0) with the footprint angle, on `F.SilkS` and `F.Fab` (`B.*` with
   `(justify mirror)` on the bottom), font 1 × 1 mm and thickness 0.15 mm (the skeleton's values),
   then `path` and `attr` when set. A created drawing writes `(stroke (width W) (type solid))`; circles,
   rectangles and polygons also write `(fill yes|no)`. A created text writes
   `(effects (font (size H W) (thickness T)))`, with `(justify mirror)` on a back layer. A created zone
-  writes `name` and `priority` only when they are not empty or 0. A created fill writes `(island)` for
+  writes `name` and `priority` only when they are not empty or 0, and its setting children as section
+  "Zone settings" describes; a created rule area writes none of them. A created fill writes `(island)` for
   target 9 when it is an island, and `(island yes|no)` for target 10.
 - **Fields (c0030).** A field is written as name, value, `(at X Y A)` with the board angle
   `A = (rotation + footprint rotation) mod 360°`, always written, `(layer "L")`, `(hide yes)` only when it

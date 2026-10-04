@@ -305,6 +305,9 @@
     "wks-value-right": "load",
     "wks-value-rtcorner": "load",
     "wks-value-top": "load",
-    "wks-value-unknown": "reject"
+    "wks-value-unknown": "reject",
+    "zone-clearance-drc": "present",
+    "zone-defaults-t10": "equal",
+    "zone-fat9": "equal"
   }
 }

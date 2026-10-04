@@ -17,13 +17,14 @@ from _corpus import CorpusItem, manifest_items
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import versions
-from fenolite.backends.kicad.pcb import read_board
+from fenolite.backends.kicad.pcb import ZONE_SETTING_FIELDS, read_board
 from fenolite.backends.kicad.sexpr import AtomKind, Node, load, walk
 from fenolite.core.errors import Issue
 from fenolite.geometry import Arc, GeometryError, Point, Segment
 from fenolite.geometry.errors import OPEN_CONTOUR
 from fenolite.geometry.polygon import assemble_rings
-from fenolite.model.base import Opaque
+from fenolite.model.base import Modeled, Opaque
+from fenolite.model.board import Zone
 from fenolite.model.design import Design
 
 BOARD_ITEMS: list[CorpusItem] = [i for i in manifest_items("rt0") if i.path.suffix == ".kicad_pcb"]
@@ -134,6 +135,72 @@ def census_uuids(entries: Iterable[Entry]) -> dict[str, dict[str, int]]:
         if per_head:
             repeats[e.id] = dict(per_head)
     return repeats
+
+
+ZONE_SETTING_CHILDREN = ("connect_pads", "min_thickness", "fill")
+_PAD_CONNECTS = frozenset(f"(zone_connect {n})" for n in range(4))
+
+
+def _setting_slots(zone: Zone) -> dict[str, str]:
+    """``Modeled`` or ``Opaque`` per setting child that the zone holds, by head."""
+    fields = {ZONE_SETTING_FIELDS[head]: head for head in ZONE_SETTING_CHILDREN}
+    out: dict[str, str] = {}
+    for slot in slotlib.from_ext(zone.ext["kicad"]):
+        if isinstance(slot, Modeled):
+            if slot.field in fields:
+                out[fields[slot.field]] = "Modeled"
+        else:
+            head = slot.fragment[1:].split(" ", 1)[0].rstrip(")")
+            if head in ZONE_SETTING_CHILDREN:
+                out[head] = "Opaque"
+    return out
+
+
+def census_zone_settings(entries: Iterable[Entry]) -> tuple[dict[str, dict[str, int]], list[str]]:
+    """Per origin: zones, zones whose three setting children are modelled slots, opaque setting children
+    by head and the reader's reason, and pads by the slot kind of their ``zone_connect``
+    (``H-K-ZONE-FORM``). The second value lists the zones with an opaque setting child, by board id and
+    locator."""
+    counts: dict[str, Counter[str]] = {}
+    problems: list[str] = []
+    for e in entries:
+        assert e.design.board is not None
+        found = counts.setdefault(e.origin, Counter())
+        reasons = {
+            i.where: re.sub(r"'[^']*'", "'…'", i.message)
+            for i in e.issues
+            if i.code == "kicad.board.kept-opaque"
+        }
+        for zone in e.design.board.zones:
+            found["zones"] += 1
+            kinds = _setting_slots(zone)
+            if all(kinds.get(head) == "Modeled" for head in ZONE_SETTING_CHILDREN):
+                found["zones_modelled"] += 1
+            if zone.filled:
+                found["zones_filled"] += 1
+            if zone.filled and not zone.fills:
+                found["zones_filled_without_polygons"] += 1
+            if zone.locked:
+                found["zones_locked"] += 1
+            locator = zone.provenance.locator if zone.provenance is not None else ""
+            for head in ZONE_SETTING_CHILDREN:
+                kind = kinds.get(head)
+                if kind is None:
+                    found[f"absent:{head}"] += 1
+                elif kind == "Opaque":
+                    reason = reasons.get(f"{locator}/{head}[0]", "no reason reported")
+                    found[f"opaque:{head}: {reason}"] += 1
+                    problems.append(f"{e.id} {context(locator)} {head}: {reason}")
+        for fp in e.design.board.footprints:
+            for pad in fp.pads:
+                if pad.zone_connection is not None:
+                    found[f"pads_zone_connect:{pad.zone_connection}"] += 1
+                for slot in slotlib.from_ext(pad.ext["kicad"]):
+                    if isinstance(slot, Opaque) and slot.fragment.startswith("(zone_connect"):
+                        found["pads_zone_connect_opaque"] += 1
+                        if slot.fragment in _PAD_CONNECTS:
+                            problems.append(f"{e.id} pad {pad.number}: {slot.fragment} is opaque")
+    return _per_origin(counts), problems
 
 
 def census_zones(entries: Iterable[Entry]) -> tuple[dict[str, int], list[str]]:

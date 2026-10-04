@@ -337,6 +337,21 @@
               "type": "null"
             }
           ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

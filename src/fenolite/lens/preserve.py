@@ -23,6 +23,7 @@ from typing import Literal, Protocol
 
 from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, pcb, pro, slots
+from fenolite.backends.kicad import zones as zones_mod
 from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
 from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
@@ -31,6 +32,7 @@ from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
+from fenolite.model import canonical
 from fenolite.model.base import Opaque, Slot
 from fenolite.model.board import Arc, FootprintField, FootprintInstance, Graphic, Pad, Side, Track, Via, Zone
 from fenolite.model.circuit import Component, PinRef
@@ -626,7 +628,13 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
             vias.append(dataclasses.replace(via, net_id=nid))
     tracks += [t for t in built.board.tracks if copper_mod.is_copper_uuid(t.native_ids.get(BAG, ""))]
     vias += [v for v in built.board.vias if copper_mod.is_copper_uuid(v.native_ids.get(BAG, ""))]
-    for zone in board.board.zones:
+    # zones that the script declares are merged by uuid (c0031); the others follow their nets
+    script_zones = zones_mod.merge_zones(built, board)
+    issues += script_zones.issues
+    for zone in script_zones.zones:
+        if zone.id in script_zones.decided:
+            zones.append(zone)
+            continue
         ok, nid = keep(zone.net_id, "zones")
         if ok:
             zones.append(dataclasses.replace(zone, net_id=nid))
@@ -702,7 +710,7 @@ def _zone_slots(zone: Zone) -> tuple[Slot, ...]:
     return slots.from_ext(bag) if bag is not None else ()
 
 
-SKIPPED_ZONE_HEADS = frozenset({"net", "net_name", "uuid", "filled_polygon", "fill_segments"})
+SKIPPED_ZONE_HEADS = frozenset({"net", "net_name", "uuid", "filled_polygon", "fill_segments", "locked"})
 
 
 def _obsolete(head: str) -> bool:
@@ -712,8 +720,9 @@ def _obsolete(head: str) -> bool:
 
 
 def zone_digest(design: Design, zone: Zone) -> str:
-    """SHA-256 of the zone's outline (or opaque polygons), net name, layers, priority and other opaque
-    slots (its fill settings); fills, uuids and net forms never enter it."""
+    """SHA-256 of the zone's outline (or opaque polygons), net name, layers, priority, effective settings
+    and other opaque slots (among them fill settings that the reader kept opaque); fills, the fill flag,
+    the lock, uuids and net forms never enter it."""
     names = _net_names(design)
     opaque: list[str] = []
     polygons: list[str] = []
@@ -724,13 +733,18 @@ def zone_digest(design: Design, zone: Zone) -> str:
         head = node.name if isinstance(node, Node) else ""
         if head in SKIPPED_ZONE_HEADS or _obsolete(head):
             continue
-        (polygons if head == "polygon" else opaque).append(slot.fragment)
+        fragment = slot.fragment
+        if head == "fill" and isinstance(node, Node):
+            # the fill flag is state, not a setting: an opaque fill child enters without its atoms
+            fragment = dumps(node.with_children(node.nodes()), style="compact")
+        (polygons if head == "polygon" else opaque).append(fragment)
     outline = [f"{p.x},{p.y}" for p in zone.outline] if zone.outline else polygons
     lines = [
         "outline " + " ".join(outline),
         f"net {names.get(zone.net_id or '', '')}",
         "layers " + " ".join(zone.layers),
         f"priority {zone.priority}",
+        "settings " + canonical.dumps(zone.settings.effective()),
         *sorted(opaque),
     ]
     return _digest(lines)
@@ -801,12 +815,12 @@ def drop_stale_fills(
     for zone in layout.board.zones:
         old = before.get(zone.native_ids.get(BAG))
         stale = not same_inputs or old is None or zone_digest(board, old) != zone_digest(layout, zone)
-        if zone.fills and stale:
+        if (zone.fills or zone.filled) and stale:
             label = zone.name or zone.native_ids.get(BAG, zone.id)
             issues.append(
                 issue("zone.fill-stale", f"zone {label}: its inputs changed, so its fills are dropped", label)
             )
-            zone = dataclasses.replace(zone, fills=())
+            zone = dataclasses.replace(zone, fills=(), filled=False)
         zones.append(zone)
     if not issues:
         return layout, ()

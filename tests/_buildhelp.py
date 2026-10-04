@@ -8,7 +8,7 @@ import runpy
 from pathlib import Path
 
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
-from fenolite.dsl import Design, placements, to_model
+from fenolite.dsl import Design, mm, placements, to_model
 from fenolite.lens.build import BuildOutput, build_design
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +40,24 @@ def blink_variant(folder: Path, old: str = "", new: str = "", *, append: str = "
     ):
         (folder / table).write_text(f"({head}\n\t(version 7)\n{row.format(uri.as_posix())})\n", "utf-8")
     return script
+
+
+POUR = 'design.zone(gnd, layers=("B.Cu",), clearance=mm(0.3), connection="solid")\n'
+"""The line that turns the blink script into its pour variant (c0031)."""
+
+
+def pour_variant(**zone: object) -> Design:
+    """The blink with a ``GND`` pour on ``B.Cu`` (0.3 mm clearance, solid pad connections); ``zone``
+    overrides or adds arguments of its ``zone()`` call."""
+    design = blink()
+    arguments: dict[str, object] = {"layers": ("B.Cu",), "clearance": mm(0.3), "connection": "solid", **zone}
+    design.zone(design.nets["GND"], **arguments)  # type: ignore[arg-type]
+    return design
+
+
+def pour_script(folder: Path, *, append: str = POUR, old: str = "", new: str = "") -> Path:
+    """The pour variant as a script under ``folder`` (``blink_variant`` with the ``zone()`` line appended)."""
+    return blink_variant(folder, old, new, append=append)
 
 
 def resolver(

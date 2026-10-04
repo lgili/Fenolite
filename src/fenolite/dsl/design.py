@@ -7,14 +7,15 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
-from fenolite.dsl.units import as_nm
+from fenolite.dsl.units import as_nm, as_nm2
+from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import Recorded
@@ -33,6 +34,24 @@ class NetClassSpec:
     via_diameter: Nm | None
     via_drill: Nm | None
     nets: tuple[Net, ...]
+
+
+@dataclass(frozen=True)
+class ZoneSpec:
+    """One ``zone()`` call: the net name (``None`` for a zone without a net), the copper layers, the
+    outline as board-relative ``(x, y)`` nanometres (``None`` for the board rectangle), and the settings."""
+
+    name: str
+    net: str | None
+    layers: tuple[str, ...]
+    outline: tuple[tuple[Nm, Nm], ...] | None
+    priority: int
+    settings: ZoneSettings
+    locked: bool
+
+
+ZONE_CONNECTIONS: tuple[str, ...] = get_args(ZoneConnection)
+ZONE_ISLANDS: tuple[str, ...] = get_args(IslandRemoval)
 
 
 class Rules:
@@ -102,6 +121,8 @@ class Design(Container):
         """``moved()`` aliases: new component path → old component path."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
+        self.zones: dict[str, ZoneSpec] = {}
+        """Copper zones by name, as declared by ``zone()``."""
 
     @property
     def design(self) -> Design:
@@ -150,6 +171,134 @@ class Design(Container):
             else:
                 raise DslError(f"the plane on {layer} needs a Net or a net name, not {net!r}")
         return {layer: found[layer] for layer in INNER_LAYERS if layer in found}
+
+    def zone(
+        self,
+        net: Net | None,
+        *,
+        layers: Sequence[str],
+        name: str | None = None,
+        outline: Sequence[tuple[object, object]] | None = None,
+        priority: int = 0,
+        clearance: object = None,
+        min_thickness: object = None,
+        connection: str | None = None,
+        thermal_gap: object = None,
+        thermal_spoke_width: object = None,
+        islands: str | None = None,
+        min_island_area: str | None = None,
+        locked: bool = False,
+    ) -> None:
+        """One copper zone (pour) on ``layers`` for ``net`` (``None`` for a zone without a net).
+
+        The name defaults to the net's name and names the zone across builds. The outline is the board
+        rectangle unless ``outline`` gives at least three ``(x, y)`` points in the frame of ``place()``. A
+        setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
+        makes the script win over an edit of the zone in KiCad, and locks the zone there.
+        """
+        if self.size is None:
+            raise DslError("zone(): call board() first")
+        if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"zone(): net must be a Net or None, not {net!r}")
+        if name is None:
+            if net is None:
+                raise DslError("zone(): a zone without a net needs a name")
+            name = net.name
+        if not isinstance(name, str) or not name or name != name.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"zone(): name must be a non-empty string without surrounding spaces, not {name!r}"
+            )
+        if name in self.zones:
+            raise DslError(f"zone(): the name {name!r} is already used; pass another name=")
+        what = f"zone {name}"
+        found_layers = self._zone_layers(layers, what)
+        points = self._zone_outline(outline, what)
+        if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: priority must be an int of at least 0, not {priority!r}")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool, not {locked!r}")
+        changes: dict[str, object] = {}
+        if clearance is not None:
+            changes["clearance"] = as_nm(clearance, name=f"{what}: clearance")
+            if changes["clearance"] < 0:  # type: ignore[operator]
+                raise DslError(f"{what}: clearance must be at least 0")
+        for argument, value in (
+            ("min_thickness", min_thickness),
+            ("thermal_gap", thermal_gap),
+            ("thermal_spoke_width", thermal_spoke_width),
+        ):
+            if value is None:
+                continue
+            length = as_nm(value, name=f"{what}: {argument}")
+            if length <= 0:
+                raise DslError(f"{what}: {argument} must be above 0")
+            changes[argument] = length
+        if connection is not None:
+            if connection not in ZONE_CONNECTIONS:
+                raise DslError(
+                    f"{what}: connection must be one of {', '.join(ZONE_CONNECTIONS)}, not {connection!r}"
+                )
+            changes["connection"] = connection
+        if islands is not None:
+            if islands not in ZONE_ISLANDS:
+                raise DslError(f"{what}: islands must be one of {', '.join(ZONE_ISLANDS)}, not {islands!r}")
+            changes["island_removal"] = islands
+        if min_island_area is not None:
+            if islands != "below_area":
+                raise DslError(f'{what}: min_island_area is accepted only with islands="below_area"')
+            changes["min_island_area"] = as_nm2(min_island_area, name=f"{what}: min_island_area")
+        if net is not None:
+            self.register_net(net)
+        self.zones[name] = ZoneSpec(
+            name,
+            net.name if net is not None else None,
+            found_layers,
+            points,
+            priority,
+            ZoneSettings(**changes),  # type: ignore[arg-type]
+            locked,
+        )
+
+    def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
+        allowed = ("F.Cu", *(INNER_LAYERS if self.copper == 4 else ()), "B.Cu")
+        if isinstance(layers, str) or not isinstance(layers, Sequence) or not layers:
+            raise DslError(
+                f"{what}: layers must be a non-empty sequence of copper layer names, not {layers!r}"
+            )
+        found: list[str] = []
+        for layer in cast("Sequence[object]", layers):
+            if not isinstance(layer, str) or layer not in allowed:
+                raise DslError(
+                    f"{what}: layers: {layer!r} is not a copper layer of this board ({', '.join(allowed)})"
+                )
+            if layer in found:
+                raise DslError(f"{what}: layers: {layer!r} is listed twice")
+            found.append(layer)
+        return tuple(found)
+
+    @staticmethod
+    def _zone_outline(outline: object, what: str) -> tuple[tuple[Nm, Nm], ...] | None:
+        if outline is None:
+            return None
+        if isinstance(outline, str) or not isinstance(outline, Sequence):
+            raise DslError(f"{what}: outline must hold at least three (x, y) points")
+        pairs = cast("Sequence[object]", outline)
+        if len(pairs) < 3:
+            raise DslError(f"{what}: outline must hold at least three (x, y) points")
+        points: list[tuple[Nm, Nm]] = []
+        for index, pair in enumerate(pairs):
+            if isinstance(pair, str) or not isinstance(pair, Sequence):
+                raise DslError(f"{what}: outline[{index}] must be an (x, y) pair of lengths, not {pair!r}")
+            xy = cast("Sequence[object]", pair)
+            if len(xy) != 2:
+                raise DslError(f"{what}: outline[{index}] must be an (x, y) pair of lengths, not {pair!r}")
+            points.append(
+                (
+                    as_nm(xy[0], name=f"{what}: outline[{index}].x"),
+                    as_nm(xy[1], name=f"{what}: outline[{index}].y"),
+                )
+            )
+        return tuple(points)
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part at component path ``new`` was at ``old`` in an earlier build, so a rebuild
@@ -256,4 +405,4 @@ class Design(Container):
         return f"Design({self.name!r})"
 
 
-__all__ = ["DESIGN_NAME", "INNER_LAYERS", "Design", "NetClassSpec", "Rules"]
+__all__ = ["DESIGN_NAME", "INNER_LAYERS", "Design", "NetClassSpec", "Rules", "ZoneSpec"]

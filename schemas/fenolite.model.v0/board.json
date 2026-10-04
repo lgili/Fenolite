@@ -819,6 +819,21 @@
               "type": "null"
             }
           ]
+        },
+        "zone_connection": {
+          "anyOf": [
+            {
+              "enum": [
+                "solid",
+                "thermal",
+                "none",
+                "thru_hole_only"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -1413,6 +1428,15 @@
           "items": {
             "$ref": "#/$defs/ZoneFill"
           }
+        },
+        "settings": {
+          "$ref": "#/$defs/ZoneSettings"
+        },
+        "filled": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1443,6 +1467,93 @@
         "layer",
         "polygon"
       ]
+    },
+    "ZoneHatch": {
+      "description": "The pattern of a hatched fill. Ratios are decimal strings, never floats.",
+      "type": "object",
+      "properties": {
+        "thickness": {
+          "type": "integer"
+        },
+        "gap": {
+          "type": "integer"
+        },
+        "orientation": {
+          "type": "integer"
+        },
+        "smoothing_level": {
+          "type": "integer"
+        },
+        "smoothing_value": {
+          "type": "string"
+        },
+        "border": {
+          "enum": [
+            "hatch_thickness",
+            "min_thickness"
+          ]
+        },
+        "min_hole_area": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ZoneSettings": {
+      "description": "How a copper zone is filled. The defaults are the values KiCad gives a new zone",
+      "type": "object",
+      "properties": {
+        "clearance": {
+          "type": "integer"
+        },
+        "min_thickness": {
+          "type": "integer"
+        },
+        "connection": {
+          "enum": [
+            "solid",
+            "thermal",
+            "none",
+            "thru_hole_only"
+          ]
+        },
+        "thermal_gap": {
+          "type": "integer"
+        },
+        "thermal_spoke_width": {
+          "type": "integer"
+        },
+        "island_removal": {
+          "enum": [
+            "always",
+            "never",
+            "below_area"
+          ]
+        },
+        "min_island_area": {
+          "type": "integer"
+        },
+        "smoothing": {
+          "enum": [
+            "none",
+            "chamfer",
+            "fillet"
+          ]
+        },
+        "smoothing_radius": {
+          "type": "integer"
+        },
+        "fill_mode": {
+          "enum": [
+            "solid",
+            "hatched"
+          ]
+        },
+        "hatch": {
+          "$ref": "#/$defs/ZoneHatch"
+        }
+      },
+      "additionalProperties": false
     }
   }
 }

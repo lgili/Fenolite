@@ -27,6 +27,7 @@ from fenolite import __version__
 from fenolite.backends.base import WriteResult
 from fenolite.backends.kicad import _pcbwrite
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
@@ -39,8 +40,10 @@ from fenolite.backends.kicad._fpmap import (
     emit_pad,
     layers_node,
     node,
+    opaque_zone_connects,
     padstack_key,
     point_node,
+    projected_zone_connect,
     read_graphic,
     read_pad,
     symbols,
@@ -202,12 +205,24 @@ ZONE_FIELDS: Mapping[str, str] = MappingProxyType(
         "polygon": "outline",
         "filled_polygon": "fills",
         "keepout": "keepout",
+        "locked": "locked",
+        "connect_pads": "connection",
+        "min_thickness": "min_thickness",
+        "fill": "fill_settings",
     }
 )
-KEEPOUT_FIELDS: Mapping[str, str] = MappingProxyType(
-    {k: v for k, v in ZONE_FIELDS.items() if v not in ("name", "priority", "fills")}
+ZONE_SETTING_FIELDS: Mapping[str, str] = MappingProxyType(
+    {head: ZONE_FIELDS[head] for head in zonelib.SETTING_HEADS}
 )
-"""A rule area has no name, priority or fills in the model; those children stay opaque."""
+"""The setting children of a copper zone and the slot fields they map to (``zones.py``)."""
+KEEPOUT_FIELDS: Mapping[str, str] = MappingProxyType(
+    {
+        k: v
+        for k, v in ZONE_FIELDS.items()
+        if v not in ("name", "priority", "fills", *ZONE_SETTING_FIELDS.values())
+    }
+)
+"""A rule area has no name, priority, fills or zone settings in the model; those children stay opaque."""
 FILL_FIELDS: Mapping[str, str] = MappingProxyType({"layer": "layer", "island": "island", "pts": "polygon"})
 TEXT_FIELDS: Mapping[str, str] = MappingProxyType({"at": "position", "layer": "layer", "uuid": "native_ids"})
 TEXT_POSITIONAL = ("text",)
@@ -376,7 +391,15 @@ def _pts(points: Sequence[Point]) -> Node:
     return node("pts", *(point_node("xy", p) for p in points))
 
 
-def _emit_zone(zone: Zone | Keepout, nets: _Nets) -> Items:
+def form_major(version: int) -> int:
+    """The major whose zone setting forms a board of format ``version`` uses: the oldest supported major
+    that reads it, and the newest one for a version from the future."""
+    major = major_for(FileKind.BOARD, version)
+    return max(TARGET_MAJORS) if major is None else major
+
+
+def _emit_zone(zone: Zone | Keepout, nets: _Nets, *, major: int) -> Items:
+    """The modelled fields of a zone or rule area; ``major`` picks the form of the setting children."""
     layers = zone.layers
     items: Items = {
         "layers": [layers_node("layer" if len(layers) == 1 else "layers", layers)],
@@ -387,6 +410,9 @@ def _emit_zone(zone: Zone | Keepout, nets: _Nets) -> Items:
         items["net_id"] = _opt(nets.node(zone.net_id, zone=True))
         items["name"] = [node("name", Atom.string(zone.name))]
         items["priority"] = [node("priority", Atom.integer(zone.priority))]
+        emitted = zonelib.emit_settings(zone.settings, filled=zone.filled, locked=zone.locked, major=major)
+        for head, field in ZONE_SETTING_FIELDS.items():
+            items[field] = [emitted[head]] if head in emitted else []
     else:
         items["net_id"] = _opt(nets.node(None, zone=True))
         settings = [
@@ -673,6 +699,10 @@ class EmitContext:
         return int(_ext_pairs(board).get("version", "0")) if board is not None else 0
 
     @cached_property
+    def major(self) -> int:
+        return form_major(self.version)
+
+    @cached_property
     def pad_rotation(self) -> dict[str, Udeg]:
         board = self.design.board
         return {pad.id: fp.rotation for fp in (board.footprints if board else ()) for pad in fp.pads}
@@ -729,7 +759,7 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
     elif isinstance(entity, Via):
         items = _emit_via(entity, ctx.nets)
     elif isinstance(entity, (Zone, Keepout)):
-        items = _emit_zone(entity, ctx.nets)
+        items = _emit_zone(entity, ctx.nets, major=ctx.major)
         if isinstance(entity, Zone):
             items["fills"] = [_rebuild_fill(entity, k, fill, ctx) for k, fill in enumerate(entity.fills)]
     elif isinstance(entity, Text):
@@ -1308,11 +1338,22 @@ class _Reader:
         fills: list[ZoneFill] = []
         groups: dict[str, Sequence[Slot]] = {}
         settings = dict.fromkeys((attr for _, attr in KEEPOUT_SETTINGS), False)
+        major = form_major(ctx.version)
+        read = zonelib.project_settings(item.nodes() if keepout_node is None else (), major=major)
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
             head = child.name
-            if head == "net":
+            if head in read.reasons:
+                # a setting child outside the model: kept as written, its readable values projected
+                reason = read.reasons[head]
+                if head in read.inexact:
+                    what = "angle" if "angle" in reason else "length"
+                    self.issue(f"kicad.board.inexact-{what}", f"{reason}; kept as written", child_loc)
+                    self.keep(slots, index, child, chain)
+                else:
+                    self.keep_unmodelled(f"{reason}; kept as written", slots, index, child, child_loc, chain)
+            elif head == "net":
                 found, modelled = self.net(child, child_loc)
                 if keepout_node is not None and found is not None:
                     self.keep_unmodelled("a rule area with a net", slots, index, child, child_loc, chain)
@@ -1378,8 +1419,12 @@ class _Reader:
                 priority=priority,
                 fills=tuple(fills),
                 name=name,
+                settings=read.settings,
+                filled=read.filled,
+                locked=read.locked,
             )
-        self.check(item, loc, slots, _emit_zone(entity, self.emit_nets), chain, nested=("fills",))
+        emitted = _emit_zone(entity, self.emit_nets, major=major)
+        self.check(item, loc, slots, emitted, chain, nested=("fills",))
         return dataclasses.replace(entity, ext={"kicad": slotlib.to_ext({".": slots, **groups})})
 
     def keepout(self, child: Node, settings: dict[str, bool]) -> bool:
@@ -1644,8 +1689,11 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
     "arc", "attr", "center", "comment", "company", "copperpour", "date", "filled_polygon", "footprints",
-    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "hide", "island", "justify", "keepout", "locked",
-    "mid", "name", "pads", "path", "priority", "rev", "title", "title_block", "tracks", "vias",
+    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "hatch_border_algorithm", "hatch_gap",
+    "hatch_min_hole_area", "hatch_orientation", "hatch_smoothing_level", "hatch_smoothing_value",
+    "hatch_thickness", "hide", "island", "island_area_min", "island_removal_mode", "justify", "keepout",
+    "locked", "mid", "mode", "name", "pads", "path", "priority", "radius", "rev", "smoothing", "title",
+    "title_block", "tracks", "vias", "zone_connect",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0)."""
@@ -1662,13 +1710,20 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
-        "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "uuid"),
+        "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "zone_connect", "uuid"),
         "segment": ("start", "end", "width", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "layer", "net", "uuid"),
         "via": (*VIA_POSITIONAL, "at", "size", "drill", "layers", "net", "uuid"),
         "zone": (
-            "net", "net_name", "layer", "layers", "uuid", "name", "priority", "keepout", "polygon",
+            "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
+            "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
             "filled_polygon",
+        ),
+        "connect_pads": ("connection", "clearance"),
+        "fill": (
+            "filled", "mode", "thermal_gap", "thermal_bridge_width", "smoothing", "radius",
+            "island_removal_mode", "island_area_min", "hatch_thickness", "hatch_gap", "hatch_orientation",
+            "hatch_smoothing_level", "hatch_smoothing_value", "hatch_border_algorithm", "hatch_min_hole_area",
         ),
         "polygon": ("pts",),
         "filled_polygon": ("layer", "island", "pts"),
@@ -1691,10 +1746,15 @@ POSITIONAL: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "property": ("name", "value"),
         "pad": PAD_POSITIONAL,
         "via": VIA_POSITIONAL,
+        "connect_pads": ("connection",),
+        "fill": ("filled",),
         "gr_text": TEXT_POSITIONAL,
     }
 )
 """The entries of ``CANONICAL_ORDER`` that are leading atoms, not child heads."""
+FILLED_AREAS_THIN: Node = node("filled_areas_thickness", Atom.symbol("no"))
+"""What a created zone writes for target 9, so that its fill polygons are read as areas and not as
+outlines drawn with a pen of the minimum thickness (``board.md``, ``H-K-ZONE-FAT9``)."""
 DEFAULT_THICKNESS = 1_600_000
 """Board thickness of a created board without a stack-up (the skeleton's value)."""
 OUTLINE_WIDTH = 100_000
@@ -1823,6 +1883,18 @@ def _effects(size: Size, thickness: int, *, mirror: bool) -> Node:
 
 def _locator(entity: Entity) -> str:
     return entity.provenance.locator if entity.provenance is not None else entity.id
+
+
+def _child_locator(entity: Entity, slots: Sequence[Slot], index: int, head: str, field: str) -> str:
+    """The locator of the opaque child at ``slots[index]``: the entity's, then ``/head[k]`` (k counts the
+    earlier children of that head, modelled or opaque)."""
+    k = 0
+    for slot in slots[:index]:
+        if isinstance(slot, Modeled):
+            k += slot.field == field
+        else:
+            k += _fragment_head(slot) == head
+    return f"{_locator(entity)}/{head}[{k}]"
 
 
 def _write_order(entities: Iterable[E]) -> list[E]:
@@ -2038,7 +2110,18 @@ class _Writer:
                 else {f for f, unset in (("width", not entity.width), ("filled", not entity.filled)) if unset}
             )
         if isinstance(entity, Zone):
-            return {f for f, unset in (("name", not entity.name), ("priority", not entity.priority)) if unset}
+            unset = {
+                f for f, unset in (("name", not entity.name), ("priority", not entity.priority)) if unset
+            }
+            if created:
+                return unset
+            # a read zone gains a setting child only when its part of the model left the defaults
+            parts = zonelib.setting_parts(entity.settings, filled=entity.filled, locked=entity.locked)
+            return unset | {
+                field
+                for head, field in ZONE_SETTING_FIELDS.items()
+                if parts[head] == zonelib.DEFAULT_PARTS[head]
+            }
         if isinstance(entity, FootprintInstance):
             component = self.components.get(entity.component_id)
             path = component.path if component is not None else ""
@@ -2064,9 +2147,13 @@ class _Writer:
         elif isinstance(entity, Via):
             items = _emit_via(entity, self.nets)
         elif isinstance(entity, (Zone, Keepout)):
-            items = _emit_zone(entity, self.nets)
+            items = _emit_zone(entity, self.nets, major=self.target)
             if isinstance(entity, Zone):
                 items["fills"] = [self.fill(entity, k, fill) for k, fill in enumerate(entity.fills)]
+                if created:
+                    items["hatch"] = [zonelib.HATCH_EDGE]
+                    if self.target < 10:
+                        items["filled_areas_thickness"] = [FILLED_AREAS_THIN]
         elif isinstance(entity, Text):
             items = _emit_text(entity)
             items["effects"] = [_effects(entity.size, entity.thickness, mirror=entity.layer.startswith("B."))]
@@ -2422,6 +2509,27 @@ class _Writer:
                     "locked", _locator(entity), f"{dumps(child, style='compact')} is kept as written"
                 )
             return "locked"
+        if isinstance(entity, Zone) and name in ZONE_SETTING_FIELDS:
+            differences = zonelib.projection_differences(
+                child, entity.settings, filled=entity.filled, locked=entity.locked, major=self.target
+            )
+            if "filled" in differences:
+                # the fill flag alone is rewritten in place: the rest of the child stays as written
+                flagged = zonelib.with_fill_flag(child, entity.filled)
+                slot = slots[i]
+                if flagged is not None and isinstance(slot, Opaque):
+                    slots[i] = Opaque(dumps(flagged, style="compact"), slot.min_version)
+                    differences = tuple(d for d in differences if d != "filled")
+            for what in differences:
+                where = _child_locator(entity, slots, i, name, ZONE_SETTING_FIELDS[name])
+                self.read_only(what, where, f"{dumps(child, style='compact')} is kept as written")
+            return ZONE_SETTING_FIELDS[name]
+        if isinstance(entity, Pad) and name == "zone_connect":
+            first = opaque_zone_connects(slots)[0][0]
+            if i == first and projected_zone_connect(slots) != entity.zone_connection:
+                where = _child_locator(entity, slots, i, name, "zone_connection")
+                self.read_only("zone_connection", where, "the zone connection is written as read")
+            return "zone_connection"
         if isinstance(entity, Pad) and name == "padstack":
             model = entity.padstack
             expected = (
@@ -2570,7 +2678,9 @@ __all__ = [
     "WRITE_EVIDENCE",
     "WRITE_ISSUE_CODES",
     "ZONE_FIELDS",
+    "ZONE_SETTING_FIELDS",
     "EmitContext",
+    "form_major",
     "ModelSource",
     "field_effects",
     "field_hidden",

@@ -136,6 +136,10 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 | `Via.via_type` | `through` (default), `blind`, `buried` or `micro` |
 | `ZoneFill.island` | the fill is an island; a zone may have several fills per layer, in file order |
 | `Zone.name` | the zone's name, `""` when it has none |
+| `Zone.settings` | how the zone is filled (section "Zone settings") |
+| `Zone.filled` | the board's own fill flag, kept apart from `Zone.fills`: a zone may be filled with an empty result |
+| `Zone.locked` | the zone is locked against edits in the board editor |
+| `Pad.zone_connection` | how zones connect to the pad: `solid`, `thermal`, `none` or `thru_hole_only`; `None` means that the pad follows its footprint and the zone |
 
 - **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
@@ -149,6 +153,40 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
+
+## Zone settings
+
+Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change
+c0031); KiCad facts in `docs/formats/kicad/board.md`, "Zone settings".
+
+`ZoneSettings` and `ZoneHatch` are frozen value objects without the entity header. Every `Zone` has a
+`settings` value; the defaults are the values KiCad gives a new zone, so a zone created with
+`ZoneSettings()` behaves like one drawn in KiCad with the default dialog.
+
+| `ZoneSettings` field | Meaning | Default |
+|---|---|---|
+| `clearance` | the smallest distance the fill keeps from copper of other nets; a larger net-class or rule clearance still wins | 500 000 nm |
+| `min_thickness` | the smallest width of copper that a fill keeps | 250 000 nm |
+| `connection` | how the fill meets pads of its own net: `solid`, `thermal` (reliefs with spokes), `none`, or `thru_hole_only` (reliefs on through-hole pads, solid on the others) | `thermal` |
+| `thermal_gap` | the gap of a thermal relief | 500 000 nm |
+| `thermal_spoke_width` | the width of a relief's spokes | 500 000 nm |
+| `island_removal` | `always` removes copper that no pad connects, `never` keeps it, `below_area` keeps islands of at least `min_island_area` | `always` |
+| `min_island_area` | square nanometres | 10 000 000 000 000 (10 mm²) |
+| `smoothing`, `smoothing_radius` | `none`, `chamfer` or `fillet` at the corners of the fill, and its size | `none`, 0 |
+| `fill_mode` | `solid` or `hatched` | `solid` |
+| `hatch` | a `ZoneHatch`: `thickness` (1 mm), `gap` (1.5 mm), `orientation` (0), `smoothing_level` (0), `smoothing_value` (`"0.1"`), `border` (`hatch_thickness` or `min_thickness`) and `min_hole_area` (`"0.15"`) | `ZoneHatch()` |
+
+- **Ratios are strings.** `smoothing_value` and `min_hole_area` are decimal strings: the model holds no
+  float.
+- **Effective settings.** `settings.effective()` returns a copy in which every value that cannot change
+  the fill is at its default: `hatch` of a solid fill, `smoothing_radius` without smoothing, and
+  `min_island_area` unless `island_removal` is `below_area`. Comparisons and digests use it, so a value
+  without effect never counts as a change.
+- **`filled` is state, not a setting.** It says that the board holds the result of a fill, which may be
+  empty. It does not enter `effective()`.
+- **Pads.** `Pad.zone_connection` overrides the zone for one pad. Board pads and library pads carry it
+  alike, so a library footprint can make its exposed pad solid in a thermal pour.
+- **Old documents.** The four fields have defaults, so a `board.json` written before them still loads.
 
 ## Placed copies
 

@@ -15,6 +15,7 @@ tables (``docs/dsl.md``, "Vendored libraries").
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -278,6 +279,10 @@ def _run_altium(
     if board_path is not None:
         board = kicad_pcb.read_board(board_path, issues=reader_issues)
         source = CopperSource(board, "board", str(args.copper_from))
+        if model.board is not None and model.board.zones:
+            # the routed board is the one copper source: its zones stand for the script's zone() calls
+            # (c0031), which the KiCad build wrote into it
+            model = dataclasses.replace(model, board=dataclasses.replace(model.board, zones=()))
         info = kicad_pcb.source_info(board)
         copper_input = {
             "path": str(args.copper_from),

@@ -19,7 +19,7 @@ from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, Part, Placement
-from fenolite.model.board import Board, Outline
+from fenolite.model.board import Board, Outline, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
@@ -44,6 +44,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "netclass": ("cls", "netclass:<name>"),
         "interface": ("itf", "interface:<kind>:<name>"),
         "layer": ("lay", "layer:<KiCad name>"),
+        "zone": ("zon", "zone:<name>"),
     }
 )
 """Object → (id prefix, key form); ids are ``derived_id(prefix, "dsl", key)``."""
@@ -109,11 +110,27 @@ def to_model(design: Design) -> ModelDesign:
     )
     modules = tuple(_module(m) for _, m in sorted(design.modules.items()))
     outline = None
+    zones: tuple[Zone, ...] = ()
     if design.size is not None:
         w, h = design.size
         x0, y0 = BOARD_ORIGIN.x, BOARD_ORIGIN.y
         points = (Point(x0, y0), Point(x0 + w, y0), Point(x0 + w, y0 + h), Point(x0, y0 + h))
         outline = Outline(id=key_id("outline"), points=points)
+        zones = tuple(
+            Zone(
+                id=key_id("zone", name),
+                outline=(
+                    points if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)
+                ),
+                name=name,
+                layers=spec.layers,
+                net_id=key_id("net", spec.net) if spec.net is not None else None,
+                priority=spec.priority,
+                settings=spec.settings,
+                locked=spec.locked,
+            )
+            for name, spec in sorted(design.zones.items())
+        )
     return ModelDesign(
         header=DesignHeader(
             id=key_id("design"), name=design.name, schema_version=SCHEMA_VERSION, fenolite_version=__version__
@@ -126,7 +143,7 @@ def to_model(design: Design) -> ModelDesign:
             modules=modules,
             no_connects=marks,
         ),
-        board=Board(id=key_id("board"), outline=outline),
+        board=Board(id=key_id("board"), outline=outline, zones=zones),
         rules=RuleSet(id=key_id("rules")),
         manufacturing=Manifest(id=key_id("manifest")),
     )
