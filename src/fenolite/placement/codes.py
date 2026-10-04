@@ -27,9 +27,9 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     }
 )
 """Every code that ``placement``, ``backends.kicad.replace`` and the ``place`` command emit."""
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PLACE-MOVE", "H-K-PLACE-TOUCH"))
-"""``INFERRED`` until both rows are ``KICAD-VERIFIED`` on both majors. A placement is never a verdict:
-KiCad's DRC judges the board."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PLACE-MOVE", "H-K-PLACE-TOUCH"))
+"""``KICAD-VERIFIED`` while both rows are ``KICAD-VERIFIED`` on both majors, else ``INFERRED``. A placement
+is never a verdict: KiCad's DRC judges the board."""
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:

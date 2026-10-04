@@ -25,8 +25,8 @@ from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PLACE-MOVE",))
-"""Raised to ``KICAD-VERIFIED`` when ``H-K-PLACE-MOVE`` is settled on both majors."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PLACE-MOVE",))
+"""``KICAD-VERIFIED``: ``H-K-PLACE-MOVE`` is settled on both majors."""
 BAG = "kicad"
 FIELD_VALUES: tuple[str, ...] = (
     "position",

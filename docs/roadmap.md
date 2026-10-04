@@ -84,7 +84,7 @@ rebuilds.
 | c0019 | `layout-preserve` | layout kept across rebuilds | proposed | c0011, c0013, c0027 | 8.25 |
 | c0020 | `check-netlist-drc` | DRC findings, netlist compare, corpus RT2, negative tests | proposed | c0013 | 8.75 |
 | c0021 | `kicad-libs-cache` | library fetch, cache, resolution probes | done | c0017, c0019, c0027 | 9.5 |
-| c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | being implemented | c0019, c0028, c0030 | 6 |
+| c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | done | c0019, c0028, c0030 | 6 |
 | c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | proposed | c0016 | 10 |
 | c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | done | c0013 | 5.25 |
 | c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | proposed | every v0.1 change | 5.75 |

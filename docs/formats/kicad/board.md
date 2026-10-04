@@ -485,9 +485,9 @@ or side change is refused (`place.no-definition`).
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A footprint whose `at` position changed, with every child unchanged, is read by `kicad-cli` at the new position with the same rotation, side and pad nets | S-0020, S-0022, S-0037 | INFERRED | H-K-PLACE-MOVE |
-| A footprint re-placed from its library definition at a new rotation or side, with the old uuid and pad nets, is read by `kicad-cli` at the requested placement | S-0020, S-0022, S-0037 | INFERRED | H-K-PLACE-MOVE |
-| Two courtyards that share an edge or a corner, with disjoint interiors, give no `courtyards_overlap` violation | S-0038, S-0020 | INFERRED | H-K-PLACE-TOUCH |
+| A footprint whose `at` position changed, with every child unchanged, is read by `kicad-cli` at the new position with the same rotation, side and pad nets | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-MOVE |
+| A footprint re-placed from its library definition at a new rotation or side, with the old uuid and pad nets, is read by `kicad-cli` at the requested placement | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-MOVE |
+| Two courtyards that share an edge or a corner, with disjoint interiors, give no `courtyards_overlap` violation | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-TOUCH |
 
 ### Writer issue codes
 

@@ -7,7 +7,8 @@ KiCad facts are in `docs/formats/kicad/board.md` ("Board outline as rings", "Mov
 command contract is in `docs/cli-contract.md` ("`place`").
 
 A placement is never a verdict: KiCad's DRC judges the board (`fenolite check`). Every `place` reply
-carries `evidence.level` `INFERRED`.
+carries `evidence.level` `KICAD-VERIFIED`, which covers the moved footprints and the touching courtyards
+(`H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`), not the layout.
 
 ## Strategies
 

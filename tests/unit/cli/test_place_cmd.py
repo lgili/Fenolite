@@ -95,7 +95,7 @@ def test_grid_places_staged_parts(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
         "x": after["D1"].position.x, "y": after["D1"].position.y, "rotation": 0, "side": "top",
     }  # fmt: skip
     assert result["legality"] == {} and not [c for c in codes(env) if c.startswith("place.")]
-    assert env["evidence"]["level"] == "INFERRED"
+    assert env["evidence"]["level"] == "KICAD-VERIFIED"
     assert env["evidence"]["hypotheses"] == ["H-K-PLACE-MOVE", "H-K-PLACE-TOUCH"]
     assert [w["path"] for w in env["receipt"]["written"]] == [str(Path("p") / "blink.kicad_pcb")]
     assert env["input"]["path"] == "blink.kicad_pcb" and env["input"]["kind"] == "kicad_pcb"
