@@ -84,3 +84,28 @@ upper bounds, and comparisons between rows are rough.
   CPU against 3064 s. Per test, the wall time went from 0.69 s to 0.22 s (3.2 times faster) while
   other agents kept the machine at a load average of 18 to 31.
 - The maintainer's earlier figure for a serial `make check` on a quiet machine was 11 minutes.
+
+### CI effect (2026-10-04, change c0049)
+
+The first run with the parallel steps is https://github.com/lgili/Fenolite/actions/runs/37178050484
+(commit 87c4244). The last serial run that finished on `main` is https://github.com/lgili/Fenolite/actions/runs/37171749778
+(commit 75f3a87); three changes landed between the two, so the suites are not the same.
+
+| Job | Serial: job, pytest | Parallel: job, pytest | Serial outcomes | Parallel outcomes |
+|---|---|---|---|---|
+| `unit` (ubuntu) | 139 s, 115.82 s | 108 s, 84.14 s | 4304 passed, 1080 skipped | 4490 passed, 1109 skipped |
+| `unit` (macos) | 246 s, 201.36 s | 81 s, 56.46 s | 4304 passed, 1080 skipped | 4490 passed, 1109 skipped |
+| `kicad-9` | 242 s, 208.50 s | 274 s, 239.96 s | 388 passed, 340 skipped, 1 xfailed | 426 passed, 343 skipped, 1 xfailed |
+| `kicad-10` | 1485 s, 1440.18 s | 1088 s, 1051.89 s | 1140 passed, 21 skipped | 1182 passed, 21 skipped |
+| whole run | 1492 s (24 min 52 s) | 1095 s (18 min 15 s) | all jobs passed | all jobs passed |
+
+- Totals. Each job grew by exactly the tests added between the two commits, counted with
+  `--collect-only` on both trees: 215 for the whole suite (`unit`, 5384 to 5599), 42 for
+  `tests/kicad tests/corpus` (`kicad-10`, 1161 to 1203) and 41 for `tests/kicad` (`kicad-9`, 729 to
+  770). No test failed in either run.
+- `kicad-9` lists every outcome (`-rA`): the 386 passed and xfailed test ids that both logs list
+  have the same outcome, and the 38 ids only in the parallel log are the tests of
+  `tests/kicad/copper`, added after the serial run.
+- Times. `kicad-10` bounds the run: its pytest step went from 24 min 0 s to 17 min 32 s with 42 more
+  tests. The design expected a drop to about a third; `--dist loadfile` is bounded by its longest
+  file (see the measurements above). `kicad-9` did not get faster: 31 s more with 41 more tests.
