@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
 
 from fenolite.core.coords import Point
-from fenolite.core.units import Udeg
+from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.units import as_nm, as_udeg
 
@@ -30,6 +30,21 @@ RESERVED_PROPERTIES: frozenset[str] = frozenset(
 two, the others are fields of the footprint library (``docs/dsl.md``, "User properties")."""
 RESERVED_PREFIXES: tuple[str, ...] = ("fenolite.", "ki_")
 """Property-name prefixes a part cannot use: Fenolite's namespace and KiCad's own names."""
+FIELD_NAMES: tuple[str, ...] = ("Reference", "Value")
+"""The footprint fields a script can place (``docs/dsl.md``, "Field placement")."""
+FIELD_LAYERS: tuple[str, ...] = ("silk", "fab")
+FIELD_SIDES: tuple[str, ...] = ("top", "bottom", "left", "right")
+FIELD_JUSTIFY: tuple[str, ...] = (
+    "left",
+    "right",
+    "top",
+    "bottom",
+    "left top",
+    "left bottom",
+    "right top",
+    "right bottom",
+)
+"""One or two words: ``left`` or ``right`` first, then ``top`` or ``bottom``."""
 
 
 def _properties(ref: str, properties: object) -> Mapping[str, str]:
@@ -104,6 +119,30 @@ class Request:
     locked: bool
 
 
+@dataclass(frozen=True, slots=True)
+class FieldRequest:
+    """A placement request for one footprint field of a part, as the script gave it: lengths in nm, the
+    angle in µdeg, and ``None`` for every value that was not given.
+
+    ``dx`` and ``dy`` are measured in the board frame from the part's placement point and ``rotation`` is
+    the field's angle on the board; ``layer`` is ``silk`` or ``fab`` on the part's side; ``outside`` names
+    a side of the courtyard box, with ``gap`` as the distance from it.
+    """
+
+    name: str
+    dx: Nm | None = None
+    dy: Nm | None = None
+    rotation: Udeg | None = None
+    layer: str | None = None
+    visible: bool | None = None
+    size: Nm | None = None
+    thickness: Nm | None = None
+    justify: str | None = None
+    outside: str | None = None
+    gap: Nm | None = None
+    locked: bool = False
+
+
 @dataclass(frozen=True)
 class PinHandle:
     """One designator of one part, as written (a pin number or a pin name)."""
@@ -137,6 +176,8 @@ class Part:
         self.properties: Mapping[str, str] = _properties(ref, properties)
         self.parent: Container | None = None
         self.request: Request | None = None
+        self.field_requests: dict[str, FieldRequest] = {}
+        """The field placement requests of ``field()``, by field name."""
         self.connections: dict[str, Net] = {}
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
@@ -186,6 +227,85 @@ class Part:
             raise DslError(f"part {self.ref}: locked must be a bool")
         self.request = Request(as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked)
 
+    def field(
+        self,
+        name: str,
+        *,
+        dx: object = None,
+        dy: object = None,
+        rot: int | str | float | None = None,
+        layer: str | None = None,
+        visible: bool | None = None,
+        size: object = None,
+        thickness: object = None,
+        justify: str | None = None,
+        outside: str | None = None,
+        gap: object = None,
+        locked: bool = False,
+    ) -> None:
+        """Request a placement of the footprint field ``name`` (``Reference`` or ``Value``), once per name.
+
+        ``dx`` and ``dy`` are lengths in the board frame from the part's placement point and ``rot`` is the
+        field's angle on the board, so "2.5 mm above the part, horizontal" stays true when the part
+        turns. ``outside`` puts the field beside the courtyard on one side instead; ``gap`` is its
+        distance. ``locked`` makes the request win over a field edited in KiCad (``docs/lens.md``).
+        """
+        what = f"part {self.ref}: field {name!r}"
+        if name not in FIELD_NAMES:
+            raise DslError(f"{what}: only {' and '.join(FIELD_NAMES)} can be placed")
+        if name in self.field_requests:
+            raise DslError(f"part {self.ref}: field {name} already has a placement request")
+        for label, flag in (("visible", visible), ("locked", locked)):
+            if flag is not None and not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"{what}: {label} must be a bool, not {flag!r}")
+        if (dx is None) != (dy is None):
+            raise DslError(f"{what}: dx and dy must be given together")
+        if layer is not None and layer not in FIELD_LAYERS:
+            raise DslError(f"{what}: layer must be 'silk' or 'fab', not {layer!r}")
+        if justify is not None:
+            if not isinstance(justify, str) or " ".join(justify.split()) not in FIELD_JUSTIFY:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"{what}: justify is 'left' or 'right', then 'top' or 'bottom', not {justify!r}"
+                )
+            justify = " ".join(justify.split())
+        if outside is not None:
+            if outside not in FIELD_SIDES:
+                raise DslError(f"{what}: outside must be one of {', '.join(FIELD_SIDES)}, not {outside!r}")
+            taken = [
+                k for k, v in (("dx", dx), ("dy", dy), ("rot", rot), ("justify", justify)) if v is not None
+            ]
+            if taken:
+                raise DslError(f"{what}: outside decides the position, so {', '.join(taken)} cannot be given")
+        elif gap is not None:
+            raise DslError(f"{what}: gap is allowed only with outside")
+        lengths: dict[str, Nm | None] = {}
+        for label, value in (("dx", dx), ("dy", dy), ("size", size), ("thickness", thickness), ("gap", gap)):
+            lengths[label] = None if value is None else as_nm(value, name=f"{what}: {label}")
+        for label in ("size", "thickness"):
+            found = lengths[label]
+            if found is not None and found <= 0:
+                raise DslError(f"{what}: {label} must be positive")
+        if lengths["gap"] is not None and lengths["gap"] < 0:
+            raise DslError(f"{what}: gap must be at least 0")
+        rotation = None if rot is None else as_udeg(rot, name=f"{what}: rot")
+        request = FieldRequest(
+            name,
+            lengths["dx"],
+            lengths["dy"],
+            rotation,
+            layer,
+            visible,
+            lengths["size"],
+            lengths["thickness"],
+            justify,
+            outside,
+            lengths["gap"],
+            locked,
+        )
+        if request == FieldRequest(name, locked=locked):
+            raise DslError(f"{what}: the request sets nothing")
+        self.field_requests[name] = request
+
     def __repr__(self) -> str:
         return f"Part({self.ref!r}, {self.lib_id!r})"
 
@@ -233,7 +353,12 @@ def no_connect(*pins: PinHandle) -> None:
 
 
 __all__ = [
+    "FIELD_JUSTIFY",
+    "FIELD_LAYERS",
+    "FIELD_NAMES",
+    "FIELD_SIDES",
     "NAME",
+    "FieldRequest",
     "Net",
     "Part",
     "PinHandle",

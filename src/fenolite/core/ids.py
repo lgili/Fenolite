@@ -25,6 +25,7 @@ PREFIXES: frozenset[str] = frozenset(
         "cmp", "pin", "net", "cls", "itf", "mod",  # circuit
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
         "zon", "kpo", "txt", "gfx", "hol", "out",  # board
+        "fld",  # footprint fields
         "rst", "rul",  # rules
         "mfn",  # manufacturing
         "fpd", "sym",  # library definitions

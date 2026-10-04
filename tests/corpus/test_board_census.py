@@ -15,6 +15,7 @@ import pytest
 from _boardcorpus import (
     READABLE_ITEMS,
     Entry,
+    census_fields,
     census_headers,
     census_kept_opaque,
     census_numbers,
@@ -48,6 +49,14 @@ def test_kept_opaque_reasons() -> None:
     data = census_kept_opaque(entries())
     census("kept_opaque", "native", data)
     print("kept-opaque reasons:", data)
+
+
+def test_footprint_fields() -> None:
+    data = census_fields(entries())
+    census("fields", "native", data)
+    print("footprint fields:", data)
+    total = sum(counts.get("fields", 0) for counts in data["counts"].values())
+    assert total > 0
 
 
 def test_uuid_repeats() -> None:

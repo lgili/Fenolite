@@ -85,6 +85,9 @@ def test_no_other_uuid_moves() -> None:
         return found
 
     assert fragment_uuids(plain) == fragment_uuids(extended) and fragment_uuids(plain)
+    # the properties are fields now (c0030): their uuids do not move either
+    kept = {f.name: f.native_ids["kicad"] for f in extended.fields if f.name != PATH_PROPERTY}
+    assert kept == {f.name: f.native_ids["kicad"] for f in plain.fields} and kept
 
 
 def test_bottom_side() -> None:
@@ -95,12 +98,8 @@ def test_bottom_side() -> None:
         key="R1",
         side="bottom",
     )
-    from fenolite.backends.kicad import slots as slotlib
-    from fenolite.model.base import Opaque
-
-    fragments = [s.fragment for s in slotlib.from_ext(placed.ext["kicad"]) if isinstance(s, Opaque)]
-    (frag,) = [f for f in fragments if f.startswith(f'(property "{PATH_PROPERTY}"')]
-    assert '(layer "B.Fab")' in frag and "(hide yes)" in frag
+    (field,) = [f for f in placed.fields if f.name == PATH_PROPERTY]
+    assert field.layer == "B.Fab" and not field.visible and field.mirrored
 
 
 def test_emit_check_is_clean_on_both_targets() -> None:

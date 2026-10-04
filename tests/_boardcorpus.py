@@ -156,6 +156,37 @@ def census_zones(entries: Iterable[Entry]) -> tuple[dict[str, int], list[str]]:
     return dict(counts), problems
 
 
+def census_fields(entries: Iterable[Entry]) -> dict[str, Any]:
+    """Footprint fields per origin (change c0030): fields, the properties that stay projected slots of
+    their footprint, the field children kept opaque, and the kept-opaque reasons inside fields."""
+    counts: dict[str, Counter[str]] = {}
+    reasons: dict[str, Counter[str]] = {}
+    for e in entries:
+        assert e.design.board is not None
+        found = counts.setdefault(e.origin, Counter())
+        for footprint in e.design.board.footprints:
+            found["footprints"] += 1
+            found["fields"] += len(footprint.fields)
+            for slot in slotlib.from_ext(footprint.ext["kicad"]):
+                if isinstance(slot, Opaque) and slot.fragment.startswith("(property"):
+                    found["properties kept as footprint slots"] += 1
+            for field in footprint.fields:
+                found[f"name:{field.name}" if field.name in ("Reference", "Value") else "name:other"] += 1
+                found["hidden"] += not field.visible
+                found["mirrored"] += field.mirrored
+                found["without thickness"] += field.thickness is None
+                found["justified"] += (field.h_justify, field.v_justify) != ("center", "center")
+                for slot in slotlib.from_ext(field.ext["kicad"]):
+                    if isinstance(slot, Opaque) and slot.fragment.startswith("("):
+                        found[f"opaque child:{slot.fragment[1:].split(' ', 1)[0].rstrip(')')}"] += 1
+        why = reasons.setdefault(e.origin, Counter())
+        for issue in e.issues:
+            if issue.code == "kicad.board.kept-opaque" and "/property[" in issue.where:
+                message = re.sub(r"'[^']*'", "'…'", issue.message)
+                why[f"{context(issue.where)}: {message}"] += 1
+    return {"counts": _per_origin(counts), "kept_opaque": _per_origin(reasons)}
+
+
 def census_validation(entries: Iterable[Entry]) -> dict[str, dict[str, int]]:
     """``Design.validate()`` findings by code and severity, per origin (counted, not asserted)."""
     found: dict[str, Counter[str]] = {}

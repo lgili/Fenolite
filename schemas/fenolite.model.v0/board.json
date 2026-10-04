@@ -269,8 +269,93 @@
       },
       "additionalProperties": false
     },
+    "FootprintField": {
+      "description": "A text field of a placed footprint (Reference, Value, a user property): placement and appearance.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "h_justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "v_justify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "mirrored": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "position",
+        "layer",
+        "size"
+      ]
+    },
     "FootprintInstance": {
-      "description": "A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order.",
+      "description": "A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order;",
       "type": "object",
       "properties": {
         "id": {
@@ -339,6 +424,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/Pad"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FootprintField"
           }
         }
       },

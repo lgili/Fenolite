@@ -18,7 +18,7 @@ from fenolite.core.ids import derived_id
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
-from fenolite.dsl.part import Part, Placement
+from fenolite.dsl.part import FieldRequest, Part, Placement
 from fenolite.model.board import Board, Outline
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
@@ -160,6 +160,16 @@ def placements(design: Design) -> Mapping[str, Placement]:
     return MappingProxyType(out)
 
 
+def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:
+    """The field placement requests of every part that has one: component path, in path order, → its
+    requests in name order (``docs/dsl.md``, "Field placement")."""
+    out: dict[str, tuple[FieldRequest, ...]] = {}
+    for path, part in sorted(design.parts.items()):
+        if part.field_requests:
+            out[path] = tuple(request for _, request in sorted(part.field_requests.items()))
+    return MappingProxyType(out)
+
+
 def planes(design: Design) -> Mapping[str, str]:
     """The internal planes of ``design.board(planes=…)``: inner layer name → net name, in layer order.
 
@@ -191,6 +201,7 @@ __all__ = [
     "DSL_BACKEND",
     "KEYS",
     "PATH_PROPERTY",
+    "fields",
     "key_id",
     "moves",
     "placements",

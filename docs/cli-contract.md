@@ -175,8 +175,12 @@ files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib
 vendored footprints under `lib/`. `--discard-layout` reads no existing file and builds from scratch.
 `result.preserved` reports `board` (whether an existing board was read), `kept`, `replaced` and `added`
 (component paths), `orphans` and `board_only` (references), `dropped` (counts of tracks, arcs, vias and
-zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path → old path) and
-`reader_infos` (a count of the board reader's infos).
+zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path → old path),
+`reader_infos` (a count of the board reader's infos) and `fields`: three sorted lists of
+`"<component path>:<field name>"`, `kept` (an unlocked `Part.field()` request differs from the board's
+field, which wins), `forced` (a locked request changed a board field) and `carried` (a field of a
+re-placed footprint took the board's values); all three are empty without an existing board
+(`docs/lens.md`, "Footprint fields").
 
 A script may declare copper (`docs/dsl.md`, "Copper"; `docs/copper.md`). The build resolves it after
 placement, and the KiCad `result.copper` reports `intents`, `tracks` and `vias` (created), and

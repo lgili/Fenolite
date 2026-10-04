@@ -1,10 +1,10 @@
 ## ADDED Requirements
 
 ### Requirement: Field placements in the DSL
-`Part.field(name, *, dx=None, dy=None, rot=None, layer=None, visible=None, size=None, thickness=None, justify=None, outside=None, gap=None, locked=False)` SHALL record one placement request for the field `name` of the part's footprint, and `dsl.fields(design) -> Mapping[str, tuple[FieldRequest, ...]]` SHALL return the requests of every added part, keyed by component path in path order, each tuple in name order.
+`Part.field(name, *, dx=None, dy=None, rot=None, layer=None, visible=None, size=None, thickness=None, justify=None, outside=None, gap=None, locked=False)` SHALL record one placement request for the field `name` of the part's footprint, and `dsl.fields(design) -> Mapping[str, tuple[FieldRequest, ...]]` SHALL return the requests of every added part that has one, keyed by component path in path order, each tuple in name order; a part without a request has no key.
 - `name` MUST be `"Reference"` or `"Value"`.
 - `dx` and `dy` are lengths ("DSL lengths and angles") in the board frame of "Board and placements in the DSL", measured from the part's placement point, and MUST be given together. `rot` is the field's angle on the board, in degrees, normalised to [0°, 360°).
-- `layer` is `"silk"` or `"fab"`, on the part's side. `size` and `thickness` are positive lengths; `size` gives both the glyph width and height. `justify` is one or two words: `left` or `right` first, then `top` or `bottom`. `visible` and `locked` are bools.
+- `layer` is `"silk"` or `"fab"`, on the part's side. `size` and `thickness` are positive lengths; `size` gives both the glyph width and height. `justify` is one string of one or two words: `left` or `right` first, then `top` or `bottom`; it is recorded with single spaces. `visible` and `locked` are bools.
 - `outside` is `"top"`, `"bottom"`, `"left"` or `"right"`. With it, `dx`, `dy`, `rot` and `justify` MUST be `None`. `gap` is a length of at least 0 and is allowed only with `outside`.
 - `DslError` MUST be raised at the call for another name, for a second `field()` call for the same name of one part, for a request that sets nothing, and for any value outside these rules.
 - `FieldRequest` is a frozen dataclass with `name`, `dx`, `dy`, `rotation`, `layer`, `visible`, `size`, `thickness`, `justify`, `outside`, `gap` and `locked`, with lengths in nm, angles in µdeg and `None` for every value not given.

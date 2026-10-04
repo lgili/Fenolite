@@ -5,14 +5,14 @@
 from __future__ import annotations
 
 import pytest
-from _boards import FIXTURE, SCENARIOS
+from _boards import FIXTURE, SCENARIOS, rt1_problems
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.pcb import pad_angle_from_board, pad_angle_to_board, read_board
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
-from fenolite.model.base import Opaque
+from fenolite.model.base import Modeled, Opaque
 from fenolite.model.board import FootprintInstance
 
 DEG = 1_000_000
@@ -80,14 +80,33 @@ def test_components_of_the_authored_board() -> None:
     assert d1.properties["Reference"] == "D1" and not d1.dnp
 
 
-def test_footprint_property_is_projected() -> None:
+def test_footprint_property_is_a_field() -> None:
+    """The MODIFIED "Unmodelled board content is kept as slots" (c0030): a placed property is a modelled
+    child with its own slot list, and only its value atom stays projected."""
     design = read_board(FIXTURE)
     assert design.by_ref["R1"].ref == "R1"
     fp = _fp("R1")
-    props = [
-        s for s in slotlib.from_ext(fp.ext["kicad"]) if isinstance(s, Opaque) and "Reference" in s.fragment
-    ]
-    assert len(props) == 1 and "(effects " in props[0].fragment
+    slots = slotlib.from_ext(fp.ext["kicad"])
+    assert not [s for s in slots if isinstance(s, Opaque) and "Reference" in s.fragment]
+    assert [s for s in slots if s == Modeled("fields")] == [Modeled("fields")] * 2
+    reference = fp.fields[0]
+    assert reference.name == "Reference"
+    assert Opaque('"R1"', "20241229") in slotlib.from_ext(reference.ext["kicad"])
+
+
+def test_bare_property_is_projected() -> None:
+    text = FIXTURE.read_text(encoding="utf-8")
+    marker = "\t\t(attr smd)"
+    assert text.count(marker) == 1
+    text = text.replace(marker, '\t\t(property ki_fp_filters "R_*")\n' + marker)
+    design = read_board(text)
+    component = design.by_ref["R1"]
+    assert design.board is not None
+    fp = next(f for f in design.board.footprints if f.component_id == component.id)
+    assert [f.name for f in fp.fields] == ["Reference", "Value"]
+    assert Opaque('(property ki_fp_filters "R_*")', "20241229") in slotlib.from_ext(fp.ext["kicad"])
+    assert component.properties["ki_fp_filters"] == "R_*"
+    assert rt1_problems(text) == []
 
 
 def test_unmapped_pin_type_keeps_its_text() -> None:

@@ -547,8 +547,9 @@ def test_envelope_over_an_existing_board(tmp_path: Path, monkeypatch: pytest.Mon
     assert "H-K-PCB-READ" in evidence["hypotheses"] and preserved["board"] is True  # type: ignore[index]
     assert set(preserved) == {  # type: ignore[arg-type]
         "board", "kept", "replaced", "added", "orphans", "board_only", "dropped", "fills", "aliases",
-        "reader_infos",
+        "reader_infos", "fields",
     }  # fmt: skip
+    assert preserved["fields"] == {"kept": [], "forced": [], "carried": []}  # type: ignore[index]  # c0030
 
 
 def test_fresh_envelope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

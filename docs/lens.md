@@ -66,9 +66,47 @@ changed footprint (`layout.footprint-replaced`) and a forced placement (`layout.
 The script owns its parts' user properties (`docs/dsl.md`, "User properties"). On a kept footprint, a
 property of the same name (compared after `casefold`) takes the script's name and value and keeps its
 uuid, position and visibility; a missing one is appended after the last property, with a uuid derived
-from the component path and the property name. A property the script does not name stays: one added in
+from the component path and the property name. Such a property is a field (c0030): only the slot of its
+value atom changes, and a missing one is the built copy's field, added after the footprint's last field. A property the script does not name stays: one added in
 KiCad cannot be told from one the script no longer names. `--discard-layout` or a re-placement removes
 it.
+
+## Footprint fields
+
+A footprint's text fields (Reference, Value and every placed property) are modelled, so a rebuild decides
+each of them (`fenolite.lens.fields.merge_fields`, change c0030). The precedence is the placement
+precedence, applied per field:
+
+1. a **locked** request of the script, `part.field(…, locked=True)`;
+2. the **board's** field, as edited in KiCad;
+3. an **unlocked** request;
+4. the **library's** field.
+
+So a label dragged in KiCad stays where it is on every rebuild, and `locked=True` is the way a script, or
+an agent that cannot drag a label, forces a field on an existing board. `--discard-layout` starts again
+from the script. It is a two-way merge without a stored base, as for footprints.
+
+- On a **kept** footprint the board's node stays, fields included. A locked request is applied to it,
+  on top of the board's field; an unlocked request whose result differs is not applied.
+- On a **re-placed** footprint with the same lib id on the same side (a locked move, an alias, an
+  off-board part placed again), each field the board footprint also has takes the board's position,
+  rotation, layer, size, thickness, visibility, justification and mirror, unless a locked request names
+  it. A field is stored relative to its footprint, so the copy is exact and a hand-placed label follows
+  a forced move. The field keeps the built copy's id, uuid and slots.
+- After a side change or a footprint change the built copy's fields are used: the library's, with every
+  request applied.
+- User properties follow "User properties on kept footprints": their values are the script's and their
+  placement the board's. Requests never name them.
+
+No issue is raised. `result.preserved.fields` holds three sorted lists of `"<component path>:<field>"`:
+
+| list | meaning |
+|---|---|
+| `kept` | an unlocked request differs from the board's field; the board wins (lock the request to force it) |
+| `forced` | a locked request changed a board field |
+| `carried` | a field of a re-placed footprint took the board's values |
+
+All three are empty on a first build and on a rebuild of an unedited board.
 
 ## Board-only footprints
 
@@ -107,12 +145,13 @@ version-8 uuid. `merge_layout` therefore handles it before the net rule above:
 So a footprint moved in KiCad pulls its script copper along on the next build, an intent removed from the
 script removes its copper, and copper drawn in KiCad stays. `result.copper` counts the three outcomes.
 
-Two precedence models are used on purpose, one per kind of item:
+Two precedence models are used on purpose, one per kind of item (fields share the footprints' model):
 
 | item | model | who wins | marker | when its declaration is gone |
 |---|---|---|---|---|
 | footprint (c0019) | edited in place | the board, unless `place()` is locked | `fenolite.path` | `layout.orphan`, removed |
 | script copper (c0028) | derived output | the script, always | the copper uuid | `kicad.copper.stale`, removed |
+| footprint field (c0030) | edited in place | the board, unless the request is locked | the field name in its footprint | the board's field stays |
 
 A footprint placement is the thing a user edits, and nothing derives it. A track's geometry is a
 function of the pads it joins, which the board owns: a kept edit of a script track would point at old

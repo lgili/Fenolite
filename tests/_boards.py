@@ -21,6 +21,7 @@ from fenolite.core.ids import derived_id, new_id
 from fenolite.model.board import (
     Arc,
     Board,
+    FootprintField,
     FootprintInstance,
     Graphic,
     Keepout,
@@ -80,7 +81,7 @@ def pad(
 def footprint(n: int, *, at: str = "10 10", attr: str = "(attr smd)", pads: str = "", ref: str = "U1") -> str:
     return (
         f'(footprint "Lib:FP" (layer "F.Cu") (uuid "{uid(n)}") (at {at})'
-        f' (property "Reference" "{ref}" (at 0 0) (layer "F.SilkS") (uuid "{uid(n + 1)}")'
+        f' (property "Reference" "{ref}" (at 0 0 0) (layer "F.SilkS") (uuid "{uid(n + 1)}")'
         f" (effects (font (size 1 1) (thickness 0.15)))) {attr} {pads})"
     )
 
@@ -199,7 +200,8 @@ def square(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
 
 def created_board(copper: Literal[2, 4] = 2) -> Design:
     """The created test board of the writer (c0017 Decision 19): ``created_layers(copper)``, a 50 × 30 mm
-    outline, the nets GND, LED_A and VIN, one created entity of every ``CANONICAL_ORDER`` head, an A4
+    outline, the nets GND, LED_A and VIN, one created entity of every ``CANONICAL_ORDER`` head (its
+    footprint with a ``Reference`` field at (0, −1.5 mm) and a hidden ``Value`` field, c0030), an A4
     sheet and a seven-field title block (c0012), so that every name of ``pcb.FLOOR_HEADS`` is written
     for target 9."""
     rng = random.Random(copper)
@@ -216,9 +218,15 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         Pad(id=new_id("pad", rng), number="2", shape="rect", size=size, position=mm(1.27, 0),
             layers=("F.Cu", "F.Mask"), net_id=led),
     )  # fmt: skip
+    fields = (
+        FootprintField(id=new_id("fld", rng), name="Reference", position=mm(0, -1.5), layer="F.SilkS",
+                       size=Size(MM, MM), thickness=150_000),
+        FootprintField(id=new_id("fld", rng), name="Value", position=mm(0, 1.5), layer="F.Fab",
+                       size=Size(MM, MM), thickness=150_000, visible=False),
+    )  # fmt: skip
     footprint = FootprintInstance(
         id=new_id("fp", rng), component_id=u1.id, lib_ref="fenolite:Created", position=mm(10, 10),
-        locked=True, attributes=("smd",), pads=pads,
+        locked=True, attributes=("smd",), pads=pads, fields=fields,
     )  # fmt: skip
     fill = ZoneFill("B.Cu", square(26, 6, 34, 14), island=True)
     zone = Zone(

@@ -88,7 +88,17 @@ never taken from KiCad's writer code.
 | Children of tracks and zones as 9.0 and 10.0 write them: `segment` `start`, `end`, `width`, `locked`, `layer`, `net`, `uuid`; `arc` `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid`; `via` type atom, `at`, `size`, `drill`, `layers`, …, `locked`, …, `net`, `uuid`; `zone` `net`, `net_name` (9.0), `layer`, `locked`, `layers`, `uuid`, `name`, `hatch`, `priority`, `attr`, `connect_pads`, `min_thickness`, `filled_areas_thickness` (9.0), `keepout`, `placement`, `fill`, `polygon`, `filled_polygon`; `polygon` `pts`; `filled_polygon` `layer`, `pts`; `keepout` `tracks`, `vias`, `pads`, `copperpour`, `footprints` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Children of drawings as 9.0 and 10.0 write them: `gr_line` `start`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_arc` `start`, `mid`, `end`, `stroke`, `locked`, `layer`, `uuid`; `gr_circle` `center`, `end`, `stroke`, `fill`, `layer`, `uuid`; `gr_rect` `start`, `end`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_poly` `pts`, `stroke`, `fill`, `layer`, `net`, `uuid`; `gr_text` text, `at`, `layer`, `uuid`, `effects`, `render_cache`; `stroke` `width`, `type`; `pts` `xy` (and `arc`); fills are spelled `(fill yes)` and `(fill no)` | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
 | A `property` of a board footprint writes its angle, also when it is 0: `(at X Y ANGLE)` in all 16 054 properties of the 10.0.6-written boards | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
-| The names `arc`, `attr`, `center`, `copperpour`, `filled_polygon`, `footprints`, `gr_arc`, `gr_circle`, `gr_line`, `gr_poly`, `gr_text`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`, `tracks` and `vias` exist in the 8.0 board format | S-0021, S-0033 (tag 8.0.0) | INFERRED | H-K-PCB-WRITE |
+| The X and Y of a footprint property's `at` are footprint-local: the anchor of the text on the board is `at + R(θ)·local`, θ being the footprint angle, on both sides, with no further mirror on the bottom (a footprint at (6, 38) and 30° on the bottom with local (−5, 0) has its anchor at (1.669873, 40.5)) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-FRAME |
+| The angle of a footprint property's `at` is the angle of the text on the board, not an angle relative to the footprint: on a footprint at 90°, a stored 0 draws the text horizontal and a stored 90 vertical | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-FRAME |
+| `(justify …)` of a property works in the reading frame of the text: from the anchor a `left` text runs to +X and a `right` one to −X, a `bottom` text lies above the anchor and a `top` one below; `mirror` reverses the horizontal sense, on a front and on a back layer alike; without the words the text is centred on its anchor | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-JUSTIFY |
+| Keep-upright: without `(unlocked yes)` a property stored at 180° (or 270°) is drawn as at 0° (or 90°), its justification unchanged; with `(unlocked yes)` it is drawn at the stored angle | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-JUSTIFY |
+| `pcb drc` reports a `Reference` or `Value` property on a silkscreen layer that crosses the board edge as `silk_edge_clearance`, with an item whose uuid is the property's, whose position is the anchor and whose description is `Reference field of <reference>` or `Value field of <reference> (<value>)`; a hidden property is not checked | S-0020, S-0029, S-0055, S-0056 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-DRC |
+| With the board's `min_silk_clearance` at 0, 9.0.9 reports no `silk_edge_clearance` for a crossing field and 10.0.6 reports one; at 0.1 mm both report it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-FIELD-DRC |
+| A 10.0.6 re-save (`pcb upgrade --force`) keeps visible `fp_text user` items and turns each hidden one into a hidden property named `Field<N>` with a new uuid, written after the other properties: in the 16 non-heavy 10.0.6 demos only the 4 hidden `fp_text user "${REFERENCE}"` items of one board change, and its 67 visible ones stay. This narrows the `fp_text` clause of the re-save row above | S-0020, S-0022, S-0058 | KICAD-VERIFIED (10.0.x) | H-K-FIELD-RESAVE |
+| A third-party 7.0 board writes the reference as `(fp_text reference "…" (at X Y A) (layer "F.SilkS") hide (effects …) (tstamp U))`, with a bare `hide`; `pcb upgrade` on 10.0.6 turns it into `(property "Reference" "…" (at X Y A) (layer "F.SilkS") (hide yes) (uuid U) (effects …))` | S-0020, S-0027 | KICAD-VERIFIED (10.0.x) | H-K-FIELD-RESAVE |
+| 8.0 boards hold fields as `property` nodes: the format notes date footprint properties to 20200808 and board fields to 20230620, both older than the 8.0 format 20240108. `hide` is described as a bare optional word of `fp_text` and of `effects`; whether 8.0 writes a hidden property with a bare `hide` or with `(hide yes)` is not stated, and no 8.0 board was observed | S-0001, S-0021, S-0030 (tag 8.0.0), S-0120 | INFERRED | H-K-FIELD-V8 |
+| Census of the 21 readable corpus boards (1 674 footprints): 15 759 properties, of which 14 953 are placed (`at` with its angle, `layer`, `uuid` and `effects` with a font `size`) and 806 are bare (`ki_fp_filters`); hiding is always `(hide yes)` (12 451); `(unlocked yes)` on 10 458; 114 placed properties have no font `thickness` (`Datasheet`, `Description`); `justify` holds only `mirror` (8 369); 6 fonts hold `bold`; no footprint repeats a property name; 572 properties of one board write the angle `-90` where the others write `270`; all 1 281 `fp_text` items are `user` texts. Read by Fenolite: 14 953 fields, 806 properties kept as footprint slots, and 578 field children kept as written (the 572 `at` with `-90` and the 6 `effects` with `bold`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| The names `arc`, `attr`, `center`, `copperpour`, `filled_polygon`, `footprints`, `gr_arc`, `gr_circle`, `gr_line`, `gr_poly`, `gr_text`, `hide`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`, `tracks` and `vias` exist in the 8.0 board format | S-0021, S-0033 (tag 8.0.0) | INFERRED | H-K-PCB-WRITE |
 | DRC reports a board footprint whose library is in no active library table, or whose library lacks it ("Footprint not found in libraries"), and a board footprint that differs from its library copy ("Footprint doesn't match copy in library"), both as warnings; demo projects list their severity keys `lib_footprint_issues` and `lib_footprint_mismatch` at tags 9.0.9.1 and 10.0.6 | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
 
 ## What the reader models
@@ -100,7 +110,8 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 | head | modelled | projected | opaque (examples) |
 |---|---|---|---|
 | `kicad_pcb` | `version`, `generator`, `generator_version` (values in `Board.ext["kicad"]`), `layers`, net rows N ≥ 1, `footprint`, `segment`, `arc`, `via`, `zone` (not teardrop), `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text` | — | `general`, `paper`, `title_block`, `setup`, `(net 0 "")`, teardrop zones, `group`, `dimension`, `generated`, `image`, `table`, `barcode`, `point`, `target`, `embedded_fonts`, `embedded_files`, unknown heads |
-| `footprint` | name → `lib_ref`, `layer` → `side`, `at` → `position` and `rotation`, `uuid`, `attr` → `attributes`, `pad`, `path` → `Component.path` | `property` → `Component.ref`, `value`, `properties`; `locked` → `locked` | `descr`, `tags`, `sheetname`, `sheetfile`, `fp_*`, `model`, `zone`, `group`, `units`, clearances, `embedded_*` |
+| `footprint` | name → `lib_ref`, `layer` → `side`, `at` → `position` and `rotation`, `uuid`, `attr` → `attributes`, `pad`, `path` → `Component.path`, placed `property` → `fields` (c0030) | a `property` that is not a field (bare, or a repeated name) → `Component.ref`, `value`, `properties`; `locked` → `locked` | `descr`, `tags`, `sheetname`, `sheetfile`, `fp_*`, `model`, `zone`, `group`, `units`, clearances, `embedded_*` |
+| `property` (a field, c0030) | name, `at` → `position` and `rotation`, `layer`, `hide` → `visible`, `uuid`, `effects` with `font` `size` and `thickness` and `justify` → `size`, `thickness`, `h_justify`, `v_justify`, `mirrored` | the value atom → `Component.ref`, `value`, `properties`; an `effects` the emitter does not reproduce (`bold`, a font `face`) | `unlocked`, a bare `hide` atom, unknown heads |
 | `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `layer`, `net`, `uuid` | — | `locked`, unknown heads |
 | `via` | type atom, `at`, `size`, `drill`, `layers`, `net`, `uuid` | — | `locked`, `free`, `remove_unused_layers`, `tenting`, `padstack`, `teardrops` |
@@ -113,6 +124,35 @@ A modelled child that the emitter does not reproduce exactly (a spelling such as
 written zero pad or footprint angle, an extra atom such as `knockout`) becomes a projected slot with
 the info `kicad.board.kept-opaque`. This is a Fenolite rule that keeps the rebuild exact. The
 emitters omit a zero footprint or pad angle and always write the text angle, as the demo boards do.
+
+### Footprint fields (c0030)
+
+A placed `property` of a board footprint is a `FootprintField` of `FootprintInstance.fields`, in file
+order. These are Fenolite rules built on the fact rows above (`H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`),
+both `KICAD-VERIFIED (9.0.x, 10.0.x)` by the field oracle; `fields.EVIDENCE` stays `INFERRED`, because
+`place_outside` (`H-K-FIELD-OUTSIDE`) is checked for the bench references only):
+
+- **Which properties.** A property is placed when it holds `at`, `layer` and an `effects` whose `font`
+  holds `size`. Only the first property of a name is a field; a later one stays an opaque slot of the
+  footprint with `kicad.board.kept-opaque` (a re-save merges duplicate names, `H-K-VENDOR-DUPNAME`). A bare
+  property (`ki_fp_filters`) and every `fp_text` are read as before.
+- **Text.** The value stays in the component (`Component.ref`, `value`, `properties`). The value atom is
+  an opaque slot of the field, projected into the component.
+- **Frame.** `position` is the stored X and Y, the pad frame. `rotation` is relative to the footprint:
+  `(stored − footprint) mod 360°`, as a pad's, so rotating the footprint leaves it unchanged. The file
+  holds the board angle.
+- **Values.** `visible` is false for `(hide yes)` and for a bare `hide` atom in the node or in its
+  `effects` (older spellings; such an atom stays an opaque slot). `size` is `Size(W, H)` of the font's
+  `(size H W)`; `thickness` is `None` without a font `thickness`; `h_justify`, `v_justify` and `mirrored`
+  come from the atoms of `justify`.
+- **Slots.** The footprint's slot for the node is modelled (`fields`); the field carries its own slot
+  list. `unlocked`, knockout and unknown children stay opaque in place. An `effects` with anything the
+  emitter does not write (`bold`, a font `face`) stays a projected slot, so that field's size cannot be
+  edited. An inexact `at` or font keeps the whole property a projected slot of the footprint
+  (`kicad.board.inexact-length`, `kicad.board.inexact-angle`).
+- **Ids.** `derived_id("fld", "kicad", "<key>:field:<name>")`, `<key>` being the native id behind the
+  footprint's pad ids; `native_ids["kicad"]` is the property's uuid. A field keeps its id when KiCad gives
+  the property a new uuid.
 
 ## Fenolite choices
 
@@ -240,7 +280,7 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   |---|---|
   | `kicad_pcb` | `version`, `generator`, `generator_version`, `general`, `paper`, `title_block`, `layers`, `setup`, `net`, `footprint`, `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text`, `segment`, `arc`, `via`, `zone` |
   | `footprint` | name, `locked`, `layer`, `uuid`, `at`, `property`, `path`, `attr`, `pad` |
-  | `property` | name, value, `at`, `layer`, `uuid`, `effects` |
+  | `property` | name, value, `at`, `layer`, `hide`, `uuid`, `effects` |
   | `effects` | `font`, `justify` |
   | `font` | `size`, `thickness` |
   | `pad` | number, type, shape, `at`, `size`, `drill`, `layers`, `net`, `uuid` |
@@ -266,8 +306,8 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
 - **Floor names.** `pcb.FLOOR_HEADS` lists the names the writer creates that neither the token
   inventory (whose scope is names introduced after 8.0) nor c0007's skeleton holds: `arc`, `attr`,
   `center`, `copperpour`, `filled_polygon`, `footprints`, `gr_arc`, `gr_circle`, `gr_line`, `gr_poly`,
-  `gr_text`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`, `tracks`
-  and `vias`. Each exists in the 8.0 format (S-0021, S-0033 at tag 8.0.0), and the created test board
+  `gr_text`, `hide`, `island`, `justify`, `keepout`, `locked`, `mid`, `name`, `pads`, `path`, `priority`,
+  `tracks` and `vias`. Each exists in the 8.0 format (S-0021, S-0033 at tag 8.0.0), and the created test board
   writes each of them.
 - **Created items.** A created footprint writes `(locked yes)` when locked, its `Reference` and
   `Value` properties at local (0, 0) with the footprint angle, on `F.SilkS` and `F.Fab` (`B.*` with
@@ -277,6 +317,17 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `(effects (font (size H W) (thickness T)))`, with `(justify mirror)` on a back layer. A created zone
   writes `name` and `priority` only when they are not empty or 0. A created fill writes `(island)` for
   target 9 when it is an island, and `(island yes|no)` for target 10.
+- **Fields (c0030).** A field is written as name, value, `(at X Y A)` with the board angle
+  `A = (rotation + footprint rotation) mod 360°`, always written, `(layer "L")`, `(hide yes)` only when it
+  is hidden, `(uuid "U")` and `(effects (font (size H W) (thickness T)) (justify …))`; `thickness` is left
+  out when it is `None`, and `justify` holds `left` or `right`, then `top` or `bottom`, then `mirror`, each
+  only when set. A read field is rebuilt from its slots, so an unchanged node stays tree-equal and
+  `unlocked` keeps its place. A created footprint takes the placement of each property it writes from the
+  field of that name, with the uuid `kicad_uuid(field)`; a property without a field keeps the defaults
+  of "Created items". A field without a slot list on a read footprint, a field of a created footprint
+  whose name the component lacks, and a second field of one name raise `ValueError`: a new property node
+  would make a property value writable. A read field removed from the model leaves its node out, and the
+  component's property then gives `kicad.board.projection-read-only`.
 - **uuids.** An item keeps `native_ids["kicad"]`; any other item gets
   `uuid5(FENOLITE_NS, "kicad-out:<id>")`, and a part without its own id (an outline edge, a created
   property) `"kicad-out:<owner id>:<part>"`.

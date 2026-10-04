@@ -29,9 +29,10 @@ from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_i
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
 from fenolite.model.base import Opaque, Slot
-from fenolite.model.board import Arc, FootprintInstance, Graphic, Pad, Side, Track, Via, Zone
+from fenolite.model.board import Arc, FootprintField, FootprintInstance, Graphic, Pad, Side, Track, Via, Zone
 from fenolite.model.circuit import Component, PinRef
 from fenolite.model.design import Design
 
@@ -123,6 +124,11 @@ def _paths(design: Design) -> dict[str, Component]:
         if path is not None:
             out.setdefault(path, component)
     return dict(sorted(out.items()))
+
+
+def component_paths(design: Design) -> dict[str, Component]:
+    """Component path → component, for the components that carry ``fenolite.path``, in path order."""
+    return _paths(design)
 
 
 def _footprint_paths(board: Design) -> dict[str, str | None]:
@@ -365,19 +371,18 @@ def _property_name(slot: Slot) -> str | None:
     return atoms[0].value if atoms else None
 
 
-def _user_property_slots(built: FootprintInstance) -> list[tuple[str, Opaque]]:
-    """The property slots that the built copy holds after its ``fenolite.path`` slot (the script's)."""
-    out: list[tuple[str, Opaque]] = []
+def _user_fields(built: FootprintInstance) -> list[tuple[str, str, FootprintField]]:
+    """``(name, value, field)`` of the fields that the built copy holds after its ``fenolite.path`` field:
+    the script's user properties (c0027 appends them as hidden properties, which read as fields)."""
+    out: list[tuple[str, str, FootprintField]] = []
     seen_path = False
-    for slot in _slots(built):
-        name = _property_name(slot)
-        if name is None:
-            continue
-        if name == PATH_PROPERTY:
+    for found in built.fields:
+        if found.name == PATH_PROPERTY:
             seen_path = True
         elif seen_path:
-            assert isinstance(slot, Opaque)
-            out.append((name, slot))
+            value = pcb.field_value(found)
+            if value is not None:
+                out.append((found.name, value, found))
     return out
 
 
@@ -391,37 +396,56 @@ def _with_name_and_value(fragment: str, name: str, value: str) -> str:
     return dumps(node.with_children(children), style="compact")
 
 
-def _with_uuid(fragment: str, value: str) -> str:
-    node = parse_fragment(fragment)
-    assert isinstance(node, Node)
-    children = [
-        Node(c.head, (Atom.string(value),)) if isinstance(c, Node) and c.name == "uuid" else c
-        for c in node.children
-    ]
-    return dumps(node.with_children(children), style="compact")
+def _field_with_value(kept: FootprintField, name: str, value: str) -> FootprintField:
+    """``kept`` with the script's spelling of its name and the script's value in its value-atom slot; every
+    other value and slot stays the board's."""
+    bag = kept.ext.get(BAG)
+    current = list(slots.from_ext(bag)) if bag is not None else []
+    index = pcb.field_value_slot(current)
+    if index is None:
+        return kept
+    old = current[index]
+    assert isinstance(old, Opaque)
+    fragment = dumps(Atom.string(value), style="compact")
+    if old.fragment == fragment and kept.name == name:
+        return kept
+    current[index] = Opaque(fragment, old.min_version)
+    return dataclasses.replace(kept, name=name, ext={**kept.ext, BAG: slots.to_ext(current, bag)})
 
 
 def _apply_user_properties(
     kept: FootprintInstance, built: FootprintInstance, path: str
 ) -> tuple[FootprintInstance, dict[str, str]]:
-    """``kept`` with the script's user properties: same-named nodes take name and value, missing ones are
-    appended after the last property; returns the node and the user properties written."""
-    wanted = _user_property_slots(built)
+    """``kept`` with the script's user properties (c0019 Decision 22, carried to fields by c0030).
+
+    A field of the same name, after ``str.casefold``, takes the script's value and spelling and keeps its
+    placement, appearance, uuid and other slots. A property node of that name that is not a field takes
+    name and value in its fragment. A missing one is added after the last field as the built copy's field,
+    with a name-derived uuid. Returns the footprint and the user properties written.
+    """
+    wanted = _user_fields(built)
     current = list(_slots(kept))
-    names = {i: _property_name(s) for i, s in enumerate(current)}
-    if PATH_PROPERTY not in names.values() or not wanted:
+    opaque_names = {i: _property_name(s) for i, s in enumerate(current)}
+    held = {f.name for f in kept.fields} | {n for n in opaque_names.values() if n is not None}
+    if PATH_PROPERTY not in held or not wanted:
         return kept, {}
+    fields = list(kept.fields)
+    key = kept.native_ids.get(BAG, kept.id)
     written: dict[str, str] = {}
-    for name, slot in wanted:
-        node = parse_fragment(slot.fragment)
-        assert isinstance(node, Node)
-        value = node.atoms()[1].value
+    for name, value, built_field in wanted:
         written[name] = value
+        folded = name.casefold()
+        at = next(
+            (i for i, f in enumerate(fields) if f.name.casefold() == folded and f.name != PATH_PROPERTY), None
+        )
+        if at is not None:
+            fields[at] = _field_with_value(fields[at], name, value)
+            continue
         index = next(
             (
                 i
-                for i, n in names.items()
-                if n is not None and n.casefold() == name.casefold() and n != PATH_PROPERTY
+                for i, n in opaque_names.items()
+                if n is not None and n.casefold() == folded and n != PATH_PROPERTY
             ),
             None,
         )
@@ -429,14 +453,18 @@ def _apply_user_properties(
             old = current[index]
             assert isinstance(old, Opaque)
             current[index] = Opaque(_with_name_and_value(old.fragment, name, value), old.min_version)
-            names[index] = name
+            opaque_names[index] = name
             continue
-        last = max(i for i, n in names.items() if n is not None)
-        uuid = placement_uuid(path, f"/footprint/property:{name}")
-        current.insert(last + 1, Opaque(_with_uuid(slot.fragment, uuid), slot.min_version))
-        names = {i: _property_name(s) for i, s in enumerate(current)}
+        fields.append(
+            dataclasses.replace(
+                built_field,
+                id=derived_id("fld", BAG, f"{key}:field:{name}"),
+                native_ids={BAG: placement_uuid(path, f"/footprint/property:{name}")},
+                provenance=None,
+            )
+        )
     bag = slots.to_ext(current, kept.ext.get(BAG))
-    return dataclasses.replace(kept, ext={**kept.ext, BAG: bag}), written
+    return dataclasses.replace(kept, fields=tuple(fields), ext={**kept.ext, BAG: bag}), written
 
 
 def _net_names(design: Design) -> dict[str, str]:
@@ -844,6 +872,7 @@ def merge_rules(
 
 __all__ = [
     "EVIDENCE",
+    "PATH_PROPERTY",
     "PRESERVE_ISSUE_CODES",
     "ExistingProject",
     "FootprintMatch",
@@ -852,6 +881,7 @@ __all__ = [
     "Merged",
     "PlacementLike",
     "Prepared",
+    "component_paths",
     "drop_stale_fills",
     "effective_placements",
     "fill_counts",

@@ -81,7 +81,10 @@ from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.board import (
     Arc,
     Board,
+    FieldJustifyH,
+    FieldJustifyV,
     FootprintAttribute,
+    FootprintField,
     FootprintInstance,
     Graphic,
     Keepout,
@@ -145,9 +148,26 @@ FOOTPRINT_FIELDS: Mapping[str, str] = MappingProxyType(
         "attr": "attributes",
         "pad": "pads",
         "path": "path",
+        "property": "fields",
     }
 )
 FOOTPRINT_POSITIONAL = ("lib_ref",)
+FIELD_FIELDS: Mapping[str, str] = MappingProxyType(
+    {
+        "at": "position",
+        "layer": "layer",
+        "hide": "visible",
+        "uuid": "native_ids",
+        "effects": "effects",
+    }
+)
+"""The children of a footprint field (a placed ``property``, change c0030); ``effects`` is one modelled
+child that carries the size, thickness, justification and mirror."""
+FIELD_POSITIONAL = ("name",)
+"""Only the name is modelled: the value atom is an opaque slot, projected into the component."""
+FIELD_CHAIN = ("kicad_pcb", "footprint", "property")
+JUSTIFY_H: frozenset[str] = frozenset(get_args(FieldJustifyH)) - {"center"}
+JUSTIFY_V: frozenset[str] = frozenset(get_args(FieldJustifyV)) - {"center"}
 BOARD_PAD_FIELDS: Mapping[str, str] = MappingProxyType({**PAD_FIELDS, "net": "net_id"})
 TRACK_FIELDS: Mapping[str, str] = MappingProxyType(
     {
@@ -253,6 +273,73 @@ def _emit_footprint(fp: FootprintInstance, path: str) -> Items:
 
 def _opt(child: Node | None) -> list[Node | Atom]:
     return [] if child is None else [child]
+
+
+def field_effects(size: Size, thickness: int | None, h_justify: str, v_justify: str, mirrored: bool) -> Node:
+    """``(effects (font (size H W) [(thickness T)]) [(justify [left|right] [top|bottom] [mirror])])``."""
+    font: list[Node | Atom] = [node("size", Atom.from_nm(size.h), Atom.from_nm(size.w))]
+    if thickness is not None:
+        font.append(node("thickness", Atom.from_nm(thickness)))
+    words = [w for w in (h_justify, v_justify) if w != "center"] + (["mirror"] if mirrored else [])
+    children: list[Node | Atom] = [node("font", *font)]
+    if words:
+        children.append(node("justify", *(Atom.symbol(w) for w in words)))
+    return node("effects", *children)
+
+
+def _emit_field(field: FootprintField, rotation: Udeg) -> Items:
+    """The modelled children of a footprint field; the file holds the board angle, always written."""
+    angle = pad_angle_to_board(field.rotation, rotation)
+    return {
+        "name": [Atom.string(field.name)],
+        "position": [at_node(field.position, angle, always=True)],
+        "layer": [node("layer", Atom.string(field.layer))],
+        "visible": [] if field.visible else [node("hide", Atom.symbol("yes"))],
+        "native_ids": uuid_items(field.native_ids),
+        "effects": [
+            field_effects(field.size, field.thickness, field.h_justify, field.v_justify, field.mirrored)
+        ],
+    }
+
+
+def field_justify(effects: Node) -> tuple[FieldJustifyH, FieldJustifyV, bool]:
+    """``(h_justify, v_justify, mirrored)`` from the atoms of ``effects/justify``."""
+    justify = effects.find("justify")
+    words = [a.value for a in justify.atoms()] if justify is not None else []
+    h: FieldJustifyH = next((w for w in words if w in JUSTIFY_H), "center")  # type: ignore[assignment]
+    v: FieldJustifyV = next((w for w in words if w in JUSTIFY_V), "center")  # type: ignore[assignment]
+    return h, v, "mirror" in words
+
+
+def _is_hide(child: Node | Atom) -> bool:
+    return isinstance(child, Atom) and child.kind == AtomKind.SYMBOL and child.value == "hide"
+
+
+def field_hidden(item: Node) -> bool:
+    """Whether a property node is hidden: a ``hide`` child other than ``(hide no)``, or a bare ``hide``
+    atom after the value or in its ``effects`` (older spellings)."""
+    lists = (item, *(c for c in item.nodes() if c.name == "effects"))
+    for index, parent in enumerate(lists):
+        skip = 2 if index == 0 else 0
+        for child in parent.children[skip:]:
+            if _is_hide(child):
+                return True
+            if isinstance(child, Node) and child.name == "hide" and symbols(child) != ["no"]:
+                return True
+    return False
+
+
+def is_placed_property(item: Node) -> bool:
+    """A property that holds a name, a value, ``at``, ``layer`` and an ``effects`` with a font ``size``."""
+    effects = item.find("effects")
+    font = effects.find("font") if effects is not None else None
+    return (
+        len(leading_atoms(item)) >= 2
+        and item.find("at") is not None
+        and item.find("layer") is not None
+        and font is not None
+        and font.find("size") is not None
+    )
 
 
 def _emit_board_pad(pad: Pad, rotation: Udeg, nets: _Nets) -> Items:
@@ -590,6 +677,11 @@ class EmitContext:
         board = self.design.board
         return {pad.id: fp.rotation for fp in (board.footprints if board else ()) for pad in fp.pads}
 
+    @cached_property
+    def field_rotation(self) -> dict[str, Udeg]:
+        board = self.design.board
+        return {f.id: fp.rotation for fp in (board.footprints if board else ()) for f in fp.fields}
+
 
 def _rebuild(entity: Entity, head: str, ctx: EmitContext, rel: str = ".") -> Node:
     slots = _slots(entity, rel)
@@ -627,6 +719,9 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
         path = component.path if isinstance(component, Component) else ""
         items = _emit_footprint(entity, path)
         items["pads"] = [_rebuild(pad, "pad", ctx) for pad in _sorted(entity.pads)]
+        items["fields"] = [_rebuild(f, "property", ctx) for f in _sorted(entity.fields)]
+    elif isinstance(entity, FootprintField):
+        items = _emit_field(entity, ctx.field_rotation.get(entity.id, 0))
     elif isinstance(entity, Pad):
         items = _emit_board_pad(entity, ctx.pad_rotation.get(entity.id, 0), ctx.nets)
     elif isinstance(entity, (Track, Arc)):
@@ -906,6 +1001,8 @@ class _Reader:
         side: Literal["top", "bottom"] = "top"
         attributes: list[FootprintAttribute] = []
         properties: dict[str, str] = {}
+        fields: list[FootprintField] = []
+        names: set[str] = set()
         path = ""
         pads: list[tuple[Pad, Node, str]] = []
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
@@ -920,6 +1017,25 @@ class _Reader:
                 atoms = leading_atoms(child)
                 if len(atoms) >= 2:
                     properties[atoms[0].value] = atoms[1].value
+                if not is_placed_property(child):
+                    self.keep(slots, index, child, FP_ROOT)  # read as before: a projected slot
+                    continue
+                name = atoms[0].value
+                if name in names:
+                    self.keep_unmodelled(
+                        f"a second property named {name!r}; kept as written",
+                        slots,
+                        index,
+                        child,
+                        child_loc,
+                        FP_ROOT,
+                    )
+                    continue
+                names.add(name)
+                try:
+                    fields.append(self.field(child, child_loc, key, rotation))
+                except InexactValueError as error:
+                    self.keep_inexact(error, slots, index, child, FP_ROOT)
             elif head == "locked":
                 locked = symbols(child) != ["no"]
             elif head == "path":
@@ -958,8 +1074,9 @@ class _Reader:
             locked=locked,
             attributes=tuple(attributes),
             pads=tuple(pad for pad, _, _ in pads),
+            fields=tuple(fields),
         )
-        self.check(item, loc, slots, _emit_footprint(instance, path), FP_ROOT, nested=("pads",))
+        self.check(item, loc, slots, _emit_footprint(instance, path), FP_ROOT, nested=("pads", "fields"))
         instance = dataclasses.replace(instance, ext={"kicad": slotlib.to_ext(slots)})
         component = Component(
             id=component_id,
@@ -973,6 +1090,52 @@ class _Reader:
             pins=self.pins(key, pads),
         )
         return instance, component, [pad for pad, _, _ in pads]
+
+    def field(self, item: Node, loc: str, key: str, rotation: Udeg) -> FootprintField:
+        """A placed ``property`` as a field: placement and appearance only (``board.md``, "Footprint
+        fields"). ``key`` is the native id behind the footprint's pad ids."""
+        ctx = self.ctx
+        slots = ctx.split(item, dict(FIELD_FIELDS), FIELD_CHAIN, FIELD_POSITIONAL)
+        name = leading_atoms(item)[0].value
+        at, layer, effects, uuid = (
+            item.find("at"),
+            item.find("layer"),
+            item.find("effects"),
+            item.find("uuid"),
+        )
+        assert at is not None and layer is not None and effects is not None
+        font = effects.find("font")
+        assert font is not None
+        size_node, thickness_node = font.find("size"), font.find("thickness")
+        assert size_node is not None
+        at_loc, font_loc = f"{loc}/at[0]", f"{loc}/effects[0]/font[0]"
+        position = ctx.point(at, at_loc)
+        values = at.atoms()
+        stored = ctx.udeg(values[2], at_loc, at) if len(values) > 2 else 0
+        size = ctx.point(size_node, f"{font_loc}/size[0]")
+        thickness = (
+            self.nm_of(thickness_node, f"{font_loc}/thickness[0]") if thickness_node is not None else None
+        )
+        h_justify, v_justify, mirrored = field_justify(effects)
+        layers = layer.atoms()
+        ids = uuid.atoms() if uuid is not None else ()
+        field = FootprintField(
+            id=derived_id("fld", "kicad", f"{key}:field:{name}"),
+            native_ids={"kicad": ids[0].value} if ids else {},
+            provenance=ctx.provenance(loc),
+            name=name,
+            position=position,
+            layer=layers[0].value if layers else "",
+            size=Size(size.y, size.x),
+            rotation=pad_angle_from_board(stored, rotation),
+            thickness=thickness,
+            visible=not field_hidden(item),
+            h_justify=h_justify,
+            v_justify=v_justify,
+            mirrored=mirrored,
+        )
+        self.check(item, loc, slots, _emit_field(field, rotation), FIELD_CHAIN)
+        return dataclasses.replace(field, ext={"kicad": slotlib.to_ext(slots)})
 
     def attributes(self, child: Node, loc: str, slots: list[Slot], index: int) -> list[FootprintAttribute]:
         known: list[FootprintAttribute] = []
@@ -1481,8 +1644,8 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
     "arc", "attr", "center", "comment", "company", "copperpour", "date", "filled_polygon", "footprints",
-    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "island", "justify", "keepout", "locked", "mid",
-    "name", "pads", "path", "priority", "rev", "title", "title_block", "tracks", "vias",
+    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "hide", "island", "justify", "keepout", "locked",
+    "mid", "name", "pads", "path", "priority", "rev", "title", "title_block", "tracks", "vias",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0)."""
@@ -1496,7 +1659,7 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "footprint": (
             *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", "pad",
         ),
-        "property": ("name", "value", "at", "layer", "uuid", "effects"),
+        "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
         "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "uuid"),
@@ -1544,7 +1707,8 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
             **ROOT_FIELDS, "general": "general", "paper": "paper", "title_block": "title_block",
             "setup": "setup", "zone": ("zones", "keepouts"),
         },
-        "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": "properties"},
+        "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
+        "property": {**FIELD_FIELDS},
         "pad": BOARD_PAD_FIELDS,
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
@@ -1559,6 +1723,7 @@ _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
     {
         "kicad_pcb": ROOT_FIELDS,
         "footprint": FOOTPRINT_FIELDS,
+        "property": FIELD_FIELDS,
         "pad": BOARD_PAD_FIELDS,
         "segment": TRACK_FIELDS,
         "arc": TRACK_FIELDS,
@@ -1571,7 +1736,7 @@ _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
 )
 """The field maps of the reader: which opaque children stand for a model value."""
 COLLECTION_FIELDS: frozenset[str] = frozenset(
-    {"nets", "footprints", "tracks", "arcs", "vias", "zones", "keepouts", "texts", "pads", "fills"}
+    {"nets", "footprints", "tracks", "arcs", "vias", "zones", "keepouts", "texts", "pads", "fills", "fields"}
     | {f"graphics.{head}" for head in GR_GRAPHIC_HEADS}
 )
 """Fields that hold whole items; an opaque item never stands for a model value."""
@@ -1737,6 +1902,62 @@ def _plain_numbers(child: Node, count: int) -> bool:
     return not child.nodes() and len(atoms) == count and all(a.kind == AtomKind.NUMBER for a in atoms)
 
 
+def _at_key(child: Node) -> tuple[Decimal, Decimal, Decimal] | None:
+    """``(x, y, angle mod 360)`` of an ``at`` child, so ``-90`` and ``270`` compare equal."""
+    atoms = child.atoms()
+    if child.nodes() or len(atoms) not in (2, 3) or any(a.kind != AtomKind.NUMBER for a in atoms):
+        return None
+    x, y = Decimal(atoms[0].text), Decimal(atoms[1].text)
+    angle = Decimal(atoms[2].text) if len(atoms) > 2 else Decimal(0)
+    return x, y, (angle % 360 + 360) % 360  # Decimal's remainder keeps the sign of the dividend
+
+
+def _effects_values(
+    effects: Node,
+) -> tuple[Size, int | None, FieldJustifyH, FieldJustifyV, bool] | None:
+    """What the reader projects from a field's ``effects``, or ``None`` when its numbers are not exact."""
+    font = effects.find("font")
+    size = font.find("size") if font is not None else None
+    thickness = font.find("thickness") if font is not None else None
+    if font is None or size is None or len(size.atoms()) < 2:
+        return None
+    try:
+        h, w = size.atoms()[0].to_nm(exact=True), size.atoms()[1].to_nm(exact=True)
+        stroke = thickness.atoms()[0].to_nm(exact=True) if thickness is not None else None
+    except (ValueError, IndexError):
+        return None
+    h_justify, v_justify, mirrored = field_justify(effects)
+    return Size(w, h), stroke, h_justify, v_justify, mirrored
+
+
+def field_value_slot(slots: Sequence[Slot]) -> int | None:
+    """The index of the value atom in a field's slot list: its second leading atom, an opaque slot."""
+    leading = 0
+    for index, slot in enumerate(slots):
+        if isinstance(slot, Modeled):
+            if slot.field != "name":
+                return None
+            leading += 1
+            continue
+        if not isinstance(slotlib.opaque_child(slot), Atom):
+            return None
+        if leading == 1:
+            return index
+        leading += 1
+    return None
+
+
+def field_value(field: FootprintField) -> str | None:
+    """The text that a read field's node holds (its value atom), or ``None`` without a slot list."""
+    bag = field.ext.get("kicad")
+    slots = slotlib.from_ext(bag) if bag is not None else ()
+    index = field_value_slot(slots)
+    if index is None:
+        return None
+    child = slotlib.opaque_child(slots[index])  # type: ignore[arg-type]
+    return child.value if isinstance(child, Atom) else None
+
+
 class _Writer:
     """One design being written for one target: its emitters, projections and collected errors."""
 
@@ -1751,6 +1972,7 @@ class _Writer:
         self.components = {c.id: c for c in design.circuit.components}
         self.nets = _Nets("neutral", {n.id: n.name for n in design.circuit.nets}, {})
         self.pad_rotation = {pad.id: fp.rotation for fp in board.footprints for pad in fp.pads}
+        self.field_owner = {f.id: fp for fp in board.footprints for f in fp.fields}
         self.copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
         self.opaque_ids: set[int] = set()
 
@@ -1785,7 +2007,12 @@ class _Writer:
         """
         canonical = _canonical_fields(head)
         slot_list = list(slots)
-        covered = self.reconcile(entity, head, slot_list, items) if slot_list else set[str]()
+        if not slot_list:
+            covered = set[str]()
+        elif isinstance(entity, FootprintField):
+            covered = self.reconcile_field(entity, slot_list, items)
+        else:
+            covered = self.reconcile(entity, head, slot_list, items)
         modeled = _modeled(slot_list)
         skip = covered | modeled | set(absent)
         wanted = modeled | {f for f, v in items.items() if v and f not in skip}
@@ -1816,13 +2043,18 @@ class _Writer:
             component = self.components.get(entity.component_id)
             path = component.path if component is not None else ""
             return {f for f, unset in (("attributes", not entity.attributes), ("path", not path)) if unset}
+        if isinstance(entity, FootprintField):
+            return set() if "kicad" in entity.native_ids else {"native_ids"}
         return set()
 
     def items(self, entity: Entity, head: str, *, created: bool) -> Items:
         """Every field the writer can emit for ``entity``, with its current model value."""
         items: Items
         if isinstance(entity, FootprintInstance):
-            items = self.footprint(entity)
+            items = self.footprint(entity, created=created)
+        elif isinstance(entity, FootprintField):
+            owner = self.field_owner.get(entity.id)
+            items = _emit_field(entity, owner.rotation if owner is not None else 0)
         elif isinstance(entity, Pad):
             rotation = self.pad_rotation.get(entity.id, 0)
             net = self.nets.node(entity.net_id, pad=True)
@@ -1849,24 +2081,62 @@ class _Writer:
         items["native_ids"] = [_uuid_node(kicad_uuid(entity))]
         return items
 
-    def footprint(self, fp: FootprintInstance) -> Items:
+    def footprint(self, fp: FootprintInstance, *, created: bool) -> Items:
         component = self.components.get(fp.component_id)
         path = component.path if component is not None else ""
         items = _emit_footprint(fp, path)
         items["locked"] = [node("locked", Atom.symbol("yes"))] if fp.locked else []
-        items["properties"] = self.properties(fp, component)
+        names = [f.name for f in fp.fields]
+        for name in names:
+            if names.count(name) > 1:
+                raise ValueError(f"{_locator(fp)}: two fields are named {name!r}")
+        if created:
+            items["fields"] = []
+            items["properties"] = self.properties(fp, component)
+        else:
+            for field in fp.fields:
+                bag = field.ext.get("kicad")
+                if bag is None or not slotlib.from_ext(bag):
+                    raise ValueError(
+                        f"{_locator(fp)}: field {field.name!r} has no KiCad slot list; a field cannot be "
+                        "added to a footprint read from a board"
+                    )
+            items["fields"] = [self.entity(f, "property") for f in _write_order(fp.fields)]
+            items["properties"] = [] if fp.fields else self.properties(fp, component)
         items["pads"] = [self.entity(pad, "pad") for pad in _write_order(fp.pads)]
         return items
 
     def properties(self, fp: FootprintInstance, component: Component | None) -> list[Node | Atom]:
-        """The properties of a created footprint: Reference, Value, then the others by name."""
+        """The properties of a created footprint: Reference, Value, then the others by name. A property
+        takes its placement from the field of its name; a field whose name the component lacks is refused."""
+        known = {"Reference", "Value", *(component.properties if component is not None else ())}
+        for field in fp.fields:
+            if component is None or field.name not in known:
+                raise ValueError(
+                    f"{_locator(fp)}: field {field.name!r} names no property of the footprint's component"
+                )
         if component is None:
             return []
         values = {k: v for k, v in component.properties.items() if k not in ("Reference", "Value")}
         rows = [("Reference", component.ref), ("Value", component.value), *sorted(values.items())]
         bottom = fp.side == "bottom"
+        fields = {f.name: f for f in fp.fields}
         out: list[Node | Atom] = []
         for name, value in rows:
+            field = fields.get(name)
+            if field is not None:
+                emitted = _emit_field(field, fp.rotation)
+                placed: Items = {
+                    "name": [Atom.string(name)],
+                    "value": [Atom.string(value)],
+                    "at": emitted["position"],
+                    "layer": emitted["layer"],
+                    "hide": emitted["visible"],
+                    "uuid": [_uuid_node(kicad_uuid(field))],
+                    "effects": emitted["effects"],
+                }
+                out.append(_ordered("property", placed))
+                continue
             layer = ("B." if bottom else "F.") + ("SilkS" if name == "Reference" else "Fab")
             out.append(
                 _ordered(
@@ -1977,6 +2247,11 @@ class _Writer:
         covered: set[str] = set()
         kept: dict[str, list[str]] = {}
         file_properties: dict[str, str] = {}
+        if isinstance(entity, FootprintInstance):
+            for field in entity.fields:
+                value = field_value(field)
+                if value is not None and field.name not in ("Reference", "Value"):
+                    file_properties[field.name] = value
         for i, slot in enumerate(slots):
             if not isinstance(slot, Opaque):
                 continue
@@ -2013,7 +2288,104 @@ class _Writer:
                 items[field] = [c for c in items[field] if not (isinstance(c, Node) and c.name in heads)]
         if isinstance(entity, FootprintInstance):
             self.check_properties(entity, file_properties, where)
+            self.check_removed_fields(entity, slots, where)
         return covered
+
+    def reconcile_field(self, field: FootprintField, slots: list[Slot], items: Items) -> set[str]:
+        """The projections of a read field (``board.md``, "The writer", "Fields").
+
+        The value atom takes the component's ``ref`` or ``value`` for Reference and Value. A child that the
+        reader kept as written keeps its fragment while the model agrees with it, is written from the model
+        when it differs from the emitter's output only in spelling, and gives ``projection-read-only``
+        otherwise. Returns the fields covered by opaque children.
+        """
+        where = _locator(field)
+        owner = self.field_owner.get(field.id)
+        component = self.components.get(owner.component_id) if owner is not None else None
+        covered: set[str] = set()
+        value_at = field_value_slot(slots)
+        seen_list = False
+        for i, slot in enumerate(slots):
+            if isinstance(slot, Modeled):
+                seen_list = seen_list or slot.field != "name"
+                continue
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Atom):
+                if i == value_at:
+                    wanted = (
+                        {"Reference": component.ref, "Value": component.value}.get(field.name)
+                        if component is not None
+                        else None
+                    )
+                    if wanted is not None and wanted != child.value:
+                        slots[i] = Opaque(dumps(Atom.string(wanted), style="compact"), slot.min_version)
+                elif not seen_list and i == 0:
+                    covered.add("name")
+                    if child.value != field.name:
+                        slots[i] = Modeled("name")
+                elif _is_hide(child):
+                    covered.add("visible")
+                    if field.visible:
+                        self.read_only("visible", where, "the field is hidden by a bare 'hide' atom")
+                continue
+            seen_list = True
+            mapped = FIELD_FIELDS.get(child.name)
+            if mapped is None:
+                continue
+            covered.add(mapped)
+            new = next((c for c in items.get(mapped, ()) if isinstance(c, Node)), None)
+            detail = f"{dumps(child, style='compact')} is kept as written"
+            if mapped == "visible":
+                if (symbols(child) != ["no"]) == field.visible:
+                    slots[i] = Modeled("visible")
+            elif mapped == "position":
+                assert new is not None
+                if _at_key(child) == _at_key(new):
+                    continue
+                if _at_key(child) is not None:
+                    slots[i] = Modeled("position")
+                else:
+                    self.read_only("position", where, detail)
+            elif mapped == "effects":
+                old = _effects_values(child)
+                now = (field.size, field.thickness, field.h_justify, field.v_justify, field.mirrored)
+                hidden = any(_is_hide(c) for c in child.children)
+                if hidden:
+                    covered.add("visible")
+                if old == now and not (hidden and field.visible):
+                    continue
+                respelled = old is not None and _key(child, self.copper) == _key(
+                    field_effects(*old), self.copper
+                )
+                if respelled:
+                    slots[i] = Modeled("effects")
+                else:
+                    self.read_only("effects", where, detail)
+            elif _key(child, self.copper) == (_key(new, self.copper) if new is not None else None):
+                continue
+            elif _spelling_only(child, new):
+                slots[i] = Modeled(mapped)
+            else:
+                self.read_only(mapped, where, detail)
+        return covered
+
+    def check_removed_fields(self, fp: FootprintInstance, slots: Sequence[Slot], where: str) -> None:
+        """A read Reference or Value field removed from the model leaves the component's text without a
+        node; other names are found by ``check_properties``."""
+        nodes = sum(1 for s in slots if isinstance(s, Modeled) and s.field == "fields")
+        component = self.components.get(fp.component_id)
+        if component is None or nodes <= len(fp.fields):
+            return
+        held = {f.name for f in fp.fields}
+        for slot in slots:
+            if isinstance(slot, Opaque) and slot.fragment.startswith("(property"):
+                child = slotlib.opaque_child(slot)
+                atoms = leading_atoms(child) if isinstance(child, Node) else []
+                if atoms:
+                    held.add(atoms[0].value)
+        for key in ("Reference", "Value"):
+            if key in component.properties and key not in held:
+                self.read_only("properties", where, f"property {key!r} has no field to hold it")
 
     def projection(
         self, entity: Entity, child: Node, slots: list[Slot], i: int, file_properties: dict[str, str]
@@ -2182,6 +2554,8 @@ __all__ = [
     "CREATED_ROOT_HEADS",
     "DEFAULT_THICKNESS",
     "EVIDENCE",
+    "FIELD_FIELDS",
+    "FIELD_POSITIONAL",
     "FILL_FIELDS",
     "FLOOR_HEADS",
     "FOOTPRINT_FIELDS",
@@ -2198,6 +2572,10 @@ __all__ = [
     "ZONE_FIELDS",
     "EmitContext",
     "ModelSource",
+    "field_effects",
+    "field_hidden",
+    "field_justify",
+    "is_placed_property",
     "model_source",
     "opaque_count",
     "opaque_digests",
@@ -2207,5 +2585,7 @@ __all__ = [
     "read_board",
     "rebuild_board",
     "source_info",
+    "field_value",
+    "field_value_slot",
     "write_board",
 ]

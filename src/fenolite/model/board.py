@@ -39,6 +39,8 @@ FootprintAttribute = Literal[
     "allow_soldermask_bridges",
 ]
 ViaType = Literal["through", "blind", "buried", "micro"]
+FieldJustifyH = Literal["left", "center", "right"]
+FieldJustifyV = Literal["top", "center", "bottom"]
 ORDERED = {"ordered": True}
 
 
@@ -112,8 +114,33 @@ class Pad(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class FootprintField(Entity):
+    """A text field of a placed footprint (Reference, Value, a user property): placement and appearance.
+
+    The text itself stays in the component (``Component.ref``, ``value`` or ``properties[name]``).
+    ``position`` and ``rotation`` follow the pad frame: the anchor on the board is the footprint's
+    position plus ``position`` rotated by the footprint's angle, with no further mirror on the bottom
+    side, and ``rotation`` is relative to the footprint. ``size.w`` is the glyph width and ``size.h`` the
+    glyph height; ``thickness`` ``None`` means the backend's default stroke. The justifications are given
+    in the reading frame of the text, and ``mirrored`` mirrors the text horizontally.
+    """
+
+    name: str
+    position: Point
+    layer: str
+    size: Size
+    rotation: Udeg = 0
+    thickness: Nm | None = None
+    visible: bool = True
+    h_justify: FieldJustifyH = "center"
+    v_justify: FieldJustifyV = "center"
+    mirrored: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class FootprintInstance(Entity):
-    """A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order."""
+    """A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order;
+    ``fields`` are its text fields in the backend's order, with unique names."""
 
     component_id: str
     lib_ref: str
@@ -123,6 +150,7 @@ class FootprintInstance(Entity):
     locked: bool = False
     attributes: tuple[FootprintAttribute, ...] = field(default=(), metadata=ORDERED)
     pads: tuple[Pad, ...] = ()
+    fields: tuple[FootprintField, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,7 +274,10 @@ class Board(Entity):
 __all__ = [
     "Arc",
     "Board",
+    "FieldJustifyH",
+    "FieldJustifyV",
     "FootprintAttribute",
+    "FootprintField",
     "FootprintInstance",
     "Graphic",
     "GraphicKind",

@@ -43,6 +43,9 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `part[designator]` returns a pin handle; `connect(net, *pins)` joins pins to a net.
 - `no_connect(*pins)` marks pins as intentionally unconnected ("No-connect marks").
 - `Part.place(x, y, rot=0, side="top", locked=False)`, once per part.
+- `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
+  once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
+  placement"). `fields(design)` returns the requests.
 - `Design.moved(old, new)`: a path alias that keeps a renamed part's layout ("Path aliases").
 - `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
   `copper=4`) declares an inner layer as an internal plane on a net (a `Net` or a net name); a plane
@@ -219,6 +222,50 @@ such as a part number or a supplier code, as text.
   and a 10.0.6 re-save keeps names, values and visibility (`H-K-VENDOR-PROPS`). `Component.properties`
   holds what `read_board` reads back.
 - Position, layer, visibility and size of these fields cannot be set yet (field placement, c0030).
+
+## Field placement
+
+`Part.field("Reference", …)` and `Part.field("Value", …)` place the two text fields of the part's footprint.
+Without a request a field stays where the footprint library puts it.
+
+```python
+u1.place(mm(40), mm(30), rot=90)
+u1.field("Reference", outside="top")  # beside the courtyard, 0.25 mm away
+u1.field("Value", visible=False)
+r1.field("Reference", dx=mm(0), dy="-2.5mm", rot=0, justify="left", locked=True)
+```
+
+- **Names.** Only `Reference` and `Value`. Every other property keeps the library's placement; user
+  properties are written hidden ("User properties").
+- **Frame.** `dx` and `dy` are lengths in the board frame, measured from the part's placement point (the
+  point of `place()`, or the staging point), and are given together. `rot` is the angle of the text on the
+  board in degrees. Both are independent of the part's own rotation: "2.5 mm above the part, horizontal"
+  stays true after `place(…, rot=90)`, and it is the frame in which KiCad's DRC reports a field. Y grows
+  downwards, as everywhere in the DSL.
+- **`layer`** is `"silk"` or `"fab"`, on the part's side: `F.SilkS` or `F.Fab` for a top part, `B.SilkS` or
+  `B.Fab`, mirrored, for a bottom one.
+- **`visible`** shows or hides the field. **`size`** is the glyph height and width; **`thickness`** is the
+  stroke. Both are positive lengths.
+- **`justify`** is `left` or `right`, then `top` or `bottom`, as one string (`"left"`, `"top"`,
+  `"right bottom"`). The words are KiCad's and work in the reading frame of the text: from the anchor a
+  `left` text runs to +X and a `bottom` text lies above it. A field of a bottom part is mirrored, so its
+  `left` text runs to −X on the board (`H-K-FIELD-JUSTIFY`). Without a word the text is centred.
+- **`outside`** is `"top"`, `"bottom"`, `"left"` or `"right"`: the field goes beside the box of the
+  footprint's courtyard on that side of the board, horizontal, centred on the other axis, with its
+  justification pointing away from the box (mirrored fields included). **`gap`** is the distance from the
+  box, 0.25 mm by default; half the stroke is added. `outside` decides the position, so `dx`, `dy`, `rot`
+  and `justify` cannot be given with it. It uses no font metrics: the text never crosses back over its
+  anchor, but a long text beside a small part can still reach a neighbour or the board edge, and the side
+  is the script's choice.
+- **Keep-upright.** KiCad draws a field whose angle is above 90° and up to 270° turned by half a turn, so
+  it never reads upside down, unless the library field is unlocked. `rot=180` therefore looks like
+  `rot=0`; the stored angle is still the one given.
+- **`locked`.** On a first build every request applies. On a rebuild over an existing board, a field
+  edited in KiCad wins over an unlocked request; `locked=True` makes the request win (`docs/lens.md`,
+  "Footprint fields").
+- **Errors.** Another name, a second request for one field of one part, a request that sets nothing,
+  `dx` without `dy`, a bare number for a length and any other value outside these rules raise `DslError`
+  at the call. A footprint that has no such field is found by the build (`FEN-3004`).
 
 ## Vendored libraries
 

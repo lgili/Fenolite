@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Building a model design into a self-contained KiCad project (``docs/dsl.md``, "Build").
 
-``build_design`` resolves libraries, fills pins, places and stages parts with their user properties,
+``build_design`` resolves libraries, fills pins, places and stages parts with their user properties
+and the script's field placements,
 checks, writes the triad through ``triad.write_triad``, vendors the placed footprints of every row origin
 (or of project rows only) with a per-target ``fp-lib-table``, and adds the ``.fenolite/`` layer texts and
 build record. A design with an error gives no file.
@@ -35,6 +36,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
 from fenolite.lens import preserve
+from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical
 from fenolite.model.board import FootprintInstance, Pad, Side
@@ -400,6 +402,7 @@ def build_design(
     record: Mapping[str, str] | None = None,
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
+    fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -407,6 +410,9 @@ def build_design(
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
     ``copper_intents`` are resolved into tracks and vias after the parts are placed, so script copper
     follows a footprint that an existing board placed elsewhere (``docs/copper.md``).
+    ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
+    staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
+    ``FormatError``.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -482,6 +488,7 @@ def build_design(
             )
             placed.append(part.path)
             bottom = bottom or request.side == "bottom"
+        instance = apply_requests(instance, fields.get(part.path, ()))
         instance = dataclasses.replace(
             instance,
             pads=_pad_nets(instance.pads, pins[part.component.id], on_net[part.component.id], part, issues),
@@ -524,7 +531,9 @@ def build_design(
         merged = preserve.merge_layout(built, prepared.board, prepared.match)
         issues += merged.issues
         preserved.update(merged.summary)
-        target_design = merged.design
+        decided = merge_fields(merged, prepared.board, prepared.match, fields)
+        preserved["fields"] = decided.summary
+        target_design = decided.design
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -626,6 +635,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "board_only": merged.get("board_only", []),
         "dropped": merged.get("dropped", zero),
         "fills": merged.get("fills", {"kept": 0, "dropped": 0}),
+        "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "reader_infos": prepared.reader_infos if prepared is not None else 0,
     }
