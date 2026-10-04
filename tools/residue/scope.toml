@@ -33,3 +33,8 @@ reason = "the view window VP.LX/HX/LY/HY that libboard.py writes: 499000000 and 
 path = "tests/data/altium/routed/routed.PcbLib"
 pattern = "numeric-code"
 reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every PCB library (c0038 golden file of the routed sample)"
+
+[[waiver]]
+path = "tests/data/acceptance/*/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX Default class priority 2147483647, in the finished projects of the v0.1 acceptance loop (c0025)"

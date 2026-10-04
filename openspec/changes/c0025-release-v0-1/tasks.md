@@ -1,6 +1,7 @@
 ## 0. Entry check
 
 - [ ] 0.1 Read `docs/roadmap.md` and `openspec/changes/`: every v0.1 change is archived or moved to a later milestone by the cut order, and c0016's gate verdict in `docs/evidence/routing.md` names the router. List under this task, with the date, the changes still open: the v0.1 changes, the prerequisites c0050 to c0054, and c0039 to c0047, which are not v0.1 work. While c0054 is open, do not start task 1.2; while any v0.1 change or prerequisite is open, do only tasks 1.x to 4.x and leave groups 5 and 6 open. Proof: `openspec list` prints the open changes, and the list written under this task equals it.
+  - 2026-10-04: archived c0050, c0052, c0053, c0054. On main and waiting for their CI run before the archive: c0051 and c0023 (both v0.1). Open and not v0.1 work: c0039 to c0047. The gate verdicts in `docs/evidence/routing.md`: KiCadRoutingTools passed (c0016) and Freerouting passed (c0023); the loop uses Freerouting (design, correction 0). So tasks 1.x to 4.x proceed, and groups 5 and 6 wait for the two archives.
 
 ## 1. Registers and the second example
 
@@ -9,14 +10,14 @@
 
 ## 2. Acceptance loop and finished boards
 
-- [ ] 2.1 Write `tests/routing/_loop.py` (`run_loop`) and `tests/routing/test_acceptance_loop.py::test_loop` (requirement "Acceptance loop"). Run it on the blink first. Proof: `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py -k "loop and blink" -rA` on the local KiCad 10.0.6.
-- [ ] 2.2 Run the loop on `board_40parts`. If the router leaves nets open within 600 s, apply design Decision 5: script the remaining copper in `design.py`, and write the two counts under this task. Record the four finished projects with `FENOLITE_ACCEPTANCE_WRITE=1` and declare them in `tests/data/MANIFEST.toml`. Proof: `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py -k loop -rA`; `uv run pytest tests/residue tests/unit/test_repo_layout.py`; `make residue` exits 0.
+- [ ] 2.1 Write `tests/_acceptloop.py` (`run_loop`) and `tests/routing/test_acceptance_loop.py::test_loop` (requirement "Acceptance loop"). Run it on the blink first. Proof: `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py -k "loop and blink" -rA` on the local KiCad 10.0.6.
+- [ ] 2.2 Run the loop on `board_40parts`. If the router leaves nets open within 600 s, apply design Decision 5: script the remaining copper in `design.py`, and write the two counts under this task. Record the four finished projects with `FENOLITE_ACCEPTANCE_WRITE=1` and declare them in `tests/data/MANIFEST.toml`. Proof: `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py -k loop -rA`; `uv run pytest tests/residue tests/unit/test_repo_layout.py`; `make residue` exits 0.
 - [ ] 2.3 Write `tests/kicad/acceptance/test_finished.py` (requirement "Finished boards pass on both majors"), reusing c0020's negative-test helpers, and add `tests/kicad/acceptance` to the `sys.path` list of `tests/kicad/conftest.py`. A failure here is reported to the change that owns the behaviour and is not worked around; note each under this task. Proof: `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/acceptance -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
 
 ## 3. Agent guide and README
 
 - [ ] 3.1 Write `agent/SKILL.md`, the loop block in `README.md` and the link in `AGENTS.md` (design Decision 6), and `tests/unit/test_agent_skill.py` (hermetic scenarios of "Agent guide is executable"). In the worktree, add only the link to `AGENTS.md`; leave the uncommitted block of the main checkout alone. Proof: `uv run pytest tests/unit/test_agent_skill.py tests/residue`.
-- [ ] 3.2 Write `test_skill_block` in `tests/routing/test_acceptance_loop.py`. Proof: `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block -rA` on the local KiCad 10.0.6.
+- [ ] 3.2 Write `test_skill_block` in `tests/routing/test_acceptance_loop.py`. Proof: `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block -rA` on the local KiCad 10.0.6.
 - [ ] 3.3 Rewrite the status paragraph and the install section of `README.md` (requirement "README describes v0.1"), and add the README checks to `tests/unit/test_agent_skill.py`. Leave the extras line as c0052 wrote it. Proof: `uv run pytest tests/unit/test_agent_skill.py -k readme`; `grep -c -e 'pre-alpha' -e 'being bootstrapped' README.md` prints `0`.
 
 ## 4. CI matrix

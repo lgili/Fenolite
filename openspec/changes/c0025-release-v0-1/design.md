@@ -36,6 +36,8 @@
 
 ## Decisions
 
+0. **Corrections of 2026-10-04, made while implementing.** (a) The KiCad major of a build is chosen with `--kicad-version 9|10`; `--target` chooses `kicad` or `altium`. Where this text says "target 9" or "target 10" it means the major. (b) The loop's router is Freerouting 2.4.1 (c0023), not KiCadRoutingTools (c0016): both gates passed, both run in the `routing` job, and Freerouting's two runs repeat (`dsn-repeat` = `equal`), which KiCadRoutingTools does not promise (`H-K-KRT-REPEAT`). On `board_40parts` the `GND` net is left to the zone, which covers both copper layers, and the script adds one ground via under each controller: with a zone on the bottom layer only, or with the router routing `GND` as tracks, Freerouting left 7 `GND` connections open (measured on 2026-10-04). The tests carry `needs_freerouting`.
+
 1. **Order of work.** The example first, then the loop and its recorded boards, then the guide, CI, the record and the version. The version changes last, in its own commit, after every row of the record has a result.
 
 2. **`examples/board_40parts/design.py`.** Forty parts from the mini library only, so no library file is added:
@@ -49,7 +51,7 @@
    - Rejected: the official libraries. The example must build with no fetch.
 
 3. **Where the loop runs.** Two test folders:
-   - `tests/routing/test_acceptance_loop.py` (`needs_kicad`, `needs_router`): the whole loop from `design.py`, for each example and target (9, 10), on `kicad-cli` 10.0.6. It lives under `tests/routing` so that c0016's `routing` job runs it with no change to that job; the job stays optional for merge and is required for release. Steps: `build`, `place --strategy grid`, `route --router <the router of the gate verdict>`, `fill`, `check`, `export --all --manifest`, `render --svg --png`, every one with `--confirm` into a temporary folder.
+   - `tests/routing/test_acceptance_loop.py` (`needs_kicad`, `needs_freerouting`): the whole loop from `design.py`, for each example and target (9, 10), on `kicad-cli` 10.0.6. It lives under `tests/routing` so that c0016's `routing` job runs it with no change to that job; the job stays optional for merge and is required for release. Steps: `build`, `place --strategy grid`, `route --router freerouting`, `fill`, `check`, `export --all --manifest`, `render --svg --png`, every one with `--confirm` into a temporary folder.
    - `tests/kicad/acceptance/test_finished.py` (`needs_kicad`): runs on **both** majors against the finished boards of Decision 4.
    - Rejected: the loop inside `kicad-9`. It has no router and cannot refill.
 
@@ -139,7 +141,7 @@
 |---|---|
 | `examples/board_40parts/design.py`, `fp-lib-table`, `sym-lib-table` (new) | Decision 2 |
 | `examples/README.md` (extended) | the new row |
-| `tests/routing/test_acceptance_loop.py`, `tests/routing/_loop.py` (new) | `run_loop(example, target, router, out) -> LoopResult(steps, board)`; `test_loop`, `test_skill_block` |
+| `tests/routing/test_acceptance_loop.py`, `tests/_acceptloop.py` (new) | `run_loop(example, target, router, out) -> LoopResult(steps, board)`; `test_loop`, `test_skill_block` |
 | `tests/kicad/acceptance/test_finished.py` (new) | Decision 4 |
 | `tests/data/acceptance/{blink_2layer,board_40parts}_t{9,10}/` (new) | recorded projects, with `MANIFEST.toml` rows |
 | `agent/SKILL.md` (new); `AGENTS.md`, `README.md` (extended; README status and install rewritten) | Decision 6 |
@@ -161,7 +163,7 @@ None: this change reads no format fact. S-0235 to S-0239 stay unused.
 
 | id | statement | settling test | criterion |
 |---|---|---|---|
-| H-K-REL-LOOP40 | The router of c0016's gate verdict leaves no unconnected item on `board_40parts` for targets 9 and 10 within 600 s, and the finished board passes KiCad's DRC | `tests/routing/test_acceptance_loop.py::test_loop` | on 10.0.6: `check` exits 0 for both targets with no script copper in `design.py`. If not, Decision 5 applies and the row records the number of nets the router closed |
+| H-K-REL-LOOP40 | Freerouting 2.4.1 leaves no unconnected item on `board_40parts` for targets 9 and 10 within 600 s, and the finished board passes KiCad's DRC | `tests/routing/test_acceptance_loop.py::test_loop` | on 10.0.6: `check` exits 0 for both targets with no script copper in `design.py`. If not, Decision 5 applies and the row records the number of nets the router closed |
 | H-G-REL-WINDOWS | The unit, consistency and residue suites pass on `windows-latest` with Python 3.12, with fewer than 5 % of the tests skipped as `posix-only fake tool` | the `unit (windows-latest, py3.12)` run | the run passes and its summary gives the skip count. If not, Decision 7's cut applies |
 
 Ids used without changing their level: `H-K-CLI-DOCKER` (its result text changes, Decision 15), `H-G-EDGE-EXACT`, `H-G-PLACE-OUTLINE`, `H-K-FMT-INDENT`, `H-K-01`, `H-K-KRT-ROUTE`, `H-K-KRT-REPEAT`, `H-K-FILL-LIFT`, `H-K-EXPORT-FILES`, `H-K-PLACE-MOVE`.
