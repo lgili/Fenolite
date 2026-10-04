@@ -101,8 +101,8 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   sheet and the warning `altium.sheet-custom`.
 - **Unique ids.** Each component's unique id is derived from its component path. A rebuild that keeps
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
-- **Not lowered.** The board outline, placements, net classes and diff pairs have no place in these
-  files. They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
+- **Not lowered.** The board outline, placements, the rule values of net classes and diff pairs have no
+  place in these files (the nets of a net class are declared by directives, see "Change order"). They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
   only order the layout and the schematic is one flat sheet; `--altium-sheets modules` gives each
   top-level module its own sheet (next section).
 
@@ -454,6 +454,44 @@ the last build, for example one saved by Altium in any form, is refused with `FE
 `build.layout-exists` issue. `--discard-layout` replaces it and keeps a `.bak` unless `--no-backup`.
 Work done on the schematic in Altium is lost by such a rebuild: change the design script instead.
 
+## Change order
+
+"Design » Update PCB Document" compares the compiled schematic with the PCB document. Besides components
+and nets it compares classes, rooms and some rules, which Altium derives from the schematic and the
+project options. The build writes what is needed for that comparison to find no class difference
+(change c0048):
+
+- **Net classes.** Each net of a net class (`design.rules.netclass(...)`) carries a Parameter Set directive
+  on one of its stubs, once per sheet, with a hidden parameter `ClassName` holding the class name. A new
+  project file ends with a `[PrjClassGen]` section whose `NetClassManualEnabled=1` is the project option
+  "Generate Net Classes" (tab "Class Generation", "User-Defined Classes"). The PCB document holds the same
+  class with the same nets, so Altium keeps it. Without that option, or with the Constraint Manager flow,
+  Altium ignores the directives and proposes to remove the class from the board.
+- **Component classes.** Altium derives one component class per schematic sheet that holds a part. The PCB
+  document holds each of them with the refs of the sheet's parts: named after the module for a module sheet
+  (`--altium-sheets modules`; the name of its sheet symbol), and after the sheet, which is the design name,
+  for the top sheet or the single sheet of a flat build. A new project file with a PCB document or module
+  sheets sets, for every schematic document, `ClassGenCCAutoEnabled=1`, `ClassGenCCAutoRoomEnabled=0` and
+  `ClassGenNCAutoScope=None`: component classes on, rooms off, no net class per sheet.
+- **A kept project file.** An existing `<name>.PrjPcb` is kept, so these keys reach only a project file
+  that the build writes. For a project made before this change, delete the project file and rebuild, or
+  tick "Generate Net Classes" and untick "Generate Rooms" in the project options yourself.
+
+What the change order may still propose:
+
+| difference | why | what to do |
+|---|---|---|
+| "Add Rules": "Supply Nets", one per net with a power port | Altium suggests the rule when its advanced setting `Schematic.AutoGenerateSupplyNetsRule` is on (S-0185, S-0312). Fenolite does not write it: no permitted source holds the rule's record | execute it (it adds a rule with a voltage of 0 and removes nothing), untick the group, or turn the setting off |
+| "Add Rooms" | only when "Generate Rooms" is ticked for a sheet. Fenolite writes no room, for the same reason, and turns the option off in a new project file (`H-A-ECO-ROOMS`) | untick "Generate Rooms", or execute it: a room is added beside the board |
+| "Add Component Classes" or "Add Rooms" on a flat build | not expected since the sheet's class and the class keys are written; pending the maintainer's repeat of step E4 (`H-A-ECO-SHEETCLASS`) | execute it; it removes nothing |
+
+The maintainer's report of 2026-10-04 (Altium Designer 26.5; Part E of `docs/evidence/altium-pcb.md`)
+confirms this for a build with module sheets: its change order lists only the two "Supply Nets" rules
+(`H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-COMPCLASS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`). A flat
+build kept its net class in that report but was offered a component class and a room for its sheet; both
+are written or turned off since, which is `INFERRED` until the step is repeated (`H-A-ECO-SHEETCLASS`).
+An author report never raises the build's evidence level.
+
 ## Issue codes
 
 | code | severity | when |
@@ -477,7 +515,7 @@ Work done on the schematic in Altium is lost by such a rebuild: change the desig
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, net classes, diff pairs or harnesses are kept in the model only (without a PCB document); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs or harnesses are kept in the model only (without a PCB document); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |

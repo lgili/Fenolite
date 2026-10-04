@@ -189,6 +189,49 @@ def nets_from_sheet(records: Sequence[Record]) -> Nets:
     return nets
 
 
+def net_classes_from_sheet(records: Sequence[Record]) -> dict[str, str]:
+    """Net name → net class name, from the net class directives of one sheet (change c0048,
+    ``schematic-ascii.md``, "Net class directive"): each record 43 that owns a record 41 named
+    ``ClassName`` puts the net of the wire under its location in the class that the parameter's text names.
+    The net's name is that of the net label or power port on the same wire.
+
+    ``ReadError`` for a directive whose location lies on no wire or on a wire's end, whose wire holds no
+    name or two names, or that owns two ``ClassName`` parameters, and for a net that two directives put in
+    two classes."""
+    wires = [
+        [(int(r[f"X{i}"]), int(r[f"Y{i}"])) for i in range(1, int(r["LOCATIONCOUNT"]) + 1)]
+        for r in records
+        if r["RECORD"] == "27"
+    ]
+    names = [(r["TEXT"], _point(r, "LOCATION")) for r in records if r["RECORD"] in ("25", "17")]
+    found: dict[str, str] = {}
+    for index, record in enumerate(records):
+        if record["RECORD"] != "43":
+            continue
+        owned = [
+            r
+            for r in records
+            if r["RECORD"] == "41" and r.get("OWNERINDEX") == str(index) and r.get("NAME") == "ClassName"
+        ]
+        if not owned:
+            continue
+        if len(owned) > 1:
+            raise ReadError(f"the directive of record {index} owns {len(owned)} ClassName parameters")
+        point = _point(record, "LOCATION")
+        under = [wire for wire in wires if _touches(point, wire)]
+        if not under:
+            raise ReadError(f"the net class directive at {point} lies on no wire")
+        if any(point in (wire[0], wire[-1]) for wire in under):
+            raise ReadError(f"the net class directive at {point} lies on a wire's end")
+        nets = sorted({text for text, at in names for wire in under if _touches(at, wire)})
+        if len(nets) != 1:
+            raise ReadError(f"the wire of the net class directive at {point} holds the names {nets}")
+        name = owned[0]["TEXT"]
+        if found.setdefault(nets[0], name) != name:
+            raise ReadError(f"the net {nets[0]} is in the classes {found[nets[0]]} and {name}")
+    return found
+
+
 def read_no_connects(records: Sequence[Record]) -> set[tuple[str, str]]:
     """{(designator of the owning component, pin designator)} of the pins whose electrical end holds a
     No ERC directive (``RECORD=22``). Only the pins drawn on a part record count.

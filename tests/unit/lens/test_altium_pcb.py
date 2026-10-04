@@ -762,12 +762,14 @@ def test_plane_keeps_the_model_unchanged(tmp_path: Path) -> None:
 
 
 def test_class_of_the_blink_sample(tmp_path: Path) -> None:
-    """Scenario "Class of the blink sample": one record, ``PWR`` with ``GND`` and ``VIN``."""
+    """Scenario "Class of the blink sample": one net class, ``PWR`` with ``GND`` and ``VIN``, then the
+    component class of the single sheet (change c0048)."""
     from _altium_pcb_read import read_pcbdoc
 
     output = build_blink_placed(tmp_path)
     doc = read_pcbdoc(output.files["blink.PcbDoc"])
-    (record,) = doc.classes
+    record, sheet = doc.classes
+    assert (sheet.name, sheet.kind, sheet.members) == ("blink", "1", ["D1", "R1", "U1"])
     assert record.fields["NAME"] == "PWR" and record.fields["KIND"] == "0"
     assert record.fields["M0"] == "GND" and record.fields["M1"] == "VIN" and "M2" not in record.fields
     assert output.summary["copper"]["net_classes"] == 1  # type: ignore[index]
@@ -782,8 +784,9 @@ def test_design_without_copper_keeps_its_document(tmp_path: Path) -> None:
     text = 'design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))\n'
     output = build_blink_placed(tmp_path, text, "")
     doc = read_pcbdoc(output.files["blink.PcbDoc"])
-    for name in ("Vias6", "Polygons6", "Classes6", "Rules6"):
+    for name in ("Vias6", "Polygons6", "Rules6"):
         assert doc.storages[name] == (0, b""), name
+    assert [(c.name, c.kind) for c in doc.classes] == [("blink", "1")]  # the sheet's component class
     committed = read_pcbdoc((LIBS.parent / "altium" / "blink" / "blink.PcbDoc").read_bytes())
     storages = ("Vias6", "Polygons6", "Classes6", "Rules6")
     copper = {f"{name}/{part}" for name in storages for part in ("Header", "Data")}
@@ -902,7 +905,7 @@ def test_copper_does_not_depend_on_the_sheet_mode(tmp_path: Path) -> None:
     doc = read_pcbdoc(board.files["altium_hier_board.PcbDoc"])
     assert doc.copper_chain == [1, 39, 3, 32] and doc.plane_nets == {1: "GND"}
     assert all(c["SOURCEUNIQUEID"].count("\\") == 2 for c in doc.components)
-    assert [c.name for c in doc.classes] == ["PWR"] and len(doc.rules) == 5
+    assert [c.name for c in doc.classes] == ["PWR", "driver", "led"] and len(doc.rules) == 5
 
 
 # --- every board component links to a schematic component (H-A-SCH-HIER-ECO, step H7) ------------------

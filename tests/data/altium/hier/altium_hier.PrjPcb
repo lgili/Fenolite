@@ -3,12 +3,21 @@ Version=1.0
 
 [Document1]
 DocumentPath=altium_hier.SchDoc
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
 
 [Document2]
 DocumentPath=altium_hier_flash.SchDoc
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
 
 [Document3]
 DocumentPath=altium_hier_mcu.SchDoc
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
 
 [Document4]
 DocumentPath=FenoliteHier.SchLib

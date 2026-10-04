@@ -108,6 +108,10 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
     Evidence(
         Level.INFERRED,
         hypotheses=(
+            "H-A-ECO-NETCLASS",
+            "H-A-ECO-PRJ-KEYS",
+            "H-A-ECO-ROOMS",
+            "H-A-ECO-SUPPLY",
             "H-A-PRJ-KEEP",
             "H-A-PRJ-OPEN",
             "H-A-SCH-ECO",
@@ -871,6 +875,9 @@ def _check(
         ref = component.ref if component is not None else mark.component_id
         where = component_path(component) if component is not None else mark.component_id
         _unwritable(issues, mark.pin, f"{ref} pin designator", where)
+    for item in sorted(design.circuit.netclasses, key=lambda c: c.name):
+        # the schematic holds the name as the text of a ClassName parameter (change c0048)
+        _unwritable(issues, item.name, "net class name", item.name, parameter=True)
     _case_collisions(issues, "net", [n.name for n in design.circuit.nets])
     _case_collisions(issues, "ref", [c.ref for c in components])
     issues += _hierarchy_checks(design)
@@ -999,7 +1006,10 @@ def _not_lowered(
         )
     classes = sorted(c.name for c in design.circuit.netclasses)
     if classes:
-        message = f"net classes {', '.join(classes)} are kept in the model only"
+        message = (
+            f"the rule values of the net classes {', '.join(classes)} are kept in the model only; the "
+            "schematic declares their nets"
+        )
         found.append(issue("altium.not-lowered", message, "rules"))
     found += altium_copper.board_not_lowered(design.board)
     pairs = sorted(i.name for i in design.circuit.interfaces if i.kind == "diff_pair")

@@ -10,8 +10,9 @@ designator, its comment and, when it has a footprint, the footprint chain 44 →
 component, part and pin drawn on that part, the pin's wire stub followed by its net label or power port.
 Before these pin stubs come the labelled wires of the sheet entries (top sheet) and the ports of a module
 sheet, each followed by its labelled wire or the wires of its harness block.
-Last come the No ERC directives of the pins marked as intentionally unconnected (change c0036), so a
-design without marks keeps its bytes.
+Then come the No ERC directives of the pins marked as intentionally unconnected (change c0036), and last
+the net class directives (change c0048), each with its ``ClassName`` parameter, so a design without marks
+and without a net class keeps its bytes.
 Bodies come from the library symbol, placed with its origin at the component's location (change c0034).
 Every record and key is a fact of ``docs/formats/altium/schematic-ascii.md``; the key order
 and the values marked as choices are Fenolite's.
@@ -25,6 +26,7 @@ from fenolite.backends.altium.layout import (
     DESIGNATOR_RISE,
     PORT_HEIGHT,
     SHEET_NAME_RISE,
+    ClassMark,
     HarnessBlock,
     NoConnectMark,
     PlacedEntry,
@@ -66,6 +68,13 @@ VERTICAL_TEXT = "1"
 NO_ERC_COLOR = "255"
 """Red in the page's colour encoding (a Fenolite choice)."""
 NO_ERC_SYMBOL = "Thin Cross"
+DIRECTIVE_COLOR = "255"
+"""The colour of a Parameter Set directive, as a saved sheet holds it (change c0048)."""
+DIRECTIVE_NAME = "Parameter Set"
+DIRECTIVE_DOWN = "3"
+"""``ORIENTATION`` of a directive on a horizontal stub: downwards, away from the label text above the wire."""
+CLASS_PARAMETER = "ClassName"
+"""The parameter of a directive that puts its net in a net class."""
 
 Record = list[Field]
 
@@ -343,6 +352,35 @@ class _Writer:
             ]
         )
 
+    def class_mark(self, mark: ClassMark) -> None:
+        """Records 43 and 41 (change c0048, "Net class directives on the sheet"): a Parameter Set directive
+        inside a stub of the net, and its hidden ``ClassName`` parameter holding the class name."""
+        owner = self.add(
+            [
+                ("RECORD", "43"),
+                ("OWNERPARTID", "-1"),
+                *self.at("LOCATION", *mark.at),
+                ("COLOR", DIRECTIVE_COLOR),
+                *(() if mark.vertical else (("ORIENTATION", DIRECTIVE_DOWN),)),
+                ("NAME", DIRECTIVE_NAME),
+                ("UNIQUEID", mark.unique_id),
+            ]
+        )
+        self.add(
+            [
+                ("RECORD", "41"),
+                ("OWNERINDEX", str(owner)),
+                ("OWNERPARTID", "-1"),
+                *self.at("LOCATION", *mark.at),
+                ("COLOR", TEXT_COLOR),
+                ("FONTID", "1"),
+                ("ISHIDDEN", "T"),
+                ("TEXT", mark.name),
+                ("NAME", CLASS_PARAMETER),
+                ("UNIQUEID", mark.parameter_id),
+            ]
+        )
+
 
 def schdoc_records(plan: SheetPlan) -> list[Record]:
     """Every record after the header, in file order."""
@@ -362,6 +400,8 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
         writer.stub(stub)
     for mark in plan.no_connects:
         writer.no_connect(mark)
+    for item in plan.class_marks:
+        writer.class_mark(item)
     return writer.records
 
 

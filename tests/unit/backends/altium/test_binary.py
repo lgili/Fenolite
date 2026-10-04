@@ -216,3 +216,19 @@ def test_additional_streams_of_the_module_sheets() -> None:
 def test_additional_stream_framing() -> None:
     records = [(("RECORD", "215"), ("OWNERPARTID", "-1"))]
     assert additional_stream(records) == frame_record(header_record(1)) + frame_record(records[0])
+
+
+def test_class_directives_are_the_same_in_both_forms() -> None:
+    """Change c0048, "Net class directives on the sheet": both forms hold the same records."""
+    from _altium import blink, model_of
+    from _altium_read import net_classes_from_sheet, read_sheet
+
+    model = model_of(blink())
+    wanted = {"GND": "PWR", "VIN": "PWR"}
+    found = {}
+    for form in ("ascii", "binary"):
+        files = write_project(model, name="blink", form=form)  # type: ignore[arg-type]
+        main, _extra = read_sheet(files["blink.SchDoc"])
+        assert net_classes_from_sheet(main) == wanted
+        found[form] = [r for r in main if r["RECORD"] in ("43",) or r.get("NAME") == "ClassName"]
+    assert found["ascii"] == found["binary"] and len(found["ascii"]) == 4

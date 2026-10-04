@@ -591,6 +591,14 @@ def test_class_lists_an_unknown_net() -> None:
         )
 
 
+def test_component_class_lists_an_unknown_component() -> None:
+    """Scenario "Member that is no component" (change c0048)."""
+    with pytest.raises(PcbReadError, match="Classes6 record 0: the member R9 names no component"):
+        read_pcbdoc(
+            copper_document(Classes6__Header=one(1), Classes6__Data=net_class("led", "1", "R1", "R9"))
+        )
+
+
 def test_class_header_count() -> None:
     with pytest.raises(PcbReadError, match="Classes6/Header says 0, the data holds 1 records"):
         read_pcbdoc(copper_document(Classes6__Header=one(0), Classes6__Data=net_class()))

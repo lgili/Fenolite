@@ -95,6 +95,16 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-NETS",
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+    }
+    assert {h for h in EVIDENCE.hypotheses if h.startswith("H-A-ECO-")} == {
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
     }
     assert WRITE_KINDS == (
         "altium_harness",
@@ -277,3 +287,49 @@ def test_unique_ids_of_sheets_and_ports_depend_only_on_names() -> None:
     assert hierarchy.port_id("mcu", "RESET_N") == unique_id("port:mcu:RESET_N")
     assert hierarchy.port_id("mcu", "FLASH_WP") != hierarchy.port_id("flash", "FLASH_WP")
     assert all(re.fullmatch(r"[A-Y]{8}", i) for i in (hierarchy.symbol_id("a"), hierarchy.port_id("a", "b")))
+
+
+# --- net class directives (change c0048) -------------------------------------------------------------
+
+
+def test_net_class_names_of_the_blink_sample() -> None:
+    from _altium import blink
+
+    assert project.net_class_names(model_of(blink())) == {"GND": "PWR", "VIN": "PWR"}
+    assert project.net_class_names(sample_model()) == {}
+
+
+def test_class_marks_of_the_single_sheet() -> None:
+    """One mark per net of a class, in net-name order, inside the first stub of the net."""
+    from _altium import blink
+
+    plan = project.plan_sheet(model_of(blink()), name="blink")
+    assert [(m.net, m.name) for m in plan.class_marks] == [("GND", "PWR"), ("VIN", "PWR")]
+    for mark in plan.class_marks:
+        stub = next(s for s in plan.stubs if s.net.net == mark.net)
+        assert mark.vertical == stub.vertical
+        assert mark.at not in (stub.start, stub.end, stub.mark)
+        (x0, y0), (x1, y1), (x, y) = stub.start, stub.end, mark.at
+        assert min(x0, x1) <= x <= max(x0, x1) and min(y0, y1) <= y <= max(y0, y1)
+        distance = abs(x - x0) + abs(y - y0)
+        assert distance == (200 if stub.length >= 300 else 100)
+        assert mark.unique_id == project.unique_id(f"netclass:blink.SchDoc:{mark.net}")
+        assert mark.parameter_id == project.unique_id(f"netclass:blink.SchDoc:{mark.net}:name")
+    ids = [i for m in plan.class_marks for i in (m.unique_id, m.parameter_id)]
+    assert len(set(ids)) == len(ids)
+
+
+def test_class_marks_of_a_sheet_without_a_class() -> None:
+    plan = project.plan_sheet(sample_model(), name="altium_sample")
+    assert plan.class_marks == ()
+    assert project.with_class_marks(plan, {}, "altium_sample.SchDoc") is plan
+    assert project.with_class_marks(plan, {"NO_SUCH_NET": "X"}, "altium_sample.SchDoc") is plan
+
+
+def test_class_mark_name_that_a_parameter_cannot_hold() -> None:
+    """Scenario "Class name that a parameter cannot hold"."""
+    from _altium import blink
+
+    plan = project.plan_sheet(model_of(blink()), name="blink")
+    with pytest.raises(ValueError, match="net class name '=PWR'"):
+        project.class_marks(plan, {"GND": "=PWR"}, "blink.SchDoc")

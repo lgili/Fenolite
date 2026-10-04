@@ -23,10 +23,10 @@ names them.
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/blink/blink.PcbDoc` | `f09401681747d8506fe895dfbf290d06362824a52472efd63a6a9f7b6f633c01` |
+| `tests/data/altium/blink/blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
-| `tests/data/altium/blink/blink.PrjPcb` | `6d022f120a50b3959d3f35f0ce45686ae852d203b1cd42221fa456df9bc3b18e` |
-| `tests/data/altium/blink/blink.SchDoc` | `e35c86d80da829e2cf7eba288fe2b5fff482619a921617c1e7bc3032692b1944` |
+| `tests/data/altium/blink/blink.PrjPcb` | `91a938db221c185bd611c2d6f0698677e8a16c616ffec75ab53b20aca1a2931c` |
+| `tests/data/altium/blink/blink.SchDoc` | `4f72b375b0292cb1c4241898f6ba6241382266926bdc96788cc66ca065efcf12` |
 | `tests/data/altium/blink/blink.SchLib` | `4f3accb1f9634c7cedd305240493e6d6e9a2cfde3d3e0ff0aee0a75e6387517e` |
 
 ### Report of 2026-10-03 and the files since
@@ -49,6 +49,13 @@ Change c0038 rebuilt `blink.PcbDoc`: it now holds the net class `PWR` in `Classe
 (`docs/formats/altium/pcb-copper.md`). The document that the report of 2026-10-03 opened had the SHA-256
 `5e084d85…894f` and neither class nor rule; that report stays valid for the facts it settled, and Part C names the new
 bytes.
+
+Change c0048 rebuilt the schematics, the project files and the documents of the blink and routed samples:
+each schematic holds the net class directives, each project file the class keys and `[PrjClassGen]`, and
+each document the component class of its sheet (`blink` and `routed`). The Viewer report of 2026-10-03
+names the document it uploaded, `f0940168…3c01`; the copper report of Part C was made on
+`aee17146…0fef`. Both stay valid for the facts they settled: the new records are one class more in
+`Classes6`.
 
 ### Pads of the library
 
@@ -136,12 +143,12 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 
 | file | SHA-256 |
 |---|---|
-| `tests/data/altium/routed/routed.PcbDoc` | `aee171466b3e74da227e1a1bf66f01a9bbd6a6fca04e0d84df53858fa1940fef` |
+| `tests/data/altium/routed/routed.PcbDoc` | `158cc00bc5d78a82f5c5a2a99fab5b839b3da3d5c279b641105aba5c8815931f` |
 | `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
-| `tests/data/altium/routed/routed.PrjPcb` | `bdcd1ec084a54faa500833bc81ce9183df5a2ba7b23d057755e3d2d70566b367` |
-| `tests/data/altium/routed/routed.SchDoc` | `e195347f7c47c0e311be7333a7f5ec8cfe1702fc471207b59135cd12e1e270e9` |
+| `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
+| `tests/data/altium/routed/routed.SchDoc` | `7fe119a7d4aeaac4e839efb62edaedcea16f0122cebd65a6529761a719f474be` |
 | `tests/data/altium/routed/routed.SchLib` | `d5c422088de0150389ebee25d625dbeeba298d7099973b8588bc70593680a0fe` |
-| `p0/routed.PcbDoc` | `cdf71fd14a3e08e540345bde9508e22cfd1fd05ea71b814e06748404f32414eb` |
+| `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
 of a track or arc, or the diameter and hole of a via:
@@ -191,6 +198,55 @@ class; `c5` adds the rules (the committed sample); `p0` is the plane variant of 
 
 The KiCad oracles (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) check
 only what KiCad's importer reads; they settle no row of this part.
+
+## Part E: the change order (change c0048)
+
+After the maintainer's report of 2026-10-03, "Design » Update PCB Document" on the board example still
+proposed to remove the net class `PWR` and to add two component classes, two rooms and two "Supply Nets"
+rules. Change c0048 declares the net classes in the schematic, turns the rooms off in the project file and
+writes the component class of every sheet into the PCB document
+(`docs/formats/altium/schematic-ascii.md`, "Net class directive"; `project.md`, "Class generation";
+`pcb-copper.md`, "Classes and rules of the change order").
+
+Two samples, each built into an empty folder outside the repository:
+
+- the board example, `fenolite build examples/altium_hier_board/design.py --out <folder> --target altium
+  --altium-sheets modules --confirm`: a top sheet, the module sheets `driver` and `led`, the PCB document;
+- the routed sample of Part C (`tests/data/altium/routed/`, SHA-256 in the table of Part C): a single sheet.
+
+Each step needs a licence the maintainer may use for Fenolite (licence rule above). Work on a fresh copy
+of each folder: a project file that Altium saved earlier holds its own class options, and Fenolite keeps
+an existing project file.
+
+- **E1** (board example): open `altium_hier_board.PrjPcb` and run "Project » Validate PCB Project", without
+  opening any dialog first. Expected: both module sheets are under the top sheet in the Projects panel, as
+  before the class keys were added, and no message names a directive or a parameter. Settles
+  `H-A-ECO-PRJ-KEYS` and repeats `H-A-SCH-HIER-ORDER`.
+- **E2** (same project): open "Project » Project Options", tab "Class Generation". Expected: under
+  "User-Defined Classes", "Generate Net Classes" is ticked; each of the three sheets has "Component Classes"
+  ticked, "Generate Rooms" unticked and the net class scope "None". On the sheets `driver` and `led`, a red
+  directive sits on one stub of `GND` (and of `VIN` on `driver`); its hidden parameter `ClassName` is `PWR`.
+  Settles `H-A-ECO-PRJ-KEYS`.
+- **E3** (same project): from the top sheet run "Design » Update PCB Document altium_hier_board.PcbDoc".
+  Expected: no "Remove Net Classes", no change of the members of `PWR`, no "Add Component Classes", no
+  change of the members of `driver` and `led`, and no "Add Rooms". Note every group the change order still
+  lists, with its entries. The only group expected is "Add Rules" with "Supply Nets" entries, one per net
+  with a power port (`GND` and `VIN`); it is absent when Altium's advanced setting
+  `Schematic.AutoGenerateSupplyNetsRule` is off. Settles `H-A-ECO-NETCLASS`, `H-A-ECO-COMPCLASS`,
+  `H-A-ECO-ROOMS` and `H-A-ECO-SUPPLY`.
+- **E4** (routed sample): open `routed.PrjPcb`, validate the project, check "Generate Net Classes" as in
+  E2 and that the one sheet has "Generate Rooms" unticked, and run "Design » Update PCB Document
+  routed.PcbDoc". Expected: no net class change, no "Add Component Classes" (the document holds the class
+  `routed` with `D1`, `R1` and `U1`), no "Add Rooms"; at most the "Supply Nets" rules. Settles
+  `H-A-ECO-SHEETCLASS`, and `H-A-ECO-NETCLASS` for a single sheet. If a room is still listed, tick nothing
+  and report whether "Generate Rooms" showed ticked: that separates the key from the class.
+
+When E1 fails (a module sheet outside the hierarchy), remove the three `ClassGen…` lines from every
+`[Document<n>]` section of a fresh copy and repeat E1: that tells whether the class keys are the cause.
+When E3 still lists rooms, note whether "Generate Rooms" was unticked in E2.
+
+Fenolite writes no room and no "Supply Nets" rule: no permitted source holds their records
+(`pcb-copper.md`, "Not written"). They are additions; executing them removes nothing.
 
 ## Reports
 
@@ -276,3 +332,40 @@ Outcome per step:
 
 The report names no fault, so no fact and no golden file changed. Step C5 (the routed sample in the
 Viewer, `H-A-PCB-CU-VIEWER`) is not part of this report.
+
+### 2026-10-04, `AD 26.5`, Part E
+
+- Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-04; no artefact)`.
+- Files: the two samples of Part E as first built for it, outside the repository: the board example with
+  module sheets, and the routed sample as it was then (schematic `7fe119a7…74be`, project file
+  `8bcaa84d…2f04`, document `aee17146…0fef`): with the net class directives and `[PrjClassGen]`, without a
+  class key in the project file and without a component class in the document. No file opened or saved in
+  the session enters the repository.
+
+Outcome per step:
+
+- **E1, hierarchy.** The project of the board example opens and "everything is right": every component of
+  both module sheets matches its board component in the change order. The Projects panel was not
+  described. Confirms `H-A-ECO-PRJ-KEYS` by its effect and repeats `H-A-SCH-HIER-ORDER`.
+- **E2, options.** Not reported: the ticks of the tab "Class Generation" were not read.
+- **E3, change order of the board example.** It lists only "Add Rules (2): Supply Nets", each with a
+  voltage of 0 and a net scope. No net class removal, no component class, no room. Confirms
+  `H-A-ECO-NETCLASS`, `H-A-ECO-COMPCLASS`, `H-A-ECO-ROOMS` and `H-A-ECO-SUPPLY`.
+- **E4, change order of the flat routed sample.** It lists "Add Component Classes (1): `routed`", "Add
+  Rooms (1): Room `routed`", scoped by that component class, and "Add Rules (2): Supply Nets". No net class
+  removal: confirms `H-A-ECO-NETCLASS` for a single sheet.
+
+Reading of E4, and what changed:
+
+- In a flat project Altium derives one component class named after the single sheet, with every
+  component, and a room for it. The two samples differ in two ways for rooms: the board example's project
+  file held `ClassGenCCAutoRoomEnabled=0` in each schematic section and its document held the classes of
+  its sheets; the routed sample had neither. Altium's documentation ties the room to the option "Generate
+  Rooms" of the sheet and scopes it by the sheet's component class (S-0310), so the key is the likelier
+  cause and the missing class the lesser one; the report does not separate them.
+- Fenolite now writes both for every build with a PCB document: one component class per sheet that holds
+  a component (named after the module, or after the sheet for the top or single sheet), and the three
+  class keys in every schematic section (`H-A-ECO-SHEETCLASS`, pending). The routed and blink golden files
+  are rebuilt, and step E4 is to be repeated on the rebuilt routed sample.
+- The "Supply Nets" rules stay the one accepted difference: no permitted source holds their record.

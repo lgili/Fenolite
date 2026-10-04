@@ -13,6 +13,7 @@ resolves no library: ``lens.altium`` passes the resolved symbols in. A design it
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
@@ -22,7 +23,14 @@ from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
-from fenolite.backends.altium.layout import PartSpec, PinNet, SheetPlan, layout_sheet
+from fenolite.backends.altium.layout import (
+    ClassMark,
+    PartSpec,
+    PinNet,
+    SheetPlan,
+    class_mark_point,
+    layout_sheet,
+)
 from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.prjpcb import write_prjpcb
@@ -59,6 +67,10 @@ PCBDOC_KIND = "altium_pcbdoc"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
         "H-A-PRJ-OPEN",
         "H-A-SCH-LINEEND",
         "H-A-SCH-LINK",
@@ -67,7 +79,9 @@ EVIDENCE = Evidence(
         "H-A-SCH-UID",
     ),
 )
-"""The writer's format facts are inferred from public sources until the maintainer's author reports."""
+"""The writer's format facts are inferred from public sources until the maintainer's author reports. The
+``H-A-ECO-*`` rows are those of the change order (change c0048): the net class directives and the class
+generation keys of the project file."""
 
 PowerStyle = Literal["ground", "bar"]
 SchematicForm = Literal["binary", "ascii"]
@@ -297,11 +311,49 @@ def generic_symbols(design: Design) -> dict[str, AltiumSymbol]:
     return symbols
 
 
+def net_class_names(design: Design) -> dict[str, str]:
+    """Net name → the name of its net class, for every net whose ``netclass_id`` names a net class of
+    ``design``, in code-point order of the net names (change c0048)."""
+    names = {item.id: item.name for item in design.circuit.netclasses}
+    return {
+        net.name: names[net.netclass_id]
+        for net in sorted(design.circuit.nets, key=lambda n: n.name)
+        if net.netclass_id is not None and net.netclass_id in names
+    }
+
+
+def class_marks(plan: SheetPlan, classes: Mapping[str, str], sheet: str) -> tuple[ClassMark, ...]:
+    """The net class directives of the sheet ``plan``, whose file name is ``sheet`` (change c0048, "Net
+    class directives on the sheet"): one per net of ``classes`` (net name → class name) that has a stub on
+    the sheet, in code-point order of the net names, at a point inside the first stub of that net in write
+    order (``plan.links``, then ``plan.stubs``). ``ValueError`` for a class name that a parameter text
+    cannot hold."""
+    first: dict[str, tuple[tuple[int, int], bool]] = {}
+    for stub in (*plan.links, *plan.stubs):
+        if stub.net.net in classes and stub.net.net not in first:
+            first[stub.net.net] = (class_mark_point(stub), stub.vertical)
+    marks: list[ClassMark] = []
+    for net in sorted(first):
+        name = _text(classes[net], "net class name", parameter=True)
+        at, vertical = first[net]
+        key = f"netclass:{sheet}:{net}"
+        marks.append(ClassMark(net, name, at, vertical, unique_id(key), unique_id(f"{key}:name")))
+    return tuple(marks)
+
+
+def with_class_marks(plan: SheetPlan, classes: Mapping[str, str], sheet: str) -> SheetPlan:
+    """``plan`` with the net class directives of ``class_marks``; ``plan`` itself when it gets none."""
+    marks = class_marks(plan, classes, sheet) if classes else ()
+    return dataclasses.replace(plan, class_marks=marks) if marks else plan
+
+
 def plan_sheet(
     design: Design, *, name: str = "", symbols: Mapping[str, AltiumSymbol] | None = None
 ) -> SheetPlan:
-    """The sheet layout of ``design``: sheet size, placed components and stubs."""
-    return layout_sheet(part_specs(design, name=name, symbols=symbols))
+    """The sheet layout of ``design``: sheet size, placed components, stubs and the net class directives
+    of the single sheet ``<name>.SchDoc`` (change c0048)."""
+    plan = layout_sheet(part_specs(design, name=name, symbols=symbols))
+    return with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
 
 
 def library_symbols(
@@ -338,7 +390,8 @@ def write_project(
     project file lists both; their size limit raises ``PcbTooLarge``. With ``sheets="modules"`` (change
     c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
     sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
-    libraries do not depend on the mode."""
+    libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
+    directives on every sheet and the ``[PrjClassGen]`` section in the project file."""
     from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
@@ -370,6 +423,7 @@ def write_project(
             libraries=tuple(listed),
             sheets=tuple(sheet.file for sheet in planned.modules),
             harnesses=tuple(harness_files),
+            net_classes=bool(design.circuit.netclasses),
         )
     for sheet in planned.sheets:
         files[sheet.file] = write_schdoc_binary(sheet.plan) if form == "binary" else write_schdoc(sheet.plan)
@@ -410,9 +464,11 @@ __all__ = [
     "SCHLIB_KIND",
     "SchematicForm",
     "SheetMode",
+    "class_marks",
     "component_path",
     "generic_symbols",
     "library_symbols",
+    "net_class_names",
     "is_altium_footprint",
     "is_altium_link",
     "pcblib_name",
@@ -424,5 +480,6 @@ __all__ = [
     "power_styles",
     "split_link",
     "unique_id",
+    "with_class_marks",
     "write_project",
 ]

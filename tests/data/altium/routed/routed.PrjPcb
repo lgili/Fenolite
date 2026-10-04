@@ -3,6 +3,9 @@ Version=1.0
 
 [Document1]
 DocumentPath=routed.SchDoc
+ClassGenCCAutoEnabled=1
+ClassGenCCAutoRoomEnabled=0
+ClassGenNCAutoScope=None
 
 [Document2]
 DocumentPath=routed.PcbDoc
@@ -12,3 +15,12 @@ DocumentPath=routed.PcbLib
 
 [Document4]
 DocumentPath=routed.SchLib
+
+[PrjClassGen]
+CompClassManualEnabled=0
+CompClassManualRoomEnabled=0
+NetClassAutoBusEnabled=1
+NetClassAutoCompEnabled=0
+NetClassAutoNamedHarnessEnabled=0
+NetClassManualEnabled=1
+NetClassSeparateForBusSections=0

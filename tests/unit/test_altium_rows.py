@@ -27,7 +27,7 @@ from fenolite.verify import HypothesisRow, load_register, parse_level
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
-STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-")
+STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-", "H-A-ECO-")
 REGISTERED_BY_C0032 = frozenset(
     {
         "H-A-SCH-OPEN",
@@ -124,6 +124,17 @@ REGISTERED_BY_C0038 = frozenset(
     }
 )
 """The author-report rows of the PCB copper (change c0038); its two oracle rows are in ``ORACLE_ROWS``."""
+REGISTERED_BY_C0048 = frozenset(
+    {
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-COMPCLASS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-ECO-SHEETCLASS",
+    }
+)
+"""The rows of the change order (change c0048), settled by Part E of the PCB evidence page."""
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -206,6 +217,7 @@ def test_the_change_registered_its_rows() -> None:
         | REGISTERED_BY_C0036
         | REGISTERED_BY_C0037
         | REGISTERED_BY_C0038
+        | REGISTERED_BY_C0048
     )
     assert ids <= set(rows)
     assert all(rows[i].backend == "altium" for i in ids)
@@ -216,6 +228,7 @@ def test_the_change_registered_its_rows() -> None:
     assert all("test_pcbdoc_oracle.py" in rows[i].test for i in ORACLE_THEN_REPORT)
     copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
     assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"}
+    assert {i for i in rows if i.startswith("H-A-ECO-")} == REGISTERED_BY_C0048
 
 
 def test_oracle_then_report_rows() -> None:

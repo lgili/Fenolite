@@ -102,7 +102,9 @@ def test_variants_add_one_feature_each() -> None:
     assert all(doc.rules == [] for doc in (c0, c1, c2, c3, c4))
     assert [r.name for r in c5.rules] == ["Clearance_PWR", "Clearance", "Width_PWR", "Width", "RoutingVias"]
     assert c4.streams["Classes6/Data"] == c5.streams["Classes6/Data"]
-    assert c3.classes == [] and [(c.name, c.members) for c in c4.classes] == [("PWR", ["GND", "VIN"])]
+    sheet = ("routed", "1", ["D1", "R1", "U1"])  # the component class of the single sheet (change c0048)
+    assert [(c.name, c.kind, c.members) for c in c3.classes] == [sheet]
+    assert [(c.name, c.kind, c.members) for c in c4.classes] == [("PWR", "0", ["GND", "VIN"]), sheet]
     assert c2.polygons == [] and [(p.layer, p.name) for p in c3.polygons] == [
         ("MID1", "GND_L02_P000"),
         ("BOTTOM", "GND_L04_P001"),

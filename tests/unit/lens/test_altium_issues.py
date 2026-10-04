@@ -874,3 +874,25 @@ def test_unique_id_collision_covers_sheet_symbols_and_ports() -> None:
     assert len(found) == 6 + 2 + 5 - 1 and output.files == {}
     assert sum("the sheet symbol" in i.message for i in found) == 2
     assert sum("the port" in i.message for i in found) == 5
+
+
+# --- net class names in the schematic (change c0048) -------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["=PWR", "P|WR", " PWR"])
+def test_net_class_name_is_checked_without_a_pcb_document(name: str) -> None:
+    """The schematic holds the class name as a parameter text, so the check does not wait for the PCB
+    document ("Classes in an Altium build")."""
+    from fenolite.dsl import Design, Net, Part, connect, to_model
+    from fenolite.lens.altium import build_altium
+
+    design = Design("classy")
+    r1 = Part("R1", "Parts.SchLib:RES", footprint="Parts.PcbLib:R0603")
+    first = Net("A")
+    connect(first, r1[1])
+    design.add(r1)
+    design.rules.netclass(name, nets=(first,))
+    output = build_altium(to_model(design), name=design.name)
+    found = [i for i in output.issues if i.code == "altium.text-unwritable"]
+    assert output.files == {} and len(found) == 1
+    assert found[0].severity == "error" and f"net class name {name!r}" in found[0].message

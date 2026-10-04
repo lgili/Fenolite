@@ -41,6 +41,21 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | In the hierarchy sample both module sheets are under the top sheet in Altium Designer 26.5 (maintainer's report, 2026-10-03). The maintainer's note gives its documents as top sheet, `flash`, `mcu`, schematic library; the project file built for that session held the schematic library as its second document, between the top sheet and the two module sheets, and no PCB document or PCB library. So one schematic library in between may not be what stops the second sheet; which of the documents in between does is not known, and the order written now avoids the question | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 | The minimal project file that Fenolite writes for the board example (top sheet, `driver`, `led`, PCB document, PCB library, schematic library; no other key) is accepted by Altium Designer 26.5: on a fresh copy, after "Project » Validate PCB Project" alone, both module sheets are under the top sheet, and "Design » Update PCB Document" then runs on the compiled project (maintainer's third report of Part H, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 
+## Class generation
+
+Change c0048 writes the options that decide which classes and rooms "Design » Update PCB Document" derives
+from the schematic.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The tab "Class Generation" of the project options holds, per schematic sheet, a tick "Component Classes", a tick "Generate Rooms" and a net class scope (None, Local Nets Only, All Nets), and, for the project, the ticks "Generate Component Classes" and "Generate Net Classes" under "User-Defined Classes" | S-0310 | INFERRED | H-A-ECO-PRJ-KEYS |
+| A sheet's component class is named after its sheet symbol, and its room, a Room Definition rule scoped `InComponentClass('<name>')`, has the same name; no room is made for a sheet without components | S-0310 | INFERRED | H-A-ECO-ROOMS |
+| Saved project files hold, in every `[Document<n>]` section, `ClassGenCCAutoEnabled`, `ClassGenCCAutoRoomEnabled` (0 or 1) and `ClassGenNCAutoScope` (`None` in every section read), in this order among the other keys; that the first two are the ticks "Component Classes" and "Generate Rooms" and the third the net class scope is read from their names | S-0187, S-0188, S-0313 | INFERRED | H-A-ECO-PRJ-KEYS |
+| Saved project files hold a section `[PrjClassGen]` after the document sections, with seven keys in this order: `CompClassManualEnabled`, `CompClassManualRoomEnabled`, `NetClassAutoBusEnabled`, `NetClassAutoCompEnabled`, `NetClassAutoNamedHarnessEnabled`, `NetClassManualEnabled` and `NetClassSeparateForBusSections`. The two public projects hold the values 0, 0, 1, 0, 0, 1, 0; one of them declares net classes by directives (`schematic-ascii.md`, "Net class directive"). That `NetClassManualEnabled` is the tick "Generate Net Classes" is read from its name | S-0187, S-0188 | INFERRED | H-A-ECO-PRJ-KEYS |
+| The project file that Altium Designer 26.5 saved from Fenolite's minimal file of the board example holds the same seven keys with `NetClassManualEnabled=0`, and, in all six document sections, `ClassGenCCAutoEnabled=1`, `ClassGenCCAutoRoomEnabled=0` and `ClassGenNCAutoScope=None`; its `[Design]` section holds `ConstraintManagerFlow=0`. Whether these are the defaults Altium takes for missing keys, or settings changed in that session, is not recorded | S-0313 | INFERRED | H-A-ECO-PRJ-KEYS |
+| On the board example built before change c0048, "Design » Update PCB Document" of Altium Designer 26.5 matched every component and net and proposed four groups: remove the net class `PWR`; add the component classes `driver` and `led`; add a room for each, scoped by its component class; add two "Supply Nets" rules with a voltage of 0. Which project file that session used, Fenolite's minimal one or the saved one with the room key at 0, is not recorded, so that the key stops the rooms is a hypothesis (maintainer's report of 2026-10-03) | S-0313, S-0310 | INFERRED | H-A-ECO-ROOMS |
+| With the three class keys in every schematic section and `[PrjClassGen]`, Altium Designer 26.5 opens the project of the board example, matches every component of both module sheets, keeps the net class and proposes no component class and no room: its change order lists only two "Supply Nets" rules. The flat routed sample of the same session, whose project file held `[PrjClassGen]` and no class key, kept its net class and was offered the component class `routed`, the room `routed` scoped by that class, and two "Supply Nets" rules. The two samples differ in the key and in the component class of the board, so the report does not isolate which of the two stops the room; the documentation ties the room to the option "Generate Rooms" (maintainer's report of 2026-10-04) | S-0310, S-0313 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-ROOMS |
+
 ## Fenolite's choices
 
 - The written project file is exactly `[Design]`, `Version=1.0`, an empty line, `[Document1]` and
@@ -69,3 +84,21 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
   one line `<type>=<entry>,<entry>,…` per type, types and entries in code-point order, each line ending
   with CR LF, in 7-bit ASCII without a byte-order mark. A name that holds `=`, `,` or `;` is refused
   (`H-A-SCH-HARN-FILE`).
+- Class generation (change c0048). A project with module sheets or with a PCB document holds three more lines
+  after `DocumentPath` in the section of every schematic document, the single or top sheet and each module
+  sheet: `ClassGenCCAutoEnabled=1`,
+  `ClassGenCCAutoRoomEnabled=0` and `ClassGenNCAutoScope=None`. So Altium derives the component class of each
+  sheet, which the PCB document holds (`pcb-copper.md`), and no room (`H-A-ECO-ROOMS`): Fenolite writes no room,
+  because no permitted source holds a room rule's record. The sections of the other documents hold
+  `DocumentPath` alone. A flat project with a PCB document holds the keys too: without them its change order
+  proposed a room for the single sheet (report of Part E, 2026-10-04; `H-A-ECO-SHEETCLASS`). Only a project
+  without module sheets and without a PCB document holds none.
+- A design with a net class ends its project file with an empty line, `[PrjClassGen]` and the seven keys with
+  the values of the public saved projects: `CompClassManualEnabled=0`, `CompClassManualRoomEnabled=0`,
+  `NetClassAutoBusEnabled=1`, `NetClassAutoCompEnabled=0`, `NetClassAutoNamedHarnessEnabled=0`,
+  `NetClassManualEnabled=1` and `NetClassSeparateForBusSections=0`. The whole section is written, not the one
+  key, because no file read holds a partial section and the defaults of missing keys are not known. A design
+  without a net class, without module sheets and without a PCB document keeps the minimal bytes
+  (`H-A-ECO-PRJ-KEYS`).
+- No key of the comparator or of the change-order options is written: the saved files number those options
+  without naming them, so their meaning is in no permitted source.

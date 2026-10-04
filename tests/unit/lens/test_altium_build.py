@@ -194,14 +194,15 @@ def test_evidence() -> None:
     assert ALTIUM_BUILD_EVIDENCE.level is Level.INFERRED
     assert "H-A-SCHBIN-VIEWER" in output.evidence.hypotheses
     register = load_register(ROOT / "docs" / "hypotheses.md")
-    stems = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-")
+    stems = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-", "H-A-ECO-")
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
     assert set(binary.EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-SCHBIN-")}
-    assert set(PCB_BUILD_EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-PCB-")}
+    board_rows = {i for i in rows if i.startswith("H-A-PCB-")} | {"H-A-ECO-COMPCLASS", "H-A-ECO-SHEETCLASS"}
+    assert set(PCB_BUILD_EVIDENCE.hypotheses) == board_rows  # the component classes are in the document
     assert PCB_BUILD_EVIDENCE.level is Level.INFERRED and "H-A-PCB-ECO" in output.evidence.hypotheses
 
 

@@ -251,7 +251,7 @@ fresh build gives these bytes and that this table names them.
 | sheet, library or project file | SHA-256 |
 |---|---|
 | `tests/data/altium/hier/FenoliteHier.SchLib` | `3013953bfd734233a33dbd17396d1b3049c2b215f13e46d2a0c4c9d75c0c8a4a` |
-| `tests/data/altium/hier/altium_hier.PrjPcb` | `ae491c3759917f8094fc3480d61e9d15a52210d67d5e8970c724f5d7216d9b60` |
+| `tests/data/altium/hier/altium_hier.PrjPcb` | `5a93823a0b938462fb766cee0ce8254a7e31f29076e4fa9303f74a8ed88b30f6` |
 | `tests/data/altium/hier/altium_hier.SchDoc` | `47ade2caca275e6d5ac7bfab73b71dc396b2c49dc76e7a58d089f6ea4b594e4d` |
 | `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
 | `tests/data/altium/hier/altium_hier_flash.SchDoc` | `7c51ef59965632ae74686b5c868bcb8d4c89c64b3f097a9a1dd6d72ee87d8b61` |

@@ -35,10 +35,12 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
     component_path,
+    net_class_names,
     part_specs,
     plan_sheet,
     power_styles,
     unique_id,
+    with_class_marks,
 )
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component, Interface
@@ -280,7 +282,8 @@ def plan_sheets(
 ) -> ProjectSheets:
     """The sheets of ``design``: the single sheet of ``project.plan_sheet`` for ``flat``; for ``modules``
     the top sheet ``<name>.SchDoc`` and one ``<name>_<module>.SchDoc`` per top-level module. A design
-    without a module gives the same top sheet in both modes."""
+    without a module gives the same top sheet in both modes. Every sheet holds the net class directives of
+    its nets (change c0048, ``project.class_marks``)."""
     _form(form)
     if sheets == "flat":
         return ProjectSheets(
@@ -312,10 +315,12 @@ def plan_sheets(
             del lines[split.harness]  # the two symbols are in two rows: this harness keeps its blocks
             continue
         break
-    planned = [SheetFile(sheet_file(name), top)]
+    classes = net_class_names(design)
+    planned = [SheetFile(sheet_file(name), with_class_marks(top, classes, sheet_file(name)))]
     for module, found in crossing.items():
-        plan = layout_sheet(by_sheet[module], ports=found)
-        planned.append(SheetFile(sheet_file(name, module), plan, module, symbol_id(module)))
+        file = sheet_file(name, module)
+        plan = with_class_marks(layout_sheet(by_sheet[module], ports=found), classes, file)
+        planned.append(SheetFile(file, plan, module, symbol_id(module)))
     return ProjectSheets("modules", tuple(planned))
 
 

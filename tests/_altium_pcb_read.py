@@ -739,10 +739,15 @@ def read_polygons(data: bytes, nets: int) -> list[PolygonRecord]:
     return out
 
 
-def read_classes(data: bytes, nets: list[dict[str, str]]) -> list[ClassRecord]:
+def read_classes(
+    data: bytes, nets: list[dict[str, str]], components: list[dict[str, str]] | None = None
+) -> list[ClassRecord]:
     """The classes of ``Classes6/Data`` (``pcb-copper.md``, "Net classes"): the members ``M0``, ``M1`` … of
-    a net class (``KIND=0``) must name nets of ``Nets6``."""
+    a net class (``KIND=0``) must name nets of ``Nets6``, and those of a component class (``KIND=1``) must
+    be the ``SOURCEDESIGNATOR`` of records of ``Components6`` (change c0048; checked when ``components`` is
+    given)."""
     names = {net.get("NAME") for net in nets}
+    refs = None if components is None else {c.get("SOURCEDESIGNATOR") for c in components}
     out: list[ClassRecord] = []
     for number, block in enumerate(property_blocks(data, "Classes6/Data")):
         members: list[str] = []
@@ -753,6 +758,12 @@ def read_classes(data: bytes, nets: list[dict[str, str]]) -> list[ClassRecord]:
             for member in members:
                 if member not in names:
                     raise PcbReadError(f"Classes6 record {number}: the member {member} names no net of Nets6")
+        if kind == "1" and refs is not None:
+            for member in members:
+                if member not in refs:
+                    raise PcbReadError(
+                        f"Classes6 record {number}: the member {member} names no component of Components6"
+                    )
         out.append(ClassRecord(block.get("NAME", ""), kind, members, block))
     return out
 
@@ -833,7 +844,7 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     for kind in ("Tracks6", "Arcs6"):
         _nothing_on_planes(decoded[kind], kind)
     polygons = read_polygons(storages.get("Polygons6", (0, b""))[1], len(nets))
-    classes = read_classes(storages.get("Classes6", (0, b""))[1], nets)
+    classes = read_classes(storages.get("Classes6", (0, b""))[1], nets, components)
     rules = read_rules(storages.get("Rules6", (0, b""))[1])
     counts = {
         "Board6": 1,

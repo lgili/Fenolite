@@ -792,3 +792,56 @@ def test_no_harness_block_in_the_flat_mode_or_the_ascii_form() -> None:
     for sheet in plan_sheets(model, name="altium_hier", sheets="modules", form="ascii").sheets:
         assert additional_records(sheet.plan) == []
         assert write_schdoc(sheet.plan).startswith(b"|HEADER=")
+
+
+# --- net class directives (change c0048) -------------------------------------------------------------
+
+
+def test_class_directives_of_the_blink_sample() -> None:
+    """Scenario "Directive of the blink sample": the last four records, with their keys in order."""
+    from _altium import blink
+
+    from fenolite.backends.altium.project import unique_id
+
+    plan = plan_sheet(model_of(blink()), name="blink")
+    found = schdoc_records(plan)
+    last = found[-4:]
+    assert [dict(r)["RECORD"] for r in last] == ["43", "41", "43", "41"]
+    height = plan.size.height
+    for (directive, parameter), mark in zip((last[:2], last[2:]), plan.class_marks, strict=True):
+        x, y = mark.at
+        point = [("LOCATION.X", str(x // 10)), ("LOCATION.Y", str((height - y) // 10))]
+        orientation = [] if mark.vertical else [("ORIENTATION", "3")]
+        assert directive == [
+            ("RECORD", "43"),
+            ("OWNERPARTID", "-1"),
+            *point,
+            ("COLOR", "255"),
+            *orientation,
+            ("NAME", "Parameter Set"),
+            ("UNIQUEID", unique_id(f"netclass:blink.SchDoc:{mark.net}")),
+        ]
+        assert parameter == [
+            ("RECORD", "41"),
+            ("OWNERINDEX", str(found.index(directive))),
+            ("OWNERPARTID", "-1"),
+            *point,
+            ("COLOR", "8388608"),
+            ("FONTID", "1"),
+            ("ISHIDDEN", "T"),
+            ("TEXT", "PWR"),
+            ("NAME", "ClassName"),
+            ("UNIQUEID", unique_id(f"netclass:blink.SchDoc:{mark.net}:name")),
+        ]
+    assert [m.net for m in plan.class_marks] == ["GND", "VIN"]
+
+
+def test_class_directives_follow_the_no_erc_directives() -> None:
+    """A sheet without a class keeps its records; with one, the directives are the last records."""
+    from _altium import blink
+
+    plan = plan_sheet(model_of(blink()), name="blink")
+    plain = schdoc_records(dataclasses.replace(plan, class_marks=()))
+    assert schdoc_records(plan)[: len(plain)] == plain
+    assert len(schdoc_records(plan)) == len(plain) + 2 * len(plan.class_marks)
+    assert not any(dict(r)["RECORD"] == "43" for r in schdoc_records(plan_sheet(sample_model(), name="x")))

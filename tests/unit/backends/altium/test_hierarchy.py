@@ -352,3 +352,25 @@ def test_harness_line_falls_back_to_blocks_when_its_symbols_are_in_two_rows() ->
     assert list(project.harness_files)[0] == "altium_hier.Harness"
     for sheet in project.sheets:
         check_plan(sheet.plan)
+
+
+def test_class_marks_one_per_sheet_and_net() -> None:
+    """Scenario "One directive per sheet and net" (change c0048)."""
+    from _altium import hier_board
+
+    planned = plan_sheets(model_of(hier_board()), name="altium_hier_board", sheets="modules", form="binary")
+    marks = {sheet.file: [(m.net, m.name) for m in sheet.plan.class_marks] for sheet in planned.sheets}
+    assert marks == {
+        "altium_hier_board.SchDoc": [],
+        "altium_hier_board_driver.SchDoc": [("GND", "PWR"), ("VIN", "PWR")],
+        "altium_hier_board_led.SchDoc": [("GND", "PWR")],
+    }
+    ids = [m.unique_id for sheet in planned.sheets for m in sheet.plan.class_marks]
+    assert len(set(ids)) == 3
+
+
+def test_class_marks_of_the_flat_board_example() -> None:
+    from _altium import hier_board
+
+    planned = plan_sheets(model_of(hier_board()), name="altium_hier_board", sheets="flat", form="binary")
+    assert [(m.net, m.name) for m in planned.top.plan.class_marks] == [("GND", "PWR"), ("VIN", "PWR")]

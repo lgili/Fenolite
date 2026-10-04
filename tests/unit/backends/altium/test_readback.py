@@ -592,3 +592,80 @@ def test_hierarchy_reader_does_not_import_the_writer() -> None:
     source = (ROOT / "tests" / "_altium_read.py").read_text(encoding="utf-8")
     assert "fenolite.backends.altium" not in source and "import fenolite" not in source
     assert "from fenolite" not in source
+
+
+# --- net class directives (change c0048) -------------------------------------------------------------
+
+
+def _class_sheets(name: str, sheets: str, form: str) -> dict[str, list[dict[str, str]]]:
+    from _altium import blink, hier_board
+
+    from fenolite.backends.altium.project import write_project
+
+    design = blink() if name == "blink" else hier_board()
+    files = write_project(model_of(design), name=name, form=form, sheets=sheets)  # type: ignore[arg-type]
+    return {file: read_sheet(data)[0] for file, data in files.items() if file.endswith(".SchDoc")}
+
+
+@pytest.mark.parametrize("form", ["ascii", "binary"])
+@pytest.mark.parametrize(
+    ("name", "sheets"), [("blink", "flat"), ("altium_hier_board", "modules"), ("altium_hier_board", "flat")]
+)
+def test_net_class_directives_read_back(name: str, sheets: str, form: str) -> None:
+    """Scenario "Classes of the built samples"."""
+    from _altium import blink, hier_board
+    from _altium_read import net_classes_from_sheet
+
+    from fenolite.backends.altium.project import net_class_names
+
+    found: dict[str, str] = {}
+    for records_of in _class_sheets(name, sheets, form).values():
+        for net, group in net_classes_from_sheet(records_of).items():
+            assert found.setdefault(net, group) == group
+    design = blink() if name == "blink" else hier_board()
+    assert found == net_class_names(model_of(design)) == {"GND": "PWR", "VIN": "PWR"}
+
+
+def test_net_class_directive_off_its_wire_is_caught() -> None:
+    """Scenario "Directive off its wire"."""
+    from _altium_read import net_classes_from_sheet
+
+    sheet = _class_sheets("blink", "flat", "ascii")["blink.SchDoc"]
+    directive = next(r for r in sheet if r["RECORD"] == "43")
+    vertical = "ORIENTATION" not in directive
+    key = "LOCATION.X" if vertical else "LOCATION.Y"
+    moved = [dict(r) for r in sheet]
+    moved[sheet.index(directive)][key] = str(int(directive[key]) + 1)
+    with pytest.raises(ReadError, match="lies on no wire"):
+        net_classes_from_sheet(moved)
+
+
+def test_net_class_directive_on_a_wire_end_or_in_two_classes_is_caught() -> None:
+    from _altium_read import net_classes_from_sheet
+
+    sheet = _class_sheets("blink", "flat", "ascii")["blink.SchDoc"]
+    index = next(i for i, r in enumerate(sheet) if r["RECORD"] == "43")
+    directive = sheet[index]
+    point = (int(directive["LOCATION.X"]), int(directive["LOCATION.Y"]))
+    wire = next(
+        r
+        for r in sheet
+        if r["RECORD"] == "27"
+        and min(int(r["X1"]), int(r["X2"])) <= point[0] <= max(int(r["X1"]), int(r["X2"]))
+        and min(int(r["Y1"]), int(r["Y2"])) <= point[1] <= max(int(r["Y1"]), int(r["Y2"]))
+    )
+    at_end = [dict(r) for r in sheet]
+    at_end[index]["LOCATION.X"], at_end[index]["LOCATION.Y"] = wire["X1"], wire["Y1"]
+    with pytest.raises(ReadError, match="wire's end"):
+        net_classes_from_sheet(at_end)
+    second = [dict(r) for r in sheet]
+    parameter = next(r for r in second if r.get("OWNERINDEX") == str(index) and r.get("NAME") == "ClassName")
+    second.append({**directive})
+    second.append({**parameter, "OWNERINDEX": str(len(second) - 1), "TEXT": "OTHER"})
+    with pytest.raises(ReadError, match="is in the classes"):
+        net_classes_from_sheet(second)
+
+
+def test_net_class_reader_does_not_use_the_writer() -> None:
+    source = (Path(__file__).resolve().parents[3] / "_altium_read.py").read_text(encoding="utf-8")
+    assert "fenolite.backends" not in source.split("def net_classes_from_sheet")[1].split("\ndef ")[0]

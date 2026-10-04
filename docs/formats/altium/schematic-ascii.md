@@ -129,6 +129,29 @@ about optional keys and a reader's defaults say more than the report saw and sta
 "Validate PCB Project" no message names the marked pins, while the unmarked build names them; whether
 other pins keep their messages was not reported, so the `H-A-SCH-NC-ERC` rows stay `INFERRED`.
 
+## Net class directive
+
+Change c0048 writes one directive per sheet on each net of a net class, so that the schematic declares
+the class and "Design » Update PCB Document" does not propose to remove it from the board.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A net joins a net class through a Parameter Set directive that touches its wire, bus or signal harness and holds a parameter named `ClassName` whose value is the class name. The information of a directive applies to the whole net it is connected to | S-0310, S-0311 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-NETCLASS |
+| The classes reach the PCB only when the project option "Generate Net Classes" under "User-Defined Classes" is on (`project.md`, "Class generation"), and not when the project uses the Constraint Manager flow | S-0310 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-NETCLASS |
+| A blanket spreads one directive over every net it covers; a directive on a sheet symbol, a bus or a harness is possible too. Fenolite uses neither | S-0311 | INFERRED | H-A-ECO-NETCLASS |
+| Record 43 is the directive: `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR`, `NAME` and an optional `ORIENTATION` (0, or 1 for a turn of 90° anticlockwise, 2 and 3 for the next quarter turns); a saved sheet adds `UNIQUEID` and `INDEXINSHEET` | S-0130, S-0187 | INFERRED | H-A-ECO-NETCLASS |
+| In a saved sheet a net class directive is a record 43 with `COLOR=255`, the name `Parameter Set` and `ORIENTATION=1`, whose location lies inside a wire, not at one of its ends. It owns one record 41 with `OWNERPARTID=-1`, a location, `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT` (the class name), `NAME=ClassName` and `UNIQUEID`; the parameter names its directive through `OWNERINDEX` | S-0187 | INFERRED | H-A-ECO-NETCLASS |
+| The same sheets hold directives of other kinds in the same two records: one with the parameters `DifferentialPair` and `DifferentialPairClassName`, and directives whose location touches no wire, which belong to blankets | S-0187 | INFERRED | H-A-ECO-NETCLASS |
+| The saved sheets write their keys in mixed case (`OwnerIndex`, `IsHidden`). Altium Designer 26.5 reads the upper-case keys Fenolite writes for every other record | S-0187, S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-04; no artefact) | H-A-ECO-NETCLASS |
+| A net with a Parameter Set also shows a "Power Net" field; Altium suggests a "Supply Nets" rule for a net with that field set, as for a net with a power port (`pcb-copper.md`, "Classes and rules of the change order") | S-0311, S-0312 | INFERRED | H-A-ECO-SUPPLY |
+
+The maintainer's report of 2026-10-04 (Altium Designer 26.5, a trial licence on the maintainer's own PC;
+`docs/evidence/altium-pcb.md`, "Reports", Part E) ran "Design » Update PCB Document" on two builds with
+these directives: neither change order proposed to remove the net class or to change its members, where
+the build without directives had. So Altium reads the upper-case records Fenolite writes and takes the
+class from them. The rows on other constructs and on the saved record's keys say more than the report saw
+and stay `INFERRED`.
+
 ## Unique ids
 
 | fact | source | label | hypothesis |
@@ -209,6 +232,22 @@ These are decisions of the writer, not format facts (design of change c0032, cap
   end, where a stub would start; a marked pin gets no wire, no label and no port. The directives are
   the last records of the schematic, after every stub, label and port, in component, part and pin
   order, so a design without marks keeps its bytes (`H-A-SCH-NC-RECORD`, `H-A-SCH-NC-ERC`).
+- Net class directive (change c0048): per sheet and per net of a net class that has a stub on the sheet, in
+  code-point order of the net names, two records: the directive with the keys `RECORD=43`, `OWNERPARTID=-1`,
+  `LOCATION.X`, `LOCATION.Y`, `COLOR=255`, then `ORIENTATION=3` on a horizontal stub only, `NAME=Parameter Set`
+  and `UNIQUEID`; and its parameter with the keys `RECORD=41`, `OWNERINDEX`, `OWNERPARTID=-1`, `LOCATION.X`,
+  `LOCATION.Y` (the same point), `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT` (the class name),
+  `NAME=ClassName` and `UNIQUEID`. The location lies on the first stub of the net in write order (the labelled
+  wires of sheet entries and ports, then the pin stubs): 200 mil from the stub's start on a stub of 300 mil or
+  more, 100 mil otherwise, so it is inside the wire and never the hotspot of the stub's net label, which lies
+  100 mil from the start or at the end. On a horizontal stub the directive points downwards (`ORIENTATION=3`),
+  away from the label text above the wire; on a vertical stub it keeps the default direction. One directive
+  per sheet where the net has a stub: the documentation needs only one per net, but a net on a module sheet is
+  its own net until the hierarchy joins it. The unique ids are `unique_id("netclass:<sheet file>:<net>")` and
+  `unique_id("netclass:<sheet file>:<net>:name")`. These records are the last of the sheet, after the No ERC
+  directives, so a design without a net class keeps its bytes. A class name must pass the rules of a parameter
+  text. A net of a class without any pin gets no directive. No blanket, no differential-pair directive and no
+  `INDEXINSHEET` is written (`H-A-ECO-NETCLASS`).
 - Hierarchy (change c0037, `--altium-sheets modules`). The top sheet holds, right after the sheet
   record and before the first component, one block per module in module-name order: the sheet symbol,
   its sheet entries in crossing order, the sheet name and the file name. Keys, in this order:

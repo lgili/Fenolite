@@ -168,6 +168,39 @@ class NoConnectMark:
     at: tuple[int, int]
 
 
+CLASS_MARK_FAR = 200
+"""A net class directive lies this far from the start of a stub of ``CLASS_MARK_LONG`` or more (change
+c0048): past the hotspot of a label, which lies ``LABEL_OFFSET`` from the start or at the end."""
+CLASS_MARK_NEAR = 100
+"""The same distance on a shorter stub, the stub of a power port."""
+CLASS_MARK_LONG = 300
+
+
+@dataclass(frozen=True)
+class ClassMark:
+    """A net class directive (change c0048): the net ``net`` is a member of the net class ``name``. ``at``
+    is a point inside a stub of the net, in the layout frame; ``vertical`` tells whether that stub is
+    vertical; ``unique_id`` and ``parameter_id`` are the ids of the directive and of its ``ClassName``
+    parameter."""
+
+    net: str
+    name: str
+    at: tuple[int, int]
+    vertical: bool
+    unique_id: str
+    parameter_id: str
+
+
+def class_mark_point(stub: Stub) -> tuple[int, int]:
+    """The point of a net class directive on ``stub``: ``CLASS_MARK_FAR`` from its start when the stub is
+    ``CLASS_MARK_LONG`` or longer, ``CLASS_MARK_NEAR`` otherwise; never one of the stub's ends."""
+    distance = CLASS_MARK_FAR if stub.length >= CLASS_MARK_LONG else CLASS_MARK_NEAR
+    if distance >= stub.length:
+        raise ValueError(f"a stub of {stub.length} mil is too short for a net class directive")
+    dx, dy = STEPS[stub.side]
+    return stub.start[0] + dx * distance, stub.start[1] + dy * distance
+
+
 @dataclass(frozen=True)
 class Crossing:
     """A net or a harness that leaves a module's sheet (change c0037, "Sheets of a hierarchical project").
@@ -291,6 +324,8 @@ class SheetPlan:
     lines: tuple[tuple[tuple[int, int], tuple[int, int]], ...] = ()
     """The signal harness lines that join two sheet entries directly, each from the entry on the right side
     of a sheet symbol to the entry of the same name on the left side of the next one."""
+    class_marks: tuple[ClassMark, ...] = ()
+    """The net class directives of the sheet, in code-point order of their nets (change c0048)."""
 
     @property
     def links(self) -> tuple[Stub, ...]:
@@ -662,8 +697,12 @@ def layout_sheet(
 
 __all__ = [
     "CELL_MARGIN",
+    "CLASS_MARK_FAR",
+    "CLASS_MARK_LONG",
+    "CLASS_MARK_NEAR",
     "COMMENT_DROP",
     "CONNECTOR_MIN_WIDTH",
+    "ClassMark",
     "Crossing",
     "ENTRY_PITCH",
     "HARNESS_GAP",
