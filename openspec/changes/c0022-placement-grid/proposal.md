@@ -6,11 +6,11 @@ c0019 made the board the layout authority and left the placer a slot in its prec
 
 ## What Changes
 
-- `placement/` (new package): `legality` (courtyard overlap, outside the outline, edge clearance, with the exact kernel), `grid` (a deterministic shelf placer for staged parts) and `manual` (explicit moves).
+- `placement/` (new package): `legality` (courtyard overlap, outside the outline, edge clearance, with the exact kernel), `grid` (a deterministic shelf placer for staged parts); the `manual` strategy (explicit moves) is `cmd_place` calling `move_footprint`, with no module of its own.
 - `backends/kicad/replace.py` (new): `move_footprint` translates a footprint of a read board, or re-places it from its library definition for a new rotation or side, keeping uuid, fields, properties, pad nets and lock; without a definition, a rotation or side change is refused.
 - `backends/kicad/outline.py` (new): the board outline as rings, from the model outline or from `Edge.Cuts` graphics, chained exactly.
 - `fenolite place PATH --strategy grid|manual` (new, mutating): edits the board; refuses to write an illegal placement unless `--force`.
-- `build`: the legality check runs on the layout before the plan is returned and reports `place.*` warnings; it never refuses a build.
+- `build`: the legality check runs in `cmd_build` on the board about to be written, before the plan is returned, and reports `place.*` warnings; it never refuses a build.
 - Probes first on 9.0.9 and 10.0.6: a moved footprint's position, rotation and side through `pcb export pos`; its pad nets through IPC-D-356; touching courtyards against KiCad's `courtyards_overlap`.
 - Hypotheses `H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`, `H-G-PLACE-OUTLINE`.
 
@@ -45,6 +45,6 @@ Budget: 6.0 days against the roadmap's 4.5; the cut order is in the design.
 
 ## Impact
 
-- New `placement/`, `backends/kicad/{replace,outline}.py`, `cli/cmd_place.py`; extended `lens/build.py` and `cli/cmd_build.py`.
+- New `placement/`, `backends/kicad/{replace,outline}.py`, `cli/cmd_place.py`; extended `cli/cmd_build.py` (`lens/build.py` stays unchanged: `lens` may not import `placement`).
 - No runtime dependency, model or schema change; the `placement` row of `package-layering` already exists.
-- Depends on c0019 (archived), c0028 (`BoardFrame`) and c0030 (field placement on re-placed footprints), which archive first; c0020's Edge.Cuts census informs the outline (by order only).
+- Depends on c0019, c0028 (`BoardFrame`) and c0030 (field placement on re-placed footprints), all archived; c0020's Edge.Cuts census informs the outline (by order only).

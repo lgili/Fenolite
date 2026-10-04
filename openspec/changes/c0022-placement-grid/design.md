@@ -10,6 +10,26 @@
 - **Fields.** c0030 makes Reference, Value and other fields placed entities and keeps them on kept and re-placed footprints.
 - **Constraints.** Stdlib only; integer nanometres; the roadmap gives this change 4.5 days.
 
+## Reconciliation with the code (2026-10-04)
+
+The proposal was written before c0028, c0029, c0030 and c0031 were implemented. Each name this change consumes was checked against the working tree at `cce425e`; the text below and the deltas were edited in place where reality differs.
+
+| consumed | reality | edit |
+|---|---|---|
+| `lens.build.build_design` calls `legality.check` (old Decision 9) | `package-layering` lets `lens` import only `model` and `backends`, so `lens` cannot import `placement`. c0029 met the same limit and put its copper guard in `cmd_build` | Decision 9 and the `design-dsl` delta: the check is a step of `cmd_build` (`placement_guard`), beside `copper_guard`; `build_design` and `BUILD_ISSUE_CODES` stay unchanged; the codes join the envelope as "Build issue codes" allows |
+| `BoardFrame.placed_extents(design)` | `placed_extents(design, *, issues=None)`; `PlacedExtent` holds `footprint_id`, `side`, `front`, `back`, `source`, `exact` and the property `own`; no reference | no edit: `check` takes `names` (footprint id to reference) |
+| `Board.outline.points` as one ring | `Outline` also holds `cutouts` | Decision 3: the cut-outs of the model outline are the further rings |
+| three outline problems | `assemble_rings` also raises `geometry.branching-contour` | Decision 3 and the delta add `branching-contour` |
+| c0030 "has not archived" (risk note) | c0030 is archived: Reference, Value and the properties are `FootprintField`s, and `lens.fields.merge_fields` carries the board's field values to a re-placed footprint of the same side | Decision 4: a rotation keeps the old field values, a side change takes the definition's; the risk note is dropped |
+| `embed.place_footprint(defn, component=…, at=…, rotation=…, side=…, locked=…, key=…, copper=…)` | as written; user properties are added to the definition with `embed.with_property` before placing | Decision 4 says so |
+| the board-wide `edge_clearance` rule (c0026) | `model.rules.Rule` has the kind `edge_clearance`; the DSL has no call that creates one, and a board read from a file has no rules | Decision 5: the value comes from the model design's rules; `place` on a board file uses 0 |
+| the frame of `place()` | `dsl.convert.BOARD_ORIGIN` puts the outline's top-left corner at (100 mm, 100 mm); a board file does not say so | Decision 8: `--move` positions are relative to the top-left corner of the bounding box of the board ring, and to the file origin without an outline |
+| "the authored project" | no project of that name | the built blink (`examples/blink_2layer`) with its vendored `lib/` and `fp-lib-table` |
+| `tests/unit/cli/test_build_cmd.py`, `tests/unit/lens/` (task 5.2) | the file is `test_build_command.py`; guards of `cmd_build` have their own file (`test_build_copper_guard.py`) | task 5.2 names `tests/unit/cli/test_build_placement_guard.py` |
+| the copper guard of c0029 | `cmd_build.copper_guard(files, *, name, mode, target)` reads the planned board text back | `placement_guard` follows the same pattern and runs whenever the build planned files |
+
+Every delta of this change is ADDED, so no MODIFIED base moved. No living requirement has one of the new requirement names.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -25,20 +45,20 @@
 
 1. **Probe first.** Task group 2 pins two facts on 9.0.9 and 10.0.6 before the code relies on them: a moved footprint (`place-move-translate`, `place-move-rotate`, `place-move-flip`), and whether courtyards that only touch give `courtyards_overlap` (`place-touch`). Fallbacks: Decision 4 for the move, Decision 6 for touching.
 
-2. **`placement` works on plain data.** `placement.legality` and `placement.grid` take `PlacedExtent`s, outline rings and lengths, and return issues and positions. They never see a board file. The CLI and `lens.build` pass `KicadBackend()` as the `BoardFrame`, as `checks` receives its oracle.
+2. **`placement` works on plain data.** `placement.legality` and `placement.grid` take `PlacedExtent`s, outline rings and lengths, and return issues and positions. They never see a board file. The CLI (`cmd_place`, `cmd_build`) passes the extents of `KicadBackend()`, the `BoardFrame`, as `checks` receives its oracle.
    - Rejected: placement inside `backends.kicad`. A second backend would need it again.
 
 3. **Outline as rings.** `backends/kicad/outline.py::board_outline(design) -> BoardOutline(rings, source, problem)`:
-   - `source == "model"`: `Board.outline.points` as one ring;
+   - `source == "model"`: `Board.outline.points` as the board ring and each of `Board.outline.cutouts` as a further ring;
    - `source == "edge"`: the root graphics on the layer of kind `edge` (lines, arcs, rectangles, polygons, circles), chained by `assemble_rings` with exact endpoints;
-   - `problem` names why no ring could be closed (`open-contour`, `no-edge-content`, `footprint-edges-only`), and `rings` is then empty.
+   - `problem` names why no ring could be closed (`open-contour`, `branching-contour`, `no-edge-content`, `footprint-edges-only`), and `rings` is then empty.
    - The largest ring by area is the board; rings inside it are cut-outs.
    - Arcs are approximated for containment only, with c0005's arc error bound stated in the result (`exact == False`).
    - Rejected: a snapping tolerance. c0020's census decides whether one is ever needed; until a board needs it, exact chaining stays (`H-G-EDGE-EXACT`).
 
-4. **`move_footprint`.** `backends/kicad/replace.py::move_footprint(design, footprint_id, *, at=None, rotation=None, side=None, definitions=None) -> Design`:
+4. **`move_footprint`.** `backends/kicad/replace.py::move_footprint(design, footprint_id, *, at=None, rotation=None, side=None, definitions=None, force=False) -> Design`:
    - **Translation** (`rotation` and `side` unchanged or `None`): only `FootprintInstance.position` changes. Pads, graphics and fields are footprint-relative, so every slot stays.
-   - **Rotation or side change:** the footprint is replaced by `embed.place_footprint` of its library definition at the new placement, with its component, its lock and `key` equal to its `fenolite.path` when it has one. Its uuid, its user properties, its Reference and Value, and each pad's net by pad number are taken from the old footprint, as c0019's "Kept and re-placed footprints" does for a re-placed copy.
+   - **Rotation or side change:** the footprint is replaced by `embed.place_footprint` of its library definition at the new placement, with its component, its lock, the board's copper layers and `key` equal to its `fenolite.path` when it has one (its reference otherwise). Each field of the old footprint that the definition lacks (`fenolite.path` and the user properties) is added to the definition with `embed.with_property` first, as the build does. Its uuid, its Reference and Value, and each pad's net by pad number are taken from the old footprint, as c0019's "Kept and re-placed footprints" does for a re-placed copy. When the side stays, every field that both footprints hold takes the old placement and appearance (the values of `lens.fields.FIELD_VALUES`), which are footprint-relative; a side change keeps the definition's fields, mirrored by `place_footprint`.
    - `definitions` maps lib ids to `FootprintDef`. The CLI resolves them from the project's `fp-lib-table` with c0008's resolver. Without a definition for the footprint's `lib_ref`, a rotation or side change raises `PlacementError` with `place.no-definition`.
    - A locked footprint is moved only when the caller says so (`--force`); otherwise `place.locked` (error).
    - Fallback if `place-move-rotate` or `place-move-flip` records `different`: the row gets a `-2` successor, `move_footprint` refuses rotation and side changes (`place.no-definition` for all), and the grid strategy is unaffected, because it only translates.
@@ -51,7 +71,8 @@
    - `place.edge-clearance` (warning): a ring is inside the board but closer to its boundary than `edge_clearance`;
    - `place.no-extent` (info): a footprint whose extent has `source == "none"`; it is not judged;
    - `place.no-outline` (info): the outline has a `problem`; only overlaps are judged.
-   - `edge_clearance` is the `min` of the design's board-wide `edge_clearance` rule when it has one (c0026), else 0.
+   - `edge_clearance` is the smallest `min` of the rules of kind `edge_clearance` whose first selector is `all`, in the model design the caller holds (`placement.legality.edge_clearance(design)`), else 0. A board read from a file has no rules, so `place` uses 0.
+   - `place.outside-outline` is exact about the boundary: a ring that only touches the board ring or a cut-out ring is inside. A cut-out that lies wholly inside a courtyard is not reported: no ring point is in it.
    - Staged parts (off the board by c0019's definition, without `place()`) are not judged: `layout.unplaced` already names them.
    - All predicates are exact: ring against ring with `geometry`'s segment classification and point location; distances with the squared-distance predicates. An extent with `exact == False` lowers nothing: its verdict is reported with "(approximate extent)" in the message.
 
@@ -67,7 +88,7 @@
    - The result is the same for the same inputs: no randomness, no clock, no dictionary order.
    - Rejected: sorting by area. Component-path order keeps a module's parts together and is what the author sees in the script.
 
-8. **`fenolite place PATH`** (`cli/cmd_place.py`, `mutates=True`). Flags: `--strategy grid|manual` (default `grid`), `--move REF=X,Y[,ROT[,SIDE]]` (repeatable; implies `manual`; lengths in the DSL's unit syntax, in the board frame of `place()`), `--only REF,REF` (grid: place only these staged parts), `--pitch`, `--gap`, `--margin`, `--force`, `-o/--out FILE`.
+8. **`fenolite place PATH`** (`cli/cmd_place.py`, `mutates=True`). Flags: `--strategy grid|manual` (default `grid`), `--move REF=X,Y[,ROT[,SIDE]]` (repeatable; implies `manual`; lengths in the DSL's unit syntax, in the board frame of `place()`: relative to the top-left corner of the bounding box of the board ring, Y down; relative to the file origin when the board has no outline), `--only REF,REF` (grid: place only these staged parts), `--pitch`, `--gap`, `--margin`, `--force`, `-o/--out FILE`.
    - Grid places exactly the footprints that are off the board (c0019's definition), `--only` narrowing them.
    - After the moves, `legality.check` runs on the resulting layout. With any `place.*` error and no `--force`, the command returns no `PlannedWrite`, and the exit code is 5. With `--force` it writes and still reports the issues.
    - One `PlannedWrite` for the board (`--out` or in place); none when nothing moved.
@@ -75,7 +96,7 @@
    - Evidence: `placement.EVIDENCE`, `INFERRED` (`H-K-PLACE-MOVE` until settled); KiCad's DRC is the judge of a placement.
    - `example_args`: `(EXAMPLE_BOARD, "--move", "R1=12mm,8mm", "--out", "fenolite-placed.kicad_pcb", "--dry-run")`, hermetic; `mutation_example_args` the same without `--dry-run`.
 
-9. **Legality in `build`.** `lens.build.build_design` calls `legality.check` on the layout it is about to write, with the backend's `placed_extents`, and appends the issues with severities capped at `warning`: a build never refuses for placement, because staged or overlapping parts are a normal intermediate state and KiCad's DRC is the gate. The codes join `BUILD_ISSUE_CODES`.
+9. **Legality in `build`.** `cmd_build.placement_guard(files, *, name, staged, edge_clearance)` reads the planned board text back, as c0029's `copper_guard` does, calls `legality.check` with the backend's `placed_extents` and the rings of `board_outline`, and returns the issues with severities capped at `warning`: a build never refuses for placement, because staged or overlapping parts are a normal intermediate state and KiCad's DRC is the gate. The step lives in `cmd_build` because `lens` may not import `placement` (`package-layering`); `build_design` and `BUILD_ISSUE_CODES` stay unchanged and the `place.*` codes join the envelope as "Build issue codes" allows.
    - Rejected: refusing the build. The dogfood author needed the report, and a refusal would block the first build of every design without `place()`.
 
 10. **The next build keeps the placement.** No lens change: a placed part is on the board, so `effective_placements` keeps it. A part with an unlocked `place()` that the placer moved gives c0019's `layout.place-overridden`; with a locked `place()`, the script wins and `layout.place-forced` says so. `place` reports both cases in advance as `place.script-locked` (warning) for parts whose `.fenolite/` model has a locked placement, when the project is built.
@@ -89,13 +110,13 @@
 | file | public API |
 |---|---|
 | `src/fenolite/placement/__init__.py` (new) | re-exports `check`, `place`, `GridResult`, `ISSUE_CODES`, `EVIDENCE` |
-| `src/fenolite/placement/legality.py` (new) | `check(extents, outline_rings, *, edge_clearance=0, names, touching_overlaps=TOUCHING_OVERLAPS) -> tuple[Issue, ...]`; `TOUCHING_OVERLAPS: bool` (from the probe) |
+| `src/fenolite/placement/legality.py` (new) | `check(extents, outline_rings, *, edge_clearance=0, names, touching_overlaps=TOUCHING_OVERLAPS) -> tuple[Issue, ...]`; `TOUCHING_OVERLAPS: bool` (from the probe); `edge_clearance(design) -> Nm`; `interiors_intersect(a, b) -> bool` |
 | `src/fenolite/placement/grid.py` (new) | `Box(path, ref, bbox)`; `GridResult(positions: Mapping[str, Point], unplaced: tuple[str, ...])`; `place(boxes, region, *, occupied, cutouts=(), pitch=500_000, gap=500_000, margin=1_000_000) -> GridResult` |
 | `src/fenolite/placement/codes.py` (new) | `ISSUE_CODES`; `EVIDENCE` |
 | `src/fenolite/backends/kicad/replace.py` (new) | `PlacementError(FenoliteError)` (`issues`); `move_footprint(…) -> Design` (Decision 4) |
-| `src/fenolite/backends/kicad/outline.py` (new) | `BoardOutline(rings, source, problem, exact)`; `board_outline(design) -> BoardOutline` |
+| `src/fenolite/backends/kicad/outline.py` (new) | `BoardOutline(rings, source, problem, exact)`; `board_outline(design, *, tol=DEFAULT_TOL) -> BoardOutline` |
 | `src/fenolite/cli/cmd_place.py` (new) | `COMMAND` (`place`, `mutates=True`) |
-| `src/fenolite/lens/build.py`, `src/fenolite/cli/cmd_build.py` (extended) | legality issues in a build (Decision 9) |
+| `src/fenolite/cli/cmd_build.py` (extended) | `placement_guard`; legality issues in a build (Decision 9) |
 | `tests/unit/placement/` (new) | `test_legality.py`, `test_grid.py` on authored rings |
 | `tests/unit/backends/kicad/test_replace.py`, `test_outline.py`; `tests/unit/cli/test_place_cmd.py` (new) | hermetic |
 | `tests/kicad/place/` (new) | `_placecases.py`, `test_place_probes.py`, `test_place_oracle.py` |
@@ -147,11 +168,11 @@ Cut order: (1) rotation and side changes in `move_footprint` (translation only; 
 - [A footprint without a courtyard] → c0028's extent falls back to the definition or the pad hull, with `source` saying so; `source == "none"` is reported and not judged.
 - [The grid leaves parts staged on a small board] → `place.no-room` names them; the author places them or enlarges the outline.
 - [A moved part leaves its tracks behind] → `place` warns with `place.copper-left` when a moved footprint's pads had copper ending on them; the router or the author fixes it.
-- [c0030 has not archived] → fields of a re-placed footprint come from the definition; the task list notes it and `H-K-PLACE-MOVE` is judged on position, rotation, side and nets only.
+- [Fields of a re-placed footprint] → c0030 is archived, so a rotation keeps the old field values (Decision 4); `H-K-PLACE-MOVE` is still judged on position, rotation, side and nets only.
 
 ## Migration Plan
 
-Additive. To roll back, remove the package, the two backend modules and the command, and drop the legality call from the build.
+Additive. To roll back, remove the package, the two backend modules and the command, and drop `placement_guard` from `cmd_build`.
 
 ## Open Questions
 
@@ -159,3 +180,4 @@ Additive. To roll back, remove the package, the two backend modules and the comm
 - **Default pitch, gap and margin.** Defaults 0.5 mm, 0.5 mm and 1 mm are Fenolite choices, not fab rules. To confirm.
 - **A `check` stage for legality.** Default: none; `courtyards_overlap` comes from KiCad's DRC through c0020.
 - **Bottom-side and rotated grid placement.** Default: not in v0.1.
+- **Snapping tolerance and footprint edge items.** Measured in task 3.2: 3 of the 21 demo boards have a closed outline in KiCad and no ring here (one gap of 33 nm; two outlines completed by edge items inside footprints). Default: exact chaining of root graphics stays, and those boards get `place.no-outline`. To decide: a tolerance of 1 µm, and chaining the edge items of footprints.

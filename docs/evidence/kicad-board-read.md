@@ -99,6 +99,24 @@ outline open where a tolerance of 1 µm would close it. The two other open outli
 footprints, which complete the outline and which this census does not chain. `H-G-EDGE-EXACT` therefore
 does not hold for the native demos; it stays `INFERRED` with these gaps, and c0022 decides the tolerance.
 
+### Outline rings (`H-G-PLACE-OUTLINE`)
+
+`tests/corpus/test_outline_corpus.py::test_outlines` (c0022), measured on 2026-10-04 over the 21 readable
+non-heavy native demos with `backends.kicad.outline.board_outline`, and compared with `board.has_outline`
+of `pcb export stats` on `kicad-cli` 10.0.6. No call raised.
+
+| origin | boards | `source` `model` | `source` `edge` (rings) | approximated (arcs or circles) | `open-contour` | `branching-contour` | `no-edge-content` | `footprint-edges-only` | KiCad `has_outline` with a ring | KiCad `has_outline` without a ring |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `kicad-demos` (native) | 21 | 0 | 18 (18) | 2 | 3 | 0 | 0 | 0 | 18 | 3 |
+
+KiCad reports an outline for all 21 boards. The three boards without a ring are those of the census
+above: one whose loose endpoints are 33 nm apart, and two whose outline is completed by edge items inside
+footprints. Their problem is `open-contour`, not `footprint-edges-only`, because they also hold root edge
+graphics. So the first two clauses of the criterion hold (a ring or a named problem for every board, no
+exception) and the third does not: 3 boards with a closed outline in KiCad have no ring. For those boards
+`fenolite place` reports `place.no-outline` and judges only courtyard overlaps. A snapping tolerance and
+chaining the edge items of footprints stay open (c0022 design, "Open Questions").
+
 ### Read and write throughput
 
 `tests/unit/backends/kicad/test_throughput.py::test_read_write_5mib`: a created two-copper board of

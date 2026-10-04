@@ -14,6 +14,10 @@ tables (``docs/dsl.md``, "Vendored libraries").
 Before a KiCad build plans its writes, the copper guard judges the triad it is about to write with
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
 short or a clearance error refuses the build unless ``--copper-check warn`` is given.
+
+The placement guard then judges the same planned board with ``placement.legality.check`` (change c0022;
+capability design-dsl, "Placement legality in a build"): courtyard overlaps and parts outside the outline
+are reported as warnings and never refuse a build.
 """
 
 from __future__ import annotations
@@ -40,7 +44,10 @@ from fenolite.backends.altium.project import (
 from fenolite.backends.kicad import copperrules
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.backend import KicadBackend
+from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.backends.kicad.outline import board_outline
+from fenolite.backends.kicad.replace import footprint_ref
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -61,6 +68,7 @@ from fenolite.lens.build import (
 )
 from fenolite.lens.preserve import prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
+from fenolite.placement import legality
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
 HELP = (
@@ -221,6 +229,43 @@ def copper_guard(
     return tuple(found), summary
 
 
+def placement_guard(
+    files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The placement issues of the board that a build is about to write, and ``result.placement``.
+
+    The planned board text is read back with ``read_board``, the courtyards come from the KiCad board
+    frame and the outline from ``board_outline``, and ``legality.check`` judges every footprint whose
+    component path is not in ``staged``. Every issue is at most a warning: a build never refuses for
+    placement. Nothing is read from disk and nothing is written.
+    """
+    data = files.get(f"{name}.kicad_pcb")
+    if data is None:
+        return (), {"ran": False, "counts": {}}
+    design = kicad_pcb.read_board(data.decode("utf-8"), file=f"{name}.kicad_pcb")
+    footprints = design.board.footprints if design.board is not None else ()
+    components = {c.id: c for c in design.circuit.components}
+    names: dict[str, str] = {}
+    left_out: set[str] = set()
+    for footprint in footprints:
+        ref = footprint_ref(design, footprint)
+        names[footprint.id] = ref
+        component = components.get(footprint.component_id)
+        path = component.properties.get(PATH_PROPERTY, ref) if component is not None else ref
+        if path in staged:
+            left_out.add(footprint.id)
+    extents = [e for e in KicadBackend().placed_extents(design) if e.footprint_id not in left_out]
+    found = legality.check(extents, board_outline(design).rings, edge_clearance=edge_clearance, names=names)
+    issues = tuple(
+        dataclasses.replace(issue, severity="warning") if issue.severity == "error" else issue
+        for issue in found
+    )
+    counts: dict[str, int] = {}
+    for issue in issues:
+        counts[issue.code] = counts.get(issue.code, 0) + 1
+    return issues, {"ran": True, "counts": dict(sorted(counts.items()))}
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
@@ -309,6 +354,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
+    placement_issues, placement = placement_guard(
+        files,
+        name=design.name,
+        staged=cast(Sequence[str], built.summary.get("staged", ())),
+        edge_clearance=legality.edge_clearance(built.design),
+    )
     if files:
         copper_issues, copper_check = copper_guard(
             files, name=design.name, mode=mode, target=ctx.kicad_target
@@ -329,12 +380,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "files": [w.path for w in writes],
         **built.summary,
         "copper_check": copper_check,
+        "placement": placement,
         "script_output": run.output,
     }
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=(*built.issues, *plane_issues(plane_nets), *copper_issues),
+        issues=(*built.issues, *plane_issues(plane_nets), *copper_issues, *placement_issues),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),

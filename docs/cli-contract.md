@@ -202,6 +202,15 @@ the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
 no file, and runs no tool. `--copper-check` with `--target altium` is a usage error. A Python caller of
 `build_design` is not guarded (`docs/dsl.md`, "Copper guard").
 
+**Placement guard.** The same planned board is then judged by the placement legality check
+(`docs/placement.md`): the courtyards of the placed parts against each other and against the outline.
+Parts that the build staged (`result.staged`) are not judged. Every `place.*` issue is reported at most
+as a warning, so a build never exits 5 for placement; the codes are those of the table under "place".
+`result.placement` holds `ran` (false when the build was refused) and `counts`, the number of issues by
+code. The guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
+`--target altium` there is no `result.placement`. A Python caller of `build_design` is not guarded; it
+calls `placement.check` itself (`docs/placement.md`).
+
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
@@ -479,3 +488,46 @@ to its candidates' paths; `result.java` (`path`, `version`, `major`) and `result
 
 `doctor` exits 0. Its evidence is the help-matrix evidence with the oracle of the selected candidate
 when every help page parsed, `UNVERIFIED` otherwise and with `--no-run`.
+
+## place
+
+`fenolite place PATH [--strategy grid|manual] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…]
+[--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` moves footprints of the board that `PATH` names
+(a `.kicad_pcb`, a `.kicad_pro` or a project folder) and runs no tool. It is a mutating command: nothing
+is written without `--confirm`, and the plan holds one write, the board at `-o` or in place, or none when
+nothing moved. The user guide is `docs/placement.md`.
+
+- `--strategy grid` (the default without `--move`) places every footprint that is off the board, or
+  those of `--only`, in component-path order on a grid: `--pitch` (default `0.5mm`) is the grid step,
+  `--gap` (default `0.5mm`) the space kept around each courtyard box, and `--margin` (default `1mm`) the
+  distance kept from the bounding box of the outline. Parts keep their rotation and side.
+- `--move REF=X,Y[,ROT[,SIDE]]` (repeatable; it implies `--strategy manual`) moves one footprint. `X`
+  and `Y` are lengths with a unit (`12mm`, `0.5in`), relative to the top-left corner of the bounding box
+  of the board outline, Y down, as in the script's `place()`; without an outline they are relative to
+  the file origin. `ROT` is an angle in degrees and `SIDE` is `top` or `bottom`. A new rotation or side
+  re-places the footprint from its library definition, found through the project's `fp-lib-table`.
+- After the moves, the legality check judges the whole layout. With a `place.*` error and without
+  `--force` the command plans no write and exits 5; with `--force` it writes and still reports the
+  issues. `--force` also moves a footprint that is locked on the board.
+
+`result` holds `board`, `strategy`, `moved` (`ref`, `path`, `from` and `to`, each with `x` and `y` in
+nanometres, `rotation` in microdegrees and `side`; sorted by reference), `unplaced` (the references
+still off the board) and `legality` (the number of issues by code). The evidence is
+`placement.EVIDENCE`: a placement is never a verdict, and KiCad's DRC judges the board.
+
+| code | severity | when |
+|---|---|---|
+| `place.courtyard-overlap` | error | two courtyards on the same face overlap; `where` is `REF1,REF2`, sorted |
+| `place.outside-outline` | error | a courtyard leaves the board outline or enters a cut-out |
+| `place.no-definition` | error | a rotation or side change of a footprint whose library definition is not found |
+| `place.locked` | error | a footprint that is locked on the board, without `--force` |
+| `place.unknown-ref` | error | `--move` or `--only` names a reference that the board does not hold |
+| `place.edge-clearance` | warning | a courtyard is closer to the board edge than the edge clearance |
+| `place.no-room` | warning | the grid found no place for a part; it stays where it was |
+| `place.copper-left` | warning | a moved footprint had copper ending on its pads; the copper stays |
+| `place.script-locked` | warning | the part has a locked placement in `.fenolite/`; the next build restores it |
+| `place.no-extent` | info | a footprint has neither a courtyard nor pad copper; it is not judged |
+| `place.no-outline` | info | the board has no closed outline; only courtyard overlaps are judged |
+
+`fenolite build` reports the same legality codes for the board it is about to write, each at most as a
+warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.

@@ -38,6 +38,7 @@ import _lenscases
 import _libtables
 import _mincases
 import _netcases
+import _placecases
 import _procases
 import _rulecases
 import _sheetcases
@@ -223,6 +224,7 @@ def _probes() -> dict[str, Probe]:
         **_benches.copper_probes(),
         **_copperparity.parity_probes(),
         **_fillcases.fill_probes(),
+        **_placecases.place_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

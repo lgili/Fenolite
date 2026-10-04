@@ -2,7 +2,7 @@
 
 ### Requirement: Moved footprints pass the oracle
 Footprints moved by `move_footprint`, and the legality verdicts, SHALL be proved on `kicad-cli` 9.0.9 and 10.0.6, probes first:
-- **Move.** For the authored project, `pcb export pos` MUST give the requested position, rotation and side after a translation, after rotations to 90° and 30°, and after a flip to the bottom, and the IPC-D-356 pad nets MUST equal those before the move (`H-K-PLACE-MOVE`; probes `place-move-translate`, `place-move-rotate`, `place-move-flip` = `equal`).
+- **Move.** For the built blink (`examples/blink_2layer`), `pcb export pos` MUST give the requested position, rotation and side after a translation, after rotations to 90° and 30°, and after a flip to the bottom, and the IPC-D-356 pad nets MUST equal those before the move (`H-K-PLACE-MOVE`; probes `place-move-translate`, `place-move-rotate`, `place-move-flip` = `equal`).
 - **Touching.** Two courtyards sharing an edge and two sharing a corner MUST be run through `pcb drc`, with a pair overlapping by 20 µm as the positive control in the same board (`H-K-PLACE-TOUCH`; probe `place-touch` records `absent` or `present` for the touching pairs, and is `inconclusive` when the control does not fire).
 - **Agreement.** On a bench of six placed parts with known overlapping and clear pairs on both sides, the set of pairs with `place.courtyard-overlap` MUST equal the set of pairs in KiCad's `courtyards_overlap` violations.
 - **Rebuild.** A blink variant with two staged parts, placed by `fenolite place --strategy grid --confirm` and built again, MUST keep both placements, report no `layout.unplaced`, and write the same bytes on a second build.

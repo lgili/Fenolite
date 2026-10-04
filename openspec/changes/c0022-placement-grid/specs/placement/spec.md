@@ -10,10 +10,12 @@
 ### Requirement: Placement legality
 `placement.legality.check(extents, outline_rings, *, edge_clearance=0, names, touching_overlaps=TOUCHING_OVERLAPS) -> tuple[Issue, ...]` SHALL judge a layout with exact integer predicates and report:
 - `place.courtyard-overlap` (error, `where` = the two references sorted and joined by a comma) for each pair of footprints that have rings on the same face whose interiors intersect; rings that only touch count as an overlap exactly when `touching_overlaps` is true;
-- `place.outside-outline` (error, `where` = the reference) for each footprint with a ring point outside the board ring or inside a cut-out ring;
+- `place.outside-outline` (error, `where` = the reference) for each footprint with a ring point outside the board ring or inside a cut-out ring; a ring that only touches a boundary is inside;
 - `place.edge-clearance` (warning) for each footprint inside the board whose ring is closer to a board or cut-out boundary than `edge_clearance`;
 - `place.no-extent` (info) for each footprint whose extent has `source == "none"`, which is then not judged;
 - `place.no-outline` (info), once, when `outline_rings` is empty; only overlaps are then judged.
+
+`placement.legality.edge_clearance(design)` SHALL give the smallest `min` of the design's rules of kind `edge_clearance` whose first selector is `all`, and 0 without one.
 
 `TOUCHING_OVERLAPS` MUST equal what the committed probe files record for `place-touch` (`H-K-PLACE-TOUCH`). Issues MUST be sorted by code, then `where`. A footprint on the top side MUST be judged with its front rings against other footprints' front rings, and likewise for back rings.
 

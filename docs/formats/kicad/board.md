@@ -461,6 +461,34 @@ the missing-table control firing on both majors (`H-K-LIB-DRC`). `embed.EVIDENCE
   rotated by its angle about its position, rounded outward), else `BBox(0, 0, 0, 0)`. Courtyard pieces
   kept opaque (an `fp_poly` with an `arc` inside `pts`) are not counted.
 
+### Board outline as rings (c0022)
+
+`outline.board_outline(design)` gives the board outline as closed rings in the board frame. A design
+with a model outline gives its points and cut-outs (`source` `model`). A read board gives the root
+graphics on the layer of kind `edge`, chained by exact endpoint equality with `geometry.assemble_rings`
+(`source` `edge`); a circle is a ring by itself. The ring of largest area is the board and the others are
+its cut-outs. When no ring closes, `problem` is `open-contour`, `branching-contour`, `no-edge-content` or
+`footprint-edges-only` (edge items exist only inside footprints, whose children stay opaque). Arcs and
+circles are polygonised with the kernel's tolerance, and `exact` is then false.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The board outline is the set of closed shapes drawn on `Edge.Cuts`; root `gr_line`, `gr_arc`, `gr_rect`, `gr_poly` and `gr_circle` items on that layer chain into rings by exact endpoint equality, without a snapping tolerance | S-0010, S-0021, S-0058 | INFERRED | H-G-PLACE-OUTLINE |
+
+### Moved footprints (c0022)
+
+`replace.move_footprint` moves one footprint of a read board. A translation changes only the footprint's
+`at` position: pads, graphics and fields are stored relative to it. A new rotation or side re-places the
+footprint from its library definition with `embed.place_footprint`, keeping the uuid, the Reference and
+Value, the user properties, the lock and each pad's net by pad number. Without a definition the rotation
+or side change is refused (`place.no-definition`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint whose `at` position changed, with every child unchanged, is read by `kicad-cli` at the new position with the same rotation, side and pad nets | S-0020, S-0022, S-0037 | INFERRED | H-K-PLACE-MOVE |
+| A footprint re-placed from its library definition at a new rotation or side, with the old uuid and pad nets, is read by `kicad-cli` at the requested placement | S-0020, S-0022, S-0037 | INFERRED | H-K-PLACE-MOVE |
+| Two courtyards that share an edge or a corner, with disjoint interiors, give no `courtyards_overlap` violation | S-0038, S-0020 | INFERRED | H-K-PLACE-TOUCH |
+
 ### Writer issue codes
 
 | code | severity | when |

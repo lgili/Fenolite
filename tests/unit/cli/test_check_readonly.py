@@ -117,3 +117,14 @@ def test_export_and_render_leave_the_source_untouched(
     assert any(c["args"][:2] in (["pcb", "export"], ["pcb", "render"]) for c in calls(fake))
     assert (elsewhere / "out").is_dir() is (protocol == "--confirm")
     _untouched(root, before)
+
+
+def test_place_dry_run_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
+    """``place --dry-run`` plans the board and writes nothing, in the project folder or beside it
+    (cli-contract, "Place command"; change c0022). The mutation protocol covers ``--confirm``."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(monkeypatch, root, "place", str(root), "--move", "R1=12mm,8mm", "--dry-run")
+    assert [p["path"] for p in env["result"].get("plan", [])] == ["board.kicad_pcb"], (code, env["issues"])
+    assert env["receipt"] is None and calls(fake) == []
+    _untouched(root, before)
