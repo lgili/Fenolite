@@ -228,9 +228,16 @@ floating-point trigonometry.
   - The translation is kept in units of 2**-128 nm; `dx` and `dy` return it as `Fraction`.
 - `compose(inner)` applies `inner` first. Angles add, and `M·R(θ) = R(−θ)·M`.
   - `compose(a, b).apply(p)` rounds once: within 0.5 nm per axis.
-  - `a.apply(b.apply(p))` rounds twice: within 1 nm per axis.
+  - `a.apply(b.apply(p))` rounds twice: within `(1 + |cos θa| + |sin θa|)/2` nm per axis, which is
+    at most `(1 + √2)/2 ≈ 1.2071` nm. It is not 1 nm.
+    - The first rounding error (up to 0.5 nm per axis) is rotated by `a` before the second rounding,
+      so one coordinate carries up to `0.5·(|cos θa| + |sin θa|)` nm of it.
+    - The bound is reached when both roundings are ties. It is 1 nm only when `θa` is a multiple
+      of 90°.
 - `inverse()` is exact for multiples of 90° with an integer translation. Otherwise a round trip of an
   integer point is within 1 nm per axis.
+  - The same two roundings apply, but the difference of two integer points is an integer, and an
+    integer of at most 1.2071 is at most 1.
 - `apply_angle(u) = (−u if mirror else u) + θ`, modulo a full turn.
 - `Transform.placement(at, rot, mirror=False)` maps local coordinates to board coordinates.
   - A bottom-side footprint's children are already mirrored in the file. Its absolute positions are

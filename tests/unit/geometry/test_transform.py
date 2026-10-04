@@ -10,7 +10,7 @@ from fractions import Fraction
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from strategies import transforms
 
@@ -227,15 +227,65 @@ def test_inverse_round_trip_at_other_angles(tx: int, ty: int, rot: int, mirror: 
 
 
 @given(transforms, transforms, st.integers(-(10**8), 10**8), st.integers(-(10**8), 10**8))
+@example(Transform.rotation(315_000_000), Transform.rotation(30_000_000), 0, 1_386_483)  # 1.2061 nm off
 def test_composition_rounds_once(a: Transform, b: Transform, x: int, y: int) -> None:
-    """compose(a, b).apply(p) is within 0.5 nm (+2**-100) of the exact composed map, per axis."""
+    """One rounding or two, per axis, against the exact composed map ``A(B(p))``.
+
+    ``compose(a, b).apply(p)`` rounds once: within 0.5 nm (+2**-100).
+    ``a.apply(b.apply(p))`` rounds twice: the first error (up to 0.5 nm per axis) passes through the
+    linear part of ``a`` before the second rounding, so one coordinate is off by at most
+    ``(1 + |cos θa| + |sin θa|) / 2`` nm, which is at most ``(1 + √2) / 2 ≈ 1.2071`` nm, not 1 nm.
+    """
     composed = a.compose(b).apply(P(x, y))
     exact = _exact_apply(a, _exact_apply(b, (Fraction(x), Fraction(y))))
     eps = Fraction(1, 2**100)
     assert abs(composed.x - exact[0]) <= Fraction(1, 2) + eps
     assert abs(composed.y - exact[1]) <= Fraction(1, 2) + eps
-    twice = a.apply(b.apply(P(x, y)))
-    assert abs(twice.x - exact[0]) <= 1 + eps and abs(twice.y - exact[1]) <= 1 + eps
+    bound = _two_rounding_bound(a)
+    error = _two_apply_error(a, b, P(x, y))
+    assert error[0] <= bound and error[1] <= bound
+    # bound ≤ (1 + √2) / 2 for the fixed-point table too: (|c| + |s|)² ≤ 2, in integers.
+    c, s = cos_sin_fixed(a.rot_udeg)
+    assert (abs(c) + abs(s)) ** 2 <= 2 * ONE * ONE
+
+
+def _two_rounding_bound(a: Transform) -> Fraction:
+    """``(1 + |cos θa| + |sin θa|) / 2`` nm with the fixed-point values ``a`` uses (exact)."""
+    c, s = cos_sin_fixed(a.rot_udeg)
+    return Fraction(ONE + abs(c) + abs(s), 2 * ONE)
+
+
+def _two_apply_error(a: Transform, b: Transform, p: Point) -> tuple[Fraction, Fraction]:
+    """Per-axis distance between ``a.apply(b.apply(p))`` and the exact composed map."""
+    exact = _exact_apply(a, _exact_apply(b, (Fraction(p.x), Fraction(p.y))))
+    twice = a.apply(b.apply(p))
+    return abs(twice.x - exact[0]), abs(twice.y - exact[1])
+
+
+def test_diagonal_table_entries_stay_below_sqrt2() -> None:
+    # |cos θ| + |sin θ| is largest on the diagonals; the rounded table stays below √2 there.
+    for udeg in (45_000_000, 135_000_000, 225_000_000, 315_000_000):
+        c, s = cos_sin_fixed(udeg)
+        assert abs(c) == abs(s)
+        assert (abs(c) + abs(s)) ** 2 < 2 * ONE * ONE
+        assert (abs(c) + abs(s) + 1) ** 2 > 2 * ONE * ONE  # and within 2**-128 of it
+
+
+def test_two_applies_reach_the_bound() -> None:
+    # Both roundings are ties that go the same way: the bound is reached exactly.
+    b = Transform(0, False, ONE // 2, ONE // 2)  # +0.5 nm on each axis
+    assert b.apply(P(1, 1)) == P(2, 2)  # (1.5, 1.5) rounds half to even: first error (+0.5, +0.5)
+    c, s = cos_sin_fixed(45_000_000)
+    a = Transform(45_000_000, False, 3 * ONE + ONE // 2 - 2 * (c + s), 0)  # A((2, 2)).x == 3.5
+    assert a.apply(P(2, 2)).x == 4  # 3.5 rounds half to even: second error +0.5
+    error = _two_apply_error(a, b, P(1, 1))
+    assert error[0] == _two_rounding_bound(a) == Fraction(1, 2) + Fraction(c + s, 2 * ONE)
+    assert error[0] > Fraction(12071067811865475, 10**16)  # (1 + √2) / 2 = 1.20710678118654752…
+
+    # Integer translations only: still well above the 1 nm that was claimed before.
+    a, b = Transform.rotation(315_000_000), Transform.rotation(30_000_000)
+    error = _two_apply_error(a, b, P(0, 1_386_483))
+    assert Fraction(1206, 1000) < max(error) <= _two_rounding_bound(a)
 
 
 def _exact_apply(t: Transform, p: tuple[Fraction, Fraction]) -> tuple[Fraction, Fraction]:
