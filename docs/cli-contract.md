@@ -263,6 +263,23 @@ whether a file read at a newer version can be written for an older target (`down
 tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
 by `fenolite.backends.kicad.cli.find_kicad_cli()`.
 
+## route
+
+`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o FILE]` routes selected nets. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--rip` removes unlocked copper on selected nets. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `tracks`, `vias`, `ripped`, `fills_stale` and up to 20 sanitised `log` lines. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking.
+
+| code | severity | when |
+|---|---|---|
+| `route.bad-item` | error | a router returned malformed copper |
+| `route.copper-removed` | warning | the router dropped existing copper |
+| `route.fill-stale` | info | changed copper invalidated filled zones |
+| `route.tool-failed` | error | the external router failed |
+| `route.tool-missing` | error | the configured router is unavailable |
+| `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
+| `route.unrouted` | warning | a selected net remains unrouted |
+| `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
+
 ## fill
 
 `fenolite fill PATH [--from REFILLED] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS]` computes zone
@@ -539,3 +556,4 @@ still off the board) and `legality` (the number of issues by code). The evidence
 
 `fenolite build` reports the same legality codes for the board it is about to write, each at most as a
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
+`result.routers` lists registered routers; `--no-run` lists names without availability probes.

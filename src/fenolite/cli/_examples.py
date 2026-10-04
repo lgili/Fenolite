@@ -20,5 +20,8 @@ EXAMPLE_UNFILLED = str(
 EXAMPLE_REFILLED = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/fill/triad_t9_refilled.kicad_pcb"
 )
+EXAMPLE_UNROUTED = str(
+    Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/routing/two_pads.kicad_pcb"
+)
 
-__all__ = ["EXAMPLE_BOARD", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED"]
+__all__ = ["EXAMPLE_BOARD", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED", "EXAMPLE_UNROUTED"]

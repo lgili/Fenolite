@@ -71,6 +71,11 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
             _missing("corpus", CORPUS_HINT)
     if item.get_closest_marker("needs_libs") and not kicad_library_dirs():
         _missing("libs", LIBS_HINT)
+    if item.get_closest_marker("needs_router"):
+        checkout = Path(os.environ.get("FENOLITE_KRT", ""))
+        interpreter = Path(os.environ.get("FENOLITE_KRT_PYTHON", ""))
+        if not (checkout / "py_router" / "route.py").is_file() or not interpreter.is_file():
+            _missing("router", "KiCadRoutingTools not found (set FENOLITE_KRT and FENOLITE_KRT_PYTHON)")
     if item.get_closest_marker("needs_kicad") and kicad_cli() is None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
     minimum = item.get_closest_marker("kicad_min_major")

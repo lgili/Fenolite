@@ -27,6 +27,7 @@ Budget: 7.5 days against the roadmap's 6; the cut order is in the design.
 - `kicad-oracle`: ADDED "Routed boards pass the oracle".
 - `ci-baseline`: ADDED "Routing smoke job", "Router resource".
 - `package-layering`: MODIFIED "Allowed import edges" (a router plugin may also import `model` and `geometry`).
+- `verification-evidence`: MODIFIED "Reserved id families" (the routing family is registered by this change, so it is no longer reserved).
 
 ## Non-goals
 

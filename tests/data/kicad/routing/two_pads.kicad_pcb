@@ -1,0 +1,87 @@
+(kicad_pcb
+	(version 20260206)
+	(generator "fenolite")
+	(generator_version "10.0")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(31 "B.Cu" signal)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(footprint "Connector:Test"
+		(layer "F.Cu")
+		(uuid "d3805f64-fcb4-5d39-b318-2ebfbd689950")
+		(at 0 0)
+		(property "Reference" "J1"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(uuid "9292d0bc-8155-5401-9a63-cadc81220069")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "220cfc92-89fd-5de3-af66-2af02dd2122f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(pad "1" thru_hole circle
+			(at 0 0)
+			(size 0.8 0.8)
+			(drill 0.4)
+			(layers "*.Cu" "*.Mask")
+			(net "ROUTE_ME")
+			(uuid "f4e9bc7b-9324-5938-bea4-91baff0d1d79")
+		)
+	)
+	(footprint "Connector:Test"
+		(layer "F.Cu")
+		(uuid "963129ae-ba1b-5776-b6a0-ff3c248d920b")
+		(at 10 0)
+		(property "Reference" "J2"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(uuid "90646e14-2a17-5d7b-9fa2-5b98b68d5305")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "ef1c6ee8-95c1-5a00-ab68-9b906cc99443")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(pad "1" thru_hole circle
+			(at 0 0)
+			(size 0.8 0.8)
+			(drill 0.4)
+			(layers "*.Cu" "*.Mask")
+			(net "ROUTE_ME")
+			(uuid "9a2201fb-193b-5999-a50b-21ab7b342185")
+		)
+	)
+)

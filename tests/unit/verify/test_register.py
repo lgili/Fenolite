@@ -92,7 +92,8 @@ def test_settling_tests_are_named() -> None:
 
 def test_families_of_the_live_register() -> None:
     families = load_families(LIVE)
-    assert {"H-A-WRITE-*", "H-A-PH-*", "H-K-KRT-*", "H-G-DSN-*"} <= set(families)
+    assert {"H-A-WRITE-*", "H-A-PH-*", "H-G-DSN-*"} <= set(families)
+    assert "H-K-KRT-*" not in families
 
 
 def test_family_cell_without_a_wildcard_is_rejected(tmp_path: Path) -> None:

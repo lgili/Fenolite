@@ -155,7 +155,7 @@ def load_register(path: str | os.PathLike[str]) -> tuple[HypothesisRow, ...]:
 
 
 def load_families(path: str | os.PathLike[str]) -> tuple[str, ...]:
-    """The reserved families of ``path`` as written (``H-K-KRT-*``); ``()`` without such a table."""
+    """The reserved families of ``path`` as written; ``()`` without such a table."""
     shown = os.fspath(path)
     tables = _tables(_lines(path), FAMILIES_HEADER)
     if not tables:
@@ -168,7 +168,7 @@ def load_families(path: str | os.PathLike[str]) -> tuple[str, ...]:
         if len(cell) >= 2 and cell.startswith("`") and cell.endswith("`"):
             cell = cell[1:-1]
         if not _FAMILY.fullmatch(cell):
-            raise ValueError(f"{shown}:{number}: {cells[0]!r} is not a family such as `H-K-KRT-*`")
+            raise ValueError(f"{shown}:{number}: {cells[0]!r} is not a valid id family ending in `-*`")
         families.append(cell)
     return tuple(families)
 
