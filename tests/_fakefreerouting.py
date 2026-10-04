@@ -5,8 +5,9 @@ c0023). Nothing here is Freerouting's: the fakes record how they were called and
 for Fenolite.
 
 Environment read by the fakes: ``FAKE_JAVA_RECORD`` (a JSON file that receives ``argv``, ``cwd`` and
-``home`` of each router run; a ``-version`` call is not a run), ``FAKE_JAVA_SESSION`` (the session text to
-write to the ``-do`` file) and ``FAKE_JAVA_MODE``: ``write`` (default), ``none`` (exit 0, no session),
+``home`` of each router run; a ``-version`` call is not a run), ``FAKE_JAVA_OUTPUT`` (what the router
+prints), ``FAKE_JAVA_SESSION`` (the session text to write to the ``-do`` file) and ``FAKE_JAVA_MODE``:
+``write`` (default), ``none`` (exit 0, no session),
 ``fail`` (exit 3 with a message), ``garbage`` (a file that is no session) or ``sleep``.
 """
 
@@ -57,7 +58,7 @@ if mode == "garbage":
     output.write_text("(pcb not-a-session)", encoding="utf-8")
 else:
     output.write_text(Path(os.environ["FAKE_JAVA_SESSION"]).read_text(encoding="utf-8"), encoding="utf-8")
-print("fake router done")
+print(os.environ.get("FAKE_JAVA_OUTPUT", "fake router done"))
 """
 
 

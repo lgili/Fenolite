@@ -57,6 +57,13 @@ passes the flag that disables it (`-da`), runs the tool in a temporary folder th
 never uses its hosted API. A run of the pinned image with the network disabled routes a board
 (`H-G-DSN-OFFLINE`, recorded on 2026-10-04), so `fenolite capabilities` lists this router with
 `sends_data_offsite: false` and `fenolite route` does not ask for `--allow-offsite`.
+
+
+**Net classes and open connections.** `fenolite route` reads the net classes from the project file beside
+the board (a KiCad board holds none), so each net is routed with the track width, clearance and via size of
+its own class. A net that Freerouting reports with unrouted connections is listed under `unrouted` even
+when it has copper; run `fenolite check` afterwards, where KiCad's DRC is the judge.
+
 `--router-path docker:<image>` runs a container image of Freerouting instead of a local
 jar, with the run folder mounted and `--network none`; Fenolite never pulls the image.
 

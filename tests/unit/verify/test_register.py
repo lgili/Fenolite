@@ -96,7 +96,7 @@ def test_families_of_the_live_register() -> None:
     assert "H-K-KRT-*" not in families
     # c0023 registered its rows, so its family is no longer reserved
     assert "H-G-DSN-*" not in families
-    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 6
+    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 7
 
 
 def test_family_cell_without_a_wildcard_is_rejected(tmp_path: Path) -> None:

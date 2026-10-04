@@ -12,6 +12,7 @@ import os
 import re
 from pathlib import Path
 
+from fenolite.backends.kicad import pro
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
@@ -20,8 +21,9 @@ from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
 from fenolite.routing.merge import RoutingError, apply
 from fenolite.routing.protocol import JobNet, JobPad, Router, RoutingJob
 from fenolite.routing.registry import routers
@@ -99,6 +101,28 @@ def _router(name: str, args: argparse.Namespace) -> Router:
     return selected
 
 
+def _with_project_classes(design: Design, board_path: Path, issues: list[Issue]) -> Design:
+    """``design`` with the net classes of the project file beside the board, so that a router gets each
+    net's own track width, clearance and via size. A KiCad board holds no net class: without the project,
+    every net would take the defaults. A project that is missing or unreadable leaves the design as read."""
+    project = board_path.with_suffix(".kicad_pro")
+    if not project.is_file():
+        return design
+    try:
+        info = pro.read_project(project.read_text(encoding="utf-8"), file=project.name, issues=issues)
+        return pro.apply_project(design, info, issues=issues)
+    except (FormatError, UnicodeDecodeError) as error:
+        issues.append(
+            Issue(
+                "route.project-unread",
+                "warning",
+                f"{project.name} could not be read, so every net takes the default class values: {error}",
+                project.name,
+            )
+        )
+        return design
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.out and Path(args.out).is_absolute():
         raise CliError("FEN-2001", "--out must be relative to the working directory")
@@ -126,6 +150,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     read_issues: list[Issue] = []
     design = read_board(text, file=board_path.name, issues=read_issues)
     source = source_info(design)
+    design = _with_project_classes(design, board_path, read_issues)
     input_ref = InputRef(
         board_path.name,
         hashlib.sha256(data).hexdigest(),

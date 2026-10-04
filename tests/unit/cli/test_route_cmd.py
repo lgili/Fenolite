@@ -17,6 +17,7 @@ from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.cli import cmd_route
 from fenolite.core.coords import Point
+from fenolite.core.errors import Issue
 from fenolite.model.board import Zone
 from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
 from fenolite.routing.plugins.specctra.freerouting import FreeroutingRouter
@@ -244,3 +245,36 @@ def test_freerouting_needs_a_board_outline(monkeypatch, tmp_path: Path) -> None:
     failed = [issue for issue in env["issues"] if issue["code"] == "route.tool-failed"]
     assert failed and "outline" in failed[0]["message"]
     assert not record.exists()
+
+
+def test_net_classes_come_from_the_project(monkeypatch, tmp_path: Path) -> None:
+    """A KiCad board holds no net class: ``route`` reads them from the project beside the board, so a
+    router gets the track width of each net's own class and not the default (c0023; found by the
+    acceptance loop of c0025, where the supply nets were routed at the default width)."""
+    code, _env, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "build",
+        str(ROOT / "examples" / "blink_2layer" / "design.py"),
+        "--out",
+        str(tmp_path / "blink"),
+        "--confirm",
+    )
+    assert code == 0, error
+    board_path = tmp_path / "blink" / "blink.kicad_pcb"
+    design = read_board(board_path.read_text(encoding="utf-8"), file=board_path.name)
+    assert not [net for net in design.circuit.nets if net.netclass_id], "the board alone names no class"
+    issues: list[Issue] = []
+    classed = cmd_route._with_project_classes(design, board_path, issues)  # pyright: ignore[reportPrivateUsage]
+    classes = {item.id: item for item in classed.circuit.netclasses}
+    widths = {
+        net.name: classes[net.netclass_id].track_width for net in classed.circuit.nets if net.netclass_id
+    }
+    assert widths["VIN"] == widths["GND"] == 500_000
+    assert "LED_DRV" not in widths or widths["LED_DRV"] != 500_000
+
+    board_path.with_suffix(".kicad_pro").write_text("{ not json", encoding="utf-8")
+    issues = []
+    assert cmd_route._with_project_classes(design, board_path, issues) is design  # pyright: ignore[reportPrivateUsage]
+    assert [(issue.code, issue.severity) for issue in issues] == [("route.project-unread", "warning")]
+    assert cmd_route._with_project_classes(design, tmp_path / "none.kicad_pcb", []) is design  # pyright: ignore[reportPrivateUsage]

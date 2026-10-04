@@ -143,6 +143,32 @@ def test_max_passes(tmp_path: Path, record: Path, value: str, passes: str, ignor
     assert [issue.code for issue in result.issues] == ["route.option-ignored"] * ignored
 
 
+def test_open_connections_come_from_the_router_output(
+    tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A session holds the routed wires only: a net that the router reports with unrouted connections is
+    listed as unrouted although it has copper (``H-G-DSN-INCOMPLETE``)."""
+    lines = (
+        "Net 'A' (1 unrouted connections):",
+        "INFO Optimization stage completed: final score: 883.31 (1 unrouted and 0 violations).",
+    )
+    monkeypatch.setenv("FAKE_JAVA_OUTPUT", "\n".join(lines))
+    result = _router(tmp_path).route(_job())
+    assert result.routed == () and result.unrouted == ("A",)
+    assert len(result.tracks) == 2, "the partial copper is still returned"
+    assert [issue.code for issue in result.issues] == []
+
+    monkeypatch.setenv("FAKE_JAVA_OUTPUT", lines[1])
+    result = _router(tmp_path).route(_job())
+    assert result.routed == ("A",)
+    assert [(issue.code, issue.severity) for issue in result.issues] == [("route.unrouted", "warning")]
+    assert "1 unrouted connection" in result.issues[0].message
+
+    monkeypatch.setenv("FAKE_JAVA_OUTPUT", "final score: 1000.00 (0 unrouted and 0 violations)")
+    result = _router(tmp_path).route(_job())
+    assert result.routed == ("A",) and result.unrouted == () and not result.issues
+
+
 def test_no_session(tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Scenario "No session"."""
     monkeypatch.setenv("FAKE_JAVA_MODE", "none")

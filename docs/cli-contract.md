@@ -283,10 +283,11 @@ by `fenolite.backends.kicad.cli.find_kicad_cli()`.
 | `route.copper-removed` | warning | the router dropped existing copper |
 | `route.fill-stale` | info | changed copper invalidated filled zones |
 | `route.option-ignored` | warning | a `--router-option` the router does not support was ignored |
+| `route.project-unread` | warning | the project file beside the board could not be read, so every net takes the default class values |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
-| `route.unrouted` | warning | a selected net remains unrouted |
+| `route.unrouted` | warning | a selected net remains unrouted, or the router reports open connections: a net with copper is still listed under `unrouted` when the router says it left one of its connections open |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes; the board needs a closed outline. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` (warning), `specctra.rounded`, `specctra.renamed` and `specctra.unknown-list` (info). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`.

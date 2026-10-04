@@ -13,6 +13,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `fenolite route` reads the net classes from the project file beside the board. Before, every net was routed with the default track width, clearance and via size, whatever its class said: a KiCad board holds no net class.
+- `fenolite route --router freerouting` lists a net under `unrouted` when Freerouting reports that it left one of its connections open. Before, a net with any copper counted as routed, so a partly routed net was reported as done; KiCad's DRC in `fenolite check` still found it.
 - A board whose pad carries a slotted hole at an angle other than a multiple of 90° is read and written again: the writer refused it (`KiCad writer cannot represent this slot rotation`), which broke every command on such a board.
 - Geometry: the documented and tested bound of two successive `Transform.apply` calls is `(1 + |cos θ| + |sin θ|)/2` nm per axis, at most `(1 + √2)/2 ≈ 1.2071` nm, not 1 nm; `test_composition_rounds_once` no longer fails at random, and a test reaches the bound exactly. No code changes (c0050).
 - Script copper in the Altium build (change c0053): `fenolite build --target altium` now writes the tracks, vias and stitching vias that the design script declares (`Design.track`, `Design.via`, `Design.stitch`) into the experimental `<name>.PcbDoc`; before, they were left out without an issue. An intent that does not resolve refuses the build, an intent that creates nothing is reported, and with `--copper-from` the board wins with one `altium.not-lowered` info.

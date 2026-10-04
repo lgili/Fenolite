@@ -86,6 +86,20 @@ def _tail(output: str, folder: Path, count: int = 20) -> tuple[str, ...]:
     return tuple(line for line in lines if line)[-count:]
 
 
+UNROUTED_NET = re.compile(r"Net '(?P<name>[^\n]*?)' \((?P<count>\d+) unrouted connections?\)")
+UNROUTED_TOTAL = re.compile(r"\((?P<count>\d+) unrouted and \d+ violations?\)")
+
+
+def _unrouted_report(output: str) -> tuple[tuple[str, ...], int]:
+    """What Freerouting's own output says it left open: the written names of the nets it lists with
+    unrouted connections, and the count of its last score line (0 without one). A session holds the
+    wires that were routed and says nothing about a connection that was not, so a net with copper may
+    still be open (``H-G-DSN-INCOMPLETE``)."""
+    nets = tuple(dict.fromkeys(match["name"] for match in UNROUTED_NET.finditer(output)))
+    totals = [int(match["count"]) for match in UNROUTED_TOTAL.finditer(output)]
+    return nets, (totals[-1] if totals else 0)
+
+
 def _defaults(design: Design) -> DsnDefaults:
     """The values of the design's ``Default`` class, each falling back to ``FALLBACK``."""
     found = next((c for c in design.circuit.netclasses if c.name.casefold() == "default"), None)
@@ -293,7 +307,8 @@ class FreeroutingRouter:
                         "route.tool-failed",
                         f"Freerouting gave no session within {self.timeout:g} s",
                     )
-                log = _tail(done.stdout + "\n" + done.stderr, folder)
+                output = done.stdout + "\n" + done.stderr
+                log = _tail(output, folder)
                 session_file = folder / "board.ses"
                 if not session_file.is_file():
                     last = log[-1] if log else "no output"
@@ -318,7 +333,21 @@ class FreeroutingRouter:
                 )
             )
         with_copper = {item.net_id for item in (*tracks, *vias)}
-        routed = tuple(net.name for net in job.nets if net.net_id in with_copper)
+        open_nets, open_total = _unrouted_report(output)
+        incomplete = {written.names.nets.get(name, name) for name in open_nets}
+        if open_total and not incomplete:
+            issues.append(
+                Issue(
+                    "route.unrouted",
+                    "warning",
+                    f"Freerouting reports {open_total} unrouted connection(s) and names no net",
+                    self.name,
+                    hint="run 'fenolite check': KiCad's DRC lists the unconnected items",
+                )
+            )
+        routed = tuple(
+            net.name for net in job.nets if net.net_id in with_copper and net.name not in incomplete
+        )
         return RoutingResult(
             tracks=tracks,
             vias=vias,
