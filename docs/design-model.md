@@ -211,7 +211,8 @@ capability (change c0011); the key table is in `docs/dsl.md` ("Ids: the key tabl
 
 Every object that `fenolite.dsl.to_model` or `fenolite build` creates gets
 `derived_id(prefix, "dsl", "<kind>:<key>")`, where the key is a name or a path from the script
-(`component:<path>`, `net:<name>`, `pin:<path>:<number>`, …) from the closed table `dsl.KEYS`.
+(`component:<path>`, `net:<name>`, `pin:<path>:<number>`, `rule:<kind>`, …) from the closed table
+`dsl.KEYS`.
 Footprints and pads are placed copies keyed by the component path (see "Placed copies"), and the
 board layers are keyed by their KiCad names. These ids are not generated: they do not depend on
 `--seed`, on `PYTHONHASHSEED` or on the order in which the script creates objects, so inserting a part

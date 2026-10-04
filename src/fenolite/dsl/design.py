@@ -16,6 +16,7 @@ from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
+from fenolite.model.rules import RuleKind
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import Recorded
@@ -54,12 +55,71 @@ ZONE_CONNECTIONS: tuple[str, ...] = get_args(ZoneConnection)
 ZONE_ISLANDS: tuple[str, ...] = get_args(IslandRemoval)
 
 
+MINIMUM_KINDS: tuple[RuleKind, ...] = (
+    "clearance",
+    "track_width",
+    "via_diameter",
+    "via_drill",
+    "hole_size",
+    "edge_clearance",
+)
+"""The keywords of ``design.rules.minimum()``, which are the rule kinds of the model."""
+
+
+@dataclass(frozen=True)
+class MinimumSpec:
+    """One minimum of ``design.rules.minimum()``: a rule kind, the net class it holds for (``None`` for
+    the whole board) and the least value in nanometres."""
+
+    kind: RuleKind
+    netclass: str | None
+    min: Nm
+
+
 class Rules:
-    """``design.rules``: net classes only (no custom-rule constructor in v0.1)."""
+    """``design.rules``: net classes and design-rule minimums (``docs/dsl.md``, "Design rules")."""
 
     def __init__(self, design: Design) -> None:
         self._design = design
         self.netclasses: dict[str, NetClassSpec] = {}
+        self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
+        """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
+
+    def minimum(
+        self,
+        *,
+        clearance: object = None,
+        track_width: object = None,
+        via_diameter: object = None,
+        via_drill: object = None,
+        hole_size: object = None,
+        edge_clearance: object = None,
+        netclass: str | None = None,
+    ) -> None:
+        """Declare design-rule minimums: one rule per given length, for the whole board, or for the nets
+        of the declared class ``netclass``. The build writes them where the design-rule check of the
+        target reads them; a class minimum governs over the board minimum of its kind."""
+        if netclass is not None and netclass not in self.netclasses:
+            raise DslError(
+                f"minimum(): netclass {netclass!r} is not a declared net class; "
+                "call design.rules.netclass() first"
+            )
+        scope = "the board" if netclass is None else f"net class {netclass}"
+        given = (clearance, track_width, via_diameter, via_drill, hole_size, edge_clearance)
+        found: list[MinimumSpec] = []
+        for kind, value in zip(MINIMUM_KINDS, given, strict=True):
+            if value is None:
+                continue
+            length = as_nm(value, name=f"minimum(): {kind}")
+            if length <= 0:
+                raise DslError(f"minimum(): {kind} must be above 0")
+            if (kind, netclass) in self.minimums:
+                raise DslError(f"minimum(): {kind} is declared twice for {scope}")
+            found.append(MinimumSpec(kind, netclass, length))
+        if not found:
+            raise DslError("minimum(): give at least one length, for example clearance=mm(0.2)")
+        for spec in found:
+            self.minimums[(spec.kind, spec.netclass)] = spec
 
     def netclass(
         self,
@@ -405,4 +465,13 @@ class Design(Container):
         return f"Design({self.name!r})"
 
 
-__all__ = ["DESIGN_NAME", "INNER_LAYERS", "Design", "NetClassSpec", "Rules", "ZoneSpec"]
+__all__ = [
+    "DESIGN_NAME",
+    "INNER_LAYERS",
+    "MINIMUM_KINDS",
+    "Design",
+    "MinimumSpec",
+    "NetClassSpec",
+    "Rules",
+    "ZoneSpec",
+]

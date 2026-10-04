@@ -1011,6 +1011,13 @@ def _not_lowered(
             "schematic declares their nets"
         )
         found.append(issue("altium.not-lowered", message, "rules"))
+    rules = sorted(r.name for r in design.rules.rules) if design.rules is not None else []
+    if rules:  # change c0054: never filtered, the PCB document does not hold them either
+        message = (
+            f"the design rules {', '.join(rules)} are kept in the model only; the rules of the PCB "
+            "document come from the net classes"
+        )
+        found.append(issue("altium.not-lowered", message, "design-rules"))
     found += altium_copper.board_not_lowered(design.board)
     pairs = sorted(i.name for i in design.circuit.interfaces if i.kind == "diff_pair")
     if pairs:

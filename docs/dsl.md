@@ -55,6 +55,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
   is optional; a net belongs to at most one class.
+- `design.rules.minimum(*, clearance, track_width, via_diameter, via_drill, hole_size, edge_clearance,
+  netclass=None)`: design-rule minimums for the board, or for one net class ("Design rules").
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A
   `DiffPair` is not lowered to KiCad (`build.interface-not-lowered`, info).
 - `Harness(name, members)`: a named group of nets with different names, such as
@@ -115,6 +117,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
+| rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum) |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
@@ -384,6 +387,60 @@ design.zone(
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
+
+## Design rules
+
+A net class says what the copper of its nets should be; a minimum says what the design-rule check must
+refuse. `design.rules.minimum(...)` declares minimums, and the build writes them where KiCad's DRC reads
+them:
+
+```python
+design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))
+
+# Board minimums: what the fab can make.
+design.rules.minimum(
+    clearance=mm(0.15), track_width=mm(0.15), via_diameter=mm(0.45), via_drill=mm(0.2),
+    hole_size=mm(0.3), edge_clearance=mm(0.3),
+)  # fmt: skip
+# Class minimums: the nets of PWR never go below these.
+design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
+```
+
+- **Keywords.** One per rule kind of the model: `clearance`, `track_width`, `via_diameter`, `via_drill`,
+  `hole_size` (any drilled hole) and `edge_clearance` (copper to the board edge). Each is optional; a call
+  gives at least one.
+- **Lengths carry a unit**, as everywhere in the DSL, and are above 0: `clearance=0.2` is refused.
+- **Scope.** Without `netclass` the minimums hold for the whole board. With `netclass="PWR"` they hold
+  for the nets of that class, which must be declared first with `design.rules.netclass`.
+- **Several calls.** `minimum()` may be called more than once, but a kind is declared once per scope.
+  The order of the calls does not matter.
+- **Errors at the call.** No length, a bare number, a value of 0 or less, an undeclared class or a kind
+  given twice for one scope raises `DslError`, and the call records nothing.
+- **Model.** `to_model` writes one `Rule` per minimum into `rules.json`: `min_<kind>` on every object
+  with priority 0, or `min_<kind>_<class>` on the class with priority 1. The id is
+  `derived_id("rul", "dsl", "rule:<kind>")` or `derived_id("rul", "dsl", "rule:<kind>:<class>")`.
+- **KiCad.** The build writes each minimum as a custom rule of `<name>.kicad_dru`
+  (`fenolite_0_min_<kind>`, then `fenolite_1_min_<kind>_<class>` with the condition
+  `A.NetClass == '<class>'`), and the board minimums also as the board-setup minimums of
+  `<name>.kicad_pro` (`docs/formats/kicad/rules.md`, `docs/formats/kicad/project.md`). `kicad-cli pcb drc`
+  and the board editor enforce both; `kicad-cli` 9.0.9 and 10.0.6 report a build that breaks a minimum
+  and accept one that respects it (`H-K-DSL-MINIMUM`).
+- **Class over board.** KiCad applies the last matching rule, and class minimums are written last. So a
+  class minimum governs the copper of its class, whether it is above or below the board minimum. The
+  board-setup minimum of a kind is the least of both, so it never hides a lower class minimum.
+- **Board clearance against class clearance.** A board `clearance` minimum is a custom rule on every
+  object, and KiCad applies a custom rule over the clearance of a net class. A class whose clearance is
+  above the board minimum is then checked against the board minimum only, and the build warns
+  (`kicad.project.class-shadowed`). Restate the class value as a class minimum, as the example above
+  does for `PWR`. Fenolite changes no value on its own.
+- **Rebuilds.** Fenolite's rules are replaced on every build; rules added to the `.kicad_dru` by hand,
+  under names that do not start with `fenolite_`, are kept after them (`docs/lens.md`, "Project and rules
+  files").
+- **Not in v0.1.** Severities other than `error`, `opt` and `max` limits, layers, other selectors (a net,
+  a reference, a second object), custom expressions, differential pairs and length matching.
+- **Altium.** `--target altium` does not write the minimums: the rules of the PCB document come from the
+  net classes. The build reports them with one `altium.not-lowered` info (`where` = `design-rules`), and
+  they stay in `.fenolite/rules.json`.
 
 ## Copper guard
 

@@ -15,7 +15,7 @@ from types import MappingProxyType
 from fenolite import __version__
 from fenolite.core.coords import Point
 from fenolite.core.ids import derived_id
-from fenolite.dsl.design import Design
+from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, Part, Placement
@@ -24,7 +24,7 @@ from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, N
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.manufacturing import Manifest
-from fenolite.model.rules import RuleSet
+from fenolite.model.rules import Rule, RuleSet, Selector
 
 DSL_BACKEND = "dsl"
 BOARD_ORIGIN = Point(100_000_000, 100_000_000)
@@ -45,6 +45,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "interface": ("itf", "interface:<kind>:<name>"),
         "layer": ("lay", "layer:<KiCad name>"),
         "zone": ("zon", "zone:<name>"),
+        "rule": ("rul", "rule:<kind>[:<net class>]"),
     }
 )
 """Object → (id prefix, key form); ids are ``derived_id(prefix, "dsl", key)``."""
@@ -65,6 +66,27 @@ def _component(part: Part) -> Component:
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
         properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
+    )
+
+
+def _rules(design: Design) -> tuple[Rule, ...]:
+    """One model rule per ``design.rules.minimum()`` value: the board minimums, then the class minimums
+    in class-name order, each group in kind order. A board minimum has priority 0 and a class minimum
+    priority 1, so the class minimum governs the items of its class (``docs/dsl.md``, "Design rules")."""
+    specs = sorted(
+        design.rules.minimums.values(),
+        key=lambda s: (s.netclass is not None, s.netclass or "", MINIMUM_KINDS.index(s.kind)),
+    )
+    return tuple(
+        Rule(
+            id=key_id("rule", spec.kind, *(() if spec.netclass is None else (spec.netclass,))),
+            name=f"min_{spec.kind}" if spec.netclass is None else f"min_{spec.kind}_{spec.netclass}",
+            kind=spec.kind,
+            selector_a=Selector("all") if spec.netclass is None else Selector("netclass", spec.netclass),
+            min=spec.min,
+            priority=0 if spec.netclass is None else 1,
+        )
+        for spec in specs
     )
 
 
@@ -144,7 +166,7 @@ def to_model(design: Design) -> ModelDesign:
             no_connects=marks,
         ),
         board=Board(id=key_id("board"), outline=outline, zones=zones),
-        rules=RuleSet(id=key_id("rules")),
+        rules=RuleSet(id=key_id("rules"), rules=_rules(design)),
         manufacturing=Manifest(id=key_id("manifest")),
     )
 

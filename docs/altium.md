@@ -531,7 +531,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs or harnesses are kept in the model only (without a PCB document); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |

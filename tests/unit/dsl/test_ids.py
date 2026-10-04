@@ -38,7 +38,7 @@ def test_keys_not_order() -> None:
     assert key_id("net", "GND") == derived_id("net", "dsl", "net:GND")
     assert set(KEYS) == {
         "design", "board", "outline", "rules", "manifest", "module", "component", "pin", "net", "netclass",
-        "interface", "layer", "zone",
+        "interface", "layer", "zone", "rule",
     }  # fmt: skip
 
 
