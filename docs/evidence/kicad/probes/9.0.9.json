@@ -123,6 +123,7 @@
     "field-justify": "present",
     "field-mirror": "present",
     "field-upright": "present",
+    "fill-load9": "load",
     "fp-write-escapes-9": "equal",
     "fp-write-mini-lossy-9": "load",
     "fp-write-mini-v9-9": "load",

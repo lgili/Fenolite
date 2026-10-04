@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import pytest
-from fakes import FakeOracle, FakeValidator, project
+from fakes import FakeFillOracle, FakeOracle, FakeValidator, project
 
 from fenolite.backends.base import PlotOutcome, Plotter, PlotView, ProjectSet
 from fenolite.checks import DEFAULT_STAGES, ISSUE_CODES, STAGE_ORDER, run_checks
@@ -51,6 +51,7 @@ def test_opt_in_default_runs_no_plot() -> None:
     report = run_checks(
         project=project(), model=None, built=False, validator=FakeValidator(), oracle=FakeOracle(),
         plotter=plotter,
+        fill_oracle=FakeFillOracle(),
     )  # fmt: skip
     assert [s.name for s in report.stages] == list(DEFAULT_STAGES)
     assert plotter.calls == []

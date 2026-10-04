@@ -174,6 +174,7 @@ def test_oracle_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     failed = [i for i in env["issues"] if i["code"] == "check.oracle-failed"]
     assert code == 5 and failed and all(i["retryable"] is True for i in failed)
     assert {s["name"] for s in env["result"]["stages"] if s["status"] == "errors"} == {
+        "zone.fill",
         "drc.kicad",
         "netlist.assignment_compare",
     }
@@ -182,7 +183,9 @@ def test_oracle_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
 def test_rules_without_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     board = _copy(tmp_path)
     shutil.copyfile(DATA / "kicad" / "rules" / "units.kicad_dru", board.with_suffix(".kicad_dru"))
-    fake = fake_kicad_cli(tmp_path / "bin", ipcd356=_ipc.for_board(board))
+    fake = fake_kicad_cli(
+        tmp_path / "bin", ipcd356=_ipc.for_board(board), refill_board=board.read_text(encoding="utf-8") + "\n"
+    )
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake))
     assert "kicad.drc.rules-not-loaded" in [i["code"] for i in env["issues"]]
     assert _stages(env)["drc.kicad"]["summary"]["canary"] == "not-applicable"
@@ -231,7 +234,9 @@ def test_unreadable_board_with_a_report(monkeypatch: pytest.MonkeyPatch, tmp_pat
 def _native(tmp_path: Path) -> tuple[Path, Path]:
     board = _copy(tmp_path)
     board.with_suffix(".kicad_pro").write_text("{}\n", encoding="utf-8")
-    return board, fake_kicad_cli(tmp_path / "bin", ipcd356=_ipc.for_board(board))
+    return board, fake_kicad_cli(
+        tmp_path / "bin", ipcd356=_ipc.for_board(board), refill_board=board.read_text(encoding="utf-8") + "\n"
+    )
 
 
 def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -242,6 +247,7 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "model.validate",
         "erc.lite",
         "copper.clearance",
+        "zone.fill",
         "drc.kicad",
         "netlist.assignment_compare",
         "roundtrip",

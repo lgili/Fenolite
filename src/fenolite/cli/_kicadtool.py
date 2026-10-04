@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fenolite.backends.kicad import versions
-from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli
+from fenolite.backends.kicad.cli import DOCKER_PREFIX, KicadCli, KicadCliError, cli_for, find_kicad_cli
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError
@@ -32,10 +32,12 @@ def preflight(explicit: str | None, timeout: float, board: Path, *, hint: str = 
     path = find_kicad_cli(explicit)
     if path is None:
         raise CliError("FEN-6001", "kicad-cli not found", hint=hint)
-    cli = KicadCli(path, timeout=timeout)
+    cli = cli_for(path, timeout=timeout)
     try:
         major = cli.major()
-    except (KicadCliError, ValueError) as exc:
+    except (KicadCliError, ValueError, OSError) as exc:
+        if str(path).startswith(DOCKER_PREFIX):
+            hint = f"docker pull {str(path)[len(DOCKER_PREFIX) :]}"
         raise CliError("FEN-6001", f"{path.name} did not report a kicad-cli version", hint=hint) from exc
     if major not in versions.TARGET_MAJORS:
         raise CliError("FEN-6002", f"kicad-cli {cli.version()} is not supported",

@@ -25,6 +25,7 @@ DEFAULT = [
     "model.validate",
     "erc.lite",
     "copper.clearance",
+    "zone.fill",
     "drc.kicad",
     "netlist.assignment_compare",
     "roundtrip",

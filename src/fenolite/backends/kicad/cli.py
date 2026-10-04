@@ -29,16 +29,21 @@ CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
 RENDER_DIR = "render"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
+DOCKER_PREFIX = "docker:"
 
 
 def find_kicad_cli(explicit: str | os.PathLike[str] | None = None) -> Path | None:
     """The ``kicad-cli`` to use: ``explicit``, else ``FENOLITE_KICAD_CLI``, else ``PATH``, else the
     macOS application bundle. An explicit path or override naming a missing file gives ``None``."""
     if explicit is not None:
+        if os.fspath(explicit).startswith(DOCKER_PREFIX) and os.fspath(explicit)[len(DOCKER_PREFIX) :]:
+            return Path(os.fspath(explicit))
         path = Path(os.fspath(explicit))
         return path if path.is_file() else None
     override = os.environ.get("FENOLITE_KICAD_CLI")
     if override:
+        if override.startswith(DOCKER_PREFIX) and override[len(DOCKER_PREFIX) :]:
+            return Path(override)
         return Path(override) if Path(override).is_file() else None
     found = shutil.which("kicad-cli")
     if found:
@@ -94,6 +99,14 @@ class CliRun:
     @property
     def ok(self) -> bool:
         return self.outcome == "exit" and self.returncode == 0
+
+
+@dataclass(frozen=True)
+class RefillRun:
+    """A zone-refill run and the board KiCad saved, if it saved one."""
+
+    run: CliRun
+    board: bytes | None
 
 
 class KicadCliError(FenoliteError):
@@ -197,7 +210,7 @@ class KicadCli:
             for name in folders:
                 (tmp / _relative(name)).mkdir(parents=True, exist_ok=True)
             before = {rel: _sha256(path) for rel, path in _files(tmp).items()}
-            command = [str(self.path), *map(str, args)]
+            command = self._command(args, tmp)
             try:
                 proc = subprocess.run(
                     command,
@@ -221,6 +234,9 @@ class KicadCli:
             return CliRun(outcome, returncode, _sanitise(stdout, tmp), _sanitise(stderr, tmp), outputs)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+        return [str(self.path), *map(str, args)]
 
     def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
         run = self.run(args, files=files)
@@ -318,6 +334,25 @@ class KicadCli:
         report = None if data is None else read_drc_report(data.decode("utf-8"), file=DRC_REPORT)
         return DrcRun(run, report)
 
+    def refill(self, board: Path, *, files: Mapping[str, Path] | None = None) -> RefillRun:
+        """Refill zones on a copy with KiCad 10 and return the saved board bytes."""
+        self._require_ten("pcb drc --refill-zones")
+        name = Path(board).name
+        args = [
+            "pcb",
+            "drc",
+            "--format",
+            "json",
+            "--severity-all",
+            "--refill-zones",
+            "--save-board",
+            "-o",
+            DRC_REPORT,
+            name,
+        ]
+        run = self.run(args, files=_with(board, files))
+        return RefillRun(run, run.outputs.get(name))
+
     def export_stats(self, board: Path, *, files: Mapping[str, Path] | None = None) -> dict[str, object]:
         """``pcb export stats --format json`` (10.0 only): the board statistics report."""
         self._require_ten("pcb export stats")
@@ -331,6 +366,46 @@ class KicadCli:
         if not isinstance(data, dict):
             raise KicadCliError("kicad-cli pcb export stats wrote no JSON object", run)
         return cast(dict[str, object], data)
+
+
+class DockerCli(KicadCli):
+    """The same copy runner with ``kicad-cli`` invoked through a pinned Docker image."""
+
+    def __init__(self, image: str, *, timeout: float = 120) -> None:
+        self.image = image
+        super().__init__(Path(DOCKER_PREFIX + image), timeout=timeout)
+
+    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+        return [
+            "docker",
+            "run",
+            "--rm",
+            "--pull",
+            "never",
+            "--platform",
+            "linux/amd64",
+            "-v",
+            f"{tmp}:/w",
+            "-w",
+            "/w",
+            "-e",
+            "KICAD_CONFIG_HOME=/w/config",
+            "-e",
+            "LANG=C",
+            "-e",
+            "LC_ALL=C",
+            self.image,
+            "kicad-cli",
+            *map(str, args),
+        ]
+
+
+def cli_for(path: Path, *, timeout: float = 120) -> KicadCli:
+    """Build the package runner for a binary path or ``docker:<image>`` marker."""
+    name = os.fspath(path)
+    if name.startswith(DOCKER_PREFIX):
+        return DockerCli(name[len(DOCKER_PREFIX) :], timeout=timeout)
+    return KicadCli(path, timeout=timeout)
 
 
 @dataclass(frozen=True)
@@ -366,15 +441,19 @@ def _sanitise(text: str, tmp: Path) -> str:
 
 __all__ = [
     "DRC_REPORT",
+    "DOCKER_PREFIX",
     "MACOS_KICAD_CLI",
     "RENDER_DIR",
     "CandidateSource",
     "CliCandidate",
     "CliRun",
     "DrcRun",
+    "DockerCli",
     "KicadCli",
     "KicadCliError",
     "KicadCliVersionError",
+    "RefillRun",
+    "cli_for",
     "find_kicad_cli",
     "kicad_cli_candidates",
 ]

@@ -7,6 +7,7 @@
   - `zone.unfilled` (warning, `where` = the zone name or id): the oracle has fills and the board has none;
   - `zone.fill-stale` (warning): both have fills and the sets differ.
 - When `FillOutcome.supported` is false, the stage MUST be `skipped` with reason `oracle-unsupported` and MUST add one `zone.fill-unchecked` (info) to the input issues of the report. This skip MUST NOT count for the envelope evidence.
+- When two independent refills differ, the oracle sets `stable == false`; the stage MUST be skipped with reason `oracle-unstable` and add `zone.fill-unchecked`, without judging a stale fill.
 - When the oracle gives no zones for another reason, the stage MUST report `check.oracle-failed` (error; `retryable: true` on a timeout).
 - A refused board read MUST skip the stage with reason `read-refused`.
 - Stage evidence MUST be `FillOutcome.evidence`, and `UNVERIFIED` when the stage reports `zone.unfilled` or `zone.fill-stale`.

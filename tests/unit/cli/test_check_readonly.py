@@ -20,11 +20,13 @@ from _projects import authored_project, tree_snapshot
 def project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Path, Path]:
     hide_kicad(monkeypatch, tmp_path)
     root = authored_project(tmp_path, major=10, built=True)
+    board = root / "board.kicad_pcb"
     fake = fake_kicad_cli(
         tmp_path / "bin",
         writes=("x.kicad_prl",),
         rewrite_input=True,
-        ipcd356=_ipc.for_board(root / "board.kicad_pcb"),
+        refill_board=board.read_text(encoding="utf-8") + "\n",
+        ipcd356=_ipc.for_board(board),
     )
     return root, fake
 
@@ -70,6 +72,17 @@ def test_inspect_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Pa
     before = tree_snapshot(root)
     code, _, _, _ = run(monkeypatch, root, "inspect", str(root / "board.kicad_pcb"))
     assert code == 0
+    _untouched(root, before)
+
+
+def test_fill_dry_run_leaves_source_untouched(
+    monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]
+) -> None:
+    root, _ = project
+    before = tree_snapshot(root)
+    refilled = Path(__file__).resolve().parents[2] / "data" / "kicad" / "fill" / "triad_t9_refilled.kicad_pcb"
+    code, env, _, _ = run(monkeypatch, root, "fill", str(root), "--from", str(refilled), "--dry-run")
+    assert code == 0 and env["result"]["plan"]
     _untouched(root, before)
 
 

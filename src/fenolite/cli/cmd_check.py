@@ -114,7 +114,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     oracle = _oracle(args, board) if set(ORACLE_STAGES) & set(stages) else None
     report = run_checks(project=project, stages=stages, model=model, built=built, validator=backend,
                         oracle=oracle, cache_error=cache_error,
-                        plotter=oracle if "render" in stages else None)  # fmt: skip
+                        plotter=oracle if "render" in stages else None,
+                        fill_oracle=oracle if "zone.fill" in stages else None)  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)

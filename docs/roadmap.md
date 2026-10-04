@@ -77,7 +77,7 @@ rebuilds.
 | c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | done | c0010, c0017 | 9.5 |
 | c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | proposed | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
-| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | proposed | c0013, c0019, c0031 | 6 |
+| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | implemented in draft PR; full local check and KiCad 9/10 CI passed | c0013, c0019, c0031 | 6 |
 | c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | proposed | c0015, c0020, c0022 | 7.5 |
 | c0017 | `kicad-board-writer` | board writer for 9.0 and 10.0 | done | c0009, c0014 | 7.75 |
 | c0018 | `kicad-rules-footprints` | footprint and custom-rules writers | done | c0017 | 5.75 |

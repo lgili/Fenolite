@@ -15,7 +15,7 @@ FAKE = """
 import sys
 sys.path[:0] = [
     {kicad!r}, {board!r}, {rules!r}, {project!r}, {build!r}, {sheets!r}, {check!r}, {lens!r},
-    {export!r}, {frame!r}, {zones!r}, {copper!r}, {tests!r}
+    {export!r}, {frame!r}, {zones!r}, {copper!r}, {fill!r}, {tests!r}
 ]
 from pathlib import Path
 import _probes
@@ -53,6 +53,7 @@ def fake(pytester: pytest.Pytester, tmp_path: Path) -> Path:
         frame=str(TESTS / "kicad" / "frame"),
         zones=str(TESTS / "kicad" / "zones"),
         copper=str(TESTS / "kicad" / "copper"),
+        fill=str(TESTS / "kicad" / "fill"),
         tests=str(TESTS),
         folder=str(folder),
     )

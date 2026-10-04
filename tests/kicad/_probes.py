@@ -31,6 +31,7 @@ import _drccases
 import _exportcases
 import _fieldbench
 import _fieldprobe
+import _fillcases
 import _fpwrite
 import _framecases
 import _lenscases
@@ -221,6 +222,7 @@ def _probes() -> dict[str, Probe]:
         **_zonebench.zone_probes(),
         **_benches.copper_probes(),
         **_copperparity.parity_probes(),
+        **_fillcases.fill_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
