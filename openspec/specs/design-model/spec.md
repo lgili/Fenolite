@@ -49,6 +49,7 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 | net class | `cls` | `netclass:<class name>` |
 | interface | `itf` | `interface:<kind>:<interface name>` |
 | layer | `lay` | `layer:<KiCad layer name>` |
+| zone | `zon` | `zone:<zone name>` |
 
 - Footprints and pads placed by a build MUST follow the third case, with the component path as the key.
 - Tracks and vias created from copper intents, by a build or by any other caller, MUST follow the fifth case.
@@ -95,6 +96,11 @@ Copper created from copper intents is a fifth case. Each track and via that `fen
 - **GIVEN** the routed blink of `examples/blink_routed/design.py`
 - **WHEN** `uv run pytest tests/unit/lens/test_build_copper.py -k ids` builds it in two processes with `--seed 7` and `--seed 8`, and once more after adding a second stitch intent
 - **THEN** every track and via of the first intents has the same id and native id in all three builds, and the native id of the segment `seg[0]` of `led_a` is `copper_uuid("led_a", "seg[0]")`
+
+#### Scenario: Zone ids from the zone name
+- **GIVEN** two DSL designs that declare the zones `GND` and `VIN_POUR` with their `zone()` calls in opposite orders
+- **WHEN** `uv run pytest tests/unit/dsl/test_zones.py -k ids` runs `dsl.to_model` on both
+- **THEN** in both models the zone `GND` has the id `derived_id("zon", "dsl", "zone:GND")` and the zone `VIN_POUR` the id `derived_id("zon", "dsl", "zone:VIN_POUR")`
 
 ### Requirement: Provenance record
 `Provenance` MUST contain `backend`, `file`, `file_sha256`, `locator` and `evidence`, and `locator` MUST be treated as an opaque string by everything except the originating backend.
@@ -522,4 +528,61 @@ The board layer SHALL model the text fields of a placed footprint as `fenolite.m
 #### Scenario: Schemas regenerated
 - **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
 - **THEN** it exits 0, and `board.json` lists `fields`, `h_justify`, `v_justify` and `mirrored`
+
+### Requirement: Zone settings in the board model
+`fenolite.model.board` SHALL describe the settings of a copper zone with two value objects without the entity header, `ZoneSettings` and `ZoneHatch`, and SHALL add these fields, each with a default, so that documents written before them still load:
+- `Zone.settings: ZoneSettings = ZoneSettings()`;
+- `Zone.filled: bool = False`, the board's own fill flag (KiCad's `(fill yes)`), kept apart from `Zone.fills`;
+- `Zone.locked: bool = False`;
+- `Pad.zone_connection: ZoneConnection | None = None`, where `None` means that the pad follows its footprint and the zone.
+
+`ZoneSettings` MUST be a frozen dataclass with these fields. The defaults are the values KiCad gives a new zone (design Decision 3):
+
+| field | type | default |
+|---|---|---|
+| `clearance` | `Nm` | 500 000 |
+| `min_thickness` | `Nm` | 250 000 |
+| `connection` | `ZoneConnection`: `solid`, `thermal`, `none`, `thru_hole_only` | `thermal` |
+| `thermal_gap` | `Nm` | 500 000 |
+| `thermal_spoke_width` | `Nm` | 500 000 |
+| `island_removal` | `IslandRemoval`: `always`, `never`, `below_area` | `always` |
+| `min_island_area` | `int`, in square nanometres | 10 000 000 000 000 (10 mm²) |
+| `smoothing` | `ZoneSmoothing`: `none`, `chamfer`, `fillet` | `none` |
+| `smoothing_radius` | `Nm` | 0 |
+| `fill_mode` | `ZoneFillMode`: `solid`, `hatched` | `solid` |
+| `hatch` | `ZoneHatch` | `ZoneHatch()` |
+
+`ZoneHatch` MUST be a frozen dataclass with `thickness: Nm = 1_000_000`, `gap: Nm = 1_500_000`, `orientation: Udeg = 0`, `smoothing_level: int = 0`, `smoothing_value: str = "0.1"`, `border: HatchBorder = "hatch_thickness"` (`HatchBorder`: `hatch_thickness`, `min_thickness`) and `min_hole_area: str = "0.15"`. Ratios MUST be decimal strings, never floats.
+
+`ZoneSettings.effective()` MUST return a copy in which every value that cannot change the fill is at its default: `hatch` when `fill_mode` is `solid`, `smoothing_radius` when `smoothing` is `none`, and `min_island_area` when `island_removal` is not `below_area`.
+
+`tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json`, and `library.json`, whose pads are board `Pad`s, with the new fields and their closed vocabularies.
+
+#### Scenario: Defaults of a new zone
+- **WHEN** `Zone(id=..., outline=())` and `Pad(id=..., number="1", shape="rect", size=..., position=...)` are constructed
+- **THEN** the zone has `settings == ZoneSettings()`, `settings.clearance == 500_000`, `settings.connection == "thermal"`, `filled == False` and `locked == False`, and the pad has `zone_connection is None`
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` written before this change, without the new fields
+- **WHEN** `canonical.loads` reads it into a `Board`
+- **THEN** every zone has `settings == ZoneSettings()`, `filled == False` and `locked == False`, and every pad has `zone_connection is None`
+
+#### Scenario: Unknown connection rejected
+- **GIVEN** a `board.json` document where `zones[0].settings.connection` is `"partial"`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails with the JSON pointer of that value
+
+#### Scenario: Float rejected in settings
+- **GIVEN** a `board.json` document where `zones[0].settings.clearance` is `0.3`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails
+
+#### Scenario: Values without effect are dropped
+- **GIVEN** `ZoneSettings(fill_mode="solid", hatch=ZoneHatch(gap=2_000_000), smoothing="none", smoothing_radius=1_000_000, island_removal="never", min_island_area=5_000_000_000_000)`
+- **WHEN** `effective()` is called
+- **THEN** the result equals `ZoneSettings(island_removal="never")`
+
+#### Scenario: Schemas regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, `board.json` lists `settings`, `filled`, `locked` and `zone_connection`, and `library.json` lists `zone_connection`
 

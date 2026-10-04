@@ -93,7 +93,7 @@ rebuilds.
 | c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | done | c0019, c0021 | 21.5 |
 | c0029 | `copper-check` | Fenolite's own short and clearance check, build guard, via re-net probe | proposed | c0020, c0026, c0028 | 12 |
 | c0030 | `footprint-fields` | Reference, Value and other footprint fields: placed, read, written, kept | done | c0019, c0028 | 10.25 |
-| c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | proposed | c0019, c0028 | 8 |
+| c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | done | c0019, c0028 | 8 |
 
 - c0006–c0009 and c0014 were archived on 2026-10-01; c0017, c0018, c0010, c0011 and c0012 on 2026-10-02.
 - Implementation order from here: c0032 (the experimental Altium schematic writer, see Phase 4) →
