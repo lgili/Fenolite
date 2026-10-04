@@ -45,3 +45,54 @@ passed on both target majors in CI run 37197766881 (KiCad 9.0.9 and 10.0.6).
 - `krt-cli-t9`: `present` (`v0.22.1`).
 - `krt-keep-t9`: `equal` (`v0.22.1`).
 - `krt-repeat-t9`: `equal` (`v0.22.1`).
+
+## Freerouting (c0023)
+
+What was observed when Freerouting was run on design files written by `fenolite.backends.specctra`.
+The machine-readable outcomes are in `routing/freerouting-2.4.1.json`.
+
+### The tool
+
+| item | value |
+|---|---|
+| tool | Freerouting 2.4.1 (S-0223), GPL-3.0, run as a subprocess; never imported, vendored or downloaded by Fenolite (ADR-0006) |
+| file | `freerouting-2.4.1.jar`, from the release page of the tag `v2.4.1`, installed by the maintainer outside the repository on 2026-10-04 |
+| size | 64 076 787 bytes |
+| SHA-256 | `251101c3eeac22d7e7dfcf6796603279e5d1000283eb82d8f093780f7afc6aa9`, checked on the installed file; equal to the digest the release lists |
+| what it prints | `Freerouting v2.4.1 (build-date: 2026-09-03)`; `-help` prints its usage |
+| Java | OpenJDK 26.0.2 (Homebrew build), which satisfies the Java 25 the release asks for |
+| platform | macOS 26.6 on arm64 (Darwin 25.6.0) |
+| command | `java -jar <jar> -de board.dsn -do board.ses -mp 20 -mt 1 -da --gui.enabled=false`, in a fresh temporary folder that is also `HOME` |
+| test | `tests/routing/test_freerouting_gate.py`, marker `needs_freerouting`, `FENOLITE_FREEROUTING_JAR` |
+
+### Outcomes on 2026-10-04
+
+| outcome | value | hypothesis | what was seen |
+|---|---|---|---|
+| `dsn-accept` | `present` | `H-G-DSN-ACCEPT` | a readable session for the two-pad board (1 wire) and for the built blink of target 10 (5 wires, 1 via); no list the reader does not know |
+| `dsn-units` | `equal` | `H-G-DSN-UNITS` | the route of the two-pad board ends on both pad centres: largest distance 0 nm |
+| `dsn-protect` | `equal` | `H-G-DSN-PROTECT` | with `LED_A` of the blink routed beforehand, the session repeats that wire unchanged with its `protect` type, and `to_copper` returns nothing on the net |
+| `dsn-route-t10` | `equal` | `H-G-DSN-ROUTE` | the built blink of target 10 under the local `kicad-cli` 10.0.6, routed with `fenolite route --router freerouting` and filled: 3 nets selected, 11 tracks and 1 via; 3 unconnected items before, 0 after, no new error type. The same result came first from a helper that merged the session's copper with `routing.merge.apply` (the day-6 gate) |
+| `dsn-route-t9` | `equal` | `H-G-DSN-ROUTE` | the built blink of target 9, routed the same way on the host and judged by `kicad-cli` 9.0.9 in the pinned image `kicad/kicad:9.0.9` (already local, run under emulation): 11 tracks and 1 via; 3 unconnected items before, 0 after, no new error type |
+| `dsn-repeat` | `equal` | `H-G-DSN-REPEAT` | two runs on the blink's design file with `-mt 1` gave the same 5 wires and 1 via |
+
+**Day-6 gate of c0023: passed on 2026-10-04.** `dsn-accept` and `dsn-route-t10` hold.
+
+Not run yet: `dsn-offline`. It needs the image `ghcr.io/freerouting/freerouting:2.4.1` (index digest `sha256:67794b10c4565c259461343cf6db4158e6a5c5baa7c2f93030d045974f313074`; about 160 MB compressed for `linux/arm64` and 163 MB for `linux/amd64`, read from the registry's manifests on 2026-10-04 without pulling). The image was not on the machine and was not pulled, so `test_offline` skips and the plugin's `sends_data_offsite` stays `True`.
+
+The loop `build` → `place` → `route --router freerouting` → rebuild → `fill` → `check` (`tests/routing/test_freerouting_oracle.py::test_loop`) passed on the local KiCad 10.0.6: the second build kept every routed track and via, and the DRC found no unconnected item. Its KiCad 9 run is left to the `routing` CI job, which runs inside the 9.0.9 image.
+
+### What the sessions showed
+
+- The session repeats the placement of every component, under its own `(resolution um 10)`, in database
+  units, with `front`, rotation 0 and the lock. The reader was narrowed to that: a placement that declares
+  a resolution is read as database units only.
+- The session's `routes` section declares `(resolution um 10)`; its numbers are whole database units.
+- The via padstack keeps the name the writer gave it; the session quotes it.
+- Protected input wiring is repeated in `network_out`, marked `(type protect)`.
+- Nothing but `board.dsn` and `board.ses` was left in the run folder.
+- No fact of `docs/formats/specctra/` was refuted. The labels of the fact pages and of the hypothesis rows
+  stay `INFERRED` until task 6.2 of c0023 raises them from this record.
+
+These runs say nothing about the network: `-da` was passed, and the run without a network
+(`H-G-DSN-OFFLINE`) is still to do, so the plugin's `sends_data_offsite` stays `True`.

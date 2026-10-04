@@ -32,7 +32,11 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
                                         "schema": "fenolite.capabilities.v0", "hidden": False}  # fmt: skip
     assert commands["_echo"]["hidden"] is True and commands["_echo"]["mutates"] is True
     assert result["sends_data_offsite"] is False
-    assert {router["name"] for router in result["routers"]} == {"direct", "kicadroutingtools"}
+    assert {router["name"] for router in result["routers"]} == {"direct", "freerouting", "kicadroutingtools"}
+    # Freerouting is listed as sending data until its offline run is recorded (c0023); the tool as a whole
+    # sends nothing, because that router runs only when named and only with --allow-offsite
+    freerouting = next(router for router in result["routers"] if router["name"] == "freerouting")
+    assert freerouting["sends_data_offsite"] is True and freerouting["builtin"] is True
     assert next(router for router in result["routers"] if router["name"] == "direct")["builtin"] is True
     assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles"}  # type: ignore[arg-type]
 

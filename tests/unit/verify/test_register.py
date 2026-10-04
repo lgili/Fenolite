@@ -92,8 +92,11 @@ def test_settling_tests_are_named() -> None:
 
 def test_families_of_the_live_register() -> None:
     families = load_families(LIVE)
-    assert {"H-A-WRITE-*", "H-A-PH-*", "H-G-DSN-*"} <= set(families)
+    assert {"H-A-WRITE-*", "H-A-PH-*"} <= set(families)
     assert "H-K-KRT-*" not in families
+    # c0023 registered its rows, so its family is no longer reserved
+    assert "H-G-DSN-*" not in families
+    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 6
 
 
 def test_family_cell_without_a_wildcard_is_rejected(tmp_path: Path) -> None:

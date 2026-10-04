@@ -25,6 +25,7 @@ from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli,
 from fenolite.cli.api import Command, Context, Result
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence
+from fenolite.routing.plugins.specctra.freerouting import JAVA_MIN, FreeroutingRouter
 from fenolite.routing.registry import routers as routing_routers
 from fenolite.routing.registry import unavailable as routing_unavailable
 
@@ -186,7 +187,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 version=status.version or None,
                 reason=status.reason or None,
             )
-            if not status.available:
+            unsupported = False
+            if isinstance(router, FreeroutingRouter) and not router.image:
+                # Freerouting needs a Java of its own major: a jar without one is unsupported, not missing
+                line, major = router.java_version()
+                java_ok = major is not None and major >= JAVA_MIN
+                router_entry.update(java=line or None, java_major=major, java_ok=java_ok)
+                unsupported = router.jar is not None and router.jar.is_file() and not java_ok
+            if unsupported:
+                issues.append(
+                    _issue("doctor.tool-unsupported", f"router {router.name}: {status.reason}", router.name)
+                )
+            elif not status.available:
                 issues.append(
                     _issue("doctor.tool-missing", f"router {router.name}: {status.reason}", router.name)
                 )

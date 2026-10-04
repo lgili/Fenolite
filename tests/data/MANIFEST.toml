@@ -29,6 +29,18 @@ corpus_id = ""
 # corpus_id = ""               # when origin = "corpus": an id with embeddable = true
 
 [[file]]
+path = "tests/data/specctra/two_pads.dsn"
+origin = "authored"
+corpus_id = ""
+notes = "written by Fenolite's own Specctra writer from the authored two-pad board of tests/_specctra.py (c0023)"
+
+[[file]]
+path = "tests/data/specctra/two_pads.ses"
+origin = "authored"
+corpus_id = ""
+notes = "session written by hand for the two-pad board (c0023): one wire of three points and one via; not the output of any router"
+
+[[file]]
 path = "tests/data/kicad/sexpr/minimal.kicad_pcb"
 origin = "authored"
 corpus_id = ""

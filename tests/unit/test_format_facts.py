@@ -8,7 +8,8 @@ A fact table has the header ``| fact | source | label | hypothesis |``. Every ro
 label is a value of ``fenolite.core.evidence.Level`` (optionally followed by a parenthesised scope,
 such as ``KICAD-VERIFIED (10.0.x)``), and a row that is neither ``KICAD-VERIFIED`` nor
 ``CORPUS-VERIFIED`` names a hypothesis (``H-K-SEXPR-*`` or ``H-K-FMT-*`` on the S-expression page,
-``H-A-SCH-*``, ``H-A-SCHBIN-*``, ``H-A-SCHLIB-*`` or ``H-A-PRJ-*`` on the Altium pages).
+``H-A-SCH-*``, ``H-A-SCHBIN-*``, ``H-A-SCHLIB-*`` or ``H-A-PRJ-*`` on the Altium pages, ``H-G-DSN-*`` on
+the Specctra pages of change c0023).
 """
 
 from __future__ import annotations
@@ -150,6 +151,35 @@ def test_altium_fact_tables() -> None:
         assert "| fact | source | label | hypothesis |" in text, page.name
         problems += table_problems(f"altium/{page.name}", text, ALTIUM_HYPOTHESES)
     assert not problems, "\n".join(problems)
+
+
+SPECCTRA_PAGES = ROOT / "docs" / "formats" / "specctra"
+SPECCTRA_HYPOTHESES = r"\bH-G-DSN-[A-Z0-9-]+\b"
+"""Every row of a Specctra page below the verified levels names one of the codec's hypotheses (c0023)."""
+
+
+def test_specctra_fact_tables() -> None:
+    """The two pages of the Specctra codec hold fact tables whose rows cite a registered source and name
+    an ``H-G-DSN-*`` hypothesis (capability specctra-dsn, "Specctra issue codes and facts")."""
+    pages = sorted(SPECCTRA_PAGES.glob("*.md"))
+    assert [p.name for p in pages] == ["dsn.md", "ses.md"]
+    registered = registered_sources(SOURCES.read_text(encoding="utf-8"))
+    problems: list[str] = []
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        assert "| fact | source | label | hypothesis |" in text, page.name
+        problems += table_problems(f"specctra/{page.name}", text, SPECCTRA_HYPOTHESES)
+        cited = set(re.findall(r"\bS-\d{4}\b", text))
+        problems += [f"specctra/{page.name}: {sid} is not registered" for sid in sorted(cited - registered)]
+    assert not problems, "\n".join(problems)
+
+
+def test_specctra_row_needs_a_codec_hypothesis() -> None:
+    table = TABLE + "| a fact | S-0224 | INFERRED | H-K-PRO-MIN |\n"
+    problems = table_problems("specctra/dsn.md", table, SPECCTRA_HYPOTHESES)
+    assert problems == ["specctra/dsn.md:3: INFERRED row names no hypothesis"]
+    fixed = table.replace("H-K-PRO-MIN", "H-G-DSN-ACCEPT")
+    assert table_problems("specctra/dsn.md", fixed, SPECCTRA_HYPOTHESES) == []
 
 
 def test_altium_pages_name_the_writer_hypotheses() -> None:

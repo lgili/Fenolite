@@ -1,0 +1,69 @@
+(pcb frame
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad fenolite)
+  )
+  (resolution um 10)
+  (unit um)
+  (structure
+    (layer F.Cu
+      (type signal)
+    )
+    (layer B.Cu
+      (type signal)
+    )
+    (boundary
+      (rect pcb 0 -20000 30000 0)
+    )
+    (boundary
+      (path signal 0 0 0 30000 0 30000 -20000 0 -20000)
+    )
+    (via Via_600_300)
+    (rule
+      (width 250)
+      (clearance 200)
+    )
+  )
+  (placement
+    (component R1
+      (place R1 10000 -10000 front 0
+        (lock_type position)
+      )
+    )
+    (component R2
+      (place R2 20000 -10000 front 0
+        (lock_type position)
+      )
+    )
+  )
+  (library
+    (image R1
+      (pin P1 1 -800 0)
+      (pin P1 2 800 0)
+    )
+    (image R2
+      (pin P1 1 -800 0)
+      (pin P1 2 800 0)
+    )
+    (padstack P1
+      (shape
+        (polygon F.Cu 0 -455 250 -437.5 338 -387.6 412.6 -313 462.5 -225 480 225 480 313 462.5 387.6 412.6 437.5 338 455 250 455 -250 437.5 -338 387.6 -412.6 313 -462.5 225 -480 -225 -480 -313 -462.5 -387.6 -412.6 -437.5 -338 -455 -250)
+      )
+    )
+    (padstack Via_600_300
+      (shape
+        (circle F.Cu 600)
+      )
+      (shape
+        (circle B.Cu 600)
+      )
+    )
+  )
+  (network
+    (net A
+      (pins R1-2 R2-1)
+    )
+  )
+  (wiring)
+)

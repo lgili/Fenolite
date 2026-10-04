@@ -203,3 +203,74 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "sha256sum --check" in job
     assert "FENOLITE_REQUIRE: kicad,router" in job
     assert "run: uv run pytest tests/routing -q -rA" in job
+
+
+JAR_URL = "https://github.com/freerouting/freerouting/releases/download/v{0}/freerouting-{0}.jar"
+JAR_CHECK = re.compile(r"echo '([0-9a-f]{64})  (\S+freerouting-([\d.]+)\.jar)' \| sha256sum --check")
+
+
+def freerouting_problems(workflow: str, pinned: str) -> list[str]:
+    """Problems of the Freerouting steps of the ``routing`` job against the plugin's pinned version
+    (capability ci-baseline, "Freerouting in the routing job"; change c0023)."""
+    job = job_text(workflow, "routing")
+    problems: list[str] = []
+    downloads = re.findall(r"releases/download/v([\d.]+)/freerouting-([\d.]+)\.jar", job)
+    if not downloads:
+        problems.append("the routing job downloads no Freerouting jar from its release page")
+    for tag, name in downloads:
+        if (tag, name) != (pinned, pinned):
+            problems.append(f"ci.yml downloads Freerouting {tag} ({name}); the plugin pins {pinned}")
+    check = JAR_CHECK.search(job)
+    if check is None:
+        problems.append("the routing job does not verify the jar against a 64-hex SHA-256")
+    elif check.group(3) != pinned:
+        problems.append(f"ci.yml verifies Freerouting {check.group(3)}; the plugin pins {pinned}")
+    jar = re.search(r"FENOLITE_FREEROUTING_JAR: (\S+)", job)
+    if jar is None:
+        problems.append("the routing job does not set FENOLITE_FREEROUTING_JAR")
+    elif check is not None and jar.group(1) != check.group(2):
+        problems.append("FENOLITE_FREEROUTING_JAR does not name the verified jar")
+    required = re.search(r"FENOLITE_REQUIRE: (\S+)", job)
+    if required is None or "freerouting" not in required.group(1).split(","):
+        problems.append("FENOLITE_REQUIRE of the routing job does not list freerouting")
+    if "actions/setup-java" not in job or 'java-version: "25"' not in job:
+        problems.append("the routing job does not install Java 25")
+    if check is not None and job.find("sha256sum --check", check.start()) > job.find("run: uv run pytest"):
+        problems.append("the jar is verified after the tests run")
+    return problems
+
+
+def test_routing_job_installs_the_pinned_freerouting() -> None:
+    """Scenario "Workflow shape checked"."""
+    from fenolite.routing.plugins.specctra.freerouting import JAVA_MIN, PINNED_VERSION
+
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert freerouting_problems(text, PINNED_VERSION) == []
+    assert JAR_URL.format(PINNED_VERSION) in job_text(text, "routing")
+    assert JAVA_MIN == 25
+    assert "run: uv run pytest tests/routing -q -rA" in job_text(text, "routing")
+
+
+def test_freerouting_version_drift_is_caught() -> None:
+    """Scenario "Version drift caught": both values are named."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    problems = freerouting_problems(text, "2.5.0")
+    assert problems and all("2.4.1" in problem and "2.5.0" in problem for problem in problems)
+
+
+def test_freerouting_steps_missing_or_unverified() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    unverified = re.sub(r"\n +echo '[0-9a-f]{64}  \S+freerouting\S+' \| sha256sum --check", "", text)
+    assert "the routing job does not verify the jar against a 64-hex SHA-256" in freerouting_problems(
+        unverified, "2.4.1"
+    )
+    no_variable = text.replace("FENOLITE_FREEROUTING_JAR: ", "SOMETHING_ELSE: ")
+    assert "the routing job does not set FENOLITE_FREEROUTING_JAR" in freerouting_problems(
+        no_variable, "2.4.1"
+    )
+    not_required = text.replace(
+        "FENOLITE_REQUIRE: kicad,router,freerouting", "FENOLITE_REQUIRE: kicad,router"
+    )
+    assert "FENOLITE_REQUIRE of the routing job does not list freerouting" in freerouting_problems(
+        not_required, "2.4.1"
+    )

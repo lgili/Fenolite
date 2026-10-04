@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from _checkcli import hide_kicad, run
 from _fakecli import calls, fake_kicad_cli
+from _fakefreerouting import create_fake_jar, create_fake_java
 
 from fenolite.cli.cmd_doctor import java_major
 
@@ -99,7 +102,8 @@ def test_no_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--no-run", "--kicad-cli", str(fake))
     (entry,) = env["result"]["kicad_cli"]
     assert code == 0 and entry["version"] is None and entry["matrix"] is None
-    assert {router["name"] for router in env["result"]["routers"]} == {"direct", "kicadroutingtools"}
+    names = {router["name"] for router in env["result"]["routers"]}
+    assert names == {"direct", "freerouting", "kicadroutingtools"}
     assert all("available" not in router for router in env["result"]["routers"])
     assert env["evidence"]["level"] == "UNVERIFIED"
 
@@ -142,3 +146,47 @@ def test_explicit_missing_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 )
 def test_java_major(line: str, major: int | None) -> None:
     assert java_major(line) == major
+
+
+def _freerouting_entry(env: dict[str, Any]) -> dict[str, Any]:
+    return next(router for router in env["result"]["routers"] if router["name"] == "freerouting")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+def test_freerouting_jar_with_an_old_java(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Capability cli-contract, "Freerouting in doctor" (c0023): scenario "Jar with an old Java"."""
+    jar = create_fake_jar(tmp_path)
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(jar))
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="17.0.2")))
+    fake = fake_kicad_cli(tmp_path / "kbin", help_pages=PAGES)
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--kicad-cli", str(fake))
+    assert code == 0
+    entry = _freerouting_entry(env)
+    assert entry["path"] == str(jar) and entry["version"] == "2.4.1" and entry["available"] is False
+    assert entry["java_major"] == 17 and entry["java_ok"] is False
+    found = [issue for issue in env["issues"] if issue["where"] == "freerouting"]
+    assert [issue["code"] for issue in found] == ["doctor.tool-unsupported"]
+    assert found[0]["severity"] == "warning" and "Java 25" in found[0]["message"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+def test_freerouting_jar_with_a_suitable_java(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(create_fake_jar(tmp_path)))
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="25.0.1")))
+    fake = fake_kicad_cli(tmp_path / "kbin", help_pages=PAGES)
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--kicad-cli", str(fake))
+    assert code == 0
+    entry = _freerouting_entry(env)
+    assert entry["available"] is True and entry["java_major"] == 25 and entry["java_ok"] is True
+    assert not [issue for issue in env["issues"] if issue["where"] == "freerouting"]
+
+
+def test_freerouting_jar_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(tmp_path / "absent.jar"))
+    fake = fake_kicad_cli(tmp_path / "kbin", help_pages=PAGES)
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--kicad-cli", str(fake))
+    assert code == 0
+    entry = _freerouting_entry(env)
+    assert entry["available"] is False and "java_major" in entry
+    found = [issue for issue in env["issues"] if issue["where"] == "freerouting"]
+    assert [issue["code"] for issue in found] == ["doctor.tool-missing"]

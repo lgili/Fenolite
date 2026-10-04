@@ -1,0 +1,32 @@
+{
+  "jar_sha256": "251101c3eeac22d7e7dfcf6796603279e5d1000283eb82d8f093780f7afc6aa9",
+  "java": "openjdk version \"26.0.2\" 2026-07-21",
+  "outcomes": {
+    "dsn-accept": {
+      "detail": "two-pads: 1 wire(s), 0 via(s), resolution um 10, 2 place(s), placement unit um 10, unknown lists []; blink: 5 wire(s), 1 via(s), resolution um 10, 3 place(s), placement unit um 10, unknown lists []",
+      "value": "present"
+    },
+    "dsn-protect": {
+      "detail": "1 session wire(s) on the protected net, 0 item(s) that differ from the input",
+      "value": "equal"
+    },
+    "dsn-repeat": {
+      "detail": "blink, -mt 1: 5 and 5 wire(s), 1 and 1 via(s)",
+      "value": "equal"
+    },
+    "dsn-route-t10": {
+      "detail": "kicad-cli 10.0.6: fenolite route --router freerouting, 3 net(s) selected, 11 track(s), 1 via(s), 3 unconnected item(s) before and 0 after, new error types []",
+      "value": "equal"
+    },
+    "dsn-route-t9": {
+      "detail": "kicad-cli 9.0.9: fenolite route --router freerouting, 3 net(s) selected, 11 track(s), 1 via(s), 3 unconnected item(s) before and 0 after, new error types []",
+      "value": "equal"
+    },
+    "dsn-units": {
+      "detail": "largest distance to a pad centre: 0 nm",
+      "value": "equal"
+    }
+  },
+  "pinned_version": "2.4.1",
+  "tool": "freerouting"
+}

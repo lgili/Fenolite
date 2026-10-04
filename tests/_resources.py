@@ -79,8 +79,23 @@ def kicad_library_dirs() -> list[Path]:
     return found + verified_cache_dirs()
 
 
+FREEROUTING_ENV = "FENOLITE_FREEROUTING_JAR"
+FREEROUTING_HINT = (
+    f"Freerouting jar not found: set {FREEROUTING_ENV} to the pinned freerouting jar "
+    "(installed outside the repository; docs/evidence/routing.md)"
+)
+
+
+def freerouting_jar() -> Path | None:
+    """The Freerouting jar named by ``FENOLITE_FREEROUTING_JAR``, or ``None`` when the variable is unset or
+    names no file. Fenolite never downloads the jar."""
+    named = os.environ.get(FREEROUTING_ENV, "")
+    return Path(named) if named and Path(named).is_file() else None
+
+
 def required_resources() -> set[str]:
-    """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``; comma-separated)."""
+    """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``, ``freerouting``;
+    comma-separated)."""
     return {r.strip() for r in os.environ.get("FENOLITE_REQUIRE", "").split(",") if r.strip()}
 
 

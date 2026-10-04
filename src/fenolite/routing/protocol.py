@@ -43,12 +43,18 @@ class JobNet:
 
 @dataclass(frozen=True, slots=True)
 class RoutingJob:
-    """A model-only routing request; no backend file paths cross the plugin boundary."""
+    """A model-only routing request; no backend file paths cross the plugin boundary.
+
+    ``extra`` carries data the routing package cannot type because it may not import ``backends.base``:
+    the command fills ``board_pads`` (the pads of ``BoardFrame.board_pads``) and ``outline`` (the rings of
+    the board outline, the board first). A router that needs neither ignores it.
+    """
 
     design: Design
     nets: tuple[JobNet, ...]
     layers: tuple[str, ...]
     options: Mapping[str, str] = field(default_factory=lambda: {})
+    extra: Mapping[str, object] = field(default_factory=lambda: {})
 
 
 @dataclass(frozen=True, slots=True)

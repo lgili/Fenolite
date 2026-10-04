@@ -273,7 +273,7 @@ by `fenolite.backends.kicad.cli.find_kicad_cli()`.
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o FILE]` routes selected nets. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--rip` removes unlocked copper on selected nets. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o FILE]` routes selected nets. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--rip` removes unlocked copper on selected nets. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 `result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `tracks`, `vias`, `ripped`, `fills_stale` and up to 20 sanitised `log` lines. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking.
 
@@ -282,11 +282,14 @@ by `fenolite.backends.kicad.cli.find_kicad_cli()`.
 | `route.bad-item` | error | a router returned malformed copper |
 | `route.copper-removed` | warning | the router dropped existing copper |
 | `route.fill-stale` | info | changed copper invalidated filled zones |
+| `route.option-ignored` | warning | a `--router-option` the router does not support was ignored |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
 | `route.unrouted` | warning | a selected net remains unrouted |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
+
+`fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes; the board needs a closed outline. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` (warning), `specctra.rounded`, `specctra.renamed` and `specctra.unknown-list` (info). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`.
 
 ## fill
 
@@ -564,7 +567,7 @@ still off the board) and `legality` (the number of issues by code). The evidence
 
 `fenolite build` reports the same legality codes for the board it is about to write, each at most as a
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
-`result.routers` lists registered routers; `--no-run` lists names without availability probes.
+`result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`.
 
 ## template
 

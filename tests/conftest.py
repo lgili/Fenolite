@@ -16,8 +16,10 @@ if str(TESTS_DIR) not in sys.path:
 
 from _resources import (  # noqa: E402  (imported after the sys.path setup above)
     CORPUS_HINT,
+    FREEROUTING_HINT,
     LIBS_HINT,
     corpus_cache_dir,
+    freerouting_jar,
     kicad_cli,
     kicad_cli_version,
     kicad_library_dirs,
@@ -78,6 +80,8 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
             _missing("router", "KiCadRoutingTools not found (set FENOLITE_KRT and FENOLITE_KRT_PYTHON)")
     if item.get_closest_marker("needs_kicad") and kicad_cli() is None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
+    if item.get_closest_marker("needs_freerouting") and freerouting_jar() is None:
+        _missing("freerouting", FREEROUTING_HINT)
     minimum = item.get_closest_marker("kicad_min_major")
     if minimum is not None:
         version = kicad_cli_version()

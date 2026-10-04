@@ -8,6 +8,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.bad-item": "error",
     "route.copper-removed": "warning",
     "route.fill-stale": "info",
+    "route.option-ignored": "warning",
     "route.tool-failed": "error",
     "route.tool-missing": "error",
     "route.tool-unpinned": "warning",

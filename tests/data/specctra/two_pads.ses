@@ -1,0 +1,37 @@
+(session two_pads.ses
+  (base_design two_pads.dsn)
+  (placement
+    (resolution um 10)
+    (component R1
+      (place R1 100000 -100000 front 0)
+    )
+    (component R2
+      (place R2 200000 -100000 front 0)
+    )
+  )
+  (was_is)
+  (routes
+    (resolution um 10)
+    (parser
+      (host_cad fenolite)
+    )
+    (library_out
+      (padstack Via_600_300
+        (shape
+          (circle F.Cu 6000)
+        )
+        (shape
+          (circle B.Cu 6000)
+        )
+      )
+    )
+    (network_out
+      (net A
+        (wire
+          (path F.Cu 2500 108000 -100000 150000 -120000 192000 -100000)
+        )
+        (via Via_600_300 150000 -120000)
+      )
+    )
+  )
+)

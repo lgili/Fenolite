@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from fenolite.backends.kicad.frame import board_pads
+from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.cli._examples import EXAMPLE_UNROUTED
@@ -56,7 +57,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--include-zone-nets", action="store_true", help="route nets that also have copper zones"
     )
-    parser.add_argument("--router-path", metavar="DIR", help="KiCadRoutingTools checkout")
+    parser.add_argument(
+        "--router-path",
+        metavar="PATH",
+        help="KiCadRoutingTools checkout, or the Freerouting jar (docker:<image> runs a container)",
+    )
     parser.add_argument("--router-python", metavar="PATH", help="Python interpreter for the external router")
     parser.add_argument(
         "--router-option", action="append", default=[], metavar="KEY=VALUE", help="router-specific option"
@@ -86,14 +91,19 @@ def _router(name: str, args: argparse.Namespace) -> Router:
         from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
 
         return KicadRoutingToolsRouter(args.router_path, args.router_python, args.timeout)
+    if name == "freerouting" and (args.router_path or args.timeout != 600):
+        from fenolite.routing.plugins.specctra.freerouting import DEFAULT_TIMEOUT, FreeroutingRouter
+
+        timeout = args.timeout if args.timeout != 600 else DEFAULT_TIMEOUT
+        return FreeroutingRouter(args.router_path, timeout=timeout)
     return selected
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.out and Path(args.out).is_absolute():
         raise CliError("FEN-2001", "--out must be relative to the working directory")
-    if args.router_path and args.router != "kicadroutingtools":
-        raise CliError("FEN-2001", "--router-path is only supported by kicadroutingtools")
+    if args.router_path and args.router not in ("kicadroutingtools", "freerouting"):
+        raise CliError("FEN-2001", "--router-path is only supported by kicadroutingtools and freerouting")
     if args.router_python and args.router != "kicadroutingtools":
         raise CliError("FEN-2001", "--router-python is only supported by kicadroutingtools")
     options: dict[str, str] = {}
@@ -158,7 +168,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         candidates = unrouted(design, patterns=patterns, include_zone_nets=args.include_zone_nets)
     pads_by_net: dict[str, list[JobPad]] = {}
     net_ids = {net.name: net.id for net in design.circuit.nets}
-    for pad in board_pads(design, issues=read_issues):
+    frame_pads = board_pads(design, issues=read_issues)
+    for pad in frame_pads:
         if pad.net and pad.net_id and pad.net in candidates:
             pads_by_net.setdefault(pad.net, []).append(
                 JobPad(pad.ref, pad.number, pad.net, pad.position, pad.layers, pad.drill)
@@ -217,7 +228,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         for layer in sorted(design.board.layers if design.board else (), key=lambda item: item.ordinal)
         if layer.kind == "copper"
     )
-    outcome = router.route(RoutingJob(design, tuple(jobs), layers, options))
+    extra = {"board_pads": frame_pads, "outline": board_outline(design).rings}
+    outcome = router.route(RoutingJob(design, tuple(jobs), layers, options, extra))
     issues = [*read_issues, *outcome.issues]
     issues.extend(
         Issue("route.zone-net-skipped", "info", f"zone net {name} was skipped", name) for name in zone_skipped

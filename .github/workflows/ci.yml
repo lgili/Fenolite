@@ -100,7 +100,7 @@ jobs:
         run: uv run pytest tests/kicad -q -rA -n auto --dist loadfile
 
   routing:
-    name: routing (KiCad ${{ matrix.target }}, pinned KiCadRoutingTools)
+    name: routing (KiCad ${{ matrix.target }}, pinned KiCadRoutingTools and Freerouting)
     strategy:
       fail-fast: false
       matrix:
@@ -130,9 +130,20 @@ jobs:
           mkdir -p /tmp/kicadroutingtools/rust_router
           curl -fsSL https://github.com/drandyhaas/KiCadRoutingTools/releases/download/v0.22.1/grid_router-linux-x86_64.so -o /tmp/kicadroutingtools/rust_router/grid_router.so
           echo '652b67e266c58b1e373e503bcf9b5d0b0d3dd4756e1c306100f23edf3d3f989b  /tmp/kicadroutingtools/rust_router/grid_router.so' | sha256sum --check
+      - name: Install Java 25 for Freerouting
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Install pinned Freerouting jar
+        run: |
+          mkdir -p /tmp/freerouting
+          curl -fsSL https://github.com/freerouting/freerouting/releases/download/v2.4.1/freerouting-2.4.1.jar -o /tmp/freerouting/freerouting-2.4.1.jar
+          echo '251101c3eeac22d7e7dfcf6796603279e5d1000283eb82d8f093780f7afc6aa9  /tmp/freerouting/freerouting-2.4.1.jar' | sha256sum --check
       - name: Router gate and loop
         env:
-          FENOLITE_REQUIRE: kicad,router
+          FENOLITE_REQUIRE: kicad,router,freerouting
           FENOLITE_KRT: /tmp/kicadroutingtools
           FENOLITE_KRT_PYTHON: /tmp/krt-venv/bin/python
+          FENOLITE_FREEROUTING_JAR: /tmp/freerouting/freerouting-2.4.1.jar
         run: uv run pytest tests/routing -q -rA
