@@ -1091,7 +1091,7 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - `lens.build.build_design` MUST keep the `Board.zones` of the model it is given, an addition to "Built project files" that needs no keyword. The writer follows `kicad-file-backend` "Zone settings are written" for these created zones.
 - Read back with `read_board`, each zone MUST have the script's name, outline, layers, net, priority and `locked`, `settings.effective()` equal to the script's, and `filled == False`.
 - A build over an existing board MUST merge zones as `layout-lens` "Zones declared in the script" describes.
-- `fenolite build --target altium` MUST keep one copper source (`altium-build`, "Copper in an Altium build"). Without `--copper-from`, the script's zones are the zones of the model source. With `--copper-from`, `cmd_build` MUST give the build the model without the script's zones: the routed board is the copper source, and its zones stand for the `zone()` calls that the KiCad build wrote into it.
+- `fenolite build --target altium` MUST keep one copper source (`altium-build`, "Copper in an Altium build"). Without `--copper-from` and without copper intents, the script's zones are the zones of the model source. With copper intents and without `--copper-from`, `cmd_build` MUST give the build the model without the script's zones: the script source holds them, as the in-memory KiCad build keeps them (`altium-build`, "Script copper in an Altium build"). With `--copper-from`, `cmd_build` MUST give the build the model without the script's zones: the routed board is the copper source, and its zones stand for the `zone()` calls that the KiCad build wrote into it.
 
 #### Scenario: Blink with a pour on both targets
 - **GIVEN** a blink variant with `d.zone(gnd, layers=("B.Cu",), clearance=mm(0.3), connection="solid")`
@@ -1107,6 +1107,11 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **GIVEN** the same variant built twice into empty folders
 - **WHEN** the two board texts are compared
 - **THEN** they are byte-identical, and the zone's uuid is `pcb.kicad_uuid` of a zone with id `derived_id("zon", "dsl", "zone:GND")`
+
+#### Scenario: Altium build of a script with a zone and copper intents
+- **GIVEN** a variant of `examples/blink_routed/design.py` with `design.zone(gnd, layers=("B.Cu",), clearance=mm(0.3))`
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `result.copper.source` is `script` and `result.copper.zones` is 1
 
 ### Requirement: Copper guard before writing
 `fenolite build` with the KiCad target (`--target kicad`, the default) SHALL judge the copper of the triad it is about to write with `fenolite.checks.copper.check_copper` (`copper-check`) after `lens.build.build_design` returns its files and before `cmd_build` calls `check_existing` and returns its plan, on `--dry-run` and `--confirm` alike. When `build_design` refused (no files), the guard MUST NOT run. With `--target altium` the guard MUST NOT run and `result` holds no `copper_check`: that branch writes no KiCad triad (`altium-build`).
