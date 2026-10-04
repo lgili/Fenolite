@@ -17,6 +17,7 @@ from functools import cache
 
 import pytest
 from _altium import sample_model
+from _cfb_build import spec_example
 from _cfb_read import (
     ENDOFCHAIN,
     FATSECT,
@@ -36,94 +37,6 @@ ENTRY = 128
 # Offsets in a 128-byte directory entry (docs/formats/altium/compound-file.md, "Directory").
 NAME, NAME_LENGTH, KIND, LEFT, RIGHT, CHILD, CLSID = 0, 64, 66, 68, 72, 76, 80
 CREATED, MODIFIED, START, SIZE = 100, 108, 116, 120
-
-
-UNUSED_ENTRY = bytes(68) + struct.pack("<3I", NOSTREAM, NOSTREAM, NOSTREAM) + bytes(48)
-
-
-def _entry(
-    name: str,
-    kind: int,
-    *,
-    left: int = NOSTREAM,
-    right: int = NOSTREAM,
-    child: int = NOSTREAM,
-    clsid: bytes = bytes(16),
-    created: int = 0,
-    modified: int = 0,
-    start: int = 0,
-    size: int = 0,
-) -> bytes:
-    encoded = (name + "\0").encode("utf-16-le")
-    return struct.pack(
-        "<64sHBBIII16sIQQIQ",
-        encoded,
-        len(encoded),
-        kind,
-        1,
-        left,
-        right,
-        child,
-        clsid,
-        0,
-        created,
-        modified,
-        start,
-        size,
-    )
-
-
-def spec_example() -> bytes:
-    """The compound file of [MS-CFB] section 3, from the field values of its tables.
-
-    Header: version 3, one FAT sector (sector 0), the directory at sector 1, one mini FAT sector at
-    sector 2, no DIFAT sector. FAT: FATSECT, ENDOFCHAIN (directory), ENDOFCHAIN (mini FAT), 4 and
-    ENDOFCHAIN (the mini stream in sectors 3 and 4). Directory: ``Root Entry`` (child 1, mini stream at
-    sector 3, size 576), ``Storage 1`` (a storage, child 2) and ``Stream 1`` (mini sector 0, size 544),
-    then one unused entry. Mini FAT: mini sectors 0 to 8 chained, the rest free. The example's storage
-    carries a CLSID and times, which a storage may; the values here stand in for them, as the reader
-    checks only that they are allowed. The stream's bytes are a filler of the example's size.
-    """
-    header = struct.pack(
-        "<8s16sHHHHH6s9I",
-        bytes.fromhex("D0CF11E0A1B11AE1"),
-        bytes(16),
-        0x003E,
-        3,
-        0xFFFE,
-        9,
-        6,
-        bytes(6),
-        0,  # directory sectors
-        1,  # FAT sectors
-        1,  # first directory sector
-        0,  # transaction signature
-        4096,  # mini stream cutoff
-        2,  # first mini FAT sector
-        1,  # mini FAT sectors
-        ENDOFCHAIN,  # first DIFAT sector
-        0,  # DIFAT sectors
-    ) + struct.pack("<109I", 0, *([FREESECT] * 108))
-    fat = struct.pack("<128I", FATSECT, ENDOFCHAIN, ENDOFCHAIN, 4, ENDOFCHAIN, *([FREESECT] * 123))
-    directory = b"".join(
-        (
-            _entry("Root Entry", 5, child=1, start=3, size=576),
-            _entry(
-                "Storage 1",
-                1,
-                child=2,
-                clsid=bytes(range(1, 17)),
-                created=0x01D0_0000_0000_0001,
-                modified=0x01D0_0000_0000_0002,
-            ),
-            _entry("Stream 1", 2, start=0, size=544),
-            UNUSED_ENTRY,
-        )
-    )
-    minifat = struct.pack("<128I", *range(1, 9), ENDOFCHAIN, *([FREESECT] * 119))
-    stream = bytes(0x41 + i % 26 for i in range(544))
-    mini_stream = stream.ljust(2 * SECTOR, b"\0")
-    return header + fat + directory + minifat + mini_stream
 
 
 def test_spec_example() -> None:

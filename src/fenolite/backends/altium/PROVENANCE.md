@@ -18,6 +18,7 @@ is used only as version 1 at commit `afe796434b6d2110c745c90abe44a6ddf64f5bca` (
 
 | fact-or-area | public source | licence of source | date | how used |
 |---|---|---|---|---|
+| MS-CFB reader: versions 3 and 4, DIFAT, tolerances, notes and bounds; ten public compound files | S-0145, S-0149, S-0170, S-0172, S-0176, S-0187, S-0188, S-0199 | Microsoft Open Specifications notice; Altium documentation (facts only); MIT, Apache-2.0 and LGPL-3.0 data files (fetched for tests, never committed) | 2026-10-04 | facts are recorded in `docs/formats/altium/compound-file.md`; reader code is written from that page only; no other project's reader code was read, transcribed or followed |
 | header record, record syntax (one line per record, `\|KEY=VALUE` fields, booleans), character set and line ends | S-0002, S-0130, S-0131, S-0133, S-0143, S-0150 | not stated on the page; WTFPL v2; GPL-2.0-or-later (facts only); all rights reserved (read for facts); MIT; Apache-2.0 | 2026-10-02 | facts only |
 | record numbering, ownership order, units of 10 mil, Y upwards from the bottom-left corner, absolute child coordinates | S-0002, S-0130, S-0131 | not stated on the page; WTFPL v2; GPL-2.0-or-later (facts only) | 2026-10-02 | facts only |
 | sheet record: font table, grids, colours, ISO sheet styles and drawing areas, custom size | S-0002, S-0130, S-0131 | not stated on the page; WTFPL v2; GPL-2.0-or-later (facts only) | 2026-10-02 | facts only |

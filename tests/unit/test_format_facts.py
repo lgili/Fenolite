@@ -33,7 +33,7 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB|ECO)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB|ECO|RD)-[A-Z0-9-]+\b"
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), or a row of the change order (c0048)."""
 
