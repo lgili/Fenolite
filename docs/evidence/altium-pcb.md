@@ -366,6 +366,40 @@ Reading of E4, and what changed:
   cause and the missing class the lesser one; the report does not separate them.
 - Fenolite now writes both for every build with a PCB document: one component class per sheet that holds
   a component (named after the module, or after the sheet for the top or single sheet), and the three
-  class keys in every schematic section (`H-A-ECO-SHEETCLASS`, pending). The routed and blink golden files
+  class keys in every schematic section (`H-A-ECO-SHEETCLASS`, pending until the repeat below). The routed and blink golden files
   are rebuilt, and step E4 is to be repeated on the rebuilt routed sample.
 - The "Supply Nets" rules stay the one accepted difference: no permitted source holds their record.
+
+### 2026-10-04, `AD 26.5`, Part E, repeat
+
+- Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
+  may use for Fenolite (`LEGAL.md`, block A). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-04; no artefact)`.
+- Files: the two samples of Part E, built again outside the repository after the report above: the board
+  example with module sheets, and the flat routed sample. Each holds a component class for every sheet
+  that holds a component, and the three class keys in every schematic section. The routed sample is the
+  build of the committed golden files (table of Part C: schematic `7fe119a7…74be`, project file
+  `9c35d817…62f0`, document `158cc00b…931f`); the digests of the opened copies were not reported. No file
+  opened or saved in the session enters the repository.
+
+Outcome per step:
+
+- **E1, hierarchy.** Not reported apart: both projects opened, and each change order was run.
+- **E2, options.** Not reported: the ticks of the tab "Class Generation" were not read.
+- **E3, change order of the board example.** It lists only "Add Rules (2): Supply Nets". No net class
+  removal, no component class to add, no room. Repeats `H-A-ECO-NETCLASS`, `H-A-ECO-COMPCLASS`,
+  `H-A-ECO-ROOMS` and `H-A-ECO-SUPPLY` on the build with a class for every sheet.
+- **E4, change order of the flat routed sample.** It lists only "Add Rules (2): Supply Nets". No net class
+  removal, no component class to add, no room. Confirms `H-A-ECO-SHEETCLASS`, and `H-A-ECO-ROOMS` and
+  `H-A-ECO-NETCLASS` for a single sheet.
+
+Reading of the repeat:
+
+- The component class and the room that the first flat build was offered are gone once the document holds
+  the class of the sheet and the sheet's section holds `ClassGenCCAutoRoomEnabled=0`. The two were written
+  together, so the report still does not separate the key from the class; `H-A-ECO-SHEETCLASS` and
+  `H-A-ECO-ROOMS` claim the pair, not either alone.
+- `H-A-ECO-PRJ-KEYS` stays confirmed by its effect only: step E2 was reported in neither session.
+- `H-A-ECO-SUPPLY` keeps its scope, builds with module sheets; that the flat build lists the same two
+  rules and nothing else is recorded as an observation.
+- No step named a fault, so no fact and no golden file changed. The SHA-256 values that this page names
+  for committed files were compared with the golden files on the day of this record and are equal.

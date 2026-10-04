@@ -483,13 +483,15 @@ What the change order may still propose:
 |---|---|---|
 | "Add Rules": "Supply Nets", one per net with a power port | Altium suggests the rule when its advanced setting `Schematic.AutoGenerateSupplyNetsRule` is on (S-0185, S-0312). Fenolite does not write it: no permitted source holds the rule's record | execute it (it adds a rule with a voltage of 0 and removes nothing), untick the group, or turn the setting off |
 | "Add Rooms" | only when "Generate Rooms" is ticked for a sheet. Fenolite writes no room, for the same reason, and turns the option off in a new project file (`H-A-ECO-ROOMS`) | untick "Generate Rooms", or execute it: a room is added beside the board |
-| "Add Component Classes" or "Add Rooms" on a flat build | not expected since the sheet's class and the class keys are written; pending the maintainer's repeat of step E4 (`H-A-ECO-SHEETCLASS`) | execute it; it removes nothing |
+| "Add Component Classes" or "Add Rooms" on a flat build | not expected since the sheet's class and the class keys are written: the maintainer's repeat of step E4 listed neither (`H-A-ECO-SHEETCLASS`). A build made before that, or a project file that Altium saved earlier, may still show them | execute it; it removes nothing |
 
 The maintainer's report of 2026-10-04 (Altium Designer 26.5; Part E of `docs/evidence/altium-pcb.md`)
 confirms this for a build with module sheets: its change order lists only the two "Supply Nets" rules
 (`H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-COMPCLASS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`). A flat
 build kept its net class in that report but was offered a component class and a room for its sheet; both
-are written or turned off since, which is `INFERRED` until the step is repeated (`H-A-ECO-SHEETCLASS`).
+are written or turned off since, and the repeat of the same day on the rebuilt samples lists only the two
+"Supply Nets" rules for the flat build too (`H-A-ECO-SHEETCLASS`). The ticks of the tab "Class
+Generation" were not reported.
 An author report never raises the build's evidence level.
 
 ## Issue codes

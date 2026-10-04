@@ -91,7 +91,7 @@ from the schematic.
   sheet, which the PCB document holds (`pcb-copper.md`), and no room (`H-A-ECO-ROOMS`): Fenolite writes no room,
   because no permitted source holds a room rule's record. The sections of the other documents hold
   `DocumentPath` alone. A flat project with a PCB document holds the keys too: without them its change order
-  proposed a room for the single sheet (report of Part E, 2026-10-04; `H-A-ECO-SHEETCLASS`). Only a project
+  proposed a room for the single sheet, and with them, and the sheet's class in the PCB document, it proposes none (reports of Part E, 2026-10-04; `H-A-ECO-SHEETCLASS`). Only a project
   without module sheets and without a PCB document holds none.
 - A design with a net class ends its project file with an empty line, `[PrjClassGen]` and the seven keys with
   the values of the public saved projects: `CompClassManualEnabled=0`, `CompClassManualRoomEnabled=0`,

@@ -157,7 +157,8 @@ Existing ids cited: S-0185 (the advanced setting of the "Supply Nets" suggestion
 | H-A-ECO-SHEETCLASS | Altium derives a component class for every sheet with a part, the top or single sheet included, named after the sheet; with that class in the board and the room key in the sheet's section, a flat build is offered no component class and no room | E4, repeated |
 
 After the report of 2026-10-04 the first five rows carry the author-report label; `H-A-ECO-SHEETCLASS`
-was registered that day and is pending.
+was registered that day, and the repeat of step E4 on the rebuilt samples, the same day, gave it the
+same label.
 
 ## Evidence level per behaviour (before merge)
 
