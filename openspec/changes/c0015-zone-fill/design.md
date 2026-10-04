@@ -14,6 +14,10 @@
   - two refills of the written board give equal fills, and they equal the lifted fills, point for point in nanometres.
 - **Constraints.** Stdlib only. `checks` imports only `core`, `model`, `geometry` and `backends.base`. The roadmap gives this change 5 days.
 
+## Reconciliation with the 2026-10-04 worktree
+
+The worktree starts from the c0030 and c0031 commits and a snapshot commit of the completed staged c0029 change. c0031 is implemented but not archived in the source checkout; its `Zone.filled`, `Zone.settings` and target-9 `filled_areas_thickness` writer are present, so the no-c0031 fallback does not apply. The consumed names from c0009, c0013, c0017, c0019 and c0031 match the code. c0029 has inserted `copper.clearance` into `STAGE_ORDER`; this change inserts `zone.fill` after that stage and before `drc.kicad`. The c0015 spec's relative ordering remains the contract.
+
 ## Goals / Non-Goals
 
 **Goals:**
@@ -38,7 +42,7 @@
    - Rejected: a separate `pcb upgrade` and a refill-only command. `kicad-cli` has no refill-only command (S-0022).
    - Rejected: reading the DRC report of this run. `check` owns verdicts; the report is only named in `tool_writes`.
 
-3. **Neutral types in `backends.base`.** `ZoneFills(zone_id: str, fills: tuple[ZoneFill, ...], filled: bool)`, `FillOutcome(zones: tuple[ZoneFills, ...] | None, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", supported: bool = True, evidence: Evidence = Evidence())` and the protocol `FillOracle` (`name`, `refill(project: ProjectSet) -> FillOutcome`).
+3. **Neutral types in `backends.base`.** `ZoneFills(zone_id: str, fills: tuple[ZoneFill, ...], filled: bool)`, `FillOutcome(zones: tuple[ZoneFills, ...] | None, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", supported: bool = True, evidence: Evidence = Evidence(), stable: bool = True)` and the protocol `FillOracle` (`name`, `refill(project: ProjectSet) -> FillOutcome`). `stable` compares two independent refill runs and makes the stage's unchecked verdict possible.
    - `supported` is false when the tool cannot refill (major below 10); `zones` is then `None` and no run happens, so `checks` needs no version logic.
    - `zones` is `None` when no board was saved or the saved board did not read; `message` says why.
    - Rejected: returning a `Design`. `checks` needs only the fills, and a whole design would invite comparing more than fills.
@@ -72,6 +76,7 @@
    - `example_args` is `(EXAMPLE_UNFILLED, "--from", EXAMPLE_REFILLED, "--out", "fenolite-filled.kicad_pcb", "--dry-run")` and `mutation_example_args` the same without `--dry-run`: both run no subprocess, from any working directory (`cli/_examples.py`, as c0013's `EXAMPLE_BOARD`). `EXAMPLE_UNFILLED` is the authored target-9 board of Decision 11 without fills, and `EXAMPLE_REFILLED` the copy that `kicad-cli` 10.0.6 saved.
 
 8. **Stage `zone.fill` in `check`.** `checks/fill.py::fill_stage(oracle: FillOracle, project, design) -> StageResult` runs before `drc.kicad` and compares each zone's fills with the oracle's, as sets of `(layer, island, normalised ring)`.
+   `KicadOracle.refill` runs two independent refills of the same copy set and marks `FillOutcome.stable` false when their fills differ. This is required for the unchecked verdict below; `run_checks` still calls the oracle method once. The extra process run is accepted after measuring the 21 public demo boards.
    - `zone.unfilled` (warning): the refill has fills and the board has none for that zone.
    - `zone.fill-stale` (warning): both have fills and they differ; the code and severity are c0019's.
    - `zone.fill-unchecked` (info): the tool cannot refill (`supported == false`); the stage is then `skipped` with reason `oracle-unsupported`, which this stage defines.
@@ -95,6 +100,8 @@
 11. **Three committed fixtures** under `tests/data/kicad/fill/`: `triad_t9.kicad_pcb` (the authored target-9 project board, unfilled), `triad_t9_refilled.kicad_pcb` (the copy that `kicad-cli` 10.0.6 saved from it) and `triad_t9_filled.kicad_pcb` (what `fill_board` writes from the two). The 9.0.9 image has no 10.0 binary, so `fill-load9` needs the third; the first two are the command's example. `tests/kicad/fill/test_fill_oracle.py::test_fixture_is_current` regenerates the second and third on 10.0.6 and compares the fills and, for the third, the bytes. All three are declared in `tests/data/MANIFEST.toml`.
 
 12. **`H-K-LENS-FILL`.** `test_kept_fill_matches_refill` builds the blink for the running target, fills it, rebuilds without a change (the fills are kept), refills the rebuilt board and requires equal fills. The same test changes a class clearance and requires `zone.fill-stale` and, after a new `fill`, different fills.
+
+   **Observed 2026-10-04 (10.0.6):** changing the blink's `PWR` class clearance from 0.2 to 5.0 mm makes the lens drop the old fill with `zone.fill-stale`, but a new KiCad refill gives the same polygon on this layout. The digest is conservative: a changed fill input need not change the output geometry. The test therefore requires the new fill to be current under a subsequent refill, and records the equal geometry instead of asserting a difference.
 
 13. **Determinism.** `fill` output holds no temporary path and no date. Zones are sorted by name then id; fills by layer, island flag and points. Two `fill --confirm` runs give the same board bytes (`H-K-FILL-REPEAT`).
 

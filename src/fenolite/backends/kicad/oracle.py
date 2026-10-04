@@ -25,6 +25,7 @@ from fenolite.backends.base import (
     CanaryState,
     DrcOutcome,
     DrcReport,
+    FillOutcome,
     NetlistOracle,
     NetlistOutcome,
     Oracle,
@@ -37,7 +38,9 @@ from fenolite.backends.base import (
 from fenolite.backends.kicad import canary, padnets
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad import plot as plotmod
-from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli, KicadCliError
+from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli, KicadCliError, KicadCliVersionError
+from fenolite.backends.kicad.fill import EVIDENCE as FILL_EVIDENCE
+from fenolite.backends.kicad.fill import fill_set, zone_fills
 from fenolite.backends.kicad.ipcd356 import read_ipcd356
 from fenolite.backends.kicad.pcb import read_board, rebuild_board
 from fenolite.backends.kicad.sexpr import dumps
@@ -87,6 +90,76 @@ class KicadOracle:
 
     def major(self) -> int:
         return self.cli.major()
+
+    def refill(self, project: ProjectSet) -> FillOutcome:
+        """Refill a copy of the exact project set, without staging a DRC canary."""
+        version = self.version()
+        if self.major() < 10:
+            return FillOutcome(None, version, supported=False, message="kicad-cli 10.0 is required")
+        others = {name: path for name, path in project.files.items() if name != project.board}
+        try:
+            result = self.cli.refill(project.files[project.board], files=others)
+        except KicadCliVersionError:
+            return FillOutcome(None, version, supported=False, message="kicad-cli 10.0 is required")
+        run = result.run
+        if run.outcome == "exit" and run.returncode != 0:
+            return FillOutcome(
+                None,
+                version,
+                outcome=run.outcome,
+                returncode=run.returncode,
+                message=_first_line(run.stderr) or "refill failed",
+            )
+        if result.board is None:
+            return FillOutcome(
+                None, version, outcome=run.outcome, returncode=run.returncode, message="refill saved no board"
+            )
+        try:
+            design = read_board(result.board.decode("utf-8"), file=project.board)
+        except (FormatError, UnicodeDecodeError) as exc:
+            return FillOutcome(
+                None,
+                version,
+                outcome=run.outcome,
+                returncode=run.returncode,
+                message=f"unreadable saved board: {exc}",
+            )
+        repeat = self.cli.refill(project.files[project.board], files=others)
+        if repeat.run.outcome == "exit" and repeat.run.returncode != 0:
+            return FillOutcome(
+                None,
+                version,
+                outcome=repeat.run.outcome,
+                returncode=repeat.run.returncode,
+                message=_first_line(repeat.run.stderr) or "repeat refill failed",
+            )
+        if repeat.board is None:
+            return FillOutcome(
+                None,
+                version,
+                outcome=repeat.run.outcome,
+                returncode=repeat.run.returncode,
+                message="repeat refill saved no board",
+            )
+        try:
+            repeated = read_board(repeat.board.decode("utf-8"), file=project.board)
+        except (FormatError, UnicodeDecodeError) as exc:
+            return FillOutcome(None, version, message=f"unreadable repeat refill: {exc}")
+        first_zones = {zone.id: zone for zone in design.board.zones} if design.board else {}
+        second_zones = {zone.id: zone for zone in repeated.board.zones} if repeated.board else {}
+        stable = first_zones.keys() == second_zones.keys() and all(
+            fill_set(zone) == fill_set(second_zones[key]) and zone.filled == second_zones[key].filled
+            for key, zone in first_zones.items()
+        )
+        return FillOutcome(
+            zone_fills(design),
+            version,
+            outcome=run.outcome,
+            returncode=run.returncode,
+            message=_first_line(run.stderr),
+            evidence=dataclasses.replace(FILL_EVIDENCE, oracle=f"kicad-cli {version}"),
+            stable=stable,
+        )
 
     def _plan(self, project: ProjectSet, major: int) -> _Plan:
         stem = PurePosixPath(project.board).stem

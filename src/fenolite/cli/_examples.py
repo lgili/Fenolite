@@ -14,4 +14,11 @@ EXAMPLE_BOARD = str(
 )
 """The authored two-layer board of the test data."""
 
-__all__ = ["EXAMPLE_BOARD"]
+EXAMPLE_UNFILLED = str(
+    Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/fill/triad_t9.kicad_pcb"
+)
+EXAMPLE_REFILLED = str(
+    Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/fill/triad_t9_refilled.kicad_pcb"
+)
+
+__all__ = ["EXAMPLE_BOARD", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED"]

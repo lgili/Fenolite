@@ -17,6 +17,7 @@ from typing import Literal
 from fenolite.backends.base import (
     BoardFrame,
     DesignRulesSource,
+    FillOracle,
     Oracle,
     Plotter,
     ProjectSet,
@@ -32,6 +33,7 @@ STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
     "copper.clearance",
+    "zone.fill",
     "drc.kicad",
     "netlist.assignment_compare",
     "roundtrip",
@@ -43,11 +45,24 @@ external tool, so it runs before KiCad's DRC and is not an oracle stage."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
-ORACLE_STAGES: tuple[str, ...] = ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
+ORACLE_STAGES: tuple[str, ...] = (
+    "zone.fill",
+    "drc.kicad",
+    "netlist.assignment_compare",
+    "roundtrip.rt2",
+    "render",
+)
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
 _READING_STAGES = frozenset({"roundtrip", "copper.clearance", *ORACLE_STAGES} - {"render"})
 StageStatus = Literal["ok", "errors", "skipped"]
-StageSkip = Literal["native-input", "read-refused", "cache-unreadable", "unsupported-oracle"]
+StageSkip = Literal[
+    "native-input",
+    "read-refused",
+    "cache-unreadable",
+    "unsupported-oracle",
+    "oracle-unsupported",
+    "oracle-unstable",
+]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
 
@@ -134,6 +149,7 @@ def run_checks(
     oracle: Oracle | None,
     cache_error: str = "",
     plotter: Plotter | None = None,
+    fill_oracle: FillOracle | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once."""
@@ -141,6 +157,7 @@ def run_checks(
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc_lite import erc_stage
+    from fenolite.checks.fill import fill_stage
     from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
@@ -194,6 +211,13 @@ def run_checks(
         design = validation.read.design if validation is not None else None
         return drc_stage(oracle, project, built=built, design=design)
 
+    def fill() -> StageResult:
+        if validation is None:
+            return skipped("zone.fill", "read-refused")
+        if fill_oracle is None:
+            raise ValueError("zone.fill is selected but no fill oracle was given")
+        return fill_stage(fill_oracle, project, validation.read.design)
+
     def assignment() -> StageResult:
         usable = None if cache_error else model
         return assignment_stage(oracle, project, validation=validation, model=usable, built=built)
@@ -213,6 +237,7 @@ def run_checks(
         "model.validate": model_stage,
         "erc.lite": erc,
         "copper.clearance": copper,
+        "zone.fill": fill,
         "drc.kicad": drc,
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,

@@ -10,6 +10,7 @@ import dataclasses
 import pytest
 from fakes import (
     VERIFIED,
+    FakeFillOracle,
     FakeFullOracle,
     FakeOracle,
     FakeValidator,
@@ -34,6 +35,7 @@ def test_stage_order() -> None:
         "model.validate",
         "erc.lite",
         "copper.clearance",
+        "zone.fill",
         "drc.kicad",
         "netlist.assignment_compare",
         "roundtrip",
@@ -42,7 +44,13 @@ def test_stage_order() -> None:
     )
     assert OPT_IN_STAGES == ("roundtrip.rt2", "render")
     assert DEFAULT_STAGES == STAGE_ORDER[:-2]
-    assert ORACLE_STAGES == ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
+    assert ORACLE_STAGES == (
+        "zone.fill",
+        "drc.kicad",
+        "netlist.assignment_compare",
+        "roundtrip.rt2",
+        "render",
+    )
     assert "copper.clearance" in DEFAULT_STAGES  # it runs by default and needs no tool (change c0029)
 
 
@@ -152,6 +160,7 @@ def test_cache_unreadable_skips_both_model_stages() -> None:
         validator=FakeValidator(),
         oracle=FakeOracle(),
         cache_error="board.json: Expecting value",
+        fill_oracle=FakeFillOracle(),
     )
     statuses = {s.name: (s.status, s.reason) for s in report.stages}
     assert statuses["model.validate"] == ("skipped", "cache-unreadable")
@@ -180,7 +189,13 @@ def test_issues_follow_input_then_stage_order() -> None:
     validator = FakeValidator(result=validation(passed=False, difference="/kicad_pcb/segment[0]"))
     oracle = FakeOracle(outcome("inconclusive", "selector-unproven"))
     report = run_checks(
-        project=project(), stages=DEFAULT_STAGES, model=None, built=False, validator=validator, oracle=oracle
+        project=project(),
+        stages=DEFAULT_STAGES,
+        model=None,
+        built=False,
+        validator=validator,
+        oracle=oracle,
+        fill_oracle=FakeFillOracle(),
     )
     # the fake validator is no rules source, so the copper stage says so (change c0029)
     assert [i.code for i in report.issues] == [
@@ -221,6 +236,7 @@ def test_new_stages_skip_on_a_refused_read() -> None:
         built=False,
         validator=validator,
         oracle=oracle,
+        fill_oracle=FakeFillOracle(),
     )
     assert [(s.name, s.status, s.reason) for s in checked.stages] == [
         ("netlist.assignment_compare", "skipped", "read-refused"),
@@ -260,6 +276,7 @@ def test_new_stages_run_with_one_read() -> None:
         built=False,
         validator=validator,
         oracle=oracle,
+        fill_oracle=FakeFillOracle(),
     )
     assert [s.name for s in checked.stages] == list(STAGE_ORDER[:-1])
     statuses = {s.name: s.status for s in checked.stages}

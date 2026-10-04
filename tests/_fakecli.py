@@ -90,7 +90,9 @@ if kind is not None and kind in config["export_files"]:
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
-    if config["rewrite_input"]:
+    if "--save-board" in args and config["refill_board"] is not None:
+        open(board, "w", encoding="utf-8").write(config["refill_board"])
+    if config["rewrite_input"] and "--save-board" not in args:
         open(board, "a").write("(rewritten)")
     if config["drc_sequence"]:
         done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"pcb", "drc"' in line)
@@ -154,6 +156,7 @@ def fake_kicad_cli(
     upgrade: Literal["copy", "fail"] = "copy",
     log: Path | None = None,
     drc_sequence: Sequence[str] = (),
+    refill_board: str | None = None,
     export_files: Mapping[str, Mapping[str, str]] | None = None,
     export_fail: Sequence[str] = (),
 ) -> Path:
@@ -176,6 +179,7 @@ def fake_kicad_cli(
         "upgrade": upgrade,
         "log": str(log) if log is not None else "",
         "drc_sequence": list(drc_sequence),
+        "refill_board": refill_board,
         "canary_uuids": list(CANARY_UUIDS),
         "canary_rule": CANARY_RULE_NAME,
         "export_files": {

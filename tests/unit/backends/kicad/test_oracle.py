@@ -41,6 +41,47 @@ def _drc_calls(script: Path) -> list[dict[str, object]]:
     return [c for c in calls(script) if c["args"][:2] == ["pcb", "drc"]]  # type: ignore[index]
 
 
+def test_refill_copies_project_without_canary(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    board = root / f"{STEM}.kicad_pcb"
+    saved = Path(__file__).resolve().parents[3] / "data" / "kicad" / "fill" / "triad_t9_refilled.kicad_pcb"
+    oracle, script = _oracle(tmp_path, refill_board=saved.read_text(encoding="utf-8"))
+    before = tree_snapshot(root)
+    result = oracle.refill(project_set(root))
+    call, repeat = _drc_calls(script)
+    files: dict[str, str] = call["files"]  # type: ignore[assignment]
+    assert files[board.name] == board.read_text(encoding="utf-8")
+    assert CANARY_RULE_NAME not in files[f"{STEM}.kicad_dru"]
+    assert repeat["files"] == files
+    assert result.zones is not None and len(result.zones) == 1
+    assert tree_snapshot(root) == before
+
+
+def test_refill_timeout(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    oracle, _ = _oracle(tmp_path, sleep=10.0)
+    result = oracle.refill(project_set(root))
+    assert result.outcome == "timeout" and result.zones is None and result.returncode is None
+
+
+def test_refill_missing_saved_board(tmp_path: Path) -> None:
+    oracle, _ = _oracle(tmp_path)
+    result = oracle.refill(project_set(authored_project(tmp_path, major=10)))
+    assert result.zones is None and "no board" in result.message
+
+
+def test_refill_unreadable_saved_board(tmp_path: Path) -> None:
+    oracle, _ = _oracle(tmp_path, refill_board="not a board")
+    result = oracle.refill(project_set(authored_project(tmp_path, major=10)))
+    assert result.zones is None and "unreadable" in result.message
+
+
+def test_refill_unsupported_makes_no_drc_run(tmp_path: Path) -> None:
+    oracle, script = _oracle(tmp_path, version="9.0.9")
+    result = oracle.refill(project_set(authored_project(tmp_path, major=9)))
+    assert not result.supported and result.zones is None and _drc_calls(script) == []
+
+
 def test_kicad_oracle_satisfies_the_protocol(tmp_path: Path) -> None:
     oracle: Oracle = KicadOracle(KicadCli(tmp_path / "kicad-cli"))
     assert oracle.name == "kicad"

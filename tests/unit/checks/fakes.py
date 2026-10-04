@@ -17,6 +17,7 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    FillOutcome,
     NetlistOutcome,
     PadAssignment,
     PadNetList,
@@ -134,6 +135,17 @@ class FakeOracle:
         return self.result
 
 
+@dataclass
+class FakeFillOracle:
+    result: FillOutcome = FillOutcome((), "1.0", evidence=VERIFIED)
+    name: str = "fake"
+    calls: list[ProjectSet] = field(default_factory=lambda: [])
+
+    def refill(self, project: ProjectSet) -> FillOutcome:
+        self.calls.append(project)
+        return self.result
+
+
 def netlist(source: str, *pairs: tuple[str, str], uncovered: tuple[tuple[str, str], ...] = ()) -> PadNetList:
     """A ``PadNetList`` from ``(element, label)`` pairs and ``(element, reason)`` uncovered pairs."""
     return PadNetList(
@@ -201,6 +213,7 @@ def project(
 
 __all__ = [
     "FakeFullOracle",
+    "FakeFillOracle",
     "FakeOracle",
     "FakeValidator",
     "netlist",

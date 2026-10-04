@@ -50,6 +50,10 @@ never taken from KiCad's writer code.
 | In the demo boards pad angles lie in [0°, 360°), footprint angles may be negative, and a zero pad or footprint angle is not written | S-0024 | INFERRED | H-K-PCB-READ |
 | `gr_text` is `(gr_text "TEXT" (at X Y [ANGLE]) (layer L [knockout]) (uuid U) (effects …))`; the demo boards write the text angle even when it is 0 (456 of 585 texts) | S-0001, S-0024 | INFERRED | H-K-PCB-READ |
 | `zone`: `net`, `net_name`, `layer` (or `layers`), `uuid`, optional `name`, `hatch`, optional `priority` (absent when 0), `connect_pads`, `min_thickness`, optional keepout settings, fill settings, `polygon` (the outline), then one `filled_polygon` per filled area | S-0001 | INFERRED | H-K-PCB-READ |
+| `pcb drc --format json --severity-all --refill-zones --save-board` on a copy of a target-9 or target-10 board saves the copy in the running 10.0.6 board format (`20260206`, generator `pcbnew`) and writes its zone fills; the original file is not changed | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
+| The same refill of the authored project keeps each zone uuid and gives the GND zone one filled polygon with 16 points | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
+| A second 10.0.6 refill of a board written for its original target with the lifted fills gives the same fill polygons by layer, island flag and point | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-LIFT |
+| 9.0.9 loads the lifted target-9 fills; without `(filled_areas_thickness no)` it reports that the legacy zone fill strategy is unsupported and will be converted on a best-effort basis | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-FILL-LOAD9 |
 | A zone with a `keepout` child is a rule area; its settings `tracks`, `vias`, `pads`, `copperpour`, `footprints` take `allowed` or `not_allowed` | S-0001 | INFERRED | H-K-PCB-READ |
 | Rule areas gained a `placement` child in 9.0 (`20241009`) | S-0030, S-0050 | INFERRED | H-K-PCB-READ |
 | Teardrops are zones carrying `(attr (teardrop (type …)))` and a name such as `$teardrop_padvia$` | S-0024 | INFERRED | H-K-PCB-READ |

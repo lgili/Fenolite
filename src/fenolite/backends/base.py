@@ -18,7 +18,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, Udeg
-from fenolite.model.board import PadKind, Side
+from fenolite.model.board import PadKind, Side, ZoneFill
 from fenolite.model.design import Design
 from fenolite.model.library import Library
 
@@ -255,6 +255,37 @@ class Oracle(Protocol):
     def version(self) -> str: ...
 
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ZoneFills:
+    """One zone's identity, fill flag and derived polygons in a refill result."""
+
+    zone_id: str
+    fills: tuple[ZoneFill, ...]
+    filled: bool
+
+
+@dataclass(frozen=True, slots=True)
+class FillOutcome:
+    """A refill verdict; ``zones`` is absent when the tool could not supply readable fills."""
+
+    zones: tuple[ZoneFills, ...] | None
+    tool_version: str
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    supported: bool = True
+    evidence: Evidence = Evidence()
+    stable: bool = True
+
+
+class FillOracle(Protocol):
+    """An oracle that refills a copy of a project board."""
+
+    name: str
+
+    def refill(self, project: ProjectSet) -> FillOutcome: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -513,6 +544,8 @@ __all__ = [
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "FillOracle",
+    "FillOutcome",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",
@@ -534,4 +567,5 @@ __all__ = [
     "Validation",
     "Validator",
     "WriteResult",
+    "ZoneFills",
 ]

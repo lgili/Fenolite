@@ -46,6 +46,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "copper.rules-incomplete": ("warning",),
         "copper.item-unsupported": ("warning",),
         "copper.clearance-unset": ("info",),
+        "zone.unfilled": ("warning",),
+        "zone.fill-stale": ("warning",),
+        "zone.fill-unchecked": ("info",),
     }
 )
 

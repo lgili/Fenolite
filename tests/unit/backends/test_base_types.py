@@ -21,6 +21,7 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    FillOutcome,
     NetlistOracle,
     PadAssignment,
     PadCopper,
@@ -33,6 +34,7 @@ from fenolite.backends.base import (
     SkippedFile,
     Uncovered,
     WriteResult,
+    ZoneFills,
 )
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.pcb import write_board
@@ -127,6 +129,16 @@ def test_outcome_is_immutable() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         outcome.canary = "fired"  # type: ignore[misc]
     assert outcome.outcome == "exit" and outcome.returncode == 0 and outcome.tool_writes == ()
+
+
+def test_fill_outcome_is_immutable() -> None:
+    zones = (ZoneFills("zon_1", (), False),)
+    outcome = FillOutcome(zones, "10.0.6")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.zones = None  # type: ignore[misc]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        zones[0].filled = True  # type: ignore[misc]
+    assert outcome.supported and outcome.outcome == "exit" and outcome.returncode == 0
 
 
 def test_base_imports_no_backend() -> None:

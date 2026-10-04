@@ -246,6 +246,28 @@ whether a file read at a newer version can be written for an older target (`down
 tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
 by `fenolite.backends.kicad.cli.find_kicad_cli()`.
 
+## fill
+
+`fenolite fill PATH [--from REFILLED] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS]` computes zone
+copper on a copy using KiCad 10 and writes only the fills into the original board's KiCad major (9 or
+10). `PATH` accepts a board, matching project file or project folder. `--from` reads a board already
+refilled by KiCad and runs no external tool. `--out` chooses a file relative to the working directory;
+otherwise the board is replaced. The command follows the usual `--dry-run` plan and `--confirm`
+receipt and backup protocol. A board without a netted zone produces `zone.none` and no write.
+
+`result` holds `board`, `target`, `changed`, `zones` (id, name, layers, fill and island counts, filled
+flag), `tool_version` and `tool_writes`. A matching refill by zone UUID is required; a mismatch gives
+`zone.fill-mismatch` (error) and no write. A refill whose polygons cannot be expressed in the target
+major is refused. `--from` evidence stays `INFERRED`; a tool run uses the refill evidence and names
+the tool version. An installed KiCad 9 alone cannot refill: use KiCad 10, `--from`, or
+`--kicad-cli docker:<image>`.
+
+| code | severity | when |
+|---|---|---|
+| `zone.fill-mismatch` | error | a zone UUID occurs in only one of the two boards |
+| `zone.fill-unstable` | warning | a lifted fill is not reproduced by another refill |
+| `zone.none` | info | the board has no netted zone to refill |
+
 ## check
 
 `fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
@@ -253,12 +275,14 @@ read-only. `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
 drawing sheet): nothing under the project folder is created or changed. `--timeout` defaults to 300 s.
+`--kicad-cli docker:<image>` runs the same copied project in a named local image; a missing image
+returns `FEN-6001` with a `docker pull` hint.
 The input is *built* when `.fenolite/meta.json` or `.fenolite/build.json` exists next to the board.
 
 The stages run in this order (`STAGE_ORDER`); `--stages` selects a subset, and unselected stages are left
 out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGES`), which costs two
 re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assignment_compare` and
-`roundtrip.rt2` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
+`roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
 
 | stage | runs on | evidence |
@@ -266,6 +290,7 @@ re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assig
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
 | `erc.lite` | built input only; skipped with `native-input` otherwise | `INFERRED` (`H-K-CHECK-ERC`) |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
+| `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board and of `kicad-cli pcb export ipcd356`, compared as partitions | the lowest of the reader, the export and, on built input, `INFERRED`; `UNVERIFIED` without an export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
@@ -274,7 +299,7 @@ re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assig
 
 Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `status` is `ok` (ran, no
 error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused`,
-`cache-unreadable` or `unsupported-oracle` (the oracle lacks the stage's operation; never counted in the
+`cache-unreadable`, `unsupported-oracle`, `oracle-unsupported` or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -282,7 +307,7 @@ project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_
 `canary_removed`, `violations`, `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`,
 `violations_judged` and `types`. Whenever a report exists, each violation and unconnected item is one
 issue and `violations_judged` is `true`; `types` maps each emitted `kicad.drc.<type>` code to KiCad's raw
-type. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
+type. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
 
@@ -363,6 +388,9 @@ report; `kicad-cli` then runs twice.
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force for them |
+| `zone.unfilled` | warning | KiCad's refill produces copper but the saved board has none for a zone |
+| `zone.fill-stale` | warning | the saved fill polygons differ from a KiCad refill |
+| `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
 (error) names a pin that is marked as not connected and that a net lists (`docs/design-model.md`). Exit codes: 0 without an error issue, 5

@@ -1,6 +1,22 @@
 # Files committed under tests/data/ and examples/ (openspec change c0003, capability corpus-policy).
 # Each committed data file is declared here either as authored for Fenolite (CC0-1.0) or as a copy
 # of an embeddable corpus item.
+
+[[file]]
+path = "tests/data/kicad/fill/triad_t9.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/fill/triad_t9_refilled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite authored board refilled by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/fill/triad_t9_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
 #
 # [[file]]
 # path = "tests/data/blink.kicad_pcb"

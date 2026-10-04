@@ -30,6 +30,14 @@ last word is a subcommand, or its option a long option, on its parent's page.
 | `pcb upgrade` exists in 10.0 and not in 9.0 | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 | `pcb drc --format`, `--severity-all` and `--schematic-parity`, and `pcb export ipcd356`, `pos` and `svg`, exist in 9.0 and 10.0 | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 
+## Refill on a copy
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb drc --format json --severity-all --refill-zones --save-board -o drc.json BOARD` refills zones and saves the board beside its report in KiCad 10.0; these options are absent from KiCad 9.0 | S-0022, S-0037 | KICAD-VERIFIED (10.0.x, 9.0.x) | H-K-FILL-SAVE |
+| With an authored board of either target major, 10.0.6 writes a saved board, a `.kicad_prl` and `drc.json` in the run folder | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
+| `docker run --rm --pull never --platform linux/amd64 -v HOST:/w -w /w -e KICAD_CONFIG_HOME=/w/config -e LANG=C -e LC_ALL=C IMAGE kicad-cli …` runs a named image with the copied project mounted at `/w`; the runner never pulls an image | S-0205 | INFERRED | H-K-CLI-DOCKER |
+
 ## Copy set of a check
 
 `kicad-cli` writes into the folder it runs in, so `fenolite check` gives it only a copy of the files a
