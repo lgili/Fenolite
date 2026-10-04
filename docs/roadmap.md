@@ -42,7 +42,7 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | 3. KiCad complete | v0.2a | about c0032–c0037 | schematic write, ERC oracle, netlist, BOM, more commands | estimate |
 | 3. KiCad complete | v0.2b | about c0038–c0041 | full layout lens, full rules, parity, interfaces | estimate |
 | 4. Second backend | v0.3 | about c0042–c0049 | read, equivalence levels 1–4, analyses | estimate |
-| 4. Second backend | v0.4 | about c0050–c0057 | write, equivalence level 5, verification kit | c0055 done; remainder estimate |
+| 4. Second backend | v0.4 | about c0050–c0057 | write, equivalence level 5, verification kit | c0055–c0056 done; remainder estimate |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | about c0058–c0070 | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from fenolite.dsl import Design, DslError, Footprint, mm
+from fenolite.dsl import Design, DslError, Footprint, Part, mm
 from fenolite.dsl.convert import to_model
 
 
@@ -56,3 +56,45 @@ def test_through_hole_footprint_defaults_pad_kind_and_layers() -> None:
     pad = footprint.definition.pads[0]
     assert pad.kind == "thru_hole"
     assert pad.layers == ("*.Cu", "*.Mask")
+
+
+def test_slot_drill_geometry_is_modeled() -> None:
+    footprint = Footprint("Local", "Slot", kind="through_hole")
+    footprint.pad(
+        "1",
+        at=(mm(0), mm(0)),
+        size=(mm(2), mm(1)),
+        rotation=90,
+        drill=mm(0.8),
+        drill_shape="slot",
+        drill_length=mm(1.6),
+        drill_rotation=90,
+    )
+    pad = footprint.definition.pads[0]
+    assert pad.drill == 800_000
+    assert pad.padstack is not None
+    assert (pad.padstack.hole_shape, pad.padstack.hole_length, pad.padstack.hole_rotation) == (
+        "slot",
+        1_600_000,
+        90_000_000,
+    )
+
+
+def test_slot_needs_valid_length() -> None:
+    footprint = Footprint("Local", "Slot", kind="through_hole")
+    with pytest.raises(DslError, match="slot length"):
+        footprint.pad(
+            "1",
+            at=(mm(0), mm(0)),
+            size=(mm(2), mm(1)),
+            drill=mm(0.8),
+            drill_shape="slot",
+            drill_length=mm(0.5),
+        )
+
+
+def test_part_pin_pad_map_is_checked_and_ordered() -> None:
+    part = Part("U1", "Local:IC", pad_map={"2": "3", "1": "4"})
+    assert tuple(part.pad_map.items()) == (("1", "4"), ("2", "3"))
+    with pytest.raises(DslError, match="more than one pin"):
+        Part("U2", "Local:IC", pad_map={"1": "3", "2": "3"})

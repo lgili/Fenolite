@@ -162,6 +162,7 @@ class Part:
         value: str = "",
         *,
         properties: Mapping[str, str] | None = None,
+        pad_map: Mapping[str, str] | None = None,
     ) -> None:
         self.ref = check_name(ref, "ref")
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -174,6 +175,22 @@ class Part:
         self.footprint = footprint
         self.value = value
         self.properties: Mapping[str, str] = _properties(ref, properties)
+        if pad_map is None:
+            pad_map = {}
+        if not isinstance(pad_map, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {ref}: pad_map must map symbol pin numbers to footprint pad numbers")
+        checked_map: dict[str, str] = {}
+        targets: set[str] = set()
+        for source, target in cast(Mapping[object, object], pad_map).items():
+            if not isinstance(source, str) or not source or not isinstance(target, str) or not target:
+                raise DslError(f"part {ref}: pad_map keys and values must be non-empty strings")
+            if source in checked_map:
+                raise DslError(f"part {ref}: pad_map repeats symbol pin {source!r}")
+            if target in targets:
+                raise DslError(f"part {ref}: pad_map maps more than one pin to pad {target!r}")
+            checked_map[source] = target
+            targets.add(target)
+        self.pad_map: Mapping[str, str] = MappingProxyType(dict(sorted(checked_map.items())))
         self.parent: Container | None = None
         self.request: Request | None = None
         self.field_requests: dict[str, FieldRequest] = {}

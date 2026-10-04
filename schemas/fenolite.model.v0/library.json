@@ -398,6 +398,26 @@
           "items": {
             "$ref": "#/$defs/PadstackLayer"
           }
+        },
+        "hole_shape": {
+          "enum": [
+            "round",
+            "square",
+            "slot"
+          ]
+        },
+        "hole_length": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hole_rotation": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,

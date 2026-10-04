@@ -40,6 +40,7 @@ FootprintAttribute = Literal[
 ]
 ViaType = Literal["through", "blind", "buried", "micro"]
 ZoneConnection = Literal["solid", "thermal", "none", "thru_hole_only"]
+HoleShape = Literal["round", "square", "slot"]
 """How a zone connects to a pad of its net; ``thru_hole_only`` means thermal reliefs on through-hole pads
 and solid connections on the others."""
 ZoneFillMode = Literal["solid", "hatched"]
@@ -102,6 +103,9 @@ class Padstack(Entity):
     """Per-layer shapes of a pad; absent when the pad has one shape on all its layers."""
 
     layers: tuple[PadstackLayer, ...] = field(default=(), metadata=ORDERED)
+    hole_shape: HoleShape = "round"
+    hole_length: Nm | None = None
+    hole_rotation: Udeg = 0
 
 
 @dataclass(frozen=True, slots=True)

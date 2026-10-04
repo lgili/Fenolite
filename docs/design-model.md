@@ -145,6 +145,10 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
   mirrored coordinates. `Pad.rotation` is relative to the footprint, and `Pad.layers` are real board
   layers without wildcards.
+- **Footprint assignment.** `Component.pin_pad_map` stores explicit symbol-pin-number to physical-pad-number
+  pairs. An empty map means identity assignment; net membership remains keyed by symbol pin number.
+  `Padstack.hole_shape`, `hole_length` and `hole_rotation` describe non-round drilled holes; `Pad.drill` is
+  their width, and slot length includes both rounded ends.
 - **Outlines.** An empty `Zone.outline` or `Keepout.outline` means the backend keeps the outline as
   an opaque slot. `Board.outline` is `None` for an imported board; its edge graphics are authoritative.
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name

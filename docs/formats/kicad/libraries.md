@@ -66,7 +66,8 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
 | `uuid` | `native_ids["kicad"]` (the uuid as written) | modelled |
 | `(drill D)` | `drill` | modelled |
 | `(drill D (offset X Y))` | `drill = D` | projected, `kicad.lib.kept-opaque` |
-| `(drill oval W H …)`, any other drill form | `drill = None` | opaque, `kicad.lib.kept-opaque` |
+| `(drill oval W H)` with unequal dimensions | `drill = min(W, H)`, `Padstack.hole_shape = slot`, `hole_length = max(W, H)`, axis follows the longer dimension in the footprint frame (S-0001; axis projection is `INFERRED`) | modelled |
+| other drill forms, including offsets | projected or opaque, `kicad.lib.kept-opaque` |
 | `padstack` | `padstack` | projected, `kicad.lib.kept-opaque` |
 | `(zone_connect N)`, N from 0 to 3 | `zone_connection` (`none`, `thermal`, `solid`, `thru_hole_only`; c0031, `board.md`, "Zone settings") | modelled; written before `uuid` when a pad without it gains a value |
 | `(zone_connect N)` with another value, or repeated | `zone_connection` from the first child when it is a code from 0 to 3, else `None` | projected, `kicad.lib.kept-opaque` |

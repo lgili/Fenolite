@@ -215,6 +215,49 @@ def test_dsl_authored_definition_writes_deterministically() -> None:
     ]
 
 
+def test_dsl_authored_aligned_slot_writes_oval_drill() -> None:
+    from fenolite.dsl import Footprint, mm
+
+    footprint = Footprint("Local", "Slot", kind="through_hole")
+    footprint.pad(
+        "1",
+        at=(mm(0), mm(0)),
+        size=(mm(2), mm(1)),
+        rotation=90,
+        drill=mm(0.8),
+        drill_shape="slot",
+        drill_length=mm(1.6),
+        drill_rotation=90,
+    )
+    text = write_footprint(footprint.definition, target=10)
+    assert "(drill oval 0.8 1.6)" in text
+    readback = read_footprint(text, library="Local")
+    pad = readback.pads[0]
+    assert pad.drill == 800_000 and pad.padstack is not None
+    assert (pad.padstack.hole_shape, pad.padstack.hole_length, pad.padstack.hole_rotation) == (
+        "slot",
+        1_600_000,
+        90_000_000,
+    )
+
+
+def test_kicad_writer_refuses_diagonal_slot_axis() -> None:
+    from fenolite.dsl import Footprint, mm
+
+    footprint = Footprint("Local", "Diagonal", kind="through_hole")
+    footprint.pad(
+        "1",
+        at=(mm(0), mm(0)),
+        size=(mm(2), mm(2)),
+        drill=mm(0.8),
+        drill_shape="slot",
+        drill_length=mm(1.6),
+        drill_rotation=45,
+    )
+    with pytest.raises(LossyWriteError, match="horizontal or vertical"):
+        write_footprint(footprint.definition, target=10)
+
+
 def test_library_folder_mapping() -> None:
     defs = [read_footprint(p) for p in sorted(MINI.glob("*.kicad_mod"), reverse=True)]
     files = write_pretty(defs, target=10)

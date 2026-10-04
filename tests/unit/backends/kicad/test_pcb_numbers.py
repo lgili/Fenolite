@@ -52,7 +52,9 @@ def test_oval_drill_on_a_board_pad() -> None:
     issues: list[Issue] = []
     design = read_board(SCENARIOS["oval-drill"], issues=issues)
     assert design.board is not None
-    assert design.board.footprints[0].pads[0].drill is None
+    pad = design.board.footprints[0].pads[0]
+    assert pad.drill == 1_200_000 and pad.padstack is not None
+    assert (pad.padstack.hole_shape, pad.padstack.hole_length) == ("slot", 2_000_000)
     assert [i.code for i in issues] == ["kicad.board.kept-opaque"]
     assert not [i for i in issues if i.code.startswith("kicad.lib.")]
 

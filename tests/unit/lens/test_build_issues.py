@@ -22,6 +22,7 @@ TESTS = ROOT / "tests" / "unit" / "lens"
 def test_closed_set() -> None:
     table = {
         "build.unknown-pin": "error", "build.pin-on-two-nets": "error", "build.pin-without-pad": "error",
+        "build.pin-pad-map-invalid": "error",
         "build.no-footprint": "error", "build.no-board": "error", "build.name-case-collision": "error",
         "build.layout-exists": "error", "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",

@@ -62,6 +62,25 @@ def test_pin_without_pad(tmp_path: Path) -> None:
     assert "build.unused-pin-without-pad" in found and "build.pin-without-pad" not in found
 
 
+def test_explicit_pin_pad_map_applies_net_to_physical_pad(tmp_path: Path) -> None:
+    d, u1, folder = one_part(tmp_path, [("1", "A"), ("2", "B")], ["1", "2"])
+    u1.pad_map = {"1": "2", "2": "1"}
+    connect(Net("N"), u1["1"])
+    out = build(d, project_dir=folder)
+    net = next(n for n in out.design.circuit.nets if n.name == "N")
+    pads = {pad.number: pad.net_id for pad in out.design.board.footprints[0].pads}  # type: ignore[union-attr]
+    assert pads == {"1": None, "2": net.id}
+    component = next(c for c in out.design.circuit.components if c.ref == "U1")
+    assert component.pin_pad_map == (("1", "2"), ("2", "1"))
+
+
+def test_pin_pad_map_source_must_exist(tmp_path: Path) -> None:
+    d, u1, folder = one_part(tmp_path, [("1", "A")], ["1"])
+    u1.pad_map = {"9": "1"}
+    out = build(d, project_dir=folder)
+    assert "build.pin-pad-map-invalid" in codes(out) and out.files == {}
+
+
 def test_a_number_wins_over_a_name(tmp_path: Path) -> None:
     d, u1, folder = one_part(tmp_path, [("1", "2"), ("2", "A")], ["1", "2"])
     connect(Net("SIG"), u1["2"])

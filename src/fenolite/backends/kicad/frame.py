@@ -433,6 +433,20 @@ def _entry(layer: str, core: Sequence[Point], width: int, filled: bool, exact: b
 
 def _hole(pad: Pad, placement: _Placement, tokens: Mapping[str, Node]) -> tuple[tuple[Point, ...], Nm | None]:
     """The drilled hole in the board frame: a point, or the two ends of a slot, and the drill size."""
+    stack = pad.padstack
+    if (
+        stack is not None
+        and stack.hole_shape == "slot"
+        and pad.drill is not None
+        and stack.hole_length is not None
+    ):
+        half = Fraction(stack.hole_length - pad.drill, 2)
+        relative_rotation = stack.hole_rotation - pad.rotation
+        c, s = cos_sin_fixed(relative_rotation)
+        dx, dy = half * c / _ONE, -half * s / _ONE
+        x, y = 0, 0
+        ends = ((x - dx, y - dy), (x + dx, y + dy))
+        return tuple(sorted(placement.points(ends))), pad.drill
     node = tokens.get("drill")
     if node is None:
         if pad.drill is None:

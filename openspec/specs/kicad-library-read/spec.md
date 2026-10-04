@@ -75,36 +75,16 @@ All lengths MUST be integer nanometres and all angles integer microdegrees.
 The reader MUST record the slot list of the footprint in `ext["kicad"]`, and the slot list of every pad and graphic in its own `ext["kicad"]`, using the encoding of `kicad-slots`.
 - A child the model represents completely MUST be a `Modeled` slot.
 - A child the model represents only partly MUST be an `Opaque` slot, with the representable part projected into the model field. This covers `tags`, a property, a model, every `stroke`, a padstack and a drill with an offset.
-- A pad drill that is not a single diameter MUST give `drill = None` and stay opaque.
+- An oval drill with unequal X and Y sizes MUST project its narrower dimension to `Pad.drill`, its longer dimension to `Padstack.hole_length`, and its axis to `Padstack.hole_rotation`; the drill node MUST be `Modeled`. A round drill MUST remain `Pad.drill` with no slot geometry. Offset and unusual drill forms stay opaque.
 - A graphic whose geometry or fill cannot be represented MUST NOT appear in `graphics`. It MUST be an `Opaque` slot of the footprint. This covers an `arc` inside `pts`, a hatch or unknown fill, and an `fp_rect` with a corner radius.
-- Every opaque slot that loses modelled meaning MUST add the info `kicad.lib.kept-opaque`. This covers an oval or offset drill, a padstack, a stroke type other than `solid` or `default`, and every unrepresentable graphic.
+- Every opaque slot that loses modelled meaning MUST add the info `kicad.lib.kept-opaque`. This covers offset drills, a padstack, a stroke type other than `solid` or `default`, and every unrepresentable graphic.
 
 An opaque fragment MUST carry as minimum version the greatest minimum that the `kicad-token-inventory` gives for the token paths inside it, and the file version when the inventory has no row for the fragment's own head.
 
-#### Scenario: Unknown child survives in place
-- **GIVEN** a footprint whose third child is `(frobnicate 1)`
-- **WHEN** it is read and `slots.from_ext(fp.ext["kicad"])` is inspected
-- **THEN** the third slot is `Opaque` with fragment `(frobnicate 1)`
-
-#### Scenario: Oval drill is kept opaque
+#### Scenario: Oval drill is modeled as a slot
 - **GIVEN** a pad with `(drill oval 1.2 2.0)`
-- **WHEN** it is read with an `issues` list
-- **THEN** the pad has `drill is None`, its `ext["kicad"]` holds the drill fragment, and `issues` holds one info `kicad.lib.kept-opaque`
-
-#### Scenario: Property is projected, not modelled
-- **GIVEN** a footprint with `(property "Reference" "REF**" (at 0 -1.5 0) (layer "F.SilkS") (effects ...))`
 - **WHEN** it is read
-- **THEN** `properties["Reference"] == "REF**"` and the property child is an `Opaque` slot that includes its `effects`
-
-#### Scenario: Stroke is projected
-- **GIVEN** an `fp_line` with `(stroke (width 0.12) (type solid))`
-- **WHEN** it is read
-- **THEN** the graphic has `width == 120000` and its `stroke` child is an `Opaque` slot of the graphic
-
-#### Scenario: Arc inside a polygon keeps the graphic opaque
-- **GIVEN** an `fp_poly` whose `pts` contains `(arc (start 0 0) (mid 1 1) (end 2 0))`
-- **WHEN** it is read with an `issues` list
-- **THEN** the polygon is absent from `graphics`, it is an `Opaque` slot of the footprint, and `issues` holds one info `kicad.lib.kept-opaque`
+- **THEN** `pad.drill == 1_200_000`, its padstack has `hole_shape == "slot"`, `hole_length == 2_000_000`, and `hole_rotation == 90_000_000`, the drill child is `Modeled`, and no kept-opaque issue is reported for it
 
 ### Requirement: Invalid modelled values are rejected
 The readers MUST raise `FormatError` with `file`, a locator and the byte offset in these cases:

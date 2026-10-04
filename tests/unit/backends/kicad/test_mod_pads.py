@@ -76,13 +76,19 @@ def test_padstack_pad_keeps_its_padstack() -> None:
     assert ("kicad.lib.kept-opaque", "info") in _codes(issues)
 
 
-def test_oval_drill_is_kept_opaque() -> None:
+def test_oval_drill_is_modeled_as_slot() -> None:
     issues: list[Issue] = []
     fp = read_footprint(f"{HEADER} {_pad('(drill oval 1.2 2.0)')})", issues=issues)
     pad = fp.pads[0]
-    assert pad.drill is None
-    assert [s.fragment for s in _opaque(pad)] == ["(drill oval 1.2 2.0)"]
-    assert _codes(issues) == [("kicad.lib.kept-opaque", "info")]
+    assert pad.drill == 1_200_000
+    assert pad.padstack is not None
+    assert (pad.padstack.hole_shape, pad.padstack.hole_length, pad.padstack.hole_rotation) == (
+        "slot",
+        2_000_000,
+        90_000_000,
+    )
+    assert not [s for s in _opaque(pad) if s.fragment.startswith("(drill")]
+    assert not _codes(issues)
 
 
 def test_offset_drill_is_projected() -> None:

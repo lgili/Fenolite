@@ -404,10 +404,18 @@ class _Projections:
 
     def pad(self, pad: Pad, slots: list[Slot]) -> None:
         base = _locator(pad, "/footprint/pad")
+        if pad.padstack is not None and pad.padstack.hole_shape == "slot":
+            relative = pad.padstack.hole_rotation % 180_000_000
+            if pad.padstack.hole_length is None or relative not in (0, 90_000_000):
+                self.read_only(
+                    "drill",
+                    base,
+                    "KiCad oval drills can encode only horizontal or vertical slot axes",
+                )
         stack = [(loc, child) for _, loc, child in self.children(slots, base) if child.name == "padstack"]
         expected = (
             tuple((ps.layer, str(ps.shape), ps.size.w, ps.size.h) for ps in pad.padstack.layers)
-            if pad.padstack is not None
+            if pad.padstack is not None and pad.padstack.layers
             else None
         )
         found = padstack_key(pad, stack[0][1]) if stack else None
@@ -483,6 +491,8 @@ def write_footprint(
         checks.pad(pad, _slots(pad))
     for graphic in defn.graphics:
         checks.graphic(graphic, _slots(graphic))
+    if checks.errors:
+        raise LossyWriteError(checks.errors, droppable=False)
     bag = defn.ext["kicad"]
     edited = dataclasses.replace(
         defn, ext={**defn.ext, "kicad": slotlib.to_ext(_header(slots, target), base=bag)}

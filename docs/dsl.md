@@ -342,6 +342,8 @@ design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36
 | call | records |
 |---|---|
 | `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
+
+`Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
 | `via_step(x, y, *, to, diameter=None, drill=None)` | a through via inside a track path, after which the track runs on the copper layer `to` |
 | `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points and via steps, starting on `layer` |
 | `design.via(key, x, y, *, net, diameter=None, drill=None)` | one through via |

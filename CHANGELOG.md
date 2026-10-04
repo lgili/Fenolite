@@ -9,6 +9,7 @@ All notable changes to Fenolite are documented here. The format follows
 ### Added
 
 - DSL footprint authoring: a design-scoped builder creates pads and graphics; exact-ID assignments resolve in KiCad and experimental Altium builds (c0055).
+- DSL component pin-to-pad mapping and authored slotted drills; KiCad writes supported aligned oval drills, while Altium reports its unsupported slot geometry (c0056).
 
 ### Fixed
 

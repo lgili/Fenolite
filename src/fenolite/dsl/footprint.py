@@ -12,7 +12,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import Graphic, Pad
+from fenolite.model.board import Graphic, Pad, Padstack
 from fenolite.model.library import FootprintDef, FootprintKind
 
 _IDENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
@@ -53,6 +53,9 @@ class Footprint:
         shape: str = "rect",
         kind: str | None = None,
         drill: object | None = None,
+        drill_shape: str = "round",
+        drill_length: object | None = None,
+        drill_rotation: object | None = None,
         layers: tuple[str, ...] | None = None,
         rotation: object = 0,
     ) -> None:
@@ -70,12 +73,23 @@ class Footprint:
         if w <= 0 or h <= 0:
             raise DslError("pad dimensions must be positive")
         hole: Nm | None = None if drill is None else as_nm(drill, name="pad drill")
+        if drill_shape not in ("round", "slot"):
+            raise DslError(f"unsupported authored drill shape {drill_shape!r}")
+        hole_length = None if drill_length is None else as_nm(drill_length, name="pad drill length")
+        pad_rotation = as_udeg(rotation, name="pad rotation")
+        hole_rotation = 0 if drill_rotation is None else as_udeg(drill_rotation, name="pad drill rotation")
+        if drill_shape == "slot" and hole_length is None:
+            raise DslError("a slotted drill needs a positive drill_length")
+        if drill_shape == "round" and (hole_length is not None or drill_rotation not in (None, 0)):
+            raise DslError("drill_length and drill_rotation apply only to a slotted drill")
         if pad_kind == "smd" and hole is not None:
             raise DslError("a drill only belongs to a through-hole pad")
         if pad_kind != "smd" and (hole is None or hole <= 0):
             raise DslError("a through-hole pad needs a positive drill")
         if hole is not None and hole > min(w, h):
             raise DslError("pad drill cannot be larger than its pad")
+        if hole_length is not None and (hole is None or hole_length < hole or hole_length > max(w, h)):
+            raise DslError("slot length must be at least the drill width and no larger than its pad")
         if shape == "circle" and w != h:
             raise DslError("a circular pad must have equal width and height; use shape='oval' otherwise")
         default_layers = ("*.Cu", "*.Mask") if pad_kind != "smd" else ("F.Cu", "F.Paste", "F.Mask")
@@ -86,9 +100,19 @@ class Footprint:
                 shape=shape,  # type: ignore[arg-type]
                 size=Size(w, h),
                 position=Point(x, y),
-                rotation=as_udeg(rotation, name="pad rotation"),
+                rotation=pad_rotation,
                 kind=pad_kind,  # type: ignore[arg-type]
                 drill=hole,
+                padstack=(
+                    Padstack(
+                        id=derived_id("pst", "fenolite.dsl", f"{self.lib_id}:pad:{number}:padstack"),
+                        hole_shape="slot",
+                        hole_length=hole_length,
+                        hole_rotation=hole_rotation,
+                    )
+                    if drill_shape == "slot"
+                    else None
+                ),
                 layers=layers or default_layers,
             )
         )

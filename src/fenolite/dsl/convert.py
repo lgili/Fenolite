@@ -66,6 +66,7 @@ def _component(part: Part) -> Component:
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
         properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
+        pin_pad_map=tuple(sorted(part.pad_map.items())),
     )
 
 

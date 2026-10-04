@@ -58,6 +58,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.unknown-pin": "error",
         "build.pin-on-two-nets": "error",
         "build.pin-without-pad": "error",
+        "build.pin-pad-map-invalid": "error",
         "build.no-connect-on-net": "error",
         "build.no-footprint": "error",
         "build.no-board": "error",
@@ -501,7 +502,14 @@ def build_design(
         instance = apply_requests(instance, fields.get(part.path, ()))
         instance = dataclasses.replace(
             instance,
-            pads=_pad_nets(instance.pads, pins[part.component.id], on_net[part.component.id], part, issues),
+            pads=_pad_nets(
+                instance.pads,
+                pins[part.component.id],
+                on_net[part.component.id],
+                part,
+                issues,
+                dict(part.component.pin_pad_map),
+            ),
         )
         components.append(component)
         footprints.append(instance)
@@ -674,17 +682,46 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
 
 
 def _pad_nets(
-    pads: tuple[Pad, ...], pins: list[Pin], on_net: Mapping[str, str], part: _Part, issues: list[Issue]
+    pads: tuple[Pad, ...],
+    pins: list[Pin],
+    on_net: Mapping[str, str],
+    part: _Part,
+    issues: list[Issue],
+    pin_pad_map: Mapping[str, str],
 ) -> tuple[Pad, ...]:
     numbers = {p.number for p in pins}
     pad_numbers = {p.number for p in pads if p.number}
     ref = part.component.ref
+    for source, target in sorted(pin_pad_map.items()):
+        if source not in numbers:
+            issues.append(
+                issue("build.pin-pad-map-invalid", f"{ref} maps missing symbol pin {source}", part.path)
+            )
+        if target not in pad_numbers:
+            issues.append(
+                issue("build.pin-pad-map-invalid", f"{ref} maps to missing footprint pad {target}", part.path)
+            )
+    resolved = {pin.number: pin_pad_map.get(pin.number, pin.number) for pin in pins}
+    assigned: dict[str, str] = {}
+    for pin, pad in sorted(resolved.items()):
+        other = assigned.get(pad)
+        if other is not None and other != pin:
+            issues.append(
+                issue(
+                    "build.pin-pad-map-invalid",
+                    f"{ref} pins {other} and {pin} both map to pad {pad}",
+                    part.path,
+                )
+            )
+        assigned[pad] = pin
+    net_by_pad = {pad: on_net[pin] for pin, pad in resolved.items() if pin in on_net}
     for number in sorted(pad_numbers - numbers):
-        issues.append(
-            issue("build.pad-without-pin", f"{ref} pad {number} has no pin of its number", part.path)
-        )
+        if number not in assigned:
+            issues.append(
+                issue("build.pad-without-pin", f"{ref} pad {number} has no pin mapped to it", part.path)
+            )
     for pin in pins:
-        if pin.number in pad_numbers:
+        if resolved[pin.number] in pad_numbers:
             continue
         if pin.number in on_net:
             issues.append(
@@ -696,7 +733,7 @@ def _pad_nets(
             issues.append(
                 issue("build.unused-pin-without-pad", f"{ref} pin {pin.number} has no pad", part.path)
             )
-    return tuple(dataclasses.replace(p, net_id=on_net.get(p.number)) if p.number else p for p in pads)
+    return tuple(dataclasses.replace(p, net_id=net_by_pad.get(p.number)) if p.number else p for p in pads)
 
 
 def _vendor_plan(

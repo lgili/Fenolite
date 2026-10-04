@@ -259,29 +259,10 @@ An item without a uuid MUST use `content_id(<prefix>, "kicad", "kicad_pcb", <hea
 ### Requirement: Board read issue codes
 `read_board` SHALL report problems only with the codes of this closed table, plus the `kicad.version.*` codes of `kicad-version-gating`. `pcb.ISSUE_CODES` MUST map each code to its severity. On boards, the shared footprint mapping MUST report `kicad.board.kept-opaque` instead of `kicad.lib.kept-opaque`. The `ReadResult.issues` of a board also hold the `model.*` codes of `Design.validate()` (`backend-protocol` "Read results"); they are model findings, not reader codes, and are not in this table.
 
-| code | severity | when |
-|---|---|---|
-| `kicad.board.inexact-length` | info | a length that is not a whole number of nm |
-| `kicad.board.inexact-angle` | info | an angle that is not a whole number of µdeg |
-| `kicad.board.zone-outline-opaque` | info | a zone or rule-area outline with `pts` arcs or several `polygon` children |
-| `kicad.board.duplicate-uuid` | warning | a uuid already used by another item of the file |
-| `kicad.board.unknown-net` | warning | a numbered net reference absent from the table |
-| `kicad.board.kept-opaque` | info | a modelled or projected child that loses modelled meaning or fails the emitter check |
-| `kicad.board.paper-unmodelled` | info | a `paper` child whose name or size the model does not name ("Paper and title block on boards") |
-
-#### Scenario: Closed set enforced
-- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_numbers.py -k closed_set` collects every issue code that `read_board` produces in the board unit tests
-- **THEN** each code other than `kicad.version.*` is a key of `ISSUE_CODES` with the severity of this table, and no `model.*` code comes from `read_board`
-
 #### Scenario: Oval drill on a board pad
 - **GIVEN** a board pad with `(drill oval 1.2 2.0)`
 - **WHEN** the board is read with an `issues` list
-- **THEN** the pad has `drill is None`, and `issues` holds one info `kicad.board.kept-opaque` and no `kicad.lib.*` code
-
-#### Scenario: Unmodelled paper is an info
-- **GIVEN** a board holding `(paper "USLetter")`
-- **WHEN** it is read with an `issues` list
-- **THEN** `issues` holds one info `kicad.board.paper-unmodelled`, and `ISSUE_CODES["kicad.board.paper-unmodelled"] == "info"`
+- **THEN** `pad.drill == 1_200_000`, its padstack has `hole_shape == "slot"` and `hole_length == 2_000_000`, and the reader may report a kept-opaque info when its emitter check finds a byte-level projection difference
 
 ### Requirement: Same-version rebuild
 `pcb.rebuild_board(design)` SHALL return the `kicad_pcb` node of a design read by `read_board`, built with `slots.rebuild` and `pcb.ModelSource`, the first `slots.SlotSource` implementation in `src`.

@@ -184,6 +184,7 @@ def read_pad(
         raise ctx.error(f"unknown pad shape {shape!r}", loc, node)
     slots = ctx.split(node, dict(fields), chain, PAD_POSITIONAL)
     position, rotation, size, drill = None, 0, None, None
+    hole_shape, hole_length, hole_turn = "round", None, 0
     layers: tuple[str, ...] = ()
     net_id: str | None = None
     zone_connection: ZoneConnection | None = None
@@ -216,7 +217,7 @@ def read_pad(
                 layers = expanded
                 slots[index] = ctx.opaque(child, chain)
         elif head == "drill":
-            drill = read_drill(ctx, child, child_loc, slots, index, chain)
+            drill, hole_shape, hole_length, hole_turn = read_drill(ctx, child, child_loc, slots, index, chain)
         elif head == "padstack":
             padstack_at = (index, child, child_loc)
         elif head == "net" and net is not None:
@@ -231,6 +232,16 @@ def read_pad(
         padstack = read_padstack(ctx, node, child, loc, child_loc, shape, size, ids)
         slots[index] = ctx.opaque(child, chain)
         ctx.kept_opaque("padstack: per-layer extras are not modelled", child_loc)
+    elif hole_shape == "slot":
+        ident, native_ids = ids.of("pst", "pad", node, ":padstack")
+        padstack = Padstack(
+            id=ident,
+            native_ids=native_ids,
+            provenance=ctx.provenance(loc),
+            hole_shape="slot",
+            hole_length=hole_length,
+            hole_rotation=(hole_turn if root == ("footprint",) else (rotation + hole_turn) % 180_000_000),
+        )
     ident, native_ids = ids.of("pad", "pad", node)
     return Pad(
         id=ident,
@@ -253,20 +264,26 @@ def read_pad(
 
 def read_drill(
     ctx: Context, node: Node, loc: str, slots: list[Slot], index: int, chain: tuple[str, ...]
-) -> int | None:
-    """``(drill D)`` is modelled; an offset drill projects D; an oval or other form gives None."""
+) -> tuple[int | None, str, int | None, int]:
+    """Round and oval drills are modelled; offsets and unusual forms stay opaque."""
     atoms = node.atoms()
     numbers = [a for a in atoms if a.kind == AtomKind.NUMBER]
     lists = node.nodes()
     simple = len(atoms) == 1 and len(numbers) == 1
     if simple and not lists:
-        return ctx.nm(numbers[0], loc, node)
+        return ctx.nm(numbers[0], loc, node), "round", None, 0
+    if len(atoms) == 3 and atoms[0].value == "oval" and len(numbers) == 2 and not lists:
+        x_size, y_size = (ctx.nm(value, loc, node) for value in numbers)
+        slots[index] = Modeled("drill")
+        if x_size == y_size:
+            return x_size, "round", None, 0
+        return min(x_size, y_size), "slot", max(x_size, y_size), 90_000_000 if y_size > x_size else 0
     slots[index] = ctx.opaque(node, chain)
     if simple and [c.name for c in lists] == ["offset"]:
         ctx.kept_opaque("drill offset is not modelled", loc)
-        return ctx.nm(numbers[0], loc, node)
+        return ctx.nm(numbers[0], loc, node), "round", None, 0
     ctx.kept_opaque("oval or unusual drill: drill is None", loc)
-    return None
+    return None, "round", None, 0
 
 
 def padstack_key(pad: Pad, child: Node) -> tuple[tuple[str, str, int, int], ...] | None:
@@ -383,6 +400,21 @@ def layers_node(head: str, layers: tuple[str, ...]) -> Node:
 
 def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
     """The modelled fields of a pad; ``angle`` replaces ``pad.rotation`` (a board stores it absolute)."""
+    drill_node: list[Node | Atom] = []
+    if pad.drill is not None:
+        stack = pad.padstack
+        if stack is not None and stack.hole_shape == "slot":
+            if stack.hole_length is None:
+                raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
+            if stack.hole_rotation % 180_000_000 == 0:
+                w, h = stack.hole_length, pad.drill
+            elif stack.hole_rotation % 180_000_000 == 90_000_000:
+                w, h = pad.drill, stack.hole_length
+            else:
+                raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
+            drill_node.append(node("drill", Atom.symbol("oval"), Atom.from_nm(w), Atom.from_nm(h)))
+        else:
+            drill_node.append(node("drill", Atom.from_nm(pad.drill)))
     items: Items = {
         "number": [Atom.string(pad.number)],
         "kind": [Atom.symbol(pad.kind)],
@@ -391,7 +423,7 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
         "size": [node("size", Atom.from_nm(pad.size.w), Atom.from_nm(pad.size.h))],
         "layers": [layers_node("layers", pad.layers)],
         "native_ids": uuid_items(pad.native_ids),
-        "drill": [] if pad.drill is None else [node("drill", Atom.from_nm(pad.drill))],
+        "drill": drill_node,
         "zone_connection": (
             [] if pad.zone_connection is None else [zonelib.pad_connect_node(pad.zone_connection)]
         ),

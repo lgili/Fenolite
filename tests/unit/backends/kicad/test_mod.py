@@ -162,7 +162,7 @@ def test_development_version_adds_an_info() -> None:
 def test_opaque_minimum_version_rule() -> None:
     issues: list[Issue] = []
     fp = read_footprint(MINI / "Mini.pretty" / "Mini_Edge_Cases.kicad_mod", issues=issues)
-    padstack_pad = next(p for p in fp.pads if p.padstack is not None)
+    padstack_pad = next(p for p in fp.pads if p.padstack is not None and p.padstack.layers)
     fragments = [s for s in slots.from_ext(padstack_pad.ext["kicad"]) if isinstance(s, Opaque)]
     padstack = next(s for s in fragments if s.fragment.startswith("(padstack"))
     assert padstack.min_version is not None and 20240929 <= int(padstack.min_version) < 20260206

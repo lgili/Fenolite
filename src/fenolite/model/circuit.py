@@ -37,6 +37,7 @@ class Component(Entity):
     properties: dict[str, str] = field(default_factory=lambda: {})
     path: str = ""
     pins: tuple[Pin, ...] = ()
+    pin_pad_map: tuple[tuple[str, str], ...] = field(default=(), metadata={"ordered": True})
 
 
 @dataclass(frozen=True, slots=True, order=True)

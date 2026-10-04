@@ -405,6 +405,8 @@ def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
         ratio: Decimal | None = None
         refusal: str | None = None
         dropped: list[str] = []
+        if pad.padstack is not None and pad.padstack.hole_shape == "slot":
+            refusal = "the drill is oval or has an offset"
         for node in _opaque_nodes(pad):
             head = node.name
             if head == "roundrect_rratio":

@@ -103,6 +103,21 @@
           "items": {
             "$ref": "#/$defs/Pin"
           }
+        },
+        "pin_pad_map": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
         }
       },
       "additionalProperties": false,
