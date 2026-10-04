@@ -1,0 +1,28 @@
+# authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[current]]
+select = { net = "VBUS" }
+milliamps = 2000
+temp_rise_mk = 20000
+
+[[distance]]
+a = { netclass = "Mains" }
+b = { netclass = "Default" }
+millivolts = 230000
+
+[[distance]]
+a = { net = "L" }
+b = { net = "N" }
+clearance_nm = 2000000
+creepage_nm = 3000000
+
+[[step]]
+up_to_mv = 50000
+clearance_nm = 500000
+creepage_nm = 1000000
+
+[[step]]
+up_to_mv = 300000
+clearance_nm = 2000000
+creepage_nm = 3000000

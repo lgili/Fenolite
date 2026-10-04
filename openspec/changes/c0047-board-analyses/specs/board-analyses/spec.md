@@ -159,15 +159,16 @@ A distance SHALL be reported as the frozen record `Measure(low, high, layer, poi
 - **THEN** the two sets of pairs are equal
 
 ### Requirement: Creepage on the board surface
-`fenolite.analysis.surface.surface_distance(a, b, boundary, *, limit=None) -> SurfacePath | None` SHALL search the shortest path along the board surface from a terminal of `a` to a terminal of `b`, a terminal being `Terminal(shape: Thick, face)` with `face` `top` or `bottom`. The surface is the two outer faces inside `boundary.outer`, less the interior of every cut-out, joined by a wall of height `boundary.thickness` along every boundary edge.
+`fenolite.analysis.surface.surface_distance(a, b, boundary, *, limit=None) -> SurfacePath | None` SHALL search the shortest path along the board surface from a terminal of `a` to a terminal of `b`, a terminal being `Terminal(shape: Thick, face, band=0)` with `face` `top` or `bottom` and `band` the bound of the shape's approximation. The surface is the two outer faces inside `boundary.outer`, less the interior of every cut-out, joined by a wall of height `boundary.thickness` along every boundary edge.
 - A path MUST be a chain of legs. A leg is a straight segment on one face that passes neither strictly inside a cut-out nor strictly outside `outer`; a wall drop of length `thickness` at a boundary vertex; or a wall crossing through the interior of one boundary edge, straight in the development that unfolds the two faces and the wall into one plane. A leg MAY run along a boundary edge.
 - The search MUST consider paths that bend only at boundary vertices: the direct leg between each pair of core pieces of the two terminals, and legs from each core piece to each boundary vertex at the point of the piece nearest to it. Whether a leg is allowed MUST be decided with the kernel's exact predicates on integer or `Fraction` coordinates. Copper MUST NOT block a leg.
 - The length of a leg from a shape MUST be the distance to its core less half its width. Lengths MUST be summed as integers scaled by 2²⁰ per nanometre, each a rounded-down square root, so the reported `length` is an integer with `length ≤ d < length + 2` on a boundary without curved edges. The direction across a wall MUST use a unit normal rounded at 2⁻⁶⁴.
-- `SurfacePath` MUST hold `length`, `band` (`boundary.band` times the number of bends at boundary vertices, plus the bands of the two items) and `points`, each with its face.
+- `SurfacePath` MUST hold `length`, `band` (`boundary.band` times the number of bends of the path, plus the bands of the two terminals it joins), `points`, each with its face, and `ends`, the indices of those two terminals in `a` and `b`.
+- The search MAY leave out a leg that cannot lead to a shorter path: no path from a point to a conductor is shorter than their distance in plan view less the half width. Such pruning MUST NOT change the result.
 - When `boundary.thickness` is `None`, no wall leg exists, and terminals on opposite faces are not joined.
 - With `limit`, the search MAY stop when no path shorter than `limit` exists, and MUST then return `None`.
 - Without `boundary`, or with `boundary.source == "none"`, the surface is one unbounded plane per face: only terminals on the same face are joined, by their gap.
-- A terminal with a core point strictly outside `outer` or strictly inside a cut-out MUST be left out and counted as unsupported.
+- A terminal with a core point strictly outside `outer` or strictly inside a cut-out MUST be left out and counted as unsupported: `usable_terminals(terminals, boundary)` returns the terminals kept and the count left out, and `analyze_distances` reports that count in one `analysis.item-unsupported` warning.
 
 `analyze_distances` MUST set `creepage` of a row from this search, over the shapes of the two nets on the two outer copper layers, the first copper layer being the `top` face: `low = max(0, length − band)`, `high = length + band + 2`. Holes, solder mask, coatings, components and copper of other nets MUST be ignored; `docs/analyses.md` MUST list them as limits.
 
@@ -194,7 +195,7 @@ A distance SHALL be reported as the frozen record `Measure(low, high, layer, poi
 For two nets with copper on opposite outer faces, `analyze_distances` SHALL report the path around the board edge when `boundary.thickness` is known and `boundary.source` is not `none`.
 - The creepage is the result of "Creepage on the board surface", whose paths cross walls.
 - The clearance across the edge MUST be the interval `low = dA + dB + thickness`, each of `dA` and `dB` being the smallest distance from the copper of one net on its face to the boundary, rounded down, and `high` the `high` of that creepage. A path through air leaves one face at the boundary, descends the thickness and reaches the other face, so it is never shorter than `low`; it is never longer than a surface path. `layer` MUST name the two faces joined by `/`.
-- Without a thickness or a boundary, the pair MUST be judged on each face alone, and one `analysis.input-missing` warning MUST name `board thickness` or `board outline`.
+- Without a thickness or a boundary, no path crosses a wall. A pair with copper only on opposite faces then has no clearance and no creepage, and one `analysis.input-missing` warning MUST name `board thickness` or `board outline` with the count of such pairs. A pair that also shares a face MUST be measured on each face alone and counted in `summary.faces_alone`, without a warning.
 
 #### Scenario: Track above track
 - **GIVEN** a 20 mm × 10 mm board from (0, 0), 1.6 mm thick, a 0.5 mm track of net `A` on `F.Cu` and one of net `B` on `B.Cu`, both from (5 mm, 2 mm) to (15 mm, 2 mm)
@@ -248,13 +249,13 @@ Fenolite SHALL ship no requirement value: no table from voltage to distance, no 
 |---|---|---|
 | `analysis.current-exceeded` | error | the capacity of an item is below the current its net requires |
 | `analysis.clearance-below` | error | `clearance.high` is below the requirement |
-| `analysis.clearance-undecided` | warning | the requirement lies inside the clearance interval |
+| `analysis.clearance-undecided` | warning | the requirement lies inside the clearance interval, or `embedded_nm` lies inside the interval of a gap on an inner layer |
 | `analysis.creepage-below` | error | `creepage.high` is below the requirement |
 | `analysis.creepage-undecided` | warning | the requirement lies inside the creepage interval, or the search was bounded |
 | `analysis.embedded-below` | error | a gap on an inner layer is below `embedded_nm` |
 | `analysis.fit-out-of-range` | warning | rows computed outside the stated range of the fit |
 | `analysis.input-missing` | warning | an input that Fenolite does not assume is absent; the items left out are counted |
-| `analysis.item-unsupported` | warning | copper that could not be shaped, per kind |
+| `analysis.item-unsupported` | warning | copper that could not be shaped, per kind; conductors outside the board, left out of the surface search |
 | `analysis.requirement-unmatched` | warning | a requirement row that matches no net, or a voltage above every step |
 
 - Each finding MUST be an `Issue` whose `where` names the item or the two items, and whose message gives the measured value, the requirement, the layer and the point in exact millimetres or milliamperes.
@@ -318,7 +319,7 @@ Fenolite SHALL ship no requirement value: no table from voltage to distance, no 
 - **THEN** the issues hold one `analysis.item-unsupported` warning naming pads, and `evidence.level` is `UNVERIFIED`
 
 ### Requirement: KiCad creepage bracket is recorded
-The KiCad test suite SHALL record, on `kicad-cli` 10.0.6, whether KiCad's `creepage` rule constraint (S-0272) agrees with Fenolite's creepage on authored benches: the bench of "Around a slot" and the bench of "Track above track", each written as a KiCad board with its slot on the edge layer and a custom rule `creepage` with `min` set 50 µm below and 50 µm above Fenolite's value. The probes `analysis-creepage-slot` and `analysis-creepage-edge` MUST record `equal` when `pcb drc` reports no creepage violation below and one above, `different` otherwise, and `absent` when the rules file was not loaded. The outcome MUST be written to `docs/evidence/board-analyses.md` and to the row `H-K-AN-CREEP`. It is supporting data: it MUST NOT gate this change and MUST NOT raise `fenolite.analysis.EVIDENCE`.
+The KiCad test suite SHALL record, on `kicad-cli` 10.0.6, whether KiCad's `creepage` rule constraint (S-0272) agrees with Fenolite's creepage on authored benches: the bench of "Around a slot" and the bench of "Track above track", each written as a KiCad board with its slot on the edge layer and a custom rule `creepage` with `min` set 50 µm below and 50 µm above Fenolite's value. The probes `analysis-creepage-slot` and `analysis-creepage-edge` MUST record `equal` when `pcb drc` reports no creepage violation below and one above, `different` otherwise, and `absent` when the rules file was not loaded. The outcome MUST be written to `docs/evidence/board-analyses.md` and to the row `H-K-AN-CREEP`, or to its successor when the row is refuted. Because a through via lies on both faces, the slot bench uses two tracks on the top face whose round ends lie where the discs of "Around a slot" do. It is supporting data: it MUST NOT gate this change and MUST NOT raise `fenolite.analysis.EVIDENCE`.
 
 #### Scenario: Bracket recorded
 - **WHEN** `uv run pytest tests/kicad/analysis/test_creepage_bracket.py` runs on the local KiCad 10.0.6
@@ -326,4 +327,4 @@ The KiCad test suite SHALL record, on `kicad-cli` 10.0.6, whether KiCad's `creep
 
 #### Scenario: Bench is hermetic to build
 - **WHEN** `uv run pytest tests/unit/analysis/test_bracket_bench.py` builds the two benches in `tmp_path` without KiCad
-- **THEN** each board reads back with `read_board`, and `analyze_distances` gives 11 mm and 5.1 mm on them
+- **THEN** each board reads back with `read_board`, and `analyze_distances` gives 11 mm and 5.1 mm on them (the edge bench with its thickness of 1.6 mm)

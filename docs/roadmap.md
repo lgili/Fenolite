@@ -205,7 +205,9 @@ recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
 - Buses, padstacks and component bodies in the model. The model spec is additive-only from the end
   of v0.3.
 - `equivalent`, levels 1–4.
-- In parallel, an analyses track: current capacity, clearance and creepage distances.
+- In parallel, an analyses track: current capacity, clearance and creepage distances. Done as c0047
+  (`fenolite analyze`, `docs/analyses.md`); it works on the neutral model, so an Altium board is
+  analysable once its reader exists.
 
 **Pulled forward: c0032 `altium-schematic-writer` (experimental, proposed 2026-10-02).** The
 maintainer starts a real board in Altium Designer on 2026-10-05. c0032 lets

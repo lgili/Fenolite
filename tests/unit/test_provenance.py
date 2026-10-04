@@ -18,7 +18,7 @@ SOURCE_REF = re.compile(r"\bS-\d{4}\b|https?://")
 FORMAT_PATHS = ("src/fenolite/backends/", "docs/formats/")
 
 
-PROVENANCE_PACKAGES = ("templates",)  # packages outside backends/ that ship sourced figures
+PROVENANCE_PACKAGES = ("templates", "analysis")  # packages outside backends/ that ship sourced figures
 
 
 def _provenance_problems(prov: Path, rel: str) -> list[str]:

@@ -591,6 +591,67 @@ still off the board) and `legality` (the number of issues by code). The evidence
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
 `result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`.
 
+## analyze
+
+`fenolite analyze PATH [--kinds current,clearance,creepage] [--requirements FILE] [--temp-rise KELVIN]
+[--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH] [--board-thickness LENGTH]
+[--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]` measures the current capacity of tracks,
+arcs and vias, and the clearance and creepage of pairs of nets, on a board that a registered backend
+reads. It is read-only: it runs no tool and writes no file. The user guide is `docs/analyses.md`.
+
+**Fenolite measures and the user decides.** No reply claims conformance to a standard. Fenolite ships no
+requirement value and assumes no thickness and no temperature rise: an input that is not given leaves
+items out, which are counted (`analysis.input-missing`). A finding exists only against a requirement of
+the user's file.
+
+- `--kinds` selects the analyses (default: all three). `clearance` and `creepage` come from one pass; an
+  unselected kind is left out of each row.
+- `--requirements FILE` names a TOML file of schema `fenolite.requirements.v0` (integers only, units in
+  the key names): currents per net or net class, distances per pair, and an optional table from voltage
+  to distance that is looked up without interpolation.
+- `--temp-rise` is a temperature rise in kelvin with at most three decimals. A current row of the
+  requirements file gives its own rise for its nets.
+- `--copper-thickness LENGTH` gives the copper thickness of every layer and `LAYER=LENGTH` that of one
+  layer (repeatable); `--via-plating` the plating of a via barrel; `--board-thickness` the thickness of
+  the board, which the paths around the board edge need.
+- `--pair NET_A NET_B` (repeatable) measures one pair. `--within LENGTH` measures every pair of nets
+  with a gap on a layer below that length. A distance row of the requirements file selects the pairs it
+  matches. A search stops at the largest requirement of the pair; a pair named by `--pair` alone is
+  searched without a limit.
+- `--arc-tol` is the chord error of polygonised copper arcs (default `1um`).
+- Lengths need a unit (`35um`, `1.6mm`).
+
+`result` holds:
+
+- `current`: one row per track, arc and via with `kind`, `where`, `entity_id`, `net`, `layer`, `at`,
+  `width`, `thickness`, `area_nm2`, `external`, `temp_rise_mk`, `capacity_ma` and `in_range`;
+- `distances`: one row per pair with `net_a`, `net_b`, `gaps` (one measure per copper layer that carries
+  both nets), `clearance` and `creepage`. A measure holds `low` and `high` in nanometres, `layer`,
+  `points`, `items` and `bounded`;
+- `summary`: per analysis, the counts; `current.nets` names the weakest item of each net, `current.fit`
+  the source id of the fit, and `distances.faces_alone` the pairs measured on each face alone because the
+  board thickness or outline is unknown;
+- `inputs`: the option values in force and the boundary (`source`, `band`, `cutouts`).
+
+A requirement `r` is judged the same way for every measure: `high < r` is an error, `low < r ≤ high` a
+warning (`-undecided`), `low ≥ r` nothing. An error gives exit code 5. An unknown kind, a malformed option
+or `--pair` without exactly two different names is a usage error (`FEN-2001`, exit 2); an unreadable
+requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `INFERRED`, or
+`UNVERIFIED` when an item or an input was left out.
+
+| code | severity | when |
+|---|---|---|
+| `analysis.current-exceeded` | error | the capacity of an item is below the current its net requires |
+| `analysis.clearance-below` | error | the clearance is below the requirement |
+| `analysis.clearance-undecided` | warning | the requirement lies inside the interval of the clearance, or of a gap inside the laminate |
+| `analysis.creepage-below` | error | the creepage is below the requirement |
+| `analysis.creepage-undecided` | warning | the requirement lies inside the interval of the creepage, or the search was bounded |
+| `analysis.embedded-below` | error | a gap on an inner layer is below `embedded_nm` |
+| `analysis.fit-out-of-range` | warning | rows computed outside the range its source states for the fit |
+| `analysis.input-missing` | warning | an input that Fenolite does not assume is absent; the items left out are counted |
+| `analysis.item-unsupported` | warning | copper that could not be shaped, per kind, or a conductor outside the board |
+| `analysis.requirement-unmatched` | warning | a requirement row that matches no net, or a voltage above every step |
+
 ## template
 
 `fenolite template build SPEC --target kicad -o OUT` builds a drawing sheet (`.kicad_wks`) from a

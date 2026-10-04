@@ -915,3 +915,9 @@ path = "tests/data/libs/Frame.pretty/Frame_Loop.kicad_mod"
 origin = "authored"
 corpus_id = ""
 notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
+
+[[file]]
+path = "tests/data/analysis/requirements_example.toml"
+origin = "authored"
+corpus_id = ""
+notes = "authored requirements file of the board analyses (c0047): round illustrative numbers, no value of any standard"

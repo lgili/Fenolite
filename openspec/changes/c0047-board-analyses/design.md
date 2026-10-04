@@ -126,7 +126,7 @@
 | `tests/_analysis.py` (new) | `slot_board()`, `edge_board()`, `grid_shortest(…)`: authored boards and the grid search |
 | `tests/data/analysis/requirements_example.toml` (new, authored) | illustrative values, marked as such |
 | `tests/unit/analysis/test_report.py`, `test_current.py`, `test_facts_page.py`, `test_boundary.py`, `test_copper.py`, `test_surface.py`, `test_distance.py`, `test_requirements.py`, `test_findings.py`, `test_bracket_bench.py`; `tests/unit/cli/test_analyze_cmd.py` (new) | hermetic tests |
-| `tests/kicad/analysis/_benches.py`, `test_creepage_bracket.py` (new); `tests/kicad/_probes.py` (rows added) | `needs_kicad`; recorded probes |
+| `tests/kicad/analysis/_creepbench.py`, `test_creepage_bracket.py` (new); `tests/kicad/_probes.py` (rows added) | `needs_kicad`; recorded probes (see "Implementation notes" for the file name) |
 
 Layering: every module of `analysis` imports `core`, `model`, `geometry` and `backends.base` only; `cmd_analyze` imports `analysis` and `backends`. Every edge is in "Allowed import edges", unchanged.
 
@@ -209,6 +209,19 @@ Cut order: (1) the KiCad bracket becomes an open question (−1.0, and `H-K-AN-C
 
 - Additive: a package, a command, two doc pages, tests. No model, schema, FEN-code, stage or layering change. `fenolite capabilities` lists one more command.
 - Rollback: remove `src/fenolite/analysis/`, `cmd_analyze.py`, the pages, the probe rows and the register rows.
+
+## Implementation notes (2026-10-04)
+
+What the implementation settled, where it differs from the tables above:
+
+- **Predecessor names (task 1.3).** c0028 and c0029 are archived with the names this design uses: `geometry.thick` (`Thick`, `thick_bbox`, `thick_touch`, `thick_gap_floor`, `thick_witness`), `ARC_TOL_NM = 1_000`, and `BoardFrame.board_pads`, `BoardPad`, `PadCopper` in `backends.base`. Nothing was renamed. `checks.copper` keeps two shapes per arc, narrowed and widened by the band; `analysis.copper` keeps the nominal shape and the band beside it, and the equality test compares them through that band.
+- **Names added.** `Terminal` gains `band`, and `SurfacePath` gains `ends` (the two terminals a path joins), so a measure can name its items and carry their bands. `surface.usable_terminals` returns the terminals that lie on the board and the count left out. `NetCopper` gains `layers`. `Requirements` gains `step_for` and `values`. The source id of the fit is `current.SOURCE_OF_FIT`, so every `FIT_*` name is a number of the table "Capacity fit". `EVIDENCE` is defined in `analysis.report` and re-exported.
+- **Warning for an unknown thickness.** The scenario "Measured only" asks for no issue on the slot board, whose vias lie on both faces, while no thickness is given. So the warning is raised only for a pair that has copper only on opposite faces; a pair that shares a face is measured there and counted in `summary.faces_alone`.
+- **An undecided gap inside the laminate** has no code of its own in the table of ten. It is reported as `analysis.clearance-undecided`, with a message that names the inner layer.
+- **Bench files.** `tests/kicad/copper/_benches.py` already exists on the import path of the KiCad tests, so the bracket's helper is `tests/kicad/analysis/_creepbench.py`. The benches themselves are built by `tests/_analysis.creep_bench`, which the hermetic test can import. The slot bench uses two tracks on the top face instead of two through vias: a via lies on both faces, and KiCad would then see a path through the slot's wall.
+- **The KiCad bracket.** `analysis-creepage-slot` is `equal`: KiCad reports an actual creepage of 11.0000 mm. `analysis-creepage-edge` is `different`: KiCad reports no creepage violation across the board edge at any `min`. `H-K-AN-CREEP` is refuted and `H-K-AN-CREEP-2` records both outcomes. Nothing gates on them.
+- **Speed.** The first implementation took 129 s for one pair on a round board with 192 boundary vertices, above the 60 s of "Risks". The search now leaves out legs that cannot beat the best path known, using the distance in plan view to each conductor as a lower bound; the same case takes 4 s with the same result. No vertex is thinned.
+- **A slot's wall does not bridge the slot.** A wall joins the two faces on one side of a cut-out. Copper on opposite faces on the two sides of a slot is still joined around the slot (11 mm plus one drop on the slot board), which a test pins.
 
 ## Open Questions
 

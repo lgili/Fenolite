@@ -27,6 +27,7 @@ import _benches
 import _buildcases
 import _checkcases
 import _copperparity
+import _creepbench
 import _drccases
 import _exportcases
 import _fieldbench
@@ -225,6 +226,7 @@ def _probes() -> dict[str, Probe]:
         **_copperparity.parity_probes(),
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
+        **_creepbench.creepage_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
