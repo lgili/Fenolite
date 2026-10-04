@@ -450,6 +450,38 @@ class BoardFrame(Protocol):
     ) -> tuple[PlacedExtent, ...]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class DesignRules:
+    """The clearance rules that a project's own files hold, applied to a board design.
+
+    ``design`` is the board design with the net classes, the class of each net and the design rules of
+    those files; what a missing or unread file would give keeps the design's own value. ``min_clearance``
+    is the board minimum clearance, or ``None``. The two switches say, for the tool version the board is
+    judged against, whether a governing custom clearance rule replaces the class clearances and whether
+    the board minimum also raises a rule's value. ``opaque_clearance_rules`` counts the clearance rules
+    that could not be lifted into the model, and ``unread`` names each file that failed to read, with the
+    error's message, in file-name order.
+    """
+
+    design: Design
+    min_clearance: Nm | None = None
+    rules_over_classes: bool = True
+    floor_over_rules: bool = False
+    opaque_clearance_rules: int = 0
+    unread: tuple[tuple[str, str], ...] = ()
+    evidence: Evidence = Evidence()
+
+
+@runtime_checkable
+class DesignRulesSource(Protocol):
+    """A backend that gives the clearance rules of a project's own files. A pure query, not an operation:
+    it never raises for a file that fails to read."""
+
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -474,6 +506,8 @@ __all__ = [
     "BoardPad",
     "CanaryState",
     "CapabilityReport",
+    "DesignRules",
+    "DesignRulesSource",
     "Downgrade",
     "DrcItem",
     "DrcOutcome",

@@ -21,7 +21,14 @@ from _projects import authored_project, tree_snapshot
 pytestmark = pytest.mark.needs_kicad
 DESIGN = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
 REF_PIN = re.compile(r"^[A-Za-z]+[0-9]+-[0-9A-Za-z]+$")
-DEFAULT = ["model.validate", "erc.lite", "drc.kicad", "netlist.assignment_compare", "roundtrip"]
+DEFAULT = [
+    "model.validate",
+    "erc.lite",
+    "copper.clearance",
+    "drc.kicad",
+    "netlist.assignment_compare",
+    "roundtrip",
+]
 UNWANTED = ("unmatched-record", "net-label-ambiguous")
 
 

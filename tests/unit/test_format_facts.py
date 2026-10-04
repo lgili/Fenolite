@@ -90,6 +90,47 @@ def test_fact_tables() -> None:
     assert not problems, "\n".join(problems)
 
 
+CASES_HEADER = "case"
+DIFFERENCE = "documented difference"
+
+
+def cases_problems(name: str, text: str) -> list[str]:
+    """Problems of the supported-cases tables of ``name`` (the first header cell is ``case``): every row
+    names a hypothesis id or says "documented difference" (capability copper-check, change c0029)."""
+    problems: list[str] = []
+    in_table = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        if not line.startswith("|"):
+            in_table = False
+            continue
+        cells = _cells(line)
+        if cells and cells[0] == CASES_HEADER:
+            in_table = True
+            continue
+        if not in_table or set(line.replace("|", "").strip()) <= {"-", " "}:
+            continue
+        if not re.search(ANY_HYPOTHESIS, line) and DIFFERENCE not in line:
+            problems.append(f"{name}:{number}: the case names no hypothesis and no {DIFFERENCE!r}")
+    return problems
+
+
+def test_copper_supported_cases() -> None:
+    text = (PAGES / "copper.md").read_text(encoding="utf-8")
+    assert "| case | Fenolite | KiCad's DRC |" in text
+    assert cases_problems("copper.md", text) == []
+    for needed in ("tracks", "arc tracks", "vias", "net-tie", "zone fills", "the zone's own clearance"):
+        assert f"| {needed}" in text, needed
+
+
+def test_supported_case_without_basis_refused() -> None:
+    table = "| case | Fenolite | basis |\n|---|---|---|\n"
+    assert cases_problems("copper.md", table + "| tracks | exact | H-K-COPPER-SHAPES |\n") == []
+    assert cases_problems("copper.md", table + "| net ties | shorts | documented difference |\n") == []
+    assert cases_problems("copper.md", table + "| holes | not checked | none |\n") == [
+        "copper.md:3: the case names no hypothesis and no 'documented difference'"
+    ]
+
+
 def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
     assert [p.name for p in pages] == [

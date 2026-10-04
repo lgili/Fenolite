@@ -41,7 +41,9 @@ def _shift_segment(text: str, uuid: str, dy_mm: str) -> str:
 def test_copper_follows_a_moved_footprint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = Routed(tmp_path, monkeypatch)
     before_tracks, before_vias = script_copper(project.read())
-    project.edit_board(lambda text: move_footprint(text, "D1", 4 * MM, 0))
+    # along Y, as the oracle moves it: 4 mm along X would bring the LED_A track within 0.06 mm of pad 1,
+    # a clearance error that the copper guard refuses (change c0029)
+    project.edit_board(lambda text: move_footprint(text, "D1", 0, 4 * MM))
     moved_pad = pad_position(project.board.read_text(encoding="utf-8"), "D1", "2")
     code, env, _ = project.build("--confirm")
     assert code == 0

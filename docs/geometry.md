@@ -253,6 +253,52 @@ Point(x=1100, y=2000)
 - `query(bbox)` returns the payloads whose closed boxes intersect `bbox`, in insertion order.
 - `pairs()` returns every intersecting index pair `(i, j)` with `i < j`, sorted.
 
+## Thick shapes
+
+A `Thick(core, width, filled=False)` is the set of points within `width / 2` of its core, boundary
+included. It describes copper without approximating a curve by a polygon.
+
+| core | `filled` | shape |
+|---|---|---|
+| one point | false | a disc of diameter `width` (a via, a round pad) |
+| two or more points | false | an open polyline swept by a disc (a track, an oval pad, a polygonised arc) |
+| three or more points | true | the closed region of the ring under the non-zero rule, grown by `width / 2` (a zone fill, a rectangular or rounded pad) |
+
+- A negative width raises `ValueError`. An empty core, a single point with width 0, and a filled core
+  that `Polygon` refuses raise `GeometryError` with code `geometry.degenerate`.
+- A ring that walks out to a hole and back (a fractured ring) encloses nothing inside the hole,
+  because the winding number there is 0.
+- The gap of two shapes is `dist(core_a, core_b) − (width_a + width_b) / 2`. The distance is 0 when
+  the cores meet, and a filled core meets every point inside its region.
+
+| function | result |
+|---|---|
+| `thick_bbox(t)` | the box of the core grown by `⌈width / 2⌉`; it contains the shape |
+| `thick_touch(a, b)` | the gap is at most 0: the shapes share a point |
+| `thick_closer_than(a, b, limit)` | the gap is strictly below `limit` |
+| `thick_gap_floor(a, b)` | `⌊gap⌋` in nanometres for a positive gap, else 0 |
+| `thick_witness(a, b)` | the rounded midpoint of the first closest pair of core points; a common point when the cores meet |
+
+- Every answer is exact. With doubled lengths the half-widths are integers, so each test compares
+  `4·dist²`, an exact rational, with the square of an integer. No function forms a float.
+- Every function gives the same answer for `(a, b)` and `(b, a)`.
+- A core with 16 pieces or more gets a spatial index of its pieces on first use, so a track is tested
+  only against the edges of a large fill that lie near it.
+
+```python
+>>> from fenolite.geometry import Thick, thick_closer_than, thick_gap_floor, thick_touch
+>>> via = Thick((Point(0, 0),), 600_000)
+>>> track = Thick((Point(-5_000_000, 425_000), Point(5_000_000, 425_000)), 250_000)
+>>> thick_touch(via, track)
+True
+>>> clear = Thick((Point(-5_000_000, 625_000), Point(5_000_000, 625_000)), 250_000)
+>>> thick_touch(via, clear), thick_gap_floor(via, clear)
+(False, 200000)
+>>> thick_closer_than(via, clear, 200_000), thick_closer_than(via, clear, 200_001)
+(False, True)
+
+```
+
 ## Boolean backends
 
 - `BooleanBackend` is the protocol every backend implements: `name`, `operations`, `union`,

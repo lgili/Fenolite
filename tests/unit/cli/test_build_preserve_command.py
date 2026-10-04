@@ -43,6 +43,13 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch.delenv(name, raising=False)
 
 
+COPPER_WARN = ("--copper-check", "warn")
+"""For the tests whose edited board, fills or rules give a real copper error that is not their subject: a
+footprint swapped under an existing track, authored fills that cover a pad, and a 0.3 mm clearance that the
+0.25 mm gaps between the pads of ``U1`` do not meet. The copper guard (change c0029) reports those as
+warnings in this mode, and the build writes."""
+
+
 class Project:
     """A blink copy with its libraries, built into ``out``."""
 
@@ -294,7 +301,7 @@ def test_footprint_changed_in_the_script(tmp_path: Path, monkeypatch: pytest.Mon
     p.edit_board(edit_blink)
     before, _ = footprint(p.read(), "R1")
     p.edit_script('footprint="Mini:Mini_R_0603"', 'footprint="Mini:Mini_LED_THT_3mm"')
-    code, env, _ = p.build("--confirm")
+    code, env, _ = p.build(*COPPER_WARN, "--confirm")
     after, _ = footprint(p.read(), "R1")
     assert code == 0 and after.lib_ref == "Mini:Mini_LED_THT_3mm"  # type: ignore[attr-defined]
     assert (after.position, after.rotation, after.side) == (before.position, before.rotation, before.side)  # type: ignore[attr-defined]
@@ -462,7 +469,7 @@ def _fills(p: Project) -> int:
 def test_unchanged_rebuild_keeps_fills(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
     _filled(p)
-    code, env, _ = p.build("--confirm")
+    code, env, _ = p.build(*COPPER_WARN, "--confirm")
     assert code == 0 and _fills(p) == 2 and "zone.fill-stale" not in codes(env)
 
 
@@ -479,7 +486,7 @@ def test_a_class_change_drops_fills(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     p = Project(tmp_path, monkeypatch)
     _filled(p)
     p.edit_script("clearance=mm(0.2)", "clearance=mm(0.3)")
-    code, env, _ = p.build("--confirm")
+    code, env, _ = p.build(*COPPER_WARN, "--confirm")
     assert code == 0 and _fills(p) == 0 and "zone.fill-stale" in codes(env)
 
 
@@ -492,9 +499,9 @@ def test_user_rule_kept_after_fenolites(tmp_path: Path, monkeypatch: pytest.Monk
     lines = rules.read_text(encoding="utf-8").split("\n")
     lines[1:1] = ["# kept by hand", "(rule user_gap (constraint clearance (min 0.3mm)))"]
     rules.write_text("\n".join(lines), encoding="utf-8")
-    assert p.build("--confirm")[0] == 0
+    assert p.build(*COPPER_WARN, "--confirm")[0] == 0
     first = rules.read_text(encoding="utf-8")
-    assert p.build("--confirm")[0] == 0 and rules.read_text(encoding="utf-8") == first
+    assert p.build(*COPPER_WARN, "--confirm")[0] == 0 and rules.read_text(encoding="utf-8") == first
     assert first.startswith("(version 1)\n") and first.index("# kept by hand") < first.index("user_gap")
     (user,) = [r for r in read_rules(first).rules if r.name == "user_gap"]
     assert user.priority == 1

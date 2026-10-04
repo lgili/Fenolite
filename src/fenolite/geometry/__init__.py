@@ -41,6 +41,14 @@ from fenolite.geometry.predicates import (
     segments_closer_than,
 )
 from fenolite.geometry.shapes import DEFAULT_TOL, MAX_BISECTION_DEPTH, Arc, BBox, Circle, Segment
+from fenolite.geometry.thick import (
+    Thick,
+    thick_bbox,
+    thick_closer_than,
+    thick_gap_floor,
+    thick_touch,
+    thick_witness,
+)
 from fenolite.geometry.transform import FULL_TURN, TRIG_BITS, Transform, cos_sin_fixed, rotate_point
 from fenolite.geometry.vector import Point, Size, Vec, add, cross, dot, neg, norm2, sub
 
@@ -67,6 +75,7 @@ __all__ = [
     "SegmentRelation",
     "Size",
     "SpatialIndex",
+    "Thick",
     "Transform",
     "Vec",
     "add",
@@ -95,4 +104,9 @@ __all__ = [
     "segments_closer_than",
     "select_backend",
     "sub",
+    "thick_bbox",
+    "thick_closer_than",
+    "thick_gap_floor",
+    "thick_touch",
+    "thick_witness",
 ]

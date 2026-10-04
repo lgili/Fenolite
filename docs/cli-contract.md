@@ -157,7 +157,7 @@ A script with `planes` built for the KiCad target gives one `build.plane-not-low
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]
-[--altium-format binary|ascii] [--altium-sheets flat|modules]` runs the design script
+[--altium-format binary|ascii] [--altium-sheets flat|modules] [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -189,6 +189,18 @@ copper error (a `kicad.copper.*` issue of severity error) exits 5 and writes not
 `kicad.copper.*` and `kicad.frame.*` codes are listed in `docs/copper.md`. With intents, the envelope
 evidence also combines the copper and board-frame evidence, which are `INFERRED`. `--seed`,
 `--timestamp` and `PYTHONHASHSEED` change no byte of a build with intents.
+
+**Copper guard.** Before a KiCad build plans its writes, it judges the copper of the triad it is about
+to write with the copper check of `check` (`copper.clearance`, below): the planned board is read back,
+the planned project and rules files give the clearance in force, and copper kept from an existing board
+is judged with the rest. `--copper-check refuse` (the default) adds the `copper.*` issues as they are,
+so a `copper.short` or a `copper.clearance` error exits 5 and writes nothing. `--copper-check warn`
+reports those errors as warnings, with ` (copper guard in warn mode)` at the end of the message, and
+writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
+the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
+`opaque_clearance_rules`, `unread`) and `evidence`. The guard runs on `--dry-run` too, reads and writes
+no file, and runs no tool. `--copper-check` with `--target altium` is a usage error. A Python caller of
+`build_design` is not guarded (`docs/dsl.md`, "Copper guard").
 
 ## Discovery
 
@@ -247,11 +259,13 @@ The stages run in this order (`STAGE_ORDER`); `--stages` selects a subset, and u
 out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGES`), which costs two
 re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
+`copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
 
 | stage | runs on | evidence |
 |---|---|---|
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
 | `erc.lite` | built input only; skipped with `native-input` otherwise | `INFERRED` (`H-K-CHECK-ERC`) |
+| `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board and of `kicad-cli pcb export ipcd356`, compared as partitions | the lowest of the reader, the export and, on built input, `INFERRED`; `UNVERIFIED` without an export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
@@ -271,6 +285,25 @@ issue and `violations_judged` is `true`; `types` maps each emitted `kicad.drc.<t
 type. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
+
+**Copper check.** `copper.clearance` judges tracks, arcs, vias, pads and zone fills as exact shapes
+(`docs/geometry.md`, "Thick shapes"). Two items of different nets that share a copper layer are judged:
+copper that touches is `copper.short`, always an error, and copper closer than the clearance in force
+is `copper.clearance`. The clearance in force comes from the project's own files: the last matching
+`clearance` rule of the rules file, else the larger clearance of the two nets' classes, raised to the
+board minimum; a rule of severity `ignore` silences its pairs for clearance, never for shorts. The
+comparison is strict, so a gap equal to the clearance is clean. Each item pair gives at most one
+finding, on the first layer where it applies. `where` names both items, sorted by kind: `REF-PIN` for
+a pad and the item's locator in the board file otherwise (a fill is named by its zone). The message
+gives both nets, the layer, a point in millimetres and, for a clearance finding, the gap, the clearance
+and its source (`rule:<name>`, `class:<name>` or `floor`). The summary holds `layers`, `items` (counts
+per kind), `pairs`, `judged`, `shorts`, `clearance`, `zone_overlaps`, `unset_pairs`, `unsupported`,
+`approximated`, `arc_tol`, `max_clearance` and `rules` (`min_clearance`, `opaque_clearance_rules`,
+`unread`). A project without net classes and without rules has no clearance in force: its copper is
+judged for shorts only, and `copper.clearance-unset` says for how many pairs. The check does not replace
+KiCad's DRC: `docs/formats/kicad/copper.md` lists what it supports and where it differs, and why it
+exists (KiCad loads a via that touches a track of another net on that track's net and reports no
+short).
 
 **Findings.** The code is `kicad.drc.` followed by KiCad's type in lower case with `_` as `-`
 (`shorting_items` gives `kicad.drc.shorting-items`). The severity is the report's, which follows the
@@ -324,6 +357,12 @@ report; `kicad-cli` then runs twice.
 | `erc.lite.power-undriven` | warning | a power input without a power output or a power interface |
 | `erc.lite.floating-pin` | warning | a pin on no net that `no_connect` does not mark |
 | `render.failed` | warning | the `render` stage could not produce a view; `where` is the view name. Never an error: a render is not a gate |
+| `copper.short` | error | copper of two nets touches or overlaps on a shared copper layer; `where` names both items |
+| `copper.clearance` | error, warning | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error |
+| `copper.zone-overlap` | warning | zones of different nets and equal priority overlap on a shared layer |
+| `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
+| `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
+| `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force for them |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
 (error) names a pin that is marked as not connected and that a net lists (`docs/design-model.md`). Exit codes: 0 without an error issue, 5

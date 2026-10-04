@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import tempfile
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
@@ -27,13 +27,17 @@ import pytest
 from fenolite.backends.base import DrcReport, DrcViolation
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.embed import place_footprint
+from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.pcb import kicad_uuid, write_board
 from fenolite.core.coords import Point
-from fenolite.model.board import Board, FootprintInstance, Outline, Track, Via
-from fenolite.model.circuit import Circuit, Component, Net, PinRef
+from fenolite.geometry import thick_bbox
+from fenolite.geometry.thick import Thick
+from fenolite.model.board import Arc, Board, FootprintInstance, Outline, Side, Track, Via, Zone, ZoneFill
+from fenolite.model.circuit import Circuit, Component, Net, NetClass, PinRef
 from fenolite.model.design import Design
+from fenolite.model.rules import Rule, RuleSet
 
 ROOT = Path(__file__).resolve().parents[3]
 CANARY_FILE = ROOT / "tests" / "data" / "kicad" / "tokens" / "canary" / "canary.kicad_dru"
@@ -67,11 +71,17 @@ class Bench:
 
 @dataclass
 class Builder:
-    """Collects nets, tracks, vias and footprints, one labelled row at a time."""
+    """Collects nets, tracks, vias and footprints, one labelled row at a time. Change c0029 adds arcs, zones
+    with a stored fill, net classes and model rules, for the copper parity benches."""
 
     nets: dict[str, Net] = field(default_factory=lambda: {})
     tracks: list[Track] = field(default_factory=lambda: [])
     vias: list[Via] = field(default_factory=lambda: [])
+    arcs: list[Arc] = field(default_factory=lambda: [])
+    zones: list[Zone] = field(default_factory=lambda: [])
+    classes: dict[str, NetClass] = field(default_factory=lambda: {})
+    class_of: dict[str, str] = field(default_factory=lambda: {})
+    rules: list[Rule] = field(default_factory=lambda: [])
     footprints: list[FootprintInstance] = field(default_factory=lambda: [])
     components: list[Component] = field(default_factory=lambda: [])
     members: dict[str, list[PinRef]] = field(default_factory=lambda: {})
@@ -171,10 +181,138 @@ class Builder:
             self.footprints.append(placed)
             self.items[f"{label}_{side}"] = tuple(kicad_uuid(p) for p in placed.pads)
 
+    def part(
+        self,
+        label: str,
+        ref: str,
+        at: Point,
+        *,
+        target: int,
+        nets: Mapping[str, str],
+        footprint: str = "Mini_R_0603",
+        side: Side = "top",
+        rotation: int = 0,
+    ) -> FootprintInstance:
+        """One placed ``Mini`` footprint whose pad ``number`` is on the net ``nets[number]`` (no net when the
+        number is missing): item ``<label>`` holds every pad uuid and ``<label>:<number>`` the uuids of that
+        pad (change c0029)."""
+        folder = "Mini.pretty" if target >= 10 else "Mini_v9.pretty"
+        defn = read_footprint(LIBS / folder / f"{footprint}.kicad_mod", library="Mini")
+        n = len(self.components) + 1
+        component = Component(id=_id("cmp", n), ref=ref, value=footprint, lib_footprint_ref=defn.lib_id)
+        placed = place_footprint(defn, component=component, at=at, key=ref, side=side, rotation=rotation)
+        pads = tuple(
+            dataclasses.replace(pad, net_id=self.net(nets[pad.number]) if pad.number in nets else None)
+            for pad in placed.pads
+        )
+        placed = dataclasses.replace(placed, pads=pads)
+        for pad in pads:
+            if pad.net_id is not None:
+                self.members.setdefault(pad.net_id, []).append(PinRef(component.id, pad.number))
+            if pad.number:
+                self.items[f"{label}:{pad.number}"] = (
+                    *self.items.get(f"{label}:{pad.number}", ()),
+                    kicad_uuid(pad),
+                )
+        self.components.append(component)
+        self.footprints.append(placed)
+        self.items[label] = tuple(kicad_uuid(pad) for pad in pads)
+        return placed
+
+    # --- rows of the copper parity benches (change c0029) ----------------------------------------
+
+    def netclass(self, name: str, clearance: int, *nets: str) -> None:
+        """A net class with ``clearance``, holding ``nets`` (more are added with ``assign``)."""
+        self.classes[name] = NetClass(id=_id("cls", len(self.classes) + 1), name=name, clearance=clearance)
+        self.assign(name, *nets)
+
+    def assign(self, netclass: str, *nets: str) -> None:
+        for name in nets:
+            self.net(name)
+            self.class_of[name] = netclass
+
+    def rule(self, rule: Rule) -> None:
+        self.rules.append(rule)
+
+    def via_pair(self, label: str, net_a: str, net_b: str, *, gap: int = 4 * MM) -> None:
+        """Two 0.6 mm vias with an edge-to-edge ``gap``: ``<label>_a`` and ``<label>_b``."""
+        y = self.row()
+        x = (LEFT + RIGHT) // 2
+        self.via(f"{label}_a", net_a, Point(x, y))
+        self.via(f"{label}_b", net_b, Point(x, y + 600_000 + gap))
+
+    def arc_pair(self, label: str, arc_net: str, track_net: str, *, gap: int = 4 * MM) -> None:
+        """A 0.25 mm arc track of radius 3 mm and a straight track ``gap`` beyond its lowest point:
+        ``<label>_a`` (the arc) and ``<label>_b``. The three arc points lie exactly on the circle."""
+        y = self.row()
+        x, radius = (LEFT + RIGHT) // 2, 3 * MM
+        arc = Arc(
+            id=_id("arc", len(self.arcs) + 1),
+            start=Point(x - radius, y),
+            mid=Point(x, y + radius),
+            end=Point(x + radius, y),
+            width=WIDTH,
+            layer="F.Cu",
+            net_id=self.net(arc_net),
+        )
+        self.arcs.append(arc)
+        self.items[f"{label}_a"] = (kicad_uuid(arc),)
+        self.track(f"{label}_b", track_net, y + radius + WIDTH + gap)
+
+    def _pad_row(self, label: str, ref: str, footprint: str, pad_net: str, track_net: str, gap: int,
+                 layer: str, target: int) -> None:  # fmt: skip
+        y = self.row()
+        at = Point((LEFT + RIGHT) // 2, y + 4 * MM)
+        numbers = {"1": pad_net, "2": pad_net}
+        self.part(f"{label}_a", ref, at, target=target, nets=numbers, footprint=footprint)
+        pads = [pad for pad in board_pads(self.build().design) if pad.ref == ref]
+        tops = [
+            thick_bbox(Thick(entry.core, entry.width, entry.filled)).y0
+            for pad in pads
+            for entry in pad.copper
+            if entry.layer == layer
+        ]
+        self.track(f"{label}_b", track_net, min(tops) - gap - WIDTH // 2, layer=layer)
+
+    def pad_track(self, label: str, ref: str, pad_net: str, track_net: str, *, gap: int = 4 * MM,
+                  target: int) -> None:  # fmt: skip
+        """A placed ``Mini_R_0603`` whose pads are on ``pad_net`` and an ``F.Cu`` track ``gap`` above their
+        flat upper edge: ``<label>_a`` (the pads) and ``<label>_b``."""
+        self._pad_row(label, ref, "Mini_R_0603", pad_net, track_net, gap, "F.Cu", target)
+
+    def tht_track(self, label: str, ref: str, pad_net: str, track_net: str, *, gap: int = 4 * MM,
+                  target: int) -> None:  # fmt: skip
+        """A placed ``Mini_LED_THT_3mm`` (a square and a round through-hole pad) and a ``B.Cu`` track ``gap``
+        above the pads: ``<label>_a`` (the pads) and ``<label>_b``."""
+        self._pad_row(label, ref, "Mini_LED_THT_3mm", pad_net, track_net, gap, "B.Cu", target)
+
+    def fill_track(self, label: str, zone_net: str, track_net: str, *, gap: int = 4 * MM) -> None:
+        """A zone whose stored fill is its own rectangular outline and a track ``gap`` above it:
+        ``<label>_a`` (the zone) and ``<label>_b``."""
+        y = self.row()
+        top = y + 2 * MM
+        ring = (Point(LEFT, top), Point(RIGHT, top), Point(RIGHT, top + 3 * MM), Point(LEFT, top + 3 * MM))
+        zone = Zone(
+            id=_id("zon", len(self.zones) + 1),
+            outline=ring,
+            name=label,
+            layers=("F.Cu",),
+            net_id=self.net(zone_net),
+            fills=(ZoneFill("F.Cu", ring),),
+        )
+        self.zones.append(zone)
+        self.items[f"{label}_a"] = (kicad_uuid(zone),)
+        self.track(f"{label}_b", track_net, top - gap - WIDTH // 2)
+
     def build(self) -> Bench:
         height = FIRST_ROW + max(self.rows, 1) * ROW + 10 * MM
         nets = tuple(
-            dataclasses.replace(n, members=tuple(self.members.get(n.id, ()))) for n in self.nets.values()
+            dataclasses.replace(
+                n,
+                members=tuple(self.members.get(n.id, ())),
+                netclass_id=self.classes[self.class_of[n.name]].id if n.name in self.class_of else None,
+            )
+            for n in self.nets.values()
         )
         board = Board(
             id=_id("brd", 1),
@@ -185,12 +323,17 @@ class Builder:
             layers=created_layers(2),
             footprints=tuple(self.footprints),
             tracks=tuple(self.tracks),
+            arcs=tuple(self.arcs),
             vias=tuple(self.vias),
+            zones=tuple(self.zones),
         )
         base = Design.new("rules-bench", seed=0)
-        design = dataclasses.replace(
-            base, circuit=Circuit(components=tuple(self.components), nets=nets), board=board
+        circuit = Circuit(
+            components=tuple(self.components), nets=nets, netclasses=tuple(self.classes.values())
         )
+        design = dataclasses.replace(base, circuit=circuit, board=board)
+        if self.rules:
+            design = dataclasses.replace(design, rules=RuleSet(id=_id("rst", 1), rules=tuple(self.rules)))
         return Bench(design, dict(self.items))
 
 

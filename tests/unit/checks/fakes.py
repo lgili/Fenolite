@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""A fake ``Validator`` and a fake ``Oracle`` for ``checks`` tests: no backend module is imported."""
+"""A fake ``Validator`` and a fake ``Oracle`` for ``checks`` tests: no backend module is imported.
+
+``FakeRulesValidator`` also satisfies ``DesignRulesSource`` and ``BoardFrame``, as the KiCad backend does
+(change c0029)."""
 
 from __future__ import annotations
 
@@ -8,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fenolite.backends.base import (
+    BoardPad,
+    DesignRules,
     DrcItem,
     DrcOutcome,
     DrcReport,
@@ -15,6 +20,7 @@ from fenolite.backends.base import (
     NetlistOutcome,
     PadAssignment,
     PadNetList,
+    PlacedExtent,
     ProjectSet,
     ReadResult,
     RoundTrip,
@@ -55,6 +61,31 @@ class FakeValidator:
         if self.error is not None:
             raise self.error
         return self.result if self.result is not None else validation()
+
+
+@dataclass
+class FakeRulesValidator(FakeValidator):
+    """A validator that is also a rules source and a board frame: it answers with ``rules`` (the design
+    as given when ``None``) and ``pads``, and records what it was asked."""
+
+    rules: DesignRules | None = None
+    pads: tuple[BoardPad, ...] = ()
+    asked: list[tuple[str, Design]] = field(default_factory=lambda: [])
+
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules:
+        self.asked.append(("rules", design))
+        return self.rules if self.rules is not None else DesignRules(design, evidence=READ_EVIDENCE)
+
+    def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]:
+        self.asked.append(("pads", design))
+        return self.pads
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        return ()
 
 
 def report(*violations: DrcViolation, unconnected: tuple[DrcViolation, ...] = ()) -> DrcReport:

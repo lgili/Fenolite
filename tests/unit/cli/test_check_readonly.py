@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """``check``, ``inspect``, ``doctor``, ``export`` and ``render`` leave the project folder untouched, even
 with a ``kicad-cli`` that writes next to its input and rewrites it (capability verification-loop, "Check is
-read-only", scenario "Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013 and
-c0020; cli-contract, "Export command", scenario "Source is untouched"; change c0024)."""
+read-only", scenario "Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013, c0020
+and c0029; cli-contract, "Export command", scenario "Source is untouched"; change c0024)."""
 
 from __future__ import annotations
 
@@ -51,9 +51,14 @@ def test_new_stages_are_read_only(monkeypatch: pytest.MonkeyPatch, project: tupl
     before = tree_snapshot(root)
     code, env, _, _ = run(
         monkeypatch, root, "check", str(root), "--kicad-cli", str(fake),
-        "--stages", "netlist.assignment_compare,roundtrip.rt2",
+        "--stages", "copper.clearance,netlist.assignment_compare,roundtrip.rt2",
     )  # fmt: skip
     assert code == 0, env["issues"]
+    assert [s["name"] for s in env["result"]["stages"]] == [
+        "copper.clearance",
+        "netlist.assignment_compare",
+        "roundtrip.rt2",
+    ]
     words = [tuple(c["args"][:3]) for c in calls(fake)]
     assert ("pcb", "export", "ipcd356") in words and ("pcb", "upgrade", "--force") in words
     assert not (root / ".fenolite" / "native").exists()

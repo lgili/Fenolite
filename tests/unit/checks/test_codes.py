@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The closed set of check issue codes (capability verification-loop, "Check issue codes" and "Findings
-stage issue codes"; changes c0013 and c0020)."""
+"""The closed set of check issue codes (capability verification-loop, "Check issue codes", "Findings
+stage issue codes" and "Copper stage issue codes"; changes c0013, c0020 and c0029)."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.")
+CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.")
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -34,6 +34,12 @@ TABLE = {
     "erc.lite.power-undriven": ("warning",),
     "erc.lite.floating-pin": ("warning",),
     "render.failed": ("warning",),
+    "copper.short": ("error",),
+    "copper.clearance": ("error", "warning"),
+    "copper.zone-overlap": ("warning",),
+    "copper.rules-incomplete": ("warning",),
+    "copper.item-unsupported": ("warning",),
+    "copper.clearance-unset": ("info",),
 }
 
 
@@ -68,7 +74,9 @@ def test_codes_closed_set() -> None:
     sources = sorted(CHECKS.glob("*.py"))
     assert unknown(sources) == set()
     # the finding row is generated from the report's type, never written as a literal
-    assert code_literals(sources) >= {k for k in TABLE if not k.startswith("erc.lite.") and k != FINDING}
+    # ``copper.clearance`` is also a stage name, which ``code_literals`` leaves out
+    wanted = {k for k in TABLE if not k.startswith("erc.lite.") and k != FINDING and k not in STAGE_ORDER}
+    assert code_literals(sources) >= wanted
 
 
 def test_codes_closed_set_detects_an_unknown_code(tmp_path: Path) -> None:

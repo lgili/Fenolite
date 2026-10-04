@@ -218,3 +218,27 @@ def test_own_face_by_side() -> None:
     assert bottom.own == bottom.back == (ring,)
     top = PlacedExtent("fp_x", "top", front=(ring,))
     assert top.own == (ring,) and top.source == "none" and top.exact
+
+
+def test_rules_source_protocol() -> None:
+    """Scenario "KiCad backend is a rules source" (capability backend-protocol, "Design rules source";
+    change c0029): the backend satisfies the protocol, and ``design_rules`` is not an operation."""
+    from fenolite.backends.kicad.backend import KicadBackend
+
+    backend = KicadBackend()
+    assert isinstance(backend, base.DesignRulesSource)
+    assert "design_rules" not in backend.capabilities().operations
+    assert not isinstance(object(), base.DesignRulesSource)
+
+
+def test_rules_source_record_defaults() -> None:
+    from fenolite.model.design import Design
+
+    design = Design.new("rules", seed=0)
+    rules = base.DesignRules(design)
+    assert rules.design is design and rules.min_clearance is None
+    assert (rules.rules_over_classes, rules.floor_over_rules) == (True, False)
+    assert rules.opaque_clearance_rules == 0 and rules.unread == ()
+    assert rules.evidence == base.Evidence()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rules.min_clearance = 1  # type: ignore[misc]

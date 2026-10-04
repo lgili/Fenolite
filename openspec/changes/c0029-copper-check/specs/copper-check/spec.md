@@ -1,8 +1,8 @@
 ## ADDED Requirements
 
 ### Requirement: Copper check function
-`fenolite.checks.copper.check_copper(design, *, pads, min_clearance=None, rules_over_classes=True, floor_over_rules=True, arc_tol=ARC_TOL_NM, inputs=()) -> CopperReport` SHALL judge the copper of `design.board` for shorts and clearance, and SHALL be a pure function: it MUST read no file, run no subprocess and write nothing.
-- `pads` MUST be the board-frame pad records of c0028's `BoardFrame.board_pads(design)` (`backend-protocol`), or `None` when no frame is available.
+`fenolite.checks.copper.check_copper(design, *, pads, min_clearance=None, rules_over_classes=True, floor_over_rules=False, arc_tol=ARC_TOL_NM, inputs=()) -> CopperReport` SHALL judge the copper of `design.board` for shorts and clearance, and SHALL be a pure function: it MUST read no file, run no subprocess and write nothing.
+- `pads` MUST be the board-frame pad records of c0028's `BoardFrame.board_pads(design)` (`backend-protocol`, "Board-frame protocol"), or `None` when no frame is available.
 - `min_clearance`, `rules_over_classes` and `floor_over_rules` MUST be passed to `ClearanceResolver` ("Clearance in force"); callers take them from `DesignRules` (`backend-protocol`, "Design rules source").
 - `inputs` MUST be the evidence of the inputs that the caller read: the board reader, the rules source and the frame.
 - `ARC_TOL_NM` MUST be `1_000`. `arc_tol` below 1 MUST raise `ValueError`.
@@ -23,7 +23,7 @@
 - A `Track`: the segment `start`–`end` with its `width`, on its `layer`.
 - An `Arc`: the polyline of `geometry.Arc(start, mid, end).polygonize(arc_tol)` with its `width`, on its `layer`. Its band is `arc_tol + 1` nm, the bound within which the polyline follows the true arc (`geometry-kernel`, "Deterministic polygonisation with a chord-error bound").
 - A `Via`: a point at `position` with width `diameter`, on every copper layer of its span. The span MUST be the copper layers of `Board.layers`, in table order, from `layers[0]` to `layers[1]` inclusive; a `through` via, or a via whose `layers` does not name two copper layers of the board, MUST span every copper layer.
-- A pad: for each `PadCopper` entry of its c0028 `BoardPad` record, `Thick(entry.core, entry.width, entry.filled)` on `entry.layer`, with the pad's net. An entry with `exact=False` is a superset of the pad (c0028, "Pad copper entries"): it is judged as given, so no clearance violation is missed, a short it gives carries ` (approximated pad shape)` in its message, and such entries are counted in `summary.approximated`.
+- A pad: for each `PadCopper` entry of its c0028 `BoardPad` record, `Thick(entry.core, entry.width, entry.filled)` on `entry.layer`, with the pad's net. An entry with `exact=False` is a superset of the pad (`board-frame`, "Pad copper entries"): it is judged as given, so no clearance violation is missed, a short it gives carries ` (approximated pad shape)` in its message, and such entries are counted in `summary.approximated`.
 - A `ZoneFill`: its `polygon` as a filled ring of width 0, on the fill's `layer`, with the zone's net.
 - Zone outlines, rule areas (`Keepout`), graphics, texts, holes and pads of kind `np_thru_hole` MUST NOT be copper.
 - An item that cannot be shaped MUST be left out and counted per kind in `summary.unsupported`, with one `copper.item-unsupported` warning per kind naming the count: a pad of a kind other than `np_thru_hole` whose `layers` name a copper layer but whose record holds no copper entry, a pad whose copper entry `Thick` refuses (`GeometryError`), every pad of a kind other than `np_thru_hole` when `pads` is `None`, a fill whose polygon `Polygon` refuses, and an arc whose points `geometry.Arc` refuses. A pad without a copper layer, and every `np_thru_hole` pad, is not copper and is not counted.
@@ -44,7 +44,7 @@
 - **THEN** `summary.unsupported` holds `pad: 4`, and the issues hold one `copper.item-unsupported` warning naming 4 pads
 
 #### Scenario: Mounting holes are not unsupported
-- **GIVEN** `Mini_Edge_Cases` placed at (0, 0), 0°, on the top of a two-layer board, whose unnumbered `np_thru_hole` pad has no copper entry (c0028, "Pad copper entries")
+- **GIVEN** `Mini_Edge_Cases` placed at (0, 0), 0°, on the top of a two-layer board, whose unnumbered `np_thru_hole` pad has no copper entry (`board-frame`, "Pad copper entries")
 - **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k npth` runs `check_copper` with the pads of `KicadBackend().board_pads(design)`
 - **THEN** `summary.unsupported` holds no `pad` count, and no `copper.item-unsupported` warning names a pad
 
@@ -84,15 +84,15 @@
 - **THEN** it still reports the `copper.short`
 
 ### Requirement: Clearance in force
-`fenolite.checks.clearance.ClearanceResolver(design, *, min_clearance=None, rules_over_classes=True, floor_over_rules=True)` SHALL return, through `resolve(a, b)` for two `RuleSubject`s on the same layer, a `Clearance(value, severity, source)`:
+`fenolite.checks.clearance.ClearanceResolver(design, *, min_clearance=None, rules_over_classes=True, floor_over_rules=False)` SHALL return, through `resolve(a, b)` for two `RuleSubject`s on the same layer, a `Clearance(value, severity, source)`:
 - **Subjects.** `item_kind` is `track` for tracks and arcs, `via`, `pad` or `zone` (fills); `net` is the net name; `netclass` is the name of the net's class, or `Default` when its `netclass_id` is `None`; `ref` is the component reference for a pad and `None` otherwise; `layer` is the shared layer.
-- **Rules.** The candidates MUST be the rules of `design.rules` with `kind == "clearance"`, a `min` limit, and empty `layers` or `layers` holding the shared layer. A rule MUST match the pair when `selector_a` matches one subject and `selector_b` (or every subject, when it is `None`) matches the other, in either order. Leaf values and subject names MUST be compared without regard to letter case (`H-K-DRU-COND`).
+- **Rules.** The candidates MUST be the rules of `design.rules.rules` (none when `design.rules` is `None`) with `kind == "clearance"`, a `min` limit, and empty `layers` or `layers` holding the shared layer. A rule MUST match the pair when `selector_a` matches one subject and `selector_b` (or every subject, when it is `None`) matches the other, in either order. Leaf values and subject names MUST be compared without regard to letter case (`H-K-DRU-COND`).
 - **Precedence.** The governing rule MUST be the last matching rule in the order of `rule_precedence(rules)`, which MUST equal c0018's `rulemap.rule_order`: priority 0 first, then descending priority, ties by name, then id.
 - **Value.** Let `k` be the larger `clearance` of the two nets' classes that set one, the class of a net whose `netclass_id` is `None` being the class named `Default` when `design.circuit.netclasses` holds one, and let `f` be `min_clearance` when it is positive.
   - A governing rule with severity `ignore` MUST give `value=None` and `severity=None`, so the pair is not judged for clearance.
   - Without a governing rule, the value MUST be the larger of `k` and `f` that exist, with severity `error` and source `class:<name>` or `floor` (`H-K-PRO-FLOOR`, `H-K-PRO-MIN-KEYS`).
-  - With a governing rule of `min` `r`, the value MUST start at `r` with the rule's severity and source `rule:<name>`; when `rules_over_classes` is false, the larger of it and `k` MUST be taken (`H-K-PRO-MIN-CLASS`); when `floor_over_rules` is true, the larger of the result and `f` MUST be taken (`H-K-PRO-MIN-RULE`). The source names whichever value governs, and the severity is the rule's when its `min` governs and `error` otherwise.
-  - `rules_over_classes` and `floor_over_rules` carry c0026's measured tables `lowering.RULES_OVER_CLASSES` and `lowering.FLOOR_OVER_RULES["min_clearance"]` for the major being judged; both default to true, the claims those tables ship with.
+  - With a governing rule of `min` `r`, the value MUST start at `r` with the rule's severity and source `rule:<name>`; when `rules_over_classes` is false, the larger of it and `k` MUST be taken (`H-K-PRO-MIN-CLASS`); when `floor_over_rules` is true, the larger of the result and `f` MUST be taken (the claim of `H-K-PRO-MIN-RULE`, which c0026 refuted on 9.0.9 and 10.0.6: `H-K-PRO-MIN-RULE-2`). The source names whichever value governs, and the severity is the rule's when its `min` governs and `error` otherwise.
+  - `rules_over_classes` and `floor_over_rules` carry c0026's measured tables `lowering.RULES_OVER_CLASSES` and `lowering.FLOOR_OVER_RULES["min_clearance"]` for the major being judged. The defaults are the values those tables ship with for 9 and 10: `rules_over_classes` true (`H-K-PRO-MIN-CLASS`) and `floor_over_rules` false, because a custom rule governs below the board minimum (`H-K-PRO-MIN-RULE-2`).
 - **Unset.** When nothing gives a value, `value` MUST be `None` and the pair is judged for shorts only; `check_copper` MUST count such pairs in `summary.unset_pairs` and report one `copper.clearance-unset` info with the count.
 - `max_value` MUST be the largest value `resolve` can return for the design, or 0.
 
@@ -114,7 +114,7 @@
 #### Scenario: Floor and ignore
 - **GIVEN** a governing rule of 0.1 mm and `min_clearance = 0.15 mm`, and then the same rule with severity `ignore`
 - **WHEN** the pair is resolved
-- **THEN** the first gives 0.15 mm with source `floor`, the second gives `value is None`, and with `floor_over_rules=False` the first gives 0.1 mm
+- **THEN** the first gives 0.1 mm with source `rule:<name>`, the second gives `value is None`, and with `floor_over_rules=True` the first gives 0.15 mm with source `floor`
 
 #### Scenario: Letter case ignored
 - **GIVEN** a rule on `net gnd` and a track on net `GND`

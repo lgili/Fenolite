@@ -64,6 +64,7 @@ def test_canary(tmp_path: Path) -> None:
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
         "erc.lite",
+        "copper.clearance",
         "drc.kicad",
         "netlist.assignment_compare",
         "roundtrip",

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite check`` without a real ``kicad-cli`` (capability verification-loop: "Check command input",
 "Check exit codes", "Inputs Fenolite cannot read", "Stages added for findings and round trips" and the
-hermetic stage scenarios; changes c0013 and c0020)."""
+hermetic stage scenarios; changes c0013, c0020 and c0029)."""
 
 from __future__ import annotations
 
@@ -38,6 +38,14 @@ def _copy(tmp_path: Path, name: str = "board.kicad_pcb", data: bytes | None = No
     target = folder / name
     target.write_bytes(TWO_LAYER.read_bytes() if data is None else data)
     return target
+
+
+def _only_the_fixture_short(code: int, env: dict[str, object]) -> bool:
+    """``two_layer.kicad_pcb`` holds one authored short: its ``GND_B`` fill covers pad 2 of ``D1``. With the
+    default stages, which include ``copper.clearance`` (change c0029), a check of that board therefore
+    exits 5 with exactly this error and no other."""
+    errors = [i for i in env["issues"] if i["severity"] == "error"]  # type: ignore[union-attr,index]
+    return code == 5 and [(i["code"], "D1-2" in i["where"]) for i in errors] == [("copper.short", True)]
 
 
 def _no_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -165,7 +173,7 @@ def test_rules_without_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake))
     assert "kicad.drc.rules-not-loaded" in [i["code"] for i in env["issues"]]
     assert _stages(env)["drc.kicad"]["summary"]["canary"] == "not-applicable"
-    assert code == 0  # native input: an info
+    assert _only_the_fixture_short(code, env)  # native input: the rules verdict is an info
 
 
 def test_unreadable_board_without_drc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -216,14 +224,16 @@ def _native(tmp_path: Path) -> tuple[Path, Path]:
 def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     board, fake = _native(tmp_path)
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board.parent), "--kicad-cli", str(fake))
-    assert code == 0, env["issues"]
+    assert _only_the_fixture_short(code, env), env["issues"]
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
         "erc.lite",
+        "copper.clearance",
         "drc.kicad",
         "netlist.assignment_compare",
         "roundtrip",
     ]
+    assert _stages(env)["copper.clearance"]["status"] == "errors"
     compare = _stages(env)["netlist.assignment_compare"]
     assert compare["status"] == "ok"
     assert compare["summary"]["pairs"] == [
@@ -267,7 +277,7 @@ def test_render_stage_is_opt_in(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     """Capability verification-loop, "Render stage" (c0024): absent by default, selected by name."""
     board, fake = _native(tmp_path)
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), "--kicad-cli", str(fake))
-    assert code == 0 and "render" not in _stages(env)
+    assert _only_the_fixture_short(code, env) and "render" not in _stages(env)
     assert not any(c["args"][:2] == ["pcb", "render"] for c in calls(fake))
     code, env, _, _ = run(
         monkeypatch, tmp_path, "check", str(board), "--stages", "roundtrip,render", "--kicad-cli", str(fake)

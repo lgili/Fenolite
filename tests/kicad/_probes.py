@@ -23,8 +23,10 @@ from pathlib import Path
 
 import _acceptance
 import _bench
+import _benches
 import _buildcases
 import _checkcases
+import _copperparity
 import _drccases
 import _exportcases
 import _fieldbench
@@ -217,6 +219,8 @@ def _probes() -> dict[str, Probe]:
         **_fieldprobe.field_probes(),
         **_fieldbench.bench_probes(),
         **_zonebench.zone_probes(),
+        **_benches.copper_probes(),
+        **_copperparity.parity_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

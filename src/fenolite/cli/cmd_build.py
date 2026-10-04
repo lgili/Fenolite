@@ -10,6 +10,10 @@ binary by default and ASCII with ``--altium-format ascii``, and is one sheet by 
 layouts; ``--discard-layout`` replaces them, keeping backups. ``--vendor all`` (the default) copies the
 placed footprints of every library into ``DIR/lib/``; ``--vendor project`` copies only those of project
 tables (``docs/dsl.md``, "Vendored libraries").
+
+Before a KiCad build plans its writes, the copper guard judges the triad it is about to write with
+``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
+short or a clearance error refuses the build unless ``--copper-check warn`` is given.
 """
 
 from __future__ import annotations
@@ -33,14 +37,17 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
 )
+from fenolite.backends.kicad import copperrules
 from fenolite.backends.kicad import pcb as kicad_pcb
+from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, Level
 from fenolite.dsl import DslError, copper, fields, moves, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import CopperSource, build_altium, kicad_footprint_ids, kicad_lib_ids
@@ -63,6 +70,10 @@ HELP = (
 TARGETS = ("kicad", ALTIUM_TARGET)
 ALTIUM_FORMATS: tuple[SchematicForm, ...] = ("binary", "ascii")
 ALTIUM_SHEETS: tuple[SheetMode, ...] = ("flat", "modules")
+COPPER_CHECK_MODES = ("refuse", "warn")
+"""``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
+errors are reported as warnings and the build writes. There is no ``off``."""
+WARN_NOTE = " (copper guard in warn mode)"
 _KINDS = {
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
@@ -117,6 +128,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "board's placements win; a usage error with --target kicad",
     )
     parser.add_argument(
+        "--copper-check",
+        choices=COPPER_CHECK_MODES,
+        default=None,
+        help="what a short or a clearance error in the copper of the board about to be written does: "
+        f"refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); a usage "
+        f"error with --target {ALTIUM_TARGET}",
+    )
+    parser.add_argument(
         "--vendor",
         choices=VENDOR_MODES,
         default="all",
@@ -133,6 +152,73 @@ def _kind(rel: str, form: SchematicForm | None = None) -> str:
     if form is not None and Path(rel).suffix == ".SchDoc":
         return SCHDOC_KINDS[form]
     return _KINDS.get(Path(rel).suffix, "file")
+
+
+def _evidence_json(evidence: Evidence) -> dict[str, object]:
+    return {
+        "level": evidence.level.value,
+        "oracle": evidence.oracle,
+        "hypotheses": list(evidence.hypotheses),
+    }
+
+
+def copper_guard(
+    files: Mapping[str, bytes], *, name: str, mode: str, target: int
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The copper issues of the triad ``files`` that a build is about to write, and ``result.copper_check``.
+
+    The planned board text is read back with ``read_board``, the planned project and rules texts are
+    applied with ``design_rules_from_texts`` for ``target`` (the build's KiCad major), the pads come from the
+    KiCad board frame, and ``check_copper`` judges the result: the bytes that will be written, preserved
+    copper included. With ``mode == "warn"`` every error is reported as a warning with ``WARN_NOTE``.
+    Nothing is read from disk and nothing is written.
+    """
+    if mode not in COPPER_CHECK_MODES:
+        raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
+
+    def text(suffix: str) -> str | None:
+        data = files.get(f"{name}{suffix}")
+        return None if data is None else data.decode("utf-8")
+
+    board_text = text(".kicad_pcb")
+    if board_text is None:
+        return (), {"mode": mode, "ran": False}
+    design = kicad_pcb.read_board(board_text, file=f"{name}.kicad_pcb")
+    rules = copperrules.design_rules_from_texts(
+        design,
+        project_text=text(".kicad_pro"),
+        rules_text=text(".kicad_dru"),
+        major=target,
+        file_stem=name,
+    )
+    report = check_copper(
+        rules.design,
+        pads=KicadBackend().board_pads(rules.design),
+        min_clearance=rules.min_clearance,
+        rules_over_classes=rules.rules_over_classes,
+        floor_over_rules=rules.floor_over_rules,
+        inputs=(kicad_pcb.EVIDENCE, rules.evidence),
+    )
+    found = [*report.issues, *rules_issues(rules)]
+    evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
+    if any(issue.code in LOWERING_CODES for issue in found):
+        evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
+    if mode == "warn":
+        found = [
+            dataclasses.replace(issue, severity="warning", message=issue.message + WARN_NOTE)
+            if issue.severity == "error"
+            else issue
+            for issue in found
+        ]
+    summary: dict[str, object] = {
+        "mode": mode,
+        "ran": True,
+        "shorts": report.summary["shorts"],
+        "clearance": report.summary["clearance"],
+        "rules": rules_summary(rules),
+        "evidence": _evidence_json(evidence),
+    }
+    return tuple(found), summary
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -155,6 +241,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             f"--altium-sheets needs --target {ALTIUM_TARGET}; the target is {args.target}",
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
+        )
+    if args.copper_check is not None and args.target == ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--copper-check judges the KiCad board of a build; the target is {args.target}",
+            where="--copper-check",
+            hint=f"drop --copper-check, or drop --target {ALTIUM_TARGET}",
         )
     board_path: Path | None = None
     if args.copper_from is not None:
@@ -213,6 +306,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         fields=field_requests,
     )
     files = dict(built.files)
+    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    copper_issues: tuple[Issue, ...] = ()
+    copper_check: dict[str, object] = {"mode": mode, "ran": False}
+    if files:
+        copper_issues, copper_check = copper_guard(
+            files, name=design.name, mode=mode, target=ctx.kicad_target
+        )
+        if any(issue.severity == "error" for issue in copper_issues):
+            files = {}  # refused: a build with an error issue plans no write
     if files:
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
         guarded = {rel: data for rel, data in files.items() if rel not in merged}
@@ -226,12 +328,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "out": str(out),
         "files": [w.path for w in writes],
         **built.summary,
+        "copper_check": copper_check,
         "script_output": run.output,
     }
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=(*built.issues, *plane_issues(plane_nets)),
+        issues=(*built.issues, *plane_issues(plane_nets), *copper_issues),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),

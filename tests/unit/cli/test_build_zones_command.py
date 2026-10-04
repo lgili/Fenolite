@@ -140,6 +140,12 @@ def clearance(value: str) -> Callable[[str], str]:
     return lambda text: edit_zone(text, "(clearance 0.3)", f"(clearance {value})")
 
 
+COPPER_WARN = ("--copper-check", "warn")
+"""The authored fill polygons of ``filled`` cover pad 2 of ``D1``, which is on another net: a real short in
+the stored fill. A rebuild that keeps those fills is therefore run with the copper guard in warn mode
+(change c0029), so the guard reports the short and the build still writes."""
+
+
 def filled(text: str) -> str:
     """The zone ``GND`` as KiCad leaves it after a fill: ``(fill yes …)`` and two fill polygons."""
     flagged = edit_zone(text, "(fill (", "(fill yes (")
@@ -260,7 +266,7 @@ def test_zone_kept_across_targets(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def test_unchanged_rebuild_keeps_the_fills(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     p = Project(tmp_path, monkeypatch)
     p.edit_board(filled)
-    code, env, _ = p.build("--confirm")
+    code, env, _ = p.build(*COPPER_WARN, "--confirm")
     (zone,) = p.zones()
     assert code == 0 and len(zone.fills) == 2 and zone.filled is True
     assert "zone.fill-stale" not in codes(env) and issues(env) == []
@@ -298,7 +304,7 @@ def test_an_unlocked_setting_change_keeps_the_board_and_its_fills(
     p = Project(tmp_path, monkeypatch)
     p.edit_board(filled)
     p.edit_script("clearance=mm(0.3), connection", "clearance=mm(0.4), connection")
-    code, env, _ = p.build("--confirm")
+    code, env, _ = p.build(*COPPER_WARN, "--confirm")
     (zone,) = p.zones()
     assert code == 0 and zone.settings.clearance == 300_000 and len(zone.fills) == 2
     assert [i["code"] for i in issues(env)] == ["kicad.zone.overridden"] and "zone.fill-stale" not in codes(

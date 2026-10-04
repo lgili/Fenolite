@@ -13,9 +13,9 @@
 - The stage MUST keep "Check is read-only" and "Check output is deterministic".
 
 #### Scenario: Bridging track caught without KiCad
-- **GIVEN** `tests/_copper.py::bridged_project(tmp_path, major=10)`: c0013's authored built project with one `F.Cu` track of net `VIN` added from pad 1 to pad 2 of `R1`, written with `write_board`; no `kicad-cli` on `PATH`, no `FENOLITE_KICAD_CLI`, and `MACOS_KICAD_CLI` patched to a missing path
+- **GIVEN** `tests/_coppercheck.py::bridged_project(tmp_path, major=10)`: c0013's authored built project with one `F.Cu` track of net `VIN` added from pad 1 to pad 2 of `R1`, written with `write_board`; no `kicad-cli` on `PATH`, no `FENOLITE_KICAD_CLI`, and `MACOS_KICAD_CLI` patched to a missing path
 - **WHEN** `uv run pytest tests/unit/checks/test_copper_stage.py -k bridging` runs `fenolite check <project> --stages copper.clearance --json`
-- **THEN** the exit code is 5, the issues hold one `copper.short` error whose `where` contains `R1-2`, and no subprocess ran
+- **THEN** the exit code is 5, the issues hold one `copper.short` error whose `where` contains `R1-2` and one more between the added track and the `LED_A` track that leaves that pad, and no subprocess ran
 
 #### Scenario: Clean authored project
 - **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, built=True)`

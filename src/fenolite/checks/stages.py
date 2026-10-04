@@ -14,7 +14,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from fenolite.backends.base import Oracle, Plotter, ProjectSet, Validation, Validator
+from fenolite.backends.base import (
+    BoardFrame,
+    DesignRulesSource,
+    Oracle,
+    Plotter,
+    ProjectSet,
+    Validation,
+    Validator,
+)
 from fenolite.checks.codes import issue
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
@@ -23,19 +31,21 @@ from fenolite.model.design import Design
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
+    "copper.clearance",
     "drc.kicad",
     "netlist.assignment_compare",
     "roundtrip",
     "roundtrip.rt2",
     "render",
 )
-"""The order stages run in; a later change may insert a stage."""
+"""The order stages run in; a later change may insert a stage. ``copper.clearance`` (change c0029) needs no
+external tool, so it runs before KiCad's DRC and is not an oracle stage."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
 ORACLE_STAGES: tuple[str, ...] = ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
-_READING_STAGES = frozenset({"roundtrip", *ORACLE_STAGES} - {"render"})
+_READING_STAGES = frozenset({"roundtrip", "copper.clearance", *ORACLE_STAGES} - {"render"})
 StageStatus = Literal["ok", "errors", "skipped"]
 StageSkip = Literal["native-input", "read-refused", "cache-unreadable", "unsupported-oracle"]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
@@ -128,6 +138,7 @@ def run_checks(
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once."""
     from fenolite.checks.assignment_compare import assignment_stage
+    from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc_lite import erc_stage
     from fenolite.checks.render import render_stage
@@ -166,6 +177,17 @@ def run_checks(
             return skipped("erc.lite", "cache-unreadable")
         return erc_stage(model)
 
+    def copper() -> StageResult:
+        if validation is None:
+            return skipped("copper.clearance", "read-refused")
+        return copper_stage(
+            validation.read.design,
+            project=project,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            evidence=validation.read.evidence,
+        )
+
     def drc() -> StageResult:
         if oracle is None:
             raise ValueError("drc.kicad is selected but no oracle was given")
@@ -190,6 +212,7 @@ def run_checks(
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
         "erc.lite": erc,
+        "copper.clearance": copper,
         "drc.kicad": drc,
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,

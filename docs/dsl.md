@@ -385,6 +385,41 @@ design.zone(
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
 
+## Copper guard
+
+`fenolite build` refuses to write a board whose copper shorts two nets or breaks the clearance in force
+(`docs/cli-contract.md`, "Copper guard"; `--copper-check warn` reports and writes). `build_design` itself
+is not guarded: it returns the files as bytes. A Python caller gets the same verdict from the files it
+is about to write:
+
+```python
+from fenolite.backends.kicad.backend import KicadBackend
+from fenolite.backends.kicad.copperrules import design_rules_from_texts
+from fenolite.backends.kicad.pcb import read_board
+from fenolite.checks import check_copper
+
+output = build_design(model, placements, name="blink", copper=2, resolver=resolver, target=10)
+board = read_board(output.files["blink.kicad_pcb"].decode("utf-8"), file="blink.kicad_pcb")
+rules = design_rules_from_texts(
+    board,
+    project_text=output.files["blink.kicad_pro"].decode("utf-8"),
+    rules_text=output.files["blink.kicad_dru"].decode("utf-8"),
+    major=10,
+    file_stem="blink",
+)
+report = check_copper(
+    rules.design,
+    pads=KicadBackend().board_pads(rules.design),
+    min_clearance=rules.min_clearance,
+    rules_over_classes=rules.rules_over_classes,
+    floor_over_rules=rules.floor_over_rules,
+)
+errors = [issue for issue in report.issues if issue.severity == "error"]
+```
+
+`report.findings` holds each short and clearance violation with its layer, a point and both items;
+write the files only when `errors` is empty.
+
 ## Path aliases (`moved()`)
 
 `design.moved(old, new)` records that the part at component path `new` was at `old` in an earlier

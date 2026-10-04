@@ -6,6 +6,8 @@
 are not in this table. Codes of an oracle start with its name, written ``<oracle>`` here; the row
 ``<oracle>.drc.<type>`` stands for every DRC finding code, whose suffix comes from the tool's own type
 (``checks.drc_json.type_code``; "Findings stage issue codes").
+The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper stage issue codes"), which
+the build's copper guard emits too.
 """
 
 from __future__ import annotations
@@ -38,6 +40,12 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
         "render.failed": ("warning",),
+        "copper.short": ("error",),
+        "copper.clearance": ("error", "warning"),
+        "copper.zone-overlap": ("warning",),
+        "copper.rules-incomplete": ("warning",),
+        "copper.item-unsupported": ("warning",),
+        "copper.clearance-unset": ("info",),
     }
 )
 

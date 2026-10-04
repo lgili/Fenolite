@@ -3,7 +3,7 @@
 """Oracle tests import their helpers (``_probes``, ``_triad`` and ``_bench`` of ``board/``,
 ``_rulebench`` of ``rules/``, ``_procases`` of ``project/``, ``_buildcases`` of ``build/``, and ``_svg``
 and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/``, ``_exportcases`` of ``export/``, and
-``_zonebench`` and ``_gerber`` of ``zones/``)."""
+``_zonebench`` and ``_gerber`` of ``zones/``, and ``_benches`` of ``copper/``)."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ for folder in (
     HERE / "export",
     HERE / "frame",
     HERE / "zones",
+    HERE / "copper",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))

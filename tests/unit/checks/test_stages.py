@@ -33,6 +33,7 @@ def test_stage_order() -> None:
     assert STAGE_ORDER == (
         "model.validate",
         "erc.lite",
+        "copper.clearance",
         "drc.kicad",
         "netlist.assignment_compare",
         "roundtrip",
@@ -42,6 +43,7 @@ def test_stage_order() -> None:
     assert OPT_IN_STAGES == ("roundtrip.rt2", "render")
     assert DEFAULT_STAGES == STAGE_ORDER[:-2]
     assert ORACLE_STAGES == ("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2", "render")
+    assert "copper.clearance" in DEFAULT_STAGES  # it runs by default and needs no tool (change c0029)
 
 
 def test_fixed_order() -> None:
@@ -180,7 +182,12 @@ def test_issues_follow_input_then_stage_order() -> None:
     report = run_checks(
         project=project(), stages=DEFAULT_STAGES, model=None, built=False, validator=validator, oracle=oracle
     )
-    assert [i.code for i in report.issues] == ["fake.drc.rules-unchecked", "check.rt1-failed"]
+    # the fake validator is no rules source, so the copper stage says so (change c0029)
+    assert [i.code for i in report.issues] == [
+        "copper.rules-incomplete",
+        "fake.drc.rules-unchecked",
+        "check.rt1-failed",
+    ]
 
 
 def test_stage_result_json_and_immutability() -> None:

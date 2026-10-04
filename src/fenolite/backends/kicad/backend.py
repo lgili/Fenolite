@@ -5,13 +5,16 @@ and capabilities."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fenolite.backends.base import (
     BoardFrame,
     BoardPad,
     CapabilityReport,
+    DesignRules,
+    DesignRulesSource,
     PlacedExtent,
+    ProjectSet,
     ReadResult,
     Validation,
     Validator,
@@ -134,6 +137,49 @@ class KicadBackend:
 
         return frame.placed_extents(design, issues=issues)
 
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules:
+        """The clearance rules of the project file and the rules file next to the board, applied to
+        ``design`` (``copperrules.design_rules_from_texts``; ``DesignRulesSource`` protocol).
+
+        Only ``<stem>.kicad_pro`` and ``<stem>.kicad_dru`` of the copy set are read. The major is the
+        project file's, else the default target. A file that cannot be read is named in ``unread``.
+        """
+        from fenolite.backends.kicad import copperrules
+
+        board = PurePosixPath(project.board)
+        texts: dict[str, str | None] = {}
+        unreadable: list[tuple[str, str]] = []
+        for suffix in (".kicad_pro", ".kicad_dru"):
+            name = board.with_suffix(suffix).as_posix()
+            path = project.files.get(name)
+            texts[suffix] = None
+            if path is not None:
+                try:
+                    texts[suffix] = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError) as error:
+                    unreadable.append((PurePosixPath(name).name, str(error)))
+        found = copperrules.design_rules_from_texts(
+            design,
+            project_text=texts[".kicad_pro"],
+            rules_text=texts[".kicad_dru"],
+            major=copperrules.project_major(texts[".kicad_pro"]),
+            file_stem=board.stem,
+            issues=issues,
+        )
+        if not unreadable:
+            return found
+        return DesignRules(
+            found.design,
+            found.min_clearance,
+            found.rules_over_classes,
+            found.floor_over_rules,
+            found.opaque_clearance_rules,
+            tuple(sorted((*found.unread, *unreadable))),
+            found.evidence,
+        )
+
     def write_sheet(
         self, sheet: DrawingSheet, *, target: int | None = None, allow_lossy: bool = False
     ) -> WriteResult:
@@ -167,6 +213,8 @@ _VALIDATOR: Validator = KicadBackend()
 """The KiCad backend satisfies ``Validator`` (checked by pyright)."""
 _FRAME: BoardFrame = KicadBackend()
 """The KiCad backend satisfies ``BoardFrame`` (checked by pyright)."""
+_RULES_SOURCE: DesignRulesSource = KicadBackend()
+"""The KiCad backend satisfies ``DesignRulesSource`` (checked by pyright)."""
 
 
 __all__ = ["CAPABILITIES", "SYMBOL_DIR_SUFFIX", "KicadBackend"]
