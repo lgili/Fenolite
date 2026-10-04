@@ -111,10 +111,11 @@
 
 12. **Merge and release gates.** Merge: `unit`, `wheel`, `dco`, `kicad-10`, `kicad-9` (as today, plus `wheel` and `dco`). Release: those, plus `routing` on the release commit, plus the record's verdict. `release.yml` does not enforce this gate: it is a convention, and the record names the run.
 
-13. **DCO job.** `CONTRIBUTING.md` requires a `Signed-off-by:` trailer and nothing checks it. All 229 commits carry it on 2026-10-04.
+13. **DCO job.** `CONTRIBUTING.md` requires a `Signed-off-by:` trailer and nothing checks it. On 2026-10-04 one commit of the main branch lacks it (see "Exceptions" below).
     - `tools/dco_check.py [<revision range>]`: standard library, `git log` as a subprocess; every commit reachable from `HEAD` when no range is given; commits with more than one parent are skipped (the checkout of a pull request is a merge commit made by the runner); a commit passes with a line `Signed-off-by: <name> <<address>>`; one output line per failing commit; exit codes 0, 1, and 2 when `git` fails.
     - Job `dco` in `ci.yml`: `actions/checkout@v4` with `fetch-depth: 0`, then `python3 tools/dco_check.py`. No `uv`, no dependency.
     - `tests/unit/test_dco_check.py` builds temporary repositories with `git`, which every unit runner has.
+    - **Exceptions (added on 2026-10-04).** The first run found one unsigned commit on the main branch: `19b74bb`, the squash merge of pull request 2 made with the GitHub button, authored by the maintainer. The history of the main branch is not rewritten, so `tools/dco_exceptions.txt` lists full hashes with a reason and the tool skips them. The maintainer confirms each entry; the release record names the file.
     - Rejected: a third-party DCO action or app. It is one more dependency of the release gate, and the rule is ten lines.
     - Rejected: comparing the trailer with the author. The certificate is the signer's statement, and squashed commits are signed by the maintainer.
 

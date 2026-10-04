@@ -18,7 +18,7 @@ STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
     ("corpus cache", "uses: actions/cache"),
-    ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --exclude-uses heavy"),
+    ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project"),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
 KICAD10_PYTEST = f"run: uv run pytest tests/kicad tests/corpus -q {PARALLEL}"
@@ -58,6 +58,8 @@ def job_problems(workflow: str) -> list[str]:
     fetches = [line for line in job.splitlines() if "tools/corpus_fetch.py" in line]
     if not any("--uses libs" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
+    if not any("--uses project" in line for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --uses project (the demo projects)")
     if not any("--exclude-uses heavy" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --exclude-uses heavy")
     if "key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}" not in job:
@@ -274,3 +276,94 @@ def test_freerouting_steps_missing_or_unverified() -> None:
     assert "FENOLITE_REQUIRE of the routing job does not list freerouting" in freerouting_problems(
         not_required, "2.4.1"
     )
+
+
+# --- c0025: the unit matrix, the wheel job and the DCO job ------------------------------------------
+
+UNIT_COMBINATIONS = [
+    ("ubuntu-latest", "3.11"),
+    ("ubuntu-latest", "3.12"),
+    ("ubuntu-latest", "3.13"),
+    ("macos-latest", "3.12"),
+    ("windows-latest", "3.12"),
+]
+WHEEL_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("build", "uv build --out-dir dist"),
+    ("build the alias", "uv build packaging/phenolite --out-dir dist"),
+    ("residue scan", "run: uv run --no-project python tools/residue/scan.py"),
+    ("install", "--no-index --find-links dist fenolite"),
+    ("capabilities", "fenolite capabilities --json"),
+    ("metadata", "all('extra ==' in x for x in r)"),
+    ("wheel contents", 'n.startswith(("tests/", "private/", "examples/"))'),
+]
+
+
+def unit_combinations(workflow: str) -> list[tuple[str, str]]:
+    job = job_text(workflow, "unit")
+    return re.findall(r"- os: (\S+)\n\s+python: \"([0-9.]+)\"", job)
+
+
+def ordered_problems(job: str, name: str, steps: list[tuple[str, str]]) -> list[str]:
+    if not job:
+        return [f"{name}: job missing"]
+    positions = [(step, job.find(marker)) for step, marker in steps]
+    problems = [f"{name}: step {step!r} missing" for step, position in positions if position < 0]
+    present = [(step, position) for step, position in positions if position >= 0]
+    for (first, p1), (second, p2) in zip(present, present[1:], strict=False):
+        if p2 < p1:
+            problems.append(f"{name}: step {second!r} must come after {first!r}")
+    if "runs-on: ubuntu-latest" not in job:
+        problems.append(f"{name}: must run on ubuntu-latest")
+    return problems
+
+
+def dco_problems(workflow: str) -> list[str]:
+    job = job_text(workflow, "dco")
+    problems = ordered_problems(
+        job, "dco", [("checkout", "uses: actions/checkout@v4"), ("check", "run: python3 tools/dco_check.py")]
+    )
+    if job and "fetch-depth: 0" not in job:
+        problems.append("dco: the checkout needs fetch-depth: 0")
+    return problems
+
+
+def test_unit_matrix() -> None:
+    """Scenario "Matrix checked": three operating systems, Python 3.11 to 3.13, five runs."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert unit_combinations(text) == UNIT_COMBINATIONS
+    assert "runs-on: ${{ matrix.os }}" in job_text(text, "unit")
+    reduced = text.replace('          - os: windows-latest\n            python: "3.12"\n', "")
+    assert unit_combinations(reduced) != UNIT_COMBINATIONS
+
+
+def test_project_rows_not_fetched() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace("--uses libs --uses project ", "--uses libs ")
+    assert "kicad-10: the corpus fetch must pass --uses project (the demo projects)" in job_problems(text)
+
+
+def test_wheel_job() -> None:
+    """Scenario "Workflow shape checked" of the wheel job."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert ordered_problems(job_text(text, "wheel"), "wheel", WHEEL_STEPS) == []
+    job = job_text(text, "wheel")
+    late = job.replace("run: uv run --no-project python tools/residue/scan.py", "run: true") + (
+        "      - run: uv run --no-project python tools/residue/scan.py\n"
+    )
+    assert "wheel: step 'install' must come after 'residue scan'" in ordered_problems(
+        late, "wheel", WHEEL_STEPS
+    )
+    indexed = job.replace("--no-index --find-links dist fenolite", "fenolite")
+    assert "wheel: step 'install' missing" in ordered_problems(indexed, "wheel", WHEEL_STEPS)
+    assert ordered_problems("", "wheel", WHEEL_STEPS) == ["wheel: job missing"]
+
+
+def test_dco_job() -> None:
+    """Scenario "Workflow shape checked" of the DCO job."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert dco_problems(text) == []
+    assert "dco: the checkout needs fetch-depth: 0" in dco_problems(
+        text.replace("fetch-depth: 0", "fetch-depth: 1")
+    )
+    assert "dco: step 'check' missing" in dco_problems(text.replace("tools/dco_check.py", "tools/other.py"))

@@ -97,7 +97,7 @@ The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL chec
 
 `tools/dco_check.py [<revision range>]` SHALL use only the standard library and `git` as a subprocess.
 - Without an argument it MUST read every commit reachable from `HEAD`; with one, the commits of that range.
-- It MUST skip commits with more than one parent.
+- It MUST skip commits with more than one parent, and commits whose full hash is listed in `tools/dco_exceptions.txt` with a reason: a commit already on the main branch cannot gain a trailer. A malformed line of that file MUST make the tool exit 2.
 - A commit passes when its message holds a trailer line `Signed-off-by: <name> <<address>>`. The tool MUST NOT compare the trailer with the author.
 - It MUST print one line `<short hash> <subject>` per failing commit and exit 1, exit 0 when none fails, and exit 2 when `git` fails.
 

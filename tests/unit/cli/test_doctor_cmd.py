@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +12,7 @@ import pytest
 from _checkcli import hide_kicad, run
 from _fakecli import calls, fake_kicad_cli
 from _fakefreerouting import create_fake_jar, create_fake_java
+from _resources import posix_tools
 
 from fenolite.cli.cmd_doctor import java_major
 
@@ -152,7 +152,7 @@ def _freerouting_entry(env: dict[str, Any]) -> dict[str, Any]:
     return next(router for router in env["result"]["routers"] if router["name"] == "freerouting")
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+@posix_tools
 def test_freerouting_jar_with_an_old_java(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Capability cli-contract, "Freerouting in doctor" (c0023): scenario "Jar with an old Java"."""
     jar = create_fake_jar(tmp_path)
@@ -169,7 +169,7 @@ def test_freerouting_jar_with_an_old_java(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert found[0]["severity"] == "warning" and "Java 25" in found[0]["message"]
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+@posix_tools
 def test_freerouting_jar_with_a_suitable_java(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(create_fake_jar(tmp_path)))
     monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="25.0.1")))

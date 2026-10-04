@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """A fake ``kicad-cli`` for hermetic tests of ``check``, ``doctor`` and the oracle (change c0013 Decision 19).
 
-The fake is a ``#!/bin/sh`` wrapper around a Python script, as in c0009's runner tests. It answers
+The fake is a launcher around a Python script (a ``#!/bin/sh`` script, or a ``.cmd`` file on Windows;
+``_resources.fake_tool``). It answers
 ``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
 board unchanged, ``"fail"`` exits 1; c0020), and the export and render commands of c0024
@@ -20,10 +21,11 @@ run writes the n-th report text, and the last one from then on.
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
+
+from _resources import fake_tool
 
 from fenolite.backends.kicad.canary import CANARY_RULE_NAME, CANARY_UUIDS
 
@@ -189,10 +191,7 @@ def fake_kicad_cli(
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")
-    script = folder / "kicad-cli"
-    script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{folder / "fake.py"}" "$@"\n', encoding="utf-8")
-    script.chmod(0o755)
-    return script
+    return fake_tool(folder / "kicad-cli", folder / "fake.py")
 
 
 def calls(script: Path) -> list[dict[str, Any]]:

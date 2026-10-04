@@ -11,6 +11,8 @@ import sys
 from functools import cache
 from pathlib import Path
 
+import pytest
+
 MACOS_KICAD = Path("/Applications/KiCad/KiCad.app/Contents")
 LINUX_KICAD = Path("/usr/share/kicad")
 LIB_ENV = ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR")
@@ -21,6 +23,24 @@ LIBS_HINT = (
     "install KiCad (FENOLITE_KICAD_INSTALL_DIR names an install outside the default location), "
     "or run: uv run python tools/kicad_libs_fetch.py"
 )
+
+posix_tools = pytest.mark.skipif(sys.platform == "win32", reason="posix-only fake tool")
+"""The one way to skip, on Windows, a test whose fake tool is a ``#!/bin/sh`` script (capability
+ci-baseline, "Unit CI job on two operating systems"). The count of these skips is part of the release
+record (``H-G-REL-WINDOWS``)."""
+
+
+def fake_tool(script: Path, program: Path) -> Path:
+    """Write the launcher of a fake tool: ``script`` runs ``program`` with this interpreter. On Windows
+    the launcher is ``<script>.cmd``, which a process can start by its path as it starts the shell
+    script elsewhere. Returns the path to run."""
+    if sys.platform == "win32":
+        launcher = script.with_name(script.name + ".cmd")
+        launcher.write_text(f'@"{sys.executable}" "{program}" %*\r\n', encoding="utf-8")
+        return launcher
+    script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{program}" "$@"\n', encoding="utf-8")
+    script.chmod(0o755)
+    return script
 
 
 def corpus_cache_dir() -> Path:
