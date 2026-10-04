@@ -8,9 +8,22 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    `openspec/changes/<id>/` (`proposal.md`, `design.md`, `specs/`, `tasks.md`). No code lands
    without one. See `openspec/README.md`.
 2. Implement the tasks in order; each task names the command that proves it.
-3. Run `make check` (ruff, ruff format, pyright, pytest) before pushing; CI runs the same steps.
+3. While you work, run `make check-fast`: ruff, ruff format, pyright, the residue scan and the tests
+   that need no `kicad-cli`, corpus or KiCad libraries. Run `make check` (the same checks and every
+   test) once before pushing; CI runs the same steps. Both run the tests on parallel workers; see
+   `tests/README.md`, "Parallel runs".
 4. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat(model): …`, `fix(kicad): …`, `docs: …`, `test: …`, `chore: …`).
+
+## Parallel worktrees
+
+Several contributors or agents often work at once, each in its own worktree on one machine. A full
+suite uses every core, so two of them at once are slower than one after the other.
+
+- While working on a task, run `make check-fast` and the tests of the files you touched, for
+  example `uv run pytest tests/kicad/board/test_x.py -q`.
+- Run `make check` once, on the rebased branch, right before the merge.
+- Never start several full suites at the same time on one machine. If one is running, wait for it.
 
 ## Developer Certificate of Origin
 

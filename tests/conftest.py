@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -24,6 +25,36 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
 )
 
 pytest_plugins = ["pytester"]
+
+WRITE_MODES = {
+    "FENOLITE_PROBES_WRITE": "1",
+    "FENOLITE_GOLDEN_WRITE": "1",
+    "FENOLITE_CENSUS_OUT": None,
+    "FENOLITE_CHECK_EVIDENCE": None,
+}
+"""Variables that make tests write tracked or shared files, and the value that turns each on (``None``:
+any non-empty value). Such a run is serial: two workers would write the same file."""
+
+
+def active_write_modes() -> list[str]:
+    found: list[str] = []
+    for name, needed in WRITE_MODES.items():
+        value = os.environ.get(name, "")
+        if value and needed in (None, value):
+            found.append(name)
+    return found
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Refuse a write mode in a parallel run (capability ci-baseline, "Parallel test runs")."""
+    config = session.config
+    if hasattr(config, "workerinput") or not getattr(config.option, "numprocesses", None):
+        return
+    modes = active_write_modes()
+    if modes:
+        raise pytest.UsageError(
+            f"{', '.join(modes)} writes shared files and needs a serial run: drop -n (or pass -n 0)"
+        )
 
 
 def _missing(resource: str, message: str) -> None:

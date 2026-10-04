@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+PARALLEL = "-n auto --dist loadfile"
+"""The pytest-xdist options of every pytest step (capability ci-baseline, "Parallel test runs")."""
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
 STEPS = [
     ("checkout", "uses: actions/checkout@v4"),
@@ -19,6 +21,13 @@ STEPS = [
     ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --exclude-uses heavy"),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
+KICAD10_PYTEST = f"run: uv run pytest tests/kicad tests/corpus -q {PARALLEL}"
+UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
+
+
+def pytest_steps(job: str) -> list[str]:
+    """The ``run:`` lines of a job that call pytest, stripped."""
+    return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
 
 
 def job_text(workflow: str, name: str) -> str:
@@ -55,6 +64,8 @@ def job_problems(workflow: str) -> list[str]:
         problems.append("kicad-10: cache key must hash tests/corpus/manifest.toml")
     if not re.search(r"FENOLITE_REQUIRE: kicad,corpus", job):
         problems.append("kicad-10: pytest must run with FENOLITE_REQUIRE=kicad,corpus")
+    if pytest_steps(job) != [KICAD10_PYTEST]:
+        problems.append(f"kicad-10: the pytest step must end with {PARALLEL}")
     return problems
 
 
@@ -87,8 +98,13 @@ def test_library_rows_not_fetched() -> None:
     assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
 
 
-def test_unit_job_untouched() -> None:
-    assert "run: uv run pytest -q" in job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")
+def test_serial_kicad_10_step_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(KICAD10_PYTEST, KICAD10_PYTEST[: -len(PARALLEL) - 1])
+    assert f"kicad-10: the pytest step must end with {PARALLEL}" in job_problems(text)
+
+
+def test_unit_job_runs_in_parallel() -> None:
+    assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
 
 
 KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9"
@@ -100,6 +116,7 @@ KICAD9_STEPS = [
     ("corpus fetch", KICAD9_FETCH),
     ("pytest", "run: uv run pytest tests/kicad -q -rA"),
 ]
+KICAD9_PYTEST = f"run: uv run pytest tests/kicad -q -rA {PARALLEL}"
 
 
 def kicad9_problems(workflow: str) -> list[str]:
@@ -121,6 +138,8 @@ def kicad9_problems(workflow: str) -> list[str]:
         problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
     if KICAD9_KEY not in job:
         problems.append("kicad-9: cache key must be corpus-rt2-9-<hash of tests/corpus/manifest.toml>")
+    if pytest_steps(job) != [KICAD9_PYTEST]:
+        problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
@@ -132,6 +151,11 @@ def kicad9_problems(workflow: str) -> list[str]:
 def test_kicad_9_job() -> None:
     problems = kicad9_problems(WORKFLOW.read_text(encoding="utf-8"))
     assert not problems, "\n".join(problems)
+
+
+def test_serial_kicad_9_step_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(KICAD9_PYTEST, KICAD9_PYTEST[: -len(PARALLEL) - 1])
+    assert f"kicad-9: the pytest step must end with {PARALLEL}" in kicad9_problems(text)
 
 
 def test_both_kicad_jobs_run_tests_kicad() -> None:

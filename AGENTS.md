@@ -8,8 +8,13 @@ Read this file before changing anything. Humans: this is also the short version 
    `design.md`, `specs/` and `tasks.md`. Do not write code that no task asks for. Implement tasks
    in order, tick `- [x]` only after the task's proof command passed.
 2. **One fix per iteration.** Make one focused change, run its proof, then move on.
-3. **Before finishing:** `make check` (ruff check, ruff format --check, pyright src, pytest) must pass.
-4. Update `CHANGELOG.md` under `## [Unreleased]` for every change.
+3. **While iterating:** `make check-fast` (ruff check, ruff format --check, pyright src, residue scan,
+   and the tests that need no `kicad-cli`, corpus or KiCad libraries) plus the tests of the files you
+   touched, for example `uv run pytest tests/kicad/board/test_x.py -q`.
+4. **Before finishing:** `make check` (the same checks and every test, on parallel workers) must pass.
+   Run it once, on the rebased branch, right before the merge. Never start several full suites at
+   the same time on one machine: agents in parallel worktrees use `make check-fast`.
+5. Update `CHANGELOG.md` under `## [Unreleased]` for every change.
 
 ## Hard rules
 

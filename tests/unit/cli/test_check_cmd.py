@@ -16,6 +16,7 @@ from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
 from _projects import STEM, authored_project
 
+from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.pcb import opaque_count, read_board
 
 DATA = Path(__file__).resolve().parents[2] / "data"
@@ -155,6 +156,18 @@ def test_unsupported_or_older_major(monkeypatch: pytest.MonkeyPatch, tmp_path: P
 def test_oracle_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=10)
     fake = fake_kicad_cli(tmp_path / "bin", sleep=30.0)
+    real_version = KicadCli.version
+
+    def patient_version(self: KicadCli) -> str:
+        # The quick ``version`` call gets a generous limit, so that a loaded machine cannot make it late;
+        # only the sleeping calls run under ``--timeout 2``.
+        limit, self.timeout = self.timeout, 60.0
+        try:
+            return real_version(self)
+        finally:
+            self.timeout = limit
+
+    monkeypatch.setattr(KicadCli, "version", patient_version)
     code, env, _, _ = run(
         monkeypatch, tmp_path, "check", str(root), "--kicad-cli", str(fake), "--timeout", "2"
     )

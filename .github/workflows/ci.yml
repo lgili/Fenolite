@@ -37,7 +37,7 @@ jobs:
       - name: Residue scan
         run: uv run python tools/residue/scan.py
       - name: Tests
-        run: uv run pytest -q
+        run: uv run pytest -q -n auto --dist loadfile
 
   kicad-10:
     name: kicad-10 (kicad-cli oracle and corpus)
@@ -67,7 +67,7 @@ jobs:
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
-        run: uv run pytest tests/kicad tests/corpus -q
+        run: uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile
 
   kicad-9:
     name: kicad-9 (kicad-cli 9.0 oracle)
@@ -97,4 +97,4 @@ jobs:
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad
-        run: uv run pytest tests/kicad -q -rA
+        run: uv run pytest tests/kicad -q -rA -n auto --dist loadfile

@@ -52,7 +52,8 @@ git clone <this repository>
 cd fenolite
 uv sync --extra dev
 uv run fenolite --version
-make check
+make check-fast   # lint, format, types, residue scan and the tests that need no external tool
+make check        # everything, on parallel workers: the gate before a merge
 ```
 
 Talk to it like an agent does:

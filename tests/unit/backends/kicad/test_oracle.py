@@ -28,8 +28,13 @@ from fenolite.core.evidence import Level, strength
 
 def _oracle(tmp_path: Path, **fake: object) -> tuple[KicadOracle, Path]:
     script = fake_kicad_cli(tmp_path / "bin", **fake)  # type: ignore[arg-type]
-    timeout = 3.0 if fake.get("sleep") else 60.0
-    return KicadOracle(KicadCli(script, timeout=timeout)), script
+    cli = KicadCli(script, timeout=60.0)
+    if fake.get("sleep"):
+        # The quick ``version`` call runs under the generous limit and is cached, so that a loaded machine
+        # cannot make it late; only the sleeping calls get the short limit.
+        cli.version()
+        cli.timeout = 1.0
+    return KicadOracle(cli), script
 
 
 def _drc_calls(script: Path) -> list[dict[str, object]]:
