@@ -26,10 +26,10 @@ The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml
 3. `kicad-cli version`
 4. `uv sync --locked --extra dev`
 5. `actions/cache` of the corpus cache, keyed on `hashFiles('tests/corpus/manifest.toml')`
-6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --exclude-uses heavy`
+6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --exclude-uses heavy`
 7. `uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile` with `FENOLITE_REQUIRE=kicad,corpus`
 
-The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--uses project`, `--exclude-uses heavy`, the environment variable and the parallel options of the pytest step.
+The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--uses project`, `--uses cfb` (the compound-file rows that c0039 added to the workflow), `--exclude-uses heavy`, the environment variable and the parallel options of the pytest step.
 
 #### Scenario: Oracle job runs on a pull request
 - **WHEN** a pull request is opened

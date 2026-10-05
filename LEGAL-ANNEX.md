@@ -6,6 +6,8 @@ entitled to use are consulted during these sessions.
 
 | date | area | files touched | public sources consulted | author |
 |---|---|---|---|---|
+| 2026-10-05 | backends/kicad | `src/fenolite/backends/kicad/_fpmap.py`, `mod.py`, `tests/unit/backends/kicad/test_mod_pads.py`, `test_mod_write.py` (investigated the rotated-slot writer refusal against `kicad-demo-10-0-6-pcb-04`; rebased onto the fix already merged to `main`; no KiCad source code read or copied) | S-0058 | Codex agent |
+| 2026-10-04 | backends/altium, docs/formats | `docs/formats/altium/compound-file.md`, `src/fenolite/backends/altium/PROVENANCE.md`, `LEGAL-ANNEX.md` (c0039 compound-file reader research; MS-CFB v12.0's version 4, DIFAT, metadata and high-size-bit provisions re-read; Altium's published viewer limit; no parser code or other implementation read) | S-0145, S-0149 | Codex agent |
 | 2026-09-30 | docs/formats | docs/formats/units.md | S-0001, S-0002 | maintainer |
 | 2026-10-01 | docs/formats | docs/formats/kicad/geometry.md | S-0001, S-0010, S-0018, S-0019 | maintainer |
 | 2026-10-01 | backends/kicad, docs/formats | src/fenolite/backends/kicad/PROVENANCE.md, docs/formats/kicad/sexpr.md, docs/formats/kicad/corpus.md | S-0001, S-0020, S-0021, S-0022, S-0023, S-0024, S-0025, S-0026, S-0027, S-0028, S-0029 | maintainer |

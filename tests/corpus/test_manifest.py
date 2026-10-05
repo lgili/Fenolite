@@ -24,6 +24,13 @@ KEYS = {"id", "url", "ref", "sha256", "license", "license_variant", "embeddable"
 RT0_ID = re.compile(r"^(kicad-demo-\d+(-\d+){2,3}|third-party)-(pcb|sch|sym|mod|fplib|wks)-\d{2}$")
 ORIGINS = {"origin:kicad-demos", "origin:third-party"}
 PROJECT_ID = re.compile(r"^kicad-demo-\d+(-\d+){2,3}-(pro|dru)-\d{2}$")
+ALTIUM_ID = re.compile(
+    r"^altium-third-party-(schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot)-\d{2}$"
+)
+ALTIUM_NOTE = re.compile(
+    r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot); \d+ bytes; \d{4}\.$"
+)
+ALTIUM_FORBIDDEN_USES = {"rt0", "malformed", "project"}
 NON_COMMERCIAL = re.compile(r"\bNC\b|-NC-|non-?commercial", re.IGNORECASE)
 HEAVY_BYTES = 20 * 1024 * 1024
 
@@ -67,6 +74,23 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
         if NON_COMMERCIAL.search(f"{entry['license']} {entry['license_variant']}"):
             problems.append(f"{ident}: licences with a non-commercial clause are not allowed in the corpus")
         uses = list(entry["uses"])
+        if "altium" in uses:
+            if not ALTIUM_ID.fullmatch(ident):
+                problems.append(f"{ident}: altium ids must match {ALTIUM_ID.pattern}")
+            ref = str(entry["ref"])
+            if not re.fullmatch(r"[0-9a-f]{40}", ref) or ref not in str(entry["url"]):
+                problems.append(f"{ident}: altium rows need a 40-digit commit that the url contains")
+            if entry["embeddable"] is not False:
+                problems.append(f"{ident}: altium rows must have embeddable = false")
+            for required in ("origin:third-party",):
+                if required not in uses:
+                    problems.append(f"{ident}: altium rows need {required} in uses")
+            for forbidden in sorted(ALTIUM_FORBIDDEN_USES & set(uses)):
+                problems.append(f"{ident}: altium rows cannot carry {forbidden} in uses")
+            if not ALTIUM_NOTE.fullmatch(str(entry["notes"])):
+                problems.append(
+                    f"{ident}: altium notes must contain only source id, kind, byte size and save year"
+                )
         if "rt0" in uses and "malformed" in uses:
             problems.append(f"{ident}: a malformed row cannot carry rt0")
         if "rt0" in uses or "malformed" in uses:
@@ -143,6 +167,20 @@ def test_manifest_schema() -> None:
     assert not problems, "\n".join(problems)
 
 
+def test_altium_census_rows() -> None:
+    entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
+    rows = [entry for entry in entries if {"altium", "cfb"} <= set(entry["uses"])]
+    assert len(rows) == 10
+    assert {str(entry["id"]) for entry in rows} == {
+        *(f"altium-third-party-pcbdoc-{i:02}" for i in range(1, 5)),
+        *(f"altium-third-party-pcblib-{i:02}" for i in range(1, 3)),
+        *(f"altium-third-party-schdoc-{i:02}" for i in range(1, 5)),
+    }
+    repos = {urlparse(str(entry["url"])).path.split("/")[1] for entry in rows}
+    assert len(repos) >= 3
+    assert all(entry["embeddable"] is False for entry in rows)
+
+
 def test_committed_data_files_are_declared_and_embeddable() -> None:
     corpus = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
     declared = tomllib.loads(DATA_MANIFEST.read_text(encoding="utf-8")).get("file", [])
@@ -195,6 +233,30 @@ def test_missing_origin() -> None:
 def test_named_id_rejected() -> None:
     (problem,) = manifest_problems([_row(id="kicad-demo-pic-programmer")])
     assert problem.startswith("kicad-demo-pic-programmer: rt0 ids must match ^(kicad-demo-")
+
+
+def _altium_row(**overrides: Any) -> dict[str, Any]:
+    return (
+        _row(
+            id="altium-third-party-schdoc-01",
+            url="https://example.invalid/repo/" + "a" * 40 + "/file.SchDoc",
+            ref="a" * 40,
+            embeddable=False,
+            uses=["altium", "cfb", "origin:third-party"],
+            notes="S-0188; schdoc; 23040 bytes; 2016.",
+        )
+        | overrides
+    )
+
+
+def test_altium_rules_reject_bad_rows() -> None:
+    assert "altium ids must match" in "\n".join(
+        manifest_problems([_altium_row(id="altium-third-party-battman-01")])
+    )
+    assert "40-digit commit" in "\n".join(manifest_problems([_altium_row(ref="master")]))
+    assert "cannot carry rt0" in "\n".join(
+        manifest_problems([_altium_row(uses=["altium", "cfb", "origin:third-party", "rt0"])])
+    )
 
 
 def test_malformed_rows() -> None:
