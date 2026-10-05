@@ -54,7 +54,9 @@ reader. c0039 comes first for the `read/` package and the corpus rules only.
 ## Evidence level required
 
 - Reading and byte identity: `CORPUS-VERIFIED` with three repositories
-  (`H-A-RD-PRJ-INI`, `-DOCS`, `-OUTJOB`, `-ENC`); else `INFERRED` (`-PARAM`, `-RUL-EXPORT`, `-RUL-SUMMARY`, `-STACKUP`).
+  (`H-A-RD-PRJ-INI`, `-DOCS`, `-OUTJOB`); else `INFERRED` (`-PARAM`, `-RUL-EXPORT`, `-RUL-SUMMARY`, `-STACKUP`).
+  `-ENC` was refuted by the corpus (two rows are not UTF-8); its successor `-ENC-2` stays `INFERRED`
+  (design, "Implementation notes").
 - The meaning of rule keys and scopes: `INFERRED` (`H-A-RD-PRJ-RULE-MAP`, `-SCOPE`). No oracle reads a
   `.RUL` file, so the mapping never claims more.
 - The hierarchy-mode numbers: `INFERRED` (`H-A-RD-PRJ-HIER`) until the maintainer's author report

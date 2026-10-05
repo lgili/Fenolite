@@ -2252,3 +2252,135 @@ license_variant = ""
 embeddable = false
 uses = ["altium", "cfb", "origin:third-party"]
 notes = "S-0187; schdoc; 750080 bytes; 2020."
+
+[[file]]
+id = "altium-third-party-prjpcb-01"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/DM3370.PrjPcb"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "e4f0353a30cd12e08d1732d52b8026213044716e847248919c5a3e5b153cf75e"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0187; prjpcb; 58425 bytes; 2023."
+
+[[file]]
+id = "altium-third-party-prjpcb-02"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Battman.PrjPcb"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "8246110512533c79c4794f5dc14167a9e62694241947e3bea549b30e6f93de24"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0188; prjpcb; 60907 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-prjpcb-03"
+url = "https://raw.githubusercontent.com/odriverobotics/ODriveHardware/079f30ac58f193226fcc552e4d6ba24553027ee1/v3/two_ax_PCB.PrjPcb"
+ref = "079f30ac58f193226fcc552e4d6ba24553027ee1"
+sha256 = "1ae9c15c5fc5f9cbce403a7c5bdbe0dda1ab99901744cc3525eba00febed2e74"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0297; prjpcb; 275609 bytes; 2018."
+
+[[file]]
+id = "altium-third-party-outjob-01"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/NG2092_OAK-D-IoT-40/PCB/KingTop.OutJob"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "414df4cae773a8078c440fb1f5a006177f5586a4fc746031d43291423bfcdad3"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0187; outjob; 52267 bytes; 2021."
+
+[[file]]
+id = "altium-third-party-outjob-02"
+url = "https://raw.githubusercontent.com/odriverobotics/ODriveHardware/079f30ac58f193226fcc552e4d6ba24553027ee1/v2/Inverter.OutJob"
+ref = "079f30ac58f193226fcc552e4d6ba24553027ee1"
+sha256 = "0ef0c5fd691b249055354fd2bda23d338775aaec7fabdc9bc4ec0a6ae3ba5a29"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0297; outjob; 10491 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-outjob-03"
+url = "https://raw.githubusercontent.com/Fermium/AltiumTemplates/27f7fadb4443602b9cf23ff1ae71de0c2edb0e2d/020_Fabrication.OutJob"
+ref = "27f7fadb4443602b9cf23ff1ae71de0c2edb0e2d"
+sha256 = "58ac916c9518ebf57fe5c21f7943bb880adbd10327b7b51397e5a80e5dacd4b9"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0299; outjob; 39488 bytes; 2021."
+
+[[file]]
+id = "altium-third-party-rules-01"
+url = "https://raw.githubusercontent.com/odriverobotics/ODriveHardware/079f30ac58f193226fcc552e4d6ba24553027ee1/v2/SEEEDSTUDIO.RUL"
+ref = "079f30ac58f193226fcc552e4d6ba24553027ee1"
+sha256 = "68e97995f74ae48bbb514916bbc3187347874c32a4ef7ad2159e1f56d645790f"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0297; rules; 25373 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-rules-02"
+url = "https://raw.githubusercontent.com/Hack-a-Day/Vectorscope/ea5fab24017abf67b1afa3762c5e563fb1956b0f/hardware/vectorscope/Gerber/vectorscope.RUL"
+ref = "ea5fab24017abf67b1afa3762c5e563fb1956b0f"
+sha256 = "6b5040502b362ca0992aef0841d2199397172fea341f4f4d9f4ec20b02d477d9"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0298; rules; 366 bytes; 2023."
+
+[[file]]
+id = "altium-third-party-rules-03"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Project%20Outputs%20for%20Battman/Gerber/BMS.RUL"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "fad05996085f56a0ab7112993d77c97653f2813de8b96698143dbd8f3fc0a28f"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0188; rules; 471 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-stackup-01"
+url = "https://raw.githubusercontent.com/odriverobotics/ODriveHardware/079f30ac58f193226fcc552e4d6ba24553027ee1/v3/2layer.stackup"
+ref = "079f30ac58f193226fcc552e4d6ba24553027ee1"
+sha256 = "1cf242982ff82eb102ba45705c0324bd0e2db9dc9752d05f0c0d922a799adaf0"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0297; stackup; 12920 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-stackup-02"
+url = "https://raw.githubusercontent.com/odriverobotics/ODriveHardware/079f30ac58f193226fcc552e4d6ba24553027ee1/v3/4layer.stackup"
+ref = "079f30ac58f193226fcc552e4d6ba24553027ee1"
+sha256 = "7bf8bd4600a906550c90084120c39c370169dea381c6d8720eee2010cb5b7e83"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0297; stackup; 14307 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-stackup-03"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/NG2092_OAK-D-IoT-40/PCB/NG2092.stackup"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "5fbe7b9534081e5a8c910bf0d8c742e206427ccefd4d79a8d50566ca20098aa0"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-text", "origin:third-party"]
+notes = "S-0187; stackup; 17440 bytes; 2021."

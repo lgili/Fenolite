@@ -265,6 +265,7 @@ read here).
 | `H-A-RD-PRJ-PARAM` | Project parameters are the sections `Parameter<n>` with `Name` and `Value` | corpus test (the row that holds them) | INFERRED; the corpus count is supporting data until rows of three repositories hold parameters |
 | `H-A-RD-PRJ-HIER` | `HierarchyMode` holds the net identifier scope; `0` is Automatic; the other four numbers are those of the author report | author report (five saved projects, AD 26.5) | INFERRED |
 | `H-A-RD-PRJ-ENC` | A text file with a byte-order mark is UTF-8; without one it is ASCII or UTF-8 in every corpus row | corpus test (no `encoding-assumed` in 12 rows) | INFERRED → CORPUS-VERIFIED |
+| `H-A-RD-PRJ-ENC-2` | Successor of `-ENC` (refuted at implementation, see "Implementation notes"): a file without a byte-order mark is 7-bit ASCII, UTF-8 or text of a single-byte code page, typed as Latin-1 with `altium.text.encoding-assumed` | corpus rows of three repositories with such text, and a permitted source for the code page | INFERRED |
 | `H-A-RD-PRJ-OUTJOB` | An output job has `[OutputJobFile]` and `[OutputGroup<n>]` with the numbered output and medium keys | corpus test (3 rows) | INFERRED → CORPUS-VERIFIED |
 | `H-A-RD-PRJ-RUL-EXPORT` | The export form holds one record per line, ended by a pilcrow sign, with the keys of a board's rule record | corpus test (1 row); author report on the form AD 26.5 exports | INFERRED; one repository, supporting data |
 | `H-A-RD-PRJ-RUL-SUMMARY` | The summary form is a header line and `RuleKind`/`RuleName`/`Scope` records without units | corpus test (2 rows) | INFERRED; two repositories, supporting data |
@@ -401,3 +402,63 @@ optional: text forms, the project file, the export form and its mapping, the sta
    records lack, and c0043 reports `altium.import.harness-nested` where it would. A reader of the
    file's content is a later change (after v0.3) in `read/project.py`; c0039 reserves the corpus id
    kind `harness` for it. c0040's spec was edited to say this.
+
+## Implementation notes
+
+Recorded while implementing the change (2026-10-05), in task order.
+
+1. **Research corrections from the corpus.** The rows fetched for task 1.4 differ from the research of
+   2026-10-03 in three points; the requirements already allowed each, so no behaviour changed:
+   - The export-form rule file ends each record with the single byte `B6`, not with `C2 B6`, and is
+     therefore not UTF-8. The requirement already named both marks. The reader strips a lone `B6` only
+     when the file is read as Latin-1: in UTF-8 text a final `B6` is the continuation byte of another
+     character.
+   - One project file (S-0297) holds `HierarchyMode=2`; "only `0` was seen" no longer holds. It reads
+     with `net_scope = None` and `altium.project.hierarchy-mode-unknown`, as Decision 6 wants; author
+     report R1 settles it.
+   - That project file has no byte-order mark and holds bytes above `7F` that are not UTF-8.
+2. **`H-A-RD-PRJ-ENC` refuted.** Its criterion ("no `encoding-assumed` in 12 rows") fails on two rows
+   of S-0297 (the project file and the export rule file). The row is kept, refuted at the level of the
+   run (`CORPUS-VERIFIED`), with the successor `H-A-RD-PRJ-ENC-2`, `INFERRED` (one repository; no
+   permitted source names the code page). Task 9.2 therefore raises `-INI`, `-DOCS` and `-OUTJOB`
+   only. The spec delta ("Text reader evidence") and the proposal were amended; the encoding row of
+   `project.md` names `-ENC-2`.
+3. **Fact rows split for honest labels (task 9.2).** A fact row of `project.md` or `output-job.md` is
+   `CORPUS-VERIFIED` only where `tests/corpus/test_altium_text.py` asserts it on all three rows of
+   three repositories. Rows that mixed a tested and an untested statement were split; rows seen in
+   fewer than three repositories, or about a meaning (relative paths, the enabled value per container,
+   the publish settings), stay `INFERRED`. The corpus test gained the assertions those rows rest on.
+4. **`ini`: key lines before the first section** form a section named `""` with `line` 0, so they stay
+   reachable; the requirement only said they are kept.
+5. **`proptext.parse_fields`:** a `|` at the very start or end of the text gives no part, because a
+   stack-up file starts with `|` and can end with one; an empty part between two `|` is kept as
+   `("", None)`. `PropRecord` has a second field, `text`, the text it was read from.
+6. **`text_kind`:** a `.RUL` file whose content shows neither form is `unknown`; the extension decides
+   only `.PrjPcb`, `.OutJob` and `.stackup`, because the extension does not tell the two rule forms
+   apart.
+7. **`RuleMapping.rule_records`:** a fourth field, the record index of each rule of `ruleset`, from which
+   the property `sources` is derived. A rule does not carry its record index otherwise.
+8. **Rule mapping details.** An empty `RULEKIND` or `NAME` is `malformed`, like an absent one. A missing
+   `SCOPE1EXPRESSION`, or a missing `SCOPE2EXPRESSION`, is `scope`. `GENERICCLEARANCE` equals `GAP`
+   when both parse to the same nanometres. The ``Unmapped`` of a summary record takes its kind and name
+   from `RuleKind` and `RuleName`.
+9. **`load_project`.**
+   - `AltiumProject.issues` holds the issues of the project file and of each document (outside,
+     missing, unreadable, and the companions' read issues), in document order. The issues of each
+     `RuleMapping` stay in `rules`: c0043 replaces the per-rule infos by its own summary.
+   - A path's inner `..` is resolved by name before the file is looked up (`sub\..\a.RUL`); a path
+     whose file resolves outside the folder through a symbolic link is treated as outside.
+   - An `OSError` while reading a companion is `altium.project.companion-unreadable`, like a
+     `FormatError`; the message names the document index and the reason, never a path.
+10. **Repository files beyond the table of files.** `.gitattributes` marks `*.OutJob`, `*.RUL` and
+    `*.stackup` as `-text` so that the CR LF fixtures keep their bytes; `tests/unit/test_format_facts.py`
+    lists the three new pages (its pattern already accepted `H-A-RD-`, from c0039); `LEGAL-ANNEX.md`
+    gained the session row of the week. The corpus rows record as the year the last commit that touched
+    each file at the pinned commit.
+11. **Blink rules read back on the writer's grid.** The scenario "Fenolite's own rules map" holds; the
+    preferred width of `Width_PWR` reads as 499 999 nm, because the writer prints `19.685mil` (the
+    2.54 nm unit), and the mapper reads that text exactly.
+12. **Task 9.1 order.** The full suite was run once, after tasks 9.2 and 9.3, so that it covers the
+    final tree; its result is recorded in task 9.1.
+
+**Added at landing (coordinator, 2026-10-05): the CI fetch.** The twelve corpus rows carry `altium-text` and neither `rt0` nor `cfb`, so the `kicad-10` job, which runs `tests/corpus` with `FENOLITE_REQUIRE=kicad,corpus`, did not fetch them and `test_altium_text.py` would have failed there. The job's fetch step now also passes `--uses altium-text`, and `tests/unit/test_ci_workflow.py` checks it (`ALTIUM_READER_USES`). No task named this. The living `ci-baseline` requirement "kicad-10 oracle job" still prints the fetch command without `--uses cfb` (c0039 changed the workflow without a delta); this change adds no delta either, and the stale command line is left for a follow-up that rewrites that step once.

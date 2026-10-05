@@ -367,11 +367,12 @@ The levels of this capability SHALL be: `CORPUS-VERIFIED` for parsing and byte i
 - `H-A-RD-PRJ-HIER` MUST be raised only by the maintainer's author report (`docs/evidence/altium-project-read.md`), to `ALTIUM-VERIFIED(author-report; …)`; such a row never raises an operation to verified.
 - A corpus result MUST NOT raise a mapping row: reading a key is not proof of its meaning.
 - `docs/hypotheses.md` MUST hold the rows `H-A-RD-PRJ-INI`, `-DOCS`, `-PARAM`, `-HIER`, `-ENC`, `-OUTJOB`, `-RUL-EXPORT`, `-RUL-SUMMARY`, `-RULE-MAP`, `-SCOPE` and `-STACKUP`, each with its test or kit request.
+- `H-A-RD-PRJ-ENC` ("every corpus row without a byte-order mark is ASCII or UTF-8") is refuted by the corpus: two rows of one repository are not UTF-8. The row MUST stay, refuted, with the successor `H-A-RD-PRJ-ENC-2` (a file without a byte-order mark is 7-bit ASCII, UTF-8 or text of a single-byte code page, typed as Latin-1 with `altium.text.encoding-assumed`), which MUST stay `INFERRED` while its text that is not UTF-8 comes from fewer than three repositories and no permitted source names the code page. The fact-page row on encodings MUST name `H-A-RD-PRJ-ENC-2`.
 
 #### Scenario: Register rows
 - **GIVEN** `docs/hypotheses.md`
 - **WHEN** `uv run pytest tests/unit/test_hypotheses_register.py` runs
-- **THEN** the eleven rows exist, every id cited in the live text is registered, and no `H-A-RD-PRJ-*` row has an `ORACLE-VERIFIED` level
+- **THEN** the eleven rows and the successor `H-A-RD-PRJ-ENC-2` exist, `H-A-RD-PRJ-ENC` is refuted with that successor, every id cited in the live text is registered, and no `H-A-RD-PRJ-*` row has an `ORACLE-VERIFIED` level
 
 #### Scenario: Mapping stays inferred
 - **GIVEN** the corpus tests have passed and no author report exists

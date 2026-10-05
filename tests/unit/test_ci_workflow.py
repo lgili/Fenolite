@@ -20,7 +20,7 @@ STEPS = [
     ("corpus cache", "uses: actions/cache"),
     (
         "corpus fetch",
-        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb --exclude-uses heavy",
+        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb",
     ),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
@@ -31,6 +31,11 @@ UNIT_PYTEST = f"run: uv run pytest -q {PARALLEL}"
 def pytest_steps(job: str) -> list[str]:
     """The ``run:`` lines of a job that call pytest, stripped."""
     return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
+
+
+ALTIUM_READER_USES = (("altium-text", "the Altium text rows of the project reader"),)
+"""Corpus uses of the Altium readers whose rows carry neither ``rt0`` nor ``cfb``: the ``kicad-10`` job
+fetches each of them by name."""
 
 
 def job_text(workflow: str, name: str) -> str:
@@ -63,6 +68,9 @@ def job_problems(workflow: str) -> list[str]:
         problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
     if not any("--uses cfb" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses cfb (the Altium compound rows)")
+    for use, rows in ALTIUM_READER_USES:
+        if not any(f"--uses {use} " in line for line in fetches):
+            problems.append(f"kicad-10: the corpus fetch must pass --uses {use} ({rows})")
     if not any("--exclude-uses heavy" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --exclude-uses heavy")
     if "key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}" not in job:
@@ -101,6 +109,13 @@ def test_steps_out_of_order() -> None:
 def test_library_rows_not_fetched() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt0 --uses libs ", "--uses rt0 ")
     assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
+
+
+def test_reader_rows_not_fetched() -> None:
+    """The corpus tests run with ``FENOLITE_REQUIRE=corpus``: a use that the job does not fetch fails them."""
+    for use, rows in ALTIUM_READER_USES:
+        text = WORKFLOW.read_text(encoding="utf-8").replace(f" --uses {use}", "")
+        assert f"kicad-10: the corpus fetch must pass --uses {use} ({rows})" in job_problems(text)
 
 
 def test_compound_rows_not_fetched() -> None:

@@ -4,3 +4,7 @@
 *.SchLib -text
 *.PcbLib -text
 *.PcbDoc -text
+# Text companions of an Altium project (change c0042): kept byte for byte as well.
+*.OutJob -text
+*.RUL -text
+*.stackup -text

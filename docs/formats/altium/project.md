@@ -41,6 +41,80 @@ schematic (S-0132, S-0020), so nothing here is `ORACLE-VERIFIED`.
 | In the hierarchy sample both module sheets are under the top sheet in Altium Designer 26.5 (maintainer's report, 2026-10-03). The maintainer's note gives its documents as top sheet, `flash`, `mcu`, schematic library; the project file built for that session held the schematic library as its second document, between the top sheet and the two module sheets, and no PCB document or PCB library. So one schematic library in between may not be what stops the second sheet; which of the documents in between does is not known, and the order written now avoids the question | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 | The minimal project file that Fenolite writes for the board example (top sheet, `driver`, `led`, PCB document, PCB library, schematic library; no other key) is accepted by Altium Designer 26.5: on a fresh copy, after "Project » Validate PCB Project" alone, both module sheets are under the top sheet, and "Design » Update PCB Document" then runs on the compiled project (maintainer's third report of Part H, 2026-10-03) | S-0134 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-PRJ |
 
+## The project file as Altium saves it
+
+Change c0042 reads project files (`fenolite.backends.altium.read.project`). The rows below state what
+the reader relies on, measured on the three public project files of the corpus (S-0187, S-0188,
+S-0297; rows `altium-third-party-prjpcb-01` to `-03`) and on the sources named. The writer's rows above
+stay as they are. The reader keeps every byte (`read.textfile`, `read.ini`) and types only what the
+import (c0043) needs; every other section and key stays reachable through `ProjectFile.ini`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A saved project file is INI text: a line `[<name>]` opens a section, each `<key>=<value>` line belongs to the section above it, and empty lines separate the sections. No line outside these three forms, no line before the first section and no repeated key was seen | S-0132, S-0187, S-0188, S-0297 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-INI |
+| The file starts with `[Design]`, whose first two keys are `Version=1.0` and `HierarchyMode` | S-0187, S-0188, S-0297 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-INI |
+| After `[Design]` come some thirty to fifty more design keys, then `[Preferences]`, the numbered sections `[Document<n>]`, `[GeneratedDocument<n>]`, `[Configuration<n>]` and `[OutputGroup<n>]`, and option sections whose names hold spaces (`[Electrical Rules Check]`, `[Comparison Options]`, …). One file adds `[ProjectVariant<n>]` and `[Parameter<n>]`, and another adds `[ProjectVariant<n>]` alone | S-0187, S-0188, S-0297 | INFERRED | H-A-RD-PRJ-INI |
+| A section `[Document<n>]` lists one document: `DocumentPath` first, then fourteen keys of annotation, library update and class generation, the last one `DocumentUniqueId`. The numbers run from 1 without a gap | S-0132, S-0187, S-0188, S-0297 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-DOCS |
+| `DocumentPath` is relative to the folder of the project file, with `\` between folders; a path can leave that folder through `..`. No saved path is absolute or starts with a drive letter | S-0132, S-0187, S-0297 | INFERRED | H-A-RD-PRJ-DOCS |
+| The documents listed are schematic sheets, PCB documents, schematic, PCB and integrated libraries, harness definition files, output jobs, a bill-of-materials document, draftsman documents and an annotation file: every extension is one of `DOCUMENT_KINDS` | S-0187, S-0188, S-0297 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-DOCS |
+| The spelling of an extension's case varies between documents of one file (`.SchLib` and `.SCHLIB`) | S-0187 | INFERRED | H-A-RD-PRJ-DOCS |
+| A listed document can be absent from the published folder: a project lists an output job that its repository does not hold | S-0187 | INFERRED | H-A-RD-PRJ-DOCS |
+| A section `[GeneratedDocument<n>]` lists a file that an output wrote (reports, Gerber and drill files), with `DocumentPath` and a revision key | S-0187, S-0188 | INFERRED | H-A-RD-PRJ-DOCS |
+| A project parameter is a section `[Parameter<n>]` with the keys `Name` and `Value` | S-0187 | INFERRED | H-A-RD-PRJ-PARAM |
+| `[Design]` holds the net-naming options `AllowPortNetNames`, `AllowSheetEntryNetNames`, `AppendSheetNumberToLocalNets` and `PowerPortNamesTakePriority`, each `0` or `1`, and `OutputPath`; that they are the options of the same names in the project options is read from their names | S-0185, S-0187, S-0188, S-0297 | INFERRED | H-A-SCH-HIER-NAMES |
+| Altium documents five net identifier scopes (Automatic, Flat, Hierarchical, Strict Hierarchical, Global) and stores the project options in the project file. `HierarchyMode` is `0` in two saved files and `2` in the third; no permitted source gives the number of each scope | S-0138, S-0187, S-0188, S-0297 | INFERRED | H-A-RD-PRJ-HIER |
+| Encodings and line ends vary: one file is UTF-8 with a byte-order mark and LF line ends; one is 7-bit ASCII with CR LF; one has CR LF and no byte-order mark and holds single bytes above `7F` that are not UTF-8 (such as a degree sign, in values of a variant section). Which code page those bytes are in is not stated (`H-A-RD-PRJ-ENC`, refuted: not every file is ASCII or UTF-8) | S-0187, S-0188, S-0297 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-ENC-2 |
+
+### Document kinds
+
+`project.DOCUMENT_KINDS`: the kind of a document comes from its extension, compared without case, as
+KiCad's project importer does (S-0132). Any other extension is `other`.
+
+| extension | kind |
+|---|---|
+| `.SchDoc` | `schematic` |
+| `.PcbDoc` | `pcb` |
+| `.SchLib` | `schematic-library` |
+| `.PcbLib` | `pcb-library` |
+| `.IntLib` | `integrated-library` |
+| `.OutJob` | `output-job` |
+| `.RUL` | `rules` |
+| `.stackup` | `stackup` |
+| `.Harness` | `harness` |
+| `.SchDot` | `sheet-template` |
+| `.BomDoc` | `bom` |
+| `.PCBDwf` | `draftsman` |
+| `.Annotation` | `annotation` |
+
+### Hierarchy modes
+
+`project.HIERARCHY_MODES` holds only the numbers this page states (`H-A-RD-PRJ-HIER`). The other four
+scopes get a row when the maintainer's author report names their numbers
+(`docs/evidence/altium-project-read.md`); until then a project with another number reads with
+`net_scope = None` and the warning `altium.project.hierarchy-mode-unknown`.
+
+| HierarchyMode | net scope |
+|---|---|
+| `0` | `automatic` |
+
+### Fenolite's choices (reader)
+
+- The bytes are the source of truth: `ProjectFile.to_bytes()` gives the input back, with its byte-order
+  mark, line ends, unknown sections, key order and repeated keys.
+- The typed text is UTF-8 when the file has a byte-order mark or its bytes decode as UTF-8, else Latin-1
+  with the warning `altium.text.encoding-assumed`: Latin-1 maps every byte, so reading never fails on
+  an encoding, and only the typed text of the affected values can be wrong.
+- Section and key names are matched exactly as written. Numbered sections are taken by name, not by
+  position; their numbers need not be consecutive.
+- Typed: the documents and generated documents, the parameters and seven `[Design]` options
+  (`HierarchyMode`, `OutputPath` and the four net-naming options above; `raw` keeps every entry).
+  Variants, configurations, output groups, error reporting, class generation and every other section
+  stay raw.
+- `load_project` opens only the text companions (output jobs, rule files, stack-up files) that lie
+  inside the project folder; a path that leaves it is not opened and its issue names the document
+  index, not the path. A missing companion is a warning, and a companion that is not readable is a
+  warning too: the project still loads.
+
 ## Class generation
 
 Change c0048 writes the options that decide which classes and rooms "Design » Update PCB Document" derives

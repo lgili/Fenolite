@@ -199,7 +199,10 @@ recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
 - Compound-file reader.
 - Readers for the four document kinds: schematic library, PCB library, schematic document, PCB
   document.
-- Project files.
+- Project files. Done as c0042 (`fenolite.backends.altium.read`: the project file, output jobs, rule
+  files in both forms and stack-up files, read byte for byte; four rule kinds mapped onto the neutral
+  rules exactly or listed with a reason; `load_project` as the entry point of the import). The net
+  scope numbers wait for an author report (`docs/evidence/altium-project-read.md`).
 - Import into the neutral model.
 - `inspect`, `check` and `diff` on second-backend files.
 - Buses, padstacks and component bodies in the model. The model spec is additive-only from the end

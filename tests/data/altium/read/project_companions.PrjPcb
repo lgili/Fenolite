@@ -1,0 +1,15 @@
+[Design]
+Version=1.0
+HierarchyMode=0
+
+[Document1]
+DocumentPath=Top.SchDoc
+
+[Document2]
+DocumentPath=jobs.OutJob
+
+[Document3]
+DocumentPath=rules_export.RUL
+
+[Document4]
+DocumentPath=two_layer.stackup

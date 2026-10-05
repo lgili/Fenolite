@@ -63,7 +63,7 @@ jobs:
           path: /root/.cache/fenolite/corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch corpus
-        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb --exclude-uses heavy
+        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb --uses altium-text --exclude-uses heavy
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus

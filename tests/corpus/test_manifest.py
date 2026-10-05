@@ -87,6 +87,8 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
                     problems.append(f"{ident}: altium rows need {required} in uses")
             for forbidden in sorted(ALTIUM_FORBIDDEN_USES & set(uses)):
                 problems.append(f"{ident}: altium rows cannot carry {forbidden} in uses")
+            if "altium-text" in uses and "cfb" in uses:
+                problems.append(f"{ident}: an altium-text row is a text file and cannot carry cfb")
             if not ALTIUM_NOTE.fullmatch(str(entry["notes"])):
                 problems.append(
                     f"{ident}: altium notes must contain only source id, kind, byte size and save year"
@@ -181,6 +183,25 @@ def test_altium_census_rows() -> None:
     assert all(entry["embeddable"] is False for entry in rows)
 
 
+def test_altium_text_rows() -> None:
+    """Change c0042: twelve text files (project files, output jobs, rule files, stack-up files), each with
+    ``altium``, ``altium-text`` and ``origin:third-party`` and without ``cfb`` or ``rt0``."""
+    entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
+    rows = [entry for entry in entries if "altium-text" in entry["uses"]]
+    kinds = ("prjpcb", "outjob", "rules", "stackup")
+    assert {str(entry["id"]) for entry in rows} == {
+        f"altium-third-party-{kind}-{i:02}" for kind in kinds for i in range(1, 4)
+    }
+    for entry in rows:
+        uses = set(entry["uses"])
+        assert {"altium", "origin:third-party"} <= uses and not uses & {"cfb", "rt0"}, entry["id"]
+        assert entry["embeddable"] is False and entry["license"] in ("MIT", "LGPL-3.0"), entry["id"]
+    assert manifest_problems(rows) == []
+    for kind in ("prjpcb", "outjob"):
+        repos = {urlparse(str(e["url"])).path.split("/")[1] for e in rows if f"-{kind}-" in str(e["id"])}
+        assert len(repos) == 3, kind
+
+
 def test_committed_data_files_are_declared_and_embeddable() -> None:
     corpus = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
     declared = tomllib.loads(DATA_MANIFEST.read_text(encoding="utf-8")).get("file", [])
@@ -256,6 +277,9 @@ def test_altium_rules_reject_bad_rows() -> None:
     assert "40-digit commit" in "\n".join(manifest_problems([_altium_row(ref="master")]))
     assert "cannot carry rt0" in "\n".join(
         manifest_problems([_altium_row(uses=["altium", "cfb", "origin:third-party", "rt0"])])
+    )
+    assert "cannot carry cfb" in "\n".join(
+        manifest_problems([_altium_row(uses=["altium", "altium-text", "cfb", "origin:third-party"])])
     )
 
 

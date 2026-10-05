@@ -921,3 +921,45 @@ path = "tests/data/analysis/requirements_example.toml"
 origin = "authored"
 corpus_id = ""
 notes = "authored requirements file of the board analyses (c0047): round illustrative numbers, no value of any standard"
+
+[[file]]
+path = "tests/data/altium/read/project_utf8.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file authored for the c0042 reader tests: UTF-8 with a byte-order mark, LF, invented names"
+
+[[file]]
+path = "tests/data/altium/read/project_crlf.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file authored for the c0042 reader tests: 7-bit ASCII, CR LF, an unknown hierarchy mode"
+
+[[file]]
+path = "tests/data/altium/read/project_companions.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file authored for the c0042 loading tests, listing the fixtures beside it"
+
+[[file]]
+path = "tests/data/altium/read/jobs.OutJob"
+origin = "authored"
+corpus_id = ""
+notes = "output job authored for the c0042 reader tests: one group, two media, two outputs"
+
+[[file]]
+path = "tests/data/altium/read/rules_export.RUL"
+origin = "authored"
+corpus_id = ""
+notes = "rule file in the export form authored for the c0042 reader tests: three records ended by C2 B6 and LF"
+
+[[file]]
+path = "tests/data/altium/read/rules_summary.RUL"
+origin = "authored"
+corpus_id = ""
+notes = "rule file in the summary form authored for the c0042 reader tests: CR LF, a bare board name"
+
+[[file]]
+path = "tests/data/altium/read/two_layer.stackup"
+origin = "authored"
+corpus_id = ""
+notes = "stack-up file authored for the c0042 reader tests: four entries, no line end"
