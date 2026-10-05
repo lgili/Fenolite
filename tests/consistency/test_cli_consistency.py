@@ -19,7 +19,7 @@ from typing import Any
 import _schema
 import pytest
 from _cliexamples import PREPARED, folder_snapshot, prepare_example
-from _fakecli import fake_kicad_cli
+from _fakecli import EXAMPLE_NETLIST, fake_kicad_cli
 
 from fenolite.cli.api import Command, Context, Result, discover, module_name_for
 from fenolite.cli.main import main
@@ -50,7 +50,7 @@ def example_tools(
     callspec = getattr(request.node, "callspec", None)
     name = callspec.params.get("name") if callspec is not None else None
     if name in COMMANDS and "kicad-cli" in COMMANDS[name].example_tools:
-        script = fake_kicad_cli(tmp_path_factory.mktemp("fake-kicad"))
+        script = fake_kicad_cli(tmp_path_factory.mktemp("fake-kicad"), netlist=EXAMPLE_NETLIST)
         monkeypatch.setenv("FENOLITE_KICAD_CLI", str(script))
     if name in PREPARED:  # the examples of ``fmt`` and ``restore`` name files of the working directory
         work = tmp_path_factory.mktemp("example")

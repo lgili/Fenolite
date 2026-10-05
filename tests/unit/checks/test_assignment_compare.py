@@ -7,9 +7,17 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
-from fakes import FakeFullOracle, FakeOracle, netlist, netlist_outcome, project, validation
+from fakes import (
+    FakeFullOracle,
+    FakeOracle,
+    FakeSchematicOracle,
+    netlist,
+    netlist_outcome,
+    project,
+    validation,
+)
 
-from fenolite.backends.base import PadAssignment, PadNetList
+from fenolite.backends.base import PadAssignment, PadNetList, ProjectSet
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.checks.assignment_compare import (
     NO_NET,
@@ -17,8 +25,9 @@ from fenolite.checks.assignment_compare import (
     board_netlist,
     compare,
     model_netlist,
+    schematic_file,
 )
-from fenolite.core.evidence import Level
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Circuit, Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 
@@ -269,3 +278,132 @@ def test_skips() -> None:
     drc_only = _stage(FakeOracle(), design)
     assert (drc_only.status, drc_only.reason) == ("skipped", "unsupported-oracle")
     assert _stage(None, design).reason == "unsupported-oracle"
+
+
+# -- the schematic's netlist as a source (change c0063)
+
+
+def _model_of(design: Design) -> Design:
+    """``design`` as a built model: every pad of the board is a member of its net."""
+    listed, _ = board_netlist(design)
+    nets = tuple(
+        dataclasses.replace(
+            n,
+            members=tuple(
+                PinRef(c.id, a.element.split("-")[1])
+                for a in listed.assignments
+                if a.net == n.id
+                for c in design.circuit.components
+                if c.ref == a.element.split("-")[0]
+            ),
+        )
+        for n in design.circuit.nets
+    )
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, nets=nets))
+
+
+def _schematic_stage(oracle: object, design: Design, **kwargs: object):  # type: ignore[no-untyped-def]
+    options = {"validation": validation(design), "model": None, "built": False} | kwargs
+    return assignment_stage(oracle, project(schematic=True), **options)  # type: ignore[arg-type]
+
+
+def _pairs(result: object) -> list[tuple[str, str, int]]:
+    return [(p["a"], p["b"], p["differences"]) for p in result.summary["pairs"]]  # type: ignore[attr-defined]
+
+
+def _oracle_with(design: Design, schematic: PadNetList | None, **kwargs: object) -> FakeSchematicOracle:
+    export = netlist_outcome(_same_partition(board_netlist(design)[0]))
+    found = netlist_outcome(schematic, **kwargs)  # type: ignore[arg-type]
+    return FakeSchematicOracle(netlist_result=export, schematic_result=found)
+
+
+def test_schematic_pair_agrees_with_the_model() -> None:
+    design = _design()
+    listed, _ = board_netlist(design)
+    names = {n.id: n.name for n in design.circuit.nets}
+    sheet = netlist(
+        "schematic",
+        *((a.element, names.get(a.net, f"unconnected-({a.element})")) for a in listed.assignments),
+    )
+    oracle = _oracle_with(design, sheet)
+    result = _schematic_stage(oracle, design, model=_model_of(design), built=True)
+    assert _pairs(result) == [("model", "board", 0), ("model", "schematic", 0), ("board", "export", 0)]
+    assert result.status == "ok" and len(oracle.schematic_calls) == 1
+    assert [i for i in result.issues if i.severity == "error"] == []
+
+
+def test_two_nets_joined_on_the_sheet() -> None:
+    design = _design()
+    listed, _ = board_netlist(design)
+    joined = netlist("schematic", *((a.element, "ONE") for a in listed.assignments))
+    result = _schematic_stage(_oracle_with(design, joined), design, model=_model_of(design), built=True)
+    assert _pairs(result)[0] == ("model", "board", 0) and _pairs(result)[2] == ("board", "export", 0)
+    assert _pairs(result)[1][:2] == ("model", "schematic") and _pairs(result)[1][2] > 0
+    errors = [i for i in result.issues if i.code == "netlist.assignment-differs"]
+    assert errors and all("in the model" in i.message and "in the schematic" in i.message for i in errors)
+    assert all("ONE in the schematic" in i.message for i in errors), (
+        "the label of the sheet is shown as it is"
+    )
+    assert result.status == "errors"
+
+
+def test_native_input_compares_the_schematic_with_the_board() -> None:
+    design = _design()
+    listed, _ = board_netlist(design)
+    names = {n.id: n.name for n in design.circuit.nets}
+    pairs = [(a.element, "GND" if a.element == "R1-2" else names[a.net]) for a in listed.assignments]
+    result = _schematic_stage(_oracle_with(design, netlist("schematic", *pairs)), design)
+    assert [(a, b) for a, b, _ in _pairs(result)] == [("schematic", "board"), ("board", "export")]
+    errors = {i.where for i in result.issues if i.code == "netlist.assignment-differs"}
+    assert "R1-2" in errors and _pairs(result)[1][2] == 0
+
+
+def test_built_input_without_a_model_compares_the_schematic_with_the_board() -> None:
+    design = _design()
+    same = _same_partition(board_netlist(design)[0], "schematic")
+    result = _schematic_stage(_oracle_with(design, same), design, model=None, built=True)
+    assert _pairs(result) == [("schematic", "board", 0), ("board", "export", 0)]
+
+
+def test_schematic_export_fails() -> None:
+    design = _design()
+    result = _schematic_stage(_oracle_with(design, None), design)
+    (failed,) = [i for i in result.issues if i.code == "check.oracle-failed"]
+    assert failed.severity == "error" and not failed.retryable and failed.where == "board.kicad_sch"
+    assert "no netlist of the schematic" in failed.message and "no export" in failed.message
+    assert _pairs(result) == [("board", "export", 0)] and result.status == "errors"
+    timed = _schematic_stage(_oracle_with(design, None, timeout=True), design)
+    (late,) = [i for i in timed.issues if i.code == "check.oracle-failed"]
+    assert late.retryable and "timed out" in late.message
+
+
+def test_no_schematic_pairs_as_before() -> None:
+    design = _design()
+    oracle = _oracle_with(design, _same_partition(board_netlist(design)[0], "schematic"))
+    result = _stage(oracle, design)
+    assert _pairs(result) == [("board", "export", 0)] and oracle.schematic_calls == []
+
+
+def test_oracle_without_schematic_netlists_keeps_the_pairs() -> None:
+    design = _design()
+    oracle = FakeFullOracle(netlist_result=netlist_outcome(_same_partition(board_netlist(design)[0])))
+    result = _schematic_stage(oracle, design)
+    assert _pairs(result) == [("board", "export", 0)] and result.issues == ()
+
+
+def test_schematic_evidence_joins_the_stage() -> None:
+    design = _design()
+    same = _same_partition(board_netlist(design)[0], "schematic")
+    weak = Evidence(Level.INFERRED, oracle="fake 1.0", hypotheses=("H-FAKE-SHEET",))
+    result = _schematic_stage(_oracle_with(design, same, evidence=weak), design)
+    assert "H-FAKE-SHEET" in result.evidence.hypotheses and result.evidence.oracle == "fake 1.0"
+
+
+def test_schematic_file_of_a_project(tmp_path: Path) -> None:
+    assert schematic_file(project()) == "" and schematic_file(project(schematic=True)) == "board.kicad_sch"
+    board = tmp_path / "x.kicad_pcb"
+    board.write_text("", encoding="utf-8")
+    beside = ProjectSet(tmp_path, "x.kicad_pcb", {"x.kicad_pcb": board})
+    assert schematic_file(beside) == ""
+    (tmp_path / "x.kicad_sch").write_text("", encoding="utf-8")
+    assert schematic_file(beside) == "x.kicad_sch"

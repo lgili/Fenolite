@@ -368,7 +368,8 @@ class Uncovered:
 
 @dataclass(frozen=True, slots=True)
 class PadNetList:
-    """The net-to-pad assignments of one source (``model``, ``board`` or ``export``) and its coverage."""
+    """The net-to-pad assignments of one source (``model``, ``board``, ``export`` or ``schematic``) and its
+    coverage."""
 
     source: str
     assignments: tuple[PadAssignment, ...]
@@ -442,6 +443,20 @@ class NetlistOracle(Protocol):
     def version(self) -> str: ...
 
     def netlist(self, project: ProjectSet, *, board: Design) -> NetlistOutcome: ...
+
+
+@runtime_checkable
+class SchematicNetlistOracle(Protocol):
+    """An oracle that exports the netlist of a project's schematic: a ``PadNetList`` of source
+    ``schematic`` with one assignment ``REF-PIN`` → net name per pin the tool lists. ``netlist`` is ``None``
+    when the tool wrote no export; a timeout is an outcome, not an exception. It never writes under the
+    project root (change c0063)."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome: ...
 
 
 @runtime_checkable
@@ -808,6 +823,7 @@ __all__ = [
     "ReadResult",
     "RoundTrip",
     "RoundTripOracle",
+    "SchematicNetlistOracle",
     "Rt2Outcome",
     "SkipReason",
     "SkippedFile",

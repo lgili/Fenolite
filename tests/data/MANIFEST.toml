@@ -1223,6 +1223,18 @@ corpus_id = ""
 notes = "9.0-format (20250114) copy of the hierarchy child (c0060)"
 
 [[file]]
+path = "tests/data/kicad/netlist/export_10.net"
+origin = "authored"
+corpus_id = ""
+notes = "netlist export in the shape kicad-cli 10.0.6 writes (three parts, five nets), authored for the c0063 reader tests with a made-up date and path"
+
+[[file]]
+path = "tests/data/kicad/netlist/export_9.net"
+origin = "authored"
+corpus_id = ""
+notes = "the same netlist in the shape kicad-cli 9.0.9 writes (c0063)"
+
+[[file]]
 path = "tests/data/kicad/schematic/multi/top.kicad_sch"
 origin = "authored"
 corpus_id = ""

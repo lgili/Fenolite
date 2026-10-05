@@ -299,11 +299,14 @@ path of its symbol; the `.fenolite/` model holds none of this. `result.schematic
 positions. The schematic is a view of the script: a schematic changed since the last build is replaced,
 with `build.schematic-replaced` and a `.bak` copy, while an edited `sym-lib-table` or symbol library is
 refused like any vendored file. With `--vendor project`, a symbol of a row that is not a project row is
-embedded in the sheet and gets no project library (`build.global-library`).
+embedded in the sheet and gets no project library (`build.global-library`). Before any file is returned, the build reads the
+nets of the sheet it generated back from the sheet, without any tool, and compares them with the circuit:
+a difference is a defect of the generator and stops the build (`build.schematic-netlist-differs`).
 
 | code | severity | when |
 |---|---|---|
 | `build.schematic-too-large` | error | the units do not fit one A0 page |
+| `build.schematic-netlist-differs` | error | the nets read back from the generated sheet are not those of the circuit; nothing is written |
 | `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
 | `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
 | `build.reserved-library` | error | the design names or authors a symbol library `fenolite` |
@@ -522,7 +525,7 @@ re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assig
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
-| `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board and of `kicad-cli pcb export ipcd356`, compared as partitions | the lowest of the reader, the export and, on built input, `INFERRED`; `UNVERIFIED` without an export |
+| `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board, of `kicad-cli pcb export ipcd356` and, when the project has a schematic, of `kicad-cli sch export netlist`, compared as partitions | the lowest of the reader, the exports that were read and, on built input, `INFERRED`; `UNVERIFIED` without the board's export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
 | `roundtrip.rt2` | opt-in: KiCad's DRC on the board and on Fenolite's re-dump of it gives the same violations | the DRC report reader, the oracle and the RT2 runs combined; `UNVERIFIED` when a report is missing |
 | `render` | opt-in: runs only when `--stages` names it; plots the four views of `fenolite render` on the copy set and writes nothing | the plot evidence, `kicad-cli <version>`; `UNVERIFIED` when no view was produced |
@@ -570,7 +573,12 @@ or absolute paths.
 
 **Assignment compare.** Elements are `REF-PIN`. Two sources agree when they put the same elements
 together, whatever the nets are called; pads on no net form one class. The pairs are (`model`, `board`)
-on built input and (`board`, `export`) always. A difference names the element that moved. Elements only
+on built input and (`board`, `export`) always. When `<stem>.kicad_sch` lies beside the board, KiCad's
+netlist of that schematic is a further source, `schematic`: it is compared with the model on built input
+(`model`, `schematic`), and with the board on native input or when the model cannot be loaded
+(`schematic`, `board`). So one source is the hub of each input and a wrong pin is reported once. A
+schematic that `kicad-cli` cannot export gives `check.oracle-failed`, and the other pairs are still
+compared. A difference names the element that moved. Elements only
 one side covers are `netlist.uncovered` infos, per reason: `not-exported`, `unmatched-record`,
 `net-label-ambiguous` (two net names share their last 14 characters), `below-min-pins` or
 `not-in-<source>`. The summary holds `pairs` (`a`, `b`, `common`, `only_a`, `only_b`, `differences`),
@@ -1344,6 +1352,47 @@ Every length is integer nanometres, in the frame of the board file. An unknown n
 `FEN-2001`, and the hint names the closest net names. The evidence is the lowest of the board reader
 and of the board frame.
 
+## netlist
+
+`fenolite netlist PATH [--source kicad|fenolite] [--min-pins N] [--kicad-cli PATH] [--timeout SECONDS]`
+lists the components and nets of a KiCad project's schematic. It writes nothing. `PATH` is a
+`.kicad_sch`, or a board, a project file or a project folder resolved as for `check`, whose schematic is
+`<stem>.kicad_sch` beside the board.
+
+- **`--source kicad`** (the default) runs `kicad-cli sch export netlist --format kicadsexpr` on copies of
+  the schematic, the sheets it names and the project's copy set, and reads the export. It answers for
+  every schematic KiCad loads: wires, buses, hierarchies and power symbols are KiCad's to resolve.
+- **`--source fenolite`** reads the root sheet itself and runs no tool. It answers only for a sheet that
+  `build` generated (symbols, global labels on pin ends, no-connect flags, Fenolite's power flags), where
+  the nets follow from the points alone (`docs/schematic.md`, "The netlist of a generated sheet"). Any
+  other sheet exits 7 with `FEN-7001`, and `issues` holds one `kicad.sch.netlist-unsupported` per reason,
+  the reason first in the message: `wire`, `label-kind`, `sheet`, `undefined-symbol`, `label-off-pin`,
+  `two-names`, `shared-point`, `frame` or `hidden-power`.
+
+`result` holds:
+
+- `schematic`, the file name, and `source`;
+- `components`, sorted by the natural order of the reference: `ref`, `value`, `footprint` and
+  `properties` (the fields other than the reference and the value);
+- `nets`, sorted by name: `name`, `class` (the net class KiCad reports; `""` from the source
+  `fenolite`, which does not read the project file), `unconnected` and `pins`, each `{ref, pin, type}`,
+  sorted by reference and pin. `type` is the electrical type of the pin, followed by `+no_connect` under
+  a no-connect flag. `unconnected` is true for a net of one pin that KiCad named `unconnected-(…)`;
+- `counts`: `components`, `nets`, `pins`, `unconnected` and `below_min_pins`, over every net.
+
+`--min-pins N` leaves the nets with fewer than `N` pins out of `nets` and counts them in
+`counts.below_min_pins`; `--min-pins 2` hides the nets of single pins. The default is 1.
+
+Nothing of a run reaches the output: no date, no temporary path and no absolute path, so two runs on
+unchanged files print the same document apart from `elapsed_ms`.
+
+Exit codes: 0; 2 for a usage error, an ambiguous folder or `--min-pins` below 1 (`FEN-2001`); 3 for a
+missing path or a project without a schematic (`FEN-3001`), and for a schematic that `kicad-cli` cannot
+load or an export Fenolite cannot read (`FEN-3004`, with the tool's first line); 6 when `--source kicad`
+finds no `kicad-cli` (`FEN-6001`; the hint names `--source fenolite`), when it is unsupported
+(`FEN-6002`) or when it times out (`FEN-6001`, retryable); 7 for `--source fenolite` on a sheet outside
+its grammar. The evidence is that of the source: the export reader's and the oracle's, with
+`kicad-cli <version>` as the oracle, or that of Fenolite's own netlist (`H-K-NETLIST-OWN`).
 ## region
 
 `fenolite region PATH --box X1,Y1,X2,Y2 [--layer NAME] [--kinds a,b]` lists what a rectangle of the board

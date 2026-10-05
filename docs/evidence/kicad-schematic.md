@@ -205,3 +205,54 @@ library in the 9.0 form; the order of the root items and every item Fenolite wri
   `pinfunction` and `pintype` to their pads, and changed no position, `path`, field text, pad net, track
   or zone. `H-K-SCH-UPDATE` stays `INFERRED`: one manual run on one board.
 
+## Netlists (change c0063)
+
+Measured on 2026-10-05 with `kicad-cli` 10.0.6 (macOS) and 9.0.9 (the pinned image), each on projects that
+`build` wrote for its own major. The probe outcomes are committed in
+`docs/evidence/kicad/probes/10.0.6.json` and `9.0.9.json`; the tests are
+`tests/kicad/schematic/test_netlist_facts.py`, `test_own_netlist.py` and
+`tests/kicad/check/test_netlist_oracle.py`.
+
+### The export (`H-K-NETLIST-SHAPE`)
+
+| probe | 9.0.9 | 10.0.6 | what it says |
+|---|---|---|---|
+| `netlist-shape` | `equal` | `equal` | the export of the built blink holds `components` and `nets` with every head and atom the reader takes |
+| `netlist-power-symbols` | `absent` | `absent` | the two `#FLG` power flags of the blink are neither components nor nodes |
+| `netlist-pintype` | `equal` | `equal` | `pintype` is the electrical type of the pin, with `+no_connect` under a flag: 36 pins of the blink (29 flagged) and 12 of the units design (5 flagged) |
+
+The root children are `version`, `design`, `components`, `libparts`, `libraries` and `nets` on 9.0.9, and
+10.0.6 adds `groups` and `variants`. The date and the paths of a run lie in `design` and `libraries`
+only; the source path of `design` occurs nowhere in `components` and `nets`.
+
+### The own netlist against the export (`H-K-NETLIST-OWN`)
+
+`netlist.differences(own_netlist(sheet), read_netlist(export))` with pin types compared; the counts are
+those of the export and are equal on both versions. The sheet read back from the written file gives the
+same own netlist as the generated sheet in every case.
+
+| set | designs | components | nets | pins | `unconnected-(…)` nets | pins under a flag | differences (9.0.9 and 10.0.6) |
+|---|---|---|---|---|---|---|---|
+| blink (`netlist-own-blink` = `equal`) | 1 | 3 | 33 | 36 | 29 | 29 | 0 |
+| units design (`netlist-own-units` = `equal`) | 1 | 3 | 9 | 12 | 5 | 5 | 0 |
+| examples: `altium_hier_board`, `blink_2layer`, `blink_routed`, `board_40parts` | 4 | 49 | 179 | 248 | 127 | 69 | 0 |
+| 25 generated designs, seed 20261004 (`netlist-own-generated` = `equal`) | 25 | 162 | 508 | 930 | 364 | 182 | 0 |
+
+The examples `altium_hier`, `altium_kicad`, `altium_sample` and `blink_official` do not build for the
+KiCad target with the libraries of the repository and are not in the set. No difference was found, so no
+row of c0061 (`H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-POWER`) was touched. The generated set
+holds the multi-unit part in 19 designs, a pin-pad map in 18, a no-connect mark in 21, a power interface
+in 16, a net name with a slash in 18, a module in 18 and an open pin without a mark in 20.
+
+### The schematic as a source of `check`
+
+| case | pairs of `netlist.assignment_compare` | differences (9.0.9 and 10.0.6) |
+|---|---|---|
+| built blink, built units design | (`model`, `board`), (`model`, `schematic`), (`board`, `export`) | 0, 0, 0 |
+| the same files without `.fenolite/` | (`schematic`, `board`), (`board`, `export`) | 0, 0 |
+| hand sheet of c0061's power probe, pins shown, against a model with `X1-1` on `GND` and `X1-2` on `OTHER` | (`model`, `schematic`) | 0 |
+| the same sheet with the two `VSS` pins hidden | (`model`, `schematic`) | a difference naming `X1-1` or `X1-2`: KiCad joins the two pins |
+
+`fenolite netlist` gives equal nets, counts and components from its two sources for the built blink and
+for the built units design on both versions; only `class` differs, which the source `fenolite` leaves
+empty.

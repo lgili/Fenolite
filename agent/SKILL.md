@@ -108,6 +108,9 @@ These commands read and answer; none of them runs a tool unless it says so.
   footprint is one change. `--view tree` says whether two KiCad files differ at all.
 - `fenolite net BOARD [NAME]`, `fenolite region BOARD --box 10mm,5mm,30mm,20mm` and
   `fenolite neighbors BOARD R1` describe a net, a rectangle of the board and what is near a part.
+- `fenolite netlist build/blink --source fenolite` lists the components and nets of a schematic that
+  `build` wrote, without any tool; `--min-pins 2` hides the unconnected pins. For any other KiCad
+  schematic leave `--source` out: `kicad-cli` reads it (exit 6 without the tool).
 - `fenolite fmt FILE --check` says whether a file is in Fenolite's canonical print.
 - `fenolite manifest build/blink --artifacts build/blink/fab --confirm`, after `export`, writes one
   file that lists every design file and exported file with its SHA-256 and a state (`generated`,

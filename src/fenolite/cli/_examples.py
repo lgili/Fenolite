@@ -24,4 +24,9 @@ EXAMPLE_UNROUTED = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/routing/two_pads.kicad_pcb"
 )
 
-__all__ = ["EXAMPLE_BOARD", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED", "EXAMPLE_UNROUTED"]
+EXAMPLE_SCHEMATIC = str(
+    Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/schematic/flat.kicad_sch"
+)
+"""The authored flat schematic of the test data (``fenolite netlist``)."""
+
+__all__ = ["EXAMPLE_BOARD", "EXAMPLE_SCHEMATIC", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED", "EXAMPLE_UNROUTED"]

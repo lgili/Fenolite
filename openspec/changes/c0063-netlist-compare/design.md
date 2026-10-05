@@ -160,3 +160,99 @@ Cut order: (1) `pintype` in the comparison; (2) `netlist --source fenolite`; (3)
 - **Should `fenolite netlist` also write a file?** Default: no; c0065's manifest may list a JSON netlist if a user asks.
 - **Net classes in the comparison.** Default: not compared; the own netlist does not read the project file.
 - **Should the guard be skippable (`--no-netlist-guard`)?** Default: no. It costs milliseconds and refuses only a sheet that contradicts the circuit.
+
+## Implementation notes (2026-10-05)
+
+What the working tree held when the implementation started, and what was changed in this change's text
+because of it.
+
+- **c0061 is implemented and not archived.** The living "Assignment compare stage" is still the text
+  before c0061. The MODIFIED delta of this change is therefore c0061's delta text with exact
+  replacements (the sentence about the schematic source, the pairs, the label of a `schematic` net in a
+  message, and five scenarios). Archive order: c0061 first, then this change; in the other order
+  c0061's delta would remove the schematic source again. c0061 was archived on 2026-10-06, before the
+  last rebase of this change: the delta was generated again from the living text and came out the
+  same, so the ordering question is closed.
+- **Pad numbers in `model_netlist` are c0061's.** c0061 already names a model element by its pad, with
+  the scenario "Mapped pins are named by their pads". This change keeps that sentence and scenario as
+  they are and adds no second scenario for it; the work "pad numbers in `model_netlist`" of the budget
+  was not needed.
+- **The copy set holds no schematic.** `projectset.project_set` never lists `.kicad_sch` (living
+  "Check project copy set"), and c0062, a sibling change, is the one that adds the schematic files to
+  it. So the stage cannot ask `project.files` alone. It asks whether the project has a schematic:
+  `<board stem>.kicad_sch` is one of `project.files`, or a file beside the board under `project.root`.
+  `KicadOracle.schematic_netlist` copies the project's files and, when the set does not hold them, the
+  root schematic and the sheet files that `sch.sheet_files` lists inside the root. Once c0062 is merged
+  the files come from the set and this addition does nothing. `projectset.py` is not touched here.
+- **`KicadCli.export_netlist` returns the run**, not a text: the netlist is `run.outputs[NETLIST]`.
+  `tests/_fakecli.py` already takes a `netlist` argument (c0060), and `tests/_erc.py::netlist` reads
+  the nets of an export for tests (c0061).
+- **(`schematic`, `board`) when the model is missing.** Built input whose `.fenolite/` model could not be
+  loaded has no model to be the hub, so the schematic is compared with the board there, as on native
+  input.
+- **Scenario "Schematic export fails"** was added: the requirement asks for `check.oracle-failed` and
+  the other pairs, and no scenario pinned it.
+- **The grammar issue is not a code of the reader.** The living "Schematic read issue codes" pins
+  `sch.ISSUE_CODES` as a closed set, and `read_schematic` never gives `kicad.sch.netlist-unsupported`.
+  The code lives in `sch_netlist.ISSUE_CODES` instead of joining `sch.ISSUE_CODES`.
+- **A ninth reason, `undefined-symbol`.** The table had no reason for an instance whose definition the
+  sheet does not embed (the reader only warns, `kicad.sch.symbol-undefined`), and the pins of such an
+  instance are not known. It is refused under its own reason. `label-off-pin` is not reported beside
+  it, since the labels of the unknown pins would all be named.
+- **`shared-point` also covers stacked pins without a label.** Several pins of one instance at one
+  point are one net for KiCad. With a label at that point they are the net of the label, which the own
+  netlist reads; without one KiCad names the net after one of the pins, by a rule that was not
+  measured, so the sheet is refused.
+- **`frame` cannot occur today.** `schlayout.PROVED_FRAMES` holds the twelve pairs the model allows; the
+  reason stays for the day a pair leaves that set, and its test shrinks the set.
+- **The guard compares what the sheet draws.** The design a rebuild hands to the generator can hold
+  footprints kept from the board, which have no part and get no symbol, and their pads are members of
+  nets. The guard therefore compares the members whose component has a symbol (`generated.paths`),
+  and takes the list of the other pins from the sheet: each must be alone on its net. Two tests of
+  c0019 (`test_net_alias.py`, `test_preserve_readback.py`) fail without this.
+- **Two nets under one stored name** (`a/b` and `a{slash}b`) are a difference of their own in the
+  guard: element by element the sheet agrees with each, and KiCad reads them as one net.
+- **`fenolite netlist` on a schematic alone.** A `.kicad_sch` without a board has no copy set, so the
+  run gets the schematic, the sheets it names (`oracle.with_sheets`) and the project file of its stem.
+  The pre-flight without a board is `_kicadtool.supported_tool`, which `preflight` now calls first.
+- **A timeout of `fenolite netlist`** exits 6 with `FEN-6001` and `retryable: true`: the tool is there
+  and did not answer, and no other registered code says that.
+- **Example fakes.** A fake `kicad-cli` refuses a schematic unless it is given a netlist (c0060's
+  tests rely on that), so the two example suites pass `EXAMPLE_NETLIST`, the authored 10.0 export.
+- **Fields of a component.** KiCad lists `Footprint`, `Datasheet`, `Description` and the user fields
+  under `fields`, each as `(field (name "N") "text")` with no text atom for an empty field. `Reference`
+  and `Value` are not fields there, so `own_netlist` leaves them out of `properties` too.
+
+### Public names added beside those of "Files and public API"
+
+| file | name |
+|---|---|
+| `backends/kicad/netlist.py` | `build_netlist`, `node_key`, `NO_CONNECT_SUFFIX`, `NetNode.element` |
+| `backends/kicad/sch_netlist.py` | `ISSUE_CODES`, `CODE`, `HINT`, `WIRE_HEADS` |
+| `backends/kicad/oracle.py` | `SchematicExport`, `export_schematic_netlist`, `export_netlist_of`, `schematic_files`, `schematic_name`, `with_sheets` |
+| `checks/assignment_compare.py` | `schematic_file` |
+| `lens/build.py` | `schematic_netlist_issue` |
+| `cli/_kicadtool.py` | `supported_tool` |
+| `cli/cmd_netlist.py` | `find_schematic`, `netlist_result`, `is_unconnected` |
+| `tests/_netexport.py` (new) | `export_text`, `of_design`, `for_board`: an authored export for a fake `kicad-cli` |
+| `tests/_fakecli.py` | `EXAMPLE_NETLIST` |
+| `tests/kicad/schematic/_netlistcases.py` (new) | the `netlist-*` probes and the cases of the two oracle tests |
+
+### What the own netlist does not measure
+
+- **A pin common to several units** (unit 0) is listed once, with the unit of its first instance on the
+  sheet in the name of its unconnected net, as `schgen` names the pad. The mini library has no such
+  pin, so the acceptance set does not hold one.
+- **A symbol with `(on_board no)` that is not a power flag** is listed as a component by
+  `sch.components`, and KiCad lists none for it. `build` never writes one; a sheet edited to hold one
+  and nothing else outside the grammar would differ from KiCad's export by that component.
+- **Pin types of a pin with an alternate function chosen on the instance** are those of the definition.
+
+The acceptance holds for what `build` writes, which is what `H-K-NETLIST-OWN` states.
+
+### Results (2026-10-05)
+
+No probe outcome differs from "Context". No difference was found by the acceptance test on either
+major, pin types included, so no fallback of Decision 8 was applied and nothing was cut from the cut
+order. The 9.0.9 image runs Python 3.11, which refused an unhashable dataclass default that Python 3.13
+accepts; `NetComponent.properties` takes its empty mapping from a factory.

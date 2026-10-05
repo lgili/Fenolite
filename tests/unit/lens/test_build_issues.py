@@ -40,6 +40,7 @@ def test_closed_set() -> None:
         "build.symbol-short": "error", "build.symbol-placement-unknown": "warning",
         "build.symbol-placement-invalid": "error", "build.reserved-library": "error",
         "build.schematic-replaced": "warning",
+        "build.schematic-netlist-differs": "error",  # c0063: the netlist guard
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table

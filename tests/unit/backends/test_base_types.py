@@ -37,6 +37,7 @@ from fenolite.backends.base import (
     RoundTrip,
     RoundTripOracle,
     Rt2Outcome,
+    SchematicNetlistOracle,
     SkippedFile,
     Uncovered,
     WriteResult,
@@ -177,6 +178,17 @@ def test_oracle_protocols() -> None:
     drc_only, full = fakes.FakeOracle(), fakes.FakeFullOracle()
     assert not isinstance(drc_only, NetlistOracle) and not isinstance(drc_only, RoundTripOracle)
     assert isinstance(full, NetlistOracle) and isinstance(full, RoundTripOracle)
+
+
+def test_schematic_netlist_oracle_narrows() -> None:
+    """Scenario "Narrowing": only an oracle with ``schematic_netlist`` is a ``SchematicNetlistOracle``."""
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeOracle(), SchematicNetlistOracle)
+    assert not isinstance(fakes.FakeFullOracle(), SchematicNetlistOracle)
+    full = fakes.FakeSchematicOracle()
+    assert isinstance(full, SchematicNetlistOracle) and isinstance(full, NetlistOracle)
+    listed = PadNetList("schematic", (PadAssignment("U1-10", "GND"),))
+    assert listed.source == "schematic" and listed.uncovered == ()
 
 
 def test_new_outcomes_are_immutable() -> None:

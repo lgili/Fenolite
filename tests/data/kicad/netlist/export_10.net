@@ -1,0 +1,218 @@
+(export
+	(version "E")
+	(design
+		(source "/authored/blink/blink.kicad_sch")
+		(date "2026-01-01T00:00:00")
+		(tool "Eeschema 10.0.6")
+	)
+	(components
+		(comp
+			(ref "D1")
+			(value "LED")
+			(footprint "Mini:Mini_LED_THT_3mm")
+			(fields
+				(field
+					(name "fenolite.path") "D1")
+				(field
+					(name "Footprint") "Mini:Mini_LED_THT_3mm")
+				(field
+					(name "Datasheet")
+				)
+			)
+			(libsource
+				(lib "Mini")
+				(part "Mini_LED")
+			)
+			(property
+				(name "Sheetfile")
+				(value "blink.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0c0063d1-0000-4000-8000-000000000001")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "330")
+			(footprint "Mini:Mini_R_0603")
+			(fields
+				(field
+					(name "fenolite.path") "R1")
+				(field
+					(name "Footprint") "Mini:Mini_R_0603")
+				(field
+					(name "Datasheet")
+				)
+			)
+			(libsource
+				(lib "Mini")
+				(part "Mini_R")
+			)
+			(property
+				(name "Sheetfile")
+				(value "blink.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0c0063d1-0000-4000-8000-000000000002")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U1")
+			(value "MCU")
+			(footprint "Mini:Mini_QFP-32_7x7mm_P0.8mm")
+			(fields
+				(field
+					(name "fenolite.path") "U1")
+				(field
+					(name "Footprint") "Mini:Mini_QFP-32_7x7mm_P0.8mm")
+				(field
+					(name "Datasheet")
+				)
+			)
+			(libsource
+				(lib "Mini")
+				(part "Mini_QFP32_IC")
+			)
+			(property
+				(name "Sheetfile")
+				(value "blink.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "0c0063d1-0000-4000-8000-000000000003")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "10")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts)
+	(libraries
+		(library
+			(logical "Mini")
+			(uri "${KIPRJMOD}/lib/Mini.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "GND")
+			(class "PWR")
+			(node
+				(ref "D1")
+				(pin "1")
+				(pinfunction "K_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "10")
+				(pinfunction "GND_10")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "2")
+			(name "LED_A")
+			(class "Default")
+			(node
+				(ref "D1")
+				(pin "2")
+				(pinfunction "A_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "R1")
+				(pin "2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "3")
+			(name "LED_DRV")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "1")
+				(pinfunction "PA0_1")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "4")
+			(name "VIN")
+			(class "PWR")
+			(node
+				(ref "U1")
+				(pin "9")
+				(pinfunction "VDD_9")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "5")
+			(name "unconnected-(U1-PA1-Pad2)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "2")
+				(pinfunction "PA1_2")
+				(pintype "bidirectional+no_connect")
+			)
+		)
+	)
+)

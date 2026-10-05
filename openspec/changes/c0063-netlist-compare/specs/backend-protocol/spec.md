@@ -5,7 +5,7 @@
 - The `NetlistOutcome` is the type of "Netlist and round-trip oracles". Its `PadNetList` MUST have the source `schematic` and one `PadAssignment(f"{ref}-{pin}", <net name>)` per pin the tool lists; a pin the tool does not list is not an element.
 - `netlist` MUST be `None` when the tool wrote no export, and `message` MUST then be the first sanitised line of the tool's output or of the parse error.
 - `schematic_netlist` MUST NOT write under `project.root`, and MUST return `outcome == "timeout"` instead of raising when the tool times out.
-- c0013's `Oracle` protocol is unchanged: a caller narrows with `isinstance(oracle, SchematicNetlistOracle)`. `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy the protocol, and the typed function of `oracle.py` that returns a `KicadOracle` as each protocol MUST cover it.
+- c0013's `Oracle` protocol is unchanged: a caller narrows with `isinstance(oracle, SchematicNetlistOracle)`. `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy the protocol, and a typed function of `oracle.py` MUST return a `KicadOracle` as `SchematicNetlistOracle`, so `pyright` checks the assignment.
 
 #### Scenario: KiCad oracle satisfies the protocol
 - **WHEN** `uv run pyright src` runs

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import _ipc
+import _netexport
 import _schema
 import pytest
 from _asmcli import built, isolate
@@ -109,6 +110,7 @@ def _checked_project(tmp_path: Path, **options: Any) -> tuple[Path, str]:
     fake = fake_kicad_cli(
         tmp_path / "bin",
         ipcd356=_ipc.for_board(board),
+        netlist=_netexport.for_board(board),  # check compares the schematic's netlist (c0063)
         refill_board=board.read_text(encoding="utf-8") + "\n",
         **options,
     )

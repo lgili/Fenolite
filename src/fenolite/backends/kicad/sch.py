@@ -910,6 +910,19 @@ def opaque_count(sheet: SchematicSheet) -> int:
     return sum(1 for _ in _opaque_fragments(sheet))
 
 
+def opaque_heads(sheet: SchematicSheet) -> Counter[str]:
+    """The heads of the opaque slots of the sheet root, counted: what the root holds that the model does
+    not (``wire``, ``junction``, ``bus``, ``text`` and so on). A sheet that was not read from a file has no
+    slot and gives an empty count."""
+    bag = sheet.ext.get("kicad")
+    heads: Counter[str] = Counter()
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if isinstance(slot, Opaque):
+            match = _HEAD.match(slot.fragment)
+            heads[match.group(1) if match is not None else ""] += 1
+    return heads
+
+
 def opaque_digests(sheet: SchematicSheet) -> Counter[str]:
     """The SHA-256 hex digests of the opaque fragments, as a multiset."""
     return Counter(hashlib.sha256(f.encode("utf-8")).hexdigest() for f in _opaque_fragments(sheet))
@@ -1321,6 +1334,7 @@ __all__ = [
     "hierarchy_components",
     "opaque_count",
     "opaque_digests",
+    "opaque_heads",
     "read_schematic",
     "rebuild_schematic",
     "roundtrip_schematic",

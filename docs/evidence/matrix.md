@@ -301,6 +301,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `libs` | `EVIDENCE` INFERRED: `H-K-LIB-COMMON`, `H-K-LIB-CONFIGHOME`, `H-K-LIB-FALLBACK`, `H-K-LIB-NESTED`, `H-K-LIB-RELPATH-2`, `H-K-LIB-SCAN`<br>`WRITE_EVIDENCE` INFERRED: `H-K-BUILD-LIBTABLE` |
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
+| `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |
 | `netnames` | see `pcb`, `schgen` |
 | `oracle` | `EVIDENCE` KICAD-VERIFIED: `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY-3`<br>`NORMALISE_EVIDENCE` KICAD-VERIFIED: `H-K-FMT-RESAVE`<br>`RT2_EVIDENCE` KICAD-VERIFIED: `H-K-RT2-STABLE-2` |
 | `outline` | `EVIDENCE` INFERRED: `H-G-PLACE-OUTLINE`, `H-K-OUTLINE-CHAIN`, `H-K-OUTLINE-FPEDGE` |
@@ -314,6 +315,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `roundtrip` | see `pcb` |
 | `rulemap` | see `dru`, `lowering` |
 | `sch` | `EVIDENCE` CORPUS-VERIFIED: `H-K-SCH-READ`, `H-K-SCH-COMPONENTS-2`<br>`WRITE_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL` |
+| `sch_netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-OWN` |
 | `schgen` | `EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL`, `H-K-SCH-PINFRAME`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-PARITY`, `H-K-SCH-POWER`, `H-K-SCH-LIBTABLE` |
 | `schlayout` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |

@@ -27,9 +27,11 @@ from fenolite.backends.kicad import (
     frame,
     lowering,
     mod,
+    netnames,
     pcb,
     pro,
     sch,
+    sch_netlist,
     schgen,
     sym,
     symembed,
@@ -96,6 +98,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.property-invalid": "error",
         "build.property-conflict": "error",
         "build.vendor-unsafe-name": "error",
+        "build.schematic-netlist-differs": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
@@ -754,6 +757,10 @@ def build_design(
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
         if any(i.severity == "error" for i in issues):
             return _refused(built, issues, libraries)
+        differs = schematic_netlist_issue(target_design, generated, name)
+        if differs is not None:
+            issues.append(differs)
+            return _refused(built, issues, libraries)
         target_design = lower_for_schematic(target_design, generated)
     texts = write_triad(
         target_design,
@@ -1081,6 +1088,83 @@ def _symbol_libraries(
     return libraries
 
 
+GUARD_CODE = "build.schematic-netlist-differs"
+GUARD_HINT = (
+    "this is a defect of the schematic generator: report it with the script, and build with "
+    "--schematic skip meanwhile"
+)
+
+
+def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name: str) -> Issue | None:
+    """``build.schematic-netlist-differs`` when the generated sheet does not mean the circuit, else ``None``
+    (capability design-dsl, "Schematic netlist guard in a build"; change c0063).
+
+    The sheet is read by ``sch_netlist.own_netlist``, without any tool, and compared with ``design``: a
+    member of a net whose component has a symbol (``generated.paths``) must be on the net of that stored
+    name, a pin whose pad ``generated.pad_nets`` names must be on the net of that name, and every other
+    pin of the sheet must be alone on its net. The circuit of a rebuild can hold pads that are no pin of
+    a symbol, so the sheet lists the pins. Elements are ``REF-PAD``. Pin types, net classes and values
+    are not compared. The issue names the first difference by net and element, in sorted order.
+    """
+    try:
+        own = sch_netlist.own_netlist(generated.sheet, project=name)
+    except sch_netlist.NetlistUnsupportedError as error:
+        reasons = "; ".join(found.message for found in error.issues)
+        return issue(
+            GUARD_CODE,
+            f"the generated schematic is outside what Fenolite reads back ({reasons}), so it is not "
+            "proved to mean the circuit; nothing is written",
+            f"{name}.kicad_sch",
+            GUARD_HINT,
+        )
+    refs = {c.id: c.ref for c in design.circuit.components}
+    pads = {c.id: dict(c.pin_pad_map) for c in design.circuit.components}
+    expected: dict[str, str] = {}
+    differences: list[tuple[str, str, str]] = []
+    stored_as: dict[str, str] = {}
+    for net in design.circuit.nets:
+        stored = netnames.stored_name(net.name)
+        for member in net.members:
+            if member.component_id not in generated.paths:
+                continue  # a footprint kept from the board has no symbol: the sheet says nothing of it
+            pad = pads.get(member.component_id, {}).get(member.pin, member.pin)
+            element = f"{refs.get(member.component_id, '')}-{pad}"
+            other = stored_as.setdefault(stored, net.name)
+            if other != net.name:
+                text = f"the nets {other} and {net.name} of the circuit are one net on the sheet"
+                differences.append((stored, element, text))
+            known = expected.setdefault(element, stored)
+            if known != stored:
+                differences.append((stored, element, f"the circuit has {element} on {known} and on {stored}"))
+    for (component_id, pad), net_name in generated.pad_nets.items():
+        expected.setdefault(f"{refs.get(component_id, '')}-{pad}", net_name)
+    found = {node.element: net for net in own.nets for node in net.nodes}
+    for element in expected.keys() | found.keys():
+        wanted, net = expected.get(element), found.get(element)
+        if net is None:
+            text = f"the circuit has {element} on {wanted}, and the sheet has no such pin"
+            differences.append((wanted or "", element, text))
+        elif wanted is None:  # a pin the circuit leaves open, whose name KiCad derives: alone on its net
+            if len(net.nodes) > 1:
+                text = f"the sheet has {element} on {net.name}, and the circuit has it on no net"
+                differences.append((net.name, element, text))
+        elif net.name != wanted:
+            text = f"the sheet has {element} on {net.name}, and the circuit has it on {wanted}"
+            differences.append((wanted, element, text))
+    if not differences:
+        return None
+    differences.sort()
+    net_name, element, text = differences[0]
+    more = f" (and {len(differences) - 1} more)" if len(differences) > 1 else ""
+    return issue(
+        GUARD_CODE,
+        f"the generated schematic does not mean the circuit: net {net_name or '(none)'}, {element}: "
+        f"{text}{more}; nothing is written",
+        element,
+        GUARD_HINT,
+    )
+
+
 def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:
     """The design that is written beside a generated schematic, so that KiCad's parity test and its
     "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
@@ -1318,5 +1402,6 @@ __all__ = [
     "build_design",
     "check_existing",
     "lower_for_schematic",
+    "schematic_netlist_issue",
     "read_record",
 ]

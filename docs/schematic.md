@@ -82,6 +82,33 @@ A net name with a slash, such as `mod/LED_A`, is stored by KiCad as `mod{slash}L
 the slash for sheet paths. The build writes that form in the board and in the labels; KiCad shows the
 name with the slash, and so does Fenolite when it reads the board.
 
+## The netlist of a generated sheet
+
+A generated sheet has no wire, so what it means electrically follows from points alone: a pin is on the
+net whose global label lies on its connection point, labels of one text are one net, and a pin without a
+label is alone on a net that KiCad names after it. Fenolite reads its own sheets this way
+(`backends/kicad/sch_netlist.py`), and that reading is used in two places.
+
+- **Every build checks its own sheet.** Before any file is returned, the nets read back from the sheet
+  are compared with the circuit of the script: each member of each net must be on the net of that name,
+  the pad of each unconnected pin on the net written for it on the board, and every other pin alone. No
+  tool runs. A difference means the generator wrote a sheet that says something other than the circuit;
+  the build stops with `build.schematic-netlist-differs`, names the first net and pin, and writes
+  nothing. That is a defect to report, not something to fix in the script; `--schematic skip` builds
+  the board meanwhile.
+- **`fenolite netlist DIR --source fenolite`** prints the components and nets of a built project
+  without KiCad (`docs/cli-contract.md`, "netlist").
+
+Fenolite reads only what it generates. A sheet with a wire, a junction or a bus, a local or hierarchical
+label, a sub-sheet, a symbol without an embedded definition, a label that lies on no pin, two names or
+several pins on one point, a power symbol other than Fenolite's own flag, or a hidden power pin is
+refused (`kicad.sch.netlist-unsupported`, the reason first in the message). For such a sheet, and for
+any schematic drawn in KiCad, the netlist is KiCad's to tell: `fenolite netlist` runs
+`kicad-cli sch export netlist` by default, and `fenolite check` compares that export with the model of
+a built project and with the board.
+
+On the examples and on 25 generated designs, Fenolite's reading equals KiCad's export on 9.0.9 and on
+10.0.6: components, net names, pins and pin types (`docs/evidence/kicad-schematic.md`, "Netlists").
 ## Placements file
 
 Symbols are placed automatically: one cell per unit, in rows, sorted by module and by reference, with

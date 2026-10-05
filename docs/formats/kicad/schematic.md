@@ -81,6 +81,24 @@ Net names on boards follow the same rule (`pcb.stored_net_name`): a created net 
 `{slash}` for a slash, a net read from a file keeps its spelling, and the reader gives a net stored with
 `{slash}` the name with the slash, keeping the stored spelling in the net's `kicad` bag (`stored`).
 
+## Netlist export
+
+What `netlist.read_netlist` reads of the file that `kicad-cli sch export netlist --format kicadsexpr`
+writes (change c0063). No format page describes this file; every row is an observation on the netlist of
+projects that `build` wrote, on 9.0.9 and on 10.0.6. The outcomes per version are in
+`docs/evidence/kicad-schematic.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The export is one list `(export (version "E") …)` with the children `design`, `components`, `libparts`, `libraries` and `nets`; 10.0.6 adds `groups` and `variants` between `components` and `libparts` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `components` holds one `comp` per reference, with `ref`, `value`, `footprint`, `description`, `fields`, `libsource`, `property` entries, `sheetpath` and `tstamps` (the uuid of the symbol); 10.0.6 also lists `units` with the pin numbers of each unit. The reader takes `ref`, `value`, `footprint` and `fields` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `fields` holds one `(field (name "N") "text")` per field other than the reference and the value: `Footprint`, `Datasheet`, `Description` and the user fields; an empty field has no text atom | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `nets` holds one `net` per net with `code`, `name`, `class` and one `node` per pin; a `node` holds `ref`, `pin` (the pin number), `pintype` and, for a pin with a name, `pinfunction`. The reader takes `name`, `class`, `ref`, `pin` and `pintype` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `pinfunction` is the pin name on 9.0.9 and `<name>_<number>` on 10.0.6, and `code` numbers the nets in the order of the file: the reader ignores both | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `pintype` is the electrical type of the pin as a symbol library spells it (`input`, `output`, `bidirectional`, `tri_state`, `passive`, `power_in`, `power_out`, …), followed by `+no_connect` for a pin under a no-connect flag | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| A symbol whose reference starts with `#` (a power flag) is neither a `comp` nor a `node`, and names no net | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| `design` holds the date of the export, the tool version and the absolute path of the schematic; `libraries` holds one `uri` per symbol library, as the table writes it on 10.0.6 and resolved to an absolute path on 9.0.9; `libparts` repeats the library symbols. The reader ignores the three sections, so no date and no path of a run reaches Fenolite | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-SHAPE |
+| For a sheet that `build` wrote, the nets of the export are the texts of the global labels, each with the pins whose points carry it, and one `unconnected-(…)` net per pin without a label: what `sch_netlist.own_netlist` computes from the sheet alone | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLIST-OWN |
 ## Identifiers
 
 - The sheet: `derived_id("sch", "kicad", <root uuid>)`, or `"file:<name>"` without a root uuid.

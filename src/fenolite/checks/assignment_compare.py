@@ -2,11 +2,12 @@
 # Copyright (c) 2026 Fenolite contributors
 """The ``netlist.assignment_compare`` stage (capability verification-loop, "Assignment compare stage").
 
-The net-to-pad assignments of the model, of the re-read board and of the tool's netlist export are
-compared as partitions of ``REF-PIN`` elements, never by net name: an export may shorten names, and a
-model and a board may name a net differently. The board is the hub, so a reassigned pad is reported once:
-(``model``, ``board``) on built input and (``board``, ``export``) on every input. Elements that only one
-side covers are coverage, never differences.
+The net-to-pad assignments of the model, of the re-read board, of the tool's netlist export and of the
+schematic's netlist are compared as partitions of ``REF-PIN`` elements, never by net name: an export may
+shorten names, and a model and a board may name a net differently. One source is the hub, so a reassigned
+pad is reported once: (``model``, ``board``) on built input and (``board``, ``export``) on every input;
+with a schematic (change c0063) also (``model``, ``schematic``) on built input, and (``schematic``,
+``board``) when no model is there. Elements that only one side covers are coverage, never differences.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from fenolite.backends.base import (
     NetlistOracle,
@@ -21,6 +23,7 @@ from fenolite.backends.base import (
     PadAssignment,
     PadNetList,
     ProjectSet,
+    SchematicNetlistOracle,
     Uncovered,
     Validation,
 )
@@ -202,6 +205,15 @@ def net_text(label: str, names: Mapping[str, str]) -> str:
     return " and ".join(names.get(part, part) for part in label.split("|"))
 
 
+def schematic_file(project: ProjectSet) -> str:
+    """The name of the project's root schematic, ``<board stem>.kicad_sch``, when the project has one: it
+    is a file of the copy set, or a file beside the board; ``""`` otherwise."""
+    name = f"{PurePosixPath(project.board).stem}.kicad_sch"
+    if name in project.files or (project.root / name).is_file():
+        return name
+    return ""
+
+
 def _pair_issues(pair: PairResult, names: Mapping[str, Mapping[str, str]]) -> list[Issue]:
     issues = [
         issue(
@@ -260,7 +272,9 @@ def assignment_stage(
     built: bool,
     min_pins: int = 1,
 ) -> StageResult:
-    """Compare (``model``, ``board``) on built input and (``board``, ``export``) on every input."""
+    """Compare (``model``, ``board``) on built input and (``board``, ``export``) on every input; with a
+    schematic and an oracle that exports its netlist, also (``model``, ``schematic``) on built input with
+    a loaded model, and (``schematic``, ``board``) otherwise."""
     name = "netlist.assignment_compare"
     if validation is None:
         return skipped(name, "read-refused")
@@ -271,8 +285,24 @@ def assignment_stage(
     names: dict[str, Mapping[str, str]] = {"board": net_names(design), "model": net_names(model)}
     pairs: list[PairResult] = []
     issues: list[Issue] = []
-    if built and model is not None:
-        pairs.append(compare(model_netlist(model), board, min_pins=min_pins))
+    listed = model_netlist(model) if built and model is not None else None
+    if listed is not None:
+        pairs.append(compare(listed, board, min_pins=min_pins))
+    sheet_evidence: list[Evidence] = []
+    sheet = schematic_file(project)
+    if sheet and isinstance(oracle, SchematicNetlistOracle):
+        exported = oracle.schematic_netlist(project)
+        if exported.netlist is None:
+            what = "timed out" if exported.outcome == "timeout" else "wrote no netlist of the schematic"
+            detail = f": {exported.message}" if exported.message else ""
+            issues.append(issue("check.oracle-failed", f"{oracle.name} {what}{detail}", where=sheet,
+                                retryable=exported.outcome == "timeout"))  # fmt: skip
+        elif listed is not None:
+            pairs.append(compare(listed, exported.netlist, min_pins=min_pins))
+            sheet_evidence.append(exported.evidence)
+        else:
+            pairs.append(compare(exported.netlist, board, min_pins=min_pins))
+            sheet_evidence.append(exported.evidence)
     outcome = oracle.netlist(project, board=design)
     if outcome.netlist is None:
         what = "timed out" if outcome.outcome == "timeout" else "wrote no netlist export"
@@ -288,6 +318,7 @@ def assignment_stage(
         evidence = Evidence()
     else:
         parts = [validation.read.evidence, outcome.evidence, *([MODEL_EVIDENCE] if built else [])]
+        parts += sheet_evidence
         evidence = Evidence.combine(*parts)
         evidence = Evidence(evidence.level, outcome.evidence.oracle, evidence.hypotheses)
     return ran(name, issues, evidence, summary)
@@ -306,4 +337,5 @@ __all__ = [
     "net_text",
     "pair_issues",
     "pair_summary",
+    "schematic_file",
 ]

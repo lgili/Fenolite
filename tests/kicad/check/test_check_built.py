@@ -85,7 +85,7 @@ def test_assignment_blink(tmp_path: Path) -> None:
     for target in _targets():
         _, env, _, err = check(_blink(tmp_path, target))
         assert env, err
-        _assert_assignment_clean(env, pairs=2)
+        _assert_assignment_clean(env, pairs=3)  # with (model, schematic) since c0063
 
 
 def test_assignment_authored_built_project(tmp_path: Path) -> None:

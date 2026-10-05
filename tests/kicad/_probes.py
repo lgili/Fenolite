@@ -44,6 +44,7 @@ import _lenscases
 import _libtables
 import _mincases
 import _netcases
+import _netlistcases
 import _offsetbench
 import _paircases
 import _placecases
@@ -260,6 +261,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _schcases.sch_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _gencases.gen_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _netlistcases.netlist_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

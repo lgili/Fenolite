@@ -26,9 +26,9 @@ def board_format(board: Path) -> int | None:
         return None
 
 
-def preflight(explicit: str | None, timeout: float, board: Path, *, hint: str = NO_TOOL_HINT) -> KicadCli:
-    """The ``kicad-cli`` to run on ``board``: ``FEN-6001`` when none is found or it reports no version,
-    ``FEN-6002`` for an unsupported major or a board newer than the tool reads."""
+def supported_tool(explicit: str | None, timeout: float, *, hint: str = NO_TOOL_HINT) -> KicadCli:
+    """The ``kicad-cli`` to run when no board decides: ``FEN-6001`` when none is found or it reports no
+    version, ``FEN-6002`` for an unsupported major (``fenolite netlist`` on a schematic)."""
     path = find_kicad_cli(explicit)
     if path is None:
         raise CliError("FEN-6001", "kicad-cli not found", hint=hint)
@@ -42,6 +42,14 @@ def preflight(explicit: str | None, timeout: float, board: Path, *, hint: str = 
     if major not in versions.TARGET_MAJORS:
         raise CliError("FEN-6002", f"kicad-cli {cli.version()} is not supported",
                        hint=f"use kicad-cli {' or '.join(map(str, versions.TARGET_MAJORS))}")  # fmt: skip
+    return cli
+
+
+def preflight(explicit: str | None, timeout: float, board: Path, *, hint: str = NO_TOOL_HINT) -> KicadCli:
+    """The ``kicad-cli`` to run on ``board``: ``FEN-6001`` when none is found or it reports no version,
+    ``FEN-6002`` for an unsupported major or a board newer than the tool reads."""
+    cli = supported_tool(explicit, timeout, hint=hint)
+    major = cli.major()
     try:
         info = versions.inspect(parse_bytes(board.read_bytes(), file=board.name), file=board.name)
     except (FormatError, OSError):
@@ -53,4 +61,4 @@ def preflight(explicit: str | None, timeout: float, board: Path, *, hint: str = 
     return cli
 
 
-__all__ = ["DEFAULT_TIMEOUT", "NO_TOOL_HINT", "board_format", "preflight"]
+__all__ = ["DEFAULT_TIMEOUT", "NO_TOOL_HINT", "board_format", "preflight", "supported_tool"]

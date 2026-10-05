@@ -14,7 +14,7 @@ from pathlib import Path
 import _ipc
 import pytest
 from _checkcli import hide_kicad, run
-from _fakecli import calls, fake_kicad_cli
+from _fakecli import EXAMPLE_NETLIST, calls, fake_kicad_cli
 from _projects import authored_project, tree_snapshot
 
 
@@ -210,3 +210,17 @@ def test_altium_input_is_read_only_and_runs_no_tool(monkeypatch: pytest.MonkeyPa
         assert code == 0, env
         assert tree_snapshot(root) == before
     assert sorted(p.name for p in (root / ".fenolite").iterdir()) == cache
+
+
+def test_netlist_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``netlist`` writes nothing, with a ``kicad-cli`` that writes beside its input (change c0063)."""
+    hide_kicad(monkeypatch, tmp_path)
+    root = authored_project(tmp_path, major=10, built=True)
+    (root / "board.kicad_sch").write_text("(kicad_sch)\n", encoding="utf-8", newline="\n")
+    fake = fake_kicad_cli(tmp_path / "bin", writes=("x.kicad_prl",), netlist=EXAMPLE_NETLIST)
+    before = tree_snapshot(root)
+    code, env, _, _ = run(monkeypatch, root, "netlist", str(root), "--kicad-cli", str(fake))
+    assert code == 0, env
+    assert any(c["args"][:3] == ["sch", "export", "netlist"] for c in calls(fake))  # the fake ran on a copy
+    assert env["receipt"] is None and env["result"]["counts"]["components"] == 3
+    _untouched(root, before)

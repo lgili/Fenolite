@@ -173,6 +173,13 @@ EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
 """What the fake writes for each export kind when ``export_files`` is not given."""
 
 
+EXAMPLE_NETLIST = (
+    Path(__file__).resolve().parent / "data" / "kicad" / "netlist" / "export_10.net"
+).read_text(encoding="utf-8")
+"""The authored export that the fake writes for the examples of ``fenolite netlist`` (c0063); without a
+``netlist`` argument the fake refuses the schematic."""
+
+
 def fake_kicad_cli(
     folder: Path,
     *,
@@ -247,4 +254,4 @@ def report_with(*violations: Mapping[str, Any]) -> str:
                        "schematic_parity": []})  # fmt: skip
 
 
-__all__ = ["DRILL", "EXPORT_FILES", "GERBER", "calls", "fake_kicad_cli", "report_with"]
+__all__ = ["DRILL", "EXAMPLE_NETLIST", "EXPORT_FILES", "GERBER", "calls", "fake_kicad_cli", "report_with"]

@@ -257,6 +257,7 @@ def test_check(name: str, tmp_path: Path) -> None:
     assert compare["status"] == "ok" and all(p["differences"] == 0 for p in compare["summary"]["pairs"])
     assert [(p["a"], p["b"]) for p in compare["summary"]["pairs"]] == [
         ("model", "board"),
+        ("model", "schematic"),  # c0063: KiCad's netlist of the generated sheet
         ("board", "export"),
     ]
     assert stage(env, "roundtrip")["status"] == "ok"

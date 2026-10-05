@@ -15,7 +15,14 @@ from _fakecli import calls, fake_kicad_cli, report_with
 from _projects import STEM, authored_project, native_project, tree_snapshot
 from _resources import posix_tools
 
-from fenolite.backends.base import NetlistOracle, Oracle, Plotter, RoundTripOracle
+from fenolite.backends.base import (
+    NetlistOracle,
+    Oracle,
+    PadAssignment,
+    Plotter,
+    RoundTripOracle,
+    SchematicNetlistOracle,
+)
 from fenolite.backends.kicad import canary
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad import oracle as oraclemod
@@ -429,3 +436,102 @@ def test_plot_names_the_views_that_failed(tmp_path: Path) -> None:
     empty = none.plot(project_set(root))
     assert empty.views == () and len(empty.failed) == 4
     assert strength(empty.evidence.level) == strength(Level.UNVERIFIED)
+
+
+# -- the schematic's netlist (c0063)
+
+NETLISTS = Path(__file__).resolve().parents[3] / "data" / "kicad" / "netlist"
+SHEETS = Path(__file__).resolve().parents[3] / "data" / "kicad" / "schematic"
+
+
+def _with_schematic(tmp_path: Path, text: str = "(kicad_sch)\n") -> Path:
+    root = authored_project(tmp_path, major=10)
+    (root / f"{STEM}.kicad_sch").write_text(text, encoding="utf-8", newline="\n")
+    return root
+
+
+def _export(major: int = 10) -> str:
+    return (NETLISTS / f"export_{major}.net").read_text(encoding="utf-8")
+
+
+def test_schematic_netlist_elements(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, script = _oracle(tmp_path, netlist=_export())
+    before = tree_snapshot(root)
+    outcome = oracle.schematic_netlist(project_set(root))
+    listed = outcome.netlist
+    assert listed is not None and listed.source == "schematic" and listed.uncovered == ()
+    assert PadAssignment("U1-10", "GND") in listed.assignments
+    assert PadAssignment("U1-2", "unconnected-(U1-PA1-Pad2)") in listed.assignments
+    assert len(listed.assignments) == 8
+    dumped = repr(outcome)
+    for part in ("2026-01-01", "/authored", "KIPRJMOD", str(tmp_path)):
+        assert part not in dumped, part
+    assert outcome.evidence.oracle == "kicad-cli 10.0.6"
+    assert outcome.evidence.level == oraclemod.netlistmod.EVIDENCE.level
+    assert set(outcome.evidence.hypotheses) >= {"H-K-NETLIST-SHAPE", "H-K-CHECK-COPYSET"}
+    (call,) = [c for c in calls(script) if c["args"][:3] == ["sch", "export", "netlist"]]
+    assert call["args"][-1] == f"{STEM}.kicad_sch" and "kicadsexpr" in call["args"]
+    assert f"{STEM}.kicad_pro" in call["files"]  # the project files travel with the schematic
+    assert tree_snapshot(root) == before
+
+
+def test_schematic_netlist_of_both_shapes_is_equal(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    nine, _ = _oracle(tmp_path / "nine", netlist=_export(9), version="9.0.9")
+    ten, _ = _oracle(tmp_path / "ten", netlist=_export(10))
+    first, second = nine.schematic_netlist(project_set(root)), ten.schematic_netlist(project_set(root))
+    assert first.netlist is not None and first.netlist == second.netlist
+
+
+def test_schematic_netlist_unloadable(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path)  # no netlist text: "Failed to load schematic", exit 3
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.outcome == "exit" and outcome.returncode == 3
+    assert outcome.message == "Failed to load schematic" and outcome.evidence.level == Level.UNVERIFIED
+
+
+def test_schematic_netlist_unreadable_export(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path, netlist="(kicad_sch (version 20260306))")
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.message.startswith("unreadable netlist export")
+    assert "kicad_sch" in outcome.message and outcome.evidence.level == Level.UNVERIFIED
+
+
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
+def test_schematic_netlist_timeout(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path, sleep=10.0, netlist=_export())
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.outcome == "timeout" and outcome.returncode is None
+
+
+def test_schematic_netlist_without_a_schematic(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    oracle, script = _oracle(tmp_path, netlist=_export())
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and "no schematic" in outcome.message
+    assert not [c for c in calls(script) if c["args"][:2] == ["sch", "export"]]
+
+
+def test_schematic_files_add_the_sheets_the_copy_set_lacks(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    project = project_set(root)
+    assert oraclemod.schematic_files(project) == {}
+    (root / f"{STEM}.kicad_sch").write_bytes((SHEETS / "hier" / "top.kicad_sch").read_bytes())
+    (root / "child.kicad_sch").write_bytes((SHEETS / "hier" / "child.kicad_sch").read_bytes())
+    project = project_set(root)
+    files = oraclemod.schematic_files(project)
+    assert set(files) - set(project.files) <= {f"{STEM}.kicad_sch", "child.kicad_sch"}
+    assert files[f"{STEM}.kicad_sch"] == root / f"{STEM}.kicad_sch" and "child.kicad_sch" in files
+    assert set(project.files) <= set(files)
+    (root / f"{STEM}.kicad_sch").write_text("not a schematic", encoding="utf-8")
+    assert f"{STEM}.kicad_sch" in oraclemod.schematic_files(project_set(root))
+
+
+def test_kicad_oracle_satisfies_the_schematic_netlist_protocol(tmp_path: Path) -> None:
+    oracle = KicadOracle(KicadCli(tmp_path / "kicad-cli"))
+    assert isinstance(oracle, SchematicNetlistOracle)
+    assert oraclemod._schematic_protocol(oracle) is oracle  # pyright: ignore[reportPrivateUsage]

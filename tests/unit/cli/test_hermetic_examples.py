@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from _checkcli import hide_kicad, run
 from _cliexamples import prepare_example
-from _fakecli import fake_kicad_cli
+from _fakecli import EXAMPLE_NETLIST, fake_kicad_cli
 
 from fenolite.cli.api import discover
 
@@ -29,7 +29,8 @@ def test_example_arguments_are_hermetic(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     command = discover()[name]
     if "kicad-cli" in command.example_tools:
-        monkeypatch.setenv("FENOLITE_KICAD_CLI", str(fake_kicad_cli(tmp_path / "fake-kicad")))
+        fake = fake_kicad_cli(tmp_path / "fake-kicad", netlist=EXAMPLE_NETLIST)
+        monkeypatch.setenv("FENOLITE_KICAD_CLI", str(fake))
     else:
         monkeypatch.setattr(subprocess, "run", refuse)
         monkeypatch.setattr(subprocess, "Popen", refuse)
@@ -52,5 +53,6 @@ def test_equivalent_is_listed() -> None:
 
 
 def test_tool_backed_commands() -> None:
-    """Only ``export`` and ``render`` need a tool for their examples; every other command stays tool-free."""
-    assert sorted(n for n, c in discover().items() if c.example_tools) == ["export", "render"]
+    """Only ``export``, ``netlist`` and ``render`` need a tool for their examples; every other command
+    stays tool-free."""
+    assert sorted(n for n, c in discover().items() if c.example_tools) == ["export", "netlist", "render"]

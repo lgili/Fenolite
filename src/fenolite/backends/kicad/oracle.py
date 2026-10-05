@@ -20,7 +20,9 @@ from __future__ import annotations
 import dataclasses
 import shutil
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
+from typing import Literal
 
 from fenolite.backends.base import (
     CanaryState,
@@ -30,16 +32,27 @@ from fenolite.backends.base import (
     NetlistOracle,
     NetlistOutcome,
     Oracle,
+    PadAssignment,
+    PadNetList,
     PlotOutcome,
     PlotView,
     ProjectSet,
     RoundTripOracle,
     Rt2Outcome,
+    SchematicNetlistOracle,
 )
-from fenolite.backends.kicad import canary, padnets
+from fenolite.backends.kicad import canary, padnets, sch
 from fenolite.backends.kicad import drc as drcmod
+from fenolite.backends.kicad import netlist as netlistmod
 from fenolite.backends.kicad import plot as plotmod
-from fenolite.backends.kicad.cli import DRC_REPORT, CliRun, KicadCli, KicadCliError, KicadCliVersionError
+from fenolite.backends.kicad.cli import (
+    DRC_REPORT,
+    NETLIST,
+    CliRun,
+    KicadCli,
+    KicadCliError,
+    KicadCliVersionError,
+)
 from fenolite.backends.kicad.fill import EVIDENCE as FILL_EVIDENCE
 from fenolite.backends.kicad.fill import fill_set, zone_fills
 from fenolite.backends.kicad.ipcd356 import read_ipcd356
@@ -76,6 +89,80 @@ class _Plan:
 def _first_line(text: str) -> str:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     return lines[0] if lines else ""
+
+
+@dataclasses.dataclass(frozen=True)
+class SchematicExport:
+    """KiCad's netlist of a project's schematic: ``netlist`` is ``None`` when no export was read, and
+    ``message`` then says why (the first line of the tool's output, or of the reader's error)."""
+
+    netlist: netlistmod.KicadNetlist | None
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+
+
+def schematic_name(project: ProjectSet) -> str:
+    """The name of the root schematic of ``project``: the stem of its board with ``.kicad_sch``."""
+    return f"{PurePosixPath(project.board).stem}.kicad_sch"
+
+
+def with_sheets(schematic: Path, files: Mapping[str, Path]) -> dict[str, Path]:
+    """``files`` (names relative to the folder of ``schematic``) with the root schematic and the sheet
+    files it names inside that folder, for the names ``files`` does not hold."""
+    found = dict(files)
+    if schematic.name in found:
+        return found
+    found[schematic.name] = schematic
+    try:
+        sheets = sch.sheet_files(schematic).files
+    except (FormatError, OSError, UnicodeDecodeError, ValueError):
+        sheets = ()  # the root alone; KiCad decides what to do with it
+    for rel in sheets:
+        if (schematic.parent / rel).is_file():
+            found.setdefault(rel, schematic.parent / rel)
+    return found
+
+
+def schematic_files(project: ProjectSet) -> dict[str, Path]:
+    """The files of an export run: the copy set and, when the set does not hold them, the root schematic
+    beside the board and the sheet files it names inside the project folder. Empty without a schematic."""
+    name = schematic_name(project)
+    if name in project.files:
+        return dict(project.files)
+    root = project.root / name
+    return with_sheets(root, project.files) if root.is_file() else {}
+
+
+def export_schematic_netlist(cli: KicadCli, project: ProjectSet) -> SchematicExport:
+    """``sch export netlist --format kicadsexpr`` of the project's schematic on copies, read by
+    ``netlist.read_netlist``. Nothing of the export's ``design`` and ``libraries`` sections is kept, and
+    nothing is written under ``project.root``."""
+    name = schematic_name(project)
+    files = schematic_files(project)
+    if name not in files:
+        return SchematicExport(None, returncode=None, message=f"the project has no schematic {name}")
+    return export_netlist_of(cli, name, files)
+
+
+def export_netlist_of(cli: KicadCli, name: str, files: Mapping[str, Path]) -> SchematicExport:
+    """The netlist of the schematic ``name``, one of ``files`` (relative name → source), which are all
+    copied for the run."""
+    others = {rel: path for rel, path in files.items() if rel != name}
+    run = cli.export_netlist(files[name], files=others)
+    if run.outcome == "timeout":
+        return SchematicExport(None, "timeout", None, _first_line(run.stderr) or "kicad-cli timed out")
+    data = run.outputs.get(NETLIST)
+    if data is None:
+        message = _first_line(run.stderr) or _first_line(run.stdout) or "kicad-cli wrote no netlist"
+        return SchematicExport(None, "exit", run.returncode, message)
+    try:
+        found = netlistmod.read_netlist(data.decode("utf-8"), file=NETLIST)
+    except (FormatError, UnicodeDecodeError) as exc:
+        return SchematicExport(
+            None, "exit", run.returncode, f"unreadable netlist export: {_first_line(str(exc))}"
+        )
+    return SchematicExport(found, "exit", run.returncode)
 
 
 class KicadOracle:
@@ -309,6 +396,28 @@ class KicadOracle:
             evidence=dataclasses.replace(combined, oracle=f"kicad-cli {version}"),
         )
 
+    # -- the schematic's netlist (c0063 Decision 6)
+
+    def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome:
+        """KiCad's netlist of the project's schematic as assignments ``REF-PIN`` → net name (source
+        ``schematic``; ``SchematicNetlistOracle``). A pin the tool does not list is not an element."""
+        version = self.version()
+        export = export_schematic_netlist(self.cli, project)
+        if export.netlist is None:
+            return NetlistOutcome(
+                None, version, outcome=export.outcome, returncode=export.returncode, message=export.message
+            )
+        assignments = tuple(
+            PadAssignment(node.element, net.name) for net in export.netlist.nets for node in net.nodes
+        )
+        combined = Evidence.combine(netlistmod.EVIDENCE, EVIDENCE)
+        return NetlistOutcome(
+            PadNetList("schematic", assignments),
+            version,
+            returncode=export.returncode,
+            evidence=dataclasses.replace(combined, oracle=f"kicad-cli {version}"),
+        )
+
     # -- RT2 (c0020 Decision 10)
 
     def rt2(self, project: ProjectSet) -> Rt2Outcome:
@@ -398,4 +507,20 @@ def _protocols(oracle: KicadOracle) -> tuple[Oracle, NetlistOracle, RoundTripOra
     return oracle, oracle, oracle
 
 
-__all__ = ["EVIDENCE", "NORMALISE_EVIDENCE", "RT2_EVIDENCE", "KicadOracle"]
+def _schematic_protocol(oracle: KicadOracle) -> SchematicNetlistOracle:  # pyright: ignore[reportUnusedFunction]
+    """``KicadOracle`` as the schematic netlist oracle; ``pyright`` checks the assignment."""
+    return oracle
+
+
+__all__ = [
+    "EVIDENCE",
+    "NORMALISE_EVIDENCE",
+    "RT2_EVIDENCE",
+    "KicadOracle",
+    "SchematicExport",
+    "export_netlist_of",
+    "export_schematic_netlist",
+    "schematic_files",
+    "schematic_name",
+    "with_sheets",
+]

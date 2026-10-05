@@ -212,10 +212,29 @@ class FakeFullOracle(FakeOracle):
         return self.rt2_result
 
 
+@dataclass
+class FakeSchematicOracle(FakeFullOracle):
+    """A fake that also satisfies ``SchematicNetlistOracle`` (change c0063)."""
+
+    schematic_result: NetlistOutcome = field(default_factory=lambda: netlist_outcome(None))
+    schematic_calls: list[ProjectSet] = field(default_factory=lambda: [])
+
+    def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome:
+        self.schematic_calls.append(project)
+        return self.schematic_result
+
+
 def project(
-    *, has_project: bool = True, has_rules: bool = True, skipped: tuple[SkippedFile, ...] = ()
+    *,
+    has_project: bool = True,
+    has_rules: bool = True,
+    skipped: tuple[SkippedFile, ...] = (),
+    schematic: bool = False,
 ) -> ProjectSet:
+    """A project set of one board; ``schematic`` adds ``board.kicad_sch`` to its files."""
     files = {"board.kicad_pcb": Path("p/board.kicad_pcb")}
+    if schematic:
+        files["board.kicad_sch"] = Path("p/board.kicad_sch")
     return ProjectSet(Path("p"), "board.kicad_pcb", files, skipped, has_project, has_rules)
 
 
@@ -311,6 +330,7 @@ __all__ = [
     "FakeFullOracle",
     "FakeFillOracle",
     "FakeOracle",
+    "FakeSchematicOracle",
     "FakeValidator",
     "netlist",
     "netlist_outcome",

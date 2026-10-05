@@ -854,6 +854,10 @@ meaning = "The design names a symbol library `fenolite`. That nickname is kept f
 fix = "Give the library another nickname in the symbol table or in the script."
 see = "build"
 
+["build.schematic-netlist-differs"]
+meaning = "Before it writes anything, the build reads the nets of the schematic it generated back from the sheet, without any tool, and compares them with the circuit of the script. They differ, so the sheet would say something other than the circuit. The message names the first net and pin. Nothing is written."
+fix = "This is a defect of the schematic generator, not of the script: report it with the script. Build with --schematic skip to get the board meanwhile."
+see = "build"
 ["build.schematic-replaced"]
 meaning = "The schematic in the output folder was changed since the last build. A generated schematic is a view of the script, so the build writes it again and keeps the edited file as a .bak copy."
 fix = "Change the script, or fix symbol positions in schematic-placements.toml beside it; edits made in the schematic are not read."
@@ -1564,6 +1568,10 @@ meaning = "The schematic reader keeps a part of the file as written, without a m
 fix = "Nothing to do."
 see = "inspect"
 
+["kicad.sch.netlist-unsupported"]
+meaning = "Fenolite reads the nets of a schematic itself only when the sheet is one it generated: symbols, global labels on pin ends, no-connect flags and its own power flags. This sheet holds something else, named first in the message, such as a wire, a local label, a sub-sheet or a power symbol."
+fix = "Let KiCad read the sheet: run fenolite netlist with --source kicad, or fenolite check, which compares the netlist that kicad-cli exports."
+see = "netlist"
 ["kicad.sch.pin-off-grid"]
 meaning = "A pin of a library symbol does not end on the 1.27 mm grid of KiCad's schematic editor. KiCad's electrical rules check warns about such pin ends."
 fix = "Move the pin onto the grid in the symbol library."
