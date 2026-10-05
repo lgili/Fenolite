@@ -67,3 +67,11 @@ def test_other_uuids_are_not_copper_uuids(text: str) -> None:
 
 def test_minimal_copper_uuid_is_recognised() -> None:
     assert is_copper_uuid("66656e6f-6c69-8000-8000-000000000000")
+
+
+def test_arc_locators_have_their_own_uuids() -> None:
+    """The locator ``arc[i]`` of an arc step shares no uuid with ``seg[i]`` or ``via[i]`` (change c0068)."""
+    found = {copper_uuid("bend", f"{kind}[{i}]") for kind in ("seg", "arc", "via") for i in range(4)}
+    assert len(found) == 12 and all(is_copper_uuid(value) for value in found)
+    assert copper_uuid("bend", "arc[1]") == copper_uuid("bend", "arc[1]") != copper_uuid("bend2", "arc[1]")
+    assert copper_uuid("bend", "arc[1]").startswith("66656e6f-6c69-8")

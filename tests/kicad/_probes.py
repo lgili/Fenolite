@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 
 import _acceptance
+import _arccases
 import _asmcases
 import _bench
 import _benches
@@ -40,6 +41,7 @@ import _lenscases
 import _libtables
 import _mincases
 import _netcases
+import _offsetbench
 import _placecases
 import _procases
 import _rulecases
@@ -229,6 +231,8 @@ def _probes() -> dict[str, Probe]:
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
         **_creepbench.creepage_probes(),
+        **_offsetbench.offset_probes(),
+        **_arccases.arc_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

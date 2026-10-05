@@ -18,7 +18,7 @@ from fenolite.core.ids import derived_id
 from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
-from fenolite.dsl.part import FieldRequest, Part, Placement
+from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement
 from fenolite.model.board import Board, Outline, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
@@ -210,6 +210,22 @@ def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:
     return MappingProxyType(out)
 
 
+def pad_zones(design: Design) -> Mapping[str, tuple[PadZoneRequest, ...]]:
+    """The pad zone connection requests of every part that has one: component path, in path order, → its
+    requests by pad number and then index, ``None`` first (``docs/dsl.md``, "Zones")."""
+    out: dict[str, tuple[PadZoneRequest, ...]] = {}
+    for path, part in sorted(design.parts.items()):
+        if part.pad_zone_requests:
+            out[path] = tuple(
+                request
+                for _, request in sorted(
+                    part.pad_zone_requests.items(),
+                    key=lambda entry: (entry[0][0], entry[0][1] is not None, entry[0][1] or 0),
+                )
+            )
+    return MappingProxyType(out)
+
+
 def planes(design: Design) -> Mapping[str, str]:
     """The internal planes of ``design.board(planes=…)``: inner layer name → net name, in layer order.
 
@@ -242,6 +258,7 @@ __all__ = [
     "KEYS",
     "PATH_PROPERTY",
     "fields",
+    "pad_zones",
     "key_id",
     "moves",
     "placements",

@@ -627,6 +627,7 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
         if ok:
             vias.append(dataclasses.replace(via, net_id=nid))
     tracks += [t for t in built.board.tracks if copper_mod.is_copper_uuid(t.native_ids.get(BAG, ""))]
+    arcs += [a for a in built.board.arcs if copper_mod.is_copper_uuid(a.native_ids.get(BAG, ""))]
     vias += [v for v in built.board.vias if copper_mod.is_copper_uuid(v.native_ids.get(BAG, ""))]
     # zones that the script declares are merged by uuid (c0031); the others follow their nets
     script_zones = zones_mod.merge_zones(built, board)

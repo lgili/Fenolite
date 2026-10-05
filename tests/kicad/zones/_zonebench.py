@@ -573,11 +573,25 @@ def clearance_drc() -> str:
     return "absent" if not wide else "different"
 
 
+def _fresh() -> str:
+    import _freshfill  # built with ``_rulebench`` and judged with the copper check (change c0068)
+
+    return _freshfill.fresh()
+
+
+def _pad_zone_lib() -> str:
+    import _padzonecases  # builds the blink pour variant (change c0068)
+
+    return _padzonecases.pad_zone_lib()
+
+
 def zone_probes() -> Probes:
     return {
         "zone-defaults-t10": (defaults_t10, (10,)),
         "zone-fat9": (fat9, (9, 10)),
         "zone-clearance-drc": (clearance_drc, (10,)),
+        "copper-zoneclr-fresh": (_fresh, (10,)),
+        "pad-zone-lib": (_pad_zone_lib, (9, 10)),
     }
 
 

@@ -396,11 +396,22 @@ def _primitive_entries(
     return [(ring, width, True, False)] if shape.filled else [((*ring, ring[0]), width, False, False)]
 
 
+def _drill_offset(tokens: Mapping[str, Node]) -> Point:
+    """The ``(offset X Y)`` of the pad's drill node, in the pad's own frame, else (0, 0)."""
+    node = tokens.get("drill")
+    return (_xy(node.find("offset")) if node is not None else None) or Point(0, 0)
+
+
 def _copper(
     pad: Pad, layers: Sequence[str], inner: frozenset[str], placement: _Placement, tokens: Mapping[str, Node]
 ) -> tuple[PadCopper, ...]:
     if pad.kind == "np_thru_hole":
         return ()
+    # KiCad keeps the hole at the pad's position and moves the pad's copper by the offset of its drill
+    # (``H-G-FRAME-OFFSET``): every entry is built around the offset point, which turns with the pad.
+    offset = _drill_offset(tokens)
+    if offset != Point(0, 0):
+        placement = _Placement(placement.apply(_frac(offset)), placement.udeg)
     primitives: list[_Shape] = []
     if pad.shape == "custom" and "primitives" in tokens:
         shapes = (_shape(node, default_fill=True) for node in tokens["primitives"].nodes())
@@ -454,14 +465,14 @@ def _hole(pad: Pad, placement: _Placement, tokens: Mapping[str, Node]) -> tuple[
     sizes = [_nm(a) for a in _numbers(node)]
     if not sizes:
         return (), None
-    offset = _xy(node.find("offset")) or Point(0, 0)
-    ox, oy = _frac(offset)
+    # the ``(offset X Y)`` of the node does not move the hole: it moves the copper (``_copper``)
     oval = any(a.text == "oval" for a in node.atoms())
     w, h = sizes[0], sizes[1] if oval and len(sizes) > 1 else sizes[0]
     if w == h:
-        return (placement.apply((ox, oy)),), w
+        return (placement.at,), w
     half = Fraction(abs(w - h), 2)
-    ends = ((ox - half, oy), (ox + half, oy)) if w > h else ((ox, oy - half), (ox, oy + half))
+    zero = Fraction(0)
+    ends = ((-half, zero), (half, zero)) if w > h else ((zero, -half), (zero, half))
     return tuple(sorted(placement.points(ends))), min(w, h)
 
 

@@ -180,3 +180,44 @@ def test_build_refill() -> None:
     assert zone.name == "GND" and zone.filled is True
     assert zone.fills and {f.layer for f in zone.fills} == {"B.Cu"}
     assert zone.settings.clearance == 300_000 and zone.settings.connection == "solid"
+
+
+# --- fresh fills under the zone's own clearance (change c0068, ``H-K-COPPER-ZONECLR``) --------------
+
+
+@pytest.mark.kicad_min_major(10)
+def test_fresh_fill_is_clean() -> None:
+    """Scenario "A refilled pour is clean": ``check_copper`` reports nothing of what KiCad's filler made."""
+    import _freshfill as ff
+    from _probes import run
+
+    text = ff.refilled_text()
+    found, fills = ff.findings(text, major())
+    assert fills >= 1
+    assert ff.zone_findings(text, major()) == []
+    assert [f for f in found if f.code in ("copper.clearance", "copper.short")] == []
+    assert run("copper-zoneclr-fresh") == "absent"
+
+
+@pytest.mark.kicad_min_major(10)
+def test_fresh_fill_bench_holds_every_kind() -> None:
+    import _freshfill as ff
+
+    design = ff.fresh_bench(major()).bench.design
+    assert design.board is not None
+    board = design.board
+    assert board.tracks and board.arcs and board.vias and len(board.footprints) == 3
+    assert not any(zone.fills for zone in board.zones)
+    assert "(offset" in ff.fresh_bench(major()).files[ff.BOARD]
+
+
+@pytest.mark.kicad_min_major(10)
+def test_stale_fill_is_still_reported() -> None:
+    """Scenario "A stale fill is still reported": the track moved 0.3 mm towards the kept fill."""
+    import _freshfill as ff
+
+    (found,) = ff.zone_findings(ff.stale_text(), major())
+    assert sorted(item.kind for item in found.items) == ["fill", "track"]
+    assert (found.clearance, found.source) == (ff.ZONE_CLEARANCE, "zone")
+    assert ff.CLASS_CLEARANCE <= found.gap < ff.ZONE_CLEARANCE
+    assert ff.kicad_reports_stale()

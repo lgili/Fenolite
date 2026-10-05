@@ -893,6 +893,12 @@ corpus_id = ""
 notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
 
 [[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Offset.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the pad shape offset (c0068): a through-hole pad whose drill has an offset; not a validated land pattern"
+
+[[file]]
 path = "examples/blink_routed/design.py"
 origin = "authored"
 corpus_id = ""

@@ -75,6 +75,11 @@ What each step is for:
 - `export` writes Gerber, drill, position and netlist files with a manifest; `render` writes views to
   look at; `inspect` reads a file back and reports what it holds.
 
+Before you write a track by hand in the script (`design.track`, `design.via`), ask where the pads are:
+`fenolite pads build/blink D1 --origin 100mm,100mm --json` lists each pad of `D1` with its position, layers
+and net. With `--origin 100mm,100mm` the positions are in the frame of `place()`, so they go into the
+script as they are. It reads the board and runs no tool.
+
 ## When a step fails
 
 - **`check` exits 5.** Read `issues`. `kicad.drc.unconnected-items` means copper is missing between the

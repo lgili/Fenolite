@@ -83,7 +83,12 @@
 #### Scenario: A fill cut around an arc is not reported
 - **GIVEN** a 0.25 mm arc track of net `B` and a fill of net `A` whose zone has a clearance of 0.5 mm, the fill's edge following the arc at a true distance of exactly 0.5 mm, both nets in a class of 0.2 mm
 - **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with the default `arc_tol`
-- **THEN** it reports no finding; with the fill's edge 5 µm closer it reports one `copper.clearance` with source `zone`; and with the fill's edge 0.19 mm from the arc it reports one with the class value and source `class:<class name>`, as before this change
+- **THEN** it reports no finding; with the fill's edge 5 µm closer it reports one `copper.clearance` with source `zone`; and with the fill's edge 0.19 mm from the arc it reports one with clearance 500 000 nm and source `zone`, as a straight track at that distance does
+
+#### Scenario: The widened arc keeps the value without the zone
+- **GIVEN** the same arc and fill with a zone clearance of 200 001 nm, 1 nm above the class value, and the fill's edge at a true distance of exactly 0.2 mm from the arc
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_arc` runs `check_copper` with the default `arc_tol`
+- **THEN** it reports one `copper.clearance` with clearance 200 000 nm and source `class:<class name>`, the finding the check reports for that pair without a zone value
 
 ### Requirement: Supported cases are documented against KiCad's DRC
 `docs/formats/kicad/copper.md` SHALL hold a table of the cases this check supports and how they compare with KiCad's DRC, with a hypothesis id or the word "documented difference" per row. It MUST state at least: tracks, vias and pads exact; arcs within their band; vias and through-hole pads on every spanned layer, with unused-layer removal not modelled (Fenolite may report more); net-tie pad groups reported as shorts; zone fills checked as stored, outlines only for overlaps; the zone's own clearance applied between a fill and a track, a via or a pad as KiCad's DRC applies it, a governing custom rule replacing it (`H-K-COPPER-ZONECLR`); pairs of two fills judged with the rule, class and board-minimum values only, although KiCad's DRC judges no pair of fills (Fenolite may report more); graphics, texts, holes, edges, mask and silkscreen not checked; KiCad project severity overrides and exclusions not applied; opaque custom rules not applied (`copper.rules-incomplete`); a project without net classes gives no clearance in force. The parity proven on canaries (`kicad-oracle`, "Copper verdict parity canaries") MUST be stated per row and per major.

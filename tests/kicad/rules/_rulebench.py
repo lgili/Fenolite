@@ -34,7 +34,18 @@ from fenolite.backends.kicad.pcb import kicad_uuid, write_board
 from fenolite.core.coords import Point
 from fenolite.geometry import thick_bbox
 from fenolite.geometry.thick import Thick
-from fenolite.model.board import Arc, Board, FootprintInstance, Outline, Side, Track, Via, Zone, ZoneFill
+from fenolite.model.board import (
+    Arc,
+    Board,
+    FootprintInstance,
+    Outline,
+    Side,
+    Track,
+    Via,
+    Zone,
+    ZoneFill,
+    ZoneSettings,
+)
 from fenolite.model.circuit import Circuit, Component, Net, NetClass, PinRef
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSet
@@ -286,23 +297,56 @@ class Builder:
         above the pads: ``<label>_a`` (the pads) and ``<label>_b``."""
         self._pad_row(label, ref, "Mini_LED_THT_3mm", pad_net, track_net, gap, "B.Cu", target)
 
-    def fill_track(self, label: str, zone_net: str, track_net: str, *, gap: int = 4 * MM) -> None:
-        """A zone whose stored fill is its own rectangular outline and a track ``gap`` above it:
-        ``<label>_a`` (the zone) and ``<label>_b``."""
-        y = self.row()
-        top = y + 2 * MM
-        ring = (Point(LEFT, top), Point(RIGHT, top), Point(RIGHT, top + 3 * MM), Point(LEFT, top + 3 * MM))
+    def filled_zone(self, label: str, net: str, top: int, *, clearance: int | None = None,
+                    x0: int = LEFT, x1: int = RIGHT, name: str | None = None) -> Zone:  # fmt: skip
+        """A zone on ``F.Cu`` whose stored fill is its own rectangular outline, 3 mm high from ``top``
+        down: item ``<label>``. ``clearance`` is the zone's own clearance (the model's default of 0.5 mm
+        when ``None``; change c0068)."""
+        ring = (Point(x0, top), Point(x1, top), Point(x1, top + 3 * MM), Point(x0, top + 3 * MM))
         zone = Zone(
             id=_id("zon", len(self.zones) + 1),
             outline=ring,
-            name=label,
+            name=label if name is None else name,
             layers=("F.Cu",),
-            net_id=self.net(zone_net),
+            net_id=self.net(net),
             fills=(ZoneFill("F.Cu", ring),),
+            settings=ZoneSettings() if clearance is None else ZoneSettings(clearance=clearance),
         )
         self.zones.append(zone)
-        self.items[f"{label}_a"] = (kicad_uuid(zone),)
+        self.items[label] = (kicad_uuid(zone),)
+        return zone
+
+    def fill_track(self, label: str, zone_net: str, track_net: str, *, gap: int = 4 * MM,
+                   clearance: int | None = None) -> None:  # fmt: skip
+        """A zone whose stored fill is its own rectangular outline and a track ``gap`` above it:
+        ``<label>_a`` (the zone) and ``<label>_b``."""
+        top = self.row() + 2 * MM
+        self.filled_zone(f"{label}_a", zone_net, top, clearance=clearance, name=label)
         self.track(f"{label}_b", track_net, top - gap - WIDTH // 2)
+
+    def fill_via(self, label: str, zone_net: str, via_net: str, *, gap: int = 4 * MM,
+                 clearance: int | None = None) -> None:  # fmt: skip
+        """A filled zone and a 0.6 mm via whose edge is ``gap`` above it: ``<label>_a`` (the zone) and
+        ``<label>_b`` (change c0068)."""
+        top = self.row() + 2 * MM
+        self.filled_zone(f"{label}_a", zone_net, top, clearance=clearance, name=label)
+        self.via(f"{label}_b", via_net, Point((LEFT + RIGHT) // 2, top - gap - 300_000))
+
+    def fill_pad(self, label: str, ref: str, zone_net: str, pad_net: str, *, gap: int = 4 * MM,
+                 clearance: int | None = None, target: int) -> None:  # fmt: skip
+        """A placed ``Mini_R_0603`` whose pads are on ``pad_net`` and a filled zone ``gap`` below their
+        flat lower edge: ``<label>_a`` (the zone) and ``<label>_b`` (the pads; change c0068)."""
+        y = self.row()
+        at = Point((LEFT + RIGHT) // 2, y)
+        self.part(f"{label}_b", ref, at, target=target, nets={"1": pad_net, "2": pad_net})
+        pads = [pad for pad in board_pads(self.build().design) if pad.ref == ref]
+        bottoms = [
+            thick_bbox(Thick(entry.core, entry.width, entry.filled)).y1
+            for pad in pads
+            for entry in pad.copper
+            if entry.layer == "F.Cu"
+        ]
+        self.filled_zone(f"{label}_a", zone_net, max(bottoms) + gap, clearance=clearance, name=label)
 
     def build(self) -> Bench:
         height = FIRST_ROW + max(self.rows, 1) * ROW + 10 * MM

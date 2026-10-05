@@ -1069,6 +1069,21 @@ meaning = "A library table row has a type other than KiCad or Table."
 fix = "Convert the library to KiCad's format."
 see = "build"
 
+["kicad.pad.zone-forced"]
+meaning = "A locked request of the design script set the zone connection of a pad, and the board held another value. The script's value was written."
+fix = "Nothing to do if the script is right; remove the lock from the request to keep what the board has."
+see = "build"
+
+["kicad.pad.zone-overridden"]
+meaning = "The board holds a zone connection for a pad that differs from the unlocked request of the design script. The board's value was kept."
+fix = "Lock the request in the script, edit the pad in KiCad, or build again with --discard-layout."
+see = "build"
+
+["kicad.pad.zone-unknown-pad"]
+meaning = "A zone connection request of the design script names a pad number that the part's footprint does not have."
+fix = "Correct the pad number in the script; the message lists the pads of the footprint."
+see = "build"
+
 ["kicad.project.below-floor"]
 meaning = "A net class value written to the project is below the board's minimum for it, so KiCad's DRC will report it."
 fix = "Raise the class value or lower the minimum."

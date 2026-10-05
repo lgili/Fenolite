@@ -405,20 +405,31 @@ class Design(Container):
     def track(
         self, key: str, *path: object, layer: str = "F.Cu", width: object = None, net: Net | None = None
     ) -> None:
-        """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()`` and
-        ``via_step(…)`` layer changes. The net comes from the pads; the width from ``width`` or the net's
-        class. ``key`` names the intent, so its copper keeps its ids across builds."""
+        """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()``,
+        ``arc_to(…)`` bends and ``via_step(…)`` layer changes. The net comes from the pads; the width from
+        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds."""
         from fenolite.dsl import intents
 
         intents.record_track(self, key, path, layer, width, net)
 
     def via(
-        self, key: str, x: object, y: object, *, net: Net, diameter: object = None, drill: object = None
+        self,
+        key: str,
+        x: object,
+        y: object,
+        *,
+        net: Net,
+        diameter: object = None,
+        drill: object = None,
+        kind: str = "through",
+        layers: object = None,
     ) -> None:
-        """One through via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class."""
+        """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
+        ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
+        copper layers in ``layers``."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers)
 
     def stitch(
         self,

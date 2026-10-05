@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Copper intents of the DSL: tracks, vias and stitches declared by pad references and board points
+"""Copper intents of the DSL: tracks, arcs, vias and stitches declared by pad references and board points
 (``docs/dsl.md``, "Copper"; capability design-dsl, "Copper intents in the DSL").
 
 A script cannot know where a pad ends up: the build decides each placement after the script ran, and a
@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 
 KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
 """A copper key: it names the intent stably, and every uuid of its copper derives from it."""
+VIA_KINDS = ("through", "blind", "buried", "micro")
+"""The kinds of a via (``Via.via_type`` of the model)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,18 +50,32 @@ class PadEnd:
 
 @dataclass(frozen=True, slots=True)
 class ViaStep:
-    """A through via inside a track path at ``at`` (board frame), after which the track runs on ``layer``."""
+    """A via of ``kind`` inside a track path at ``at`` (board frame), after which the track runs on
+    ``layer``. New fields come last and have defaults, so a step built without them is a through via."""
 
     at: Point
     layer: str
     diameter: Nm | None = None
     drill: Nm | None = None
+    kind: str = "through"
+
+
+@dataclass(frozen=True, slots=True)
+class ArcStep:
+    """An arc inside a track path: from the point of the element before it through ``mid`` to ``end``
+    (board frame), the three-point form of the model and of KiCad's file. The path continues from ``end``."""
+
+    mid: Point
+    end: Point
+
+
+PathElement = PadEnd | Point | ViaStep | ArcStep
 
 
 @dataclass(frozen=True, slots=True)
 class TrackIntent:
     key: str
-    path: tuple[PadEnd | Point | ViaStep, ...]
+    path: tuple[PathElement, ...]
     layer: str = "F.Cu"
     width: Nm | None = None
     net: str | None = None
@@ -67,11 +83,15 @@ class TrackIntent:
 
 @dataclass(frozen=True, slots=True)
 class ViaIntent:
+    """One via; ``layers`` are the two copper layers of a via that is not a through via."""
+
     key: str
     at: Point
     net: str
     diameter: Nm | None = None
     drill: Nm | None = None
+    kind: str = "through"
+    layers: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,10 +114,13 @@ CopperIntent = TrackIntent | ViaIntent | StitchIntent
 # --- what a script records ------------------------------------------------------------------------
 
 
+_Recorded = PadRef | Point | ViaStep | ArcStep
+
+
 @dataclass(frozen=True, slots=True)
 class _Track:
     key: str
-    path: tuple[PadRef | Point | ViaStep, ...]
+    path: tuple[_Recorded, ...]
     layer: str
     width: Nm | None
     net: Net | None
@@ -110,6 +133,8 @@ class _Via:
     net: Net
     diameter: Nm | None
     drill: Nm | None
+    kind: str = "through"
+    layers: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,20 +208,44 @@ def pad_ref(part: Part, number: object, index: object) -> PadRef:
     return PadRef(part, str(number), index)
 
 
-def via_step(x: object, y: object, *, to: str, diameter: object = None, drill: object = None) -> ViaStep:
-    """A through via at ``(x, y)`` in the frame of ``place()``; the track continues on the layer ``to``."""
+def _kind(value: object, what: str) -> str:
+    if value not in VIA_KINDS:
+        raise DslError(f"{what}: kind must be one of {', '.join(VIA_KINDS)}, not {value!r}")
+    return cast(str, value)
+
+
+def via_step(
+    x: object, y: object, *, to: str, diameter: object = None, drill: object = None, kind: str = "through"
+) -> ViaStep:
+    """A via of ``kind`` (``through``, ``blind``, ``buried`` or ``micro``) at ``(x, y)`` in the frame of
+    ``place()``; the track continues on the layer ``to``."""
     return ViaStep(
         _point((x, y), "via_step"), _layer(to, "via_step: to"), _size(diameter, "via_step: diameter"),
-        _size(drill, "via_step: drill"),
+        _size(drill, "via_step: drill"), _kind(kind, "via_step"),
     )  # fmt: skip
 
 
-def _same_place(a: PadRef | Point | ViaStep, b: PadRef | Point | ViaStep) -> bool:
+def arc_to(mid: object, end: object) -> ArcStep:
+    """An arc from the point of the path element before it through ``mid`` to ``end``, both ``(x, y)``
+    pairs of lengths in the frame of ``place()``; the path continues from ``end``."""
+    step = ArcStep(_point(mid, "arc_to: mid"), _point(end, "arc_to: end"))
+    if step.mid == step.end:
+        raise DslError("arc_to: mid and end are the same point")
+    return step
+
+
+def _place(element: _Recorded) -> Point:
+    """The point of a path element that is not a pad reference: the ``end`` of an arc step."""
+    assert not isinstance(element, PadRef)
+    if isinstance(element, ViaStep):
+        return element.at
+    return element.end if isinstance(element, ArcStep) else element
+
+
+def _same_place(a: _Recorded, b: _Recorded) -> bool:
     if isinstance(a, PadRef) or isinstance(b, PadRef):
         return a == b
-    at_a = a.at if isinstance(a, ViaStep) else a
-    at_b = b.at if isinstance(b, ViaStep) else b
-    return at_a == at_b
+    return _place(a) == _place(b)
 
 
 def record_track(
@@ -206,18 +255,23 @@ def record_track(
     what = f"track {name}"
     if len(path) < 2:
         raise DslError(f"{what}: a path needs at least two elements")
-    elements: list[PadRef | Point | ViaStep] = []
+    elements: list[_Recorded] = []
     for index, element in enumerate(path):
-        if isinstance(element, (PadRef, ViaStep)):
+        if isinstance(element, (PadRef, ViaStep, ArcStep)):
             elements.append(element)
         elif isinstance(element, (tuple, list)):
             elements.append(_point(cast(object, element), f"{what}: path[{index}]"))
         else:
             raise DslError(
-                f"{what}: path[{index}] must be part.pad(…), via_step(…) or an (x, y) pair, not {element!r}"
+                f"{what}: path[{index}] must be part.pad(…), via_step(…), arc_to(…) or an (x, y) pair, "
+                f"not {element!r}"
             )
     if isinstance(elements[0], ViaStep):
         raise DslError(f"{what}: a path cannot start with a via step")
+    if isinstance(elements[0], ArcStep):
+        raise DslError(
+            f"{what}: a path cannot start with an arc step: an arc starts at the element before it"
+        )
     for index, (a, b) in enumerate(zip(elements, elements[1:], strict=False)):
         if _same_place(a, b):
             raise DslError(f"{what}: path[{index}] and path[{index + 1}] are at the same point")
@@ -230,19 +284,46 @@ def record_track(
     )
 
 
+def _via_layers(value: object, kind: str, what: str) -> tuple[str, str] | None:
+    """``layers`` of a single via: none for a through via, two different layer names for another kind."""
+    if kind == "through":
+        if value is not None:
+            raise DslError(f"{what}: layers cannot be given for a through via, which spans the whole board")
+        return None
+    pair = cast("Sequence[object]", value) if isinstance(value, (tuple, list)) else ()
+    names = [name for name in pair if isinstance(name, str) and name]
+    if len(pair) != 2 or len(names) != 2 or names[0] == names[1]:
+        raise DslError(
+            f"{what}: layers must name the two different copper layers of a {kind} via, such as "
+            f"('F.Cu', 'In1.Cu'), not {value!r}"
+        )
+    return names[0], names[1]
+
+
 def record_via(
-    design: Design, key: object, x: object, y: object, net: object, diameter: object, drill: object
+    design: Design,
+    key: object,
+    x: object,
+    y: object,
+    net: object,
+    diameter: object,
+    drill: object,
+    kind: object = "through",
+    layers: object = None,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
     chosen = _net(net, what, required=True)
     assert chosen is not None
+    via_kind = _kind(kind, what)
     design.copper_intents[name] = _Via(
         name,
         _point((x, y), what),
         chosen,
         _size(diameter, f"{what}: diameter"),
         _size(drill, f"{what}: drill"),
+        via_kind,
+        _via_layers(layers, via_kind, what),
     )
 
 
@@ -301,7 +382,7 @@ def _net_name(design: Design, net: Net, key: str) -> str:
     return net.name
 
 
-def _end(design: Design, element: PadRef | Point | ViaStep, key: str) -> PadEnd | Point | ViaStep:
+def _end(design: Design, element: _Recorded, key: str) -> PathElement:
     if not isinstance(element, PadRef):
         return element
     part = element.part
@@ -321,7 +402,8 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
             path = tuple(_end(design, element, key) for element in item.path)
             found.append(TrackIntent(key, path, item.layer, item.width, net))
         elif isinstance(item, _Via):
-            found.append(ViaIntent(key, item.at, _net_name(design, item.net, key), item.diameter, item.drill))
+            net_name = _net_name(design, item.net, key)
+            found.append(ViaIntent(key, item.at, net_name, item.diameter, item.drill, item.kind, item.layers))
         else:
             found.append(
                 StitchIntent(
@@ -342,6 +424,8 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
 
 __all__ = [
     "KEY",
+    "VIA_KINDS",
+    "ArcStep",
     "CopperIntent",
     "PadEnd",
     "PadRef",
@@ -350,6 +434,7 @@ __all__ = [
     "TrackIntent",
     "ViaIntent",
     "ViaStep",
+    "arc_to",
     "copper",
     "via_step",
 ]

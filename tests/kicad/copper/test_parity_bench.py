@@ -110,3 +110,67 @@ def test_resolution_rows_follow_the_tables(monkeypatch: pytest.MonkeyPatch) -> N
         assert [cp.fenolite_verdict("floor", 10, row) for row in floor] == ["clearance", "clearance"]
     finally:
         cp.fenolite_report.cache_clear()
+
+
+# --- the zone's own clearance (change c0068, "Zone clearance parity canaries") ---------------------
+
+
+@pytest.mark.parametrize("target", [9, 10])
+@pytest.mark.parametrize("case", cp.ZONE_CASES)
+def test_zone_clearance_fenolite_half(case: str, target: int) -> None:
+    """Scenario "Hermetic rows": a clearance finding on every row below ``c``, with the source its case
+    names, and none on the others."""
+    spec = cp.ZONE_CASES[case]
+    bench = cp.parity_bench(spec.bench, target)
+    rows = [row for row in bench.rows if row.group == cp.zone_group(case)]
+    assert len(rows) == 3 * len(spec.kinds)
+    report, uuid_of = cp.fenolite_report(spec.bench, target)
+    for row in rows:
+        expected = "clearance" if row.gap < spec.c else "clean"
+        assert cp.fenolite_verdict(spec.bench, target, row) == expected, row
+    wanted = {uuid for row in rows for side in bench.uuids(row) for uuid in side}
+    found = [
+        finding
+        for finding in report.findings
+        if finding.code == "copper.clearance" and {uuid_of.get(i.entity_id) for i in finding.items} <= wanted
+    ]
+    # one zone per row below ``c``; the two pads of the fill–pad row give a finding each
+    zones = {uuid for row in rows for uuid in bench.uuids(row)[0]}
+    named = {uuid_of.get(i.entity_id) for finding in found for i in finding.items} & zones
+    assert len(named) == len(spec.kinds) and len(found) >= len(named)
+    assert {finding.source.split(":")[0] for finding in found} == {spec.source}
+    assert {finding.clearance for finding in found} == {spec.c}
+
+
+def test_zone_clearance_benches_take_the_value_from_the_model() -> None:
+    """Each zone takes its clearance from ``ZoneSettings.clearance``: no token edit sets it."""
+    for source in cp.ZONE_SOURCES:
+        bench = cp.parity_bench(source, 10)
+        board = bench.bench.design.board
+        assert board is not None
+        written = {zone.settings.clearance for zone in board.zones}
+        expected = {case.zone for case in cp.ZONE_CASES.values() if case.bench == source}
+        assert written - {500_000} <= expected <= written | {500_000}
+        for value in expected:
+            assert f"(clearance {value / 1e6:g})" in bench.files[cp.BOARD]
+    assert '"min_clearance": 0.4' in cp.parity_bench("zone-floor", 10).files[cp.PROJECT]
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_zone_clearance_two_fills_are_reported_with_the_class_value(target: int) -> None:
+    """The documented difference: KiCad's DRC judges no pair of fills; ``check_copper`` reports this pair,
+    0.1 mm apart, with the class value of 0.3 mm and not with a zone's 0.5 mm."""
+    bench = cp.parity_bench("zone", target)
+    (row,) = [row for row in bench.rows if row.group == cp.FILL_FILL]
+    assert cp.fenolite_verdict("zone", target, row) == "clearance"
+    report, uuid_of = cp.fenolite_report("zone", target)
+    pair = {uuid for side in bench.uuids(row) for uuid in side}
+    (found,) = [f for f in report.findings if {uuid_of.get(i.entity_id) for i in f.items} == pair]
+    assert (found.clearance, found.source, found.gap) == (300_000, "class:FF", cp.FILL_FILL_GAP)
+
+
+@pytest.mark.parametrize("source", cp.ZONE_SOURCES)
+def test_zone_clearance_missing_canary_fails(source: str) -> None:
+    bench = cp.parity_bench(source, 10)
+    with pytest.raises(pytest.fail.Exception, match="rules file not loaded"):
+        cp.kicad_verdict(report(), bench, bench.rows[0])

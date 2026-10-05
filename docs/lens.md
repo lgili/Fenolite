@@ -190,6 +190,35 @@ nets", which keeps applying to every zone the script never declared.
 | drop a pour | remove its `zone()` call |
 | hand a pour over to KiCad for good | rename it in KiCad, then remove the `zone()` call |
 
+### Pad zone connections
+
+A script may say how zones connect to a pad with `part.zone_connection()` (`docs/dsl.md`, "Zones").
+On a rebuild the precedence is the one of zones and of fields, per pad that a request names:
+
+1. a **locked** request, `part.zone_connection(…, locked=True)`;
+2. the setting the **pad carries on the board**, as set in KiCad's pad properties;
+3. an **unlocked** request;
+4. the pad of the **library** footprint.
+
+The step runs on the merged layout, after the fields (`fenolite.backends.kicad.zones.keep_pad_connections`,
+one kept footprint at a time).
+
+- On a **kept** footprint, a pad that already has the requested setting stays as it is. A pad without
+  a setting of its own takes the request, locked or not, so a request added after the first build
+  applies. A pad with another setting keeps it under an unlocked request (`kicad.pad.zone-overridden`,
+  info, with the hint to lock the request, edit the pad in KiCad or use `--discard-layout`) and takes
+  the request's value under a locked one (`kicad.pad.zone-forced`, warning).
+- A **re-placed** or **new** footprint is the built copy: the library's pads with every request applied.
+  A pad edit made in KiCad is not carried to a re-placed footprint.
+- A pad that no request names stays as the board has it on a kept footprint.
+- A pad set back to "from parent" in KiCad carries no setting, so the next build gives it the
+  request's value again. To keep a pad on the zone's own connection, remove the request.
+
+`result.preserved.pad_zones` holds two sorted lists of `"<component path>:<pad number>"`: `kept` (an
+unlocked request differs from the setting of a board pad, which wins) and `forced` (a locked request
+replaced the setting of a board pad). Both are empty on a first build and on a rebuild of an unedited
+board.
+
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,
@@ -263,6 +292,9 @@ still guarded by `build.layout-exists`: they have no merge.
 | `kicad.zone.forced` | warning | a locked `zone()` replaced a board zone that differed from it |
 | `kicad.zone.orphan` | warning | a zone the script wrote for a `zone()` it no longer declares was removed |
 | `kicad.zone.overridden` | info | an unlocked `zone()` differs from the kept board zone |
+| `kicad.pad.zone-unknown-pad` | error | a `zone_connection()` request names a pad number or index that the footprint does not have |
+| `kicad.pad.zone-forced` | warning | a locked `zone_connection()` replaced the setting that a pad of a kept footprint carries |
+| `kicad.pad.zone-overridden` | info | an unlocked `zone_connection()` differs from the setting of a kept pad, which stays |
 
 ## Evidence
 

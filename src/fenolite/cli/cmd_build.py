@@ -67,7 +67,7 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.dsl import DslError, copper, fields, moves, placements, planes, to_model
+from fenolite.dsl import DslError, copper, fields, moves, pad_zones, placements, planes, to_model
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -368,6 +368,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         plane_nets = planes(design)
         intents = copper(design)
         field_requests = fields(design)
+        pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
     if args.target == ALTIUM_TARGET:
@@ -401,6 +402,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         prepared=prepared,
         copper_intents=intents,
         fields=field_requests,
+        pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
     )

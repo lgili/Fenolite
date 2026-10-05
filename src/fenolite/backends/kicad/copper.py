@@ -40,7 +40,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Track, Via
+from fenolite.model.board import Arc, Track, Via, ViaType
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -91,7 +91,9 @@ class PadEndLike(Protocol):
 
 @runtime_checkable
 class ViaStepLike(Protocol):
-    """A through via inside a track path, after which the track runs on ``layer``."""
+    """A via inside a track path, after which the track runs on ``layer``. Its ``kind`` (``through``,
+    ``blind``, ``buried`` or ``micro``) is read by attribute when the step has one: a step without it is a
+    through via, as the steps of earlier scripts are."""
 
     @property
     def at(self) -> Point: ...
@@ -103,11 +105,21 @@ class ViaStepLike(Protocol):
     def drill(self) -> Nm | None: ...
 
 
+@runtime_checkable
+class ArcStepLike(Protocol):
+    """An arc inside a track path: from the point of the element before it through ``mid`` to ``end``."""
+
+    @property
+    def mid(self) -> Point: ...
+    @property
+    def end(self) -> Point: ...
+
+
 class TrackIntentLike(Protocol):
     @property
     def key(self) -> str: ...
     @property
-    def path(self) -> Sequence[PadEndLike | Point | ViaStepLike]: ...
+    def path(self) -> Sequence[PadEndLike | Point | ViaStepLike | ArcStepLike]: ...
     @property
     def layer(self) -> str: ...
     @property
@@ -117,6 +129,9 @@ class TrackIntentLike(Protocol):
 
 
 class ViaIntentLike(Protocol):
+    """One via. Its ``kind`` and ``layers`` are read by attribute when the intent has them: an intent
+    without ``kind`` is a through via, and one without ``layers`` names none."""
+
     @property
     def key(self) -> str: ...
     @property
@@ -156,6 +171,8 @@ CopperIntentLike = TrackIntentLike | ViaIntentLike | StitchIntentLike
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-FRAME-UUID", "H-G-FRAME-ROUTE"))
 """``INFERRED``: the two rows cover the routed blink, not every design."""
+VIA_KINDS = ("through", "blind", "buried", "micro")
+"""The kinds of a via step and of a single via (``Via.via_type``)."""
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "kicad.copper.bad-intent": "error",
@@ -292,7 +309,31 @@ def _track(key: str, locator: str, start: Point, end: Point, width: int, layer: 
     )
 
 
-def _via(key: str, locator: str, at: Point, sizes: tuple[int, int], board: _Board, net: Net) -> Via:
+def _arc(key: str, locator: str, points: tuple[Point, Point, Point], width: int, layer: str, net: Net) -> Arc:
+    native = copper_uuid(key, locator)
+    return Arc(
+        id=derived_id("arc", "kicad", native),
+        native_ids={"kicad": native},
+        start=points[0],
+        mid=points[1],
+        end=points[2],
+        width=width,
+        layer=layer,
+        net_id=net.id,
+    )
+
+
+def _via(
+    key: str,
+    locator: str,
+    at: Point,
+    sizes: tuple[int, int],
+    board: _Board,
+    net: Net,
+    kind: str = "through",
+    layers: tuple[str, str] | None = None,
+) -> Via:
+    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via."""
     native = copper_uuid(key, locator)
     return Via(
         id=derived_id("via", "kicad", native),
@@ -300,9 +341,54 @@ def _via(key: str, locator: str, at: Point, sizes: tuple[int, int], board: _Boar
         position=at,
         diameter=sizes[0],
         drill=sizes[1],
-        layers=(board.copper_layers[0], board.copper_layers[-1]),
+        layers=layers if layers is not None else (board.copper_layers[0], board.copper_layers[-1]),
         net_id=net.id,
+        via_type=cast(ViaType, kind),
     )
+
+
+def _via_kind(item: object, key: str) -> str:
+    """The kind of a via step or a via intent: ``through`` when it has none."""
+    kind = getattr(item, "kind", "through")
+    if kind not in VIA_KINDS:
+        raise _Refused(
+            "kicad.copper.bad-intent",
+            f"{key}: the via kind {kind!r} is not one of {', '.join(VIA_KINDS)}",
+            key,
+        )
+    return cast(str, kind)
+
+
+def _via_span(board: _Board, kind: str, a: str, b: str, key: str) -> tuple[str, str] | None:
+    """The two layers of a via that is not a through via, in stack order, after checking that they fit
+    its kind; ``None`` for a through via, which spans the board.
+
+    ``blind``: exactly one of the two is the first or the last copper layer. ``buried``: neither is.
+    ``micro``: exactly one is, and the two are next to each other in the stack. Whether a target can hold
+    the kind is the board writer's rule."""
+    if kind == "through":
+        return None
+    stack = board.copper_layers
+    first, second = sorted((stack.index(a), stack.index(b)))
+    outer = sum(1 for index in (first, second) if index in (0, len(stack) - 1))
+    fits = {
+        "blind": outer == 1,
+        "buried": outer == 0,
+        "micro": outer == 1 and second - first == 1,
+    }[kind]
+    if first == second or not fits:
+        rule = {
+            "blind": "one of the two must be an outer layer and the other an inner one",
+            "buried": "both must be inner layers",
+            "micro": "one must be an outer layer and the other the layer next to it",
+        }[kind]
+        raise _Refused(
+            "kicad.copper.bad-layer",
+            f"{key}: the layers {a} and {b} do not fit a {kind} via on a board with the copper layers "
+            f"{', '.join(stack)}: {rule}",
+            key,
+        )
+    return stack[first], stack[second]
 
 
 # --- tracks ---------------------------------------------------------------------------------------
@@ -314,6 +400,19 @@ def _dist2(a: Point, b: Point) -> int:
 
 def _is_pad_end(element: object) -> bool:
     return not isinstance(element, Point) and hasattr(element, "component")
+
+
+def _is_arc_step(element: object) -> bool:
+    return not isinstance(element, Point) and not _is_pad_end(element) and hasattr(element, "mid")
+
+
+def _is_via_step(element: object) -> bool:
+    return not isinstance(element, Point) and not _is_pad_end(element) and not _is_arc_step(element)
+
+
+def _on_one_line(a: Point, b: Point, c: Point) -> bool:
+    """Whether three points lie on one line, decided exactly with integers."""
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) == 0
 
 
 def _copper_layer(board: _Board, layer: str, key: str) -> None:
@@ -397,23 +496,27 @@ def _choose(options: Sequence[Sequence[BoardPad] | Point]) -> list[Point | Board
     return chosen
 
 
-def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track], list[Via]]:
+def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track], list[Arc], list[Via]]:
     key, path = intent.key, list(intent.path)
     if len(path) < 2:
         raise _Refused("kicad.copper.bad-intent", f"{key}: a track path needs at least two elements", key)
     if not isinstance(path[0], Point) and not _is_pad_end(path[0]):
-        raise _Refused("kicad.copper.bad-intent", f"{key}: a track path cannot start with a via step", key)
+        what = "an arc step" if _is_arc_step(path[0]) else "a via step"
+        raise _Refused("kicad.copper.bad-intent", f"{key}: a track path cannot start with {what}", key)
     _copper_layer(board, intent.layer, key)
     layers: list[str] = []  # the layer of the segment that leaves each element
+    spans: dict[int, tuple[str, tuple[str, str] | None]] = {}  # the kind and the layers of each via step
     current = intent.layer
-    for element in path:
-        if not isinstance(element, Point) and not _is_pad_end(element):
+    for index, element in enumerate(path):
+        if _is_via_step(element):
             step = cast(ViaStepLike, element)
+            kind = _via_kind(step, key)
             _copper_layer(board, step.layer, key)
             if step.layer == current:
                 raise _Refused(
                     "kicad.copper.bad-layer", f"{key}: the via step at {_at(step.at)} stays on {current}", key
                 )
+            spans[index] = (kind, _via_span(board, kind, current, step.layer, key))
             current = step.layer
         layers.append(current)
     options: list[Sequence[BoardPad] | Point] = []
@@ -422,6 +525,8 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
             options.append(element)
         elif _is_pad_end(element):
             options.append(_candidates(board, cast(PadEndLike, element), layers[index], key))
+        elif _is_arc_step(element):
+            options.append(cast(ArcStepLike, element).end)
         else:
             options.append(cast(ViaStepLike, element).at)
     chosen = _choose(options)
@@ -440,17 +545,32 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
     sizes = {
         index: _via_sizes((cast(ViaStepLike, e).diameter, cast(ViaStepLike, e).drill), cls, net, key)
         for index, e in enumerate(path)
-        if not isinstance(e, Point) and not _is_pad_end(e)
+        if _is_via_step(e)
     }
     points = [item if isinstance(item, Point) else item.position for item in chosen]
     tracks: list[Track] = []
+    arcs: list[Arc] = []
     vias: list[Via] = []
     for index, point in enumerate(points):
         if index in sizes:
-            vias.append(_via(key, f"via[{index}]", point, sizes[index], board, net))
-        if index + 1 < len(points) and point != points[index + 1]:
+            kind, span = spans[index]
+            vias.append(_via(key, f"via[{index}]", point, sizes[index], board, net, kind, span))
+        if index + 1 == len(points):
+            break
+        after = path[index + 1]
+        if _is_arc_step(after):
+            mid, end = cast(ArcStepLike, after).mid, points[index + 1]
+            if len({point, mid, end}) < 3 or _on_one_line(point, mid, end):
+                raise _Refused(
+                    "kicad.copper.bad-intent",
+                    f"{key}: the arc step at path[{index + 1}] does not make an arc: its three points "
+                    f"{_at(point)}, {_at(mid)} and {_at(end)} must be distinct and not on one line",
+                    key,
+                )
+            arcs.append(_arc(key, f"arc[{index + 1}]", (point, mid, end), width, layers[index], net))
+        elif point != points[index + 1]:
             tracks.append(_track(key, f"seg[{index}]", point, points[index + 1], width, layers[index], net))
-    return tracks, vias
+    return tracks, arcs, vias
 
 
 def _track_net(
@@ -490,9 +610,32 @@ def _required_net(board: _Board, name: str | None, key: str, what: str) -> Net:
 
 
 def _resolve_via(board: _Board, intent: ViaIntentLike) -> Via:
-    net = _required_net(board, intent.net, intent.key, "via")
-    sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, intent.key)
-    return _via(intent.key, "via", intent.at, sizes, board, net)
+    key = intent.key
+    net = _required_net(board, intent.net, key, "via")
+    kind = _via_kind(intent, key)
+    named: object = getattr(intent, "layers", None)
+    span: tuple[str, str] | None = None
+    if kind == "through":
+        if named is not None:
+            raise _Refused(
+                "kicad.copper.bad-layer",
+                f"{key}: a through via spans the whole board, so it takes no layers",
+                key,
+            )
+    else:
+        pair = tuple(cast("Sequence[object]", named)) if isinstance(named, (tuple, list)) else ()
+        if len(pair) != 2 or not all(isinstance(name, str) for name in pair) or pair[0] == pair[1]:
+            raise _Refused(
+                "kicad.copper.bad-layer",
+                f"{key}: a {kind} via names its two different copper layers in layers, not {named!r}",
+                key,
+            )
+        first, second = cast("tuple[str, str]", pair)
+        _copper_layer(board, first, key)
+        _copper_layer(board, second, key)
+        span = _via_span(board, kind, first, second, key)
+    sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, key)
+    return _via(key, "via", intent.at, sizes, board, net, kind, span)
 
 
 # --- stitching ------------------------------------------------------------------------------------
@@ -700,11 +843,15 @@ def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, 
 
 
 def _shape_key(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
-    """What makes two items the same copper: a track's ends as an unordered pair."""
+    """What makes two items the same copper: the ends of a track or an arc as an unordered pair (an arc
+    with the same mid point)."""
     fields = _fields(item, names)
     if isinstance(item, Track):
         first, second = sorted((item.start, item.end))
         return ("track", first, second, *fields[3:])
+    if isinstance(item, Arc):
+        first, second = sorted((item.start, item.end))
+        return ("arc", first, item.mid, second, *fields[4:])
     return fields
 
 
@@ -730,8 +877,8 @@ def merge_copper(existing: Design, built: Design) -> CopperMerge:
     if old is None:
         return CopperMerge(frozenset())
     old_names, new_names = _net_names(existing), _net_names(built)
-    script: dict[str, Track | Via] = {}
-    for item in (*new.tracks, *new.vias) if new is not None else ():
+    script: dict[str, Track | Arc | Via] = {}
+    for item in (*new.tracks, *new.arcs, *new.vias) if new is not None else ():
         native = item.native_ids.get("kicad", "")
         if is_copper_uuid(native):
             script[native] = item
@@ -789,8 +936,8 @@ def resolve_copper(
     issues: list[Issue] | None = None,
 ) -> Design:
     """``design`` with the copper of ``intents``: the tracks, arcs and vias that ``merge_copper`` keeps, in
-    their order, followed by the created tracks and vias in intent order. An intent with an error creates
-    nothing; ``unplaced`` names the components the build staged. Nothing is read or written."""
+    their order, followed by the created tracks, arcs and vias in intent order. An intent with an error
+    creates nothing; ``unplaced`` names the components the build staged. Nothing is read or written."""
     found: list[Issue] = []
     if design.board is None:
         if issues is not None and intents:
@@ -802,6 +949,7 @@ def resolve_copper(
         for group in (design.board.tracks, design.board.arcs, design.board.vias)
     ]
     tracks: list[Track] = []
+    arcs: list[Arc] = []
     vias: list[Via] = []
     seen: set[str] = set()
     for intent in intents:
@@ -811,14 +959,15 @@ def resolve_copper(
                 raise _Refused("kicad.copper.bad-intent", f"{key}: the key is used by an earlier intent", key)
             seen.add(key)
             if hasattr(intent, "path"):
-                new_tracks, new_vias = _resolve_track(board, cast(TrackIntentLike, intent))
+                new_tracks, new_arcs, new_vias = _resolve_track(board, cast(TrackIntentLike, intent))
                 tracks += new_tracks
+                arcs += new_arcs
                 vias += new_vias
             elif hasattr(intent, "pitch"):
                 obstacles = _obstacles(
                     board,
                     (*cast("list[Track]", user[0]), *tracks),
-                    cast("list[Arc]", user[1]),
+                    (*cast("list[Arc]", user[1]), *arcs),
                     (*cast("list[Via]", user[2]), *vias),
                 )
                 vias += _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found)
@@ -827,7 +976,8 @@ def resolve_copper(
         except _Refused as refused:
             found.append(refused.issue)
     built = dataclasses.replace(
-        design, board=dataclasses.replace(design.board, tracks=tuple(tracks), arcs=(), vias=tuple(vias))
+        design,
+        board=dataclasses.replace(design.board, tracks=tuple(tracks), arcs=tuple(arcs), vias=tuple(vias)),
     )
     merge = merge_copper(design, built)
     found += merge.issues
@@ -837,7 +987,7 @@ def resolve_copper(
         board=dataclasses.replace(
             old,
             tracks=(*(t for t in old.tracks if t.id in merge.kept), *tracks),
-            arcs=tuple(a for a in old.arcs if a.id in merge.kept),
+            arcs=(*(a for a in old.arcs if a.id in merge.kept), *arcs),
             vias=(*(v for v in old.vias if v.id in merge.kept), *vias),
         ),
     )
@@ -850,6 +1000,8 @@ __all__ = [
     "COPPER_ISSUE_CODES",
     "COPPER_MARKER",
     "EVIDENCE",
+    "VIA_KINDS",
+    "ArcStepLike",
     "CopperIntentLike",
     "CopperMerge",
     "PadEndLike",

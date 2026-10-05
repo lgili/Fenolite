@@ -13,6 +13,7 @@ from fenolite.dsl.convert import (
     KEYS,
     fields,
     moves,
+    pad_zones,
     placements,
     planes,
     to_model,
@@ -21,6 +22,7 @@ from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.intents import (
+    ArcStep,
     CopperIntent,
     PadEnd,
     PadRef,
@@ -28,12 +30,13 @@ from fenolite.dsl.intents import (
     TrackIntent,
     ViaIntent,
     ViaStep,
+    arc_to,
     copper,
     via_step,
 )
 from fenolite.dsl.interfaces import DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Module
-from fenolite.dsl.part import FieldRequest, Net, Part, Placement, connect, no_connect
+from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 
@@ -41,6 +44,7 @@ __all__ = [
     "BOARD_ORIGIN",
     "DSL_BACKEND",
     "KEYS",
+    "ArcStep",
     "CopperIntent",
     "Design",
     "DiffPair",
@@ -54,6 +58,7 @@ __all__ = [
     "Net",
     "PadEnd",
     "PadRef",
+    "PadZoneRequest",
     "Part",
     "Placement",
     "Power",
@@ -62,6 +67,7 @@ __all__ = [
     "TrackIntent",
     "ViaIntent",
     "ViaStep",
+    "arc_to",
     "connect",
     "copper",
     "fields",
@@ -71,6 +77,7 @@ __all__ = [
     "moves",
     "nm",
     "no_connect",
+    "pad_zones",
     "placements",
     "planes",
     "to_model",

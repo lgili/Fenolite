@@ -331,6 +331,153 @@ def test_arc_band_reports_a_short_only_when_the_copper_touches() -> None:
     assert gap(mm(0.01)) == []  # no clearance in force, and the copper does not touch
 
 
+# --- the zone's own clearance (change c0068, ``H-K-COPPER-ZONECLR``) -------------------------------
+
+
+def _rect(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
+    return (Point(mm(x0), mm(y0)), Point(mm(x1), mm(y0)), Point(mm(x1), mm(y1)), Point(mm(x0), mm(y1)))
+
+
+def test_zone_clearance_fill_against_a_track_and_against_another_fill() -> None:
+    """Scenario "Fill against a track and against another fill"."""
+    made = classed()
+    first = _rect(0, 0, 10, 5)
+    made.zone("A", first, fills=[first], clearance=mm(0.5), locator="zone[0]")
+    y = -mm(0.3) - 125_000
+    made.track("B", Point(0, y), Point(mm(10), y), locator="segment[0]")
+    second = _rect(10.3, 0, 15, 5)
+    made.zone("B", second, fills=[second], clearance=mm(0.5), locator="zone[1]")
+    report = check_copper(made.build(), pads=None)
+    (found,) = report.findings
+    assert found.code == "copper.clearance" and found.severity == "error"
+    assert [item.kind for item in found.items] == ["fill", "track"]
+    assert (found.clearance, found.source, found.gap) == (500_000, "zone", 300_000)
+    assert "0.5 mm (zone)" in found.message
+    assert report.summary["max_clearance"] == 500_000
+
+
+def test_zone_clearance_two_fills_keep_the_class_value() -> None:
+    """Two fills are judged with the class value, never with a zone's clearance."""
+
+    def gap(distance: float) -> list[tuple[str, int | None, str]]:
+        made = classed()
+        first, second = _rect(0, 0, 10, 5), _rect(10 + distance, 0, 15, 5)
+        made.zone("A", first, fills=[first], clearance=mm(0.5))
+        made.zone("B", second, fills=[second], clearance=mm(0.5))
+        return [(f.code, f.clearance, f.source) for f in check_copper(made.build(), pads=None).findings]
+
+    assert gap(0.3) == []
+    assert gap(0.19) == [("copper.clearance", 200_000, f"class:{CLASS}")]
+
+
+def test_zone_clearance_against_a_via_and_a_pad_and_not_its_own_net() -> None:
+    made = classed()
+    ring = _rect(0, 0, 10, 5)
+    made.zone("A", ring, fills=[ring], clearance=mm(0.4), locator="zone[0]")
+    made.via("B", Point(mm(2), -mm(0.3) - 300_000), locator="via[0]")
+    made.pad("R1", "1", "B", rect_entry(mm(5), -mm(1.3), mm(6), -mm(0.3)))
+    made.via("A", Point(mm(8), -mm(0.3) - 300_000), locator="via[1]")  # the zone's own net
+    report = check_copper(made.build(), pads=made.pads)
+    assert sorted((f.items[0].kind, f.items[1].kind, f.source, f.gap) for f in report.findings) == [
+        ("fill", "pad", "zone", 300_000),
+        ("fill", "via", "zone", 300_000),
+    ]
+
+
+def test_zone_clearance_is_replaced_by_a_rule() -> None:
+    made = classed()
+    ring = _rect(0, 0, 10, 5)
+    made.zone("A", ring, fills=[ring], clearance=mm(0.5))
+    y = -mm(0.3) - 125_000
+    made.track("B", Point(0, y), Point(mm(10), y))
+    made.rule("pair", mm(0.25), Selector("net", "A"), Selector("net", "B"))
+    design = made.build()
+    assert check_copper(design, pads=None).findings == ()
+    (found,) = check_copper(design, pads=None, rules_over_classes=False).findings
+    assert (found.clearance, found.source) == (500_000, "zone")
+
+
+def _zone_arc(edge: float, *, zone: int = mm(0.5)) -> list[tuple[str, int | None, str]]:
+    """A 0.25 mm arc of net ``B`` with radius 5 mm, and a fill of net ``A`` whose straight lower edge is
+    ``edge`` mm from the arc's copper at its apex."""
+    made = classed()
+    made.arc("B", Point(mm(5), 0), Point(0, mm(5)), Point(-mm(5), 0))
+    low = 5 + 0.125 + edge
+    ring = _rect(-3, low, 3, low + 3)
+    made.zone("A", ring, fills=[ring], clearance=zone)
+    return [(f.code, f.clearance, f.source) for f in check_copper(made.build(), pads=None).findings]
+
+
+def test_zone_arc_fill_cut_around_an_arc_is_not_reported() -> None:
+    """Scenario "A fill cut around an arc is not reported"."""
+    assert _zone_arc(0.5) == []
+    assert _zone_arc(0.495) == [("copper.clearance", 500_000, "zone")]
+    assert _zone_arc(0.19) == [("copper.clearance", 500_000, "zone")]
+
+
+def test_zone_arc_keeps_the_findings_of_the_rule_without_zones() -> None:
+    """A zone value 1 nm above the class value: the widened arc is still judged with the class value, so
+    the band of an arc hides no violation that the check reported before the zone's value existed."""
+    edge = 0.2  # the true gap equals the class value: only the widened arc is closer than it
+    assert _zone_arc(edge, zone=mm(0.2) + 1) == [("copper.clearance", 200_000, f"class:{CLASS}")]
+    # the same pair without a zone value: the class finding of c0029
+    assert _zone_arc(edge, zone=0) == [("copper.clearance", 200_000, f"class:{CLASS}")]
+    # and a straight track at exactly the zone's value is not reported: the comparison stays strict
+    made = classed()
+    ring = _rect(0, 0, 10, 5)
+    made.zone("A", ring, fills=[ring], clearance=mm(0.5))
+    y = -mm(0.5) - 125_000
+    made.track("B", Point(0, y), Point(mm(10), y))
+    assert check_copper(made.build(), pads=None).findings == ()
+    made.track("B", Point(0, y + 1), Point(mm(10), y + 1))
+    (found,) = check_copper(made.build(), pads=None).findings
+    assert (found.gap, found.clearance, found.source) == (499_999, 500_000, "zone")
+
+
+def test_zone_clearance_brute_force_agreement() -> None:
+    """The index finds every pair once zones bring a clearance above the class value: 200 tracks and
+    vias and 12 filled zones whose clearances run from 0 to 0.8 mm."""
+    rng = random.Random(68)
+    made = Copper()
+    made.netclass("Default", mm(0.2))
+    span = mm(14)
+    for n in range(200):
+        net = f"N{rng.randrange(4)}"
+        at = Point(rng.randrange(span), rng.randrange(span))
+        if n % 3 == 0:
+            made.via(net, at, locator=f"via[{n}]")
+        else:
+            end = Point(at.x + rng.randint(-mm(2), mm(2)), at.y + rng.randint(-mm(2), mm(2)))
+            made.track(net, at, end, layer=rng.choice(("F.Cu", "B.Cu")), locator=f"segment[{n}]")
+    for n in range(12):
+        x, y = rng.randrange(span), rng.randrange(span)
+        ring = (Point(x, y), Point(x + mm(1.5), y), Point(x + mm(1.5), y + mm(1)), Point(x, y + mm(1)))
+        made.zone(
+            f"N{rng.randrange(4)}",
+            ring,
+            layer=rng.choice(("F.Cu", "B.Cu")),
+            priority=n,  # no two outlines of equal priority: no zone-overlap finding
+            fills=[ring],
+            clearance=rng.choice((0, mm(0.1), mm(0.3), mm(0.5), mm(0.8))),
+            locator=f"zone[{n}]",
+        )
+    design = made.build()
+    indexed = check_copper(design, pads=None)
+    every = copper_module._run(  # pyright: ignore[reportPrivateUsage]
+        design,
+        pads=None,
+        min_clearance=None,
+        rules_over_classes=True,
+        floor_over_rules=False,
+        arc_tol=ARC_TOL_NM,
+        inputs=(),
+        every_pair=True,
+    )
+    assert indexed.findings == every.findings
+    assert indexed.summary["max_clearance"] == mm(0.8)
+    assert sum(1 for f in indexed.findings if f.source == "zone") > 5
+
+
 # --- zone outlines --------------------------------------------------------------------------------
 
 

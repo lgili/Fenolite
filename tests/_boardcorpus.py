@@ -384,3 +384,20 @@ def census_outline(entries: Iterable[Entry]) -> dict[str, dict[str, int]]:
         counts["zero-length-pieces"] += outcome["zero_length"]
         counts["footprint-edge-items"] += footprint_edge_items(e.root)
     return _per_origin(found)
+
+
+# --- demo boards with their project files (c0068): the copper censuses --------------------------------
+
+
+def checked_items() -> tuple[CorpusItem, ...]:
+    """The cached, readable, non-heavy demo boards."""
+    return tuple(i for i in READABLE_ITEMS if i.path.is_file() and not i.heavy)
+
+
+def project_of(item: CorpusItem) -> Path | None:
+    """The cached project file of a demo board: the ``project`` row of the same tag and file stem."""
+    tag = item.id.rsplit("-pcb-", 1)[0]
+    for row in manifest_items("project"):
+        if row.id.startswith(f"{tag}-pro-") and row.path.stem == item.path.stem and row.path.is_file():
+            return row.path
+    return None

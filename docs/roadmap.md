@@ -167,7 +167,7 @@ and the commands an agent asks small questions with.
 | c0065 | `artifact-manifest-states` | the project manifest, with SHA-256 and a state per artefact; `manifest` command | proposed | c0062, c0064 | 5 |
 | c0066 | `cli-inspection-commands` | `diff`, `roundtrip`, `fmt`, `explain`, `restore`; paging and concise output; `net`, `region` and `neighbors` | implemented on 2026-10-05 for boards, libraries and built models; the schematic inputs of `diff` and `roundtrip` are open | c0060 and c0062 for schematic inputs | 13.5 |
 | c0067 | `evidence-matrix` | the evidence matrix in `capabilities` and on a generated page; every backend module declares its evidence | proposed | best last | 5 |
-| c0068 | `v01-followups` | the shape offset of a pad in the board frame; a zone's own clearance in the copper check; pad zone connection, arcs and via kinds in the DSL; `pads` command; `macos-app` nightly job | proposed | — | 9.75 |
+| c0068 | `v01-followups` | the shape offset of a pad in the board frame; a zone's own clearance in the copper check; pad zone connection, arcs and via kinds in the DSL; `pads` command; `macos-app` nightly job | implemented on 2026-10-05; open: the 9.0.9 half of its probes (the `kicad-9` job), the digest of the macOS disk image, and the first nightly run | — | 9.75 |
 
 - Implementation order: c0060 → c0061 → c0062, c0063 and c0064 (independent of each other; c0063
   archives after c0061) → c0065. c0066 and c0068 depend on none of these for most of their parts and
@@ -179,6 +179,22 @@ and the commands an agent asks small questions with.
 - Found while measuring for c0068: KiCad moves a pad's copper, not its hole, by the offset of the
   pad's drill. v0.1's board frame does the opposite, so `check` reports clearance errors that do not
   exist on boards with such pads. c0068 repairs it first.
+- Follow-ups of v0.1 taken by c0068: the pad shape offset (35 false clearance findings on one demo
+  board, none after the repair); the zone's own clearance between a fill and a track, an arc, a via or
+  a pad (it adds one finding over the 21 demo boards, none on those of tag 10.0.6);
+  `Part.zone_connection`; `arc_to` and `kind=` for vias; the `pads` command; the `macos-app` job.
+- Follow-ups not taken by c0068 (its design, Decision 13), and where they go: the rule kinds for
+  annular width, hole-to-hole, hole clearance, zone connection and silk clearance go to v0.2b with
+  the full rules (c0071); export presets, the outline snapping tolerance with the edge items of
+  footprints, and stitching that avoids zones and the board edge go to v0.2b (c0074); per-command
+  result schemas go with the v1.0 freeze; `inspect` of `.kicad_pro` and `.kicad_dru` and
+  `inspect --detailed` are unscheduled. Clearance overrides of pads and footprints stay out of the
+  copper check: the census of c0068 found no finding that the zone's clearance adds on such a pad.
+- CI jobs: `unit`, `wheel`, `kicad-9`, `kicad-10`, `routing` and `dco` run on every push and pull
+  request (`.github/workflows/ci.yml`). `macos-app` (`.github/workflows/nightly.yml`, c0068) runs once a
+  day and on `workflow_dispatch`: `tests/kicad` on the `kicad-cli` of the KiCad 10.0.6 macOS disk image,
+  pinned by SHA-256. It is not a check of pull requests and not a merge gate; its first run settles
+  `H-K-CI-MACOSAPP`.
 
 **v0.2a acceptance** (project plan, shortened):
 

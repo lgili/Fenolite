@@ -166,4 +166,19 @@ def test_bom_and_pnp_leave_the_source_untouched(
     assert code == 0, env["issues"]
     assert calls(fake) == []  # neither command runs a tool
     assert (elsewhere / "table.csv").is_file() is (protocol == "--confirm")
+    assert tree_snapshot(root) == before
+
+
+def test_pads_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
+    """``pads`` reads the board model and runs no tool (cli-contract, "Pads command"; change c0068)."""
+    root, fake = project
+    before = tree_snapshot(root)
+    for args in (
+        (str(root),),
+        (str(root / "board.kicad_pcb"), "R1"),
+        (str(root), "R1", "1", "--origin", "1mm,1mm"),
+    ):
+        code, env, _, _ = run(monkeypatch, root, "pads", *args)
+        assert code == 0 and env["result"]["count"] >= 1, env
+    assert calls(fake) == []
     _untouched(root, before)

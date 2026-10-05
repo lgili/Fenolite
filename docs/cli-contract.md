@@ -199,15 +199,21 @@ zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path â
 `"<component path>:<field name>"`, `kept` (an unlocked `Part.field()` request differs from the board's
 field, which wins), `forced` (a locked request changed a board field) and `carried` (a field of a
 re-placed footprint took the board's values); all three are empty without an existing board
-(`docs/lens.md`, "Footprint fields").
+(`docs/lens.md`, "Footprint fields"). `pad_zones` holds two sorted lists of
+`"<component path>:<pad number>"`: `kept` (an unlocked `Part.zone_connection()` request differs from
+the setting of a board pad, which wins) and `forced` (a locked request replaced the setting of a board
+pad); both are empty without an existing board (`docs/lens.md`, "Pad zone connections"). Their issues
+are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
+`kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
 
 A script may declare copper (`docs/dsl.md`, "Copper"; `docs/copper.md`). The build resolves it after
-placement, and the KiCad `result.copper` reports `intents`, `tracks` and `vias` (created), and
+placement, and the KiCad `result.copper` reports `intents`, `tracks`, `arcs` and `vias` (created), and
 `regenerated`, `stale` and `duplicates` (from the merge with an existing board; 0 without one). A
 copper error (a `kicad.copper.*` issue of severity error) exits 5 and writes nothing; the
 `kicad.copper.*` and `kicad.frame.*` codes are listed in `docs/copper.md`. With intents, the envelope
 evidence also combines the copper and board-frame evidence, which are `INFERRED`. `--seed`,
-`--timestamp` and `PYTHONHASHSEED` change no byte of a build with intents.
+`--timestamp` and `PYTHONHASHSEED` change no byte of a build with intents. A via of kind `buried` needs
+`--kicad-version 10`: for KiCad 9 the board writer refuses it and the build exits 7 (`FEN-7001`).
 
 **Copper guard.** Before a KiCad build plans its writes, it judges the copper of the triad it is about
 to write with the copper check of `check` (`copper.clearance`, below): the planned board is read back,
@@ -1092,3 +1098,45 @@ Only footprints on a side the part is on are neighbours; a part with through-hol
 footprint without a courtyard is judged by the hull of its pads, and one without pads by its position
 (`kicad.frame.no-courtyard`). An unknown reference exits 2 with `FEN-2001`, and the hint names the
 closest references.
+
+## pads
+
+`fenolite pads PATH [REF [NUMBER]] [--origin X,Y]` lists the pads of a board in the board frame: where a
+pad is, on which layers and on which net. It is the query to run before writing a track by hand
+(`docs/dsl.md`, "Copper"). It is read-only: it reads the board model, runs no tool and writes no file.
+
+- `PATH` is a `.kicad_pcb`, a `.kicad_pro` or a project folder, resolved as `check` resolves it.
+- `REF` keeps the pads of one part, matched by component path first, else by reference. `NUMBER` keeps
+  the pads that carry that number.
+- `--origin X,Y` takes two lengths with units (default `0mm,0mm`). Every `position` and `box` is reported
+  relative to it. A design script places its board at `BOARD_ORIGIN`, (100 mm, 100 mm), so
+  `--origin 100mm,100mm` gives the numbers that `place()`, `Design.track` and `Design.via` take.
+
+`result` holds:
+
+- `origin`: `[x, y]`, the origin in nanometres;
+- `count`: the number of listed pads;
+- `pads`: one object per pad, in board order and pad order:
+
+| key | value |
+|---|---|
+| `where` | `REF-NUMBER`, or `REF` for a pad without a number |
+| `ref`, `number` | the reference of the part and the pad number |
+| `index` | the position of the pad among the pads of its footprint with the same number, from 0: the value that `Part.pad(number, index=â€¦)` takes |
+| `kind` | `smd`, `thru_hole`, `np_thru_hole` or `connect` |
+| `position` | `[x, y]`, where a track ends on the pad, and where its hole is |
+| `rotation` | the pad's angle in the board frame, integer microdegrees |
+| `side` | `top` or `bottom`, the side of its footprint |
+| `layers` | the pad's layers as the board stores them (`*.Cu` stays a wildcard) |
+| `net` | the net's name, or `null` |
+| `box` | `[x0, y0, x1, y1]`, the bounding box of the pad's copper over its copper layers, or `null` for a pad without copper. The copper of a pad whose drill has an offset is moved by that offset, as KiCad moves it, so the box need not be centred on `position` |
+| `drill` | the drill size (the shorter size of a slot), or `null` |
+
+Lengths are integer nanometres. `input` names the board with its SHA-256. The evidence is the board
+read's combined with the board frame's (`frame.EVIDENCE`).
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | the pads are listed |
+| 2 | `FEN-2001` | no part `REF` on the board (the hint names the closest references), no pad `NUMBER` on the part (the hint names its pad numbers), or an `--origin` that is not two lengths with units |
+| 3 | `FEN-3001` | the board does not exist or cannot be resolved |

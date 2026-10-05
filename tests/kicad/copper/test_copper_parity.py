@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """``check_copper`` against ``kicad-cli pcb drc`` on authored benches (``H-K-COPPER-SHAPES``,
 ``H-K-COPPER-RESOLVE``, ``H-K-COPPER-ZONES``; capability kicad-oracle, "Copper verdict parity canaries";
-change c0029).
+change c0029), and on fills whose zone has a clearance of its own (``H-K-COPPER-ZONECLR``; "Zone clearance
+parity canaries"; change c0068).
 
 Each bench runs once per session; a report without the canary violation fails with "rules file not
 loaded". ``tests/kicad/test_probe_results.py`` pins every outcome per version.
@@ -74,3 +75,18 @@ def test_parity_boundary_recorded(name: str) -> None:
     ((row, _, ours),) = cp.compared("rule", (f"boundary-{name}",))
     assert ours == "clearance" and row.gap < cp.CLEARANCE["rule"]
     assert run(f"copper-boundary-{name}") in ("present", "absent")
+
+
+@pytest.mark.parametrize("case", cp.ZONE_CASES)
+def test_zone_clearance_parity(case: str) -> None:
+    """Scenario "Zone clearance parity on both majors" (and "Rule below the zone clearance")."""
+    spec = cp.ZONE_CASES[case]
+    found = cp.compared(spec.bench, (cp.zone_group(case),))
+    assert len(found) == 3 * len(spec.kinds) and _differences(found) == []
+    assert [kicad for _, kicad, _ in found] == ["clearance", "clean", "clean"] * len(spec.kinds)
+    assert run(f"copper-zoneclr-{case}") == "equal"
+
+
+def test_fill_fill_recorded() -> None:
+    """Scenario "Two fills are recorded, not compared"."""
+    assert run("copper-fill-fill") in ("present", "absent")

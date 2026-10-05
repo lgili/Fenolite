@@ -355,7 +355,7 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
 
 ## Copper
 
-A script can declare copper: tracks, single vias and stitching vias. It declares what to join, not where
+A script can declare copper: tracks with straight segments and arcs, single vias and stitching vias. It declares what to join, not where
 the pads are. The build decides each placement after the script ran, and a footprint moved in KiCad keeps
 its place, so the build resolves the copper after placement (`docs/copper.md`). The runnable example is
 `examples/blink_routed/design.py`.
@@ -366,6 +366,35 @@ design.track(
 )
 design.via("gnd_tie", mm(20), mm(10), net=gnd, diameter=mm(0.6), drill=mm(0.3))
 design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36), mm(26))))
+# a bend: from (8, 8) through a quarter circle to (9, 7), then straight on
+design.track(
+    "bend",
+    (mm(8), mm(12)),
+    (mm(8), mm(8)),
+    arc_to((mm("8.292893"), mm("7.292893")), (mm(9), mm(7))),
+    (mm(20), mm(7)),
+    net=gnd,
+    width=mm(0.3),
+)
+# on a board with copper=4: a blind via from the top layer to the first inner layer
+design.track(
+    "inner",
+    (mm(24), mm(3)),
+    via_step(mm(28), mm(3), to="In1.Cu", kind="blind", diameter=mm(0.6), drill=mm(0.3)),
+    (mm(32), mm(3)),
+    net=gnd,
+    width=mm(0.3),
+)
+design.via(
+    "core",
+    mm(20),
+    mm(20),
+    net=gnd,
+    kind="buried",
+    layers=("In1.Cu", "In2.Cu"),
+    diameter=mm(0.6),
+    drill=mm(0.3),
+)
 ```
 
 | call | records |
@@ -373,11 +402,12 @@ design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36
 | `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
 
 `Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
-| `via_step(x, y, *, to, diameter=None, drill=None)` | a through via inside a track path, after which the track runs on the copper layer `to` |
-| `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None)` | one through via |
+| `via_step(x, y, *, to, diameter=None, drill=None, kind="through")` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro` |
+| `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, both `(x, y)` points; the path continues from `end` |
+| `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points, arc steps and via steps, starting on `layer` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None)` | one via; a via that is not a through via names its two copper layers in `layers` |
 | `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None)` | through vias every `pitch` along a polyline, or on a grid inside a region |
-| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd` and `ViaStep`), which the build resolves |
+| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `ViaStep` and `ArcStep`), which the build resolves |
 
 - **Points** are `(x, y)` pairs of lengths in the frame of `place()`: the origin is the board's corner.
 - **Keys** name intents (`^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$`, one use each). Every id of the copper
@@ -386,6 +416,22 @@ design.stitch("gnd_fence", net=gnd, pitch=mm(5), along=((mm(16), mm(26)), (mm(36
   is only needed for a track without a pad end, and must be a `Net`. Vias and stitches name their net.
 - **Sizes.** A width, a via size or a stitch clearance that is not given comes from the class of the net;
   when the class sets none, the build reports `kicad.copper.size-missing`.
+- **Arcs.** `arc_to(mid, end)` is the three-point form that KiCad stores: the arc starts where the path
+  is, passes through `mid` and ends at `end`. The three points must be distinct and must not lie on one
+  line. There is no radius or fillet argument: the tangent points of a fillet are not whole
+  nanometres, so compute them, round them and pass the three points. An arc ends at a point; to end
+  it on a pad, give the pad's position (`fenolite pads`, below) and put the pad end after it.
+- **Via kinds.** `through` (the default) spans the board. `blind` joins an outer layer and an inner
+  one, `buried` two inner layers, `micro` an outer layer and the layer next to it. A via step takes
+  its two layers from the path (the layer the track is on, and `to`); a single via names them in
+  `layers`. Layers that do not fit the kind are `kicad.copper.bad-layer`. A `buried` via needs
+  `--kicad-version 10`: the board writer refuses it for KiCad 9 (exit 7). A `micro` via takes its
+  sizes from the call, else from `via_diameter` and `via_drill` of the net's class, as any via.
+  Stitching vias stay through vias.
+- **Where is a pad?** `fenolite pads build/blink D1 --origin 100mm,100mm --json` lists the pads of `D1`
+  with their positions, layers and nets. `--origin 100mm,100mm` is `BOARD_ORIGIN`, so the positions
+  are in the frame of `place()` and can be written into `design.track` as they are. `index` in the
+  reply is the value `part.pad(number, index=…)` takes (`docs/cli-contract.md`, "pads").
 - **Errors at the call.** A malformed key, path, size or stitch raises `DslError` where it is written.
   What needs the board (an unknown pad, a pad without copper on the layer, two nets joined) is reported
   by the build, which then writes nothing.
@@ -435,8 +481,24 @@ design.zone(
   (`docs/lens.md`, "Zones").
 - **Rebuilds.** The zone edited in KiCad wins over the script unless the script says `locked=True`; a
   zone removed from the script is removed from the board (`docs/lens.md`, "Zones").
-- **Pads.** A library footprint may set `(zone_connect N)` on a pad, for example a solid exposed pad in
-  a thermal pour; the build keeps it. The DSL has no per-pad argument.
+- **Pads.** `part.zone_connection(number, connection, *, index=None, locked=False)` says how zones
+  connect to the pads of a part with that number, whatever the zone's own `connection` is:
+
+  | `connection` | the pad in a pour of its net |
+  |---|---|
+  | `solid` | covered by the fill, without a relief: an exposed pad that must lose heat |
+  | `thermal` | joined by the spokes of a thermal relief |
+  | `none` | not joined by the fill at all |
+  | `thru_hole_only` | a relief when the pad is a through-hole pad, solid otherwise |
+
+  `u1.zone_connection(33, "solid")` names every pad numbered 33; `index=` names one of several that
+  share the number, in the footprint's pad order (`fenolite pads` shows the index). One request per
+  pad: a second request for the same pad, or one with an index beside one without, raises `DslError`.
+  A number or index the footprint does not have is `kicad.pad.zone-unknown-pad`, and the build writes
+  nothing. A pad that no request names keeps what its library footprint says, for example the
+  `(zone_connect N)` of a solid exposed pad. On a rebuild, a setting made in KiCad wins unless the
+  request says `locked=True`, as for zones (`docs/lens.md`, "Pad zone connections"). `--target altium`
+  does not read these requests, as it does not read field requests.
 - **Altium.** `--target altium` writes the script's zones as unpoured polygon pours
   (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
   instead: that board already holds the script's zones.

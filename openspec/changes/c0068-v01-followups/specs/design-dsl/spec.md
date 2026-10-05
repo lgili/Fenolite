@@ -27,7 +27,7 @@
 - **THEN** it passes with no `ALLOWED` change
 
 ### Requirement: Pad zone connections in a build
-`lens.build.build_design` SHALL accept the keyword-only argument `pad_zones: Mapping[str, Sequence[PadZoneRequestLike]]`, empty by default, and SHALL apply the requests of each component to the built copy of its footprint with `fenolite.backends.kicad.zones.apply_pad_connections(instance, requests, *, issues=None) -> FootprintInstance`, after placing and before the build checks and `Design.validate()`; `cli/cmd_build.py` SHALL pass `dsl.pad_zones(design)`.
+`lens.build.build_design` SHALL accept the keyword-only argument `pad_zones: Mapping[str, Sequence[PadZoneRequestLike]]`, empty by default, and SHALL apply the requests of each component to the built copy of its footprint with `fenolite.backends.kicad.zones.apply_pad_connections(instance, requests, *, where="", issues=None) -> FootprintInstance`, `where` being the component path that an issue names, after placing and before the build checks and `Design.validate()`; `cli/cmd_build.py` SHALL pass `dsl.pad_zones(design)`.
 - `PadZoneRequestLike` is a structural protocol with the attributes of `PadZoneRequest`, so `zones.py` never imports the DSL.
 - A request MUST set `Pad.zone_connection` of every pad it names: all pads of the footprint with that number, or the one at `index` among them. A pad that no request names keeps the value of the library footprint.
 - A request whose number no pad carries, or whose index is beyond the pads that carry it, MUST give `kicad.pad.zone-unknown-pad` (error) naming the part, the number and the index; `build_design` then returns no files, so `build` exits 5 and writes nothing.

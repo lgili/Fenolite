@@ -105,3 +105,30 @@ def test_module_does_not_import_the_dsl() -> None:
         "ViaIntentLike", "StitchIntentLike", "CopperIntentLike", "resolve_copper", "merge_copper",
         "CopperMerge", "COPPER_ISSUE_CODES", "EVIDENCE",
     }  # fmt: skip
+
+
+def test_arc_and_via_kind_refusals_use_the_closed_set() -> None:
+    """The refusals of arcs and via kinds (change c0068) add no code: a malformed arc or an unknown kind is
+    ``bad-intent``, and layers that do not fit a kind are ``bad-layer``."""
+    from _boards import created_board
+    from _copper import arc
+
+    four = created_board(4)
+    found = _codes(
+        four,
+        track("line", at(10, 10), arc(at(10, 11), at(10, 12)), at(10, 15), net="GND"),
+        track("start", arc(at(11, 11), at(10, 12)), at(10, 15), net="GND"),
+        track("kind", at(40, 5), step(42, 5, "In1.Cu", "laser"), at(44, 5), net="GND"),
+        track("misfit", at(40, 5), step(42, 5, "In1.Cu", "buried"), at(44, 5), net="GND"),
+        via("single", at(20, 20), kind="micro", layers=("F.Cu", "In2.Cu")),
+        via("through", at(20, 20), layers=("F.Cu", "B.Cu")),
+    )
+    assert [(i.where, i.code) for i in found] == [
+        ("line", "kicad.copper.bad-intent"),
+        ("start", "kicad.copper.bad-intent"),
+        ("kind", "kicad.copper.bad-intent"),
+        ("misfit", "kicad.copper.bad-layer"),
+        ("single", "kicad.copper.bad-layer"),
+        ("through", "kicad.copper.bad-layer"),
+    ]
+    assert all(i.severity == COPPER_ISSUE_CODES[i.code] == "error" for i in found)

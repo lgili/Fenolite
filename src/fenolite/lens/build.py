@@ -30,6 +30,7 @@ from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Loca
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
+from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -420,6 +421,7 @@ def build_design(
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
+    pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
 ) -> BuildOutput:
@@ -432,6 +434,9 @@ def build_design(
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
+    ``pad_zones`` maps a component path to the pad zone connection requests of its part, applied to the
+    built copy of its footprint; with an existing board a setting made in KiCad wins over an unlocked
+    request on a kept footprint (``docs/lens.md``, "Pad zone connections").
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -508,6 +513,9 @@ def build_design(
             placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
+        instance = apply_pad_connections(
+            instance, pad_zones.get(part.path, ()), where=part.path, issues=issues
+        )
         instance = dataclasses.replace(
             instance,
             pads=_pad_nets(
@@ -542,12 +550,13 @@ def build_design(
         ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
-    copper_counts = {"intents": len(copper_intents), "tracks": 0, "vias": 0}
+    copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
         assert built.board is not None
         built = resolve_copper(built, copper_intents, unplaced=staged, issues=issues)
         assert built.board is not None
-        for kind, items in (("tracks", built.board.tracks), ("vias", built.board.vias)):
+        created = (("tracks", built.board.tracks), ("arcs", built.board.arcs), ("vias", built.board.vias))
+        for kind, items in created:
             copper_counts[kind] = sum(1 for i in items if is_copper_uuid(i.native_ids.get("kicad", "")))
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
@@ -559,7 +568,9 @@ def build_design(
         preserved.update(merged.summary)
         decided = merge_fields(merged, prepared.board, prepared.match, fields)
         preserved["fields"] = decided.summary
-        target_design = decided.design
+        target_design, preserved["pad_zones"] = _keep_pad_zones(
+            decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
+        )
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -680,6 +691,46 @@ def build_design(
     )
 
 
+def _keep_pad_zones(
+    design: Design,
+    kept_paths: Sequence[str],
+    requests: Mapping[str, Sequence[PadZoneRequestLike]],
+    issues: list[Issue],
+) -> tuple[Design, dict[str, list[str]]]:
+    """The merged layout with the pad zone connections of its kept footprints decided, and
+    ``result.preserved.pad_zones`` (``layout-lens``, "Pad zone connections across rebuilds").
+
+    Only kept footprints are touched: a re-placed or new footprint is the built copy, which already holds
+    every request. An unknown pad that the built copy reported already is not reported again."""
+    summary: dict[str, list[str]] = {"kept": [], "forced": []}
+    if design.board is None or not requests:
+        return design, summary
+    components = preserve.component_paths(design)
+    changed: dict[str, FootprintInstance] = {}
+    current = {fp.component_id: fp for fp in design.board.footprints}
+    seen = {(i.code, i.where, i.message) for i in issues}
+    for path in sorted(set(kept_paths) & set(requests)):
+        component = components.get(path)
+        instance = current.get(component.id) if component is not None else None
+        if instance is None:
+            continue
+        found: list[Issue] = []
+        decided = keep_pad_connections(instance, requests[path], where=path, issues=found)
+        for item in found:
+            if item.code == "kicad.pad.zone-overridden":
+                summary["kept"].append(item.where)
+            elif item.code == "kicad.pad.zone-forced":
+                summary["forced"].append(item.where)
+            if (item.code, item.where, item.message) not in seen:
+                issues.append(item)
+        if decided is not instance:
+            changed[instance.component_id] = decided
+    if changed:
+        footprints = tuple(changed.get(fp.component_id, fp) for fp in design.board.footprints)
+        design = dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=footprints))
+    return design, {key: sorted(set(values)) for key, values in summary.items()}
+
+
 def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[str, object]:
     """``result.preserved`` (``layout-lens``, "Layout preservation evidence")."""
     zero = {"tracks": 0, "arcs": 0, "vias": 0, "zones": 0}
@@ -693,6 +744,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "dropped": merged.get("dropped", zero),
         "fills": merged.get("fills", {"kept": 0, "dropped": 0}),
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
+        "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "reader_infos": prepared.reader_infos if prepared is not None else 0,
     }
