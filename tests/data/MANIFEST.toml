@@ -1341,3 +1341,15 @@ path = "tests/data/kicad/erc/report_9.json"
 origin = "authored"
 corpus_id = ""
 notes = "authored ERC report in the shape of 9.0.9 for the reader's unit tests (c0062): no ignored_checks; key names as the tool writes them (S-0451)"
+
+[[file]]
+path = "tests/data/kicad/parity/agree/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the target-10 build of the blink example (c0072): the hermetic example of the parity command; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/kicad/parity/agree/blink.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0072), beside its board"
