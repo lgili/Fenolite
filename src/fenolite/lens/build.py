@@ -187,14 +187,21 @@ def _resolve(
     resolver: LibraryResolver,
     issues: list[Issue],
     authored: Mapping[str, FootprintDef] = MappingProxyType({}),
+    authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
 ) -> tuple[list[_Part], dict[str, str]]:
     errors: list[LibraryError] = []
     libraries: dict[str, str] = {}
     found: list[_Part] = []
     for component in sorted(design.circuit.components, key=_path):
         try:
-            symbol = resolver.symbol(component.lib_symbol_ref)
-            libraries[component.lib_symbol_ref] = resolver.locate(component.lib_symbol_ref, "symbol").origin
+            if component.lib_symbol_ref in authored_symbols:
+                symbol = authored_symbols[component.lib_symbol_ref]
+                libraries[component.lib_symbol_ref] = "authored"
+            else:
+                symbol = resolver.symbol(component.lib_symbol_ref)
+                libraries[component.lib_symbol_ref] = resolver.locate(
+                    component.lib_symbol_ref, "symbol"
+                ).origin
         except LibraryError as error:
             errors.append(error)
             continue
@@ -414,6 +421,7 @@ def build_design(
     copper_intents: Sequence[CopperIntentLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
+    authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -428,7 +436,7 @@ def build_design(
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
-    parts, libraries = _resolve(design, resolver, issues, authored_footprints)
+    parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
     plan = _vendor_plan(parts, vendor, issues)
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
@@ -597,6 +605,28 @@ def build_design(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
+    if authored_symbols:
+        symbol_rows: list[LibRow] = []
+        by_library: dict[str, list[SymbolDef]] = {}
+        for definition in authored_symbols.values():
+            by_library.setdefault(definition.library, []).append(definition)
+        for nickname, definitions in sorted(by_library.items()):
+            if not nickname or "/" in nickname or "\\" in nickname or nickname in (".", ".."):
+                issues.append(
+                    issue(
+                        "build.vendor-unsafe-name",
+                        f"unsafe authored symbol library name {nickname!r}",
+                        nickname,
+                    )
+                )
+                continue
+            files[f"lib/{nickname}.kicad_sym"] = sym.write_symbol_library(definitions, target=target).encode(
+                "utf-8"
+            )
+            symbol_rows.append(LibRow(nickname, "KiCad", f"${{KIPRJMOD}}/lib/{nickname}.kicad_sym"))
+        files["sym-lib-table"] = write_lib_table(
+            LibTable("symbol", tuple(symbol_rows)), target=target
+        ).encode("utf-8")
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")

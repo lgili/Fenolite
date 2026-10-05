@@ -17,20 +17,49 @@ d = Design("example")
 fp = Footprint("Local", "TwoPad", kind="smd")
 fp.pad("1", at=(mm(-1), mm(0)), size=(mm(1), mm(1)))
 fp.pad("2", at=(mm(1), mm(0)), size=(mm(1), mm(1)))
+fp.pad("2", at=(mm(1), mm(1)), size=(mm(2), mm(2)), shared=True)  # second land on pad 2
 fp.rect((mm(-2), mm(-1)), (mm(2), mm(1)), layer="F.SilkS", width=mm(0.12))
 d.add_footprint(fp)
 part = Part("R1", "Device:R", footprint=fp.lib_id)
 d.add(part)
 ```
 
-The builder validates identifiers, dimensions, pad numbers, drill rules, and supported primitives. Its
-definition is separate from the canonical design model. Both supported build paths resolve the exact
+The builder validates identifiers, dimensions, pad numbers, drill rules, and supported primitives. By
+default, pad numbers are unique; use `shared=True` only for an additional physical land belonging to
+the same electrical pad number. Its definition is separate from the canonical design model. Both
+supported build paths resolve the exact
 registered ID first: the KiCad target writes the `.kicad_mod` into its project `.pretty` library and
 places it on the board; the experimental Altium target lowers the supported subset into `.PcbLib` and
 uses it in `.PcbDoc` when the design has an outline.
 
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
+
+## Authored symbols (c0058)
+
+`Symbol` declares a project-local one-unit symbol without reading any files. Add pins with exact DSL
+lengths, then attach the definition to the design. A KiCad build resolves matching `Part.lib_id`s from
+these definitions and plans a `.kicad_sym` library and `sym-lib-table` row:
+
+```python
+from fenolite.dsl import Design, Part, Symbol, mm
+
+d = Design("example")
+header = Symbol("Local", "Header2", reference="J", footprint="Local:Header2")
+header.pin("1", "VIN", etype="power_in", at=(mm(-2.54), mm(0)), length=mm(2.54), rotation=180)
+header.pin("2", "GND", etype="power_in", at=(mm(2.54), mm(0)), length=mm(2.54))
+header.rect((mm(-1), mm(-1)), (mm(1), mm(1)))
+d.add(header, Part("J1", header.lib_id))
+```
+
+Symbol IDs are `library:name`, and their `Footprint` property supplies the component footprint when
+`Part.footprint` is omitted. The target remains board-only; this library artifact makes the authored
+symbols available to KiCad project consumers. KiCad file facts follow S-0043 in
+`docs/formats/kicad/libraries.md`.
+
+`Symbol.line`, `Symbol.rect`, `Symbol.circle` and `Symbol.polygon` add ordered symbol-local graphics
+in integer nanometres. When present, these draw the symbol body; the generated pin-bounds rectangle
+is retained only for older definitions without explicit graphics.
 
 ## Security: `build` executes the script
 

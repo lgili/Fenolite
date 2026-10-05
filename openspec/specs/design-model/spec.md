@@ -171,7 +171,7 @@ For a design authored in Fenolite the exported tool project MUST be the source o
 ### Requirement: Library definitions
 The model SHALL provide the module `fenolite.model.library`. It holds library definitions that are independent of any `Design`:
 - `FootprintDef`: an entity with `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads`, `graphics` and `models`
-- `SymbolDef`: an entity with `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units` and `pins`
+- `SymbolDef`: an entity with `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins` and ordered symbol-local `graphics`
 - `SymbolPin`, `SymbolUnit` and `PinAlternate`: value objects without the entity header
 - `Library`: a container with `name`, `footprints` and `symbols`
 
@@ -181,6 +181,13 @@ Library definitions MUST obey these rules:
 - `FootprintDef.pads` and `FootprintDef.graphics` MUST reuse the board `Pad` and `Graphic` entities, with `net_id = None` and positions relative to the definition's origin. A pad with per-layer shapes MUST carry them in `Pad.padstack`.
 - Every field other than `name` MUST have a default. The tuples `keywords`, `flags`, `pads`, `graphics`, `models`, `units`, `pins` and `alternates` MUST be marked ordered, so the canonical form keeps their order. `properties` is a mapping and its canonical form is sorted by key.
 - Library definitions MUST NOT be part of `Design` or of the `.fenolite/` layer files.
+
+`SymbolGraphic` MUST be an immutable value object with a supported primitive kind, ordered `Point` coordinates in symbol-local nanometres, integer stroke width and fill state. The graphics tuple MUST keep drawing order in the canonical form.
+
+#### Scenario: Symbol body graphics keep order
+- **GIVEN** a `SymbolDef` with a rectangle followed by two line graphics
+- **WHEN** it is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the kinds remain `rect`, `line`, `line` in that order
 
 #### Scenario: Definitions are immutable
 - **GIVEN** a `FootprintDef`
@@ -604,4 +611,3 @@ The board layer SHALL model the text fields of a placed footprint as `fenolite.m
 - **GIVEN** a component with no explicit map
 - **WHEN** it is serialized and read back
 - **THEN** `pin_pad_map` is empty and the build applies identity mapping
-

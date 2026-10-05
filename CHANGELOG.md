@@ -6,6 +6,23 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Scoped c0076 to a documented target of 100 reusable footprint variants, including 14 already shipped and 86 planned. The priority inventory uses Fenolite's aggregate review of a fixed public-board corpus and official package-family sources; no new footprint geometry is shipped by this scope update (c0076).
+- Added three independently drawn generic schematic symbols found missing during the visual review: a two-winding common-mode choke, non-polar two-electrode gas discharge tube, and common-cathode dual LED. Their functional roles cite public manufacturer documents; package pinouts and footprints remain explicit (c0076).
+
+- Refined the full 26-symbol catalog gallery using user schematic image feedback: smoother inductor and fuse, grouped square connector sockets, a square single terminal, cleaner conceptual IC blocks, and amplifier supply pins ending at the triangle; retained zigzag resistor, optocoupler interior and capacitor polarity style (c0076).
+
+- Clarified the optocoupler's input LED and optical arrows, replaced circular header contacts with square single-lead contacts, and made the negative plate heavier on polarized and electrolytic capacitor symbols (c0076).
+- Switched the generic resistor to a zigzag body and replaced the Zener's overdrawn straight cathode bar with a single connected bent path (c0076).
+- Redrew all 26 catalog schematic symbols with inward-facing connected pin stems, consistent outlines, legible functional marks and improved connector, amplifier, optocoupler and protection motifs. The KiCad symbol writer now preserves hidden pin-name/number settings on round trip (c0076).
+- Corrected all built-in footprint previews and geometry against official land-pattern examples: rectangular SMD copper, separated SOT pads, four-side LQFP32 numbering and pad orientation, centered header holes, and courtyards that enclose every pad. Body outlines now use `F.Fab` so silkscreen does not cross copper; generic package use and source corner-radius approximations remain `INFERRED` (c0076).
+- Expanded the offline Fenolite-authored catalog with generic passive, semiconductor, protection, power/control and electromechanical symbols, plus source-backed standard-package starting footprints. Added a coverage matrix and per-entry public-source map; package lands without manufacturer recommendations remain `INFERRED` and require part/process review (c0076).
+- Added an offline, Fenolite-authored standard catalog with generic passive symbols, reusable chip footprints, API/CLI discovery, local build resolution and project overrides; inferred land geometry remains labelled (c0075).
+- Symbol definitions and DSL-authored symbols now carry ordered vector body graphics, which the KiCad symbol reader and writer preserve (c0075).
+### Added
+
+- DSL symbol authoring: design-attached `Symbol` definitions resolve custom component pins and are written as project-local KiCad symbol libraries with a `sym-lib-table` (c0058).
+- Footprint DSL: `Footprint.pad(..., shared=True)` can author additional physical pads with the same number as an earlier pad, with stable unique IDs; accidental duplicates still fail.
+
 ## [0.1.0] - 2026-10-05
 
 ### Added

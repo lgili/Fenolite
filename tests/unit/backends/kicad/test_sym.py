@@ -10,7 +10,7 @@ import pytest
 from _libs import MINI
 
 from fenolite.backends.kicad import slots
-from fenolite.backends.kicad.sym import EVIDENCE, read_symbol_library, split_unit_name
+from fenolite.backends.kicad.sym import EVIDENCE, read_symbol_library, split_unit_name, write_symbol_library
 from fenolite.backends.kicad.versions import UnsupportedFormatError
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
@@ -137,6 +137,36 @@ def test_split_unit_name() -> None:
     for bad in ("Mini_R_1", "Other_1_1", "Mini_R_1_1_1", "Mini_R__1"):
         with pytest.raises(ValueError, match=bad):
             split_unit_name("Mini_R", bad)
+
+
+def test_authored_symbol_graphics_round_trip_and_legacy_rectangle_fallback() -> None:
+    from fenolite.dsl import Symbol, mm
+
+    authored = Symbol("Local", "Graphic", reference="R")
+    authored.pin("1", "A", at=(mm(-5), mm(0)), length=mm(2.5), rotation=180)
+    authored.pin("2", "B", at=(mm(5), mm(0)), length=mm(2.5))
+    authored.rect((mm(-2.5), mm(-1.25)), (mm(2.5), mm(1.25)), width=mm(0.2))
+    authored.line((mm(-2.5), mm(0)), (mm(2.5), mm(0)))
+    authored.circle((mm(0), mm(0)), (mm(0.5), mm(0)))
+    authored.polygon(((mm(-1), mm(-1)), (mm(1), mm(-1)), (mm(0), mm(1))))
+
+    rendered = write_symbol_library((authored.definition,))
+    loaded = read_symbol_library(rendered, library="Local")[0]
+    assert loaded.graphics == authored.definition.graphics
+    assert "(rectangle (start -2.5 -1.25) (end 2.5 1.25)" in rendered
+    assert "(circle (center 0 0) (radius 0.5)" in rendered
+    assert "(xy -1 -1) (xy 1 -1) (xy 0 1) (xy -1 -1)" in rendered
+
+    hidden = dataclasses.replace(authored.definition, pin_names_hidden=True, pin_numbers_hidden=True)
+    hidden_text = write_symbol_library((hidden,))
+    hidden_readback = read_symbol_library(hidden_text, library="Local")[0]
+    assert hidden_readback.pin_names_hidden and hidden_readback.pin_numbers_hidden
+
+    legacy = Symbol("Local", "Legacy", reference="R")
+    legacy.pin("1", "A", at=(mm(-1), mm(0)), length=mm(1), rotation=180)
+    legacy.pin("2", "B", at=(mm(1), mm(0)), length=mm(1))
+    legacy_text = write_symbol_library((legacy.definition,))
+    assert "(rectangle (start -2.27 -1.27) (end 2.27 1.27)" in legacy_text
 
 
 def test_sub_symbols_are_opaque_slots() -> None:

@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+from math import isqrt
 from pathlib import Path
 from types import MappingProxyType
 from typing import get_args
@@ -28,12 +29,22 @@ from fenolite.backends.kicad._libread import (
 from fenolite.backends.kicad.liberrors import lib_error
 from fenolite.backends.kicad.sexpr import AtomKind, Node
 from fenolite.backends.kicad.versions import FileKind
+from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.units import Nm
 from fenolite.model.base import Slot
 from fenolite.model.circuit import PinType
-from fenolite.model.library import PinAlternate, PinShape, PowerKind, SymbolDef, SymbolPin, SymbolUnit
+from fenolite.model.library import (
+    PinAlternate,
+    PinShape,
+    PowerKind,
+    SymbolDef,
+    SymbolGraphic,
+    SymbolPin,
+    SymbolUnit,
+)
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
 TILDE_UNTIL = 20250318
@@ -63,6 +74,100 @@ def split_unit_name(parent: str, name: str) -> tuple[int, int]:
     if len(parts) != 2 or not all(p.isdigit() and p.isascii() for p in parts):
         raise ValueError(f"sub-symbol {name!r} of {parent!r} is not named '{parent}_<unit>_<body style>'")
     return int(parts[0]), int(parts[1])
+
+
+def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> str:
+    """Serialize the simple authored symbol subset as a KiCad symbol library."""
+
+    def q(value: str) -> str:
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+    def mm(value: Nm) -> str:
+        whole, rem = divmod(abs(value), 1_000_000)
+        return ("-" if value < 0 else "") + str(whole) + (f".{rem:06d}".rstrip("0") if rem else "")
+
+    def xy(point: Point) -> str:
+        return f"(xy {mm(point.x)} {mm(point.y)})"
+
+    def graphic_text(graphic: SymbolGraphic) -> list[str]:
+        points = graphic.points
+        width = graphic.width or 254_000
+        stroke = f"(stroke (width {mm(width)}) (type default))"
+        fill = "background" if graphic.filled else "none"
+        if graphic.kind == "line":
+            body = f"(polyline (pts {xy(points[0])} {xy(points[1])}) {stroke} (fill (type {fill})))"
+        elif graphic.kind == "rect":
+            body = (
+                f"(rectangle (start {mm(points[0].x)} {mm(points[0].y)}) "
+                f"(end {mm(points[1].x)} {mm(points[1].y)}) {stroke} (fill (type {fill})))"
+            )
+        elif graphic.kind == "circle":
+            dx, dy = points[1].x - points[0].x, points[1].y - points[0].y
+            body = (
+                f"(circle (center {mm(points[0].x)} {mm(points[0].y)}) "
+                f"(radius {mm(isqrt(dx * dx + dy * dy))}) {stroke} (fill (type {fill})))"
+            )
+        else:
+            closed = points if points[-1] == points[0] else (*points, points[0])
+            pts = " ".join(xy(point) for point in closed)
+            body = f"(polyline (pts {pts}) {stroke} (fill (type {fill})))"
+        return [f"\t\t\t{body}"]
+
+    version = 20251024 if target >= 10 else 20231120
+    out = ["(kicad_symbol_lib", f"\t(version {version})", '\t(generator "fenolite")']
+    for symbol in sorted(symbols, key=lambda item: item.lib_id):
+        out += [
+            f"\t(symbol {q(symbol.name)}",
+            "\t\t(exclude_from_sim no)",
+            "\t\t(in_bom yes)",
+            "\t\t(on_board yes)",
+        ]
+        props = symbol.properties
+        for key, default, y in (
+            ("Reference", "U", 2_540_000),
+            ("Value", symbol.name, 0),
+            ("Footprint", "", -2_540_000),
+            ("Datasheet", "", -5_080_000),
+            ("Description", "", 0),
+        ):
+            value = props.get(key, default)
+            if key == "Description" and not value:
+                continue
+            out += [
+                f"\t\t(property {q(key)} {q(value)}",
+                f"\t\t\t(at 0 {mm(y)} 0)",
+                "\t\t\t(effects (font (size 1.27 1.27)) (justify left))",
+                "\t\t)",
+            ]
+        out += [
+            f"\t\t(pin_names (offset 0.508) (hide {'yes' if symbol.pin_names_hidden else 'no'}))",
+            f"\t\t(pin_numbers (hide {'yes' if symbol.pin_numbers_hidden else 'no'}))",
+        ]
+        out += [f"\t\t(symbol {q(symbol.name + '_0_1')}"]
+        if symbol.graphics:
+            for graphic in symbol.graphics:
+                out.extend(graphic_text(graphic))
+        else:
+            xs = [pin.position.x for pin in symbol.pins]
+            ys = [pin.position.y for pin in symbol.pins]
+            margin = 1_270_000
+            out.append(
+                f"\t\t\t(rectangle (start {mm(min(xs) - margin)} {mm(min(ys) - margin)}) "
+                f"(end {mm(max(xs) + margin)} {mm(max(ys) + margin)}) "
+                "(stroke (width 0.254) (type default)) (fill (type background)))"
+            )
+        out += ["\t\t)", f"\t\t(symbol {q(symbol.name + '_1_1')}"]
+        for pin in symbol.pins:
+            out += [
+                f"\t\t\t(pin {pin.etype} {pin.shape}",
+                f"\t\t\t\t(at {mm(pin.position.x)} {mm(pin.position.y)} {pin.rotation // 1_000_000})",
+                f"\t\t\t\t(length {mm(pin.length)})",
+                f"\t\t\t\t(name {q(pin.name)} (effects (font (size 1.27 1.27))))",
+                f"\t\t\t\t(number {q(pin.number)} (effects (font (size 1.27 1.27))))",
+                "\t\t\t)",
+            ]
+        out += ["\t\t)", "\t)"]
+    return "\n".join(out + [")", ""])
 
 
 def _hidden(node: Node) -> bool:
@@ -140,6 +245,53 @@ class _Reader:
             alternates=tuple(alternates),
         )
 
+    def graphic(self, node: Node, loc: str) -> SymbolGraphic:
+        ctx = self.ctx
+        if node.name == "rectangle":
+            start, end = node.find("start"), node.find("end")
+            if start is None or end is None:
+                raise ctx.error("symbol rectangle needs start and end", loc, node)
+            points = (ctx.point(start, f"{loc}/start"), ctx.point(end, f"{loc}/end"))
+            kind = "rect"
+        elif node.name == "circle":
+            center, radius = node.find("center"), node.find("radius")
+            if center is None or radius is None or not radius.atoms():
+                raise ctx.error("symbol circle needs center and radius", loc, node)
+            at = ctx.point(center, f"{loc}/center")
+            r = ctx.nm(radius.atoms()[0], f"{loc}/radius[0]", radius)
+            if r <= 0:
+                raise ctx.error("symbol circle radius must be positive", loc, node)
+            points, kind = (at, Point(at.x + r, at.y)), "circle"
+        else:
+            pts = node.find("pts")
+            if pts is None:
+                raise ctx.error("symbol polyline needs points", loc, node)
+            points = tuple(
+                ctx.point(child, f"{loc}/pts/{child.name}")
+                for _, child in child_locators(f"{loc}/pts", pts)
+                if isinstance(child, Node) and child.name == "xy"
+            )
+            if len(points) < 2:
+                raise ctx.error("symbol polyline needs at least two points", loc, node)
+            kind = "line" if len(points) == 2 else "polygon"
+            if kind == "polygon" and points[0] == points[-1]:
+                points = points[:-1]
+        stroke = node.find("stroke")
+        width_node = stroke.find("width") if stroke is not None else None
+        width = (
+            ctx.nm(width_node.atoms()[0], f"{loc}/stroke/width[0]", width_node)
+            if width_node is not None and width_node.atoms()
+            else 254_000
+        )
+        fill_node = node.find("fill")
+        fill_type_node = fill_node.find("type") if fill_node is not None else None
+        fill_type = (
+            fill_type_node.atoms()[0].value
+            if fill_type_node is not None and fill_type_node.atoms()
+            else "none"
+        )
+        return SymbolGraphic(kind, points, width, fill_type in ("background", "outline"))  # type: ignore[arg-type]
+
     def symbol(self, node: Node, loc: str) -> SymbolDef:
         ctx = self.ctx
         atoms = leading_atoms(node)
@@ -152,6 +304,7 @@ class _Reader:
         properties: dict[str, str] = {}
         units: list[SymbolUnit] = []
         pins: list[SymbolPin] = []
+        graphics: list[SymbolGraphic] = []
         for index, (child_loc, child) in enumerate(child_locators(loc, node)):
             if not isinstance(child, Node):
                 continue
@@ -192,8 +345,11 @@ class _Reader:
                 label = unit_name.atoms()[0].value if unit_name is not None and unit_name.atoms() else ""
                 units.append(SymbolUnit(unit, style, label))
                 for pin_loc, pin in child_locators(child_loc, child):
-                    if isinstance(pin, Node) and pin.name == "pin":
-                        pins.append(self.pin(pin, pin_loc, unit, style))
+                    if isinstance(pin, Node):
+                        if pin.name == "pin":
+                            pins.append(self.pin(pin, pin_loc, unit, style))
+                        elif pin.name in ("polyline", "rectangle", "circle"):
+                            graphics.append(self.graphic(pin, pin_loc))
         power: PowerKind = fields.pop("power", "")  # type: ignore[assignment]
         return SymbolDef(
             id=derived_id("sym", "kicad", native),
@@ -206,6 +362,7 @@ class _Reader:
             properties=properties,
             units=tuple(units),
             pins=tuple(pins),
+            graphics=tuple(graphics),
             **fields,  # type: ignore[arg-type]
         )
 
@@ -288,6 +445,7 @@ def resolve_extends(
                 pin_name_offset=base.pin_name_offset,
                 units=base.units,
                 pins=base.pins,
+                graphics=base.graphics,
                 properties={**base.properties, **derived.properties},
             )
             flat[derived.name] = base

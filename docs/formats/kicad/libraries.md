@@ -525,3 +525,7 @@ KiCad sorts what it writes: graphics and pads of a footprint, symbols of a libra
 last), and pins. 10.0.6 orders pins by number, while 9.0.9 orders them by position. The mini library
 is written in that order, with pin numbers following positions, so a re-save keeps every tuple in place
 (S-0020).
+
+Fenolite's simple authored symbol subset writes the KiCad symbol-library root, symbol properties,
+one-unit pin records, and library-table rows as described by S-0043. The emitted serialization remains
+`INFERRED` until exercised by the KiCad oracle.

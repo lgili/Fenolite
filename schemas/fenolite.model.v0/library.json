@@ -648,12 +648,49 @@
           "items": {
             "$ref": "#/$defs/SymbolPin"
           }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolGraphic"
+          }
         }
       },
       "additionalProperties": false,
       "required": [
         "id",
         "name"
+      ]
+    },
+    "SymbolGraphic": {
+      "description": "A vector primitive in symbol-local coordinates (nanometres).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "line",
+            "circle",
+            "rect",
+            "polygon"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "points"
       ]
     },
     "SymbolPin": {

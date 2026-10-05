@@ -11,11 +11,12 @@ No code lands without a change. Archive a change with `openspec archive <id>` on
 
 ## Change ids
 
-Changes c0001–c0010, c0014, c0017 and c0018 are archived under `changes/archive/`. Plan items keep their numbers (c0009–c0016);
+Archived changes are under `changes/archive/`; a change in `changes/` is proposed or being implemented. Plan items keep their numbers (c0009–c0016);
 split-offs and follow-ups take c0017 and later numbers in implementation order, and a new split-off
 takes the next free number. Ids follow the form `cNNNN-<slug>`, a project convention (the `openspec`
 CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A slug may still change
-until its change is proposed.
+until its change is proposed. The nine v0.2a changes were allocated together as c0060–c0068 on
+2026-10-04, while c0058 was being written, so c0057 stays unused.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -67,5 +68,19 @@ until its change is proposed.
 | c0054 | `dsl-rule-constructor` | v0.1 | c0011 |
 | c0055 | `dsl-footprint-authoring` | dogfood gap / v0.4 footprint generator | c0011, c0018 |
 | c0056 | `dsl-pin-pad-map-slots` | dogfood gap / v0.4 footprint generator | c0055 |
+| c0057 | (unused) | — | — |
+| c0058 | `authored-symbols` | follow-up | — |
+| c0059 | `shared-footprint-pads` | follow-up | c0055 |
+| c0060 | `kicad-schematic-reader` | v0.2a | — |
+| c0061 | `kicad-schematic-writer` | v0.2a | — |
+| c0062 | `erc-oracle` | v0.2a | — |
+| c0063 | `netlist-compare` | v0.2a | — |
+| c0064 | `bom-pnp-templates` | v0.2a | — |
+| c0065 | `artifact-manifest-states` | v0.2a | — |
+| c0066 | `cli-inspection-commands` | v0.2a | — |
+| c0067 | `evidence-matrix` | v0.2a | — |
+| c0068 | `v01-followups` | v0.2a | c0025, c0028, c0029, c0031 |
+| c0075 | `standard-component-catalog` | dogfood gap: offline common symbols and footprints | c0008, c0058 |
+| c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

@@ -81,8 +81,8 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 | Class | Contents |
 |---|---|
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
-| `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins` |
-| `SymbolPin`, `SymbolUnit`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` |
+| `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
+| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
 | `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
 - Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,

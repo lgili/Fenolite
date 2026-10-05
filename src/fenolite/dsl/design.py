@@ -176,6 +176,7 @@ class Design(Container):
         self.size: tuple[Nm, Nm] | None = None
         self.parts: dict[str, Part] = {}
         self.footprints: dict[str, Footprint] = {}
+        self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
@@ -193,6 +194,21 @@ class Design(Container):
         if footprint.lib_id in self.footprints:
             raise DslError(f"footprint {footprint.lib_id!r} is registered twice")
         self.footprints[footprint.lib_id] = footprint
+
+    def add(self, *objs: object) -> None:
+        """Attach authored symbols explicitly, or attach ordinary design objects as usual."""
+        from fenolite.dsl.symbol import Symbol
+
+        regular: list[object] = []
+        for obj in objs:
+            if isinstance(obj, Symbol):
+                if obj.lib_id in self.symbols:
+                    raise DslError(f"symbol {obj.lib_id!r} is registered twice")
+                self.symbols[obj.lib_id] = obj
+            else:
+                regular.append(obj)
+        if regular:
+            super().add(*regular)  # type: ignore[arg-type]
 
     @property
     def design(self) -> Design:

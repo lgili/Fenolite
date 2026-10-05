@@ -1,0 +1,4 @@
+- [x] Add `shared=True` validation and stable unique IDs for repeated pads.
+- [x] Add Fenolite-authored tests for default duplicate rejection, shared-pad acceptance, invalid shared flag, stable IDs, and KiCad writer/reader round-trip.
+- [x] Update normative `dsl-footprint-authoring` spec, docs, and `CHANGELOG.md`.
+- [x] Run focused tests (11 passed), `make check-fast` (4,806 passed, 9 skipped), OpenSpec strict validation, and diff/residue checks.

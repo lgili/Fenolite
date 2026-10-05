@@ -34,6 +34,7 @@ from fenolite.dsl.intents import (
 from fenolite.dsl.interfaces import DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import FieldRequest, Net, Part, Placement, connect, no_connect
+from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 
 __all__ = [
@@ -57,6 +58,7 @@ __all__ = [
     "Placement",
     "Power",
     "StitchIntent",
+    "Symbol",
     "TrackIntent",
     "ViaIntent",
     "ViaStep",

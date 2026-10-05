@@ -83,6 +83,14 @@ produce byte-identical outputs. Keyed ids (placed copies, objects of design scri
 and do not depend on `--seed`, and a command that writes no date ignores `--timestamp`; `build` is
 such a command, so its outputs are byte-identical whatever both flags say.
 
+## `catalog`
+
+`fenolite catalog list [--kind symbol|footprint] [--query TEXT]` returns stable, offline catalog
+entries with `lib_id`, kind, category, summary, evidence level and registered source ids.
+`fenolite catalog show LIB_ID` returns the same metadata and a compact definition summary. Neither
+command reads library tables or runs external tools. The initial generic catalog is documented in
+`docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
+
 ## KiCad output
 
 Every command accepts `--kicad-version {9,10}` (default 10) and `--allow-lossy`, before or after the

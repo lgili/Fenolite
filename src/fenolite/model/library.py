@@ -100,6 +100,16 @@ class SymbolUnit:
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolGraphic:
+    """A vector primitive in symbol-local coordinates (nanometres)."""
+
+    kind: Literal["line", "circle", "rect", "polygon"]
+    points: tuple[Point, ...] = field(metadata=ORDERED)
+    width: Nm = 254_000
+    filled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class SymbolDef(Entity):
     """A symbol of a library. A derived symbol read as written has ``extends`` set and no pins."""
 
@@ -116,6 +126,7 @@ class SymbolDef(Entity):
     pin_name_offset: Nm | None = None
     units: tuple[SymbolUnit, ...] = field(default=(), metadata=ORDERED)
     pins: tuple[SymbolPin, ...] = field(default=(), metadata=ORDERED)
+    graphics: tuple[SymbolGraphic, ...] = field(default=(), metadata=ORDERED)
 
     @property
     def lib_id(self) -> str:
@@ -181,6 +192,7 @@ __all__ = [
     "PinShape",
     "PowerKind",
     "SymbolDef",
+    "SymbolGraphic",
     "SymbolPin",
     "SymbolUnit",
 ]

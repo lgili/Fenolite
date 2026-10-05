@@ -1,10 +1,10 @@
 # Roadmap to 1.0
 
-Status on 2026-10-02. Released: `0.0.1.dev0` (2026-09-30, pre-alpha). Next planned tag:
-`v0.1.0-alpha1`, after c0019 and c0020. Released: `v0.1.0` on 2026-10-05. Next planned release: `v0.2.0`.
+Status on 2026-10-05. Released: `0.0.1.dev0` (2026-09-30, pre-alpha) and `v0.1.0` (2026-10-05).
+Next planned release: `v0.2a`, proposed as c0060–c0068.
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
-`openspec/changes/`. Every id after c0031 is an estimate, and so is every budget.
+`openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.
 
 ## How to read this page
 
@@ -38,12 +38,12 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | phase | milestone | changes | scope | state |
 |---|---|---|---|---|
 | 1. Foundations | — (`0.0.1.dev0` was cut after c0004) | c0001–c0005 | repository, CLI contract, IP hygiene, neutral model, geometry kernel | done |
-| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | c0006–c0012, c0014, c0017 and c0018 done; c0013, c0019–c0021 and c0026–c0031 proposed; c0015, c0016 and c0022–c0025 proposed on 2026-10-03 |
-| 3. KiCad complete | v0.2a | about c0032–c0037 | schematic write, ERC oracle, netlist, BOM, more commands | estimate |
-| 3. KiCad complete | v0.2b | about c0038–c0041 | full layout lens, full rules, parity, interfaces | estimate |
-| 4. Second backend | v0.3 | about c0042–c0049 | read, equivalence levels 1–4, analyses | estimate |
-| 4. Second backend | v0.4 | about c0050–c0057 | write, equivalence level 5, verification kit | c0055–c0056 done; remainder estimate |
-| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | about c0058–c0070 | conversion, MCP server, freeze | estimate |
+| 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
+| 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | proposed on 2026-10-04 and 2026-10-05 |
+| 3. KiCad complete | v0.2b | c0069–c0074 | full layout lens, full rules, parity, interfaces and drawing sheet | proposed separately; not part of v0.2a |
+| 4. Second backend | v0.3 | c0039–c0047 | read, equivalence levels 1–4, analyses | c0047 done; c0039–c0046 proposed |
+| 4. Second backend | v0.4 | c0032–c0038 pulled forward; the rest not allocated | write, equivalence level 5, verification kit | c0032–c0038, c0055 and c0056 done; remainder estimate |
+| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
 [Proposed cuts](#proposed-cuts-for-a-leaner-10)).
@@ -77,7 +77,7 @@ rebuilds.
 | c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | done | c0010, c0017 | 9.5 |
 | c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | done | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
-| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | implemented in draft PR; full local check and KiCad 9/10 CI passed | c0013, c0019, c0031 | 6 |
+| c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | done | c0013, c0019, c0031 | 6 |
 | c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | done; gate and full CI passed on KiCad 9.0.9 and 10.0.6 | c0015, c0020, c0022 | 7.5 |
 | c0017 | `kicad-board-writer` | board writer for 9.0 and 10.0 | done | c0009, c0014 | 7.75 |
 | c0018 | `kicad-rules-footprints` | footprint and custom-rules writers | done | c0017 | 5.75 |
@@ -149,46 +149,73 @@ do:
 Round-trip levels: RT0, the S-expression tree is identical; RT1, model → KiCad → model is
 identical; RT2, `kicad-cli pcb drc` reports the same violations before and after.
 
-## Phase 3: KiCad complete (v0.2a, v0.2b; estimate)
+## Phase 3: KiCad complete (v0.2a, v0.2b)
 
-**v0.2a, about c0032–c0037.**
+**v0.2a goal.** A built project has a schematic that KiCad's ERC and its schematic parity test accept
+on 9.0 and 10.0, `check` judges it with KiCad's own ERC, and the flow gets its tables, its manifest
+and the commands an agent asks small questions with.
 
-- Schematic: `.kicad_sch` writer and reader, `sch build`.
-- The schematic writer lowers `Circuit.no_connects` (c0036) to KiCad's no-connect flags.
-- ERC through `kicad-cli` in `check`, replacing v0.1's three-rule ERC; schematic parity in DRC.
-- `netlist` and `bom` through `kicad-cli`; pick-and-place.
-- BOM and pick-and-place files with a user-supplied column template: names, order, units, rotation
-  offset per footprint, side naming, grouping by value, footprint and part number. No template for
-  any assembly house ships with Fenolite.
-- Fenolite's own netlist of the schematics it generates, compared with `kicad-cli`.
-- The complete artefact manifest, with SHA-256 and a state per artefact.
-- Commands `diff`, `roundtrip`, `fmt --check`, `explain`, `restore`; pagination; `net`, `region`
-  and `neighbors` queries.
-- The generated evidence and capability matrix.
-- Follow-ups the v0.1 proposals defer: a zone's own clearance in the copper check and per-pad zone
-  connection in the DSL (c0031), arcs, blind vias and a CLI pad query for script copper (c0028), and
-  rule kinds for annular width, hole-to-hole, hole clearance, zone connection and silk clearance
-  (c0026; they overlap v0.2b's full rules).
-- Any v0.1 change moved by the budget cut order (c0023, c0021, and the changes of Open decisions,
-  row 4).
+**v0.2a, c0060–c0068.** All nine were proposed on 2026-10-04 and 2026-10-05.
 
-**v0.2b, about c0038–c0041.**
+| id | slug | scope | state | depends on | days |
+|---|---|---|---|---|---|
+| c0060 | `kicad-schematic-reader` | `.kicad_sch` read into a sheet model, same-version rebuild, demo schematics in the corpus, load checks through `kicad-cli` | proposed | — | 11 |
+| c0061 | `kicad-schematic-writer` | `build` writes `<name>.kicad_sch`, the project symbol libraries and `sym-lib-table`; no-connect flags from `Circuit.no_connects` (c0036), power flags, net names in KiCad's stored form, pad nets of unconnected pins | proposed | c0060 | 14 |
+| c0062 | `erc-oracle` | KiCad's ERC as a stage of `check`, in place of the three-rule ERC stage; schematic parity in the DRC stage | proposed | c0060, c0061 | 8.5 |
+| c0063 | `netlist-compare` | the schematic's netlist in `check`; Fenolite's own netlist of the schematics it generates, compared with `kicad-cli` at build; `netlist` command | proposed | c0060, c0061 | 6.75 |
+| c0064 | `bom-pnp-templates` | BOM and placement tables with a user-supplied column template (names, order, units, rotation offsets, side names, grouping); `bom` and `pnp` commands. No template of any assembly house ships with Fenolite | proposed | c0061 for the BOM through `kicad-cli` | 7 |
+| c0065 | `artifact-manifest-states` | the project manifest, with SHA-256 and a state per artefact; `manifest` command | proposed | c0062, c0064 | 5 |
+| c0066 | `cli-inspection-commands` | `diff`, `roundtrip`, `fmt`, `explain`, `restore`; paging and concise output; `net`, `region` and `neighbors` | proposed | c0060 and c0062 for schematic inputs | 13.5 |
+| c0067 | `evidence-matrix` | the evidence matrix in `capabilities` and on a generated page; every backend module declares its evidence | proposed | best last | 5 |
+| c0068 | `v01-followups` | the shape offset of a pad in the board frame; a zone's own clearance in the copper check; pad zone connection, arcs and via kinds in the DSL; `pads` command; `macos-app` nightly job | proposed | — | 9.75 |
+
+- Implementation order: c0060 → c0061 → c0062, c0063 and c0064 (independent of each other; c0063
+  archives after c0061) → c0065. c0066 and c0068 depend on none of these for most of their parts and
+  can run beside them. c0067 goes last, so that its audit covers the modules the others add.
+- Requirements modified in chains: c0062 modifies `verification-loop` requirements that c0044
+  (proposed) also modifies, c0063 modifies one that c0061 modifies, and c0066 adds two
+  requirements that c0044 also adds. Each design states the rule: the change that lands second
+  re-bases on the first.
+- Found while measuring for c0068: KiCad moves a pad's copper, not its hole, by the offset of the
+  pad's drill. v0.1's board frame does the opposite, so `check` reports clearance errors that do not
+  exist on boards with such pads. c0068 repairs it first.
+
+**v0.2a acceptance** (project plan, shortened):
+
+1. KiCad's ERC exits clean on the example projects, and its schematic parity test has no finding.
+2. Fenolite's netlist equals `kicad-cli`'s on every schematic Fenolite generates.
+3. RT0, RT1 and RT2 (through ERC) on every demo schematic without buses and without symbols placed
+   in several sheet instances; the rows are listed in the corpus manifest.
+4. `diff` of "one footprint moved by 1 mm" shows exactly one change, and `fmt --check` is a fixed
+   point over the whole corpus.
+5. A BOM with the user's columns, and a manifest with SHA-256 and a state for every artefact.
+
+**Not in v0.2a** (project plan): readable schematic autolayout and one sheet per module (v0.2b),
+buses (v0.3), symbols placed in several sheet instances (v0.5b).
+
+**v0.2b (ids not allocated; about six changes).**
 
 - Full layout lens (extract, adapt, `moved()`, sync) and `placements.toml`.
 - Readable schematic autolayout, and one hierarchical sheet per module.
-- Full rules lowered to `.kicad_dru` (courtyard, silkscreen, hole-to-hole, annular ring, creepage).
+- Full rules lowered to `.kicad_dru` (courtyard, silkscreen, hole-to-hole, annular ring, creepage),
+  with the rule kinds that c0026 and c0031 left open (annular width, hole-to-hole, hole clearance,
+  zone connection, silk clearance).
 - Parity between schematic and board, and between symbol and footprint.
 - Interfaces (I2C, SPI, UART, USB 2) and quantities.
 - Import of a user's `.kicad_wks`.
+- Follow-ups that c0068 does not take (its design, Decision 13): export presets, the snapping
+  tolerance of board outlines and the edge items of footprints, stitching that avoids zones and the
+  board edge. Per-command result schemas go with the v1.0 freeze unless the maintainer wants them
+  earlier.
 
 ## Where KiCad ends and the second backend starts
 
-- **KiCad is complete at about c0041**, the end of v0.2b (estimate): board and schematic read and
+- **KiCad is complete at the end of v0.2b** (estimate): board and schematic read and
   write for 9.0 and 10.0, `kicad-cli` as oracle for DRC, ERC, netlist and exports, full lens and
   rules.
 - **After that, KiCad work is maintenance:** one pass per KiCad major (the project plan estimates
   about one week of format drift per major), and an optional IPC backend once KiCad 11 is released.
-- **Second-backend changes start with v0.3, at about c0042.** The project plan keeps a
+- **Second-backend reading starts with v0.3, at c0039.** The project plan keeps a
   half-day-a-week reading track inside the v0.1 and v0.2 contingency.
 - **KiCad comes first because it is the second backend's oracle.** `kicad-cli pcb import` (10.0
   only) gives an independent reading of the second backend's files. `H-A-UNIT` already names this
@@ -204,7 +231,7 @@ backend tag `altium`; the labels are `ALTIUM-VERIFIED(kit)` and `ALTIUM-VERIFIED
 (`README.md`). It is written clean-room: format facts come from public sources only and are
 recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
 
-**v0.3 read, about c0042–c0049.**
+**v0.3 read, c0039–c0047 (c0047 done; the others proposed).**
 
 - Compound-file reader.
 - Readers for the four document kinds: schematic library, PCB library, schematic document, PCB
@@ -235,7 +262,7 @@ tracks, arcs, vias, unpoured polygons, a 2- or 4-layer stack with planes, net cl
 (script copper), c0016 and c0023 (router plugins) feed this writer; until they land, `--copper-from`
 copies the copper of a routed KiCad board.
 
-**v0.4 write, about c0050–c0057.**
+**v0.4 write (ids not allocated; the experimental writers c0032–c0038 were pulled forward).**
 
 - Writers for the four document kinds, starting with the ASCII schematic format.
 - Project-file and output-job writers.
@@ -245,6 +272,7 @@ copies the copper of a routed KiCad board.
 - `equivalent`, level 5.
 - Verification kit, run by a user on their own machine (`ALTIUM-VERIFIED(kit)`).
 - DSL footprint generator and assignment/resolution: c0055. A separate footprint-library lint remains planned.
+- Offline built-in component catalog: c0075 starts with generic passive symbols and 0402–1206 chip footprints. c0076 expands it to common passive, semiconductor, protection, power/control and electromechanical families with public provenance; its target is 100 distinct, sourced footprint variants, with 14 shipped and 86 planned in the current branch inventory. Custom package geometry remains project-authored.
 
 An author report never promotes an operation to verified. The rows `H-A-WRITE-*` and `H-A-PH-*`
 wait for the kit to reproduce them.
@@ -262,7 +290,7 @@ wait for the kit to reproduce them.
 | 7 | geometry (XOR) | v0.6 |
 | 8 | presentation | after 1.0 |
 
-## Phase 5: to 1.0 (estimate, about c0058–c0070)
+## Phase 5: to 1.0 (estimate; ids not allocated)
 
 | milestone | scope |
 |---|---|
@@ -278,8 +306,8 @@ wait for the kit to reproduce them.
 
 **Keep for 1.0:**
 
-- complete KiCad (to about c0041);
-- second backend read and write (to about c0057);
+- complete KiCad (to the end of v0.2b);
+- second backend read and write (to the end of v0.4);
 - conversion, with controlled KiCad downgrade (capability resolver) and public `equivalent` (v0.5a);
 - equivalence levels 1–5;
 - the MCP server (v0.5b): small, and central for agents;
@@ -323,8 +351,21 @@ All numbers are estimates.
 | dogfood gaps: c0026 6.5, c0027 5.25, c0028 21.5, c0029 12, c0030 10.25, c0031 8 | 63.5 |
 | proposed on 2026-10-03: c0015 6, c0016 7.5, c0022 6, c0023 10, c0024 5.25, c0025 5.75 | 40.5 |
 | **total to v0.1** | **about 188** |
-| done (c0009–c0012, c0014, c0017, c0018) | about 49 |
-| **left** | **about 139** |
+| done on 2026-10-05 (every change but c0025) | about 182 |
+| **left** (c0025, the release change) | **about 6** |
+
+**Size of v0.2a.**
+
+| | design-days |
+|---|---|
+| schematic: c0060 11, c0061 14 | 25 |
+| oracles and tables: c0062 8.5, c0063 6.75, c0064 7, c0065 5 | 27.25 |
+| commands and evidence: c0066 13.5, c0067 5 | 18.5 |
+| follow-ups: c0068 9.75 | 9.75 |
+| **total** | **80.5** |
+
+At the measured pace below that is about two calendar days of agent work, before CI time,
+integration and the maintainer's decisions, which are the limits here as they are for v0.1.
 
 **Measured pace.** From the git history:
 
@@ -337,8 +378,9 @@ All numbers are estimates.
 
 **Forecast.**
 
-- At that pace the 134 design-days left are about 3–4 calendar days of agent work.
-- With the proposals of the six roadmap changes, CI runs and review, v0.1 is about 1–2 weeks away.
+- On 2026-10-05 about 6 design-days of v0.1 are left: the release change c0025, whose acceptance
+  loop and release record need the maintainer.
+- v0.2a adds 80.5 design-days, about two calendar days of agent work at that pace.
 - The limits are not size:
   - CI time per change (`kicad-9` and `kicad-10`);
   - integration of proposals written in parallel (requirements modified in chains);
@@ -364,9 +406,8 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | v0.6 | 5 | 96 |
 | v1.0 | 5 | 101 |
 
-- **By size, v0.1 is more than half of the work up to the end of KiCad (c0041).** v0.2a and v0.2b are
-  about 113–134 design-days if they are sized like v0.1 (2.8 times the plan's 13.5 or 16 weeks of 3
-  days), against about 182 for v0.1.
+- **By size, v0.1 is more than half of the work up to the end of KiCad (v0.2b).** v0.2a is 80.5
+  design-days as proposed, against about 188 for v0.1; v0.2b is not sized yet.
 - **The second backend is the largest single block after that:** v0.3 and v0.4 are 42 of the
   project plan's 101 weeks.
 
@@ -379,10 +420,18 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 3 | Leaner 1.0 ([Proposed cuts](#proposed-cuts-for-a-leaner-10)) | this page | none; pending |
 | 4 | Dogfood gaps in v0.1: all of c0026–c0031 (about 63.5 design-days), or c0030 and c0031 moved to v0.2a (about −18 design-days, about half a calendar day at the measured pace; c0015 then writes the target-9 fill flag that c0031 adds) | this page; designs of c0026–c0031 | pending. Recommended: keep all six in v0.1 |
 | 5 | c0023 in v0.1 or in v0.2a, and ADR-0006 (reading the Specctra reference for facts; running Freerouting as a subprocess) | designs of c0016 and c0023 | decided by the maintainer on 2026-10-03: c0023 stays in v0.1 whatever c0016's gate says, and the decision of ADR-0006 is accepted |
-| 6 | `macos-app` nightly job of the project plan's CI matrix | design of c0025 | decided by the maintainer on 2026-10-03: left out of v0.1 |
+| 6 | `macos-app` nightly job of the project plan's CI matrix | design of c0025 | decided by the maintainer on 2026-10-03: left out of v0.1; proposed for v0.2a in c0068 |
+| 7 | v0.2a: the id block c0060–c0068, taken as one block although c0057 is free | this page; `openspec/README.md` | pending. Recommended: keep the block |
+| 8 | v0.2a: the schematic is written by `build` (`--schematic write\|skip`), with no `sch build` command, and a schematic edited in KiCad is replaced with a warning | design of c0061 | pending. Recommended: as proposed |
+| 9 | v0.2a: built boards change once: net names hold `{slash}` for `/`, and pads of unconnected pins carry KiCad's net names in the written board only | design of c0061 | pending. Recommended: as proposed; both come from measurements on 9.0.9 and 10.0.6 |
+| 10 | v0.2a: the three-rule ERC leaves `check` as a stage and stays as a function for the second backend's documents (c0044) | designs of c0062 and c0044 | pending. Recommended: as proposed |
+| 11 | v0.2a: `restore` takes the receipt of a write as its undo token; no journal is kept on disk | design of c0066 | pending. Recommended: as proposed |
+| 12 | v0.2a: the demo schematics join the corpus (about 43 MB more per KiCad tag in the fetch cache, nothing committed) | design of c0060 | pending. Recommended: yes |
+| 13 | v0.2a: the pad shape offset is repaired in c0068, ahead of the zone clearance | design of c0068 | pending. Recommended: yes; it is a wrong verdict of `check` in v0.1 |
+| 14 | follow-ups not taken by c0068: export presets, outline snapping, per-command result schemas, `inspect` of project and rules files | design of c0068, Decision 13 | pending. Recommended: v0.2b, and the result schemas with the v1.0 freeze |
 
-Change-level questions: see Open Questions in the designs of the proposed changes (c0015, c0016,
-c0020–c0025 and c0028–c0031).
+Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046
+and c0060–c0068).
 
 Later questions, asked when their change is proposed:
 

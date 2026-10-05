@@ -51,6 +51,15 @@ from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.replace import footprint_ref
+from fenolite.catalog import (
+    ENTRIES as CATALOG_ENTRIES,
+)
+from fenolite.catalog import (
+    get_footprint as catalog_footprint,
+)
+from fenolite.catalog import (
+    get_symbol as catalog_symbol,
+)
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -243,6 +252,30 @@ def copper_guard(
     return tuple(found), summary
 
 
+def _catalog_definitions(
+    design: ModelDesign,
+    authored_footprints: Mapping[str, Any],
+    authored_symbols: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], frozenset[str]]:
+    """Select only built-ins used by this design; project definitions override exact lib ids."""
+    symbol_ids = {entry.lib_id for entry in CATALOG_ENTRIES if entry.kind == "symbol"}
+    footprint_ids = {entry.lib_id for entry in CATALOG_ENTRIES if entry.kind == "footprint"}
+    symbols: dict[str, Any] = {}
+    footprints: dict[str, Any] = {}
+    used_builtin: set[str] = set()
+    for component in design.circuit.components:
+        symbol_id = component.lib_symbol_ref
+        if symbol_id in symbol_ids and symbol_id not in authored_symbols:
+            symbols[symbol_id] = catalog_symbol(symbol_id)
+            used_builtin.add(symbol_id)
+        symbol = authored_symbols.get(symbol_id) or symbols.get(symbol_id)
+        fp_id = component.lib_footprint_ref or (symbol.properties.get("Footprint", "") if symbol else "")
+        if fp_id in footprint_ids and fp_id not in authored_footprints:
+            footprints[fp_id] = catalog_footprint(fp_id)
+            used_builtin.add(fp_id)
+    return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
+
+
 def placement_guard(
     files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
@@ -350,6 +383,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         prepared = prepare(
             model, requested, read_existing(out_dir, design.name), name=design.name, moves=aliases
         )
+    authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
+        model,
+        {key: fp.definition for key, fp in design.footprints.items()},
+        {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+    )
     built = build_design(
         model,
         prepared.placements if prepared is not None else requested,
@@ -363,7 +401,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         prepared=prepared,
         copper_intents=intents,
         fields=field_requests,
-        authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
+        authored_footprints=authored_footprints,
+        authored_symbols=authored_symbols,
     )
     files = dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]
@@ -394,6 +433,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "out": str(out),
         "files": [w.path for w in writes],
         **built.summary,
+        "libraries": {
+            key: ("builtin" if key in builtin_ids else origin)
+            for key, origin in cast(Mapping[str, str], built.summary["libraries"]).items()
+        },
         "copper_check": copper_check,
         "placement": placement,
         "script_output": run.output,
