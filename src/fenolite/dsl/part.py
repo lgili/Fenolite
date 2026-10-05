@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.quantity import Quantity
 from fenolite.dsl.units import as_nm, as_udeg
 
 if TYPE_CHECKING:
@@ -175,7 +176,7 @@ class Part:
         ref: str,
         lib_id: str,
         footprint: str | None = None,
-        value: str = "",
+        value: str | Quantity = "",
         *,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str] | None = None,
@@ -185,8 +186,10 @@ class Part:
             raise DslError(f"part {ref}: lib_id must be a non-empty string")
         if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
+        if isinstance(value, Quantity):
+            value = value.text()
         if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: value must be a string")
+            raise DslError(f"part {ref}: value must be a string or a Quantity")
         self.lib_id = lib_id
         self.footprint = footprint
         self.value = value

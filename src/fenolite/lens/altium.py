@@ -61,6 +61,8 @@ TARGET = "altium"
 DSL_BACKEND = "dsl"
 UPDATE_COMMAND = "Tools » Update From Libraries"
 MAX_PIN_TEXT = 255
+MODEL_ONLY_INTERFACES: frozenset[str] = frozenset({"diff_pair", "i2c", "spi", "uart", "usb2"})
+"""The interface kinds an Altium build keeps in the model and names in one ``altium.not-lowered`` info."""
 """The longest pin name or number a binary pin's short string holds."""
 ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -1027,9 +1029,13 @@ def _not_lowered(
         )
         found.append(issue("altium.not-lowered", message, "design-rules"))
     found += altium_copper.board_not_lowered(design.board)
-    pairs = sorted(i.name for i in design.circuit.interfaces if i.kind == "diff_pair")
-    if pairs:
-        message = f"diff pairs {', '.join(pairs)} are kept in the model only"
+    kept = sorted((i.name, i.kind) for i in design.circuit.interfaces if i.kind in MODEL_ONLY_INTERFACES)
+    if kept:
+        if all(kind == "diff_pair" for _, kind in kept):
+            message = f"diff pairs {', '.join(name for name, _ in kept)} are kept in the model only"
+        else:  # change c0073: the typed buses are named with their kind
+            named = ", ".join(f"{name} ({kind})" for name, kind in kept)
+            message = f"interfaces {named} are kept in the model only; their nets are written as plain nets"
         found.append(issue("altium.not-lowered", message, "interfaces"))
     drawn = lowered_harnesses(design, sheets, form)
     harnesses = [i.name for i in hierarchy.harness_interfaces(design) if i.name not in drawn]

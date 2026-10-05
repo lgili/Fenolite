@@ -120,6 +120,10 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   no meaning. It is recorded as an interface of kind `harness`. A KiCad build keeps it in `.fenolite/`,
   gives no issue for it and writes the same files with or without it; the Altium build draws it as a
   signal harness with `--altium-sheets modules` (`docs/altium.md`, "Sheets and harnesses").
+- `I2C(sda, scl)`, `SPI(sck, mosi, miso, cs=(...))`, `UART(tx, rx)` and `USB2(dp, dn, vbus=None, gnd=None)`:
+  buses with fixed roles, each with `attach(part, ...)` ("Typed interfaces").
+- `Quantity` and `ohm()`, `farad()`, `henry()`, `volt()`, `amp()`, `hertz()`, `watt()`, `second()`: exact
+  electrical values ("Quantities").
 - `to_model(design)` and `placements(design)` turn a DSL design into a model `Design` and the
   placement requests; `build` calls them.
 
@@ -150,6 +154,72 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
 - `Length` supports `==`, hashing, `+`, `-`, unary `-`, and `*` and `//` by an `int`.
 - Angles are degrees: an `int`, a string (`"30.5"` or `"30.5deg"`) or a float through its `repr`;
   whole microdegrees, normalised to [0°, 360°).
+
+## Quantities
+
+- `ohm("4k7")`, `farad("100n")`, `henry("4u7")`, `volt("3.3")`, `amp("500m")`, `hertz("16M")`,
+  `watt("250m")` and `second("10u")` return a `Quantity`: a unit and an exact `fractions.Fraction` of it.
+  Fenolite ships no value: every one comes from the script.
+- **Input.** An `int`, a `Fraction`, or a text: a decimal number, an optional prefix (`p`, `n`, `u` or `µ`,
+  `m`, `k`, `M`, `G`) and optionally the unit's symbol (`Ω`, `ohm` or `R`; `F`; `H`; `V`; `A`; `Hz`; `W`;
+  `s`), with blanks allowed after the number; or the letter code of IEC 60062, where the prefix letter, or
+  `R` for ohms, stands for the decimal point (`4k7`, `2R2`, `1n5`). A `float`, a `bool`, another unit's
+  symbol or a text that does not parse raises `DslError` naming the input. Only volts and amperes may be
+  negative.
+- **Comparison.** `ohm("4k7") == ohm("4.7k") == ohm("4.7 kΩ") == ohm(4700)`, with one hash. Ordering needs
+  one unit (`TypeError` otherwise). `+` and `-` take two quantities of one unit; `*` and `/` take an `int`
+  or a `Fraction`.
+- **Text.** `text()` scales the value by the largest prefix from `p` to `G` that keeps it at least 1 and
+  prints the shortest exact decimal, the prefix (`u` for micro) and the symbol: `4.7kΩ`, `100nF`, `3.3V`,
+  `16MHz`. A value that is not a terminating decimal (`ohm(1) / 3`) raises `DslError` when printed.
+  `text(code=True)` prints the letter code for ohms, farads and henries (`4k7`, `100n`, `2R2`); farads and
+  henries of 1 or more without a prefix have none and raise.
+- **Parts.** `Part(..., value=ohm("4k7"))` stores `4.7kΩ`, so two spellings of one value are one value in
+  the model and in the outputs. Pass `value=q.text(code=True)` for ASCII, or a plain string as before. A
+  quantity never reaches the model or `.fenolite/`.
+
+## Typed interfaces
+
+```python
+from fenolite.dsl import I2C, SPI, UART, USB2
+
+bus = I2C(sda, scl)
+design.add(bus)
+bus.attach(u1, sda=u1["PB7"], scl=u1["PB6"])
+bus.attach(u2, sda="SDA", scl="SCL")  # a designator is read as u2["SDA"]
+
+uart = UART(a_tx, a_rx)  # the nets are named from device A
+uart.attach(u1, side="a", tx=u1["TX"], rx=u1["RX"])
+uart.attach(u3, side="b", tx=u3["TX"], rx=u3["RX"])  # crossed: U3 TX joins a_rx
+
+spi = SPI(sck, mosi, miso, cs=(cs_flash, cs_adc))
+spi.attach(u1, role="controller", sck="SCK", mosi="MOSI", miso="MISO", cs=("CS0", "CS1"))
+spi.attach(u4, role="peripheral", sck="SCK", mosi="SDI", miso="SDO", cs="CS", cs_index=1)
+```
+
+- **Kinds and roles.** `I2C` is the kind `i2c` with `sda` and `scl`; `SPI` is `spi` with `sck`, `mosi`,
+  `miso` and `cs0` … for the nets of `cs` in order; `UART` is `uart` with `tx` and `rx`; `USB2` is `usb2`
+  with `dp` and `dn`, and `vbus` and `gnd` when given. The default name is the first two net names joined
+  by `/`. The nets of one interface are distinct; a net may be in several interfaces.
+- **`attach(part, ...)`** connects pins of one part by role through `connect`, so its rules hold. Every pin
+  is a pin handle of that part or a designator of it; a handle of another part raises `DslError`, and
+  nothing is connected when one argument is refused.
+  - `UART.attach(part, side=, tx=, rx=)`: side `a` is straight, side `b` is crossed.
+  - `SPI.attach(part, role=, sck=, mosi=, miso=, cs=, cs_index=)`: a `controller` gives one `cs` pin per
+    chip-select net, in order; a `peripheral` gives one `cs` pin and the index of its net. MOSI joins MOSI.
+  - `USB2.attach(part, dp=, dn=, vbus=None, gnd=None)`: a role the interface has no net for raises.
+- **KiCad build.** The interfaces are kept in `.fenolite/circuit.json`; the other files do not depend on
+  them. A `diff_pair` or `usb2` interface gives `build.interface-not-lowered` (info).
+- **Checks in a build** (warnings):
+  - `build.diff-pair-name`: the two nets of a `DiffPair` or of a `USB2` (`dp`, `dn`) are not a differential
+    pair for KiCad. KiCad pairs two names that are equal except for the last character, `P` then `N` or `+`
+    then `-`, and letter case counts: `USB_P`/`USB_N`, `USB+`/`USB-` and `USB_DP`/`USB_DN` are pairs,
+    `USB_DP`/`USB_DM` is not (measured, `docs/formats/kicad/rules.md`). The hint proposes a name.
+  - `build.i2c-pullup-missing`: an I2C line has no part of exactly two pins between it and the `hv` net of
+    a `Power` interface. A pull-up on another board, or in a resistor array, is not seen: ignore the
+    warning then.
+- **Altium build.** The four kinds are kept in the model and named in the `altium.not-lowered` info for
+  interfaces; their nets are written as plain nets.
 
 ## Ids: the key table
 

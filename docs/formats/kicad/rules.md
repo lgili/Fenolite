@@ -37,6 +37,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | KiCad reports one violation per item pair in the copper clearance test: a pair whose copper clearance fails gets a `clearance` entry and no `hole_clearance` entry, so a clearance rule that matches every pair hides the hole clearance of the pairs it flags | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | A board-wide `hole_clearance`, `hole_to_hole` or `annular_width` rule governs below the template's board-setup minimum of its kind (0.25 mm, 0.25 mm and 0.1 mm): an item between the two is reported without the rule and not with it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-3 |
 | The later of two `hole_to_hole` rules that match one via pair governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| `A.inDiffPair('<base>')` matches the two nets named `<base>` plus a last character `P` and `N`, or `+` and `-` (`X_P`/`X_N` with the base `X` or `X_`, `X+`/`X-`, `X_DP`/`X_DN`, `XP`/`XN`); letter case counts, and `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` are not a pair | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DIFFPAIR-NAMES |
 
 ## Board-wide rules and board-setup minimums
 

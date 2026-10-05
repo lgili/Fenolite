@@ -73,6 +73,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
         "build.library-changed": "warning",
+        "build.diff-pair-name": "warning",
+        "build.i2c-pullup-missing": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
@@ -401,6 +403,90 @@ def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     return out
 
 
+PAIR_KINDS: Mapping[str, tuple[str, str, str]] = MappingProxyType(
+    {"diff_pair": ("p", "n", "diff pair"), "usb2": ("dp", "dn", "USB 2.0 pair")}
+)
+"""Interface kind → the roles of its positive and negative nets, and the words of its messages."""
+PAIR_ENDS: tuple[tuple[str, str], ...] = (("P", "N"), ("+", "-"))
+"""The last characters of the two names of a KiCad differential pair (``H-K-DIFFPAIR-NAMES``)."""
+
+
+def is_pair(first: str, second: str) -> bool:
+    """Whether KiCad takes the two net names as one differential pair: equal except for the last
+    character, ``P`` then ``N`` or ``+`` then ``-``; letter case counts."""
+    return first[:-1] == second[:-1] and (first[-1:], second[-1:]) in PAIR_ENDS
+
+
+def pair_hint(first: str, second: str) -> str:
+    """The names to use instead of a pair that ``is_pair`` refuses."""
+    for positive, negative in PAIR_ENDS:
+        if first.endswith(positive):
+            return f"name the second net {first[:-1]}{negative}: KiCad pairs it with {first}, not {second}"
+    return f"name the nets {first}_P and {first}_N: KiCad pairs names that end in P and N, or in + and -"
+
+
+def interface_checks(
+    design: Design, pins: Mapping[str, Sequence[Pin]], on_net: Mapping[str, Mapping[str, str]]
+) -> list[Issue]:
+    """What a build says about the interfaces of ``design`` (change c0073): one info per pair that is kept
+    in the model only, ``build.diff-pair-name`` for a pair whose names KiCad does not pair, and
+    ``build.i2c-pullup-missing`` for an I2C line without a two-pin part to the ``hv`` net of a ``power``
+    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``. Nothing is changed."""
+    found: list[Issue] = []
+    names = {net.id: net.name for net in design.circuit.nets}
+    supplies = {i.members["hv"] for i in design.circuit.interfaces if i.kind == "power" and "hv" in i.members}
+    for itf in design.circuit.interfaces:
+        if itf.kind in PAIR_KINDS:
+            positive, negative, words = PAIR_KINDS[itf.kind]
+            found.append(
+                issue(
+                    "build.interface-not-lowered", f"{words} {itf.name} is kept in the model only", itf.name
+                )
+            )
+            first, second = names.get(itf.members.get(positive, "")), names.get(itf.members.get(negative, ""))
+            if first is not None and second is not None and not is_pair(first, second):
+                found.append(
+                    issue(
+                        "build.diff-pair-name",
+                        f"{words} {itf.name}: KiCad does not take the nets {first} and {second} as a "
+                        "differential pair, so its pair router and inDiffPair() do not find them",
+                        itf.name,
+                        pair_hint(first, second),
+                    )
+                )
+        elif itf.kind == "i2c":
+            for line in ("sda", "scl"):
+                net_id = itf.members.get(line)
+                if net_id is None or _pulled_up(net_id, supplies, pins, on_net):
+                    continue
+                found.append(
+                    issue(
+                        "build.i2c-pullup-missing",
+                        f"I2C interface {itf.name}: the line {line} (net {names.get(net_id, net_id)}) has no "
+                        "pull-up to the hv net of a power interface",
+                        itf.name,
+                        "add a resistor from the line to the supply, or ignore this when the pull-up is on "
+                        "another board; a pull-up of more than two pins is not recognised",
+                    )
+                )
+    return found
+
+
+def _pulled_up(
+    net_id: str,
+    supplies: set[str],
+    pins: Mapping[str, Sequence[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+) -> bool:
+    for component_id, connected in on_net.items():
+        if len(pins.get(component_id, ())) != 2 or len(connected) != 2:
+            continue
+        one, other = connected.values()
+        if (one == net_id and other in supplies) or (other == net_id and one in supplies):
+            return True
+    return False
+
+
 def _staging(design: Design) -> tuple[int, int]:
     assert design.board is not None and design.board.outline is not None
     points = design.board.outline.points
@@ -446,13 +532,7 @@ def build_design(
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
     _case_collisions(design, issues)
-    for itf in design.circuit.interfaces:
-        if itf.kind == "diff_pair":
-            issues.append(
-                issue(
-                    "build.interface-not-lowered", f"diff pair {itf.name} is kept in the model only", itf.name
-                )
-            )
+    issues += interface_checks(design, pins, on_net)
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))

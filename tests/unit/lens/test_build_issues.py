@@ -34,6 +34,7 @@ def test_closed_set() -> None:
         "build.library-changed": "warning",
         "build.no-connect-on-net": "error",  # c0036
         "build.plane-not-lowered": "info",  # c0038
+        "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table

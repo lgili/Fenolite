@@ -177,6 +177,13 @@ The copper codes of the Altium build:
 
 A script with `planes` built for the KiCad target gives one `build.plane-not-lowered` info per plane.
 
+A build for the KiCad target also checks the interfaces of the design (`docs/dsl.md`, "Typed interfaces"):
+
+| code | severity | meaning |
+|---|---|---|
+| `build.diff-pair-name` | warning | the two nets of a `diff_pair` or `usb2` interface are not a differential pair for KiCad by name; the hint proposes a name |
+| `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
+
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]

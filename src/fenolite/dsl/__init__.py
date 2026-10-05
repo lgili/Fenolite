@@ -35,9 +35,10 @@ from fenolite.dsl.intents import (
     copper,
     via_step,
 )
-from fenolite.dsl.interfaces import DiffPair, Harness, Interface, Power
+from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
+from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
 
@@ -84,4 +85,17 @@ __all__ = [
     "select",
     "to_model",
     "via_step",
+    "I2C",
+    "SPI",
+    "UART",
+    "USB2",
+    "Quantity",
+    "amp",
+    "farad",
+    "henry",
+    "hertz",
+    "ohm",
+    "second",
+    "volt",
+    "watt",
 ]

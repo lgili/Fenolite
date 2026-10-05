@@ -43,6 +43,7 @@ import _libtables
 import _mincases
 import _netcases
 import _offsetbench
+import _paircases
 import _placecases
 import _procases
 import _rulecases
@@ -235,6 +236,7 @@ def _probes() -> dict[str, Probe]:
         **_offsetbench.offset_probes(),
         **_arccases.arc_probes(),
         **_kindcases.kind_probes(),
+        **_paircases.pair_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
