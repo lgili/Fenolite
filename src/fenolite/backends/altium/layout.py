@@ -22,6 +22,7 @@ from typing import Literal
 
 from fenolite.backends.altium.altsym import DOWN, LEFT, RIGHT, UP, AltiumPin, AltiumSymbol
 from fenolite.backends.altium.symbols import CHAR_WIDTH, GRID, PIN_PITCH
+from fenolite.geometry.shelf import shelf_pack
 
 MARGIN = 500
 """Free border inside the drawing area, on each side."""
@@ -597,17 +598,9 @@ class SplitLine(ValueError):
 
 
 def _pack(cells: Sequence[tuple[int, int]], usable_width: int) -> tuple[list[tuple[int, int]], int]:
-    """Shelf packing: each cell's (left, top) offset, left to right and top to bottom, and the height."""
-    offsets: list[tuple[int, int]] = []
-    x = top = row_height = 0
-    for width, height in cells:
-        if x > 0 and x + width > usable_width:
-            top += row_height
-            x = row_height = 0
-        offsets.append((x, top))
-        x += width
-        row_height = max(row_height, height)
-    return offsets, top + row_height
+    """Shelf packing: each cell's (left, top) offset, left to right and top to bottom, and the height
+    (``geometry.shelf``, shared with the KiCad sheet layout)."""
+    return shelf_pack(cells, usable_width)
 
 
 def _fits(cells: Sequence[tuple[int, int]], size: SheetSize) -> bool:

@@ -43,6 +43,7 @@ def kicad_blink(tmp_path: Path) -> Design:
         built = build_design(
             to_model(design), placements(design), name="blink", copper=design.copper,  # type: ignore[arg-type]
             resolver=blink_resolver(Path(folder)),
+            schematic="skip",  # the Altium document names no net for an unconnected pin (c0061)
         )  # fmt: skip
     board = tmp_path / "blink.kicad_pcb"
     board.write_bytes(built.files["blink.kicad_pcb"])

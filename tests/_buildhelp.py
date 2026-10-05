@@ -17,17 +17,41 @@ BLINK = BLINK_DIR / "design.py"
 LIBS = ROOT / "tests" / "data" / "libs"
 
 
-def blink() -> Design:
-    design = runpy.run_path(str(BLINK))["design"]
+MARKS = (
+    "# The blink uses three pins of the controller. The other 29 are marked, so the electrical rules checks\n"
+    "# of both tools know that they are left open on purpose.\n"
+    "no_connect(*(u1[pin] for pin in range(1, 33) if pin not in (1, 9, 10)))\n"
+)
+"""The lines of the blink example that mark the unused pins of its controller (c0061). Tests that connect
+or mark those pins themselves build on the blink without them (``marks=False``)."""
+
+
+def blink_text(marks: bool = True) -> str:
+    """The blink script, as it is or without its no-connect marks."""
+    text = BLINK.read_text(encoding="utf-8")
+    assert MARKS in text
+    return text if marks else text.replace(MARKS, "")
+
+
+def blink(marks: bool = True) -> Design:
+    if marks:
+        design = runpy.run_path(str(BLINK))["design"]
+    else:
+        scope: dict[str, object] = {"__name__": "design"}
+        exec(compile(blink_text(marks=False), str(BLINK), "exec"), scope)  # noqa: S102 - our own example
+        design = scope["design"]
     assert isinstance(design, Design)
     return design
 
 
-def blink_variant(folder: Path, old: str = "", new: str = "", *, append: str = "") -> Path:
+def blink_variant(
+    folder: Path, old: str = "", new: str = "", *, append: str = "", marks: bool = True
+) -> Path:
     """A copy of the blink script under ``folder`` with ``old`` replaced by ``new`` and ``append`` added,
-    beside library tables that name the authored mini library by its absolute path."""
+    beside library tables that name the authored mini library by its absolute path; ``marks=False``
+    leaves the no-connect marks of the example out."""
     folder.mkdir(parents=True, exist_ok=True)
-    text = BLINK.read_text(encoding="utf-8")
+    text = blink_text(marks)
     if old:
         assert old in text, old
         text = text.replace(old, new)

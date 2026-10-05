@@ -31,7 +31,9 @@ def test_blink_reads_back(target: int) -> None:
     d.parts["R1"].properties = {"Part number": "PN-330", "Supplier code": 'S-1 "q" \\ µ'}  # c0027
     out = build(d, target)
     back = read_board(out.files["blink.kicad_pcb"].decode("utf-8"))
-    assert pairs(back) == pairs(out.design)
+    named = {k: v for k, v in pairs(back).items() if not k.startswith("unconnected-(")}
+    assert named == pairs(out.design)  # the pads of unconnected pins carry KiCad's names (c0061)
+    assert len(pairs(back)) - len(named) == 29 and out.schematic is not None
     assert pairs(back)["LED_A"] == {("R1", "2"), ("D1", "2")}
     built = {c.ref: c for c in out.design.circuit.components}
     for c in back.circuit.components:
@@ -40,7 +42,7 @@ def test_blink_reads_back(target: int) -> None:
             b.value,
             b.lib_footprint_ref,
             b.properties,
-            "",
+            out.schematic.paths[b.id],
         )
     assert back.board is not None and out.design.board is not None
     key = {fp.lib_ref: (fp.position, fp.rotation, fp.side, fp.locked) for fp in out.design.board.footprints}

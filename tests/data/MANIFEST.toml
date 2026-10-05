@@ -1299,3 +1299,15 @@ path = "tests/data/exports/manifest_v01.json"
 origin = "authored"
 corpus_id = ""
 notes = "artefact manifest in the shape of v0.1, without the fields of c0065, authored for the c0065 tests; every hash is made up"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the target-10 build of the packaged minimal script (c0061): a build writes it beside the board; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol library table of the same build (c0061): no row, the minimal design has no part"

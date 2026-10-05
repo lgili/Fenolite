@@ -130,7 +130,14 @@ def test_routed_blink_reaches_native_verified(routed: Path) -> None:
         expected = "fenolite" if item["kind"] == "pnp" else f"kicad-cli {version}"
         assert item["tool"].startswith(expected), item["path"]
     assert data["states"]["generated"] == 0 and data["states"]["oracle-verified"] == 0
-    assert data["states"]["roundtrip-ok"] == 1 and data["states"]["checked"] == len(made)
+    # c0061: a build also writes the project's symbol libraries and their table, which the manifest lists
+    # with the other project files
+    symbol_side = sorted(
+        e["path"] for e in data["artifacts"] if e["state"] == "checked" and not e["path"].startswith("fab/")
+    )
+    assert symbol_side == ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym", "sym-lib-table"]
+    assert data["states"]["roundtrip-ok"] == 1
+    assert data["states"]["checked"] == len(made) + len(symbol_side)
     assert env["result"]["states"] == data["states"]
     assert not [i for i in env["issues"] if i["severity"] == "error"]
     for needle in (str(routed.parent), str(Path.home()), "fenolite-kicad-"):

@@ -186,7 +186,8 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 
 ## `build`
 
-`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--target kicad|altium]
+`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
+[--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
@@ -198,11 +199,12 @@ footprint gives the info `build.global-library`. `result.vendored` lists the cop
 A pin marked with `no_connect` that a net also lists, once designators are resolved to pin numbers, is
 refused: `build.no-connect-on-net` (error) with `--target kicad`, `model.no-connect-on-net` (error) with
 `--target altium`; the exit code is 5 and nothing is written. The marks are kept in
-`.fenolite/circuit.json`, and no written KiCad file depends on them (`docs/dsl.md`, "No-connect marks").
+`.fenolite/circuit.json`; in a KiCad build each mark becomes a no-connect flag of the schematic, and no
+other written KiCad file depends on them (`docs/dsl.md`, "No-connect marks").
 
 Over an existing project, `build` preserves the layout (`docs/lens.md`): the board, project and rules
-files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib-table` and the
-vendored footprints under `lib/`. `--discard-layout` reads no existing file and builds from scratch.
+files are merged, and `build.layout-exists` (`FEN-7001`) now guards only `fp-lib-table`,
+`sym-lib-table` and the vendored footprints and symbol libraries under `lib/`. `--discard-layout` reads no existing file and builds from scratch.
 `result.preserved` reports `board` (whether an existing board was read), `kept`, `replaced` and `added`
 (component paths), `orphans` and `board_only` (references), `dropped` (counts of tracks, arcs, vias and
 zones), `fills` (zones whose fills were kept and dropped), `aliases` (new path → old path),
@@ -281,6 +283,39 @@ that does not parse with `FEN-3004`, before anything is planned.
 and `source`, with `file` (`placements.toml` or `null`), `used` (component paths placed from the file),
 `stale` and `unknown`. An invalid file gives `layout.source-invalid` (exit 5, nothing written); a file
 that is not TOML or has another `schema` exits 3 with `FEN-3004`.
+
+**Schematic.** A KiCad build also writes the schematic of the design (`docs/schematic.md`):
+`DIR/<name>.kicad_sch`, one `DIR/lib/<nickname>.kicad_sym` per symbol library the design uses, and
+`DIR/sym-lib-table`. `--schematic write` is the default; `--schematic skip` writes the files of a build
+without a schematic, and is a usage error with `--target altium`. The sheet holds every unit of every
+part's symbol, a global label of the net at each connected pin, a no-connect flag at each pin marked with
+`no_connect`, and a power flag on each net of a `Power` interface that no power output drives. The board
+follows the sheet: the pad of each unconnected pin is on a net named as KiCad names it
+(`unconnected-(U1-PA1-Pad2)`), a `/` in a net name is stored as `{slash}`, and each footprint carries the
+path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`,
+`symbols`, `labels`, `no_connects`, `power_flags`, `libraries` (the symbol library files) and
+`unconnected_pads`, and is `null` with `skip`. `schematic-placements.toml` beside the script fixes symbol
+positions. The schematic is a view of the script: a schematic changed since the last build is replaced,
+with `build.schematic-replaced` and a `.bak` copy, while an edited `sym-lib-table` or symbol library is
+refused like any vendored file. With `--vendor project`, a symbol of a row that is not a project row is
+embedded in the sheet and gets no project library (`build.global-library`).
+
+| code | severity | when |
+|---|---|---|
+| `build.schematic-too-large` | error | the units do not fit one A0 page |
+| `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
+| `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
+| `build.reserved-library` | error | the design names or authors a symbol library `fenolite` |
+| `build.symbol-overlap` | warning | the cell of a placed symbol overlaps another cell |
+| `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
+| `build.schematic-replaced` | warning | a schematic changed since the last build is replaced |
+| `kicad.sch.unconnected-name-unproven` | warning | the net name of an unconnected pin is not written, so its pad stays on no net |
+| `kicad.sch.dropped-too-new` | warning | `--allow-lossy` removed a token of an embedded symbol that the target does not read |
+| `kicad.sch.pin-off-grid` | info | a library pin is not on the 1.27 mm grid |
+| `kicad.sch.power-pin-shown` | info | a hidden power-input pin is embedded visible |
+
+The board reader gives a net stored with `{slash}` the name with the slash; when another net of the board
+already has that name it keeps its stored spelling (`kicad.board.net-name-collision`, info).
 
 ## Discovery
 

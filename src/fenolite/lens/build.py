@@ -21,7 +21,21 @@ from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
 from fenolite.backends.kicad import copper as copper_mod
-from fenolite.backends.kicad import dru, embed, frame, lowering, mod, pcb, pro, sym, versions, wks
+from fenolite.backends.kicad import (
+    dru,
+    embed,
+    frame,
+    lowering,
+    mod,
+    pcb,
+    pro,
+    sch,
+    schgen,
+    sym,
+    symembed,
+    versions,
+    wks,
+)
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
     PATH_PROPERTY,
@@ -35,6 +49,8 @@ from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
 from fenolite.backends.kicad.outline import BoardOutline, board_outline
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
+from fenolite.backends.kicad.schgen import GeneratedSchematic
+from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.zones import PadZoneRequestLike, apply_pad_connections, keep_pad_connections
@@ -49,7 +65,7 @@ from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical
 from fenolite.model.board import FootprintInstance, Pad, Side
-from fenolite.model.circuit import Component, Pin, PinRef
+from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
@@ -91,6 +107,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.global-library": "info",
         "build.interface-not-lowered": "info",
         "build.plane-not-lowered": "info",
+        **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
     }
 )
@@ -104,6 +121,9 @@ PROPERTY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-PROPS", "H-
 """Joins the envelope when a user property is written (c0027)."""
 VENDOR_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-GLOBAL", "H-K-VENDOR-SHADOW"))
 """Joins the envelope when a footprint of a row whose origin is not ``project`` is vendored (c0027)."""
+SCHEMATIC_MODES: tuple[str, ...] = ("write", "skip")
+"""``schematic="write"`` adds the schematic, its symbol libraries and ``sym-lib-table``; ``"skip"`` gives
+the files of a build without them (c0061)."""
 VENDOR_MODES: tuple[str, ...] = ("all", "project")
 """``vendor="all"`` copies every placed footprint; ``"project"`` only those of project rows (c0011)."""
 RESERVED_PROPERTIES: frozenset[str] = frozenset(
@@ -181,6 +201,9 @@ class BuildOutput:
     evidence: Evidence
     summary: Mapping[str, object]
     layout: Design | None = None
+    schematic: GeneratedSchematic | None = None
+    """The generated sheet and what the board takes from it (unconnected-pad names, symbol paths), or
+    ``None`` when the schematic is skipped or no file is returned (c0061)."""
 
 
 @dataclass
@@ -190,6 +213,10 @@ class _Part:
     symbol: SymbolDef
     footprint: FootprintDef
     location: Location | None
+    parents: tuple[SymbolDef, ...] = ()
+    """The symbols ``symbol`` extends, as their library holds them (the schematic embeds a flat copy)."""
+    symbol_origin: str = "project"
+    """The origin of the row that resolved the symbol, or ``authored``."""
 
 
 def _path(component: Component) -> str:
@@ -207,12 +234,14 @@ def _resolve(
     libraries: dict[str, str] = {}
     found: list[_Part] = []
     for component in sorted(design.circuit.components, key=_path):
+        parents: tuple[SymbolDef, ...] = ()
         try:
             if component.lib_symbol_ref in authored_symbols:
                 symbol = authored_symbols[component.lib_symbol_ref]
                 libraries[component.lib_symbol_ref] = "authored"
             else:
-                symbol = resolver.symbol(component.lib_symbol_ref)
+                chain = resolver.symbol_chain(component.lib_symbol_ref)
+                symbol, parents = sym.resolve_extends(chain)[0], chain[1:]
                 libraries[component.lib_symbol_ref] = resolver.locate(
                     component.lib_symbol_ref, "symbol"
                 ).origin
@@ -243,7 +272,8 @@ def _resolve(
             libraries[fp_ref] = location.origin
         value = component.value or symbol.properties.get("Value", "")
         component = dataclasses.replace(component, lib_footprint_ref=fp_ref, value=value)
-        found.append(_Part(component, _path(component), symbol, footprint, location))
+        origin = libraries[component.lib_symbol_ref]
+        found.append(_Part(component, _path(component), symbol, footprint, location, parents, origin))
     if errors:
         raise UnresolvedLibrariesError(errors)
     return found, dict(sorted(libraries.items()))
@@ -523,6 +553,8 @@ def build_design(
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     source_sha256: str | None = None,
     drawing_sheet: DrawingSheet | None = None,
+    schematic: Literal["write", "skip"] = "write",
+    symbol_placements: Mapping[str, SymbolPlacement] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -541,9 +573,14 @@ def build_design(
     ``pad_zones`` maps a component path to the pad zone connection requests of its part, applied to the
     built copy of its footprint; with an existing board a setting made in KiCad wins over an unlocked
     request on a kept footprint (``docs/lens.md``, "Pad zone connections").
+    ``schematic`` is ``"write"`` (the project gets ``<name>.kicad_sch``, its symbol libraries and
+    ``sym-lib-table``, and the board follows the sheet: ``docs/schematic.md``) or ``"skip"``;
+    ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
+    if schematic not in SCHEMATIC_MODES:  # pyright: ignore[reportUnnecessaryContains]
+        raise ValueError(f"unknown schematic mode {schematic!r}; use one of: {', '.join(SCHEMATIC_MODES)}")
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
     parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
     plan = _vendor_plan(parts, vendor, issues)
@@ -701,6 +738,23 @@ def build_design(
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
+    generated: GeneratedSchematic | None = None
+    symbol_files: dict[str, list[symembed.EmbeddedSymbol]] = {}
+    if schematic == "write":
+        generated = schgen.generate_schematic(
+            target_design,
+            parts,
+            name=name,
+            target=target,
+            placements=symbol_placements,
+            vendor=vendor,
+            allow_lossy=allow_lossy,
+        )
+        issues += generated.issues
+        symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
+        if any(i.severity == "error" for i in issues):
+            return _refused(built, issues, libraries)
+        target_design = lower_for_schematic(target_design, generated)
     texts = write_triad(
         target_design,
         name=name,
@@ -753,7 +807,27 @@ def build_design(
         LibRow(nick, "KiCad", f"${{KIPRJMOD}}/lib/{nick}.pretty") for nick in sorted({n for n, _ in vendored})
     )
     files["fp-lib-table"] = write_lib_table(LibTable("footprint", rows), target=target).encode("utf-8")
-    if authored_symbols:
+    if generated is not None:
+        written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
+        issues += written.issues
+        files[f"{name}.kicad_sch"] = written.text.encode("utf-8")
+        for nickname, found in sorted(symbol_files.items()):
+            path = f"lib/{nickname}.kicad_sym"
+            files[path] = symembed.write_symbol_library(found, target=target).encode("utf-8")
+            known = None if record is None else record.get(path)
+            if known is not None and known != hashlib.sha256(files[path]).hexdigest():
+                issues.append(
+                    issue(
+                        "build.library-changed",
+                        f"{path} differs from the copy of the last build: its library changed",
+                        path,
+                    )
+                )
+        files["sym-lib-table"] = write_lib_table(
+            LibTable("symbol", tuple(schgen.library_row(nick) for nick in sorted(symbol_files))),
+            target=target,
+        ).encode("utf-8")
+    elif authored_symbols:
         symbol_rows: list[LibRow] = []
         by_library: dict[str, list[SymbolDef]] = {}
         for definition in authored_symbols.values():
@@ -812,6 +886,8 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    if generated is not None:
+        evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
     merged_copper = cast(Mapping[str, int], preserved.get("copper", {}))
     summary: dict[str, object] = {
         "components": len(components),
@@ -825,9 +901,27 @@ def build_design(
             **copper_counts,
             **{key: merged_copper.get(key, 0) for key in ("regenerated", "stale", "duplicates")},
         },
+        "schematic": None
+        if generated is None
+        else {
+            "file": f"{name}.kicad_sch",
+            "paper": generated.sheet.paper.paper,
+            "symbols": len(generated.sheet.symbols),
+            "labels": len(generated.sheet.labels),
+            "no_connects": len(generated.sheet.no_connects),
+            "power_flags": generated.power_flags,
+            "libraries": [f"lib/{nick}.kicad_sym" for nick in sorted(symbol_files)],
+            "unconnected_pads": len(generated.pad_nets),
+        },
     }
     return BuildOutput(
-        built, dict(sorted(files.items())), tuple(issues), Evidence.combine(*evidence_items), summary, layout
+        built,
+        dict(sorted(files.items())),
+        tuple(issues),
+        Evidence.combine(*evidence_items),
+        summary,
+        layout,
+        generated,
     )
 
 
@@ -915,8 +1009,114 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "vendored": [],
         "libraries": dict(libraries),
         "preserved": _preserved(None, {}),
+        "schematic": None,
     }
     return BuildOutput(design, {}, tuple(issues), BUILD_EVIDENCE, summary)
+
+
+def _symbol_libraries(
+    generated: GeneratedSchematic,
+    authored: Mapping[str, SymbolDef],
+    target: int,
+    allow_lossy: bool,
+    issues: list[Issue],
+) -> dict[str, list[symembed.EmbeddedSymbol]]:
+    """The symbols of each project library a build with a schematic writes: the embedded definitions of
+    the nickname and, for a nickname the design authors, every authored symbol of it. Reports the symbols
+    that ``vendor="project"`` leaves without a library, unsafe nicknames and the reserved nickname."""
+    libraries = {nick: list(found) for nick, found in generated.libraries.items()}
+    for lib_id in generated.unvendored:
+        issues.append(
+            issue(
+                "build.global-library",
+                f"symbol {lib_id} does not come from a project row: it is embedded in the schematic and "
+                "gets no project library",
+                lib_id,
+            )
+        )
+    for lib_id, definition in sorted(authored.items()):
+        if definition.library == symembed.FLAG_LIBRARY:
+            issues.append(
+                issue(
+                    "build.reserved-library",
+                    f"{lib_id}: the library nickname {symembed.FLAG_LIBRARY!r} is kept for Fenolite's own "
+                    "symbols",
+                    lib_id,
+                    "author the symbol under another nickname",
+                )
+            )
+            continue
+        held = libraries.setdefault(definition.library, [])
+        if all(found.lib_id != definition.lib_id for found in held):
+            held.append(
+                symembed.embed_symbol(definition, target=target, allow_lossy=allow_lossy, issues=issues)
+            )
+    folded: dict[str, str] = {}
+    for nickname in sorted(libraries):
+        if (
+            not nickname
+            or any(c in nickname for c in "/\\")
+            or not nickname.isprintable()
+            or nickname in (".", "..")
+        ):
+            issues.append(
+                issue(
+                    "build.vendor-unsafe-name",
+                    f"nickname {nickname!r} cannot name a symbol library file under lib/",
+                    nickname,
+                )
+            )
+            continue
+        other = folded.setdefault(nickname.casefold(), nickname)
+        if other != nickname:
+            issues.append(
+                issue(
+                    "build.vendor-unsafe-name",
+                    f"symbol libraries {other!r} and {nickname!r} differ only in letter case",
+                    nickname,
+                )
+            )
+    return libraries
+
+
+def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:
+    """The design that is written beside a generated schematic, so that KiCad's parity test and its
+    "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
+
+    Each pad of an unconnected pin gets a net of the name KiCad derives for that pin, and each component
+    gets the path of its symbol. Nothing else changes; the stored layout and the model never hold these
+    nets. Applying the function twice gives the result of applying it once.
+    """
+    board = design.board
+    if board is None:
+        return design
+    paths = {c.id: _path(c) for c in design.circuit.components}
+    nets = list(design.circuit.nets)
+    known = {net.id for net in nets}
+    footprints: list[FootprintInstance] = []
+    for fp in board.footprints:
+        pads: list[Pad] = []
+        for pad in fp.pads:
+            wanted = generated.pad_nets.get((fp.component_id, pad.number)) if pad.number else None
+            if wanted is not None and pad.net_id is None:
+                net_id = derived_id(
+                    "net", schgen.ID_BACKEND, f"unconnected:{paths.get(fp.component_id, '')}:{pad.number}"
+                )
+                if net_id not in known:
+                    known.add(net_id)
+                    nets.append(Net(id=net_id, name=wanted))
+                pad = dataclasses.replace(pad, net_id=net_id)
+            pads.append(pad)
+        footprints.append(dataclasses.replace(fp, pads=tuple(pads)))
+    components = tuple(
+        dataclasses.replace(c, path=generated.paths[c.id]) if c.id in generated.paths else c
+        for c in design.circuit.components
+    )
+    return dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(design.circuit, components=components, nets=tuple(nets)),
+        board=dataclasses.replace(board, footprints=tuple(footprints)),
+    )
 
 
 def _pad_nets(
@@ -1104,6 +1304,7 @@ __all__ = [
     "RECORD_SCHEMA",
     "RESERVED_PREFIXES",
     "RESERVED_PROPERTIES",
+    "SCHEMATIC_MODES",
     "STAGING_GAP",
     "STAGING_OFFSET",
     "VENDOR_EVIDENCE",
@@ -1114,5 +1315,6 @@ __all__ = [
     "UnresolvedLibrariesError",
     "build_design",
     "check_existing",
+    "lower_for_schematic",
     "read_record",
 ]

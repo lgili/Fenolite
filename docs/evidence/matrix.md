@@ -40,7 +40,7 @@ marks an operation that may change its output, its options or its issue codes in
 | kicad | `kicad_mod` | INFERRED | INFERRED | INFERRED | — | — | `H-K-DSL-FOOTPRINT`, `H-K-LIB-READ`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_pcb` | INFERRED | INFERRED | INFERRED | INFERRED | INFERRED | `H-K-PCB-READ`, `H-K-PCB-WRITE`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_pro` | — | INFERRED | INFERRED | INFERRED | — | `H-K-PRO-PATTERNS` |
-| kicad | `kicad_sch` | INFERRED | CORPUS-VERIFIED | — | CORPUS-VERIFIED | — | `H-K-SCH-COMPONENTS-2`, `H-K-SCH-READ`, `H-K-TOK-CONSTANTS` |
+| kicad | `kicad_sch` | INFERRED | CORPUS-VERIFIED | KICAD-VERIFIED | CORPUS-VERIFIED | — | `H-K-SCH-COMPONENTS-2`, `H-K-SCH-LIBTABLE`, `H-K-SCH-MINIMAL`, `H-K-SCH-PARITY`, `H-K-SCH-PINFRAME`, `H-K-SCH-POWER`, `H-K-SCH-READ`, `H-K-SCH-SLASH`, `H-K-SCH-UNCONNECTED`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_sym` | INFERRED | INFERRED | UNVERIFIED (experimental) | — | — | `H-K-LIB-READ`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_wks` | INFERRED | INFERRED | INFERRED | INFERRED | — | `H-K-TOK-CONSTANTS`, `H-K-WKS-CORNER` |
 | specctra | `specctra_dsn` | — | — | INFERRED | — | — | `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
@@ -183,7 +183,14 @@ the settling test and the result of an id are in its register row.
 | `H-K-PCB-WRITE` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-PRO-PATTERNS` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-COMPONENTS-2` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-LIBTABLE` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-MINIMAL` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-PARITY` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-PINFRAME` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-POWER` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-READ` | CORPUS-VERIFIED |
+| `H-K-SCH-SLASH` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-UNCONNECTED` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-TOK-CONSTANTS` | INFERRED |
 | `H-K-WKS-CORNER` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 
@@ -293,6 +300,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `libs` | `EVIDENCE` INFERRED: `H-K-LIB-COMMON`, `H-K-LIB-CONFIGHOME`, `H-K-LIB-FALLBACK`, `H-K-LIB-NESTED`, `H-K-LIB-RELPATH-2`, `H-K-LIB-SCAN`<br>`WRITE_EVIDENCE` INFERRED: `H-K-BUILD-LIBTABLE` |
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
+| `netnames` | see `pcb`, `schgen` |
 | `oracle` | `EVIDENCE` KICAD-VERIFIED: `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY-3`<br>`NORMALISE_EVIDENCE` KICAD-VERIFIED: `H-K-FMT-RESAVE`<br>`RT2_EVIDENCE` KICAD-VERIFIED: `H-K-RT2-STABLE-2` |
 | `outline` | `EVIDENCE` INFERRED: `H-G-PLACE-OUTLINE`, `H-K-OUTLINE-CHAIN`, `H-K-OUTLINE-FPEDGE` |
 | `padnets` | `EVIDENCE` KICAD-VERIFIED: `H-K-NET-IPC` |
@@ -304,10 +312,13 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `replace` | `EVIDENCE` KICAD-VERIFIED: `H-K-PLACE-MOVE` |
 | `roundtrip` | see `pcb` |
 | `rulemap` | see `dru`, `lowering` |
-| `sch` | `EVIDENCE` CORPUS-VERIFIED: `H-K-SCH-READ`, `H-K-SCH-COMPONENTS-2` |
+| `sch` | `EVIDENCE` CORPUS-VERIFIED: `H-K-SCH-READ`, `H-K-SCH-COMPONENTS-2`<br>`WRITE_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL` |
+| `schgen` | `EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL`, `H-K-SCH-PINFRAME`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-PARITY`, `H-K-SCH-POWER`, `H-K-SCH-LIBTABLE` |
+| `schlayout` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
+| `symembed` | see `schgen` |
 | `triad` | see `dru`, `pcb`, `pro` |
 | `versions` | `EVIDENCE` INFERRED: `H-K-TOK-CONSTANTS` |
 | `wks` | `EVIDENCE` INFERRED: `H-K-WKS-CORNER`<br>`WRITE_EVIDENCE` INFERRED: `H-K-WKS-CORNER` |

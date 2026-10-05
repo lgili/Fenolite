@@ -16,7 +16,7 @@ from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sexpr import Node, dumps, parse, tree_equal
 from fenolite.backends.kicad.zones import MERGE_ISSUE_CODES
 from fenolite.dsl import Net, mm
-from fenolite.lens.build import BUILD_ISSUE_CODES, BuildOutput
+from fenolite.lens.build import BUILD_ISSUE_CODES, BuildOutput, lower_for_schematic
 from fenolite.lens.preserve import (
     PRESERVE_ISSUE_CODES,
     ExistingProject,
@@ -209,7 +209,10 @@ def test_digests_ignore_formats_for_script_zones() -> None:
 def test_unchanged_rebuild_keeps_the_fills_of_a_script_zone() -> None:
     text = filled(pour_text())
     result, board = merged(pour_variant(), text)
-    kept, issues = drop_stale_fills(board, result.design, existing=SAME, project="{}", rules=RULES)
+    schematic = fresh(design=pour_variant()).schematic
+    assert schematic is not None  # the board follows the schematic, and so must the layout (c0061)
+    lowered = lower_for_schematic(result.design, schematic)
+    kept, issues = drop_stale_fills(board, lowered, existing=SAME, project="{}", rules=RULES)
     assert issues == () and len(zones(kept)[0].fills) == 2 and zones(kept)[0].filled is True
 
 

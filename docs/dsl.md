@@ -317,9 +317,10 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
 - **KiCad target.** The build resolves a mark like a net member: a pin number first, otherwise every
   pin of that name (`build.unknown-pin`, `build.pin-ambiguous`). A pin that is marked and on a net,
   for example by its name in one call and by its number in the other, gives `build.no-connect-on-net`
-  (error, exit 5, nothing written). The resolved marks are kept in `.fenolite/circuit.json`. The build
-  writes no schematic yet, so the board, project and rules files are byte for byte those of the same
-  design without marks; the schematic writer of v0.2a lowers the marks to KiCad's no-connect flags.
+  (error, exit 5, nothing written). The resolved marks are kept in `.fenolite/circuit.json`. Each
+  mark becomes a no-connect flag of the generated schematic (`docs/schematic.md`), so KiCad's ERC
+  does not report the pin; the board, project and rules files are byte for byte those of the same
+  design without marks.
 - **Check.** `fenolite check` no longer reports `erc.lite.floating-pin` for a marked pin.
 - **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
   "No-connect marks").
@@ -411,8 +412,12 @@ configuration, and another machine both find every footprint (`H-K-VENDOR-GLOBAL
   design's names. In KiCad's library check the vendored project row hides a global row of the same
   nickname, and with it the global library's other items (`H-K-VENDOR-SHADOW`, measured for DRC on both
   majors). The GUI footprint chooser is expected to behave the same; this is not probed.
-- **Only placed footprints:** no whole library, no 3D models (they stay at their `${KICAD…_3DMODEL_DIR}`
-  paths), no symbols and no `sym-lib-table` before schematics (v0.2a).
+- **Only placed footprints:** no whole library and no 3D models (they stay at their
+  `${KICAD…_3DMODEL_DIR}` paths).
+- **Symbols** follow the same rule: the symbols the schematic uses are written to
+  `lib/<nickname>.kicad_sym` with a `sym-lib-table` row each, flattened and never a whole library
+  (`docs/schematic.md`, "The symbols and their libraries"). The licence note below applies to those
+  copies too: a symbol copied from a library keeps that library's licence.
 - **Unsafe names.** A nickname holding `/`, `\` or a non-printable character, or two vendored paths
   that differ only in letter case, give `build.vendor-unsafe-name` and no file.
 - **Library changes.** Every build copies the footprints again from their libraries. When a copy
@@ -779,6 +784,9 @@ date, and sets are never iterated in hash order, so builds with different `--see
 Under `--out DIR` (never the script folder):
 
 - `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`;
+- `<name>.kicad_sch`, `sym-lib-table` and `lib/<nickname>.kicad_sym`: the schematic and the symbols
+  it uses (`docs/schematic.md`); not written with `--schematic skip`, except the libraries of
+  symbols that the script authors;
 - `fp-lib-table` with one row per vendored nickname, uri `${KIPRJMOD}/lib/<nickname>.pretty`, in the
   table form of the target (`docs/formats/kicad/libraries.md`, "Writing library tables");
 - `lib/<nickname>.pretty/<entry>.kicad_mod`: every placed footprint, whatever the table that resolved
@@ -792,9 +800,11 @@ The folder is self-contained and can be moved or copied whole.
 ## Edited outputs
 
 A rebuild over an existing project keeps the work done in KiCad: the board, project and rules files are
-merged, not replaced (`docs/lens.md`). The other outputs have no merge: before the plan is returned (so
-`--dry-run` refuses too), `fp-lib-table` and each vendored footprint under `lib/` that already exists
-must either have the planned bytes or the SHA-256 recorded in `.fenolite/build.json`. Anything else is
+merged, not replaced (`docs/lens.md`). The schematic is generated again by every build: an edited one
+is replaced with the warning `build.schematic-replaced` and a `.bak` copy (`docs/schematic.md`,
+"Rebuilding"). The other outputs have no merge: before the plan is returned (so `--dry-run` refuses
+too), `fp-lib-table`, `sym-lib-table` and each vendored footprint or symbol library under `lib/` that
+already exists must either have the planned bytes or the SHA-256 recorded in `.fenolite/build.json`. Anything else is
 refused with `FEN-7001` (exit 7) and one `build.layout-exists` issue per file. `--discard-layout` builds
 from scratch and replaces those files, keeping `.bak` copies unless `--no-backup`. Without a readable
 record only identical bytes pass.

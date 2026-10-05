@@ -15,6 +15,7 @@ import re
 from collections.abc import Callable
 from fractions import Fraction
 
+from fenolite.backends.kicad.netnames import stored_name
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.core.coords import Point
@@ -146,6 +147,7 @@ def add_items(text: str, *items: str) -> str:
 def net_ref(text: str, name: str, *, zone: bool = False, pad: bool = False) -> str:
     """The reference of net ``name`` in the form ``text`` uses (a ``net_name`` follows for a 9.0 zone, and a
     9.0 pad names the net after its number)."""
+    name = stored_name(name)  # a board stores a slash of a net name as {slash} (c0061)
     match = re.search(rf'^\t\(net (\d+) "{re.escape(name)}"\)', text, flags=re.M)
     if match is None:
         return f'(net "{name}")'
@@ -207,6 +209,74 @@ def add_filled_zone(text: str, *, net: str, layer: str) -> str:
     return add_items(text, zone)
 
 
+def _symbols(schematic_text: str) -> tuple[str, dict[str, tuple[int, str, dict[str, str]]]]:
+    """The project name of a schematic, and per reference the lowest unit with its uuid and field texts."""
+    found: dict[str, tuple[int, str, dict[str, str]]] = {}
+    project = ""
+    for symbol in parse(schematic_text).nodes("symbol"):
+        fields = {p.atoms()[0].value: p.atoms()[1].value for p in symbol.nodes("property")}
+        unit = int(symbol.find("unit").atoms()[0].value)  # type: ignore[union-attr]
+        uuid = symbol.find("uuid").atoms()[0].value  # type: ignore[union-attr]
+        instances = symbol.find("instances")
+        if instances is not None and instances.find("project") is not None:
+            project = instances.find("project").atoms()[0].value  # type: ignore[union-attr]
+        ref = fields.get("Reference", "")
+        if ref not in found or unit < found[ref][0]:
+            found[ref] = (unit, uuid, fields)
+    return project, found
+
+
+def update_from_schematic(board_text: str, schematic_text: str) -> str:
+    """The stand-in for KiCad's "Update PCB from Schematic" (c0061 Decision 18; ``H-K-SCH-UPDATE``).
+
+    Each footprint whose reference a symbol of the schematic has gets ``(sheetname "/")`` and
+    ``(sheetfile "<project>.kicad_sch")``, its ``path`` set to ``/<symbol uuid>`` (the symbol's lowest
+    unit), and each of its properties that the symbol also has rewritten with the symbol's text. Nothing
+    else changes. What the real update writes is the maintainer's report, not this function.
+    """
+    project, symbols = _symbols(schematic_text)
+    root = parse(board_text)
+    out: list[Node | Atom] = []
+    for child in root.children:
+        ref = _reference(child) if isinstance(child, Node) and child.name == "footprint" else None
+        if not isinstance(child, Node) or ref is None or ref not in symbols:
+            out.append(child)
+            continue
+        _, uuid, fields = symbols[ref]
+        sheet = [parse('(sheetname "/")'), parse(f'(sheetfile "{project}.kicad_sch")')]
+        path = parse(f'(path "/{uuid}")')
+        kids: list[Node | Atom] = []
+        placed = False
+        for kid in child.children:
+            if isinstance(kid, Node) and kid.name in ("sheetname", "sheetfile"):
+                continue
+            if isinstance(kid, Node) and kid.name == "property":
+                atoms = [a for a in kid.children if isinstance(a, Atom)]
+                if len(atoms) >= 2 and atoms[0].value in fields and atoms[1].value != fields[atoms[0].value]:
+                    parts = list(kid.children)
+                    parts[parts.index(atoms[1])] = Atom.string(fields[atoms[0].value])
+                    kid = kid.with_children(parts)
+            if isinstance(kid, Node) and kid.name == "path":
+                kids += [path, *sheet]
+                placed = True
+                continue
+            if (
+                not placed
+                and isinstance(kid, Node)
+                and (
+                    kid.name in ("attr", "pad", "zone", "group", "model", "embedded_fonts")
+                    or kid.name.startswith("fp_")
+                )
+            ):
+                kids += [path, *sheet]
+                placed = True
+            kids.append(kid)
+        if not placed:
+            kids += [path, *sheet]
+        out.append(child.with_children(kids))
+    return dumps(root.with_children(out), style="kicad")
+
+
 __all__ = [
     "D1_SHIFT",
     "EDIT_UUIDS",
@@ -223,4 +293,5 @@ __all__ = [
     "net_ref",
     "node_uuid",
     "pad_position",
+    "update_from_schematic",
 ]

@@ -162,7 +162,9 @@ def test_erc_lite_no_connect_marked_pins_of_a_built_project(
     unused = [n for n in range(1, 33) if n not in (1, 9, 10)]
     marks = ", ".join(f"u1[{n}]" for n in unused)
     script = blink_variant(
-        tmp_path / "v", append=f"\nfrom fenolite.dsl import no_connect  # noqa: E402\n\nno_connect({marks})\n"
+        tmp_path / "v",
+        append=f"\nfrom fenolite.dsl import no_connect  # noqa: E402\n\nno_connect({marks})\n",
+        marks=False,
     )
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kc"))
 
@@ -180,7 +182,8 @@ def test_erc_lite_no_connect_marked_pins_of_a_built_project(
     floating = [i for i in reply["issues"] if i["code"] == "erc.lite.floating-pin"]  # type: ignore[union-attr]
     assert code == 0 and not [i for i in floating if i["where"].startswith("U1-")], floating
     plain = tmp_path / "plain"
-    code, _ = run("build", str(blink_variant(tmp_path / "p")), "--out", str(plain), "--confirm")
+    unmarked = blink_variant(tmp_path / "p", marks=False)
+    code, _ = run("build", str(unmarked), "--out", str(plain), "--confirm")
     code, reply = run("check", str(plain), "--stages", "erc.lite")
     floating = [i for i in reply["issues"] if i["code"] == "erc.lite.floating-pin"]  # type: ignore[union-attr]
     assert {"U1-11", "U1-12"} <= {i["where"] for i in floating}, "the control: unmarked pins still float"

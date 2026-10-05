@@ -11,6 +11,11 @@ layouts; ``--discard-layout`` replaces them, keeping backups. ``--vendor all`` (
 placed footprints of every library into ``DIR/lib/``; ``--vendor project`` copies only those of project
 tables (``docs/dsl.md``, "Vendored libraries").
 
+A KiCad build also writes the schematic of the design, ``<name>.kicad_sch``, with its symbol libraries and
+``sym-lib-table`` (change c0061; ``docs/schematic.md``): ``--schematic skip`` leaves them out. The sheet is
+a view of the script, so an edited schematic is replaced, with a warning and a backup; symbol positions are
+fixed in ``schematic-placements.toml`` beside the script.
+
 Before a KiCad build plans its writes, the copper guard judges the triad it is about to write with
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
 short or a clearance error refuses the build unless ``--copper-check warn`` is given.
@@ -92,6 +97,7 @@ from fenolite.lens.altium import (
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    SCHEMATIC_MODES,
     SHEET_SUFFIX,
     VENDOR_MODES,
     PlacementRequest,
@@ -103,6 +109,8 @@ from fenolite.lens.build import (
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
+from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
@@ -124,7 +132,10 @@ SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "layout
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
 (change c0053): what the copper intents created or left out, and the parts that build staged. Its other
 warnings and infos concern KiCad files that are not written. Every error passes."""
+REPLACED_CODE = "build.schematic-replaced"
 _KINDS = {
+    ".kicad_sch": "kicad_sch",
+    ".kicad_sym": "kicad_sym",
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
     ".kicad_dru": "kicad_dru",
@@ -192,13 +203,21 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="all: copy the placed footprints of every library into DIR/lib/ (the copies keep their "
         "library's licence); project: copy only those of project tables",
     )
+    parser.add_argument(
+        "--schematic",
+        choices=SCHEMATIC_MODES,
+        default=None,
+        help="write (default): also write DIR/<name>.kicad_sch, its symbol libraries under DIR/lib/ and "
+        "sym-lib-table, and name the pads of unconnected pins as KiCad does; skip: write the board without "
+        f"a schematic; a usage error with --target {ALTIUM_TARGET}",
+    )
 
 
 def _kind(rel: str, form: SchematicForm | None = None) -> str:
     if rel.startswith(".fenolite/"):
         return "fenolite"
-    if rel == "fp-lib-table":
-        return "fp-lib-table"
+    if rel in ("fp-lib-table", "sym-lib-table"):
+        return rel
     if form is not None and Path(rel).suffix == ".SchDoc":
         return SCHDOC_KINDS[form]
     return _KINDS.get(Path(rel).suffix, "file")
@@ -428,6 +447,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--copper-check",
             hint=f"drop --copper-check, or drop --target {ALTIUM_TARGET}",
         )
+    if args.schematic is not None and args.target == ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--schematic is an option of the KiCad target; the target is {args.target}",
+            where="--schematic",
+            hint=f"drop --schematic: --target {ALTIUM_TARGET} always writes its own schematic",
+        )
     board_path: Path | None = None
     if args.copper_from is not None:
         if args.target != ALTIUM_TARGET:
@@ -508,6 +534,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         {key: fp.definition for key, fp in design.footprints.items()},
         {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
     )
+    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
+    symbol_issues: list[Issue] = []
+    symbol_placements = None
+    placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
+    if schematic == "write" and placements_path.is_file():
+        symbol_placements = read_symbol_placements(
+            placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
+        )
     built = build_design(
         model,
         prepared.placements if prepared is not None else requested,
@@ -526,8 +560,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         authored_symbols=authored_symbols,
         source_sha256=source_sha,
         drawing_sheet=frame_sheet,
+        schematic=schematic,
+        symbol_placements=symbol_placements,
     )
     files = {} if refused else dict(built.files)
+    if any(found.severity == "error" for found in symbol_issues):
+        files = {}  # a placements file with an error plans no write
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -544,9 +582,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
     if files:
+        sheet = f"{design.name}.kicad_sch"
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
-        guarded = {rel: data for rel, data in files.items() if rel not in merged}
+        guarded = {rel: data for rel, data in files.items() if rel not in merged and rel != sheet}
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
+        symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
     writes = tuple(
         PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
     )
@@ -576,6 +616,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             *sheet_issues,
             *source_issues,
             *built.issues,
+            *symbol_issues,
             *plane_issues(plane_nets),
             *copper_issues,
             *placement_issues,
@@ -589,6 +630,33 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         writes=writes,
     )
+
+
+def _replaced_sheet(
+    out_dir: Path, out: Path, sheet: str, planned: bytes | None, record: Mapping[str, str] | None
+) -> list[Issue]:
+    """One ``build.schematic-replaced`` warning when the schematic in ``out_dir`` holds neither the planned
+    bytes nor those of the last build: the sheet is regenerated, and the mutation protocol keeps a backup.
+    The file is hashed and never parsed."""
+    path = out_dir / sheet
+    if planned is None or not path.is_file():
+        return []
+    current = path.read_bytes()
+    if current == planned:
+        return []
+    if record is not None and record.get(sheet) == hashlib.sha256(current).hexdigest():
+        return []
+    return [
+        Issue(
+            REPLACED_CODE,
+            "warning",
+            f"{out / sheet} was changed since the last build and is replaced: the schematic is generated "
+            "from the script",
+            where=str(out / sheet),
+            hint=f"fix symbol positions in {SYMBOL_PLACEMENTS_FILE} beside the script; the edited file is "
+            "kept as a .bak copy unless --no-backup is given",
+        )
+    ]
 
 
 def _run_altium(

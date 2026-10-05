@@ -8,12 +8,13 @@
 - **Placements.** `cmd_build` MUST read `<script folder>/schematic-placements.toml` when it exists and pass the result as `symbol_placements` ("Schematic placements file").
 - **Record.** `.fenolite/build.json` MUST record the SHA-256 of the schematic, of `sym-lib-table` and of every symbol library, like every other file outside `.fenolite/`.
 - **Replaced sheet.** When `DIR/<name>.kicad_sch` exists and its bytes are neither the planned bytes nor those whose SHA-256 the last build record holds, `cmd_build` MUST add one `build.schematic-replaced` warning naming the file, and the mutation protocol keeps its backup. The build MUST NOT read that file.
+- **Output.** `BuildOutput.schematic` MUST hold the `GeneratedSchematic`, or `None` when the schematic is skipped or no file is returned.
 - **Result.** `result.schematic` MUST hold `file`, `paper`, `symbols`, `labels`, `no_connects`, `power_flags`, `libraries` (the symbol library files) and `unconnected_pads` (the size of `pad_nets`); with `skip` it MUST be `null`.
 - **Evidence.** The build evidence MUST also combine `schgen.EVIDENCE`.
 
 #### Scenario: Blink gets a schematic
 - **WHEN** `fenolite build examples/blink_2layer/design.py --out B --confirm --json` runs for target 10
-- **THEN** `receipt.written` lists `B/blink.kicad_sch`, `B/sym-lib-table`, `B/lib/Mini.kicad_sym` and `B/lib/fenolite.kicad_sym`, and `result.schematic` holds `symbols` 5, `power_flags` 2, `no_connects` 0, `unconnected_pads` 29 and `paper` `A4`
+- **THEN** `receipt.written` lists `B/blink.kicad_sch`, `B/sym-lib-table`, `B/lib/Mini.kicad_sym` and `B/lib/fenolite.kicad_sym`, and `result.schematic` holds `symbols` 5, `power_flags` 2, `no_connects` 29, `unconnected_pads` 29 and `paper` `A4`
 
 #### Scenario: Skipping the schematic
 - **WHEN** the same build runs with `--schematic skip` into an empty folder
@@ -61,9 +62,9 @@ A build with a schematic SHALL write the symbols it embeds into project librarie
 - **THEN** `files` is empty and `issues` holds `build.reserved-library`
 
 ### Requirement: Schematic placements file
-`fenolite.lens.schplacements.read_placements(text, *, file="") -> Mapping[str, SymbolPlacement]` SHALL read an optional `schematic-placements.toml`, with `tomllib` and `parse_float=Decimal`, so no float is created.
-- Each table MUST be keyed by a component path, or by `<path>#<unit>` for a unit above 1, and MAY hold `x` and `y` (the symbol origin in millimetres; both required together), `rotation` (0, 90, 180 or 270) and `mirror` (`"x"` or `"y"`).
-- `x` and `y` MUST be multiples of 1.27 mm. A value off that grid, an unknown key, a rotation or mirror outside these values, or a (rotation, mirror) pair outside `schlayout.PROVED_FRAMES` MUST give `build.symbol-placement-invalid` (error) naming the table and the key.
+`fenolite.lens.schplacements.read_placements(text, *, file="", issues=None) -> Mapping[str, SymbolPlacement]` SHALL read an optional `schematic-placements.toml`, with `tomllib` and `parse_float=Decimal`, so no float is created.
+- Each table MUST be keyed by a component path, or by `<path>#<unit>` for a unit above 1, MUST hold `x` and `y` (the symbol origin in millimetres), and MAY hold `rotation` (0, 90, 180 or 270) and `mirror` (`"x"` or `"y"`). A unit that stays in the flow has no cell of its own to turn in, so a table without a position is refused.
+- `x` and `y` MUST be multiples of 1.27 mm. A value off that grid, a missing `x` or `y`, an unknown key, a rotation or mirror outside these values, or a (rotation, mirror) pair outside `schlayout.PROVED_FRAMES` MUST give `build.symbol-placement-invalid` (error) naming the table and the key, appended to `issues`, and the table gives no placement. `cmd_build` MUST plan no write when the file gives an error.
 - A table that names no unit of the design MUST give `build.symbol-placement-unknown` (warning), reported by the build.
 - A file that is not valid TOML MUST raise `FormatError` (`FEN-3004`) naming the file.
 
@@ -304,3 +305,36 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **GIVEN** a build of the global setup, written to a folder and copied to another folder
 - **WHEN** a resolver with `project_dir` set to the copy, an empty configuration folder and no install locates `Mini:Mini_R_0603`
 - **THEN** the origin is `project`, and the item path is `lib/Mini.pretty/Mini_R_0603.kicad_mod` inside the copy
+
+### Requirement: No-connect marks in a build
+The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit.no_connects` to pin numbers by the rules of "Pins and pads in a build", refuse a pin that is marked and connected, and keep the marks in the `.fenolite/` model. With a schematic, each mark becomes a no-connect flag of the sheet ("Schematic in a build"); no other written KiCad file changes.
+- A designator MUST be read as a pin number first, and otherwise as a pin name that marks every pin with that name. A designator that is neither MUST give `build.unknown-pin` (error) naming the ref and the designator. A number that is also another pin's name MUST give `build.pin-ambiguous` (warning), and the number wins.
+- After resolution, a pin that is marked and that a net lists MUST give `build.no-connect-on-net` (error) naming the ref, the pin number and the net; the build MUST exit 5 and write nothing. This code joins the `build` envelope under "Build issue codes": it MUST be a key of `lens.build.BUILD_ISSUE_CODES` with severity `error`, and `docs/cli-contract.md` MUST list it.
+- After the build, `Circuit.no_connects` MUST hold `PinRef(<component id>, <pin number>)` in `PinRef` order without duplicates, and `.fenolite/circuit.json` MUST store them.
+- `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`, the library tables, the symbol libraries and the vendored files MUST be byte for byte those of the same design without marks: the pad of a marked pin is written as the pad of any unconnected pin ("Board follows the schematic"), and `build.unused-pin-without-pad` applies to a marked pin as to any unconnected pin. `<name>.kicad_sch` MUST differ by one `no_connect` item per marked pin and by nothing else.
+- A rebuild takes the marks from the script; the layout lens neither reads nor keeps a mark from the board.
+- The marks also serve `fenolite check` ("ERC lite stage" of `verification-loop`), and with `--schematic skip` no written KiCad file depends on them.
+
+#### Scenario: Marks resolved in the built model
+- **GIVEN** a blink variant with `u1 = Part("U1", "Mini:Mini_QFP32_IC", ...)`, its `GND` pins connected, and `no_connect(u1[11], u1[12])`
+- **WHEN** it is built with `--confirm` into `B` and `B/.fenolite` is loaded with `canonical.load_dir`
+- **THEN** the exit code is 0 and `circuit.no_connects` is `(PinRef(<U1 id>, "11"), PinRef(<U1 id>, "12"))`
+
+#### Scenario: Written KiCad files do not change
+- **GIVEN** the variant above and the same variant without the `no_connect` call
+- **WHEN** both are built with the same `--seed` and `--timestamp`
+- **THEN** every planned file outside `.fenolite/` except `<name>.kicad_sch` has the same SHA-256 in both receipts, and the schematic of the marked variant holds two `no_connect` items that the other lacks
+
+#### Scenario: A name and a number of one pin
+- **GIVEN** `connect(gnd, u1["GND"])` and `no_connect(u1[10])` on `Mini:Mini_QFP32_IC`, whose pin `10` is named `GND`
+- **WHEN** the design is built with `--confirm`
+- **THEN** the exit code is 5, `issues` holds `build.no-connect-on-net` naming `U1`, `10` and `GND`, and nothing is written
+
+#### Scenario: Unknown marked designator
+- **GIVEN** `no_connect(r1["X"])` on `Mini:Mini_R`
+- **WHEN** the design is built with `--confirm`
+- **THEN** the exit code is 5 and `issues` holds `build.unknown-pin` naming `R1` and `X`
+
+#### Scenario: New code in the closed set
+- **WHEN** `uv run pytest tests/unit/lens/test_build_issues.py -k closed_set` and `uv run pytest tests/consistency` run
+- **THEN** both pass, `BUILD_ISSUE_CODES["build.no-connect-on-net"]` is `error`, and a build test produces the code

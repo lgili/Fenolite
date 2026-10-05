@@ -11,12 +11,12 @@ pure: it reads no file and runs no tool.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from fnmatch import fnmatchcase
 
-from fenolite.backends.base import PadNetList
+from fenolite.backends.base import PadAssignment, PadNetList
 from fenolite.checks import assignment_compare
 from fenolite.checks.equivalence import norm
 from fenolite.checks.equivalence.exclusions import Rule, apply_rules
@@ -112,6 +112,10 @@ Parts = dict[str, tuple[str, str]]
 """Each element ``REF-PIN`` with its reference and its pin."""
 
 
+UNCONNECTED = "unconnected-("
+"""The start of the name KiCad gives the net of a pin on no net (``docs/formats/kicad/schematic.md``)."""
+
+
 def _elements(design: Design, refs: frozenset[str]) -> tuple[str, PadNetList, int, Parts]:
     """The netlist source of a side (``board`` or ``circuit``), its assignments cut down to the elements
     of ``refs``, the count of unnumbered pads, and each element's reference and pin."""
@@ -138,7 +142,18 @@ def _elements(design: Design, refs: frozenset[str]) -> tuple[str, PadNetList, in
             for pin in component.pins:
                 if pin.number and component.ref in refs:
                     parts[f"{component.ref}-{pin.number}"] = (component.ref, pin.number)
-    kept = tuple(item for item in listed.assignments if item.element in parts)
+    # KiCad gives each pin on no net a net of its own, ``unconnected-(…)``, and a board built beside a
+    # schematic carries those names on its pads (c0061): such a net with one pad is a pad on no net.
+    names = assignment_compare.net_names(design)
+    held = Counter(item.net for item in listed.assignments)
+    open_nets = {
+        net for net, count in held.items() if count == 1 and names.get(net, "").startswith(UNCONNECTED)
+    }
+    kept = tuple(
+        PadAssignment(item.element, assignment_compare.NO_NET) if item.net in open_nets else item
+        for item in listed.assignments
+        if item.element in parts
+    )
     return source, PadNetList(listed.source, kept), unnumbered, parts
 
 
@@ -171,7 +186,7 @@ def level_netlist(a: Design, b: Design, refs: Sequence[str]) -> LevelResult:
     source_a, listed_a, unnumbered_a, parts_a = _elements(a, wanted)
     source_b, listed_b, unnumbered_b, parts_b = _elements(b, wanted)
     pair = assignment_compare.compare(
-        replace(listed_a, source="a"), replace(listed_b, source="b"), min_pins=1
+        replace(listed_a, source="a"), replace(listed_b, source="b"), min_pins=1, joined_no_net=True
     )
     names_a, names_b = assignment_compare.net_names(a), assignment_compare.net_names(b)
     differences: list[Difference] = []

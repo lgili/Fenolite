@@ -132,6 +132,7 @@ def test_a_rename_that_moves_a_pin_drops_the_fills(tmp_path: Path, monkeypatch: 
     p.edit_board(lambda t: add_filled_zone(t, net="GND", layer="B.Cu"))
     assert p.build(*COPPER_WARN, "--confirm")[0] == 0
     rename_net(p, "GND", "GND0")
+    p.edit_script("if pin not in (1, 9, 10)", "if pin not in (1, 9, 10, 11)")  # pin 11 is no longer marked
     p.edit_script("connect(gnd, u1[10], d1[1])", "connect(gnd, u1[10], u1[11], d1[1])")
     code, env, err = p.build(*COPPER_WARN, "--confirm")
     assert code == 0, err

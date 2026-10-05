@@ -1,8 +1,10 @@
 # KiCad schematics (`.kicad_sch`)
 
 `fenolite.backends.kicad.sch` reads one schematic file into the `SchematicSheet` of
-`fenolite.model.schematic` and rebuilds it at its own format version. Nothing here writes a created
-sheet, derives a net or runs a tool. Sources are listed in `docs/evidence/sources.md`; every fact
+`fenolite.model.schematic` and rebuilds it at its own format version. Since change c0061 it also writes a
+created sheet for KiCad 9.0 or 10.0 (`write_schematic`), and `schgen` creates the sheet of a built design
+("Generated sheets" below; the user guide is `docs/schematic.md`). The reader derives no net, and nothing
+here runs a tool. Sources are listed in `docs/evidence/sources.md`; every fact
 carries a source id and an evidence label, and the hypotheses are in `docs/hypotheses.md`.
 
 No KiCad C++ source was read for this page. The version-history file S-0031 was consulted for dated
@@ -50,6 +52,35 @@ any child it does not reproduce tree-equal (`kicad.sch.kept-opaque`); this is ho
 | Load check of a symbol library: `kicad-cli sym export svg <file> -o <folder>` exits 0 and writes one SVG per unit and body style | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-TOKENS |
 | `sch export netlist --format kicadsexpr` lists one `comp` per reference with `ref`, `value` and `footprint`; the units of one symbol give one `comp`, power symbols (reference starting with `#`) give none, and a symbol with `(on_board no)` gives none on 9.0.9 and on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-COMPONENTS-2 |
 
+## Generated sheets
+
+The facts `schgen` and `write_schematic` are written from (change c0061). Each was measured with
+`kicad-cli sch erc`, `sch export netlist` and `pcb drc --schematic-parity` on sheets written by hand in
+`tests/kicad/schematic/_gencases.py` and on projects that `build` wrote; the outcomes per version are in
+`docs/evidence/kicad-schematic.md`. The power flag is authored for Fenolite: a staff with a small
+rectangular flag and one power-output pin, with no content of any other library.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A flat sheet with this token set is loaded by 9.0.9 (written with `version 20250114`) and by 10.0.6 (`20260306`): the header, `uuid`, `paper`, `title_block`, `lib_symbols`, `no_connect` (`at`, `uuid`), `global_label` (the text, `shape`, `at`, `effects`, `uuid`), `symbol` (`lib_id`, `at`, `mirror`, `unit`, `exclude_from_sim`, `in_bom`, `on_board`, `dnp`, `uuid`, properties, one `pin` with a `uuid` per pin, `instances`) and `sheet_instances` | S-0367, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-MINIMAL |
+| Written form per target. For 10.0 a symbol instance also holds `body_style` and `in_pos_files`, a property holds `show_name`, `do_not_autoplace` and, when hidden, `hide` as its own children, and a global label holds an `Intersheetrefs` property: this is what a 10.0.6 re-save keeps unchanged. For 9.0 a hidden property has `hide` inside `effects`, a symbol has no `body_style` and no `in_pos_files`, and the root ends with `(embedded_fonts no)`. ERC of the two generated designs reports no violation on its major | S-0020, S-0367 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-MINIMAL |
+| A pin connects at its library position turned into the sheet: for a pin at (px, py) in the library frame (Y up) and an instance at (x, y), the mirror is applied first (`mirror x` negates py, `mirror y` negates px), then the rotation by the instance angle counter-clockwise (90° maps (px, py) to (−py, px)), and the point is (x + px′, y − py′). A global label at that point leaves no `pin_not_connected`, for the four angles and the three mirror states | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-PINFRAME |
+| A global label at the connection point of a pin puts the pin on the net named by the label's text, and labels of one text are one net; no wire is needed. A `no_connect` at the connection point of a pin on no net removes its `pin_not_connected` and `pin_not_driven` violations | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-MINIMAL |
+| `sch export netlist` gives a pin on no net a net of its own: `unconnected-(<ref>-<pin name>-Pad<number>)`, or `unconnected-(<ref>-Pad<number>)` for a pin without a name. For a named pin of a symbol with several units the reference is followed by the unit letter (`U2C` for unit 3); in the pin name a blank is written `_` and a `/` is written `{slash}`; `+`, `-`, `_`, `.`, `~`, `{`, `}`, a leading digit and a name that two pins share are written as they are. A pin with a no-connect flag is named the same way | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
+| A pin named `~` in an embedded symbol has no name in a `20250114` sheet (9.0.9 names its net `unconnected-(X1-Pad4)`) and the name `~` in a `20260306` sheet (10.0.6: `unconnected-(X1-~-Pad4)`), as the reader's rule for `~` says; the generator therefore writes an empty name for target 10 where the library meant none | S-0020, S-0031 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-UNCONNECTED |
+| The net of a global label is named by the label's text for letters, digits, a blank, `[ ]`, `{ }`, `( )`, a quote, a backslash, a non-ASCII letter and `+ . - _ : , # $ ~ =`. A `/` in the text is stored as `{slash}` in the net name (`mod/LED_A` gives `mod{slash}LED_A`) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-SLASH |
+| The parity test compares pad nets by their stored names: a board pad on `mod{slash}LED_A` agrees with that label, and the same pad on a net stored `mod/LED_A` gives `net_conflict` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-SLASH |
+| A net whose only driver is a power-input pin gives `power_pin_not_driven`; a symbol flagged `power` with one `power_out` pin on that net (Fenolite's authored `fenolite:PWR_FLAG`) removes it, and that symbol names no net | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
+| Two hidden power-input pins of one name end on one net whatever labels they carry (pins `VSS` labelled `GND` and `OTHER` are both on `GND`); the same pins without `hide` are on their two nets | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-POWER |
+| ERC reports `lib_symbol_issues` for a symbol whose library no table of the project lists. With a project `sym-lib-table` whose row `${KIPRJMOD}/lib/<nickname>.kicad_sym` holds the same definition as the sheet embeds, a pin-pad variant included, it reports neither `lib_symbol_issues` nor `lib_symbol_mismatch` | S-0046, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-LIBTABLE |
+| `pcb drc --schematic-parity` reports nothing for a board whose footprints have the references, values and pad nets of the netlist, the `unconnected-(…)` nets included. It matches footprints by reference: a pad on another net gives `net_conflict`, a changed Value `footprint_symbol_mismatch`, a renamed reference `missing_footprint` and `extra_footprint`, and exchanged `path` values give nothing | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SCH-PARITY |
+| `sch upgrade --force` of a generated sheet re-saves only its embedded symbols in the 10.0 form (it adds `in_pos_files`, `duplicate_pin_numbers_are_jumpers`, `show_name`, `do_not_autoplace` and moves `hide` out of `effects`); the order of the root items and every item Fenolite writes itself are kept, ERC still reports nothing, and a second re-save is byte-identical | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-SCH-RESAVE |
+| What KiCad's "Update PCB from Schematic" writes on a built board is not measured by a test: no headless command runs it. One manual run in 10.0.6 on the built blink example added `sheetname`, `sheetfile` and the pads' `pinfunction` and `pintype`, and changed no field text, position or pad net | S-0046 | INFERRED | H-K-SCH-UPDATE |
+
+Net names on boards follow the same rule (`pcb.stored_net_name`): a created net is written with
+`{slash}` for a slash, a net read from a file keeps its spelling, and the reader gives a net stored with
+`{slash}` the name with the slash, keeping the stored spelling in the net's `kicad` bag (`stored`).
+
 ## Identifiers
 
 - The sheet: `derived_id("sch", "kicad", <root uuid>)`, or `"file:<name>"` without a root uuid.
@@ -61,4 +92,4 @@ any child it does not reproduce tree-equal (`kicad.sch.kept-opaque`); this is ho
 
 ## Issue codes
 
-`sch.ISSUE_CODES` is the closed table of the capability `kicad-schematic`, "Schematic read issue codes".
+`sch.ISSUE_CODES` is the closed table of the capability `kicad-schematic`, "Schematic read issue codes". The writer's codes are `sch.WRITE_ISSUE_CODES` (`kicad.sch.dropped-too-new`), and those of the generator, its layout and the embedding are `schgen.ISSUE_CODES`; both are listed in `docs/cli-contract.md` under `build`.

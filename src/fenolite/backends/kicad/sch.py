@@ -22,7 +22,8 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any, get_args
 
-from fenolite.backends.base import RoundTrip
+from fenolite.backends.base import RoundTrip, WriteResult
+from fenolite.backends.kicad import _pcbwrite, schlayout
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, node, point_node
 from fenolite.backends.kicad._libread import (
@@ -35,6 +36,7 @@ from fenolite.backends.kicad._libread import (
 )
 from fenolite.backends.kicad.pcb import (
     ModelSource,
+    kicad_uuid,
     paper_node,
     project_paper,
     project_title_block,
@@ -43,8 +45,13 @@ from fenolite.backends.kicad.pcb import (
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, first_difference, parse, tree_equal
 from fenolite.backends.kicad.sym import symbol_from
 from fenolite.backends.kicad.versions import (
+    DEFAULT_TARGET,
+    FORMAT_VERSIONS,
+    TARGET_MAJORS,
     FileKind,
     FormatInfo,
+    LossyWriteError,
+    check_emittable,
     classify,
     major_for,
     require_editable,
@@ -87,6 +94,16 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.sch.sheet-cycle": "error",
     }
 )
+WRITE_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-MINIMAL",))
+DROPPED_CODE = "kicad.sch.dropped-too-new"
+WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({DROPPED_CODE: "warning"})
+"""The codes of ``write_schematic`` and of the symbol embedding (``symembed``)."""
+TEXT_SIZE = 1_270_000
+"""The height and width of every text a created sheet writes (KiCad's default, 50 mil)."""
+FIRST_PROPERTIES: tuple[str, ...] = ("Reference", "Value", "Footprint", "Datasheet", "Description")
+VISIBLE_PROPERTIES: frozenset[str] = frozenset({"Reference", "Value"})
+INTERSHEET = ("Intersheetrefs", "${INTERSHEET_REFS}")
+"""The property KiCad 10 keeps on every global label: the list of the pages that use the label."""
 
 ROOT = ("kicad_sch",)
 SYMBOL_CHAIN = ("kicad_sch", "symbol")
@@ -934,6 +951,209 @@ def roundtrip_schematic(text: str, *, file: str = "") -> RoundTrip:
     )
 
 
+# --- writing created sheets -----------------------------------------------------------------------
+
+
+def gate_created(root: Node, target: int, allow_lossy: bool, issues: list[Issue]) -> Node:
+    """``root`` after the emit check for ``target``: a token the target does not read raises
+    ``LossyWriteError``, or with ``allow_lossy`` its node is removed with one ``kicad.sch.dropped-too-new``
+    warning. Warnings of the check are appended to ``issues``."""
+    found = check_emittable(root, FileKind.SCHEMATIC, target)
+    too_new = {i.where for i in found if i.code == _pcbwrite.TOO_NEW}
+    droppable, errors, others = _pcbwrite.gate(root, target, too_new, FileKind.SCHEMATIC)
+    if errors or droppable:
+        lossy = [issue for group in droppable.values() for issue in group]
+        if errors or not allow_lossy:
+            raise LossyWriteError([*errors, *lossy], droppable=not errors)
+        root = _pcbwrite.remove(root, droppable)
+        issues += [
+            _pcbwrite.dropped(loc, _pcbwrite.head_at(loc), group, DROPPED_CODE)
+            for loc, group in droppable.items()
+        ]
+        again, left, others = _pcbwrite.gate(root, target, (), FileKind.SCHEMATIC)
+        if left or again:
+            raise LossyWriteError([*left, *(i for group in again.values() for i in group)], droppable=False)
+    issues += others
+    return root
+
+
+def _font(*extra: Node) -> Node:
+    size = node("size", Atom.from_nm(TEXT_SIZE), Atom.from_nm(TEXT_SIZE))
+    return node("effects", node("font", size), *extra)
+
+
+def _property(key: str, text: str, at: Point, *, ten: bool, hidden: bool, justify: str = "") -> Node:
+    """One ``property`` of a created item: ``hide`` is a child of the property for target 10 and a child
+    of ``effects`` for target 9, and target 10 also gets ``show_name`` and ``do_not_autoplace``."""
+    hide = [_yes_no("hide", True)] if hidden else []
+    side = [node("justify", Atom.symbol(justify))] if justify else []
+    children: list[Node | Atom] = [Atom.string(key), Atom.string(text), _at(at, 0)]
+    if ten:
+        children += [_yes_no("show_name", False), _yes_no("do_not_autoplace", False), *hide, _font(*side)]
+    else:
+        children.append(_font(*side, *hide))
+    return node("property", *children)
+
+
+def _text_anchor(symbol: SymbolInstance, definition: SymbolDef | None) -> tuple[Point, Point]:
+    """Where the Reference and the Value of a created instance are written: above the unit, or to its
+    right when a pin of the unit leaves it upwards. A cosmetic choice; nothing connects to a text."""
+    origin = symbol.position
+    if definition is None:
+        return Point(origin.x, origin.y - 2 * TEXT_SIZE), Point(origin.x, origin.y + 2 * TEXT_SIZE)
+    rotation = symbol.rotation // 1_000_000
+    pins = definition.pins_of(symbol.unit, symbol.body_style)
+    points = [schlayout.pin_point(origin, pin.position, rotation, symbol.mirror) for pin in pins]
+    for graphic in definition.graphics:
+        points += [schlayout.pin_point(origin, p, rotation, symbol.mirror) for p in graphic.points]
+    if not points:
+        points = [origin]
+    left, right = min(p.x for p in points), max(p.x for p in points)
+    top = min(p.y for p in points)
+    upwards = any(
+        schlayout.label_angle(pin.rotation // 1_000_000, rotation, symbol.mirror) == 90 for pin in pins
+    )
+    if upwards:
+        x = right + 2 * TEXT_SIZE
+        return Point(x, origin.y - TEXT_SIZE), Point(x, origin.y + TEXT_SIZE)
+    return Point(left, top - 3 * TEXT_SIZE), Point(left, top - TEXT_SIZE)
+
+
+def _created_symbol(symbol: SymbolInstance, definition: SymbolDef | None, ten: bool) -> Node:
+    items, _ = _emit_symbol(symbol)
+    children: list[Node | Atom] = []
+    if symbol.lib_name:
+        children += items["lib_name"]
+    children += [*items["lib_ref"], *items["position"], *items["mirror"], *items["unit"]]
+    if ten:
+        children += items["body_style"]
+    children += [*items["exclude_from_sim"], *items["in_bom"], *items["on_board"]]
+    if ten:
+        children.append(_yes_no("in_pos_files", symbol.on_board))
+    children += [*items["dnp"], node("uuid", Atom.string(kicad_uuid(symbol)))]
+    reference, value = _text_anchor(symbol, definition)
+    names = [k for k in FIRST_PROPERTIES if k in symbol.properties]
+    names += sorted(k for k in symbol.properties if k not in FIRST_PROPERTIES)
+    for key in names:
+        at = {"Reference": reference, "Value": value}.get(key, symbol.position)
+        visible = key in VISIBLE_PROPERTIES
+        children.append(
+            _property(
+                key,
+                symbol.properties[key],
+                at,
+                ten=ten,
+                hidden=not visible,
+                justify="left" if visible else "",
+            )
+        )
+    if definition is not None:
+        seen: set[str] = set()
+        for pin in definition.pins_of(symbol.unit, symbol.body_style):
+            if pin.number in seen:
+                continue
+            seen.add(pin.number)
+            pin_uuid = kicad_uuid(symbol, f"pin:{pin.number}")
+            children.append(node("pin", Atom.string(pin.number), node("uuid", Atom.string(pin_uuid))))
+    projects: dict[str, list[Node]] = {}
+    for use in symbol.uses:
+        projects.setdefault(use.project, []).append(
+            node(
+                "path",
+                Atom.string(use.path),
+                node("reference", Atom.string(use.ref)),
+                node("unit", Atom.integer(use.unit)),
+            )
+        )
+    if projects:
+        children.append(
+            node("instances", *(node("project", Atom.string(p), *paths) for p, paths in projects.items()))
+        )
+    return node("symbol", *children)
+
+
+def _created_label(label: NetLabel, ten: bool) -> Node:
+    head = next(h for h, kind in LABEL_HEADS.items() if kind == label.kind)
+    justify = "left" if label.rotation in (0, 90_000_000) else "right"
+    children: list[Node | Atom] = [Atom.string(label.name)]
+    if label.shape:
+        children.append(node("shape", Atom.symbol(label.shape)))
+    children += [
+        _at(label.position, label.rotation),
+        _font(node("justify", Atom.symbol(justify))),
+        node("uuid", Atom.string(kicad_uuid(label))),
+    ]
+    if ten and label.kind == "global":
+        children.append(_property(*INTERSHEET, label.position, ten=True, hidden=True, justify=justify))
+    return node(head, *children)
+
+
+def _created_def(symbol: SymbolDef, target: int) -> Node:
+    """The node of an embedded symbol of a created sheet, from the slots its reader kept."""
+    bag = symbol.ext.get("kicad")
+    if bag is None or not slotlib.from_ext(bag):
+        raise ValueError(
+            f"embedded symbol {symbol.lib_id} has no KiCad slot list; build it with symembed.embed_symbol"
+        )
+    built = _entity_node(symbol)
+    if target >= 10:
+        return built
+    spelled = (Atom.symbol("global"),)
+    children = [
+        node("power") if isinstance(c, Node) and c.name == "power" and c.atoms() == spelled else c
+        for c in built.children
+    ]
+    return built.with_children(children)
+
+
+def write_schematic(
+    sheet: SchematicSheet, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False
+) -> WriteResult:
+    """The text of a ``.kicad_sch`` file for KiCad ``target``.0 from a created sheet; no file is written.
+
+    The root holds the header, the sheet's uuid, paper and title block, the embedded symbols, then the
+    no-connect flags, the labels and the symbol instances, each kind in the order of its collection, and
+    the page list. Target 10 writes what KiCad 10 keeps on a re-save (``body_style``, ``in_pos_files``,
+    ``show_name``, ``do_not_autoplace``, ``hide`` as a child of a property, ``Intersheetrefs``); target 9
+    writes what 9.0.9 loads (``hide`` inside ``effects``, no ``body_style``, ``embedded_fonts``). A sheet
+    read from a file is refused: ``rebuild_schematic`` writes it at its own version.
+    """
+    if target not in TARGET_MAJORS:
+        raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
+    if source_info(sheet) is not None:
+        raise ValueError(
+            f"{sheet.id} was read from a KiCad file; rebuild_schematic writes it at its own format version"
+        )
+    if sheet.sheets:
+        raise ValueError(f"{sheet.id}: sheet references of a created sheet are not written yet")
+    ten = target >= 10
+    definitions = {_embedded_name(d): d for d in sheet.lib_symbols}
+    children: list[Node | Atom] = [
+        node("version", Atom.integer(FORMAT_VERSIONS[FileKind.SCHEMATIC][target])),
+        node("generator", Atom.string("fenolite")),
+        node("generator_version", Atom.string(f"{target}.0")),
+        node("uuid", Atom.string(kicad_uuid(sheet))),
+        paper_node(sheet.paper),
+    ]
+    if sheet.title_block is not None:
+        children.append(title_block_node(sheet.title_block))
+    children.append(node("lib_symbols", *(_created_def(d, target) for d in sheet.lib_symbols)))
+    for flag in sheet.no_connects:
+        children.append(
+            node("no_connect", _at(flag.position, None), node("uuid", Atom.string(kicad_uuid(flag))))
+        )
+    children += [_created_label(label, ten) for label in sheet.labels]
+    for symbol in sheet.symbols:
+        definition = definitions.get(symbol.lib_name or symbol.lib_ref)
+        children.append(_created_symbol(symbol, definition, ten))
+    children.append(_pages_node(sheet.pages))
+    if not ten:
+        children.append(_yes_no("embedded_fonts", False))
+    issues: list[Issue] = []
+    root = gate_created(Node(Atom.symbol("kicad_sch"), tuple(children)), target, allow_lossy, issues)
+    return WriteResult(dumps(root), tuple(issues))
+
+
 # --- queries --------------------------------------------------------------------------------------
 
 
@@ -1094,7 +1314,10 @@ __all__ = [
     "KEPT_CODE",
     "SchComponent",
     "SheetTree",
+    "WRITE_EVIDENCE",
+    "WRITE_ISSUE_CODES",
     "components",
+    "gate_created",
     "hierarchy_components",
     "opaque_count",
     "opaque_digests",
@@ -1103,4 +1326,5 @@ __all__ = [
     "roundtrip_schematic",
     "sheet_files",
     "source_info",
+    "write_schematic",
 ]

@@ -63,7 +63,7 @@ def test_diff_pair_names_checked() -> None:
 
 
 def i2c_design(*, pull_scl: bool) -> Design:
-    d = blink()
+    d = blink(marks=False)  # pins 2 and 3 carry the bus
     u1, vin = d.parts["U1"], d.nets["VIN"]
     sda, scl = Net("SDA"), Net("SCL")
     bus = I2C(sda, scl)

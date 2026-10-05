@@ -26,6 +26,7 @@ from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, pcb, pro, slots
 from fenolite.backends.kicad import zones as zones_mod
 from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
+from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
 from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
 from fenolite.core.coords import Point
@@ -1004,6 +1005,13 @@ def zone_digest(design: Design, zone: Zone) -> str:
     return _digest(lines)
 
 
+def _pad_net(name: str) -> str:
+    """A pad's net name as the fill digest sees it: the net KiCad names for an unconnected pin
+    (``unconnected-(…)``, written beside a schematic since c0061) is no net, so a board built before the
+    schematic existed keeps its fills when its pads get those names."""
+    return "" if name.startswith(UNCONNECTED_PREFIX) else name
+
+
 def fill_inputs_digest(
     design: Design,
     *,
@@ -1025,7 +1033,7 @@ def fill_inputs_digest(
         for fp in board.footprints:
             pads = sorted(
                 f"{p.number}|{p.shape}|{p.size.w}x{p.size.h}|{p.position.x},{p.position.y}|{p.kind}|{p.rotation}|"
-                f"{p.drill}|{'+'.join(p.layers)}|{names.get(p.net_id or '', '')}"
+                f"{p.drill}|{'+'.join(p.layers)}|{_pad_net(names.get(p.net_id or '', ''))}"
                 for p in fp.pads
             )
             lines.append(

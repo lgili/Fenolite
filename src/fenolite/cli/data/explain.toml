@@ -844,6 +844,41 @@ meaning = "A user property uses a name that KiCad or Fenolite reserves."
 fix = "Rename the property."
 see = "build"
 
+["build.reserved-library"]
+meaning = "The design names a symbol library `fenolite`. That nickname is kept for the symbols Fenolite writes itself, such as the power flag of a generated schematic."
+fix = "Give the library another nickname in the symbol table or in the script."
+see = "build"
+
+["build.schematic-replaced"]
+meaning = "The schematic in the output folder was changed since the last build. A generated schematic is a view of the script, so the build writes it again and keeps the edited file as a .bak copy."
+fix = "Change the script, or fix symbol positions in schematic-placements.toml beside it; edits made in the schematic are not read."
+see = "build"
+
+["build.schematic-too-large"]
+meaning = "The symbols of the design do not fit one A0 page. A generated schematic is one flat sheet."
+fix = "Build with --schematic skip, or split the design; one sheet per module is planned for a later release."
+see = "build"
+
+["build.symbol-overlap"]
+meaning = "A symbol placed by schematic-placements.toml lies over the cell of another symbol. The sheet is still correct, because nothing connects by touching; it is only hard to read."
+fix = "Move one of the two symbols in schematic-placements.toml."
+see = "build"
+
+["build.symbol-placement-invalid"]
+meaning = "A table of schematic-placements.toml is wrong: a position off the 1.27 mm grid, an unknown key, or a rotation or mirror that is not allowed. Nothing is written."
+fix = "Give x and y in millimetres as multiples of 1.27, rotation as 0, 90, 180 or 270, and mirror as \"x\" or \"y\"."
+see = "build"
+
+["build.symbol-placement-unknown"]
+meaning = "schematic-placements.toml names a unit that the design does not have. The table is ignored."
+fix = "Name a unit by its component path, with #<unit> for a unit above 1, or remove the table."
+see = "build"
+
+["build.symbol-short"]
+meaning = "Two symbols placed by schematic-placements.toml have a pin at the same point of the sheet, which would join their nets in KiCad. Nothing is written."
+fix = "Move one of the two symbols in schematic-placements.toml."
+see = "build"
+
 ["build.unknown-pin"]
 meaning = "A net member or a no-connect mark names a pin that the part's symbol does not have."
 fix = "Correct the pin number or name in the script."
@@ -1147,6 +1182,11 @@ see = "inspect"
 ["kicad.board.kept-opaque"]
 meaning = "A part of the board that Fenolite models could not be read into the model here, so it is kept verbatim and written back unchanged."
 fix = "Nothing to do; that part cannot be edited through Fenolite."
+see = "inspect"
+
+["kicad.board.net-name-collision"]
+meaning = "A net is stored with {slash} in its name, and another net of the board already has the name with a plain slash. The net keeps its stored spelling as its name."
+fix = "Nothing to do; rename one of the two nets in KiCad if they are meant to be one."
 see = "inspect"
 
 ["kicad.board.obsolete-dropped"]
@@ -1489,6 +1529,11 @@ meaning = "A text variable of the project has an unexpected shape and was not re
 fix = "Re-save the project in KiCad."
 see = "inspect"
 
+["kicad.sch.dropped-too-new"]
+meaning = "A token of an embedded symbol needs a newer KiCad than the target of the write, and --allow-lossy removed it from the schematic."
+fix = "Build for the newer KiCad version, or use a symbol library saved by the target version, to keep it."
+see = "KiCad output"
+
 ["kicad.sch.duplicate-property"]
 meaning = "A symbol or a sheet of the schematic holds two properties with one name. The first is used."
 fix = "Open the schematic in KiCad and correct it there; the file is still read and rebuilt as it was."
@@ -1514,6 +1559,16 @@ meaning = "The schematic reader keeps a part of the file as written, without a m
 fix = "Nothing to do."
 see = "inspect"
 
+["kicad.sch.pin-off-grid"]
+meaning = "A pin of a library symbol does not end on the 1.27 mm grid of KiCad's schematic editor. KiCad's electrical rules check warns about such pin ends."
+fix = "Move the pin onto the grid in the symbol library."
+see = "build"
+
+["kicad.sch.power-pin-shown"]
+meaning = "A hidden power input pin of a library symbol is written visible in the generated schematic. KiCad joins hidden power inputs of one name into one net whatever label they carry, so a hidden pin could not be put on the net of the script."
+fix = "Nothing to do; the library file itself is not changed."
+see = "build"
+
 ["kicad.sch.sheet-cycle"]
 meaning = "The sheets of the schematic refer to each other in a cycle, so the hierarchy has no end."
 fix = "Break the cycle in KiCad: a sheet cannot contain itself, directly or through other sheets."
@@ -1538,6 +1593,11 @@ see = "inspect"
 meaning = "A placed symbol names a library symbol that the schematic file does not hold."
 fix = "Update the symbol from its library in KiCad, so that the file holds its definition again."
 see = "inspect"
+
+["kicad.sch.unconnected-name-unproven"]
+meaning = "The name KiCad gives the net of this unconnected pin was not measured for a character of the pin's name, so its pad is left on no net. KiCad's parity test may report that pad."
+fix = "Ignore the parity warning for this pad, or rename the pin in the symbol library with letters, digits and the characters + - _ . / ~."
+see = "build"
 
 ["kicad.wks.below-resolution"]
 meaning = "A length of the drawing sheet is not a whole number of micrometres, which the file format cannot hold."

@@ -17,13 +17,15 @@ rows they name are stronger.
 - ``kicad_sym`` has a writer for the symbols a design authors (``sym.write_symbol_library``), which no
   register row covers yet, so its ``write`` is experimental and the kind is not a write kind of the
   backend's report.
+- ``kicad_sch`` is written for created sheets only (``sch.write_schematic`` of the sheet that ``schgen``
+  generates for a build, change c0061); a sheet read from a file is rebuilt at its own version.
 - ``kicad_lib_table`` is the pair ``fp-lib-table`` and ``sym-lib-table``.
 """
 
 from __future__ import annotations
 
 from fenolite.backends.base import MatrixRow
-from fenolite.backends.kicad import dru, libs, lowering, mod, pcb, pro, sch, sym, versions, wks
+from fenolite.backends.kicad import dru, libs, lowering, mod, pcb, pro, sch, schgen, sym, versions, wks
 from fenolite.core.evidence import Evidence
 
 NAME = "kicad"
@@ -61,6 +63,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         versions.FileKind.SCHEMATIC.value,
         detect=versions.EVIDENCE,
         read=sch.EVIDENCE,
+        write=Evidence.combine(sch.WRITE_EVIDENCE, schgen.EVIDENCE),
         roundtrip_exact=sch.EVIDENCE,
     ),
     MatrixRow(

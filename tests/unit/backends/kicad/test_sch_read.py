@@ -496,7 +496,7 @@ def test_sheet_without_uuid_is_named_by_its_file() -> None:
 def test_codes_are_a_closed_set() -> None:
     source = (ROOT / "src" / "fenolite" / "backends" / "kicad" / "sch.py").read_text(encoding="utf-8")
     literals = set(re.findall(r'"(kicad\.sch\.[a-z0-9.-]+)"', source))
-    assert literals == set(sch.ISSUE_CODES)
+    assert literals == set(sch.ISSUE_CODES) | set(sch.WRITE_ISSUE_CODES)  # the writer's codes: c0061
     assert dict(sch.ISSUE_CODES) == {
         "kicad.sch.kept-opaque": "info",
         "kicad.sch.inexact-length": "info",

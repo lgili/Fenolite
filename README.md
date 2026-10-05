@@ -29,7 +29,9 @@ first circuit boards on.
 - **Your templates, not ours.** Sheet frames and title blocks are generated from your own spec;
   Fenolite ships no organisation's templates, rules or libraries.
 
-The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`. Fabrication
+The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
+`fenolite build` also writes the schematic of the design, which KiCad's ERC and parity test accept:
+`docs/schematic.md`. Fabrication
 files and review renders (`fenolite export`, `fenolite render`) are described in `docs/exports.md`.
 The bill of materials and the placement table (`fenolite bom`, `fenolite pnp`), rendered through a column
 template that you write, are described in `docs/assembly.md`.

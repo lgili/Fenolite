@@ -33,7 +33,15 @@ SYMBOL_DIR_SUFFIX = ".kicad_symdir"
 CAPABILITIES = CapabilityReport(
     name="kicad",
     read_kinds=("kicad_pcb", "kicad_mod", "kicad_sym"),
-    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks", "kicad_lib_table"),
+    write_kinds=(
+        "kicad_pcb",
+        "kicad_mod",
+        "kicad_dru",
+        "kicad_pro",
+        "kicad_wks",
+        "kicad_lib_table",
+        "kicad_sch",
+    ),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",

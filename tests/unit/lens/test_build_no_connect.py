@@ -22,7 +22,7 @@ U1 = key_id("component", "U1")
 
 
 def marked_blink() -> Design:
-    d = blink()
+    d = blink(marks=False)
     no_connect(d.parts["U1"][11], d.parts["U1"][12])
     return d
 
@@ -45,11 +45,14 @@ def test_marks_resolved_in_the_built_model(tmp_path: Path) -> None:
 
 
 def test_written_kicad_files_do_not_change() -> None:
-    plain, marked = build(blink()), build(marked_blink())
+    plain, marked = build(blink(marks=False)), build(marked_blink())
     outside = sorted(p for p in plain.files if not p.startswith(".fenolite/"))
     assert outside == sorted(p for p in marked.files if not p.startswith(".fenolite/"))
     assert any(p.endswith(".kicad_pcb") for p in outside)
     for path in outside:
+        if path.endswith(".kicad_sch"):  # the sheet gets one no-connect flag per mark (c0061)
+            assert marked.files[path].count(b"(no_connect") == 2 and b"(no_connect" not in plain.files[path]
+            continue
         assert marked.files[path] == plain.files[path], path
     assert marked.files[".fenolite/circuit.json"] != plain.files[".fenolite/circuit.json"]
     assert b"no_connects" not in plain.files[".fenolite/circuit.json"]
@@ -147,8 +150,8 @@ def test_cli_build_keeps_the_marks_and_the_kicad_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     flags = ("--confirm", "--seed", "7", "--timestamp", "2026-10-03T00:00:00Z")
-    plain = blink_variant(tmp_path / "plain", IMPORT, IMPORT + ", no_connect")
-    marked = blink_variant(tmp_path / "marked", IMPORT, IMPORT + ", no_connect", append=MARKS)
+    plain = blink_variant(tmp_path / "plain", marks=False)
+    marked = blink_variant(tmp_path / "marked", append=MARKS, marks=False)
     receipts: list[dict[str, str]] = []
     for script, out in ((plain, tmp_path / "a"), (marked, tmp_path / "b")):
         code, reply = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), *flags)
@@ -158,7 +161,7 @@ def test_cli_build_keeps_the_marks_and_the_kicad_files(
             {
                 Path(w["path"]).relative_to(out).as_posix(): w["sha256"]
                 for w in written
-                if ".fenolite" not in Path(w["path"]).parts
+                if ".fenolite" not in Path(w["path"]).parts and not w["path"].endswith(".kicad_sch")
             }
         )
     assert receipts[0] and receipts[0] == receipts[1]

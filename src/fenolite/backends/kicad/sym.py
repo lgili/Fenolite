@@ -28,7 +28,7 @@ from fenolite.backends.kicad._libread import (
 )
 from fenolite.backends.kicad.liberrors import lib_error
 from fenolite.backends.kicad.sexpr import AtomKind, Node
-from fenolite.backends.kicad.versions import FileKind
+from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -116,7 +116,7 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             body = f"(polyline (pts {pts}) {stroke} (fill (type {fill})))"
         return [f"\t\t\t{body}"]
 
-    version = 20251024 if target >= 10 else 20231120
+    version = FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]
     out = ["(kicad_symbol_lib", f"\t(version {version})", '\t(generator "fenolite")']
     for symbol in sorted(symbols, key=lambda item: item.lib_id):
         out += [

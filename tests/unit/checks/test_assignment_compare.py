@@ -65,12 +65,42 @@ def test_merged_and_split_nets() -> None:
     assert [d.element for d in compare(merged, a).differences] == ["B-1"]
 
 
-def test_no_net_is_one_class() -> None:
-    a = netlist("a", ("A-1", NO_NET), ("A-2", NO_NET), ("A-3", "x"))
-    b = netlist("b", ("A-1", "N/C"), ("A-2", "N/C"), ("A-3", "N1"))
+def test_a_pad_on_no_net_is_a_block_of_its_own() -> None:
+    """c0061: two pads on no net are not connected to each other."""
+    a = netlist("a", ("A-1", NO_NET), ("A-2", NO_NET), ("A-3", "x"), ("A-4", "x"))
+    b = netlist("b", ("A-1", NO_NET), ("A-2", NO_NET), ("A-3", "N1"), ("A-4", "N1"))
     assert compare(a, b).differences == ()
-    lost = netlist("b", ("A-1", "N/C"), ("A-2", "N/C"), ("A-3", "N/C"))
-    assert [d.element for d in compare(a, lost).differences] == ["A-3"]
+    lost = netlist("b", ("A-1", NO_NET), ("A-2", NO_NET), ("A-3", NO_NET), ("A-4", "N1"))
+    assert {d.element for d in compare(a, lost).differences} == {"A-3", "A-4"}
+
+
+def test_unconnected_pins_named_on_one_side() -> None:
+    model = netlist("model", ("U1-2", NO_NET), ("U1-3", NO_NET), ("U1-9", "VIN"), ("R1-1", "VIN"))
+    board = netlist(
+        "board",
+        ("U1-2", "unconnected-(U1-PA1-Pad2)"),
+        ("U1-3", "unconnected-(U1-PA2-Pad3)"),
+        ("U1-9", "VIN"),
+        ("R1-1", "VIN"),
+    )
+    assert compare(model, board).differences == () and compare(board, model).differences == ()
+    assert compare(model, board).common == 4
+
+
+def test_two_unconnected_pads_joined_on_one_side() -> None:
+    model = netlist("model", ("U1-2", NO_NET), ("U1-3", NO_NET), ("U1-9", "VIN"), ("R1-1", "VIN"))
+    board = netlist("board", ("U1-2", "X"), ("U1-3", "X"), ("U1-9", "VIN"), ("R1-1", "VIN"))
+    found = {d.element for d in compare(model, board).differences}
+    assert found and found <= {"U1-2", "U1-3"}
+    difference = compare(model, board).differences[0]
+    assert (difference.net_a, difference.net_b) == (NO_NET, "X")
+
+
+def test_no_net_pads_are_below_two_pins() -> None:
+    a = netlist("a", ("A-1", NO_NET), ("A-2", NO_NET), ("A-3", "x"), ("A-4", "x"))
+    result = compare(a, a, min_pins=2)
+    assert result.common == 2 and {u.element for u in result.only_a} == {"A-1", "A-2"}
+    assert {u.reason for u in result.only_a} == {"below-min-pins"}
 
 
 def test_element_with_two_labels_is_a_difference() -> None:
@@ -124,6 +154,12 @@ def test_board_and_model_lists() -> None:
     model = dataclasses.replace(Design.new("m", seed=0), circuit=Circuit(components=(r1,), nets=(net,)))
     assert model_netlist(model) == PadNetList(
         "model", (PadAssignment("R1-1", net.id), PadAssignment("R1-2", NO_NET))
+    )
+    # a pin that the component maps to another pad is named by that pad (c0061)
+    mapped = dataclasses.replace(r1, pin_pad_map=(("1", "2"), ("2", "1")))
+    swapped = dataclasses.replace(model, circuit=Circuit(components=(mapped,), nets=(net,)))
+    assert model_netlist(swapped) == PadNetList(
+        "model", (PadAssignment("R1-2", net.id), PadAssignment("R1-1", NO_NET))
     )
 
 

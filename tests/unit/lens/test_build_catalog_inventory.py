@@ -115,7 +115,13 @@ def test_all_100_footprints_build_and_read_back_without_network_or_cad(
                 expected.layers,
                 expected.drill,
             )
-            assert restored_nets.get(pad.net_id) == original_nets.get(expected.net_id)
+            # c0061: the written board names the net of each unconnected pin as KiCad does, so that its
+            # parity test agrees with the schematic; the model keeps such a pad on no net
+            written_net = restored_nets.get(pad.net_id)
+            if written_net is not None and written_net.startswith("unconnected-("):
+                assert expected.net_id is None
+                written_net = None
+            assert written_net == original_nets.get(expected.net_id)
             if expected.padstack:
                 assert pad.padstack is not None
                 assert (pad.padstack.hole_length, pad.padstack.hole_rotation) == (

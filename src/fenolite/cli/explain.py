@@ -36,6 +36,8 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.kicad.proerrors", "ISSUE_CODES"),
     ("fenolite.backends.kicad.rulemap", "RULE_ISSUE_CODES"),
     ("fenolite.backends.kicad.sch", "ISSUE_CODES"),
+    ("fenolite.backends.kicad.sch", "WRITE_ISSUE_CODES"),
+    ("fenolite.backends.kicad.schgen", "ISSUE_CODES"),
     ("fenolite.backends.kicad.wks", "ISSUE_CODES"),
     ("fenolite.backends.kicad.zones", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.zones", "PAD_ZONE_ISSUE_CODES"),

@@ -77,7 +77,14 @@ def test_conceptual_transistor_and_button_roles_build_offline_with_exact_pad_map
         footprint = next(fp for fp in restored.board.footprints if fp.lib_ref == part.footprint)
         assert {pad.number: net_names[pad.net_id] for pad in footprint.pads} == mapping
     symbols = read_symbol_library(output.files["lib/Fenolite.kicad_sym"].decode(), library="Fenolite")
+    authored = {"Fenolite:BJT_PNP", "Fenolite:Pushbutton_NO"}
+    assert authored <= {symbol.lib_id for symbol in symbols}
     for symbol in symbols:
+        if symbol.lib_id not in authored:
+            # c0061: a part with a pad map embeds its symbol under `<name>_<8 hex digits>` with the pad
+            # numbers on its pins, and the project library holds that variant beside the authored symbol
+            assert symbol.lib_id.rsplit("_", 1)[0] in authored and len(symbol.lib_id.rsplit("_", 1)[1]) == 8
+            continue
         original = get_symbol(symbol.lib_id)
         assert symbol.graphics == original.graphics
         assert [(p.number, p.name) for p in symbol.pins] == [(p.number, p.name) for p in original.pins]

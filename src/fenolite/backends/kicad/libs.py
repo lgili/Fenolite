@@ -693,6 +693,11 @@ class LibraryResolver:
 
     def symbol(self, lib_id: str, *, issues: list[Issue] | None = None) -> SymbolDef:
         """The flattened symbol behind ``lib_id``; parents are looked up in the same library."""
+        return resolve_extends(self.symbol_chain(lib_id, issues=issues))[0]
+
+    def symbol_chain(self, lib_id: str, *, issues: list[Issue] | None = None) -> tuple[SymbolDef, ...]:
+        """The symbol behind ``lib_id`` and the symbols it extends, as their library holds them: the
+        symbol first, its root parent last. A parent the library lacks ends the chain."""
         location = self.locate(lib_id, "symbol")
         nickname, entry = split_lib_id(lib_id)
         symbols = {
@@ -709,7 +714,7 @@ class LibraryResolver:
             if parent not in symbols:
                 break
             chain.append(symbols[parent])
-        return resolve_extends(chain)[0]
+        return tuple(chain)
 
     def missing_models(self, fp: FootprintDef) -> tuple[Issue, ...]:
         """One warning per 3D model path that names no file or has a variable without a value."""

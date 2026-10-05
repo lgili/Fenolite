@@ -38,6 +38,7 @@ import _fillcases
 import _followcases
 import _fpwrite
 import _framecases
+import _gencases
 import _kindcases
 import _lenscases
 import _libtables
@@ -257,6 +258,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _asmcases.assembly_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _schcases.sch_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _gencases.gen_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

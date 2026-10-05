@@ -66,11 +66,13 @@ def _fenolite(cwd: Path, *args: str) -> tuple[int, dict[str, Any], str]:
     return run.returncode, json.loads(run.stdout) if run.stdout.strip() else {}, run.stderr
 
 
-def _build(folder: Path, example: str, target: int, mode: str) -> tuple[int, dict[str, Any], str]:
+def _build(
+    folder: Path, example: str, target: int, mode: str, *extra: str
+) -> tuple[int, dict[str, Any], str]:
     script = ROOT / "examples" / example / "design.py"
     return _fenolite(
         folder.parent, "build", str(script), "--out", str(folder), "--kicad-version", str(target),
-        *SEED, mode, "--no-backup",
+        *SEED, mode, "--no-backup", *extra,
     )  # fmt: skip
 
 
@@ -121,24 +123,47 @@ def test_check(name: str, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("name", PROJECTS)
 def test_rebuild_is_the_identity(name: str, tmp_path: Path) -> None:
-    """Item 1: a second build keeps the fills and the routes, byte for byte."""
+    """Item 1: a second build keeps the fills and the routes, byte for byte.
+
+    The recorded projects are those of v0.1, built before a build wrote a schematic (c0061). Without a
+    schematic a build plans no new byte. With one, the first build adds the schematic and its symbol
+    libraries and renames, in the board, the nets of unconnected pads; from then on a build is the
+    identity again, and the fills and routes are kept throughout."""
     folder, _board, example, target = _copy(name, tmp_path)
     recorded = _files(folder)
-    code, envelope, error = _build(folder, example, target, "--dry-run")
+
+    def changed(*extra: str) -> list[str]:
+        code, envelope, error = _build(folder, example, target, "--dry-run", *extra)
+        assert code == 0, error
+        plan = [write for write in envelope["result"]["plan"] if "/.fenolite/" not in write["path"]]
+        assert plan, "a build lists the files of the project"
+        return [
+            Path(write["path"]).name
+            for write in plan
+            if not Path(write["path"]).is_file()
+            or hashlib.sha256(Path(write["path"]).read_bytes()).hexdigest() != write["sha256"]
+        ]
+
+    assert not changed("--schematic", "skip"), "without a schematic the build plans new bytes"
+    stem = Path(_board).stem
+    added = {f"{stem}.kicad_sch", "sym-lib-table", "Mini.kicad_sym", "fenolite.kicad_sym"}
+    assert set(changed()) == added | {f"{stem}.kicad_pcb"}
+    code, envelope, error = _build(folder, example, target, "--confirm")
     assert code == 0, error
-    plan = [write for write in envelope["result"]["plan"] if "/.fenolite/" not in write["path"]]
-    assert plan, "a build lists the files of the project"
-    changed = [
-        Path(write["path"]).name
-        for write in plan
-        if not Path(write["path"]).is_file()
-        or hashlib.sha256(Path(write["path"]).read_bytes()).hexdigest() != write["sha256"]
-    ]
-    assert not changed, f"the build plans new bytes for {changed}"
+    assert "zone.fill-stale" not in [issue["code"] for issue in envelope["issues"]]
+    first = _files(folder)
+    assert {rel for rel in first if first[rel] != recorded.get(rel)} == {
+        f"{stem}.kicad_pcb", f"{stem}.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym",
+        "lib/fenolite.kicad_sym",
+    }  # fmt: skip
+    assert _top_level(first[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")) == _top_level(
+        recorded[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")
+    )
+    assert not changed(), "the second build with a schematic plans new bytes"
     for _ in range(2):
         code, envelope, error = _build(folder, example, target, "--confirm")
         assert code == 0, error
-        assert _files(folder) == recorded
+        assert _files(folder) == first
 
 
 @pytest.mark.parametrize("name", PROJECTS)

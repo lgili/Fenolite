@@ -35,17 +35,30 @@ def test_closed_set() -> None:
         "build.no-connect-on-net": "error",  # c0036
         "build.plane-not-lowered": "info",  # c0038
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
+        # c0061: the build codes of the generated schematic
+        "build.schematic-too-large": "error", "build.symbol-overlap": "warning",
+        "build.symbol-short": "error", "build.symbol-placement-unknown": "warning",
+        "build.symbol-placement-invalid": "error", "build.reserved-library": "error",
+        "build.schematic-replaced": "warning",
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
     literals: set[str] = set()
-    for path in (ROOT / "src" / "fenolite" / "lens").glob("*.py"):
+    kicad = ROOT / "src" / "fenolite" / "backends" / "kicad"
+    generator = [
+        kicad / "schgen.py",
+        kicad / "schlayout.py",
+        ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
+    ]
+    for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
     assert literals == set(table)
     tested: set[str] = set()
-    for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py")]:
+    cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
+    layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
+    for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
         tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
     assert set(table) - set(PRESERVE_ISSUE_CODES) <= tested, set(table) - tested
 

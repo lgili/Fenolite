@@ -31,7 +31,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
 NO_NET = ""
-"""The label of a pad on no net; one class of the partition, like any other label."""
+"""The label of a pad on no net; each such pad is a block of its own in the partition."""
 MODEL_EVIDENCE = Evidence(Level.INFERRED)
 """Fenolite's own model rules on built input: checked by its tests, not by an oracle."""
 SHOWN = 5
@@ -84,18 +84,21 @@ def board_netlist(design: Design) -> tuple[PadNetList, int]:
 
 def model_netlist(model: Design) -> PadNetList:
     """Each ``PinRef`` of a net with the net's id as label, and every other pin of a component on
-    ``NO_NET``."""
+    ``NO_NET``. An element names the pad of its pin: the pin number, or the pad that the component's
+    ``pin_pad_map`` gives it, since the board and the export speak in pad numbers."""
     refs = _refs(model)
+    pads = {c.id: dict(c.pin_pad_map) for c in model.circuit.components}
     assignments: list[PadAssignment] = []
     seen: set[str] = set()
     for net in model.circuit.nets:
         for member in net.members:
-            element = f"{refs.get(member.component_id, '')}-{member.pin}"
+            pad = pads.get(member.component_id, {}).get(member.pin, member.pin)
+            element = f"{refs.get(member.component_id, '')}-{pad}"
             assignments.append(PadAssignment(element, net.id))
             seen.add(element)
     for component in model.circuit.components:
         for pin in component.pins:
-            element = f"{component.ref}-{pin.number}"
+            element = f"{component.ref}-{pads[component.id].get(pin.number, pin.number)}"
             if pin.number and element not in seen:
                 assignments.append(PadAssignment(element, NO_NET))
                 seen.add(element)
@@ -109,12 +112,23 @@ def _labels(listed: PadNetList) -> dict[str, set[str]]:
     return found
 
 
-def _covered(listed: PadNetList, min_pins: int) -> tuple[dict[str, set[str]], set[str]]:
+def _covered(
+    listed: PadNetList, min_pins: int, joined_no_net: bool = False
+) -> tuple[dict[str, set[str]], set[str]]:
     """The labels of each element a side covers, and the elements it leaves out for ``min_pins``."""
     labels = _labels(listed)
     sizes = Counter(label for found in labels.values() for label in found)
+    if not joined_no_net:
+        sizes[NO_NET] = min(sizes[NO_NET], 1)  # a pad on no net is a block of its own
     small = {e for e, found in labels.items() if all(sizes[label] < min_pins for label in found)}
     return {e: found for e, found in labels.items() if e not in small}, small
+
+
+def _own(element: str, label: str) -> str:
+    """The block key of ``element``: its label, or a key of its own when it is on no net. Two pads on no
+    net are not connected to each other, so a side that names the net of each unconnected pin (KiCad's
+    ``unconnected-(…)`` nets) equals a side that leaves those pins on no net."""
+    return label if label != NO_NET else f"\0{element}"
 
 
 def _blocks(elements: Iterable[str], label: Mapping[str, str]) -> dict[str, frozenset[str]]:
@@ -141,10 +155,14 @@ def _missing(element: str, listed: PadNetList, small: set[str], reasons: Mapping
     return Uncovered(element, reasons.get(element, f"not-in-{listed.source}"))
 
 
-def compare(a: PadNetList, b: PadNetList, *, min_pins: int = 1) -> PairResult:
-    """Compare two sources as partitions of the elements both cover; see the module docstring."""
-    cover_a, small_a = _covered(a, min_pins)
-    cover_b, small_b = _covered(b, min_pins)
+def compare(a: PadNetList, b: PadNetList, *, min_pins: int = 1, joined_no_net: bool = False) -> PairResult:
+    """Compare two sources as partitions of the elements both cover; see the module docstring.
+
+    A pad on no net is a block of its own. ``joined_no_net`` puts all pads on no net of a side into one
+    block instead, the rule before c0061, which the design equivalence of c0045 keeps: there a pin on a
+    single-pin net and a pin on no net are a difference."""
+    cover_a, small_a = _covered(a, min_pins, joined_no_net)
+    cover_b, small_b = _covered(b, min_pins, joined_no_net)
     reasons_a = {u.element: u.reason for u in a.uncovered}
     reasons_b = {u.element: u.reason for u in b.uncovered}
     named = set(cover_a) | set(cover_b) | small_a | small_b | set(reasons_a) | set(reasons_b)
@@ -153,8 +171,13 @@ def compare(a: PadNetList, b: PadNetList, *, min_pins: int = 1) -> PairResult:
     common = sorted(set(cover_a) & set(cover_b))
     double = {e for e in common if len(cover_a[e]) > 1 or len(cover_b[e]) > 1}
     single = [e for e in common if e not in double]
-    label_a = {e: next(iter(cover_a[e])) for e in single}
-    label_b = {e: next(iter(cover_b[e])) for e in single}
+
+    def block(element: str, labels: set[str]) -> str:
+        label = next(iter(labels))
+        return label if joined_no_net else _own(element, label)
+
+    label_a = {e: block(e, cover_a[e]) for e in single}
+    label_b = {e: block(e, cover_b[e]) for e in single}
     blocks_a, blocks_b = _blocks(single, label_a), _blocks(single, label_b)
     flagged = _outliers(blocks_a, label_b) | _outliers(blocks_b, label_a)
     sets_a, sets_b = set(blocks_a.values()), set(blocks_b.values())

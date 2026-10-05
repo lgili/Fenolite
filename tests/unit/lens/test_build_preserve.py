@@ -17,6 +17,7 @@ from _preserve_help import board_text, fresh, prepared
 from fenolite.backends.kicad import _json
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.dsl import placements, to_model
+from fenolite.lens.build import lower_for_schematic
 from fenolite.lens.preserve import ExistingProject, match_footprints, prepare
 from fenolite.model import canonical
 
@@ -25,7 +26,11 @@ from fenolite.model import canonical
 def test_fresh_build_unchanged(target: int) -> None:
     output = fresh(target)
     text = output.files["blink.kicad_pcb"].decode("utf-8")
-    assert text == write_board(output.design, target=target).text
+    assert output.schematic is not None  # the written board follows the schematic (c0061)
+    lowered = lower_for_schematic(output.design, output.schematic)
+    assert text == write_board(lowered, target=target).text
+    skipped = build(blink(), target, schematic="skip")
+    assert skipped.files["blink.kicad_pcb"].decode("utf-8") == write_board(skipped.design, target=target).text
     match = match_footprints(output.design, read_board(text))
     assert {p: m.key for p, m in match.matches.items()} == {"D1": "uuid", "R1": "uuid", "U1": "uuid"}
 

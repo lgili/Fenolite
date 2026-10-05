@@ -113,6 +113,66 @@
 
 19. **Evidence.** `schgen.EVIDENCE` starts `INFERRED` and is raised when `H-K-SCH-MINIMAL`, `H-K-SCH-UNCONNECTED` and `H-K-SCH-PARITY` are `KICAD-VERIFIED (9.0.x, 10.0.x)`. `BUILD_EVIDENCE` combines it when a schematic is written.
 
+## Implementation notes (2026-10-05)
+
+What the implementation and the measurements of 2026-10-05 changed against the decisions above. The
+deltas under `specs/` hold the corrected text; the outcomes are in `docs/evidence/kicad-schematic.md`.
+
+- **Order.** The functions that the probes call (`netnames`, `schlayout.pin_point`, `symembed.power_flag`)
+  were written before the probes, and the probes ran on both majors before the change was committed as
+  verified. No probe contradicted a decision: all twelve pin frames are proved, every pin-name class and
+  every label text is `equal`, and the controls behave as Decisions 7 to 11 expect.
+- **Decision 5, the blink example.** The scenario "Blink" expected no no-connect flag and an ERC without
+  violations at once. That cannot hold: the example left 29 pins open without a mark, and the proposal's
+  own measurement shows 29 `pin_not_connected` and 2 `pin_not_driven` errors for it. The example now
+  marks those pins with `no_connect`, as `board_40parts` always did, so the milestone's "ERC exits clean
+  on the example projects" is true. Tests that connect or mark those pins build on the blink without the
+  marks, and so do the Altium samples of the author reports, whose bytes are unchanged. "No-connect marks
+  in a build" (`design-dsl`) is MODIFIED: with a schematic a mark changes one written file, the sheet.
+- **Decision 8.** `embed_symbol(definition, *, parents=())` takes the resolved symbol and its as-written
+  parents (`LibraryResolver.symbol_chain`, new). With `allow_lossy` the node of the too-new token is
+  removed, not the property or sub-symbol that holds it. A text that an older library writes `~` for
+  "empty" is embedded empty for target 10, where `~` is a tilde. `build.global-library` and
+  `build.vendor-unsafe-name` for symbol libraries are given by `lens.build`, which owns those codes.
+- **Decision 9.** A net read from a board has no `kicad` native id in this code base: its id is derived
+  from `net:<stored name>`. The writer tells read nets from created ones by that id. The id cannot give a
+  spelling back, and the corpus holds a net with a sheet path and a label slash in one name
+  (`/…/A{slash}B`), so the reader keeps the stored spelling of a `{slash}` net as the pair `stored` of
+  the net's `kicad` bag. Net names inside `.kicad_pro` patterns and `.kicad_dru` conditions are not
+  changed by this change: a class pattern that names a slash net is written as before.
+- **Decision 10.** Two more places had to follow the singleton rule. The IPC-D-356 export labels every
+  pad on no net `N/C`, so the export side reads that label as no net (`padnets.export_netlist`).
+  `model_netlist` named an element by its pin number; with a `pin_pad_map` (c0056) the board names it by
+  its pad, so the model side now maps pins to pads. The units design, which has such a map, found this.
+  `lens.altium_copper` reads a single-pad `unconnected-(…)` net of a `--copper-from` board as no net
+  ("Copper from a routed KiCad board" of `altium-build` is MODIFIED); without it every Altium build from
+  a board built beside a schematic was refused.
+- **Migration.** The fill digest of the layout lens reads a pad on an `unconnected-(…)` net as a pad on no
+  net, so the first build of a v0.1 project with a schematic keeps its zone fills. The recorded v0.1
+  acceptance projects prove it: that build changes the board (pad nets and symbol paths) and adds the
+  schematic files, keeps every track, via and fill, passes `check`, and the next build is the identity
+  (`tests/kicad/acceptance/test_finished.py`). The recorded projects themselves were not regenerated.
+- **After the rebase on c0045, c0069 and c0074 (2026-10-05).** The design equivalence of c0045 keeps its own
+  rule for pads on no net (`compare(..., joined_no_net=True)`: a pin on a single-pin net and a pin on no net
+  differ) and reads a single-pad `unconnected-(…)` net as no net, so a KiCad build and an Altium build of
+  one design stay equivalent. The committed example project of `fenolite sync`
+  (`tests/data/lens/sync_minimal/`) gained its schematic and `sym-lib-table`. `schematic-placements.toml`
+  (symbols) and c0069's `placements.toml` (footprints) are two files.
+- **Decision 13.** The row packing is `geometry.shelf.shelf_pack`, taken out of the Altium sheet layout,
+  which now calls it; the two backends share nothing else. `UnitBox(key, pins, body, symbol)` holds the
+  label lengths in its pins.
+- **Decision 14.** A table needs `x` and `y`. `read_placements` takes an `issues` list, and `cmd_build`
+  plans no write when the file gives an error.
+- **Decision 15.** The 10.0.6 re-save of a generated sheet keeps every item Fenolite writes and the order
+  of the root; it rewrites only the embedded symbols, which come from a library in the 9.0 form.
+- **Files and public API.** Added to the table above: `geometry/shelf.py` (`shelf_pack`);
+  `LibraryResolver.symbol_chain`; `pcb.stored_net_name`; `sch.gate_created`, `sch.WRITE_EVIDENCE`;
+  `schgen.unit_box`, `schgen.library_row`, `GeneratedSchematic.unvendored` and `.power_flags`;
+  `BuildOutput.schematic`; `lens.build.SCHEMATIC_MODES`; `tests/_schbuild.py` (the units design, the
+  global setup, `write_files`); `tests/unit/backends/kicad/test_pcb_net_names.py`.
+- **Hypotheses.** Eight of the nine rows are confirmed (`H-K-SCH-RESAVE` on 10.0 only, where the command
+  exists). `H-K-SCH-UPDATE` stays `INFERRED`.
+
 ## Files and public API
 
 | file | public API |
@@ -135,13 +195,13 @@
 
 ## Sources registered by this change
 
-None. Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch erc`, `sch export netlist`, `sch upgrade`, `pcb drc --schematic-parity`), S-0046 (the schematic editor manual: ERC checks, power flags, hidden power pins, label kinds), S-0047 (library table vocabulary), S-0320 (the schematic format page, registered by c0060). Task 1.1 widens S-0020, S-0022, S-0037 and S-0046, each only with what it states or what was observed. S-0325 to S-0329 stay unused.
+None. Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch erc`, `sch export netlist`, `sch upgrade`, `pcb drc --schematic-parity`), S-0046 (the schematic editor manual: ERC checks, power flags, hidden power pins, label kinds), S-0047 (library table vocabulary), S-0367 (the schematic format page, registered by c0060) and S-0368 (its keywords file). Task 1.1 widens S-0020, S-0022, S-0037 and S-0046, each only with what it states or what was observed. S-0325 to S-0329 stay unused.
 
 ## Hypotheses registered by this change
 
 | id | statement | settling test | criterion |
 |---|---|---|---|
-| H-K-SCH-MINIMAL | The token set of Decision 15 is loaded by 9.0.9 (`20250114`) and 10.0.6 (`20260306`), and ERC of a generated example reports no violation (S-0320, S-0020) | `tests/kicad/schematic/test_generated_oracle.py::test_erc_clean` | on both majors, for `blink_2layer` and the units design: exit 0 with `--exit-code-violations` and no violation with `--severity-all`; probes `sch-gen-erc-blink`, `sch-gen-erc-units` = `equal` |
+| H-K-SCH-MINIMAL | The token set of Decision 15 is loaded by 9.0.9 (`20250114`) and 10.0.6 (`20260306`), and ERC of a generated example reports no violation (S-0367, S-0020) | `tests/kicad/schematic/test_generated_oracle.py::test_erc_clean` | on both majors, for `blink_2layer` and the units design: exit 0 with `--exit-code-violations` and no violation with `--severity-all`; probes `sch-gen-erc-blink`, `sch-gen-erc-units` = `equal` |
 | H-K-SCH-PINFRAME | The connection point of a pin follows Decision 6 for the four rotations and the two mirrors (S-0020) | `tests/kicad/schematic/test_naming_probes.py::test_pin_frame` | on both majors, for each combination: a label at the computed point leaves no `pin_not_connected`; probes `sch-pin-frame-<angle>-<mirror>` = `absent`. A combination that fails is refused by Decision 14 and recorded |
 | H-K-SCH-UNCONNECTED | KiCad names the net of a pin on no net as Decision 10 states (S-0020) | `::test_unconnected_names` | on both majors: the netlist names equal `unconnected_name` for the probe set; probes `sch-unconnected-plain`, `-unnamed`, `-units`, `-chars` = `equal`; a character whose probe is `different` leaves `PROVED_PIN_CHARS` |
 | H-K-SCH-SLASH | A global label's text is the net name, with `/` stored as `{slash}`; a pad stored with `{slash}` matches it and a pad stored with `/` does not (S-0020) | `::test_label_names` | on both majors: probes `sch-label-plain`, `sch-label-chars` = `equal`; `sch-label-slash` = `equal` to `stored_name`; `sch-parity-slash-stored` = `absent` and `sch-parity-slash-raw` = `present` (`net_conflict`) |

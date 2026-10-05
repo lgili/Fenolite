@@ -7,7 +7,7 @@ libraries come from the authored CC0 mini library (``tests/data/libs``) through 
 ``fp-lib-table`` and ``sym-lib-table``.
 """
 
-from fenolite.dsl import Design, Net, Part, Power, connect, mm
+from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect
 
 design = Design("blink")
 design.board(mm(50), mm(30))
@@ -22,6 +22,9 @@ connect(vin, u1[9])
 connect(gnd, u1[10], d1[1])
 connect(led_drv, u1[1], r1[1])
 connect(led_a, r1[2], d1[2])
+# The blink uses three pins of the controller. The other 29 are marked, so the electrical rules checks
+# of both tools know that they are left open on purpose.
+no_connect(*(u1[pin] for pin in range(1, 33) if pin not in (1, 9, 10)))
 design.add(Power(vin, gnd))
 design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))
 

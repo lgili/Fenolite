@@ -6,7 +6,7 @@
 - The root items MUST follow in the order no-connect flags, labels, symbol instances, each kind in the order of its collection, then `sheet_instances` with the sheet's pages.
 - A symbol instance MUST hold `lib_id`, `at`, `unit`, `exclude_from_sim`, `in_bom`, `on_board`, `dnp`, `uuid`, one `property` per entry of `properties` (Reference, Value, Footprint, Datasheet and Description first, the others in sorted order), one `pin` with a uuid per pin of its unit, and `instances`.
 - **Target 10** MUST also write `body_style` and `in_pos_files` on a symbol, `hide`, `show_name` and `do_not_autoplace` as children of each property, and an `Intersheetrefs` property on each global label. **Target 9** MUST write `hide` inside `effects`, no `body_style`, no `in_pos_files`, and `(embedded_fonts no)` at the end of the root.
-- `versions.check_emittable(root, FileKind.SCHEMATIC, target)` MUST run on the final tree. A token the target does not read MUST raise `LossyWriteError` (`FEN-7001`); with `allow_lossy=True` the innermost opaque slot holding it MUST be dropped with one `kicad.sch.dropped-too-new` warning.
+- `versions.check_emittable(root, FileKind.SCHEMATIC, target)` MUST run on the final tree. A token the target does not read MUST raise `LossyWriteError` (`FEN-7001`); with `allow_lossy=True` the node of that token MUST be removed with one `kicad.sch.dropped-too-new` warning. Only the token's own node is removed: the slots of a symbol are whole properties and sub-symbols, and dropping one of those would remove the symbol's body.
 - `target` MUST be in `TARGET_MAJORS`; any other value raises `ValueError`. A sheet read from a file MUST raise `ValueError` naming `rebuild_schematic`.
 - Writing the same sheet twice MUST give identical text, printed by `dumps` in `kicad` style and ending with a newline. `WriteResult.issues` MUST hold only warnings and infos.
 - The writer's codes MUST be the closed set `sch.WRITE_ISSUE_CODES`: `kicad.sch.dropped-too-new` (warning).
@@ -27,7 +27,7 @@
 #### Scenario: Too-new symbol for target 9
 - **GIVEN** a created sheet whose embedded symbol was read from `tests/data/libs/Mini.kicad_sym` (header `20251024`) and holds a token that the inventory dates after the 9.0 constant
 - **WHEN** it is written for target 9, and again with `allow_lossy=True`
-- **THEN** the first call raises `LossyWriteError` naming the token, and the second returns a text without it and one `kicad.sch.dropped-too-new` warning
+- **THEN** the first call raises `LossyWriteError` naming the token, and the second returns a text without it and one `kicad.sch.dropped-too-new` warning per removed token
 
 #### Scenario: Read sheet refused
 - **GIVEN** `tests/data/kicad/schematic/flat.kicad_sch` read with `read_schematic`
@@ -35,7 +35,7 @@
 - **THEN** `ValueError` is raised naming `rebuild_schematic`
 
 ### Requirement: Generated sheet content
-`fenolite.backends.kicad.schgen.generate_schematic(design, parts, *, name, target, placements=None, vendor="all", allow_lossy=False) -> GeneratedSchematic` SHALL build the sheet of a design from its circuit, and SHALL return `sheet` (a `SchematicSheet`), `libraries` (per nickname, the symbols of its project library), `rows` (the rows of `sym-lib-table`), `pad_nets` (component id and pad number mapped to the net name of an unconnected pin), `paths` (component id mapped to the path of its symbol) and `issues`.
+`fenolite.backends.kicad.schgen.generate_schematic(design, parts, *, name, target, placements=None, vendor="all", allow_lossy=False) -> GeneratedSchematic` SHALL build the sheet of a design from its circuit, and SHALL return `sheet` (a `SchematicSheet`), `libraries` (per nickname, the symbols of its project library), `rows` (the rows of `sym-lib-table`), `pad_nets` (component id and pad number mapped to the net name of an unconnected pin), `paths` (component id mapped to the path of its symbol), `issues`, `unvendored` (the lib ids that `vendor="project"` leaves without a project library, which the build reports) and `power_flags` (their number). `parts` are the resolved parts of the build: each gives its component, its component path, its flattened symbol, the symbols that symbol extends as their library holds them, its footprint, and the origin of the row that resolved the symbol.
 - **Symbols.** Each component with a resolved symbol MUST give one `SymbolInstance` per unit of that symbol, with body style 1, `lib_ref` naming the embedded definition, `ref`, `value`, `footprint` = `Component.lib_footprint_ref`, and `properties` = the component's `properties` plus `Footprint`. `dnp` MUST be `Component.dnp`; `in_bom` MUST be false when the component's footprint has the attribute `exclude_from_bom`; `on_board` MUST be true. Each instance MUST have one `SymbolUse(<name>, "/<root uuid>", ref, unit)`. A component without a resolved symbol MUST give no instance.
 - **Labels.** Each pin that a net lists MUST give one `NetLabel("global", netnames.stored_name(<net name>), <the pin's connection point>, shape="passive")`, turned away from the symbol body. The sheet MUST hold no wire, no junction and no label of another kind.
 - **No-connect flags.** Each pin listed by `Circuit.no_connects` MUST give one `NoConnectFlag` at its connection point. A pin on no net without a mark MUST give neither a label nor a flag.
@@ -48,12 +48,12 @@
 #### Scenario: Blink
 - **GIVEN** the built design and resolved parts of `examples/blink_2layer`
 - **WHEN** `generate_schematic` runs for target 10
-- **THEN** the sheet holds the instances `D1`, `R1` and `U1` and two power flags, one global label per connected pin (seven) and one per flag, with the names `VIN`, `GND`, `LED_DRV` and `LED_A`, no no-connect flag, and `pad_nets` names the 29 pads of `U1` whose pins are on no net
+- **THEN** the sheet holds the instances `D1`, `R1` and `U1` and two power flags, one global label per connected pin (seven) and one per flag, with the names `VIN`, `GND`, `LED_DRV` and `LED_A`, 29 no-connect flags (the example marks the pins it does not use), each at the connection point of its pin, and `pad_nets` names the 29 pads of `U1` whose pins are on no net
 
-#### Scenario: Marks become flags
-- **GIVEN** the blink variant whose unused pins of `U1` are all marked with `no_connect`
+#### Scenario: A pin without a mark
+- **GIVEN** the blink without its `no_connect` call
 - **WHEN** `generate_schematic` runs
-- **THEN** the sheet holds 29 no-connect flags, each at the connection point of its pin, and `pad_nets` is unchanged
+- **THEN** the sheet holds no no-connect flag and the same labels, and `pad_nets` is unchanged
 
 #### Scenario: Every unit is placed
 - **GIVEN** a design with one part `U2` of `Mini:Mini_DualGate`, whose power unit is connected and whose gate pins are marked
@@ -91,6 +91,7 @@
 ### Requirement: Deterministic sheet layout
 `schlayout.layout_units(units, *, placements=None, flags=()) -> SheetLayout` SHALL give every unit and every power flag a position on one page, without overlap, in a fixed order, and SHALL choose the paper.
 - **Order.** Units MUST be sorted by top-level module (units outside a module first), then by the natural order of the component path, then by unit number. Power flags come last, in the order of their nets.
+- **Units.** A unit is given as `UnitBox(key, pins, body, symbol)`: `key` is the component path, with `#<unit>` for a unit above 1; `pins` are `UnitPin(number, at, angle, label)` in the library frame, `label` being the length of the label text at that pin (0 without one); `body` is the box of what the unit draws; `symbol` names the library symbol in messages. `SheetLayout` holds `paper`, `origins` (key to `SymbolPlacement`), `cells` and `issues`. Rows are packed by `geometry.shelf.shelf_pack`, which the Altium sheet layout uses too.
 - **Cells.** A unit's cell MUST hold its body and pin connection points, grown on each side by `CHAR_ROOM` (1 524 000 nm) per character of the longest label on that side plus `LABEL_ROOM` (5 080 000 nm), by `CELL_MARGIN` (5 080 000 nm), and by `TEXT_ROOM` (7 620 000 nm) above for Reference and Value. Cell sizes MUST be rounded up to `ORIGIN_STEP` (2 540 000 nm).
 - **Flow.** Cells MUST fill rows from the left inside `PAGE_MARGIN` (12 700 000 nm), above a band of `TITLE_BAND` (40 640 000 nm) at the bottom. The first unit of a module MUST start a new row. Power flags MUST take a last row.
 - **Grid.** Every symbol origin MUST be a multiple of `ORIGIN_STEP` in both axes. A pin whose library position is not a multiple of `GRID` (1 270 000 nm) MUST give `kicad.sch.pin-off-grid` (info) naming the symbol.
@@ -123,14 +124,16 @@
 - **THEN** `R1` has that origin, and the issues hold one `build.symbol-short` error naming both units
 
 ### Requirement: Embedded symbols of a generated sheet
-`fenolite.backends.kicad.symembed.embed_symbol(definition, *, parents, target, pin_numbers=None, allow_lossy=False, issues=None) -> EmbeddedSymbol` SHALL return the definition that a generated sheet embeds for one resolved symbol, as a node built from the definition's slots, and the generator SHALL embed one definition per distinct result.
+`fenolite.backends.kicad.symembed.embed_symbol(definition, *, parents=(), target, pin_numbers=None, allow_lossy=False, issues=None) -> EmbeddedSymbol` SHALL return the definition that a generated sheet embeds for one resolved symbol, as a node built from the definition's slots, and the generator SHALL embed one definition per distinct result. `definition` is the resolved symbol, which holds its own children as slots, and `parents` are the symbols it extends as their library holds them, the nearest first (`LibraryResolver.symbol_chain`). `EmbeddedSymbol` holds `lib_id`, `nickname`, `name`, `node`, `definition` (the node as the schematic reader models it, which `write_schematic` writes back) and `authored`.
 - **Flattened.** A derived symbol MUST take the sub-symbols of its root parent, renamed from `<parent>_<unit>_<style>` to `<name>_<unit>_<style>`, and its own properties over the parent's; the embedded node MUST hold no `extends`.
 - **Pad numbers.** With `pin_numbers` (a `pin_pad_map`), the `number` of each mapped pin MUST be replaced by its pad number, and the name MUST be `symembed.variant_name(name, pin_pad_map)`: `<name>_<first 8 hex digits of the SHA-256 of the sorted pairs>`. Two components with equal maps share one variant.
 - **Hidden power inputs.** A pin of type `power_in` that is hidden MUST be embedded without its `hide`, with one `kicad.sch.power-pin-shown` info per symbol.
 - **Name.** The embedded name MUST be `<nickname>:<name>`, and the sub-symbol names MUST keep the bare name.
-- **Gate.** `versions.check_emittable` MUST run on the node for `target`; an error MUST raise `LossyWriteError`, or with `allow_lossy=True` drop the slot with a warning.
+- **Gate.** `versions.check_emittable` MUST run on the node for `target`; an error MUST raise `LossyWriteError`, or with `allow_lossy=True` remove the node of the token with one `kicad.sch.dropped-too-new` warning.
+- **Empty texts.** A pin name or a property text that the library writes `~` and its reader takes as empty MUST be embedded empty for a target whose sheet format reads `~` as a tilde (10.0), so the pin has no name on both majors.
+- **Authored symbols.** A symbol that the design authors has no slots; its node MUST be the one `sym.write_symbol_library` writes for it.
 - **Power flag.** `symembed.power_flag(target)` MUST return the authored definition `fenolite:PWR_FLAG`: flagged `power`, reference `#FLG`, one pin of type `power_out` numbered `1` at the origin with length 0, `in_bom` and `on_board` false, and a description that says it is authored for Fenolite. It MUST hold no content of any other library.
-- **Project library.** `symembed.write_symbol_library(symbols, *, target) -> str` MUST write a `.kicad_sym` text with the header of the target (`FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]`, generator `fenolite`) holding the same nodes under their bare names, sorted by name. `sym.read_symbol_library` MUST read it back with equal pins.
+- **Project library.** `symembed.write_symbol_library(symbols, *, target) -> str` MUST write a `.kicad_sym` text with the header of the target (`FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]`, generator `fenolite`) holding the same nodes under their bare names, sorted by name. `sym.read_symbol_library` MUST read it back with equal pins. A library whose symbols are all authored by the design and have no pin-pad variant MUST be the text of `sym.write_symbol_library`, whose header version is `FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]` too.
 
 #### Scenario: Derived symbol flattened
 - **WHEN** `Mini:Mini_LED_Red`, which extends `Mini_LED`, is embedded for target 10
