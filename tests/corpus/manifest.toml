@@ -2151,7 +2151,7 @@ sha256 = "e8a87333123e36e6b0260258322bccedac466624ed7f68dfe574db11ca11e4c4"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
 notes = "S-0188; pcbdoc; 10078208 bytes; 2017."
 
 [[file]]
@@ -2162,7 +2162,7 @@ sha256 = "55d15ca572546f1ed6cc36d9d3d6472b2b5f19137ad384d73f6369fec2efad31"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
 notes = "S-0176; pcbdoc; 6730752 bytes; 2023."
 
 [[file]]
@@ -2173,7 +2173,7 @@ sha256 = "567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
 notes = "S-0172; pcbdoc; 2793984 bytes; 2024."
 
 [[file]]
@@ -2184,8 +2184,41 @@ sha256 = "bf32fd189e9850f2e9de397a567ba78934ad62e7b092184a3ad71227d5b8cf39"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
 notes = "S-0199; pcbdoc; 2471424 bytes; 2021."
+
+[[file]]
+id = "altium-third-party-pcbdoc-05"
+url = "https://media.githubusercontent.com/media/sstallion/PCB-PiDP11IOExpander/d97b81645091da8404661b37f75e4872c1788f79/PiDP11IOExpander.PcbDoc"
+ref = "d97b81645091da8404661b37f75e4872c1788f79"
+sha256 = "1ff7234670ec5e20092d23ecf0cd5e7380e842ef7efff2b5cb992f53f84c9c69"
+license = "BSD-2-Clause"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-pcbdoc", "origin:third-party"]
+notes = "S-0174; pcbdoc; 1696256 bytes; 2021."
+
+[[file]]
+id = "altium-third-party-pcbdoc-06"
+url = "https://media.githubusercontent.com/media/pengwon/cobra/1347008d7985d8c3dbecc3d81e4bf4e1ace2c33d/hw/pcb/cobra.PcbDoc"
+ref = "1347008d7985d8c3dbecc3d81e4bf4e1ace2c33d"
+sha256 = "d0913643166660cfdcc5490d63283b12f4ff08b0dbbaa05e409a9cd9196aa9c5"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-pcbdoc", "origin:third-party"]
+notes = "S-0175; pcbdoc; 1421312 bytes; 2025."
+
+[[file]]
+id = "altium-third-party-pcbdoc-07"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM6010_Y-adapter/PCB/DM6010_R2M2E2.PcbDoc"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "62e53020ef96657bc013334446579ed6db6e8d225c50026579af533a0b281f2d"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-pcbdoc", "origin:third-party"]
+notes = "S-0200; pcbdoc; 2900480 bytes; 2021."
 
 [[file]]
 id = "altium-third-party-pcblib-01"
@@ -2195,7 +2228,7 @@ sha256 = "abcfc13aa6f758f0e9ceb5246e128baeae0884786fd05bfc63fb24a08f5ca961"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "cfb", "origin:third-party"]
 notes = "S-0170; pcblib; 99840 bytes; 2016."
 
 [[file]]
@@ -2206,8 +2239,30 @@ sha256 = "f29440e3cc117bf6e555ebf20fe5889608c3ff261a0d9674ae06738bc9d18195"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "cfb", "origin:third-party"]
 notes = "S-0170; pcblib; 119296 bytes; 2019."
+
+[[file]]
+id = "altium-third-party-pcblib-03"
+url = "https://raw.githubusercontent.com/MacRover/altium_libs/c4329659fa3846b887c2ad86a5d0bb3592af5f65/pcb/Radial_10x10mm_SMD.PcbLib"
+ref = "c4329659fa3846b887c2ad86a5d0bb3592af5f65"
+sha256 = "80ef92c6b1b4c1354e9a8406ac6b3b38195412ac8334d852f3dbf1f38aa85cf9"
+license = "GPL-2.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-pcblib", "origin:third-party"]
+notes = "S-0171; pcblib; 103936 bytes; 2022."
+
+[[file]]
+id = "altium-third-party-pcblib-04"
+url = "https://raw.githubusercontent.com/MacRover/altium_libs/c4329659fa3846b887c2ad86a5d0bb3592af5f65/pcb/Power_Pad_TH.PcbLib"
+ref = "c4329659fa3846b887c2ad86a5d0bb3592af5f65"
+sha256 = "2808359f04770d9d90e073f2143efe74a0028c5f3bc9bd2600aaa3262e238e5b"
+license = "GPL-2.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-pcblib", "origin:third-party"]
+notes = "S-0171; pcblib; 105984 bytes; 2022."
 
 [[file]]
 id = "altium-third-party-schdoc-01"

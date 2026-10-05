@@ -27,7 +27,8 @@ from fenolite.verify import HypothesisRow, load_register, parse_level
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
-STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-", "H-A-ECO-")
+STEMS = ("H-A-SCH-", "H-A-SCHBIN-", "H-A-SCHLIB-", "H-A-PRJ-", "H-A-PCB-", "H-A-ECO-", "H-A-RD-PCB-")
+READER_STEM = "H-A-RD-PCB-"
 REGISTERED_BY_C0032 = frozenset(
     {
         "H-A-SCH-OPEN",
@@ -158,6 +159,27 @@ REGISTERED_BY_C0040 = frozenset(
 """The rows of the schematic reader (change c0040), settled by the corpus test, the census and the library
 oracle, not by an author report; their form is that of any register row. ``H-A-RD-SCH-TEXT-2`` succeeds the
 refuted ``H-A-RD-SCH-TEXT``."""
+REGISTERED_BY_C0041 = frozenset(
+    {
+        "H-A-RD-PCB-FRAME",
+        "H-A-RD-PCB-IDENTITY",
+        "H-A-RD-PCB-LENGTHS",
+        "H-A-RD-PCB-KICAD-DOC",
+        "H-A-RD-PCB-KICAD-LIB",
+        "H-A-RD-PCB-PAD",
+        "H-A-RD-PCB-REGION",
+        "H-A-RD-PCB-TEXT",
+        "H-A-RD-PCB-TEXT-2",
+        "H-A-RD-PCB-STACK",
+        "H-A-RD-PCB-RULE",
+        "H-A-RD-PCB-POLYNAME",
+        "H-A-RD-PCB-CODEC",
+    }
+)
+"""The rows of the PCB reader (change c0041), settled by the corpus census or by ``kicad-cli``, never by an
+author report: ``pending (corpus)`` or ``pending (oracle)`` until their test runs, then a corpus, KiCad or
+oracle label."""
+READER_LEVELS = re.compile(r"CORPUS-VERIFIED( \(.+\))?|ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?")
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -195,6 +217,18 @@ def row_problems(rows: Sequence[HypothesisRow]) -> list[str]:
     problems: list[str] = []
     for row in rows:
         if not row.id.startswith(STEMS):
+            continue
+        if row.id.startswith(READER_STEM) and not row.refuted:
+            pending = row.level_text == "INFERRED" and row.result.startswith(
+                ("pending (corpus)", "pending (oracle)")
+            )
+            settled = READER_LEVELS.fullmatch(row.level_text) is not None and not row.result.startswith(
+                "pending"
+            )
+            if not (pending or settled):
+                problems.append(
+                    f"{row.id}: a reader row is pending (corpus or oracle) or has a corpus or oracle label"
+                )
             continue
         if row.id in ORACLE_ROWS:
             pending = row.level_text in ("INFERRED", "UNKNOWN") and row.result.startswith("pending (")
@@ -252,6 +286,9 @@ def test_the_change_registered_its_rows() -> None:
     copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
     assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"}
     assert {i for i in rows if i.startswith("H-A-ECO-")} == REGISTERED_BY_C0048
+    reader = {i for i in rows if i.startswith(READER_STEM)}
+    assert REGISTERED_BY_C0041 <= reader
+    assert all(rows[i].backend == "altium" and not rows[i].test.startswith("kit request") for i in reader)
 
 
 def test_the_reader_registered_its_rows() -> None:
@@ -365,3 +402,14 @@ def test_viewer_report_form() -> None:
 def test_other_tool_fields_refused(tool: str) -> None:
     level = f"ALTIUM-VERIFIED(author-report; {tool}; 2026-10-03; no artefact)"
     assert row_problems([_row("H-A-SCHBIN-CFB", level=level, result="confirmed")]) != []
+
+
+def test_reader_rows() -> None:
+    assert row_problems([_row("H-A-RD-PCB-FRAME", result="pending (corpus)")]) == []
+    assert row_problems([_row("H-A-RD-PCB-KICAD-DOC", result="pending (oracle)")]) == []
+    done = _row("H-A-RD-PCB-FRAME", level="CORPUS-VERIFIED", result="confirmed")
+    assert row_problems([done]) == []
+    oracle = _row("H-A-RD-PCB-PAD", level="ORACLE-VERIFIED(kicad-cli) (10.0.6)", result="confirmed")
+    assert row_problems([oracle]) == []
+    assert row_problems([_row("H-A-RD-PCB-FRAME")]) != []
+    assert row_problems([_row("H-A-RD-PCB-FRAME", level="CORPUS-VERIFIED", result="pending")]) != []

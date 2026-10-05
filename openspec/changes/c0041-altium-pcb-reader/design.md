@@ -367,3 +367,61 @@ offset). The document oracle is the largest unknown: its exclusion list is found
    and excluded by id.
 7. Settled (integration, 2026-10-03): no typed rule kinds here. c0043 passes `RuleRecord.fields` to
    c0042's `map_rules`, which owns the kind table.
+
+## Implementation notes
+
+Recorded while implementing (2026-10-05); each note says what changed against the text above and why.
+
+1. **`H-A-RD-PCB-TEXT` refuted, `H-A-RD-PCB-TEXT-2` registered.** The census found that the document of
+   2017 (`altium-third-party-pcbdoc-01`, a project with a repeated sheet) shows 84 of its 248 designator
+   texts as the logical designator followed by a channel suffix (components whose `SOURCEDESIGNATOR` is
+   shared by 12 or 13 components), and 2 more with another designator. The six other rows agree on every
+   text. The register keeps the refuted row; the spec's census bullet now allows the counted exceptions
+   and the census compares the counts per row with the evidence page.
+2. **Empty wide strings.** The document of 2017 stores its four empty `WideStrings6` entries with the
+   length 2 and no text bytes. The reader follows S-0148 (an entry of length 2 or less is empty and no
+   bytes follow); a fact row records it. The test helper writes empty entries that way.
+3. **Count check after a cut stream.** A storage whose parse stopped early (non-empty `trailing`) is not
+   compared with its `Header` count, so that a cut stream gives one `truncated` error and no second
+   issue (scenario "Lenient and strict").
+4. **Shape-based regions.** `RegionRecord.outline` holds the counted vertices in both forms; the extra
+   vertex the shape-based form stores is `RegionRecord.closing` (scenario "Region with a hole": four
+   outline vertices, five stored).
+5. **Tails.** `PadRecord.tail` is a pair (fifth subrecord after 114, sixth after 596); the other records
+   have one `tail`. A text below 123 bytes has its tail after offset 40, a track below 35 bytes after 33
+   and an arc below 47 bytes after 45.
+6. **Record tuples.** The primitive tuples of `PcbDocument` keep a `RawPrimitive` of their own type in
+   place, so that an index stays a position; a record of another type goes to `others` with the
+   `wrong-type` warning. `PcbDocument.trailing(storage)` gives the bytes after the last whole record.
+7. **Issue codes** are defined in `read.pcbprops` (which `read.pcbprims` imports) and re-exported by
+   `read.pcbprims` as the design names them.
+8. **The container seam.** `read.pcb._open` stays private; `read.pcb.open_container` names the same
+   function for `read.pcblib`, because the strict type check refuses a private name across modules.
+9. **`long_layer_id`** returns `("signal", 32)` for the bottom layer `0x0100FFFF`: the number of the
+   bottom copper layer, not the low 16 bits.
+10. **The stem `H-A-RD-PCB-*`** is a row of the reserved-families table of `docs/hypotheses.md`.
+11. **`tests/corpus/test_altium_pcb_rows.py`** reads the manifest only and is not marked `needs_corpus`,
+    so that it runs without the corpus.
+12. **Document oracle: KiCad's conversion.** KiCad's importer rounds every converted length to 10 nm
+    (S-0163), so its positions differ from `to_nm` by up to 5 nm. The oracle converts the reader's values
+    the same way before the 2 nm comparison (spec delta amended); the difference left is 0 nm on all seven
+    rows, which settles `H-A-UNIT`.
+13. **Document oracle: references.** KiCad names a footprint after the shown designator text, so the
+    references are compared with it (spec delta amended); they differ from `SOURCEDESIGNATOR` only on the
+    row of note 1.
+14. **Document oracle: what KiCad changes.** Pads on paste layers are not imported; component copper
+    regions and net-less component copper fills become unnumbered pads; free pads become footprints of
+    their own; non-plated holes lose their pad number. Each is a fact row of "What KiCad does not import"
+    with its count per row on the evidence page. The oracle also compares the top-layer size of every
+    component pad and the shape and corner ratio of the simple ones (`H-A-RD-PCB-PAD`).
+15. **CI fetch.** The `kicad-10` job fetches the corpus by use and requires it (`FENOLITE_REQUIRE=corpus`);
+    the five new rows carry no `cfb` use, so the job's fetch also passes `--uses altium-pcbdoc --uses
+    altium-pcblib`, and `tests/unit/test_ci_workflow.py` checks it. No task named this; without it the
+    census and the oracles would fail in that job.
+16. **Field labels after the oracles.** The fields the oracles compare (prefix layer, net and component;
+    track ends and width; via position, diameter and hole; pad name, position, top size, round hole,
+    plating, top shape, alternate shape and corner percentage; the designator flag, wide index and shown
+    text) carry `ORACLE-VERIFIED(kicad-cli)`; the region structure fields `CORPUS-VERIFIED`; every other
+    field stays `INFERRED`: the census checks its framing, not its meaning.
+
+**Added at landing (coordinator, 2026-10-05): the CI fetch, shared with c0040 and c0042.** The three reader changes each add corpus uses that the `kicad-10` job must fetch by name. They are now one list, `ALTIUM_READER_USES` in `tests/unit/test_ci_workflow.py` (`altium-pcbdoc`, `altium-pcblib`, `altium-sch`, `altium-schlib`, `altium-text`), checked one by one; the single check this change wrote for its two uses is replaced by that list.

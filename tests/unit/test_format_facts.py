@@ -140,6 +140,7 @@ def test_altium_fact_tables() -> None:
         "pcb-copper.md",
         "pcb-document.md",
         "pcb-library.md",
+        "pcb-read.md",
         "pcb-records.md",
         "project.md",
         "rule-file.md",

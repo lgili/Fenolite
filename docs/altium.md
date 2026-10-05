@@ -699,6 +699,57 @@ and raise `FormatError` with `file`, `locator` and `offset`. Everything else is 
 Evidence: `read.sch.EVIDENCE` is the lowest level of the `H-A-RD-SCH-*` rows of `docs/hypotheses.md`; the
 corpus census and the library oracle are in `docs/evidence/altium-read-schematic.md`.
 
+## Reading PCB files
+
+Change c0041 reads PCB documents and libraries that Altium Designer saved, and every file Fenolite
+writes, into typed records. It reads; it writes nothing and runs no subprocess. Import into the model is
+change c0043.
+
+- `fenolite.backends.altium.read.pcb.read_pcbdoc(source, *, file="", strict=False)` returns a
+  `PcbDocument`; `fenolite.backends.altium.read.pcblib.read_pcblib(source, *, file="", strict=False)` a
+  `PcbLibrary`. `source` is the file's bytes or a `CompoundFile` of `read.cfb`; `read.pcb.detect_pcb`
+  tells `"pcbdoc"`, `"pcblib"` or `None`. Only the binary form is read: other bytes raise `PcbReadError`
+  (a `FormatError`), and a container error of `read.cfb` passes unchanged.
+- **Records.** `read.pcbprims` gives `TrackRecord`, `ArcRecord`, `ViaRecord`, `FillRecord`, `PadRecord`,
+  `TextRecord`, `RegionRecord` (with `RegionVertex`) and `RawPrimitive` (component bodies, and records
+  shorter than the reader's minimum), each with the common `Prefix`. `read.pcbstack.BoardRecord` gives
+  the outline, the numbered layers with `copper_chain`, the physical `stack`, `plane_nets` and
+  `layer_pairs`. `read.pcb` adds `NetRecord`, `ComponentRecord`, `ClassRecord`, `PolygonRecord` and
+  `RuleRecord` (rules stay opaque: every key in `fields`); `read.pcblib` gives `LibFootprint`.
+  `PcbDocument.net_name`, `primitives_of` and `regions_of` join records by index.
+- **Units.** Lengths stay integers of 1/10 000 mil and angles the stored doubles; `pcbprims.to_nm`
+  (half to even, as `fenolite.core.units.u_to_nm`) and `to_nm_exact` convert.
+- **Lossless.** Every record keeps its bytes in `raw`; typed fields are views, the bytes after the known
+  fields are `tail`, and unknown keys keep their order and duplicates. `PcbDocument.rebuild(storage)` and
+  `LibFootprint.rebuild()` join the records' bytes and the trailing bytes into the stream again; every
+  other stream is returned unchanged in `storages`.
+- **Lengths.** A subrecord at or above its minimum is typed whatever its length; the lengths seen in the
+  corpus are listed in `docs/formats/altium/pcb-read.md`.
+
+Problems are `Issue` values whose `where` is `<storage>/<stream>`, then `#<record>` and `@<byte offset>`;
+messages hold no value of the file. `strict=True` raises `PcbReadError` at the first error.
+
+| code | severity | meaning |
+|---|---|---|
+| `altium.pcb-read.truncated` | error | a block or subrecord runs past the end; the rest of the stream is kept as `trailing` |
+| `altium.pcb-read.unknown-type` | error | a type byte that is no primitive type; the stream stops there |
+| `altium.pcb-read.missing-stream` | error | a footprint listed in `Library/Data` has no storage |
+| `altium.pcb-read.bad-stack` | error | the copper chain links to a layer without a name, or loops |
+| `altium.pcb-read.short-record` | warning | a subrecord below the minimum; the record is a `RawPrimitive` |
+| `altium.pcb-read.count-mismatch` | warning | a `Header` count differs from the records read |
+| `altium.pcb-read.bad-index` | warning | records of a storage name a net, component or polygon that does not exist |
+| `altium.pcb-read.wrong-type` | warning | a record of another type in a primitive storage; it is in `others` |
+| `altium.pcb-read.bad-frame` | warning | a name list, `SectionKeys` or wide-string table does not parse |
+| `altium.pcb-read.bad-value` | warning | a typed key whose text does not parse; the view is `None` |
+| `altium.pcb-read.unlisted-footprint` | info | a footprint storage that `Library/Data` does not list; it is read too |
+
+Evidence: the framing, the identity of every typed stream, the lengths, regions, wide strings, rule
+framing and text encoding are `CORPUS-VERIFIED` on eleven public files saved between 2016 and 2025
+(`docs/evidence/altium-pcb-read.md`); nets, footprints, pads, vias, copper tracks and the copper chain
+are `ORACLE-VERIFIED(kicad-cli)` against `kicad-cli pcb import` and `fp upgrade` 10.0.6. Each typed
+field has its own level in `read.pcbprims.FIELD_LEVELS`, the label of its row of the fact page;
+`PcbDocument.evidence` and `PcbLibrary.evidence` are `CORPUS-VERIFIED`.
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a
@@ -721,5 +772,5 @@ no deeper levels, no routed wires between sheet symbols, no port directions, no 
 no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
 split planes, no blind, buried or micro vias and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII only. The v0.3 reader currently reads the MS-CFB container; schematic, PCB and Altium library
-records are interpreted by later changes.
+ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
+schematic and other Altium records are interpreted by later changes.

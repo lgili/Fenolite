@@ -353,12 +353,12 @@ Every typed field SHALL have an evidence level that equals its row of the fact p
 - **THEN** every test is skipped with the message `run: uv run python tools/corpus_fetch.py`
 
 ### Requirement: Corpus census and identity
-`tests/corpus/test_altium_pcb_census.py` SHALL read every corpus row with the product reader and check what holds for all of them (`H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-REGION`, `H-A-RD-PCB-TEXT`, `H-A-RD-PCB-RULE`, `H-A-RD-PCB-POLYNAME`, `H-A-RD-PCB-CODEC`).
+`tests/corpus/test_altium_pcb_census.py` SHALL read every corpus row with the product reader and check what holds for all of them (`H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-REGION`, `H-A-RD-PCB-TEXT-2`, `H-A-RD-PCB-RULE`, `H-A-RD-PCB-POLYNAME`, `H-A-RD-PCB-CODEC`).
 - Every row MUST be read with no issue of severity error and no `short-record` warning.
 - Every typed storage MUST rebuild to its stream, with empty `trailing`.
 - Every subrecord length MUST be in the list of "Record length tolerance"; a new length fails the test with the kind and the length, so that the list is extended on purpose.
 - Every region MUST have an empty tail, and `Regions6` and `ShapeBasedRegions6` MUST hold the same number of records.
-- Every text with `is_designator` MUST have a `text` equal to its component's `source_designator`.
+- Every text with `is_designator` MUST have a `text` equal to its component's `source_designator`, except on the rows that `docs/evidence/altium-pcb-read.md` lists with their counts: a component of a repeated sheet (its `source_designator` shared by several components) shows it followed by a channel suffix, and a designator can be changed on the board alone. The counts per row MUST equal the recorded ones.
 - Every rule's kind number MUST map to one `RULEKIND` text over the whole corpus.
 - Every non-empty polygon `name` MUST decode to printable text, and the numbers of non-ASCII bytes and of `%UTF8%` keys MUST be counted per row.
 - The test MUST write nothing but counts and lengths to its output. `docs/evidence/altium-pcb-read.md` MUST record, per row id, the record counts per storage and the lengths seen.
@@ -376,8 +376,8 @@ Every typed field SHALL have an evidence level that equals its row of the fact p
 ### Requirement: PCB document import oracle
 `tests/kicad/altium/test_pcbdoc_read_oracle.py` SHALL compare the product reader with `kicad-cli pcb import --format altium` on each `altium-pcbdoc` row (S-0020, S-0161, S-0166; `H-A-RD-PCB-KICAD-DOC`, `H-A-UNIT`). The test is marked `needs_kicad`, `needs_corpus` and `kicad_min_major(10)`.
 - `kicad-cli` MUST exit 0. Its board is read with `fenolite.backends.kicad.pcb.read_board`.
-- Positions are compared after the one translation that maps the reader's first pad onto KiCad's, with Y negated; the tolerance is 2 nm per coordinate.
-- The comparison MUST cover: the set of net names; the number of footprints and the multiset of their references against `source_designator`; per footprint the pad count, pad names, pad positions, pad nets and hole sizes; the vias with position, diameter, hole and net; the tracks on copper layers that carry a net, with ends, width, layer position in the copper chain and net; the number of copper layers against the length of `copper_chain`; and the number of zones against the polygons KiCad converts.
+- Positions are compared after the one translation that maps the reader's first pad onto KiCad's, with Y negated, and after KiCad's own length conversion (units · 2.54 rounded to the nanometre, then to 10 nm, as `pcb-read.md` states); the tolerance is 2 nm per coordinate.
+- The comparison MUST cover: the set of net names; the number of footprints and the multiset of their references against the shown string of each component's designator text (`source_designator` when it has none); per footprint the pad count, pad names, pad positions, pad nets and hole sizes; the vias with position, diameter, hole and net; the tracks on copper layers that carry a net, with ends, width, layer position in the copper chain and net; the number of copper layers against the length of `copper_chain`; and the number of zones against the polygons KiCad converts.
 - A reader record that KiCad does not return MUST belong to a documented exclusion of `docs/formats/altium/pcb-read.md` ("What KiCad does not import"), each with its count per row in the evidence page. An item of KiCad's board without a reader record fails the test.
 - A row on which `kicad-cli` fails MUST be listed in the evidence page with its exit code, and is excluded by its row id in the test.
 - The largest position difference found MUST be recorded in the `H-A-UNIT` row.

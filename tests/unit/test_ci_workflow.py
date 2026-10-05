@@ -34,6 +34,8 @@ def pytest_steps(job: str) -> list[str]:
 
 
 ALTIUM_READER_USES = (
+    ("altium-pcbdoc", "the Altium PCB document rows of the PCB reader"),
+    ("altium-pcblib", "the Altium PCB library rows of the PCB reader"),
     ("altium-sch", "the Altium schematic rows of the schematic reader"),
     ("altium-schlib", "the Altium schematic library rows of the schematic reader"),
     ("altium-text", "the Altium text rows of the project reader"),
