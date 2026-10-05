@@ -1,3 +1,5 @@
 # Commits that the DCO check skips: one full hash per line, then the reason.
 # A commit already on the main branch cannot gain a trailer; each entry is the maintainer's decision.
 19b74bbb358754cfa53a43084134aba67e9564e3 squash merge of pull request 2 (c0016) made with the GitHub button, which wrote no trailer; the author is the maintainer; confirmed by the maintainer on 2026-10-05
+285e67a0d2d89780157348a0ed33a3ac054b0851 squash merge of pull request 3 (c0039) made with the GitHub button, which wrote no trailer; confirmed by the maintainer on 2026-10-05
+ee69a76abc1e5fcde83183b73926ce627c300f54 archive commit of c0039 written without the trailer; confirmed by the maintainer on 2026-10-05

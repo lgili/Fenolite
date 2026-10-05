@@ -108,7 +108,7 @@ def test_exceptions_file() -> None:
     finally:
         sys.path.pop(0)
     listed = dco_check.exceptions()
-    assert all(len(commit) == 40 for commit in listed) and len(listed) <= 1
+    assert all(len(commit) == 40 for commit in listed) and len(listed) <= 3
     bad = TOOL.parent / "dco_exceptions.txt"
     lines = [line for line in bad.read_text(encoding="utf-8").splitlines() if line and line[0] != "#"]
     assert all(len(line.split(" ", 1)) == 2 and line.split(" ", 1)[1].strip() for line in lines)
