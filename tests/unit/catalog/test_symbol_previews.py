@@ -22,23 +22,23 @@ def test_new_20_and_complete_49_gallery_reproduce_definitions() -> None:
     names = tuple(e.lib_id.removeprefix("Fenolite:") for e in list_entries(kind="symbol"))
     assert len(names) == 49
     folder = Path("docs/catalog/previews")
-    text = (folder / "c0076-all-49-symbols.svg").read_text()
+    text = (folder / "c0076-all-49-symbols.svg").read_text(encoding="utf-8")
     assert text == render(names) and _titles(text) == list(names)
     for index in range(3):
         subset = names[index * 20 : (index + 1) * 20]
-        text = (folder / f"c0076-all-49-symbols-page{index + 1}.svg").read_text()
+        text = (folder / f"c0076-all-49-symbols-page{index + 1}.svg").read_text(encoding="utf-8")
         assert text == render(subset) and _titles(text) == list(subset)
-    inventory = Path("docs/catalog/target-20-symbols.md").read_text()
+    inventory = Path("docs/catalog/target-20-symbols.md").read_text(encoding="utf-8")
     new_names = tuple(
         line.split("`")[1]
         for line in inventory.splitlines()
         if line.startswith("| ") and line.split("|")[1].strip().isdigit()
     )
     assert len(new_names) == 20
-    assert (folder / "c0076-new-20-symbols.svg").read_text() == render(new_names)
+    assert (folder / "c0076-new-20-symbols.svg").read_text(encoding="utf-8") == render(new_names)
     for index in range(2):
         subset = new_names[index * 10 : (index + 1) * 10]
-        text = (folder / f"c0076-new-20-symbols-page{index + 1}.svg").read_text()
+        text = (folder / f"c0076-new-20-symbols-page{index + 1}.svg").read_text(encoding="utf-8")
         assert text == render(subset) and _titles(text) == list(subset)
 
 
