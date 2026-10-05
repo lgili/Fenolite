@@ -7,12 +7,13 @@
   - `sch-root`: a project file of the same stem exists beside it at the same tag;
   - `sch-bus`: the file holds a `bus`, `bus_entry` or `bus_alias` child, or a label whose text is a bus (a vector `NAME[m..n]` or a group in braces);
   - `sch-multi`: the file holds a symbol with more than one use under one project, or more than one sheet reference of its project names it;
-  - `sch-old`: its format version is below `READ_FLOOR[FileKind.SCHEMATIC]`.
+  - `sch-old`: its format version is below `READ_FLOOR[FileKind.SCHEMATIC]`;
+  - `sch-9`: the file is in the demos at tag 9.0.9.1 (every row of that tag, and every row of tag 10.0.6 that is identical there). This tag is not recomputed from the file: it follows from the two tree listings (S-0024).
 - **Licence.** Every row MUST set `license`, `license_variant` and `embeddable = false` as "KiCad demo and third-party board rows" requires, and a demo folder whose licence carries a non-commercial clause MUST NOT be listed.
 - **Census.** `tests/corpus/test_schematic_census.py` (marker `needs_corpus`) MUST recompute the four content tags of every `sch` row from the cached files and MUST fail naming the row id when a tag is missing or wrong. It MUST write, through `tests/_boards.py::census`, the number of rows per tag, per format version and per origin, the root heads with their counts, and the number of rows that carry none of `sch-bus`, `sch-multi` and `sch-old`; the numbers are copied into `docs/evidence/kicad-schematic.md`.
 - **Acceptance list.** The rows that carry `sch` and none of `sch-bus`, `sch-multi` and `sch-old` are the "schematics without bus and without multi-instance" of the project plan's v0.2a acceptance; no second list is kept.
 - **Round trips.** `tests/corpus/test_schematic_rt.py` (marker `needs_corpus`) MUST run RT0 (`tree_equal(parse(dumps(parse(t))), parse(t))`) and RT1 (`sch.roundtrip_schematic`) on every demo row without `sch-old`, bus or not, and MUST record `opaque_count` per row. A row with `sch-old` MUST be counted as not read, with its format version.
-- **Fetch.** The `kicad-10` and `kicad-9` jobs fetch `sch` rows through their existing `--uses rt0` selection; the `kicad-9` job needs only the rows of tag 9.0.9.1.
+- **Fetch.** The `kicad-10` job fetches the `sch` rows through its existing `--uses rt0` selection. The `kicad-9` job fetches only `--uses rt2-9` (`ci-baseline`, "KiCad 9.0 oracle job") and therefore no schematic row; `tools/corpus_fetch.py --uses sch-9` fetches the rows a run in the pinned 9.0.9 image needs.
 
 #### Scenario: Tags recomputed
 - **GIVEN** the `sch` rows cached, and a manifest in which one row with bus entries lacks `sch-bus`

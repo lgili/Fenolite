@@ -179,9 +179,10 @@ def _hidden(node: Node) -> bool:
 
 
 class _Reader:
-    def __init__(self, ctx: Context, library: str) -> None:
+    def __init__(self, ctx: Context, library: str, chain: tuple[str, ...] = _CHAIN) -> None:
         self.ctx = ctx
         self.library = library
+        self.chain = chain
         self.tilde = ctx.version < TILDE_UNTIL
 
     def text(self, value: str) -> str:
@@ -292,14 +293,20 @@ class _Reader:
         )
         return SymbolGraphic(kind, points, width, fill_type in ("background", "outline"))  # type: ignore[arg-type]
 
-    def symbol(self, node: Node, loc: str) -> SymbolDef:
+    def symbol(
+        self, node: Node, loc: str, *, name: str | None = None, native: str | None = None
+    ) -> SymbolDef:
+        """One symbol node; ``name`` and ``native`` replace what the node's own name gives (a symbol
+        embedded in a schematic is named ``<library>:<name>`` and its sub-symbols ``<name>_<u>_<s>``)."""
         ctx = self.ctx
         atoms = leading_atoms(node)
         if not atoms:
             raise ctx.error("symbol has no name", loc, node)
-        name = atoms[0].value
-        native = f"{self.library}:{name}" if self.library else name
-        slots: list[Slot] = ctx.split(node, dict(SYMBOL_FIELDS), _CHAIN, ("name",))
+        if name is None:
+            name = atoms[0].value
+        if native is None:
+            native = f"{self.library}:{name}" if self.library else name
+        slots: list[Slot] = ctx.split(node, dict(SYMBOL_FIELDS), self.chain, ("name",))
         fields: dict[str, object] = {}
         properties: dict[str, str] = {}
         units: list[SymbolUnit] = []
@@ -367,8 +374,23 @@ class _Reader:
         )
 
     def opaque(self, slots: list[Slot], index: int, child: Node, loc: str, why: str) -> None:
-        slots[index] = self.ctx.opaque(child, _CHAIN)
+        slots[index] = self.ctx.opaque(child, self.chain)
         self.ctx.kept_opaque(why, loc)
+
+
+def symbol_from(
+    node: Node,
+    *,
+    library: str,
+    name: str,
+    native: str,
+    ctx: Context,
+    locator: str = "/symbol[0]",
+    chain: tuple[str, ...] = _CHAIN,
+) -> SymbolDef:
+    """The symbol reader on one node, for a symbol that is not a child of a library root (a symbol
+    embedded in a schematic): the caller names the library, the symbol and the native id."""
+    return _Reader(ctx, library, chain).symbol(node, locator, name=name, native=native)
 
 
 def _read_file(source: Source, library: str, file: str, issues: list[Issue]) -> tuple[SymbolDef, ...]:
@@ -464,4 +486,5 @@ __all__ = [
     "read_symbol_library",
     "resolve_extends",
     "split_unit_name",
+    "symbol_from",
 ]

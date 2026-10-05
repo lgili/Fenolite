@@ -7,7 +7,7 @@
 
 [[example]]
 id = "positive-baseline"
-kinds = ["kicad_pcb", "kicad_mod", "kicad_wks", "kicad_dru"]
+kinds = ["kicad_pcb", "kicad_mod", "kicad_wks", "kicad_dru", "kicad_sch", "kicad_sym"]
 expect = { "9" = "load", "10" = "load" }
 note = "the skeleton alone (for rules, the canary alone); run once per header used"
 
@@ -677,3 +677,37 @@ kinds = ["kicad_dru"]
 host = "kicad_dru"
 mode = "append"
 fragment = """(rule drift (constraint disallow blind_via) (condition "A.NetName == 'fenolite_none'"))"""
+
+# ------------------------------------------------------------------------------------- schematics and symbol libraries (c0060)
+
+[[example]]
+id = "negative-unknown-sch-top"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-sch-symbol"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-sym-top"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }
+
+[[example]]
+id = "negative-unknown-sym-symbol"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = "(fenolite_frobnicate 1)"
+expect = { "9" = "reject", "10" = "reject" }

@@ -16,6 +16,7 @@ from _resources import posix_tools
 
 from fenolite.backends.kicad.cli import (
     DRC_REPORT,
+    NETLIST,
     KicadCli,
     KicadCliError,
     KicadCliVersionError,
@@ -68,6 +69,13 @@ elif mode == "list":
     open("out.svg", "w").write("<svg/>")
 elif mode == "stats":
     open(args[args.index("-o") + 1], "w").write(json.dumps({"components": {"total": {"total": 3}}}))
+elif mode == "netlist":
+    sheet = args[-1]
+    open(sheet.rsplit(".", 1)[0] + ".kicad_prl", "w").write("{}")
+    open(args[args.index("-o") + 1], "w").write(
+        '(export (version "E") (components (comp (ref "R1") (value "330") (footprint "L:F"))'
+        ' (comp (ref "U1") (value "IC"))))'
+    )
 """
 
 
@@ -333,3 +341,62 @@ def test_drc_env_entries(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatc
     assert seen["KICAD_CONFIG_HOME"] == "/probe/config" and seen["FENOLITE_PROBE_LIBS"] == "/probe/libs"
     assert "KICAD10_FOOTPRINT_DIR" not in seen and seen["LANG"] == "C"
     assert probed.report is not None and len(probed.report.violations) == 1
+
+
+# -- schematics (change c0060: "Schematic components agree with kicad-cli", "Third-party schematics …")
+
+FLAT = Path(__file__).resolve().parents[3] / "data" / "kicad" / "schematic" / "flat.kicad_sch"
+
+
+def _folder_state(folder: Path) -> dict[str, str]:
+    return {
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(folder.iterdir()) if p.is_file()
+    }
+
+
+def test_export_netlist_runs_on_copies(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import _netlist
+
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("FAKE_MODE", "netlist")
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    before = _folder_state(FLAT.parent)
+    run = KicadCli(fake).export_netlist(FLAT)
+    assert run.ok and _folder_state(FLAT.parent) == before
+    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    command = next(c for c in calls if c[:1] == ["sch"])
+    assert command[:5] == ["sch", "export", "netlist", "--format", "kicadsexpr"]
+    assert command[-1] == "flat.kicad_sch" and command[command.index("-o") + 1] == NETLIST
+    found = _netlist.components(run.outputs[NETLIST].decode("utf-8"))
+    assert found == {("R1", "330", "L:F"), ("U1", "IC", "")}
+
+
+def test_export_netlist_does_not_raise_for_a_failed_load(fake: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "fail")
+    run = KicadCli(fake).export_netlist(FLAT)
+    assert not run.ok and run.returncode == 3 and NETLIST not in run.outputs
+
+
+def test_upgrade_schematic(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("FAKE_MODE", "inplace")
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    before = _folder_state(FLAT.parent)
+    assert KicadCli(fake).upgrade_schematic(FLAT).endswith(b"(rewritten)")
+    assert _folder_state(FLAT.parent) == before
+    calls = [json.loads(line) for line in log.read_text().splitlines()]
+    assert ["sch", "upgrade", "--force", "flat.kicad_sch"] in calls
+
+
+def test_upgrade_schematic_refused_on_kicad_9(fake: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_VERSION", "9.0.9")
+    with pytest.raises(KicadCliVersionError):
+        KicadCli(fake).upgrade_schematic(FLAT)
+
+
+def test_netlist_helper_refuses_other_roots() -> None:
+    import _netlist
+
+    with pytest.raises(ValueError, match="kicad_sch"):
+        _netlist.components("(kicad_sch (version 1))")
+    assert _netlist.components('(export (version "E"))') == set()

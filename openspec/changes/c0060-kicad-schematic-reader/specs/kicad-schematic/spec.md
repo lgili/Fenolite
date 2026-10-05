@@ -143,7 +143,7 @@ The reader SHALL record the slot list of the sheet root in `SchematicSheet.ext["
 - **THEN** the `property "Value"` child of `R1` is an `Opaque` slot of that instance, and `R1.value == "330"`
 
 #### Scenario: Older spelling kept
-- **GIVEN** a copy of `flat_v9.kicad_sch`, built in the test, whose `R1` holds `(convert 1)` in place of `(body_style 1)` and whose header is `20231120`
+- **GIVEN** a copy of `flat_v9.kicad_sch`, built in the test, whose `R1` holds `(convert 1)` after its `unit` child and whose header is `20231120`
 - **WHEN** it is read with an `issues` list
 - **THEN** `R1.body_style == 1`, that child is an `Opaque` slot with fragment `(convert 1)`, and `issues` holds one info `kicad.sch.kept-opaque`
 
@@ -287,8 +287,31 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **WHEN** it is called on the flat sheet with `on_board_only=True`
 - **THEN** `R3` is not in the result
 
+### Requirement: Components of a hierarchy
+`sch.hierarchy_components(root_file, *, on_board_only=False) -> tuple[SchComponent, ...]` SHALL list one `SchComponent` per reference of the hierarchy under `root_file`, resolved by instance path as `kicad-cli` resolves it, sorted by reference.
+- The root sheet has the instance path `/<root uuid>`; a sheet reference with uuid `U` gives the file it names the path `<parent path>/U`, once per reference, so a file that is referenced twice is counted twice.
+- A symbol MUST take the reference and unit of its use whose `path` is the path of its sheet: the use of the project named after the root file's stem when several projects hold that path, else the first one in file order. A symbol with no use for that path MUST take the text of its `Reference` property and its own `unit`.
+- The rules of "Components of a project" apply to the result: references that start with `#` are left out, the lowest unit gives value and footprint, and `on_board_only=True` leaves out instances with `on_board == False`.
+- Property texts MUST be given as written: a text variable is not resolved, and a lone `~` is not turned into an empty text.
+- Files outside the root file's folder tree, missing files and references that close a cycle MUST NOT be followed; `sheet_files` reports them.
+- The function MUST NOT derive nets.
+
+#### Scenario: Authored hierarchies
+- **WHEN** it is called on `hier/top.kicad_sch` and on `multi/top.kicad_sch`
+- **THEN** each result is `R1` and `R2`, and for the flat sheet the result equals `sch.components((sheet,), project="flat")`
+
+#### Scenario: Instance data filed under another project
+- **GIVEN** copies of `multi/top.kicad_sch` and `multi/cell.kicad_sch` whose `instances` name the project `another`
+- **WHEN** it is called on the copy of the root
+- **THEN** it returns `R1` and `R2`, and `sch.components(…, project="top")` returns nothing
+
+#### Scenario: Symbol without a use
+- **GIVEN** a copy of `flat.kicad_sch` whose `R1` has no `instances` child
+- **WHEN** it is called
+- **THEN** `R1` is in the result, named by its `Reference` property
+
 ### Requirement: Schematic reading evidence
-`sch.EVIDENCE` SHALL be `Evidence(Level.INFERRED, hypotheses=("H-K-SCH-READ",))` until `H-K-SCH-COMPONENTS` is `KICAD-VERIFIED (9.0.x, 10.0.x)` in `docs/hypotheses.md`, and `KICAD-VERIFIED` with both hypotheses afterwards. A round-trip claim over the corpus MUST carry `CORPUS-VERIFIED` only while `H-K-SCH-RT1` holds on two origins.
+`sch.EVIDENCE` SHALL name `H-K-SCH-READ` and the components hypothesis that holds in `docs/hypotheses.md` (`H-K-SCH-COMPONENTS`, or its successor `H-K-SCH-COMPONENTS-2` when the first is refuted), and its level SHALL be the lowest level of the rows it names: `INFERRED` until both hold, and `CORPUS-VERIFIED` when the reading holds over two corpus origins and the components hypothesis is `KICAD-VERIFIED (9.0.x, 10.0.x)`. A round-trip claim over the corpus MUST carry `CORPUS-VERIFIED` only while `H-K-SCH-RT1` holds on two origins.
 
 #### Scenario: Level follows the register
 - **WHEN** `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py` runs
@@ -306,10 +329,11 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **THEN** it passes, and `docs/evidence/kicad-schematic.md` holds row ids, counts and head names only
 
 ### Requirement: Authored schematic fixtures
-`tests/data/kicad/schematic/` SHALL hold authored CC0 schematics written for the Mini library, each declared `origin = "authored"` in `tests/data/MANIFEST.toml`: `flat.kicad_sch` (`20260306`) and `flat_v9.kicad_sch` (`20250114`), `units.kicad_sch` and `units_v9.kicad_sch`, `hier/top.kicad_sch` with `hier/child.kicad_sch`, `multi/top.kicad_sch` with `multi/cell.kicad_sch`, and `bus.kicad_sch`.
+`tests/data/kicad/schematic/` SHALL hold authored CC0 schematics written for the Mini library, each declared `origin = "authored"` in `tests/data/MANIFEST.toml`: `flat.kicad_sch` (`20260306`) and `flat_v9.kicad_sch` (`20250114`), `units.kicad_sch` and `units_v9.kicad_sch`, `hier/top.kicad_sch` with `hier/child.kicad_sch` and their `20250114` copies under `hier_v9/`, `multi/top.kicad_sch` with `multi/cell.kicad_sch`, and `bus.kicad_sch`.
 - The flat sheets MUST hold a resistor, an LED, the 32-pin IC, the power symbol, global labels, one local label on a wire with a junction, no-connect flags, one text, one symbol with `(dnp yes)` and one with `(on_board no)`.
 - `Mini_DualGate` MUST be authored for `tests/data/libs/Mini_v9.kicad_sym`, so the units sheet exists in both formats.
-- Their generator MUST NOT be `eeschema` (S-0320).
+- The `20250114` fixtures MUST NOT hold a `body_style` child in a symbol instance: `kicad-cli` 9.0.9 refuses it there and reads `convert` (S-0020).
+- Their generator MUST NOT be `eeschema` (S-0367).
 - `kicad-cli` of the file's major MUST load each of them (`kicad-oracle`, "Schematic components agree with kicad-cli").
 
 #### Scenario: Fixtures declared

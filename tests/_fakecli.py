@@ -70,6 +70,17 @@ if args[:2] == ["pcb", "upgrade"]:
     board = args[-1]
     text = open(board, encoding="utf-8").read()
     open(board, "w", encoding="utf-8", newline="").write(text)
+if args[:2] == ["sch", "upgrade"]:
+    sheet = args[-1]
+    text = open(sheet, encoding="utf-8").read()
+    open(sheet, "w", encoding="utf-8", newline="").write(text)
+    sys.exit(0)
+if args[:3] == ["sch", "export", "netlist"]:
+    if config["netlist"] is None:
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["netlist"])
+    sys.exit(0)
 kind = None
 if args[:2] == ["pcb", "export"] and len(args) > 2:
     kind = args[2]
@@ -155,6 +166,7 @@ def fake_kicad_cli(
     rewrite_input: bool = False,
     sleep: float = 0.0,
     ipcd356: str | None = None,
+    netlist: str | None = None,
     upgrade: Literal["copy", "fail"] = "copy",
     log: Path | None = None,
     drc_sequence: Sequence[str] = (),
@@ -178,6 +190,7 @@ def fake_kicad_cli(
         "rewrite_input": rewrite_input,
         "sleep": sleep,
         "ipcd356": ipcd356,
+        "netlist": netlist,
         "upgrade": upgrade,
         "log": str(log) if log is not None else "",
         "drc_sequence": list(drc_sequence),

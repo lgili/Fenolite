@@ -291,8 +291,8 @@ sha256 = "4344cf98eac9e48262bc6092add7c0dffe27b560627d0658e5129250e7226e9e"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "origin:kicad-demos"]
-notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 58053 bytes."
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 58053 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
 
 [[file]]
 id = "kicad-demo-10-0-6-sym-01"
@@ -2674,3 +2674,1449 @@ license_variant = ""
 embeddable = false
 uses = ["altium", "origin:third-party", "altium-sch", "altium-sheet"]
 notes = "S-0265; schdot; 111104 bytes; 2021."
+# --- change c0060: demo schematics at tags 10.0.6 and 9.0.9.1 (S-0024, S-0026, S-0058) and two third-party
+# schematics (S-0027, S-0028). Uses: `sch`, plus `sch-root` (a project file of its stem is beside it),
+# `sch-bus` (bus items or a bus label), `sch-multi` (a multi-instance symbol, or a file its project
+# references more than once), `sch-old` (older than the read floor) and `sch-9` (the file is in the
+# demos at tag 9.0.9.1). The tags are recomputed by tests/corpus/test_schematic_census.py.
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-002"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5.kicad_sch"
+ref = "10.0.6"
+sha256 = "adf319d48ed84d685e3660995650cf30a7998b05930c51655fb759c5945bce4f"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 189243 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-003"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/CM5_MINIMA_3.kicad_sch"
+ref = "10.0.6"
+sha256 = "b40a486994138c07a45d20e08e6f42405e4b99a88e82a3d55f23704ca9ddc0e7"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 187616 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-004"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/DSI_CSI.kicad_sch"
+ref = "10.0.6"
+sha256 = "87c70624b7ef5d5e920cf3fb961bcbdf84d7a9e209fbfbee7240251b7cd26cd6"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 35247 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-005"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/Ethernet.kicad_sch"
+ref = "10.0.6"
+sha256 = "c9558c21e63bda58d6893943c54ebbe9372d37373449cfab5c546f20db19293c"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 60068 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-006"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/HDMI.kicad_sch"
+ref = "10.0.6"
+sha256 = "57adc114d891f568263b153a0b72bb0c3c99dcec0d1d40f7d2ca991038561afd"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 67592 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-007"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/IO.kicad_sch"
+ref = "10.0.6"
+sha256 = "745b39eb73b97ae3d655921ac36fd38a5622b1b62de9eee23f2a2f8720074e0e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 118901 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-008"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/PCIe-M2.kicad_sch"
+ref = "10.0.6"
+sha256 = "62c448d1135746caba304569459e0a39ab4851b29b1eeef57859e2315b816ca3"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 140477 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-009"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/cm5_minima/USB.kicad_sch"
+ref = "10.0.6"
+sha256 = "16cacf7bd02b47c8247e5d62c855d8ba76d9e7f97bb58508118f57bfc50d199e"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-S-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 71209 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-010"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/complex_hierarchy/ampli_ht.kicad_sch"
+ref = "10.0.6"
+sha256 = "ef6f503f39f79a94ad6550268565d7418dde96b296f5f2971c97383603da18a3"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 97798 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-011"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/ecc83-pp.kicad_sch"
+ref = "10.0.6"
+sha256 = "8a2d0359a0f3e647378034d84ab72b09dd7aa42f8b1f5e7fa0ff28ae369beee9"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 55220 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-012"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/ecc83/ecc83-pp_v2.kicad_sch"
+ref = "10.0.6"
+sha256 = "80576c542e9ce473538c30ed24b7cd7e9152fe7922ebdb518928aa815b858ff1"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 54994 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-013"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/interf_u/interf_u.kicad_sch"
+ref = "10.0.6"
+sha256 = "b3b8c3b199382f414e4b4b6661978f9b72e0879a99453cdfbbb6dd366c5a5a13"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 367007 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-014"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/csi.kicad_sch"
+ref = "10.0.6"
+sha256 = "88c30801ce6ca909f356bad9d56ea9fdc4e28b8a0de64caf4d066fc6491244e5"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 638320 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-015"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/dcdc.kicad_sch"
+ref = "10.0.6"
+sha256 = "fee1d255a97df42a699818deece36980f6d8bb2f0f1bf48fe799e6652d92067f"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1288331 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-016"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/expansion_connector.kicad_sch"
+ref = "10.0.6"
+sha256 = "127c4cf2fe5f48ee5d2db4c1ad94fbe2f55f30aa9a53ab4b12704fb205e6b6bc"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1015701 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-017"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/jetson-agx-thor-baseboard.kicad_sch"
+ref = "10.0.6"
+sha256 = "bd943f5c309046e09a1c99e443e1ce23a0c922291371ca60839412694351340b"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 261547 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-018"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/level_shifter_x8.kicad_sch"
+ref = "10.0.6"
+sha256 = "05e24208b02c0761d9ed48171ce765d8e91430735a58349e31f7aa45a1d01346"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 236499 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-019"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/m2.kicad_sch"
+ref = "10.0.6"
+sha256 = "14e3b338feb6bac2bdf958c406ee6de7ed3e4629ded0d968b6eed6cab05a6d1a"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 498685 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-020"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/peripherals.kicad_sch"
+ref = "10.0.6"
+sha256 = "ebd17d39c52477297d055c74779497dab11ae6e51458b10030f4deb61794136f"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 630747 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-021"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/power.kicad_sch"
+ref = "10.0.6"
+sha256 = "ef8f96b6faffbbae1407e8f05056aa8f98b061b2d0a15ec1e1698bc189d5f600"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 596625 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-022"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/recovery_usb.kicad_sch"
+ref = "10.0.6"
+sha256 = "4e280e053b1d8ba0ee2a3191248a9bd7c46d9bf2f5d737361a23402954c98b27"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 488470 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-023"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/sfp.kicad_sch"
+ref = "10.0.6"
+sha256 = "8a6998aad647a2ae2e67fa2bffd62347a71683c3df41f731f5e68dee857d5323"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 376723 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-024"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/som_io.kicad_sch"
+ref = "10.0.6"
+sha256 = "d48a025c9e213a7ff601731ce0e96526b454ef9161dbfc07f66ba65cee0d7559"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 864680 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-025"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/som_io2.kicad_sch"
+ref = "10.0.6"
+sha256 = "3df968fe0dc304073b1b9425256e2c4967c930ac0956242ae5a4a01f85c09e16"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1123377 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-026"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/som_power.kicad_sch"
+ref = "10.0.6"
+sha256 = "adbc3997093bc617abfe23e03d06f8085ce9662636f039a42e808513a46a33d3"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 953262 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-027"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/usb.kicad_sch"
+ref = "10.0.6"
+sha256 = "940cb06421de5eaea77a6d54f2778f8c1d05024c478e5f04f487958e14b28a1e"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 752466 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-028"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/usb_debug_pd.kicad_sch"
+ref = "10.0.6"
+sha256 = "60d94bc61e32de2c8b0dbd759ba8cf21c9db24d1063e7b8fee61076d2a3cf3fc"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 759611 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-029"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/usb_dp.kicad_sch"
+ref = "10.0.6"
+sha256 = "dedbbbe2842256c3b84153e7ae147beeb6b5741bc412b377cac96addbd8a7ce8"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 597008 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-030"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/jetson-agx-thor-baseboard/usb_hub.kicad_sch"
+ref = "10.0.6"
+sha256 = "309f447586550989959917e18ffae8207a36be8505f648f404190881359d865e"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 892603 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-031"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/kit-dev-coldfire-xilinx_5213/in_out_conn.kicad_sch"
+ref = "10.0.6"
+sha256 = "b406e5f8d1903f7d094c1109020a1912a1473c08ffbc0c64640742850f7f7809"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 319467 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-032"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/kit-dev-coldfire-xilinx_5213/kit-dev-coldfire-xilinx_5213.kicad_sch"
+ref = "10.0.6"
+sha256 = "a1109092165ecec0d677142294330258c8990247e804f260d7682fda82602214"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 315012 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-033"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/kit-dev-coldfire-xilinx_5213/xilinx.kicad_sch"
+ref = "10.0.6"
+sha256 = "3750dc3866cce42d96220c39dde5c7c88589207810487581047a71d541b1fb5b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 168265 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-034"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/multichannel/channel_strip.kicad_sch"
+ref = "10.0.6"
+sha256 = "2c98b5d37f5b60c9187474017d7b754e8b4a1d45f4115dcbecf1a745ab175e0e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 270893 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-035"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/multichannel/multichannel_mixer.kicad_sch"
+ref = "10.0.6"
+sha256 = "e47aecee9416d51fb5aed36d008a0442d3d6d68abfc5224bcdb5c5bb4a690fcf"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 170457 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-036"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/openair-max/Battery-Holder.kicad_sch"
+ref = "10.0.6"
+sha256 = "434f095724ba741e3b15a1a1fedce93b8262ffdd1144a61ef4c0966791279f04"
+license = "CC-BY-SA-4.0"
+license_variant = "CC-BY-SA-4.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 150397 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-037"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/openair-max/One-Air-Max.kicad_sch"
+ref = "10.0.6"
+sha256 = "dd5b65cdbfa1735d21bd6b6e00b61b386bb89b8f1c9a282f753ed63c20387f87"
+license = "CC-BY-SA-4.0"
+license_variant = "CC-BY-SA-4.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 543800 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-038"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/openair-max/Solar-Module.kicad_sch"
+ref = "10.0.6"
+sha256 = "ba1e342f29ba5b6150f6d71bdeefaea6e2c1874482ccc5ddec3293dfa314ca9d"
+license = "CC-BY-SA-4.0"
+license_variant = "CC-BY-SA-4.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 225866 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-039"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/pic_programmer/pic_programmer.kicad_sch"
+ref = "10.0.6"
+sha256 = "cf92bff8aebe19e45444f13b2ccd1c8ad578df6a226acd5381e2eff95e2fc08f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 229174 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-040"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/pic_programmer/pic_sockets.kicad_sch"
+ref = "10.0.6"
+sha256 = "8cbf575b53b205280ca277df8affc6477cf20c5d06c63c267cd6fb19b6d771ae"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 97976 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-041"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/RoyalBlue54L-Feather.kicad_sch"
+ref = "10.0.6"
+sha256 = "3636dcd5252ae18b2651dce4480a61765bd37b2e601679c3c1465dc8ca21fad8"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 139320 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-042"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/nfc_antenna/RoyalBlue54L-NFC-Antenna/RoyalBlue54L-NFC-Antenna.kicad_sch"
+ref = "10.0.6"
+sha256 = "f9e17eb92e5a11eb2db9a6f71835006d4f59fa487ea6c1577565f1b6522c09ab"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 4014 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-043"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/sch/Connectors.kicad_sch"
+ref = "10.0.6"
+sha256 = "7b78116155a966443ad8a8192fe5ca09668f4bf4e59bc58370762195cf8456c6"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 67694 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-044"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/sch/Debugger.kicad_sch"
+ref = "10.0.6"
+sha256 = "e6f3273cb98b22ee2a90ee65857cb4035ea11fcf3d19fdddfd0c5d1926ddd2bd"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 261719 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-045"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/sch/nPM1300.kicad_sch"
+ref = "10.0.6"
+sha256 = "b53b9a766126616e839c10bfeae26aeee85132f48cf1ba84722354d366a63a6b"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 205310 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-046"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/royalblue54L_feather/sch/nRF54L15.kicad_sch"
+ref = "10.0.6"
+sha256 = "d1c824ffcfe88dfa1bded5a341afa8775f4e59c56b95174dd7e8ab081d95caff"
+license = "CC-BY-SA-4.0"
+license_variant = "CERN-OHL-P-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 232912 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-047"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/amplifier-ac/amplifier-ac.kicad_sch"
+ref = "10.0.6"
+sha256 = "5720361a32edc9ba23f541caab8765201000c7a3b9dc308275530e31f4997507"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 73583 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-048"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/analog-multiplier/a-multi.kicad_sch"
+ref = "10.0.6"
+sha256 = "b2941fba31d1a4ad5e9142b66fffa977d6daa674d97f1064579981e009cb6b3c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 21265 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-049"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/class-d/Class-D.kicad_sch"
+ref = "10.0.6"
+sha256 = "e10edaf999e4c41e88fe7d27eb1eccf840a3136f484e9cf239806d906ea3156c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20241209; 113968 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-050"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/gain_control/mult_vca810.kicad_sch"
+ref = "10.0.6"
+sha256 = "5fc9f0bbd948098df7778dc5a7298ee5d2e83f05c3aa012221649844c266a80c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 38328 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-051"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/generic_models/generic_opamp_bip.kicad_sch"
+ref = "10.0.6"
+sha256 = "7b3d7987bc06fc4b7b44e7f4d7b15ca01bb3ef827dae33a150abdbf1210fbe3a"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 60218 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-052"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/ibis/ibis.kicad_sch"
+ref = "10.0.6"
+sha256 = "e93e0cce7054397fe4c17f5b8ca5e3cabd9717deba9468f23f67ebfecd4381ef"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 82382 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-053"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/laser_driver/laser_driver.kicad_sch"
+ref = "10.0.6"
+sha256 = "9d64ca78e9fdb76de1f63f027b20f454d29f6c66ea3e10cdf1919218d7541543"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 62107 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-054"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/power_supplies/LM317_power_supply/power_supply.kicad_sch"
+ref = "10.0.6"
+sha256 = "d7c5fc0489d54f648e5c95ffc8e5118b6011df19c6288b19a0b99fcbbaa5a2b0"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 53331 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-055"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/power_supplies/boost/smps-com.kicad_sch"
+ref = "10.0.6"
+sha256 = "8008eeac568b6e6bfbfd30f40a17ca8bd0b84ba6cd100184b362bc381de1eff8"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 82176 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-056"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/power_supplies/buck_conv/buck_conv.kicad_sch"
+ref = "10.0.6"
+sha256 = "e2ddd9d1a947b9ed06557b09fcf4f611cdafe36641396b5cbe3974938b608397"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 42761 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-057"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/power_supplies/hv_converter/hv_converter.kicad_sch"
+ref = "10.0.6"
+sha256 = "13bb6c67cfaa6a85cbd3d76f91a1f8719bd377e195e7595b980bc7474e1b8e7b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 81823 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-058"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/power_supplies/royer/royer1.kicad_sch"
+ref = "10.0.6"
+sha256 = "64f389208150b40fd3d41a883f37de9ba04a44b3793377acbc0b32ac926465f9"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 65110 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-059"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/q17/Q17ng.kicad_sch"
+ref = "10.0.6"
+sha256 = "25f5da785909d7a3fb70588502f0a59e78b3d7520c42d9b1d440455c47141046"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 262890 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-060"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/rectifier/rectifier.kicad_sch"
+ref = "10.0.6"
+sha256 = "68b5cc96418d67000de2efdabe5099754a4c30664d5559c0de11e70759acd828"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 22437 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-061"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/sallen_key/sallen_key.kicad_sch"
+ref = "10.0.6"
+sha256 = "0991269e591379b8a1b1434a5f550b53ad3d427e6c7d34bc0c4d75265fe9c64a"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 43212 bytes."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-062"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/subsheets/mainsheet.kicad_sch"
+ref = "10.0.6"
+sha256 = "b33fc58979dabe2fea6e3a6a3bbcda07f9bbe6ed3eca8a1909a4f9a903445547"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20241209; 24974 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-063"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/subsheets/subsheet1.kicad_sch"
+ref = "10.0.6"
+sha256 = "8f1c543f41d05eb39e7f3098756a3c985794bfd77526aaa57c68e88eaeb98ec0"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20241209; 11348 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-064"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/subsheets/subsheet2.kicad_sch"
+ref = "10.0.6"
+sha256 = "bf3c0928bdffcbb3eb2883c3b3a9c5bdd2df1618b20e40d80da2dd0c47820f36"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20241209; 14705 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-065"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/up-down-counter/up-down-c.kicad_sch"
+ref = "10.0.6"
+sha256 = "facfcaf3787262ec68c217340d5256b4f99b44af0d75b13fd077b12920620f40"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20231120; 16135 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-066"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/simulation/v_i_sources/v_i_sources.kicad_sch"
+ref = "10.0.6"
+sha256 = "68b2569f358d0f697972c13d98200a17278cdc84cf7bf071f708ce2531ccf700"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20240602; 214465 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-067"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/sonde%20xilinx/sonde%20xilinx.kicad_sch"
+ref = "10.0.6"
+sha256 = "5271d5d1472d4dab645870f97e62785be9eb95b793e1b8cf0d8ca607de95a985"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 166499 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-068"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/tiny_tapeout/rp2040.kicad_sch"
+ref = "10.0.6"
+sha256 = "ee88a17d35fb54070d9c0e38af0d4a656d52f3703559944c1261e1037c577aef"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 302281 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-069"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/tiny_tapeout/tinytapeout-demo.kicad_sch"
+ref = "10.0.6"
+sha256 = "232f8236bc89eed24f7b89509ea422347994ca8e576524f0229e2bd1eca5093d"
+license = "CC-BY-SA-4.0"
+license_variant = "Apache-2.0"
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1116190 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-070"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/bus_pci.kicad_sch"
+ref = "10.0.6"
+sha256 = "0110ee91bd8eb39ba7c4d08703bca193f72337b25928ad2babc86dc3c54d1cde"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 380549 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-071"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/esvideo.kicad_sch"
+ref = "10.0.6"
+sha256 = "b736ce2d5a17fa94fcd64c656435031730b3b8524342dd4e1d19a917adbd1d6f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 176303 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-072"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/graphic.kicad_sch"
+ref = "10.0.6"
+sha256 = "c09706718277aefb6d9b1ea49825237d026191e6d91d44c7e75aa0eba682900d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 288187 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-073"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/modul.kicad_sch"
+ref = "10.0.6"
+sha256 = "59f6d8152af769371bd35a08dc11c1bdf9c3b4e56ab079f389a0584d1a4574c7"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 126999 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-074"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/muxdata.kicad_sch"
+ref = "10.0.6"
+sha256 = "9b757497857c061632fd09cc3d0a236843c1c164f0b864a78b22c88c1fd96a58"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 132056 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-075"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/pal-ntsc.kicad_sch"
+ref = "10.0.6"
+sha256 = "970c766b745d299ca0b47b05a51baf628bf114a6bfe007736beb7ccd0548fd09"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 198217 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-076"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/rams.kicad_sch"
+ref = "10.0.6"
+sha256 = "40a46f70b6731962a4afa5858b54d3bbf55ac3e4b1a95c7c905b698ae99eb0e3"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 377836 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-077"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/video/video.kicad_sch"
+ref = "10.0.6"
+sha256 = "4d3ced775e49f56704b036bf56b9bf90d3d403b29bc9434eca47a8f18bea5ce1"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 110564 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-078"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/clocks.kicad_sch"
+ref = "10.0.6"
+sha256 = "4942247e550814ae0add0aa80864956bfd35470b8e9774ee4e99fc31d655c948"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 987454 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-079"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/ddr4-ps.kicad_sch"
+ref = "10.0.6"
+sha256 = "000b342b036d7e7731871ca1ddebc71dc00e64afefac3ac4c383ccc24fa6ef97"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1078707 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-080"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/flash.kicad_sch"
+ref = "10.0.6"
+sha256 = "fb8f40e676e37069e98b8dffef303148288b556705f0203472f609116f47fb82"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 275318 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-081"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fp_connectors.kicad_sch"
+ref = "10.0.6"
+sha256 = "7f5d60fcebe3752ba2975724b60f31e050164ef43287943eb68a345edfc5d2e6"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 132305 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-082"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-config.kicad_sch"
+ref = "10.0.6"
+sha256 = "387cf92f575f78afa6f9310e9b753bfeb17388ebbb86c4360c1a206dfcd6934e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1261444 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-083"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-hd-banks.kicad_sch"
+ref = "10.0.6"
+sha256 = "afa21638aa44735987e97d5648b5c0f3452b72dfcd5119338fa95e22f41c146b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1233191 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-084"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-hp-banks.kicad_sch"
+ref = "10.0.6"
+sha256 = "d8ff041ed2987a3c0719bf5cdc7d67b2597bcc4a0a864041585c9afd0613a91b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1335535 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-085"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-mgts-power.kicad_sch"
+ref = "10.0.6"
+sha256 = "2c7cab85da7cdde39f6c576b477ea6558e2146196ebcbd788b305b5cf534175c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 436875 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-086"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-mgts.kicad_sch"
+ref = "10.0.6"
+sha256 = "d391e2243f610983130ecc88d25336424ab6fe462d86e9915857b0666bd559a4"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 937123 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-087"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-mio.kicad_sch"
+ref = "10.0.6"
+sha256 = "c9bf69883fdce135b4363717b306bc956d121d7907d6b7ec2ff5283b8939bbe6"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 898837 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-088"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-power-gnd.kicad_sch"
+ref = "10.0.6"
+sha256 = "0543b36e5888e5e17b448554ab3946a658c842ba75915aa705c73dc9ede9885c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 376142 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-089"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-power.kicad_sch"
+ref = "10.0.6"
+sha256 = "3e1619fbf0f05668aa2dac6632f4972604baae9ec1509f56e934dbc17f30c706"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 1416470 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-090"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga-ps-ddr.kicad_sch"
+ref = "10.0.6"
+sha256 = "845bfa141acd4dc2a5489aee8a74976d6a45c5f5e0106da21272d4d6b4cdf1bc"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 367563 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-091"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/fpga.kicad_sch"
+ref = "10.0.6"
+sha256 = "931ec5588e9b3135149cff29c885f8a98a83ad4820b2e361466e58aa20acedb6"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 783987 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-092"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/front-panel-io.kicad_sch"
+ref = "10.0.6"
+sha256 = "0e7b55b9ebe23670147f7a70bef1500fcd8ac112ab6110923fe45673edc5d429"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-old", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20230819; 1351573 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-093"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/io_driver.kicad_sch"
+ref = "10.0.6"
+sha256 = "22a6b1929bdec15eacf91cb064ef4dba2c5cc555de64d6b2b639816f78c32034"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 642335 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-094"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/io_driver_32x.kicad_sch"
+ref = "10.0.6"
+sha256 = "52c56ff5652a366599669ac28a67f0a8eee7c560fb8ca57a25136b30a8f13b18"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 52083 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-095"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/io_driver_8x.kicad_sch"
+ref = "10.0.6"
+sha256 = "201f060bfe9a65a8cf9346c391e630d5bd12cf552ad0a7f2c33efba0e34e5a16"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 161471 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-096"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/pcie_connector.kicad_sch"
+ref = "10.0.6"
+sha256 = "d1504d7659d6786019033753c8190ecdedcc6c875640f76bc6264ca00c31e73f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 153232 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-097"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/power-supply-1.kicad_sch"
+ref = "10.0.6"
+sha256 = "c201f38f7619cc4c3a1e56e46128d3fe746660f56aa87a05c99d457923ab391d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 878437 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-098"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/power-supply-2.kicad_sch"
+ref = "10.0.6"
+sha256 = "356ae56e243f8d8cce7a8bda7aec21bd0a02a32f288429334f73a2688bb1725e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 529249 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-099"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/power-supply-3.kicad_sch"
+ref = "10.0.6"
+sha256 = "3875c3e16e03872be6095b8137a85fc94992e3207ad31cd6dea425954ade9c93"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 633671 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-100"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/pp_driver_2x.kicad_sch"
+ref = "10.0.6"
+sha256 = "3c9b4de2c97d4bef8a0ec40d6004e857999f89120db2e5449ce2dc021e727919"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 249837 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-101"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/pp_driver_32x.kicad_sch"
+ref = "10.0.6"
+sha256 = "4616b90ca042cc85326be17f8ab8330aaa06938bcea79591862bb86085803573"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 30226 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-102"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/pp_driver_8x.kicad_sch"
+ref = "10.0.6"
+sha256 = "11569225b001676b85498528a9accbdef4b815618fdcf8c6ffc9306c6ef2628c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 85506 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-103"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/sfp%2B.kicad_sch"
+ref = "10.0.6"
+sha256 = "e4cfcb9cff297a9724b064bd8a1f722bdc8b6438c071cf720bc97ba25c8ef6cf"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-multi", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 333922 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-104"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/slow_gpio.kicad_sch"
+ref = "10.0.6"
+sha256 = "61d7229a38ee677a0d49bee45c77ed86d26836b26646d017c5715ea45cf148a4"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 165344 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-105"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/user_interface.kicad_sch"
+ref = "10.0.6"
+sha256 = "62a121ea4587a7783e2dff9591dbabd65921dceea904923f05e687c073db2720"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 239464 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-106"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme-wren.kicad_sch"
+ref = "10.0.6"
+sha256 = "4cc3e74f2e47304bd3b360b18bab55d378573bc491b4f210aebe533890aa3dcb"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 558200 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-107"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_buffers_addr.kicad_sch"
+ref = "10.0.6"
+sha256 = "23e26501427cee90be09e9b3afdf4ff105cc3e940771234f907a876970e509fe"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 450688 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-108"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_buffers_aux.kicad_sch"
+ref = "10.0.6"
+sha256 = "db54a9ab8f1dab24ac72e5c1db199f2e52e8d423a4f180b7b5b59508f90c592c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 345139 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-109"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_buffers_data.kicad_sch"
+ref = "10.0.6"
+sha256 = "81a8d975deb066e345074573611a569f6f533cd5fd04a941ad2ea57b92a5d8d7"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 428260 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-110"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_buffers_p0_hwbyte.kicad_sch"
+ref = "10.0.6"
+sha256 = "609845f4c59160015ab194e0667d6a5e1abeae0a1fb484e16c1a3c00ff0cf05c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 486016 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-111"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_buffers_userio_p2.kicad_sch"
+ref = "10.0.6"
+sha256 = "e1d4d19d3cdf5d81ab42ccc919154bfdd99f328cf6b6294765df0ee3e3fbb58b"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 186655 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-112"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_interface.kicad_sch"
+ref = "10.0.6"
+sha256 = "6ad4226e2520ee2da04631af3b87a6a5f3864fe381399e7ed395611b29b9f495"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 643402 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-113"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_p0.kicad_sch"
+ref = "10.0.6"
+sha256 = "9752e91a609c1476780fe0d6260e5c91c1ed7be2233c637fac8ccdbb94f0750f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 222763 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-10-0-6-sch-114"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/vme-wren/vme_p1_p2.kicad_sch"
+ref = "10.0.6"
+sha256 = "6f4886c6231b918824beebef23cd056c584a49f29b5ae997411a321d07f35362"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250114; 612497 bytes; identical at tag 9.0.9.1 (commit 70b072d9f77f)."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-001"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/custom_pads_test/custom_pads_test.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "3e6436bd16ae3875dc96f0f98bdb42de34db15db7046caafa0b42c89ca3090bd"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 17497 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-002"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/flat_hierarchy.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "f5149ad1285cb506283e0eb2b1818141103cedf2f5929c992c1fa50f3a599055"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 1641 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-003"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/pic_programmer.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "0714ab9909f116018327661f82fa0f9b9770ac4bc5c288278e41db5e34cc5b09"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 202334 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-004"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/flat_hierarchy/pic_sockets.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "81603cf93062d586f336da043316a493c1b8359e79bd64867af09767c665357f"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 96155 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-005"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/pic_programmer/pic_programmer.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "3da8e1a25050b5df073544c2c99482ddf2965f5a5518b9945cff80bbc099044a"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 196687 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-006"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/pic_programmer/pic_sockets.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "37c9b424b5dc9ef482c57af711ed67464c86cbce5cfaa57dbd4bbd88e20153c4"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 90856 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-007"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/generic_models/generic_opamp_bip.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "07888e3fa13b352ef6c783781ec9246983774257fc8a4eb1ff3f8632ba6f3744"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20241209; 59983 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-008"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/laser_driver/laser_driver.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "dce3a7f6df39e9d8b20ca36aeeb3399fb547c22ef353c2ee9f43b0887182d585"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-old", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20230121; 50433 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-009"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/power_supplies/LM317_power_supply/power_supply.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "18e177b6f137b596b0f2677207bae30ed695a4259d0eeaa944fd0b4592f3634d"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20231120; 52542 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-010"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/power_supplies/buck_conv/buck_conv.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "fc312ac6a1dfb9d96b20248b30f234fc3e87a91aa924cb76244fb9833e16c469"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20231120; 42200 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-011"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/power_supplies/hv_converter/hv_converter.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "d5310d532485ac26ddd803c9903e4a4707db391433c97aa9c0c08f364cb3fb4e"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20231120; 81061 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-012"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/pspice/pspice.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "736a7c461ebe08d9f76bcd70df9989f67648f72e2f8f0f967092af3c44ca9d76"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-old", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20230221; 60684 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-013"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/rectifier/rectifier.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "cbc7317fa6b22aa1731a6fdb36b29de2868df844b58b75183e107b93fab0d03a"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-old", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20230121; 20264 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-014"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/simulation/sallen_key/sallen_key.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "4216ad59f60fd36a62face200c9e795df376162fe5875e1d8c1cbba0e9ab532c"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-old", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20230121; 35927 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-015"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/test_pads_inside_pads/test_pads_inside_pads.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "970f9d58e9f31ce117107e88dc2818fc39b5f34b1740dc4d4df4978acccbc7be"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 6588 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "kicad-demo-9-0-9-1-sch-016"
+url = "https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/demos/test_xil_95108/carte_test.kicad_sch"
+ref = "9.0.9.1"
+sha256 = "a7fb63d6ee425f17c27ab8d3e94973ba65042de64634e085801389323749770a"
+license = "CC-BY-SA-4.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-9"]
+notes = "Demo schematic at tag 9.0.9.1 (commit 70b072d9f77f); format 20250114; 291613 bytes; differs from or is absent at 10.0.6."
+
+[[file]]
+id = "third-party-sch-01"
+url = "https://raw.githubusercontent.com/OLIMEX/ESP32-POE/deb38a377d50eadb04ddc7118a17a5ae58b1ee53/HARDWARE/ESP32-PoE-hardware-revision-M2/ESP32-PoE_Rev_M2.kicad_sch"
+ref = "deb38a377d50eadb04ddc7118a17a5ae58b1ee53"
+sha256 = "d0804d05f8c9162df2ee2a03413409a8446c506aa6336f2967a72dc6525d1f0d"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:third-party", "sch-old"]
+notes = "Third-party schematic at commit deb38a377d50 (S-0027); format 20230121; 656101 bytes; licence: repository LICENSE file (Apache-2.0)"
+
+[[file]]
+id = "third-party-sch-02"
+url = "https://raw.githubusercontent.com/OLIMEX/ESP32-EVB/a3ec2f448109cb8f35ce7cb21a027bb7c837ab61/HARDWARE/REV-L/ESP32-EVB_Rev_L.kicad_sch"
+ref = "a3ec2f448109cb8f35ce7cb21a027bb7c837ab61"
+sha256 = "05b82dce76e8971d3439e10eb4e4ab6710d424f1675d7ce5ec13500ad0bf36ee"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["rt0", "sch", "origin:third-party", "sch-old"]
+notes = "Third-party schematic at commit a3ec2f448109 (S-0028); format 20230121; 728147 bytes; licence: repository LICENSE file (Apache-2.0)"

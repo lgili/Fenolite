@@ -366,6 +366,28 @@
    "detail": "Failed to load board"
   },
   {
+   "example": "negative-unknown-sch-symbol",
+   "kind": "kicad_sch",
+   "header_version": 20231120,
+   "example_sha256": "ea9adfdeac605eab3b00c169aca61f4d310b80b07ed27901ccfaa4a17b3d0703",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load schematic"
+  },
+  {
+   "example": "negative-unknown-sch-top",
+   "kind": "kicad_sch",
+   "header_version": 20231120,
+   "example_sha256": "a8f46c19059f80284a7d00686aece1faae87a59f63bca8f1580871a5b63bf3c2",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 3,
+   "detail": "Failed to load schematic"
+  },
+  {
    "example": "negative-unknown-segment",
    "kind": "kicad_pcb",
    "header_version": 20240108,
@@ -386,6 +408,28 @@
    "outcome": "reject",
    "exit_code": 3,
    "detail": "Failed to load board"
+  },
+  {
+   "example": "negative-unknown-sym-symbol",
+   "kind": "kicad_sym",
+   "header_version": 20231120,
+   "example_sha256": "d59e6b726382d2c7a98546e1cff97779640885889e3b77f0c8aafb7158c61335",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 2,
+   "detail": "Unable to load library"
+  },
+  {
+   "example": "negative-unknown-sym-top",
+   "kind": "kicad_sym",
+   "header_version": 20231120,
+   "example_sha256": "fd260ab80752cddb7ffaad13a9e6811c660ebcdcd9b6710ba78199996a03c5eb",
+   "rows": [],
+   "expected": "reject",
+   "outcome": "reject",
+   "exit_code": 2,
+   "detail": "Unable to load library"
   },
   {
    "example": "negative-unknown-top",
@@ -528,7 +572,7 @@
    "example": "positive-baseline",
    "kind": "kicad_dru",
    "header_version": 1,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "rules-constraint",
     "rules-min",
@@ -545,7 +589,7 @@
    "example": "positive-baseline",
    "kind": "kicad_mod",
    "header_version": 20240108,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [],
    "expected": "load",
    "outcome": "load",
@@ -556,7 +600,7 @@
    "example": "positive-baseline",
    "kind": "kicad_mod",
    "header_version": 20241229,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [],
    "expected": "load",
    "outcome": "load",
@@ -567,7 +611,7 @@
    "example": "positive-baseline",
    "kind": "kicad_pcb",
    "header_version": 20240108,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
     "plot-hpglpendiameter",
@@ -586,7 +630,7 @@
    "example": "positive-baseline",
    "kind": "kicad_pcb",
    "header_version": 20241229,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "board-net-table",
     "plot-hpglpendiameter",
@@ -603,9 +647,31 @@
   },
   {
    "example": "positive-baseline",
+   "kind": "kicad_sch",
+   "header_version": 20231120,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_sym",
+   "header_version": 20231120,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "positive-baseline",
    "kind": "kicad_wks",
    "header_version": 20231118,
-   "example_sha256": "8115c8ce4104daf4c6bcd028912678db64a69f3c64cffa76b8ce5b8ec2be57ad",
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
    "rows": [
     "wks-bold",
     "wks-bottom-margin",

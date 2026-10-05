@@ -31,4 +31,11 @@ SHEET_SCHEMA: tuple[str, str, str] = (
     "fenolite.model.presentation:DrawingSheet",
 )
 
-__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMA_DIR", "SHEET_SCHEMA"]
+# Schematic sheets are definitions outside a design too (change c0060).
+SCHEMATIC_SCHEMA: tuple[str, str, str] = (
+    "schematic.json",
+    "fenolite.schematic.v0",
+    "fenolite.model.schematic:SchematicSheet",
+)
+
+__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMATIC_SCHEMA", "SCHEMA_DIR", "SHEET_SCHEMA"]

@@ -124,6 +124,32 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   (an inconsistent custom or named size) and `model.param-name` (a parameter name outside
   `[A-Za-z_][A-Za-z0-9_]*`).
 
+
+## Schematic sheets
+
+`fenolite.model.schematic` (change c0060) holds what one schematic file says:
+
+- `SchematicSheet(name, paper, title_block, lib_symbols, symbols, labels, no_connects, sheets, pages)`: a
+  definition outside `Design`, like a `DrawingSheet`, with prefix `sch` and its own schema
+  `schematic.json`. A generated sheet is derived from the circuit, and a sheet read from a file is checked
+  and compared, so a sheet is never written to the six layer files.
+- `SymbolInstance` (prefix `sci`): `lib_ref`, `position`, `rotation` (0, 90, 180 or 270 degrees in µdeg),
+  `mirror` (`""`, `"x"` or `"y"`), `unit`, `body_style`, the properties with `ref`, `value` and `footprint`
+  repeated as fields, the flags `dnp`, `in_bom`, `on_board` and `exclude_from_sim`, `lib_name`, and `uses`:
+  one `SymbolUse(project, path, ref, unit)` per place of the hierarchy that shows the symbol.
+- `NetLabel` (prefix `lbl`): `kind` (`local`, `global` or `hierarchical`, always written), `name`,
+  `position`, `rotation` and `shape`. `NoConnectFlag` (prefix `ncf`): `position`.
+- `SheetRef` (prefix `shr`): `name`, `file` (the text as written), `position`, `size` and `uses`, one
+  `SheetUse(project, path, page)` each. `SheetPage(path, page)` lists the pages the root sheet names.
+- `lib_symbols` holds the `SymbolDef` copies embedded in the file.
+- Collections keep file order; `properties` is sorted by key. Uses and pages carry no ids.
+- Wires, junctions and buses are not modelled: a backend keeps them as opaque slots of the sheet, and
+  Fenolite derives no net from a schematic it did not write.
+- **Ids.** An entity read from a file has `derived_id(<prefix>, <backend>, <native id>)`. An entity that
+  Fenolite creates for a design has `derived_id("sch", "fenolite", "<design name>")` for the sheet and
+  `derived_id(<prefix>, "fenolite", "<design name>:<key>")` for the others, so two builds of one design
+  give equal ids.
+
 ## Boards read from a backend
 
 Normative text: requirements "Board entities read from file backends" and "Components synthesised

@@ -30,9 +30,9 @@
 ### Requirement: Schematic components agree with kicad-cli
 `tests/kicad/schematic/test_components_oracle.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that the components Fenolite reads from a schematic are those `kicad-cli` exports, and SHALL record each comparison as a probe of `PROBES`.
 - **Runner.** `KicadCli.export_netlist(schematic, *, files=None) -> CliRun` MUST run `sch export netlist --format kicadsexpr -o <out>` through `KicadCli.run`, on copies, and MUST NOT raise for a non-zero exit.
-- **Fixtures.** For the flat sheet, the units sheet and the two-sheet hierarchy of the running major's format, the set of `(ref, value, footprint)` of `sch.components(…, project=<stem>)` over the files of `sch.sheet_files` MUST equal the `components` of the exported netlist, read by `tests/_netlist.py::components` (probes `sch-components-flat`, `sch-components-units` and `sch-components-hier`, outcome `equal`).
+- **Fixtures.** For the flat sheet, the units sheet and the two-sheet hierarchy of the running major's format, the set of `(ref, value, footprint)` of `sch.hierarchy_components(<root>)` MUST equal the `components` of the exported netlist, read by `tests/_netlist.py::components`, and MUST equal `sch.components(…, project=<stem>)` over the files of `sch.sheet_files` (probes `sch-components-flat`, `sch-components-units` and `sch-components-hier`, outcome `equal`).
 - **Symbols left off the board.** The probe `sch-components-on-board` MUST record whether the netlist lists the symbol with `(on_board no)` of the flat sheet (`present` or `absent`). When it is `absent` on a major, the comparisons of that major MUST call `sch.components` with `on_board_only=True`, and the fact row MUST say so.
-- **Corpus.** With the corpus cached, every project whose root row carries `sch-root` and none of whose sheets carries `sch-multi` or `sch-old` MUST give equal sets on major 10; on major 9, the rows of tag 9.0.9.1 whose format version is at most the 9.0 constant. The counts MUST be written through `tests/_boards.py::census` and copied into `docs/evidence/kicad-schematic.md`.
+- **Corpus.** With the corpus cached, every project of the demo tree of tag 10.0.6 whose root row carries `sch-root` and none of whose sheets carries `sch-old` MUST give equal sets on major 10, `sch.hierarchy_components` against the netlist, multi-instance sheets included; on major 9, the projects of the demo tree of tag 9.0.9.1 (the rows with `sch-9`) whose sheets all have a format version of at most the 9.0 constant. A value or footprint that holds a text variable (`${…}`) matches any text, because the netlist lists it resolved. The counts MUST be written through `tests/_boards.py::census` and copied into `docs/evidence/kicad-schematic.md`. The `kicad-9` job fetches no schematic row, so there the corpus comparison is skipped; it is run in the pinned 9.0.9 image with the `sch-9` rows cached, and its counts are recorded in the same page.
 - The test MUST read only the `components` of the netlist and MUST store no netlist.
 - Both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
 
@@ -44,7 +44,7 @@
 #### Scenario: Corpus projects on 10.0.6
 - **GIVEN** the `sch` rows cached and `kicad-cli` 10.0.6
 - **WHEN** `uv run pytest tests/kicad/schematic/test_components_oracle.py -k corpus -rA` runs
-- **THEN** every selected project gives equal sets, and the census names the number of projects compared and of projects left out by tag
+- **THEN** every selected project gives equal sets, and the census names the number of projects compared and of projects left out by reason
 
 #### Scenario: Runner on copies
 - **GIVEN** a fake `kicad-cli` that records its arguments and writes `<stem>.kicad_prl` next to its input

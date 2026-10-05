@@ -43,6 +43,7 @@ import _netcases
 import _placecases
 import _procases
 import _rulecases
+import _schcases
 import _sheetcases
 import _triad
 import _vendorcases
@@ -242,6 +243,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _netcases.net_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _asmcases.assembly_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _schcases.sch_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

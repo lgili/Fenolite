@@ -1,0 +1,440 @@
+(kicad_sch
+	(version 20260306)
+	(generator "fenolite-tests")
+	(generator_version "10.0")
+	(uuid "a28e6eb5-f421-5cc8-9079-e3c29a448c1a")
+	(paper "A4")
+	(title_block
+		(title "Bus")
+		(rev "A")
+		(company "Fenolite tests")
+	)
+	(lib_symbols
+		(symbol "Mini:Mini_R"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 2.032 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Mini_R"
+				(at 0 0 90)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Mini:Mini_R_0603"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Mini resistor. Fenolite test symbol"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "R res resistor"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Mini_R_*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "Mini_R_0_1"
+				(rectangle
+					(start -1.016 -2.54)
+					(end 1.016 2.54)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "Mini_R_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 1.27)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 1.27)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+	)
+	(symbol
+		(lib_id "Mini:Mini_R")
+		(at 110 60 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b2309e36-a0f6-5066-9ae9-23ec40907765")
+		(property "Reference" "R1"
+			(at 112.54 58.73 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 112.54 61.27 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Mini:Mini_R_0603"
+			(at 110 60 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 110 60 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 110 60 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b5514e58-6553-53c7-ae7f-88b46b8c9a67")
+		)
+		(pin "2"
+			(uuid "2726fe9b-1699-58f4-8f3a-08d7082f5083")
+		)
+		(instances
+			(project "bus"
+				(path "/a28e6eb5-f421-5cc8-9079-e3c29a448c1a"
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mini:Mini_R")
+		(at 110 65.08 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1d6d3183-4d1f-5f65-8411-19232aec728e")
+		(property "Reference" "R2"
+			(at 112.54 63.81 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100"
+			(at 112.54 66.35 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Mini:Mini_R_0603"
+			(at 110 65.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 110 65.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 110 65.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "787b3d1f-7790-5a2c-8efe-94990b866fe3")
+		)
+		(pin "2"
+			(uuid "d81d6590-e1bb-5579-9586-6d86cdca345b")
+		)
+		(instances
+			(project "bus"
+				(path "/a28e6eb5-f421-5cc8-9079-e3c29a448c1a"
+					(reference "R2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(bus
+		(pts
+			(xy 90 50) (xy 90 80)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "40a3f32e-1f0f-5b3d-b770-5ab3dd8b32ae")
+	)
+	(label "D[0..1]"
+		(at 90 50 90)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7543b734-f034-59e5-887f-f59085cc4693")
+	)
+	(bus_entry
+		(at 90 62.54)
+		(size 2.54 -2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "7cbcd8b0-dcb4-5c83-9f79-db98d26a3927")
+	)
+	(bus_entry
+		(at 90 67.62)
+		(size 2.54 -2.54)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "82d3ec7e-69ed-579c-8891-4256773e3d6b")
+	)
+	(wire
+		(pts
+			(xy 92.54 60) (xy 106.19 60)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d88f55d8-277c-5758-8e9b-aae5e4956d3b")
+	)
+	(wire
+		(pts
+			(xy 92.54 65.08) (xy 106.19 65.08)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "fd062c16-4683-5421-a869-f3c4b610c152")
+	)
+	(label "D0"
+		(at 95 60 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "024a1336-afcc-526f-b495-1ee3b7f3c27c")
+	)
+	(label "D1"
+		(at 95 65.08 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "71edc105-f947-5f68-a48d-942536cde3f9")
+	)
+	(global_label "OUT0"
+		(shape output)
+		(at 113.81 60 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "4e2fe904-f603-57fd-b540-119abeef24f8")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 113.81 60 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+	(global_label "OUT1"
+		(shape output)
+		(at 113.81 65.08 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "814cbbc9-3ee5-5047-b7f2-359d836a4b2c")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 113.81 65.08 0)
+			(hide yes)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)

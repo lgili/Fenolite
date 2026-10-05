@@ -16,6 +16,7 @@ import sys
 sys.path[:0] = [
     {kicad!r}, {board!r}, {rules!r}, {project!r}, {build!r}, {sheets!r}, {check!r}, {lens!r},
     {export!r}, {frame!r}, {zones!r}, {copper!r}, {fill!r}, {place!r}, {analysis!r}, {assembly!r},
+    {export!r}, {frame!r}, {zones!r}, {copper!r}, {fill!r}, {place!r}, {analysis!r}, {schematic!r},
     {tests!r}
 ]
 from pathlib import Path
@@ -58,6 +59,7 @@ def fake(pytester: pytest.Pytester, tmp_path: Path) -> Path:
         place=str(TESTS / "kicad" / "place"),
         analysis=str(TESTS / "kicad" / "analysis"),
         assembly=str(TESTS / "kicad" / "assembly"),
+        schematic=str(TESTS / "kicad" / "schematic"),
         tests=str(TESTS),
         folder=str(folder),
     )

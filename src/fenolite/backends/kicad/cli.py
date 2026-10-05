@@ -46,6 +46,8 @@ def windows_kicad_clis() -> tuple[Path, ...]:
 
 CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
+NETLIST = "out.net"
+"""The file name ``export_netlist`` asks ``kicad-cli`` to write."""
 RENDER_DIR = "render"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
 DOCKER_PREFIX = "docker:"
@@ -344,6 +346,21 @@ class KicadCli:
         run = self._checked(["pcb", "upgrade", "--force", name], _with(board, files), "pcb upgrade")
         return run.outputs.get(name, Path(board).read_bytes())
 
+    def export_netlist(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> CliRun:
+        """``sch export netlist --format kicadsexpr`` on a copy: the run, with the netlist under
+        ``NETLIST`` in its outputs when one was written. It never raises for a non-zero exit, so a
+        caller can use it as the load check of a schematic."""
+        name = Path(schematic).name
+        args = ["sch", "export", "netlist", "--format", "kicadsexpr", "-o", NETLIST, name]
+        return self.run(args, files=_with(schematic, files))
+
+    def upgrade_schematic(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> bytes:
+        """``sch upgrade --force`` (10.0 only): the schematic re-saved in the running version's format."""
+        self._require_ten("sch upgrade")
+        name = Path(schematic).name
+        run = self._checked(["sch", "upgrade", "--force", name], _with(schematic, files), "sch upgrade")
+        return run.outputs.get(name, Path(schematic).read_bytes())
+
     def drc(
         self,
         board: Path,
@@ -478,6 +495,7 @@ __all__ = [
     "DRC_REPORT",
     "DOCKER_PREFIX",
     "MACOS_KICAD_CLI",
+    "NETLIST",
     "RENDER_DIR",
     "CandidateSource",
     "CliCandidate",

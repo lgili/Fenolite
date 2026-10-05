@@ -414,6 +414,66 @@ meaning = "Two top-level module names differ only in letter case, so their sheet
 fix = "Rename one of the modules."
 see = "Build target"
 
+["altium.sheet.appearance"]
+meaning = "Colours and font names are not kept (once)."
+fix = "Nothing to do."
+see = "template"
+
+["altium.sheet.builtin-drawn"]
+meaning = "A border drawn from the sheet flags (once)."
+fix = "Nothing to do."
+see = "template"
+
+["altium.sheet.builtin-not-drawn"]
+meaning = "An Altium sheet template holds the border or zones of a standard style, a border without a margin, or the built-in title block: no public source gives that geometry."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.dynamic-string"]
+meaning = "An Altium sheet template holds a string whose value the source tool computes, such as `=CurrentDate`; kept as `{param:NAME}`."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.image-not-kept"]
+meaning = "An Altium sheet template holds a linked image, an embedded image whose file is missing, or one that is not a PNG; only the base name of the file is shown."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.image-size"]
+meaning = "An Altium sheet template holds a kept image: the neutral bitmap has no box, so it is drawn at its own size."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.not-representable"]
+meaning = "An Altium sheet template holds an arc, an ellipse, a Bézier, a rounded rectangle, a text frame or a note: the neutral sheet has lines, rectangles, texts and bitmaps only."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.not-template-content"]
+meaning = "An Altium sheet template holds a record that is not sheet graphics (a component, a wire, a port, a harness record), with the records it owns."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.outside"]
+meaning = "An Altium sheet template holds a record with a point outside the drawing area."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.rounded"]
+meaning = "Lengths rounded to the micrometre, with their count (once)."
+fix = "Nothing to do."
+see = "template"
+
+["altium.sheet.style-dropped"]
+meaning = "An Altium sheet template holds a fill, a line style, a line-end shape, an underline, a mirror or an unknown line width or justification."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
+["altium.sheet.unknown-string"]
+meaning = "An Altium sheet template holds a text that starts with `=` without a parameter name (a space, an expression); kept as literal text."
+fix = "Redraw the item in the sheet specification if it matters; the import still writes the sheet."
+see = "template"
+
 ["altium.sheets-not-in-project"]
 meaning = "The existing project file was kept, so the module sheets and harness files are not listed in it."
 fix = "Add them to the project in Altium, or remove the project file from --out and build again."
@@ -1102,6 +1162,56 @@ see = "inspect"
 ["kicad.project.unread-variable"]
 meaning = "A text variable of the project has an unexpected shape and was not read."
 fix = "Re-save the project in KiCad."
+see = "inspect"
+
+["kicad.sch.duplicate-property"]
+meaning = "A symbol or a sheet of the schematic holds two properties with one name. The first is used."
+fix = "Open the schematic in KiCad and correct it there; the file is still read and rebuilt as it was."
+see = "inspect"
+
+["kicad.sch.duplicate-uuid"]
+meaning = "Two items of one schematic file carry the same uuid."
+fix = "Open the schematic in KiCad and correct it there; the file is still read and rebuilt as it was."
+see = "inspect"
+
+["kicad.sch.inexact-angle"]
+meaning = "An angle of the schematic is not a whole number of microdegrees, so the item is kept as written and not modelled."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.sch.inexact-length"]
+meaning = "A length of the schematic is not a whole number of nanometres, so the item is kept as written and not modelled."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.sch.kept-opaque"]
+meaning = "The schematic reader keeps a part of the file as written, without a model for it. It is written back unchanged."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.sch.sheet-cycle"]
+meaning = "The sheets of the schematic refer to each other in a cycle, so the hierarchy has no end."
+fix = "Break the cycle in KiCad: a sheet cannot contain itself, directly or through other sheets."
+see = "inspect"
+
+["kicad.sch.sheet-file-missing"]
+meaning = "A sheet reference of the schematic has no Sheetfile property, so the sub-sheet cannot be found."
+fix = "Open the schematic in KiCad and correct it there; the file is still read and rebuilt as it was."
+see = "inspect"
+
+["kicad.sch.sheet-missing"]
+meaning = "A sheet reference names a file that does not exist beside the schematic."
+fix = "Restore the sub-sheet file, or correct its name in the sheet reference."
+see = "inspect"
+
+["kicad.sch.sheet-outside"]
+meaning = "A sheet reference names a file outside the folder of the root schematic. It is not followed."
+fix = "Nothing to do; move the sub-sheet into the project folder if it should be read."
+see = "inspect"
+
+["kicad.sch.symbol-undefined"]
+meaning = "A placed symbol names a library symbol that the schematic file does not hold."
+fix = "Update the symbol from its library in KiCad, so that the file holds its definition again."
 see = "inspect"
 
 ["kicad.wks.below-resolution"]

@@ -126,7 +126,13 @@ class Fake:
 def run_main(tmp_path: Path, examples_text: str, runner: Any, *extra: str) -> int:
     path = tmp_path / "examples.toml"
     path.write_text(examples_text)
-    for name in ("skeleton.kicad_pcb", "skeleton.kicad_mod", "skeleton.kicad_wks"):
+    for name in (
+        "skeleton.kicad_pcb",
+        "skeleton.kicad_mod",
+        "skeleton.kicad_wks",
+        "skeleton.kicad_sch",
+        "skeleton.kicad_sym",
+    ):
         (tmp_path / name).write_bytes((DATA / name).read_bytes())
     (tmp_path / "canary").mkdir(exist_ok=True)
     for name in ("canary.kicad_pcb", "canary.kicad_pro", "canary.kicad_dru"):
@@ -279,5 +285,62 @@ def test_levels_inconclusive_never_counts() -> None:
 
 
 def test_kind_values() -> None:
-    assert {k.value for k in fuzz.SKELETONS} == {"kicad_pcb", "kicad_mod", "kicad_wks", "kicad_dru"}
+    kinds = {"kicad_pcb", "kicad_mod", "kicad_wks", "kicad_dru", "kicad_sch", "kicad_sym"}
+    assert {k.value for k in fuzz.SKELETONS} == kinds
     assert fuzz.FLOOR_MAJOR[FileKind.RULES] == 9 and sys.version_info >= (3, 11)
+
+
+# --- schematics and symbol libraries (change c0060, "Load checks for schematics and symbol libraries")
+
+BOTH = 'expect = { "9" = "reject", "10" = "reject" }\n'
+LOADS = 'expect = { "9" = "load", "10" = "load" }\n'
+
+
+def test_build_schematic_and_symbol_files() -> None:
+    sheet = ex("s", "kicad_sch/symbol", "(fenolite_x 1)", kinds='["kicad_sch"]', extra=BOTH)
+    (case,) = fuzz.build_cases(INV, examples(sheet), 10)
+    assert list(case.files) == ["case.kicad_sch"] and case.kind == FileKind.SCHEMATIC
+    data = case.files["case.kicad_sch"]
+    assert b"(version 20231120)" in data and b"(fenolite_x 1)" in data
+    lib = ex("l", "kicad_symbol_lib/symbol", "(fenolite_x 1)", kinds='["kicad_sym"]', extra=BOTH)
+    (lib_case,) = fuzz.build_cases(INV, examples(lib), 9)
+    assert list(lib_case.files) == ["case.kicad_sym"] and lib_case.header_version == 20231120
+
+
+def test_schematic_load_and_reject(tmp_path: Path) -> None:
+    body = ex("r", "kicad_sch", "(fenolite_REJECT 1)", kinds='["kicad_sch"]', extra=BOTH)
+    assert run_main(tmp_path, body, Fake(), "--write", str(tmp_path / "out")) == 0
+    case = json.loads((tmp_path / "out" / "10.0.6.json").read_text())["cases"][0]
+    assert (case["kind"], case["outcome"], case["exit_code"]) == ("kicad_sch", "reject", 3)
+    good = ex("g", "kicad_sch", "(fenolite_fine 1)", kinds='["kicad_sch"]', extra=LOADS)
+    assert run_main(tmp_path, good, Fake(), "--write", str(tmp_path / "out1")) == 0
+
+
+def test_schematic_without_a_netlist_is_not_a_load(tmp_path: Path) -> None:
+    body = ex("s", "kicad_sch", "(fenolite_fine 1)", kinds='["kicad_sch"]', extra=LOADS)
+    assert run_main(tmp_path, body, Fake(svg=False), "--write", str(tmp_path / "out")) == 5
+    case = json.loads((tmp_path / "out" / "10.0.6.json").read_text())["cases"][0]
+    assert (case["outcome"], case["exit_code"]) == ("reject", 0)
+
+
+def test_symbol_library_load_check(tmp_path: Path) -> None:
+    body = ex("l", "kicad_symbol_lib", "(fenolite_fine 1)", kinds='["kicad_sym"]', extra=LOADS)
+    assert run_main(tmp_path, body, Fake(), "--write", str(tmp_path / "out")) == 0
+    assert run_main(tmp_path, body, Fake(svg=False), "--write", str(tmp_path / "out2")) == 5
+
+
+def test_schematic_case_is_inconclusive_without_its_skeleton(tmp_path: Path) -> None:
+    class NoSkeleton(Fake):
+        def __call__(self, args: Sequence[str], cwd: Path, env: dict[str, str], timeout: float) -> Any:
+            if args[0] == "sch":
+                return fuzz.RunResult(3, "Failed to load schematic\n")
+            return super().__call__(args, cwd, env, timeout)
+
+    baseline = (
+        '[[example]]\nid = "positive-baseline"\nkinds = ["kicad_sch"]\n'
+        'expect = { "9" = "load", "10" = "load" }\n'
+    )
+    body = baseline + ex("s", "kicad_sch", "(fenolite_x 1)", kinds='["kicad_sch"]', extra=BOTH)
+    run_main(tmp_path, body, NoSkeleton(), "--write", str(tmp_path / "out"))
+    cases = {c["example"]: c for c in json.loads((tmp_path / "out" / "10.0.6.json").read_text())["cases"]}
+    assert cases["s"]["outcome"] == "inconclusive" and cases["positive-baseline"]["outcome"] == "reject"

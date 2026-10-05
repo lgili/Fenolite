@@ -159,7 +159,7 @@ and the commands an agent asks small questions with.
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
-| c0060 | `kicad-schematic-reader` | `.kicad_sch` read into a sheet model, same-version rebuild, demo schematics in the corpus, load checks through `kicad-cli` | proposed | — | 11 |
+| c0060 | `kicad-schematic-reader` | `.kicad_sch` read into a sheet model, same-version rebuild, demo schematics in the corpus, load checks through `kicad-cli` | implemented on its branch on 2026-10-05, the inventory rows of schematic and symbol-library tokens left open (tasks 2.2 to 2.4) | — | 11 |
 | c0061 | `kicad-schematic-writer` | `build` writes `<name>.kicad_sch`, the project symbol libraries and `sym-lib-table`; no-connect flags from `Circuit.no_connects` (c0036), power flags, net names in KiCad's stored form, pad nets of unconnected pins | proposed | c0060 | 14 |
 | c0062 | `erc-oracle` | KiCad's ERC as a stage of `check`, in place of the three-rule ERC stage; schematic parity in the DRC stage | proposed | c0060, c0061 | 8.5 |
 | c0063 | `netlist-compare` | the schematic's netlist in `check`; Fenolite's own netlist of the schematics it generates, compared with `kicad-cli` at build; `netlist` command | proposed | c0060, c0061 | 6.75 |

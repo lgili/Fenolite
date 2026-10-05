@@ -1167,3 +1167,81 @@ path = "tests/data/assembly/invalid.toml"
 origin = "authored"
 corpus_id = ""
 notes = "assembly column template with three problems, authored for the c0064 tests"
+
+[[file]]
+path = "tests/data/kicad/schematic/flat.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "flat schematic of format 20260306 authored for the c0060 reader tests: Mini symbols, labels, no-connect flags, a DNP symbol and one left off the board"
+
+[[file]]
+path = "tests/data/kicad/schematic/flat_v9.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the flat schematic (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/units.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "three units of one Mini symbol under one reference, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/units_v9.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the units schematic (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root of a two-sheet hierarchy, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier/child.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "child sheet of the two-sheet hierarchy: a hierarchical label (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier_v9/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the hierarchy root (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier_v9/child.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the hierarchy child (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/multi/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root that references one sheet file twice, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/multi/cell.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet used twice: every symbol has two uses (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/bus.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "a bus, two bus entries and a bus label, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic skeleton of the token fuzz, in the 8.0 token set (c0060)"
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "symbol-library skeleton of the token fuzz, in the 8.0 token set (c0060)"
