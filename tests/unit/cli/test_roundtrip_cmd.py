@@ -125,3 +125,31 @@ def test_rt2_through_the_fake_tool_is_read_only(monkeypatch: pytest.MonkeyPatch,
     assert {"normalised", "runs", "before", "after", "unstable", "differences"} <= set(rt2)
     assert any(c["args"][:2] == ["pcb", "drc"] for c in calls(fake))
     assert tree_snapshot(root) == before and not (root / "x.kicad_prl").exists()
+
+
+# --- schematics (task 2.3b, after the schematic reader of c0060) ------------------------------------
+
+FLAT = DATA / "kicad" / "schematic" / "flat.kicad_sch"
+
+
+def test_schematic_reaches_rt1(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from fenolite.backends.kicad import sch
+
+    hide_kicad(monkeypatch, tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", str(FLAT))
+    result = env["result"]
+    assert code == 0 and (result["kind"], result["level"]) == ("kicad_sch", "rt1")
+    assert result["rt1"] == {
+        "passed": True,
+        "difference": "",
+        "opaque_count": sch.opaque_count(sch.read_schematic(FLAT)),
+    }
+    assert "H-K-SCH-READ" in env["evidence"]["hypotheses"]
+
+
+def test_schematic_rt1_failure_is_an_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    failed = RoundTrip("RT1", False, False, True, True, 4, "/kicad_sch/symbol[0]")
+    monkeypatch.setattr("fenolite.backends.kicad.sch.roundtrip_schematic", lambda text, file="": failed)
+    code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", str(FLAT))
+    assert code == 5 and env["result"]["level"] == "rt0"
+    assert [(i["code"], i["where"]) for i in env["issues"]] == [("roundtrip.failed", "/kicad_sch/symbol[0]")]

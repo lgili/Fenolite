@@ -13,8 +13,8 @@ from pathlib import Path
 from hypothesis import given, settings
 from strategies import designs
 
-from fenolite.backends.kicad import mod
-from fenolite.checks.diff import Change, DiffReport, diff_designs, diff_libraries
+from fenolite.backends.kicad import mod, sch
+from fenolite.checks.diff import Change, DiffReport, diff_designs, diff_libraries, diff_sheets
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
 from fenolite.model import canonical
@@ -281,3 +281,57 @@ def test_to_json_limits_the_list() -> None:
         "track": {"added": 0, "removed": 2, "changed": 0},
         "via": {"added": 0, "removed": 1, "changed": 0},
     }
+
+
+# --- sheets (task 2.1b, after the schematic reader of c0060) ---------------------------------------
+
+FLAT = DATA / "kicad" / "schematic" / "flat.kicad_sch"
+
+
+def _flat(*edits: tuple[str, str]) -> str:
+    text = FLAT.read_text(encoding="utf-8")
+    for old, new in edits:
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    return text
+
+
+def test_sheets_moved_symbol_and_removed_label() -> None:
+    a = sch.read_schematic(_flat(), file="flat.kicad_sch")
+    assert diff_sheets(a, sch.read_schematic(_flat(), file="other.kicad_sch")).equal
+    moved = sch.read_schematic(
+        _flat(("\t\t(at 100 50 0)\n\t\t(unit 1)", "\t\t(at 102.54 50 0)\n\t\t(unit 1)"))
+    )
+    removed = dataclasses.replace(moved, labels=moved.labels[:-1])
+    assert len(removed.labels) == len(moved.labels) - 1
+    report = diff_sheets(a, removed)
+    assert _paths(report) == [("/label/0", "removed"), ("/symbol/R1#1/position", "changed")]
+    assert json.loads(report.changes[1].b) == {"x": 102_540_000, "y": 50_000_000}
+    assert report.summary == {
+        "label": {"added": 0, "removed": 1, "changed": 0},
+        "symbol": {"added": 0, "removed": 0, "changed": 1},
+    }
+
+
+def test_sheets_opaque_content_only_with_ext() -> None:
+    a = sch.read_schematic(_flat())
+    wire = "\t(wire\n\t\t(pts\n\t\t\t(xy 1 1) (xy 2 1)\n\t\t)\n\t)\n\t(junction\n"
+    b = sch.read_schematic(_flat(("\t(junction\n", wire)))
+    assert diff_sheets(a, b).equal
+    assert _paths(diff_sheets(a, b, ext=True)) == [("/sheet/ext", "changed")]
+
+
+def test_sheets_keys_of_symbols_sheet_references_and_embedded_symbols() -> None:
+    a = sch.read_schematic(_flat())
+    first = a.symbols[0]
+    renamed = dataclasses.replace(a, symbols=(dataclasses.replace(first, ref="R9"), *a.symbols[1:]))
+    assert _paths(diff_sheets(a, renamed))[:2] == [("/symbol/R1#1", "removed"), ("/symbol/R9#1", "added")]
+    fewer = dataclasses.replace(a, lib_symbols=a.lib_symbols[1:], no_connects=())
+    paths = _paths(diff_sheets(a, fewer))
+    assert (f"/lib_symbol/{a.lib_symbols[0].lib_id}", "removed") in paths
+    assert sum(1 for path, _ in paths if path.startswith("/no_connect_flag/")) == len(a.no_connects)
+    root = sch.read_schematic(DATA / "kicad" / "schematic" / "hier" / "top.kicad_sch")
+    assert root.sheets
+    gone = dataclasses.replace(root, sheets=root.sheets[1:], pages=())
+    paths = _paths(diff_sheets(root, gone))
+    assert (f"/sheet_ref/{root.sheets[0].name}", "removed") in paths and ("/sheet/pages", "changed") in paths

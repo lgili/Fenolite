@@ -12,28 +12,28 @@
 
 - [x] 2.1 Write `src/fenolite/checks/diff.py` and `tests/unit/checks/test_diff.py` (scenarios of "Model difference report"), with property tests: a design against itself is equal whatever its ids; adding then removing an entity gives one `added` in one direction and one `removed` in the other. Proof: `uv run pytest tests/unit/checks/test_diff.py tests/unit/test_import_graph.py`; `uv run pyright src`.
   - Done for designs and libraries (2026-10-05). `diff_sheets` and its two scenarios are task 2.1b.
-- [ ] 2.1b Add `diff_sheets` for two `SchematicSheet`s (`symbol` by `<ref>#<unit>`, `sheet_ref` by name, `lib_symbol` by embedded name, `label` and `no_connect_flag` by content) with the scenarios "Sheets" and "Opaque content only with ext" on sheets. Proof: `uv run pytest tests/unit/checks/test_diff.py -k sheets`.
-  - Waits for c0060 (the schematic reader defines `SchematicSheet`).
+- [x] 2.1b Add `diff_sheets` for two `SchematicSheet`s (`symbol` by `<ref>#<unit>`, `sheet_ref` by name, `lib_symbol` by embedded name, `label` and `no_connect_flag` by content) with the scenarios "Sheets" and "Opaque content only with ext" on sheets. Proof: `uv run pytest tests/unit/checks/test_diff.py -k sheets`.
+  - Done (2026-10-05, follow-up after c0060). The paper, the title block and the pages are the fields of the keyless kind `sheet` (`/sheet/<field>`, and `/sheet/ext` with `ext=True`); the sheet's name is not compared.
 - [x] 2.2 Write `src/fenolite/cli/cmd_diff.py` with both views and `tests/unit/cli/test_diff_cmd.py` (scenarios of "Diff command", except the page scenario, which waits for task 6.1). Proof: `uv run pytest tests/unit/cli/test_diff_cmd.py tests/consistency tests/unit/cli/test_hermetic_examples.py`.
   - Done for boards, footprint files, symbol libraries, built models and the tree view of the five S-expression kinds (2026-10-05). A `.kicad_sch` in the model view exits 2 with a hint that names `--view tree` until task 2.2b. The scenario "Tree view sees opaque content" is tested on a board.
-- [ ] 2.2b Read `.kicad_sch` inputs of `diff` with `sch.read_schematic` and compare them with `diff_sheets`; add the scenarios "Two schematics" and "Tree view sees opaque content" on `flat.kicad_sch`. Proof: `uv run pytest tests/unit/cli/test_diff_cmd.py -k schematic`.
-  - Waits for c0060 (`sch.read_schematic`, `tests/data/kicad/schematic/flat.kicad_sch`) and task 2.1b.
+- [x] 2.2b Read `.kicad_sch` inputs of `diff` with `sch.read_schematic` and compare them with `diff_sheets`; add the scenarios "Two schematics" and "Tree view sees opaque content" on `flat.kicad_sch`. Proof: `uv run pytest tests/unit/cli/test_diff_cmd.py -k schematic`.
+  - Done (2026-10-05, follow-up). Two schematics are one family; a schematic against a board or a library exits 2.
 - [x] 2.3 Write `src/fenolite/cli/cmd_roundtrip.py` and `tests/unit/cli/test_roundtrip_cmd.py` (scenarios of "Roundtrip command" for RT0 and RT1), and add `roundtrip` to `tests/unit/cli/test_check_readonly.py`. Proof: `uv run pytest tests/unit/cli/test_roundtrip_cmd.py tests/unit/cli/test_check_readonly.py tests/consistency`.
   - Done for RT0 of the five kinds and RT1 of a board (2026-10-05). A level after a failed one is `not-run`. A `.kicad_sch` gives `rt1: not-applicable` until task 2.3b.
-- [ ] 2.3b RT1 of a schematic through `sch.roundtrip_schematic`, with the scenario "Schematic" (`result.kind` `kicad_sch`, `result.level` `rt1`). Proof: `uv run pytest tests/unit/cli/test_roundtrip_cmd.py -k schematic`.
-  - Waits for c0060 (`sch.roundtrip_schematic`, `tests/data/kicad/schematic/flat.kicad_sch`).
+- [x] 2.3b RT1 of a schematic through `sch.roundtrip_schematic`, with the scenario "Schematic" (`result.kind` `kicad_sch`, `result.level` `rt1`). Proof: `uv run pytest tests/unit/cli/test_roundtrip_cmd.py -k schematic`.
+  - Done (2026-10-05, follow-up).
 - [x] 2.4 Add RT2 to `roundtrip` and write `tests/kicad/check/test_roundtrip_cmd.py`. Proof: `uv run pytest tests/kicad/check/test_roundtrip_cmd.py -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
   - Done for the board of a project (2026-10-05), through `checks.rt2.rt2_stage`; passed on the local `kicad-cli` 10.0.6 (`1 passed`). `--level rt2` on a file that is not a board exits 2.
 - [ ] 2.4b RT2 of the project's schematic through `KicadOracle.rt2_erc`, when the project has one. Proof: `uv run pytest tests/kicad/check/test_roundtrip_cmd.py -k schematic -rA` on both majors.
   - Waits for c0062 (`rt2_erc`) and c0060.
-- [ ] 2.4c Confirm `tests/kicad/check/test_roundtrip_cmd.py` inside the pinned 9.0.9 image.
-  - Waits for the `kicad-9` CI job of the pull request: KiCad 9 does not run locally.
+- [x] 2.4c Confirm `tests/kicad/check/test_roundtrip_cmd.py` inside the pinned 9.0.9 image.
+  - Done (2026-10-05, follow-up): `1 passed` inside the pinned image `kicad/kicad:9.0.9@sha256:e638b79b…` (the built blink for target 9: RT0, RT1 and RT2 hold, `normalised` false, the project folder untouched). The run passed `-p no:hypothesispytest`, because the host's virtual environment holds a macOS build of hypothesis that the Linux image cannot load; the test uses no hypothesis.
 - [x] 2.5 Add `sexpr.canonical` and `sexpr.first_line_difference`, write `src/fenolite/cli/cmd_fmt.py` and `tests/unit/cli/test_fmt_cmd.py` (scenarios of "Fmt command" and the hermetic scenarios of "Canonical print check"). Proof: `uv run pytest tests/unit/cli/test_fmt_cmd.py tests/unit/backends/kicad/test_sexpr_dumps.py tests/consistency`.
   - Done (2026-10-05). The hermetic scenario runs on every authored S-expression file of `tests/data/`, the one authored `.kicad_sch` included.
 - [x] 2.6 Write `tests/corpus/test_fmt_idempotent.py` and copy its census into `docs/evidence/kicad-fmt-identity.md`. Proof: `FENOLITE_CENSUS_OUT=<file> uv run pytest tests/corpus/test_fmt_idempotent.py -rA` with the corpus cached; `git status --porcelain` lists no file under the cache.
   - Done (2026-10-05) on the local cache: 136 of 138 `rt0` rows measured (two heavy rows are not cached), 136 accepted, 0 failures; 94 of 106 authored files accepted, 0 failures. `git status --porcelain` lists no file under the cache.
-- [ ] 2.6b Run the corpus test again once the schematic rows of c0060 are in the manifest (they carry the use `rt0`, so the test measures them without a change) and copy the new counts into `docs/evidence/kicad-fmt-identity.md` and the `H-K-FMT-IDEMPOTENT` row.
-  - Waits for c0060 (its corpus rows).
+- [x] 2.6b Run the corpus test again once the schematic rows of c0060 are in the manifest (they carry the use `rt0`, so the test measures them without a change) and copy the new counts into `docs/evidence/kicad-fmt-identity.md` and the `H-K-FMT-IDEMPOTENT` row.
+  - Done (2026-10-05, follow-up): 267 of 269 `rt0` rows, 132 of them schematics, 0 failures. For the schematic rows the test checks the fixed point only: `tests/corpus/test_schematic_rt.py` already proves their RT0 row by row.
 
 ## 3. `explain`
 

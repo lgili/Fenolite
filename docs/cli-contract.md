@@ -909,10 +909,10 @@ with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differ
 nothing and runs no tool. A difference is a result, not a finding: the exit code is 0 whether or not the
 inputs differ, and `result.equal` says it.
 
-`A` and `B` are each a KiCad board, a footprint file, a symbol library (file or `.kicad_symdir` folder),
-or a folder that holds `.fenolite/meta.json` (the built model). Both must be of one family: two designs
-(boards and built models, in any mix) or two libraries. Schematics are compared by the tree view only
-until the schematic reader lands.
+`A` and `B` are each a KiCad board, a schematic, a footprint file, a symbol library (file or
+`.kicad_symdir` folder), or a folder that holds `.fenolite/meta.json` (the built model). Both must be of one family: two designs
+(boards and built models, in any mix), two libraries, or two schematics. A schematic is one file: a
+sub-sheet is compared by naming its own file.
 
 - **`--view model`** (the default) compares the two models entity by entity. Ids, KiCad uuids and
   provenance never take part, so a rebuilt board equals itself.
@@ -925,6 +925,10 @@ until the schematic reader lands.
   - Copper and graphics (`track`, `arc`, `via`, `zone`, `keepout`, `text`, `graphic`, `hole`, `rule`,
     `stack_layer`) have no name: two of them match when every field is equal. A moved track is therefore
     one `removed` and one `added`, with the path `/<kind>/<n>`.
+  - In a schematic, `symbol` is matched by `<ref>#<unit>`, `sheet_ref` by its name and `lib_symbol` (an
+    embedded symbol) by its name; `label` and `no_connect_flag` have no name and match by content. The
+    paper, the title block and the pages are `/sheet/<field>`. Wires, junctions and buses are not
+    modelled, so only `--ext` and the tree view see them.
   - The values a design holds once (`outline`, `finish`, `sheet`, `title_block`) are `/design/<field>`.
     The design's name is not compared.
   - A key is one path segment: `/` in a name is written `~1` and `~` is written `~0`, so the net `/SDA`
@@ -939,7 +943,7 @@ until the schematic reader lands.
   count in `a` and in `b`.
 
 `result` holds `view`, `equal`, `a` and `b` (each `{path, kind}`; `kind` is `kicad_pcb`, `kicad_mod`,
-`kicad_sym` or `fenolite_model`), `summary` (per entity kind: `added`, `removed`, `changed`),
+`kicad_sym`, `kicad_sch` or `fenolite_model`), `summary` (per entity kind: `added`, `removed`, `changed`),
 `differences` (objects `{path, change, a, b}`, sorted by path; `a` and `b` are compact JSON texts),
 `total` and `truncated`. `differences` is a paged list with a default limit of 200 (see "Paged
 results"). `issues` holds only the readers' issues, those of `A` first; `input` describes `A`. The
@@ -961,7 +965,7 @@ Fenolite did not write. It writes nothing; RT2 runs `kicad-cli` on copies.
 | level | what holds |
 |---|---|
 | `rt0` | parsing the file, printing it and parsing it again gives an equal tree (any of the five S-expression kinds) |
-| `rt1` (default) | RT0, and the backend's same-version rebuild of a board gives an equal tree, an equal model and the same unmodelled content. For a kind without a rebuild `result.rt1` is `not-applicable` and the level reached is `rt0` |
+| `rt1` (default) | RT0, and the backend's same-version rebuild of a board or of a schematic gives an equal tree, an equal model and the same unmodelled content. For a kind without a rebuild `result.rt1` is `not-applicable` and the level reached is `rt0` |
 | `rt2` | RT1, and KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it. `PATH` may then be a project file or folder |
 
 `result` holds `kind`, `level` (the highest level that holds, or `none`), and per level asked an object

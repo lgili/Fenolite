@@ -18,7 +18,7 @@ from typing import Any
 
 from fenolite.backends import registry
 from fenolite.backends.base import Validator
-from fenolite.backends.kicad import versions
+from fenolite.backends.kicad import sch, versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.sexpr import dumps, first_difference, parse, tree_equal
@@ -122,6 +122,19 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         backend = registry.for_path(path)
         if not holds:
             result["rt1"] = NOT_RUN
+        elif kind is versions.FileKind.SCHEMATIC:
+            verdict = sch.roundtrip_schematic(data.decode("utf-8"), file=path.name)
+            evidence = sch.EVIDENCE
+            result["rt1"] = {
+                "passed": verdict.passed,
+                "difference": verdict.difference,
+                "opaque_count": verdict.opaque_count,
+            }
+            holds = verdict.passed
+            if holds:
+                result["level"] = "rt1"
+            else:
+                issues.append(_failed("rt1", path.name, verdict.difference))
         elif kind is not versions.FileKind.BOARD or not isinstance(backend, Validator):
             result["rt1"] = NOT_APPLICABLE
         else:

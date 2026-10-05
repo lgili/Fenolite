@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.kicad import versions
+from fenolite.backends.kicad import sch, versions
 from fenolite.backends.kicad.sexpr import Node, first_difference, parse_bytes, tree_equal
-from fenolite.checks.diff import DiffReport, diff_designs, diff_libraries
+from fenolite.checks.diff import DiffReport, diff_designs, diff_libraries, diff_sheets
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
@@ -28,6 +28,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
 from fenolite.model.library import Library
+from fenolite.model.schematic import SchematicSheet
 
 HELP = "list the differences between two boards, libraries or built models (runs no tool)"
 MODEL_KIND = "fenolite_model"
@@ -42,7 +43,7 @@ TREE_KINDS = frozenset(
         versions.FileKind.WORKSHEET,
     }
 )
-READS = "diff reads .kicad_pcb, .kicad_mod, .kicad_sym(dir) and a folder that holds .fenolite/meta.json"
+READS = "diff reads .kicad_pcb, .kicad_mod, .kicad_sym(dir), .kicad_sch and a folder with .fenolite/meta.json"
 TREE_READS = "it reads .kicad_pcb, .kicad_mod, .kicad_sch, .kicad_sym and .kicad_wks; else use --view model"
 DEFAULT_LIMIT = 200
 
@@ -51,7 +52,7 @@ DEFAULT_LIMIT = 200
 class _Input:
     name: str
     kind: str
-    content: Design | Library
+    content: Design | Library | SchematicSheet
     issues: tuple[Issue, ...]
     evidence: Evidence
     sha256: str | None
@@ -59,7 +60,9 @@ class _Input:
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'diff'."
-    parser.add_argument("a", metavar="A", help="a board, footprint file, symbol library or built project")
+    parser.add_argument(
+        "a", metavar="A", help="a board, schematic, footprint file, symbol library or project"
+    )
     parser.add_argument("b", metavar="B", help="the input to compare with A")
     parser.add_argument(
         "--view", choices=("model", "tree"), default="model", help="model entities (default) or file trees"
@@ -83,12 +86,14 @@ def _read(path: Path) -> _Input:
     if path.is_dir() and (path / ".fenolite" / "meta.json").is_file():
         design = load_dir(path / ".fenolite")
         return _Input(path.name, MODEL_KIND, design, (), MODEL_EVIDENCE, None)
+    if path.is_file() and versions.kind_for_suffix(path.name) is versions.FileKind.SCHEMATIC:
+        sheet_issues: list[Issue] = []
+        sheet = sch.read_schematic(path, issues=sheet_issues)
+        kind_name = versions.FileKind.SCHEMATIC.value
+        return _Input(path.name, kind_name, sheet, tuple(sheet_issues), sch.EVIDENCE, _digest(path))
     backend = registry.for_path(path)
     if backend is None:
-        hint = READS
-        if path.suffix == ".kicad_sch":
-            hint = "the model view of a schematic needs the schematic reader; --view tree compares two files"
-        raise CliError("FEN-2001", f"diff does not read {path.name}", hint=hint, where=path.name)
+        raise CliError("FEN-2001", f"diff does not read {path.name}", hint=READS, where=path.name)
     found: list[Issue] = []
     read = backend.read(path, issues=found)
     kind = versions.kind_for_suffix(path.name)
@@ -101,10 +106,12 @@ def _model(a: _Input, b: _Input, *, ext: bool) -> DiffReport:
         return diff_designs(a.content, b.content, ext=ext)
     if isinstance(a.content, Library) and isinstance(b.content, Library):
         return diff_libraries(a.content, b.content, ext=ext)
+    if isinstance(a.content, SchematicSheet) and isinstance(b.content, SchematicSheet):
+        return diff_sheets(a.content, b.content, ext=ext)
     raise CliError(
         "FEN-2001",
         f"{a.name} ({a.kind}) and {b.name} ({b.kind}) are not of one family",
-        hint="compare two boards or built models, or two libraries",
+        hint="compare two boards or built models, two libraries, or two schematics",
     )
 
 

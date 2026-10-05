@@ -138,3 +138,48 @@ def test_output_is_deterministic_and_relative(monkeypatch: pytest.MonkeyPatch, t
     second = run(monkeypatch, tmp_path, "diff", str(TWO_LAYER), str(moved))[3]
     assert without_elapsed(first) == without_elapsed(second)
     assert str(tmp_path) not in first and str(DATA) not in first
+
+
+# --- schematics (task 2.2b, after the schematic reader of c0060) ------------------------------------
+
+FLAT = DATA / "kicad" / "schematic" / "flat.kicad_sch"
+
+
+def _schematic_copy(tmp_path: Path, old: str, new: str) -> Path:
+    text = FLAT.read_text(encoding="utf-8")
+    assert text.count(old) == 1, old
+    folder = tmp_path / "copy"
+    folder.mkdir(exist_ok=True)
+    target = folder / FLAT.name
+    target.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
+    return target
+
+
+def test_two_schematics(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    moved = _schematic_copy(tmp_path, "\t\t(at 100 50 0)\n\t\t(unit 1)", "\t\t(at 102.54 50 0)\n\t\t(unit 1)")
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(moved))
+    result = env["result"]
+    assert code == 0 and result["equal"] is False
+    assert [(d["path"], d["change"]) for d in result["differences"]] == [("/symbol/R1#1/position", "changed")]
+    assert result["a"] == result["b"] == {"path": "flat.kicad_sch", "kind": "kicad_sch"}
+    assert env["input"]["kind"] == "kicad_sch" and "H-K-SCH-READ" in env["evidence"]["hypotheses"]
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(FLAT))
+    assert code == 0 and env["result"]["equal"] is True and env["result"]["total"] == 0
+
+
+def test_schematic_tree_view_sees_opaque_content(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    wire = "\t(wire\n\t\t(pts\n\t\t\t(xy 1 1) (xy 2 1)\n\t\t)\n\t)\n\t(junction\n"
+    more = _schematic_copy(tmp_path, "\t(junction\n", wire)
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(more))
+    assert code == 0 and env["result"]["equal"] is True
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(more), "--ext")
+    assert [d["path"] for d in env["result"]["differences"]] == ["/sheet/ext"]
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(more), "--view", "tree")
+    assert code == 0 and env["result"]["equal"] is False
+    counts = env["result"]["heads"]["wire"]
+    assert counts["b"] == counts["a"] + 1
+
+
+def test_schematic_against_a_board_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(TWO_LAYER))
+    assert code == 2 and err["code"] == "FEN-2001" and "not of one family" in err["message"]

@@ -23,16 +23,20 @@ from fenolite.model.board import Pad
 from fenolite.model.circuit import PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import Library
+from fenolite.model.schematic import SchematicSheet
 
 ChangeKind = Literal["added", "removed", "changed"]
 NEVER = frozenset({"id", "native_ids", "provenance"})
 """Fields of an entity that no comparison reads; ``ext`` joins them unless ``ext=True``."""
 KEYED_KINDS = (
     "design", "component", "net", "netclass", "interface", "module", "no_connect", "layer", "footprint",
-    "pad", "footprint_def", "symbol_def",
+    "pad", "footprint_def", "symbol_def", "sheet", "symbol", "sheet_ref", "lib_symbol",
 )  # fmt: skip
+SINGLE_KINDS = frozenset({"design", "sheet"})
+"""Kinds with one entity and no key: the values a design or a sheet holds once."""
 CONTENT_KINDS = (
     "track", "arc", "via", "zone", "keepout", "text", "graphic", "hole", "rule", "stack_layer",
+    "label", "no_connect_flag",
 )  # fmt: skip
 
 
@@ -242,9 +246,32 @@ def _library_parts(library: Library, *, ext: bool) -> tuple[Keyed, Content]:
     return keyed, {}
 
 
+def _sheet_parts(sheet: SchematicSheet, *, ext: bool) -> tuple[Keyed, Content]:
+    names = _Names(None, ext=ext)
+    keyed: Keyed = {kind: {} for kind in KEYED_KINDS}
+    content: Content = {kind: [] for kind in CONTENT_KINDS}
+    for key, symbol in zip(_numbered(f"{s.ref}#{s.unit}" for s in sheet.symbols), sheet.symbols, strict=True):
+        keyed["symbol"][key] = names.fields(symbol, defaults=True)
+    for key, ref in zip(_numbered(r.name for r in sheet.sheets), sheet.sheets, strict=True):
+        keyed["sheet_ref"][key] = names.fields(ref, defaults=True)
+    for key, symbol in zip(_numbered(s.lib_id for s in sheet.lib_symbols), sheet.lib_symbols, strict=True):
+        keyed["lib_symbol"][key] = names.fields(symbol, defaults=True)
+    content["label"] = [names.fields(label, defaults=False) for label in sheet.labels]
+    content["no_connect_flag"] = [names.fields(flag, defaults=False) for flag in sheet.no_connects]
+    single: dict[str, Any] = {
+        "paper": names.value(sheet.paper),
+        "title_block": names.value(sheet.title_block),
+        "pages": names.value(sheet.pages),
+    }
+    if ext:
+        single["ext"] = names.value(sheet.ext, "ext")
+    keyed["sheet"][""] = single
+    return keyed, content
+
+
 def _keyed_changes(kind: str, a: dict[str, dict[str, Any]], b: dict[str, dict[str, Any]]) -> list[Change]:
     changes: list[Change] = []
-    single = kind == "design"
+    single = kind in SINGLE_KINDS
     for key in sorted(set(a) | set(b)):
         base = f"/{kind}" if single else f"/{kind}/{_segment(key)}"
         if key not in b:
@@ -297,6 +324,14 @@ def diff_libraries(a: Library, b: Library, *, ext: bool = False) -> DiffReport:
     return _report(_library_parts(a, ext=ext), _library_parts(b, ext=ext))
 
 
+def diff_sheets(a: SchematicSheet, b: SchematicSheet, *, ext: bool = False) -> DiffReport:
+    """Every difference between two schematic sheets: symbols by ``<ref>#<unit>``, sheet references by
+    name, embedded symbols by their name, labels and no-connect flags by content. The paper, the title
+    block and the pages are ``/sheet/<field>``; the sheet's name is not compared. Wires, junctions and
+    buses are not modelled: ``ext=True`` compares them with the rest of the opaque content, as a hash."""
+    return _report(_sheet_parts(a, ext=ext), _sheet_parts(b, ext=ext))
+
+
 __all__ = [
     "CONTENT_KINDS",
     "KEYED_KINDS",
@@ -305,4 +340,5 @@ __all__ = [
     "DiffReport",
     "diff_designs",
     "diff_libraries",
+    "diff_sheets",
 ]
