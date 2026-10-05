@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- `route` no longer hands a router the one-pad `unconnected-(…)` nets that a build gives unused pins since the schematic writer: with them Freerouting left one connection of the 40-part example open. The acceptance loop prints the error findings of a failed step.
 - Archived the completed specs of the evidence matrix (c0067) and of the isolated worksheet version oracle (c0082) after their CI run.
 - Altium verification: `fenolite check` and `fenolite inspect` accept Altium documents and projects, read-only and without external tools; the round-trip levels RT-A0 (container copy), RT-A1 (records per stream) and RT-A2 (model → Altium → model on built projects, for what the built model holds: the circuit and the net classes); `fenolite diff A B` reads Altium inputs in its model view and gains a records view (`--view records`) for two Altium files of one kind; results over the public corpus in `docs/evidence/altium-roundtrip.md` (c0044). A component whose value is empty in the script is stored in the built model of an Altium build with the value its documents hold, the symbol's name.
 - Archived the complete layout lens and the drawing-sheet follow-ups after their schematic halves, and cited the CI run of the `kicad-9` and `kicad-10` jobs in the four verified rows of c0074 (c0069, c0074).
