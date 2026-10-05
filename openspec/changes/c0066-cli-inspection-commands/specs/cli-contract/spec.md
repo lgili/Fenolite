@@ -99,8 +99,8 @@ The dispatcher SHALL accept the global flag `--format concise|detailed`, default
 `fenolite roundtrip PATH [--level rt0|rt1|rt2] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_roundtrip.py` with `mutates=False`, and SHALL say up to which level Fenolite reads and writes a KiCad file back without loss. `--level` MUST default to `rt1`.
 - **RT0.** For a `.kicad_pcb`, `.kicad_mod`, `.kicad_sch`, `.kicad_sym` or `.kicad_wks` file: `tree_equal(parse(dumps(parse(text))), parse(text))`. Any other file MUST exit 2 with `FEN-2001`.
 - **RT1.** RT0, then `roundtrip.rt1` for a board and `sch.roundtrip_schematic` for a schematic. For another kind `result.rt1` MUST be `not-applicable` and the level reached `rt0`.
-- **RT2.** RT1, then, for a `PATH` that `projectset.resolve_board` resolves, `KicadOracle.rt2` on the project's board and, when the project has a schematic, `KicadOracle.rt2_erc`. RT2 needs the tool: exit 6 with `FEN-6001` without it. A pair of reports that the oracle did not repeat MUST give `judged` false and MUST NOT fail the level. The schematic is judged by `checks.rt2.erc_rt2`: it is not judged when the two ERC runs on the project as it is differ; a difference of the re-dump MUST be tried again, `ERC_RETRIES` (2) more times, because KiCad's ERC is not repeatable on every project (`H-K-ERC-REPEAT`), and it fails the level only when every attempt gives it; one attempt that holds settles it, and an attempt whose own two runs differ leaves it not judged. The level reached is `rt2` only when the board's RT2 holds and, for a project with a schematic, the schematic's does. No ERC report at all MUST give `check.oracle-failed`.
-- **Result.** `result` MUST hold `kind`, `level` (the highest level that holds, or `none`), and for each level asked `{passed, difference}`, with `opaque_count` for RT1 and `judged`, `normalised` and the report counts for RT2. For a project with a schematic, `result.rt2.schematic` MUST hold `passed`, `difference`, `judged`, `attempts`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped and left as they are).
+- **RT2.** RT1, then, for a `PATH` that `projectset.resolve_board` resolves, `KicadOracle.rt2` on the project's board and, when the project has a schematic, `KicadOracle.rt2_erc`. RT2 needs the tool: exit 6 with `FEN-6001` without it. A pair of reports that the oracle did not repeat MUST give `judged` false and MUST NOT fail the level. The schematic is judged by `checks.rt2.erc_rt2` on `ErcReport.kinds()`, the sheet, type, severity and exclusion of every violation, because KiCad's ERC can name another item of one violation in each run (`H-K-ERC-REPEAT-2`): it is not judged when the kinds of the two ERC runs on the project as it is differ, and it holds when the kinds of the re-dump's report equal those of the first run (`H-K-ERC-RT2-2`). The three runs MUST be made once; a difference of kinds fails the level, and a difference of items alone MUST NOT. The level reached is `rt2` only when the board's RT2 holds and, for a project with a schematic, the schematic's does. No ERC report at all MUST give `check.oracle-failed`.
+- **Result.** `result` MUST hold `kind`, `level` (the highest level that holds, or `none`), and for each level asked `{passed, difference}`, with `opaque_count` for RT1 and `judged`, `normalised` and the report counts for RT2. For a project with a schematic, `result.rt2.schematic` MUST hold `passed`, `difference`, `judged`, `exact`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped and left as they are). `exact` MUST be `true` when the three reports also have equal `entries()`, items included; it is information and changes neither `passed` nor the exit code.
 - **Verdict.** A level that fails MUST give one `roundtrip.failed` issue of severity `error` whose `where` is the first difference, and the exit code is then 5. A read error MUST exit 3 with its code.
 - **Read-only.** The file and its folder MUST be unchanged; RT2 runs on copies.
 - **Evidence.** The reader's evidence for RT0 and RT1; combined with the oracle's for RT2.
@@ -131,10 +131,15 @@ The dispatcher SHALL accept the global flag `--format concise|detailed`, default
 - **WHEN** `uv run pytest tests/kicad/check/test_roundtrip_cmd.py -k schematic -rA` runs the same command on the built blink, which has a schematic, on 9.0.9 and on 10.0.6
 - **THEN** `result.rt2.schematic.passed` is `true` or its `judged` is `false`, no `roundtrip.failed` issue is reported, and the project snapshot is unchanged
 
-#### Scenario: ERC difference that does not come back
-- **GIVEN** a fake `kicad-cli` whose ERC report of the re-dump differs on the first attempt only
-- **WHEN** `uv run pytest tests/unit/cli/test_roundtrip_cmd.py -k erc` runs the command
-- **THEN** the exit code is 0, `result.level` is `rt2` and `result.rt2.schematic.attempts` is 2; with a difference on every attempt the exit code is 5 after three attempts
+#### Scenario: ERC names another item
+- **GIVEN** a fake `kicad-cli` whose three ERC reports hold one violation of the same sheet, type and severity, with another item in one of them
+- **WHEN** `uv run pytest tests/unit/cli/test_roundtrip_cmd.py -k rt2_schematic` runs the command
+- **THEN** the exit code is 0, `result.level` is `rt2`, `result.rt2.schematic.passed` is `true` and its `exact` is `false`, after three ERC runs
+
+#### Scenario: ERC difference of kinds
+- **GIVEN** a fake `kicad-cli` whose ERC report of the re-dump holds one violation more than its two reports of the project
+- **WHEN** the same test file runs the command
+- **THEN** the exit code is 5 with one `roundtrip.failed` issue that names the type, after three ERC runs; when the two reports of the project differ in kinds instead, the exit code is 0, `judged` is `false` and the level is `rt1`
 
 ### Requirement: Fmt command
 `fenolite fmt PATH [--check]` SHALL be registered by `src/fenolite/cli/cmd_fmt.py` with `mutates=True`, and SHALL give a KiCad S-expression file its canonical print (`kicad-sexpr`, "Canonical print check"), writing only through the mutation protocol.

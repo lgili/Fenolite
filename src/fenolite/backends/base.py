@@ -177,6 +177,12 @@ class ErcReport:
         ]
         return tuple(sorted(found))
 
+    def kinds(self) -> tuple[tuple[str, str, str, bool], ...]:
+        """The violations as a sorted tuple of ``(sheet, type, severity, excluded)``, one entry per
+        violation and no item: what two runs of a tool on one project can be expected to share, because a
+        tool may name another of the pins or labels of one violation in each run."""
+        return tuple(sorted((v.sheet, v.type, v.severity, v.excluded) for v in self.violations))
+
     def of_type(self, type: str) -> tuple[ErcViolation, ...]:  # noqa: A002 (the report's own key)
         """The violations of ``type``, in report order."""
         return tuple(v for v in self.violations if v.type == type)

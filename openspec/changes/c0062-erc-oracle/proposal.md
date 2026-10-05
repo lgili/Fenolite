@@ -11,7 +11,7 @@ Measured at proposal time on 9.0.9 and 10.0.6: `sch erc --format json --severity
 - `check`: the stage `erc.kicad` takes the place of `erc.lite` in the KiCad pipeline. Violations become `kicad.erc.<type>` issues located as `REF-PIN`; a project without a schematic skips the stage.
 - `check`: the DRC run passes `--schematic-parity` when the project has a schematic, and parity entries become `kicad.drc.<type>` issues.
 - `erc.lite`: out of `STAGE_ORDER`; its removal deadline goes. The three rules stay as a function for inputs that have no ERC oracle (c0044's document pipeline).
-- RT2 for schematics: ERC gives equal reports for a project and for Fenolite's re-dump of every sheet; run over the corpus projects of c0060.
+- RT2 for schematics: ERC gives the same violations, by sheet, type and severity, for a project and for Fenolite's re-dump of every sheet; run over the corpus projects of c0060.
 - Probes on both majors: report shape, positions, types and severities, the copy set, repeatability, parity.
 
 Size: 8.5 design-days; cut order in the design.
@@ -39,7 +39,7 @@ None.
 - The ERC stage: `KICAD-VERIFIED (9.0.x, 10.0.x)` once the report shape, the position scale and the copy set are proved on both majors (`H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET`); `UNVERIFIED` when no report was written.
 - Violation types and severities of the controls: `KICAD-VERIFIED` per major (`H-K-ERC-TYPES`).
 - Parity entries: `KICAD-VERIFIED` (`H-K-PARITY-RUN`), with c0061's `H-K-SCH-PARITY`.
-- RT2 on schematics: `KICAD-VERIFIED` where two ERC runs of one project agree (`H-K-ERC-REPEAT`, `H-K-ERC-RT2`); projects where they do not are named, not judged.
+- RT2 on schematics: `KICAD-VERIFIED` where two ERC runs of one project agree in the sheet, type, severity and exclusion of every violation (`H-K-ERC-REPEAT-2`, `H-K-ERC-RT2-2`, the successors of `H-K-ERC-REPEAT` and `H-K-ERC-RT2`, which asked for equal items too); projects where they do not are named, not judged.
 - The three rules that stay: `INFERRED` (`H-K-CHECK-ERC`), unchanged.
 
 ## Impact

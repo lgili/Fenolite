@@ -52,10 +52,16 @@
    - `result`: `kind`, `level` (the highest level that holds), per level `passed`, `difference`, `opaque_count`; for RT2 `judged` and the counts. A level that fails gives `roundtrip.failed` (error) and exit 5: an agent runs this before it edits a file it did not write.
 
    - Added with task 2.4b (2026-10-06, after c0062): the schematic's RT2 is judged by
-     `checks.rt2.erc_rt2`, which tries a difference of the re-dump twice more before it believes it.
-     c0062 measured that KiCad's ERC does not repeat itself on every project, and its corpus test
-     does the same; a command that failed on one noisy run would tell an agent not to edit a file
-     that is fine. The verdict lives in `checks`, behind a protocol, so it imports no backend.
+     `checks.rt2.erc_rt2`. The verdict lives in `checks`, behind a protocol, so it imports no backend.
+   - Corrected on 2026-10-06: `erc_rt2` first compared `ErcReport.entries()` and tried a difference
+     of the re-dump twice more (`ERC_RETRIES`, key `attempts`). The `kicad-9` job showed that no
+     number of attempts settles it: for one violation KiCad names an arbitrary one of the pins or
+     labels involved, so two runs on one unchanged project differ in an item and agree in everything
+     else (`H-K-ERC-REPEAT-2`). `erc_rt2` now makes the three runs once and compares
+     `ErcReport.kinds()`, the sheet, type, severity and exclusion of every violation
+     (`H-K-ERC-RT2-2`), as c0062's corpus test does. `attempts` is gone from `result.rt2.schematic`
+     and `exact` says whether the items agreed too. A command that failed on a renamed item would
+     tell an agent not to edit a file that is fine.
 
 5. **`fenolite fmt PATH [--check]`** (`mutates=True`). The canonical print of a file is `dumps(parse(text))`.
    - `--check`: writes nothing; `result.formatted` says whether the file already is its canonical print; when it is not, `fmt.would-change` (error, exit 5) names the first differing line.
@@ -139,7 +145,7 @@ None. No format fact and no tool behaviour is added. S-0350 to S-0354 stay unuse
 |---|---|---|---|
 | H-K-FMT-IDEMPOTENT | For every S-expression file of the corpus that `parse` reads, the canonical print is a fixed point: printing it again gives the same bytes, and it parses to a tree equal to the source's | `tests/corpus/test_fmt_idempotent.py` | every `rt0` row, schematic rows of c0060 included: `canonical(canonical(t)) == canonical(t)` and `tree_equal(parse(canonical(t)), parse(t))`; rows whose tree `dumps` refuses are counted by reason |
 
-Ids used without changing their level: `H-K-FMT-INDENT`, `H-K-FMT-RESAVE`, `H-K-SEXPR-STRICT`, `H-K-RT2-STABLE`, `H-K-ERC-RT2` (c0062), `H-K-SCH-RT1` (c0060), `H-G-FRAME-CRTYD-2`.
+Ids used without changing their level: `H-K-FMT-INDENT`, `H-K-FMT-RESAVE`, `H-K-SEXPR-STRICT`, `H-K-RT2-STABLE`, `H-K-ERC-RT2-2` (c0062), `H-K-SCH-RT1` (c0060), `H-G-FRAME-CRTYD-2`.
 
 ## Evidence level per behaviour (before merge)
 

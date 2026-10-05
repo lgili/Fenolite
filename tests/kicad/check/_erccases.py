@@ -521,10 +521,12 @@ def erc_entries(report: ErcReport | None) -> object:
 
 
 def copyset_of(root: Path, sheet: str) -> str:
-    """``equal`` when ERC on the planned copy set gives the entries of ERC on a copy of the whole folder.
+    """``equal`` when ERC on the planned copy set gives the kinds of ERC on a copy of the whole folder.
 
-    The reference runs twice: when its two runs differ, the outcome is ``inconclusive`` and never a false
-    ``different`` (``H-K-ERC-REPEAT``)."""
+    The runs are compared by ``ErcReport.kinds()``: KiCad can name another item of one violation in
+    each run (``H-K-ERC-REPEAT-2``), so equal items are not asked of two runs. The reference runs twice:
+    when the kinds of its two runs differ, the outcome is ``inconclusive`` and never a false
+    ``different``."""
     cli = runner()
     project = project_set(root / f"{Path(sheet).stem}.kicad_pcb")
     if sheet not in project.files:
@@ -532,9 +534,9 @@ def copyset_of(root: Path, sheet: str) -> str:
     planned = cli.erc(root / sheet, files={k: v for k, v in project.files.items() if k != sheet}).report
     first = cli.erc(root / sheet, files=tops(root, without=sheet)).report
     second = cli.erc(root / sheet, files=tops(root, without=sheet)).report
-    if planned is None or first is None or second is None or first.entries() != second.entries():
+    if planned is None or first is None or second is None or first.kinds() != second.kinds():
         return "inconclusive"
-    return "equal" if planned.entries() == first.entries() else "different"
+    return "equal" if planned.kinds() == first.kinds() else "different"
 
 
 @cache

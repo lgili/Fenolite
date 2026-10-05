@@ -1236,11 +1236,14 @@ and nothing fails.
 `check.oracle-failed` and `check.rt2-unstable` of the RT2 stage pass through.
 
 For a project with a schematic, `result.rt2.schematic` holds `passed`, `difference`, `judged`,
-`attempts`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped, and
-those Fenolite cannot read, which stay as they are). KiCad's ERC does not repeat itself on every
-project. When its two runs on the project as it is differ, the schematic is not judged. When the
-re-dump differs, the three runs are made again, up to two more times: a difference fails RT2 only when
-it comes back on every attempt, and one attempt that holds settles it. The level is `rt2` only when
+`exact`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped, and
+those Fenolite cannot read, which stay as they are). KiCad's ERC does not repeat its report item by
+item: for one violation it can name another of the pins or labels involved in each run. The runs are
+therefore compared by the sheet, type, severity and exclusion of every violation, counts included,
+and not by the items. When the two runs on the project as it is differ in these, the schematic is not
+judged. When the re-dump differs from the first run in these, RT2 fails; `difference` names the type,
+the sheet and the two counts. `exact` is `true` when the items of the three reports agree too; it is
+information and changes no verdict. The level is `rt2` only when
 the board's RT2 and the schematic's both hold; a schematic that is not judged leaves it at `rt1`
 without an error. No ERC report at all gives `check.oracle-failed`.
 

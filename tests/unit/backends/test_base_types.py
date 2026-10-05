@@ -187,6 +187,27 @@ def test_erc_entries_leave_out_uuids_and_order() -> None:
     assert erc_report(located, first.violations[1]).entries() == first.entries()
 
 
+def test_erc_kinds_leave_out_the_items_and_keep_the_counts() -> None:
+    first = erc_report(erc_violation("a", "u1"), erc_violation("b", "u2", sheet="/Child/"))
+    moved = erc_report(
+        erc_violation("b", "x9", sheet="/Child/", at=(7, 8)), erc_violation("a", "x8", at=(1, 3))
+    )
+    assert moved.entries() != first.entries() and moved.kinds() == first.kinds()
+    assert first.kinds() == (("/", "a", "error", False), ("/Child/", "b", "error", False))
+    twice = erc_report(erc_violation("a"), erc_violation("a", at=(5, 5)), erc_violation("b", sheet="/Child/"))
+    assert twice.kinds() == (
+        ("/", "a", "error", False),
+        ("/", "a", "error", False),
+        ("/Child/", "b", "error", False),
+    )
+    assert twice.kinds() != first.kinds(), "one entry per violation: the counts matter"
+    elsewhere = erc_report(erc_violation("a", sheet="/Child/"), erc_violation("b", sheet="/Child/"))
+    excluded = erc_report(dataclasses.replace(first.violations[0], excluded=True), first.violations[1])
+    warning = erc_report(dataclasses.replace(first.violations[0], severity="warning"), first.violations[1])
+    assert len({first.kinds(), elsewhere.kinds(), excluded.kinds(), warning.kinds()}) == 4
+    assert erc_report().kinds() == ()
+
+
 def test_erc_integer_positions_only() -> None:
     with pytest.raises(TypeError):
         ErcItem(uuid="u", description="d", position=Point(1.5, 0))  # type: ignore[arg-type]

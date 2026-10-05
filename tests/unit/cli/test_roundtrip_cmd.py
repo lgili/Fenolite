@@ -181,7 +181,7 @@ def test_rt2_of_a_project_with_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_
     assert code == 0, env["issues"]
     sheet = env["result"]["rt2"]["schematic"]
     assert env["result"]["level"] == "rt2" and env["result"]["rt2"]["passed"] is True
-    assert (sheet["passed"], sheet["judged"], sheet["attempts"], sheet["difference"]) == (True, True, 1, "")
+    assert (sheet["passed"], sheet["judged"], sheet["exact"], sheet["difference"]) == (True, True, True, "")
     assert (
         sheet["redumped"] >= 1
         and sheet["kept"] == 0
@@ -190,19 +190,17 @@ def test_rt2_of_a_project_with_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_
     assert _erc_runs(fake) == 3 and tree_snapshot(root) == before
 
 
-def test_rt2_schematic_difference_that_comes_back_fails(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_rt2_schematic_difference_of_kinds_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from _fakecli import erc_entry, erc_report_with
 
     clean, more = erc_report_with(), erc_report_with(erc_entry("pin_not_connected", "u1"))
-    root, fake = _blink_with_fake(monkeypatch, tmp_path, erc_sequence=(clean, clean, more) * 3)
+    root, fake = _blink_with_fake(monkeypatch, tmp_path, erc_sequence=(clean, clean, more))
     code, env, err, _ = run(
         monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
     )
     sheet = env["result"]["rt2"]["schematic"]
     assert code == 5 and err["code"] == "FEN-5001" and env["result"]["level"] == "rt1"
-    assert (sheet["passed"], sheet["judged"], sheet["attempts"]) == (False, True, 3) and _erc_runs(fake) == 9
+    assert (sheet["passed"], sheet["judged"], sheet["exact"]) == (False, True, False) and _erc_runs(fake) == 3
     failed = [i for i in env["issues"] if i["code"] == "roundtrip.failed"]
     assert (
         len(failed) == 1
@@ -225,16 +223,26 @@ def test_rt2_schematic_is_not_judged_when_erc_does_not_repeat(
     assert code == 0, env["issues"]
     assert env["result"]["level"] == "rt1" and (sheet["passed"], sheet["judged"]) == (False, False)
     assert not [i for i in env["issues"] if i["code"] == "roundtrip.failed"]
-    # a difference seen once and not again is settled by the attempt that holds
-    root2, fake2 = _blink_with_fake(
-        monkeypatch, tmp_path / "second", erc_sequence=(clean, clean, more, clean, clean, clean)
-    )
-    code, env, _, _ = run(
-        monkeypatch, root2, "roundtrip", str(root2), "--level", "rt2", "--kicad-cli", str(fake2)
-    )
-    assert (
-        code == 0 and env["result"]["level"] == "rt2" and env["result"]["rt2"]["schematic"]["attempts"] == 2
-    )
+
+
+def test_rt2_schematic_holds_when_erc_names_another_item(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """KiCad names another pin of one violation in each run: the kinds agree, RT2 holds, ``exact`` is
+    false."""
+    from _fakecli import erc_entry, erc_report_with
+
+    here = erc_report_with(erc_entry("power_pin_not_driven", "u1", severity="warning", x=1.0))
+    there = erc_report_with(erc_entry("power_pin_not_driven", "u2", severity="warning", x=2.0))
+    for name, sequence in (("first", (here, there, here)), ("second", (here, here, there))):
+        root, fake = _blink_with_fake(monkeypatch, tmp_path / name, erc_sequence=sequence)
+        code, env, _, _ = run(
+            monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+        )
+        sheet = env["result"]["rt2"]["schematic"]
+        assert code == 0 and env["result"]["level"] == "rt2", env["issues"]
+        assert (sheet["passed"], sheet["judged"], sheet["exact"]) == (True, True, False)
+        assert "attempts" not in sheet and _erc_runs(fake) == 3
 
 
 def test_rt2_schematic_without_an_erc_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

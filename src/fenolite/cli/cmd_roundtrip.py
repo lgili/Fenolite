@@ -191,7 +191,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                     "passed": sheet_passed,
                     "difference": sheet.difference,
                     "judged": sheet.judged,
-                    "attempts": sheet.attempts,
+                    "exact": sheet.exact,
                     "violations": sheet.violations,
                     "violations_redump": sheet.violations_redump,
                     "redumped": sheet.redumped,

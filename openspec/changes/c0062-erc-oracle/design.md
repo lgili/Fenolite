@@ -76,7 +76,7 @@
     - Rejected: keeping `erc.lite` as a tool-free fallback for built projects. Two ERC verdicts for one project disagree by design (three rules against KiCad's full set), and the plan removes it.
 
 11. **RT2 for schematics.** `KicadOracle.rt2_erc(project) -> ErcRt2Outcome(before, after, tool_version, outcome, returncode, message, evidence, redumped, kept)`: ERC twice on the project, and once on a copy in which every readable sheet file is replaced by `dumps(rebuild_schematic(read_schematic(text)))`.
-    - RT2 holds when `after.entries()` equals `before[0].entries()`; it is not judged when the two `before` reports differ (`H-K-ERC-REPEAT`).
+    - RT2 holds when `after.kinds()` equals `before[0].kinds()`; it is not judged when the `kinds()` of the two `before` reports differ (`H-K-ERC-REPEAT-2`, `H-K-ERC-RT2-2`). `ErcReport.kinds()` is the sorted `(sheet, type, severity, excluded)` of every violation, without the items. The first text compared `entries()`; Implementation notes, "RT2 compares kinds", says why that was dropped.
     - No normalisation: the re-dump has the tree of the source (c0060's RT0), so both sides are the same format version on every major.
     - It is an oracle method and a corpus test here; `check` gets no schematic round-trip stage, because nothing edits a schematic in place before v0.5b. c0066's `roundtrip` command exposes it.
 
@@ -119,9 +119,11 @@ Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-002
 | H-K-ERC-JSON | `sch erc --format json --severity-all` writes a report with the keys of Decision 4 and exits 0 when the schematic loads; it writes none and exits 3 when it does not (S-0450, S-0451, S-0020) | `tests/kicad/check/test_erc_facts.py::test_report_shape` | on 9.0.9 and 10.0.6: probes `erc-report-keys` = `equal`, `erc-ignored-checks` = `present` on 10 and `absent` on 9, `erc-unloadable` = `absent` (no report) with exit 3 |
 | H-K-ERC-POS | An item's `pos` is its sheet position in the report's unit divided by 100 (S-0020) | `::test_positions` | on both majors: for five items of known position, `read_erc_report` gives the sheet position in nm; probe `erc-position-scale` = `equal` |
 | H-K-ERC-TYPES | The five controls give `pin_not_connected`, `pin_not_driven`, `power_pin_not_driven`, `lib_symbol_issues` and the single-pin label warning of each major, and each follows the project's `erc.rule_severities` (S-0046, S-0020) | `::test_types` | on both majors: probes `erc-type-<type>` = `present`; with the key set to `ignore`, `erc-type-<type>-ignored` = `absent`; with `warning`, the severity is `warning` |
-| H-K-ERC-COPYSET | ERC on the copy set gives the violations of ERC on a copy of the whole project folder | `tests/kicad/check/test_erc_oracle.py::test_copy_set` | on both majors, for the built blink, the authored hierarchy and three corpus projects: equal `entries()`; probe `erc-copyset` = `equal` |
-| H-K-ERC-REPEAT | Two ERC runs on one project give equal `entries()` | `tests/kicad/schematic/test_corpus_rt2.py` | on every project of the run; a project whose runs differ is named and not judged |
-| H-K-ERC-RT2 | ERC gives equal `entries()` for a project and for Fenolite's re-dump of its sheets | `tests/kicad/schematic/test_corpus_rt2.py` | on major 10: every corpus project whose sheets are all readable; on major 9: those of tag 9.0.9.1 at format `20250114` or older; no failure, and the projects of the acceptance list (c0060) are all judged |
+| H-K-ERC-COPYSET | ERC on the copy set gives the violations of ERC on a copy of the whole project folder | `tests/kicad/check/test_erc_oracle.py::test_copy_set` | on both majors, for the built blink, the authored hierarchy and three corpus projects: equal `kinds()` (first `entries()`; see `H-K-ERC-REPEAT-2`); probe `erc-copyset` = `equal` |
+| H-K-ERC-REPEAT | Two ERC runs on one project give equal `entries()` | `tests/kicad/schematic/test_corpus_rt2.py` | refuted on both majors; superseded by `H-K-ERC-REPEAT-2` |
+| H-K-ERC-REPEAT-2 | Two ERC runs on one project give equal `kinds()`; the item KiCad names for a violation can differ between runs | `tests/kicad/schematic/test_corpus_rt2.py` | on every project of the run: equal `kinds()` of the two runs of the original; a project whose kinds differ is named and not judged; `exact` counts the projects whose `entries()` agree too |
+| H-K-ERC-RT2 | ERC gives equal `entries()` for a project and for Fenolite's re-dump of its sheets | `tests/kicad/schematic/test_corpus_rt2.py` | superseded by `H-K-ERC-RT2-2`: equal `entries()` cannot be asked of two runs |
+| H-K-ERC-RT2-2 | ERC gives equal `kinds()` for a project and for Fenolite's re-dump of its sheets | `tests/kicad/schematic/test_corpus_rt2.py` | on major 10: every corpus project whose sheets are all readable; on major 9: those of tag 9.0.9.1 at format `20250114` or older; no failure, and the projects of the acceptance list (c0060) are all judged |
 | H-K-PARITY-RUN | `pcb drc --schematic-parity` fills `schematic_parity`; without the flag the list is empty; the canary does not change it (S-0022, S-0037, S-0020) | `tests/kicad/check/test_parity.py` | on both majors: probes `drc-parity-flag` = `present`, `drc-parity-noflag` = `absent`, `drc-parity-canary` = `equal`; `drc-parity-unloadable` records what each major writes |
 
 Ids used without changing their level: `H-K-CHECK-ERC`, `H-K-CHECK-COPYSET` (proved again with a schematic present), `H-K-PRO-PRL`, `H-K-DRC-JSON`, `H-K-SCH-PARITY`, `H-K-SCH-RT1`.
@@ -134,7 +136,7 @@ Ids used without changing their level: `H-K-CHECK-ERC`, `H-K-CHECK-COPYSET` (pro
 | `erc.kicad` stage | the oracle's level; `H-K-ERC-COPYSET` | `test_erc_oracle.py` |
 | Types and severities | KICAD-VERIFIED per major, `H-K-ERC-TYPES` | `test_erc_facts.py::test_types` |
 | Parity findings | KICAD-VERIFIED (9.0.x, 10.0.x), `H-K-PARITY-RUN` | `test_parity.py` |
-| RT2 on schematics | KICAD-VERIFIED where judged, `H-K-ERC-REPEAT`, `H-K-ERC-RT2` | `test_corpus_rt2.py` |
+| RT2 on schematics | KICAD-VERIFIED where judged, `H-K-ERC-REPEAT-2`, `H-K-ERC-RT2-2` | `test_corpus_rt2.py` |
 | Issue mapping, stage order, skips | mechanical | unit tests |
 | The three rules | INFERRED, `H-K-CHECK-ERC` | `test_erc_lite.py` |
 
@@ -211,6 +213,19 @@ Cut order: (1) RT2 on corpus projects outside the acceptance list; (2) `REF-PIN`
   so the files record which major reports which. Two probes were added: `erc-writes-prl` (10.0.6
   writes `<stem>.kicad_prl`, 9.0.9 writes nothing but its report; the proposal had seen the file
   on both) and `check-copyset-schematic`, the second proof of `H-K-CHECK-COPYSET`.
+- **RT2 compares kinds (2026-10-06).** Decision 11 first compared `ErcReport.entries()`, items and
+  positions included, and left a project unjudged when its two runs differed. The `kicad-9` job then
+  failed on `kicad-demo-10-0-6-sch-035`, of the acceptance list: 97 violations in every run, and one
+  `power_pin_not_driven` that names another pin position from run to run. 10.0.6 does the same on
+  other projects (`multiple_net_names` with another pair of labels). For one violation KiCad names
+  one of the pins or labels involved, and not the same one each time, so further attempts settle
+  nothing and were removed from the test. `ErcReport.kinds()` holds what the runs share, the sorted
+  `(sheet, type, severity, excluded)` of every violation, and RT2 is judged and decided on it;
+  `exact` records whether the entries agreed too. `entries()` stays for comparing one report with
+  itself. The copy-set probe (`copyset_of`) compares kinds for the same reason. `H-K-ERC-REPEAT` and
+  `H-K-ERC-RT2` are refuted and superseded by `H-K-ERC-REPEAT-2` and `H-K-ERC-RT2-2`. What is given
+  up: a re-dump that moved a pin without changing any violation's sheet, type or severity would no
+  longer be seen by RT2; RT0 and RT1 of the sheet (c0060) cover the tree itself.
 - **Parity and a schematic that does not load.** Measured on both majors: with the flag, such a
   run exits 255 and writes no report at all, so the DRC verdict would be lost with the parity one.
   `KicadOracle.drc` therefore runs again without the flag when the flagged run gives no report

@@ -164,9 +164,10 @@ def rt2_stage(oracle: Oracle | None, project: ProjectSet) -> StageResult:
 
 # --- RT2 of a schematic, through the tool's ERC (c0066) ---------------------------------------------
 
-ERC_RETRIES = 2
-"""Further attempts for a schematic whose re-dump differs once, before the difference is believed: the
-tool's ERC is not repeatable on every project (``H-K-ERC-REPEAT``)."""
+# A tool's ERC does not repeat its report item by item: for one violation it can name another of the pins
+# or labels involved in each run (``H-K-ERC-REPEAT-2``). What its runs share is ``ErcReport.kinds()``,
+# the sheet, type, severity and exclusion of every violation, and that is what RT2 compares
+# (``H-K-ERC-RT2-2``). Whether the items agreed too is kept as ``exact``, for information.
 
 
 class ErcRoundTripOracle(Protocol):
@@ -178,14 +179,16 @@ class ErcRoundTripOracle(Protocol):
 @dataclass(frozen=True, slots=True)
 class ErcRt2Verdict:
     """RT2 of a project's schematic. ``reported`` is false when the tool wrote no report (``message`` says
-    why). ``judged`` is false when two runs on the project as it is differ: the tool does not repeat
-    itself there, so nothing passes or fails. ``holds`` when the re-dump gives the violations of the
-    original on the first attempt or on a further one; ``difference`` describes a believed difference."""
+    why). ``judged`` is false when the ``kinds()`` of two runs on the project as it is differ: the tool
+    does not repeat itself there, so nothing passes or fails. ``holds`` when the ``kinds()`` of the
+    re-dump's report are those of the first report; ``difference`` describes a judged difference.
+    ``exact`` says whether the three reports also have equal ``entries()``, items included: it is
+    information and changes no verdict."""
 
     reported: bool
     judged: bool
     holds: bool
-    attempts: int
+    exact: bool = False
     difference: str = ""
     violations: int = 0
     violations_redump: int = 0
@@ -197,41 +200,36 @@ class ErcRt2Verdict:
 
 
 def _erc_difference(before: ErcReport, after: ErcReport) -> str:
-    """The first entry that only one of the two reports holds, as text."""
-    ours, theirs = list(before.entries()), list(after.entries())
-    for entry in sorted(set(ours) ^ set(theirs)):
-        side = "original" if entry in ours else "re-dump"
-        return f"only the {side} reports {entry[1]} ({entry[2]}) on sheet {entry[0]}"
-    return "the same violations in other numbers"
+    """The first kind of violation that the two reports hold in other numbers, as text."""
+    ours, theirs = Counter(before.kinds()), Counter(after.kinds())
+    for kind in sorted(set(ours) | set(theirs)):
+        if ours[kind] != theirs[kind]:
+            sheet, type_, severity, _ = kind
+            return (
+                f"{type_} ({severity}) on sheet {sheet}: {ours[kind]} in the original, "
+                f"{theirs[kind]} in the re-dump"
+            )
+    return ""
 
 
-def erc_rt2(oracle: ErcRoundTripOracle, project: ProjectSet, *, retries: int = ERC_RETRIES) -> ErcRt2Verdict:
-    """RT2 of the project's schematic: ``oracle.rt2_erc``, judged, and tried again when the re-dump
-    differs. A difference counts only when it comes back on every further attempt; one attempt that
-    holds settles it, and an attempt whose runs on the original differ leaves RT2 not judged."""
+def erc_rt2(oracle: ErcRoundTripOracle, project: ProjectSet) -> ErcRt2Verdict:
+    """RT2 of the project's schematic: ``oracle.rt2_erc`` once, judged on ``ErcReport.kinds()``. It is
+    judged when the two reports of the project as it is have equal kinds, and holds when the re-dump's
+    kinds are those of the first report."""
     outcome = oracle.rt2_erc(project)
     if len(outcome.before) < 2 or outcome.after is None:
         return ErcRt2Verdict(
-            False, False, False, 1, redumped=outcome.redumped, kept=outcome.kept,
+            False, False, False, redumped=outcome.redumped, kept=outcome.kept,
             message=outcome.message or "no ERC report", retryable=outcome.outcome == "timeout",
         )  # fmt: skip
-    first, after = outcome.before[0], outcome.after
-    judged = first.entries() == outcome.before[1].entries()
-    holds = judged and after.entries() == first.entries()
-    attempts = 1
-    while judged and not holds and attempts <= retries:
-        again = oracle.rt2_erc(project)
-        attempts += 1
-        if len(again.before) < 2 or again.after is None:
-            judged = False
-            break
-        judged = again.before[0].entries() == again.before[1].entries() == first.entries()
-        holds = judged and again.after.entries() == first.entries()
+    first, second, after = outcome.before[0], outcome.before[1], outcome.after
+    judged = first.kinds() == second.kinds()
+    holds = judged and after.kinds() == first.kinds()
     return ErcRt2Verdict(
         reported=True,
         judged=judged,
         holds=holds,
-        attempts=attempts,
+        exact=first.entries() == second.entries() == after.entries(),
         difference=_erc_difference(first, after) if judged and not holds else "",
         violations=len(first.violations),
         violations_redump=len(after.violations),
@@ -242,7 +240,6 @@ def erc_rt2(oracle: ErcRoundTripOracle, project: ProjectSet, *, retries: int = E
 
 
 __all__ = [
-    "ERC_RETRIES",
     "ErcRoundTripOracle",
     "ErcRt2Verdict",
     "erc_rt2",

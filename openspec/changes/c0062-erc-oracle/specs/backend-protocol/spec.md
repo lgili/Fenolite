@@ -5,7 +5,8 @@
 - `position` MUST be a `Point` in integer nanometres on the sheet, and `ErcItem` MUST raise `TypeError` for a coordinate that is not an `int`. `where` is the location a backend found for the item (`REF-PIN`, `REF` or a label text), or `""`.
 - `type` and `severity` MUST be the tool's own strings. `sheet` MUST be the tool's readable path of the sheet the violation is listed under, and `sheet_id` the tool's own identifier of that sheet (for KiCad its path of uuids), by which a backend finds the reference a symbol has there. Violations MUST keep report order, sheet by sheet. `ErcReport.sheets` MUST hold the readable path of every sheet the report lists, with or without violations, in report order.
 - `ErcReport.of_type(type)` MUST return the violations of that type, in report order.
-- `ErcReport.entries()` MUST return the violations as a sorted tuple of `(sheet, type, severity, excluded, items)`, each item as `(description, x, y)`, leaving out uuids, `where`, `sheet_id` and the report order, so that two runs of a tool can be compared.
+- `ErcReport.entries()` MUST return the violations as a sorted tuple of `(sheet, type, severity, excluded, items)`, each item as `(description, x, y)`, leaving out uuids, `where`, `sheet_id` and the report order, so that one report can be compared with itself or with a copy of it.
+- `ErcReport.kinds()` MUST return the violations as a sorted tuple of `(sheet, type, severity, excluded)`, one entry per violation and no item, so that two runs of a tool on one project can be compared: a tool may name another item of one violation in each run.
 - `fenolite.backends.base` MUST NOT import any `fenolite.backends.<x>` module.
 
 #### Scenario: Violations by type
@@ -17,6 +18,11 @@
 - **GIVEN** two reports holding the same two violations in another order and with other item uuids
 - **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k erc_entries` compares `entries()`
 - **THEN** they are equal, and a report with one violation fewer gives other entries
+
+#### Scenario: Kinds leave out the items and keep the counts
+- **GIVEN** two reports holding the same two violations with other items and positions, and a third holding one of them twice
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k erc_kinds` compares `kinds()`
+- **THEN** the first two are equal although their `entries()` differ, and the third differs from both
 
 #### Scenario: Integer positions only
 - **WHEN** `ErcItem(uuid="u", description="d", position=Point(1.5, 0))` is constructed

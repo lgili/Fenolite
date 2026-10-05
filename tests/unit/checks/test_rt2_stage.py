@@ -8,8 +8,16 @@ import dataclasses
 
 from fakes import VERIFIED, FakeFullOracle, FakeOracle, project, report, rt2_outcome
 
-from fenolite.backends.base import DrcItem, DrcReport, DrcViolation, ErcReport, ErcRt2Outcome, ErcViolation
-from fenolite.checks.rt2 import ERC_RETRIES, compare_runs, erc_rt2, rt2_stage, violation_key
+from fenolite.backends.base import (
+    DrcItem,
+    DrcReport,
+    DrcViolation,
+    ErcItem,
+    ErcReport,
+    ErcRt2Outcome,
+    ErcViolation,
+)
+from fenolite.checks.rt2 import compare_runs, erc_rt2, rt2_stage, violation_key
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Level
 
@@ -179,42 +187,54 @@ def _outcome(first: ErcReport, second: ErcReport, after: ErcReport | None) -> Er
     return ErcRt2Outcome((first, second), after, "10.0.6", evidence=VERIFIED, redumped=2, kept=1)
 
 
-def test_erc_rt2_holds_on_the_first_attempt() -> None:
+def _named(kind: str, at: int) -> ErcReport:
+    """One violation of ``kind`` whose item lies at ``(at, 0)``: the pin the tool chose to name."""
+    item = ErcItem(uuid="u", description="pin", position=Point(at, 0))
+    return ErcReport(
+        "top.kicad_sch", "", "10.0.6", "mm", (ErcViolation(kind, kind, "error", (item,), sheet="/"),)
+    )
+
+
+def test_erc_rt2_holds() -> None:
     same = _erc("pin_not_connected")
     oracle = _ErcOracle(_outcome(same, same, same))
     verdict = erc_rt2(oracle, project(schematic=True))
-    assert (verdict.reported, verdict.judged, verdict.holds, verdict.attempts) == (True, True, True, 1)
+    assert (verdict.reported, verdict.judged, verdict.holds, verdict.exact) == (True, True, True, True)
     assert (verdict.violations, verdict.violations_redump, verdict.redumped, verdict.kept) == (1, 1, 2, 1)
     assert verdict.difference == "" and verdict.evidence == VERIFIED and oracle.calls == 1
 
 
-def test_erc_rt2_is_not_judged_when_the_tool_does_not_repeat_itself() -> None:
+def test_erc_rt2_holds_when_the_tool_names_another_item() -> None:
+    """The tool names another pin of one violation in each run: the kinds agree, so RT2 is judged and
+    holds, and ``exact`` says that the items did not."""
+    here, there = _named("power_pin_not_driven", 1), _named("power_pin_not_driven", 2)
+    assert here.entries() != there.entries() and here.kinds() == there.kinds()
+    for outcome in (_outcome(here, there, here), _outcome(here, here, there)):
+        oracle = _ErcOracle(outcome)
+        verdict = erc_rt2(oracle, project(schematic=True))
+        assert (verdict.judged, verdict.holds, verdict.exact) == (True, True, False)
+        assert verdict.difference == "" and verdict.evidence == VERIFIED and oracle.calls == 1
+
+
+def test_erc_rt2_is_not_judged_when_the_kinds_of_two_runs_differ() -> None:
     oracle = _ErcOracle(_outcome(_erc("a"), _erc("a", "b"), _erc("a")))
     verdict = erc_rt2(oracle, project(schematic=True))
-    assert (verdict.judged, verdict.holds, verdict.attempts) == (False, False, 1)
+    assert (verdict.judged, verdict.holds, verdict.exact) == (False, False, False)
     assert verdict.difference == "" and verdict.evidence.level == Level.UNVERIFIED and oracle.calls == 1
 
 
-def test_erc_rt2_believes_a_difference_only_when_it_comes_back() -> None:
+def test_erc_rt2_difference_of_kinds_fails_at_once() -> None:
     same, more = _erc("a"), _erc("a", "extra")
-    differs = _outcome(same, same, more)
-    stubborn = _ErcOracle(differs)
-    verdict = erc_rt2(stubborn, project(schematic=True))
-    assert (verdict.judged, verdict.holds, verdict.attempts) == (True, False, 1 + ERC_RETRIES)
-    assert stubborn.calls == 1 + ERC_RETRIES
-    assert verdict.difference == "only the re-dump reports extra (error) on sheet /"
+    oracle = _ErcOracle(_outcome(same, same, more), _outcome(same, same, same))
+    verdict = erc_rt2(oracle, project(schematic=True))
+    assert (verdict.judged, verdict.holds, verdict.exact) == (True, False, False)
+    assert oracle.calls == 1, "no further attempt: the kinds are what the tool repeats"
+    assert verdict.difference == "extra (error) on sheet /: 0 in the original, 1 in the re-dump"
     assert verdict.evidence.level == Level.UNVERIFIED
-
-    once = _ErcOracle(differs, _outcome(same, same, same))
-    settled = erc_rt2(once, project(schematic=True))
-    assert (settled.judged, settled.holds, settled.attempts, settled.difference) == (True, True, 2, "")
-
-    drifting = _ErcOracle(differs, _outcome(same, more, more))
-    unjudged = erc_rt2(drifting, project(schematic=True))
-    assert (unjudged.judged, unjudged.holds, unjudged.attempts) == (False, False, 2)
-
-    lost = _ErcOracle(differs, ErcRt2Outcome((same,), None, "10.0.6", message="gone"))
-    assert erc_rt2(lost, project(schematic=True)).judged is False
+    # the same kind in another number is a difference too
+    twice = erc_rt2(_ErcOracle(_outcome(same, same, _erc("a", "a"))), project(schematic=True))
+    assert twice.holds is False
+    assert twice.difference == "a (error) on sheet /: 1 in the original, 2 in the re-dump"
 
 
 def test_erc_rt2_without_a_report() -> None:

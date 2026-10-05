@@ -63,6 +63,8 @@
 
   Note (6.2): no judged difference on either major: 33 of 33 judged projects hold on 10.0.6 and 35 of 35 on 9.0.9; the 24 projects of the acceptance list are judged and hold on both. Not judged: `kicad-demo-10-0-6-sch-037` on 10.0.6 (its two runs differ; outside the acceptance list).
 
+  Note (6.2, corrected 2026-10-06): the numbers above are of the first rule, equal `entries()`. The `kicad-9` job then failed on `kicad-demo-10-0-6-sch-035`, of the acceptance list, whose two runs named another pin for one violation. The test now compares `ErcReport.kinds()` in one attempt and records `exact`. Three runs on each major pass: 34 of 34 projects are judged and hold on 10.0.6 (31 exact in each run) and 35 of 35 on 9.0.9 (35, 35 and 34 exact); the 24 projects of the acceptance list are judged and hold on both in every run.
+
 ## 7. Documentation
 
 - [x] 7.1 Update `docs/cli-contract.md`: the stage list, the `erc.kicad` stage and its summary, the `kicad.erc.*` and parity codes, the copy set with the schematic files, and why an isolated run reports global symbol libraries as missing. Update `docs/dsl.md` and `docs/evidence/kicad-check.md`. Proof: `uv run pytest tests/consistency tests/unit/test_repo_layout.py tests/residue`.
@@ -75,6 +77,8 @@
 - [x] 8.2 Update the evidence labels: each of the seven hypotheses becomes `KICAD-VERIFIED` for the majors that proved it, or is refuted with a successor and the fallback applied; `H-K-ERC-REPEAT` and `H-K-ERC-RT2` name the projects that were not judged; `H-K-CHECK-COPYSET` records its second proof. Raise `erc.EVIDENCE` only if `H-K-ERC-JSON`, `H-K-ERC-POS` and `H-K-ERC-COPYSET` hold on both majors. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py`.
 
   Note (8.2): `H-K-ERC-REPEAT` is `KICAD-VERIFIED (9.0.x)` and partly refuted on 10.0.6 by the one project above; the other six are `KICAD-VERIFIED (9.0.x, 10.0.x)` from the local 10.0.6 and the pinned 9.0.9 image, and `erc.EVIDENCE` is raised. The CI run of the two jobs is still to come.
+
+  Note (8.2, corrected 2026-10-06): `H-K-ERC-REPEAT` and `H-K-ERC-RT2` are refuted on both majors and superseded by `H-K-ERC-REPEAT-2` and `H-K-ERC-RT2-2`, both `KICAD-VERIFIED (9.0.x, 10.0.x)` from the local 10.0.6 and the pinned 9.0.9 image; the fallback applied is the comparison by `kinds()`. `H-K-ERC-COPYSET` keeps its level and its probe value; its comparison is by `kinds()` too.
 - [x] 8.3 Add to `CHANGELOG.md` under Unreleased: "`fenolite check` runs KiCad's ERC (`erc.kicad`) on the project's schematic and reports schematic parity findings of the DRC run; the `erc.lite` stage is removed from KiCad checks (`--stages erc.lite` is now a usage error)". Update `docs/roadmap.md`. After archiving, correct the Purpose line of `openspec/specs/verification-loop/spec.md`, which names "ERC lite". Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
 
   Note (8.3): the Purpose line of the living `verification-loop` spec is corrected after archiving, by whoever archives.
