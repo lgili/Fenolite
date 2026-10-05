@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import TypeVar
 
 import pytest
+from _altium_kicad import KNOWN_IMPORT_FAILURES
 from _corpus import manifest_items, require
 from _resources import kicad_cli
 
@@ -64,7 +65,14 @@ def _kicad(name: str) -> Design:
             [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(copy)],
             capture_output=True, text=True, timeout=900, env=env, check=False,
         )  # fmt: skip
-        assert done.returncode == 0, f"{name}: kicad-cli pcb import exits {done.returncode}"
+        if done.returncode != 0:
+            # the Linux build of kicad-cli 10.0.6 dies in its own importer on one row; see the document
+            # oracle of the reader, which records it
+            known = KNOWN_IMPORT_FAILURES.get(name)
+            output = done.stdout + done.stderr
+            assert known is not None, f"{name}: kicad-cli pcb import exits {done.returncode}: {output}"
+            assert done.returncode == known[0] and known[1] in output, output
+            pytest.skip(f"kicad-cli fails in its own importer on {name} on this platform (recorded)")
         return KicadBackend().read(target).design
 
 

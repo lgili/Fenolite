@@ -60,3 +60,14 @@ def kicad_nm(units: int) -> int:
     """A length as KiCad's importer converts it (``pcb-read.md``, "What KiCad does not import"; S-0163):
     ``units · 2.54`` rounded to the nanometre, then to the nearest 10 nm, ties away from zero."""
     return _away(Fraction(_away(Fraction(units * 127, 50)), 10)) * 10
+
+
+KNOWN_IMPORT_FAILURES: dict[str, tuple[int, str]] = {
+    # The Linux build of kicad-cli 10.0.6 dies in its own importer on this board with an unhandled C++
+    # exception whose class differs from run to run (``std::bad_alloc`` in the CI container,
+    # ``std::length_error`` in the same image under emulation); the macOS build imports it, and the row
+    # is compared there. Only the stable part of KiCad's message is matched.
+    "altium-third-party-pcbdoc-02": (255, "Unhandled exception class"),
+}
+"""Row id → the exit code and a part of the output of a ``kicad-cli`` run that is known to fail in KiCad's
+own importer. Such a row is skipped where the tool fails and compared where it succeeds."""

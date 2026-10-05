@@ -26,7 +26,7 @@ from functools import cache
 from typing import Any
 
 import pytest
-from _altium_kicad import PASTE_LAYERS, SLOT, Item, kicad_nm, match
+from _altium_kicad import KNOWN_IMPORT_FAILURES, PASTE_LAYERS, SLOT, Item, kicad_nm, match
 from _boards import census
 from _corpus import CorpusItem, manifest_items, require
 from _resources import kicad_cli
@@ -46,15 +46,6 @@ from fenolite.model.design import Design
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus, pytest.mark.kicad_min_major(10)]
 ITEMS = manifest_items("altium-pcbdoc")
-KNOWN_IMPORT_FAILURES: dict[str, tuple[int, str]] = {
-    # The Linux build of kicad-cli 10.0.6 dies in its own importer on this board with an unhandled C++
-    # exception whose class differs from run to run (``std::bad_alloc`` in the CI container,
-    # ``std::length_error`` in the same image under emulation); the macOS build imports it, and the row
-    # is compared there. Only the stable part of KiCad's message is matched.
-    "altium-third-party-pcbdoc-02": (255, "Unhandled exception class"),
-}
-"""Row id → the exit code and a part of the output of a ``kicad-cli`` run that is known to fail in KiCad's
-own importer. Such a row is skipped where the tool fails and compared where it succeeds."""
 KicadPad = tuple[str, Any, tuple[int, int]]
 """A footprint reference, a KiCad pad and its absolute position."""
 

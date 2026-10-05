@@ -66,7 +66,7 @@ polygon name decodes to printable text, and every subrecord length is one of the
 10.0.6 (macOS, local, 2026-10-05): 7 passed. In the pinned Linux image of the `kicad-10` job, 6 pass and
 `altium-third-party-pcbdoc-02` is skipped: there `kicad-cli pcb import` exits 255 with an unhandled C++
 exception of its own importer, whose class differs between runs (`std::bad_alloc` in CI, `std::length_error`
-in the same image run locally), so that row is compared on macOS only. On macOS,
+in the same image run locally), so that row is compared on macOS only. The size KiCad asks for is far beyond any memory (the same image run under emulation reports a request of about 7·10¹⁷ bytes), so the failure is a wrong length read by the importer, not the runner's memory. The import oracle of c0043 (`test_import_oracle.py`) treats the row the same way, through the one table `KNOWN_IMPORT_FAILURES` in `tests/_altium_kicad.py`. On macOS,
 `kicad-cli pcb import --format altium` exits 0 on all seven
 rows (no row is excluded). On every row the net names, the copper layer count and the length of
 `copper_chain`, the footprint references, every pad (position, footprint, name, net, round hole size,
