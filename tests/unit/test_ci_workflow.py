@@ -18,7 +18,10 @@ STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
     ("corpus cache", "uses: actions/cache"),
-    ("corpus fetch", "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --exclude-uses heavy"),
+    (
+        "corpus fetch",
+        "run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb --exclude-uses heavy",
+    ),
     ("pytest", "run: uv run pytest tests/kicad tests/corpus -q"),
 ]
 KICAD10_PYTEST = f"run: uv run pytest tests/kicad tests/corpus -q {PARALLEL}"
@@ -58,6 +61,8 @@ def job_problems(workflow: str) -> list[str]:
     fetches = [line for line in job.splitlines() if "tools/corpus_fetch.py" in line]
     if not any("--uses libs" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses libs (the demo library rows)")
+    if not any("--uses cfb" in line for line in fetches):
+        problems.append("kicad-10: the corpus fetch must pass --uses cfb (the Altium compound rows)")
     if not any("--exclude-uses heavy" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --exclude-uses heavy")
     if "key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}" not in job:
@@ -96,6 +101,11 @@ def test_steps_out_of_order() -> None:
 def test_library_rows_not_fetched() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt0 --uses libs ", "--uses rt0 ")
     assert "kicad-10: the corpus fetch must pass --uses libs (the demo library rows)" in job_problems(text)
+
+
+def test_compound_rows_not_fetched() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses cfb", "")
+    assert "kicad-10: the corpus fetch must pass --uses cfb (the Altium compound rows)" in job_problems(text)
 
 
 def test_serial_kicad_10_step_rejected() -> None:

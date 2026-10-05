@@ -582,6 +582,57 @@ that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.li
    order again. Unchanged component paths keep their unique ids, so the PCB components stay linked
    (`H-A-SCH-RELINK`).
 
+## Reading a compound file
+
+`fenolite.backends.altium.read.cfb` reads an MS-CFB container without interpreting its streams. Use
+`open_compound(data, file="", limits=DEFAULT_LIMITS, strict=False)` for bytes and
+`read_compound(path, limits=DEFAULT_LIMITS, strict=False)` for a file. `is_compound(data)` checks only the
+signature. `CompoundFile` exposes `header`, `root`, `nodes()`, `node(path)`, `children(path="")`,
+`streams()`, `storages()`, `read(path)`, `as_dict()` and `tree()`. Paths use `/`; lookups ignore case,
+while `Node.path` preserves stored spelling. The container and all chains are checked when it opens;
+`read(path)` copies that stream only. `tree()` returns the writer's `Storage` and `Entry` forms.
+
+The default limits are 1,073,741,824 input bytes, 262,144 directory entries and 64 nested storages.
+`read_compound` checks the file size before reading. Version 3 evidence is `CORPUS-VERIFIED` for the ten
+public rows tested by c0039; version 4 remains `INFERRED` until a public version 4 file is available.
+`fenolite inspect FILE --streams [--limit-bytes N]` lists storages and streams by path. Its result contains
+container sizes and counts, the root CLSID, and one entry per stream or storage; stream entries include
+their size and SHA-256. It does not interpret stream content or run a subprocess. Full result fields are
+in `docs/cli-contract.md`, section "inspect".
+
+Reader notes are `Issue` values, ordered by this table. `strict=True` raises the first note.
+
+| code | severity | meaning |
+|---|---|---|
+| `cfb.note.minor-version` | info | minor version differs from `0x003E` |
+| `cfb.note.header-fields` | info | a tolerated header field or declared chain count differs from the specification's usual value |
+| `cfb.note.partial-sector` | warning | trailing bytes do not make a complete sector |
+| `cfb.note.fat-marks` | info | FAT/DIFAT marks or past-file FAT entries are unusual |
+| `cfb.note.high-size-bits` | info | version 3 high size bits are ignored |
+| `cfb.note.long-chain` | info | a chain has sectors beyond the entry's size |
+| `cfb.note.entry-fields` | info | an entry has tolerated metadata, storage size or colour fields |
+| `cfb.note.tree-order` | warning | sibling links do not follow the name search order |
+| `cfb.note.orphan-entries` | warning | entries are not reachable from a storage and are omitted |
+
+Every malformed container raises `CompoundError`, a `FormatError` with `rule`, `file`, `locator` and byte
+`offset`. The message starts with the `cfb.*` rule code. The closed structural-error table is:
+
+| code | meaning |
+|---|---|
+| `cfb.signature` | signature mismatch |
+| `cfb.truncated` | input shorter than its signature or header |
+| `cfb.header` | unsupported version, sector shifts, byte order or cutoff |
+| `cfb.difat` | invalid, repeated or incomplete FAT/DIFAT listing |
+| `cfb.chain` | invalid, repeated or undersized regular or mini chain |
+| `cfb.shared-sector` | two chains claim one regular or mini sector |
+| `cfb.directory` | invalid type, link or repeated tree entry |
+| `cfb.name` | invalid name length, encoding or character |
+| `cfb.duplicate-name` | sibling names collide under the MS-CFB name order |
+| `cfb.size` | stream or mini stream size exceeds its chain |
+| `cfb.limit` | a configured reader limit is exceeded |
+
+CLI errors map to `FEN-3004` (exit 3); their `where` names the file, locator and byte offset when present.
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a
@@ -604,4 +655,5 @@ no deeper levels, no routed wires between sheet symbols, no port directions, no 
 no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
 split planes, no blind, buried or micro vias and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII only. Reading Altium files is planned for v0.3.
+ASCII only. The v0.3 reader currently reads the MS-CFB container; schematic, PCB and Altium library
+records are interpreted by later changes.

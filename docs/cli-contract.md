@@ -520,13 +520,32 @@ A render is a review artefact, never a gate: `render` exits 0 whenever the tool 
 
 ## inspect
 
-`fenolite inspect FILE [--summary]` summarises one KiCad file and runs no tool. Boards, footprint
-files and symbol libraries (file or `.kicad_symdir`) are read by their reader; `.kicad_sch` and
-`.kicad_wks` are read header-only, with counts of the root children by head. `result` holds `kind`,
-`format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count` (boards
-only) and `model_findings` (the `model.*` findings counted by severity, not reported as issues).
-`input.path` is the file name. `.kicad_pro`, `.kicad_dru` and other files exit 2 (`FEN-2001`); a read
+`fenolite inspect FILE [--summary | --streams] [--limit-bytes N]` runs no tool. `--summary` is the
+default view: boards, footprint files and symbol libraries (file or `.kicad_symdir`) use their reader;
+`.kicad_sch` and `.kicad_wks` are read header-only, with counts of root children by head. `result` holds
+`kind`, `format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count`
+(boards only) and `model_findings` (the `model.*` findings counted by severity, not reported as issues).
+`input.path` is the file name. `.kicad_pro`, `.kicad_dru` and other non-S-expression files exit 2
+(`FEN-2001`); a file beginning with the compound-file signature has a hint to use `--streams`. A read
 error exits 3 with its code.
+
+`--streams` selects an MS-CFB container by its bytes, regardless of its extension, and reads only its
+storage and stream tree. `--summary` and `--streams` together exit 2 (`FEN-2001`). `--limit-bytes N`
+sets the reader's `Limits.max_file_bytes` for this view; it must be a positive integer. The default is
+1,073,741,824 bytes. For this view, `result` holds `kind` (`compound_file`), `format_version` (major as
+a string), `major`, `minor`, `sector_size`, `mini_sector_size`, `sectors`, `fat_sectors`, `difat_sectors`,
+`directory_entries`, `root_clsid` (lower-case hex or `null`), `counts` (`storages`, `streams`, total
+stream `bytes`) and `entries`. Entries are in depth-first name order without the root: storages have
+`path`, `type` and child count; streams have `path`, `type`, `size` and their byte `sha256`. `input`
+contains the file name, file `sha256`, `kind` (`compound_file`) and major `format_version`. The envelope
+evidence is `CompoundFile.evidence`; reader notes appear in `issues` and do not change exit 0. A malformed
+container or a limit failure exits 3 with `FEN-3004` and a located `cfb.*` message; a missing file exits
+3 with `FEN-3001`. Note and structural rule codes are listed in `docs/altium.md` under "Reading a compound
+file". Note codes are `cfb.note.minor-version`, `cfb.note.header-fields`, `cfb.note.partial-sector`,
+`cfb.note.fat-marks`, `cfb.note.high-size-bits`, `cfb.note.long-chain`, `cfb.note.entry-fields`,
+`cfb.note.tree-order` and `cfb.note.orphan-entries`. Structural rules are `cfb.signature`,
+`cfb.truncated`, `cfb.header`, `cfb.difat`, `cfb.chain`, `cfb.shared-sector`, `cfb.directory`,
+`cfb.name`, `cfb.duplicate-name`, `cfb.size` and `cfb.limit`.
 
 ## doctor
 
