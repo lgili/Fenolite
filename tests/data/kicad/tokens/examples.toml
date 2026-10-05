@@ -711,3 +711,251 @@ host = "kicad_symbol_lib/symbol"
 mode = "append"
 fragment = "(fenolite_frobnicate 1)"
 expect = { "9" = "reject", "10" = "reject" }
+
+# rows of kinds kicad_sch and kicad_sym (c0060, tasks 2.2 and 2.3)
+
+[[example]]
+id = "sch-table"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(table (column_count 2) (border (external yes) (header yes) (stroke (width 0) (type default))) (separators (rows yes) (cols yes) (stroke (width 0) (type default))) (column_widths 10 10) (row_heights 5) (cells (table_cell "a" (exclude_from_sim no) (at 20 20 0) (size 10 5) (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1) (fill (type none)) (effects (font (size 1.27 1.27))) (uuid "00000000-0000-4000-8000-0000000000a1")) (table_cell "b" (exclude_from_sim no) (at 30 20 0) (size 10 5) (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1) (fill (type none)) (effects (font (size 1.27 1.27))) (uuid "00000000-0000-4000-8000-0000000000a2"))))'''
+
+[[example]]
+id = "sch-table-uuid"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(table (column_count 2) (border (external yes) (header yes) (stroke (width 0) (type default))) (separators (rows yes) (cols yes) (stroke (width 0) (type default))) (column_widths 10 10) (row_heights 5) (cells (table_cell "a" (exclude_from_sim no) (at 20 20 0) (size 10 5) (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1) (fill (type none)) (effects (font (size 1.27 1.27))) (uuid "00000000-0000-4000-8000-0000000000a1")) (table_cell "b" (exclude_from_sim no) (at 30 20 0) (size 10 5) (margins 0.9525 0.9525 0.9525 0.9525) (span 1 1) (fill (type none)) (effects (font (size 1.27 1.27))) (uuid "00000000-0000-4000-8000-0000000000a2"))) (uuid "00000000-0000-4000-8000-0000000000a0"))'''
+
+[[example]]
+id = "sch-rule-area"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rule_area (polyline (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000b1")))'''
+
+[[example]]
+id = "sch-rule-area-dnp"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rule_area (dnp no) (polyline (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000b1")))'''
+
+[[example]]
+id = "sch-rule-area-exclude-from-sim"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rule_area (exclude_from_sim no) (polyline (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000b1")))'''
+
+[[example]]
+id = "sch-rule-area-in-bom"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rule_area (in_bom yes) (polyline (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000b1")))'''
+
+[[example]]
+id = "sch-rule-area-on-board"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rule_area (on_board yes) (polyline (pts (xy 10 10) (xy 20 10) (xy 20 20) (xy 10 20)) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000b1")))'''
+
+[[example]]
+id = "sch-sheet-attributes"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(sheet (at 150 50) (size 20 10) (exclude_from_sim no) (in_bom yes) (on_board yes) (dnp no) (stroke (width 0.1524) (type solid)) (fill (color 0 0 0 0.0000)) (uuid "00000000-0000-4000-8000-0000000000c1") (property "Sheetname" "Sub" (at 150 49 0) (effects (font (size 1.27 1.27)))) (property "Sheetfile" "case.kicad_sch" (at 150 61 0) (effects (font (size 1.27 1.27)))) (instances (project "case" (path "/b81c38c1-9b22-5882-b609-430c7c9f000e" (page "2")))))'''
+
+[[example]]
+id = "sch-embedded-files"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(embedded_fonts no) (embedded_files)'''
+
+[[example]]
+id = "sch-fill-hatch"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rectangle (start 10 10) (end 20 20) (stroke (width 0) (type default)) (fill (type hatch)) (uuid "00000000-0000-4000-8000-0000000000d1"))'''
+
+[[example]]
+id = "sch-fill-reverse-hatch"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rectangle (start 10 10) (end 20 20) (stroke (width 0) (type default)) (fill (type reverse_hatch)) (uuid "00000000-0000-4000-8000-0000000000d1"))'''
+
+[[example]]
+id = "sch-fill-cross-hatch"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rectangle (start 10 10) (end 20 20) (stroke (width 0) (type default)) (fill (type cross_hatch)) (uuid "00000000-0000-4000-8000-0000000000d1"))'''
+
+[[example]]
+id = "sch-rectangle-radius"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(rectangle (start 10 10) (end 20 20) (radius 1) (stroke (width 0) (type default)) (fill (type none)) (uuid "00000000-0000-4000-8000-0000000000d1"))'''
+
+[[example]]
+id = "sch-symbol-body-style"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol"
+mode = "append"
+fragment = '''(body_style 1)'''
+
+[[example]]
+id = "sch-symbol-in-pos-files"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol"
+mode = "append"
+fragment = '''(in_pos_files yes)'''
+
+[[example]]
+id = "sch-property-private"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol"
+mode = "append"
+fragment = '''(property private "Note" "x" (at 100 40 0) (effects (font (size 1.27 1.27))))'''
+
+[[example]]
+id = "sch-property-hide-bool"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol"
+mode = "append"
+fragment = '''(property "Note" "x" (at 100 40 0) (hide yes) (effects (font (size 1.27 1.27))))'''
+exercises = ["sch-hide-bool"]
+
+[[example]]
+id = "sch-instance-variant"
+kinds = ["kicad_sch"]
+host = "kicad_sch/symbol/instances/project/path"
+mode = "append"
+fragment = '''(variant (name "V1") (dnp yes))'''
+
+[[example]]
+id = "sch-lib-power-local"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(power local)'''
+
+[[example]]
+id = "sch-lib-power-global"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(power global)'''
+
+[[example]]
+id = "sch-lib-body-styles"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(body_styles demorgan)'''
+
+[[example]]
+id = "sch-lib-in-pos-files"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(in_pos_files yes)'''
+
+[[example]]
+id = "sch-lib-jumpers"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(duplicate_pin_numbers_are_jumpers no)'''
+
+[[example]]
+id = "sch-lib-embedded-fonts"
+kinds = ["kicad_sch"]
+host = "kicad_sch/lib_symbols/symbol"
+mode = "append"
+fragment = '''(embedded_fonts no)'''
+
+[[example]]
+id = "sch-group"
+kinds = ["kicad_sch"]
+host = "kicad_sch"
+mode = "append"
+fragment = '''(group "" (uuid "00000000-0000-4000-8000-0000000000e1") (members))'''
+
+[[example]]
+id = "sym-power-local"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(power local)'''
+
+[[example]]
+id = "sym-power-global"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(power global)'''
+
+[[example]]
+id = "sym-body-styles"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(body_styles demorgan)'''
+
+[[example]]
+id = "sym-in-pos-files"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(in_pos_files yes)'''
+
+[[example]]
+id = "sym-jumpers-duplicate"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(duplicate_pin_numbers_are_jumpers no)'''
+
+[[example]]
+id = "sym-jumper-pin-groups"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(jumper_pin_groups ("1" "2"))'''
+
+[[example]]
+id = "sym-embedded-files"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(embedded_fonts no) (embedded_files)'''
+
+[[example]]
+id = "sym-property-private"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol"
+mode = "append"
+fragment = '''(property private "Note" "x" (at 0 0 0) (effects (font (size 1.27 1.27))))'''
+
+[[example]]
+id = "sym-rectangle-radius"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol/symbol/rectangle"
+mode = "append"
+fragment = '''(radius 0.5)'''
+
+[[example]]
+id = "sym-fill-hatch"
+kinds = ["kicad_sym"]
+host = "kicad_symbol_lib/symbol/symbol"
+mode = "append"
+fragment = '''(rectangle (start -1 -1) (end 1 1) (stroke (width 0) (type default)) (fill (type hatch)))'''

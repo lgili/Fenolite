@@ -372,7 +372,11 @@ def rules_text(node: Node) -> str:
 
 # --- token inventory ------------------------------------------------------------------------------
 
-NO_ROW_REASONS = frozenset({"no-token-change", "superseded-in-cycle"})
+NO_ROW_REASONS = frozenset({"no-token-change", "superseded-in-cycle", "unconfirmed"})
+"""Why a dated version has no row; ``unconfirmed`` says that its source names a change whose tokens
+could not be confirmed, so the inventory claims nothing about it."""
+EMBEDDED_SYMBOLS = ("kicad_sch", "lib_symbols")
+"""The head chain under which a schematic holds symbol definitions in the symbol-library syntax."""
 _TOKEN_KEYS = {
     "id",
     "kinds",
@@ -398,7 +402,7 @@ _FORM_KEYS = {
     "hypothesis",
 }
 _FORM_REQUIRED = {"id", "kinds", "since_major", "description", "sources"}
-_NOTE_KEYS = {"version", "rows", "no_row"}
+_NOTE_KEYS = {"version", "kind", "rows", "no_row"}
 _TOP_KEYS = {"format", "collected_at", "token", "form", "note"}
 
 
@@ -439,6 +443,7 @@ class Note:
     version: int
     rows: tuple[str, ...]
     no_row: str | None
+    kind: FileKind = FileKind.BOARD
 
 
 def _head_matches(pattern: str, head: str) -> bool:
@@ -460,7 +465,18 @@ class Inventory:
         object.__setattr__(self, "_by_last", {k: tuple(v) for k, v in index.items()})
 
     def match(self, kind: FileKind, chain: Sequence[str], value: str | None = None) -> TokenRow | None:
-        """The most specific token row for a node (``value`` None) or a symbol value under it."""
+        """The most specific token row for a node (``value`` None) or a symbol value under it.
+
+        A symbol embedded in a schematic (``kicad_sch/lib_symbols/symbol/…``) has the symbol-library
+        syntax: when no schematic row matches there, the symbol-library row for the same chain under
+        ``kicad_symbol_lib`` is returned.
+        """
+        found = self._match(kind, chain, value)
+        if found is None and kind == FileKind.SCHEMATIC and tuple(chain[:2]) == EMBEDDED_SYMBOLS:
+            return self._match(FileKind.SYMBOL_LIB, ("kicad_symbol_lib", *chain[2:]), value)
+        return found
+
+    def _match(self, kind: FileKind, chain: Sequence[str], value: str | None) -> TokenRow | None:
         if not chain:
             return None
         candidates = list(self._by_last.get(chain[-1], ()))
@@ -627,7 +643,15 @@ def _parse_inventory(text: str, file: str) -> Inventory:
         for ident in rows or []:
             if ident not in ids:
                 raise _fail(f"{label}: unknown row id {ident!r}", file)
-        notes.append(Note(int(entry["version"]), tuple(rows or ()), reason))
+        try:
+            note_kind = FileKind(entry.get("kind", FileKind.BOARD.value))
+        except ValueError:
+            raise _fail(f"{label}: unknown kind {entry.get('kind')!r}", file) from None
+        for ident in rows or []:
+            row_kinds = next(r.kinds for r in (*tokens, *forms) if r.id == ident)
+            if "kind" in entry and note_kind not in row_kinds:
+                raise _fail(f"{label}: row {ident!r} is not of kind {note_kind.value}", file)
+        notes.append(Note(int(entry["version"]), tuple(rows or ()), reason, note_kind))
     return Inventory(tuple(tokens), tuple(forms), tuple(notes), tuple(data.get("collected_at", ())))
 
 

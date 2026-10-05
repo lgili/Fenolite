@@ -142,8 +142,8 @@ def test_unit_job_runs_in_parallel() -> None:
     assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
 
 
-KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9"
-KICAD9_KEY = "key: corpus-rt2-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
+KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9"
+KICAD9_KEY = "key: corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
@@ -172,14 +172,14 @@ def kicad9_problems(workflow: str) -> list[str]:
     if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
         problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
     if KICAD9_KEY not in job:
-        problems.append("kicad-9: cache key must be corpus-rt2-9-<hash of tests/corpus/manifest.toml>")
+        problems.append("kicad-9: cache key must be corpus-rt2-9-sch-9-<hash of tests/corpus/manifest.toml>")
     if pytest_steps(job) != [KICAD9_PYTEST]:
         problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
     if fetches != [KICAD9_FETCH]:
-        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9")
+        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9")
     return problems
 
 
@@ -216,6 +216,16 @@ def test_kicad_9_wider_fetch_rejected() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt2-9", "--uses rt0")
     problems = kicad9_problems(text)
     assert any(p.startswith("kicad-9:") and "rt2-9" in p for p in problems)
+
+
+def test_kicad_9_fetch_without_the_schematic_rows_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "--uses rt2-9 --uses sch-9" in job_text(text, "kicad-9")
+    for edited in (text.replace(" --uses sch-9", ""), text.replace("--uses sch-9", "--uses sch")):
+        problems = kicad9_problems(edited)
+        assert any(p.startswith("kicad-9:") and "--uses sch-9" in p for p in problems)
+    old_key = text.replace("corpus-rt2-9-sch-9-", "corpus-rt2-9-")
+    assert any("cache key" in p and "sch-9" in p for p in kicad9_problems(old_key))
 
 
 def test_kicad_9_cache_key_and_order() -> None:

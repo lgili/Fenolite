@@ -709,7 +709,38 @@
    "kind": "kicad_sch",
    "header_version": 20231120,
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
-   "rows": [],
+   "rows": [
+    "sch-embedded-fonts",
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [
+    "sch-embedded-fonts",
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [
+    "sch-embedded-fonts",
+    "sym-embedded-fonts"
+   ],
    "expected": "load",
    "outcome": "load",
    "exit_code": 0,
@@ -720,7 +751,35 @@
    "kind": "kicad_sym",
    "header_version": 20231120,
    "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
-   "rows": [],
+   "rows": [
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_sym",
+   "header_version": 20241209,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "positive-baseline",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "b36efc6f6fef1f229c55c820345a522110c55b6991436a114ca9e14b3a428b17",
+   "rows": [
+    "sym-embedded-fonts"
+   ],
    "expected": "load",
    "outcome": "load",
    "exit_code": 0,
@@ -986,6 +1045,495 @@
    "outcome": "load",
    "exit_code": 0,
    "detail": "Found 3 violations"
+  },
+  {
+   "example": "sch-embedded-files",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "01560cc39281ec2aa594a33e71c51b72dc0c6e0ba57a96fededb2b5e2ca87f27",
+   "rows": [
+    "sch-embedded-files",
+    "sch-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-fill-cross-hatch",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "6d74dd1b1ba269d58c44c83a157d64350c30cee561142b238b2ffbbcf9ddde54",
+   "rows": [
+    "sch-fill-cross-hatch"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-fill-hatch",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "0c2aabb3e4830cc0a71907df4f286b88141fb7df8115871006d9b7795646ab5e",
+   "rows": [
+    "sch-fill-hatch"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-fill-reverse-hatch",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "4fada277847c9ae4879e20e20ea842527e497730453bef269ce64e997213253d",
+   "rows": [
+    "sch-fill-reverse-hatch"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-group",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "ce65337b937d560af47517505fdd83cf215bbfc4b349c79b336fec2f278a04d5",
+   "rows": [
+    "sch-group"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-instance-variant",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "57a01ceba63c82974e8a96dee47172cabc40d694f26e911a6e0b74b2f1d0370b",
+   "rows": [
+    "sch-instance-variant"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-body-styles",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "9546ea656454aca09f553633c2419ab4461336f13a557b7f6d83969a9447ba48",
+   "rows": [
+    "sch-lib-body-styles"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-embedded-fonts",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "aab973cb62035516acbb713e48edf1daad1cad5cec117631fcb2a927f0d7cf67",
+   "rows": [
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-in-pos-files",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "6e11675d1cb5061d068aeadffac6986c55440c74a2df4b302970d31d141d165e",
+   "rows": [
+    "sch-lib-in-pos-files"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-jumpers",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "907451445d3c166ec42d9d726735bd4eacd6f9da66bf1fa0a904f4d0b057be32",
+   "rows": [
+    "sym-jumpers-duplicate"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-power-global",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "f53edbb0931d52658ddcc2297773552ce08a97926107b693dc5416f726944e63",
+   "rows": [
+    "sch-lib-power-global"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-lib-power-local",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "9c28b1960e383b02d757f4a3599b4e1492e030a9cf19b1f1bbb2aa2745e1e9f3",
+   "rows": [
+    "sch-lib-power-local"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-property-hide-bool",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "65fa13321ff4459947efccfe0e05d0d937221fbbf231cba2a2bb044df39a1d34",
+   "rows": [
+    "sch-hide-bool"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-property-private",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "0dfeafec425295ba8fbf7fa3f12a16e7f60ba7cfa4438b375a7bebcd06926409",
+   "rows": [
+    "sch-property-private"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rectangle-radius",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "4e6fa4bb172b06b9d1663728f3edcdad41af5090f12054ffda310ccd0fc78144",
+   "rows": [
+    "sch-rectangle-radius"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rule-area",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "cde447362fe5691ecd242d30826dcb2261ee622234a62b114eaf6f223601b9f5",
+   "rows": [
+    "sch-rule-area"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rule-area-dnp",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "382117e2ecfea3a3e73c7e4f512c088f454114c916d3dc5e54dacdefe14524d9",
+   "rows": [
+    "sch-rule-area",
+    "sch-rule-area-dnp"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rule-area-exclude-from-sim",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "76d88cad77535146bf3d34f14a3ca4ffcec3bd6bd7072d2c1500362f1d533669",
+   "rows": [
+    "sch-rule-area",
+    "sch-rule-area-exclude-from-sim"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rule-area-in-bom",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "867b1f2d3541cf7416255f65682421dc613dcbee4f02a3ae0f24462f1c48f32d",
+   "rows": [
+    "sch-rule-area",
+    "sch-rule-area-in-bom"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-rule-area-on-board",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "63934135db5d251e08f0c79fc2ae96b3f08483e1f8cc0cfdd58b9b913251a260",
+   "rows": [
+    "sch-rule-area",
+    "sch-rule-area-on-board"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-sheet-attributes",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "b03ab3294729614026ca83c9f11823a05e1d0ff0192de33044ba75bb4fad7a30",
+   "rows": [
+    "sch-sheet-dnp",
+    "sch-sheet-exclude-from-sim",
+    "sch-sheet-in-bom",
+    "sch-sheet-on-board"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-symbol-body-style",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "7e7a1d9479c9e3ffca50ca95cd69bce93d04cdd4f73945769e1de243aaf9e350",
+   "rows": [
+    "sch-symbol-body-style"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-symbol-in-pos-files",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "56a781f02a406a7550817c6fc80f07ddde4206d607e742a982826a483ca7b97b",
+   "rows": [
+    "sch-symbol-in-pos-files"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-table",
+   "kind": "kicad_sch",
+   "header_version": 20250114,
+   "example_sha256": "ccd48ce568f12b0310ca25f66c2b56a2c21b7828cc5e832969fef3023d53112a",
+   "rows": [
+    "sch-table",
+    "sch-table-border",
+    "sch-table-border-external",
+    "sch-table-border-header",
+    "sch-table-cell",
+    "sch-table-cell-span",
+    "sch-table-cells",
+    "sch-table-column-count",
+    "sch-table-column-widths",
+    "sch-table-row-heights",
+    "sch-table-separators",
+    "sch-table-separators-cols",
+    "sch-table-separators-rows"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sch-table-uuid",
+   "kind": "kicad_sch",
+   "header_version": 20260306,
+   "example_sha256": "b24c51eb6ffd8388e5ea699fdc15020fa1870df463184ff7d0ba571ee80364e8",
+   "rows": [
+    "sch-table",
+    "sch-table-border",
+    "sch-table-border-external",
+    "sch-table-border-header",
+    "sch-table-cell",
+    "sch-table-cell-span",
+    "sch-table-cells",
+    "sch-table-column-count",
+    "sch-table-column-widths",
+    "sch-table-row-heights",
+    "sch-table-separators",
+    "sch-table-separators-cols",
+    "sch-table-separators-rows",
+    "sch-table-uuid"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": ""
+  },
+  {
+   "example": "sym-body-styles",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "15a83b48b22132b36a43f34e4be25a8a96c1a32d81829345ca521913aba6040c",
+   "rows": [
+    "sym-body-styles"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-embedded-files",
+   "kind": "kicad_sym",
+   "header_version": 20241209,
+   "example_sha256": "f0e7684961899c8875b98d68ecfa7ddeaf9bb6bc885c9a67db59d3d48cb46c6a",
+   "rows": [
+    "sym-embedded-files",
+    "sym-embedded-fonts"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-fill-hatch",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "7817f3cb62b438a0e1595a7fa2c99a91e7e1c24b697acae874303d1d5307d057",
+   "rows": [
+    "sym-fill-hatch"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-in-pos-files",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "1f3c956ebfac03cf7a0ead3c1ce280851dcdb565a06704a2600254dc738a3e98",
+   "rows": [
+    "sym-in-pos-files"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-jumper-pin-groups",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "9833782a6b46b47f3f1ab7f9688b9e156f960038c0d03f77fe2474cb1f0e05fc",
+   "rows": [
+    "sym-jumper-pin-groups"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-jumpers-duplicate",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "9d9ef1b44923bbb7d03f117b19309d47e6ea73aa3d1b04c2f8798b7600e251de",
+   "rows": [
+    "sym-jumpers-duplicate"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-power-global",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "7f7e5be5f1b285141fb9d0ad18507b28814f7076f01b6b4fef71351ad472affd",
+   "rows": [
+    "sym-power-global"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-power-local",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "4b30a2d23643502b9ef3ece4374398d8e729c7e13ea84ba1fe34e0f01c88e69b",
+   "rows": [
+    "sym-power-local"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-property-private",
+   "kind": "kicad_sym",
+   "header_version": 20241209,
+   "example_sha256": "5ccb33b6501f9fde3a67359d9bc3847ccd3a28e903a2f57f57d9880dc98374bf",
+   "rows": [
+    "sym-property-private"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
+  },
+  {
+   "example": "sym-rectangle-radius",
+   "kind": "kicad_sym",
+   "header_version": 20251024,
+   "example_sha256": "35c7414c95f0dbd6e969a1174777140bbbb78b0acc1e06aa3985414be73726bd",
+   "rows": [
+    "sym-rectangle-radius"
+   ],
+   "expected": "load",
+   "outcome": "load",
+   "exit_code": 0,
+   "detail": "Plotting symbol 'Mini_R' unit 1 to 'out/Mini_R_unit1.svg'"
   },
   {
    "example": "table",

@@ -140,8 +140,10 @@ def test_provenance_sources_and_hypotheses_registered() -> None:
         problems += [f"{row.id}: unregistered source {s}" for s in row.sources if s not in SOURCES]
         if row.hypothesis and row.hypothesis not in HYPOTHESES:
             problems.append(f"{row.id}: unregistered hypothesis {row.hypothesis}")
-        if row.since_version is not None and "S-0030" not in row.sources:
-            problems.append(f"{row.id}: a dated row must cite S-0030")
+        eeschema = bool(row.kinds & {FileKind.SCHEMATIC, FileKind.SYMBOL_LIB})
+        dated_by = "S-0031" if eeschema else "S-0030"
+        if row.since_version is not None and dated_by not in row.sources:
+            problems.append(f"{row.id}: a dated row must cite {dated_by}")
     assert not problems, "\n".join(problems)
 
 
@@ -177,14 +179,102 @@ def test_provenance_no_reader_of_keyword_files(tmp_path: Path) -> None:
 # --- scope and notes ------------------------------------------------------------------------------
 
 
+# Dated schematic and symbol-library versions after the 8.0 constants up to the 10.0 constants (S-0031;
+# numbers only).
+SCH_DATED = [
+    20240101, 20240417, 20240602, 20240620, 20240716, 20240812, 20240819, 20241004, 20241209, 20250114,
+    20250222, 20250227, 20250318, 20250425, 20250513, 20250610, 20250827, 20250829, 20250901, 20250922,
+    20251012, 20251028, 20260101, 20260306,
+]  # fmt: skip
+SYM_DATED = [20240529, 20240819, 20241209, 20250318, 20250324, 20250829, 20250901, 20250925, 20251024]
+DATED_BY_KIND = {FileKind.BOARD: DATED, FileKind.SCHEMATIC: SCH_DATED, FileKind.SYMBOL_LIB: SYM_DATED}
+
+
+def note_problems(inventory: object) -> list[str]:
+    problems: list[str] = []
+    notes = inventory.notes  # type: ignore[attr-defined]
+    for kind, versions in DATED_BY_KIND.items():
+        found = [n.version for n in notes if n.kind == kind]
+        problems += [f"{kind.value}: dated version {v} has no note" for v in versions if v not in found]
+        if [v for v in found if v in versions] != [v for v in versions if v in found]:
+            problems.append(f"{kind.value}: notes are not in version order")
+        problems += [f"{kind.value}: note {v} is not a dated version" for v in found if v not in versions]
+    return problems
+
+
 def test_notes_cover_every_dated_version() -> None:
-    assert [n.version for n in INV.notes] == DATED
-    listed = {r for n in INV.notes for r in n.rows}
+    assert note_problems(INV) == []
+    assert {n.kind for n in INV.notes} == set(DATED_BY_KIND)
     dated = [row for row in (*INV.tokens, *INV.forms) if row.since_version is not None]
     for row in dated:
-        assert row.id in listed, f"{row.id}: since_version {row.since_version} is not listed by its note"
-        note = next(n for n in INV.notes if row.id in n.rows)
-        assert note.version == row.since_version, f"{row.id} is listed by note {note.version}"
+        notes = [n for n in INV.notes if row.id in n.rows]
+        assert notes, f"{row.id}: since_version {row.since_version} is not listed by its note"
+        for note in notes:
+            assert note.version == row.since_version, f"{row.id} is listed by note {note.version}"
+
+
+def test_dated_version_without_a_note_is_named() -> None:
+    import dataclasses
+
+    cut = dataclasses.replace(
+        INV, notes=tuple(n for n in INV.notes if (n.kind, n.version) != (FileKind.SCHEMATIC, 20250827))
+    )
+    assert note_problems(cut) == ["kicad_sch: dated version 20250827 has no note"]
+
+
+def test_note_kind_rules() -> None:
+    row = token(
+        kinds=["kicad_sch"],
+        path="symbol/body_style",
+        since_major=10,
+        since_version=20250827,
+        sources=["S-0031"],
+    )
+    good = load(row + '[[note]]\nversion = 20250827\nkind = "kicad_sch"\nrows = ["x"]\n')
+    assert good.notes[0].kind == FileKind.SCHEMATIC
+    assert (
+        load(row + '[[note]]\nversion = 20250827\nno_row = "unconfirmed"\n').notes[0].kind == FileKind.BOARD
+    )
+    with pytest.raises(FormatError, match="not of kind kicad_sym"):
+        load(row + '[[note]]\nversion = 20250827\nkind = "kicad_sym"\nrows = ["x"]\n')
+    with pytest.raises(FormatError, match="unknown kind"):
+        load('[[note]]\nversion = 20250827\nkind = "kicad_xyz"\nno_row = "unconfirmed"\n')
+
+
+# --- schematic and symbol-library rows (change c0060, "Schematic and symbol tokens are inventoried")
+
+
+def test_rows_of_both_schematic_kinds_exist() -> None:
+    for kind in (FileKind.SCHEMATIC, FileKind.SYMBOL_LIB):
+        rows = [r for r in INV.tokens if kind in r.kinds]
+        assert rows and all(r.since_major in (9, 10) and r.sources for r in rows), kind
+        assert any(r.since_version is not None for r in rows), kind
+        assert all("S-0031" in r.sources and "S-0368" in r.sources for r in rows), kind
+
+
+def test_symbol_row_matches_inside_a_sheet() -> None:
+    from fenolite.backends.kicad.versions import min_version
+
+    row = next(r for r in INV.tokens if r.id == "sym-jumper-pin-groups")
+    assert row.since_version is not None and row.since_version > 20241209
+    in_sheet = min_version(FileKind.SCHEMATIC, "kicad_sch/lib_symbols/symbol/jumper_pin_groups")
+    in_library = min_version(FileKind.SYMBOL_LIB, "kicad_symbol_lib/symbol/jumper_pin_groups")
+    assert in_sheet == in_library == row.since_version
+    # a schematic row for the same place wins over the symbol-library row
+    native = INV.match(FileKind.SCHEMATIC, ("kicad_sch", "lib_symbols", "symbol", "body_styles"))
+    assert native is not None and native.id == "sch-lib-body-styles"
+    assert INV.match(FileKind.SCHEMATIC, ("kicad_sch", "symbol", "jumper_pin_groups")) is None
+    assert INV.match(FileKind.BOARD, ("kicad_sch", "lib_symbols", "symbol", "jumper_pin_groups")) is None
+
+
+def test_schematic_instance_rows() -> None:
+    from fenolite.backends.kicad.versions import min_major, min_version
+
+    assert min_version(FileKind.SCHEMATIC, "kicad_sch/symbol/body_style") == 20250827
+    assert min_major(FileKind.SCHEMATIC, "kicad_sch/symbol/in_pos_files") == 10
+    assert min_major(FileKind.SCHEMATIC, "kicad_sch/table/cells/table_cell") == 9
+    assert min_version(FileKind.SCHEMATIC, "kicad_sch/rectangle/fill/type", value="hatch") == 20250222
+    assert min_version(FileKind.SCHEMATIC, "kicad_sch/symbol/unit") is None
 
 
 def test_notes_carry_no_free_text() -> None:

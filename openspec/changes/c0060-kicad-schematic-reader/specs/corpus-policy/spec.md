@@ -13,7 +13,7 @@
 - **Census.** `tests/corpus/test_schematic_census.py` (marker `needs_corpus`) MUST recompute the four content tags of every `sch` row from the cached files and MUST fail naming the row id when a tag is missing or wrong. It MUST write, through `tests/_boards.py::census`, the number of rows per tag, per format version and per origin, the root heads with their counts, and the number of rows that carry none of `sch-bus`, `sch-multi` and `sch-old`; the numbers are copied into `docs/evidence/kicad-schematic.md`.
 - **Acceptance list.** The rows that carry `sch` and none of `sch-bus`, `sch-multi` and `sch-old` are the "schematics without bus and without multi-instance" of the project plan's v0.2a acceptance; no second list is kept.
 - **Round trips.** `tests/corpus/test_schematic_rt.py` (marker `needs_corpus`) MUST run RT0 (`tree_equal(parse(dumps(parse(t))), parse(t))`) and RT1 (`sch.roundtrip_schematic`) on every demo row without `sch-old`, bus or not, and MUST record `opaque_count` per row. A row with `sch-old` MUST be counted as not read, with its format version.
-- **Fetch.** The `kicad-10` job fetches the `sch` rows through its existing `--uses rt0` selection. The `kicad-9` job fetches only `--uses rt2-9` (`ci-baseline`, "KiCad 9.0 oracle job") and therefore no schematic row; `tools/corpus_fetch.py --uses sch-9` fetches the rows a run in the pinned 9.0.9 image needs.
+- **Fetch.** The `kicad-10` job fetches the `sch` rows through its existing `--uses rt0` selection. The `kicad-9` job fetches the rows of the 9.0.9.1 tree with `--uses sch-9`, beside its `rt2-9` rows (`ci-baseline`, "KiCad 9.0 oracle job").
 
 #### Scenario: Tags recomputed
 - **GIVEN** the `sch` rows cached, and a manifest in which one row with bus entries lacks `sch-bus`
@@ -55,3 +55,28 @@ Vendor, product and project names SHALL appear only inside the `url` field of ma
 - **GIVEN** an `rt0` row with the id `kicad-demo-10-0-6-sch-104`
 - **WHEN** the manifest test runs
 - **THEN** it reports no id problem for that row
+
+### Requirement: RT2 rows for KiCad 9.0
+`tests/corpus/manifest.toml` SHALL tag with the use `rt2-9` exactly the rows whose `ref` is `9.0.9.1`, whose URL names a `.kicad_pcb` file, and whose `uses` hold `rt0` and not `heavy`. Today these are `kicad-demo-9-0-9-1-pcb-01`, `-02`, `-03`, `-05` and `-06`; the malformed `-04` is not one of them.
+- `tests/corpus/test_manifest.py` MUST fail, naming the row, when a row carries `rt2-9` without meeting this rule, or meets the rule without `rt2-9`.
+- `rt2-9` rows MUST keep every other rule of the manifest (licence, `embeddable = false`, exactly one origin), and their files MUST stay out of the repository like every corpus file.
+- `uv run python tools/corpus_fetch.py --uses rt2-9` MUST fetch exactly these rows. The `kicad-9` job fetches them together with the schematic rows of the 9.0.9.1 tree, in its only corpus fetch, `--uses rt2-9 --uses sch-9` (`ci-baseline`, "KiCad 9.0 oracle job"); a row MUST NOT carry `rt2-9` because it carries `sch-9`.
+
+#### Scenario: Five rows tagged
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py` runs on the committed manifest
+- **THEN** it passes, and exactly the five readable non-heavy 9.0.9.1 board rows carry `rt2-9`
+
+#### Scenario: Wrong row tagged
+- **GIVEN** a manifest in which `kicad-demo-10-0-6-pcb-01` also carries `rt2-9`
+- **WHEN** the manifest test checks it
+- **THEN** it fails naming `kicad-demo-10-0-6-pcb-01` and the use `rt2-9`
+
+#### Scenario: Tag missing
+- **GIVEN** a manifest in which `kicad-demo-9-0-9-1-pcb-03` lacks `rt2-9`
+- **WHEN** the manifest test checks it
+- **THEN** it fails naming `kicad-demo-9-0-9-1-pcb-03`
+
+#### Scenario: Fetch by use
+- **GIVEN** a temporary manifest with one `rt0` row and one `rt0` and `rt2-9` row
+- **WHEN** `uv run python tools/corpus_fetch.py --manifest <it> --cache <tmp> --uses rt2-9` runs
+- **THEN** only the second row is fetched, and the summary counts one item

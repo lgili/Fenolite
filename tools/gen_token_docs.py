@@ -105,10 +105,19 @@ def render(inventory: Inventory, results: list[dict[str, Any]]) -> str:
             str(levels[form.id].get(10, "—")),
         ]
         lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
-    lines += ["", "## Dated board-format versions (S-0030)", "", "| version | rows or reason |", "|---|---|"]
-    for note in inventory.notes:
-        what = ", ".join(note.rows) if note.rows else f"_{note.no_row}_"
-        lines.append(f"| {note.version} | {what} |")
+    sections = (
+        ("kicad_pcb", "## Dated board-format versions (S-0030)"),
+        ("kicad_sch", "## Dated schematic-format versions (S-0031)"),
+        ("kicad_sym", "## Dated symbol-library versions (S-0031)"),
+    )
+    for kind, title in sections:
+        notes = [note for note in inventory.notes if note.kind.value == kind]
+        if not notes:
+            continue
+        lines += ["", title, "", "| version | rows or reason |", "|---|---|"]
+        for note in notes:
+            what = ", ".join(note.rows) if note.rows else f"_{note.no_row}_"
+            lines.append(f"| {note.version} | {what} |")
     return "\n".join(lines) + "\n"
 
 

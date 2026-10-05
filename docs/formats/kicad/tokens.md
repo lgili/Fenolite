@@ -192,12 +192,62 @@ committed fuzz results: `KICAD-VERIFIED` when the major's cases prove the row, e
 | rules-type-via-dangling | kicad_dru | `rule/constraint` | `via_dangling` | 10 |  | S-0038, S-0034 | H-K-TOK-RULES-DRIFT | KICAD-VERIFIED | KICAD-VERIFIED |
 | rules-disallow-through-via | kicad_dru | `rule/constraint` | `through_via` | 10 |  | S-0038, S-0034 | H-K-TOK-RULES-DRIFT | KICAD-VERIFIED | KICAD-VERIFIED |
 | rules-disallow-blind-via | kicad_dru | `rule/constraint` | `blind_via` | 10 |  | S-0038, S-0034 | H-K-TOK-RULES-DRIFT | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table | kicad_sch | `/kicad_sch/table` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-column-count | kicad_sch | `kicad_sch/table/column_count` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-column-widths | kicad_sch | `kicad_sch/table/column_widths` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-row-heights | kicad_sch | `kicad_sch/table/row_heights` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-cells | kicad_sch | `kicad_sch/table/cells` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-cell | kicad_sch | `kicad_sch/table/cells/table_cell` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-cell-span | kicad_sch | `kicad_sch/table/cells/table_cell/span` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-border | kicad_sch | `kicad_sch/table/border` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-border-external | kicad_sch | `kicad_sch/table/border/external` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-border-header | kicad_sch | `kicad_sch/table/border/header` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-separators | kicad_sch | `kicad_sch/table/separators` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-separators-rows | kicad_sch | `kicad_sch/table/separators/rows` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-separators-cols | kicad_sch | `kicad_sch/table/separators/cols` |  | 9 (20240101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rule-area | kicad_sch | `/kicad_sch/rule_area` |  | 9 (20240417) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-sheet-exclude-from-sim | kicad_sch | `/kicad_sch/sheet/exclude_from_sim` |  | 9 (20240602) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-sheet-in-bom | kicad_sch | `/kicad_sch/sheet/in_bom` |  | 9 (20240602) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-sheet-on-board | kicad_sch | `/kicad_sch/sheet/on_board` |  | 9 (20240602) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-sheet-dnp | kicad_sch | `/kicad_sch/sheet/dnp` |  | 9 (20240602) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-embedded-fonts | kicad_sch | `/kicad_sch/embedded_fonts` |  | 9 (20240620) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-embedded-files | kicad_sch | `/kicad_sch/embedded_files` |  | 9 (20240620) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-property-private | kicad_sch | `kicad_sch/symbol/property` | `private` | 9 (20241209) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-fill-hatch | kicad_sch | `fill/type` | `hatch` | 10 (20250222) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-fill-reverse-hatch | kicad_sch | `fill/type` | `reverse_hatch` | 10 (20250222) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-fill-cross-hatch | kicad_sch | `fill/type` | `cross_hatch` | 10 (20250222) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-lib-power-local | kicad_sch | `kicad_sch/lib_symbols/symbol/power` | `local` | 10 (20250227) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-lib-power-global | kicad_sch | `kicad_sch/lib_symbols/symbol/power` | `global` | 10 (20250227) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-table-uuid | kicad_sch | `/kicad_sch/table/uuid` |  | 10 (20250425) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-group | kicad_sch | `/kicad_sch/group` |  | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rule-area-exclude-from-sim | kicad_sch | `/kicad_sch/rule_area/exclude_from_sim` |  | 10 (20250610) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rule-area-in-bom | kicad_sch | `/kicad_sch/rule_area/in_bom` |  | 10 (20250610) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rule-area-on-board | kicad_sch | `/kicad_sch/rule_area/on_board` |  | 10 (20250610) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rule-area-dnp | kicad_sch | `/kicad_sch/rule_area/dnp` |  | 10 (20250610) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-symbol-body-style | kicad_sch | `/kicad_sch/symbol/body_style` |  | 10 (20250827) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-lib-body-styles | kicad_sch | `/kicad_sch/lib_symbols/symbol/body_styles` |  | 10 (20250827) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-rectangle-radius | kicad_sch | `kicad_sch/rectangle/radius` |  | 10 (20250829) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-instance-variant | kicad_sch | `instances/project/path/variant` |  | 10 (20250922) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-symbol-in-pos-files | kicad_sch | `/kicad_sch/symbol/in_pos_files` |  | 10 (20260101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-lib-in-pos-files | kicad_sch | `/kicad_sch/lib_symbols/symbol/in_pos_files` |  | 10 (20260101) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-embedded-fonts | kicad_sym | `/kicad_symbol_lib/symbol/embedded_fonts` |  | 9 (20240529) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-embedded-files | kicad_sym | `/kicad_symbol_lib/symbol/embedded_files` |  | 9 (20240529) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-property-private | kicad_sym | `kicad_symbol_lib/symbol/property` | `private` | 9 (20241209) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-jumpers-duplicate | kicad_sym | `/kicad_symbol_lib/symbol/duplicate_pin_numbers_are_jumpers` |  | 10 (20250324) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-jumper-pin-groups | kicad_sym | `/kicad_symbol_lib/symbol/jumper_pin_groups` |  | 10 (20250324) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-rectangle-radius | kicad_sym | `symbol/symbol/rectangle/radius` |  | 10 (20250829) |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-power-local | kicad_sym | `/kicad_symbol_lib/symbol/power` | `local` | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-power-global | kicad_sym | `/kicad_symbol_lib/symbol/power` | `global` | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-body-styles | kicad_sym | `/kicad_symbol_lib/symbol/body_styles` |  | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-in-pos-files | kicad_sym | `/kicad_symbol_lib/symbol/in_pos_files` |  | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
+| sym-fill-hatch | kicad_sym | `symbol/symbol/rectangle/fill/type` | `hatch` | 10 |  | S-0031, S-0368, S-0020 |  | KICAD-VERIFIED | KICAD-VERIFIED |
 
 ## Form rows
 
 | id | kinds | applies to | since | description | sources | hypothesis | 9.0 | 10.0 |
 |---|---|---|---|---|---|---|---|---|
 | net-by-name | kicad_pcb | net | 10 (20251028) | items reference nets by name instead of by number | S-0030, S-0024 | H-K-TOK-NETNAME | KICAD-VERIFIED | KICAD-VERIFIED |
+| sch-hide-bool | kicad_sch | property/hide | 9 (20241004) | a hidden field is written with a (hide yes) child of the property instead of a bare hide in its effects | S-0031, S-0368, S-0020 | H-K-SCH-TOKENS | KICAD-VERIFIED | KICAD-VERIFIED |
 
 ## Dated board-format versions (S-0030)
 
@@ -243,3 +293,46 @@ committed fuzz results: `KICAD-VERIFIED` when the major's cases prove the row, e
 | 20251101 | via-backdrill, via-tertiary-drill, via-front-post-machining, via-back-post-machining |
 | 20260101 | variants, footprint-variant |
 | 20260206 | _no-token-change_ |
+
+## Dated schematic-format versions (S-0031)
+
+| version | rows or reason |
+|---|---|
+| 20240101 | sch-table, sch-table-column-count, sch-table-column-widths, sch-table-row-heights, sch-table-cells, sch-table-cell, sch-table-cell-span, sch-table-border, sch-table-border-external, sch-table-border-header, sch-table-separators, sch-table-separators-rows, sch-table-separators-cols |
+| 20240417 | sch-rule-area |
+| 20240602 | sch-sheet-exclude-from-sim, sch-sheet-in-bom, sch-sheet-on-board, sch-sheet-dnp |
+| 20240620 | sch-embedded-fonts, sch-embedded-files |
+| 20240716 | _unconfirmed_ |
+| 20240812 | _unconfirmed_ |
+| 20240819 | _no-token-change_ |
+| 20241004 | sch-hide-bool |
+| 20241209 | sch-property-private |
+| 20250114 | _no-token-change_ |
+| 20250222 | sch-fill-hatch, sch-fill-reverse-hatch, sch-fill-cross-hatch |
+| 20250227 | sch-lib-power-local, sch-lib-power-global |
+| 20250318 | _no-token-change_ |
+| 20250425 | sch-table-uuid |
+| 20250513 | _unconfirmed_ |
+| 20250610 | sch-rule-area-exclude-from-sim, sch-rule-area-in-bom, sch-rule-area-on-board, sch-rule-area-dnp |
+| 20250827 | sch-symbol-body-style, sch-lib-body-styles |
+| 20250829 | sch-rectangle-radius |
+| 20250901 | _no-token-change_ |
+| 20250922 | sch-instance-variant |
+| 20251012 | _unconfirmed_ |
+| 20251028 | _unconfirmed_ |
+| 20260101 | sch-symbol-in-pos-files, sch-lib-in-pos-files |
+| 20260306 | _no-token-change_ |
+
+## Dated symbol-library versions (S-0031)
+
+| version | rows or reason |
+|---|---|
+| 20240529 | sym-embedded-fonts, sym-embedded-files |
+| 20240819 | _no-token-change_ |
+| 20241209 | sym-property-private |
+| 20250318 | _no-token-change_ |
+| 20250324 | sym-jumpers-duplicate, sym-jumper-pin-groups |
+| 20250829 | sym-rectangle-radius |
+| 20250901 | _no-token-change_ |
+| 20250925 | _unconfirmed_ |
+| 20251024 | _unconfirmed_ |

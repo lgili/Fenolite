@@ -73,7 +73,13 @@ def test_nine_comes_from_the_pinned_image() -> None:
 
 
 def required_rows() -> list[str]:
-    floor = {FileKind.BOARD: 8, FileKind.FOOTPRINT: 8, FileKind.RULES: 9}
+    floor = {
+        FileKind.BOARD: 8,
+        FileKind.FOOTPRINT: 8,
+        FileKind.RULES: 9,
+        FileKind.SCHEMATIC: 8,
+        FileKind.SYMBOL_LIB: 8,
+    }
     rows = [
         r.id
         for r in INV.tokens

@@ -1559,6 +1559,438 @@ sources = ["S-0038", "S-0034"]
 hypothesis = "H-K-TOK-RULES-DRIFT"
 
 # ------------------------------------------- notes: every dated board version after 8.0 (S-0030)
+# ------------------------------------------------- schematic and symbol library (change c0060)
+# Dated versions and what each introduced: S-0031. Each name was confirmed one by one in the keyword list
+# of the schematic editor at tags 9.0.9.1 and 10.0.6 (S-0368), and each row by the fuzz on 9.0.9 and
+# 10.0.6 (S-0020). A symbol-library row also matches inside a schematic, under
+# kicad_sch/lib_symbols/symbol, when no schematic row matches there.
+
+[[token]]
+id = "sch-table"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/table"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "schematic tables"
+
+[[token]]
+id = "sch-table-column-count"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/column_count"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-column-widths"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/column_widths"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-row-heights"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/row_heights"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-cells"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/cells"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-cell"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/cells/table_cell"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-cell-span"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/cells/table_cell/span"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-border"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/border"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-border-external"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/border/external"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-border-header"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/border/header"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-separators"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/separators"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-separators-rows"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/separators/rows"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-table-separators-cols"
+kinds = ["kicad_sch"]
+path = "kicad_sch/table/separators/cols"
+since_major = 9
+since_version = 20240101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-rule-area"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/rule_area"
+since_major = 9
+since_version = 20240417
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "rule areas"
+
+[[token]]
+id = "sch-sheet-exclude-from-sim"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/sheet/exclude_from_sim"
+since_major = 9
+since_version = 20240602
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "sheet attributes"
+
+[[token]]
+id = "sch-sheet-in-bom"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/sheet/in_bom"
+since_major = 9
+since_version = 20240602
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-sheet-on-board"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/sheet/on_board"
+since_major = 9
+since_version = 20240602
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-sheet-dnp"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/sheet/dnp"
+since_major = 9
+since_version = 20240602
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-embedded-fonts"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/embedded_fonts"
+since_major = 9
+since_version = 20240620
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "embedded files"
+
+[[token]]
+id = "sch-embedded-files"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/embedded_files"
+since_major = 9
+since_version = 20240620
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-property-private"
+kinds = ["kicad_sch"]
+path = "kicad_sch/symbol/property"
+value = "private"
+since_major = 9
+since_version = 20241209
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "private fields"
+
+[[token]]
+id = "sch-fill-hatch"
+kinds = ["kicad_sch"]
+path = "fill/type"
+value = "hatch"
+since_major = 10
+since_version = 20250222
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "hatched fills"
+
+[[token]]
+id = "sch-fill-reverse-hatch"
+kinds = ["kicad_sch"]
+path = "fill/type"
+value = "reverse_hatch"
+since_major = 10
+since_version = 20250222
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-fill-cross-hatch"
+kinds = ["kicad_sch"]
+path = "fill/type"
+value = "cross_hatch"
+since_major = 10
+since_version = 20250222
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-lib-power-local"
+kinds = ["kicad_sch"]
+path = "kicad_sch/lib_symbols/symbol/power"
+value = "local"
+since_major = 10
+since_version = 20250227
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "local power symbols"
+
+[[token]]
+id = "sch-lib-power-global"
+kinds = ["kicad_sch"]
+path = "kicad_sch/lib_symbols/symbol/power"
+value = "global"
+since_major = 10
+since_version = 20250227
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "the spelled-out kind of a power symbol; 9.0.9 loads the bare (power) only"
+
+[[token]]
+id = "sch-table-uuid"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/table/uuid"
+since_major = 10
+since_version = 20250425
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "uuid of a table"
+
+[[token]]
+id = "sch-group"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/group"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "groups; no dated version of S-0031 names their introduction"
+
+[[token]]
+id = "sch-rule-area-exclude-from-sim"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/rule_area/exclude_from_sim"
+since_major = 10
+since_version = 20250610
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "rule area attributes"
+
+[[token]]
+id = "sch-rule-area-in-bom"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/rule_area/in_bom"
+since_major = 10
+since_version = 20250610
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-rule-area-on-board"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/rule_area/on_board"
+since_major = 10
+since_version = 20250610
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-rule-area-dnp"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/rule_area/dnp"
+since_major = 10
+since_version = 20250610
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-symbol-body-style"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/symbol/body_style"
+since_major = 10
+since_version = 20250827
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "body style of a symbol instance; 9.0.9 loads convert in its place"
+
+[[token]]
+id = "sch-lib-body-styles"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/lib_symbols/symbol/body_styles"
+since_major = 10
+since_version = 20250827
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sch-rectangle-radius"
+kinds = ["kicad_sch"]
+path = "kicad_sch/rectangle/radius"
+since_major = 10
+since_version = 20250829
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "rounded rectangles"
+
+[[token]]
+id = "sch-instance-variant"
+kinds = ["kicad_sch"]
+path = "instances/project/path/variant"
+since_major = 10
+since_version = 20250922
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "schematic variants"
+
+[[token]]
+id = "sch-symbol-in-pos-files"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/symbol/in_pos_files"
+since_major = 10
+since_version = 20260101
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "position-file flag"
+
+[[token]]
+id = "sch-lib-in-pos-files"
+kinds = ["kicad_sch"]
+path = "/kicad_sch/lib_symbols/symbol/in_pos_files"
+since_major = 10
+since_version = 20260101
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-embedded-fonts"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/embedded_fonts"
+since_major = 9
+since_version = 20240529
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "embedded files"
+
+[[token]]
+id = "sym-embedded-files"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/embedded_files"
+since_major = 9
+since_version = 20240529
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-property-private"
+kinds = ["kicad_sym"]
+path = "kicad_symbol_lib/symbol/property"
+value = "private"
+since_major = 9
+since_version = 20241209
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "private fields"
+
+[[token]]
+id = "sym-jumpers-duplicate"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/duplicate_pin_numbers_are_jumpers"
+since_major = 10
+since_version = 20250324
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "jumper pins"
+
+[[token]]
+id = "sym-jumper-pin-groups"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/jumper_pin_groups"
+since_major = 10
+since_version = 20250324
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-rectangle-radius"
+kinds = ["kicad_sym"]
+path = "symbol/symbol/rectangle/radius"
+since_major = 10
+since_version = 20250829
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "rounded rectangles"
+
+[[token]]
+id = "sym-power-local"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/power"
+value = "local"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "no dated symbol-library version of S-0031 names it; the schematic row is dated"
+
+[[token]]
+id = "sym-power-global"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/power"
+value = "global"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-body-styles"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/body_styles"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-in-pos-files"
+kinds = ["kicad_sym"]
+path = "/kicad_symbol_lib/symbol/in_pos_files"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[token]]
+id = "sym-fill-hatch"
+kinds = ["kicad_sym"]
+path = "symbol/symbol/rectangle/fill/type"
+value = "hatch"
+since_major = 10
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[form]]
+id = "sch-hide-bool"
+kinds = ["kicad_sch"]
+applies_to = "property/hide"
+since_major = 9
+since_version = 20241004
+description = "a hidden field is written with a (hide yes) child of the property instead of a bare hide in its effects"
+sources = ["S-0031", "S-0368", "S-0020"]
+hypothesis = "H-K-SCH-TOKENS"
+
 
 [[note]]
 version = 20240201
@@ -1723,3 +2155,170 @@ rows = ["variants", "footprint-variant"]
 [[note]]
 version = 20260206
 no_row = "no-token-change"
+
+# Dated schematic and symbol-library versions (S-0031), one note per version and kind.
+
+[[note]]
+version = 20240101
+kind = "kicad_sch"
+rows = ["sch-table", "sch-table-column-count", "sch-table-column-widths", "sch-table-row-heights", "sch-table-cells", "sch-table-cell", "sch-table-cell-span", "sch-table-border", "sch-table-border-external", "sch-table-border-header", "sch-table-separators", "sch-table-separators-rows", "sch-table-separators-cols"]
+
+[[note]]
+version = 20240417
+kind = "kicad_sch"
+rows = ["sch-rule-area"]
+
+[[note]]
+version = 20240602
+kind = "kicad_sch"
+rows = ["sch-sheet-exclude-from-sim", "sch-sheet-in-bom", "sch-sheet-on-board", "sch-sheet-dnp"]
+
+[[note]]
+version = 20240620
+kind = "kicad_sch"
+rows = ["sch-embedded-fonts", "sch-embedded-files"]
+
+[[note]]
+version = 20240716
+kind = "kicad_sch"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20240812
+kind = "kicad_sch"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20240819
+kind = "kicad_sch"
+no_row = "no-token-change"
+
+[[note]]
+version = 20241004
+kind = "kicad_sch"
+rows = ["sch-hide-bool"]
+
+[[note]]
+version = 20241209
+kind = "kicad_sch"
+rows = ["sch-property-private"]
+
+[[note]]
+version = 20250114
+kind = "kicad_sch"
+no_row = "no-token-change"
+
+[[note]]
+version = 20250222
+kind = "kicad_sch"
+rows = ["sch-fill-hatch", "sch-fill-reverse-hatch", "sch-fill-cross-hatch"]
+
+[[note]]
+version = 20250227
+kind = "kicad_sch"
+rows = ["sch-lib-power-local", "sch-lib-power-global"]
+
+[[note]]
+version = 20250318
+kind = "kicad_sch"
+no_row = "no-token-change"
+
+[[note]]
+version = 20250425
+kind = "kicad_sch"
+rows = ["sch-table-uuid"]
+
+[[note]]
+version = 20250513
+kind = "kicad_sch"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20250610
+kind = "kicad_sch"
+rows = ["sch-rule-area-exclude-from-sim", "sch-rule-area-in-bom", "sch-rule-area-on-board", "sch-rule-area-dnp"]
+
+[[note]]
+version = 20250827
+kind = "kicad_sch"
+rows = ["sch-symbol-body-style", "sch-lib-body-styles"]
+
+[[note]]
+version = 20250829
+kind = "kicad_sch"
+rows = ["sch-rectangle-radius"]
+
+[[note]]
+version = 20250901
+kind = "kicad_sch"
+no_row = "no-token-change"
+
+[[note]]
+version = 20250922
+kind = "kicad_sch"
+rows = ["sch-instance-variant"]
+
+[[note]]
+version = 20251012
+kind = "kicad_sch"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20251028
+kind = "kicad_sch"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20260101
+kind = "kicad_sch"
+rows = ["sch-symbol-in-pos-files", "sch-lib-in-pos-files"]
+
+[[note]]
+version = 20260306
+kind = "kicad_sch"
+no_row = "no-token-change"
+
+[[note]]
+version = 20240529
+kind = "kicad_sym"
+rows = ["sym-embedded-fonts", "sym-embedded-files"]
+
+[[note]]
+version = 20240819
+kind = "kicad_sym"
+no_row = "no-token-change"
+
+[[note]]
+version = 20241209
+kind = "kicad_sym"
+rows = ["sym-property-private"]
+
+[[note]]
+version = 20250318
+kind = "kicad_sym"
+no_row = "no-token-change"
+
+[[note]]
+version = 20250324
+kind = "kicad_sym"
+rows = ["sym-jumpers-duplicate", "sym-jumper-pin-groups"]
+
+[[note]]
+version = 20250829
+kind = "kicad_sym"
+rows = ["sym-rectangle-radius"]
+
+[[note]]
+version = 20250901
+kind = "kicad_sym"
+no_row = "no-token-change"
+
+[[note]]
+version = 20250925
+kind = "kicad_sym"
+no_row = "unconfirmed"
+
+[[note]]
+version = 20251024
+kind = "kicad_sym"
+no_row = "unconfirmed"
