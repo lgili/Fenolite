@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Altium PCB document oracle: the row on which the Linux build of `kicad-cli` 10.0.6 dies in its own importer is matched by the stable part of KiCad's message, because the exception class differs from run to run; the row is still compared on macOS.
 - CI fixes: normalize planned output paths in cross-platform assertions, compare Altium sample names with POSIX separators, strip entity metadata only from symbol model entities, and record KiCad 10.0.6's `std::bad_alloc` on the public `altium-third-party-pcbdoc-02` oracle row.
 - Altium schematic reader: `fenolite.backends.altium.read.sch.read_schematic` reads `.SchDoc` and `.SchDot` files (binary and ASCII), and `read.schlib.read_schlib` reads `.SchLib` files into typed records with an owner tree. Unknown keys, records, streams and trailing bytes are preserved; streams rebuild byte for byte. Nine schematic and nine library rows join the corpus, and `tools/altium_census.py` reports their census (c0040).
 - Altium PCB reader: lossless typed readers for Altium `.PcbDoc` and `.PcbLib` files preserve record bytes and keys, accept long and short record forms, and report located issues with strict mode available. Checked against eleven public files and KiCad CLI import/upgrade (c0041).

@@ -63,7 +63,11 @@ polygon name decodes to printable text, and every subrecord length is one of the
 ## Document oracle
 
 `FENOLITE_REQUIRE=corpus uv run pytest tests/kicad/altium/test_pcbdoc_read_oracle.py` with `kicad-cli`
-10.0.6 (macOS, local, 2026-10-05): 7 passed. `kicad-cli pcb import --format altium` exits 0 on all seven
+10.0.6 (macOS, local, 2026-10-05): 7 passed. In the pinned Linux image of the `kicad-10` job, 6 pass and
+`altium-third-party-pcbdoc-02` is skipped: there `kicad-cli pcb import` exits 255 with an unhandled C++
+exception of its own importer, whose class differs between runs (`std::bad_alloc` in CI, `std::length_error`
+in the same image run locally), so that row is compared on macOS only. On macOS,
+`kicad-cli pcb import --format altium` exits 0 on all seven
 rows (no row is excluded). On every row the net names, the copper layer count and the length of
 `copper_chain`, the footprint references, every pad (position, footprint, name, net, round hole size,
 top-layer size, and shape and corner ratio of the simple pads), every via (position, diameter, hole, net)

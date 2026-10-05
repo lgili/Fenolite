@@ -47,9 +47,14 @@ from fenolite.model.design import Design
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus, pytest.mark.kicad_min_major(10)]
 ITEMS = manifest_items("altium-pcbdoc")
 KNOWN_IMPORT_FAILURES: dict[str, tuple[int, str]] = {
-    # KiCad 10.0.6 in the CI container fails to allocate while importing this board's 16 internal planes.
-    "altium-third-party-pcbdoc-02": (255, "St9bad_alloc"),
+    # The Linux build of kicad-cli 10.0.6 dies in its own importer on this board with an unhandled C++
+    # exception whose class differs from run to run (``std::bad_alloc`` in the CI container,
+    # ``std::length_error`` in the same image under emulation); the macOS build imports it, and the row
+    # is compared there. Only the stable part of KiCad's message is matched.
+    "altium-third-party-pcbdoc-02": (255, "Unhandled exception class"),
 }
+"""Row id → the exit code and a part of the output of a ``kicad-cli`` run that is known to fail in KiCad's
+own importer. Such a row is skipped where the tool fails and compared where it succeeds."""
 KicadPad = tuple[str, Any, tuple[int, int]]
 """A footprint reference, a KiCad pad and its absolute position."""
 
@@ -331,7 +336,7 @@ def test_a_public_board_agrees(item: CorpusItem) -> None:
         assert expected is not None, imported.output
         expected_code, expected_message = expected
         assert imported.code == expected_code and expected_message in imported.output, imported.output
-        pytest.skip(f"KiCad importer allocation failure recorded for {item.id}")
+        pytest.skip(f"kicad-cli fails in its own importer on {item.id} on this platform (recorded)")
     assert imported.code == 0, imported.output
     counts, problems = compare(item.id)
     census("altium_pcb_read_oracle", item.id, counts)
