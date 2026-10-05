@@ -80,8 +80,8 @@ and the scoped canary. The gap is the edge distance between the track and the pa
 | `turned` | 0.4 mm towards the track, footprint at 90° | 0.5 mm | 0.1 mm | `clearance` | clean | `clearance` |
 
 So KiCad keeps the hole at the pad's `at` and moves the copper by the offset, which turns with the pad.
-v0.1 moved the hole and left the copper. Run with the local `kicad-cli` 10.0.6 (macOS); the 9.0.9 half
-runs in the `kicad-9` job, and the change's proposal measured the same four verdicts on 9.0.9 by hand.
+v0.1 moved the hole and left the copper. Run with the local `kicad-cli` 10.0.6 (macOS) on 2026-10-05, and with 9.0.9 on 2026-10-06, in the pinned
+image and in the `kicad-9` job: the same four verdicts on both majors.
 The probe `pcb-frame-pad-offset` records `equal`.
 
 **Census** (`tests/corpus/test_copper_offset_census.py`, 21 readable non-heavy demo boards, each checked

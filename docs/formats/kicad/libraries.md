@@ -77,7 +77,7 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
   the official library (S-0018).
   - The `(offset X Y)` stays opaque in the pad's slots, and the board frame reads it from there. It is
     in the pad's own frame and moves the pad's copper, not its hole: the hole stays at the pad's `at`
-    (`frame.md`; `H-G-FRAME-OFFSET`, KICAD-VERIFIED on 10.0.x, its 9.0.9 half pending the `kicad-9` job;
+    (`frame.md`; `H-G-FRAME-OFFSET`, KICAD-VERIFIED on 9.0.x and 10.0.x;
     S-0020, S-0029).
 - **Padstacks** exist since board version `20240929` (S-0030; inventory row `pad-padstack`) and load on
   9.0.9 and 10.0.6 (`H-K-03`, KICAD-VERIFIED). The official library at 10.0.6 has none (S-0018).
