@@ -1797,6 +1797,46 @@ meaning = "Some pads are named by one source and not by the other, per reason."
 fix = "Nothing to do unless the reason is unexpected."
 see = "check"
 
+["parity.duplicate-footprints"]
+meaning = "A footprint has the reference of an earlier footprint of the board; one finding for each further footprint."
+fix = "Give each footprint its own reference, or remove the copy."
+see = "parity"
+
+["parity.extra-footprint"]
+meaning = "A footprint of the board has no component of its reference in the schematic and is not marked as not in the schematic."
+fix = "Remove the footprint, add the component to the schematic, or mark the footprint as not in the schematic."
+see = "parity"
+
+["parity.footprint-mismatch"]
+meaning = "The value, the library footprint or the do-not-populate and exclude-from-BOM flags of a footprint differ from its schematic component's; the field of the finding names which."
+fix = "Update the board from the schematic in KiCad, or rebuild the project."
+see = "parity"
+
+["parity.missing-footprint"]
+meaning = "A component of the schematic has no footprint of its reference on the board."
+fix = "Update the board from the schematic in KiCad, or rebuild the project."
+see = "parity"
+
+["parity.net-conflict"]
+meaning = "A pad is on a net other than the one the schematic gives its pin, a pad on no net and a pad that no pin names included."
+fix = "Update the board from the schematic in KiCad, or rebuild the project."
+see = "parity"
+
+["parity.oracle-differs"]
+meaning = "Fenolite's comparison of the board with the schematic and KiCad's own parity test, run in the same check, disagree on one entry; KiCad's findings are the ones reported."
+fix = "Act on the kicad.drc findings, and report the difference to the Fenolite project."
+see = "parity"
+
+["parity.pad-without-pin"]
+meaning = "A numbered copper pad of a footprint is on no net and no pin of its symbol has that number: a mounting tab or a shield, usually."
+fix = "Nothing, unless the pad should be connected: then add the pin to the symbol."
+see = "parity"
+
+["parity.pin-without-pad"]
+meaning = "A pin of a symbol has a number that no pad of its footprint has, so its connection can never be routed; an error when other pins are on its net."
+fix = "Choose a footprint that has a pad of that number, or correct the pin number of the symbol."
+see = "parity"
+
 ["place.copper-left"]
 meaning = "A footprint that was moved had tracks ending on its pads; the tracks stay where they were."
 fix = "Route those nets again, or move the tracks in KiCad."

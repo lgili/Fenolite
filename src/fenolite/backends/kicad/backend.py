@@ -15,9 +15,11 @@ from fenolite.backends.base import (
     CapabilityReport,
     DesignRules,
     DesignRulesSource,
+    PadNetList,
     PlacedExtent,
     ProjectSet,
     ReadResult,
+    SideOutcome,
     Validation,
     Validator,
     WriteResult,
@@ -212,6 +214,29 @@ class KicadBackend:
             raise ValueError(f"{path.name!r} is {what}; only a KiCad board can be validated")
         read = self.read(path, issues=issues)  # raises the reader's FormatError, invalid UTF-8 included
         return Validation(read, rt1(path.read_bytes().decode("utf-8"), file=path.name))
+
+    def schematic_side(self, project: ProjectSet, *, nodes: PadNetList | None = None) -> SideOutcome:
+        """The schematic side of ``project`` for the parity comparison (``ParityInputs``): the schematic
+        of the board's stem and the sheets it names. Without ``nodes`` the nets are Fenolite's own
+        netlist, and ``side`` is ``None`` for a schematic outside its grammar; with ``nodes`` (an
+        oracle's schematic netlist) they are the oracle's. The reader's ``FormatError`` is raised
+        unchanged."""
+        from fenolite.backends.kicad import parity_inputs, sch_netlist
+
+        root = project.root / f"{PurePosixPath(project.board).stem}.kicad_sch"
+        sheets = parity_inputs.read_sheets(root)
+        if nodes is not None:
+            references = set(parity_inputs.side_of(root, sheets, {}).components)
+            found = parity_inputs.assignment_nodes(nodes, references)
+            return SideOutcome(parity_inputs.side_of(root, sheets, found))
+        refused = parity_inputs.grammar_issues(sheets)
+        if refused or len(sheets) != 1:
+            why = "; ".join(i.message.split(":", 1)[0] for i in refused) or "more than one sheet"
+            return SideOutcome(None, message=why)
+        own = parity_inputs.own_netlist(sheets, project=root.stem)
+        return SideOutcome(
+            parity_inputs.side_of(root, sheets, parity_inputs.netlist_nodes(own)), sch_netlist.EVIDENCE
+        )
 
     def capabilities(self) -> CapabilityReport:
         return CAPABILITIES

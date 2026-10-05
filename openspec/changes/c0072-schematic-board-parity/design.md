@@ -65,6 +65,18 @@
 
 8. **Cut order.** First the `check` stage's comparison with KiCad (report Fenolite's findings only when KiCad's parity did not run), then the derived summary counts, never the command and the oracle agreement.
 
+## Measured on 2026-10-06 (tasks 1.2 and 4.1), and what changed
+
+The probes and the agreement test ran on 9.0.9 and 10.0.6. Where KiCad differs from the decisions above, the rule follows KiCad:
+
+- **Decision 1.** `SchematicSide` and `SideComponent` live in `backends/base.py`, because a backend package may not import `checks`; `checks.parity` re-exports them. The side also carries `fold` (spellings of a net name that are one: `{slash}` and `/`) and `single_prefix` (`unconnected-(`), and a component carries the flags `dnp` and `exclude_from_bom`.
+- **Decision 2.** A duplicated reference gives one finding per further footprint, not one per reference, and footprints without a reference count. A `board_only` footprint is never extra and never a duplicate, and it still stands for the component of its reference, so the component is not missing. `parity.footprint-mismatch` has a third field, `attributes`.
+- **Decision 3.** KiCad does report a pin without a pad, as a `net_conflict` of the footprint, and a pad on a net that no pin names, as a `net_conflict` of the pad. So `parity.pin-without-pad` maps to `net_conflict` in `KICAD_TYPES`, a pad on a net without a pin is a `parity.net-conflict`, and `parity.pad-without-pin` is left for a pad on no net. A pin without a number is not compared.
+- **Decision 5.** `--netlist own` refuses with `FEN-7001` (exit 7), as `netlist --source fenolite` does (c0063), not with `FEN-3004`.
+- **Decision 6.** The stage is not an oracle stage. It gets the side from the validator (`ParityInputs`) and the netlist of a schematic outside the grammar from the oracle that another stage built. The key of a KiCad entry is its first item's location; a missing footprint has no item, so its reference is read from the text, and missing footprints are compared by number when the text gives none.
+- **Decision 7.** The probes run on the built blink, so they need no corpus; `pic_programmer` and the other demos are `needs_corpus` tests. The demo of tag 9.0.9.1 disagrees with its schematic as published (61 mismatches), so a demo probe counts what an edit adds. 10.0.6 has one more type, `footprint_symbol_field_mismatch`, which Fenolite does not compare.
+- **Hypothesis H-K-PARITY-TYPES.** A duplicated reference gives `duplicate_footprints` and `missing_footprint`; a `net_conflict` comes only when the footprint that took the reference is the first of that reference on the board.
+
 ## Files and public API
 
 - `src/fenolite/checks/parity.py`: `SideComponent(value, footprint, pins)`, `SchematicSide(components, nodes)`, `ParityFinding(code, severity, key, field, schematic, board)`, `ParityReport(findings, summary, evidence)`, `compare`, `PARITY_ISSUE_CODES`, `KICAD_TYPES` (code → KiCad type), `EVIDENCE`.

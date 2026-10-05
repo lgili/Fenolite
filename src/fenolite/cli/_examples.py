@@ -29,4 +29,15 @@ EXAMPLE_SCHEMATIC = str(
 )
 """The authored flat schematic of the test data (``fenolite netlist``)."""
 
-__all__ = ["EXAMPLE_BOARD", "EXAMPLE_SCHEMATIC", "EXAMPLE_UNFILLED", "EXAMPLE_REFILLED", "EXAMPLE_UNROUTED"]
+EXAMPLE_PARITY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/parity/agree")
+"""A committed board and schematic of the blink, as ``build`` writes them for target 10: they agree
+(``fenolite parity``). A test keeps them equal to a fresh build."""
+
+__all__ = [
+    "EXAMPLE_BOARD",
+    "EXAMPLE_PARITY",
+    "EXAMPLE_SCHEMATIC",
+    "EXAMPLE_UNFILLED",
+    "EXAMPLE_REFILLED",
+    "EXAMPLE_UNROUTED",
+]

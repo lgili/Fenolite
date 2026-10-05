@@ -27,6 +27,7 @@ DEFAULT = [
     "copper.clearance",
     "zone.fill",
     "drc.kicad",
+    "parity",
     "netlist.assignment_compare",
     "roundtrip",
 ]

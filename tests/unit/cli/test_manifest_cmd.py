@@ -243,7 +243,7 @@ def test_states_from_a_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     stages = {s["name"]: s for s in result["check"]["stages"]}
     assert list(stages) == [
         "model.validate", "erc.kicad", "copper.clearance", "zone.fill", "drc.kicad",
-        "netlist.assignment_compare", "roundtrip",
+        "parity", "netlist.assignment_compare", "roundtrip",
     ]  # fmt: skip
     assert stages["drc.kicad"] == {
         "name": "drc.kicad", "status": "ok", "level": "KICAD-VERIFIED", "oracle": "kicad-cli 10.0.6",

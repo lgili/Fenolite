@@ -307,6 +307,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `oracle` | `EVIDENCE` KICAD-VERIFIED: `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY-3`<br>`NORMALISE_EVIDENCE` KICAD-VERIFIED: `H-K-FMT-RESAVE`<br>`RT2_EVIDENCE` KICAD-VERIFIED: `H-K-RT2-STABLE-2` |
 | `outline` | `EVIDENCE` INFERRED: `H-G-PLACE-OUTLINE`, `H-K-OUTLINE-CHAIN`, `H-K-OUTLINE-FPEDGE` |
 | `padnets` | `EVIDENCE` KICAD-VERIFIED: `H-K-NET-IPC` |
+| `parity_inputs` | see `sch`, `sch_netlist`, `netlist` |
 | `pcb` | `EVIDENCE` INFERRED: `H-K-PCB-READ`<br>`WRITE_EVIDENCE` INFERRED: `H-K-PCB-WRITE` |
 | `plot` | `EVIDENCE` KICAD-VERIFIED: `H-K-EXPORT-RENDER` |
 | `pro` | `EVIDENCE` INFERRED: `H-K-PRO-PATTERNS` |

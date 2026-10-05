@@ -523,6 +523,7 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
+`parity` needs none either for a project that `build` wrote.
 
 | stage | runs on | evidence |
 |---|---|---|
@@ -531,6 +532,7 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
+| `parity` | Fenolite's own comparison of the board with `<stem>.kicad_sch`, and of symbol pins with footprint pads (`parity` below); no tool for a schematic that `build` wrote, else the schematic netlist of `kicad-cli` when another stage built the oracle | the lowest of the comparison (`INFERRED`, `H-K-PARITY-OWN`) and of the netlist it used |
 | `netlist.assignment_compare` | the pad nets of the model (built input), of the re-read board, of `kicad-cli pcb export ipcd356` and, when the project has a schematic, of `kicad-cli sch export netlist`, compared as partitions | the lowest of the reader, the exports that were read and, on built input, `INFERRED`; `UNVERIFIED` without the board's export |
 | `roundtrip` | RT1 of the board, native and built alike | the reader's level |
 | `roundtrip.rt2` | opt-in: KiCad's DRC on the board and on Fenolite's re-dump of it gives the same violations | the DRC report reader, the oracle and the RT2 runs combined; `UNVERIFIED` when a report is missing |
@@ -539,7 +541,8 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `status` is `ok` (ran, no
 error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused`,
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
-`unsupported-oracle`, `oracle-unsupported` or `oracle-unstable` (two refill runs differ; never counted in the
+`unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
+does not read itself, in a run without `kicad-cli`) or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -606,6 +609,23 @@ option, so `check` runs the DRC again without it: the copper findings and their 
 `kicad.drc.parity-unchecked` (warning) says that the board was not compared, with KiCad's own line.
 A project without a schematic has `parity_judged` `false` and no such issue.
 
+**The `parity` stage.** After `drc.kicad`, Fenolite compares the board with the schematic itself
+(`checks.parity`; the command `parity` below describes the findings and the counts). It is skipped with
+`no-schematic` without `<stem>.kicad_sch`, and with `netlist-unavailable` when the schematic holds wires,
+sheets or power symbols and the run has no `kicad-cli` (the stage alone never starts the tool: it uses
+the oracle that `drc.kicad`, `erc.kicad` or another oracle stage built).
+
+- When `drc.kicad` judged parity in the same run, KiCad is the authority: the findings that KiCad also
+  reports are not reported twice. They are compared with KiCad's entries by type and key, and each
+  difference is one `parity.oracle-differs` (warning) that names the type, the key and the side that
+  reports it. So Fenolite's comparison is checked against KiCad on every such run.
+- Otherwise the findings are reported as `parity.*` issues, and an error among them fails the stage:
+  `fenolite check DIR --stages parity` finds a board that disagrees with its schematic on a machine
+  without KiCad.
+- `parity.pin-without-pad` and `parity.pad-without-pin` are always reported.
+- `summary` holds `netlist` (`own` or `oracle`), `compared` (whether KiCad's entries were compared),
+  `differences`, and the counts of the command's `summary`.
+
 **Assignment compare.** Elements are `REF-PIN`. Two sources agree when they put the same elements
 together, whatever the nets are called; pads on no net form one class. The pairs are (`model`, `board`)
 on built input and (`board`, `export`) always. When `<stem>.kicad_sch` lies beside the board, KiCad's
@@ -670,6 +690,14 @@ repeat.
 | `kicad.drc.parity-unchecked` | warning | the DRC run was asked to compare the board with its schematic and KiCad did not do it; the copper findings stand |
 | `kicad.drc.<type>` | error, warning, info | one per DRC violation, unconnected item or schematic parity entry; `<type>` comes from KiCad's type |
 | `kicad.erc.<type>` | error, warning, info | one per ERC violation of the schematic; `<type>` comes from KiCad's type, and an excluded one is `info` |
+| `parity.missing-footprint` | error | a component of the schematic has no footprint of its reference |
+| `parity.extra-footprint` | error | a footprint has no component of its reference and is not marked as not in the schematic |
+| `parity.duplicate-footprints` | error | a footprint has the reference of an earlier one; one per further footprint |
+| `parity.net-conflict` | error | a pad's net differs from the net of its pin; a pad on no net and a pad that no pin names included |
+| `parity.pin-without-pad` | error, warning | a pin number that no pad of the footprint has; an error when other pins are on its net |
+| `parity.footprint-mismatch` | warning | the value, the library footprint or the do-not-populate and exclude-from-BOM flags differ |
+| `parity.oracle-differs` | warning | Fenolite's comparison and KiCad's parity test of the same run disagree on one entry |
+| `parity.pad-without-pin` | info | a numbered copper pad on no net that no pin names |
 | `netlist.assignment-differs` | error | an element whose net block differs between the two sources of a pair |
 | `netlist.uncovered` | info | elements that one side of a pair does not cover, per reason |
 | `check.rt2-failed` | error | a violation whose count differs between the original and the re-dump |
@@ -1442,6 +1470,43 @@ finds no `kicad-cli` (`FEN-6001`; the hint names `--source fenolite`), when it i
 (`FEN-6002`) or when it times out (`FEN-6001`, retryable); 7 for `--source fenolite` on a sheet outside
 its grammar. The evidence is that of the source: the export reader's and the oracle's, with
 `kicad-cli <version>` as the oracle, or that of Fenolite's own netlist (`H-K-NETLIST-OWN`).
+## parity
+
+`fenolite parity PATH [--netlist auto|own|kicad] [--kicad-cli PATH] [--timeout SECONDS]` compares the
+board of a KiCad project with its schematic, and the pins of each symbol with the pads of its footprint
+(`fenolite.checks.parity`). It writes nothing. `PATH` is a board, a project file or a project folder
+resolved as for `check`; the schematic is `<stem>.kicad_sch` beside the board, with every sheet it names.
+
+- **Matching.** Components and footprints are matched by reference only. A symbol that is not on the
+  board and a reference that starts with `#` are no components. A footprint marked as not in the
+  schematic is never extra. Of several footprints of one reference, the first on the board is compared.
+- **Nets** come from a netlist of the schematic. `--netlist auto` (the default) reads a schematic that
+  `build` generated itself, without any tool, and runs `kicad-cli sch export netlist` on copies for any
+  other schematic; `own` never runs a tool and exits 7 (`FEN-7001`, with the reasons of
+  `kicad.sch.netlist-unsupported`) outside that grammar; `kicad` always runs the tool.
+- **Net names** are compared as KiCad's parity test compares them: `{slash}` and `/` are one spelling,
+  and a further pad of a pin on no net may carry that pin's net name followed by `_<n>`.
+
+`result` holds `board` and `schematic` (file names), `netlist` (`own` or `kicad`), `findings` and
+`summary`. Each finding is `{code, severity, key, field, schematic, board}`: `key` is the reference, or
+`REF-PAD` for a pad or a pin; `field` is `value`, `footprint` or `attributes` for a
+`parity.footprint-mismatch`; `schematic` and `board` are the two values. `issues` holds one issue per
+finding, `where` its key. The codes are those of `check` above; the first five are KiCad's parity types
+`missing_footprint`, `extra_footprint`, `duplicate_footprints`, `footprint_symbol_mismatch` and
+`net_conflict`, and KiCad reports a pin without a pad as a `net_conflict` of the footprint.
+
+`summary` holds the number of findings per code and three derived counts: `refs_one_side` (missing plus
+extra footprints), `connections_missing` (pads on no net whose pin has one) and `nets_split` (schematic
+nets whose pads are on another board net, or on more than one).
+
+Exit codes: 0; 5 when a finding is an error; 2 for a usage error or an ambiguous folder; 3 for a missing
+path or a project without a schematic (`FEN-3001`) and for a schematic that `kicad-cli` cannot load
+(`FEN-3004`); 6 when the nets must come from `kicad-cli` and it is missing (`FEN-6001`), unsupported
+(`FEN-6002`) or timed out; 7 for `--netlist own` on a schematic outside the grammar. The evidence is
+`INFERRED`: the comparison agrees with KiCad's parity test on the public demos of both majors
+(`H-K-PARITY-OWN`), which are not every project. With `kicad-cli` installed, `fenolite check` gives
+KiCad's own verdict and checks this comparison against it.
+
 ## region
 
 `fenolite region PATH --box X1,Y1,X2,Y2 [--layer NAME] [--kinds a,b]` lists what a rectangle of the board

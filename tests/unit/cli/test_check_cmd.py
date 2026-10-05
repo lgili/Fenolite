@@ -389,9 +389,11 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "copper.clearance",
         "zone.fill",
         "drc.kicad",
+        "parity",
         "netlist.assignment_compare",
         "roundtrip",
     ]
+    assert _stages(env)["parity"]["reason"] == "no-schematic"
     assert _stages(env)["copper.clearance"]["status"] == "errors"
     compare = _stages(env)["netlist.assignment_compare"]
     assert compare["status"] == "ok"

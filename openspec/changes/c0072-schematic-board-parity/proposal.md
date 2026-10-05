@@ -3,7 +3,7 @@
 In v0.2a, `check` runs KiCad's own parity test with DRC (c0062): with `kicad-cli` present, a board that disagrees with its schematic is found. Three questions stay open:
 
 - Without `kicad-cli` (a laptop or a CI runner without KiCad), nothing compares the board with the schematic.
-- Nothing compares a symbol's pins with its footprint's pads. A pin without a pad is a connection that can never be routed; KiCad's parity test does not report it.
+- Nothing compares a symbol's pins with its footprint's pads without KiCad. A pin without a pad is a connection that can never be routed. (The measurement of 2026-10-06 shows that KiCad's parity test reports it as a `net_conflict` of the footprint; see the design.)
 - An agent gets KiCad's descriptions, not counts by category that it can act on.
 
 The plan gives v0.2b a `parity` command, "schematic ↔ board and symbol ↔ footprint", and asks that parity reproduce measured counts of disconnected nets, missing connections and references on one side only. The counts the plan cites were measured outside this project and are not used here. This change measures the same categories against KiCad's own parity test, on the public KiCad demos and on authored edits.

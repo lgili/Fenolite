@@ -39,6 +39,7 @@ def test_stage_order() -> None:
         "copper.clearance",
         "zone.fill",
         "drc.kicad",
+        "parity",
         "netlist.assignment_compare",
         "roundtrip",
         "roundtrip.rt2",

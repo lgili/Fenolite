@@ -498,6 +498,53 @@ class PadNetList:
 
 
 @dataclass(frozen=True, slots=True)
+class SideComponent:
+    """A component as a schematic gives it to the parity comparison: its value, the library id of its
+    footprint, the pin numbers of all its units in body style 1, common pins included, and those of the
+    flags ``dnp`` and ``exclude_from_bom`` that its symbol has."""
+
+    value: str = ""
+    footprint: str = ""
+    pins: frozenset[str] = frozenset()
+    attributes: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class SchematicSide:
+    """The schematic side of a parity comparison (``checks.parity``; change c0072): ``components`` by
+    reference, and ``nodes``, the net name of each (reference, pin number) in the backend's stored form.
+    A reference that starts with ``#`` is no component. ``fold`` lists the spellings that the backend
+    reads as one in a net name, as (text, replacement): both sides are compared after the replacements.
+    ``single_prefix`` starts the name of a net that the backend makes for one pin on no net (``""`` when it
+    makes none): on the board, further pads of that pin's number are on that name followed by ``_<n>``."""
+
+    components: Mapping[str, SideComponent]
+    nodes: Mapping[tuple[str, str], str]
+    fold: tuple[tuple[str, str], ...] = ()
+    single_prefix: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SideOutcome:
+    """A schematic side and the evidence of the reading it came from; ``side`` is ``None`` when the
+    backend's own reading does not cover the schematic (``message`` says why)."""
+
+    side: SchematicSide | None
+    evidence: Evidence = Evidence()
+    message: str = ""
+
+
+@runtime_checkable
+class ParityInputs(Protocol):
+    """A backend that builds the schematic side of a project for the parity comparison. Without ``nodes``
+    the nets come from the backend's own reading of the schematic, and the result is ``None`` when that
+    reading does not cover the schematic; with ``nodes`` (an oracle's schematic netlist) they come from
+    it. It reads the files of the set and writes nothing."""
+
+    def schematic_side(self, project: ProjectSet, *, nodes: PadNetList | None = None) -> SideOutcome: ...
+
+
+@dataclass(frozen=True, slots=True)
 class NetlistOutcome:
     """An oracle's netlist export: the list (``None`` when the tool wrote none) and the run's evidence."""
 
@@ -936,6 +983,7 @@ __all__ = [
     "PadAssignment",
     "PadCopper",
     "PadNetList",
+    "ParityInputs",
     "PlacedExtent",
     "PlotOutcome",
     "PlotView",
@@ -946,6 +994,9 @@ __all__ = [
     "RoundTrip",
     "RoundTripOracle",
     "SchematicNetlistOracle",
+    "SchematicSide",
+    "SideComponent",
+    "SideOutcome",
     "Rt2Outcome",
     "SkipReason",
     "SkippedFile",

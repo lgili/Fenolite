@@ -14,6 +14,8 @@ The row ``<oracle>.erc.<type>`` stands for every ERC finding code of an oracle (
 ``<oracle>.drc.parity-unchecked`` says that the parity test of a DRC run was asked for and not judged ("ERC
 stage issue codes", change c0062). ``type_suffix`` is the one rule that turns a tool's own type into the
 last part of a code, for DRC and ERC alike.
+The ``parity.*`` codes are those of the parity comparison and its stage (``checks.parity``; "Parity issue
+codes", change c0072).
 """
 
 from __future__ import annotations
@@ -68,6 +70,14 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.rta1-normalised": ("info",),
         "check.rta2-failed": ("error",),
         "check.roundtrip-unjudged": ("info",),
+        "parity.missing-footprint": ("error",),
+        "parity.extra-footprint": ("error",),
+        "parity.duplicate-footprints": ("error",),
+        "parity.net-conflict": ("error",),
+        "parity.pin-without-pad": ("error", "warning"),
+        "parity.footprint-mismatch": ("warning",),
+        "parity.oracle-differs": ("warning",),
+        "parity.pad-without-pin": ("info",),
     }
 )
 

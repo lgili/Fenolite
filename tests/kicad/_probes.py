@@ -48,6 +48,7 @@ import _netcases
 import _netlistcases
 import _offsetbench
 import _paircases
+import _paritycases
 import _placecases
 import _procases
 import _renamecases
@@ -266,6 +267,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _netlistcases.netlist_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _erccases.erc_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _paritycases.parity_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

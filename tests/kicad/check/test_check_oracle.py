@@ -67,6 +67,7 @@ def test_canary(tmp_path: Path) -> None:
         "copper.clearance",
         "zone.fill",
         "drc.kicad",
+        "parity",
         "netlist.assignment_compare",
         "roundtrip",
     ]
