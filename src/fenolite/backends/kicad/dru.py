@@ -383,6 +383,25 @@ def write_rules(
     notes: list[Issue] = []
 
     def model(rule: Rule) -> None:
+        if target not in rulemap.KIND_SUPPORT[rule.kind]:
+            unchecked = f"KiCad {target}.0 does not check {rule.kind} rules"
+            if allow_lossy:
+                notes.append(
+                    Issue(DROPPED_CODE, "warning", f"rule {rule.name!r} dropped: {unchecked}", where=rule.id)
+                )
+            else:
+                majors = ", ".join(f"{m}.0" for m in sorted(rulemap.KIND_SUPPORT[rule.kind])) or "none"
+                droppable.append(
+                    Issue(
+                        rulemap.KIND_UNCHECKED_CODE,
+                        "error",
+                        f"rule {rule.name!r}: {unchecked}; the kind is written for KiCad {majors}",
+                        where=rule.id,
+                        hint="build for a KiCad major that checks this kind, or pass --allow-lossy to "
+                        "leave the rule out",
+                    )
+                )
+            return
         bag = rule.ext.get("kicad")
         clause = slotlib.from_ext(bag) if bag is not None else ()
         nodes, found = rulemap.rule_nodes(rule, target=target, slots=clause)

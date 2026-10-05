@@ -29,7 +29,7 @@ def rules(d: Design) -> tuple[Rule, ...]:
 
 
 def test_keywords_are_the_model_kinds() -> None:
-    assert set(MINIMUM_KINDS) == set(get_args(RuleKind)) and len(MINIMUM_KINDS) == 6
+    assert MINIMUM_KINDS == get_args(RuleKind)[:6] and len(get_args(RuleKind)) == 12
     assert KEYS["rule"] == ("rul", "rule:<kind>[:<net class>]")
 
 

@@ -3,8 +3,8 @@
 	(condition "A.NetName == 'OPQ'")
 	(constraint clearance (min 0.3mm))
 )
-(rule "opaque_annular"
-	(constraint annular_width (min 0.1mm))
+(rule "opaque_spokes"
+	(constraint thermal_spoke_width (min 0.3mm))
 )
 (rule "opaque_outer"
 	(layer outer)

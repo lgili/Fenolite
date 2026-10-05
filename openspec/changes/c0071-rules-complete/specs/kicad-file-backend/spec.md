@@ -78,7 +78,7 @@
 #### Scenario: New kind lifted
 - **GIVEN** a rules text holding `(rule ring (constraint annular_width (min 0.1mm)))`
 - **WHEN** it is read and written for target 10
-- **THEN** the rule set holds one `annular_width` rule with `selector_a == Selector("all")` and `min == 100_000`, no `rules.kept-opaque` is given, and the written text holds the rule as it was read
+- **THEN** the rule set holds one `annular_width` rule with `selector_a == Selector("all")` and `min == 100_000`, no `rules.kept-opaque` is given, and the written text holds the rule `ring` with the same constraint and no added severity clause
 
 #### Scenario: Courtyard rule by membership stays opaque
 - **GIVEN** a rules text holding `(rule c (condition "A.memberOfFootprint('U1')") (constraint courtyard_clearance (min 0.5mm)))`

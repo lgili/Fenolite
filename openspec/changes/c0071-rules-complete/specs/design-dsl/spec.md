@@ -24,7 +24,7 @@
 #### Scenario: Target refusal reported by the build
 - **GIVEN** a design with a `creepage` rule
 - **WHEN** it is built with `--kicad-version 9 --dry-run --json`, and again with `--allow-lossy`
-- **THEN** the first exits 7 with `FEN-7001` and `rules.kind-unchecked`, and the second exits 0 with `rules.dropped-for-target` in `issues`
+- **THEN** the first exits 7 with `FEN-7001`, a message that names the rule and says that KiCad 9.0 does not check creepage rules, and a hint naming `--allow-lossy`; the second exits 0 with `rules.dropped-for-target` in `issues`
 
 ### Requirement: Selectors in the DSL
 `fenolite.dsl.select` SHALL build rule selectors: `ALL`, `net(name)`, `netclass(name)`, `ref(name)` and `item(kind)`, each a `select.Select`, combined with `&` (and), `|` (or) and `~` (not); `fenolite.dsl` SHALL re-export `select` (an addition under "DSL package").

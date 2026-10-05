@@ -106,6 +106,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the signal layer and reports
   `build.plane-not-lowered`. `planes(design)` returns the mapping from layer name to net name.
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
+- `Design.rules.rule(name, kind, *, where, between, layers, min, opt, max, severity, priority)` and
+  `fenolite.dsl.select`: one design rule with selectors ("Rules with selectors").
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
   is optional; a net belongs to at most one class.
 - `design.rules.minimum(*, clearance, track_width, via_diameter, via_drill, hole_size, edge_clearance,
@@ -553,11 +555,55 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
 - **Rebuilds.** Fenolite's rules are replaced on every build; rules added to the `.kicad_dru` by hand,
   under names that do not start with `fenolite_`, are kept after them (`docs/lens.md`, "Project and rules
   files").
-- **Not in v0.1.** Severities other than `error`, `opt` and `max` limits, layers, other selectors (a net,
-  a reference, a second object), custom expressions, differential pairs and length matching.
+- **Beyond minimums.** `minimum()` covers six kinds on the board or on a class. Everything else is a
+  `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. Custom expressions,
+  differential-pair and length rules are not modelled.
 - **Altium.** `--target altium` does not write the minimums: the rules of the PCB document come from the
   net classes. The build reports them with one `altium.not-lowered` info (`where` = `design-rules`), and
   they stay in `.fenolite/rules.json`.
+
+### Rules with selectors
+
+`design.rules.rule(name, kind, ...)` declares one rule of any kind of the model, for the items a selector
+names:
+
+```python
+from fenolite.dsl import select
+
+design.rules.rule("pitch", "hole_to_hole", min=mm(0.3))  # the whole board
+design.rules.rule("ring", "annular_width", where=select.item("via"), min=mm(0.12))
+design.rules.rule("court", "courtyard_clearance", where=select.ref(u1), min=mm(0.5))
+design.rules.rule(
+    "mains", "creepage", where=select.netclass("HV"), between=select.netclass("LV"), min=mm(6.4)
+)  # your value, not Fenolite's
+```
+
+- **Kinds.** The six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
+  `courtyard_clearance`, `silk_clearance` and `creepage`. Fenolite ships no value for any of them.
+- **Selectors** come from `fenolite.dsl.select`: `net(name or Net)`, `netclass(name)`, `ref(reference or
+  Part)`, `item("track" | "via" | "pad" | "zone")` and `ALL` (the default). `&`, `|` and `~` combine them;
+  `ALL` stands alone. A name may hold `*`. A class named in a selector must be declared first, except
+  `Default`.
+- **`between`** names the second item of a `clearance` or `creepage` rule. No other kind takes it.
+- **Limits** carry a unit. `min` may be 0 (a courtyard rule of 0 forbids overlap); `opt` and `max` are above
+  0; the limits rise from `min` to `max`. Which limits a kind takes is in `docs/formats/kicad/rules.md`: the
+  six new kinds take `min` only.
+- **`severity`** is `error` (default), `warning` or `ignore`. **`priority`**: 0 is written first and governs
+  least; among the others, 1 governs most, because KiCad applies the last matching rule.
+- **`layers`** is a tuple of KiCad layer names, for the kinds that take a layer clause.
+- **What each kind takes.** `courtyard_clearance` takes references only and selects whole footprints;
+  `silk_clearance` is board-wide; `creepage` takes nets and classes on both sides; the three hole and ring
+  kinds take any selector on one side and no layers.
+- **Errors at the call** (`DslError`, nothing recorded): an unknown kind, no limit, a bare number, a
+  negative `min`, falling limits, `between` on another kind, a repeated name, an undeclared class, an unknown
+  severity.
+- **Errors at the build.** What depends on the KiCad major is judged when the rules are written, and stops
+  the build with exit 7: a selector or limit the kind does not take, and a kind the target does not check.
+  `creepage` is written for KiCad 10 only, because `kicad-cli` 9.0.9 loads such a rule and reports nothing
+  for it; `--allow-lossy` leaves the rule out with `rules.dropped-for-target`.
+- **Model.** One `Rule` per call, after the minimums, with the id `derived_id("rul", "dsl",
+  "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
+- **Altium.** As for minimums: reported with `altium.not-lowered`, kept in `.fenolite/rules.json`.
 
 ## Copper guard
 

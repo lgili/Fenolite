@@ -392,7 +392,7 @@ notes = "the canary and a 10.0-only constraint (target gating)"
 path = "tests/data/kicad/rules/opaque.kicad_dru"
 origin = "authored"
 corpus_id = ""
-notes = "rules outside the closed grammar: annular width, an outer layer clause, a function condition"
+notes = "rules outside the closed grammar: a thermal spoke width, an outer layer clause, a function condition"
 
 [[file]]
 path = "tests/data/kicad/rules/broken.kicad_dru"

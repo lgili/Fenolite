@@ -88,6 +88,21 @@ def _rules(design: Design) -> tuple[Rule, ...]:
             priority=0 if spec.netclass is None else 1,
         )
         for spec in specs
+    ) + tuple(
+        Rule(
+            id=key_id("rule", "named", spec.name),
+            name=spec.name,
+            kind=spec.kind,
+            selector_a=spec.where,
+            selector_b=spec.between,
+            layers=spec.layers,
+            min=spec.min,
+            opt=spec.opt,
+            max=spec.max,
+            severity=spec.severity,
+            priority=spec.priority,
+        )
+        for spec in design.rules.named.values()
     )
 
 

@@ -24,6 +24,7 @@ names were recorded, and the files are never vendored or read at runtime. Source
 | The library checks report `lib_footprint_issues` (footprint not found in an active library) and `lib_footprint_mismatch` (footprint differs from its library copy) | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
 | `kicad-cli` 9.0.9 and 10.0.6 write strict JSON reports that hold the 7 required keys; `ignored_checks` appears in the 10.0.6 report and not in the 9.0.9 one | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-JSON |
 | The unrouted blink placed through the model API (`tests/kicad/build/_probe_boards.py`), for target 9 on 9.0.9 and for targets 9 and 10 on 10.0.6, gives one violation type, `lib_footprint_issues` with severity `warning`, and 3 `unconnected_items`; the variant with one part moved off the board outline gives the same type, severity and count | S-0020, S-0022 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BUILD-TRIAD |
+| The custom-rule kinds of change c0071 are reported under the types `hole_to_hole`, `hole_clearance`, `annular_width`, `courtyards_overlap` (courtyard clearance), `silk_overlap` and `silk_over_copper` (silkscreen clearance) and `creepage` (10.0.6 only), each with the rule name and the limit and actual values in its `description` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 
 ## How Fenolite reads it
 

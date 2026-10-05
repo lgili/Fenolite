@@ -37,14 +37,18 @@ def _uuids(bench: CreepBench, nets: tuple[str, ...]) -> set[str]:
     return {kicad_uuid(track) for track in board.tracks if track.net_id in ids}
 
 
-def drc(runner: KicadCli, bench: CreepBench, minimum: int, target: int = 10) -> DrcReport | None:
-    """``pcb drc`` on the bench with a creepage rule of ``minimum``; ``None`` when no report was written."""
+def drc(
+    runner: KicadCli, bench: CreepBench, minimum: int, target: int = 10, *, rules: str | None = None
+) -> DrcReport | None:
+    """``pcb drc`` on the bench with a creepage rule of ``minimum``; ``None`` when no report was written.
+    ``rules`` replaces the bench's own rules text (change c0071 passes the text its writer gives)."""
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         board = folder / "bench.kicad_pcb"
         board.write_text(write_board(bench.design, target=target).text, encoding="utf-8")
         (folder / "bench.kicad_pro").write_text(PROJECT, encoding="utf-8")
-        (folder / "bench.kicad_dru").write_text(bench.rules(minimum), encoding="utf-8")
+        text = bench.rules(minimum) if rules is None else rules
+        (folder / "bench.kicad_dru").write_text(text, encoding="utf-8")
         files = {"bench.kicad_pro": folder / "bench.kicad_pro", "bench.kicad_dru": folder / "bench.kicad_dru"}
         return runner.drc(board, files=files).report
 

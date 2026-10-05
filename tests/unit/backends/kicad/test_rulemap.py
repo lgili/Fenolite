@@ -265,7 +265,7 @@ def test_lift_rule(proved: None) -> None:
 @pytest.mark.parametrize(
     "fragment",
     [
-        "(rule x (constraint annular_width (min 0.1mm)))",
+        "(rule x (constraint thermal_spoke_width (min 0.1mm)))",
         "(rule x (layer outer) (constraint clearance (min 0.1mm)))",
         "(rule x (constraint clearance (min 0.1mm)) (severity exclusion))",
         "(rule x (constraint clearance (min 1)))",

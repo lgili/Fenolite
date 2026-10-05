@@ -15,9 +15,10 @@ from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
+from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
-from fenolite.model.rules import RuleKind
+from fenolite.model.rules import RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import Recorded
@@ -64,7 +65,8 @@ MINIMUM_KINDS: tuple[RuleKind, ...] = (
     "hole_size",
     "edge_clearance",
 )
-"""The keywords of ``design.rules.minimum()``, which are the rule kinds of the model."""
+"""The keywords of ``design.rules.minimum()``: the first six rule kinds of the model. The other kinds are
+declared with ``design.rules.rule()``."""
 
 
 @dataclass(frozen=True)
@@ -77,11 +79,44 @@ class MinimumSpec:
     min: Nm
 
 
+RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
+RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
+BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
+"""The rule kinds that take a second selector (``between``)."""
+
+
+@dataclass(frozen=True)
+class RuleSpec:
+    """One ``design.rules.rule()`` call: a rule of any model kind, with its selectors as model selectors
+    and its limits in nanometres."""
+
+    name: str
+    kind: RuleKind
+    where: Selector
+    between: Selector | None
+    layers: tuple[str, ...]
+    min: Nm | None
+    opt: Nm | None
+    max: Nm | None
+    severity: RuleSeverity
+    priority: int
+
+
+def _leaf_values(selector: Selector | None, op: str) -> list[str]:
+    if selector is None:
+        return []
+    if selector.items:
+        return [value for item in selector.items for value in _leaf_values(item, op)]
+    return [selector.value] if selector.op == op else []
+
+
 class Rules:
-    """``design.rules``: net classes and design-rule minimums (``docs/dsl.md``, "Design rules")."""
+    """``design.rules``: net classes, design-rule minimums and rules (``docs/dsl.md``, "Design rules")."""
 
     def __init__(self, design: Design) -> None:
         self._design = design
+        self.named: dict[str, RuleSpec] = {}
+        """The rules of ``rule()`` by name, in call order."""
         self.netclasses: dict[str, NetClassSpec] = {}
         self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
         """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
@@ -121,6 +156,81 @@ class Rules:
             raise DslError("minimum(): give at least one length, for example clearance=mm(0.2)")
         for spec in found:
             self.minimums[(spec.kind, spec.netclass)] = spec
+
+    def rule(
+        self,
+        name: str,
+        kind: str,
+        *,
+        where: Select = ALL,
+        between: Select | None = None,
+        layers: tuple[str, ...] = (),
+        min: object = None,  # noqa: A002  (the model's field name)
+        opt: object = None,
+        max: object = None,  # noqa: A002
+        severity: str = "error",
+        priority: int = 0,
+    ) -> None:
+        """Declare one design rule of any model kind. ``where`` selects the items (``fenolite.dsl.select``),
+        ``between`` the second item of a ``clearance`` or ``creepage`` rule. Priority 0 is written first and
+        governs least; among the others, 1 governs most. What depends on the target (the limits a kind
+        takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
+        if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule(): a rule name must be a non-empty string, not {name!r}")
+        if name in self.named:
+            raise DslError(f"rule(): the rule {name!r} is declared twice")
+        if kind not in RULE_KINDS:
+            raise DslError(f"rule() {name!r}: kind {kind!r} is not one of {', '.join(RULE_KINDS)}")
+        if not isinstance(where, Select):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: where must be a selector of fenolite.dsl.select, not {where!r}")
+        if between is not None and not isinstance(between, Select):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: between must be a selector of fenolite.dsl.select")
+        if between is not None and kind not in BINARY_KINDS:
+            raise DslError(
+                f"rule() {name!r}: between is taken by clearance and creepage rules, not by {kind}"
+            )
+        if not isinstance(layers, tuple) or not all(isinstance(x, str) and x for x in layers):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: layers must be a tuple of layer names, not {layers!r}")
+        if severity not in RULE_SEVERITIES:
+            raise DslError(
+                f"rule() {name!r}: severity {severity!r} is not one of {', '.join(RULE_SEVERITIES)}"
+            )
+        if type(priority) is not int or priority < 0:
+            raise DslError(f"rule() {name!r}: priority must be an integer of 0 or more, not {priority!r}")
+        limits: dict[str, Nm | None] = {}
+        for label, value in (("min", min), ("opt", opt), ("max", max)):
+            limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
+        given = [(label, value) for label, value in limits.items() if value is not None]
+        if not given:
+            raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
+        if limits["min"] is not None and limits["min"] < 0:
+            raise DslError(f"rule() {name!r}: min must not be negative")
+        for label in ("opt", "max"):
+            value = limits[label]
+            if value is not None and value <= 0:
+                raise DslError(f"rule() {name!r}: {label} must be above 0")
+        if any(a > b for (_, a), (_, b) in zip(given, given[1:], strict=False)):
+            raise DslError(f"rule() {name!r}: the limits must rise from min through opt to max")
+        selector_a = where.to_model()
+        selector_b = None if between is None else between.to_model()
+        for class_name in (*_leaf_values(selector_a, "netclass"), *_leaf_values(selector_b, "netclass")):
+            if "*" not in class_name and class_name != "Default" and class_name not in self.netclasses:
+                raise DslError(
+                    f"rule() {name!r}: netclass {class_name!r} is not a declared net class; "
+                    "call design.rules.netclass() first"
+                )
+        self.named[name] = RuleSpec(
+            name,
+            cast(RuleKind, kind),
+            selector_a,
+            selector_b,
+            layers,
+            limits["min"],
+            limits["opt"],
+            limits["max"],
+            cast(RuleSeverity, severity),
+            priority,
+        )
 
     def netclass(
         self,

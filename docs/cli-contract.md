@@ -103,6 +103,10 @@ each dropped part is reported as a warning, and without the flag the command fai
 (exit 7). Content the model holds is never dropped, with or without the flag. Any other
 `--kicad-version` value is a usage error (`FEN-2001`, exit 2).
 
+A design rule of a kind the target major does not check is refused the same way, with the issue
+`rules.kind-unchecked`: a `creepage` rule and `--kicad-version 9`. With `--allow-lossy` the rule is left
+out of the `.kicad_dru` and reported as `rules.dropped-for-target`; it stays in `.fenolite/rules.json`.
+
 ## Build target
 
 `fenolite build DESIGN.py --out DIR` takes `--target {kicad,altium}`, default `kicad`. With

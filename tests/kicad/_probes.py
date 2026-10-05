@@ -37,6 +37,7 @@ import _fieldprobe
 import _fillcases
 import _fpwrite
 import _framecases
+import _kindcases
 import _lenscases
 import _libtables
 import _mincases
@@ -233,6 +234,7 @@ def _probes() -> dict[str, Probe]:
         **_creepbench.creepage_probes(),
         **_offsetbench.offset_probes(),
         **_arccases.arc_probes(),
+        **_kindcases.kind_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
