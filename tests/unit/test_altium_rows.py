@@ -135,6 +135,29 @@ REGISTERED_BY_C0048 = frozenset(
     }
 )
 """The rows of the change order (change c0048), settled by Part E of the PCB evidence page."""
+REGISTERED_BY_C0040 = frozenset(
+    {
+        "H-A-RD-SCH-FRAME",
+        "H-A-RD-SCH-IDENT",
+        "H-A-RD-SCH-HEADER",
+        "H-A-RD-SCH-CASE",
+        "H-A-RD-SCH-TEXT",
+        "H-A-RD-SCH-TEXT-2",
+        "H-A-RD-SCH-OWNER",
+        "H-A-RD-SCH-ADDOWNER",
+        "H-A-RD-SCH-LIBOWNER",
+        "H-A-RD-SCH-FRAC",
+        "H-A-RD-SCH-PARTS",
+        "H-A-RD-SCH-PIN",
+        "H-A-RD-SCH-PINSIDE",
+        "H-A-RD-SCH-STORAGE",
+        "H-A-RD-SCH-ASCII",
+        "H-A-RD-SCH-KICAD",
+    }
+)
+"""The rows of the schematic reader (change c0040), settled by the corpus test, the census and the library
+oracle, not by an author report; their form is that of any register row. ``H-A-RD-SCH-TEXT-2`` succeeds the
+refuted ``H-A-RD-SCH-TEXT``."""
 ORACLE_LEVELS = re.compile(r"ORACLE-VERIFIED\(kicad-cli\)( \(.+\))?|KICAD-VERIFIED( \(.+\))?")
 FORM = (
     "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact) "
@@ -229,6 +252,14 @@ def test_the_change_registered_its_rows() -> None:
     copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
     assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"}
     assert {i for i in rows if i.startswith("H-A-ECO-")} == REGISTERED_BY_C0048
+
+
+def test_the_reader_registered_its_rows() -> None:
+    rows = {row.id: row for row in load_register(REGISTER)}
+    assert REGISTERED_BY_C0040 <= set(rows)
+    assert {i for i in rows if i.startswith("H-A-RD-SCH-")} == REGISTERED_BY_C0040
+    assert all(rows[i].backend == "altium" for i in REGISTERED_BY_C0040)
+    assert all(not rows[i].test.startswith("kit request") for i in REGISTERED_BY_C0040)
 
 
 def test_oracle_then_report_rows() -> None:

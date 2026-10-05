@@ -372,3 +372,69 @@ A size, not calendar time.
    row. They are read for measurement and never copied, which the corpus policy allows.
 7. Should a later change model the unknown keys the census finds most often? Default: c0043 names
    the keys it needs; this change models the keys of the fact pages only.
+
+## Implementation notes
+
+Recorded during the implementation (2026-10-05). Where the spec delta changed, it was amended in this folder.
+
+1. **Zero-valued point keys are left out (corpus).** Saved libraries hold polylines and polygons with fewer
+   `X<n>`/`Y<n>` keys than `LOCATIONCOUNT`: a coordinate of 0 has no key, so a point at (0, 0) has none. Reading
+   only the keys that exist lost those points (11 `bad-value` warnings on three library rows). The reader now
+   takes points 1 to `LOCATIONCOUNT` when the count is at most the record's length in bytes (a missing key
+   reads 0) and warns only for a larger count or for items past the count. The "Huge count" scenario holds.
+   Spec amended: "Lengths and fractions" and "Bounded reading of untrusted files".
+2. **Section keys may hold `/` (corpus).** Two library rows list a `SECTIONKEY<i>` with `/` whose storage holds
+   `_` in its place. The lookup tries both. Spec amended: "Schematic library container"; fact row added to
+   `schematic-library.md`.
+3. **`H-A-RD-SCH-TEXT` refuted.** Twins differ from the `cp1252` reading of their plain value in 514 of 734
+   (schematics) and 188 of 193 (libraries) cases: the byte 0x8E for U+00A6 (S-0130 describes it) and plain
+   values in another system code page (S-0279). The reader already takes the twin first; nothing in the code
+   changed. Successor `H-A-RD-SCH-TEXT-2` registered; "Text decoding" amended with the sentence that the twin
+   wins. A value without a twin in such a file is mis-decoded as `cp1252` (bytes kept); `check_codepage`
+   accepts single-byte code pages only, as the spec states.
+4. **`PropertyList.get(key)`** returns the text view (`str`, or `None` when the key is missing); `raw(key)`
+   returns the bytes and `prop(key)` the field. The scenario "`get("OWNERPARTID")` is `-1`" is read as the
+   text `"-1"`, with `int("OWNERPARTID") == -1`.
+5. **Census without values.** The census gives the header text as its kind (`schematic-binary`,
+   `schematic-ascii`, `library`) and replaces a library's storage names, which are component names, by
+   `<component>`; its fixed labels are `census.LABELS`. `tests/corpus/test_altium_sch_read.py` checks that no
+   census string is a value of a file unless it is also a key name or a class name.
+6. **Records are filled in place while a stream is read.** Owners, children, `bad_keys` and `PinFrac`
+   fractions are set on records that no caller has seen yet (`_build.settle`), because a copy per record made
+   a stream of 100 000 records slow. Records are frozen for their users.
+7. **`PinFrac` is decoded while reading.** Decision 17 forbids decompressing embedded files; a `PinFrac` entry is
+   a side-stream record of 12 bytes, decompressed with a cap of 13 bytes (S-0281), and decoded only when every
+   record matches the layout to its last byte.
+8. **Locators count frames.** A binary record's locator is `<stream>/record <frame index>`, the header being
+   record 0; so the third record of the "Property list without its NUL" scenario is `FileHeader/record 2`. An
+   orphan's message names the record's index in its index space.
+9. **Small API additions** that the spec does not forbid: `SchDocument.blank_lines`, `extra_sections`,
+   `all_records()`, `stream_mismatches()`; `SchLibComponent.data`, `get(ref)`, `of_type(cls)`;
+   `SchRecord.owner_index`, `trusted_count(key)`, `MODELED` as a class attribute; `read.sch.HYPOTHESES`;
+   `read.schlib.check_library` and `decode_pin_frac`; a private `_build` module shared by both readers; a
+   `census` module (`read.sch` never imports `read.schlib`: the library census takes a protocol).
+10. **Unknown streams of a component** (`PinPackageLength`, found in 99 storages) get an
+    `altium.sch.unknown-stream` info, as root streams do; the spec did not say.
+11. **Oracle `KNOWN` lists behaviours, not rows.** kicad-cli 10.0.6 writes a space of a pin name as `_` (1 pin)
+    and holds positions in steps of 100 nm (5 `PinFrac` pins). The comparison applies both to Fenolite's side
+    and counts the pins they touch; no row is skipped. Both are oracle-observation rows of
+    `schematic-library.md`.
+12. **`H-A-RD-SCH-PARTS` stays `INFERRED`.** No corpus library holds a multi-part or multi-mode component, so
+    the oracle compares unit counts of 1 only.
+13. **Capabilities.** `fenolite capabilities --json` at the c0039 commit and after this change are equal except
+    the `elapsed_ms` timing field.
+14. **Order of tasks.** Task 1.4 (corpus rows) was done before 1.2 and 1.3, which it does not depend on; task
+    8.1's proof ran after the edits of 8.2 and 8.3, so that it checks the final tree.
+15. **Trailing pin bytes in a document.** A binary pin of a schematic document carries no owner index, so
+    `altium.sch.pin-trailing-bytes` is given once per document there (once per component in a library).
+16. **Task 8.1.** The one full `make check` of this change (2026-10-05, on a machine under heavy load from
+    parallel suites) passed ruff, the format check, pyright and the residue scan, and ran 6 649 tests green with
+    one failure outside this change: `tests/unit/geometry/test_polygon.py::test_clip_result_inside_both`, a
+    hypothesis deadline (257 ms against 200 ms). That file passes alone (26 passed). The full suite was not run
+    again, by the coordinator's load rule; item 15 was added afterwards and checked with the reader's tests,
+    the corpus test and the oracle. Task 8.1 stays unticked until the coordinator's run at landing.
+
+**Added at landing (coordinator, 2026-10-05).**
+
+- **The CI fetch.** Eighteen of the twenty-two corpus rows carry `altium-sch` or `altium-schlib` and neither `rt0` nor `cfb`, so the `kicad-10` job, which runs `tests/corpus` with `FENOLITE_REQUIRE=kicad,corpus`, did not fetch them. The job's fetch step now also passes `--uses altium-sch --uses altium-schlib`, and `tests/unit/test_ci_workflow.py` checks both (`ALTIUM_READER_USES`). No task named this.
+- **Task 8.1.** The implementing run of the full suite failed on one test outside this change, a hypothesis deadline in `tests/unit/geometry/test_polygon.py` under a load average near 95. The task is ticked on the full run made at landing, after the rebase onto c0042.

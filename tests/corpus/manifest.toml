@@ -2217,7 +2217,7 @@ sha256 = "898c4fa7b6ed567cf8946979ed39a988f2337081690b4d7e324637356ac05f91"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch"]
 notes = "S-0188; schdoc; 23040 bytes; 2016."
 
 [[file]]
@@ -2228,7 +2228,7 @@ sha256 = "a5741d6e892bd1a03e567cafcdd0bcfdb10c5c5da3a45c378c4efc1b7c06c419"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch"]
 notes = "S-0188; schdoc; 210432 bytes; 2017."
 
 [[file]]
@@ -2239,7 +2239,7 @@ sha256 = "19229739534ab270829953ab901c6afd6cb26f409a31dc6402fdd987da8deb9c"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch"]
 notes = "S-0187; schdoc; 131072 bytes; 2020."
 
 [[file]]
@@ -2250,7 +2250,7 @@ sha256 = "2ab80d1e4738d6911f4f20f0cf763779f1eeb51ac07e2a0b2be62802e0dfea2a"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch"]
 notes = "S-0187; schdoc; 750080 bytes; 2020."
 
 [[file]]
@@ -2384,3 +2384,202 @@ license_variant = ""
 embeddable = false
 uses = ["altium", "altium-text", "origin:third-party"]
 notes = "S-0187; stackup; 17440 bytes; 2021."
+# --- change c0040: public schematic documents and libraries saved by Altium (fetch-only; source ids in notes).
+
+[[file]]
+id = "altium-third-party-schdoc-05"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Flash.SchDoc"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "c711473f20a8b088ea80ad2eadf477cffc93333f4078199617045f298203ddc9"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0188; schdoc; 23040 bytes; 2017."
+
+[[file]]
+id = "altium-third-party-schdoc-06"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/CAN.SchDoc"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "e68e514f79e140d45fb0415c97ea82a3da08e21af1c71bb449d2a897be942220"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0188; schdoc; 23552 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-schdoc-07"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Connectors.SchDoc"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "a534afa5cc9ec7e2480255a425bd8dac38e4cc427353f75adf5d4490a98b1114"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0188; schdoc; 52224 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-schdoc-08"
+url = "https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Power.SchDoc"
+ref = "db5ae48d09e9ec9523387e2190fd14671a0646ca"
+sha256 = "079251b6c8b9c7c5244124313384f72ea43c5b38bf5fe7f990b2959b822502ff"
+license = "LGPL-3.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0188; schdoc; 17920 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-schdoc-09"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/DM3370_EEPROM_Add.SchDoc"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "02b4f80c74443191b164b9c9980e247da2e2b1b46ce04330d8008bb481fe01cb"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0187; schdoc; 134144 bytes; 2020."
+
+[[file]]
+id = "altium-third-party-schdoc-10"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/DM3370_IMU_BMI270.SchDoc"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "1cbb1e625a082c657634eb6c4067641332cf4e342c6f01dbf2c0e7e148d47a6c"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0187; schdoc; 230400 bytes; 2020."
+
+[[file]]
+id = "altium-third-party-schdoc-11"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/DM3370_Connector_A.SchDoc"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "51c59676571ce21d10c5333333470741e35b1010cf30754334b14b48ba52a5fb"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0187; schdoc; 142848 bytes; 2020."
+
+[[file]]
+id = "altium-third-party-schdoc-12"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/DM3370_I2S_MICS.SchDoc"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "5ae84f5bd765cf7d81b7c547d6b3ef7f8d49b24073459176045a3c83386a72af"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0187; schdoc; 344576 bytes; 2020."
+
+[[file]]
+id = "altium-third-party-schdoc-13"
+url = "https://media.githubusercontent.com/media/HangX-Ma/miniFOC/324ac59357440746b89ee1882f213ea987bb4438/Hardware/miniFOC_driver/foc.SchDoc"
+ref = "324ac59357440746b89ee1882f213ea987bb4438"
+sha256 = "99c330883534776ee2c820712c88b915b793fb4d3ac18954579f8d934043ea7b"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch"]
+notes = "S-0279; schdoc; 214528 bytes; 2023."
+
+[[file]]
+id = "altium-third-party-schlib-01"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/CR%20battery%20holders/CR%20battery%20holders.SchLib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "23547bb2708dd55eacc320c1bb8f3e1da3acb9ff8727725f5c2118fc159e29fb"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 5120 bytes; 2017."
+
+[[file]]
+id = "altium-third-party-schlib-02"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/Bare%202.54mm%20headers/Schlib1.SchLib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "e81a02e694b06c057587911ad451d564bf2be0ff731c40a886aaf1420ce19d3b"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 5632 bytes; 2019."
+
+[[file]]
+id = "altium-third-party-schlib-03"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/DSUB%20Connectors/DSUB%20Connectors.SchLib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "2ef7e446295889339bd090b27a6d46ea389ab4c88d9aa9cbcab66c629e5e382a"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 41984 bytes; 2016."
+
+[[file]]
+id = "altium-third-party-schlib-04"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/CONN%20HEADERS%202.54MM%20PITCH%20FRICTION%20LOCK/CONN%20HEADERS%202.54MM%20PITCH%20FRICTION%20LOCK.schlib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "fa150988836cd6e43aff7a427f20a37837cd9ec041dbc40c33d0d9205f872b19"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 58880 bytes; 2018."
+
+[[file]]
+id = "altium-third-party-schlib-05"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/RJ-Telephone%20connectors/RJ-Telephone%20connectors.SchLib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "69847036088c02a51a4a5d2f8cac7d1b19a65700638fc2c7b047b7f683e6b913"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 119808 bytes; 2017."
+
+[[file]]
+id = "altium-third-party-schlib-06"
+url = "https://raw.githubusercontent.com/LanguidSmartass/altium-libs/5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19/libs/00_Connectors/CONN%20HEADER%202.50MM%20PITCH/CONN%20HEADER%202.50MM%20PITCH.SchLib"
+ref = "5e7cf90145aa20ec79ac2e0d510ccd8ff1f19a19"
+sha256 = "63fa178765d7e51323f557b332725ea7dd4c6b972be5d6d3b6fd2be56a244e80"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0277; schlib; 163328 bytes; 2019."
+
+[[file]]
+id = "altium-third-party-schlib-07"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/BG0249_DepthAI_RGB_Camera/PCB/BG0249_R1M1E1.SchLib"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "41004bc25c4748cf04c0ff1b6dfc54649654dcf6b3ec0ba9edad0afbfb8dc753"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0278; schlib; 17408 bytes; 2019."
+
+[[file]]
+id = "altium-third-party-schlib-08"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/BG0250TG_DepthAI_Mono_Camera/PCB/BG0250TG.SCHLIB"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "74cc5b71a35883dee308af3866eae36758ae51195f4b2edf3a57881a33053506"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0278; schlib; 69632 bytes; 2019."
+
+[[file]]
+id = "altium-third-party-schlib-09"
+url = "https://media.githubusercontent.com/media/HangX-Ma/miniFOC/324ac59357440746b89ee1882f213ea987bb4438/Hardware/miniFOC_driver/foc_schlib.SchLib"
+ref = "324ac59357440746b89ee1882f213ea987bb4438"
+sha256 = "ca2c3f13944d70059d5188e1d7cdd44ba6bd355bf39c04ff236ddbaf24633c19"
+license = "Apache-2.0"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-schlib"]
+notes = "S-0279; schlib; 171008 bytes; 2023."

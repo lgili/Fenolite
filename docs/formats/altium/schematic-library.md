@@ -136,6 +136,34 @@ payload has 34 bytes, so the record is:
 00 00 00 00 | 02 49 4E | 01 31 | 00 | 00 | 00
 ```
 
+## Reading a library
+
+Change c0040 reads libraries back (`fenolite.backends.altium.read.schlib`). Layouts come from KiCad's importer
+and binary parser, read for facts only (S-0131, S-0148), and from the converter's documentation (S-0130); the
+saved libraries of S-0277, S-0278 and S-0279 (corpus rows `altium-third-party-schlib-01` to `-09`) are measured
+by `tests/corpus/test_altium_sch_read.py`, with counts in `docs/evidence/altium-read-schematic.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A binary pin may end after its designator, its swap group or its part-and-sequence string: KiCad reads four strings after the description and ignores what follows, the version-1 writer writes five | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-RD-SCH-PIN |
+| No source states that bytes may follow the last short string of a binary pin; a reader that stops after the fourth string never sees them | S-0131 | UNKNOWN | H-A-RD-SCH-PIN |
+| The part-and-sequence string holds `<part>\|&\|<sequence>`; the text pin's `SWAPIDPART` holds broken bars in its place, and `SWAPIDPIN` is the text pin's swap group | S-0130, S-0131 | INFERRED | H-A-RD-SCH-PIN |
+| A library's storage holds, besides `Data`, the side streams `PinFrac`, `PinWideText`, `PinTextData`, `PinSymbolLineWidth` and `PinFunctionData`; one reader opens `PinFrac`, `PinWideText` and `PinTextData` by those names | S-0148, S-0152 | INFERRED | H-A-RD-SCH-PINSIDE |
+| `PinFrac` is a sequence of framed records. Each binary record is the byte 0xD0, a short string holding the pin's index in decimal, a 4-byte little-endian length and that many bytes of zlib data, which expand to three 4-byte signed integers: the `_FRAC` of the pin's X, of its Y and of its length | S-0131, S-0148 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-PINSIDE |
+| The index of a `PinFrac` entry counts the pin records of `Data` from 0, in stream order | S-0131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05) | H-A-RD-SCH-PINSIDE |
+| A property-list record of `PinFrac` is skipped by KiCad's reader; saved files start the stream with one, `\|HEADER=PinFrac\|Weight=<entries>` | S-0148, S-0279 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-PINSIDE |
+| The layouts of `PinWideText`, `PinTextData`, `PinSymbolLineWidth` and `PinFunctionData` are given by no permitted source: S-0152 marks them as work in progress and KiCad does not decode them | S-0148, S-0152 | UNKNOWN | H-A-RD-SCH-PINSIDE |
+| Saved libraries hold a further per-symbol stream, `PinPackageLength`, that no source describes | S-0277, S-0278 | UNKNOWN | H-A-RD-SCH-PINSIDE |
+| A `SECTIONKEY<i>` value may hold `/`; the storage it names then holds `_` in its place, as storage names cannot hold `/` | S-0145, S-0152, S-0277 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-SCHLIB-SECTIONKEY |
+| `Storage` of a library has the layout of a schematic's (`schematic-records.md`, "Storage") | S-0130, S-0131 | INFERRED | H-A-RD-SCH-STORAGE |
+| `WEIGHT` of the header counts the records of all `Data` streams plus one, and `COMPCOUNT` the components | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0151 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-HEADER |
+| A record of `Data` with an `OWNERINDEX` names an earlier record of the same stream; KiCad's library path ignores the key and gives every record to the component | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-LIBOWNER |
+
+The reader's own choices: `PinFrac` is decoded only when every record matches the layout above to its last
+byte, each entry expanding to exactly 12 bytes (the decompression stops at 13), and its fractions are added to
+the pin it names; every other side stream is kept as bytes with an `altium.schlib.side-stream-opaque` info and
+changes no pin. Bytes after a binary pin's last known field are kept in its `tail`.
+
 ## Oracle observations
 
 | fact | source | label | hypothesis |
@@ -150,6 +178,10 @@ payload has 34 bytes, so the record is:
 | Fenolite's negative controls on kicad-cli 10.0.6 (2026-10-02), built from the writer's records: another header text, a `Data` whose first record is not the component, a stray byte after the last record, and a pin without its last two short strings each exit 2 with "Unable to convert library"; the same library without the change converts | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | Fenolite's oracle on kicad-cli 10.0.6 (2026-10-02): `altium_kicad.SchLib` of `examples/altium_kicad/` converts into its four symbols with the source's unit count and, per pin, the number, the name (overbars back in KiCad's form), the electrical type after the lossy mapping, the hot end, the angle, the length, the unit (Part Zero as unit 0) and the hidden flag; the reference prefix, the footprint name, the inverted and clock shapes all read back | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | The same test with kicad-cli 9.0.9 (pinned image, local run, 2026-10-02; again in the `kicad-9` job of run https://github.com/lgili/Fenolite/actions/runs/37117800828) passes as well: 9.0 converts every library; a pin name `~` reads back as an empty name, because a 9.0 library file writes `~` for an empty name | S-0020, S-0031, S-0153 | ORACLE-VERIFIED(kicad-cli) (9.0.9, pinned image, local run; 2026-10-02) | H-A-SCHLIB-KICAD9 |
+| Fenolite's reader against kicad-cli 10.0.6 on the nine `altium-schlib` corpus rows (`tests/kicad/altium/test_schlib_read_oracle.py`, 2026-10-05): every row converts (exit 0) into one symbol per component storage, and the pins (number, name, hot end, length, direction, hidden flag), the unit counts and the body-style counts agree with Fenolite's reading, after the two behaviours of the next rows | S-0020, S-0153, S-0277, S-0278, S-0279 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05) | H-A-RD-SCH-KICAD |
+| kicad-cli 10.0.6 writes a space of a pin name as `_` (one pin of `altium-third-party-schlib-09`) | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
+| kicad-cli 10.0.6 holds schematic positions in steps of 100 nm: the hot ends of the five pins that `PinFrac` moves off the 10-mil grid come out rounded to 100 nm, and equal Fenolite's exact nanometres rounded half to even | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
+| No corpus library holds a component of more than one part or more than one display mode, so the unit and body-style counts compared are all 1 | S-0277, S-0278, S-0279 | INFERRED | H-A-RD-SCH-PARTS |
 
 ## Facts awaiting a permitted source
 

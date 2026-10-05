@@ -112,3 +112,26 @@ Part H of `docs/evidence/altium-schematic.md`.
   name, written in `FileHeader` as any wire and label; an entry whose net does not leave it gets
   neither, on every sheet (`H-A-SCH-HARN-UNUSED`).
 - The ASCII form writes no harness record; `write_schdoc` refuses a plan that holds a block.
+
+## Reading the binary form
+
+Change c0040 reads binary schematics back (`fenolite.backends.altium.read.sch`). These rows are measured on the
+public files of S-0187, S-0188 and S-0279 (corpus rows `altium-third-party-schdoc-01` to `-13`) and settled by
+`tests/corpus/test_altium_sch_read.py`; the counts are in `docs/evidence/altium-read-schematic.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Every stream of a saved schematic is a plain sequence of frames, and every property list ends with one NUL that the length counts | S-0130, S-0148, S-0187, S-0188, S-0279 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-FRAME |
+| KiCad's binary parser logs and accepts a property list without its final NUL, and takes a record with a non-zero top byte as binary | S-0148 | INFERRED | H-A-RD-SCH-FRAME |
+| Saved files hold upper-case keys (older) or mixed-case keys (newer), compared without letter case | S-0130, S-0131, S-0187, S-0188 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-CASE |
+| A non-ASCII value may be followed by its `%UTF8%` twin, which is valid UTF-8 and holds the text; the plain value is in the saving system's code page, with the byte 0x8E for the broken bar | S-0130, S-0187, S-0188, S-0279 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-TEXT-2 |
+| A length is `K × 100 000 + K_FRAC` in 1/100 000 unit, each integer with its own sign | S-0130, S-0131 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-FRAC |
+| In `FileHeader`, `OWNERINDEX` names an earlier record (counted from 0 after the header); a record without it is at the sheet level. A reader drops a child whose owner it has not read | S-0130, S-0131 | INFERRED | H-A-RD-SCH-OWNER |
+| In `Additional`, `OWNERINDEXADDITIONALLIST=T` makes `OWNERINDEX` an index into `Additional`, and a missing index is 0; one reader reads the flag as true by default for harness entries and types | S-0131, S-0187, S-0188 | INFERRED | H-A-RD-SCH-ADDOWNER |
+| `WEIGHT` of the `FileHeader` header is the number of records after it | S-0130 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-HEADER |
+| A `Storage` record after the header is an embedded file with the layout of `schematic-records.md`, "Storage" | S-0130 | CORPUS-VERIFIED (22 rows; 2026-10-05) | H-A-RD-SCH-STORAGE |
+
+The reader's own choices for this form: a property list without its NUL is kept as an unknown record with an
+`altium.sch.malformed-record` warning; a binary record in a schematic document is decoded as a pin when its
+first integer is 2 (`schematic-library.md`, "Pin fields"), else kept as an unknown record; every stream other
+than `FileHeader`, `Additional` and `Storage` is kept as bytes.

@@ -82,7 +82,7 @@ Values SHALL stay bytes, and `PropertyList.text(key)` SHALL give the text view b
 - in an ASCII file whose whole content is valid UTF-8, the text is the value decoded as UTF-8;
 - otherwise the text is the value decoded in the code page given to the reader. `DEFAULT_CODEPAGE` MUST be `cp1252`. Any single-byte code page that Python's standard library names MAY be passed; another name MUST raise `ValueError` before any reading.
 
-A byte that the chosen decoding does not define MUST become U+FFFD in the text view, with one `altium.sch.text-undecodable` warning per record; the raw bytes are unchanged. Spaces around a value MUST be trimmed in the text view only. The `%UTF8%` field MUST stay a field of the list, MUST count as modelled when its plain key is modelled, and MUST NOT be returned by `keys()` as a separate unknown key.
+A byte that the chosen decoding does not define MUST become U+FFFD in the text view, with one `altium.sch.text-undecodable` warning per record; the raw bytes are unchanged. The twin and the plain value MAY differ (saved files write the byte 0x8E for U+00A6, and files saved under another system code page hold their plain values in it); the twin MUST win. Spaces around a value MUST be trimmed in the text view only. The `%UTF8%` field MUST stay a field of the list, MUST count as modelled when its plain key is modelled, and MUST NOT be returned by `keys()` as a separate unknown key.
 
 #### Scenario: UTF-8 twin wins
 - **GIVEN** a record with `|TEXT=` followed by the bytes `B5 46` and `|%UTF8%TEXT=` followed by the bytes `C2 B5 46`
@@ -140,7 +140,7 @@ A byte that the chosen decoding does not define MUST become U+FFFD in the text v
 - A UTF-8 byte-order mark before the first line MUST be accepted and kept in `SchDocument.preamble`.
 - Lines end with CR LF or LF. Each record MUST keep its exact bytes, line end included, in `payload`; a last line without a line end is accepted.
 - A line that ends with the two characters `|>` MUST be joined with the next line into one record; the record's `payload` holds both lines as they are.
-- An empty line MUST be kept as an `UnknownRecord` and MUST NOT be counted as a record by the owner index.
+- An empty line MUST be kept as an `UnknownRecord` (in `SchDocument.blank_lines`) and MUST NOT be counted as a record by the owner index.
 - The first line is the header. Its `HEADER` text MUST equal `Protel for Windows - Schematic Capture Ascii File Version 5.0` without letter case, else `FormatError` with `locator` `line 1`.
 - A later line whose first key is `HEADER` starts a new section, and the record index restarts at 0 after it. A section whose header text is the ASCII or the binary schematic header is the `Additional` section; one whose text is `Icon storage` is the storage section; any other is kept in `SchDocument.extra_sections` with one `altium.sch.unknown-stream` info.
 - `encode_stream(document, "ascii")` MUST return the file's bytes.
@@ -221,7 +221,7 @@ A byte that the chosen decoding does not define MUST become U+FFFD in the text v
 - `SchLength.mils()` MUST return a `fractions.Fraction`. No length is a float anywhere in the reader.
 - A point is a pair `(SchLength, SchLength)` in the file's frame: X rightwards, Y upwards. The reader MUST NOT flip, rotate or translate a coordinate.
 - The distance of a sheet entry and of a harness entry MUST be `DISTANCEFROMTOP × 1_000_000 + DISTANCEFROMTOP_FRAC1` (steps of 10 units, and a fraction in 1/100 000 unit).
-- The `<n>`-th point of a polyline MUST use `X<n>`, `Y<n>`, `X<n>_FRAC` and `Y<n>_FRAC`.
+- The `<n>`-th point of a polyline MUST use `X<n>`, `Y<n>`, `X<n>_FRAC` and `Y<n>_FRAC`. Saved files leave out a key whose value is zero, so the points are 1 to `LOCATIONCOUNT`, a point whose keys are all left out being (0, 0), when `LOCATIONCOUNT` is at most the record's length in bytes; any point with a key past the count is read too.
 - Lengths of a binary pin follow "Binary pin records".
 - Every `_FRAC` key of a modelled length MUST count as modelled.
 
@@ -365,7 +365,7 @@ The reader SHALL expose the parts and the display modes of a component, in a sch
 - `SchLibrary.header` is that record. `SchLibrary.header_tail` MUST hold the bytes of `FileHeader` after it, unchanged; when they have the layout of the name list (`docs/formats/altium/schematic-library.md`), `SchLibrary.listed_names` holds the names, else it is `()`.
 - `SchLibrary.fonts` MUST read the font table of the header (`FONTIDCOUNT`, `SIZE<i>`, `FONTNAME<i>`), as `Sheet.fonts` does.
 - `SectionKeys`, when present, MUST give `SchLibrary.section_keys`, a mapping from lib ref to storage name, from `KEYCOUNT`, `LIBREF<i>` and `SECTIONKEY<i>`.
-- Every root storage that holds a stream `Data` is a component. `SchLibrary.components` MUST list them in the order of the header's `LIBREF<i>` keys (each mapped through `section_keys`, then matched to a storage name without letter case), then every storage the header does not list, in directory order, with one `altium.schlib.unlisted-component` info each. A listed lib ref with no storage MUST give one `altium.schlib.missing-component` warning.
+- Every root storage that holds a stream `Data` is a component. `SchLibrary.components` MUST list them in the order of the header's `LIBREF<i>` keys (each mapped through `section_keys`, then matched to a storage name without letter case, a `/` of the section key matching `_` of the storage name), then every storage the header does not list, in directory order, with one `altium.schlib.unlisted-component` info each. A listed lib ref with no storage MUST give one `altium.schlib.missing-component` warning.
 - A `SchLibComponent` MUST hold `name` (the header's lib ref, else the component record's `LIBREFERENCE`, else the storage name), `storage_name`, `description`, `records` (refs `RecordRef("data", n)`), `component` (record 0 when it is a `Component`, else `None` with one `altium.schlib.no-component` warning), `pins`, `side_streams` and `extra_streams`.
 - `Data` has no header record. An empty `Data` MUST give a component with no record and one `altium.sch.empty-stream` warning. A storage without `Data` MUST be kept in `SchLibrary.extra_streams` with its streams.
 - Owner rule in `Data`: a record with an `OWNERINDEX` that names an earlier record of the same `Data` has that owner; any other record after record 0 is owned by record 0. No orphan warning is given in a library.
@@ -515,7 +515,7 @@ The reader SHALL treat its input as untrusted.
 - It MUST NOT recurse over record depth, and MUST read a stream of `n` records in time and memory linear in the stream size.
 - It MUST NOT evaluate, import, execute or open anything a file names: a file name in a record (`FILENAME`, `MODELDATAFILE<i>`, a sheet file name, a template file name) is returned as text and never resolved against the file system.
 - It MUST NOT decompress embedded data while reading ("Storage stream and embedded files").
-- A count key that is larger than the record can hold (`LOCATIONCOUNT`, `FONTIDCOUNT`, `KEYCOUNT`, `COMPCOUNT`, `DATAFILECOUNT`) MUST NOT drive an allocation or a loop: items are read from the keys that exist, and a count that disagrees gives one `altium.sch.bad-value` warning.
+- A count key that is larger than the record can hold (`LOCATIONCOUNT`, `FONTIDCOUNT`, `KEYCOUNT`, `COMPCOUNT`, `DATAFILECOUNT`) MUST NOT drive an allocation or a loop: items are read from the keys that exist, and a count larger than the record's length in bytes, or smaller than the number of items present, gives one `altium.sch.bad-value` warning. A count that is larger than the items present but not than the record (zero-valued items left out) gives no warning; only `LOCATIONCOUNT` adds items for it (the points at (0, 0) of "Lengths and fractions").
 
 #### Scenario: Huge count
 - **GIVEN** a wire with `|LOCATIONCOUNT=2000000000|X1=1|Y1=2|X2=3|Y2=2`

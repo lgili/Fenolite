@@ -31,6 +31,9 @@ ALTIUM_NOTE = re.compile(
     r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot); \d+ bytes; \d{4}\.$"
 )
 ALTIUM_FORBIDDEN_USES = {"rt0", "malformed", "project"}
+ALTIUM_TAG_KINDS = {"altium-sch": ("schdoc", "schdot"), "altium-schlib": ("schlib",)}
+"""The tags of the schematic reader (change c0040) and the id kinds each allows."""
+ALTIUM_TAG_NAMES = {"altium-sch": "schematic", "altium-schlib": "library"}
 NON_COMMERCIAL = re.compile(r"\bNC\b|-NC-|non-?commercial", re.IGNORECASE)
 HEAVY_BYTES = 20 * 1024 * 1024
 
@@ -125,6 +128,42 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
                     problems.append(f"{ident}: project rows never carry {use}")
             if "origin:kicad-demos" not in uses:
                 problems.append(f"{ident}: project rows need origin:kicad-demos in uses")
+    return problems + altium_tag_problems(entries)
+
+
+def _repository(url: str) -> tuple[str, ...]:
+    """The host and the first two path segments of ``url``, which name a repository."""
+    parsed = urlparse(url)
+    return (parsed.netloc, *[part for part in parsed.path.split("/") if part][:2])
+
+
+def altium_tag_problems(entries: list[dict[str, Any]]) -> list[str]:
+    """The rules of "Altium schematic corpus rows" (change c0040): a row with ``altium-sch`` or
+    ``altium-schlib`` holds ``altium``, has an id of the kinds the tag allows, never holds both tags, and
+    each tag that occurs covers three repositories."""
+    problems: list[str] = []
+    repositories: dict[str, set[tuple[str, ...]]] = {tag: set() for tag in ALTIUM_TAG_KINDS}
+    for entry in entries:
+        if not KEYS <= entry.keys():
+            continue
+        ident = str(entry["id"])
+        uses = set(entry["uses"])
+        tags = sorted(uses & ALTIUM_TAG_KINDS.keys())
+        if len(tags) > 1:
+            problems.append(f"{ident}: a row cannot carry both {' and '.join(tags)}")
+        for tag in tags:
+            if "altium" not in uses:
+                problems.append(f"{ident}: a row with {tag} needs altium in uses")
+            match = ALTIUM_ID.fullmatch(ident)
+            kinds = ALTIUM_TAG_KINDS[tag]
+            if match is None or match.group(1) not in kinds:
+                problems.append(f"{ident}: {tag} rows must have an id of kind {' or '.join(kinds)}")
+            repositories[tag].add(_repository(str(entry["url"])))
+    for tag, found in repositories.items():
+        if found and len(found) < 3:
+            problems.append(
+                f"{tag}: {ALTIUM_TAG_NAMES[tag]} rows need three repositories, found {len(found)}"
+            )
     return problems
 
 
@@ -281,6 +320,71 @@ def test_altium_rules_reject_bad_rows() -> None:
     assert "cannot carry cfb" in "\n".join(
         manifest_problems([_altium_row(uses=["altium", "altium-text", "cfb", "origin:third-party"])])
     )
+
+
+def _sch_rows(tag: str, kind: str, repositories: int) -> list[dict[str, Any]]:
+    return [
+        _altium_row(
+            id=f"altium-third-party-{kind}-{n:02}",
+            url=f"https://example.invalid/owner{n % repositories}/repo/" + "a" * 40 + f"/f{n}",
+            uses=["altium", "origin:third-party", tag],
+            notes=f"S-0277; {kind}; 10 bytes; 2019.",
+        )
+        for n in range(1, 4)
+    ]
+
+
+def test_schematic_reader_rows_pass() -> None:
+    assert altium_tag_problems(_sch_rows("altium-sch", "schdoc", 3)) == []
+    assert altium_tag_problems(_sch_rows("altium-schlib", "schlib", 3)) == []
+    assert manifest_problems(_sch_rows("altium-schlib", "schlib", 3)) == []
+
+
+def test_tag_on_the_wrong_kind() -> None:
+    rows = _sch_rows("altium-schlib", "schlib", 3)
+    rows[0] = rows[0] | {"id": "altium-third-party-pcblib-01"}
+    (problem,) = altium_tag_problems(rows)
+    assert problem == "altium-third-party-pcblib-01: altium-schlib rows must have an id of kind schlib"
+    rows = _sch_rows("altium-sch", "schlib", 3)
+    assert "altium-third-party-schlib-01: altium-sch rows must have an id of kind schdoc or schdot" in (
+        altium_tag_problems(rows)
+    )
+
+
+def test_tag_without_the_family_use() -> None:
+    rows = _sch_rows("altium-sch", "schdoc", 3)
+    rows[1] = rows[1] | {"uses": ["altium-sch", "origin:third-party"]}
+    (problem,) = altium_tag_problems(rows)
+    assert problem == "altium-third-party-schdoc-02: a row with altium-sch needs altium in uses"
+
+
+def test_two_repositories_only() -> None:
+    (problem,) = altium_tag_problems(_sch_rows("altium-schlib", "schlib", 2))
+    assert problem == "altium-schlib: library rows need three repositories, found 2"
+    (problem,) = altium_tag_problems(_sch_rows("altium-sch", "schdoc", 2))
+    assert problem == "altium-sch: schematic rows need three repositories, found 2"
+
+
+def test_both_tags_refused() -> None:
+    rows = _sch_rows("altium-sch", "schdoc", 3)
+    rows[0] = rows[0] | {"uses": ["altium", "origin:third-party", "altium-sch", "altium-schlib"]}
+    assert "altium-third-party-schdoc-01: a row cannot carry both altium-sch and altium-schlib" in (
+        altium_tag_problems(rows)
+    )
+
+
+def test_schematic_reader_rows() -> None:
+    """The live rows of changes c0039 and c0040: 13 schematic documents and 9 libraries, three repositories
+    each, the four rows of c0039 tagged too, and no URL listed twice."""
+    entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
+    sch = [e for e in entries if "altium-sch" in e["uses"]]
+    lib = [e for e in entries if "altium-schlib" in e["uses"]]
+    assert {str(e["id"]) for e in sch} >= {f"altium-third-party-schdoc-{n:02}" for n in range(1, 14)}
+    assert {str(e["id"]) for e in lib} >= {f"altium-third-party-schlib-{n:02}" for n in range(1, 10)}
+    assert len({_repository(str(e["url"])) for e in sch}) >= 3
+    assert len({_repository(str(e["url"])) for e in lib}) >= 3
+    urls = [str(e["url"]) for e in entries]
+    assert len(urls) == len(set(urls))
 
 
 def test_malformed_rows() -> None:

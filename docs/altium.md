@@ -633,6 +633,72 @@ Every malformed container raises `CompoundError`, a `FormatError` with `rule`, `
 
 CLI errors map to `FEN-3004` (exit 3); their `where` names the file, locator and byte offset when present.
 
+## Reading Altium schematics
+
+Change c0040 reads Altium schematics and schematic libraries back. It is a library API only: no command, no
+registered backend, and `fenolite capabilities` does not change.
+
+```python
+from fenolite.backends.altium.read import sch, schlib
+
+document = sch.read_schematic(data, file="top.SchDoc")  # .SchDoc or .SchDot, binary or ASCII
+library = schlib.read_schlib(data, file="parts.SchLib")
+sch.detect(data)  # "ascii", "binary", "library" or None
+sch.check_identity(document)  # () when every stream is rebuilt exactly
+```
+
+- **Bytes in, frozen records out.** Both readers take the file's bytes and open nothing. File names held by
+  records (images, templates, sheet files, model files) are returned as text and never resolved; embedded
+  files are decompressed only by `EmbeddedFile.data(limit)`, capped at 64 MiB. `codepage=` takes another
+  single-byte code page (default `cp1252`); `issues=` collects the findings, which the result also keeps.
+- **`SchDocument`.** `header`, `records` (the records of `FileHeader`, or of the ASCII file's first section),
+  `additional` (the `Additional` stream), `storage_header` and `embedded`, `streams` (the bytes read),
+  `extra_streams`, `roots`. Typed access: `components()`, `wires()`, `buses()`, `net_labels()`,
+  `power_ports()`, `ports()`, `junctions()`, `no_ercs()`, `sheet_symbols()`, `harnesses()`, `templates()`,
+  `template_children()`, `of_type(cls)`; the owner tree through `get(ref)`, `owner_of`, `children_of(record,
+  part=, mode=)`, `shown_children(component)` and `walk(record)`.
+- **`SchLibrary`.** `header`, `header_tail`, `listed_names`, `fonts`, `section_keys`, `components` (one
+  `SchLibComponent` per storage, in the header's order) and `get(lib_ref)`. A component has `name`,
+  `storage_name`, `records`, `component`, `pins`, `children(part=, mode=)`, `parts`, `modes`, `side_streams`
+  and `extra_streams`. `PinFrac` is decoded (`SIDE_STREAMS_DECODED`); the other side streams are kept as bytes.
+- **Records.** One class per record id of the closed table `RECORD_TYPES` (43 ids, the record page
+  `docs/formats/altium/schematic-records.md`); any other record is an `UnknownRecord`. Every record keeps its
+  `payload` and `props` (`PropertyList`: fields in file order, keys as written, raw values); typed attributes
+  are views of them, and `unknown_keys` lists what a class does not model. Lengths are `SchLength`: an exact
+  integer count of 1/100 000 of the 10-mil unit, with `nm()` (rounded half to even) and `exact`. Coordinates are
+  in the file's frame, Y upwards.
+- **What is kept.** Unknown keys, unknown records, a binary pin's trailing bytes (`Pin.tail`), opaque embedded
+  files, side streams, the bytes after the library header, unread streams and ASCII sections. Nothing is
+  normalised: letter case, key order, spaces, line ends and number formats stay as read.
+- **What is not done.** No net, connection or model entity is computed (change c0043); parts and display
+  modes are exposed, not chosen; the reader writes nothing.
+
+Fatal errors are few (neither form, no `FileHeader`, a wrong header text, a cut frame, a broken container)
+and raise `FormatError` with `file`, `locator` and `offset`. Everything else is an issue:
+
+| code | severity | when |
+|---|---|---|
+| `altium.sch.malformed-record` | warning | a property list without its final NUL, a record without an integer `RECORD`, a binary pin cut inside a required field |
+| `altium.sch.bad-value` | warning | a modelled key whose value does not parse, or a count that disagrees with the keys present |
+| `altium.sch.unknown-record` | info | a record id with no class (once per id, with the count) |
+| `altium.sch.unknown-stream` | info | a stream or ASCII section the reader keeps without reading |
+| `altium.sch.empty-stream` | warning | an `Additional` or `Data` stream of 0 bytes |
+| `altium.sch.weight-mismatch` | warning | `WEIGHT` or `COMPCOUNT` differs from what was read |
+| `altium.sch.orphan-record` | warning | an `OWNERINDEX` that names no earlier record |
+| `altium.sch.no-sheet` | warning | record 0 of a schematic is not the sheet |
+| `altium.sch.part-out-of-range` | warning | a child outside its component's part or display-mode count |
+| `altium.sch.text-undecodable` | warning | a byte the decoding does not define (the text view shows U+FFFD) |
+| `altium.sch.pin-trailing-bytes` | info | bytes after a binary pin's last known field |
+| `altium.sch.storage-opaque` | info | a `Storage` record without the embedded-file layout |
+| `altium.schlib.unlisted-component` | info | a component storage the header does not list |
+| `altium.schlib.missing-component` | warning | a listed lib ref without a storage |
+| `altium.schlib.no-component` | warning | a `Data` stream whose record 0 is not the component |
+| `altium.schlib.side-stream-opaque` | info | a pin side stream kept and not decoded |
+| `altium.schlib.side-stream-orphan` | warning | a side-stream entry that names no pin |
+
+Evidence: `read.sch.EVIDENCE` is the lowest level of the `H-A-RD-SCH-*` rows of `docs/hypotheses.md`; the
+corpus census and the library oracle are in `docs/evidence/altium-read-schematic.md`.
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a

@@ -281,3 +281,23 @@ These are decisions of the writer, not format facts (design of change c0032, cap
   no `INDEXINSHEET` is written.
 - The ASCII form writes the hierarchy but no harness record: a harness's member nets cross as plain
   nets there (`schematic-binary.md`, "Additional stream and harness records").
+
+## Reading the ASCII form
+
+Change c0040 reads the ASCII form back (`fenolite.backends.altium.read.sch`). No public file saved by Altium in
+this form is known, so every row stays `INFERRED` (`H-A-RD-SCH-ASCII`); the record keys are those of
+`schematic-records.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The ASCII form holds, one per line, the payloads that the binary form frames, without their NUL | S-0130 | INFERRED | H-A-RD-SCH-ASCII |
+| A line ends with CR LF or LF; a reader accepts both, and a byte-order mark before the first line | S-0131, S-0143 | INFERRED | H-A-RD-SCH-ASCII |
+| A line that ends with `\|>` continues on the next line; a reader joins the two | S-0131 | INFERRED | H-A-RD-SCH-ASCII |
+| After the records of the sheet, a second header line starts the records that the binary form keeps in `Additional`, with their own index from 0; an `Icon storage` header line starts the embedded files | S-0130, S-0131 | INFERRED | H-A-RD-SCH-ASCII |
+| Keys are compared without letter case; a value's `%UTF8%` twin holds the same text in UTF-8; files of Altium Designer 17 and later are UTF-8 as a whole | S-0130, S-0131, S-0133 | INFERRED | H-A-RD-SCH-ASCII |
+| A length key `K` may come with `K_FRAC` in 1/100 000 of a unit, as in the binary form | S-0130, S-0131 | INFERRED | H-A-RD-SCH-FRAC |
+| `OWNERINDEX` names an earlier record of the same section; a record without it is at the sheet level | S-0130, S-0131 | INFERRED | H-A-RD-SCH-OWNER |
+
+The reader's own choices for this form: an empty line is kept as an unknown item and is not counted by the
+owner index; a section whose header text is neither a schematic header nor `Icon storage` is kept as lines;
+`encode_stream(document, "ascii")` gives back the file's bytes.

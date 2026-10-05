@@ -33,7 +33,11 @@ def pytest_steps(job: str) -> list[str]:
     return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
 
 
-ALTIUM_READER_USES = (("altium-text", "the Altium text rows of the project reader"),)
+ALTIUM_READER_USES = (
+    ("altium-sch", "the Altium schematic rows of the schematic reader"),
+    ("altium-schlib", "the Altium schematic library rows of the schematic reader"),
+    ("altium-text", "the Altium text rows of the project reader"),
+)
 """Corpus uses of the Altium readers whose rows carry neither ``rt0`` nor ``cfb``: the ``kicad-10`` job
 fetches each of them by name."""
 
