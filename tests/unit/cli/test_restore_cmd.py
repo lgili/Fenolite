@@ -116,7 +116,8 @@ def test_created_files_stay_after_a_rebuild_is_undone(
     assert code == 0, env["issues"]
     after = folder_snapshot(work)
     assert set(after) >= set(rebuilt), "restore deleted a file"
-    assert all(after[path] == first[path] for path in overwritten)
+    # the receipt holds paths as the system writes them; the snapshot keys use "/"
+    assert all(after[Path(path).as_posix()] == first[Path(path).as_posix()] for path in overwritten)
     assert sorted(i["where"] for i in env["issues"] if i["code"] == "restore.kept") == without_backup
     assert (
         sorted(env["result"]["restored"]) == sorted(overwritten) and env["result"]["kept"] == without_backup
