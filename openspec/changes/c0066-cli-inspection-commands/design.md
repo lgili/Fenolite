@@ -51,6 +51,12 @@
    - `rt2`: RT1, then `KicadOracle.rt2` for the board of a project and `rt2_erc` for its schematic; needs `kicad-cli` (exit 6 without it).
    - `result`: `kind`, `level` (the highest level that holds), per level `passed`, `difference`, `opaque_count`; for RT2 `judged` and the counts. A level that fails gives `roundtrip.failed` (error) and exit 5: an agent runs this before it edits a file it did not write.
 
+   - Added with task 2.4b (2026-10-06, after c0062): the schematic's RT2 is judged by
+     `checks.rt2.erc_rt2`, which tries a difference of the re-dump twice more before it believes it.
+     c0062 measured that KiCad's ERC does not repeat itself on every project, and its corpus test
+     does the same; a command that failed on one noisy run would tell an agent not to edit a file
+     that is fine. The verdict lives in `checks`, behind a protocol, so it imports no backend.
+
 5. **`fenolite fmt PATH [--check]`** (`mutates=True`). The canonical print of a file is `dumps(parse(text))`.
    - `--check`: writes nothing; `result.formatted` says whether the file already is its canonical print; when it is not, `fmt.would-change` (error, exit 5) names the first differing line.
    - Without `--check`: one planned write of the canonical text, through the mutation protocol; a file already canonical plans nothing.

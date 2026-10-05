@@ -153,3 +153,95 @@ def test_schematic_rt1_failure_is_an_error(monkeypatch: pytest.MonkeyPatch, tmp_
     code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", str(FLAT))
     assert code == 5 and env["result"]["level"] == "rt0"
     assert [(i["code"], i["where"]) for i in env["issues"]] == [("roundtrip.failed", "/kicad_sch/symbol[0]")]
+
+
+# --- RT2 of a project's schematic through ERC (task 2.4b, after c0062) ------------------------------
+
+
+def _blink_with_fake(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **erc: object) -> tuple[Path, Path]:
+    from _projects import built_blink_project
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    hide_kicad(monkeypatch, tmp_path)
+    root = built_blink_project(tmp_path / "blink")
+    fake = fake_kicad_cli(tmp_path / "bin", upgrade="copy", **erc)  # type: ignore[arg-type]
+    return root, fake
+
+
+def _erc_runs(fake: Path) -> int:
+    return sum(1 for call in calls(fake) if call["args"][:2] == ["sch", "erc"])
+
+
+def test_rt2_of_a_project_with_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root, fake = _blink_with_fake(monkeypatch, tmp_path)
+    before = tree_snapshot(root)
+    code, env, _, _ = run(
+        monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+    )
+    assert code == 0, env["issues"]
+    sheet = env["result"]["rt2"]["schematic"]
+    assert env["result"]["level"] == "rt2" and env["result"]["rt2"]["passed"] is True
+    assert (sheet["passed"], sheet["judged"], sheet["attempts"], sheet["difference"]) == (True, True, 1, "")
+    assert (
+        sheet["redumped"] >= 1
+        and sheet["kept"] == 0
+        and sheet["violations"] == sheet["violations_redump"] == 0
+    )
+    assert _erc_runs(fake) == 3 and tree_snapshot(root) == before
+
+
+def test_rt2_schematic_difference_that_comes_back_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from _fakecli import erc_entry, erc_report_with
+
+    clean, more = erc_report_with(), erc_report_with(erc_entry("pin_not_connected", "u1"))
+    root, fake = _blink_with_fake(monkeypatch, tmp_path, erc_sequence=(clean, clean, more) * 3)
+    code, env, err, _ = run(
+        monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+    )
+    sheet = env["result"]["rt2"]["schematic"]
+    assert code == 5 and err["code"] == "FEN-5001" and env["result"]["level"] == "rt1"
+    assert (sheet["passed"], sheet["judged"], sheet["attempts"]) == (False, True, 3) and _erc_runs(fake) == 9
+    failed = [i for i in env["issues"] if i["code"] == "roundtrip.failed"]
+    assert (
+        len(failed) == 1
+        and "pin_not_connected" in failed[0]["where"]
+        and "blink.kicad_sch" in failed[0]["message"]
+    )
+
+
+def test_rt2_schematic_is_not_judged_when_erc_does_not_repeat(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from _fakecli import erc_entry, erc_report_with
+
+    clean, more = erc_report_with(), erc_report_with(erc_entry("pin_not_connected", "u1"))
+    root, fake = _blink_with_fake(monkeypatch, tmp_path, erc_sequence=(clean, more, clean))
+    code, env, _, _ = run(
+        monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+    )
+    sheet = env["result"]["rt2"]["schematic"]
+    assert code == 0, env["issues"]
+    assert env["result"]["level"] == "rt1" and (sheet["passed"], sheet["judged"]) == (False, False)
+    assert not [i for i in env["issues"] if i["code"] == "roundtrip.failed"]
+    # a difference seen once and not again is settled by the attempt that holds
+    root2, fake2 = _blink_with_fake(
+        monkeypatch, tmp_path / "second", erc_sequence=(clean, clean, more, clean, clean, clean)
+    )
+    code, env, _, _ = run(
+        monkeypatch, root2, "roundtrip", str(root2), "--level", "rt2", "--kicad-cli", str(fake2)
+    )
+    assert (
+        code == 0 and env["result"]["level"] == "rt2" and env["result"]["rt2"]["schematic"]["attempts"] == 2
+    )
+
+
+def test_rt2_schematic_without_an_erc_report(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root, fake = _blink_with_fake(monkeypatch, tmp_path, erc_report="")
+    code, env, _, _ = run(
+        monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+    )
+    assert code == 5 and env["result"]["level"] == "rt1"
+    assert [i["where"] for i in env["issues"] if i["code"] == "check.oracle-failed"] == ["blink.kicad_sch"]
+    assert env["result"]["rt2"]["schematic"]["judged"] is False

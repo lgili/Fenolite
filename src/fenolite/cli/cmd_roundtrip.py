@@ -19,10 +19,11 @@ from typing import Any
 from fenolite.backends import registry
 from fenolite.backends.base import Validator
 from fenolite.backends.kicad import sch, versions
-from fenolite.backends.kicad.oracle import KicadOracle
+from fenolite.backends.kicad.oracle import KicadOracle, schematic_name
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.sexpr import dumps, first_difference, parse, tree_equal
-from fenolite.checks.rt2 import rt2_stage
+from fenolite.checks.codes import issue as check_issue
+from fenolite.checks.rt2 import erc_rt2, rt2_stage
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
@@ -158,7 +159,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not holds or result.get("rt1") == NOT_APPLICABLE:
             result["rt2"] = NOT_RUN
         else:
-            stage = rt2_stage(oracle, project_set(path))
+            project = project_set(path)
+            stage = rt2_stage(oracle, project)
             summary = stage.summary
             differences = [i for i in stage.issues if i.code == "check.rt2-failed"]
             judged = bool(summary["judged"])
@@ -175,12 +177,42 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "differences": summary["differences"],
             }
             issues += [i for i in stage.issues if i.code != "check.rt2-failed"]
-            if passed:
-                result["level"] = "rt2"
-                evidence = Evidence.combine(evidence, stage.evidence)
-            elif differences:
+            if differences:
                 first = differences[0]
                 issues.append(_failed("rt2", path.name, first.where or first.message))
+            reached = passed
+            levels = [stage.evidence]
+            name = schematic_name(project)
+            if name in project.files:
+                # the project has a schematic: RT2 also needs the tool's ERC to agree on its re-dump
+                sheet = erc_rt2(oracle, project)
+                sheet_passed = sheet.judged and sheet.holds
+                result["rt2"]["schematic"] = {
+                    "passed": sheet_passed,
+                    "difference": sheet.difference,
+                    "judged": sheet.judged,
+                    "attempts": sheet.attempts,
+                    "violations": sheet.violations,
+                    "violations_redump": sheet.violations_redump,
+                    "redumped": sheet.redumped,
+                    "kept": sheet.kept,
+                }
+                if not sheet.reported:
+                    issues.append(
+                        check_issue(
+                            "check.oracle-failed",
+                            f"{oracle.name} wrote no ERC report for RT2: {sheet.message}",
+                            where=name,
+                            retryable=sheet.retryable,
+                        )
+                    )
+                elif sheet.judged and not sheet.holds:
+                    issues.append(_failed("rt2", name, sheet.difference))
+                reached = reached and sheet_passed
+                levels.append(sheet.evidence)
+            if reached:
+                result["level"] = "rt2"
+                evidence = Evidence.combine(evidence, *levels)
 
     return Result(
         result=result,

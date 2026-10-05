@@ -1221,7 +1221,7 @@ Fenolite did not write. It writes nothing; RT2 runs `kicad-cli` on copies.
 |---|---|
 | `rt0` | parsing the file, printing it and parsing it again gives an equal tree (any of the five S-expression kinds) |
 | `rt1` (default) | RT0, and the backend's same-version rebuild of a board or of a schematic gives an equal tree, an equal model and the same unmodelled content. For a kind without a rebuild `result.rt1` is `not-applicable` and the level reached is `rt0` |
-| `rt2` | RT1, and KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it. `PATH` may then be a project file or folder |
+| `rt2` | RT1, and KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it; when the project has a schematic of the board's stem, KiCad's ERC also gives the same violations for the project and for Fenolite's re-dump of its sheets. `PATH` may then be a project file or folder |
 
 `result` holds `kind`, `level` (the highest level that holds, or `none`), and per level asked an object
 `{passed, difference}`, with `opaque_count` for `rt1`, and for `rt2` also `judged`, `normalised`, `runs`,
@@ -1234,6 +1234,15 @@ and nothing fails.
 | `roundtrip.failed` | error | a level does not hold; `where` is the first difference |
 
 `check.oracle-failed` and `check.rt2-unstable` of the RT2 stage pass through.
+
+For a project with a schematic, `result.rt2.schematic` holds `passed`, `difference`, `judged`,
+`attempts`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped, and
+those Fenolite cannot read, which stay as they are). KiCad's ERC does not repeat itself on every
+project. When its two runs on the project as it is differ, the schematic is not judged. When the
+re-dump differs, the three runs are made again, up to two more times: a difference fails RT2 only when
+it comes back on every attempt, and one attempt that holds settles it. The level is `rt2` only when
+the board's RT2 and the schematic's both hold; a schematic that is not judged leaves it at `rt1`
+without an error. No ERC report at all gives `check.oracle-failed`.
 
 | exit | error | when |
 |---|---|---|
