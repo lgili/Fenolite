@@ -949,6 +949,116 @@ meaning = "A kicad-cli that was found has a major other than 9 or 10, or reports
 fix = "Install KiCad 9 or 10, or name another binary."
 see = "doctor"
 
+["equiv.component-missing"]
+meaning = "A component reference exists on one side of the comparison only."
+fix = "Add or remove the component, or leave such references out with --ignore-ref."
+see = "equivalent"
+
+["equiv.dnp"]
+meaning = "A component is marked do-not-populate on one side only."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
+["equiv.excluded"]
+meaning = "A rule of the exclusion profile matched differences. They are listed under result.excluded and do not fail the comparison."
+fix = "Nothing to do; read the rule's reason in the message."
+see = "equivalent"
+
+["equiv.footprint-missing"]
+meaning = "A component both sides hold is placed on one side only."
+fix = "Place the component on the other side's board, or compare at level 2."
+see = "equivalent"
+
+["equiv.footprint-name"]
+meaning = "The footprint names of a component differ; the library nickname before the last ':' is not compared."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
+["equiv.import-message"]
+meaning = "kicad-cli's import report holds this warning or error about the document it converted."
+fix = "Nothing to do; it explains differences that come from the converter."
+see = "equivalent"
+
+["equiv.no-exclusion-profile"]
+meaning = "No exclusion profile exists for the running kicad-cli version line, so the comparison ran with no rule, the relative frame and no tolerance."
+fix = "Read the differences as unattributed, or use a kicad-cli version that has a profile."
+see = "equivalent"
+
+["equiv.oracle-failed"]
+meaning = "kicad-cli wrote no board for the document, or a board that Fenolite's KiCad reader refuses, so no level ran."
+fix = "Read the tool's message; run again with a larger --timeout for a large document."
+see = "equivalent"
+
+["equiv.pad-copper"]
+meaning = "A pad reaches other copper (top, inner, bottom) on one side than on the other."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
+["equiv.pad-drill"]
+meaning = "The drill of a pad differs by more than the length tolerance, or only one side has a drill."
+fix = "Correct the pad, or pass --tolerance-nm when the difference is rounding."
+see = "equivalent"
+
+["equiv.pad-kind"]
+meaning = "A pad is surface-mount on one side and through-hole, unplated or connector on the other."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
+["equiv.pad-missing"]
+meaning = "The two footprints of a component hold different counts of pads with one number; those pads are not compared further."
+fix = "Compare the two footprints; 'where' is REF-PIN and the two values are the counts."
+see = "equivalent"
+
+["equiv.pad-position"]
+meaning = "The position of a pad inside its footprint differs by more than the length tolerance on an axis."
+fix = "Correct the footprint, or pass --tolerance-nm when the difference is rounding."
+see = "equivalent"
+
+["equiv.pad-rotation"]
+meaning = "The rotation of a pad relative to its footprint differs by more than the angle tolerance, modulo the symmetry of its shape."
+fix = "Correct the footprint, or pass --tolerance-udeg when the difference is rounding."
+see = "equivalent"
+
+["equiv.pad-shape"]
+meaning = "The shape of a pad differs between the two sides."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
+["equiv.pad-size"]
+meaning = "The size of a pad differs by more than the length tolerance on an axis. A rectangle, oval or rounded rectangle turned by a quarter with its sizes swapped counts as equal."
+fix = "Correct the pad, or pass --tolerance-nm when the difference is rounding."
+see = "equivalent"
+
+["equiv.pin-missing"]
+meaning = "A pin or pad of a component both sides hold exists on one side only."
+fix = "Compare the footprint or the symbol of that component on the two sides; 'where' is REF-PIN."
+see = "equivalent"
+
+["equiv.position"]
+meaning = "A footprint's position differs by more than the length tolerance on an axis, after the translation of the frame."
+fix = "Move the footprint; pass --frame relative when one board is moved as a whole, or --tolerance-nm for rounding."
+see = "equivalent"
+
+["equiv.ref-ambiguous"]
+meaning = "A side holds a reference more than once, or an empty reference, so the component cannot be paired and takes no part in any level."
+fix = "Give each component its own reference, or leave such references out with --ignore-ref."
+see = "equivalent"
+
+["equiv.rotation"]
+meaning = "A footprint's rotation differs by more than the angle tolerance, modulo a full turn."
+fix = "Rotate the footprint, or pass --tolerance-udeg when the difference is rounding."
+see = "equivalent"
+
+["equiv.side"]
+meaning = "A footprint is on the top side on one side of the comparison and on the bottom on the other."
+fix = "Flip the footprint on one of the boards."
+see = "equivalent"
+
+["equiv.value"]
+meaning = "The value of a component differs between the two sides; values are compared as exact text."
+fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
+see = "equivalent"
+
 ["erc.lite.floating-pin"]
 meaning = "A pin is on no net and is not marked as not connected."
 fix = "Connect the pin, or mark it with no_connect in the script."

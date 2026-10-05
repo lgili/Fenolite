@@ -54,7 +54,7 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 
 - The differences of a level MUST be sorted by `(where, kind, field)` in code-point order, so that equal inputs give equal output.
 - A component reported as `component-missing` or `ref-ambiguous` MUST NOT be compared at any level, and a component reported as `footprint-missing` MUST NOT be compared further at levels 3 and 4: each fault is reported once.
-- `difference_issues(report)` MUST return one `Issue` of severity `error` per difference that no rule excludes, with `where` as above. Its code MUST be `netlist.assignment-differs` for kind `net` (c0020's code, built with `checks.codes.issue`) and `equiv.<kind>` for every other kind. `EQUIVALENCE_CODES` MUST map each `equiv.*` code this capability emits to its severities, including `equiv.excluded` (info), `equiv.import-message` (info), `equiv.no-exclusion-profile` (warning) and `equiv.oracle-failed` (error).
+- `difference_issues(report)` MUST return one `Issue` of severity `error` per difference that no rule excludes, with `where` as above. Its code MUST be `netlist.assignment-differs` for kind `net` (c0020's code, built with `checks.codes.issue`) and `equiv.<kind>` for every other kind. `EQUIVALENCE_CODES` (also named `ISSUE_CODES` in `codes.py`, the name by which `fenolite explain` finds issue-code tables) MUST map each `equiv.*` code this capability emits to its severities, including `equiv.excluded` (info), `equiv.import-message` (info), `equiv.no-exclusion-profile` (warning) and `equiv.oracle-failed` (error).
 
 #### Scenario: Kinds table is closed
 - **WHEN** `uv run pytest tests/unit/checks/equivalence/test_codes.py` runs
@@ -72,7 +72,7 @@ Every difference SHALL be a `Difference(level, kind, where, field, a, b)`.
 - **Side.** `top` and `bottom` are compared exactly. No tolerance applies.
 - **Text.** Values, references, pin numbers and footprint names are compared as exact strings; no case folding and no trimming.
 - **Footprint name.** The compared name is the part of `FootprintInstance.lib_ref` after its last `:`, or the whole text when it has none.
-- **Pad rotation by shape.** A `circle` pad, and an `oval` pad whose two sizes are equal within the tolerance, has no rotation: the field is not compared. A `rect`, `oval` or `roundrect` pad is compared with period `180_000_000`, and it MUST also be equal to a pad whose size axes are swapped and whose rotation differs by `90_000_000` modulo `180_000_000`; in that case neither `pad-size` nor `pad-rotation` is reported. A `trapezoid` or `custom` pad is compared with period `360_000_000`.
+- **Pad rotation by shape.** A `circle` pad, and an `oval` pad whose two sizes are equal within the tolerance, has no rotation: the field is not compared. A `rect`, `oval` or `roundrect` pad is compared with period `180_000_000`, and it MUST also be equal to a pad whose size axes are swapped and whose rotation differs by `90_000_000` modulo `180_000_000`; in that case neither `pad-size` nor `pad-rotation` is reported. A `trapezoid` or `custom` pad is compared with period `360_000_000`. When the two pads of a pair have different shapes, the field is not compared if either has no rotation, and the smaller of the two periods applies otherwise.
 - **Copper span.** A pad's copper span is the subset of `{top, inner, bottom}` its `layers` reach: a layer name is looked up in `Board.layers`; a `copper` layer with the lowest ordinal among copper layers is `top`, with the highest `bottom`, any other `inner`. Layers of another kind are ignored. A layer name that `Board.layers` lacks makes the span unknown, and an unknown span is not compared and is counted in the level summary as `copper_unknown`.
 - **Frame.** With `frame="absolute"` the translation is `(0, 0)`. With `frame="relative"` the translation is `(median_low(dx), median_low(dy))` over the components compared at level 4, with `dx` and `dy` the position of side `b` minus that of side `a`; it is `(0, 0)` when no component is compared. A position differs when `b - a - translation` exceeds the length tolerance on either axis. The report MUST hold the translation.
 - No rotation or mirror of a whole board is removed.
@@ -149,7 +149,7 @@ Level 2 SHALL compare the net-to-pin assignments of the two sides as partitions 
 
 ### Requirement: Level 3 compares footprints and pads
 Level 3 SHALL compare, for each component that level 1 compared, the `FootprintInstance` whose `component_id` is that component, in the footprint's own frame.
-- A component placed on one side only MUST give `footprint-missing`.
+- A component placed on one side only MUST give `footprint-missing`. A component placed on neither side is not compared at this level. When a component holds several footprints, the first by `(position.x, position.y, id)` is compared.
 - The footprint names MUST be compared under "Tolerances and normalisation".
 - **Pad pairing.** The pads of each footprint are grouped by `number`. Inside a group they are sorted by `(position.x, position.y)` and paired in that order. Groups of different sizes MUST give one `pad-missing` difference for the number, with the two counts as `a` and `b`, and the pads of that group are not compared further.
 - **Pad fields.** Each pair MUST be compared on `kind`, `shape`, `size`, `drill`, `position`, `rotation` and copper span, under "Tolerances and normalisation". `Pad.position` and `Pad.rotation` are footprint-local, as `docs/design-model.md` ("Pad frame") defines them; the footprint's own position, rotation and side take no part.
@@ -196,7 +196,7 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 `exclusions.py` SHALL read exclusion profiles from TOML text with `load_profiles(text, *, file="")`, and `compare_designs` SHALL apply the `rules` it is given.
 - **File.** The root MUST hold `schema = 1` and `[[profile]]` tables. A profile MUST hold `name`, `tool`, `tool_version`, `frame` (`absolute` or `relative`), `tolerance_nm`, `tolerance_udeg` and zero or more `[[profile.rule]]` tables. A rule MUST hold `id` (unique in the file), `level`, `kind` (a kind of that level), `where` (an `fnmatch` glob over the difference's `where`), `attribution` (`importer` or `undecided`), `reason` and `hypothesis`, and MAY hold `field` and `corpus` (a list of corpus row ids). Any other key, a missing key, a kind of another level or a duplicate id MUST raise `FormatError` naming the file and the rule.
 - **Selection.** `select_profile(profiles, name, tool_version)` MUST return the profile of that name whose `tool_version` is the longest prefix of the given version at a dot boundary (`10.0` matches `10.0.6` and not `10.01`), or `None`.
-- **Effect.** A difference that a rule matches (level, kind, glob and, when given, field) MUST be moved from `LevelResult.differences` to `LevelResult.excluded` as `Excluded(difference, rule_id)`. The first matching rule in file order wins. An excluded difference never makes `EquivalenceReport.equivalent` false.
+- **Effect.** A difference that a rule matches (level, kind, glob and, when given, field) MUST be moved from `LevelResult.differences` to `LevelResult.excluded` as `Excluded(difference, rule_id, reason)`, `reason` being the rule's reason. The first matching rule in file order wins. An excluded difference never makes `EquivalenceReport.equivalent` false.
 - A rule MUST NOT stop a comparison: the level still runs and still reports the other differences of the same component.
 - `difference_issues` MUST add one `equiv.excluded` info per rule that matched, with the count and the rule's reason.
 
@@ -223,10 +223,10 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
   - any other file, read with `registry.for_path(path).read(path)`: a KiCad board, or whatever c0043's Altium backend reads (a PCB document, a schematic document, a project file).
 
   A path no backend detects MUST exit 2 with `FEN-2001`. A missing path MUST exit 3 with `FEN-3001`. A read that returns a library MUST exit 2 with `FEN-2001`. A reader error keeps its own code.
-- **Options.** `--level N` (1 to 4; the default is `max_level` of the two sides), `--tolerance-nm N` and `--tolerance-udeg N` (non-negative integers, default 0), `--frame absolute|relative` (default `absolute`), `--ignore-ref GLOB` (repeatable), `--exclusions FILE` with `--profile NAME`, `--against kicad-import`, `--kicad-cli PATH` and `--timeout SECONDS` (default 300). A level above `max_level`, a bad value, `--exclusions` without `--profile` or the reverse, a profile the file lacks, and `B` together with `--against` or neither of them MUST exit 2 with `FEN-2001`; the message for a level names the side without footprints and the highest level available.
+- **Options.** `--level N` (1 to 4; the default is `max_level` of the two sides), `--tolerance-nm N` and `--tolerance-udeg N` (non-negative integers, default 0), `--frame absolute|relative` (default `absolute`), `--ignore-ref GLOB` (repeatable), `--exclusions FILE` with `--profile NAME`, `--against kicad-import`, `--kicad-cli PATH` and `--timeout SECONDS` (default 300). A level above `max_level`, a bad value, `--exclusions` without `--profile` or the reverse, a profile the file lacks, and `B` together with `--against` or neither of them, and `--exclusions` or `--profile` together with `--against`, MUST exit 2 with `FEN-2001`; the message for a level names the side without footprints and the highest level available.
 - **Profile defaults.** A selected profile supplies `frame`, `tolerance_nm` and `tolerance_udeg`; an option given on the command line overrides the profile's value.
 - **Result.** `result` MUST hold `level`, `equivalent`, `sides` (`a` and `b`, each with `path` as the name without its folder, `sha256` for a file, `backend`, `netlist_source`, `components` and `footprints`), `tolerances` (`length_nm`, `angle_udeg`), `frame`, `translation`, `levels` (one object per level run with `level`, `name`, `compared`, `differences`, `excluded` as counts, and `summary`), `differences` and `excluded` (lists of objects with `level`, `kind`, `where`, `field`, `a`, `b`, and `rule` for excluded ones) and `profile` (`null`, or `name`, `tool_version` and the count of rules).
-- **Issues and exit.** `issues` MUST be `difference_issues(report)` followed by the readers' warnings and infos of both sides. The exit code MUST be 5 when any difference is not excluded and 0 otherwise.
+- **Issues and exit.** `issues` MUST be `difference_issues(report)`, then the notices of the triangle (`equiv.no-exclusion-profile`, `equiv.import-message`), then the readers' warnings and infos of both sides. The exit code MUST be 5 when any difference is not excluded and 0 otherwise.
 - **Evidence.** The envelope evidence MUST be `Evidence.combine` of the two reads' evidence; a built design counts as `INFERRED`.
 - **Determinism.** The output MUST hold no absolute path and no temporary path, and two runs on the same inputs MUST be equal except `elapsed_ms`.
 - `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD, "--level", "4")`, which runs no subprocess.
@@ -288,9 +288,9 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 ### Requirement: Triangle oracle
 `fenolite equivalent A --against kicad-import` SHALL compare Fenolite's own read of an Altium PCB document with `kicad-cli`'s import of the same file.
 - Side `a` MUST be `registry.for_path(A).read(A)`, and `A` MUST be a file that c0043's Altium backend detects as a PCB document; any other input MUST exit 2 with `FEN-2001`.
-- Side `b` MUST be `altium_import.import_design(cli, A)`. `result.sides.b.backend` MUST be `kicad-import` and `result.sides.b.tool_version` the running version.
+- Side `b` MUST be `altium_import.import_design(cli, A)`. `result.sides.b.backend` MUST be `kicad-import`, `result.sides.b.tool_version` the running version, `result.sides.b.path` the name of `A` and `result.sides.b.sha256` `null` (the converted board holds identifiers that change between runs).
 - A missing `kicad-cli` MUST exit 6 with `FEN-6001`, and a major other than 10 MUST exit 6 with `FEN-6002` and a hint naming 10.0. Neither runs an import.
-- A run that writes no board, or a board the KiCad backend refuses, MUST give one `equiv.oracle-failed` error with the sanitised message and exit 5; no level runs.
+- A run that writes no board, or a board the KiCad backend refuses, MUST give one `equiv.oracle-failed` error with the sanitised message and exit 5; no level runs, and `result` holds `level` 0, `equivalent` `false`, an empty `levels` list and `sides.b` `null`.
 - The profile MUST be `select_profile(load_profiles(altium_import.exclusions_text()), "kicad-import", version)`. When it is `None`, the comparison MUST run with no rule, `frame="relative"` and tolerance 0, and one `equiv.no-exclusion-profile` warning MUST name the version.
 - The envelope evidence MUST be `Evidence.combine` of the two reads, with `oracle` `kicad-cli`.
 - Messages of the import report with severity warning or error MUST be reported as infos `equiv.import-message`, counted by text, with temporary paths replaced.
@@ -316,13 +316,14 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 - `attribution` MUST be `importer` only when a public source or the importer's own report shows that KiCad's importer makes the change. It MUST be `undecided` when the two reads differ and no public source says which is right.
 - A difference that Fenolite's reader or adapter causes MUST NOT get a rule: it is fixed, with a regression test under `tests/unit/backends/altium/`.
 - The profile's `frame` MUST be `relative` (KiCad moves an imported board on its sheet), and its `tolerance_nm` MUST be the smallest multiple of 10 that the measurement needs, with the measured maximum recorded in `docs/evidence/equivalence-triangle.md`.
-- Every rule MUST match at least one difference in the corpus run; a rule that matches nothing fails the test, so the list cannot go stale.
+- Every rule MUST match at least one difference in the corpus run; a rule that matches nothing fails the test, so the list cannot go stale. A row that `kicad-cli` cannot import on the running platform (a recorded failure of KiCad's own importer) is not judged there.
+- A rule selects by level, kind, field and a glob over `where`. Where the importer's behaviour depends on a property of a pad that a rule cannot see (its layer, its shape), the glob names the pads of the corpus rows it was observed on.
 - `docs/formats/kicad/cli.md` MUST gain a section "Importer differences" with one fact row per rule (`| fact | source | label | hypothesis |`).
 
 #### Scenario: Rules are live
 - **GIVEN** `kicad-cli` 10.0 and the fetched corpus documents
 - **WHEN** `uv run pytest tests/kicad/equivalence/test_triangle_corpus.py -k rules_are_live` runs
-- **THEN** every rule of the `10.0` profile matched at least once, and every rule's `corpus` list names only rows where it matched
+- **THEN** every rule of the `10.0` profile matched on each row of its `corpus` list that was imported, and on no other row
 
 #### Scenario: Rule facts are documented
 - **WHEN** `uv run pytest tests/unit/checks/equivalence/test_exclusion_data.py` runs
@@ -333,6 +334,7 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 - Both files MUST carry `needs_kicad` and `kicad_min_major(10)`; the corpus file MUST also carry `needs_corpus`.
 - A row on which `kicad-cli` writes no board MUST be skipped by its row id and listed in the evidence page with the exit code, as c0041's reader oracle does.
 - For each document and level the test MUST assert that no difference remains outside the profile's rules, and MUST print the counts `compared`, `differences` and `excluded`.
+- A reference that a document holds several times (the empty reference of pads that belong to no component, a designator given to several components) cannot be paired and gets no rule: the test leaves such references out by name (`ignore_refs`), asserts their counts on both sides, and the evidence page lists them per row.
 - `docs/evidence/equivalence-triangle.md` MUST record, per `kicad-cli` version, corpus row id and level: the counts, the translation, the largest position difference after the translation, and the rules that matched. Rows are named by corpus id and licence only.
 - A level counts as `ORACLE-VERIFIED(kicad-cli)` for a document only when no `undecided` rule matched at that level or below. `H-G-EQ-L1` to `H-G-EQ-L4` record the result per level, and the result of `H-A-UNIT` gains the position difference measured between the two models, next to the record-level figure of c0041.
 - No corpus document is committed, and no content of one appears in the repository beyond counts.
@@ -340,7 +342,7 @@ Level 4 SHALL compare, for each footprint pair that level 3 compared, `side`, `p
 #### Scenario: Corpus triangle
 - **GIVEN** `kicad-cli` 10.0 and the corpus rows fetched with `uv run python tools/corpus_fetch.py --uses altium-pcbdoc`
 - **WHEN** `uv run pytest tests/kicad/equivalence/test_triangle_corpus.py -s` runs
-- **THEN** it passes for every row at levels 1 to 4 and prints one line of counts per row and level
+- **THEN** it passes for every row that `kicad-cli` imports at levels 1 to 4 and prints one line of counts per row and level
 
 #### Scenario: Skipped below 10
 - **GIVEN** `FENOLITE_REQUIRE=kicad` and `kicad-cli` 9.0.9

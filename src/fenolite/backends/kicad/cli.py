@@ -49,6 +49,9 @@ DRC_REPORT = "drc.json"
 NETLIST = "out.net"
 """The file name ``export_netlist`` asks ``kicad-cli`` to write."""
 RENDER_DIR = "render"
+IMPORTED_BOARD = "imported.kicad_pcb"
+"""The file name ``import_board`` asks ``kicad-cli`` to write."""
+IMPORT_REPORT = "import.json"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
 DOCKER_PREFIX = "docker:"
 
@@ -142,6 +145,16 @@ class RefillRun:
 
     run: CliRun
     board: bytes | None
+
+
+@dataclass(frozen=True)
+class ImportRun:
+    """A ``pcb import`` run: the board KiCad wrote (``None`` when it wrote none) and its JSON report
+    (``None`` when it wrote none, or one that is not a JSON object)."""
+
+    run: CliRun
+    board: bytes | None
+    report: Mapping[str, object] | None
 
 
 class KicadCliError(FenoliteError):
@@ -346,6 +359,26 @@ class KicadCli:
         run = self._checked(["pcb", "upgrade", "--force", name], _with(board, files), "pcb upgrade")
         return run.outputs.get(name, Path(board).read_bytes())
 
+    def import_board(self, source: Path, *, format: str = "altium") -> ImportRun:  # noqa: A002
+        """``pcb import --format <format>`` (10.0 only) on a copy of ``source``: the run, the board it
+        wrote and its JSON report. It never raises for a non-zero exit; the caller reads ``board``."""
+        self._require_ten("pcb import")
+        name = Path(source).name
+        args = ["pcb", "import", "--format", format, "--report-format", "json"]
+        args += ["--report-file", IMPORT_REPORT, "-o", IMPORTED_BOARD, name]
+        run = self.run(args, files={name: Path(source)})
+        report: object = None
+        if IMPORT_REPORT in run.outputs:
+            try:
+                report = json.loads(run.outputs[IMPORT_REPORT].decode("utf-8", "replace"))
+            except ValueError:
+                report = None
+        return ImportRun(
+            run,
+            run.outputs.get(IMPORTED_BOARD),
+            cast(Mapping[str, object], report) if isinstance(report, dict) else None,
+        )
+
     def export_netlist(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> CliRun:
         """``sch export netlist --format kicadsexpr`` on a copy: the run, with the netlist under
         ``NETLIST`` in its outputs when one was written. It never raises for a non-zero exit, so a
@@ -494,6 +527,9 @@ __all__ = [
     "windows_kicad_clis",
     "DRC_REPORT",
     "DOCKER_PREFIX",
+    "IMPORTED_BOARD",
+    "IMPORT_REPORT",
+    "ImportRun",
     "MACOS_KICAD_CLI",
     "NETLIST",
     "RENDER_DIR",

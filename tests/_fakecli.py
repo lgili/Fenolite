@@ -6,7 +6,9 @@ The fake is a launcher around a Python script (a ``#!/bin/sh`` script, or a ``.c
 ``_resources.fake_tool``). It answers
 ``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
-board unchanged, ``"fail"`` exits 1; c0020), and the export and render commands of c0024
+board unchanged, ``"fail"`` exits 1; c0020), ``pcb import`` (``imported=<board text>`` writes it to the
+``-o`` file with a JSON report and prints ``import_output``; without it, exit 0 and no file; c0045), and
+the export and render commands of c0024
 (``export_files``): an export whose ``-o`` names a folder or a file in a folder, as ``fenolite export``
 asks for, while the netlist oracle of c0020 exports to the run folder itself. Without ``drc_report`` its
 DRC report
@@ -70,6 +72,14 @@ if args[:2] == ["pcb", "upgrade"]:
     board = args[-1]
     text = open(board, encoding="utf-8").read()
     open(board, "w", encoding="utf-8", newline="").write(text)
+if args[:2] == ["pcb", "import"]:
+    if config["imported"] is not None:
+        open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["imported"])
+        report = {"errors": [], "warnings": config["import_warnings"], "source_file": args[-1],
+                  "source_format": "Altium Designer", "output_file": args[args.index("-o") + 1]}
+        open(args[args.index("--report-file") + 1], "w", newline="").write(json.dumps(report))
+        sys.stdout.write(config["import_output"])
+    sys.exit(0)
 if args[:2] == ["sch", "upgrade"]:
     sheet = args[-1]
     text = open(sheet, encoding="utf-8").read()
@@ -173,6 +183,9 @@ def fake_kicad_cli(
     refill_board: str | None = None,
     export_files: Mapping[str, Mapping[str, str]] | None = None,
     export_fail: Sequence[str] = (),
+    imported: str | None = None,
+    import_output: str = "",
+    import_warnings: Sequence[str] = (),
 ) -> Path:
     """An executable fake ``kicad-cli`` in ``folder`` (``help_pages`` keyed by the command words, ``""``
     for the root page).
@@ -201,6 +214,9 @@ def fake_kicad_cli(
             k: dict(v) for k, v in (EXPORT_FILES if export_files is None else export_files).items()
         },
         "export_fail": list(export_fail),
+        "imported": imported,
+        "import_output": import_output,
+        "import_warnings": list(import_warnings),
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")

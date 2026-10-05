@@ -283,7 +283,10 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 made_bodies.append(found)
                 ctx.census.map("bodies")
         designator, comment = texts.get(index, ("", ""))
-        ref = record.source_designator or designator
+        # The reference is the designator the board shows. The source designator names the schematic
+        # component: the instances of a repeated sheet share it, and a designator changed on the board
+        # alone leaves it behind (pcb-read.md, ``H-A-RD-PCB-TEXT-2``).
+        ref = designator or record.source_designator or ""
         if record.source_unique_id:
             cmp_native = f"cmp:{record.source_unique_id}"
         elif record.unique_id:

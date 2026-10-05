@@ -217,3 +217,79 @@ Additive. A new command, a new package under `checks`, one new method and one mo
 4. **`--against` for other importers.** Default: only `kicad-import`. The option takes a name so that a later oracle needs no new flag.
 5. **A schematic-only side.** Default: levels 1 and 2 only, from the circuit. Level 2 between a schematic's circuit and a board is allowed and uses `model_netlist` for the schematic side.
 6. **Maintainer question.** May the committed `tests/data/altium/blink/blink.PcbDoc` serve as the CI triangle? Default: yes; it is built from the authored CC0 library and is already committed.
+
+## Implementation notes
+
+Recorded while implementing (2026-10-05), on `origin/dev` with c0020, c0041, c0043 and c0066 on the branch.
+
+**Names re-checked against the code found.**
+
+1. **No name of this change was taken.** c0066 added `diff`, `roundtrip`, `fmt`, `explain`, `restore`,
+   `net`, `region`, `neighbors` and `pads`; `equivalent` and `fenolite.checks.equivalence` were free.
+   `checks/diff.py` (c0066) and `checks/assignment_compare.py` (c0020) each hold a class of their own for
+   a difference; this change's `Difference` lives in `checks/equivalence/model.py` and is not exported by
+   `fenolite.checks`.
+2. **A built design is recognised differently by `diff`.** `diff` takes the project folder that holds
+   `.fenolite/meta.json`; `equivalent` takes the `.fenolite/` folder itself, as the requirement states, and
+   resolves a project folder to its board. Both stay as they are.
+3. **`fenolite explain`.** c0066's test finds issue-code tables by a module-level name that ends in
+   `ISSUE_CODES`. `codes.py` therefore also binds `ISSUE_CODES = EQUIVALENCE_CODES`; the table is listed in
+   `cli.explain.TABLES`, and `cli/data/explain.toml` explains every `equiv.*` code. Spec amended.
+4. **No requirement is modified.** The delta holds only added requirements, so no living text had to be
+   re-read for a `MODIFIED` block. `KicadCli.import_board` adds to `kicad-oracle` without changing a
+   requirement of it.
+5. **The corpus triangle runs in CI.** The `kicad-10` job already fetches the `altium-pcbdoc` rows and runs
+   `tests/kicad` with `FENOLITE_REQUIRE=kicad,corpus` (Open Question 2 expected a local run only). The
+   corpus test reuses the `KNOWN_IMPORT_FAILURES` pattern of c0041's reader oracle for the row that the
+   Linux build of `kicad-cli` 10.0.6 cannot import, and `rules_are_live` does not judge a rule on a row
+   that was not imported. No workflow file and no corpus use changed.
+
+**Deviations from the text of the design, each with its reason.**
+
+6. **`KINDS` is defined in `model.py`** and re-exported by `levels.py`: `exclusions.py` needs it to check a
+   rule's kind, and `levels.py` needs `apply_rules`.
+7. **`Excluded` has a third field, `reason`.** `difference_issues(report)` must give the rule's reason and
+   receives only the report. Spec amended.
+8. **The level functions return what the next level needs.** `level_components` returns its result and the
+   compared references, `level_footprints` its result and the footprint pairs, `level_placement` its
+   result and the translation.
+9. **Cases the requirement left open, now written down.** Two pads of different shapes: the smaller
+   rotation period applies. A component with several footprints: the first by position. A component
+   placed on neither side: not compared at level 3. Spec amended.
+10. **`--against` refuses `--exclusions`.** The triangle's profile is the importer's own; a second rule
+    file would have to be merged with it, which no requirement defines. Spec amended.
+11. **A failed import still returns a result** (`level` 0, no level, `sides.b` `null`), so that the
+    envelope keeps its shape. Side `b` of a triangle has no `sha256`: the converted board holds
+    identifiers that change between runs. Spec amended.
+12. **The proof of task 2.2** counted `def compare` lines; c0020's `compare_runs` and this change's own
+    `compare_designs` match too. The proof now counts `def compare(`. Task amended.
+
+**What the measurement changed (task group 5).**
+
+13. **`H-G-EQ-REF` found a fault of the adapter, fixed in c0043's code.** The first run gave 88
+    `component-missing` and 5 `ref-ambiguous` differences on one row: `adapter/board.py` took a component's
+    reference from the source designator, which the 84 components of a repeated sheet share (the model
+    then held seven duplicate references, `model.duplicate-ref`) and which 2 renamed components had left
+    behind. The reference is now the designator text, and the source designator only without one. This
+    changes one line of c0043's adapter and one sentence of its delta (`altium-import`, "Circuit
+    synthesised from a board"), and `docs/formats/altium/import.md`; c0043's unit, corpus and oracle tests
+    pass unchanged. The project import links by `SOURCEUNIQUEID` and by the record's source designator,
+    not by `Component.ref`, and is not affected.
+14. **`H-G-EQ-ROUND` is refuted; successor `H-G-EQ-ROUND-2`.** The largest difference is 9 nm, not 4 nm:
+    KiCad holds a converted length in steps of 10 nm (c0041's fact). The profile's tolerance is 10 nm, as
+    the row's criterion already said.
+15. **`H-G-EQ-FREE` is refuted; successor `H-G-EQ-FREE-2`.** KiCad gives the footprint of a free pad no
+    generated reference. Both reads hold it without a reference, so the empty reference is
+    `ref-ambiguous` on four rows. As "Risks" says for duplicate designators, these get no rule; the corpus
+    test leaves them out by name and the evidence page lists them.
+16. **Two `undecided` rules keep the four level rows `INFERRED`.** One component of one row has an empty
+    value in KiCad's board (no cause found in a public source), and two octagonal pads of another row are
+    `roundrect` in KiCad's board and `custom` in the import (the model has no octagon). `H-G-EQ-PADSHAPE`'s
+    criterion expected an `importer` rule for the octagon; it is `undecided`, because neither reading is
+    the reference. Five rows and the committed document hold at all four levels with no `undecided` match.
+17. **Rules that name pads.** A rule cannot select a pad by its layer or shape. The two paste-pad rules
+    and the octagon rule name the pads of the rows they were observed on (`U6-7_[12]`, `D[34]-2`); the same
+    behaviour on another board shows as a difference. Decision 8 rejected value matching, and this change
+    keeps that decision. Spec amended.
+18. **Decision 5's fallback was not needed.** No `rotation`, `pad-position` or `pad-rotation` difference
+    occurs on 146 bottom-side footprints, so no `frame = "board"` rule kind was built.

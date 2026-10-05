@@ -318,10 +318,10 @@ wait for the kit to reproduce them.
 
 | level | compares | milestone |
 |---|---|---|
-| 1 | components | v0.3 |
-| 2 | netlist (`REF-PIN`) | v0.3 |
-| 3 | footprints and pads | v0.3 |
-| 4 | placement | v0.3 |
+| 1 | components | v0.3; delivered by c0045 (`docs/equivalence.md`) |
+| 2 | netlist (`REF-PIN`) | v0.3; delivered by c0045 (`docs/equivalence.md`) |
+| 3 | footprints and pads | v0.3; delivered by c0045 (`docs/equivalence.md`) |
+| 4 | placement | v0.3; delivered by c0045 (`docs/equivalence.md`) |
 | 5 | routing (tracks and vias per net) | v0.4 |
 | 6 | rules | v0.6 |
 | 7 | geometry (XOR) | v0.6 |

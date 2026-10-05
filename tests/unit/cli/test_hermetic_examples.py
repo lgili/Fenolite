@@ -46,6 +46,11 @@ def test_check_is_listed() -> None:
     assert "check" in COMMANDS
 
 
+def test_equivalent_is_listed() -> None:
+    """``equivalent`` compares the example board with itself and starts no tool (change c0045)."""
+    assert "equivalent" in COMMANDS and not discover()["equivalent"].example_tools
+
+
 def test_tool_backed_commands() -> None:
     """Only ``export`` and ``render`` need a tool for their examples; every other command stays tool-free."""
     assert sorted(n for n, c in discover().items() if c.example_tools) == ["export", "render"]

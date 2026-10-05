@@ -134,7 +134,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 
 | kind | what KiCad does | how the oracle treats it |
 |---|---|---|
-| references | KiCad names a footprint after the shown string of its designator text, with the prefix `UNK` before a digit (S-0161); the import takes `SOURCEDESIGNATOR` first | footprints are paired by KiCad's name; a name that several footprints share is not compared (3 footprints of one row) |
+| references | KiCad names a footprint after the shown string of its designator text, with the prefix `UNK` before a digit (S-0161); the import takes the designator text too, and `SOURCEDESIGNATOR` only without one (since change c0045; before it took `SOURCEDESIGNATOR` first, which the components of a repeated sheet share) | footprints are paired by KiCad's name; a name that several footprints share is not compared (3 footprints of one row) |
 | free pads | KiCad makes a footprint without a reference of a pad that belongs to no component, as the import does | counted, not paired (20 pads of four rows) |
 | pads without a number | KiCad returns an unplated hole without its pad number and does not return a pad on a paste layer (`pcb-read.md`, "What KiCad does not import") | the numbered pads on copper are compared; the others are left out |
 | pad size and drill | KiCad's pad of another stack mode or of a custom shape is not a plain pad | size and round drill are compared for simple pads of a plain shape only |

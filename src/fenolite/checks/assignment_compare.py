@@ -167,11 +167,13 @@ def compare(a: PadNetList, b: PadNetList, *, min_pins: int = 1) -> PairResult:
     return PairResult(a.source, b.source, len(common), only_a, only_b, differences)
 
 
-def _names(design: Design | None) -> dict[str, str]:
+def net_names(design: Design | None) -> dict[str, str]:
+    """The name of each net of ``design`` by its id; empty for no design."""
     return {} if design is None else {n.id: n.name for n in design.circuit.nets}
 
 
-def _net(label: str, names: Mapping[str, str]) -> str:
+def net_text(label: str, names: Mapping[str, str]) -> str:
+    """A partition label as text: ``no net``, or the names of the nets it stands for."""
     if label == NO_NET:
         return "no net"
     return " and ".join(names.get(part, part) for part in label.split("|"))
@@ -181,8 +183,8 @@ def _pair_issues(pair: PairResult, names: Mapping[str, Mapping[str, str]]) -> li
     issues = [
         issue(
             "netlist.assignment-differs",
-            f"{d.element} is on {_net(d.net_a, names.get(d.a, {}))} in the {d.a} "
-            f"and on {_net(d.net_b, names.get(d.b, {}))} in the {d.b}",
+            f"{d.element} is on {net_text(d.net_a, names.get(d.a, {}))} in the {d.a} "
+            f"and on {net_text(d.net_b, names.get(d.b, {}))} in the {d.b}",
             where=d.element,
         )
         for d in pair.differences
@@ -232,7 +234,7 @@ def assignment_stage(
         return skipped(name, "unsupported-oracle")
     design = validation.read.design
     board, unnumbered = board_netlist(design)
-    names: dict[str, Mapping[str, str]] = {"board": _names(design), "model": _names(model)}
+    names: dict[str, Mapping[str, str]] = {"board": net_names(design), "model": net_names(model)}
     pairs: list[PairResult] = []
     issues: list[Issue] = []
     if built and model is not None:
@@ -266,4 +268,6 @@ __all__ = [
     "board_netlist",
     "compare",
     "model_netlist",
+    "net_names",
+    "net_text",
 ]

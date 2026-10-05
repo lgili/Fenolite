@@ -266,7 +266,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 ### Requirement: Circuit synthesised from a board
 `import_board` SHALL synthesise the circuit of a PCB document read without its schematic, as "Components synthesised from a board" of `design-model` requires.
-- One `Component` per footprint instance: `ref` from `source_designator`, else from the footprint's designator text, else `""`; `value` from its comment text; `lib_footprint_ref` the instance's `lib_ref`; `lib_symbol_ref` `<stem of source_component_library>:<source_lib_reference>` when both exist; `path` equal to `ref`.
+- One `Component` per footprint instance: `ref` from the footprint's designator text, else from `source_designator`, else `""` (amended by change c0045: the components of a repeated sheet share their source designator, and the board shows the reference that tells them apart); `value` from its comment text; `lib_footprint_ref` the instance's `lib_ref`; `lib_symbol_ref` `<stem of source_component_library>:<source_lib_reference>` when both exist; `path` equal to `ref`.
 - One `Pin` per distinct non-empty pad name, in pad order, with `name == ""` and `etype == "unspecified"`: a PCB document states no pin type.
 - Net members MUST be `PinRef(component id, pad name)` for every named pad on the net, without duplicates.
 - `Design.rules` MUST be the rule set of "Rules where they map", and `Design.header.name` the file stem.

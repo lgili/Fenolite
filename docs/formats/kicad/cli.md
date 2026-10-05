@@ -110,3 +110,23 @@ changes between identical runs gives `inconclusive` instead of a false differenc
 | `--check-zones` exists on 10.0 only and refills zones before plotting; Fenolite never passes it | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 | `pcb export svg --mode-single -o <file> --layers <list>` writes one SVG on both majors; `--mirror` mirrors it | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
 | `pcb render --side top\|bottom --width W --height H -o <file>.png` writes a PNG no larger than that size (368 × 280 for 400 × 300) with no display | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
+
+## Importer differences
+
+What `kicad-cli pcb import --format altium` changes in a board, as far as `fenolite equivalent --against
+kicad-import` needs it (change c0045). Each rule of
+`src/fenolite/backends/kicad/data/altium_import_exclusions.toml` has one row here, named by its rule id;
+the counts per document are in `docs/evidence/equivalence-triangle.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb import` takes `--output`, `--format` (`auto`, `pads`, `altium`, `eagle`, `cadstar`, `fabmaster`, `pcad` or `solidworks`), `--report-format` (`none`, `json` or `text`) and `--report-file`, and the input file | S-0022 | KICAD-VERIFIED (10.0.x) | H-K-00 |
+| An imported board is moved on its sheet as a whole, so an import keeps relative positions only | S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-G-EQ-SHIFT |
+| One binary length unit is 2.54 nm, so a length rounds to a whole nanometre in each reader, and the two results may differ by the rounding | S-0002 | INFERRED | H-G-EQ-ROUND |
+| `kicad-10.0-value-empty`: on one public document, one component whose comment text the document holds has an empty value in the converted board; the other 417 compared components have equal values | S-0020, S-0188 | INFERRED | H-G-EQ-VALUE |
+| `kicad-10.0-paste-pad-pin`: a pad on a paste layer is not imported, so its `REF-PIN` exists in Fenolite's read only (2 pads of one public document; `docs/formats/altium/pcb-read.md`, "What KiCad does not import") | S-0020, S-0161, S-0188 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-A-RD-PCB-KICAD-DOC |
+| `kicad-10.0-paste-pad`: the same pads at level 3: the footprint in KiCad's board holds no pad of that number | S-0020, S-0161, S-0188 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-A-RD-PCB-KICAD-DOC |
+| `kicad-10.0-component-copper-pad`: a copper region of a component, and a copper fill of a component without a net, become pads without a number, so the counts of unnumbered pads of a footprint differ (16 such pads on three public documents) | S-0020, S-0161, S-0172, S-0188, S-0199 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-A-RD-PCB-KICAD-DOC |
+| `kicad-10.0-octagon-shape`: an octagonal pad is a rounded rectangle in the converted board; Fenolite's import gives it a custom shape, and the model has no octagon (2 pads of one public document) | S-0020, S-0176 | INFERRED | H-G-EQ-PADSHAPE |
+| A converted length is held in steps of 10 nm; after the translation no footprint position, pad position, pad size or drill of seven public documents differs by more than 9 nm from Fenolite's read | S-0020, S-0002 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-G-EQ-ROUND-2 |
+| A pad that belongs to no component becomes a footprint without a reference, as in Fenolite's import; a footprint is named by the designator text the board shows | S-0020, S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-G-EQ-FREE-2 |

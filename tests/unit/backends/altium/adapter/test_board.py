@@ -270,3 +270,40 @@ def test_circuit_reference_value_and_symbol_reference() -> None:
     linked = dataclasses.replace(parts[0], source_unique_id="\\SHEETUID\\PARTUID")
     design = import_board(rec.document(components=[linked]), file="a.PcbDoc", sha256=rec.SHA)
     assert design.circuit.components[0].native_ids == {"altium": "cmp:\\SHEETUID\\PARTUID"}
+
+
+def test_the_reference_is_the_designator_the_board_shows() -> None:
+    """The reference of a footprint's component is its designator text, and the source designator only
+    without one (change c0045: the equivalence triangle found, on one public document, 84 components of a
+    repeated sheet that share their source designator and 2 whose designator was changed on the board;
+    KiCad's importer names all of them by the text)."""
+    data = (DATA / "blink" / "blink.PcbDoc").read_bytes()
+    document = read_pcbdoc(data)
+    shown = sorted(
+        text.text
+        for text in document.texts
+        if getattr(text, "is_designator", False) and text.prefix.component is not None
+    )
+    assert shown == ["D1", "R1", "U1"]
+
+    def refs(components: tuple[object, ...], **changes: object) -> list[str]:
+        changed = dataclasses.replace(document, components=components, **changes)  # type: ignore[arg-type]
+        design = import_board(changed, file="blink.PcbDoc", sha256="0" * 64)
+        assert not [i for i in design.validate() if i.code == "model.duplicate-ref"]
+        return sorted(c.ref for c in design.circuit.components)
+
+    # the instances of a repeated sheet share their source designator
+    shared = tuple(
+        dataclasses.replace(c, source_designator="R1") if c.source_designator in ("R1", "D1") else c
+        for c in document.components
+    )
+    assert refs(shared) == ["D1", "R1", "U1"]
+    # a designator changed on the board alone
+    renamed = tuple(
+        dataclasses.replace(c, source_designator="R9") if c.source_designator == "R1" else c
+        for c in document.components
+    )
+    assert refs(renamed) == ["D1", "R1", "U1"]
+    # without a designator text the source designator is the reference
+    assert refs(document.components, texts=()) == ["D1", "R1", "U1"]
+    assert refs(renamed, texts=()) == ["D1", "R9", "U1"]

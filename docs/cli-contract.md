@@ -1240,3 +1240,72 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 | 0 | none | the pads are listed |
 | 2 | `FEN-2001` | no part `REF` on the board (the hint names the closest references), no pad `NUMBER` on the part (the hint names its pad numbers), or an `--origin` that is not two lengths with units |
 | 3 | `FEN-3001` | the board does not exist or cannot be resolved |
+
+## equivalent
+
+`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--frame absolute|relative]
+[--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import] [--kicad-cli PATH]
+[--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates every
+difference at `REF` or `REF-PIN`. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
+defines the levels, the kinds of difference, the tolerance rules and the exclusion file.
+
+Each of `A` and `B` is one of:
+
+- a `.fenolite/` folder (it holds `meta.json` or `build.json`): the built design, backend `fenolite`;
+- a `.kicad_pro` file or a project folder, resolved to its board as `check` resolves it;
+- any other file that a backend reads into a design: a KiCad board, an Altium PCB document, schematic
+  document or project file.
+
+| option | meaning |
+|---|---|
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement). The default is the highest level both sides hold: 4 when both have footprints, else 2 |
+| `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
+| `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
+| `--ignore-ref GLOB` | leave out the components whose reference matches (repeatable) |
+| `--exclusions FILE --profile NAME` | apply the rules of one profile of an exclusion file. The profile also gives the frame and the tolerances; an option on the command line overrides its value |
+| `--against kicad-import` | instead of `B`: convert `A`, an Altium PCB document, with `kicad-cli pcb import` (10.0 only) and compare Fenolite's read of `A` with the read of the converted board, under the `kicad-import` profile of the running version line |
+| `--kicad-cli PATH`, `--timeout SECONDS` | the tool of `--against` and its time limit (default 300 s) |
+
+`result` holds:
+
+| key | value |
+|---|---|
+| `level` | the highest level that ran |
+| `equivalent` | `true` when no difference remains outside the rules |
+| `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board` or `circuit`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version` |
+| `tolerances` | `length_nm` and `angle_udeg` |
+| `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
+| `levels` | one object per level run: `level`, `name`, `compared`, `differences` and `excluded` (counts) and `summary` |
+| `differences`, `excluded` | objects `{level, kind, where, field, a, b}`, in level order and then by `where`; an excluded one also has `rule` |
+| `profile` | `null`, or `name`, `tool_version` and `rules` (the count of rules) |
+
+`issues` holds one error per difference that no rule excludes, then one `equiv.excluded` info per rule
+that matched, then the notices of the triangle, then the readers' warnings and infos of `A` and of `B`.
+The evidence is the lowest of the two readings (a built design counts as `INFERRED`); with `--against`,
+`evidence.oracle` is `kicad-cli`.
+
+| code | severity | meaning |
+|---|---|---|
+| `equiv.component-missing` | error | a reference that only one side holds |
+| `equiv.ref-ambiguous` | error | a reference that a side holds more than once, or an empty reference |
+| `equiv.value`, `equiv.dnp` | error | the value or the do-not-populate flag of a component differs |
+| `equiv.pin-missing` | error | a `REF-PIN` of a common component that only one side holds |
+| `netlist.assignment-differs` | error | a `REF-PIN` whose net block differs (the code of `check`'s assignment comparison) |
+| `equiv.footprint-missing` | error | a common component placed on one side only |
+| `equiv.footprint-name` | error | the footprint names differ (the library nickname is not compared) |
+| `equiv.pad-missing` | error | different counts of pads of one number |
+| `equiv.pad-kind`, `equiv.pad-shape`, `equiv.pad-size`, `equiv.pad-drill`, `equiv.pad-position`, `equiv.pad-rotation`, `equiv.pad-copper` | error | a field of a pad differs, in the footprint's frame |
+| `equiv.side`, `equiv.position`, `equiv.rotation` | error | the placement of a footprint differs |
+| `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
+| `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
+| `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
+| `equiv.oracle-failed` | error | `kicad-cli` wrote no board, or one that the KiCad reader refuses; no level ran |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | equivalent up to the level, outside the rules |
+| 5 | none | a difference remains, or `equiv.oracle-failed` |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints); a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 3 | `FEN-3001` | an input does not exist |
+| 3 | the reader's code | an input or the exclusion file cannot be read |
+| 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10 |
