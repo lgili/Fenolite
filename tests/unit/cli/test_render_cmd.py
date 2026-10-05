@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite render`` against the fake ``kicad-cli`` (capability cli-contract, "Render command";
-manufacturing-exports, "Render views"; change c0024). Hermetic."""
+manufacturing-exports, "Render views"; change c0024; cli-contract, "Manifest option of producing
+commands"; change c0065). Hermetic."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
+import _schema
 import pytest
 from _checkcli import hide_kicad, run
 from _fakecli import calls, fake_kicad_cli
@@ -128,3 +131,63 @@ def test_no_view_selected_and_no_tool(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert code == 2 and err["code"] == "FEN-2001"
     code, _, err, _ = run(monkeypatch, tmp_path, "render", str(root), "--out", "r", "--svg", "--dry-run")
     assert code == 6 and err["code"] == "FEN-6001"
+
+
+def _manifest(folder: Path) -> dict[str, dict[str, object]]:
+    manifest = json.loads((folder / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    assert _schema.validate(manifest, _schema.load("fenolite.artifacts.v0.json")) == []
+    return {e["path"]: e for e in manifest["artifacts"]}
+
+
+def test_manifest_views_join_the_fabrication_files(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    fake = _fake(tmp_path)
+    tool = ("--kicad-cli", fake, "--confirm")
+    code, env, _, _ = run(
+        monkeypatch, work, "export", str(root), "--out", "out", "--all", "--manifest", *tool
+    )
+    assert code == 0, env
+    fabrication = sorted(_manifest(work / "out"))
+    code, env, _, _ = run(
+        monkeypatch, work, "render", str(root), "--out", "out", "--svg", "--manifest", *tool
+    )
+    assert code == 0, env
+    assert [w["path"] for w in env["receipt"]["written"]] == [
+        "out/back.svg", "out/front.svg", "out/fenolite-artifacts.json",
+    ]  # fmt: skip
+    assert [v["kind"] for v in env["result"]["views"]] == ["svg", "svg"]  # the result is as before
+    listed = _manifest(work / "out")
+    assert sorted(listed) == sorted([*fabrication, "back.svg", "front.svg"])
+    board = hashlib.sha256((root / "board.kicad_pcb").read_bytes()).hexdigest()
+    for name in ("back.svg", "front.svg"):
+        view = listed[name]
+        data = (work / "out" / name).read_bytes()
+        assert (view["kind"], view["layer"], view["state"]) == ("render", None, "generated")
+        assert view["sha256"] == view["content_sha256"] == hashlib.sha256(data).hexdigest()
+        assert view["from"] == {"board": board} and view["tool"] == "kicad-cli 10.0.6"
+    assert listed["gerbers/board-F_Cu.gbr"]["layer"] == "F.Cu"
+
+
+def test_manifest_has_no_entry_for_a_failed_view(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    fake = _fake(tmp_path, export_fail=("render",))
+    args = ("render", str(root), "--out", "r", "--svg", "--png", "--manifest", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--confirm")
+    assert code == 0 and len(env["issues"]) == 2
+    assert sorted(_manifest(tmp_path / "r")) == ["back.svg", "front.svg"]
+
+
+def test_manifest_unreadable_refuses_the_views(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    (tmp_path / "r").mkdir()
+    (tmp_path / "r" / "fenolite-artifacts.json").write_text("{", encoding="utf-8")
+    args = ("render", str(root), "--out", "r", "--svg", "--manifest", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--confirm")
+    assert code == 5 and [i["code"] for i in env["issues"]] == ["manifest.unreadable"]
+    assert sorted(p.name for p in (tmp_path / "r").iterdir()) == ["fenolite-artifacts.json"]
+    assert env["receipt"] is None

@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite pnp`` (capability cli-contract, "Pnp command"; change c0064). Hermetic: no tool runs."""
+"""``fenolite pnp`` (capability cli-contract, "Pnp command"; change c0064; "Manifest option of producing
+commands"; change c0065). Hermetic: no tool runs."""
 
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 from pathlib import Path
 
+import _schema
 import pytest
 from _asmcli import COLUMNS, FIXTURE, INVALID, ROTATED, built, isolate
 from _boards import board, footprint
@@ -159,3 +162,56 @@ def test_command_declaration() -> None:
     assert COMMAND.mutates and COMMAND.example_tools == ()
     assert COMMAND.example_args[1:] == () and COMMAND.mutation_example_args is not None
     assert COMMAND.mutation_example_args[1:] == ("--out", "pnp.csv")
+
+
+def _listed(folder: Path) -> dict[str, dict[str, object]]:
+    manifest = json.loads((folder / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    assert _schema.validate(manifest, _schema.load("fenolite.artifacts.v0.json")) == []
+    assert manifest["tool"]["name"] == "fenolite" and manifest["check"] is None
+    return {e["path"]: e for e in manifest["artifacts"]}
+
+
+def test_manifest_tables_join_the_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    folder = built(monkeypatch, tmp_path)
+    board = hashlib.sha256(next(folder.glob("*.kicad_pcb")).read_bytes()).hexdigest()
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "bom", str(folder), "--source", "model", "--out", "out/bom.csv", "--manifest",
+        "--confirm",
+    )  # fmt: skip
+    assert code == 0, env
+    assert [w["path"] for w in env["receipt"]["written"]] == ["out/bom.csv", "out/fenolite-artifacts.json"]
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "pnp", str(folder), "--out", "out/pnp.csv", "--manifest", "--confirm"
+    )
+    assert code == 0, env
+    listed = _listed(tmp_path / "out")
+    assert list(listed) == ["bom.csv", "pnp.csv"]
+    for name, kind in (("bom.csv", "bom"), ("pnp.csv", "pnp")):
+        item = listed[name]
+        data = (tmp_path / "out" / name).read_bytes()
+        assert (item["kind"], item["layer"], item["state"], item["stale"]) == (kind, None, "generated", False)
+        assert item["sha256"] == hashlib.sha256(data).hexdigest() and item["bytes"] == len(data)
+        assert item["from"] == {"board": board} and str(item["tool"]).startswith("fenolite ")
+    assert listed["pnp.csv"]["evidence"] == env["evidence"]["level"]
+    text = (tmp_path / "out" / "fenolite-artifacts.json").read_text(encoding="utf-8")
+    assert str(tmp_path) not in text
+
+
+def test_manifest_needs_a_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for command in (("pnp",), ("bom", "--source", "model")):
+        code, _, err, _ = run(monkeypatch, tmp_path, *command, str(FIXTURE), "--manifest")
+        assert code == 2 and err["code"] == "FEN-2001" and "--out" in err["hint"]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_manifest_in_the_working_folder_and_refusals(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    args = ("pnp", str(FIXTURE), "--out", "pnp.csv", "--manifest")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--dry-run")
+    assert code == 0 and [p["path"] for p in env["result"]["plan"]] == ["pnp.csv", "fenolite-artifacts.json"]
+    assert list(tmp_path.iterdir()) == []
+    (tmp_path / "fenolite-artifacts.json").write_text("[]", encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--confirm")
+    assert code == 5 and [i["code"] for i in env["issues"]] == ["manifest.unreadable"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["fenolite-artifacts.json"]
+    code, env, _, _ = run(monkeypatch, tmp_path, *args[:-1], "--confirm")  # without --manifest: as before
+    assert code == 0 and [w["path"] for w in env["receipt"]["written"]] == ["pnp.csv"]

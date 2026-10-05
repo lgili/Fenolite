@@ -11,16 +11,17 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.base import Validator
+from fenolite.backends.base import ProjectSet, Validator
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
-from fenolite.checks.stages import relative_file
+from fenolite.checks.stages import CheckReport, relative_file
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
@@ -68,7 +69,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _stages(text: str | None) -> tuple[str, ...]:
+def parse_stages(text: str | None) -> tuple[str, ...]:
+    """The stages that ``--stages`` names, or the default ones; ``FEN-2001`` for an unknown name."""
     if text is None:
         return DEFAULT_STAGES
     names = [name.strip() for name in text.split(",")]
@@ -96,22 +98,33 @@ def _cache(root: Path) -> tuple[bool, Design | None, str]:
         return True, None, _relative(f"{type(exc).__name__}: {exc}", root)
 
 
-def _oracle(args: argparse.Namespace, board: Path) -> KicadOracle:
-    """The pre-flight of the ``ORACLE_STAGES``: a supported ``kicad-cli`` that reads this board's format."""
-    return KicadOracle(preflight(args.kicad_cli, args.timeout, board, hint=NO_TOOL_HINT))
+@dataclass(frozen=True, slots=True)
+class Checked:
+    """One run of the stages on a project: its copy set, whether Fenolite built it, the report, and the
+    version of the ``kicad-cli`` that ran (``None`` when no stage needed it)."""
+
+    project: ProjectSet
+    built: bool
+    report: CheckReport
+    tool_version: str | None
 
 
-def _run(args: argparse.Namespace, ctx: Context) -> Result:
-    stages = _stages(args.stages)
-    given = Path(args.path)
-    board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
+def run_stages(
+    board: Path, stages: tuple[str, ...], *, kicad_cli: str | None, timeout: float, hint: str = NO_TOOL_HINT
+) -> Checked:
+    """Run ``stages`` on the project of ``board`` as ``fenolite check`` does: the pre-flight of the
+    ``ORACLE_STAGES`` (a supported ``kicad-cli`` that reads this board's format, else ``FEN-6001`` or
+    ``FEN-6002`` with ``hint``), the ``.fenolite/`` model of a built project, and the refusal of a board
+    that Fenolite cannot read when no DRC report exists. ``fenolite manifest`` reads its states from it."""
     root = board.parent
     project = project_set(board)
     backend = registry.for_path(board)
     if not isinstance(backend, Validator):
         raise CliError("FEN-2001", f"no backend validates {board.name}", hint="pass a KiCad .kicad_pcb")
     built, model, cache_error = _cache(root)
-    oracle = _oracle(args, board) if set(ORACLE_STAGES) & set(stages) else None
+    oracle = None
+    if set(ORACLE_STAGES) & set(stages):
+        oracle = KicadOracle(preflight(kicad_cli, timeout, board, hint=hint))
     report = run_checks(project=project, stages=stages, model=model, built=built, validator=backend,
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
@@ -121,6 +134,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         old = isinstance(error, versions.UnsupportedFormatError)
         refusal = UnsupportedReadRefusedError if old else ReadRefusedError
         raise refusal(error, report.issues, file=relative_file(error.file, root))
+    return Checked(project, built, report, None if oracle is None else oracle.version())
+
+
+def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    stages = parse_stages(args.stages)
+    given = Path(args.path)
+    board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
+    checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout)
+    project, built, report = checked.project, checked.built, checked.report
     result: dict[str, Any] = {
         "project": {
             "board": project.board,

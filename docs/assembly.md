@@ -26,7 +26,8 @@ fenolite bom build/blink --source model --template my.toml --out bom.csv --confi
 Both commands print the table in the JSON envelope (`result.lines` or `result.rows`, one object per row,
 keyed by your column names, holding the same text the file would hold). They write a file only with
 `--out`, through the usual protocol: `--dry-run` shows the plan, `--confirm` writes. Neither runs a tool,
-and neither changes the project folder.
+and neither changes the project folder. With `--manifest` the file also joins `fenolite-artifacts.json`
+in its folder, beside the exported files ([`docs/exports.md`](exports.md), "The manifest").
 
 ## The neutral tables
 

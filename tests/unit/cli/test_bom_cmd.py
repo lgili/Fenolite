@@ -7,10 +7,12 @@ refuse and name the other source."""
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 import subprocess
 from pathlib import Path
 
+import _schema
 import pytest
 from _asmcli import COLUMNS, FIXTURE, INVALID, R1, built, isolate
 from _checkcli import run, without_elapsed
@@ -172,3 +174,31 @@ def test_command_declaration() -> None:
     assert COMMAND.example_args[1:] == ("--source", "model")
     assert COMMAND.mutation_example_args is not None
     assert COMMAND.mutation_example_args[1:] == ("--source", "model", "--out", "bom.csv")
+
+
+def _listed(folder: Path) -> dict[str, dict[str, object]]:
+    manifest = json.loads((folder / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    assert _schema.validate(manifest, _schema.load("fenolite.artifacts.v0.json")) == []
+    assert manifest["tool"]["name"] == "fenolite" and manifest["check"] is None
+    return {e["path"]: e for e in manifest["artifacts"]}
+
+
+def test_manifest_lists_the_bill(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Capability cli-contract, "Manifest option of producing commands" (change c0065)."""
+    args = ("bom", str(FIXTURE), "--source", "model", "--out", "tables/bom.csv", "--manifest")
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, *args, "--timestamp", "2026-01-02T03:04:05+00:00", "--confirm"
+    )
+    assert code == 0, env
+    listed = _listed(tmp_path / "tables")
+    assert list(listed) == ["bom.csv"]
+    bill = listed["bom.csv"]
+    assert bill["kind"] == "bom" and bill["from"] == {
+        "board": hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
+    }
+    assert bill["evidence"] == env["evidence"]["level"] == "INFERRED"
+    first = (tmp_path / "tables" / "fenolite-artifacts.json").read_bytes()
+    code, _, _, _ = run(
+        monkeypatch, tmp_path, *args, "--timestamp", "2026-01-02T03:04:05+00:00", "--confirm", "--no-backup"
+    )
+    assert code == 0 and (tmp_path / "tables" / "fenolite-artifacts.json").read_bytes() == first

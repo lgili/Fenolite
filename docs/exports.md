@@ -12,8 +12,9 @@ The normative text is in `docs/cli-contract.md` ("export", "render") and
 - **Nothing is written without `--confirm`.** `--dry-run` runs the tool on the copy and shows the plan:
   every file, its size and its SHA-256.
 - **All or nothing.** If one kind fails, no file is written, so a folder never holds a partial set.
-- **A manifest.** `--manifest` writes `fenolite-artifacts.json`: which file came from which board, by
-  which tool version, with its hashes.
+- **A manifest.** `--manifest` adds the files to `fenolite-artifacts.json`: which file came from which
+  board, by which tool version, with its hashes. `fenolite manifest` then says what was verified about
+  each file of the project.
 
 ## What Fenolite does not claim
 
@@ -107,20 +108,118 @@ exclude_dnp = true
 
 ## The manifest
 
-`fenolite-artifacts.json` (schema `schemas/fenolite.artifacts.v0.json`):
+`fenolite-artifacts.json` (schema `schemas/fenolite.artifacts.v0.json`) says which file came from which
+design, by which tool, with its hashes and what was verified about it. One format has two writers:
+
+- **A producing command** (`export`, `render`, `bom`, `pnp`) with `--manifest` adds its files to the
+  manifest of its output folder. Every entry it writes is `generated`.
+- **`fenolite manifest`** writes the project manifest next to the board: the design files and the
+  artefacts of the folders it is given, each with a state.
 
 | field | meaning |
 |---|---|
 | `schema` | `fenolite.artifacts.v0` |
 | `fenolite` | the Fenolite version |
-| `generated` | the time of the export; pass `--timestamp` for a fixed value |
+| `generated` | the time of the run; pass `--timestamp` for a fixed value |
 | `board.path`, `board.sha256`, `board.format_version` | the board file (name relative to the project folder), its SHA-256 and its KiCad format version |
-| `tool.name`, `tool.version` | `kicad-cli` and its version |
+| `tool.name`, `tool.version` | the tool of the run that wrote the manifest: `kicad-cli` and its version, or `fenolite` when no tool ran |
+| `project.board`, `project.schematic` | the board and the root schematic, each `path`, `sha256`, `format_version`, or `null` |
+| `check` | `null`, or the check behind the states: `stages` (each `name`, `status`, `level`, `oracle`) and `tool_version` |
+| `states` | the number of entries per state |
 | `artifacts[]` | one entry per file, sorted by `path` |
 
-Each artefact has `path` (relative to the manifest's folder), `kind`, `layer` (the canonical layer name
-of a Gerber, else `null`), `bytes`, `sha256`, `content_sha256` and `evidence`. The manifest holds no
-absolute path and does not list itself.
+Each entry has `path` (relative to the manifest's folder; in a project manifest, to the project folder),
+`kind`, `layer` (the canonical layer name of a Gerber, else `null`), `bytes`, `sha256`,
+`content_sha256`, `evidence`, and:
+
+| field | meaning |
+|---|---|
+| `state` | one of the five states below |
+| `held` | why the entry is not one state higher (`native-verified: drc.kicad reported errors`), or `""` when no higher state applies to its kind |
+| `stale` | true when a file was made from a board or schematic that has another SHA-256 now |
+| `from` | the SHA-256 of each source the file was made from (`board`, `schematic`); empty for a design file |
+| `tool` | what wrote the file (`kicad-cli 10.0.6`, `fenolite 0.2.0`), or `null` for a file neither wrote, or one edited since |
+
+Kinds: `gerbers`, `drill`, `pos`, `ipcd356` (`export`), `render`, `bom`, `pnp`, and for design files
+`kicad_pcb`, `kicad_sch`, `kicad_pro`, `kicad_dru`, `kicad_mod`, `kicad_sym`, `kicad_wks`, `lib-table`
+and `file` (any other file of a library folder). The manifest holds no absolute path and does not list
+itself. A manifest written by v0.1 has none of the fields from `project` on; it is still read, and its
+entries count as `generated`.
+
+`evidence` is the level of the entry's own claim: which files a tool wrote, with which hashes (the
+level of the run, so `INFERRED` for an export with a preset). For a
+design file the entry claims a hash only, so it is `UNVERIFIED`; what was verified about the file is its
+`state`, and the levels of the stages behind it are in `check`.
+
+### Merging
+
+`--manifest` never replaces a manifest. The command reads `fenolite-artifacts.json` of its output folder
+(`--out DIR` for `export` and `render`, the folder of `--out FILE` for `bom` and `pnp`), replaces the
+entries of the files it writes, keeps every other entry as it is, and plans the merged file as one more
+write. `board`, `tool` and `generated` become those of this run and `check` becomes `null`. If the file
+in the folder is not a manifest Fenolite reads, the command writes nothing at all and reports
+`manifest.unreadable`.
+
+```
+fenolite export build/blink --out build/blink/fab --all --manifest --confirm
+fenolite render build/blink --out build/blink/fab --svg --manifest --confirm
+fenolite pnp build/blink --out build/blink/fab/pnp.csv --manifest --confirm
+```
+
+### States
+
+A state is read from a result that already exists: a stage of `fenolite check`, the RT1 verdict of
+`fenolite roundtrip` for a sheet, and hashes. Nothing is judged a second time. The states are a ladder:
+a file has the highest one it reaches **together with every lower one that applies to its kind**, and a
+state that is not reached stops the ladder there.
+
+| state | rule | what it does not claim |
+|---|---|---|
+| `generated` | the file exists and its SHA-256 is recorded | that anything looked at it |
+| `checked` | the stages `model.validate` and `copper.clearance` ran on the project with status `ok`, and the file is the one that was hashed; a derived file (Gerber, drill, table, view) also needs its `from` to hold the present hash of a source that is `checked` | that the file itself was read: a Gerber is `checked` because the board it came from was |
+| `roundtrip-ok` | board: the stage `roundtrip` is `ok`; schematic sheet: it passes RT1. Other kinds skip this state | that the design is right: only that Fenolite reads and writes the file without loss |
+| `oracle-verified` | **unused**: no rule assigns it. It is kept for a tool that is neither the producer of a file nor its format's own application | — |
+| `native-verified` | board: the stage `drc.kicad` is `ok` and its evidence is `KICAD-VERIFIED`. The project file, the rules file, the footprint table, the footprint libraries and the drawing sheet reach it exactly when the board does: they are what KiCad loaded to judge it | that the board works: KiCad reported no error under the rules of the project, no more |
+
+Three limits are deliberate:
+
+- **A derived file stops at `checked`.** KiCad produced the Gerbers; nothing judged them. The producer
+  of a file does not verify it.
+- **The schematic side stops below `native-verified`.** A sheet reaches `roundtrip-ok`, and a symbol
+  library and `sym-lib-table` reach `checked`. KiCad's DRC does not load them; its ERC does, and the ERC
+  is not a stage of `check` yet. Their `held` says `native-verified: erc.kicad is not a stage of this
+  version of Fenolite`.
+- **A file of unknown origin stays `generated`.** A derived entry without `from` (an entry of a v0.1
+  manifest, or a file edited after it was exported) names no source, so nothing can be said about it.
+
+A state belongs to a hash. `export`, `render`, `bom` and `pnp` only ever write `generated`; states come
+from `fenolite manifest`, which hashes every file again.
+
+### The project manifest
+
+```
+fenolite manifest build/blink --artifacts build/blink/fab --dry-run
+fenolite manifest build/blink --artifacts build/blink/fab --confirm
+fenolite manifest build/blink --verify
+```
+
+`fenolite manifest PATH` lists the design files of the project (the board, its project and rules files,
+the library tables and the libraries they name inside the project, the schematic and its sheets), takes
+the entries of `DIR/fenolite-artifacts.json` for each `--artifacts DIR` inside the project, hashes every
+file, runs the stages of `check` and writes `fenolite-artifacts.json` next to the board. The exit code
+is 5 when the check found an error; the manifest is written all the same, with the states that hold.
+`--no-check` runs nothing and records hashes only. `--stages` selects the stages, as for `check`.
+
+When it writes, the command tells you what it could not carry over: `manifest.missing` (a listed file
+is gone and is left out), `manifest.changed` (a listed file was edited: it is listed as it is now,
+without `tool` and `from`), `manifest.stale` (the board changed after the file was made) and
+`manifest.unlisted` (a file in an artefact folder that no entry lists; it is not added).
+
+`--verify` answers "is this folder still what the manifest says?". It reads the manifest, hashes every
+listed file and writes nothing. `result.verified` is false, and the exit code 5, when a listed file is
+missing or has another hash; `result.differences` lists each path with its code. It runs no check: it
+compares bytes, it does not renew a state. To verify the manifest of one export folder, name it:
+`fenolite manifest build/blink --verify --out build/blink/fab/fenolite-artifacts.json`.
 
 ### Why two hashes
 
@@ -154,7 +253,8 @@ reports the size and SHA-256 of each view. It runs only when named.
 ## Where they sit in the loop
 
 `build` → `place` → `route` → `fill` → `check` → `export` → `render`. `export` does not run `check` for
-you and does not refuse a board with findings: the order is yours to keep.
+you and does not refuse a board with findings: the order is yours to keep. `fenolite manifest`, run last,
+records in one file whether that order was kept: an export of a board that changed since is `stale`.
 
 ## Assembly tables
 

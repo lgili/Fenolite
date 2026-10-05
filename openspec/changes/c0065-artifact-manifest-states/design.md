@@ -121,3 +121,51 @@ Cut order: (1) `--manifest` on `bom` and `pnp` (their files are then `manifest.u
 - **Should `build` write the project manifest itself?** Default: no; `build` writes its record, and `manifest` is the one writer of states.
 - **Should `manifest` exit 0 when the project has errors but the manifest was written?** Default: exit 5, as for any command that reports an error issue; the receipt still lists the manifest.
 - **Artefact folders outside the project folder.** Default: refused; a relative path with `..` would break when the folder moves.
+
+## Corrections during implementation (2026-10-05)
+
+The spec was written before c0060, c0064 and c0066 landed and with c0062 as a dependency. What the code
+is today changed these points; the delta specs say the same.
+
+1. **No ERC stage, so no `native-verified` on the schematic side.** c0062 is not started and `check` has
+   no `erc.kicad`. `states.RULES` holds no `native-verified` rule for a sheet; `states.PENDING` names the
+   rung and the stage, and `assign` ignores an `erc.kicad` entry in `stages`: a rule that no stage can
+   exercise would be an untested claim. A sheet stops at `roundtrip-ok`. c0062 moves the entry of
+   `PENDING` into `RULES`.
+2. **Symbol libraries and `sym-lib-table` follow the schematic, not the board.** The draft gave them
+   `native-verified` "exactly when the board does". KiCad's DRC does not load them: the copy set of the
+   DRC run (`projectset.project_set`) holds the footprint table and the footprint libraries only. A state
+   that the DRC cannot support is not written; they stop at `checked` and wait for the ERC with the
+   sheets.
+3. **`held`.** Each entry says why it is not one rung higher (`native-verified: drc.kicad reported
+   errors`, `native-verified: erc.kicad is not a stage of this version of Fenolite`). Without it a
+   reader cannot tell a schematic that failed from one that nothing could judge. It is one more optional
+   field of the entry; `""` at the top of the ladder of the kind.
+4. **A derived entry without `from` stays `generated`.** Entries of a v0.1 manifest have no `from`; the
+   rule "the sources its `from` names are `checked`" would be true of nothing and give `checked` to a
+   file of unknown origin.
+5. **`manifest.changed` and `manifest.missing` have two severities.** When `fenolite manifest` writes,
+   a listed artefact that is gone is left out, and one whose bytes changed is listed as it is now,
+   without `tool` and `from` (so it stays `generated`): both are warnings, the manifest that is written
+   is true. Under `--verify` both are errors. The draft had `manifest.changed` as an error only and did
+   not say what the writing command does with an edited artefact; listing its new hash with the old
+   `from` would have made it `checked`.
+6. **Paths are relative to the project folder.** The draft said "relative to the manifest's folder" in
+   one place and "inside `<root>`" in another. They are the same with the default `--out`; with another
+   `--out` (the command's own example writes into the working directory) the project folder is the one
+   that makes sense: it is where `--verify PATH` finds the files.
+7. **The design files are more than `project_set`.** `project_set` is the copy set of a DRC run and holds
+   neither the schematic nor the symbol table. The command adds `<stem>.kicad_sch`, the sheets it names
+   below the project folder, `sym-lib-table` and the `${KIPRJMOD}` symbol libraries it names.
+8. **`tool` of the manifest** names the tool of the run: `kicad-cli` when one ran, else `fenolite` (a
+   `bom` or `pnp` merge, `manifest --no-check`). c0024 always had `kicad-cli` there.
+9. **`evidence` of a design entry is `UNVERIFIED`.** The field is the level of the entry's own claim
+   (c0024: the file set and the hashes of an export). A design entry claims a hash; what was verified is
+   its `state`, and the levels behind it are in `check`.
+10. **`tools/gen_schemas.py`** learned the field metadata `name`, because `from` is a Python keyword.
+11. **Kind `file`.** A library folder is listed file by file and may hold a file that is no KiCad design
+    file (a 3D model). `design_kind` gives it the kind `file`, which stops at `checked`: KiCad's DRC is
+    not known to load it. A hidden file (a name that starts with `.`) is not listed.
+12. **An export with a preset** (c0074, merged while this change was implemented) has the envelope
+    level `INFERRED`. Its manifest entries take that level instead of `exports.EVIDENCE`'s: an entry
+    claims no more than the run that wrote it.

@@ -1293,3 +1293,9 @@ path = "tests/data/lens/acceptance/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol library table of the lens acceptance fixture (c0069): the authored Mini library"
+
+[[file]]
+path = "tests/data/exports/manifest_v01.json"
+origin = "authored"
+corpus_id = ""
+notes = "artefact manifest in the shape of v0.1, without the fields of c0065, authored for the c0065 tests; every hash is made up"

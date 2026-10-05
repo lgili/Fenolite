@@ -27,11 +27,12 @@ from fenolite.cli._assembly import (
     template_of,
 )
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._manifest import needs_out, table_manifest
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.exports import bom
+from fenolite.exports import bom, manifest
 from fenolite.exports.assembly import BomTemplate, property_name
 from fenolite.exports.codes import issue
 from fenolite.model.design import Design
@@ -53,6 +54,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--template", metavar="FILE", help="the column template (TOML); default: built in")
     parser.add_argument("-o", "--out", metavar="FILE", help="also write the table as a CSV file")
+    parser.add_argument(
+        "--manifest", action="store_true", help=f"also add FILE to {manifest.FILE_NAME} in its folder"
+    )
     parser.add_argument("--against", metavar="OTHER", help="another project: also list what changed from it")
 
 
@@ -108,6 +112,7 @@ def _missing_properties(parts: tuple[bom.BomPart, ...], template: BomTemplate) -
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    needs_out("bom", args.manifest, args.out)
     board = board_input(args.path, ctx)
     other = None if args.against is None else board_input(args.against, ctx)
     template, name = template_of(args.template, ctx)
@@ -138,13 +143,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             {"key": list(c.key), "change": c.change, "a_refs": list(c.a_refs), "b_refs": list(c.b_refs)}
             for c in bom.difference(_lines(before, rules)[1], lines)
         ]
-    return Result(
-        result=result,
-        issues=tuple(_missing_properties(parts, rules)),
-        evidence=evidence,
-        input=board.ref(),
-        writes=planned(args.out, "bom", header, cells, template.csv),
-    )
+    issues = _missing_properties(parts, rules)
+    writes = planned(args.out, "bom", header, cells, template.csv)
+    if args.manifest:  # the model source lists the parts of the board's project: the board is the source
+        writes, refused = table_manifest(
+            writes, ctx, evidence=evidence.level.value, board=board.manifest_ref()
+        )
+        issues += refused
+    return Result(result=result, issues=tuple(issues), evidence=evidence, input=board.ref(), writes=writes)
 
 
 _EXAMPLE = (EXAMPLE_BOARD, "--source", "model")

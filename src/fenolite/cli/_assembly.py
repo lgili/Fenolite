@@ -12,12 +12,14 @@ from pathlib import Path
 
 from fenolite.backends import registry
 from fenolite.backends.kicad.projectset import resolve_board
+from fenolite.cli._kicadtool import board_format
 from fenolite.cli.api import Context, PlannedWrite
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError
 from fenolite.core.evidence import Evidence
 from fenolite.exports.assembly import DEFAULT, AssemblyTemplate, CsvOptions, read_template, render_csv
+from fenolite.exports.manifest import BoardRef
 from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
 
@@ -44,6 +46,10 @@ class BoardInput:
 
     def ref(self) -> InputRef:
         return InputRef(path=self.path.name, sha256=self.sha256, kind="kicad_pcb", format_version=None)
+
+    def manifest_ref(self) -> BoardRef:
+        """The board as a manifest names it: its file name, hash and format version."""
+        return BoardRef(self.path.name, self.sha256, board_format(self.path))
 
 
 def board_input(argument: str, ctx: Context) -> BoardInput:

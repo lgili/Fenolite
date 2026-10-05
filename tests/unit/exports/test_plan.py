@@ -15,6 +15,7 @@ from _fakecli import GERBER, calls, fake_kicad_cli
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.exports import ISSUE_CODES, plan
+from fenolite.exports.codes import issue
 from fenolite.exports.plan import KINDS, Kind, arguments, gerber_layers, layer_suffixes, run_kind
 from fenolite.model.design import Design
 
@@ -165,5 +166,16 @@ def test_issue_codes() -> None:
         "assembly.template-invalid": "error",
         "bom.property-missing": "info",
         "pnp.no-outline": "error",
+        "manifest.unreadable": "error",
+        "manifest.missing": ("warning", "error"),
+        "manifest.changed": ("warning", "error"),
+        "manifest.stale": "warning",
+        "manifest.unlisted": "info",
     }
+    assert issue("manifest.missing", "m").severity == "warning"
+    assert issue("manifest.missing", "m", severity="error").severity == "error"
+    with pytest.raises(ValueError, match="never info"):
+        issue("manifest.changed", "m", severity="info")
+    with pytest.raises(ValueError, match="never warning"):
+        issue("export.failed", "m", severity="warning")
     assert isinstance(KINDS["gerbers"], Kind)

@@ -1644,6 +1644,31 @@ meaning = "A part has no placement, so its footprint was put in a row beside the
 fix = "Place it with place() in the script, with 'fenolite place', or in KiCad."
 see = "build"
 
+["manifest.changed"]
+meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
+fix = "Produce the file again with the command that wrote it, then run 'fenolite manifest' again; or keep the edit and accept the state 'generated'."
+see = "manifest"
+
+["manifest.missing"]
+meaning = "A file that a manifest lists does not exist. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning and the file is left out of the project manifest."
+fix = "Produce the file again with the command that wrote it, or run 'fenolite manifest' to write a manifest of the files that exist."
+see = "manifest"
+
+["manifest.stale"]
+meaning = "A file was made from a board or a schematic that has another SHA-256 now, so it does not describe the design as it is. 'where' is the file."
+fix = "Run the producing command again ('export', 'render', 'bom' or 'pnp') with --manifest, then 'fenolite manifest'."
+see = "manifest"
+
+["manifest.unlisted"]
+meaning = "A file lies in an artefact folder and no manifest entry lists it, so nothing is known about where it came from. It is not added to the project manifest."
+fix = "Nothing to do for a file you put there yourself; for a file a command wrote, run that command again with --manifest."
+see = "manifest"
+
+["manifest.unreadable"]
+meaning = "The fenolite-artifacts.json of the folder is not JSON, has another schema id or another shape. A producing command then writes nothing, rather than replace a file it does not understand; 'fenolite manifest' takes no entry from that folder."
+fix = "Move the file away or delete it, then run the command again; 'where' names the file."
+see = "manifest"
+
 ["netlist.assignment-differs"]
 meaning = "A pad is on different nets in two sources of the design: the model, the board file or KiCad's own export."
 fix = "Find which source is right for the pad that 'where' names; build again if the board is stale."

@@ -87,11 +87,13 @@ class SchemaBuilder:
         for f in dataclasses.fields(cls):
             prop = self.type_schema(hints[f.name])
             _apply_metadata(prop, dict(f.metadata))
-            properties[f.name] = prop
+            # ``name`` is the key on the wire when it is a Python keyword (``from_`` is written ``from``)
+            key = str(f.metadata.get("name", f.name))
+            properties[key] = prop
             no_default = f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
             # a wire field added after v0 was published is marked ``optional``: old documents stay valid
             if no_default or (self.all_required and not f.metadata.get("optional")):
-                required.append(f.name)
+                required.append(key)
         schema: dict[str, Any] = {}
         doc = (cls.__doc__ or "").strip().splitlines()
         if doc and not doc[0].startswith(cls.__name__ + "("):

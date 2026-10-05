@@ -16,10 +16,11 @@ from typing import Any
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.cli._assembly import board_input, objects, planned, read_design, template_of
 from fenolite.cli._examples import EXAMPLE_BOARD
+from fenolite.cli._manifest import needs_out, table_manifest
 from fenolite.cli.api import Command, Context, Result
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
-from fenolite.exports import placement
+from fenolite.exports import manifest, placement
 
 HELP = "the placement (pick-and-place) table of a board, through a column template (writes FILE with --out)"
 SIDES = ("top", "bottom", "both")
@@ -31,9 +32,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--template", metavar="FILE", help="the column template (TOML); default: built in")
     parser.add_argument("--side", choices=SIDES, default="both", help="the side to list (default both)")
     parser.add_argument("-o", "--out", metavar="FILE", help="also write the table as a CSV file")
+    parser.add_argument(
+        "--manifest", action="store_true", help=f"also add FILE to {manifest.FILE_NAME} in its folder"
+    )
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    needs_out("pnp", args.manifest, args.out)
     board = board_input(args.path, ctx)
     template, name = template_of(args.template, ctx)
     design, read_evidence = read_design(board)
@@ -61,13 +66,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "y_axis": rules.y_axis,
     }
     failed = any(found.severity == "error" for found in issues)
-    return Result(
-        result=result,
-        issues=tuple(issues),
-        evidence=Evidence.combine(placement.EVIDENCE, read_evidence),
-        input=board.ref(),
-        writes=() if failed else planned(args.out, "pnp", header, cells, template.csv),
-    )
+    evidence = Evidence.combine(placement.EVIDENCE, read_evidence)
+    writes = () if failed else planned(args.out, "pnp", header, cells, template.csv)
+    if args.manifest and writes:
+        writes, refused = table_manifest(
+            writes, ctx, evidence=evidence.level.value, board=board.manifest_ref()
+        )
+        issues += refused
+    return Result(result=result, issues=tuple(issues), evidence=evidence, input=board.ref(), writes=writes)
 
 
 COMMAND = Command(

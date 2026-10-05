@@ -1,0 +1,43 @@
+{
+  "artifacts": [
+    {
+      "bytes": 64,
+      "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "evidence": "KICAD-VERIFIED",
+      "kind": "drill",
+      "layer": null,
+      "path": "drill/board-PTH.drl",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    },
+    {
+      "bytes": 96,
+      "content_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+      "evidence": "KICAD-VERIFIED",
+      "kind": "gerbers",
+      "layer": "F.Cu",
+      "path": "gerbers/board-F_Cu.gbr",
+      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    {
+      "bytes": 40,
+      "content_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "evidence": "KICAD-VERIFIED",
+      "kind": "pos",
+      "layer": null,
+      "path": "pos/board-pos.csv",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+    }
+  ],
+  "board": {
+    "format_version": 20260206,
+    "path": "board.kicad_pcb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "fenolite": "0.1.0",
+  "generated": "2026-01-02T03:04:05+00:00",
+  "schema": "fenolite.artifacts.v0",
+  "tool": {
+    "name": "kicad-cli",
+    "version": "10.0.6"
+  }
+}

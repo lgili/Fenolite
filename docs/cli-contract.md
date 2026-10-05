@@ -639,7 +639,10 @@ not TOML, has another `schema`, or holds an unknown table, key or value exits 3 
 naming the `table.key`; a preset that cannot be read exits 3 with `FEN-3001`. With `pos.format`, the
 position file ends in `.csv`, `.pos` or `.gbr`. `result.preset` holds `file` (the name as given) and
 `sha256`, or `null`; with a preset the evidence also names `H-K-EXPORT-OPTIONS`.
-`--manifest` adds `DIR/fenolite-artifacts.json` (`schemas/fenolite.artifacts.v0.json`; `docs/exports.md`).
+`--manifest` adds the files to `DIR/fenolite-artifacts.json` (`schemas/fenolite.artifacts.v0.json`;
+`docs/exports.md`): the entries of an existing manifest are kept, those of equal paths replaced, each
+new entry `generated` with `from` holding the board's SHA-256 and `tool` `kicad-cli <version>`. A file
+there that is not a manifest gives `manifest.unreadable` (see "manifest"), and nothing is planned.
 `result` holds `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`,
 `content_sha256`; sorted by path), `tool_version` and `tool_writes` (files the tool wrote outside its
 output folders, such as `<stem>.kicad_prl`). When a kind fails, nothing is planned or written, so a
@@ -658,13 +661,15 @@ the file set and the hashes, and the content of each file is KiCad's.
 
 ## render
 
-`fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--kicad-cli PATH]
-[--timeout SECONDS]` writes review views of the board, through `kicad-cli` on the same copy set and
+`fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--manifest]
+[--kicad-cli PATH] [--timeout SECONDS]` writes review views of the board, through `kicad-cli` on the same copy set and
 with the same protocol and tool errors as `export`. `--svg` plots `front.svg` (`F.Cu`, `F.SilkS`,
 `F.Fab`, `Edge.Cuts`) and `back.svg` (the back layers, mirrored) with `pcb export svg --mode-single`;
 `--png` renders `top.png` and `bottom.png` with `pcb render`, at most `--width` by `--height` pixels
 (defaults 1600 and 1200, each from 64 to 8192). A call with neither flag exits 2. `result` holds `board`,
-`out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`.
+`out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`. `--manifest`
+merges the views that were produced into `DIR/fenolite-artifacts.json` as `export` does, each with
+the kind `render`; a view that failed has no entry.
 
 | code | severity | when |
 |---|---|---|
@@ -917,7 +922,7 @@ The twelve `altium.sheet.*` codes: `not-representable`, `not-template-content`, 
 warnings (losses); `appearance`, `rounded` and `builtin-drawn` are infos.
 ## bom
 
-`fenolite bom PATH [--source kicad|model] [--template FILE] [--out FILE] [--against OTHER]` gives the bill
+`fenolite bom PATH [--source kicad|model] [--template FILE] [--out FILE] [--manifest] [--against OTHER]` gives the bill
 of materials of the project `PATH` names (resolved as for `check`) as a neutral table, rendered through a
 column template that the user writes (`docs/assembly.md`). Fenolite ships no template of any assembly
 service; without `--template` the built-in default applies, whose column names are Fenolite's field names.
@@ -941,6 +946,10 @@ project give the same output apart from `elapsed_ms`.
 It is a mutating command that writes only with `--out FILE`: the plan then holds one write of kind `bom`,
 the CSV bytes of the table, and the mutation protocol applies (4 without `--dry-run` or `--confirm`).
 Without `--out` nothing is planned and the exit code is 0. The project folder never changes.
+`--manifest` (for `bom` and for `pnp`) also plans `fenolite-artifacts.json` in the folder of `FILE`,
+merged as `export` merges it, with one entry of kind `bom` or `pnp`: `tool` `fenolite <version>`,
+`from` the board's SHA-256, `evidence` the level of the envelope. Without `--out` it exits 2
+(`FEN-2001`).
 
 | code | severity | when |
 |---|---|---|
@@ -954,7 +963,7 @@ read when the project was not built by Fenolite.
 
 ## pnp
 
-`fenolite pnp PATH [--template FILE] [--side top|bottom|both] [--out FILE]` gives the placement
+`fenolite pnp PATH [--template FILE] [--side top|bottom|both] [--out FILE] [--manifest]` gives the placement
 (pick-and-place) table of the board `PATH` names (resolved as for `check`), rendered through the same kind
 of template (`docs/assembly.md`). It runs no tool. The rows always come from the board file, also in a
 built project, because `place`, `route` and `fill` write the board and not the `.fenolite/` model.
@@ -1159,6 +1168,7 @@ lists, per command, `paged` (the list: a path in `result`, or `issues`) and `def
 |---|---|---|
 | `check`, `analyze` | `issues` | none |
 | `diff` | `result.differences` | 200 |
+| `manifest` | `result.differences` with `--verify`, else `result.artifacts` | none |
 | `net` | `result.nets`, or `result.net.pads` with a net name | none |
 | `region` | `result.items` | none |
 | `neighbors` | `result.neighbors` | none |
@@ -1350,3 +1360,53 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10 |
+
+## manifest
+
+`fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]
+[--kicad-cli PATH] [--timeout SECONDS]` writes the project manifest: one `fenolite-artifacts.json`
+(`schemas/fenolite.artifacts.v0.json`) that lists every design file of the project `PATH` names and the
+artefacts of the folders it is given, each with its SHA-256 and a state (`docs/exports.md`, "States").
+`PATH` is resolved as for `check`. `--out` defaults to `fenolite-artifacts.json` next to the board. The
+mutation protocol applies, and the manifest is the only file the command plans.
+
+- **Design files.** The board, its project and rules files, the footprint table with the libraries it
+  names under the project folder and the drawing sheet (the copy set of `check`), then the schematic
+  `<stem>.kicad_sch` with the sheets it names, and the symbol table with its libraries. A library folder
+  is listed file by file. `tool` is `fenolite <version>` for a file whose hash `.fenolite/build.json`
+  records, and `null` for any other.
+- **Artefacts.** Each `--artifacts DIR` lies inside the project folder (else exit 2) and contributes the
+  entries of `DIR/fenolite-artifacts.json`, the file that `--manifest` of `export`, `render`, `bom` and
+  `pnp` writes. Every path is relative to the project folder, and every file is hashed again.
+- **Check.** Unless `--no-check` is given, the stages `--stages` names (default: those of `check`) run
+  exactly as `check` runs them, with the same pre-flight and tool errors, and the RT1 verdict of every
+  sheet is taken as `roundtrip` takes it. The issues of the check are the command's issues. The manifest
+  is planned whether or not the check found errors: an entry then has the state that holds.
+  `--no-check` runs no stage and no tool, and every entry is `generated`.
+- **`--verify`** reads the manifest and compares it with the files on disk. It writes nothing and runs no
+  check and no tool. `--out DIR/fenolite-artifacts.json` verifies the manifest of an artefact folder
+  instead: a manifest without a design file names its files from its own folder. It does not combine with `--no-check`, `--stages` or `--artifacts` (exit 2).
+
+`result` holds `manifest` (the path of the file), `project` (`board` and `schematic`, each `path`,
+`sha256` and `format_version`, or `null`), `states` (the number of entries per state), `artifacts`
+(`path`, `kind`, `state`, `stale`, `held`; sorted by path) and `check` (`stages`, each `name`, `status`,
+`level` and `oracle`, and `tool_version`; `null` without a check). With `--verify` it holds `verified`
+(true when no listed file is missing or changed) and `differences` (`path`, `code`) in place of `check`.
+`artifacts`, or `differences` under `--verify`, is the paged list. With `--timestamp`, two runs on
+unchanged files plan byte-identical manifests.
+
+| code | severity | when |
+|---|---|---|
+| `manifest.unreadable` | error | a `fenolite-artifacts.json` that is not JSON, has another schema id or another shape: an artefact folder then contributes nothing, and a producing command with `--manifest` plans no file |
+| `manifest.missing` | warning; error under `--verify` | a listed file does not exist; when writing, it is left out |
+| `manifest.changed` | warning; error under `--verify` | a listed file has another SHA-256; when writing, it is listed as it is now, without `tool` and `from`, so it stays `generated` |
+| `manifest.stale` | warning | a file made from a board or schematic that has another SHA-256 now |
+| `manifest.unlisted` | info | a file under an artefact folder that no entry lists; it is not added |
+
+Exit codes: 0 when the manifest is planned or written, or verified; 4 without `--dry-run` or
+`--confirm`; 5 with an error issue (after the write, when `--confirm` is given); 2 for a usage error;
+3 for a missing path, a board Fenolite cannot read or, under `--verify`, a missing manifest
+(`FEN-3001`) or one that cannot be read (`FEN-3004`); 6 when a stage needs `kicad-cli` and none is found
+(`FEN-6001`; the hint names `--no-check` and `--stages`) or it is unsupported (`FEN-6002`). The evidence
+is that of the stages that ran, combined as `check` combines them, with the schematic reader's when a
+sheet was judged; it is `UNVERIFIED` with `--no-check` and `--verify`.

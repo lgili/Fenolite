@@ -122,6 +122,7 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
         "analyze": ("issues", None),
         "check": ("issues", None),
         "diff": ("differences", 200),
+        "manifest": ("differences|artifacts", None),
         "neighbors": ("neighbors", None),
         "net": ("nets|net.pads", None),
         "region": ("items", None),

@@ -109,6 +109,11 @@ These commands read and answer; none of them runs a tool unless it says so.
 - `fenolite net BOARD [NAME]`, `fenolite region BOARD --box 10mm,5mm,30mm,20mm` and
   `fenolite neighbors BOARD R1` describe a net, a rectangle of the board and what is near a part.
 - `fenolite fmt FILE --check` says whether a file is in Fenolite's canonical print.
+- `fenolite manifest build/blink --artifacts build/blink/fab --confirm`, after `export`, writes one
+  file that lists every design file and exported file with its SHA-256 and a state (`generated`,
+  `checked`, `roundtrip-ok`, `native-verified`); it runs the stages of `check`, so it needs
+  `kicad-cli`. Read `held` of an entry to see what its next state is missing. Before you hand a folder
+  over, `fenolite manifest build/blink --verify` says whether its files are still the listed ones.
 - **Undo.** Keep the envelope of a confirmed write. When `receipt.undo` is not `null`,
   `fenolite restore ENVELOPE.json --confirm` puts the backups back. It refuses when a file changed since
   the write, and it never deletes a file.
