@@ -4,9 +4,9 @@
 Turn copper intents (tracks from pad to pad, single vias, stitching vias) into tracks and vias of a KiCad design after placement, with nets inferred and checked and ids derived from the caller's keys, and regenerate that script copper on every build so that it follows its pads and disappears with its intent.
 ## Requirements
 ### Requirement: Copper module
-The module `fenolite.backends.kicad.copper` SHALL resolve copper intents into tracks and vias of a KiCad design and SHALL merge script copper with existing copper, and MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad` (`package-layering`), never `fenolite.dsl`.
-- Public names: `COPPER_MARKER`, `copper_uuid`, `is_copper_uuid`, `PadEndLike`, `ViaStepLike`, `TrackIntentLike`, `ViaIntentLike`, `StitchIntentLike`, `CopperIntentLike`, `resolve_copper`, `merge_copper`, `CopperMerge`, `COPPER_ISSUE_CODES` and `EVIDENCE`. `fenolite.backends.kicad` MUST re-export `resolve_copper`.
-- Intents MUST be read by attribute through the structural protocols, so the DSL's frozen dataclasses (`design-dsl`, "Copper intents in the DSL") and any object with the same attributes are accepted. An intent with `path` is a track, one with `pitch` a stitch, and any other a via. A `Point` element of a path is a point; any other element is read as a pad end when it has `component`, else as a via step.
+The module `fenolite.backends.kicad.copper` SHALL resolve copper intents into tracks, arcs and vias of a KiCad design and SHALL merge script copper with existing copper, and MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad` (`package-layering`), never `fenolite.dsl`.
+- Public names: `COPPER_MARKER`, `copper_uuid`, `is_copper_uuid`, `PadEndLike`, `ViaStepLike`, `ArcStepLike`, `TrackIntentLike`, `ViaIntentLike`, `StitchIntentLike`, `CopperIntentLike`, `resolve_copper`, `merge_copper`, `CopperMerge`, `COPPER_ISSUE_CODES` and `EVIDENCE`. `fenolite.backends.kicad` MUST re-export `resolve_copper`.
+- Intents MUST be read by attribute through the structural protocols, so the DSL's frozen dataclasses (`design-dsl`, "Copper intents in the DSL") and any object with the same attributes are accepted. An intent with `path` is a track, one with `pitch` a stitch, and any other a via. A `Point` element of a path is a point; any other element is read as a pad end when it has `component`, as an arc step when it has `mid`, else as a via step. A via step or a via intent without `kind` is a `through` via, and a via intent without `layers` names none, so the intents of earlier scripts and tests keep their meaning.
 - `resolve_copper(design, intents, *, unplaced=(), issues=None) -> Design` and `merge_copper(existing, built) -> CopperMerge` MUST be pure: they read no file and no environment variable, and return new values without changing their arguments.
 
 #### Scenario: Import edges
@@ -19,10 +19,10 @@ The module `fenolite.backends.kicad.copper` SHALL resolve copper intents into tr
 - **THEN** the two results are equal and the input design's canonical texts are unchanged
 
 ### Requirement: Copper uuids and ids
-Every track and via that `resolve_copper` creates SHALL carry the KiCad uuid `copper_uuid(key, locator)` in `native_ids["kicad"]` and the id that "Identifier derivation" gives an imported object with that native id: `derived_id("trk", "kicad", uuid)` or `derived_id("via", "kicad", uuid)`, with `provenance` `None`.
+Every track, arc and via that `resolve_copper` creates SHALL carry the KiCad uuid `copper_uuid(key, locator)` in `native_ids["kicad"]` and the id that "Identifier derivation" gives an imported object with that native id: `derived_id("trk", "kicad", uuid)`, `derived_id("arc", "kicad", uuid)` or `derived_id("via", "kicad", uuid)`, with `provenance` `None`.
 - `copper_uuid(key, locator)` MUST be the RFC 9562 version-8 uuid (S-0110) whose 48-bit `custom_a` field is `COPPER_MARKER = 0x66656E6F6C69`, whose version is 8 and variant `0b10`, and whose other 74 bits are the first 74 bits of the SHA-256 of the UTF-8 text `kicad-copper:<key>:<locator>`, written in the canonical lower-case 36-character form, which starts with `66656e6f-6c69-8`. Because Python's `uuid.UUID` accepts `version` only up to 5 before 3.14 (S-0111), the version and variant bits MUST be set on the integer.
 - `is_copper_uuid(text)` MUST be true exactly for canonical uuid texts with that marker, version 8 and variant `0b10`.
-- Locators: `seg[i]` for the segment that leaves path element `i` of a track; `via[i]` for the via step at path element `i`; `via` for a single via; `via[k]` for the `k`-th via of a stitch along a polyline; `via[i,j]` for the stitch via at grid indices `(i, j)` of a region.
+- Locators: `seg[i]` for the segment that leaves path element `i` of a track; `arc[i]` for the arc of the arc step at path element `i`; `via[i]` for the via step at path element `i`; `via` for a single via; `via[k]` for the `k`-th via of a stitch along a polyline; `via[i,j]` for the stitch via at grid indices `(i, j)` of a region.
 - The same key and locator MUST give the same uuid and ids whatever the seed, `PYTHONHASHSEED` and the other intents, and two keys MUST share no uuid.
 
 #### Scenario: Marker and determinism
@@ -38,15 +38,22 @@ Every track and via that `resolve_copper` creates SHALL carry the KiCad uuid `co
 - **WHEN** the design is written with `write_board` and the text is read with `read_board`
 - **THEN** every track and via of the read design has the id and native id of its created item
 
+#### Scenario: Arc ids survive a write and a read
+- **GIVEN** the blink built for target 10 and a track intent `bend` whose path holds an arc step at element 1, resolved
+- **WHEN** the design is written with `write_board` and the text is read with `read_board`
+- **THEN** the read design holds one arc with the native id `copper_uuid("bend", "arc[1]")` and the id `derived_id("arc", "kicad", <that uuid>)`
+
 ### Requirement: Tracks from intents
-`resolve_copper` SHALL turn each track intent (`key`, `path`, `layer`, `width`, `net`) into tracks and through vias along its path.
-- A path element MUST be a pad end (`component`, `number`, `index`), a point, or a via step (`at`, `layer`, `diameter`, `drill`). A path with fewer than two elements or starting with a via step, or a key used by an earlier intent, MUST give `kicad.copper.bad-intent` (error).
-- The point of a pad end MUST be the `position` of the chosen pad (`board-frame`, "Board-frame pads").
-- The current layer starts as the intent's `layer`. For each element `i` but the last, one `Track` MUST be created from the point of element `i` to the point of element `i + 1` on the current layer, after the layer change of element `i` when it is a via step. A segment whose two points are equal MUST NOT be created, and its locator stays unused. A via step MUST create one `through` via at its point, whose `layers` are the first and last copper layers of the board, and MUST set the current layer to its `layer`.
-- **Pad choice.** A pad end may stand anywhere in the path, so a track can chain several pads. Its candidates MUST be the pads that `find_pads(design, component, number)` returns that have a copper entry on the layer of every segment touching that end. With `index`, the `index`-th of all matches MUST be used. Without it, pad ends MUST be chosen in path order: the first element takes the candidate nearest to the point of the second element, or the nearest pair when the second element is a pad end without `index`; every other pad end takes the candidate nearest to the point of the element before it. Distances are exact squared distances, with ties to the earlier pads.
-- **Layers.** `layer` and every via step's `layer` MUST be copper layers of the board and every via step MUST change the layer, else `kicad.copper.bad-layer`. A pad end without a candidate MUST give `kicad.copper.layer-mismatch`; a component or number that `find_pads` cannot match, or an `index` beyond the matches, `kicad.copper.pad-not-found` (errors).
+`resolve_copper` SHALL turn each track intent (`key`, `path`, `layer`, `width`, `net`) into tracks, arcs and vias along its path.
+- A path element MUST be a pad end (`component`, `number`, `index`), a point, a via step (`at`, `layer`, `diameter`, `drill`, `kind`) or an arc step (`mid`, `end`). A path with fewer than two elements or starting with a via step or an arc step, or a key used by an earlier intent, MUST give `kicad.copper.bad-intent` (error).
+- The point of a pad end MUST be the `position` of the chosen pad (`board-frame`, "Board-frame pads"), and the point of an arc step its `end`.
+- The current layer starts as the intent's `layer`. For each element `i` but the last, one item MUST be created from the point of element `i` to the point of element `i + 1` on the current layer, after the layer change of element `i` when it is a via step: an `Arc` when element `i + 1` is an arc step ("Arcs" below), a `Track` otherwise. A segment whose two points are equal MUST NOT be created, and its locator stays unused. A via step MUST create one via at its point, of its kind and with its layers ("Via kinds" below), and MUST set the current layer to its `layer`.
+- **Pad choice.** A pad end may stand anywhere in the path, so a track can chain several pads. Its candidates MUST be the pads that `find_pads(design, component, number)` returns that have a copper entry on the layer of every segment or arc touching that end. With `index`, the `index`-th of all matches MUST be used. Without it, pad ends MUST be chosen in path order: the first element takes the candidate nearest to the point of the second element, or the nearest pair when the second element is a pad end without `index`; every other pad end takes the candidate nearest to the point of the element before it. Distances are exact squared distances, with ties to the earlier pads.
+- **Layers.** `layer` and every via step's `layer` MUST be copper layers of the board and every via step MUST change the layer, else `kicad.copper.bad-layer`; the two layers of a via step MUST also fit its kind ("Via kinds" below), with the same code. A pad end without a candidate MUST give `kicad.copper.layer-mismatch`; a component or number that `find_pads` cannot match, or an `index` beyond the matches, `kicad.copper.pad-not-found` (errors).
 - **Sizes.** The width MUST be the intent's `width`, else the `track_width` of the class of the track's net; a via step's sizes its `diameter` and `drill`, else the class's `via_diameter` and `via_drill`. A missing size MUST give `kicad.copper.size-missing`, and a size that is not positive or a drill not smaller than its diameter `kicad.copper.bad-size` (errors).
-- An intent with an error MUST create nothing; the next intents are still resolved. Created tracks and vias MUST follow the path order, and intents their given order.
+- An intent with an error MUST create nothing; the next intents are still resolved. Created tracks, arcs and vias MUST follow the path order, and intents their given order.
+- **Arcs.** The item that ends at an arc step MUST be one `Arc` on the current layer, with the width and the net of the intent, from the point of the element before the step through the step's `mid` to its `end`, with the locator `arc[i]`, `i` being the index of the arc step. Its three points MUST be distinct and MUST NOT lie on one line, decided exactly with integers; otherwise the intent gives `kicad.copper.bad-intent`.
+- **Via kinds.** The kind of a via step is its `kind`: `through` (also when the step has none), `blind`, `buried` or `micro`; any other value gives `kicad.copper.bad-intent`. A `through` via MUST have the first and last copper layers of the board as its `layers`, as before. Any other kind MUST have the current layer and the step's `layer`, in stack order, and they MUST fit the kind: for `blind`, exactly one of the two is the first or the last copper layer; for `buried`, neither is; for `micro`, exactly one is, and the two are next to each other in the stack. `Via.via_type` MUST be the kind. Whether a target can hold a kind is the board writer's rule (`kicad-file-backend`, "Lossy writes are refused unless allowed"): a `buried` via needs target 10.
 
 #### Scenario: Pad to pad through a via step
 - **GIVEN** the blink built for target 10, and the intent `led_a` from `R1` pad `2` through a point `P` and a via step at `Q` to `B.Cu`, ending at `D1` pad `2`, on `F.Cu` with width 0.3 mm and via sizes 0.6 mm and 0.3 mm
@@ -67,6 +74,26 @@ Every track and via that `resolve_copper` creates SHALL carry the KiCad uuid `co
 - **GIVEN** the blink, whose class `PWR` sets `track_width` 0.5 mm for `GND`, a track intent on `GND` without width, and a track intent on `LED_A` without width
 - **WHEN** they are resolved with `issues=found`
 - **THEN** the `GND` tracks have width 0.5 mm, the `LED_A` intent creates nothing, and `found` holds one `kicad.copper.size-missing` naming its key
+
+#### Scenario: Arc between two points
+- **GIVEN** the blink built for target 10, and the intent `bend` on `GND` (named by `net`), on `F.Cu` with width 0.25 mm, whose path is the point `P`, an arc step with `mid` `M` and `end` `E`, and the point `Q`, the three points `P`, `M` and `E` not on one line
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_tracks.py -k arc` resolves it
+- **THEN** the design gains one arc from `P` through `M` to `E` with the uuid `copper_uuid("bend", "arc[1]")` and one track from `E` to `Q` with the uuid `copper_uuid("bend", "seg[1]")`, both on `GND` and `F.Cu`, and no item with the locator `seg[0]`
+
+#### Scenario: Arc on one line
+- **GIVEN** the same intent with `M` on the line from `P` to `E`
+- **WHEN** it is resolved with `issues=found`
+- **THEN** nothing is created, and `found` holds one `kicad.copper.bad-intent` naming `bend` and the arc step
+
+#### Scenario: Blind via step on four copper layers
+- **GIVEN** a design with the copper layers `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` (`tests/_boards.py::created_board(4)`), and a track intent on `F.Cu` whose path is a point, a via step with `kind="blind"` to `In1.Cu`, and a point
+- **WHEN** it is resolved
+- **THEN** the via has `via_type == "blind"` and the layers `F.Cu` and `In1.Cu`, the first track is on `F.Cu` and the second on `In1.Cu`
+
+#### Scenario: Layers that do not fit the kind
+- **GIVEN** the same design
+- **WHEN** an intent with a via step `kind="buried"` from `F.Cu` to `In1.Cu`, one with `kind="micro"` from `F.Cu` to `In2.Cu`, and, on a two-layer board, one with `kind="blind"` from `F.Cu` to `B.Cu` are resolved with `issues=found`
+- **THEN** each creates nothing, and `found` holds one `kicad.copper.bad-layer` per intent, naming its key and its kind
 
 ### Requirement: Nets of script copper
 Every item that `resolve_copper` creates SHALL carry one net of the design, inferred from the pads that it joins and checked against them.
@@ -91,12 +118,24 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **THEN** nothing is created and `found` holds one `kicad.copper.end-unplaced` warning naming `D1`
 
 ### Requirement: Single vias
-`resolve_copper` SHALL turn each via intent (`key`, `at`, `net`, `diameter`, `drill`) into one through via at `at` on its net, with the locator `via`, the size rules of "Tracks from intents" and the net rules of "Nets of script copper".
+`resolve_copper` SHALL turn each via intent (`key`, `at`, `net`, `diameter`, `drill`, `kind`, `layers`) into one via at `at` on its net, with the locator `via`, the size rules of "Tracks from intents" and the net rules of "Nets of script copper".
+- Its kind is the intent's `kind`, `through` when the intent has none. A `through` via spans the first and last copper layers of the board, and its `layers` MUST be `None`.
+- Any other kind MUST name two different copper layers of the board in `layers`. They are stored in stack order and MUST fit the kind as "Tracks from intents" defines. A missing, repeated or unknown layer, a pair that does not fit, or `layers` given for a `through` via MUST give `kicad.copper.bad-layer` (error), and the intent creates nothing.
 
 #### Scenario: Via at a point
 - **GIVEN** the blink and the via intent `gnd_tie` at (120 mm, 110 mm) on `GND` with diameter 0.6 mm and drill 0.3 mm
 - **WHEN** it is resolved
 - **THEN** the design gains one via at that point on `GND`, with layers `F.Cu` and `B.Cu` and the uuid `copper_uuid("gnd_tie", "via")`
+
+#### Scenario: Buried via between two inner layers
+- **GIVEN** a design with four copper layers and the via intent `core` on `GND` with `kind="buried"`, `layers=("In2.Cu", "In1.Cu")`, diameter 0.6 mm and drill 0.3 mm
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_tracks.py -k via_kinds` resolves it
+- **THEN** the design gains one via with `via_type == "buried"`, the layers `In1.Cu` and `In2.Cu` in this order, and the uuid `copper_uuid("core", "via")`
+
+#### Scenario: Layers on a through via
+- **GIVEN** the blink and a via intent with `kind="through"` and `layers=("F.Cu", "B.Cu")`
+- **WHEN** it is resolved with `issues=found`
+- **THEN** nothing is created and `found` holds one `kicad.copper.bad-layer` naming its key
 
 ### Requirement: Stitching vias
 `resolve_copper` SHALL turn each stitch intent (`key`, `net`, `pitch`, `along`, `region`, `origin`, `diameter`, `drill`, `clearance`, `margin`) into through vias of its net, along a polyline or on a grid inside a region, keeping clear of other copper.
@@ -123,11 +162,11 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **THEN** no new via is placed at (5 mm, 5 mm) and the other eight are created
 
 ### Requirement: Script copper is regenerated
-`merge_copper(existing, built) -> CopperMerge` SHALL decide which tracks, arcs and vias of the design `existing` stay beside the script copper of the design `built`, its tracks and vias whose KiCad uuid is a copper uuid, and `resolve_copper` SHALL use it with its input as `existing` and a design holding only the items it creates as `built`.
+`merge_copper(existing, built) -> CopperMerge` SHALL decide which tracks, arcs and vias of the design `existing` stay beside the script copper of the design `built`, its tracks, arcs and vias whose KiCad uuid is a copper uuid, and `resolve_copper` SHALL use it with its input as `existing` and a design holding only the items it creates as `built`.
 - An existing item whose KiCad uuid is a copper uuid MUST be dropped. When `built` holds an item with that uuid, it is regenerated, with one `kicad.copper.regenerated` info when a modelled field differs (points, width, diameter, drill, layer or layers, via type, or net name), because it was edited in KiCad or the pads it joins moved; otherwise it is stale, with one `kicad.copper.stale` warning naming its uuid, kind, layer, first point and net name.
-- An existing item without a copper uuid that equals a script item of `built` (kind, layer or layers, end points as an unordered pair or position, width or diameter and drill, net name) MUST be dropped with one `kicad.copper.duplicate` info.
+- An existing item without a copper uuid that equals a script item of `built` (kind, layer or layers, end points as an unordered pair, with the same mid point for an arc, or position, width or diameter and drill and via type, net name) MUST be dropped with one `kicad.copper.duplicate` info.
 - `CopperMerge` MUST hold `kept` (the ids of the existing items that stay), `issues`, and the counts `regenerated`, `stale` and `duplicates`.
-- The design returned by `resolve_copper` MUST hold the tracks, arcs and vias of its input that `merge_copper` keeps, in their order, followed by the created tracks and vias in intent order; every other part of the design MUST be unchanged. Resolving that design again with the same intents MUST return an equal design and no issue.
+- The design returned by `resolve_copper` MUST hold the tracks, arcs and vias of its input that `merge_copper` keeps, in their order, followed by the created tracks, arcs and vias in intent order; every other part of the design MUST be unchanged. Resolving that design again with the same intents MUST return an equal design and no issue.
 
 #### Scenario: Idempotent
 - **GIVEN** the blink resolved with the intents of `examples/blink_routed/design.py`
@@ -149,15 +188,20 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **WHEN** it is resolved again with the same intents
 - **THEN** the copy is removed with one `kicad.copper.duplicate` info, and the `GND` track is kept
 
+#### Scenario: Arc removed from the script
+- **GIVEN** the blink resolved with an intent `bend` that holds an arc step
+- **WHEN** the result is resolved with no intent
+- **THEN** the arc and the tracks of `bend` are gone, with one `kicad.copper.stale` warning each, the arc's naming its uuid, the kind `arc`, its layer, its first point and its net
+
 ### Requirement: Copper issue codes
 `copper` SHALL report its findings only with the codes of the closed table `COPPER_ISSUE_CODES`. They are `kicad.*` codes, so they pass through the closed sets of `lens.build.BUILD_ISSUE_CODES` (c0011) and `lens.preserve.PRESERVE_ISSUE_CODES` (c0019) unchanged, as `design-dsl` "Build issue codes" and `layout-lens` "Layout issue codes" allow.
 
 | code | severity | when |
 |---|---|---|
-| `kicad.copper.bad-intent` | error | a path, region, pitch, margin or key is malformed or a key repeats |
+| `kicad.copper.bad-intent` | error | a path, region, pitch, margin, key or via kind is malformed, a key repeats, or the three points of an arc are not distinct or lie on one line |
 | `kicad.copper.pad-not-found` | error | no footprint, no pad with the number, or an index beyond the matches |
 | `kicad.copper.layer-mismatch` | error | no pad of a pad end has copper on the segment's layer |
-| `kicad.copper.bad-layer` | error | a layer is not a copper layer of the board, or a via step keeps the layer |
+| `kicad.copper.bad-layer` | error | a layer is not a copper layer of the board, a via step keeps the layer, or the layers of a via do not fit its kind |
 | `kicad.copper.net-conflict` | error | pad ends on two nets or without a net, or a named net that differs from theirs |
 | `kicad.copper.unknown-net` | error | a named net is not a net of the design |
 | `kicad.copper.no-net` | error | a track without a pad end names no net |

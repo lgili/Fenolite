@@ -48,7 +48,7 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 
 ### Requirement: Pad copper entries
 `BoardPad.copper` SHALL hold, for each copper layer of `pad.layers` in that order, one or more `PadCopper` entries whose union is the pad's copper on that layer in the board frame, and SHALL be empty for a pad of kind `np_thru_hole`.
-- Each entry MUST be built in the pad's own frame and moved by `Transform.placement(position, rotation)`; every coordinate MUST be computed exactly and rounded half to even once, so it lies within 0.5 nm of the exact value and is exact at multiples of 90° when the pad's sizes are even. Rings MUST be stored in the normal form.
+- Each entry MUST be built in the pad's own frame, moved there by the `(offset X Y)` of the pad's drill node when it has one, read from the pad's slots as `docs/formats/kicad/libraries.md` ("Drill forms") describes, and then moved by `Transform.placement(position, rotation)`, so the offset turns with the pad as its shape does. KiCad keeps the hole at the pad's position and moves the copper by the offset (`H-G-FRAME-OFFSET`). `BoardPad.position` stays the pad's position, which is where its hole is; every coordinate MUST be computed exactly and rounded half to even once, so it lies within 0.5 nm of the exact value and is exact at multiples of 90° when the pad's sizes are even. Rings MUST be stored in the normal form.
 - With `w` and `h` the pad size, the entries of the pad tokens of S-0001 MUST be:
   - `circle`: the centre with width `w`;
   - `rect`: the four corners of the `w × h` box, filled, width 0;
@@ -83,13 +83,28 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 - **WHEN** `board_pads(design, issues=found)` runs
 - **THEN** the pad's entry is the filled box (−0.7, −0.7)–(0.7, 0.7) in mm with `exact` false, and `found` holds one `kicad.frame.shape-approximated` naming the footprint and pad `1`
 
+#### Scenario: Copper of a pad with an offset drill
+- **GIVEN** the footprint `Frame_Offset` of "Pad holes", placed at (10 mm, 10 mm), 0°, on the top
+- **WHEN** `board_pads(design)` is read
+- **THEN** each copper entry of pad `1` is the filled box (9, 8.6)–(11, 10.6) in mm, that is the pad's box moved by (0, −0.4 mm), and the hole lies inside it
+
+#### Scenario: The offset turns with the footprint
+- **GIVEN** the same footprint placed at 90°
+- **WHEN** `board_pads(design)` is read
+- **THEN** the centre of the copper box is 0.4 mm from the hole, at the point that `Transform.placement(position, rotation)` gives for (0, −0.4 mm)
+
 ### Requirement: Pad holes
-`BoardPad.hole` and `BoardPad.drill` SHALL give the drilled hole of a pad in the board frame: for `(drill D)`, the one point `position + R(rotation)·offset` with `drill == D`; for `(drill oval W H)`, the segment of length `|W − H|` along the longer of the two sizes, moved the same way, with `drill == min(W, H)`. `offset` MUST be the `(offset X Y)` of the drill node, else (0, 0), read from the pad's slots as `docs/formats/kicad/libraries.md` ("Drill forms") describes. A pad without a drill MUST have `hole == ()` and `drill is None`.
+`BoardPad.hole` and `BoardPad.drill` SHALL give the drilled hole of a pad in the board frame: for `(drill D)`, the one point `position` with `drill == D`; for `(drill oval W H)`, the segment of length `|W − H|` along the longer of the two sizes, centred on `position`, with `drill == min(W, H)`. The `(offset X Y)` of the drill node MUST NOT move the hole: KiCad keeps the hole at the pad's position and moves the pad's copper by the offset ("Pad copper entries"; `H-G-FRAME-OFFSET`, measured on 9.0.9 and 10.0.6). A pad without a drill MUST have `hole == ()` and `drill is None`.
 
 #### Scenario: Round and oval holes
 - **GIVEN** `Mini_Edge_Cases` placed at (0, 0), 0°, on the top
 - **WHEN** `board_pads(design)` is read
 - **THEN** pad `2` has the hole (0, −2.9 mm)–(0, −2.1 mm) with `drill` 0.8 mm, pad `4` the hole (−4 mm, 0) with `drill` 1 mm, the `np_thru_hole` pad the hole (0, 2 mm) with `drill` 1.2 mm, and pad `1` no hole
+
+#### Scenario: Hole of a pad with an offset drill
+- **GIVEN** the authored test footprint `Frame_Offset`, whose through-hole `rect` pad `1` of size 2 mm × 2 mm at (0, 0) has `(drill 0.8 (offset 0 -0.4))`, placed at (10 mm, 10 mm), 0°, on the top
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_frame_pads.py -k offset` reads `board_pads(design)`
+- **THEN** the pad has `position` (10 mm, 10 mm), the hole (10 mm, 10 mm) and `drill` 0.8 mm
 
 ### Requirement: Placed extents
 `placed_extent(footprint, *, definition=None, tol=DEFAULT_TOL, issues=None) -> PlacedExtent` SHALL return the courtyard of a placed footprint in the board frame, and `placed_extents(design, *, definitions=None, tol=DEFAULT_TOL, issues=None)` SHALL return one extent per footprint of `design.board`, in board order, `definitions` mapping a `lib_ref` to its definition.

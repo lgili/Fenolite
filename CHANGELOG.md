@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- The `macos-app` nightly job ran for the first time, on `dev`, and passed with the `kicad-cli` of the 10.0.6 macOS disk image; archived the completed v0.1 follow-ups (c0068).
 - Archived the completed specs of the full rule kinds (c0071) and of the typed interfaces and quantities (c0073) after their CI run.
 - Test of the Altium schematic reader's cost: it counts function calls instead of comparing two wall-clock times, so it no longer fails on a busy machine.
 - Isolated the KiCad worksheet version oracle with fresh input copies, private configuration, home, cache, data and temporary directories and the C locale; retained strict future-version rejection checks and required an exported SVG (c0082).
