@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""A fake ``Validator`` and a fake ``Oracle`` for ``checks`` tests: no backend module is imported.
+"""A fake ``Validator``, a fake ``Oracle`` and a fake ``DocumentValidator`` for ``checks`` tests: no backend
+module is imported.
 
 ``FakeRulesValidator`` also satisfies ``DesignRulesSource`` and ``BoardFrame``, as the KiCad backend does
 (change c0029)."""
@@ -12,16 +13,23 @@ from pathlib import Path
 
 from fenolite.backends.base import (
     BoardPad,
+    CapabilityReport,
+    ContainerLevel,
+    ContainerRoundTrip,
     DesignRules,
+    Document,
+    DocumentSet,
     DrcItem,
     DrcOutcome,
     DrcReport,
     DrcViolation,
     FillOutcome,
+    ModelScope,
     NetlistOutcome,
     PadAssignment,
     PadNetList,
     PlacedExtent,
+    ProjectRead,
     ProjectSet,
     ReadResult,
     RoundTrip,
@@ -211,7 +219,95 @@ def project(
     return ProjectSet(Path("p"), "board.kicad_pcb", files, skipped, has_project, has_rules)
 
 
+@dataclass
+class FakeReader:
+    """A backend that only detects, reads and reports: not a ``DocumentValidator``."""
+
+    name: str = "fake-reader"
+
+    def detect(self, path: Path) -> bool:
+        return path.suffix == ".fake"
+
+    def read(self, path: Path, *, issues: list[Issue] | None = None) -> ReadResult:
+        return ReadResult(Design.new("fake", seed=0), (), READ_EVIDENCE)
+
+    def capabilities(self) -> CapabilityReport:
+        return CapabilityReport(self.name, ("fake",), (), (), None, "unsupported", ("detect", "read"))
+
+
+def document_set(*documents: Document, missing: tuple[str, ...] = (), root: Path = Path("p")) -> DocumentSet:
+    """A set of ``documents``: its project is the first document of role ``project``, its board the first of
+    role ``pcb``."""
+    ordered = tuple(sorted(documents, key=lambda d: d.name))
+    project = next((d.name for d in ordered if d.role == "project"), None)
+    board = next((d.name for d in ordered if d.role == "pcb"), None)
+    return DocumentSet(root, project, board, ordered, tuple(sorted(missing)))
+
+
+CONTAINER_EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-FAKE-RT",))
+SCH = Document("a.sch", "fake_sch", "schematic")
+PCB = Document("a.pcb", "fake_pcb", "pcb")
+
+
+def passing(level: ContainerLevel, *, streams: int = 2) -> ContainerRoundTrip:
+    if level == "RT-A0":
+        return ContainerRoundTrip(level, True, True, streams=streams, evidence=CONTAINER_EVIDENCE)
+    return ContainerRoundTrip(
+        level, True, True, streams=streams, records=10, bytes_equal=streams, evidence=CONTAINER_EVIDENCE
+    )
+
+
+@dataclass
+class FakeDocumentValidator(FakeReader):
+    """A reader that also satisfies ``DocumentValidator``: it answers with what it was given and records
+    every call. A verdict that is a ``FormatError`` is raised; a document without a verdict passes."""
+
+    name: str = "fake-documents"
+    documents_result: DocumentSet = field(default_factory=lambda: document_set(SCH, PCB))
+    schematic: ReadResult | None = None
+    pcb: ReadResult | None = None
+    errors: dict[str, FormatError] = field(default_factory=lambda: {})
+    verdicts: dict[tuple[str, str], ContainerRoundTrip | FormatError] = field(default_factory=lambda: {})
+    scope: ModelScope = field(default_factory=lambda: ModelScope({}))
+    added: dict[str, Evidence] = field(default_factory=lambda: {})
+    read_calls: list[DocumentSet] = field(default_factory=lambda: [])
+    roundtrip_calls: list[tuple[str, str]] = field(default_factory=lambda: [])
+
+    def documents(self, path: Path) -> DocumentSet:
+        return self.documents_result
+
+    def read_documents(self, documents: DocumentSet) -> ProjectRead:
+        self.read_calls.append(documents)
+        return ProjectRead(self.schematic, self.pcb, dict(self.errors))
+
+    def container_roundtrip(self, path: Path, level: ContainerLevel) -> ContainerRoundTrip:
+        self.roundtrip_calls.append((path.name, level))
+        verdict = self.verdicts.get((path.name, level), passing(level))
+        if isinstance(verdict, FormatError):
+            raise verdict
+        return verdict
+
+    def written_scope(self) -> ModelScope:
+        return self.scope
+
+    def stage_evidence(self) -> dict[str, Evidence]:
+        return dict(self.added)
+
+
+def reading(
+    design: Design, *, issues: tuple[Issue, ...] = (), evidence: Evidence = READ_EVIDENCE
+) -> ReadResult:
+    return ReadResult(design, issues, evidence)
+
+
 __all__ = [
+    "PCB",
+    "SCH",
+    "FakeDocumentValidator",
+    "FakeReader",
+    "document_set",
+    "passing",
+    "reading",
     "FakeFullOracle",
     "FakeFillOracle",
     "FakeOracle",

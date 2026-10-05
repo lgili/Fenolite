@@ -14,11 +14,23 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from pathlib import Path
 
 from fenolite.backends.altium.import_evidence import EVIDENCE
-from fenolite.backends.base import Backend, CapabilityReport, ReadResult
+from fenolite.backends.base import (
+    Backend,
+    CapabilityReport,
+    ContainerLevel,
+    ContainerRoundTrip,
+    DocumentSet,
+    DocumentValidator,
+    ModelScope,
+    ProjectRead,
+    ReadResult,
+)
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence
 
 READ_KINDS = (
     "altium_pcbdoc",
@@ -164,6 +176,109 @@ class AltiumBackend:
         design = import_project(project, issues=found)
         return ReadResult(design, (*found, *design.validate()), EVIDENCE)
 
+    def documents(self, path: Path) -> DocumentSet:
+        """The documents that ``path`` names (a document, a project file or a project folder), from the
+        project file and the first eight bytes of each document (``docset.document_set``)."""
+        from fenolite.backends.altium.docset import document_set
+
+        return document_set(path)
+
+    def read_documents(self, documents: DocumentSet) -> ProjectRead:
+        """The two readings of a set, apart: every schematic document as one design without a board
+        (``adapter.import_circuit``, with the project's net options), and the document ``board`` as a design
+        (``adapter.import_board``). Nothing of one side is merged into the other. A document whose reading
+        raises ``FormatError`` is recorded under its name, and its side is ``None``."""
+        errors: dict[str, FormatError] = {}
+        schematic = self._schematic_side(documents, errors)
+        pcb = self._pcb_side(documents, errors)
+        return ProjectRead(schematic, pcb, errors)
+
+    def container_roundtrip(self, path: Path, level: ContainerLevel) -> ContainerRoundTrip:
+        """RT-A0 or RT-A1 of the file at ``path`` (``roundtrip.rt_a0`` and ``rt_a1``), with the read kind that
+        ``docset`` gives it. The reader's ``FormatError`` is raised; a level that cannot be judged is a
+        verdict with a reason."""
+        from fenolite.backends.altium.docset import kind_of
+        from fenolite.backends.altium.roundtrip import rt_a0, rt_a1
+
+        if level not in ("RT-A0", "RT-A1"):
+            raise ValueError(f"{level!r} is not a container round-trip level: RT-A0, RT-A1")
+        judge = rt_a0 if level == "RT-A0" else rt_a1
+        return judge(path.read_bytes(), kind=kind_of(path), file=path.name)
+
+    def written_scope(self) -> ModelScope:
+        """The model fields that the Altium writers write, with the length tolerance of a written unit:
+        ``roundtrip.RT_A2_SCOPE``."""
+        from fenolite.backends.altium.roundtrip import RT_A2_SCOPE
+
+        return RT_A2_SCOPE
+
+    def stage_evidence(self) -> Mapping[str, Evidence]:
+        """The evidence this backend adds to a check stage, by stage name (``roundtrip.STAGE_EVIDENCE``)."""
+        from fenolite.backends.altium.roundtrip import STAGE_EVIDENCE
+
+        return STAGE_EVIDENCE
+
+    def _schematic_side(self, documents: DocumentSet, errors: dict[str, FormatError]) -> ReadResult | None:
+        from fenolite.backends.altium.adapter import import_circuit
+        from fenolite.backends.altium.adapter.board import header
+        from fenolite.backends.altium.adapter.circuit import KIND
+        from fenolite.backends.altium.adapter.ids import Ids
+        from fenolite.backends.altium.adapter.netlist import DEFAULT_OPTIONS, NetOptions, SheetInput
+        from fenolite.backends.altium.read.project import read_project
+        from fenolite.backends.altium.read.sch import read_schematic
+        from fenolite.model.design import Design
+
+        names = [document.name for document in documents.of_role("schematic")]
+        if not names:
+            return None
+        root = documents.root
+        options = DEFAULT_OPTIONS
+        head_name = names[0]
+        if documents.project is not None:
+            head_name = documents.project
+            try:
+                listed = read_project((root / documents.project).read_bytes(), file=documents.project)
+            except FormatError as error:
+                errors[documents.project] = error
+                return None
+            options = NetOptions.from_project(listed)
+            order = {entry.posix.lower(): position for position, entry in enumerate(listed.documents)}
+            names.sort(key=lambda name: (order.get(name.lower(), len(order)), name))
+        found: list[Issue] = []
+        sheets: list[SheetInput] = []
+        refused = False
+        for name in names:
+            data = (root / name).read_bytes()
+            try:
+                sheet = read_schematic(data, file=Path(name).name, issues=found)
+            except FormatError as error:
+                errors[name] = error
+                refused = True
+                continue
+            sheets.append(SheetInput(Path(name).name, _digest(data), sheet))
+        if refused:
+            return None
+        circuit = import_circuit(sheets, options=options, issues=found)
+        head = header(
+            Ids(KIND, EVIDENCE),
+            Path(head_name).stem,
+            file=Path(head_name).name,
+            sha256=_digest((root / head_name).read_bytes()),
+            locator="FileHeader#0",
+        )
+        design = Design(header=head, circuit=circuit, board=None)
+        return ReadResult(design, (*found, *design.validate()), EVIDENCE)
+
+    def _pcb_side(self, documents: DocumentSet, errors: dict[str, FormatError]) -> ReadResult | None:
+        if documents.board is None:
+            return None
+        found: list[Issue] = []
+        try:
+            return self._board(documents.root / documents.board, found)
+        except FormatError as error:
+            errors[documents.board] = error
+            return None
+
     @staticmethod
     def _replaced(found: Issue, wanted: set[int]) -> bool:
         """Whether a project reader's issue is replaced by ``altium.import.document-skipped``."""
@@ -207,4 +322,10 @@ class AltiumBackend:
 _BACKEND: Backend = AltiumBackend()
 """The Altium backend satisfies ``Backend`` (checked by pyright)."""
 
-__all__ = ["CAPABILITIES", "READ_KINDS", "SUFFIXES", "AltiumBackend"]
+
+def document_validator() -> DocumentValidator:
+    """The Altium backend as a ``DocumentValidator``: pyright checks that it has the protocol's methods."""
+    return AltiumBackend()
+
+
+__all__ = ["CAPABILITIES", "READ_KINDS", "SUFFIXES", "AltiumBackend", "document_validator"]

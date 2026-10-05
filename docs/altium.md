@@ -773,7 +773,8 @@ field has its own level in `read.pcbprims.FIELD_LEVELS`, the label of its row of
 The registered backend `altium` (`fenolite.backends.altium.backend.AltiumBackend`, change c0043) reads
 Altium files into the neutral model. `fenolite capabilities` lists it in `result.backends`, before `kicad`.
 It reads; it writes nothing: the writers above stay experimental features of `build`. The commands
-`inspect` and `check` do not take Altium files yet (change c0044).
+`inspect`, `check` and `diff` take Altium files (change c0044): see "Round trips" below and
+`docs/cli-contract.md`, sections "inspect", "check" and "diff".
 
 ```python
 from pathlib import Path
@@ -846,6 +847,96 @@ never stops an import.
 
 The backend's report and every read stay `INFERRED` while any `H-A-IMP-*` row of `docs/hypotheses.md` is
 (the lowest wins).
+
+## Round trips
+
+Three levels say how far a reading or a build of Altium files can be trusted (change c0044). They are
+Fenolite's own measures: no level says that Altium Designer opens a file. Results on the public corpus
+and on the example builds are in `docs/evidence/altium-roundtrip.md`.
+
+| level | what is done | what it proves | what it does not prove |
+|---|---|---|---|
+| RT-A0 | a compound file is read, written again by Fenolite's compound writer and read again | no storage and no stream is lost or changed by a copy, byte for byte | nothing about the meaning of a stream; the sector layout, CLSIDs and times are not compared |
+| RT-A1 | every stream the reader types is encoded from its records and read again | the records of every stream survive a decode and an encode: key spelling, key order, raw values and kept bytes | that the records mean what Fenolite reads into the model |
+| RT-A2 | the model a build stored in `.fenolite/` is compared with the reading of the documents the build wrote | the writers and the import agree on what the built model holds, within 2 nm | that Altium reads the files (one tool writes and reads), and anything the built model does not hold |
+
+**A level that is not judged** is neither a pass nor a failure. The reasons:
+
+- `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
+- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
+  still judges its records.
+- `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
+  not write).
+- `native-input` (RT-A2): the files were not written by a Fenolite build. Writing an imported model is
+  not available before v0.4, so RT-A2 is judged on Fenolite's own builds only.
+
+**Commands.** `fenolite check PATH` reports the levels as the stages `roundtrip.rta0`, `roundtrip.rta1`
+and `roundtrip.rta2` (`docs/cli-contract.md`, "check"); `fenolite inspect FILE` gives the counts of RT-A1
+for one file (`opaque_count`, `streams`); `fenolite diff A B --view records` lists the records that
+differ between two Altium files of one kind.
+
+### The scope of RT-A2
+
+RT-A2 compares the fields that the writers write (`roundtrip.RT_A2_SCOPE`). A length is written in
+units of 2.54 nm, so two lengths within 2 nm are equal; angles are written with six decimals of a
+degree and must be equal. The circuit kinds (`component`, `net`, `no_connect`) are compared with the
+reading of the schematic documents, and every other kind with the reading of the PCB document.
+
+| kind | compared | with |
+|---|---|---|
+| `component` | `ref`, `value` | schematic |
+| `net` | `name`, `members` | schematic |
+| `no_connect` | the marked pins | schematic |
+| `netclass` | `name` | PCB document |
+| `footprint` | `position`, `rotation`, `side` | PCB document |
+| `pad` | `number`, `net_id`, `position`, `size` | PCB document |
+| `track` | `start`, `end`, `width`, `layer`, `net_id` | PCB document |
+| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id` | PCB document |
+| `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
+| `zone` | `outline`, `layers`, `net_id` | PCB document |
+
+**What the built model does not hold is counted, not compared.** The model that an Altium build stores
+is the model of the script: its board holds the outline and no footprint, pad, track or via. The build
+writes those from inputs outside the model (the script's placements, the footprints of the libraries,
+the copper source). A board kind of which the built model holds no entity is therefore listed in
+`summary.not_in_model` with the count the PCB document reads, and RT-A2 says nothing about it. On
+today's builds this is the case for `footprint`, `pad`, `track`, `arc`, `via` and `zone`: RT-A2 judges
+the circuit and the net classes. A build that stores its written board (as the KiCad build does) would
+make these kinds compared without a change to the scope.
+
+Fields of these kinds that the scope leaves out, and why:
+
+| kind | field | reason |
+|---|---|---|
+| `component` | `dnp` | the writer does not write it |
+| `component` | `lib_symbol_ref` | the writer writes a fixed value: the name of the generated schematic library for a KiCad lib id |
+| `component` | `lib_footprint_ref` | the writer writes a fixed value: the name of the generated PCB library for a KiCad footprint link |
+| `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
+| `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
+| `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
+| `component` | `pin_pad_map` | the writer does not write it |
+| `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
+| `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
+| `netclass` | `description` | the writer does not write it |
+| `footprint` | `component_id` | the reader maps it elsewhere: a footprint is matched by the reference of its component |
+| `footprint` | `lib_ref` | the writer writes a fixed value: the name of the generated PCB library |
+| `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
+| `footprint` | `attributes` | the writer does not write it |
+| `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
+| `footprint` | `fields` | the writer writes a fixed value: the designator and comment texts have fixed sizes and places |
+| `footprint` | `bodies` | the writer does not write it |
+| `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
+| `pad` | `zone_connection` | the writer does not write it |
+| `via` | `layers` | the writer writes a fixed value: only through vias are written |
+| `via` | `via_type` | the writer writes a fixed value: only through vias are written |
+| `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
+| `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
+| `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
+| `zone` | `settings` | the writer does not write it |
+| `zone` | `locked` | the writer does not write it |
+
+A component whose value is empty in the script is written with its symbol's name as the comment, and
+the built model stores that value, so that the model is what the documents read back to.
 
 ## Evidence
 

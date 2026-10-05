@@ -4,7 +4,7 @@
 `fenolite.backends.altium.docset.document_set(path: Path) -> DocumentSet` SHALL name the documents that an Altium input holds (`backend-protocol`, "Document sets and container round trips"), reading only the project file and the first eight bytes of each document.
 - **Kinds and roles**, by suffix in any letter case: `.PrjPcb` is `altium_prjpcb` with role `project`; `.SchDoc` is `altium_schdoc_binary` when the file starts with the compound file signature and `altium_schdoc_ascii` otherwise, with role `schematic`; `.PcbDoc` is `altium_pcbdoc` with role `pcb`; `.SchLib` is `altium_schlib` with role `symbol-library`; `.PcbLib` is `altium_pcblib` with role `footprint-library`. `ROLES` MUST map each of the six read kinds of c0043's `AltiumBackend` to its role.
 - **A document path** MUST give a set whose root is the file's folder and whose only document is that file; `project` is `None`, and `board` is the file when it is a PCB document.
-- **A project file** MUST give the project file and every document that c0042's `read.project` reader lists for it, that has one of the five suffixes and that lies under the project's folder. Listed paths MUST be turned into POSIX names relative to that folder, with `\` read as a separator. A listed document that does not exist MUST go to `missing`; a listed path outside the folder, or of another suffix, MUST be left out.
+- **A project file** MUST give the project file and every document that c0042's `read.project.read_project` lists for it, that has one of the five suffixes and that lies under the project's folder. Listed paths MUST be turned into POSIX names relative to that folder, with `\` read as a separator. A document's name MUST be spelled as the folder spells it (a listed name that differs only in letter case names the one file that matches), and a document listed twice is one document. A listed document that does not exist MUST go to `missing`; a listed path outside the folder, or of another suffix, MUST be left out.
 - **A folder** MUST give the set of its only project file. A folder with no project file or with several MUST raise `ValueError` that names the candidates.
 - **Board.** `board` MUST be the PCB document whose stem equals the project file's stem without letter case, else the first PCB document by name, else `None`.
 - The function MUST NOT read a document beyond its first eight bytes, and MUST NOT write.
@@ -34,7 +34,7 @@
 - CLSIDs, state bits, times, the sector size, the sector layout and free sectors are not part of the level. The copy MUST NOT be written to disk.
 - **Not judged.** `cfb.CompoundTooLarge` MUST give `judged=False` with reason `too-large`. Any other `ValueError` of the writer (an empty storage, a name it does not write) MUST give reason `writer-refused`. A kind that is not a compound file (`altium_schdoc_ascii`, `altium_prjpcb`) MUST give reason `not-a-container`.
 - A `CompoundError` of the reader MUST be raised unchanged.
-- `EVIDENCE_RT_A0` MUST be `INFERRED` with `H-A-VER-RTA0` until that row is confirmed over the corpus, then `CORPUS-VERIFIED`.
+- `EVIDENCE_RT_A0` MUST be `INFERRED` with `H-A-VER-RTA0` until that row is confirmed over the corpus, then `CORPUS-VERIFIED`. Every verdict carries it as `ContainerRoundTrip.evidence`.
 
 #### Scenario: Own files pass
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_roundtrip.py -k rt_a0_own` runs `rt_a0` on every compound file under `tests/data/altium/`
@@ -56,12 +56,12 @@
 
 ### Requirement: Round-trip level RT-A1
 `roundtrip.rt_a1(data: bytes, *, kind: str, file: str = "") -> ContainerRoundTrip` SHALL judge whether reading a file and encoding what was read gives equal records in every stream: the level RT-A1.
-- **Codecs.** `roundtrip.CODECS` MUST map each of the six read kinds to a `StreamCodec(read, streams, encode, records, opaque)` built only from the public surface of the readers of c0040 to c0042: `read.sch.read_schematic` with `read.sch.encode_stream`, `read.schlib.read_schlib` with `read.schlib.encode_stream`, `read.pcb.read_pcbdoc` with `PcbDocument.rebuild`, `read.pcblib.read_pcblib` with the library's and each footprint's `rebuild`, and the project reader's `to_bytes()`. `roundtrip` MUST NOT parse a record itself.
-- **Verdict.** For every stream that the reader types, the stream MUST be encoded from the first reading, the encoded streams MUST be read again with the same reader, and the two record sequences of the stream MUST be equal: the same number of records, and each record equal with every key spelling, key order, raw value and kept byte. The ASCII schematic and the project file count as one stream, named `ascii` and `text`.
+- **Codecs.** `roundtrip.CODECS` MUST map each of the six read kinds to a `StreamCodec(read, streams, encode, records, opaque)` built only from the public surface of the readers of c0040 to c0042: `read.sch.read_schematic` with `read.sch.encode_stream`, `read.schlib.read_schlib` with `read.schlib.encode_stream`, `read.pcb.read_pcbdoc` with `PcbDocument.rebuild`, `read.pcblib.read_pcblib` with each footprint's `rebuild` (a library has no `rebuild` of its own: its other streams are kept whole), and the project reader's `to_bytes()`. `roundtrip` MUST NOT parse a record itself.
+- **Verdict.** For every stream that the reader types, the stream MUST be encoded from the first reading, the encoded streams MUST be read again with the same reader, and the two record sequences of the stream MUST be equal: the same number of records, and each record equal with every key spelling, key order, raw value and kept byte. The ASCII schematic and the project file count as one stream, named `ascii` and `text`. The records of a binary stream are counted from its header, which is record 0. When every encoded stream equals the bytes read, the file to read again is the file itself; otherwise it is the file with its typed streams replaced, written by `cfb.write_compound` for a compound kind. Encoded streams that the reader refuses are a failed verdict whose `different` names the streams whose bytes changed.
 - `streams` MUST be the number of typed streams, `records` the number of records compared, and `bytes_equal` the number of typed streams whose encoded bytes equal the bytes read. `different` MUST hold the paths of the streams whose records differ, and `difference` MUST be `<stream>#<index>` of the first differing record of the first such stream, or `<stream>` when the counts differ.
-- `opaque_count` MUST be the number of records that the reader keeps without a typed class (`UnknownRecord`, `RawPrimitive`) plus the number of streams it keeps whole.
-- The level is always judged for a file that reads. A reader's `FormatError` MUST be raised unchanged. Nothing MUST be written to disk.
-- `EVIDENCE_RT_A1` MUST be `Evidence.combine` of the reader's evidence and `INFERRED` with `H-A-VER-RTA1`, until that row is confirmed over the corpus.
+- `opaque_count` MUST be the number of records that the reader keeps without a typed class (`UnknownRecord`, `RawPrimitive`), which `StreamCodec.opaque` gives, plus the number of streams of the container that the reader does not type.
+- The level is judged for a file that reads, with one exception: when a stream's encoded bytes differ from the bytes read and the compound writer cannot write the file that holds them, the verdict is not judged, with the reason of `rt_a0` (`too-large` or `writer-refused`). A reader's `FormatError` on the file itself MUST be raised unchanged. Nothing MUST be written to disk.
+- `EVIDENCE_RT_A1` MUST map each read kind to `Evidence.combine` of its reader's evidence (`roundtrip.READER_EVIDENCE`) and `INFERRED` with `H-A-VER-RTA1`, until that row is confirmed over the corpus. Every verdict carries the evidence of its kind.
 
 #### Scenario: Own files pass with equal bytes
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_roundtrip.py -k rt_a1_own` runs `rt_a1` on every file under `tests/data/altium/` whose suffix is one of the five
@@ -83,21 +83,27 @@
 - **THEN** the verdict is passed and `opaque_count` is 1
 
 ### Requirement: Round-trip level RT-A2
-The level RT-A2 SHALL hold for a built Altium project when the model that the build stored in `.fenolite/` equals the reading of the documents the build wrote, inside the scope of what the writers write. It is judged by the `roundtrip.rta2` stage (`verification-loop`, "Document check pipeline") with `roundtrip.RT_A2_SCOPE`, which `AltiumBackend.written_scope()` returns.
+The level RT-A2 SHALL hold for a built Altium project when the model that the build stored in `.fenolite/` equals the reading of the documents the build wrote, inside the scope of what the writers write and for what the built model holds. It is judged by the `roundtrip.rta2` stage (`verification-loop`, "Document check pipeline") with `roundtrip.RT_A2_SCOPE`, which `AltiumBackend.written_scope()` returns.
+- **What the built model holds.** The model that an Altium build stores is the model of the script: its board holds the outline and no footprint, pad, track, arc, via or zone, which the build writes from inputs outside the model (placements, library footprints, a copper source). The circuit kinds `component`, `net` and `no_connect` are compared with the schematic reading; `netclass`, a record of the PCB document, and the board kinds are compared with the PCB reading. A board kind of which the built model holds no entity MUST NOT be compared: the stage counts the reading's entities in `summary.not_in_model`, and RT-A2 says nothing about them. A kind of which the built model holds an entity is compared in full, so an entity that only the reading holds is then a difference.
+- **Written values.** The build MUST store in the built model the value that its documents hold: a component whose value is empty in the script is written with its symbol's name as the comment, and `lens.altium.with_written_values` gives the built model that value.
 - `RT_A2_SCOPE.length_tolerance` MUST be 2: a length is written in units of 2.54 nm, so the written value is at most 1.27 nm from the model's, and its reading is rounded to a whole nanometre. Angles are written with six decimals of a degree and MUST be equal.
 - `RT_A2_SCOPE.fields` MUST hold at least: `component` with `ref` and `value`; `net` with `name` and `members`; `no_connect`; `footprint` with `position`, `rotation` and `side`; `pad` with `number`, `net_id`, `position` and `size`; `track` with `start`, `end`, `width`, `layer` and `net_id`; `arc` with `start`, `mid`, `end`, `width`, `layer` and `net_id`; `via` with `position`, `diameter`, `drill` and `net_id`; `zone` with `outline`, `layers` and `net_id`; `netclass` with `name`.
 - Every field of those kinds that the scope leaves out MUST be listed in `docs/altium.md`, section "Round trips", with the reason: the writer does not write it, the writer writes a fixed value, or the reader maps it elsewhere. A field MUST NOT be removed from the list above to make a sample pass; a difference inside the scope is a defect of a writer or of the import.
 - RT-A2 is not judged for a file that Altium saved: writing an imported model is not available before v0.4. The stage is then skipped with reason `native-input`.
-- The stage's evidence MUST be `INFERRED` with `H-A-VER-RTA2` combined with the readings' evidence: Fenolite's writers are read by Fenolite's readers, so the level proves consistency, not that Altium reads the files.
+- The stage's evidence MUST be `INFERRED` with `H-A-VER-RTA2-2` (`roundtrip.EVIDENCE_RT_A2`) combined with the readings' evidence: Fenolite's writers are read by Fenolite's readers, so the level proves consistency, not that Altium reads the files. `H-A-VER-RTA2`, which claimed the level for every scoped kind, is refuted: no built model holds a footprint or copper.
 
 #### Scenario: Built blink holds RT-A2
 - **GIVEN** `examples/blink_2layer/design.py` built with `fenolite build … --target altium --confirm` into `tmp_path`
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_rta2.py -k blink` runs `fenolite check <dir> --stages roundtrip.rta2 --json`
-- **THEN** the exit code is 0, the stage has status `ok`, `summary.holds` is `true`, `summary.differences` is 0, and `summary.compared` names the kinds of both sides
+- **THEN** the exit code is 0, the stage has status `ok`, `summary.holds` is `true`, `summary.differences` is 0, `summary.compared` is `component`, `net` and `no_connect` for the schematic and `netclass` for the PCB document, and `summary.not_in_model.pcb` counts 3 footprints and 36 pads
 
 #### Scenario: Every own example holds RT-A2
-- **WHEN** `uv run pytest tests/unit/lens/test_altium_rta2.py` builds every script under `examples/` that the Altium build accepts, in the binary and in the ASCII form
-- **THEN** each build holds RT-A2 with 0 differences
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rta2.py` builds every script under `examples/` that the Altium build accepts, in the binary and in the ASCII form (the script that needs the official KiCad libraries only where they are installed), and one with module sheets
+- **THEN** each build holds RT-A2 with 0 differences, and a script that the test does not name fails it
+
+#### Scenario: Empty value is stored as written
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rta2.py -k written_value` builds `examples/altium_sample/design.py`, whose `J1` has no value
+- **THEN** the built model holds the value `HDR2` for `J1`, the name of its symbol, and no component of the built model has an empty value
 
 #### Scenario: A changed document is caught
 - **GIVEN** the built blink whose `.fenolite/circuit.json` gives `R1` another value by a text edit
@@ -114,7 +120,9 @@ c0043's `fenolite.backends.altium.backend.AltiumBackend` SHALL satisfy `Document
 - `read_documents(documents)` MUST give as `schematic` a design whose circuit is c0043's `adapter.import_circuit` of every schematic document of the set, with the nets of the whole set and no board, and as `pcb` the design of `adapter.import_board` for the document `documents.board`. Neither side MAY hold content merged from the other. A document whose reading raises `FormatError` MUST be recorded in `errors` under its name, and its side MUST be `None`.
 - `container_roundtrip(path, level)` MUST return `rt_a0` or `rt_a1` of the file's bytes, with the kind that `document_set` gives the file.
 - `written_scope()` MUST return `RT_A2_SCOPE`.
-- The backend's `read`, `detect` and capability report are unchanged, and no method MAY write a file or run a subprocess. `backend.py` MUST hold a typed function that returns an `AltiumBackend` as `DocumentValidator`, which `pyright` checks.
+- `stage_evidence()` MUST return `roundtrip.STAGE_EVIDENCE`: `H-A-VER-ERC` for `erc.lite`, c0043's `H-A-IMP-NETLIST` for `netlist.assignment_compare` and `H-A-VER-RTA2-2` for `roundtrip.rta2`, each at the level of its row in `docs/hypotheses.md`.
+- The backend's `read`, `detect` and capability report are unchanged, and no method MAY write a file or run a subprocess. `backend.py` MUST hold the typed function `document_validator()` that returns an `AltiumBackend` as `DocumentValidator`, which `pyright` checks.
+- With a project file, the schematic documents MUST be read in the order the project file lists them, and the net options MUST be those of the project file.
 
 #### Scenario: Protocol satisfied
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_backend_documents.py -k protocol` and `uv run pyright src` run
@@ -131,7 +139,7 @@ c0043's `fenolite.backends.altium.backend.AltiumBackend` SHALL satisfy `Document
 
 ### Requirement: Check on Altium inputs
 `fenolite check PATH` SHALL check an Altium document, project file or project folder as document input (`verification-loop`, "Check command input"), read-only and without any external tool.
-- **Path.** A missing path MUST exit 3 with `FEN-3001`. A folder without exactly one project file MUST exit 2 with `FEN-2001` and a hint that lists the candidates.
+- **Path.** A missing path MUST exit 3 with `FEN-3001`. A folder that holds Altium files, no KiCad project or board, and not exactly one project file MUST exit 2 with `FEN-2001` and a hint that lists the candidates.
 - **Built or native.** The input MUST be built when `<root>/.fenolite/meta.json` or `<root>/.fenolite/build.json` exists, `<root>` being the set's root, and native otherwise. The built model MUST be loaded with `model.canonical.load_dir`; a failure gives the `cache_error` of the pipeline.
 - **Stages.** Without `--stages`, every stage of `DOCUMENT_STAGES` MUST be selected. An unknown or empty stage name MUST exit 2 with `FEN-2001` and a hint that lists `DOCUMENT_STAGES`.
 - **Result.** `result.project` MUST hold `backend` (`altium`), `project` and `board` (names or `null`), `built`, `files` (the sorted document names), `documents` (objects `{name, kind, role}` sorted by name) and `skipped` (objects `{name, reason}` with reason `missing`). `result.stages` MUST hold one object per selected stage. `input` MUST describe the file that `PATH` names, or the project file for a folder, with its name relative to the root, its SHA-256 and its read kind.
@@ -145,7 +153,7 @@ c0043's `fenolite.backends.altium.backend.AltiumBackend` SHALL satisfy `Document
 
 #### Scenario: One library alone
 - **WHEN** `fenolite check tests/data/altium/blink/blink.PcbLib --json` runs
-- **THEN** the exit code is 0, `roundtrip.rta0` and `roundtrip.rta1` have status `ok`, `model.validate` reports no issue, and `erc.lite` and `netlist.assignment_compare` are skipped with the reasons `no-schematic` and `single-source`
+- **THEN** the exit code is 0, `roundtrip.rta0` and `roundtrip.rta1` have status `ok`, `model.validate` reports no issue and is skipped with reason `not-judged` (a library gives no reading to judge), and `erc.lite` and `netlist.assignment_compare` are skipped with the reasons `no-schematic` and `single-source`
 
 #### Scenario: Unreadable single document
 - **GIVEN** a copy of `blink.PcbDoc` in `tmp_path` cut to 100 bytes
@@ -173,14 +181,14 @@ Each stage of an Altium check SHALL carry its own evidence, and the envelope SHA
 |---|---|
 | `model.validate`, native | `Evidence.combine` of the readings judged |
 | `model.validate`, built | `INFERRED` (Fenolite's structural rules) |
-| `erc.lite`, native | `Evidence.combine(erc_lite.EVIDENCE, <schematic reading>)` with `H-A-VER-ERC` added |
+| `erc.lite`, native | `Evidence.combine(erc_lite.EVIDENCE, <schematic reading>, stage_evidence()["erc.lite"])`, which adds `H-A-VER-ERC` |
 | `erc.lite`, built | `erc_lite.EVIDENCE` |
-| `netlist.assignment_compare` | `Evidence.combine` of the readings compared, with `INFERRED` on built input; its hypotheses hold c0043's `H-A-IMP-NETLIST` |
-| `roundtrip.rta0` | `EVIDENCE_RT_A0`; `UNVERIFIED` when the stage reports `check.rta0-failed` |
-| `roundtrip.rta1` | `EVIDENCE_RT_A1` of the kinds judged, combined; `UNVERIFIED` when the stage reports `check.rta1-failed` |
-| `roundtrip.rta2` | `INFERRED` with `H-A-VER-RTA2`, combined with the readings |
+| `netlist.assignment_compare` | `Evidence.combine` of the readings compared and of `stage_evidence()["netlist.assignment_compare"]`, with `INFERRED` on built input; its hypotheses hold c0043's `H-A-IMP-NETLIST` |
+| `roundtrip.rta0` | the evidence of the judged verdicts, `EVIDENCE_RT_A0`; `UNVERIFIED` when the stage reports `check.rta0-failed` |
+| `roundtrip.rta1` | the evidence of the judged verdicts, `EVIDENCE_RT_A1` of their kinds, combined; `UNVERIFIED` when the stage reports `check.rta1-failed` |
+| `roundtrip.rta2` | `INFERRED` with `H-A-VER-RTA2-2`, combined with the readings |
 
-No stage MAY carry `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: no tool other than Fenolite reads the files in this command. The evidence of the stage functions is given by the caller, so `checks` names no hypothesis of a backend.
+No stage MAY carry `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: no tool other than Fenolite reads the files in this command. The evidence comes from the backend, with each verdict (`ContainerRoundTrip.evidence`) and through `DocumentValidator.stage_evidence()`, so `checks` names no hypothesis of a backend.
 
 #### Scenario: Levels on the own project
 - **WHEN** `fenolite check tests/data/altium/blink/blink.PrjPcb --json` runs
@@ -194,8 +202,8 @@ No stage MAY carry `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: no 
 ### Requirement: Altium file summary
 `fenolite inspect FILE --summary` on an Altium file SHALL give the result keys of "Inspect command" (`cli-contract`) from the product readers, without running any tool.
 - `kind` MUST be the read kind that `document_set` gives the file. `format_version` MUST be the version text of the file's header (`5.0` for a schematic or a schematic library, `6.0` or `5.0` for a PCB file, as the header reads), or `null` for a project file. `major`, `generator` and `generator_version` MUST be `null`, and `status` MUST be `supported`.
-- `counts`: for a PCB document the board counts of "Inspect command" from the read design, plus `components` and `rules`; for a schematic `components`, `pins`, `nets`, `wires`, `labels`, `power_ports`, `ports`, `sheet_symbols` and `no_connects`; for a schematic library `symbols`, `units` and `pins`; for a PCB library `footprints`, `pads` and `graphics`; for a project file `documents`, `missing`, and one count per document role.
-- `opaque_count` MUST be `ContainerRoundTrip.opaque_count` of RT-A1, and `result.streams` MUST hold `typed` and `opaque` (stream counts). For a project file `result.documents` MUST list `{name, kind, role, exists}` sorted by name.
+- `counts`: for a PCB document the board counts of "Inspect command" from the read design, plus `components` and `rules`; for a schematic `components`, `pins`, `nets` and `no_connects` (the marked pins) from the read design and `wires`, `labels`, `power_ports`, `ports` and `sheet_symbols` from the records; for a schematic library `symbols`, `units` and `pins`; for a PCB library `footprints`, `pads` and `graphics`; for a project file `documents` (the documents it lists with one of the five suffixes, without the project file itself), `missing`, and one count per role of the documents that exist.
+- `opaque_count` MUST be `ContainerRoundTrip.opaque_count` of RT-A1, and `result.streams` MUST hold `typed` and `opaque` (stream counts). For a project file `result.documents` MUST list `{name, kind, role, exists}` sorted by name; a listed document that does not exist has `exists` false and `kind` and `role` `null`.
 - `model_findings` MUST count the `model.*` findings of the read content by severity, and the readers' issues MUST be reported as issues, as for a KiCad file.
 - A read error MUST exit 3 with its code, and a missing file with `FEN-3001`. `input.kind` MUST be the read kind.
 - The envelope evidence MUST be that of `backend.read(FILE)`.
@@ -218,11 +226,11 @@ No stage MAY carry `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: no 
 - **THEN** the exit code is 3 and stderr carries `FEN-3004`
 
 ### Requirement: Records view of two Altium files
-`fenolite diff A B --view records` SHALL compare two Altium files of the same read kind stream by stream, through `roundtrip.diff_records(a: bytes, b: bytes, *, kind: str) -> DiffReport`.
+`fenolite diff A B --view records` SHALL compare two Altium files of the same read kind stream by stream, through `roundtrip.diff_records(a: bytes, b: bytes, *, kind: str) -> DiffReport` (`backends.base.DiffReport`).
 - Streams are matched by path and typed streams are read with the codec of the kind. A stream on one side only is `removed` or `added` with path `/<stream>`. An opaque stream whose bytes differ is `changed` with path `/<stream>`, `a` and `b` being the SHA-256 of each side.
-- The records of a typed stream are aligned by the longest common subsequence of equal records. A record on one side only is `removed` or `added` with path `/<stream>#<index>`, the index being its own side's. Two unaligned records at the same place whose record kind is equal are one `changed` with path `/<stream>#<index of a>`.
-- `a` and `b` of a record change MUST name the record kind and the keys or field names that differ, and MUST hold a value only for a property whose text is at most 80 bytes; a longer or binary value is given as its length and SHA-256.
-- `summary` MUST map each stream that has a change to its counts. Two files of different kinds, or a kind that `CODECS` does not hold, MUST exit 2 with `FEN-2001`.
+- The records of a typed stream are aligned by the longest common subsequence of equal records. Two records are equal for the alignment when their content is equal (`roundtrip.record_content`: the frame kind and payload of a record, or its bytes): a record's index, offset and owner references follow from its place and take no part, so one inserted record moves no other. Past `roundtrip.LCS_CELLS` cells of the alignment table, the middle of two streams is aligned by the matching blocks of `difflib.SequenceMatcher`, which need not be the longest. A record on one side only is `removed` or `added` with path `/<stream>#<index>`, the index being its own side's and the header of a binary stream being record 0. Two unaligned records at the same place whose record kind (the reader's class name) is equal are one `changed` with path `/<stream>#<index of a>`.
+- `a` and `b` of a record change MUST be the JSON text `{"kind": <record kind>, "fields": {…}}` with the keys or field names that differ (every key of a record on one side only), and MUST hold a value only for a property whose text is at most 80 bytes; a longer or binary value is given as its length and SHA-256.
+- `summary` MUST map each stream that has a change to its counts, and `changes` MUST be in the order of the stream paths and, in a stream, of the record indices. Two files of different kinds, or a kind that `CODECS` does not hold, MUST exit 2 with `FEN-2001`.
 - The two binary and ASCII schematic kinds are different kinds: the records view does not convert a form.
 
 #### Scenario: A file against itself
@@ -249,13 +257,13 @@ The three levels SHALL be measured on every public file of the corpus and on eve
 - `tests/corpus/test_altium_documents.py` (marker `needs_corpus`) MUST copy each project set of c0043's "Altium project sets" (`corpus-policy`, the rows of one use `altium-set:<nn>`) into pytest's temporary directory and run `fenolite check` on it. It MUST record, per set, the status of each stage and the counts of the pair (`schematic`, `pcb`): `common`, `only_a`, `only_b` and `differences`. A set with differences MUST be listed in the page with its count; it does not fail this test, because c0043's "Altium project sets agree" judges it (`H-A-IMP-NETLIST`).
 - Both tests MUST write, only to the file named by `FENOLITE_CENSUS_OUT`, per row id: the kind, the size, the verdict of each level, the reason when not judged, and the counts `streams`, `records`, `bytes_equal` and `opaque_count`. They report ids, kinds, stream names and counts only.
 - `tests/unit/backends/altium/test_roundtrip.py` and `tests/unit/lens/test_altium_rta2.py` MUST run the three levels on every Altium file under `tests/data/altium/` and on every example build, without the corpus.
-- The page MUST hold one table per level with the row ids, the counts, every unjudged file with its reason, every stream with `bytes_equal` false, and the date and commit of the run. `H-A-VER-RTA0` and `H-A-VER-RTA1` are confirmed only when every judged row passes and at least three repositories are judged per compound kind that the corpus holds; `H-A-VER-BYTES` when every typed stream of every row has equal bytes.
+- The page MUST hold one table per level with the row ids, the counts, every unjudged file with its reason, every stream with `bytes_equal` false, and the date and commit of the run. `H-A-VER-RTA0` and `H-A-VER-RTA1` are confirmed only when every judged row passes and at least three repositories are judged per compound kind that the corpus holds; `H-A-VER-BYTES` when every typed stream of every row has equal bytes. `tests/corpus/test_altium_roundtrip.py` MUST pin the number of repositories of each compound kind that is below three (`SHORT_OF_THREE`), so that a new repository fails the test and the rows are settled again.
 - Derived files MUST stay under pytest's temporary directory ("Derived corpus files stay out of the repository").
 
 #### Scenario: Corpus round trips
 - **GIVEN** the cached `rta` rows and `FENOLITE_REQUIRE=corpus`
 - **WHEN** `uv run pytest tests/corpus/test_altium_roundtrip.py -q` runs
-- **THEN** every judged row passes RT-A0 and RT-A1, the row with DIFAT sectors is unjudged for RT-A0 with reason `too-large` and judged for RT-A1, and the census file holds one entry per row
+- **THEN** every judged row passes RT-A0 and RT-A1, each row with DIFAT sectors (two PCB documents, one of them heavy) is unjudged for RT-A0 with reason `too-large` and judged for RT-A1, and the census file holds one entry per row
 
 #### Scenario: Project sets
 - **GIVEN** the cached project sets and `FENOLITE_REQUIRE=corpus`
@@ -275,7 +283,7 @@ The three levels SHALL be measured on every public file of the corpus and on eve
 `docs/altium.md`, `docs/cli-contract.md` and `docs/roadmap.md` SHALL describe the levels and the commands.
 - `docs/altium.md` MUST gain the section "Round trips": the three levels with what each proves and does not prove, the reasons for an unjudged level, the scope of RT-A2 with every left-out field and its reason, and the commands that report each level.
 - `docs/cli-contract.md` MUST describe `check` on Altium input (stages, skip reasons, result keys, the six new codes), the Altium summary of `inspect`, and the section "diff" with both views.
-- `docs/roadmap.md` MUST define RT-A0, RT-A1 and RT-A2 next to RT0 to RT2, and MUST say that `diff` exists from this change and that v0.2a adds the schematic kinds and the tree view.
+- `docs/roadmap.md` MUST define RT-A0, RT-A1 and RT-A2 next to RT0 to RT2, and MUST say that `diff` (added by c0066 with the model view and the tree view) reads second-backend inputs and has the records view from this change.
 - The pages MUST name no company, person or project of a corpus file.
 
 #### Scenario: Pages name the levels and the codes

@@ -13,13 +13,22 @@ from pathlib import Path
 from hypothesis import given, settings
 from strategies import designs
 
+from fenolite.backends.base import ModelScope
 from fenolite.backends.kicad import mod, sch
-from fenolite.checks.diff import Change, DiffReport, diff_designs, diff_libraries, diff_sheets
+from fenolite.checks.diff import (
+    KIND_CLASSES,
+    Change,
+    DiffReport,
+    diff_designs,
+    diff_libraries,
+    diff_sheets,
+    length_fields,
+)
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
 from fenolite.model import canonical
 from fenolite.model.base import ExtBag
-from fenolite.model.board import Board, FootprintInstance, Pad, Track, Via
+from fenolite.model.board import Board, FootprintInstance, Pad, Text, Track, Via
 from fenolite.model.circuit import Circuit, Component, Net, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import Library
@@ -335,3 +344,139 @@ def test_sheets_keys_of_symbols_sheet_references_and_embedded_symbols() -> None:
     gone = dataclasses.replace(root, sheets=root.sheets[1:], pages=())
     paths = _paths(diff_sheets(root, gone))
     assert (f"/sheet_ref/{root.sheets[0].name}", "removed") in paths and ("/sheet/pages", "changed") in paths
+
+
+# --- scope and tolerance (capability verification-loop, "Model difference scope"; change c0044) -----------
+
+
+def _moved(design: Design, *, track: int, footprint: int) -> Design:
+    """``design`` with the end of its first track moved by ``track`` nm and its first footprint by
+    ``footprint`` nm."""
+    assert design.board is not None
+    first, *tracks = design.board.tracks
+    one, *footprints = design.board.footprints
+    board = dataclasses.replace(
+        design.board,
+        tracks=(dataclasses.replace(first, end=Point(first.end.x + track, first.end.y)), *tracks),
+        footprints=(
+            dataclasses.replace(one, position=Point(one.position.x, one.position.y - footprint)),
+            *footprints,
+        ),
+    )
+    return dataclasses.replace(design, board=board)
+
+
+def test_tolerance_on_lengths() -> None:
+    a = _design(1)
+    b = _moved(a, track=2, footprint=3)
+    scope = ModelScope(
+        {"track": ("start", "end", "width", "layer"), "footprint": ("position",)}, length_tolerance=2
+    )
+    report = diff_designs(a, b, scope=scope)
+    assert _paths(report) == [("/footprint/R1/position", "changed")]
+    assert json.loads(report.changes[0].b) == {"x": 10 * MM, "y": 5 * MM - 3}
+    exact = ModelScope(scope.fields)
+    assert _paths(diff_designs(a, b, scope=exact)) == [
+        ("/footprint/R1/position", "changed"),
+        ("/track/0", "added"),
+        ("/track/0", "removed"),
+    ]
+    assert diff_designs(a, _moved(a, track=-2, footprint=2), scope=scope).equal
+    assert _paths(diff_designs(a, _moved(a, track=3, footprint=0), scope=scope)) == [
+        ("/track/0", "added"),
+        ("/track/0", "removed"),
+    ]
+
+
+def test_tolerance_is_for_lengths_only() -> None:
+    """A layer, a net or a rotation is never close: only fields typed as lengths take the tolerance."""
+    a = _design(1)
+    assert a.board is not None
+    first, *tracks = a.board.tracks
+    one, *footprints = a.board.footprints
+    turned = dataclasses.replace(
+        a.board,
+        tracks=(dataclasses.replace(first, layer="B.Cu"), *tracks),
+        footprints=(dataclasses.replace(one, rotation=1), *footprints),
+    )
+    scope = ModelScope(
+        {"track": ("start", "end", "layer"), "footprint": ("rotation",)}, length_tolerance=1000
+    )
+    assert _paths(diff_designs(a, dataclasses.replace(a, board=turned), scope=scope)) == [
+        ("/footprint/R1/rotation", "changed"),
+        ("/track/0", "added"),
+        ("/track/0", "removed"),
+    ]
+    assert length_fields("track") == {"start", "end", "width"}
+    assert length_fields("via") == {"position", "diameter", "drill"}
+    assert length_fields("pad") >= {"size", "position", "drill"} and "rotation" not in length_fields("pad")
+    assert length_fields("zone") >= {"outline"} and length_fields("no_connect") == frozenset()
+    assert set(KIND_CLASSES) == set(_ALL_KINDS)
+
+
+_ALL_KINDS = (
+    "component", "net", "netclass", "interface", "module", "layer", "footprint", "pad", "track", "arc", "via",
+    "zone", "keepout", "text", "graphic", "hole", "rule", "stack_layer",
+)  # fmt: skip
+
+
+def test_content_kinds_match_in_canonical_order_under_a_tolerance() -> None:
+    """Each entity of ``a`` takes the first unmatched entity of ``b`` that is close, and matches once."""
+    a = _design(1)
+    assert a.board is not None
+    track = a.board.tracks[0]
+
+    def at(x: int, ident: int) -> Track:
+        return dataclasses.replace(track, id=new_id("trk", random.Random(ident)), end=Point(x, 0))
+
+    left = dataclasses.replace(a, board=dataclasses.replace(a.board, tracks=(at(100, 1), at(102, 2))))
+    right = dataclasses.replace(
+        a, board=dataclasses.replace(a.board, tracks=(at(101, 3), at(101, 4), at(500, 5)))
+    )
+    scope = ModelScope({"track": ("start", "end")}, length_tolerance=2)
+    report = diff_designs(left, right, scope=scope)
+    assert _paths(report) == [("/track/0", "added")]
+    assert json.loads(report.changes[0].b) == {"end": {"x": 500, "y": 0}, "start": {"x": 0, "y": 0}}
+    assert _paths(diff_designs(right, left, scope=scope)) == [("/track/0", "removed")]
+
+
+def test_scope_hides_other_kinds_and_fields() -> None:
+    a = _design(1)
+    assert a.board is not None
+    text = Text(
+        id="txt_1", text="REV A", position=Point(0, 0), layer="F.SilkS", size=Size(MM, MM), thickness=1
+    )
+    b = dataclasses.replace(a, board=dataclasses.replace(a.board, texts=(text,)))
+    assert not diff_designs(a, b).equal
+    assert diff_designs(a, b, scope=ModelScope({"component": ("ref", "value")})).equal
+    r1, r2 = a.circuit.components
+    changed = dataclasses.replace(r1, value="22k", properties={"MPN": "X"})
+    c = dataclasses.replace(a, circuit=dataclasses.replace(a.circuit, components=(changed, r2)))
+    assert _paths(diff_designs(a, c)) == [
+        ("/component/R1/properties", "changed"),
+        ("/component/R1/value", "changed"),
+    ]
+    assert _paths(diff_designs(a, c, scope=ModelScope({"component": ("value",)}))) == [
+        ("/component/R1/value", "changed")
+    ]
+    assert diff_designs(a, c, scope=ModelScope({})).equal
+
+
+def test_scope_compares_the_presence_of_keys() -> None:
+    a = _design(1)
+    r1 = a.circuit.components[0]
+    marked = dataclasses.replace(a, circuit=dataclasses.replace(a.circuit, no_connects=(PinRef(r1.id, "9"),)))
+    scope = ModelScope({"no_connect": (), "component": ()})
+    assert _paths(diff_designs(a, marked, scope=scope)) == [("/no_connect/R1-9", "added")]
+    fewer = dataclasses.replace(
+        a, circuit=dataclasses.replace(a.circuit, components=a.circuit.components[:1])
+    )
+    report = diff_designs(a, fewer, scope=scope)
+    assert _paths(report) == [("/component/R2", "removed")] and report.changes[0].a == "{}"
+
+
+def test_scope_keeps_equal_designs_equal_whatever_the_ids() -> None:
+    scope = ModelScope(
+        {kind: tuple(f.name for f in dataclasses.fields(cls)) for kind, cls in KIND_CLASSES.items()}, 2
+    )
+    assert diff_designs(_design(1), _design(2), scope=scope).equal

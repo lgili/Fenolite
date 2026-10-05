@@ -6,6 +6,10 @@ Entities with a name are matched by it (a component by its reference, a net by i
 ``REF-NUMBER``); copper and graphics are matched by content. Ids, native ids and provenance never take
 part, and a reference by id is replaced by the key of the entity it names, so two designs built from the
 same data with different seeds are equal. The report gives no verdict and removes no frame.
+
+``diff_designs`` takes a ``ModelScope`` (capability verification-loop, "Model difference scope"; change
+c0044): only the kinds and fields of the scope are compared, and two lengths are equal when they differ by
+at most the scope's tolerance. Without a scope every comparison is exact.
 """
 
 from __future__ import annotations
@@ -13,19 +17,34 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import re
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
-from typing import Any, Literal, cast
+from functools import cache
+from typing import Any, cast
 
+from fenolite.backends.base import Change, ChangeKind, DiffReport, ModelScope
 from fenolite.model.base import Entity
-from fenolite.model.board import Pad
-from fenolite.model.circuit import PinRef
+from fenolite.model.board import (
+    Arc,
+    FootprintInstance,
+    Graphic,
+    Hole,
+    Keepout,
+    Layer,
+    Pad,
+    StackLayer,
+    Text,
+    Track,
+    Via,
+    Zone,
+)
+from fenolite.model.circuit import Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import Library
+from fenolite.model.rules import Rule
 from fenolite.model.schematic import SchematicSheet
 
-ChangeKind = Literal["added", "removed", "changed"]
 NEVER = frozenset({"id", "native_ids", "provenance"})
 """Fields of an entity that no comparison reads; ``ext`` joins them unless ``ext=True``."""
 KEYED_KINDS = (
@@ -39,36 +58,24 @@ CONTENT_KINDS = (
     "label", "no_connect_flag",
 )  # fmt: skip
 
+KIND_CLASSES: Mapping[str, type] = {
+    "component": Component, "net": Net, "netclass": NetClass, "interface": Interface, "module": Module,
+    "layer": Layer, "footprint": FootprintInstance, "pad": Pad, "track": Track, "arc": Arc, "via": Via,
+    "zone": Zone, "keepout": Keepout, "text": Text, "graphic": Graphic, "hole": Hole, "rule": Rule,
+    "stack_layer": StackLayer,
+}  # fmt: skip
+"""The model class of each kind of a design that has one (``design`` and ``no_connect`` have none)."""
+_LENGTH_TYPE = re.compile(r"\b(Nm|Point|Size)\b")
 
-@dataclass(frozen=True, slots=True)
-class Change:
-    """One difference: ``a`` and ``b`` hold the compact canonical JSON of each side (``""`` for none)."""
 
-    path: str
-    change: ChangeKind
-    a: str = ""
-    b: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class DiffReport:
-    """Every difference between two models, sorted by path and then by change."""
-
-    equal: bool
-    changes: tuple[Change, ...]
-    summary: Mapping[str, Mapping[str, int]]
-
-    def to_json(self, limit: int | None = None) -> dict[str, Any]:
-        """``equal``, ``summary``, ``differences`` (the first ``limit`` changes, or all), ``total`` and
-        ``truncated``."""
-        shown = self.changes if limit is None else self.changes[: max(0, limit)]
-        return {
-            "equal": self.equal,
-            "summary": {kind: dict(counts) for kind, counts in self.summary.items()},
-            "differences": [dataclasses.asdict(change) for change in shown],
-            "total": len(self.changes),
-            "truncated": len(shown) < len(self.changes),
-        }
+@cache
+def length_fields(kind: str) -> frozenset[str]:
+    """The fields of ``kind`` that hold lengths: those typed ``Nm``, ``Point`` or ``Size``, or a sequence of
+    them. Only these take a scope's tolerance."""
+    cls = KIND_CLASSES.get(kind)
+    if cls is None:
+        return frozenset()
+    return frozenset(f.name for f in dataclasses.fields(cls) if _LENGTH_TYPE.search(str(f.type)))
 
 
 def _text(value: Any) -> str:
@@ -269,7 +276,39 @@ def _sheet_parts(sheet: SchematicSheet, *, ext: bool) -> tuple[Keyed, Content]:
     return keyed, content
 
 
-def _keyed_changes(kind: str, a: dict[str, dict[str, Any]], b: dict[str, dict[str, Any]]) -> list[Change]:
+def _close(a: Any, b: Any, tolerance: int) -> bool:
+    """Whether two compared length values are equal within ``tolerance`` nanometres, part by part."""
+    if type(a) is int and type(b) is int:
+        return abs(a - b) <= tolerance
+    if isinstance(a, dict) and isinstance(b, dict):
+        left, right = cast(dict[str, Any], a), cast(dict[str, Any], b)
+        return left.keys() == right.keys() and all(_close(left[k], right[k], tolerance) for k in left)
+    if isinstance(a, list) and isinstance(b, list):
+        one, other = cast(list[Any], a), cast(list[Any], b)
+        return len(one) == len(other) and all(
+            _close(x, y, tolerance) for x, y in zip(one, other, strict=True)
+        )
+    return bool(a == b)
+
+
+class _Rule:
+    """How two values of one field compare: exactly, or within the tolerance for a length field."""
+
+    def __init__(self, tolerance: int = 0) -> None:
+        self.tolerance = tolerance
+
+    def lengths(self, kind: str) -> frozenset[str]:
+        return length_fields(kind) if self.tolerance else frozenset()
+
+    def same(self, kind: str, field: str, one: Any, other: Any) -> bool:
+        if one == other:
+            return True
+        return field in self.lengths(kind) and _close(one, other, self.tolerance)
+
+
+def _keyed_changes(
+    kind: str, a: dict[str, dict[str, Any]], b: dict[str, dict[str, Any]], rule: _Rule
+) -> list[Change]:
     changes: list[Change] = []
     single = kind in SINGLE_KINDS
     for key in sorted(set(a) | set(b)):
@@ -282,29 +321,63 @@ def _keyed_changes(kind: str, a: dict[str, dict[str, Any]], b: dict[str, dict[st
             left, right = a[key], b[key]
             for field in sorted(set(left) | set(right)):
                 one, other = left.get(field), right.get(field)
-                if one != other:
+                if not rule.same(kind, field, one, other):
                     changes.append(Change(f"{base}/{field}", "changed", _text(one), _text(other)))
     return changes
 
 
-def _content_changes(kind: str, a: list[dict[str, Any]], b: list[dict[str, Any]]) -> list[Change]:
+def _unmatched(
+    kind: str, a: list[dict[str, Any]], b: list[dict[str, Any]], rule: _Rule
+) -> tuple[list[str], list[str]]:
+    """The compact canonical JSON of the entities of each side that match no entity of the other, in
+    canonical order. Without a tolerance two entities match when their texts are equal. With one, each
+    entity of ``a`` takes, in canonical order, the first unmatched entity of ``b`` that is equal under it."""
+    lengths = rule.lengths(kind)
+    if not lengths:
+        left, right = Counter(_text(i) for i in a), Counter(_text(i) for i in b)
+        return sorted((left - right).elements()), sorted((right - left).elements())
+
+    def exact(item: dict[str, Any]) -> str:
+        return _text({name: value for name, value in item.items() if name not in lengths})
+
+    ordered_a = sorted(a, key=_text)
+    ordered_b = sorted(b, key=_text)
+    buckets: dict[str, list[int]] = {}
+    for index, item in enumerate(ordered_b):
+        buckets.setdefault(exact(item), []).append(index)
+    taken: set[int] = set()
+    removed: list[str] = []
+    for item in ordered_a:
+        for index in buckets.get(exact(item), ()):
+            other = ordered_b[index]
+            if index not in taken and all(rule.same(kind, n, item.get(n), other.get(n)) for n in lengths):
+                taken.add(index)
+                break
+        else:
+            removed.append(_text(item))
+    added = [_text(item) for index, item in enumerate(ordered_b) if index not in taken]
+    return removed, added
+
+
+def _content_changes(
+    kind: str, a: list[dict[str, Any]], b: list[dict[str, Any]], rule: _Rule
+) -> list[Change]:
     """Entities match when their compared values are equal, each at most once; the others are numbered
     per side in the order of their compact canonical JSON."""
-    left, right = Counter(_text(i) for i in a), Counter(_text(i) for i in b)
-    removed = sorted((left - right).elements())
-    added = sorted((right - left).elements())
+    removed, added = _unmatched(kind, a, b, rule)
     return [
         *(Change(f"/{kind}/{n}", "removed", text, "") for n, text in enumerate(removed)),
         *(Change(f"/{kind}/{n}", "added", "", text) for n, text in enumerate(added)),
     ]
 
 
-def _report(a: tuple[Keyed, Content], b: tuple[Keyed, Content]) -> DiffReport:
+def _report(a: tuple[Keyed, Content], b: tuple[Keyed, Content], rule: _Rule | None = None) -> DiffReport:
+    how = rule if rule is not None else _Rule()
     changes: list[Change] = []
     for kind in KEYED_KINDS:
-        changes += _keyed_changes(kind, a[0].get(kind, {}), b[0].get(kind, {}))
+        changes += _keyed_changes(kind, a[0].get(kind, {}), b[0].get(kind, {}), how)
     for kind in CONTENT_KINDS:
-        changes += _content_changes(kind, a[1].get(kind, []), b[1].get(kind, []))
+        changes += _content_changes(kind, a[1].get(kind, []), b[1].get(kind, []), how)
     changes.sort(key=lambda change: (change.path, change.change))
     summary: dict[str, dict[str, int]] = {}
     for change in changes:
@@ -314,9 +387,35 @@ def _report(a: tuple[Keyed, Content], b: tuple[Keyed, Content]) -> DiffReport:
     return DiffReport(not changes, tuple(changes), dict(sorted(summary.items())))
 
 
-def diff_designs(a: Design, b: Design, *, ext: bool = False) -> DiffReport:
-    """Every difference between two designs. ``ext=True`` also compares the extension bags, as hashes."""
-    return _report(_design_parts(a, ext=ext), _design_parts(b, ext=ext))
+def _scoped(parts: tuple[Keyed, Content], scope: ModelScope) -> tuple[Keyed, Content]:
+    """``parts`` cut to the kinds and the fields of ``scope``."""
+    keyed, content = parts
+    cut_keyed: Keyed = {}
+    cut_content: Content = {}
+    for kind, fields in scope.fields.items():
+        wanted = set(fields)
+        if kind in keyed:
+            cut_keyed[kind] = {
+                key: {name: value for name, value in entity.items() if name in wanted}
+                for key, entity in keyed[kind].items()
+            }
+        if kind in content:
+            cut_content[kind] = [
+                {name: value for name, value in entity.items() if name in wanted} for entity in content[kind]
+            ]
+    return cut_keyed, cut_content
+
+
+def diff_designs(a: Design, b: Design, *, scope: ModelScope | None = None, ext: bool = False) -> DiffReport:
+    """Every difference between two designs. ``ext=True`` also compares the extension bags, as hashes.
+
+    With a ``scope`` only its kinds and, for each, its fields are compared, and two lengths are equal when
+    they differ by at most ``scope.length_tolerance``; a kind's ``a`` and ``b`` texts then hold the scoped
+    fields only."""
+    left, right = _design_parts(a, ext=ext), _design_parts(b, ext=ext)
+    if scope is None:
+        return _report(left, right)
+    return _report(_scoped(left, scope), _scoped(right, scope), _Rule(scope.length_tolerance))
 
 
 def diff_libraries(a: Library, b: Library, *, ext: bool = False) -> DiffReport:
@@ -335,10 +434,12 @@ def diff_sheets(a: SchematicSheet, b: SchematicSheet, *, ext: bool = False) -> D
 __all__ = [
     "CONTENT_KINDS",
     "KEYED_KINDS",
+    "KIND_CLASSES",
     "Change",
     "ChangeKind",
     "DiffReport",
     "diff_designs",
     "diff_libraries",
     "diff_sheets",
+    "length_fields",
 ]

@@ -17,16 +17,22 @@ from fenolite.backends import base, registry
 from fenolite.backends.base import (
     BoardFrame,
     BoardPad,
+    ContainerRoundTrip,
+    Document,
+    DocumentSet,
+    DocumentValidator,
     DrcItem,
     DrcOutcome,
     DrcReport,
     DrcViolation,
     FillOutcome,
+    ModelScope,
     NetlistOracle,
     PadAssignment,
     PadCopper,
     PadNetList,
     PlacedExtent,
+    ProjectRead,
     ProjectSet,
     RoundTrip,
     RoundTripOracle,
@@ -254,3 +260,67 @@ def test_rules_source_record_defaults() -> None:
     assert rules.evidence == base.Evidence()
     with pytest.raises(dataclasses.FrozenInstanceError):
         rules.min_clearance = 1  # type: ignore[misc]
+
+
+def test_container_verdict_consistency() -> None:
+    """Scenarios "Verdict consistency enforced" and "Unjudged verdict needs a reason" (change c0044)."""
+    lost = {"streams": 3, "different": ("Nets6/Data",), "difference": "Nets6/Data"}
+    with pytest.raises(ValueError, match="passed"):
+        ContainerRoundTrip(level="RT-A0", judged=True, passed=True, **lost)  # type: ignore[arg-type]
+    verdict = ContainerRoundTrip(level="RT-A0", judged=True, passed=False, **lost)  # type: ignore[arg-type]
+    assert verdict.difference == "Nets6/Data" and not verdict.reason
+    with pytest.raises(ValueError, match="reason"):
+        ContainerRoundTrip(level="RT-A0", judged=False, passed=False)
+    assert ContainerRoundTrip(level="RT-A0", judged=False, passed=False, reason="too-large").judged is False
+    with pytest.raises(ValueError, match="reason"):
+        ContainerRoundTrip(level="RT-A1", judged=True, passed=True, reason="too-large")
+    with pytest.raises(ValueError, match="difference"):
+        ContainerRoundTrip(level="RT-A1", judged=True, passed=False, different=("FileHeader",))
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        verdict.passed = True  # type: ignore[misc]
+
+
+def test_document_names_are_relative() -> None:
+    def one(name: str, **more: typing.Any) -> DocumentSet:
+        documents = (Document(name, "altium_pcbdoc", "pcb"),)
+        return DocumentSet(root=Path("."), project=None, board=None, documents=documents, **more)
+
+    for bad in ("../x.PcbDoc", "/abs/x.PcbDoc", "sub\\x.PcbDoc", ""):
+        with pytest.raises(ValueError, match="relative POSIX name"):
+            one(bad)
+    with pytest.raises(ValueError, match="../y.SchDoc"):
+        one("x.PcbDoc", missing=("../y.SchDoc",))
+    twice = (Document("x.PcbDoc", "altium_pcbdoc", "pcb"),) * 2
+    with pytest.raises(ValueError, match="repeated: x.PcbDoc"):
+        DocumentSet(Path("."), None, None, twice)
+    with pytest.raises(ValueError, match="the board 'y.PcbDoc'"):
+        DocumentSet(Path("."), None, "y.PcbDoc", twice[:1])
+    with pytest.raises(ValueError, match="the project 'y.PrjPcb'"):
+        DocumentSet(Path("."), "y.PrjPcb", None, twice[:1])
+    with pytest.raises(ValueError, match="sorted"):
+        DocumentSet(Path("."), None, None, (Document("b", "k", "other"), Document("a", "k", "other")))
+    found = DocumentSet(Path("."), None, "sub/x.PcbDoc", (Document("sub/x.PcbDoc", "altium_pcbdoc", "pcb"),))
+    assert found.named("sub/x.PcbDoc").role == "pcb" and found.of_role("schematic") == ()
+    assert found.missing == ()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        found.board = None  # type: ignore[misc]
+
+
+def test_model_scope_and_project_read() -> None:
+    assert ModelScope({"component": ("ref",)}).length_tolerance == 0
+    for bad in (-1, 1.0, True):
+        with pytest.raises(ValueError, match="length_tolerance"):
+            ModelScope({}, length_tolerance=bad)  # type: ignore[arg-type]
+    read = ProjectRead(None, None)
+    assert read.errors == {} and read.schematic is None and read.pcb is None
+    for cls in (Document, DocumentSet, ProjectRead, ContainerRoundTrip, ModelScope):
+        assert cls.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_document_validator_narrows_a_backend() -> None:
+    """Scenario "Narrowing a backend": a backend that only reads is not a ``DocumentValidator``."""
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeReader(), DocumentValidator)
+    assert isinstance(fakes.FakeDocumentValidator(), DocumentValidator)
+    assert not isinstance(KicadBackend(), DocumentValidator)
+    assert not isinstance(fakes.FakeValidator(), DocumentValidator)

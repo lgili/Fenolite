@@ -869,6 +869,11 @@ meaning = "A file or folder that the project names was left out of the copy that
 fix = "Nothing to do unless KiCad needs that file; then put it under the project folder."
 see = "check"
 
+["check.document-missing"]
+meaning = "The project file lists a document that is not a file in the project folder."
+fix = "Restore the document, or remove it from the project in Altium; the other documents are still checked."
+see = "check"
+
 ["check.footprint-unresolved"]
 meaning = "A component that is not marked do-not-populate has no footprint reference or no footprint on the board."
 fix = "Give the part a footprint and build again."
@@ -884,6 +889,11 @@ meaning = "Fenolite cannot read the board; the message starts with the FEN code 
 fix = "Run 'fenolite explain' on that FEN code and correct the file at the place 'where' names."
 see = "check"
 
+["check.roundtrip-unjudged"]
+meaning = "A round-trip level could not be judged for one document; the message names the reason (`too-large`: the file needs sectors the compound writer does not write; `writer-refused`: the writer refuses the tree)."
+fix = "Nothing to do: the level is neither passed nor failed for this document. `roundtrip.rta1` still judges its records."
+see = "check"
+
 ["check.rt1-failed"]
 meaning = "The board does not rebuild to itself: reading and writing it back would change it. 'where' is the first difference."
 fix = "Do not edit this board through Fenolite; report the difference, or re-save the board in KiCad."
@@ -897,6 +907,26 @@ see = "check"
 ["check.rt2-unstable"]
 meaning = "Some violations differ between two DRC runs of the same file, so they were left out of the comparison."
 fix = "Nothing to do; the message says when RT2 is therefore not judged."
+see = "check"
+
+["check.rta0-failed"]
+meaning = "A copy of the compound file through Fenolite's reader and writer lost or changed a storage or a stream; `where` is `<document>:<stream path>`."
+fix = "Do not rewrite this file through Fenolite; report the stream path. `fenolite inspect FILE --streams` lists the streams."
+see = "check"
+
+["check.rta1-failed"]
+meaning = "A stream's records differ after Fenolite encodes them and reads them again; `where` is `<document>:<stream>#<record>`."
+fix = "Do not rely on a rewrite of this file; report the stream and the record number. `fenolite diff A B --view records` shows the records of two files."
+see = "check"
+
+["check.rta1-normalised"]
+meaning = "Streams whose records are equal after encoding and reading again, and whose encoded bytes differ from the bytes read."
+fix = "Nothing to do: the records are kept. The count tells how many streams a rewrite would not reproduce byte for byte."
+see = "check"
+
+["check.rta2-failed"]
+meaning = "The model that the build stored in `.fenolite/` and the reading of the documents the build wrote differ inside the written scope; `where` is `schematic:` or `pcb:` and the path of the difference."
+fix = "Rebuild the project with `fenolite build --confirm`; if the difference stays, a writer or the import has a defect: report the path."
 see = "check"
 
 ["check.symbol-unresolved"]

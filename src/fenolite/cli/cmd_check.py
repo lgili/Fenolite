@@ -5,6 +5,10 @@ verification-loop; ``docs/cli-contract.md``, "check").
 
 The board is found from ``PATH``, its copy set planned, and the stages of ``fenolite.checks`` run with the
 backend as ``Validator`` and ``kicad-cli`` as ``Oracle``. Nothing is written: ``kicad-cli`` only sees copies.
+
+Document input (change c0044) is looked for first: a file or a project folder of a backend whose project is
+a set of documents (an Altium document, library, project file or project folder). It is checked by
+``checks.documents.run_document_checks`` without any external tool.
 """
 
 from __future__ import annotations
@@ -16,23 +20,26 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.base import ProjectSet, Validator
+from fenolite.backends.base import DocumentSet, DocumentValidator, ProjectSet, Validator
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
+from fenolite.checks.documents import DOCUMENT_STAGES, run_document_checks
 from fenolite.checks.stages import CheckReport, relative_file
+from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import FenoliteError, FormatError, Issue
-from fenolite.model.canonical import load_dir
+from fenolite.core.errors import FormatError, Issue
 from fenolite.model.design import Design
 
-HELP = "check a KiCad project read-only: model, ERC lite, KiCad DRC findings, pad nets, round trips"
-BUILT_MARKERS = ("meta.json", "build.json")
+HELP = (
+    "check a KiCad project (model, ERC lite, KiCad DRC findings, pad nets, round trips) or an Altium "
+    "project or document (model, ERC lite, pad nets, round trips RT-A0 to RT-A2), read-only"
+)
 NO_TOOL_HINT = (
     "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli, or run "
     "--stages model.validate,erc.lite,roundtrip"
@@ -57,15 +64,26 @@ class UnsupportedReadRefusedError(ReadRefusedError):
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'check'."
-    parser.add_argument("path", metavar="PATH", help="a .kicad_pcb, a .kicad_pro or a project folder")
+    parser.add_argument(
+        "path",
+        metavar="PATH",
+        help="a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder",
+    )
     parser.add_argument(
         "--stages",
         metavar="A,B",
-        help=f"stages to run, of {','.join(STAGE_ORDER)} (default: {','.join(DEFAULT_STAGES)})",
+        help=f"stages to run, of {','.join(STAGE_ORDER)} (default: {','.join(DEFAULT_STAGES)}); "
+        f"for Altium input, of {','.join(DOCUMENT_STAGES)} (default: all)",
     )
-    parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
     parser.add_argument(
-        "--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS", help="kicad-cli timeout (300)"
+        "--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run (unused for Altium input)"
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=DEFAULT_TIMEOUT,
+        metavar="SECONDS",
+        help="kicad-cli timeout (300; unused for Altium input)",
     )
 
 
@@ -81,21 +99,51 @@ def parse_stages(text: str | None) -> tuple[str, ...]:
     return tuple(names)
 
 
-def _relative(text: str, root: Path) -> str:
-    for spelling in sorted({str(root.resolve()), str(root)}, key=len, reverse=True):
-        text = text.replace(spelling + "/", "").replace(spelling, ".")
-    return text
+def _document_stages(text: str | None) -> tuple[str, ...]:
+    if text is None:
+        return DOCUMENT_STAGES
+    names = [name.strip() for name in text.split(",")]
+    bad = [name for name in names if name not in DOCUMENT_STAGES]
+    if not names or bad:
+        shown = ", ".join(repr(n) for n in bad) if any(bad) else "an empty stage name"
+        raise CliError(
+            "FEN-2001",
+            f"unknown stage {shown} for document input",
+            hint=f"stages: {','.join(DOCUMENT_STAGES)}",
+        )
+    return tuple(names)
 
 
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
-    cache = root / ".fenolite"
-    if not any((cache / marker).is_file() for marker in BUILT_MARKERS):
-        return False, None, ""
-    try:
-        return True, load_dir(cache), ""
-    except (OSError, ValueError, KeyError, TypeError, FenoliteError) as exc:
-        return True, None, _relative(f"{type(exc).__name__}: {exc}", root)
+    return built_cache(root)
+
+
+def _run_documents(
+    args: argparse.Namespace, path: Path, backend: DocumentValidator, documents: DocumentSet
+) -> Result:
+    """The check of document input (capability altium-verification, "Check on Altium inputs"): no oracle is
+    built and no subprocess runs; ``--kicad-cli`` and ``--timeout`` are accepted and ignored."""
+    stages = _document_stages(args.stages)
+    built, model, cache_error = built_cache(documents.root)
+    report = run_document_checks(
+        documents=documents,
+        stages=stages,
+        model=model,
+        built=built,
+        validator=backend,
+        cache_error=cache_error,
+    )
+    error = report.read_error
+    if isinstance(error, FormatError):
+        raise ReadRefusedError(error, report.issues, file=documents.documents[0].name)
+    result: dict[str, Any] = {
+        "project": project_result(backend, documents, built=built),
+        "stages": [stage.to_json() for stage in report.stages],
+    }
+    return Result(
+        result=result, issues=report.issues, evidence=report.evidence, input=input_ref(path, documents)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,9 +186,13 @@ def run_stages(
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
-    stages = parse_stages(args.stages)
     given = Path(args.path)
-    board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
+    path = given if given.is_absolute() else ctx.cwd / given
+    found = find_documents(path)
+    if found is not None:
+        return _run_documents(args, path, *found)
+    stages = parse_stages(args.stages)
+    board = resolve_board(path)
     checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout)
     project, built, report = checked.project, checked.built, checked.report
     result: dict[str, Any] = {

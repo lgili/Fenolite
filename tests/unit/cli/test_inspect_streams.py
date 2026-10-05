@@ -47,7 +47,10 @@ def test_library_storage_precedes_children(monkeypatch: pytest.MonkeyPatch, tmp_
 
 
 def test_compound_hint_and_two_view_usage_error(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    code, _, err, _ = run(monkeypatch, tmp_path, "inspect", str(PCB_LIBRARY))
+    # a compound file that no backend reads (change c0044: an Altium file is now summarised)
+    unknown = tmp_path / "x.bin"
+    unknown.write_bytes(bytes(build([{"path": "Data", "data": b"x"}]).data))
+    code, _, err, _ = run(monkeypatch, tmp_path, "inspect", str(unknown))
     assert code == 2 and err["code"] == "FEN-2001" and "--streams" in err["hint"]
     code, _, err, _ = run(monkeypatch, tmp_path, "inspect", str(PCB_LIBRARY), "--summary", "--streams")
     assert code == 2 and err["code"] == "FEN-2001"

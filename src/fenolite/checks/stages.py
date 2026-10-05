@@ -62,6 +62,9 @@ StageSkip = Literal[
     "unsupported-oracle",
     "oracle-unsupported",
     "oracle-unstable",
+    "no-schematic",
+    "single-source",
+    "not-judged",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 

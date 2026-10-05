@@ -1,43 +1,32 @@
 ## ADDED Requirements
 
-### Requirement: Diff command
-`fenolite diff A B [--view model|records] [--ext] [--limit N]` SHALL be registered by `src/fenolite/cli/cmd_diff.py` with `mutates=False`, and SHALL list the differences between two inputs without writing a file and without running any external tool.
-- **Inputs.** `A` and `B` MUST each be a file that `registry.for_path` gives a backend for, a project file or folder of a backend that satisfies `DocumentValidator`, or a folder that holds `.fenolite/meta.json` (the built model, loaded with `model.canonical.load_dir`). A missing path MUST exit 3 with `FEN-3001`, an input that no backend reads MUST exit 2 with `FEN-2001`, and a read error MUST exit 3 with its code.
-- **Model view** (the default). Two designs MUST be compared with `checks.diff.diff_designs` and two libraries with `checks.diff.diff_libraries` (`verification-loop`, "Model difference report"). A design against a library MUST exit 2 with `FEN-2001`. `--ext` MUST pass `ext=True`.
-- **Records view.** `--view records` MUST compare two Altium files of one kind as `altium-verification`, "Records view of two Altium files", says. For any other pair of inputs it MUST exit 2 with `FEN-2001` and a hint that names `--view model`.
-- **Result.** `result` MUST hold `view`, `equal`, `a` and `b` (each `{path, kind}`, `path` being the file or folder name without its parent), `summary` (per entity kind or stream, the counts `added`, `removed` and `changed`), `differences` (at most `--limit` objects `{path, change, a, b}`, in report order), `total` and `truncated`. `--limit` MUST default to 200; a value below 1 MUST exit 2 with `FEN-2001`.
-- **Exit code.** A difference is a result, not a finding: the exit code MUST be 0 whether or not the inputs differ, and `issues` MUST hold only the readers' issues, those of `A` first.
-- **Evidence.** The envelope evidence MUST be `Evidence.combine` of the two readings; a `.fenolite/` model counts as `INFERRED`. `input` MUST describe `A`.
-- **Determinism.** Two runs on the same inputs MUST give the same stdout apart from `elapsed_ms`, and the output MUST hold no absolute path.
-- `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD)` and MUST run no subprocess from any working directory. `docs/cli-contract.md` MUST have a section "diff" with the views, the result keys and the matching keys.
+### Requirement: Diff of document inputs and the records view
+`fenolite diff A B` ("Diff command", change c0066) SHALL also accept the inputs of a backend that satisfies `DocumentValidator` (`backend-protocol`, "Document sets and container round trips"), and SHALL offer `--view records` beside `model` and `tree`. Everything "Diff command" says of the result keys, the paged list `differences`, the exit code, determinism and `example_args` applies unchanged.
+- **Inputs.** `A` and `B` MAY each be a file that `registry.for_path` gives such a backend for (an Altium document, library or project file), or a folder that holds exactly one project file of such a backend and no `.fenolite/meta.json`. A project file or folder is read with `backend.read` of the project file. `a.kind` and `b.kind` MUST then be the read kind that `backend.documents` gives the file (`altium_pcbdoc`, `altium_schdoc_ascii`, …). A folder that holds `.fenolite/meta.json` stays the built model, whatever else it holds.
+- **Model view.** Designs and libraries of any two backends MUST be compared as "Diff command" says: `diff_designs` for two designs, `diff_libraries` for two libraries, exit 2 with `FEN-2001` for a design against a library. `--view tree` on such an input MUST exit 2 with `FEN-2001` and a hint that names `--view model`.
+- **Records view.** `--view records` MUST compare two Altium files of one kind as `altium-verification`, "Records view of two Altium files", says, with `summary` per stream. For any other pair of inputs it MUST exit 2 with `FEN-2001` and a hint that names `--view model`. `--ext` with this view MUST exit 2 with `FEN-2001`.
+- **Evidence.** The envelope evidence MUST be `Evidence.combine` of the two readings; in the records view it is the readers' evidence of the kind.
+- `docs/cli-contract.md`, section "diff", MUST describe the three views and the Altium inputs.
 
-#### Scenario: A file against itself
-- **WHEN** `uv run fenolite diff tests/data/kicad/board/two_layer.kicad_pcb tests/data/kicad/board/two_layer.kicad_pcb --json` runs
-- **THEN** the exit code is 0, `result.view` is `model`, `result.equal` is `true`, `result.total` is 0 and `result.differences` is empty
+#### Scenario: Two Altium documents in the model view
+- **WHEN** `uv run pytest tests/unit/cli/test_diff_cmd.py -k altium_model` runs `fenolite diff tests/data/altium/blink/blink.PcbDoc tests/data/altium/blink/blink.PcbDoc --json`
+- **THEN** the exit code is 0, `result.view` is `model`, `result.equal` is `true`, and `result.a.kind` is `altium_pcbdoc`
 
-#### Scenario: One footprint moved
-- **GIVEN** a copy of `two_layer.kicad_pcb` in `tmp_path` whose first footprint is moved by 1 mm in X by a token edit
-- **WHEN** `uv run pytest tests/unit/cli/test_diff_cmd.py -k moved` runs `fenolite diff <original> <copy> --json`
-- **THEN** the exit code is 0, `result.equal` is `false`, and `result.differences` holds exactly one object, whose `change` is `changed` and whose `path` is `/footprint/<ref>/position`
+#### Scenario: A KiCad board against an Altium document
+- **WHEN** `fenolite diff tests/data/kicad/board/two_layer.kicad_pcb tests/data/altium/blink/blink.PcbDoc --json` runs
+- **THEN** the exit code is 0, `result.equal` is `false`, `result.a.kind` is `kicad_pcb` and `result.b.kind` is `altium_pcbdoc`
 
-#### Scenario: Built model against its board
-- **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, built=True)`
-- **WHEN** `fenolite diff <project> <project>/<board>.kicad_pcb --json` runs
-- **THEN** the exit code is 0, `result.a.kind` is `fenolite_model`, and `result.b.kind` is `kicad_pcb`
+#### Scenario: Project folder as an input
+- **WHEN** `fenolite diff tests/data/altium/blink tests/data/altium/blink/blink.PrjPcb --json` runs
+- **THEN** the exit code is 0, `result.equal` is `true`, and both kinds are `altium_prjpcb`
 
 #### Scenario: Records view refused for KiCad files
 - **WHEN** `fenolite diff tests/data/kicad/board/two_layer.kicad_pcb tests/data/kicad/board/two_layer.kicad_pcb --view records` runs
 - **THEN** the exit code is 2, stderr carries `FEN-2001`, and the hint names `--view model`
 
-#### Scenario: Limit truncates the list
-- **GIVEN** two authored designs with five differences
-- **WHEN** `fenolite diff A B --limit 2 --json` runs
-- **THEN** `result.differences` holds two objects, `result.total` is 5 and `result.truncated` is `true`
-
-#### Scenario: Diff is hermetic
-- **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise, and the working directory changed to an empty `tmp_path`
-- **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `diff` with its `example_args`
-- **THEN** the exit code is 0
+#### Scenario: Tree view refused for Altium files
+- **WHEN** `fenolite diff tests/data/altium/blink/blink.SchDoc tests/data/altium/blink/blink.SchDoc --view tree` runs
+- **THEN** the exit code is 2, stderr carries `FEN-2001`, and the hint names `--view model`
 
 ## MODIFIED Requirements
 

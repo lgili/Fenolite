@@ -9,13 +9,14 @@ another backend.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
@@ -574,6 +575,179 @@ class DesignRulesSource(Protocol):
     ) -> DesignRules: ...
 
 
+ChangeKind = Literal["added", "removed", "changed"]
+
+
+@dataclass(frozen=True, slots=True)
+class Change:
+    """One difference of a comparison: ``a`` and ``b`` hold the compact canonical JSON of each side (``""``
+    for none). ``checks.diff`` reports model differences with it, and a backend the differences between the
+    records of two files."""
+
+    path: str
+    change: ChangeKind
+    a: str = ""
+    b: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DiffReport:
+    """Every difference between two models, sorted by path and then by change."""
+
+    equal: bool
+    changes: tuple[Change, ...]
+    summary: Mapping[str, Mapping[str, int]]
+
+    def to_json(self, limit: int | None = None) -> dict[str, Any]:
+        """``equal``, ``summary``, ``differences`` (the first ``limit`` changes, or all), ``total`` and
+        ``truncated``."""
+        shown = self.changes if limit is None else self.changes[: max(0, limit)]
+        return {
+            "equal": self.equal,
+            "summary": {kind: dict(counts) for kind, counts in self.summary.items()},
+            "differences": [dataclasses.asdict(change) for change in shown],
+            "total": len(self.changes),
+            "truncated": len(shown) < len(self.changes),
+        }
+
+
+DocumentRole = Literal["project", "schematic", "pcb", "symbol-library", "footprint-library", "other"]
+ContainerLevel = Literal["RT-A0", "RT-A1"]
+
+
+def _relative_name(name: str) -> bool:
+    rel = PurePosixPath(name)
+    return bool(name) and not rel.is_absolute() and ".." not in rel.parts and "\\" not in name
+
+
+@dataclass(frozen=True, slots=True)
+class Document:
+    """One document of a set: its POSIX name relative to the set's root, its read kind and its role."""
+
+    name: str
+    kind: str
+    role: DocumentRole
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSet:
+    """The documents an input names (a document alone, or a project's documents), sorted by name.
+
+    ``project`` and ``board`` are names of ``documents`` or ``None``; ``missing`` holds, sorted, the names
+    that the project file lists and that do not exist.
+    """
+
+    root: Path
+    project: str | None
+    board: str | None
+    documents: tuple[Document, ...]
+    missing: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        names = [document.name for document in self.documents]
+        for name in (*names, *self.missing):
+            if not _relative_name(name):
+                raise ValueError(f"document name {name!r} is not a relative POSIX name")
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(f"document names are repeated: {', '.join(repeated)}")
+        if names != sorted(names):
+            raise ValueError("documents must be sorted by name")
+        if list(self.missing) != sorted(self.missing):
+            raise ValueError("missing names must be sorted")
+        for what, name in (("project", self.project), ("board", self.board)):
+            if name is not None and name not in names:
+                raise ValueError(f"the {what} {name!r} is not one of the documents")
+
+    def named(self, name: str) -> Document:
+        """The document ``name``; ``KeyError`` when the set does not hold it."""
+        for document in self.documents:
+            if document.name == name:
+                return document
+        raise KeyError(name)
+
+    def of_role(self, role: DocumentRole) -> tuple[Document, ...]:
+        return tuple(document for document in self.documents if document.role == role)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectRead:
+    """Two readings of one document set, apart: every schematic document as one design, and the document
+    ``board``. A side without a document, or whose reading was refused, is ``None``; ``errors`` maps a
+    document name to the error that refused it."""
+
+    schematic: ReadResult | None
+    pcb: ReadResult | None
+    errors: Mapping[str, FormatError] = field(default_factory=lambda: {})
+
+
+@dataclass(frozen=True, slots=True)
+class ContainerRoundTrip:
+    """The verdict of one container round-trip level on one file.
+
+    ``different`` holds the paths of the streams that differ and ``difference`` locates the first one. A
+    level that cannot be judged has ``judged`` false and a ``reason``: it is neither a pass nor a failure.
+    """
+
+    level: ContainerLevel
+    judged: bool
+    passed: bool
+    streams: int = 0
+    different: tuple[str, ...] = ()
+    records: int = 0
+    bytes_equal: int = 0
+    opaque_count: int = 0
+    difference: str = ""
+    reason: str = ""
+    evidence: Evidence = Evidence()
+    """The backend's evidence for this verdict: its reader's level and the hypotheses the level rests on."""
+
+    def __post_init__(self) -> None:
+        if self.passed != (self.judged and not self.different):
+            raise ValueError("ContainerRoundTrip.passed must equal judged and not different")
+        if bool(self.reason) == self.judged:
+            raise ValueError("ContainerRoundTrip.reason is non-empty exactly when judged is false")
+        if bool(self.difference) != bool(self.different):
+            raise ValueError("ContainerRoundTrip.difference is empty exactly when different is empty")
+
+
+@dataclass(frozen=True, slots=True)
+class ModelScope:
+    """The model fields, per entity kind, that a comparison covers, and the tolerance for lengths (nm)."""
+
+    fields: Mapping[str, tuple[str, ...]]
+    length_tolerance: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.length_tolerance) is not int or self.length_tolerance < 0:
+            raise ValueError(f"length_tolerance is a non-negative int, got {self.length_tolerance!r}")
+
+
+@runtime_checkable
+class DocumentValidator(Protocol):
+    """A backend whose input is a set of documents: it names them, reads the schematic side and the PCB side
+    apart, judges the container round trip of one file, and states what its writers write.
+
+    ``documents`` decides from the path, the project file and at most the first eight bytes of each
+    document. No method writes a file. ``container_roundtrip`` raises the reader's ``FormatError`` for a
+    file it cannot read and returns ``judged=False`` with a reason for a level it cannot judge.
+    ``stage_evidence`` maps a check stage name to the evidence the backend adds to it (the hypotheses its
+    readings rest on for that stage), so that ``checks`` names no hypothesis of a backend.
+    """
+
+    name: str
+
+    def documents(self, path: Path) -> DocumentSet: ...
+
+    def read_documents(self, documents: DocumentSet) -> ProjectRead: ...
+
+    def container_roundtrip(self, path: Path, level: ContainerLevel) -> ContainerRoundTrip: ...
+
+    def written_scope(self) -> ModelScope: ...
+
+    def stage_evidence(self) -> Mapping[str, Evidence]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -598,8 +772,17 @@ __all__ = [
     "BoardPad",
     "CanaryState",
     "CapabilityReport",
+    "Change",
+    "ChangeKind",
+    "ContainerLevel",
+    "ContainerRoundTrip",
     "DesignRules",
     "DesignRulesSource",
+    "DiffReport",
+    "Document",
+    "DocumentRole",
+    "DocumentSet",
+    "DocumentValidator",
     "Downgrade",
     "DrcItem",
     "DrcOutcome",
@@ -609,6 +792,7 @@ __all__ = [
     "FillOutcome",
     "MATRIX_OPERATIONS",
     "MatrixRow",
+    "ModelScope",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",
@@ -619,6 +803,7 @@ __all__ = [
     "PlotOutcome",
     "PlotView",
     "Plotter",
+    "ProjectRead",
     "ProjectSet",
     "ReadResult",
     "RoundTrip",

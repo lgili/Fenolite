@@ -606,6 +606,12 @@ repeat.
 | `zone.unfilled` | warning | KiCad's refill produces copper but the saved board has none for a zone |
 | `zone.fill-stale` | warning | the saved fill polygons differ from a KiCad refill |
 | `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |
+| `check.document-missing` | warning | document input: the project file lists a document that does not exist |
+| `check.rta0-failed` | error | document input: a container copy lost or changed a storage or a stream; `where` is `<document>:<stream path>` |
+| `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
+| `check.rta1-normalised` | info | document input: streams whose records are equal and whose encoded bytes differ |
+| `check.rta2-failed` | error | document input: the built model and a reading of the written documents differ inside the written scope |
+| `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
 (error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, and `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043). Exit codes: 0 without an error issue, 5
@@ -614,6 +620,51 @@ neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 wh
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),
 of an unsupported major, or older than the board's format (`FEN-6002`). Two runs on the same project
 give the same stdout apart from `elapsed_ms`.
+
+### check on Altium input
+
+`fenolite check PATH` also checks the documents of a backend whose project is a set of documents
+(change c0044): an Altium document or library (`.SchDoc`, `.PcbDoc`, `.SchLib`, `.PcbLib`), a project
+file (`.PrjPcb`) or a folder that holds exactly one project file. This *document input* is looked for
+before a KiCad board. It is read-only and runs no tool: no `kicad-cli` is looked for, and `--kicad-cli`
+and `--timeout` are accepted and ignored. A folder that holds a KiCad project or board beside an Altium
+project file is ambiguous, and a folder with Altium files and without exactly one project file is
+refused (both `FEN-2001`, exit 2, the hint naming the candidates).
+
+The stages are `DOCUMENT_STAGES`, in this order; `--stages` selects a subset (all by default), and a
+name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them.
+
+| stage | what it does | evidence |
+|---|---|---|
+| `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
+| `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
+| `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
+| `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
+| `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
+| `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips") | `INFERRED` (`H-A-VER-RTA2-2`) |
+
+A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
+Fenolite build wrote), `no-schematic` (`erc.lite` without a schematic document), `single-source`
+(`netlist.assignment_compare` without two sources), `not-judged` (no document of the set can be judged
+by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
+`read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
+carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.
+
+- `result.project` holds `backend` (`altium`), `project` and `board` (names or `null`), `built`, `files`
+  (the document names, sorted), `documents` (`{name, kind, role}`) and `skipped` (`{name, reason}` with
+  the reason `missing` for a document the project file lists and that does not exist, also reported as
+  `check.document-missing`). Names are relative to the project's folder. `input` describes the file that
+  `PATH` names, or the project file for a folder, with its SHA-256 and read kind.
+- The summary of a container stage holds `level`, `documents` (judged), `streams`, `failed` and
+  `unjudged` (a count per reason: `too-large`, `writer-refused`, `not-a-container`, `read-refused`); RT-A1
+  adds `records`, `bytes_equal` and `opaque_count`. The summary of `roundtrip.rta2` holds `level`, `holds`,
+  `differences`, `compared` (the entity kinds compared per side) and `not_in_model` (per side, the count
+  of each board kind that only the reading holds, which is not compared).
+- A document that cannot be read gives one `check.read-refused` error whose `where` starts with its
+  name. When it is the only document, the command exits 3 with the error's FEN code, as for a KiCad
+  board; inside a project the other documents are still checked and the exit code is 5.
+- Exit codes: 0 without an error issue, 5 with one, 2 for a usage error, 3 for a missing path or an
+  unreadable single document, and never 6.
 
 ## export
 
@@ -684,9 +735,22 @@ default view: boards, footprint files and symbol libraries (file or `.kicad_symd
 `.kicad_sch` and `.kicad_wks` are read header-only, with counts of root children by head. `result` holds
 `kind`, `format_version`, `major`, `status`, `generator`, `generator_version`, `counts`, `opaque_count`
 (boards only) and `model_findings` (the `model.*` findings counted by severity, not reported as issues).
-`input.path` is the file name. `.kicad_pro`, `.kicad_dru` and other non-S-expression files exit 2
-(`FEN-2001`); a file beginning with the compound-file signature has a hint to use `--streams`. A read
+`input.path` is the file name. `.kicad_pro`, `.kicad_dru` and every other file that no backend reads exit 2
+(`FEN-2001`); such a file beginning with the compound-file signature has a hint to use `--streams`. A read
 error exits 3 with its code.
+
+An Altium file (`.PcbDoc`, `.SchDoc`, `.PcbLib`, `.SchLib`, `.PrjPcb`; change c0044) is summarised from
+the Altium readers, with the same keys: `kind` is its read kind (`altium_pcbdoc`,
+`altium_schdoc_binary`, `altium_schdoc_ascii`, `altium_pcblib`, `altium_schlib`, `altium_prjpcb`),
+`format_version` the version text of its header (`6.0`, `5.0`; `null` for a project file), `major`,
+`generator` and `generator_version` are `null`, and `status` is `supported`. `counts` holds, for a PCB
+document, the board counts plus `components` and `rules`; for a schematic `components`, `pins`, `nets`,
+`wires`, `labels`, `power_ports`, `ports`, `sheet_symbols` and `no_connects`; for a schematic library
+`symbols`, `units` and `pins`; for a PCB library `footprints`, `pads` and `graphics`; for a project file
+`documents`, `missing` and one count per document role. `opaque_count` is that of the file's RT-A1
+verdict (records kept without a typed class plus streams kept whole), `result.streams` holds the
+stream counts `typed` and `opaque`, and a project file adds `result.documents` (`{name, kind, role,
+exists}`). The envelope evidence is that of the file's reading.
 
 `--streams` selects an MS-CFB container by its bytes, regardless of its extension, and reads only its
 storage and stream tree. `--summary` and `--streams` together exit 2 (`FEN-2001`). `--limit-bytes N`
@@ -985,7 +1049,7 @@ the default template the table holds the content of `kicad-cli pcb export pos`, 
 with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differences.
 ## diff
 
-`fenolite diff A B [--view model|tree] [--ext]` lists the differences between two inputs. It writes
+`fenolite diff A B [--view model|tree|records] [--ext]` lists the differences between two inputs. It writes
 nothing and runs no tool. A difference is a result, not a finding: the exit code is 0 whether or not the
 inputs differ, and `result.equal` says it.
 
@@ -993,6 +1057,11 @@ inputs differ, and `result.equal` says it.
 `.kicad_symdir` folder), or a folder that holds `.fenolite/meta.json` (the built model). Both must be of one family: two designs
 (boards and built models, in any mix), two libraries, or two schematics. A schematic is one file: a
 sub-sheet is compared by naming its own file.
+
+An Altium document, library or project file, or a folder that holds exactly one Altium project file, is
+an input too (change c0044): it is read into the model by the Altium backend, so the model view compares
+it with any other design or library, a KiCad board included. Its `kind` is its read kind
+(`altium_pcbdoc`, `altium_schdoc_ascii`, …).
 
 - **`--view model`** (the default) compares the two models entity by entity. Ids, KiCad uuids and
   provenance never take part, so a rebuilt board equals itself.
@@ -1022,8 +1091,22 @@ sub-sheet is compared by naming its own file.
   node that differs (or `null`) and `result.heads` gives, per root child head whose count differs, its
   count in `a` and in `b`.
 
+- **`--view records`** compares two Altium files of one read kind stream by stream, with the readers'
+  own record codecs. Streams are matched by path: a stream on one side only is `removed` or `added`
+  at `/<stream>`, and a stream the reader keeps whole whose bytes differ is `changed` at `/<stream>`,
+  with the SHA-256 of each side. The records of a typed stream are aligned by their longest common
+  subsequence, so one inserted record is one `added` and no later record is reported: a record on one
+  side only is `removed` or `added` at `/<stream>#<index>` (its own side's index, the stream header
+  being record 0), and two unaligned records at the same place of one record kind are one `changed`
+  at `/<stream>#<index of A>`. `a` and `b` name the record kind and the keys or fields that differ; a
+  value is shown only when its text is at most 80 bytes, else as its length and SHA-256. `summary` is
+  per stream, and the changes are in stream and record order. The two forms of a schematic are two
+  kinds: this view converts nothing. Any other pair of inputs is a usage error whose hint names
+  `--view model`, and so is `--view tree` on an Altium file.
+
 `result` holds `view`, `equal`, `a` and `b` (each `{path, kind}`; `kind` is `kicad_pcb`, `kicad_mod`,
-`kicad_sym`, `kicad_sch` or `fenolite_model`), `summary` (per entity kind: `added`, `removed`, `changed`),
+`kicad_sym`, `kicad_sch`, `fenolite_model` or an Altium read kind), `summary` (per entity kind, or per stream in the
+records view: `added`, `removed`, `changed`),
 `differences` (objects `{path, change, a, b}`, sorted by path; `a` and `b` are compact JSON texts),
 `total` and `truncated`. `differences` is a paged list with a default limit of 200 (see "Paged
 results"). `issues` holds only the readers' issues, those of `A` first; `input` describes `A`. The

@@ -221,6 +221,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `binary` | `EVIDENCE` INFERRED: `H-A-SCHBIN-AD`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE`, `H-A-SCHBIN-VIEWER` |
 | `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` |
 | `docboard` | see `pcbdoc` |
+| `docset` | see `import_evidence` |
 | `hierarchy` | `EVIDENCE` INFERRED: `H-A-SCH-HARN-FILE`, `H-A-SCH-HARN-NETS`, `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-UNUSED`, `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HIER-ECO`, `H-A-SCH-HIER-NAMES`, `H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-ORDER`, `H-A-SCH-HIER-PRJ` |
 | `import_evidence` | `EVIDENCE` INFERRED: `H-A-IMP-NETLIST`, `H-A-IMP-WIRE`, `H-A-IMP-PIN-MID`, `H-A-IMP-PORT-ENDS`, `H-A-IMP-SCOPE`, `H-A-IMP-POWER-LOCAL`, `H-A-IMP-OFFSHEET`, `H-A-IMP-DUP-NAME`, `H-A-IMP-NAME-TIE`, `H-A-IMP-NAME-AUTO`, `H-A-IMP-HIDDEN-PIN`, `H-A-IMP-BUS`, `H-A-IMP-HARN-NAME`, `H-A-IMP-LINK`, `H-A-IMP-FRAME`, `H-A-IMP-LAYERS`, `H-A-IMP-PADSTACK`, `H-A-IMP-ZONE`, `H-A-IMP-BODY`, `H-A-IMP-SYMFRAME` |
 | `layout` | see `project` |
@@ -259,6 +260,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.sheet` | `EVIDENCE` INFERRED: `H-A-RD-SHT-AREA`, `H-A-RD-SHT-BORDER`, `H-A-RD-SHT-IMAGE`, `H-A-RD-SHT-OWNER`, `H-A-RD-SHT-SAME`, `H-A-RD-SHT-STRINGS`, `H-A-RD-SHT-TEXT`, `H-A-RD-SHT-WIDTH` |
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
+| `roundtrip` | `EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-2`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `schdoc` | see `project` |
 | `schlib` | `EVIDENCE` INFERRED: `H-A-SCHLIB-IMPLIDX`, `H-A-SCHLIB-KICAD`, `H-A-SCHLIB-OPEN`, `H-A-SCHLIB-PARTS`, `H-A-SCHLIB-PIN`, `H-A-SCHLIB-SECTIONKEY` |
 | `symbols` | see `project` |

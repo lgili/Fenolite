@@ -12,7 +12,7 @@ import tomllib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import pytest
 
@@ -229,6 +229,31 @@ def altium_tag_problems(entries: list[dict[str, Any]]) -> list[str]:
     return problems
 
 
+RTA = "rta"
+RTA_SUFFIXES = (".schdoc", ".schlib", ".pcbdoc", ".pcblib", ".prjpcb")
+
+
+def rta_problems(entries: list[dict[str, Any]]) -> list[str]:
+    """The rule of "Round-trip use on Altium rows" (change c0044): ``rta`` marks exactly the rows whose URL
+    path ends, in any letter case, in one of the five Altium suffixes and that are not ``malformed``."""
+    problems: list[str] = []
+    for entry in entries:
+        if not KEYS <= entry.keys():
+            continue
+        ident = str(entry["id"])
+        uses = set(entry["uses"])
+        path = unquote(urlparse(str(entry["url"])).path).lower()
+        wanted = path.endswith(RTA_SUFFIXES) and "malformed" not in uses
+        if RTA in uses and not wanted:
+            problems.append(
+                f"{ident}: carries the use {RTA}, which marks only the rows whose URL ends in "
+                f"{', '.join(RTA_SUFFIXES)} and that are not malformed"
+            )
+        elif wanted and RTA not in uses:
+            problems.append(f"{ident}: lacks the use {RTA}, which every Altium document row carries")
+    return problems
+
+
 def heavy_problems(entries: list[dict[str, Any]], cache: Path) -> list[str]:
     """Fetched files over 20 MB must carry the ``heavy`` use."""
     tool = _load_tool()
@@ -266,7 +291,7 @@ def data_file_problems(root: Path, corpus: list[dict[str, Any]], declared: list[
 
 def test_manifest_schema() -> None:
     entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
-    problems = manifest_problems(entries) + altium_set_problems(entries)
+    problems = manifest_problems(entries) + altium_set_problems(entries) + rta_problems(entries)
     assert not problems, "\n".join(problems)
 
 
@@ -807,5 +832,51 @@ def test_altium_sets_of_the_manifest() -> None:
     added = [e for e in entries if e["id"] in in_sets and not set(e["uses"]) & ALTIUM_SET_ONLY]
     assert len(added) == 29
     for entry in added:
-        extra = set(entry["uses"]) - {"altium", "origin:third-party", "altium-import", "heavy"}
+        extra = set(entry["uses"]) - {"altium", "origin:third-party", "altium-import", "heavy", RTA}
         assert len(extra) == 1 and next(iter(extra)).startswith("altium-set:"), entry["id"]
+
+
+def test_rta_rows_of_the_manifest() -> None:
+    """Change c0044: every row whose URL ends in one of the five Altium suffixes carries ``rta``, and
+    ``corpus_fetch --uses rta`` selects exactly those rows."""
+    tool = _load_tool()
+    entries = tool.load_manifest(MANIFEST)
+    assert rta_problems(entries) == []
+    tagged = {entry["id"] for entry in entries if RTA in entry["uses"]}
+    assert len(tagged) >= 60 and all(ident.startswith("altium-third-party-") for ident in tagged)
+    assert {entry["id"] for entry in tool.select(entries, [RTA], [])} == tagged
+    light = {entry["id"] for entry in tool.select(entries, [RTA], ["heavy"])}
+    assert light < tagged and all("heavy" in e["uses"] for e in entries if e["id"] in tagged - light)
+
+
+def test_rta_on_a_kicad_row() -> None:
+    (problem,) = rta_problems([_row(uses=["rt0", "oracle", "origin:kicad-demos", RTA])])
+    assert problem.startswith("kicad-demo-10-0-6-pcb-01: carries the use rta")
+
+
+def test_rta_missing_on_an_altium_row() -> None:
+    row = _altium_row(
+        id="altium-third-party-pcbdoc-01",
+        url="https://example.invalid/repo/" + "a" * 40 + "/board.PCBDOC",
+        uses=["altium", "cfb", "origin:third-party"],
+    )
+    assert rta_problems([row]) == ["altium-third-party-pcbdoc-01: lacks the use rta, which every Altium "
+                                   "document row carries"]  # fmt: skip
+    assert rta_problems([row | {"uses": [*row["uses"], RTA]}]) == []
+
+
+def test_rta_not_on_a_malformed_or_template_row() -> None:
+    malformed = _altium_row(uses=["altium", "origin:third-party", "malformed"])
+    template = _altium_row(url="https://example.invalid/repo/" + "a" * 40 + "/sheet.SchDot")
+    assert rta_problems([malformed, template]) == []
+    (problem,) = rta_problems([malformed | {"uses": [*malformed["uses"], RTA]}])
+    assert "carries the use rta" in problem
+
+
+def test_fetch_by_the_rta_use(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tool = _load_tool()
+    manifest = _manifest(tmp_path, [("board", "a.kicad_pcb", ["rt0"]), ("doc", "b.PcbDoc", [RTA])])
+    cache = tmp_path / "cache"
+    assert tool.main(["--manifest", str(manifest), "--cache", str(cache), "--uses", RTA]) == 0
+    assert "1 item(s)" in capsys.readouterr().out
+    assert (cache / "doc" / "b.PcbDoc").is_file() and not (cache / "board").exists()

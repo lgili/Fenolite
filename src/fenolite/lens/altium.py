@@ -526,6 +526,17 @@ def _comment(component: Component) -> str:
     return component.value or (link[1] if link is not None else component.ref)
 
 
+def with_written_values(design: Design) -> Design:
+    """``design`` with the value that the documents hold for every component whose value is empty: its
+    symbol's name, which both writers write as the comment (a component of Altium cannot be without one).
+    The model that a build stores is the model its documents read back to (change c0044, RT-A2)."""
+    components = tuple(
+        component if component.value else dataclasses.replace(component, value=_comment(component))
+        for component in design.circuit.components
+    )
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
+
+
 def pcb_document(
     design: Design,
     *,
@@ -1171,7 +1182,7 @@ def build_altium(
     model, pin_issues = kicad_pins(design, resolved)
     issues += pin_issues
     symbols = library_symbols(resolved, issues)
-    model = generic_pins(model)
+    model = with_written_values(generic_pins(model))
     issues += list(model.validate())
     if not any(i.severity == "error" for i in issues):
         issues += _library_checks(model, name, symbols, project_exists)

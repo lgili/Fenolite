@@ -8,6 +8,8 @@ are not in this table. Codes of an oracle start with its name, written ``<oracle
 (``checks.drc_json.type_code``; "Findings stage issue codes").
 The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper stage issue codes"), which
 the build's copper guard emits too.
+The last six codes are those of the document check (``checks.documents``; "Document check issue codes",
+change c0044): the input of a backend whose project is a set of documents.
 """
 
 from __future__ import annotations
@@ -49,6 +51,12 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "zone.unfilled": ("warning",),
         "zone.fill-stale": ("warning",),
         "zone.fill-unchecked": ("info",),
+        "check.document-missing": ("warning",),
+        "check.rta0-failed": ("error",),
+        "check.rta1-failed": ("error",),
+        "check.rta1-normalised": ("info",),
+        "check.rta2-failed": ("error",),
+        "check.roundtrip-unjudged": ("info",),
     }
 )
 

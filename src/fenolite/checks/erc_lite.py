@@ -3,6 +3,10 @@
 """ERC lite: three electrical warnings on a built model until ``sch erc`` replaces them (capability
 verification-loop, "ERC lite stage").
 
+In ``run_checks`` the stage runs on built input only. In ``run_document_checks`` (change c0044) the same
+rules also run on the reading of a project's schematic documents, which holds pin electrical types and
+no-connect marks; the caller then combines ``EVIDENCE`` with the reading's.
+
 The rules follow KiCad's own checks in spirit (the unconnected-pin check of the schematic editor, S-0046),
 and their claim is bounded by ``H-K-CHECK-ERC``: a heuristic, so warnings only. Pins of DNP components
 are ignored, and so are the pins that ``Circuit.no_connects`` marks as intentionally unconnected (change

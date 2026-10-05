@@ -178,6 +178,23 @@ there: c0039 owns the container API (`open_compound(data, *, file, limits, stric
 `issues` argument), `encode_stream` and `rebuild` are specified by c0040 and c0041, and `to_bytes()`
 by c0042. Task 1.4 checks them again against the code.
 
+**Names as implemented (task 1.4, 2026-10-05).** Checked against the code of c0039 to c0043 on the branch:
+
+- `read.sch` is a package (`read/sch/`); `read_schematic`, `encode_stream` and `UnknownRecord` are its
+  exports. A record of a binary stream is counted from the stream header, which is record 0.
+- `read.pcb.read_pcbdoc(source, *, file, strict)` takes no `issues` list; the reader's issues are
+  `PcbDocument.issues`. `PcbDocument.rebuild(storage)` takes the storage name, so the typed stream of a
+  PCB document is `<storage>/Data`.
+- `PcbLibrary` has no `rebuild`: only `LibFootprint.rebuild()` exists, and the library's other streams are
+  kept whole in `PcbLibrary.storages`. The codec bullet of "Round-trip level RT-A1" was corrected.
+- `RawPrimitive` is defined in `read.pcbprims`; `read.project.read_project(data)` returns the
+  `ProjectFile` whose `to_bytes()` RT-A1 uses, and `load_project(path)` the document list.
+- `adapter.import_circuit(sheets, *, options, issues)` takes `adapter.SheetInput` values and
+  `adapter.import_board(doc, *, file, sha256, issues)` a `PcbDocument`; both exist apart from
+  `import_project`.
+- The six read kinds of `AltiumBackend` are the six of the table. c0043 lists five project sets
+  (`altium-set:01` to `05`), so task 1.3 adds no row and S-0245 to S-0247 stay unused.
+
 Corpus rows: c0039 owns the id scheme. A set that task 1.3 adds reuses every row that already
 holds a URL (S-0199's document is `altium-third-party-pcbdoc-04`, S-0176's is `-02` and its
 schematic `altium-third-party-schdoc-13`, S-0174's is `altium-third-party-pcbdoc-05`) and adds only
@@ -241,6 +258,7 @@ backend through `registry` and `DocumentValidator`. `tests/unit/test_import_grap
 | `H-A-VER-RTA1` | Every typed stream of every public file gives equal records after encode and read | the same test | every row passes RT-A1 |
 | `H-A-VER-BYTES` | The encoded bytes of every typed stream equal the bytes read | the same test | `bytes_equal == streams` on every row |
 | `H-A-VER-RTA2` | Every Altium build of Fenolite's examples reads back equal to its built model inside `RT_A2_SCOPE`, within 2 nm | `tests/unit/lens/test_altium_rta2.py` | 0 differences on every example, both schematic forms |
+| `H-A-VER-RTA2-2` | (registered at implementation, when the probe refuted `H-A-VER-RTA2`) Every Altium build reads back equal to its built model on what the built model holds; a board kind the built model does not hold is counted, not compared | the same test | 0 differences on every example, both schematic forms |
 | `H-A-VER-ERC` | The three `erc.lite` rules on an imported schematic report no pin that carries a No ERC directive and no pin that a net lists | `tests/unit/checks/test_documents.py`, and the stage on the project sets | no `erc.lite.floating-pin` for a marked pin on any set; counts recorded |
 
 All start at `INFERRED`. No id exists in `docs/hypotheses.md` or in an active change. `H-A-IMP-NETLIST`
@@ -351,3 +369,143 @@ of `inspect` beyond the model counts (0.25).
 5. **Should a built Altium project also run `copper.clearance` (c0029)?** Default: no; v0.4.
 6. **Maintainer:** is "RT-A2 on Fenolite's own files only" acceptable for v0.3? Default: yes, as the
    proposal states.
+
+## Implementation notes
+
+Recorded while implementing (2026-10-05), on `origin/dev` with c0039 to c0043 and the batch c0060, c0064,
+c0066, c0068, c0071 and c0073. Where a note says "spec amended", the delta in this folder was changed to
+what the scenarios and the code show. The text above is kept as it was written; these notes win.
+
+**What had changed under this design.**
+
+1. **`diff` already existed (c0066).** `checks.diff` (`Change`, `DiffReport`, `diff_designs`,
+   `diff_libraries`) and `cmd_diff.py` (model and tree views, the paged list `differences`) landed with
+   c0066, which also added `roundtrip`, `fmt` and `explain`. Decision 1, the Non-goals about a tree diff
+   and those commands, and the migration line "`diff` is a new command" are out of date.
+   - The two ADDED requirements that repeated c0066's names were replaced. `verification-loop` now adds
+     **"Model difference scope"** (the `scope` argument that c0066's "Model difference report" allows a
+     later change to add), and `cli-contract` adds **"Diff of document inputs and the records view"**.
+     Both name c0066's requirements and change nothing in them, so no archive order is needed between
+     c0066 and this change. Tasks 5.1 and 9.1 extended the existing modules.
+   - `--limit` is c0066's paging (`paged = "differences"`, default 200), not an option of the command.
+2. **Three MODIFIED deltas, re-checked against the living specs.** "Check command input" and "ERC lite
+   stage" (`verification-loop`) and "Inspect command" (`cli-contract`) start from the living text of
+   2026-10-05 word for word; c0036 and c0039 are archived, so no order remains. c0062 (active) also
+   modifies "ERC lite stage": the change that lands second re-bases on the first.
+3. **Five project sets exist** (c0043, `altium-set:01` to `05`), so task 1.3 added no row and the source
+   ids S-0245 to S-0247 stay unused. The use `rta` is on 65 rows.
+4. **Two public PCB documents need DIFAT sectors**, not one (154 and 354 FAT sectors; the second is the
+   heavy row).
+
+**Additions to the protocol (spec amended, `backend-protocol`).**
+
+5. **`ContainerRoundTrip.evidence`.** The design gave `run_document_checks` and `container_stage` no
+   evidence argument and still wanted `checks` to name no hypothesis of a backend. A verdict therefore
+   carries the evidence of its level and kind.
+6. **`DocumentValidator.stage_evidence()`**, a fifth method: the evidence the backend adds to a stage
+   (`H-A-VER-ERC`, `H-A-IMP-NETLIST`, `H-A-VER-RTA2-2`). `roundtrip.STAGE_EVIDENCE` holds it, at the
+   levels of the register.
+7. **`Change`, `ChangeKind` and `DiffReport` live in `backends.base`** and are re-exported by
+   `checks.diff`: `diff_records` returns a `DiffReport`, and `backends.altium` may not import `checks`
+   (`package-layering`).
+8. Small additions: `ContainerLevel`; `DocumentSet.named` and `of_role`; a set refuses unsorted
+   `documents` and `missing`.
+
+**Round trips.**
+
+9. **`PcbLibrary` has no `rebuild`**; only its footprints do. The codec bullet was corrected (task 1.4).
+10. **RT-A1 reads again without the writer when it can.** When every encoded stream equals the bytes
+    read, the file read again is the file itself; this is what lets the two files past the writer's limit
+    be judged. A file whose encoded bytes differ and that the writer cannot write is not judged (the
+    reason of RT-A0). Encoded streams that do not read are a failed verdict. Records are compared with
+    `==`, two NaN values of one field counting as equal. Spec amended.
+11. **`EVIDENCE_RT_A1` is a mapping per read kind** (the readers have different levels);
+    `PROJECT_READ_EVIDENCE` names `H-A-RD-PRJ-INI`, because the project reader defines no constant.
+12. **The writer package's import rules.** `tests/unit/backends/altium/test_project.py` forbids file
+    access and other packages for every top-level module of `backends/altium` except `backend.py`;
+    `docset.py` and `roundtrip.py` joined that exception (`READING_MODULES`), and `test_roundtrip.py`
+    holds the rule for `roundtrip.py` (bytes only, no `open`, no `struct`). `roundtrip.py` uses no `math`,
+    which another test of the package forbids.
+
+**RT-A2: the probe refuted `H-A-VER-RTA2`.**
+
+13. **The built model of an Altium build is the script's model.** Its board holds the outline and no
+    footprint, pad, track, arc, via or zone; the build writes those from the placements, the library
+    footprints and the copper source, which are not in the model. The KiCad build stores the board it
+    wrote; the Altium build does not. 39 to 184 entities of each PCB reading therefore have no
+    counterpart, and the claim "every scoped kind reads back equal" cannot be judged for them.
+    - `H-A-VER-RTA2` is kept as refuted, with the successor `H-A-VER-RTA2-2`: the level holds for what
+      the built model holds. Spec amended ("Round-trip level RT-A2", "Document check pipeline").
+    - `rta2_stage` compares a board kind only when the built model holds an entity of it, and lists the
+      others in `summary.not_in_model`. The scope keeps every field of the required list, so a build
+      that stores its board makes those kinds compared without a change here.
+    - **Today RT-A2 judges components, nets, no-connect marks and net class names.** It says nothing
+      about footprints, pads and copper. This is the main shortfall against the proposal, which expected
+      placement, pads and copper. Closing it needs the Altium build to store the board it writes: a change
+      of the build of c0035 and c0038, not done here.
+14. **Net classes go with the PCB reading.** A class is a record of the PCB document; a schematic holds
+    none. `CIRCUIT_KINDS` is `component`, `net`, `no_connect`. Spec amended.
+15. **One difference inside the scope, fixed in the build.** A component whose value is empty in the
+    script was written with its symbol's name as the comment (both writers). The built model now stores
+    that value (`lens.altium.with_written_values`); the golden files are unchanged, and a regression test
+    holds it.
+
+**The document pipeline (spec amended, `verification-loop`).**
+
+16. `container_stage` takes `None` for a document whose reading was refused; a skipped container stage
+    keeps its summary and infos. A refusal found only by `container_roundtrip` is an input issue too.
+17. `model.validate` on native input without any reading is skipped with `not-judged` when nothing was
+    refused (a library alone); `read-refused` would count as `UNVERIFIED` in the envelope for a file that
+    reads. Its summary is keyed by side. `netlist.assignment_compare` on built input with an unreadable
+    cache is skipped with `cache-unreadable`.
+18. `checks.assignment_compare` gained the public names `net_names`, `pair_issues` and `pair_summary`
+    (the strict type check refuses a private name across modules); nothing else of c0020 changed.
+
+**Commands.**
+
+19. **`check`.** A folder with a KiCad project or board and Altium files without exactly one project file
+    stays KiCad input. `cli/_documents.py` holds the built detection that `cmd_check` had (`built_cache`).
+20. **`inspect`.** The record counts of a schematic and the header's version come from the Altium readers,
+    imported lazily in `cmd_inspect.py` as the stream view does; the model counts come from the backend's
+    reading. The case of c0039's scenario in `test_inspect_streams.py` now uses a compound file that no
+    backend reads.
+21. **Records view.** Records are aligned by content (frame kind and payload, or bytes), because a
+    record's index and offset change with its place and would report every record after an insertion.
+    Past 4 000 000 cells the middle is aligned by `difflib`. Changes are in stream and record order.
+    Spec amended.
+
+**Corpus and levels (task 12.2).**
+
+22. **`H-A-VER-RTA0` and `H-A-VER-RTA1` stay `INFERRED`.** Every judged row passes (57 of 65, and 65 of
+    65), but the judged PCB libraries come from two repositories and the criterion asks for three per
+    compound kind. `tests/corpus/test_altium_roundtrip.py` pins the count. `EVIDENCE_RT_A0` and
+    `EVIDENCE_RT_A1` are unchanged.
+23. **Confirmed, `CORPUS-VERIFIED`:** `H-A-VER-WRITER` (no row is `writer-refused`), `H-A-VER-BYTES` (450
+    of 450 typed streams) and `H-A-VER-ERC` (five sets of five repositories).
+24. **The project sets exit 5**: `model.validate` passes on `model.body-height` errors of the PCB readings
+    (and `model.duplicate-ref` on set 02). They are findings of c0043's import on public files, recorded
+    in the page and not judged here.
+25. **CI.** The `kicad-10` job fetches the corpus by use; `rta` was added to its fetch step and to
+    `ALTIUM_READER_USES`. c0043's test of the set rows now leaves `rta` out of the uses it counts.
+26. **`fenolite explain`** has an entry for each of the six new codes.
+
+**Rebased for landing (2026-10-05, on `origin/dev` at dcd9c04).**
+
+27. The branch was replayed as one commit on a head that also holds the follow-up of c0066 (schematics in
+    `diff` and `roundtrip`), c0045 (`equivalent`), c0069, c0074 and the archives of c0043 and c0045.
+    - `checks/diff.py` keeps both: `diff_sheets` with its sheet kinds, and the scope and tolerance of
+      `diff_designs`. `diff_libraries` and `diff_sheets` take no scope. `Change`, `ChangeKind` and
+      `DiffReport` stay in `backends.base`; c0066's and c0045's code imports them from `checks.diff`,
+      which re-exports them.
+    - `cmd_diff.py` reads a KiCad schematic first, then a project folder of a document backend, then any
+      file a backend reads; the three views are `model`, `tree` and `records`.
+    - `checks/assignment_compare.py`: c0045 had made `net_names` public (and added `net_text`), so this
+      change adds only `pair_issues` and `pair_summary`.
+    - The three MODIFIED deltas were compared again with `openspec/specs/`: each still differs from the
+      living text only by what this change adds. No file of c0043's or c0045's change folder was edited.
+
+**Left open.**
+
+- Tasks 12.1 and 12.3 need the full `make check`, which the coordinator runs once at landing;
+  `make check-fast` (7104 passed) and the tests of every touched file ran here.
+- RT-A2 for footprints, pads and copper (note 13), and a third repository of PCB libraries (note 22).

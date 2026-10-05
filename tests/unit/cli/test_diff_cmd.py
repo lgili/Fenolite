@@ -183,3 +183,115 @@ def test_schematic_tree_view_sees_opaque_content(monkeypatch: pytest.MonkeyPatch
 def test_schematic_against_a_board_is_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, _, err, _ = run(monkeypatch, tmp_path, "diff", str(FLAT), str(TWO_LAYER))
     assert code == 2 and err["code"] == "FEN-2001" and "not of one family" in err["message"]
+
+
+# --- Altium inputs and the records view (capability cli-contract, "Diff of document inputs and the records
+# view"; altium-verification, "Records view of two Altium files"; change c0044) -----------------------------
+
+ALTIUM = DATA / "altium"
+BLINK = ALTIUM / "blink"
+
+
+def test_altium_model_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = str(BLINK / "blink.PcbDoc")
+    code, env, _, raw = run(monkeypatch, tmp_path, "diff", board, board)
+    result = env["result"]
+    assert code == 0 and (result["view"], result["equal"], result["total"]) == ("model", True, 0)
+    assert result["a"] == result["b"] == {"path": "blink.PcbDoc", "kind": "altium_pcbdoc"}
+    assert env["input"]["kind"] == "altium_pcbdoc" and len(env["input"]["sha256"]) == 64
+    assert env["evidence"]["level"] == "INFERRED" and str(DATA) not in raw
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", board, str(ALTIUM / "routed" / "routed.PcbDoc"))
+    assert code == 0 and env["result"]["equal"] is False and "track" in env["result"]["summary"]
+    sheets = [
+        str(ALTIUM / "sample" / "altium_sample.SchDoc"),
+        str(ALTIUM / "sample" / "binary" / "altium_sample.SchDoc"),
+    ]
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", *sheets)
+    assert code == 0 and env["result"]["equal"] is True  # the two forms of one schematic are one model
+    assert [env["result"][side]["kind"] for side in "ab"] == ["altium_schdoc_ascii", "altium_schdoc_binary"]
+    libraries = [str(BLINK / "blink.PcbLib"), str(ALTIUM / "routed" / "routed.PcbLib")]
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", *libraries)
+    assert code == 0 and env["result"]["a"]["kind"] == "altium_pcblib"
+
+
+def test_a_kicad_board_against_an_altium_document(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(TWO_LAYER), str(BLINK / "blink.PcbDoc"))
+    result = env["result"]
+    assert code == 0 and result["equal"] is False
+    assert (result["a"]["kind"], result["b"]["kind"]) == ("kicad_pcb", "altium_pcbdoc")
+    assert env["evidence"]["level"] == "INFERRED"
+    code, _, err, _ = run(
+        monkeypatch, tmp_path, "diff", str(BLINK / "blink.PcbDoc"), str(BLINK / "blink.PcbLib")
+    )
+    assert code == 2 and err["code"] == "FEN-2001" and "not of one family" in err["message"]
+
+
+def test_altium_project_folder_as_an_input(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", str(BLINK), str(BLINK / "blink.PrjPcb"))
+    result = env["result"]
+    assert code == 0 and result["equal"] is True
+    assert result["a"] == result["b"] == {"path": "blink.PrjPcb", "kind": "altium_prjpcb"}
+    cut = tmp_path / "blink.PcbDoc"
+    cut.write_bytes((BLINK / "blink.PcbDoc").read_bytes()[:100])
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", str(cut), str(BLINK / "blink.PcbDoc"))
+    assert code == 3 and err["code"] == "FEN-3004"
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", str(tmp_path / "gone.PcbDoc"), str(cut))
+    assert code == 3 and err["code"] == "FEN-3001"
+
+
+def test_records_view_of_a_file_against_itself(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sheet = str(BLINK / "blink.SchDoc")
+    code, env, _, raw = run(monkeypatch, tmp_path, "diff", sheet, sheet, "--view", "records")
+    result = env["result"]
+    assert code == 0 and set(result) - {"page"} == KEYS
+    assert (result["view"], result["equal"], result["total"], result["differences"]) == (
+        "records",
+        True,
+        0,
+        [],
+    )
+    assert result["a"] == result["b"] == {"path": "blink.SchDoc", "kind": "altium_schdoc_binary"}
+    assert env["issues"] == [] and env["input"]["kind"] == "altium_schdoc_binary" and str(DATA) not in raw
+    assert env["evidence"]["hypotheses"] and all(
+        h.startswith("H-A-RD-SCH-") for h in env["evidence"]["hypotheses"]
+    )
+
+
+def test_records_view_lists_and_pages_the_records(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    pair = [str(BLINK / "blink.PcbDoc"), str(ALTIUM / "routed" / "routed.PcbDoc")]
+    code, env, _, first = run(monkeypatch, tmp_path, "diff", *pair, "--view", "records")
+    result = env["result"]
+    assert code == 0 and result["equal"] is False and result["truncated"] is False
+    assert result["summary"]["Nets6/Data"] == {"added": 0, "removed": 0, "changed": 4}
+    assert (
+        result["total"]
+        == len(result["differences"])
+        == sum(sum(c.values()) for c in result["summary"].values())
+    )
+    assert env["evidence"]["level"] == "CORPUS-VERIFIED"
+    second = run(monkeypatch, tmp_path, "diff", *pair, "--view", "records")[3]
+    assert without_elapsed(first) == without_elapsed(second)
+    code, env, _, _ = run(monkeypatch, tmp_path, "diff", *pair, "--view", "records", "--limit", "2")
+    paged = env["result"]
+    assert len(paged["differences"]) == 2 and paged["truncated"] is True and paged["total"] == result["total"]
+    assert paged["differences"] == result["differences"][:2] and paged["page"]["next"] is not None
+
+
+def test_records_view_refusals_of_kinds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Records view refused for KiCad files" and "Different kinds refused"."""
+    board = str(TWO_LAYER)
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", board, board, "--view", "records")
+    assert code == 2 and err["code"] == "FEN-2001" and "--view model" in err["hint"]
+    sheet, document = str(BLINK / "blink.SchDoc"), str(BLINK / "blink.PcbDoc")
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", sheet, document, "--view", "records")
+    assert code == 2 and err["code"] == "FEN-2001" and "not of one kind" in err["message"]
+    ascii_sheet = str(ALTIUM / "sample" / "altium_sample.SchDoc")
+    binary_sheet = str(ALTIUM / "sample" / "binary" / "altium_sample.SchDoc")
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", ascii_sheet, binary_sheet, "--view", "records")
+    assert code == 2 and "not of one kind" in err["message"]  # the records view does not convert a form
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", str(BLINK), sheet, "--view", "records")
+    assert code == 2 and err["code"] == "FEN-2001" and "--view model" in err["hint"]
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", sheet, sheet, "--view", "records", "--ext")
+    assert code == 2 and err["code"] == "FEN-2001"
+    code, _, err, _ = run(monkeypatch, tmp_path, "diff", sheet, sheet, "--view", "tree")
+    assert code == 2 and err["code"] == "FEN-2001" and "--view model" in err["hint"]

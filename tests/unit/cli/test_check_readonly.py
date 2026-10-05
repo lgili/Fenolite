@@ -182,3 +182,31 @@ def test_pads_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path,
         assert code == 0 and env["result"]["count"] >= 1, env
     assert calls(fake) == []
     _untouched(root, before)
+
+
+def test_altium_input_is_read_only_and_runs_no_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Read-only and without tools" (capability altium-verification, "Check on Altium inputs";
+    change c0044): ``check`` and ``inspect`` on a built Altium project and on its documents leave the folder
+    as it was, creates no ``.fenolite/`` entry and runs no subprocess."""
+    import subprocess
+
+    from _altium_built import built_blink
+
+    root = built_blink(monkeypatch, tmp_path)
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a subprocess ran")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    before = tree_snapshot(root)
+    cache = sorted(p.name for p in (root / ".fenolite").iterdir())
+    for target in (root, root / "blink.PrjPcb", root / "blink.PcbDoc", root / "blink.SchLib"):
+        code, env, _, _ = run(monkeypatch, tmp_path, "check", str(target))
+        assert code == 0, env["issues"]
+        assert tree_snapshot(root) == before
+    for name in ("blink.PrjPcb", "blink.PcbDoc", "blink.SchDoc", "blink.PcbLib", "blink.SchLib"):
+        code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(root / name))
+        assert code == 0, env
+        assert tree_snapshot(root) == before
+    assert sorted(p.name for p in (root / ".fenolite").iterdir()) == cache

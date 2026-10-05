@@ -217,6 +217,17 @@ def _pair_summary(pair: PairResult) -> dict[str, object]:
     }
 
 
+def pair_issues(pair: PairResult, names: Mapping[str, Mapping[str, str]]) -> list[Issue]:
+    """The issues of one compared pair: ``netlist.assignment-differs`` per located difference and
+    ``netlist.uncovered`` per side and reason. ``names`` maps a source to its net names by label."""
+    return _pair_issues(pair, names)
+
+
+def pair_summary(pair: PairResult) -> dict[str, object]:
+    """``a``, ``b``, ``common``, ``only_a``, ``only_b`` and ``differences`` of one pair, as counts."""
+    return _pair_summary(pair)
+
+
 def assignment_stage(
     oracle: Oracle | None,
     project: ProjectSet,
@@ -270,4 +281,6 @@ __all__ = [
     "model_netlist",
     "net_names",
     "net_text",
+    "pair_issues",
+    "pair_summary",
 ]

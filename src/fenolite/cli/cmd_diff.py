@@ -4,6 +4,10 @@
 tree view of two KiCad files (capability cli-contract, "Diff command"; ``docs/cli-contract.md``, "diff").
 
 A difference is a result, not a finding: the exit code is 0 either way and ``result.equal`` says it.
+
+The inputs of a backend whose project is a set of documents are read too (change c0044; "Diff of document
+inputs and the records view"): an Altium document, library, project file or project folder in the model
+view, and two Altium files of one kind, record by record, in the records view.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from fenolite.backends import registry
 from fenolite.backends.kicad import sch, versions
 from fenolite.backends.kicad.sexpr import Node, first_difference, parse_bytes, tree_equal
 from fenolite.checks.diff import DiffReport, diff_designs, diff_libraries, diff_sheets
+from fenolite.cli._documents import find_documents, validator_for
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
@@ -30,7 +35,7 @@ from fenolite.model.design import Design
 from fenolite.model.library import Library
 from fenolite.model.schematic import SchematicSheet
 
-HELP = "list the differences between two boards, libraries or built models (runs no tool)"
+HELP = "list the differences between two boards, libraries, built models or Altium files (runs no tool)"
 MODEL_KIND = "fenolite_model"
 MODEL_EVIDENCE = Evidence(Level.INFERRED)
 TREE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-SEXPR-STRICT",))
@@ -43,7 +48,11 @@ TREE_KINDS = frozenset(
         versions.FileKind.WORKSHEET,
     }
 )
-READS = "diff reads .kicad_pcb, .kicad_mod, .kicad_sym(dir), .kicad_sch and a folder with .fenolite/meta.json"
+READS = (
+    "diff reads .kicad_pcb, .kicad_mod, .kicad_sym(dir), .kicad_sch, a folder with .fenolite/meta.json, "
+    "and the Altium files .PcbDoc, .SchDoc, .PcbLib, .SchLib and .PrjPcb (or a project folder)"
+)
+RECORDS_HINT = "the records view compares two Altium files of one kind; use --view model for these inputs"
 TREE_READS = "it reads .kicad_pcb, .kicad_mod, .kicad_sch, .kicad_sym and .kicad_wks; else use --view model"
 DEFAULT_LIMIT = 200
 
@@ -61,11 +70,16 @@ class _Input:
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'diff'."
     parser.add_argument(
-        "a", metavar="A", help="a board, schematic, footprint file, symbol library or project"
+        "a",
+        metavar="A",
+        help="a board, schematic, footprint file, symbol library, built project or Altium file",
     )
     parser.add_argument("b", metavar="B", help="the input to compare with A")
     parser.add_argument(
-        "--view", choices=("model", "tree"), default="model", help="model entities (default) or file trees"
+        "--view",
+        choices=("model", "tree", "records"),
+        default="model",
+        help="model entities (default), the trees of two KiCad files, or the records of two Altium files",
     )
     parser.add_argument("--ext", action="store_true", help="also compare the opaque content, as a hash")
 
@@ -82,6 +96,13 @@ def _digest(path: Path) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
 
 
+def _document_kind(path: Path) -> str | None:
+    """The read kind of the file ``path`` when its backend reads document sets (an Altium file), else
+    ``None``."""
+    backend = validator_for(path) if path.is_file() else None
+    return None if backend is None else backend.documents(path).named(path.name).kind
+
+
 def _read(path: Path) -> _Input:
     if path.is_dir() and (path / ".fenolite" / "meta.json").is_file():
         design = load_dir(path / ".fenolite")
@@ -91,13 +112,19 @@ def _read(path: Path) -> _Input:
         sheet = sch.read_schematic(path, issues=sheet_issues)
         kind_name = versions.FileKind.SCHEMATIC.value
         return _Input(path.name, kind_name, sheet, tuple(sheet_issues), sch.EVIDENCE, _digest(path))
+    if path.is_dir() and registry.for_path(path) is None:
+        located = find_documents(path)
+        if located is not None:  # a project folder is read through its project file
+            path = located[1].root / str(located[1].project)
     backend = registry.for_path(path)
     if backend is None:
         raise CliError("FEN-2001", f"diff does not read {path.name}", hint=READS, where=path.name)
     found: list[Issue] = []
     read = backend.read(path, issues=found)
-    kind = versions.kind_for_suffix(path.name)
-    name = kind.value if kind is not None else versions.FileKind.SYMBOL_LIB.value
+    name = _document_kind(path)
+    if name is None:
+        kind = versions.kind_for_suffix(path.name)
+        name = kind.value if kind is not None else versions.FileKind.SYMBOL_LIB.value
     return _Input(path.name, name, read.content, tuple(found), read.evidence, _digest(path))
 
 
@@ -172,8 +199,49 @@ def _tree_view(a: Path, b: Path) -> Result:
     )
 
 
+def _records_view(a: Path, b: Path) -> Result:
+    """The records of two Altium files of one read kind, stream by stream (capability altium-verification,
+    "Records view of two Altium files")."""
+    kind_a, kind_b = _document_kind(a), _document_kind(b)
+    if kind_a is None or kind_b is None:
+        refused = a if kind_a is None else b
+        raise CliError(
+            "FEN-2001",
+            f"the records view does not read {refused.name}",
+            hint=RECORDS_HINT,
+            where=refused.name,
+        )
+    # Lazy: only this view needs the record codecs of the Altium readers.
+    from fenolite.backends.altium.roundtrip import CODECS, READER_EVIDENCE, diff_records
+
+    if kind_a != kind_b or kind_a not in CODECS:
+        raise CliError(
+            "FEN-2001",
+            f"{a.name} ({kind_a}) and {b.name} ({kind_b}) are not of one kind",
+            hint=RECORDS_HINT,
+        )
+    report = diff_records(a.read_bytes(), b.read_bytes(), kind=kind_a)
+    result: dict[str, Any] = {
+        "view": "records",
+        "equal": report.equal,
+        "a": {"path": a.name, "kind": kind_a},
+        "b": {"path": b.name, "kind": kind_b},
+    }
+    body = report.to_json(None)
+    result.update({key: body[key] for key in ("summary", "differences", "total", "truncated")})
+    return Result(
+        result=result,
+        evidence=READER_EVIDENCE[kind_a],
+        input=InputRef(path=a.name, sha256=_digest(a), kind=kind_a, format_version=None),
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     path_a, path_b = _path(args.a, ctx), _path(args.b, ctx)
+    if args.view == "records":
+        if args.ext:
+            raise CliError("FEN-2001", "--ext belongs to the model view; the records view compares every key")
+        return _records_view(path_a, path_b)
     if args.view == "tree":
         if args.ext:
             raise CliError("FEN-2001", "--ext belongs to the model view; the tree view compares every atom")

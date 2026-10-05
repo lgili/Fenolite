@@ -149,6 +149,11 @@ do:
 Round-trip levels: RT0, the S-expression tree is identical; RT1, model → KiCad → model is
 identical; RT2, `kicad-cli pcb drc` reports the same violations before and after.
 
+Round-trip levels of the second backend (change c0044, `docs/evidence/altium-roundtrip.md`): RT-A0, a
+copy of a compound file keeps every storage and every stream, byte for byte; RT-A1, reading a file and
+encoding what was read gives equal records in every stream; RT-A2, model → Altium → model is equal on
+what the writers write, within 2 nm, on Fenolite's own builds.
+
 ## Phase 3: KiCad complete (v0.2a, v0.2b)
 
 **v0.2a goal.** A built project has a schematic that KiCad's ERC and its schematic parity test accept
@@ -173,9 +178,10 @@ and the commands an agent asks small questions with.
   archives after c0061) → c0065. c0066 and c0068 depend on none of these for most of their parts and
   can run beside them. c0067 goes last, so that its audit covers the modules the others add.
 - Requirements modified in chains: c0062 modifies `verification-loop` requirements that c0044
-  (proposed) also modifies, c0063 modifies one that c0061 modifies, and c0066 adds two
-  requirements that c0044 also adds. Each design states the rule: the change that lands second
-  re-bases on the first.
+  also modifies, and c0063 modifies one that c0061 modifies. Each design states the rule: the change
+  that lands second re-bases on the first. The two requirements that c0066 and c0044 both added are
+  settled: c0044, implemented after c0066, adds requirements of other names that extend c0066's
+  ("Model difference scope", "Diff of document inputs and the records view").
 - Found while measuring for c0068: KiCad moves a pad's copper, not its hole, by the offset of the
   pad's drill. v0.1's board frame does the opposite, so `check` reports clearance errors that do not
   exist on boards with such pads. c0068 repairs it first.
@@ -278,7 +284,13 @@ recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
   rules exactly or listed with a reason; `load_project` as the entry point of the import). The net
   scope numbers wait for an author report (`docs/evidence/altium-project-read.md`).
 - Import into the neutral model.
-- `inspect`, `check` and `diff` on second-backend files.
+- `inspect`, `check` and `diff` on second-backend files. Done as c0044: `check` and `inspect` take
+  Altium documents, libraries, project files and project folders, read-only and without a tool, with
+  the round-trip levels RT-A0, RT-A1 and RT-A2 as check stages; `diff` (added by c0066 with the model
+  view and KiCad's tree view) reads Altium inputs in the model view and compares two Altium files
+  record by record with `--view records`. The schematic kinds of `diff` stay with v0.2a. RT-A2 judges
+  what the built model of an Altium build holds, which is the circuit and the net classes
+  (`docs/evidence/altium-roundtrip.md`).
 - Buses, padstacks and component bodies in the model. The model spec is additive-only from the end
   of v0.3.
 - `equivalent`, levels 1–4.

@@ -2151,7 +2151,7 @@ sha256 = "e8a87333123e36e6b0260258322bccedac466624ed7f68dfe574db11ca11e4c4"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; pcbdoc; 10078208 bytes; 2017."
 
 [[file]]
@@ -2162,7 +2162,7 @@ sha256 = "55d15ca572546f1ed6cc36d9d3d6472b2b5f19137ad384d73f6369fec2efad31"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "altium-set:04", "altium-import"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "altium-set:04", "altium-import", "rta"]
 notes = "S-0176; pcbdoc; 6730752 bytes; 2023."
 
 [[file]]
@@ -2173,7 +2173,7 @@ sha256 = "567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "rta"]
 notes = "S-0172; pcbdoc; 2793984 bytes; 2024."
 
 [[file]]
@@ -2184,7 +2184,7 @@ sha256 = "bf32fd189e9850f2e9de397a567ba78934ad62e7b092184a3ad71227d5b8cf39"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "cfb", "origin:third-party", "rta"]
 notes = "S-0199; pcbdoc; 2471424 bytes; 2021."
 
 [[file]]
@@ -2195,7 +2195,7 @@ sha256 = "1ff7234670ec5e20092d23ecf0cd5e7380e842ef7efff2b5cb992f53f84c9c69"
 license = "BSD-2-Clause"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "origin:third-party", "altium-set:03", "altium-import"]
+uses = ["altium", "altium-pcbdoc", "origin:third-party", "altium-set:03", "altium-import", "rta"]
 notes = "S-0174; pcbdoc; 1696256 bytes; 2021."
 
 [[file]]
@@ -2206,7 +2206,7 @@ sha256 = "d0913643166660cfdcc5490d63283b12f4ff08b0dbbaa05e409a9cd9196aa9c5"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "altium-pcbdoc", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; pcbdoc; 1421312 bytes; 2025."
 
 [[file]]
@@ -2217,7 +2217,7 @@ sha256 = "62e53020ef96657bc013334446579ed6db6e8d225c50026579af533a0b281f2d"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcbdoc", "origin:third-party"]
+uses = ["altium", "altium-pcbdoc", "origin:third-party", "rta"]
 notes = "S-0200; pcbdoc; 2900480 bytes; 2021."
 
 [[file]]
@@ -2228,7 +2228,7 @@ sha256 = "abcfc13aa6f758f0e9ceb5246e128baeae0884786fd05bfc63fb24a08f5ca961"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcblib", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "cfb", "origin:third-party", "rta"]
 notes = "S-0170; pcblib; 99840 bytes; 2016."
 
 [[file]]
@@ -2239,7 +2239,7 @@ sha256 = "f29440e3cc117bf6e555ebf20fe5889608c3ff261a0d9674ae06738bc9d18195"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcblib", "cfb", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "cfb", "origin:third-party", "rta"]
 notes = "S-0170; pcblib; 119296 bytes; 2019."
 
 [[file]]
@@ -2250,7 +2250,7 @@ sha256 = "80ef92c6b1b4c1354e9a8406ac6b3b38195412ac8334d852f3dbf1f38aa85cf9"
 license = "GPL-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcblib", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "origin:third-party", "rta"]
 notes = "S-0171; pcblib; 103936 bytes; 2022."
 
 [[file]]
@@ -2261,7 +2261,7 @@ sha256 = "2808359f04770d9d90e073f2143efe74a0028c5f3bc9bd2600aaa3262e238e5b"
 license = "GPL-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-pcblib", "origin:third-party"]
+uses = ["altium", "altium-pcblib", "origin:third-party", "rta"]
 notes = "S-0171; pcblib; 105984 bytes; 2022."
 
 [[file]]
@@ -2272,7 +2272,7 @@ sha256 = "898c4fa7b6ed567cf8946979ed39a988f2337081690b4d7e324637356ac05f91"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:02", "altium-import"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 23040 bytes; 2016."
 
 [[file]]
@@ -2283,7 +2283,7 @@ sha256 = "a5741d6e892bd1a03e567cafcdd0bcfdb10c5c5da3a45c378c4efc1b7c06c419"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:02", "altium-import"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 210432 bytes; 2017."
 
 [[file]]
@@ -2294,7 +2294,7 @@ sha256 = "19229739534ab270829953ab901c6afd6cb26f409a31dc6402fdd987da8deb9c"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 131072 bytes; 2020."
 
 [[file]]
@@ -2305,7 +2305,7 @@ sha256 = "2ab80d1e4738d6911f4f20f0cf763779f1eeb51ac07e2a0b2be62802e0dfea2a"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "cfb", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 750080 bytes; 2020."
 
 [[file]]
@@ -2316,7 +2316,7 @@ sha256 = "e4f0353a30cd12e08d1732d52b8026213044716e847248919c5a3e5b153cf75e"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-text", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "altium-text", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; prjpcb; 58425 bytes; 2023."
 
 [[file]]
@@ -2327,7 +2327,7 @@ sha256 = "8246110512533c79c4794f5dc14167a9e62694241947e3bea549b30e6f93de24"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-text", "origin:third-party", "altium-set:02", "altium-import", "altium-import:known-diff"]
+uses = ["altium", "altium-text", "origin:third-party", "altium-set:02", "altium-import", "altium-import:known-diff", "rta"]
 notes = "S-0188; prjpcb; 60907 bytes; 2016. Known difference: 2 pins of 2 components are unwired on the sheet altium-third-party-schdoc-02 and carry a net in altium-third-party-pcbdoc-01; 6 differing groups, 156 nets equal."
 
 [[file]]
@@ -2338,7 +2338,7 @@ sha256 = "1ae9c15c5fc5f9cbce403a7c5bdbe0dda1ab99901744cc3525eba00febed2e74"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "altium-text", "origin:third-party"]
+uses = ["altium", "altium-text", "origin:third-party", "rta"]
 notes = "S-0297; prjpcb; 275609 bytes; 2018."
 
 [[file]]
@@ -2449,7 +2449,7 @@ sha256 = "c711473f20a8b088ea80ad2eadf477cffc93333f4078199617045f298203ddc9"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 23040 bytes; 2017."
 
 [[file]]
@@ -2460,7 +2460,7 @@ sha256 = "e68e514f79e140d45fb0415c97ea82a3da08e21af1c71bb449d2a897be942220"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 23552 bytes; 2016."
 
 [[file]]
@@ -2471,7 +2471,7 @@ sha256 = "a534afa5cc9ec7e2480255a425bd8dac38e4cc427353f75adf5d4490a98b1114"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 52224 bytes; 2016."
 
 [[file]]
@@ -2482,7 +2482,7 @@ sha256 = "079251b6c8b9c7c5244124313384f72ea43c5b38bf5fe7f990b2959b822502ff"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch"]
+uses = ["altium", "origin:third-party", "altium-sch", "rta"]
 notes = "S-0188; schdoc; 17920 bytes; 2016."
 
 [[file]]
@@ -2493,7 +2493,7 @@ sha256 = "02b4f80c74443191b164b9c9980e247da2e2b1b46ce04330d8008bb481fe01cb"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 134144 bytes; 2020."
 
 [[file]]
@@ -2504,7 +2504,7 @@ sha256 = "1cbb1e625a082c657634eb6c4067641332cf4e342c6f01dbf2c0e7e148d47a6c"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 230400 bytes; 2020."
 
 [[file]]
@@ -2515,7 +2515,7 @@ sha256 = "51c59676571ce21d10c5333333470741e35b1010cf30754334b14b48ba52a5fb"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 142848 bytes; 2020."
 
 [[file]]
@@ -2526,7 +2526,7 @@ sha256 = "5ae84f5bd765cf7d81b7c547d6b3ef7f8d49b24073459176045a3c83386a72af"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 344576 bytes; 2020."
 
 [[file]]
@@ -2537,7 +2537,7 @@ sha256 = "99c330883534776ee2c820712c88b915b793fb4d3ac18954579f8d934043ea7b"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-sch", "altium-set:04", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-sch", "altium-set:04", "altium-import", "rta"]
 notes = "S-0279; schdoc; 214528 bytes; 2023."
 
 [[file]]
@@ -2548,7 +2548,7 @@ sha256 = "23547bb2708dd55eacc320c1bb8f3e1da3acb9ff8727725f5c2118fc159e29fb"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 5120 bytes; 2017."
 
 [[file]]
@@ -2559,7 +2559,7 @@ sha256 = "e81a02e694b06c057587911ad451d564bf2be0ff731c40a886aaf1420ce19d3b"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 5632 bytes; 2019."
 
 [[file]]
@@ -2570,7 +2570,7 @@ sha256 = "2ef7e446295889339bd090b27a6d46ea389ab4c88d9aa9cbcab66c629e5e382a"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 41984 bytes; 2016."
 
 [[file]]
@@ -2581,7 +2581,7 @@ sha256 = "fa150988836cd6e43aff7a427f20a37837cd9ec041dbc40c33d0d9205f872b19"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 58880 bytes; 2018."
 
 [[file]]
@@ -2592,7 +2592,7 @@ sha256 = "69847036088c02a51a4a5d2f8cac7d1b19a65700638fc2c7b047b7f683e6b913"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 119808 bytes; 2017."
 
 [[file]]
@@ -2603,7 +2603,7 @@ sha256 = "63fa178765d7e51323f557b332725ea7dd4c6b972be5d6d3b6fd2be56a244e80"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0277; schlib; 163328 bytes; 2019."
 
 [[file]]
@@ -2614,7 +2614,7 @@ sha256 = "41004bc25c4748cf04c0ff1b6dfc54649654dcf6b3ec0ba9edad0afbfb8dc753"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0278; schlib; 17408 bytes; 2019."
 
 [[file]]
@@ -2625,7 +2625,7 @@ sha256 = "74cc5b71a35883dee308af3866eae36758ae51195f4b2edf3a57881a33053506"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0278; schlib; 69632 bytes; 2019."
 
 [[file]]
@@ -2636,7 +2636,7 @@ sha256 = "ca2c3f13944d70059d5188e1d7cdd44ba6bd355bf39c04ff236ddbaf24633c19"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-schlib"]
+uses = ["altium", "origin:third-party", "altium-schlib", "rta"]
 notes = "S-0279; schlib; 171008 bytes; 2023."
 
 # --- change c0046: public sheet templates saved by Altium (fetch-only measurement material; source ids in
@@ -4129,7 +4129,7 @@ sha256 = "a9b980040541c8909196091506a9b2ef1254018d251d7b438a53c6720317eae1"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 31744 bytes; 2023."
 
 [[file]]
@@ -4140,7 +4140,7 @@ sha256 = "5afa9e65ccd1faeb1d31716ae3befec9d464e30abd6ca2980fe22fd5b6e07ee7"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 1899008 bytes; 2023."
 
 [[file]]
@@ -4151,7 +4151,7 @@ sha256 = "ef841cd4c61f8d03a30331486304eb866932d1147d8a9c3f91bbc79e8ae9a7ee"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 481792 bytes; 2023."
 
 [[file]]
@@ -4162,7 +4162,7 @@ sha256 = "eacd7853b873daf2174ac2ed66276949c913ff25eb790666b8adb2820ddfc396"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 225280 bytes; 2023."
 
 [[file]]
@@ -4173,7 +4173,7 @@ sha256 = "5cdab0dc31760949aee3ef4400dfa7b54b7d84848e766ea279423180ecc3ee14"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 220160 bytes; 2023."
 
 [[file]]
@@ -4184,7 +4184,7 @@ sha256 = "d824013cd9544930dd4feb889308476d5a14c37cf9ee18194f747dd918a6dcf6"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 479744 bytes; 2023."
 
 [[file]]
@@ -4195,7 +4195,7 @@ sha256 = "e4e3f8fa2c33b8c6d28bfb0d951b24deb3d1a0dcf53f132f6282e9ed02866055"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 479744 bytes; 2023."
 
 [[file]]
@@ -4206,7 +4206,7 @@ sha256 = "997cb820c7813206cc86da3ea7d93376ae1206059dfaeafe301c0ee97cdcec1d"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 630784 bytes; 2023."
 
 [[file]]
@@ -4217,7 +4217,7 @@ sha256 = "175dd714b9d1c7a583ba567c5fd438e141ea1f1c30284d6fc81a220dcba929dc"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 596480 bytes; 2023."
 
 [[file]]
@@ -4228,7 +4228,7 @@ sha256 = "783c7932176417d29dea78dc8f3dc2fac8c79de0075b6f7ec7a4be9140765652"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 591872 bytes; 2023."
 
 [[file]]
@@ -4239,7 +4239,7 @@ sha256 = "48ca0a96ee17ee614d5314972be54251db372e84c1da750799e56f371dc8b315"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 390656 bytes; 2023."
 
 [[file]]
@@ -4250,7 +4250,7 @@ sha256 = "0efd4cf7f5a448895e4a078c3428df5c9965c3963d02a0786811e88b752ea32a"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "rta"]
 notes = "S-0187; schdoc; 325632 bytes; 2023."
 
 [[file]]
@@ -4261,7 +4261,7 @@ sha256 = "64e23e984eac9f9d68114bae333a5929ada60f615402539f115867a286758148"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "heavy"]
+uses = ["altium", "origin:third-party", "altium-set:01", "altium-import", "heavy", "rta"]
 notes = "S-0187; pcbdoc; 23181312 bytes; 2023."
 
 [[file]]
@@ -4272,7 +4272,7 @@ sha256 = "e2f1e8bd83acf2aa980114f0a4db1bcc01935721feccdfa221f9aadb07528552"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 151552 bytes; 2016."
 
 [[file]]
@@ -4283,7 +4283,7 @@ sha256 = "d36bb8c04ddb12d9099ae9d654cceed5bdc5e4a264c1f4f66d2d5b1ea19c7f82"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 37888 bytes; 2016."
 
 [[file]]
@@ -4294,7 +4294,7 @@ sha256 = "a987d3ef285bc24b1d8c9d6a915328dd576a3eab42af46d73379fdea2609665d"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 118784 bytes; 2020."
 
 [[file]]
@@ -4305,7 +4305,7 @@ sha256 = "9824c8ea15ae5231e2fb21561d95c0f08d3653958d6860e56b4040d6ef3dd191"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 87552 bytes; 2016."
 
 [[file]]
@@ -4316,7 +4316,7 @@ sha256 = "3158d2c11218ee96642c4ec6b7e6fcabbbc6691232969560ee9603548bd4fd5f"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 212480 bytes; 2016."
 
 [[file]]
@@ -4327,7 +4327,7 @@ sha256 = "2a1a052f620c15dc139f29a02eb96e299afd1e5a04ab9490b20d9ee9e55a048f"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 28672 bytes; 2016."
 
 [[file]]
@@ -4338,7 +4338,7 @@ sha256 = "fc8a645fa75cd35e196cf5bf3ed2e063c03428fa9d9ddbd1d518e09e8b642a1f"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 25600 bytes; 2016."
 
 [[file]]
@@ -4349,7 +4349,7 @@ sha256 = "6c51a76c7f703bd5eea334e5eed8c97c16ca09ddb325184d2831887726725d04"
 license = "LGPL-3.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:02", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:02", "altium-import", "rta"]
 notes = "S-0188; schdoc; 19968 bytes; 2016."
 
 [[file]]
@@ -4360,7 +4360,7 @@ sha256 = "ede24d715cf83b91bb0d0e86a0f747d315de0f036bb9309a6e7e29c451e6a359"
 license = "BSD-2-Clause"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:03", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:03", "altium-import", "rta"]
 notes = "S-0174; prjpcb; 42994 bytes; 2021."
 
 [[file]]
@@ -4371,7 +4371,7 @@ sha256 = "8555c4ece52cebd911b6152bd211d4e8b7dc59f003fc5a031e1c7d525ff4325d"
 license = "BSD-2-Clause"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:03", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:03", "altium-import", "rta"]
 notes = "S-0174; schdoc; 288256 bytes; 2021."
 
 [[file]]
@@ -4382,7 +4382,7 @@ sha256 = "68a66e042c5e08c41475d43e85b54d0965921f3ec23ea52a39e3df2c2102b5b8"
 license = "Apache-2.0"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:04", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:04", "altium-import", "rta"]
 notes = "S-0176; prjpcb; 49883 bytes; 2023."
 
 [[file]]
@@ -4393,7 +4393,7 @@ sha256 = "fd2e0591742c53f973be41fcb2f099248086917e96a28c7dc2a61ec69e6335ca"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; prjpcb; 43022 bytes; 2025."
 
 [[file]]
@@ -4404,7 +4404,7 @@ sha256 = "45ec889000b819c2c98e3cb99fb734ffd131c2eaf8ce1798cee4cd34eaf8d0da"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; schdoc; 79872 bytes; 2025."
 
 [[file]]
@@ -4415,7 +4415,7 @@ sha256 = "c4db4274f1157553145265353774fbbd5b492359bf31b60530415f58a2990d41"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; schdoc; 48128 bytes; 2025."
 
 [[file]]
@@ -4426,7 +4426,7 @@ sha256 = "29e8f7c9460a00ebd5cb883a2647a372b2f7e686731780c2111395fcf9c28cee"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; schdoc; 24064 bytes; 2024."
 
 [[file]]
@@ -4437,5 +4437,5 @@ sha256 = "87b5a4518faa91a0fd85fd4765dab8ce6d699d44cfb7dec6ed959dafd3a62510"
 license = "MIT"
 license_variant = ""
 embeddable = false
-uses = ["altium", "origin:third-party", "altium-set:05", "altium-import"]
+uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; schdoc; 62976 bytes; 2024."

@@ -43,6 +43,12 @@ TABLE = {
     "zone.unfilled": ("warning",),
     "zone.fill-stale": ("warning",),
     "zone.fill-unchecked": ("info",),
+    "check.document-missing": ("warning",),
+    "check.rta0-failed": ("error",),
+    "check.rta1-failed": ("error",),
+    "check.rta1-normalised": ("info",),
+    "check.rta2-failed": ("error",),
+    "check.roundtrip-unjudged": ("info",),
 }
 
 
