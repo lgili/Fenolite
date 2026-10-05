@@ -153,7 +153,7 @@ if args[:2] == ["pcb", "drc"]:
     board = args[-1]
     asked = "--schematic-parity" in args
     if asked and config["parity_fail"]:
-        print(config["parity_fail"], file=sys.stderr)
+        sys.stderr.buffer.write((config["parity_fail"] + "\\n").encode("utf-8"))  # not the code page
         sys.exit(255)
     if asked and config["parity_note"]:
         print(config["parity_note"], file=sys.stderr)
