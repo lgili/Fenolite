@@ -9,6 +9,7 @@ import builtins
 import io
 import os
 import pathlib
+import sys
 import time
 from typing import Any, NoReturn
 
@@ -93,15 +94,28 @@ def test_file_names_are_not_opened(monkeypatch: pytest.MonkeyPatch) -> None:
     assert isinstance(file_name, sch.SheetFileName) and file_name.text == "..\\..\\x.SchDoc"
 
 
-def test_reading_time_is_linear() -> None:
-    def seconds(count: int) -> float:
-        data = schdoc([SHEET, *(f"|RECORD=29|LOCATION.X={n}" for n in range(count))])
-        runs: list[float] = []
-        for _ in range(3):
-            started = time.perf_counter()
-            sch.read_schematic(data)
-            runs.append(time.perf_counter() - started)
-        return min(runs)
+def test_reading_work_is_linear() -> None:
+    """Ten times the records cost about ten times the work. The work is counted in function calls, not in
+    seconds: a wall-clock ratio fails on a busy machine, and a call count is the same on every run. A
+    reader that looked at every earlier record for each record would make about a hundred times the
+    calls."""
 
-    small, large = seconds(2_000), seconds(20_000)
-    assert large < small * 30
+    def calls(count: int) -> int:
+        data = schdoc([SHEET, *(f"|RECORD=29|LOCATION.X={n}" for n in range(count))])
+        made = 0
+
+        def count_call(frame: object, event: str, arg: object) -> None:
+            nonlocal made
+            if event in ("call", "c_call"):
+                made += 1
+
+        sys.setprofile(count_call)
+        try:
+            sch.read_schematic(data)
+        finally:
+            sys.setprofile(None)
+        return made
+
+    small, large = calls(200), calls(2_000)
+    assert small > 200
+    assert large < small * 15
