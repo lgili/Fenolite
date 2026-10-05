@@ -46,8 +46,6 @@ from fenolite.model.design import Design
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus, pytest.mark.kicad_min_major(10)]
 ITEMS = manifest_items("altium-pcbdoc")
-FAILED_IMPORTS: dict[str, int] = {}
-"""Row id → the exit code of a ``kicad-cli`` run that failed; such a row is excluded (none so far)."""
 KicadPad = tuple[str, Any, tuple[int, int]]
 """A footprint reference, a KiCad pad and its absolute position."""
 
@@ -56,6 +54,7 @@ KicadPad = tuple[str, Any, tuple[int, int]]
 class Imported:
     code: int
     board: Design | None
+    output: str
 
 
 @cache
@@ -76,7 +75,7 @@ def _import(row: str) -> Imported:
             if proc.returncode == 0
             else None
         )
-        return Imported(proc.returncode, board)
+        return Imported(proc.returncode, board, proc.stdout + proc.stderr)
 
 
 @cache
@@ -323,10 +322,7 @@ def compare(row: str) -> tuple[dict[str, Any], list[str]]:
 def test_a_public_board_agrees(item: CorpusItem) -> None:
     require(item)
     imported = _import(item.id)
-    if item.id in FAILED_IMPORTS:
-        assert imported.code == FAILED_IMPORTS[item.id]
-        pytest.skip(f"kicad-cli exits {imported.code} on this row")
-    assert imported.code == 0
+    assert imported.code == 0, imported.output
     counts, problems = compare(item.id)
     census("altium_pcb_read_oracle", item.id, counts)
     print(item.id, counts)

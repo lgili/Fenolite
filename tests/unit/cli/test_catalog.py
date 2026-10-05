@@ -51,12 +51,13 @@ def test_build_uses_catalog_offline_and_exact_project_overrides(
     monkeypatch.chdir(tmp_path)
     assert main(["--json", "build", str(script), "--out", "out", "--dry-run"]) == 0
     envelope = json.loads(capsys.readouterr().out)
+    files = {Path(path).as_posix() for path in envelope["result"]["files"]}
     assert envelope["result"]["libraries"] == {
         "Fenolite:Chip_0603": "authored",
         "Fenolite:Resistor": "authored",
     }
-    assert "out/lib/Fenolite.kicad_sym" in envelope["result"]["files"]
-    assert "out/lib/Fenolite.pretty/Chip_0603.kicad_mod" in envelope["result"]["files"]
+    assert "out/lib/Fenolite.kicad_sym" in files
+    assert "out/lib/Fenolite.pretty/Chip_0603.kicad_mod" in files
 
 
 def test_build_resolves_catalog_without_global_libraries(
@@ -75,9 +76,10 @@ def test_build_resolves_catalog_without_global_libraries(
     monkeypatch.chdir(tmp_path)
     assert main(["--json", "build", str(script), "--out", "out", "--dry-run"]) == 0
     envelope = json.loads(capsys.readouterr().out)
+    files = {Path(path).as_posix() for path in envelope["result"]["files"]}
     assert envelope["result"]["libraries"] == {
         "Fenolite:Chip_0603": "builtin",
         "Fenolite:Resistor": "builtin",
     }
-    assert "out/lib/Fenolite.kicad_sym" in envelope["result"]["files"]
-    assert "out/lib/Fenolite.pretty/Chip_0603.kicad_mod" in envelope["result"]["files"]
+    assert "out/lib/Fenolite.kicad_sym" in files
+    assert "out/lib/Fenolite.pretty/Chip_0603.kicad_mod" in files

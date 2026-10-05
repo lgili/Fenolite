@@ -46,7 +46,7 @@ def builds() -> dict[str, bytes]:
 
 def committed() -> dict[str, bytes]:
     return {
-        str(path.relative_to(DATA)): path.read_bytes()
+        path.relative_to(DATA).as_posix(): path.read_bytes()
         for path in sorted(DATA.rglob("*"))
         if path.suffix.lower() in (".schdoc", ".schlib")
     }
