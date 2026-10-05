@@ -64,7 +64,7 @@ def test_base_imports_detects_a_backend() -> None:
 def test_builtin_backend_in_a_fresh_interpreter() -> None:
     code = "from fenolite.backends import registry; print([b.name for b in registry.all_backends()])"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
-    assert out.strip() == "['kicad']"
+    assert out.strip() == "['altium', 'kicad']"
 
 
 def test_registry_module_imports_no_backend() -> None:
@@ -84,14 +84,38 @@ def test_duplicate_registration() -> None:
 
 @pytest.mark.usefixtures("fresh_registry")
 def test_unknown_backend_names_the_known_ones() -> None:
-    with pytest.raises(KeyError, match="kicad"):
+    with pytest.raises(KeyError, match="altium, kicad"):
         registry.get("nope")
 
 
 @pytest.mark.usefixtures("fresh_registry")
 def test_backend_for_a_path() -> None:
     assert registry.for_path(Path("a.kicad_pcb")) is registry.get("kicad")
+    assert registry.for_path(Path("a.PcbDoc")) is registry.get("altium")
+    assert registry.for_path(Path("board.PcbDoc")).name == "altium"  # type: ignore[union-attr]
     assert registry.for_path(Path("a.txt")) is None
+
+
+def test_registration_stays_cheap() -> None:
+    """Change c0043: registering the Altium backend loads no reader, no adapter and no writer."""
+    code = (
+        "import sys; from fenolite.backends import registry; registry.all_backends(); "
+        "print(sorted(m for m in sys.modules if m.startswith(('fenolite.backends.altium.read', "
+        "'fenolite.backends.altium.adapter', 'fenolite.backends.altium.project', "
+        "'fenolite.backends.altium.pcbdoc'))))"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout
+    assert out.strip() == "[]"
+
+
+SUFFIXES = (".kicad_pcb", ".kicad_mod", ".kicad_sym", ".PrjPcb", ".SchDoc", ".SchLib", ".PcbDoc", ".PcbLib")
+
+
+@pytest.mark.usefixtures("fresh_registry")
+def test_detection_is_disjoint() -> None:
+    for suffix in SUFFIXES:
+        found = [b.name for b in registry.all_backends() if b.detect(Path(f"a{suffix}"))]
+        assert len(found) == 1, (suffix, found)
 
 
 class _Fake:
@@ -111,7 +135,7 @@ class _Fake:
 def test_backends_sorted_and_first_detecting_wins() -> None:
     fake = _Fake()
     registry.register(fake)
-    assert [b.name for b in registry.all_backends()] == ["aaa", "kicad"]
+    assert [b.name for b in registry.all_backends()] == ["aaa", "altium", "kicad"]
     assert registry.for_path(Path("x.kicad_pcb")) is fake
     assert registry.for_path(Path("x.kicad_mod")) is registry.get("kicad")
 
@@ -190,3 +214,7 @@ def test_capability_invariants() -> None:
             assert "write" in report.operations and report.default_target in report.targets
             assert list(report.targets) == sorted(report.targets)
         assert report.downgrade == "unsupported" or report.write_kinds
+    altium = registry.get("altium").capabilities()
+    assert altium.operations == ("detect", "read") and altium.write_kinds == () and altium.targets == ()
+    assert altium.default_target is None and altium.downgrade == "unsupported"
+    assert not any(hasattr(registry.get("altium"), name) for name in ("write", "lower", "validate"))

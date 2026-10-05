@@ -40,9 +40,10 @@ FootprintAttribute = Literal[
 ]
 ViaType = Literal["through", "blind", "buried", "micro"]
 ZoneConnection = Literal["solid", "thermal", "none", "thru_hole_only"]
-HoleShape = Literal["round", "square", "slot"]
 """How a zone connects to a pad of its net; ``thru_hole_only`` means thermal reliefs on through-hole pads
 and solid connections on the others."""
+HoleShape = Literal["round", "square", "slot"]
+BodyKind = Literal["extruded", "model"]
 ZoneFillMode = Literal["solid", "hatched"]
 IslandRemoval = Literal["always", "never", "below_area"]
 ZoneSmoothing = Literal["none", "chamfer", "fillet"]
@@ -96,6 +97,9 @@ class PadstackLayer:
     layer: str
     shape: PadShape
     size: Size
+    offset: Point = Point(0, 0)
+    """Where the copper's centre lies on this layer relative to ``Pad.position`` (the hole's centre), in
+    the footprint frame. In a library definition ``layer`` may be the wildcard ``In*.Cu``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +155,24 @@ class FootprintField(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class ComponentBody(Entity):
+    """The physical body of a part: a volume above the side its footprint is placed on.
+
+    ``height`` is the distance from the board surface to the top of the body and ``standoff`` the distance
+    to its underside. ``outline`` is the body's footprint as a polygon in the footprint frame (empty when
+    the source gives none), ``layer`` the layer it is drawn on, and ``model`` the name of a 3D model for
+    the kind ``model``. No model data is carried."""
+
+    kind: BodyKind
+    height: Nm
+    standoff: Nm = 0
+    outline: tuple[Point, ...] = field(default=(), metadata=ORDERED)
+    layer: str = ""
+    model: str = ""
+    name: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class FootprintInstance(Entity):
     """A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order;
     ``fields`` are its text fields in the backend's order, with unique names."""
@@ -164,6 +186,7 @@ class FootprintInstance(Entity):
     attributes: tuple[FootprintAttribute, ...] = field(default=(), metadata=ORDERED)
     pads: tuple[Pad, ...] = ()
     fields: tuple[FootprintField, ...] = field(default=(), metadata=ORDERED)
+    bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -337,6 +360,8 @@ class Board(Entity):
 __all__ = [
     "Arc",
     "Board",
+    "BodyKind",
+    "ComponentBody",
     "FieldJustifyH",
     "FieldJustifyV",
     "FootprintAttribute",
@@ -346,6 +371,7 @@ __all__ = [
     "GraphicKind",
     "HatchBorder",
     "Hole",
+    "HoleShape",
     "IslandRemoval",
     "Keepout",
     "Layer",

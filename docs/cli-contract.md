@@ -284,6 +284,20 @@ Each entry of `result.backends` is one backend's capability report, sorted by na
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}
 ```
 
+Two backends are listed, `altium` before `kicad`: find a backend by its `name`, never by its position.
+The entry `altium` (change c0043) reads and does not write, so it lists no target:
+
+```json
+{"name": "altium",
+ "read_kinds": ["altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii",
+                "altium_schdoc_binary", "altium_schlib"],
+ "write_kinds": [], "targets": [], "default_target": null, "downgrade": "unsupported",
+ "operations": ["detect", "read"],
+ "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-IMP-NETLIST", "…"]}}
+```
+
+The Altium writers are not part of that report: they stay under `result.experimental`.
+
 The backend's `evidence` is the lowest of what its `read` and `write` return for an arbitrary board, so
 it is `INFERRED` although the two rows it names are stronger in `docs/hypotheses.md`
 (`H-K-PCB-READ` is `CORPUS-VERIFIED`, `H-K-PCB-WRITE` is `KICAD-VERIFIED`). A row states what its test
@@ -298,6 +312,47 @@ the kinds it writes, its `targets` (oldest first), the `default_target` used whe
 whether a file read at a newer version can be written for an older target (`downgrade`). Listing backends runs no external
 tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
 by `fenolite.backends.kicad.cli.find_kicad_cli()`.
+
+## Altium import
+
+Reading an Altium file through the registered backend `altium` (change c0043, `docs/altium.md`, "Reading
+Altium files") gives issues of the closed table `fenolite.backends.altium.adapter.IMPORT_ISSUE_CODES`,
+after the readers' own issues and before the `model.*` findings. An error issue never stops an import.
+
+| code | severity | meaning |
+|---|---|---|
+| `altium.import.bad-stack` | error | the copper chain of the board record holds fewer than two layers; the board is read with `F.Cu` and `B.Cu` |
+| `altium.import.sheet-loop` | error | a sheet symbol names one of its own ancestors; the import does not descend |
+| `altium.import.bad-length` | warning | a length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped |
+| `altium.import.bad-geometry` | warning | a width, a diameter, a hole or a radius of 0 or less, or a region of fewer than three vertices; the record is not mapped |
+| `altium.import.layer-outside-stack` | warning | a primitive lies on a layer id outside the copper chain and the layer table; it goes to `Altium.<id>` (one issue per id) |
+| `altium.import.duplicate-net` | warning | two net records hold one name; they are one net |
+| `altium.import.unknown-member` | warning | a net class lists a name that is no net |
+| `altium.import.padstack-unknown` | warning | a pad's stack mode or hole shape is outside the table; the pad gets no padstack |
+| `altium.import.via-span` | warning | a via's start or end layer is outside the copper chain; it is read as a through via |
+| `altium.import.no-designator` | warning | a schematic component has no designator record; its reference is empty |
+| `altium.import.sheet-missing` | warning | a sheet symbol names a sheet that is not among the inputs; its entries stay named points |
+| `altium.import.repeated-sheet` | warning | a sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated |
+| `altium.import.scope-unknown` | warning | the project's hierarchy mode has no known meaning; the automatic scope is used |
+| `altium.import.duplicate-net-name` | warning | two nets end with one name; the later one is renamed `<name>#<k>` |
+| `altium.import.duplicate-sheet-name` | warning | two sheet symbols of one sheet have one designator; the second module path gets `#2` |
+| `altium.import.bus-width` | warning | two bus identifiers that join have different widths; the common prefix is joined |
+| `altium.import.harness-nested` | warning | a harness entry carries a harness of its own; it is not resolved |
+| `altium.import.pcb-only-component` | warning | a component of the PCB document links to no schematic component; it is added to the circuit |
+| `altium.import.document-skipped` | warning | a document of a project is outside the project folder, missing or unreadable; the design is built from the rest |
+| `altium.import.inexact` | info | counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags |
+| `altium.import.multi-class` | info | count of nets in more than one net class; the first class by name is kept |
+| `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; their model outline is empty |
+| `altium.import.copper-shape` | info | count of fills and regions on copper, imported as graphics with their net in the bag |
+| `altium.import.scope` | info | the net identifier scope that was used |
+| `altium.import.option-ignored` | info | a project option that the import does not apply (`AppendSheetNumberToLocalNets`) |
+| `altium.import.bus-member` | info | count of bus members without a net |
+| `altium.import.harness-entry` | info | count of harness entries without a net |
+| `altium.import.extra-board` | info | a project lists more than one PCB document; only the first is read |
+| `altium.import.linked-by-designator` | info | count of PCB components linked to a schematic component by designator, not by unique-id path |
+| `altium.import.pcb-only-net` | info | count of nets of the PCB document that the sheets do not hold; they are added to the circuit |
+| `altium.import.rule-unmapped` | info | count of rule records of one rule kind that do not map, with the mapper's reasons |
+| `altium.import.unmapped` | info | counts, by kind, of the records that gave no model entity, and the storages kept as bytes |
 
 ## route
 
@@ -488,7 +543,7 @@ repeat.
 | `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists (`docs/design-model.md`). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, and `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),

@@ -72,6 +72,22 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
 - A marked pin is no member of any net: `by_net`, `model.single-pin-net` and `model.dangling-net` are
   unchanged.
 
+### Buses
+
+`Circuit.buses: tuple[Bus, ...]` (empty by default, change c0043) records a bus, an indexed vector of nets.
+
+- `Bus` carries the entity header (prefix `bus`), `name` (the vector's name without its range: `D` for
+  `D[0..7]`) and `members`, an ordered tuple of `BusMember(index, net_id)`. A member without a net is left
+  out, so indexes may have gaps.
+- A bus differs from an `Interface`, which maps role names to nets. A group of nets with different names
+  (a harness, a KiCad group bus) stays an `Interface`.
+- The change is additive: a design without buses gives the `circuit.json` bytes it gave before, and a file
+  without the key `buses` loads with `()`. `SCHEMA_VERSION` stays `"0"`.
+- `Design.entities()` yields buses. `Design.validate()` reports, with `where` set to the bus name:
+  - `model.unknown-net` (error): a member's `net_id` is no net of the circuit;
+  - `model.duplicate-bus-index` (error): an index is used twice in one bus.
+- A bus gives no net and no net member. No backend writes a bus; a build keeps it in `.fenolite/`.
+
 ## Library definitions
 
 `fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside
@@ -185,6 +201,31 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
+
+## Padstack holes, offsets and component bodies
+
+Change c0043 completes the padstack and adds the body of a part. Every field has a default, so documents
+written before them still load.
+
+- `Padstack.hole_shape` (`round`, `square`, `slot`), `hole_length` (the length of a slot along its axis,
+  ends included) and `hole_rotation` (the angle of the hole's axis relative to the footprint) describe a
+  hole that is not round. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a
+  square hole, the width of a slot.
+- `PadstackLayer.offset: Point` is where the copper's centre lies on that layer relative to `Pad.position`,
+  the centre of the hole, in the footprint frame.
+- `Padstack.layers` may be empty: one shape on all layers with a hole that is not round. `Pad.padstack is
+  None` still means one shape on all layers, a round hole or no hole, and no offset.
+- In a library definition `PadstackLayer.layer` may be the wildcard `In*.Cu`, every inner copper layer.
+- `ComponentBody` (prefix `bdy`) is the physical body of a part, in `FootprintInstance.bodies` and
+  `FootprintDef.bodies`, ordered and empty by default: `kind` (`extruded` or `model`), `height` (from the
+  board surface to the top of the body), `standoff` (from the board surface to its underside, 0 by
+  default), `outline` (a polygon in the footprint frame, empty when the source gives none), `layer`,
+  `model` (the name of a 3D model for the kind `model`) and `name`.
+- A body states a volume above the side the footprint is placed on and carries no model data. The height
+  of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
+  whose `height` is below its `standoff` or whose `standoff` is negative.
+- The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
 ## Zone settings
 

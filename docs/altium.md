@@ -768,6 +768,85 @@ are `ORACLE-VERIFIED(kicad-cli)` against `kicad-cli pcb import` and `fp upgrade`
 field has its own level in `read.pcbprims.FIELD_LEVELS`, the label of its row of the fact page;
 `PcbDocument.evidence` and `PcbLibrary.evidence` are `CORPUS-VERIFIED`.
 
+## Reading Altium files
+
+The registered backend `altium` (`fenolite.backends.altium.backend.AltiumBackend`, change c0043) reads
+Altium files into the neutral model. `fenolite capabilities` lists it in `result.backends`, before `kicad`.
+It reads; it writes nothing: the writers above stay experimental features of `build`. The commands
+`inspect` and `check` do not take Altium files yet (change c0044).
+
+```python
+from pathlib import Path
+from fenolite.backends import registry
+
+backend = registry.for_path(Path("board.PcbDoc"))  # the Altium backend, by the file's suffix
+result = backend.read(Path("design.PrjPcb"))
+design = result.design  # a Design; result.issues lists what was found
+```
+
+| read kind | file | result |
+|---|---|---|
+| `altium_pcbdoc` | `.PcbDoc` | a `Design` with the board, a circuit synthesised from the pads (one component per footprint, one pin per pad name, pin type `unspecified`) and the rules that map |
+| `altium_schdoc_binary`, `altium_schdoc_ascii` | `.SchDoc` | a `Design` with the circuit of that one sheet and no board |
+| `altium_prjpcb` | `.PrjPcb` | a `Design` with the circuit of the listed sheets and the board of the first PCB document, linked |
+| `altium_pcblib` | `.PcbLib` | a `Library` of footprint definitions |
+| `altium_schlib` | `.SchLib` | a `Library` of symbol definitions |
+
+**What a board read gives.** Copper layers named by their position in the stack (`F.Cu`, `In<j>.Cu`,
+`B.Cu`), the stack-up, nets and net classes, one footprint per component with its pads in the footprint
+frame, tracks, arcs, vias, zones from polygon pours (with their poured copper as fills), the outline as
+graphics on `Edge.Cuts`, free graphics and texts, component bodies (height, standoff, outline), and the
+rules of the kinds Clearance, Width, Routing Via Style and Hole Size when they map exactly. Lengths are
+integer nanometres; the model's Y axis points down, so Y is negated; no origin is subtracted.
+
+**What a schematic read gives.** A sheet stores no netlist. The import derives the nets from wires,
+junctions, pin ends, net labels, power ports, ports, sheet entries, buses and signal harnesses, by the rules
+of `docs/formats/altium/connectivity.md`, and joins sheets by the project's net identifier scope
+(Automatic chooses hierarchical, flat or global as Altium documents it). It gives components with their
+pins and pin types, nets with their names and aliases, one module per sheet symbol, one interface per
+harness, buses, and the pins that a No ERC directive leaves open.
+
+**What a project read does.** It reads the sheets and the first PCB document that the project file lists
+inside the project folder. A footprint links to its schematic component by the unique-id path
+(`SOURCEUNIQUEID`), else by its designator; a PCB net links to the schematic net of the same name. Neither
+side is corrected by the other: a pad keeps the net the PCB document gives it. A component or a net that
+only the PCB document holds is added to the circuit and reported. A document outside the folder, a missing
+one or an unreadable one is skipped with `altium.import.document-skipped`.
+
+**What is not imported.** Nothing is dropped silently: `altium.import.unmapped` counts every record that
+gave no model entity.
+
+- Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
+  pairs, `Repeat` statements and the annotation of repeated sheets (a repeated sheet is read once per sheet
+  symbol, with the designators the sheet holds; a project read takes them from the PCB document).
+- Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
+  and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
+- Rules of other kinds, disabled rules, and rules whose scope is outside the mapper's grammar:
+  `altium.import.rule-unmapped` counts them per kind. No rule is approximated.
+- A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
+  shape with a net.
+- The pin-to-pad map of a footprint model is not applied: a pin whose pads have other names than its
+  designator is linked by name only.
+
+The issue codes `altium.import.*` are listed in `docs/cli-contract.md`, "Altium import". An error issue
+never stops an import.
+
+**Evidence.** Three kinds, none of which needs Altium Designer:
+
+- *Own files.* Every example that Fenolite builds for the Altium target imports to the nets, no-connect
+  marks, references, values and footprint names of its model, in both schematic forms
+  (`tests/unit/backends/altium/adapter/test_own_files.py`). This is `INFERRED`: Fenolite reads what
+  Fenolite wrote.
+- *Public project sets.* On public projects saved by Altium Designer, the netlist computed from the sheets
+  equals the pad netlist of the project's PCB document (`tests/corpus/test_altium_import.py`; results in
+  `docs/formats/altium/connectivity.md`, "Result per project set").
+- *KiCad's importer.* The board import agrees with `kicad-cli pcb import --format altium` 10.0 on copper
+  layers, footprint sides, rotations and positions, pad nets and positions, vias, tracks and zone outlines
+  (`tests/kicad/altium/test_import_oracle.py`; differences by kind in `docs/formats/altium/import.md`).
+
+The backend's report and every read stay `INFERRED` while any `H-A-IMP-*` row of `docs/hypotheses.md` is
+(the lowest wins).
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a

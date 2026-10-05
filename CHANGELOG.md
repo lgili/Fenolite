@@ -33,8 +33,16 @@ All notable changes to Fenolite are documented here. The format follows
 - Symbol definitions and DSL-authored symbols now carry ordered vector body graphics, which the KiCad symbol reader and writer preserve (c0075).
 ### Added
 
+- The `altium` backend reads `.PrjPcb`, `.SchDoc`, `.SchLib`, `.PcbDoc` and `.PcbLib` into the neutral model (nets from wires, labels, ports, power ports, buses and harnesses); a project read links footprints to schematic components by unique-id path and PCB nets by name. On four public Altium-saved projects from four repositories the schematic netlist equals the pad netlist of the PCB document, and the board import agrees with `kicad-cli pcb import` 10.0 (c0043).
+- Model: `Circuit.buses` (`Bus`, `BusMember`), `PadstackLayer.offset`, and `ComponentBody` on footprint instances and definitions, with the findings `model.duplicate-bus-index` and `model.body-height`; all additive, the schemas are regenerated (c0043).
+- `fenolite.backends.altium.read.bodies` decodes the component-body records of PCB documents and libraries byte for byte (c0043).
+
 - DSL symbol authoring: design-attached `Symbol` definitions resolve custom component pins and are written as project-local KiCad symbol libraries with a `sym-lib-table` (c0058).
 - Footprint DSL: `Footprint.pad(..., shared=True)` can author additional physical pads with the same number as an earlier pad, with stable unique IDs; accidental duplicates still fail.
+
+### Changed
+
+- `fenolite capabilities` lists two backends, `altium` before `kicad`: select a backend by its `name`, not by its position (c0043).
 
 ## [0.1.0] - 2026-10-05
 

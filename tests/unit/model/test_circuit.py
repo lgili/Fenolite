@@ -9,7 +9,7 @@ import pytest
 
 from fenolite.core.coords import Point
 from fenolite.core.ids import new_id
-from fenolite.model import Circuit, Component, ExtBag, Net, Pin, PinRef, Track
+from fenolite.model import Bus, BusMember, Circuit, Component, ExtBag, Net, Pin, PinRef, Track
 from fenolite.model.canonical import dumps, loads
 
 
@@ -65,3 +65,30 @@ def test_no_connect_marks_round_trip_as_text() -> None:
     text = dumps(circuit)
     assert '"no_connects"' in text
     assert loads(text, Circuit).no_connects == marks
+
+
+# --- buses (change c0043, "Buses in the circuit model") -------------------------------------------------
+
+
+def test_bus_default_is_omitted_and_an_old_file_loads() -> None:
+    component = Component(id=new_id("cmp", random.Random(1)), ref="U1")
+    old = dumps(Circuit(components=(component,)))
+    assert "buses" not in old
+    loaded = loads(old, Circuit)
+    assert loaded.buses == () and dumps(loaded) == old
+
+
+def test_bus_members_keep_their_order() -> None:
+    rng = random.Random(4)
+    d0 = Net(id=new_id("net", rng), name="D0")
+    d1 = Net(id=new_id("net", rng), name="D1")
+    bus = Bus(id=new_id("bus", rng), name="D", members=(BusMember(1, d1.id), BusMember(0, d0.id)))
+    circuit = Circuit(nets=(d0, d1), buses=(bus,))
+    loaded = loads(dumps(circuit), Circuit)
+    assert loaded.buses == (bus,) and [m.index for m in loaded.buses[0].members] == [1, 0]
+
+
+def test_bus_prefix() -> None:
+    assert new_id("bus", random.Random(1)).startswith("bus_")
+    with pytest.raises(ValueError, match="unknown id prefix"):
+        new_id("busx", random.Random(1))

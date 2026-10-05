@@ -32,7 +32,7 @@ The circuit layer SHALL record a bus, an indexed vector of nets, as the entity `
 - **THEN** the first returns an id that starts with `bus_` and the second raises `ValueError`
 
 ### Requirement: Padstack holes and offsets
-The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`, with fields that all have defaults, so that documents written before them still load.
+The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`, with fields that all have defaults, so that documents written before them still load. The three hole fields were already added by change c0056 (slotted pads of the DSL and of the KiCad footprint reader) when this change was implemented; this change adds `PadstackLayer.offset` and restates the others.
 - `Padstack.hole_shape: HoleShape = "round"`, one of `round`, `square` and `slot`.
 - `Padstack.hole_length: Nm | None = None`: the length of a slot along its axis, ends included. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a square hole and the width of a slot.
 - `Padstack.hole_rotation: Udeg = 0`: the angle of the hole's axis relative to the footprint.
@@ -40,7 +40,7 @@ The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`
 - `Padstack.layers` MAY be empty: a pad with one shape on all its layers and a hole that is not round has a padstack without layer entries. `Pad.padstack is None` MUST still mean one shape on all layers, a round hole or no hole, and no offset.
 - In a library definition, `PadstackLayer.layer` MAY be the wildcard `In*.Cu`, every inner copper layer, as `Pad.layers` of a definition may hold `*.Cu`. On a board it MUST be a real layer.
 - `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` and `library.json` with the new fields and the closed vocabulary of `hole_shape`.
-- No reader or writer of the KiCad backend changes: a KiCad oval or offset drill stays in the pad's opaque slots, as today.
+- No reader or writer of the KiCad backend changes in this change: the KiCad backend reads and writes a slotted hole since c0056, and a KiCad offset drill stays in the pad's opaque slots, as today.
 
 #### Scenario: Old documents still load
 - **GIVEN** a `board.json` written before this change that holds a pad with a padstack of two layers

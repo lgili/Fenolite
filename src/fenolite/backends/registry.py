@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The backend registry. The built-in KiCad backend is registered on the first call to any function,
-and its module is imported only then, so importing the CLI stays cheap."""
+"""The backend registry. The built-in backends, Altium and KiCad, are registered on the first call to any
+function, and their modules are imported only then, so importing the CLI stays cheap. The Altium backend's
+module imports no reader, adapter or writer until it reads a file (change c0043)."""
 
 from __future__ import annotations
 
@@ -18,8 +19,11 @@ def _ensure_builtins() -> None:
     if _loaded:
         return
     _loaded = True
+    from fenolite.backends.altium.backend import AltiumBackend
     from fenolite.backends.kicad.backend import KicadBackend
 
+    if "altium" not in _BACKENDS:
+        _BACKENDS["altium"] = AltiumBackend()
     if "kicad" not in _BACKENDS:
         _BACKENDS["kicad"] = KicadBackend()
 

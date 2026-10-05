@@ -164,6 +164,166 @@ meaning = "A member of a harness is also a member of a power interface."
 fix = "Take the power net out of the harness."
 see = "Build target"
 
+["altium.import.bad-geometry"]
+meaning = "A width, a diameter, a hole or a radius of 0 or less, or a region of fewer than three vertices; the record is not mapped."
+fix = "Read the issue's location and correct the object in Altium (a size of 0 or less, or a region of fewer than three vertices)."
+see = "Altium import"
+
+["altium.import.bad-length"]
+meaning = "A length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped."
+fix = "Read the issue's location, open the record in Altium and save the document again; report the text if Altium shows it as valid."
+see = "Altium import"
+
+["altium.import.bad-stack"]
+meaning = "The copper chain of the board record holds fewer than two layers; the board is read with `F.Cu` and `B.Cu`."
+fix = "Check the board file in Altium: its layer stack holds fewer than two copper layers, or the board record is damaged."
+see = "Altium import"
+
+["altium.import.bus-member"]
+meaning = "Count of bus members without a net."
+fix = "Nothing to do; a bus member without a net is not connected on the sheet."
+see = "Altium import"
+
+["altium.import.bus-width"]
+meaning = "Two bus identifiers that join have different widths; the common prefix is joined."
+fix = "Make the two bus identifiers the same width in Altium, then check the joined members."
+see = "Altium import"
+
+["altium.import.copper-shape"]
+meaning = "Count of fills and regions on copper, imported as graphics with their net in the bag."
+fix = "Nothing to do; the shapes are graphics with their net in the bag."
+see = "Altium import"
+
+["altium.import.document-skipped"]
+meaning = "A document of a project is outside the project folder, missing or unreadable; the design is built from the rest."
+fix = "Put the document inside the project folder, or correct its path in the project file."
+see = "Altium import"
+
+["altium.import.duplicate-net"]
+meaning = "Two net records hold one name; they are one net."
+fix = "Nothing to do; the two records are read as one net."
+see = "Altium import"
+
+["altium.import.duplicate-net-name"]
+meaning = "Two nets end with one name; the later one is renamed `<name>#<k>`."
+fix = "Rename one of the nets in the source, or accept the suffix the import added."
+see = "Altium import"
+
+["altium.import.duplicate-sheet-name"]
+meaning = "Two sheet symbols of one sheet have one designator; the second module path gets `#2`."
+fix = "Give the two sheet symbols different designators in Altium."
+see = "Altium import"
+
+["altium.import.extra-board"]
+meaning = "A project lists more than one PCB document; only the first is read."
+fix = "Import the other PCB document by itself if you need it."
+see = "Altium import"
+
+["altium.import.harness-entry"]
+meaning = "Count of harness entries without a net."
+fix = "Nothing to do; a harness entry without a net is not connected on the sheet."
+see = "Altium import"
+
+["altium.import.harness-nested"]
+meaning = "A harness entry carries a harness of its own; it is not resolved."
+fix = "Nothing to do for a read; the nested harness is kept unresolved. Flatten it in Altium if its nets matter."
+see = "Altium import"
+
+["altium.import.inexact"]
+meaning = "Counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags."
+fix = "Nothing to do; the original values are in the entities' altium bags."
+see = "Altium import"
+
+["altium.import.layer-outside-stack"]
+meaning = "A primitive lies on a layer id outside the copper chain and the layer table; it goes to `Altium.<id>` (one issue per id)."
+fix = "Nothing to do for a read. Map the layer by hand if you need it: its objects are on the layer Altium.<id>."
+see = "Altium import"
+
+["altium.import.linked-by-designator"]
+meaning = "Count of PCB components linked to a schematic component by designator, not by unique-id path."
+fix = "Nothing to do; update the board from the schematic in Altium to restore the unique-id links."
+see = "Altium import"
+
+["altium.import.multi-class"]
+meaning = "Count of nets in more than one net class; the first class by name is kept."
+fix = "Nothing to do; put each net in one class in Altium if the choice matters."
+see = "Altium import"
+
+["altium.import.no-designator"]
+meaning = "A schematic component has no designator record; its reference is empty."
+fix = "Give the component a designator in Altium."
+see = "Altium import"
+
+["altium.import.option-ignored"]
+meaning = "A project option that the import does not apply (`AppendSheetNumberToLocalNets`)."
+fix = "Nothing to do; check the local net names if the option matters to you."
+see = "Altium import"
+
+["altium.import.padstack-unknown"]
+meaning = "A pad's stack mode or hole shape is outside the table; the pad gets no padstack."
+fix = "Nothing to do for a read; the pad keeps its plain shape. Report the stack mode or hole shape if you need it."
+see = "Altium import"
+
+["altium.import.pcb-only-component"]
+meaning = "A component of the PCB document links to no schematic component; it is added to the circuit."
+fix = "Update the board from the schematic in Altium, or accept the component as it is on the board."
+see = "Altium import"
+
+["altium.import.pcb-only-net"]
+meaning = "Count of nets of the PCB document that the sheets do not hold; they are added to the circuit."
+fix = "Update the board from the schematic in Altium, or accept the nets as they are on the board."
+see = "Altium import"
+
+["altium.import.repeated-sheet"]
+meaning = "A sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated."
+fix = "Annotate the references by hand after the import, or flatten the repeated sheet in Altium first."
+see = "Altium import"
+
+["altium.import.rule-unmapped"]
+meaning = "Count of rule records of one rule kind that do not map, with the mapper's reasons."
+fix = "Nothing to do; state the rules again as Fenolite rules if you need them."
+see = "Altium import"
+
+["altium.import.scope"]
+meaning = "The net identifier scope that was used."
+fix = "Nothing to do."
+see = "Altium import"
+
+["altium.import.scope-unknown"]
+meaning = "The project's hierarchy mode has no known meaning; the automatic scope is used."
+fix = "Set the project's net identifier scope in Altium to a named mode, or check the nets of the result."
+see = "Altium import"
+
+["altium.import.sheet-loop"]
+meaning = "A sheet symbol names one of its own ancestors; the import does not descend."
+fix = "Break the loop in the project: a sheet symbol must not name a sheet above it."
+see = "Altium import"
+
+["altium.import.sheet-missing"]
+meaning = "A sheet symbol names a sheet that is not among the inputs; its entries stay named points."
+fix = "Pass the missing sheet too, or import the project file so that every sheet is found."
+see = "Altium import"
+
+["altium.import.unknown-member"]
+meaning = "A net class lists a name that is no net."
+fix = "Remove the stale name from the net class in Altium, or ignore it: the class is read without that member."
+see = "Altium import"
+
+["altium.import.unmapped"]
+meaning = "Counts, by kind, of the records that gave no model entity, and the storages kept as bytes."
+fix = "Nothing to do; the counts say what the import did not carry over."
+see = "Altium import"
+
+["altium.import.via-span"]
+meaning = "A via's start or end layer is outside the copper chain; it is read as a through via."
+fix = "Check the via's layer pair in Altium; it is read as a through via."
+see = "Altium import"
+
+["altium.import.zone-arc"]
+meaning = "Count of zones whose outline holds an arc vertex; their model outline is empty."
+fix = "Nothing to do for a read; draw the zone outline again if you need it in the model."
+see = "Altium import"
+
 ["altium.lib-id-form"]
 meaning = "A lib_id is not of the form library:name with both parts."
 fix = "Write the symbol reference as library:name."

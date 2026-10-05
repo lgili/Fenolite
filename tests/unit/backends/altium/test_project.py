@@ -53,15 +53,20 @@ def test_files_of_the_sample() -> None:
     ]
 
 
-def test_not_a_registered_backend() -> None:
+def test_the_writers_are_not_part_of_the_registered_backend() -> None:
+    """Since change c0043 the package holds the registered backend ``altium``, which reads: it offers no
+    write kind, so the writers stay experimental features of ``build``."""
     assert "fenolite.backends.altium.project" in sys.modules
-    assert all(b.name != "altium" for b in registry.all_backends())
+    (altium,) = [b for b in registry.all_backends() if b.name == "altium"]
+    assert altium.capabilities().write_kinds == () and not hasattr(altium, "write")
 
 
 def test_imports_only_core_and_model() -> None:
     """The package imports ``fenolite.core``, ``fenolite.model``, itself and a few pure stdlib modules: no
     file, process or environment access."""
     for path in sorted(PACKAGE.glob("*.py")):
+        if path.name == "backend.py":
+            continue  # the reading backend of change c0043 does the file work; its rules are its own tests
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

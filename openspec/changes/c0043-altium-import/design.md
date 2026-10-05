@@ -449,3 +449,109 @@ A size, not calendar time.
 7. **Should `Bus` hold members without a net?** Default: no; a gap in the indexes says it.
 8. **For the maintainer:** is a board-only read (`.PcbDoc`) expected to carry pin types? Default:
    `unspecified`, since the file states none.
+
+## Implementation notes
+
+Recorded while implementing (2026-10-05), on `origin/dev` with c0040, c0041 and c0042 landed. Where a note
+says "spec amended", the delta in this folder was changed to what the scenarios and the files show.
+
+**Names taken from the sibling changes, re-checked before use.**
+
+1. `read.sch` is a package (`read/sch/`), not a module; `SchDocument` and the record classes are imported
+   from it. A binary record's locator in c0040 is `<stream>/record <frame>`; the adapter writes its own
+   locators `FileHeader#<index>` and `Additional#<index>` from `RecordRef`, as this change's spec states.
+2. `PcbDocument` has no body records: the adapter reads `storages["ComponentBodies6"]["Data"]` through
+   `read.bodies`. Polygon and outline vertices are exact fractions of units (`OutlineVertex`), component
+   positions too; region vertices are doubles in the plain storage.
+3. `ProjectOptions` (c0042) has no key for "Higher Level Names Take Priority": `NetOptions.from_project`
+   leaves `higher_level_names_first` at its default (`False`). `net_scope` spells `strict-hierarchical`;
+   the adapter's scope is `strict_hierarchical`.
+4. `fenolite.backends.base.Backend` is not runtime-checkable: the backend's conformance is a typed
+   assignment that pyright checks (`backend._BACKEND`), as the KiCad backend does.
+
+**Deviations from the text of the design, each with its reason.**
+
+5. **`import_project` takes records.** `import_project(project: ProjectInput)`; the backend builds the
+   `ProjectInput` from `load_project`. The adapter opens no file, so it cannot take an `AltiumProject`,
+   which holds paths. `BoardInput` and `RulesInput` are exported too. Spec amended.
+6. **`import_rules(records, ids, *, file, sha256, issues)`** takes no layer map: the mapper of c0042 gives
+   no rule a layer.
+7. **Evidence outside the adapter.** `EVIDENCE` lives in `backends/altium/import_evidence.py` and is
+   re-exported by `adapter`: the registry scenario forbids loading the adapter at registration, and the
+   capability report needs the evidence. Extra modules that the file table did not name: `adapter/context.py`
+   (the state of one board import), `adapter/parts.py` (the components of a sheet), `adapter/pins.py`
+   (`PIN_TYPES`), `adapter/evidence.py`.
+8. **Stack-up.** Saved documents list overlay, paste and solder-mask entries in the physical list, and
+   the blink scenario counts copper, dielectric, copper. Only copper and dielectric entries enter the
+   stack-up. Spec amended.
+9. **Slot scenario.** 1 mm and 2.5 mm are no whole numbers of units (1 mm reads back as 1 000 001 nm), so
+   the scenario now uses 40 mil and 100 mil. The slot rotation is read as relative to the pad. Spec amended.
+10. **Padstack fields.** `Padstack.hole_shape`, `hole_length` and `hole_rotation` were already in the model
+    (c0056, which also made the KiCad reader type a slotted hole); this change adds
+    `PadstackLayer.offset`. `Circuit.buses` sits before `no_connects`, which an existing test keeps last.
+    Spec amended (`design-model`).
+11. **Paste and mask pairs** are given only when the mode is not 1 (from a rule), so that a plain pad has
+    an empty bag. The key `shape` (the shape number of a `custom` pad) was added to `EXT_KEYS`. Spec amended.
+12. **Hidden pins.** No fact page holds a key for a hidden pin's net, and S-0185 says that Altium no
+    longer supports one; no key is read (`H-A-IMP-HIDDEN-PIN` settled as written). Spec amended.
+13. **An unconnected pin is in no net.** A net without an identifier that holds fewer than two pins is
+    dropped: the models that Fenolite builds, and the PCB documents of the sets, give such a pin no net.
+    The first text kept every net with a pin and named it `Net<ref>_<pin>`. Spec amended.
+14. **Ports and sheet entries that carry a bus or a harness are no net identifiers.** Otherwise each gave
+    an empty net named after the harness.
+15. **The ASCII form of the hierarchical sample holds no harness** (the writer reports
+    `altium.not-lowered`), so its import has no interface; the binary form has one.
+16. **One issue per skipped document.** The project reader's `document-outside` and `document-missing`
+    issues about a sheet or a PCB document are replaced by `altium.import.document-skipped`. Spec amended.
+17. **The pinned test `tests/unit/cli/test_capabilities.py`** needed no change; `test_registry.py`,
+    `test_capabilities_backends.py` and `test_capabilities_experimental.py` were updated as task 7.2 says.
+    The living text of "Experimental features in capabilities" lists `altium_harness` among the schematic
+    writer's kinds (c0037); this delta's copy of that list is older and was left for the archive step.
+18. **A component with a value or a footprint that the script leaves empty** is written with its symbol's
+    value and footprint; the own-file tests compare what the script states.
+
+**What the public project sets changed (task 8.3).**
+
+19. **Five sets, not three.** S-0174, S-0175 and S-0176 each hold their project file and sheets at the
+    registered commit, so all three became sets (03, 05, 04) beside S-0187 (01) and S-0188 (02); S-0305 is
+    unused. 29 rows were added (25 sheets, 3 project files, 1 PCB document, the last one `heavy`), and 18
+    tagged. The new use `altium-import` is in `ALTIUM_READER_USES` and in the fetch step of the `kicad-10`
+    job; that job excludes heavy rows, so set 01 is skipped there and runs with `FENOLITE_HEAVY=1`.
+20. **Harness members by dotted labels.** One saved sheet (S-0188) names the members of a harness with net
+    labels `<harness>.<entry>` on wires, the harness going by the net label on its line; without that rule
+    13 nets stayed apart. Fact row added to `connectivity.md`, then the code and a regression in the corpus
+    test. Spec amended.
+21. **Harness ports and sheet entries by touching.** 11 sheet entries of one set (S-0187) lie on harness
+    line ends without `HARNESSTYPE`; a port or entry now belongs to a harness by touching it. Spec amended.
+22. **The pin-to-pad map.** 111 map records of two sets name other pads than the pin's designator. The
+    comparison applies the map (`parts.PartGroup.pin_pads`); the model's components do not carry it, which
+    `docs/altium.md` lists under what is not imported. A pair is compared when the sheets hold the pin and
+    the PCB document the pad. Spec amended.
+23. **Set 02 is a known difference.** Two pins of two four-pin components are unwired on their sheet (no
+    wire within 15 units) and carry a net in the PCB document: 6 differing groups, 156 of 158 nets equal.
+    The count is pinned in the test (`KNOWN_DIFFS`), and the row's note states the cause; the note form of
+    `corpus-policy` gained the sentence `Known difference: …`. `altium_set_problems` is called beside
+    `manifest_problems`, not inside it, because a test of c0042 checks a subset of the rows.
+
+**Hypotheses after tasks 8.1 and 8.2 (task 10.2).**
+
+- `CORPUS-VERIFIED`: `H-A-IMP-NETLIST`, `-WIRE`, `-SCOPE`, `-LINK` (four sets of four repositories agree:
+  509 nets, 0 differing groups; 879 components of five sets link by path).
+- `ORACLE-VERIFIED(kicad-cli)` on 10.0.6: `H-A-IMP-FRAME`, `-LAYERS`, `-ZONE` (outlines): 424 footprints,
+  1 526 pads, 3 069 tracks, 1 166 vias and 44 zone outlines agree on the two authored documents and the
+  seven corpus rows.
+- `INFERRED`, with the reason in each row: `-PIN-MID`, `-OFFSHEET`, `-DUP-NAME`, `-BUS` (no set exercises
+  them), `-PORT-ENDS`, `-POWER-LOCAL`, `-HARN-NAME` (fewer than three repositories), `-NAME-TIE`,
+  `-NAME-AUTO` (names are supporting data), `-HIDDEN-PIN`, `-PADSTACK` (the oracle compares simple pads
+  only), `-BODY` (identity and the height check hold; key meanings have one source), `-SYMFRAME`.
+- No row was refuted. `adapter.EVIDENCE` and the backend's report stay `INFERRED`: the lowest wins.
+
+**Left open.**
+
+- Task 10.1 (the full `make check` and the full `uv run pytest -q`) is left for the coordinator's single
+  run at landing, by the load rule of this session; `make check-fast` and the tests of every touched file
+  ran here.
+- Region holes of zone fills, the fills themselves against KiCad, per-layer pad sizes, slots and offsets
+  against KiCad, and `Component.pin_pad_map` from the map records are not done by this change.
+
+**Added at landing (coordinator, 2026-10-05).** The change lands on top of a batch that brings `fenolite explain` (c0066), whose test asks for an entry per issue code. `IMPORT_ISSUE_CODES` is therefore listed in `explain.TABLES`, and `src/fenolite/cli/data/explain.toml` holds one entry for each of the 32 `altium.import.*` codes, with the meaning of the table in `docs/cli-contract.md` ("Altium import") and a fix written for it. Tasks 10.1 and 10.3 are ticked on the full suite run at landing (7622 passed) before this rebase; after it, `make check-fast` ran on the stacked commits.

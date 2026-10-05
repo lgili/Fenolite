@@ -28,8 +28,11 @@ ALTIUM_ID = re.compile(
     r"^altium-third-party-(schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot)-\d{2}$"
 )
 ALTIUM_NOTE = re.compile(
-    r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot); \d+ bytes; \d{4}\.$"
+    r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot); \d+ bytes; \d{4}\."
+    r"( Known difference: [a-z0-9 ,;-]+\.)?$"
 )
+"""The note of an Altium row; the project-file row of a set with ``altium-import:known-diff`` adds the
+cause, in lower-case words, row ids and counts only (change c0043)."""
 ALTIUM_FORBIDDEN_USES = {"rt0", "malformed", "project"}
 ALTIUM_TAG_KINDS = {"altium-sch": ("schdoc", "schdot"), "altium-schlib": ("schlib",)}
 """The tags of the schematic reader (change c0040) and the id kinds each allows."""
@@ -131,6 +134,65 @@ def manifest_problems(entries: list[dict[str, Any]]) -> list[str]:
     return problems + altium_tag_problems(entries)
 
 
+ALTIUM_SET = re.compile(r"^altium-set:(\d{2})$")
+ALTIUM_IMPORT = "altium-import"
+ALTIUM_KNOWN_DIFF = "altium-import:known-diff"
+ALTIUM_SET_ONLY = {"cfb", "altium-sch", "altium-pcbdoc", "altium-text"}
+"""The uses of the reader changes: a row that only a set needs (change c0043) carries none of them."""
+
+
+def altium_set_problems(entries: list[dict[str, Any]]) -> list[str]:
+    """The rules of "Altium project sets" (change c0043): the rows of one ``altium-set:<nn>`` use hold one
+    project file and one PCB document, come from one repository at one commit under one licence, and all
+    carry ``altium-import``; no other row carries ``altium-import``; ``altium-import:known-diff`` sits only
+    on the project file row of a set."""
+    problems: list[str] = []
+    sets: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        if not KEYS <= entry.keys():
+            continue
+        uses = list(entry["uses"])
+        names = [use for use in uses if use.startswith("altium-set:")]
+        ident = str(entry["id"])
+        for use in names:
+            if ALTIUM_SET.fullmatch(use) is None:
+                problems.append(f"{ident}: {use} is not altium-set:<two digits>")
+        if len(names) > 1:
+            problems.append(f"{ident}: a row belongs to one altium-set, not {len(names)}")
+        if names and ALTIUM_IMPORT not in uses:
+            problems.append(f"{ident}: a row of {names[0]} needs {ALTIUM_IMPORT} in uses")
+        if ALTIUM_IMPORT in uses and not names:
+            problems.append(f"{ident}: {ALTIUM_IMPORT} needs an altium-set use")
+        if ALTIUM_KNOWN_DIFF in uses and (not names or "-prjpcb-" not in ident):
+            problems.append(f"{ident}: {ALTIUM_KNOWN_DIFF} sits on the project file row of a set")
+        if (ALTIUM_KNOWN_DIFF in uses) != ("Known difference:" in str(entry["notes"])):
+            problems.append(f"{ident}: {ALTIUM_KNOWN_DIFF} and a 'Known difference:' note go together")
+        for use in names[:1]:
+            sets.setdefault(use, []).append(entry)
+    for name, rows in sorted(sets.items()):
+        kinds = [m.group(1) if (m := ALTIUM_ID.fullmatch(str(row["id"]))) else "" for row in rows]
+        for kind, what in (("prjpcb", "project file"), ("pcbdoc", "PCB document")):
+            if kinds.count(kind) != 1:
+                problems.append(f"{name}: a set holds one {what} row, found {kinds.count(kind)} ({kind})")
+        if any(kind not in ("prjpcb", "pcbdoc", "schdoc") for kind in kinds):
+            problems.append(f"{name}: a set holds project file, PCB document and schematic rows only")
+        commits = sorted({str(row["ref"]) for row in rows})
+        if len(commits) > 1:
+            problems.append(f"{name}: the rows are pinned to {len(commits)} commits: {', '.join(commits)}")
+        if len({_set_repository(str(row["url"])) for row in rows}) > 1:
+            problems.append(f"{name}: the rows come from more than one repository")
+        if len({str(row["license"]) for row in rows}) > 1:
+            problems.append(f"{name}: the rows carry more than one licence")
+    return problems
+
+
+def _set_repository(url: str) -> tuple[str, ...]:
+    """The owner and the repository of ``url``, whichever host serves the file (the media host of Git LFS
+    puts ``media`` before them)."""
+    parts = [part for part in urlparse(url).path.split("/") if part]
+    return tuple(parts[1:3] if parts[:1] == ["media"] else parts[:2])
+
+
 def _repository(url: str) -> tuple[str, ...]:
     """The host and the first two path segments of ``url``, which name a repository."""
     parsed = urlparse(url)
@@ -204,7 +266,7 @@ def data_file_problems(root: Path, corpus: list[dict[str, Any]], declared: list[
 
 def test_manifest_schema() -> None:
     entries = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
-    problems = manifest_problems(entries)
+    problems = manifest_problems(entries) + altium_set_problems(entries)
     assert not problems, "\n".join(problems)
 
 
@@ -647,3 +709,103 @@ def test_fetch_by_use(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> Non
     assert tool.main(["--manifest", str(manifest), "--cache", str(cache), "--uses", RT2_9]) == 0
     assert sorted(p.name for p in cache.iterdir()) == ["b"]
     assert "1 item(s)" in capsys.readouterr().out
+
+
+# --- Altium project sets (change c0043, "Altium project sets") -------------------------------------------
+
+
+def _set_rows(number: str = "01", *, sheets: int = 4, pcb: bool = True) -> list[dict[str, Any]]:
+    uses = ["altium", "origin:third-party", f"altium-set:{number}", "altium-import"]
+    base = "https://example.invalid/owner/repo/" + "a" * 40
+    rows = [
+        _altium_row(
+            id="altium-third-party-prjpcb-01",
+            url=f"{base}/p.PrjPcb",
+            uses=uses,
+            notes="S-0188; prjpcb; 100 bytes; 2016.",
+        )  # fmt: skip
+    ]
+    rows += [
+        _altium_row(id=f"altium-third-party-schdoc-{n:02}", url=f"{base}/s{n}.SchDoc", uses=uses)
+        for n in range(1, sheets + 1)
+    ]
+    if pcb:
+        rows.append(
+            _altium_row(
+                id="altium-third-party-pcbdoc-01",
+                url=f"{base}/b.PcbDoc",
+                uses=uses,
+                notes="S-0188; pcbdoc; 100 bytes; 2016.",
+            )  # fmt: skip
+        )
+    return rows
+
+
+def test_altium_set_rows_pass() -> None:
+    assert altium_set_problems(_set_rows()) == []
+    assert manifest_problems(_set_rows(sheets=2)) == []
+
+
+def test_altium_set_without_a_pcb_document() -> None:
+    (problem,) = altium_set_problems(_set_rows(pcb=False))
+    assert problem == "altium-set:01: a set holds one PCB document row, found 0 (pcbdoc)"
+
+
+def test_altium_set_from_two_commits() -> None:
+    rows = _set_rows()
+    other = "b" * 40
+    rows[-1] = rows[-1] | {"ref": other, "url": f"https://example.invalid/owner/repo/{other}/b.PcbDoc"}
+    (problem,) = altium_set_problems(rows)
+    assert problem == f"altium-set:01: the rows are pinned to 2 commits: {'a' * 40}, {other}"
+
+
+def test_altium_set_needs_the_import_use_and_one_licence() -> None:
+    rows = _set_rows()
+    rows[1] = rows[1] | {"uses": ["altium", "origin:third-party", "altium-set:01"]}
+    rows[2] = rows[2] | {"license": "MIT"}
+    assert altium_set_problems(rows) == [
+        "altium-third-party-schdoc-01: a row of altium-set:01 needs altium-import in uses",
+        "altium-set:01: the rows carry more than one licence",
+    ]
+    lone = [_altium_row(uses=["altium", "origin:third-party", "altium-import"])]
+    assert altium_set_problems(lone) == [
+        "altium-third-party-schdoc-01: altium-import needs an altium-set use"
+    ]
+
+
+def test_altium_set_known_diff_only_on_the_project_row() -> None:
+    rows = _set_rows()
+    rows[1] = rows[1] | {"uses": [*rows[1]["uses"], "altium-import:known-diff"]}
+    problem, _note = altium_set_problems(rows)
+    assert problem.endswith("altium-import:known-diff sits on the project file row of a set")
+    rows = _set_rows()
+    rows[0] = rows[0] | {"uses": [*rows[0]["uses"], "altium-import:known-diff"]}
+    (problem,) = altium_set_problems(rows)
+    assert problem.endswith("altium-import:known-diff and a 'Known difference:' note go together")
+    note = (
+        "S-0188; prjpcb; 100 bytes; 2016. Known difference: 2 pins of altium-third-party-schdoc-01; 6 groups."
+    )
+    rows[0] = rows[0] | {"notes": note}
+    assert altium_set_problems(rows) == [] and manifest_problems(rows[:1]) == []
+
+
+def test_altium_sets_of_the_manifest() -> None:
+    """Five sets from five repositories; the rows that only a set needs carry no reader use; and
+    ``corpus_fetch --uses altium-import`` selects exactly the rows of the sets."""
+    entries = _load_tool().load_manifest(MANIFEST)
+    assert altium_set_problems(entries) == []
+    sets: dict[str, list[dict[str, Any]]] = {}
+    for entry in entries:
+        for use in entry["uses"]:
+            if use.startswith("altium-set:"):
+                sets.setdefault(use, []).append(entry)
+    assert sorted(sets) == [f"altium-set:{n:02}" for n in range(1, 6)]
+    assert len({_set_repository(rows[0]["url"]) for rows in sets.values()}) == 5
+    in_sets = {entry["id"] for rows in sets.values() for entry in rows}
+    selected = _load_tool().select(entries, ["altium-import"], [])
+    assert {entry["id"] for entry in selected} == in_sets
+    added = [e for e in entries if e["id"] in in_sets and not set(e["uses"]) & ALTIUM_SET_ONLY]
+    assert len(added) == 29
+    for entry in added:
+        extra = set(entry["uses"]) - {"altium", "origin:third-party", "altium-import", "heavy"}
+        assert len(extra) == 1 and next(iter(extra)).startswith("altium-set:"), entry["id"]

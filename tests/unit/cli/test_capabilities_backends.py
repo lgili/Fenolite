@@ -38,8 +38,8 @@ def _envelope(capsys: pytest.CaptureFixture[str], *extra: str) -> dict[str, Any]
 
 def test_kicad_backend_listed(capsys: pytest.CaptureFixture[str]) -> None:
     backends = _envelope(capsys, "--no-tools")["result"]["backends"]
-    assert [b["name"] for b in backends] == ["kicad"]
-    kicad = backends[0]
+    assert [b["name"] for b in backends] == ["altium", "kicad"]
+    kicad = backends[1]
     keys = {"name", "read_kinds", "write_kinds", "targets", "default_target", "downgrade", "operations"}
     assert set(kicad) == keys | {"evidence"}
     assert {"kicad_pcb", "kicad_mod", "kicad_sym"} <= set(kicad["read_kinds"])
@@ -49,6 +49,24 @@ def test_kicad_backend_listed(capsys: pytest.CaptureFixture[str]) -> None:
         kicad["targets"] == [9, 10] and kicad["default_target"] == 10 and kicad["downgrade"] == "unsupported"
     )
     assert kicad["evidence"]["level"] == "INFERRED"
+
+
+def test_altium_backend_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    """Change c0043: the registered backend ``altium`` reads six kinds and writes none."""
+    altium, kicad = _envelope(capsys, "--no-tools")["result"]["backends"]
+    assert (altium["name"], kicad["name"]) == ("altium", "kicad")
+    assert altium["read_kinds"] == [
+        "altium_pcbdoc",
+        "altium_pcblib",
+        "altium_prjpcb",
+        "altium_schdoc_ascii",
+        "altium_schdoc_binary",
+        "altium_schlib",
+    ]
+    assert altium["write_kinds"] == [] and altium["targets"] == [] and altium["default_target"] is None
+    assert altium["operations"] == ["detect", "read"] and altium["downgrade"] == "unsupported"
+    assert altium["evidence"]["level"] == "INFERRED"
+    assert "H-A-IMP-NETLIST" in altium["evidence"]["hypotheses"]
 
 
 def test_backends_do_not_depend_on_tools(capsys: pytest.CaptureFixture[str]) -> None:

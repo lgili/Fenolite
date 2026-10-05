@@ -202,6 +202,71 @@
         "layer"
       ]
     },
+    "ComponentBody": {
+      "description": "The physical body of a part: a volume above the side its footprint is placed on.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "extruded",
+            "model"
+          ]
+        },
+        "height": {
+          "type": "integer"
+        },
+        "standoff": {
+          "type": "integer"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "layer": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "height"
+      ]
+    },
     "Evidence": {
       "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
       "type": "object",
@@ -430,6 +495,12 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/FootprintField"
+          }
+        },
+        "bodies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ComponentBody"
           }
         }
       },
@@ -926,6 +997,9 @@
         },
         "size": {
           "$ref": "#/$defs/Size"
+        },
+        "offset": {
+          "$ref": "#/$defs/Point"
         }
       },
       "additionalProperties": false,

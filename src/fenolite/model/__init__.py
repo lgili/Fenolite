@@ -6,6 +6,7 @@ from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.board import (
     Arc,
     Board,
+    ComponentBody,
     FieldJustifyH,
     FieldJustifyV,
     FootprintAttribute,
@@ -30,7 +31,18 @@ from fenolite.model.board import (
     ZoneHatch,
     ZoneSettings,
 )
-from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, Pin, PinRef
+from fenolite.model.circuit import (
+    Bus,
+    BusMember,
+    Circuit,
+    Component,
+    Interface,
+    Module,
+    Net,
+    NetClass,
+    Pin,
+    PinRef,
+)
 from fenolite.model.design import Design, DesignHeader
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Artefact, Manifest, PnpRow
@@ -60,8 +72,11 @@ __all__ = [
     "Arc",
     "Artefact",
     "Board",
+    "Bus",
+    "BusMember",
     "Circuit",
     "Component",
+    "ComponentBody",
     "Design",
     "DesignHeader",
     "DrawingSheet",

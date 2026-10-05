@@ -2,9 +2,9 @@
 
 ### Requirement: Adapter package
 Fenolite SHALL provide the adapter from the Altium readers' records into the neutral model as the package `fenolite.backends.altium.adapter`.
-- It MUST export `import_board(doc, *, file, sha256, issues=None) -> Design`, `import_circuit(sheets, *, options=NetOptions(), issues=None) -> Circuit`, `import_project(project, *, issues=None) -> Design`, `import_footprints(library, *, name, file, sha256, issues=None) -> Library`, `import_symbols(library, *, name, file, sha256, issues=None) -> Library`, `netlist(sheets, *, options=NetOptions(), issues=None) -> Netlist`, the dataclasses `SheetInput`, `ProjectInput`, `NetOptions`, `Netlist`, `NetGroup` and `PinKey`, the tables `LAYERS`, `PIN_TYPES`, `EXT_KEYS` and `IMPORT_ISSUE_CODES`, and `EVIDENCE`.
-- `doc` is a `read.pcb.PcbDocument` (c0041), a sheet's document a `read.sch.SchDocument` (c0040), `library` a `read.pcblib.PcbLibrary` or a `read.schlib.SchLibrary`, and a project an `AltiumProject` of `read.project.load_project` (c0042). The adapter MUST read typed attributes and property lists of those records only: it MUST NOT parse a sector, a stream, a record frame or a project file.
-- The adapter MUST NOT open, create or change a file, MUST NOT run a subprocess, and MUST import only the standard library, `fenolite.core`, `fenolite.model`, `fenolite.geometry`, `fenolite.backends.base` and `fenolite.backends.altium`. It MUST NOT import a writer module of `fenolite.backends.altium` (`ascii`, `binary`, `schdoc`, `schlib`, `altsym`, `layout`, `project`, `prjpcb`, `pcbrecords`, `pcblib`, `pcbdoc`, `libboard`, `docboard`).
+- It MUST export `import_board(doc, *, file, sha256, issues=None) -> Design`, `import_circuit(sheets, *, options=NetOptions(), issues=None) -> Circuit`, `import_project(project: ProjectInput, *, issues=None) -> Design`, `import_footprints(library, *, name, file, sha256, issues=None) -> Library`, `import_symbols(library, *, name, file, sha256, issues=None) -> Library`, `netlist(sheets, *, options=NetOptions(), issues=None) -> Netlist`, the dataclasses `SheetInput`, `BoardInput`, `RulesInput`, `ProjectInput`, `NetOptions`, `Netlist`, `NetGroup`, `BusGroup`, `HarnessGroup` and `PinKey`, the tables `LAYERS`, `PIN_TYPES`, `EXT_KEYS` and `IMPORT_ISSUE_CODES`, and `EVIDENCE`.
+- `doc` is a `read.pcb.PcbDocument` (c0041), a sheet's document a `read.sch.SchDocument` (c0040), `library` a `read.pcblib.PcbLibrary` or a `read.schlib.SchLibrary`, and a project a `ProjectInput` of records, which the backend builds from the `AltiumProject` of `read.project.load_project` (c0042): the adapter opens no file, so it cannot take the project folder itself. The adapter MUST read typed attributes and property lists of those records only: it MUST NOT parse a sector, a stream, a record frame or a project file.
+- The adapter MUST NOT open, create or change a file, MUST NOT run a subprocess, and MUST import only the standard library, `fenolite.core`, `fenolite.model`, `fenolite.geometry`, `fenolite.backends.base`, `fenolite.backends.altium.read`, `fenolite.backends.altium.adapter` and `fenolite.backends.altium.import_evidence` (where `EVIDENCE` lives, so that the backend names it without loading a reader). It MUST NOT import a writer module of `fenolite.backends.altium` (`ascii`, `binary`, `schdoc`, `schlib`, `altsym`, `layout`, `project`, `prjpcb`, `pcbrecords`, `pcblib`, `pcbdoc`, `libboard`, `docboard`).
 - No function MUST use a float for a length, a coordinate or a stored angle. A double of a record is converted once, by "Units and frame".
 - Two calls with equal arguments MUST return equal results and equal issue lists, whatever `PYTHONHASHSEED` is.
 - `EVIDENCE` MUST be an `Evidence` whose hypotheses are every registered `H-A-IMP-*` id and whose level is the lowest level among them and among the readers' `EVIDENCE` values.
@@ -108,7 +108,7 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 - **Other layers.** 33 and 34 are `F.SilkS` and `B.SilkS`, 35 and 36 `F.Paste` and `B.Paste`, 37 and 38 `F.Mask` and `B.Mask`, 56 `Altium.KeepOut` (kind `user`), 57 to 72 `Mech.<n>` for Mechanical n (kind `mechanical`), 55 `Altium.DrillGuide` and 73 `Altium.DrillDrawing` (kind `user`). Layer 74 (Multi-Layer) is no model layer: an object on it lies on every copper layer.
 - A `Layer` MUST be created for every copper layer of the chain, for `Edge.Cuts` (kind `edge`), and for every other layer that at least one imported object lies on. `Layer.ordinal` MUST be the chain position for copper (0 for `F.Cu`), and for the others the Altium id plus 100, so the order is stable. `Layer.ext["altium"]` MUST hold `layer_id`, `altium_name` (the name the record gives the layer, which a user may have changed) and, for a plane with a net, `plane_net`.
 - A primitive on a copper id outside the chain, or on an id outside the table, MUST go to the layer `Altium.<id>` (kind `user`) with one `altium.import.layer-outside-stack` warning per id.
-- **Stack-up.** When `BoardRecord.stack` is not empty, `Board.stackup` MUST hold one `StackLayer` per entry, top to bottom: copper entries with the neutral copper name, kind `copper` and the copper thickness; dielectric entries with kind `dielectric`, the height as thickness, and `material`, `epsilon_r` and `loss_tangent` as the record's decimal texts. Otherwise the stack-up MUST be built from the numbered layers of the chain (`COPTHICK`, `DIELHEIGHT`, `DIELCONST`, `DIELMATERIAL`), one dielectric between each pair of neighbours. Solder mask and overlay entries MUST be kept out of the stack-up unless the physical list names them.
+- **Stack-up.** When `BoardRecord.stack` holds copper or dielectric entries, `Board.stackup` MUST hold one `StackLayer` per such entry, top to bottom: copper entries with the neutral copper name, kind `copper` and the copper thickness; dielectric entries with kind `dielectric`, the height as thickness, and `material`, `epsilon_r` and `loss_tangent` as the record's decimal texts. Otherwise the stack-up MUST be built from the numbered layers of the chain (`COPTHICK`, `DIELHEIGHT`, `DIELCONST`, `DIELMATERIAL`), one dielectric between each pair of neighbours. Entries of the physical list of any other kind (overlays, paste, solder mask and their coverlay dielectrics) MUST be kept out of the stack-up: saved documents list them around the copper, and the scenario below counts copper and dielectric only.
 - A plane layer MUST stay a `Layer` of kind `copper` (c0038, Decision 5). No zone MUST be synthesised for a plane.
 
 #### Scenario: Two-layer board
@@ -149,7 +149,7 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 - `rotation` MUST be the model angle `θ` for which `Transform.placement(position, θ, mirror=(side == "bottom"))`, followed by the Y flip, is the placement the writer of c0035 writes as `ROTATION` (its inverse): reading a document that Fenolite wrote gives the rotation it was written from.
 - **Pad frame.** `Pad.position` MUST be the point `p` for which `Transform.placement(position, rotation).apply(p)`, without a mirror, is the pad's absolute position, and `Pad.rotation` the pad's angle minus the instance's, as "Board entities read from file backends" requires. A bottom footprint therefore holds mirrored pad coordinates, as a bottom footprint read from a KiCad board does.
 - `Pad.number` is the pad name. `Pad.kind` MUST be `thru_hole` for a hole above 0 that is plated, `np_thru_hole` for one that is not, and `smd` otherwise. `Pad.drill` is the hole size, `None` without a hole. `Pad.shape` MUST be `circle` for shape 1 with equal sizes, `oval` for shape 1 with unequal sizes, `rect` for 2, `roundrect` for shape 1 with alternate shape 9 (the percentage in the pair `corner_percent`), and `custom` for 3 (octagonal) and any other value, with the value in the bag.
-- `Pad.layers` MUST be real layers: every copper layer of the chain for a pad on Multi-Layer, else the one copper layer of the pad. Mask and paste layers are not listed; the expansions and their modes go to `paste` and `mask`.
+- `Pad.layers` MUST be real layers: every copper layer of the chain for a pad on Multi-Layer, else the one copper layer of the pad. Mask and paste layers are not listed; an expansion and its mode go to `paste` and `mask` as `<mode>,<expansion in units>` when the mode is not 1 (the expansion follows a rule), so a pad with rule expansions has no such pair.
 - `Pad.net_id` MUST be the net of the pad's net index, `None` without one.
 - `attributes` MUST be `("through_hole",)` when a pad has a hole, `("smd",)` when the footprint has pads and none has a hole, and `()` without pads.
 - Tracks, arcs, texts, fills and regions that carry a component index MUST NOT become board objects: they are counted as `footprint-graphics` in `altium.import.unmapped`. A pad without a component index MUST become a footprint of its own with `attributes == ("board_only",)`, the reference `""` and `lib_ref == ""`.
@@ -174,7 +174,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - `stack_mode` 0 (simple) with a round hole and zero offsets MUST give `padstack is None`.
 - Mode 1 (top, middle, bottom) MUST give one `PadstackLayer` per copper layer of the pad: the top values on `F.Cu`, the bottom values on `B.Cu`, the middle values on every inner layer. Mode 2 (full stack) MUST give the top and bottom values and, for the j-th inner layer, the inner size and shape of the Altium mid layer that the chain names there; an inner layer that is a plane takes the middle values.
 - `Pad.shape` and `Pad.size` MUST be those of the top layer, or of the pad's own layer for a surface pad.
-- `hole_shape` MUST be `round`, `square` or `slot` from the record's 0, 1 and 2; `hole_length` the slot length for a slot, else `None`; `hole_rotation` the hole rotation relative to the footprint.
+- `hole_shape` MUST be `round`, `square` or `slot` from the record's 0, 1 and 2; `hole_length` the slot length for a slot, else `None`; `hole_rotation` the slot rotation of the record added to the pad's angle relative to the footprint (the record's angle is read as relative to the pad, `INFERRED`).
 - `PadstackLayer.offset` MUST be the layer's hole offset, rotated into the footprint frame, `Point(0, 0)` when the sixth subrecord is empty.
 - In a library definition the inner layers of mode 1 are the one entry `In*.Cu`, and those of mode 2 the entries `In<n>.Cu` for mid layer n.
 - A `stack_mode` or a hole shape outside these values MUST give `altium.import.padstack-unknown` (warning), `padstack is None`, and the value in the pair `stack_mode`.
@@ -190,9 +190,9 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **THEN** the pad has `size` 1 524 000 × 1 524 000 nm and a padstack of four layers whose sizes are 60, 50, 50 and 70 mil on `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu`
 
 #### Scenario: Slot
-- **GIVEN** a pad with hole shape 2, hole size 1 mm, slot length 2.5 mm and slot rotation 90 degrees on a footprint at 0 degrees
+- **GIVEN** a pad with hole shape 2, hole size 40 mil, slot length 100 mil and slot rotation 90 degrees on a footprint at 0 degrees (whole units: 1 mm is no whole number of units)
 - **WHEN** it is imported
-- **THEN** `pad.drill == 1_000_000`, and the padstack has `hole_shape == "slot"`, `hole_length == 2_500_000`, `hole_rotation == 90_000_000` and no layer entry
+- **THEN** `pad.drill == 1_016_000`, and the padstack has `hole_shape == "slot"`, `hole_length == 2_540_000`, `hole_rotation == 90_000_000` and no layer entry
 
 ### Requirement: Tracks, arcs and vias
 `import_board` SHALL map free copper primitives to `Track`, `Arc` and `Via`.
@@ -301,9 +301,9 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **Wires.** Two wires connect when an end point of one lies on a segment of the other, ends included; so a T joint connects. Two segments that cross at a point interior to both connect only when a junction lies on that point. Collinear segments that overlap connect.
 - **Points on wires.** An electrical point connects to a wire when it lies on one of its segments, ends included. Two electrical points at the same position connect.
 - "Lies on" MUST be decided by an exact test: a zero cross product and a position within the segment's box. No tolerance is used.
-- A bus, a bus entry and a signal harness line are not wires: they join no net here ("Buses", "Harnesses").
+- A bus, a bus entry and a signal harness line are not wires: they join no net here ("Buses", "Harnesses"). A port or a sheet entry that carries a bus (a text of the bus form) or a harness (a harness type, or a point on a signal harness line or on a harness connector) is no net identifier.
 - **Names in a sheet.** Net labels with one text, compared without letter case, join their nets within the sheet. So do power ports with one text. A net label and a power port with one text do not join by name (`H-A-IMP-DUP-NAME`).
-- **Hidden pins.** A hidden pin whose record names a net (`H-A-IMP-HIDDEN-PIN`) MUST join the nets that power ports of that name join. A hidden pin without one takes part by its position like any pin.
+- **Hidden pins.** No fact page states a key that holds a hidden pin's net (`H-A-IMP-HIDDEN-PIN`: neither S-0130 nor S-0131 is recorded with one, and S-0185 says that Altium no longer supports it), so no key is read: a hidden pin takes part by its position like any pin.
 - **No ERC.** A pin whose electrical point holds a No ERC directive and whose local net holds no other pin, label, port or power port MUST be listed in `Circuit.no_connects` and MUST be in no net.
 - The result per sheet is a tuple of local nets, each with its pins, its identifiers by kind and its locators, in a stable order: by the smallest locator of its members.
 
@@ -369,10 +369,10 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 `adapter.netlist` SHALL give every net one name and SHALL keep its other names.
 - The candidates of a net are the texts of its identifiers. The name MUST be chosen by kind, in this order: net labels, power ports, ports, sheet entries; with `NetOptions.power_port_names_first`, power ports come first. Ports name a net only with `allow_port_names`, sheet entries only with `allow_sheet_entry_names`. Off-sheet connectors rank as ports.
 - Among candidates of the winning kind, a candidate of a sheet nearer to the top wins with `higher_level_names_first`, and of a sheet farther from it otherwise; then the smallest text, compared without letter case and then by code point (`H-A-IMP-NAME-TIE`). The name keeps the letter case of the chosen identifier.
-- A net without a candidate MUST be named `Net<ref>_<pin>` from its first pin, the pins ordered by reference in natural order and then by designator in natural order (`H-A-IMP-NAME-AUTO`). A net without a pin and without a candidate is dropped.
+- A net without a candidate MUST be named `Net<ref>_<pin>` from its first pin, the pins ordered by reference in natural order and then by designator in natural order (`H-A-IMP-NAME-AUTO`). A net without a candidate that holds fewer than two pins is no net and is dropped: an unconnected pin is in no net, as the models that Fenolite builds hold it and as a PCB document gives its pad no net.
 - Every other candidate MUST be kept as a pair `alias`, in sorted order.
 - Two nets that end with one name MUST stay two nets: the second and later ones, in the order of their smallest member, are renamed `<name>#<k>` from `k = 2`, and each gives `altium.import.duplicate-net-name` (warning).
-- A net of one pin is kept, as the model reports it (`model.single-pin-net`). `append_sheet_numbers` is not applied; when the project sets it, `altium.import.option-ignored` (info) names it.
+- A net of one pin with a candidate is kept, as the model reports it (`model.single-pin-net`). `append_sheet_numbers` is not applied; when the project sets it, `altium.import.option-ignored` (info) names it.
 - `Netlist.nets` MUST be sorted by name; each `NetGroup` holds `name`, `aliases`, `pins` (`PinKey(component native id, designator)`, sorted) and `locators`.
 
 #### Scenario: Label beats power port
@@ -412,9 +412,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 ### Requirement: Harnesses
 `adapter.netlist` SHALL resolve signal harnesses and SHALL record each as an `Interface` of kind `harness`, the form c0037 gives a harness.
 - A harness group is a set of signal harness lines connected as wires are, with the harness connectors whose connection point lies on them or on a port, and the ports and sheet entries with a `harness_type` that they touch. Across sheets, a harness port joins the sheet entry of the same name, as a port does.
+- A port or a sheet entry belongs to a group by touching it, whether or not its record holds a harness type: saved sheets hold sheet entries on harness lines without one.
 - Within a group, the harness entries with one name, compared without letter case, are one member: the nets on their electrical points are joined.
-- A member's net is named as any net. Without a candidate it MUST be named `<harness>.<entry>`, the harness being the name of the group's port or sheet entry chosen as a net's name is, else its type (`H-A-IMP-HARN-NAME`).
-- One `Interface(kind="harness", name=<type>, members={<entry name>: <net id>})` MUST be created per group, the type being the text of the connector's `HarnessType`, else the `harness_type` of its port or sheet entry. An entry without a net is left out and counted by `altium.import.harness-entry` (info).
+- A net label `<harness>.<entry>` on a wire names the member `<entry>` of the harness that goes by `<harness>` on that sheet (the net label on its line, or the name of its port or sheet entry): its net joins that member. Saved sheets use this form in place of a harness connector (S-0188).
+- A member's net is named as any net. Without a candidate, and with at least one pin, it MUST be named `<harness>.<entry>`, the harness being the name of the group's port or sheet entry chosen as a net's name is, else its type (`H-A-IMP-HARN-NAME`).
+- One `Interface(kind="harness", name=<type>, members={<entry name>: <net id>})` MUST be created per group, the type being the text of the connector's `HarnessType`, else the `harness_type` of its port or sheet entry. An entry whose net holds no pin is left out and counted by `altium.import.harness-entry` (info).
 - A harness entry that carries a harness of its own, and `.Harness` definition files, are not resolved: `altium.import.harness-nested` (warning) names the entry.
 
 #### Scenario: Harness of the hierarchical sample
@@ -466,12 +468,12 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 ### Requirement: Rules where they map
 `import_board` and `import_project` SHALL fill `Design.rules` from the rule records through the mapper of c0042, `read.rules.map_rules`, and SHALL never approximate a rule.
-- The adapter MUST call `map_rules([r.fields for r in doc.rules], origin=<file name>)`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
+- `adapter.rules.import_rules(records, ids, *, file, sha256, issues)` MUST call `map_rules(records, origin=<file name>)` with `records == [r.fields for r in doc.rules]`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
 - The adapter MUST keep each mapped rule's kind, name, limits, selectors, `priority` and `severity` as the mapper gives them, and MUST replace its header: the id and native id of "Identifiers and provenance" (also for the rule set), the provenance, and a bag with the pairs `rule_kind`, `scope1` and `scope2` in place of the mapper's.
 - A layer name in a mapped rule MUST be the neutral name of "Layers and stack-up".
 - `priority` MUST be the record's, 1 the highest, as the model defines it. A disabled rule MUST NOT be mapped: the mapper lists it as unmapped with the reason `disabled`, because a rule of severity `ignore` would silence the rule that applies in its place.
 - Each unmapped rule MUST be counted by one `altium.import.rule-unmapped` info per rule kind, with the count and the mapper's reasons. The mapper's per-rule infos `altium.rule.unmapped` MUST NOT be forwarded; its other issues are.
-- Rules of a rule file of the project are imported only when the caller passes them in `ProjectInput.rules`; the backend passes none.
+- Rules of a rule file of the project are imported only when the caller passes them in `ProjectInput.rules`, as `RulesInput(file, sha256, records)`; the backend passes none.
 
 #### Scenario: Rules of the routed sample
 - **GIVEN** the PCB document of `tests/data/altium/routed/` of c0038, whose `Rules6` holds a clearance, a width and a via rule for the class `PWR` and for all objects
@@ -518,7 +520,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 `fenolite.backends.altium.backend.AltiumBackend` SHALL satisfy the `Backend` protocol with `name == "altium"`, and SHALL be a built-in of the registry ("Backend registry" of `backend-protocol`).
 - `detect(path)` MUST return `True` exactly for the suffixes `.PrjPcb`, `.SchDoc`, `.SchLib`, `.PcbDoc` and `.PcbLib`, compared without letter case, and MUST NOT open the file.
 - `read(path, *, issues=None)` MUST return a `ReadResult` whose `content` is: for a PCB document, the design of `import_board`; for a schematic document in the binary or the ASCII form, a design whose circuit is `import_circuit` of that one sheet, with `board is None`; for a project file, the design of `import_project` over `read.project.load_project(path)`; for a PCB library and a schematic library, a `Library`.
-- For a design, `issues` MUST be the readers' issues, then the adapter's, then those of `design.validate()`; `evidence` MUST be `adapter.EVIDENCE`.
+- For a design, `issues` MUST be the readers' issues, then the adapter's, then those of `design.validate()`; `evidence` MUST be `adapter.EVIDENCE`. In a project read, the project reader's `altium.project.document-outside` and `altium.project.document-missing` issues about a sheet or a PCB document are replaced by `altium.import.document-skipped`, so that one document gives one issue.
 - A project document outside the project folder, a missing document and a document that a reader refuses MUST NOT stop the import: each gives `altium.import.document-skipped` (warning) with the reason, and the design is built from the rest. A project file that names no readable sheet and no readable PCB document MUST raise `FormatError`.
 - Reader errors of the file that `read` was called on MUST be raised unchanged. The backend MUST call the readers in their lenient mode.
 - `capabilities()` MUST return `CAPABILITIES`: `read_kinds == ("altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")`, `write_kinds == ()`, `targets == ()`, `default_target is None`, `downgrade == "unsupported"`, `operations == ("detect", "read")` and `evidence == adapter.EVIDENCE`. The backend MUST NOT offer `write`, `lower` or `validate`; the writers stay experimental features of `build`.
@@ -544,7 +546,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 #### Scenario: Skipped document
 - **GIVEN** a copy of the blink project under `tmp_path` whose project file also lists `..\outside\x.SchDoc` and `missing.SchDoc`
 - **WHEN** the project is read
-- **THEN** the design equals the one read without those two lines, apart from two `altium.import.document-skipped` warnings that give the reasons `outside-root` and `missing`
+- **THEN** the circuit, the board and every other issue equal those read without those two lines, apart from two `altium.import.document-skipped` warnings that give the reasons `outside-root` and `missing`
 
 ### Requirement: Import issue codes
 Every issue of the adapter SHALL carry a code of the closed table `adapter.IMPORT_ISSUE_CODES`, which maps each code to its one severity, and `docs/cli-contract.md` SHALL list the table.
@@ -580,15 +582,15 @@ A design that Fenolite built for the Altium target SHALL import to the same circ
 
 ### Requirement: Altium project sets agree
 The connectivity rules SHALL be checked on public Altium-saved projects: the netlist that the adapter computes from the sheets of a project MUST equal the pad netlist of the project's PCB document.
-- `tests/corpus/test_altium_import.py` MUST, for every project set of the manifest ("Altium project sets" of `corpus-policy`), import the sheets and the PCB document apart, map each PCB component to a schematic component by "Project import", and compare the two partitions of `(component, pin)` pairs into nets.
+- `tests/corpus/test_altium_import.py` MUST, for every project set of the manifest ("Altium project sets" of `corpus-policy`), import the sheets and the PCB document apart, map each PCB component to a schematic component by "Project import", and compare the two partitions of `(component, pad)` pairs into nets. A pin stands for its pads through the pin-to-pad map of its current footprint model (its own designator by default). A pair is compared when the sheets hold the pin and the PCB document the pad; a pad without a pin (a shield tab, a mounting pad) and a pin without a pad are counted, not compared.
 - The test MUST pass when the partitions are equal for every linked component, and MUST report per set, as counts and row ids only ("Second-backend corpus rows" of c0039): the sheets, the scope chosen, the nets, the linked and the unlinked components, the nets equal by members and the nets equal by name as well. No part name and no net name of a corpus file is printed.
-- A set that differs MUST fail the test unless its project-file row carries the use `altium-import:known-diff`, in which case the differing nets are counted and the hypotheses that the set exercises stay `INFERRED`. A set MUST NOT be given that use to hide a defect of the adapter: the note of the row states the cause from the project's own files (for instance a PCB document older than its sheets).
+- A set that differs MUST fail the test unless its project-file row carries the use `altium-import:known-diff`, in which case the differing groups are counted, the count is pinned in the test (`KNOWN_DIFFS`), and the hypotheses that the set exercises stay `INFERRED`. A set MUST NOT be given that use to hide a defect of the adapter: the note of the row states the cause from the project's own files (for instance a PCB document older than its sheets).
 - Net names are compared as supporting data only: a system name depends on a choice that no source states (`H-A-IMP-NAME-AUTO`).
 - No corpus file and nothing derived from one MUST be written outside pytest's temporary directory and the corpus cache.
 
 #### Scenario: Public project
 - **WHEN** `uv run pytest tests/corpus/test_altium_import.py -m needs_corpus -k project_sets` runs with the corpus fetched
-- **THEN** for at least three project sets from three repositories the two partitions are equal for every linked component, and the report lists the scope and the counts per set
+- **THEN** for at least three project sets from three repositories the two partitions are equal for every linked component, and the report lists the scope, the counts and a census of the rules exercised per set (four of the five sets agree; set 02 is a known difference of two pins)
 
 #### Scenario: Corpus absent
 - **WHEN** the same command runs without the fetched corpus
@@ -598,7 +600,7 @@ The connectivity rules SHALL be checked on public Altium-saved projects: the net
 The board import SHALL be compared with `kicad-cli pcb import --format altium` (10.0), run as a subprocess on a copy under pytest's temporary directory.
 - `tests/kicad/altium/test_import_oracle.py` MUST, for every fetched PCB document without the use `heavy` and for the authored documents, import the file with the adapter, convert it with `kicad-cli` and read the result with `KicadBackend`, then compare: the copper layer count; per reference, the side, the rotation and the pad count; per pad, the net name and the position relative to its footprint; the positions of footprints, vias and track ends relative to one common translation; and zone outlines.
 - Lengths MUST agree within 10 nm and angles within 1 000 microdegrees. KiCad moves an imported board, so only relative positions are compared.
-- A difference that comes from KiCad's importer and not from the file MUST be listed in `docs/formats/altium/import.md` with its cause, and excluded by kind, never by file.
+- A difference that comes from KiCad's importer and not from the file MUST be listed in `docs/formats/altium/import.md` with its cause, and excluded by kind, never by file. The kinds found: references (KiCad names a footprint after its shown designator text; a reference that several footprints share is not compared), pads that KiCad returns without their number or not at all (unplated holes, pads on paste layers), copper tracks and arcs without a net, zone vertices that repeat their neighbour, and zones whose outline holds an arc.
 - The test MUST be marked `needs_kicad` and `kicad_min_major(10)`, and the corpus part `needs_corpus`.
 
 #### Scenario: Blink document against KiCad

@@ -54,7 +54,8 @@ def test_altium_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]
     assert "H-A-SCH-OPEN" in entry["evidence"]["hypotheses"]
     assert "H-A-SCHBIN-VIEWER" in entry["evidence"]["hypotheses"]
     assert {"H-A-SCHLIB-OPEN", "H-A-SCHLIB-UPDATE"} <= set(entry["evidence"]["hypotheses"])
-    assert all(b["name"] != "altium" for b in result["backends"])
+    (altium,) = [b for b in result["backends"] if b["name"] == "altium"]
+    assert altium["write_kinds"] == []  # the registered backend reads; the writers stay experimental
 
 
 def test_same_entry_without_tool_detection(capsys: pytest.CaptureFixture[str]) -> None:

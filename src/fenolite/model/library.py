@@ -16,7 +16,7 @@ from typing import Literal
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
-from fenolite.model.board import ORDERED, Graphic, Pad
+from fenolite.model.board import ORDERED, ComponentBody, Graphic, Pad
 from fenolite.model.circuit import PinType
 
 FootprintKind = Literal["smd", "through_hole", "unspecified"]
@@ -45,6 +45,7 @@ class FootprintDef(Entity):
     pads: tuple[Pad, ...] = field(default=(), metadata=ORDERED)
     graphics: tuple[Graphic, ...] = field(default=(), metadata=ORDERED)
     models: tuple[str, ...] = field(default=(), metadata=ORDERED)
+    bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
 
     @property
     def lib_id(self) -> str:
