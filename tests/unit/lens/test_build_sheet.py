@@ -72,8 +72,9 @@ def test_user_sheet_in_a_built_project(tmp_path: Path, monkeypatch: pytest.Monke
     assert root.name == "kicad_wks" and "(version 20231118)" in text and "FENOLITE FRAME" in text
     project = json.loads((fresh / "blink.kicad_pro").read_text(encoding="utf-8"))
     assert project["pcbnew"]["page_layout_descr_file"] == "blink.kicad_wks"
-    template = json.loads(pro.write_project_text(pro.template(target)))
-    assert project["schematic"] == template["schematic"]  # no schematic is written: the key is untouched
+    # the build writes a schematic, so the sheet is named for it too (H-K-PRO-WKS-SCH)
+    assert (fresh / "blink.kicad_sch").is_file()
+    assert project["schematic"]["page_layout_descr_file"] == "blink.kicad_wks"
     assert "kicad.wks.legacy-root" in codes(env)
     assert env["result"]["drawing_sheet"] == {  # type: ignore[index]
         "source": "frame.kicad_wks",
@@ -197,3 +198,25 @@ def test_declared_title_block_follows_the_script_on_a_rebuild(
     assert code == 0 and board is not None and board.title_block is not None, err
     assert board.sheet is not None and (board.sheet.paper, board.title_block.revision) == ("A2", "B")
     assert p.files() == first
+
+
+def test_schematic_key_follows_the_schematic(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With ``--schematic skip`` no schematic is written and the schematic's key is not touched."""
+    p = Project(tmp_path, monkeypatch)
+    with_sheet(p, 'design.sheet(drawing_sheet="frame.kicad_wks")')
+    skipped = tmp_path / "skipped"
+    code, _, err = p.run("build", "--schematic", "skip", "--confirm", out=skipped)
+    assert code == 0, err
+    project = json.loads((skipped / "blink.kicad_pro").read_text(encoding="utf-8"))
+    template = json.loads(pro.write_project_text(pro.template(10)))
+    assert not (skipped / "blink.kicad_sch").exists()
+    assert project["pcbnew"]["page_layout_descr_file"] == "blink.kicad_wks"
+    assert project["schematic"] == template["schematic"]
+    # without a drawing sheet a build with a schematic sets neither key
+    plain = Project(tmp_path / "plain", monkeypatch)
+    project = json.loads((plain.out / "blink.kicad_pro").read_text(encoding="utf-8"))
+    assert (plain.out / "blink.kicad_sch").is_file()
+    assert (
+        "page_layout_descr_file" not in project["schematic"]
+        or not project["schematic"]["page_layout_descr_file"]
+    )

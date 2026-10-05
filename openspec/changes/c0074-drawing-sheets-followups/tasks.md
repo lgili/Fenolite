@@ -18,6 +18,7 @@
   - 2026-10-06: done. One rule beyond the text: a paper or title block that the script declares is written from the script on a rebuild too, because a changed `title_block()` would otherwise never reach the board; the requirement says so now.
 - [x] 2.3 Add `schematic` to `apply_sheet_keys` and pass it from the build when a schematic is written (scenario "Schematic key with a schematic", and "Schematic gets the frame" when c0061 is archived). Proof: `uv run pytest tests/unit/backends/kicad/test_pro_sheet.py tests/unit/lens/test_build_sheet.py`.
   - 2026-10-06: done for `apply_sheet_keys`; the build passes `schematic=True` when c0061 makes it write a schematic.
+  - 2026-10-05: c0061 is on `dev` (76ef4916): `write_triad(schematic=…)` passes the flag, and the build sets it unless `--schematic skip`. Scenario "Schematic gets the frame" is covered by `test_user_sheet_in_a_built_project` and `test_schematic_key_follows_the_schematic`.
 
 ## 3. Export presets
 

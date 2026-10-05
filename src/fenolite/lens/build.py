@@ -761,6 +761,8 @@ def build_design(
         target=target,
         existing_project=existing.project,
         renamed_nets=tuple(prepared.net_aliases.values()) if prepared is not None else (),
+        # the drawing sheet of design.sheet() frames the schematic the build writes, too (c0074)
+        schematic=schematic == "write",
         allow_lossy=allow_lossy,
         issues=issues,
     )

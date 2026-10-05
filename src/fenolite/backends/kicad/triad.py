@@ -32,13 +32,15 @@ def write_triad(
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
     renamed_nets: Collection[str] = (),
+    schematic: bool = False,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
 ) -> dict[str, str]:
     """``<name>.kicad_pcb``, ``<name>.kicad_pro`` and ``<name>.kicad_dru`` for ``target``.
 
     An error of any of the three writers aborts the whole set; warnings and infos of all three are
-    appended to ``issues``. Nothing is written to disk.
+    appended to ``issues``. Nothing is written to disk. ``schematic`` says that the caller also writes
+    the schematic of the project, so the drawing sheet of the design is named for it too.
     """
     found: list[Issue] = []
     board = write_board(design, target=target, allow_lossy=allow_lossy)
@@ -59,7 +61,7 @@ def write_triad(
             issues=found,
             renamed_nets=renamed_nets,
         )
-    project = apply_sheet_keys(project, design, allow_lossy=allow_lossy, issues=found)
+    project = apply_sheet_keys(project, design, schematic=schematic, allow_lossy=allow_lossy, issues=found)
     if issues is not None:
         issues.extend(found)
     return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}
