@@ -1227,8 +1227,8 @@ Every row MUST cite an id of `docs/evidence/sources.md`, and every row below `KI
 - **THEN** it passes, and every corpus board's `opaque_count` equals the value before this change
 
 ### Requirement: Projects carry the drawing sheet and text variables
-`fenolite.backends.kicad.pro.apply_sheet_keys(project_text, design, *, allow_lossy=False, issues=None)` SHALL return the project text with `pcbnew.page_layout_descr_file` (`pro.PAGE_LAYOUT_POINTER`) and `text_variables` set from the design, and `triad.write_triad` SHALL run it on the project text after `synthesize_project` or `update_project`. The three codes below are rows of the closed table of "Project issue codes".
-- When `Board.sheet.drawing_sheet` is not `None`, `pcbnew.page_layout_descr_file` MUST be set to it verbatim; otherwise the existing value MUST be kept. `schematic.page_layout_descr_file` MUST NOT be touched.
+`fenolite.backends.kicad.pro.apply_sheet_keys(project_text, design, *, schematic=False, allow_lossy=False, issues=None)` SHALL return the project text with `pcbnew.page_layout_descr_file` (`pro.PAGE_LAYOUT_POINTER`) and `text_variables` set from the design, and `triad.write_triad` SHALL run it on the project text after `synthesize_project` or `update_project`. The three codes below are rows of the closed table of "Project issue codes".
+- When `Board.sheet.drawing_sheet` is not `None`, `pcbnew.page_layout_descr_file` MUST be set to it verbatim; otherwise the existing value MUST be kept. With `schematic=True`, which the build passes when it writes a schematic, `schematic.page_layout_descr_file` MUST be set to the same value (`H-K-PRO-WKS-SCH`); otherwise it MUST NOT be touched.
 - Each key of `TitleBlock.params` MUST add or replace one member of `text_variables`. New members MUST be appended after the existing ones, sorted by name, and no member MUST be deleted. The key paths `pro.SHEET_KEY_PATHS` (`/text_variables/*`) MUST be the only paths that `write_triad` adds beyond the template's and `pro.PATTERN_ENTRY_PATHS`.
 - A name in `wks.RESERVED_VARIABLES` MUST give the error `kicad.project.reserved-variable` and raise `LossyWriteError` (`FEN-7001`, `droppable=True`); with `allow_lossy=True` the variable MUST be left out with the warning `kicad.project.dropped-variable`.
 - When the design sets neither key (no `Board.sheet.drawing_sheet` and no parameter), the text MUST come back unchanged, so every c0010 scenario holds byte for byte.
@@ -1265,6 +1265,11 @@ Every row MUST cite an id of `docs/evidence/sources.md`, and every row below `KI
 - **GIVEN** a design with params `{"TITLE": "x"}`
 - **WHEN** `write_triad(design, name="b", target=10)` is called, then again with `allow_lossy=True` and an `issues` list
 - **THEN** the first call raises `LossyWriteError` with `kicad.project.reserved-variable`; the second writes no `TITLE` member and `issues` holds `kicad.project.dropped-variable`
+
+#### Scenario: Schematic key with a schematic
+- **GIVEN** a design whose `Board.sheet.drawing_sheet` is `blink.kicad_wks`
+- **WHEN** `apply_sheet_keys` runs on a template project text with `schematic=True`, and again with `schematic=False`
+- **THEN** the first text holds `blink.kicad_wks` under both `pcbnew.page_layout_descr_file` and `schematic.page_layout_descr_file`, and the second only under `pcbnew`
 
 ### Requirement: Drawing sheet format facts are documented
 `docs/formats/kicad/worksheet.md` SHALL hold the worksheet facts in a table with the header `| fact | source | label | hypothesis |`: the roots and header constant, the setup and item heads, corner atoms and the default corner, repeat and its clipping, label increment, page-1 options, value atoms, text variables and their resolution on a board, the legacy `%` text codes that KiCad still resolves, the stated 1 µm resolution and what KiCad draws for finer lengths, `pngdata` rows, the silent fallback for missing files, and the SVG form used by the oracle. Every row MUST cite a source id, and every row below `KICAD-VERIFIED` or `CORPUS-VERIFIED` MUST name a hypothesis.
@@ -1720,11 +1725,12 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 - **THEN** `PlacementError` is raised with `place.locked`
 
 ### Requirement: Board outline as rings
-`fenolite.backends.kicad.outline.board_outline(design) -> BoardOutline` SHALL give the board outline as closed rings in the board frame, without a snapping tolerance (`H-G-EDGE-EXACT`):
+`fenolite.backends.kicad.outline.board_outline(design) -> BoardOutline` SHALL give the board outline as closed rings in the board frame, joining edge endpoints closer than `outline.CHAIN_GAP` (10 000 nm) as KiCad does (`H-K-OUTLINE-CHAIN`):
 - from `Board.outline.points`, followed by each ring of `Board.outline.cutouts`, when the model has an outline (`source == "model"`);
-- otherwise from the root graphics on the layer of kind `edge`, chained by `geometry.assemble_rings` (`source == "edge"`); circles are rings by themselves;
+- otherwise from the root graphics on the layer of kind `edge` and the edge items of footprints that `frame.footprint_edges` gives in the board frame (`fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly`; `H-K-OUTLINE-FPEDGE`), chained by `geometry.assemble_rings` (`source == "edge"`); circles and closed footprint polygons are rings by themselves;
+- before chaining, endpoints whose squared distance is below `CHAIN_GAP` squared MUST be joined into the smallest point of their group, decided with integers; a group with more than two piece ends stays a `branching-contour`, and `joined` MUST count the groups that were joined;
 - `rings[0]` MUST be the ring of largest area, and the others its cut-outs;
-- when no ring closes, `rings` MUST be empty and `problem` MUST be one of `open-contour`, `branching-contour`, `no-edge-content` and `footprint-edges-only`;
+- when no ring closes, `rings` MUST be empty and `problem` MUST be one of `open-contour`, `branching-contour` and `no-edge-content`;
 - `exact` MUST be false when an arc was approximated.
 
 `H-G-PLACE-OUTLINE` MUST be measured over the readable non-heavy demo boards and its counts recorded.
@@ -1746,5 +1752,15 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 
 #### Scenario: Demo outlines counted
 - **WHEN** `uv run pytest tests/corpus/test_outline_corpus.py` runs over the cached readable non-heavy demo boards
-- **THEN** no call raises, and the counts of `model`, `edge` and each `problem` are recorded for `H-G-PLACE-OUTLINE`
+- **THEN** no call raises, every board gives at least one ring, and the counts of `model`, `edge`, each `problem` and the boards with `joined` above 0 are recorded for `H-G-PLACE-OUTLINE`
+
+#### Scenario: Gap below the chaining distance
+- **GIVEN** the authored rectangle of "Edge graphics with a cut-out" whose last line stops 9 999 nm short of its first corner, and the same with 10 000 nm
+- **WHEN** `board_outline` runs on each
+- **THEN** the first has one ring and `joined` 1, and the second has the problem `open-contour`
+
+#### Scenario: Edge closed by a footprint
+- **GIVEN** an authored board whose edge lines leave a 5 mm opening that the `fp_line` items of one placed footprint on `Edge.Cuts` close
+- **WHEN** `board_outline` runs
+- **THEN** `rings[0]` holds the footprint's edge points in the board frame
 

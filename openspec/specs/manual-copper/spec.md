@@ -142,7 +142,8 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - Exactly one of `along` (at least two points) and `region` (at least three points forming a simple ring) MUST be given, `pitch` MUST be positive and `margin` not negative; otherwise `kicad.copper.bad-intent`.
 - **Along.** Each segment of the polyline MUST be divided into the fewest equal parts no longer than `pitch` (the smallest `n ≥ 1` with `n²·pitch²` at least the squared length). The candidates MUST be the division points, each vertex once, rounded half to even, numbered `k = 0, 1, …` from the first vertex.
 - **Region.** The candidates MUST be the points `origin + (i·pitch, j·pitch)` for integers `i` and `j` that lie inside the region at a distance of at least `diameter / 2 + margin` from every edge, decided exactly, in order of `j` then `i`.
-- **Clearance.** A candidate MUST be dropped when its via disc comes closer than `clearance` to a copper entry or hole of any pad (`board-frame`), or to a track, arc or via of another net or of no net, or when it touches a via of its own net. Existing items, the vias of earlier intents and the candidates already kept MUST count. Distances MUST be decided exactly with integers and `Fraction`, using c0005's predicates; an arc MUST count as its polyline of `Arc.polygonize(DEFAULT_TOL)` with its width grown by `2·DEFAULT_TOL + 2`. Zones, rule areas and the board edge MUST NOT count.
+- **Clearance.** A candidate MUST be dropped when its via disc comes closer than `clearance` to a copper entry or hole of any pad (`board-frame`), or to a track, arc or via of another net or of no net, or when it touches a via of its own net. Existing items, the vias of earlier intents and the candidates already kept MUST count. Distances MUST be decided exactly with integers and `Fraction`, using c0005's predicates; an arc MUST count as its polyline of `Arc.polygonize(DEFAULT_TOL)` with its width grown by `2·DEFAULT_TOL + 2`. Zones MUST NOT count.
+- **Keep-outs and the edge.** A candidate MUST also be dropped when its via disc meets the outline of a `Keepout` with `no_vias` on a copper layer (a through via crosses every copper layer), or comes closer than the edge clearance in force to a ring of `board_outline`: the `min` of the governing board-wide `edge_clearance` rule in `rulemap.rule_order`, else the project's `min_copper_edge_clearance` (`H-K-STITCH-AVOID`). A candidate that lies off the board, outside the board ring or inside a cut-out, MUST be dropped too. Without a closed outline the edge MUST NOT be checked. On a rebuild the rule areas and the outline of the existing board MUST count, because the lens keeps them. These candidates are dropped candidates for the count below.
 - `clearance` MUST be the intent's, else the clearance of the class of its net, else `kicad.copper.size-missing`.
 - The dropped candidates of an intent MUST give one `kicad.copper.stitch-skipped` info with their count, and an intent that keeps no candidate one `kicad.copper.stitch-empty` warning.
 
@@ -160,6 +161,16 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **GIVEN** the region of the previous scenario without the footprint and with an existing `GND` via of diameter 0.6 mm at (5 mm, 5 mm)
 - **WHEN** the stitch is resolved
 - **THEN** no new via is placed at (5 mm, 5 mm) and the other eight are created
+
+#### Scenario: Fence across a keep-out
+- **GIVEN** the line of "Along a line" crossing a `Keepout` with `no_vias` on both copper layers that covers x from 4 mm to 6 mm
+- **WHEN** the stitch is resolved with `issues=found`
+- **THEN** no via is created at x = 5 mm, the others are, and `found` holds one `kicad.copper.stitch-skipped` with the count 1
+
+#### Scenario: Fence along the edge
+- **GIVEN** a design with a closed outline whose left edge is the line x = 0, a board-wide `edge_clearance` rule of 0.5 mm, and a stitch intent along the line x = 0.4 mm with diameter 0.6 mm
+- **WHEN** the stitch is resolved
+- **THEN** no via is created, and one `kicad.copper.stitch-empty` warning is given
 
 ### Requirement: Script copper is regenerated
 `merge_copper(existing, built) -> CopperMerge` SHALL decide which tracks, arcs and vias of the design `existing` stay beside the script copper of the design `built`, its tracks, arcs and vias whose KiCad uuid is a copper uuid, and `resolve_copper` SHALL use it with its input as `existing` and a design holding only the items it creates as `built`.

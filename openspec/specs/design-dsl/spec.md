@@ -786,12 +786,13 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **THEN** the origin is `project`, and the item path is `lib/Mini.pretty/Mini_R_0603.kicad_mod` inside the copy
 
 ### Requirement: Path aliases in the DSL
-`Design.moved(old, new)` SHALL record that the part at component path `new` was at component path `old` in an earlier build, and `dsl.moves(design) -> Mapping[str, str]` SHALL return the recorded aliases, new path to old path, in path order.
-- `old` and `new` MUST be component paths: segments matching `[A-Za-z0-9_.+-]+` joined by `/` ("Design structure and names"). A malformed path, `old == new`, or a second alias with the same `old` or the same `new` MUST raise `DslError` at the call.
-- `moves(design)` MUST raise `DslError` when `new` is not the path of a part added to the design, or when `old` is the path of a part added to the design, because the old part would lose its layout to the new one. Chains (`moved("A", "B")` with `moved("B", "C")`) are therefore refused.
+`Design.moved(old, new)` SHALL record that the part or module at path `new` was at path `old` in an earlier build. `dsl.moves(design) -> Mapping[str, str]` SHALL return the part aliases, new component path to old component path, in path order, with every module alias expanded, and `dsl.module_moves(design) -> Mapping[str, str]` SHALL return the module aliases, new module path to old module path, in path order; `fenolite.dsl` SHALL re-export `module_moves` (an addition under "DSL package").
+- `old` and `new` MUST be paths: segments matching `[A-Za-z0-9_.+-]+` joined by `/` ("Design structure and names"). A malformed path, `old == new`, or a second alias with the same `old` or the same `new` MUST raise `DslError` at the call.
+- An alias whose `new` is the path of a part added to the design is a part alias. One whose `new` is the path of a module added to the design is a module alias: it gives every part path `<new>/<rest>` of the design the alias `<old>/<rest>`. A part alias MUST win over a module alias for its part, and a longer module path over a shorter one.
+- `moves(design)` and `module_moves(design)` MUST raise `DslError` when `new` is neither a part path nor a module path of the design, or when `old` is the path of a part or a module added to the design, because the old part would lose its layout to the new one. Chains (`moved("A", "B")` with `moved("B", "C")`) are therefore refused.
 - `cmd_build` MUST turn such a `DslError` into `DesignScriptError` (`FEN-3004`, exit 3), as for `to_model` and `placements`.
 - Aliases are not model data: `to_model` MUST give the same model with and without them, and no id changes.
-- An alias is needed for one build only: the build re-places the footprint under its new path, and later builds match it by uuid (`layout-lens`, "Footprint matching"). An alias that matches nothing gives `layout.alias-unused` (warning).
+- An alias is needed for one build only: the build writes the footprint under its new path, keeping its board node when it can (`layout-lens`, "Kept and re-placed footprints"), and later builds match it by uuid ("Footprint matching"). An expanded alias that matches nothing gives `layout.alias-unused` (warning).
 
 #### Scenario: Alias recorded
 - **GIVEN** a design holding `Module("power")` with `Part("R1", "Mini:Mini_R")`, and `d.moved("R1", "power/R1")`
@@ -816,6 +817,21 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **GIVEN** the blink design with and without `d.moved("R0", "R1")`
 - **WHEN** `canonical.dump_texts(to_model(d))` is computed for both
 - **THEN** the texts are equal
+
+#### Scenario: Module alias expanded
+- **GIVEN** a design holding `Module("supply")` with parts `R1` and `C1`, and `d.moved("power", "supply")`
+- **WHEN** `moves(d)` and `module_moves(d)` are called
+- **THEN** they return `{"supply/C1": "power/C1", "supply/R1": "power/R1"}` and `{"supply": "power"}`
+
+#### Scenario: Part renamed inside a renamed module
+- **GIVEN** the same design with `R1` renamed `R9`, and `d.moved("power/R1", "supply/R9")` besides the module alias
+- **WHEN** `moves(d)` is called
+- **THEN** it returns `{"supply/C1": "power/C1", "supply/R9": "power/R1"}`
+
+#### Scenario: Old module still present
+- **GIVEN** a design holding modules `power` and `supply`, and `d.moved("power", "supply")`
+- **WHEN** `module_moves(d)` is called
+- **THEN** `DslError` is raised naming `power`
 
 ### Requirement: No-connect marks in the DSL
 `fenolite.dsl.part.no_connect(*pins) -> None` SHALL mark each pin handle as intentionally unconnected, and `fenolite.dsl` SHALL re-export `no_connect` (an addition under "DSL package": `part.py` imports nothing new).
@@ -1480,4 +1496,92 @@ A build SHALL check the interfaces of the design after the parts are resolved, a
 #### Scenario: Closed code table
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_pad_zones.py -k closed_set` collects every code that `apply_pad_connections` and `keep_pad_connections` produce in their tests
 - **THEN** each is a key of `PAD_ZONE_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
+
+### Requirement: Net aliases in the DSL
+`Design.moved_net(old, new)` SHALL record that the net named `new` was named `old` in an earlier build, and `dsl.net_moves(design) -> Mapping[str, str]` SHALL return the recorded net aliases, new name → old name, in name order; `fenolite.dsl` SHALL re-export `net_moves` (an addition under "DSL package").
+- `old` and `new` MUST be non-empty strings. `old == new`, or a second alias with the same `old` or the same `new`, MUST raise `DslError` at the call.
+- `net_moves(design)` MUST raise `DslError` when `new` is not the name of a net of the design, or when `old` is, because the old net's copper would move to the new one. Chains are therefore refused.
+- `cmd_build` MUST turn such a `DslError` into `DesignScriptError` (`FEN-3004`, exit 3).
+- Net aliases are not model data: `to_model` MUST give the same model with and without them.
+- A net alias is needed for one build only: the build writes the copper under the new name (`layout-lens`, "Copper items follow their nets").
+
+#### Scenario: Net alias recorded
+- **GIVEN** a design holding the net `LED_ANODE` and `d.moved_net("LED_A", "LED_ANODE")`
+- **WHEN** `net_moves(d)` is called
+- **THEN** it returns `{"LED_ANODE": "LED_A"}`
+
+#### Scenario: Old net still present
+- **GIVEN** a design holding the nets `VIN` and `VBUS`, and `d.moved_net("VIN", "VBUS")`
+- **WHEN** `net_moves(d)` is called
+- **THEN** `DslError` is raised naming `VIN`
+
+#### Scenario: Model unchanged by net aliases
+- **GIVEN** the blink design with and without `d.moved_net("LED_X", "LED_A")`
+- **WHEN** `canonical.dump_texts(to_model(d))` is computed for both
+- **THEN** the texts are equal
+
+### Requirement: Placements file in a build
+`cmd_build` SHALL read `<script folder>/placements.toml` when it exists and pass its entries to the layout lens as `source`, as "Build command" allows for added steps and `result` keys.
+- The file MUST be read with `lens.placements.read_placements(text, origin=dsl.BOARD_ORIGIN, file="placements.toml")`; a `FormatError` MUST exit 3 (`FEN-3004`) before any planned write.
+- Its `layout.source-invalid` issues MUST be reported, and an error among them MUST stop the build as any other build error does (exit 5, nothing written).
+- Without `--discard-layout`, the entries MUST be passed to `prepare` as `source`. With `--discard-layout`, `cmd_build` MUST call `prepare` with an `ExistingProject` whose three texts are `None` and the same `source`, so no file of the output folder is read and the file still applies ("Placement precedence").
+- With `--target altium`, the placements passed on MUST be those that `prepare` gives with an `ExistingProject` whose texts are `None` and the same `source`, so both targets place a part from the file.
+- `result.preserved.source` MUST hold `file` (`placements.toml`, or `null` when no file was read), `used` (component paths that took their placement from the file), `stale` and `unknown` (paths of `layout.source-stale` and `layout.source-unknown`); "Layout preservation evidence" allows the key.
+- `.fenolite/build.json` MUST record the SHA-256 of the file that was read, so `check` can tell that the layout's source changed.
+
+#### Scenario: File places a part
+- **GIVEN** a blink variant whose `R1` has no `place()`, and a `placements.toml` beside its script with `[part."R1"]`, `x = 20`, `y = 10`
+- **WHEN** it is built into an empty folder with `--confirm --json`
+- **THEN** `R1` is at (120 mm, 110 mm), `issues` hold no `layout.unplaced`, and `result.preserved.source.used` is `["R1"]`
+
+#### Scenario: File survives a discarded layout
+- **GIVEN** a confirmed blink build in `B` edited by `edit_blink`, and a `placements.toml` written by `fenolite sync --to-source --confirm`
+- **WHEN** the blink is built again with `--discard-layout --confirm`
+- **THEN** `D1` is 4 mm right of its `place()` position, the segments and the via of the edit are gone, and `issues` hold one `layout.place-overridden` naming `D1`
+
+#### Scenario: Invalid file stops the build
+- **GIVEN** a `placements.toml` whose `R1` table has `side = "left"`
+- **WHEN** the build runs with `--confirm`
+- **THEN** the exit code is 5, `issues` hold `layout.source-invalid` naming `R1` and `side`, and nothing is written
+
+### Requirement: Drawing sheet and title block in the DSL
+`Design.sheet(paper="A4", *, portrait=False, width=None, height=None, drawing_sheet=None)` and `Design.title_block(*, title="", date="", revision="", organization="", doc_id="", responsible="", approver="", variables={})` SHALL record the board's sheet and title block, each at most once; a second call MUST raise `DslError`.
+- `paper`, `portrait`, `width` and `height` MUST follow the model's `SheetFrameRef` rules; `width` and `height` are lengths, given together for a user paper.
+- `drawing_sheet` MUST be a path relative to the folder of the design script, ending in `.kicad_wks` or `.sheet.toml`; any other ending, an absolute path, or a path leaving that folder MUST raise `DslError`.
+- `variables` MUST map text-variable names to string values; a name that does not match the model's parameter-name rule MUST raise `DslError`.
+- `dsl.to_model` MUST set `Board.sheet` to the `SheetFrameRef` of the call, with `drawing_sheet` equal to `"<design name>.kicad_wks"` when a drawing sheet is given, and `Board.title_block` to the `TitleBlock` of the call with `params` from `variables`. The source path MUST NOT enter the model; `dsl.drawing_sheet_source(design)` MUST return it, or `None`.
+- A design without these calls MUST give the model it gave before this requirement.
+
+#### Scenario: Sheet and title block in the model
+- **GIVEN** `d.sheet("A3", drawing_sheet="frames/company.kicad_wks")` and `d.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"})` in the blink script
+- **WHEN** `to_model(d)` runs
+- **THEN** `Board.sheet` is `SheetFrameRef("A3", drawing_sheet="blink.kicad_wks")`, `Board.title_block.title` is `Blink`, its `revision` is `B`, its `params` hold `PROJECT_CODE`, and `drawing_sheet_source(d)` is `frames/company.kicad_wks`
+
+#### Scenario: Wrong file type
+- **WHEN** `d.sheet(drawing_sheet="frame.pdf")` is called
+- **THEN** `DslError` is raised naming `frame.pdf`
+
+### Requirement: Drawing sheets in a build
+`fenolite build` SHALL write the drawing sheet that the script names as `<name>.kicad_wks` beside the project, as "Built project files" allows for added steps of `build_design` and added files.
+- `cmd_build` MUST read the source: a `.kicad_wks` with `wks.read_drawing_sheet(text, file=<name of the source>)`, a `*.sheet.toml` with the reader of `sheet-templates` and `build_sheet`. A missing or unreadable source MUST exit 3 (`FEN-3001` or `FEN-3004`) before any planned write, because KiCad would fall back to its default frame without a word (`H-K-WKS-FALLBACK`). The reader's infos MUST be reported.
+- `build_design` MUST add `<name>.kicad_wks` from `wks.write_drawing_sheet(<the sheet>, target=target, allow_lossy=allow_lossy)`; its errors MUST stop the build with its codes, as other writers do.
+- The file MUST be recorded in `.fenolite/build.json` and MUST follow "Edited outputs are not overwritten".
+- The project MUST name it through `apply_sheet_keys`, for the board and, when the build writes a schematic, for the schematic (`kicad-file-backend`, "Projects carry the drawing sheet and text variables").
+- On a rebuild over an existing board, the paper and the title block that the script declares MUST be written from the script; a board whose script declares neither keeps its own (`layout-lens`, "Board content outside the design is kept").
+- `result.drawing_sheet` MUST hold `source` (the path given in the script), `file` (`<name>.kicad_wks`) and `items` (the number of drawn items), or be `null` without a drawing sheet.
+
+#### Scenario: User sheet in a built project
+- **GIVEN** the blink script with `d.sheet(drawing_sheet="frame.kicad_wks")` and an authored `frame.kicad_wks` beside it whose root is the legacy `page_layout`
+- **WHEN** it is built for target 9 with `--confirm --json`
+- **THEN** `receipt.written` lists `blink.kicad_wks`, whose root is `kicad_wks` with the header `(version 20231118)`, `blink.kicad_pro` holds `pcbnew.page_layout_descr_file` `blink.kicad_wks`, and `issues` hold the info `kicad.wks.legacy-root`
+
+#### Scenario: Missing source
+- **GIVEN** the same script without `frame.kicad_wks`
+- **WHEN** it is built with `--dry-run`
+- **THEN** the exit code is 3, stderr carries `FEN-3001` naming `frame.kicad_wks`, and nothing is planned
+
+#### Scenario: Schematic gets the frame
+- **GIVEN** c0061 archived and the same script with the file present
+- **WHEN** it is built with a schematic
+- **THEN** `blink.kicad_pro` holds `schematic.page_layout_descr_file` `blink.kicad_wks` too
 

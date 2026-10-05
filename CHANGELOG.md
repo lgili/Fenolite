@@ -8,6 +8,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Archived the completed specs of the evidence matrix (c0067) and of the isolated worksheet version oracle (c0082) after their CI run.
 - Altium verification: `fenolite check` and `fenolite inspect` accept Altium documents and projects, read-only and without external tools; the round-trip levels RT-A0 (container copy), RT-A1 (records per stream) and RT-A2 (model → Altium → model on built projects, for what the built model holds: the circuit and the net classes); `fenolite diff A B` reads Altium inputs in its model view and gains a records view (`--view records`) for two Altium files of one kind; results over the public corpus in `docs/evidence/altium-roundtrip.md` (c0044). A component whose value is empty in the script is stored in the built model of an Altium build with the value its documents hold, the symbol's name.
+- Archived the complete layout lens and the drawing-sheet follow-ups after their schematic halves, and cited the CI run of the `kicad-9` and `kicad-10` jobs in the four verified rows of c0074 (c0069, c0074).
 - The `macos-app` nightly job ran for the first time, on `dev`, and passed with the `kicad-cli` of the 10.0.6 macOS disk image; archived the completed v0.1 follow-ups (c0068).
 - Archived the completed specs of the full rule kinds (c0071) and of the typed interfaces and quantities (c0073) after their CI run.
 - Test of the Altium schematic reader's cost: it counts function calls instead of comparing two wall-clock times, so it no longer fails on a busy machine.

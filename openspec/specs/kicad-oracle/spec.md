@@ -1593,6 +1593,7 @@ The outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/r
 - **GIVEN** `kicad-cli` 9.0.9, which has no `sch upgrade`
 - **WHEN** the test is collected
 - **THEN** it is skipped by its major marker
+
 ### Requirement: New rule kinds are enforced by kicad-cli
 `tests/kicad/rules/test_rule_kinds_new.py`, `test_rule_floors.py` and the extended `test_rule_order.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DRU-KIND-2`, `H-K-DRU-COURTYARD` and `H-K-PRO-MIN-RULE-3` on the running `kicad-cli`, with benches built by `tests/kicad/rules/_rulebench.py`, through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, judging DRC only from the JSON report.
 - **Canary.** Every bench MUST carry the canary scoped to its own net (`A.NetName == 'CANARY_A'`), and a run whose canary does not fire MUST fail. An unscoped canary MUST NOT be used: KiCad reports one violation per item pair, so it would hide the constraint under test.
@@ -1730,4 +1731,45 @@ The outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/r
 - **GIVEN** the `rt0` corpus cached
 - **WHEN** `uv run pytest tests/corpus/test_copper_offset_census.py -rA` runs with `FENOLITE_CENSUS_OUT` set
 - **THEN** the census file holds, per demo board, the number of pads with an offset drill and the number of clearance findings that name one
+
+### Requirement: Renamed footprints pass the oracle
+`tests/kicad/lens/test_rename_oracle.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-LENS-RENAME` on the running `kicad-cli`, with the boards of the lens acceptance fixture (`layout-lens`, "Lens acceptance fixture") before and after the rebuild that renames the module `power`. Every run MUST use c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, and judge DRC only from the JSON report read with `read_drc_report`.
+- **Load.** `pcb export pos` of the rebuilt board MUST list every footprint of the edited board, by reference, at the same position, rotation and side, on 9.0.9 for target 9 and on 10.0.6 for both targets.
+- **DRC.** The DRC report of the rebuilt board MUST hold the same multiset of (type, severity) pairs and the same number of `unconnected_items` as the report of the edited board.
+- **Re-save.** On 10.0.6 (`kicad_min_major(10)`), `pcb upgrade --force` of the rebuilt target-10 board MUST keep the group with the two renamed footprints, by their new uuids, and every uuid of their identity maps.
+- **Probes.** `lens-rename-t9` (majors 9 and 10) and `lens-rename-t10` (major 10) MUST record `equal` when every check holds and `different` otherwise, in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`.
+- **Stop rule.** A `different` outcome stops the keeping of alias matches until the difference is explained and recorded in `docs/formats/kicad/board.md`; meanwhile alias matches are re-placed as before this change, and the acceptance fixture records the loss.
+- `H-K-LENS-RENAME` MUST become `KICAD-VERIFIED (9.0.x, 10.0.x)` when both probes are `equal` on both majors and the `kicad-9` and `kicad-10` jobs pass.
+
+#### Scenario: Renamed module on 10.0.6
+- **GIVEN** the acceptance fixture built for target 10 on the local KiCad 10.0.6, edited, and rebuilt with `power` renamed `supply`
+- **WHEN** `uv run pytest tests/kicad/lens/test_rename_oracle.py -rA` runs
+- **THEN** `pcb export pos` lists every footprint at its edited placement, the two DRC reports hold the same (type, severity) multiset and `unconnected_items` count, and the re-saved board keeps the group by the new uuids
+
+#### Scenario: Target 9 on 9.0.9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and `FENOLITE_REQUIRE=kicad`
+- **WHEN** `uv run pytest tests/kicad/lens -rA` runs in the `kicad-9` job
+- **THEN** the target-9 rename case runs and passes, and the re-save case is skipped by `kicad_min_major(10)`
+
+#### Scenario: Probe outcomes pinned
+- **GIVEN** `docs/evidence/kicad/probes/10.0.6.json` regenerated with `FENOLITE_PROBES_WRITE=1`
+- **WHEN** `uv run pytest tests/kicad/test_probe_results.py` runs on the local KiCad 10.0.6
+- **THEN** it passes, and the file holds an outcome for `lens-rename-t9` and `lens-rename-t10`
+
+### Requirement: Follow-up facts are probed
+`tests/kicad/followups/test_followup_probes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PRO-WKS-SCH`, `H-K-OUTLINE-CHAIN`, `H-K-OUTLINE-FPEDGE`, `H-K-EXPORT-OPTIONS` and `H-K-STITCH-AVOID` on the running `kicad-cli`, through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, judging DRC only from the JSON report.
+- **Schematic frame.** A two-sheet project written by the test and a drawing sheet with one distinctive text: `wks-sch-key-relative` and `wks-sch-key-kiprjmod` MUST record `present` when `sch export svg` writes that text on both sheets with the schematic key set as named, and `wks-sch-key-absent` and `wks-sch-key-board-only` `absent` when it does not, without the key or with only the board key.
+- **Outline gap.** A board of four edge lines whose last line stops short of the first corner by 9 999, 10 000 and 10 001 nm: `outline-gap-<nm>` MUST record whether `invalid_outline` is reported.
+- **Footprint edges.** `outline-fp-edge-closes`: a board whose edge is closed only with a footprint's `fp_line` items gives no `invalid_outline`; `outline-fp-edge-cutout`: a footprint `fp_circle` on the edge layer inside the board gives `copper_edge_clearance` for a track crossing it.
+- **Export options.** The help of `pcb export gerbers`, `drill` and `pos` MUST give a row `help-pcb-export-<kind>-<option>` for each option of the preset table, and one run per preset key on the built blink MUST record `export-option-<kind>-<key>`: `different` when its files differ from the default run, `equal` when the board has nothing for the option to change, `reject` when the tool refuses the arguments. No run MUST be rejected; `H-K-EXPORT-OPTIONS` stays `INFERRED` while a key records `equal`.
+- **Stitching.** A built board with a stitch fence across a rule area that forbids vias and along the board edge: `stitch-avoid` MUST record `equal` when its DRC report holds no `items_not_allowed` and no `copper_edge_clearance` entry for a stitch via, and the same fence built without Decision 7 of the design holds both.
+- The outcomes MUST be recorded in both probe files, and the facts written to `docs/formats/kicad/worksheet.md`, `docs/formats/kicad/board.md` and `docs/formats/kicad/cli.md` with their sources and labels. `outline.CHAIN_GAP` MUST stay below the smallest gap that a major reports as open.
+
+#### Scenario: Probes on both majors
+- **WHEN** `uv run pytest tests/kicad/followups/test_followup_probes.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the schematic-key probes record `present`, `present`, `absent` and `absent`; `outline-gap-9999` records no `invalid_outline` and `outline-gap-10001` records it; `outline-gap-10000` records none on 10.0.6 and one on 9.0.9; the footprint-edge and stitching probes record their expected outcomes, every help row is `present`, and 23 of the 29 option runs record `different` and 6 `equal` on both majors
+
+#### Scenario: Demo outlines close
+- **WHEN** `uv run pytest tests/corpus/test_outline_corpus.py` runs over the 21 native demo boards
+- **THEN** every board gives at least one ring, `kicad-demo-10-0-6-pcb-01` has `joined` 1, and `-14` and `-16` close with their footprints' edge items
 

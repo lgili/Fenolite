@@ -223,12 +223,12 @@ checked, and a project carries its user's frame and fab options.
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
-| c0069 | `layout-lens-complete` | module and net aliases, alias matches kept under the new identity, `lens/extract.py`, `placements.toml` and `fenolite sync --to-source [--check]`, the project plan's lens acceptance fixture | being implemented (board half and local oracle runs complete on 2026-10-06; the schematic half of `sync` waits for c0061) | c0060, c0061 for the schematic half | 12.5 |
+| c0069 | `layout-lens-complete` | module and net aliases, alias matches kept under the new identity, `lens/extract.py`, `placements.toml` and `fenolite sync --to-source [--check]`, the project plan's lens acceptance fixture | done (archived on 2026-10-05, with its schematic half after c0061) | c0060, c0061 for the schematic half | 12.5 |
 | c0070 | `schematic-hierarchy-layout` | one pinless sheet per module under `sheets/`, 2-pin parts snapped to IC pins with one straight wire, hierarchical footprint paths, the own netlist over the sheet tree | proposed | c0060, c0061, c0063 | 13 |
 | c0071 | `rules-complete` | hole-to-hole, hole clearance, annular width, courtyard, silkscreen and creepage rules, per-kind selectors and per-major support, `design.rules.rule()` and `fenolite.dsl.select` | done (archived on 2026-10-06, after the green run 37311079171) | — | 10 |
 | c0072 | `schematic-board-parity` | a backend-free comparison of schematic and board and of pins and pads, `parity` command and `check` stage, agreement with KiCad's parity test on the public demos | proposed | c0060, c0062, c0063 | 10 |
 | c0073 | `interfaces-quantities` | exact `Quantity` values, typed `I2C`, `SPI`, `UART` and `USB2` interfaces with `attach` by role, checks for pair names and pull-ups | done (archived on 2026-10-06, after the green run 37311079171) | — | 8 |
-| c0074 | `drawing-sheets-followups` | the user's drawing sheet and title block on board and schematic, export presets, outline joining below 10 µm with footprint edge items, stitching that avoids keep-outs and the edge | being implemented (code and local oracle runs complete on 2026-10-06; the schematic's frame waits for c0061) | c0061 for the schematic key | 11.5 |
+| c0074 | `drawing-sheets-followups` | the user's drawing sheet and title block on board and schematic, export presets, outline joining below 10 µm with footprint edge items, stitching that avoids keep-outs and the edge | done (archived on 2026-10-05, with its schematic half after c0061) | c0061 for the schematic key | 11.5 |
 
 - Implementation order: c0071 and c0073 need nothing of v0.2a and can start at once; c0069 and
   c0074 can start too and add their schematic halves after c0061; c0070 and c0072 wait for the
