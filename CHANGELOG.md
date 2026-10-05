@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archived the completed Altium schematic, PCB and project reader specs (c0040–c0042) after full local validation and CI.
 - Altium PCB document oracle: the row on which the Linux build of `kicad-cli` 10.0.6 dies in its own importer is matched by the stable part of KiCad's message, because the exception class differs from run to run; the row is still compared on macOS.
 - CI fixes: normalize planned output paths in cross-platform assertions, compare Altium sample names with POSIX separators, strip entity metadata only from symbol model entities, and record KiCad 10.0.6's `std::bad_alloc` on the public `altium-third-party-pcbdoc-02` oracle row.
 - Altium sheet templates: `fenolite template import SRC --target kicad --out OUT` imports a `.SchDot` (or the template graphics of a `.SchDoc`) into the neutral drawing sheet and writes a `.kicad_wks`; size, lines, rectangles, texts, special strings and embedded PNG images are imported, everything else is reported, and a loss needs `--allow-lossy`. Writing a `.SchDot` is not included (c0046).

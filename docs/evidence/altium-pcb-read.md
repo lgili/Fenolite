@@ -86,6 +86,12 @@ KiCad's board has a reader record.
 | `altium-third-party-pcbdoc-06` | 18 | 2 | 27 | 0 | 106 | 0 | 0 | 20 | 106 | 0 | 42 | 111 | 10 | 0 |
 | `altium-third-party-pcbdoc-07` | 21 | 4 | 12 | 2 | 116 | 0 | 0 | 12 | 114 | 0 | 60 | 475 | 9 | 0 |
 
+The [complete CI run for `1882644`](https://github.com/lgili/Fenolite/actions/runs/37286556200)
+passed on 2026-10-05, including Windows, macOS, the Ubuntu Python matrix, KiCad 9 and 10, routing,
+wheel installation and DCO. The KiCad 10 corpus/oracle job passed 1,385 tests and skipped 23;
+its one PCB document oracle skip is the recorded Linux importer failure on
+`altium-third-party-pcbdoc-02`. That row still passed the local macOS comparison.
+
 ## Library oracle
 
 `FENOLITE_REQUIRE=corpus uv run pytest tests/kicad/altium/test_pcblib_read_oracle.py` with `kicad-cli`
