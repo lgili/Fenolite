@@ -670,7 +670,8 @@ Change c0046 (Altium sheet-template import) adds the eight `H-A-RD-SHT-*` rows: 
 `-AREA`, `-BORDER`, `-WIDTH`, `-TEXT`, `-STRINGS` and `-IMAGE`. All stay `INFERRED`. The corpus result of
 three public templates of two repositories is supporting data only: three repositories are needed for
 `CORPUS-VERIFIED`, and no `kicad-cli` path reads an Altium schematic. The oracle of the change checks the
-written `.kicad_wks` (`H-K-WKS-CORNER`), not these rows.
+written `.kicad_wks` (`H-K-WKS-CORNER`), not these rows. The `kicad-9` and `kicad-10` jobs ran that oracle and
+the corpus tests of the change on Linux (run https://github.com/lgili/Fenolite/actions/runs/37291111078).
 
 Change c0041 (Altium PCB reader) adds the twelve `H-A-RD-PCB-*` rows: `H-A-RD-PCB-FRAME`, `-IDENTITY`,
 `-LENGTHS`, `-REGION`, `-TEXT`, `-RULE`, `-POLYNAME` and `-CODEC` are settled by the corpus census of
