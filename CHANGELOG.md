@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archived the completed specs of the full rule kinds (c0071) and of the typed interfaces and quantities (c0073) after their CI run.
 - Test of the Altium schematic reader's cost: it counts function calls instead of comparing two wall-clock times, so it no longer fails on a busy machine.
 - Isolated the KiCad worksheet version oracle with fresh input copies, private configuration, home, cache, data and temporary directories and the C locale; retained strict future-version rejection checks and required an exported SVG (c0082).
 - Completed and archived c0076 on the local dev branch with a single signed-off squash commit; the catalog provides 49 generic symbols and 100 footprint variants. Full-suite CI is deferred to the maintainer's next batch.

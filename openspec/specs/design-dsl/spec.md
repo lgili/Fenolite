@@ -166,7 +166,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - `Power(hv, lv)` MUST become `Interface(kind="power", members={"hv": <net id>, "lv": <net id>})`, and `DiffPair(p, n)` MUST become `Interface(kind="diff_pair", members={"p": <net id>, "n": <net id>})`.
 - The default name MUST be `"<first net name>/<second net name>"`.
 - Member nets join the design.
-- Interfaces are not lowered to KiCad. A build MUST give one `build.interface-not-lowered` info per `diff_pair` interface.
+- Interfaces are not lowered to KiCad. A build MUST give one `build.interface-not-lowered` info per `diff_pair` and per `usb2` interface ("Typed interfaces in the DSL"), and the nets of each such pair MUST pass the name check of "Interface checks in a build".
 
 #### Scenario: Power interface
 - **GIVEN** `Power(vin, gnd)` added to a design
@@ -177,6 +177,11 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **GIVEN** a blink variant holding `DiffPair(usb_p, usb_n)` on nets `USB_P` and `USB_N`
 - **WHEN** it is built with `--dry-run`
 - **THEN** `issues` holds one info `build.interface-not-lowered` naming `USB_P/USB_N`
+
+#### Scenario: Diff pair names checked
+- **GIVEN** a blink variant holding `DiffPair(clk_p, clk_n)` on nets `CLK_P` and `CLKN`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one info `build.interface-not-lowered` naming `CLK_P/CLKN` and one warning `build.diff-pair-name` naming both nets
 
 ### Requirement: DSL to model
 `dsl.to_model(design) -> fenolite.model.Design` SHALL convert a DSL design into model types only, with the ids of `design-model` "Identifier derivation" (fourth case).
@@ -1170,7 +1175,7 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **THEN** `issues` holds no `place.*` issue, `result.placement.counts` is empty, and every file has the bytes it had before this change
 
 ### Requirement: Rule minimums in the DSL
-`design.rules.minimum(*, clearance=None, track_width=None, via_diameter=None, via_drill=None, hole_size=None, edge_clearance=None, netclass=None)` SHALL declare one design-rule minimum per given length. The keywords are the six rule kinds of the model (`fenolite.model.rules.RuleKind`), listed in this order by `dsl.design.MINIMUM_KINDS`.
+`design.rules.minimum(*, clearance=None, track_width=None, via_diameter=None, via_drill=None, hole_size=None, edge_clearance=None, netclass=None)` SHALL declare one design-rule minimum per given length. The keywords are the first six rule kinds of the model (`fenolite.model.rules.RuleKind`), listed in this order by `dsl.design.MINIMUM_KINDS`; the other kinds are declared with `rule()` ("Rule constructor in the DSL").
 - A value MUST be a `Length` or a string with a unit, as "DSL lengths and angles" rules, and MUST be above 0.
 - `netclass=None` declares board minimums. `netclass="<name>"` declares minimums for the nets of that class, which MUST already be declared with `design.rules.netclass`.
 - `minimum()` MAY be called several times. `DslError` MUST be raised at the call for: no length given; a bare number, a value without a unit or a value of 0 or less; a `netclass` that is not a declared class; and a kind declared twice for the same scope (the board, or one class). A refused call MUST record nothing.
@@ -1217,6 +1222,7 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **GIVEN** a built project whose script declares `minimum(track_width=mm(0.25))`, and a rule named `mine` added to its `.kicad_dru` by hand
 - **WHEN** the script changes the value to `mm(0.3)` and the project is built again
 - **THEN** the rules file holds `fenolite_0_min_track_width` once, with `(min 0.3mm)`, followed by the rule `mine`
+
 ### Requirement: Per-component pin-to-pad mapping
 The DSL build SHALL assign each symbol pin's net to the physical footprint pad named by `Component.pin_pad_map`, using identity mapping for pins not listed. Circuit net members and no-connects SHALL remain keyed by symbol pin number. A mapping with a missing source pin, missing pad target, or duplicate physical target MUST report `build.pin-pad-map-invalid` as an error and write no output. This issue SHALL join the closed build issue set of `design-dsl`, "Build issue codes".
 
@@ -1245,3 +1251,152 @@ The DSL build SHALL assign each symbol pin's net to the physical footprint pad n
 - **GIVEN** a design with two authored symbols under nickname `Local`
 - **WHEN** its KiCad build is confirmed
 - **THEN** it writes one `lib/Local.kicad_sym` containing both symbols and one matching `${KIPRJMOD}` table row
+
+### Requirement: Rule constructor in the DSL
+`design.rules.rule(name, kind, *, where=select.ALL, between=None, layers=(), min=None, opt=None, max=None, severity="error", priority=0)` SHALL declare one design rule of any model kind (`fenolite.model.rules.RuleKind`), with selectors from `fenolite.dsl.select` ("Selectors in the DSL").
+- `DslError` MUST be raised at the call, and nothing recorded, for: a `name` that is not a non-empty string or is already used by `rule()`; a `kind` outside `RuleKind`; no limit; a limit that is not a `Length` or a string with a unit; a negative `min`, or an `opt` or `max` of 0 or less; `min` above `opt` or `max`, or `opt` above `max`; a `where` or `between` that is not a selector; a `between` for a kind other than `clearance` and `creepage`; a `layers` value that is not a tuple of strings; a `severity` outside `error`, `warning` and `ignore`; a `priority` that is not an integer of 0 or more.
+- What depends on the target is not checked here: limits per kind, kind support, globs, selector support and layer names are refused by the lowering with its codes, and `build` reports them (exit 7, `FEN-7001`).
+- `Rules.named` MUST hold one `dsl.design.RuleSpec` per call, in call order.
+- `dsl.to_model` MUST add one model `Rule` per call to `Design.rules.rules`, after the rules of `minimum()`, in call order: id `derived_id("rul", "dsl", "rule:named:<name>")`, the given name, kind, limits, severity and priority, `selector_a` from `where`, `selector_b` from `between` (`None` when not given) and `layers` as given.
+- `docs/dsl.md` MUST describe `rule()` in its section "Design rules", with an example per kind group, and say that priority 0 is written first and governs least.
+
+#### Scenario: Creepage rule in the model
+- **GIVEN** a design with the classes `HV` and `LV` and `d.rules.rule("mains", "creepage", where=select.netclass("HV"), between=select.netclass("LV"), min=mm(6.4))`
+- **WHEN** `to_model(d)` runs
+- **THEN** `rules.rules` holds one `creepage` rule named `mains`, with `selector_a == Selector("netclass", "HV")`, `selector_b == Selector("netclass", "LV")`, `min == 6_400_000` and the id `derived_id("rul", "dsl", "rule:named:mains")`
+
+#### Scenario: Board-wide hole pitch
+- **WHEN** `d.rules.rule("pitch", "hole_to_hole", min="0.25mm")` is declared and the design is built for target 10
+- **THEN** `<name>.kicad_dru` holds a rule `"fenolite_0_pitch"` with `(constraint hole_to_hole (min 0.25mm))` and no condition
+
+#### Scenario: Second side refused for a hole kind
+- **WHEN** `d.rules.rule("x", "hole_clearance", where=select.net("A"), between=select.net("B"), min=mm(0.3))` is called
+- **THEN** `DslError` is raised naming `between` and `hole_clearance`, and nothing is recorded
+
+#### Scenario: Target refusal reported by the build
+- **GIVEN** a design with a `creepage` rule
+- **WHEN** it is built with `--kicad-version 9 --dry-run --json`, and again with `--allow-lossy`
+- **THEN** the first exits 7 with `FEN-7001`, a message that names the rule and says that KiCad 9.0 does not check creepage rules, and a hint naming `--allow-lossy`; the second exits 0 with `rules.dropped-for-target` in `issues`
+
+### Requirement: Selectors in the DSL
+`fenolite.dsl.select` SHALL build rule selectors: `ALL`, `net(name)`, `netclass(name)`, `ref(name)` and `item(kind)`, each a `select.Select`, combined with `&` (and), `|` (or) and `~` (not); `fenolite.dsl` SHALL re-export `select` (an addition under "DSL package").
+- `net` MUST take a net name or a `Net`, `netclass` a class name declared with `design.rules.netclass`, `ref` a reference or a `Part`, and `item` one of `track`, `via`, `pad` and `zone`. A `Net` or `Part` MUST be stored by its name, so a rule follows a rename made where the object is created. An empty name, or an `item` value outside the list, MUST raise `DslError`.
+- `a & b` MUST give `Selector("and", items=…)` and `a | b` `Selector("or", items=…)`, flattening nested operations of the same op; `~a` MUST give `Selector("not", items=(a,))`. `ALL` MUST NOT be combined: `ALL & x` raises `DslError`.
+- A name MAY hold `*`, which the model keeps as a glob; whether a target writes it is decided by the lowering (`rules-model`, "Closed selector grammar").
+- `Select.to_model()` MUST return the model `Selector`, and two equal expressions MUST give equal selectors.
+
+#### Scenario: Compound selector
+- **WHEN** `(select.net("A") | select.net("B")) & ~select.item("via")` is turned into a model selector
+- **THEN** it is `Selector("and", items=(Selector("or", items=(Selector("net", "A"), Selector("net", "B"))), Selector("not", items=(Selector("item_kind", "via"),))))`
+
+#### Scenario: Net object
+- **GIVEN** `vbus = Net("VBUS")` added to the design and a rule with `where=select.net(vbus)`
+- **WHEN** `to_model` runs
+- **THEN** the rule's `selector_a` is `Selector("net", "VBUS")`
+
+#### Scenario: ALL combined
+- **WHEN** `select.ALL & select.net("A")` is evaluated
+- **THEN** `DslError` is raised
+
+### Requirement: Quantities in the DSL
+`fenolite.dsl.quantity` SHALL provide `Quantity`, an exact value of one unit among `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`, `watt` and `second`, and the constructors `ohm(x)`, `farad(x)`, `henry(x)`, `volt(x)`, `amp(x)`, `hertz(x)`, `watt(x)` and `second(x)`; `fenolite.dsl` SHALL re-export `Quantity` and the constructors (an addition under "DSL package").
+- **Input.** `x` MUST be an `int`, a `fractions.Fraction`, or a text: a decimal number, an optional SI prefix among `p`, `n`, `u`, `µ`, `m`, `k`, `M` and `G`, and an optional symbol of the constructor's unit (`Ω`, `ohm` or `R`; `F`; `H`; `V`; `A`; `Hz`; `W`; `s`), with optional blanks between number and prefix; or the IEC 60062 letter code, where the prefix letter, or `R` for ohms, stands for the decimal point (`4k7`, `2R2`, `1n5`).
+- A `float`, a `bool`, a symbol of another unit, a text that does not parse, or a negative value for a unit other than volts and amperes MUST raise `DslError` naming the input.
+- **Value.** The value MUST be held as a `Fraction` of the unit. Equality, ordering and hashing MUST compare the unit and the exact value; ordering between different units MUST raise `TypeError`.
+- **Arithmetic.** `+` and `-` MUST take two quantities of one unit; `*` and `/` MUST take an `int` or a `Fraction`; any other operand MUST raise `TypeError`.
+- **Text.** `text()` MUST print the value scaled by the largest SI prefix, in steps of 1 000 from `p` to `G`, that keeps its magnitude at least 1 (no prefix between 1 and 1 000), as the shortest exact decimal, followed by the prefix (`u` for micro) and the symbol (`Ω`, `F`, `H`, `V`, `A`, `Hz`, `W`, `s`). A value that is not a terminating decimal at that scale MUST raise `DslError`. `text(code=True)` MUST print the IEC 60062 letter code for ohms, farads and henries, the prefix letter (or `R` without a prefix, for ohms) standing for the decimal point and no symbol, and MUST raise `DslError` for the other units.
+- No quantity MUST reach the model or `.fenolite/`: it is a script value.
+
+#### Scenario: Equal forms
+- **WHEN** `ohm("4k7")`, `ohm("4.7k")`, `ohm("4.7 kΩ")` and `ohm(4700)` are compared
+- **THEN** they are equal, have one hash, and `text()` of each is `4.7kΩ`
+
+#### Scenario: Canonical texts
+- **WHEN** `farad("0.1u").text()`, `volt("3.30").text()`, `hertz(16_000_000).text()` and `ohm("2R2").text(code=True)` are computed
+- **THEN** they are `100nF`, `3.3V`, `16MHz` and `2R2`
+
+#### Scenario: Float refused
+- **WHEN** `ohm(4.7e3)` is called
+- **THEN** `DslError` is raised naming the value
+
+#### Scenario: Wrong unit
+- **WHEN** `farad("10V")` is called
+- **THEN** `DslError` is raised naming `10V`
+
+### Requirement: Part values from quantities
+`Part(ref, lib_id, footprint=None, value="")` SHALL accept a `Quantity` as `value` and SHALL store its `text()`; a string value MUST keep working unchanged.
+- The model's `Component.value` MUST be that text, so two parts given equal quantities have equal values whatever their spelling in the script.
+
+#### Scenario: One value for two spellings
+- **GIVEN** `Part("R1", "Mini:Mini_R", value=ohm("4k7"))` and `Part("R2", "Mini:Mini_R", value=ohm("4700"))` in one design
+- **WHEN** `to_model` runs
+- **THEN** both components have the value `4.7kΩ`
+
+### Requirement: Typed interfaces in the DSL
+`fenolite.dsl.interfaces` SHALL define `I2C(sda, scl, *, name=None)`, `SPI(sck, mosi, miso, *, cs=(), name=None)`, `UART(tx, rx, *, name=None)` and `USB2(dp, dn, *, vbus=None, gnd=None, name=None)`, subclasses of `Interface` re-exported by `fenolite.dsl` (an addition under "DSL package"), which record buses as model `Interface` entities without any model delta. This requirement extends "Interfaces in the DSL", whose rules hold for them.
+- Kinds and members: `I2C` gives kind `i2c` with `sda` and `scl`; `SPI` gives `spi` with `sck`, `mosi`, `miso` and `cs0` … `cs<n-1>` for the nets of `cs` in order; `UART` gives `uart` with `tx` and `rx`, named from device A; `USB2` gives `usb2` with `dp` and `dn`, and `vbus` and `gnd` when given.
+- Every argument naming a net MUST be a `Net`; two members of one interface MUST be distinct nets; otherwise `DslError` is raised. A net MAY be a member of several interfaces.
+- The default name MUST be `"<first net name>/<second net name>"`, and the id MUST be `derived_id("itf", "dsl", "interface:<kind>:<name>")`. Member nets join the design.
+- A KiCad build MUST keep the four kinds in `.fenolite/`, and the written KiCad files outside it MUST NOT depend on them.
+
+#### Scenario: I2C in the model
+- **GIVEN** `I2C(sda, scl)` on the nets `SDA` and `SCL`, added to a design
+- **WHEN** `to_model` runs
+- **THEN** the model holds an `Interface` named `SDA/SCL` with kind `i2c` and members `sda` and `scl` equal to the ids of the two nets
+
+#### Scenario: SPI chip selects
+- **GIVEN** `SPI(sck, mosi, miso, cs=(cs_flash, cs_adc))`
+- **WHEN** `to_model` runs
+- **THEN** the interface has the members `sck`, `mosi`, `miso`, `cs0` (the net of `cs_flash`) and `cs1` (the net of `cs_adc`)
+
+#### Scenario: One net twice
+- **WHEN** `USB2(dp, dp)` is called
+- **THEN** `DslError` is raised naming the net
+
+### Requirement: Attaching parts to interfaces
+Each typed interface SHALL provide `attach(part, **roles)`, which connects pins of one part to the interface's nets by role through `connect`, so that every rule of `connect` applies.
+- `I2C.attach(part, *, sda, scl)` and `USB2.attach(part, *, dp, dn, vbus=None, gnd=None)` MUST connect each given pin to the net of its role. A role whose net the interface does not have (`vbus` on a `USB2` without `vbus`) MUST raise `DslError`.
+- `UART.attach(part, *, side, tx, rx)`: with `side="a"` the `tx` pin MUST join the `tx` net and the `rx` pin the `rx` net; with `side="b"` the `tx` pin MUST join the `rx` net and the `rx` pin the `tx` net. Any other `side` MUST raise `DslError`.
+- `SPI.attach(part, *, role, sck, mosi, miso, cs=None, cs_index=None)`: `sck`, `mosi` and `miso` MUST join the nets of their names. With `role="controller"`, `cs` MUST be a sequence with one pin per chip-select net, joined in order, and `cs_index` MUST be `None`. With `role="peripheral"`, `cs` MUST be one pin and `cs_index` the index of its chip-select net. Any other combination MUST raise `DslError`.
+- A pin argument MUST be a pin handle of `part`, or a designator, which MUST be resolved as `part[designator]`. A pin handle of another part MUST raise `DslError`.
+
+#### Scenario: UART crossed for the second device
+- **GIVEN** `uart = UART(a_tx, a_rx)`, `uart.attach(u1, side="a", tx=u1["TX"], rx=u1["RX"])` and `uart.attach(u2, side="b", tx=u2["TX"], rx=u2["RX"])`
+- **WHEN** `to_model` runs
+- **THEN** the net of `a_tx` holds `U1` pin `TX` and `U2` pin `RX`, and the net of `a_rx` holds `U1` pin `RX` and `U2` pin `TX`
+
+#### Scenario: SPI peripheral on its chip select
+- **GIVEN** the SPI of "SPI chip selects", a controller `U1` attached with `cs=(u1["CS0"], u1["CS1"])`, and a peripheral `U3` attached with `cs=u3["CS"]` and `cs_index=1`
+- **WHEN** `to_model` runs
+- **THEN** the net of `cs_adc` holds `U1` pin `CS1` and `U3` pin `CS`, and the net of `cs_flash` holds only `U1` pin `CS0`
+
+#### Scenario: Pin of another part
+- **WHEN** `bus.attach(u1, sda=u2["SDA"], scl=u1["SCL"])` is called on an `I2C`
+- **THEN** `DslError` is raised naming `U2`, and nothing is connected
+
+### Requirement: Interface checks in a build
+A build SHALL check the interfaces of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, and SHALL report two warnings, which join the closed build set ("Build issue codes"):
+
+| code | severity | when |
+|---|---|---|
+| `build.diff-pair-name` | warning | the two nets of a `diff_pair` (`p`, `n`) or `usb2` (`dp`, `dn`) interface do not form a KiCad differential pair by name |
+| `build.i2c-pullup-missing` | warning | an I2C line has no two-pin part to the `hv` net of a `power` interface |
+
+- **Pair names** (`H-K-DIFFPAIR-NAMES`). The names, in KiCad's stored form, form a pair when they are equal except for the last character, which is `P` for the first net and `N` for the second, or `+` and `-`; letter case counts. The hint MUST propose a second name: the first name with its last character `P` or `+` replaced by `N` or `-`; when the first name ends in neither, it MUST propose `<first name>_P` and `<first name>_N`.
+- **Pull-ups.** For the `sda` and `scl` nets of each `i2c` interface, a pull-up is a component whose resolved symbol has exactly two pins, one on that net and the other on the `hv` net of a `power` interface of the design. The issue MUST name the interface and the line.
+- The checks MUST NOT change any file or the model, and a design without interfaces MUST give neither code.
+
+#### Scenario: Pair names that KiCad does not pair
+- **GIVEN** a blink variant with `USB2(usb_dp, usb_dm)` on the nets `USB_DP` and `USB_DM`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one `build.diff-pair-name` naming `USB_DP` and `USB_DM`, with a hint naming `USB_DN`, and one `build.interface-not-lowered`
+
+#### Scenario: Pair names that KiCad pairs
+- **WHEN** the same variant uses the nets `USB_P` and `USB_N`
+- **THEN** `issues` hold no `build.diff-pair-name`
+
+#### Scenario: Missing pull-up
+- **GIVEN** a design with `Power(vdd, gnd)`, `I2C(sda, scl)`, a resistor from `SDA` to `VDD` and none on `SCL`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one `build.i2c-pullup-missing` naming the interface and `scl`
+

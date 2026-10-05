@@ -738,7 +738,7 @@ For any board whose `Board.outline` has points, created or read and then given a
 - `RulesDocument.node` MUST be the synthetic `kicad_dru` node of the version and rule lists, without comments.
 
 `read_rules(text, *, file="", issues=None)` SHALL return a `RuleSet`:
-- A rule list MUST be lifted into a `Rule` only when every child belongs to the closed grammar of `rules-model`: a name, one constraint of a mapped kind with allowed limits and values in `mm`, `mil` or `in` (parsed exactly with `core.units.parse_length`), at most one condition in the closed selector grammar (up to whitespace and redundant parentheses), at most one layer clause with one layer name, and at most one severity among `error`, `warning` and `ignore`. A `hole_size` rule whose condition starts with the conjunct `A.Type == 'Via'` MUST lift as `hole_size` with an `item_kind via` selector.
+- A rule list MUST be lifted into a `Rule` only when every child belongs to the closed grammar of `rules-model`: a name, one constraint of a mapped kind (`rules-model`, "Rule kinds and limits") with allowed limits and values in `mm`, `mil` or `in` (parsed exactly with `core.units.parse_length`), at most one condition in the closed selector grammar of that kind ("Closed selector grammar"; up to whitespace and redundant parentheses), at most one layer clause with one layer name where the kind takes one, and at most one severity among `error`, `warning` and `ignore`. A `courtyard_clearance` rule whose condition is `A.Reference == 'v'` MUST lift with a `ref v` selector; one written with `memberOfFootprint` MUST stay opaque, with the reason that `memberOfFootprint` selects no footprint for that kind (`H-K-DRU-COURTYARD`). A `hole_size` rule whose condition starts with the conjunct `A.Type == 'Via'` MUST lift as `hole_size` with an `item_kind via` selector.
 - Any other rule list, every comment line, and every rule with a comment inside MUST be kept as an `Opaque` slot of `RuleSet.ext["kicad"]` with its exact source text, in file order, and every unlifted rule MUST add the info `rules.kept-opaque` naming the reason.
 - A lifted rule MUST get the priority "number of rule items after it, plus 1", the id `derived_id("rul", "kicad", "rule:<name>")` (with `:<k>` for the k-th repetition of a name), its clause order as slots in its own `ext["kicad"]`, and provenance with locator `/kicad_dru/rule[i]` and `dru.EVIDENCE`. A missing severity MUST lift as `"error"`.
 - In a future file, every item MUST be kept opaque with the file version as minimum version.
@@ -767,7 +767,7 @@ For any board whose `Board.outline` has points, created or read and then given a
 - **THEN** `FormatError` is raised with `file == "broken.kicad_dru"` and `locator == "line 3"`
 
 #### Scenario: Unrepresentable rule kept opaque
-- **GIVEN** a rule `(rule ring (constraint annular_width (min 0.1mm)))` between two lifted rules
+- **GIVEN** a rule `(rule spokes (constraint thermal_spoke_width (min 0.3mm)))` between two lifted rules
 - **WHEN** it is read with an `issues` list and written for target 9
 - **THEN** it is an `Opaque` slot between the two `rules` slots, `issues` holds one `rules.kept-opaque`, and the written text holds it verbatim at the same position
 
@@ -804,6 +804,16 @@ For any board whose `Board.outline` has points, created or read and then given a
 - **GIVEN** the comments, units and selectors fixtures, each on a bench with the canary
 - **WHEN** `uv run pytest tests/kicad/rules/test_rule_dialect.py` runs on 9.0.9 and on 10.0.6
 - **THEN** the canary violation is present for each fixture, and the `mil` and `in` rules each give their violation
+
+#### Scenario: New kind lifted
+- **GIVEN** a rules text holding `(rule ring (constraint annular_width (min 0.1mm)))`
+- **WHEN** it is read and written for target 10
+- **THEN** the rule set holds one `annular_width` rule with `selector_a == Selector("all")` and `min == 100_000`, no `rules.kept-opaque` is given, and the written text holds the rule `ring` with the same constraint and no added severity clause
+
+#### Scenario: Courtyard rule by membership stays opaque
+- **GIVEN** a rules text holding `(rule c (condition "A.memberOfFootprint('U1')") (constraint courtyard_clearance (min 0.5mm)))`
+- **WHEN** it is read with an `issues` list
+- **THEN** the rule is an `Opaque` slot, and `issues` holds one `rules.kept-opaque` naming `memberOfFootprint`
 
 ### Requirement: Project JSON is preserved exactly
 `fenolite.backends.kicad.pro.read_project_text(text, *, file="")` SHALL parse a `.kicad_pro` file into a `JsonObject` that keeps the key order of every object and keeps every number as a `JsonNumber` holding its original text, and `write_project_text(data)` SHALL print it back. No float MUST exist at any step.
