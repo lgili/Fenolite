@@ -84,7 +84,8 @@ def test_user_sheet_in_a_built_project(tmp_path: Path, monkeypatch: pytest.Monke
     assert "blink.kicad_wks" in record["files"]
     # the written sheet reads back with the same items, and the user's file is untouched
     again = wks.read_drawing_sheet(text, file="blink.kicad_wks")
-    assert len(again.items) == 2 and (p.script.parent / "frame.kicad_wks").read_text() == LEGACY
+    source = (p.script.parent / "frame.kicad_wks").read_text(encoding="utf-8")
+    assert len(again.items) == 2 and source == LEGACY
     board = read_board((fresh / "blink.kicad_pcb").read_text(encoding="utf-8")).board
     assert board is not None and board.sheet is not None and board.sheet.paper == "A4"
 
