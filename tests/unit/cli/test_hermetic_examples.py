@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from _checkcli import hide_kicad, run
+from _cliexamples import prepare_example
 from _fakecli import fake_kicad_cli
 
 from fenolite.cli.api import discover
@@ -34,6 +35,7 @@ def test_example_arguments_are_hermetic(monkeypatch: pytest.MonkeyPatch, tmp_pat
         monkeypatch.setattr(subprocess, "Popen", refuse)
     work = tmp_path / "work"
     work.mkdir()
+    prepare_example(name, work)
     code, env, err, _ = run(monkeypatch, work, name, *discover()[name].example_args)
     assert code == 0, err
     if name == "check":

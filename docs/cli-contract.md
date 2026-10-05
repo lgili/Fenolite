@@ -8,6 +8,8 @@ bumps the schema id.
 
 - **JSON when stdout is not a terminal**, text when it is. `--json` / `--text` override.
 - One JSON document per invocation on stdout, followed by a newline.
+- `--limit N` and `--cursor TOKEN` page a command's main list, and `--format concise` keeps one issue
+  per code (see "Paged results" and "Concise output").
 - `--fields a,b.c` keeps only those dotted paths of `result` (the rest of the envelope stays); the `plan` of a mutating command is part of `result`, so `--fields` keeps it only when listed.
 
 ## Envelope — `schemas/fenolite.envelope.v0.json`
@@ -28,7 +30,8 @@ bumps the schema id.
 ```
 
 `input` is `{path, sha256, kind, format_version}` when the command read a design file.
-`receipt` is `{written: [{path, sha256}], backup: [path]}` when the command wrote files.
+`receipt` is `{written: [{path, sha256}], backup: [path], id, undo}` when the command wrote files
+(see "Receipt identity").
 
 ## Errors — `schemas/fenolite.error.v0.json`
 
@@ -828,3 +831,264 @@ a usage error, 3 for a missing path or template or an invalid template. The evid
 `placement.EVIDENCE` (`H-K-PCB-POS`, `H-K-POS-ROWS`) combined with the evidence of the board read. Under
 the default template the table holds the content of `kicad-cli pcb export pos`, without the DNP parts and
 with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differences.
+## diff
+
+`fenolite diff A B [--view model|tree] [--ext]` lists the differences between two inputs. It writes
+nothing and runs no tool. A difference is a result, not a finding: the exit code is 0 whether or not the
+inputs differ, and `result.equal` says it.
+
+`A` and `B` are each a KiCad board, a footprint file, a symbol library (file or `.kicad_symdir` folder),
+or a folder that holds `.fenolite/meta.json` (the built model). Both must be of one family: two designs
+(boards and built models, in any mix) or two libraries. Schematics are compared by the tree view only
+until the schematic reader lands.
+
+- **`--view model`** (the default) compares the two models entity by entity. Ids, KiCad uuids and
+  provenance never take part, so a rebuilt board equals itself.
+  - Entities with a name are matched by it: `component` by reference, `net` by name (a net without a
+    name by its sorted members), `netclass`, `layer` and `interface` by name, `module` by path,
+    `no_connect` by `REF-PIN`, `footprint` by the reference of its component, `pad` by `REF-NUMBER`
+    (`#<k>` for the k-th further pad of one number), and in a library `footprint_def` and `symbol_def` by
+    `<library>:<name>`. An entity on one side only is `removed` (only in `A`) or `added` (only in `B`),
+    with the path `/<kind>/<key>`; a field that differs is `changed`, with `/<kind>/<key>/<field>`.
+  - Copper and graphics (`track`, `arc`, `via`, `zone`, `keepout`, `text`, `graphic`, `hole`, `rule`,
+    `stack_layer`) have no name: two of them match when every field is equal. A moved track is therefore
+    one `removed` and one `added`, with the path `/<kind>/<n>`.
+  - The values a design holds once (`outline`, `finish`, `sheet`, `title_block`) are `/design/<field>`.
+    The design's name is not compared.
+  - A key is one path segment: `/` in a name is written `~1` and `~` is written `~0`, so the net `/SDA`
+    is `/net/~1SDA`.
+  - A moved footprint is exactly one change, `/footprint/<ref>/position`: pad positions are stored
+    relative to their footprint.
+  - `--ext` also compares the content Fenolite keeps without modelling it, as a hash per entity (`ext`).
+- **`--view tree`** compares the parsed trees of two KiCad S-expression files of one kind (`.kicad_pcb`,
+  `.kicad_mod`, `.kicad_sch`, `.kicad_sym`, `.kicad_wks`). It answers "did anything at all change",
+  unmodelled content included, without a list: `result.first_difference` is the locator of the first
+  node that differs (or `null`) and `result.heads` gives, per root child head whose count differs, its
+  count in `a` and in `b`.
+
+`result` holds `view`, `equal`, `a` and `b` (each `{path, kind}`; `kind` is `kicad_pcb`, `kicad_mod`,
+`kicad_sym` or `fenolite_model`), `summary` (per entity kind: `added`, `removed`, `changed`),
+`differences` (objects `{path, change, a, b}`, sorted by path; `a` and `b` are compact JSON texts),
+`total` and `truncated`. `differences` is a paged list with a default limit of 200 (see "Paged
+results"). `issues` holds only the readers' issues, those of `A` first; `input` describes `A`. The
+evidence is the lowest of the two readings; a built model counts as `INFERRED`.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | the inputs were compared, equal or not |
+| 2 | `FEN-2001` | an input that nothing reads, inputs of two families or two kinds, a folder in the tree view |
+| 3 | `FEN-3001` | an input does not exist |
+| 3 | `FEN-3002`, `FEN-3003`, `FEN-3004` | an input cannot be read |
+
+## roundtrip
+
+`fenolite roundtrip PATH [--level rt0|rt1|rt2] [--kicad-cli PATH] [--timeout SECONDS]` says up to which
+level Fenolite reads a KiCad file and writes it back without loss. Run it before editing a file that
+Fenolite did not write. It writes nothing; RT2 runs `kicad-cli` on copies.
+
+| level | what holds |
+|---|---|
+| `rt0` | parsing the file, printing it and parsing it again gives an equal tree (any of the five S-expression kinds) |
+| `rt1` (default) | RT0, and the backend's same-version rebuild of a board gives an equal tree, an equal model and the same unmodelled content. For a kind without a rebuild `result.rt1` is `not-applicable` and the level reached is `rt0` |
+| `rt2` | RT1, and KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it. `PATH` may then be a project file or folder |
+
+`result` holds `kind`, `level` (the highest level that holds, or `none`), and per level asked an object
+`{passed, difference}`, with `opaque_count` for `rt1`, and for `rt2` also `judged`, `normalised`, `runs`,
+`before`, `after`, `unstable` and `differences`. A level after a failed one is `not-run`. When KiCad does
+not repeat its own DRC report on a board, RT2 is not judged: `judged` is `false`, the level stays `rt1`
+and nothing fails.
+
+| code | severity | when |
+|---|---|---|
+| `roundtrip.failed` | error | a level does not hold; `where` is the first difference |
+
+`check.oracle-failed` and `check.rt2-unstable` of the RT2 stage pass through.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | every level asked holds, or RT2 is not judged |
+| 2 | `FEN-2001` | a file of another kind, or `--level rt2` on a file that is not a board |
+| 3 | `FEN-3001`, `FEN-3004` | the file is missing or does not parse |
+| 5 | `FEN-5001` | a level failed |
+| 6 | `FEN-6001`, `FEN-6002` | `--level rt2` without a supported `kicad-cli` |
+
+## fmt
+
+`fenolite fmt PATH [--check]` gives a KiCad S-expression file (`.kicad_pcb`, `.kicad_mod`, `.kicad_sch`,
+`.kicad_sym`, `.kicad_wks`) Fenolite's canonical print: the file is parsed and printed again, so its tree
+does not change, only its layout. Use it for small diffs under version control. It is not KiCad's own
+formatter: KiCad may lay the file out again when it saves it, and the tree is still the same.
+
+- `--check` writes nothing: `result.formatted` says whether the file already is its canonical print, and
+  a file that is not gives the error `fmt.would-change` and exit 5.
+- Without `--check` it is a mutating command: one planned write of the canonical text when the file
+  differs (`--dry-run` shows it, `--confirm` writes it and keeps a `.bak`), and no plan and exit 0 when
+  the file is already canonical.
+
+`result` holds `kind`, `formatted`, `lines` (of the file) and `first_difference` (the number of the
+first line that differs, or `null`). Formatting a formatted file changes nothing: this fixed point is
+tested on the whole corpus (`H-K-FMT-IDEMPOTENT`, `docs/evidence/kicad-fmt-identity.md`).
+
+| code | severity | when |
+|---|---|---|
+| `fmt.would-change` | error | `--check` on a file that is not canonical; `where` is `<file>:<line>` |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | the file is canonical, a dry run, or a confirmed write |
+| 2 | `FEN-2001` | a `.kicad_pro` (JSON, kept byte for byte), a `.kicad_dru`, or any other file |
+| 3 | `FEN-3001`, `FEN-3004` | the file is missing or does not parse |
+| 4 | `FEN-4001` | the file would change and neither `--dry-run` nor `--confirm` was given |
+| 5 | `FEN-5001` | `--check` on a file that would change |
+| 7 | `FEN-7001` | the tree holds comments below the root, which the printer would lose |
+
+## explain
+
+`fenolite explain CODE` says what an error code (`FEN-NNNN`) or an issue code (`check.rt1-failed`) means
+and what to do about it. The texts are packaged with Fenolite, so the command needs no file and no
+network. `result` holds `code`, `kind` (`error` or `issue`), `exit_code` (for an error code, else
+`null`), `severities` (for an issue code), `meaning`, `fix`, `see` (a section of this page) and `family`.
+
+A code that a tool's own type completes, such as `kicad.drc.clearance`, is explained by the entry of its
+family, and `result.family` is then `kicad.drc.*`. An unknown code exits 2 with `FEN-2001`, and the hint
+names the three closest codes. A test keeps the table complete: every code of every issue-code table and
+of the error registry has an entry.
+
+## restore
+
+`fenolite restore RECEIPT [--in DIR]` puts back the backups of one confirmed write. `RECEIPT` is a file
+that holds the envelope of that write (or only its `receipt` object), or `-` to read it from stdin;
+`--in` is the working directory that write ran in (default: the current one). The receipt is the undo
+token: keep the envelope of a write you may want to undo.
+
+```
+fenolite build design.py --out build --confirm --json > last-write.json
+fenolite restore last-write.json --dry-run --json
+fenolite restore last-write.json --confirm --json
+```
+
+- Nothing is restored unless every file of `written` still has the SHA-256 the write gave it. One changed
+  file refuses the whole restore: a half-undone build is worse than none.
+- For every path of `backup`, the content of the `.bak` file is written back to its file.
+- **`restore` deletes nothing.** A file the write created, or wrote with `--no-backup`, stays as it is and
+  is reported with `restore.kept`.
+- It is itself a mutating command (`--dry-run`, `--confirm`): the content it replaces becomes the new
+  `.bak`, so the receipt of a restore undoes the restore.
+- A receipt path that is absolute or leaves the folder is refused as malformed.
+
+`result` holds `id` (of the receipt read), `restored` and `kept` (paths), and `changed` when refused.
+
+| code | severity | when |
+|---|---|---|
+| `restore.changed-since` | error | a written file is missing or changed since the write; nothing is planned |
+| `restore.backup-missing` | error | a backup of the receipt does not exist; nothing is planned |
+| `restore.nothing` | error | the receipt kept no backup |
+| `restore.kept` | info | a written file without a backup stays as it is |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run, or a confirmed restore |
+| 3 | `FEN-3001`, `FEN-3004` | the receipt or `--in` is missing, or the receipt is not one |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+| 5 | `FEN-5001` | the restore was refused; read `issues` |
+
+## Receipt identity
+
+The `receipt` of a confirmed write holds, beside `written` and `backup`:
+
+- `id`: the first 16 hex digits of the SHA-256 of the compact JSON, with sorted keys, of
+  `{"backup": …, "written": …}`. No clock, seed or folder takes part: equal writes have equal ids.
+- `undo`: `fenolite restore - --confirm` when a backup was kept (pipe the envelope to it), else `null`.
+
+Both fields are optional in `schemas/fenolite.envelope.v0.json`, so an envelope written before they
+existed still validates.
+
+## Paged results
+
+`--limit N` and `--cursor TOKEN` cut the main list of a command to one page. `fenolite capabilities`
+lists, per command, `paged` (the list: a path in `result`, or `issues`) and `default_limit`.
+
+| command | paged list | default limit |
+|---|---|---|
+| `check`, `analyze` | `issues` | none |
+| `diff` | `result.differences` | 200 |
+| `net` | `result.nets`, or `result.net.pads` with a net name | none |
+| `region` | `result.items` | none |
+| `neighbors` | `result.neighbors` | none |
+
+- With a limit in force, the list holds the items `offset` to `offset + limit - 1` and `result.page` is
+  `{path, limit, offset, total, next}`: `total` is the length of the whole list and `next` the cursor of
+  the following page, or `null` on the last. Without a limit the list is whole and `page` is absent.
+- A cursor is `<offset>.<digest>`, the digest being the first 8 hex digits of the SHA-256 of the compact
+  JSON, with sorted keys, of the whole list. Paging keeps no state: every call computes the whole result
+  and cuts it. Pass `--cursor` with the same `--limit` as the page before.
+- **The exit code, `ok`, the error on stderr and every count in `result` come from the whole result,
+  never from the page.**
+- `--fields` applies after paging and can keep `page`.
+
+| exit | error | when |
+|---|---|---|
+| 2 | `FEN-2001` | `--limit` below 1, or on a command without a paged list |
+| 2 | `FEN-2001` | a malformed cursor, an offset past the end, a cursor without a limit in force |
+| 2 | `FEN-2001` | the result changed since the cursor was issued: start again without `--cursor` |
+
+## Concise output
+
+`--format concise` keeps, for each issue code, the first issue in the envelope's order and drops the
+others, and adds `result.issues_summary`: one object per code, sorted by code, with `code`, `count` and
+`by_severity`. An agent that fixes one problem per iteration reads one issue per kind and the counts.
+Paging of `issues` applies to the list that `concise` leaves; `ok` and the exit code come from the whole
+result. `--format detailed` is the default and changes nothing.
+
+## net
+
+`fenolite net PATH [NAME]` describes the nets of a board from the board model; `PATH` is a board, a
+project file or a project folder. It runs no tool. It says what a net holds, never whether it is
+connected: missing connections are KiCad's `unconnected_items` (`fenolite check`).
+
+- Without `NAME`, `result.nets` holds one row per net, sorted by name: `name`, `class`, `pads`, `tracks`
+  (tracks and arcs), `vias`, `zones` and `length`, the summed centre-line length of its tracks and arcs.
+- With `NAME`, `result.net` holds `name`, `class`, `pads` (each `where` as `REF-PIN`, `layers`,
+  `position`), `copper` (per layer: `tracks`, `arcs`, `length`), `vias` (`position`, `layers`,
+  `diameter`, `drill`), `zones` (`name`, `layers`, `filled`) and `box`, the bounding box of its pads and
+  copper (`{x0, y0, x1, y1}`, or `null`).
+
+Every length is integer nanometres, in the frame of the board file. An unknown net exits 2 with
+`FEN-2001`, and the hint names the closest net names. The evidence is the lowest of the board reader
+and of the board frame.
+
+## region
+
+`fenolite region PATH --box X1,Y1,X2,Y2 [--layer NAME] [--kinds a,b]` lists what a rectangle of the board
+holds. `--box` is two corners, in any order, as four lengths with units (`10mm,5mm,30mm,20mm`), in the
+frame of the board file; the rectangle is closed.
+
+`result.items` holds objects `{kind, where, net, layer, box}`, sorted by kind (`footprint`, `pad`,
+`track`, `arc`, `via`, `zone`, `text`) and then by `where`; `result` also holds `box`, `layer` and
+`counts` per kind.
+
+| kind | touches the rectangle when | `where` |
+|---|---|---|
+| `pad`, `track`, `arc`, `via` | the exact gap between its copper and the rectangle is 0 (an arc within 1 µm) | `REF-PIN` for a pad, else the item's locator in the file |
+| `footprint` | the bounding box of its courtyard on its own side meets it | the reference |
+| `zone` | the bounding box of its outline meets it, so a zone may be listed whose copper does not reach it | the item's locator |
+| `text` | its position lies in it | the item's locator |
+
+With `--layer`, only items on that layer are listed; a footprint counts for the copper layer of its
+side, and an item on several layers is listed once. A length without a unit, a rectangle without area and
+an unknown kind exit 2 with `FEN-2001`.
+
+## neighbors
+
+`fenolite neighbors PATH REF [--radius L]` lists the footprints near one part. `--radius` is a length
+with a unit, 5 mm by default.
+
+`result.part` holds `ref`, `position`, `rotation`, `side` and `box` (of its courtyard); `result.radius`
+is the radius in nm; `result.neighbors` holds one row per other footprint whose courtyard lies within the
+radius, sorted by distance and then reference: `ref`, `distance` (the gap between the two courtyards in
+nm, rounded up; 0 when they touch or overlap), `overlap`, `side` and `shared_nets` (sorted names).
+
+Only footprints on a side the part is on are neighbours; a part with through-hole pads is on both. A
+footprint without a courtyard is judged by the hull of its pads, and one without pads by its position
+(`kicad.frame.no-courtyard`). An unknown reference exits 2 with `FEN-2001`, and the hint names the
+closest references.

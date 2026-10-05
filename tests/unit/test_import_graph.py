@@ -226,6 +226,8 @@ def test_layering() -> None:
         ("dsl", "model", True),
         ("catalog", "model", True),
         ("lens", "backends.kicad", True),
+        ("checks", "backends.kicad", False),
+        ("analysis", "backends.kicad", False),
     ],
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:

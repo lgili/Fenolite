@@ -149,5 +149,6 @@ COMMAND = Command(
     mutates=False,
     register=_register,
     run=_run,
+    paged="issues",
     example_args=(EXAMPLE_BOARD, "--stages", "model.validate,erc.lite,roundtrip"),
 )

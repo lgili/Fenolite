@@ -531,6 +531,27 @@ def dumps(x: Node | Atom, *, style: Literal["kicad", "compact"] = "kicad") -> st
     return "\n".join(lines) + "\n"
 
 
+def canonical(text: str, *, file: str = "") -> str:
+    """Fenolite's canonical print of a KiCad S-expression text: ``dumps(parse(text))``.
+
+    No atom changes, so the result parses tree-equal to ``text``, and printing it again gives the same
+    bytes. The parser's ``FormatError`` and the printer's ``ValueError`` (comments below the root) are
+    raised unchanged. This is Fenolite's layout, not a claim about the bytes KiCad writes.
+    """
+    return dumps(parse(text, file=file))
+
+
+def first_line_difference(a: str, b: str) -> int | None:
+    """The number, from 1, of the first line at which two texts differ; ``None`` for equal texts."""
+    if a == b:
+        return None
+    lines_a, lines_b = a.split("\n"), b.split("\n")
+    for number, (x, y) in enumerate(zip(lines_a, lines_b, strict=False), start=1):
+        if x != y:
+            return number
+    return min(len(lines_a), len(lines_b)) + 1
+
+
 # --- equality and locators ------------------------------------------------------------------------
 
 
@@ -590,8 +611,10 @@ __all__ = [
     "Atom",
     "AtomKind",
     "Node",
+    "canonical",
     "dumps",
     "first_difference",
+    "first_line_difference",
     "load",
     "parse",
     "parse_bytes",

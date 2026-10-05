@@ -35,7 +35,9 @@ Every command prints one JSON envelope, never asks a question, and writes only w
    `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.
 5. **Issues.** `issues` is a list of `{code, severity, message, where}`. An `error` makes the exit code
    5; a `warning` or an `info` does not. `where` names a reference such as `R1-2`, or a place in a file.
-6. **Small replies.** `--fields a,b.c` keeps only the named parts of `result`.
+6. **Small replies.** `--fields a,b.c` keeps only the named parts of `result`. `--format concise` keeps
+   one issue per code with the counts: use it to fix one problem per iteration. `--limit N` cuts a long
+   list to a page; the exit code still comes from the whole result.
 7. **Same bytes twice.** Pass `--seed` and `--timestamp` when two runs must give identical files.
 
 ## The loop
@@ -86,6 +88,22 @@ What each step is for:
   the part, then build again.
 - **Exit 6.** The envelope of `fenolite doctor --json` says which tool is missing and where it is
   looked for.
+
+## Small questions between the steps
+
+These commands read and answer; none of them runs a tool unless it says so.
+
+- `fenolite explain CODE` says what an error code or an issue code means and what to do about it.
+- `fenolite roundtrip FILE` before you edit a file that Fenolite did not write: exit 5
+  (`roundtrip.failed`) means reading it and writing it back would change it, so edit it in KiCad.
+- `fenolite diff A B` lists what changed between two boards, libraries or built models; a moved
+  footprint is one change. `--view tree` says whether two KiCad files differ at all.
+- `fenolite net BOARD [NAME]`, `fenolite region BOARD --box 10mm,5mm,30mm,20mm` and
+  `fenolite neighbors BOARD R1` describe a net, a rectangle of the board and what is near a part.
+- `fenolite fmt FILE --check` says whether a file is in Fenolite's canonical print.
+- **Undo.** Keep the envelope of a confirmed write. When `receipt.undo` is not `null`,
+  `fenolite restore ENVELOPE.json --confirm` puts the backups back. It refuses when a file changed since
+  the write, and it never deletes a file.
 
 ## Limits
 

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -43,6 +44,10 @@ class Receipt:
 
     written: tuple[WrittenFile, ...]
     backup: tuple[str, ...]
+    id: str = field(default="", metadata={"pattern": r"^([0-9a-f]{16})?$", "optional": True})
+    """The identity of the write: :func:`receipt_id` of ``written`` and ``backup``."""
+    undo: str | None = field(default=None, metadata={"optional": True})
+    """The command that puts the backups back, reading this envelope from stdin; ``None`` without one."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +63,77 @@ class Envelope:
     evidence: Evidence
     receipt: Receipt | None
     elapsed_ms: int = field(metadata={"minimum": 0})
+
+
+UNDO_COMMAND = "fenolite restore - --confirm"
+"""``receipt.undo`` of a write that kept a backup: pipe the envelope to it."""
+
+
+def canonical_json(value: Any) -> str:
+    """Compact JSON with sorted keys: the form that receipt ids and page cursors are digests of."""
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def receipt_id(written: Sequence[WrittenFile], backup: Sequence[str]) -> str:
+    """The first 16 hex digits of the SHA-256 of the canonical JSON of ``{"written": …, "backup": …}``.
+    No clock, seed or folder takes part, so equal writes have equal ids."""
+    body = {"written": [{"path": w.path, "sha256": w.sha256} for w in written], "backup": list(backup)}
+    return hashlib.sha256(canonical_json(body).encode("utf-8")).hexdigest()[:16]
+
+
+def make_receipt(written: Sequence[WrittenFile], backup: Sequence[str]) -> Receipt:
+    """The receipt of a confirmed write, with its ``id`` and, when a backup was kept, its ``undo``."""
+    return Receipt(
+        written=tuple(written),
+        backup=tuple(backup),
+        id=receipt_id(written, backup),
+        undo=UNDO_COMMAND if backup else None,
+    )
+
+
+class CursorError(ValueError):
+    """A ``--cursor`` that is malformed, past the end, or issued for another list."""
+
+
+@dataclass(frozen=True, slots=True)
+class Page:
+    """One page of a list: its items and what ``result.page`` says about it."""
+
+    items: tuple[Any, ...]
+    limit: int
+    offset: int
+    total: int
+    next: str | None
+
+
+CURSOR = re.compile(r"^(0|[1-9][0-9]{0,11})\.([0-9a-f]{8})$")
+
+
+def list_digest(items: Sequence[Any]) -> str:
+    """The first 8 hex digits of the SHA-256 of the canonical JSON of the whole list."""
+    return hashlib.sha256(canonical_json(to_jsonable(list(items))).encode("utf-8")).hexdigest()[:8]
+
+
+def page(items: Sequence[Any], limit: int, cursor: str | None = None) -> Page:
+    """The ``limit`` items of ``items`` from the cursor's offset (0 without one). A cursor is
+    ``<offset>.<digest of the whole list>``, so paging keeps no state: :class:`CursorError` when it is
+    malformed, past the end, or when the list is not the one it was issued for."""
+    if limit < 1:
+        raise ValueError("the limit is at least 1")
+    digest = list_digest(items)
+    offset = 0
+    if cursor is not None:
+        match = CURSOR.fullmatch(cursor)
+        if match is None:
+            raise CursorError(f"malformed cursor {cursor!r}; pass the 'next' of the page before")
+        offset = int(match.group(1))
+        if match.group(2) != digest:
+            raise CursorError("the result changed since the cursor was issued; start again without --cursor")
+        if offset >= len(items) and offset > 0:
+            raise CursorError(f"the cursor's offset {offset} is past the end of {len(items)} items")
+    end = offset + limit
+    following = f"{end}.{digest}" if end < len(items) else None
+    return Page(tuple(items[offset:end]), limit, offset, len(items), following)
 
 
 class FieldNotFoundError(KeyError):
@@ -167,6 +243,8 @@ def render_text(envelope: Envelope) -> str:
             lines.append(f"wrote: {written.path} sha256={written.sha256[:12]}")
         for backup in envelope.receipt.backup:
             lines.append(f"backup: {backup}")
+        if envelope.receipt.undo:
+            lines.append(f"undo: {envelope.receipt.undo} (receipt {envelope.receipt.id})")
     return "\n".join(lines)
 
 
@@ -184,15 +262,23 @@ __all__ = [
     "Envelope",
     "Evidence",
     "EvidenceLevel",
+    "CursorError",
     "FieldNotFoundError",
     "InputRef",
     "Issue",
     "OutputMode",
+    "Page",
     "Receipt",
     "Severity",
+    "UNDO_COMMAND",
     "WrittenFile",
+    "canonical_json",
+    "list_digest",
+    "make_receipt",
+    "page",
     "parse_fields",
     "project_fields",
+    "receipt_id",
     "render_json",
     "render_text",
     "resolve_mode",

@@ -18,6 +18,7 @@ from typing import Any
 
 import _schema
 import pytest
+from _cliexamples import PREPARED, folder_snapshot, prepare_example
 from _fakecli import fake_kicad_cli
 
 from fenolite.cli.api import Command, Context, Result, discover, module_name_for
@@ -48,6 +49,10 @@ def example_tools(
     if name in COMMANDS and "kicad-cli" in COMMANDS[name].example_tools:
         script = fake_kicad_cli(tmp_path_factory.mktemp("fake-kicad"))
         monkeypatch.setenv("FENOLITE_KICAD_CLI", str(script))
+    if name in PREPARED:  # the examples of ``fmt`` and ``restore`` name files of the working directory
+        work = tmp_path_factory.mktemp("example")
+        prepare_example(name, work)
+        monkeypatch.chdir(work)
 
 
 def _invoke(capsys: CapSys, argv: list[str]) -> tuple[int, str, str]:
@@ -154,15 +159,19 @@ def test_mutation_protocol(
         f"{name} is mutating but declares no mutation_example_args"
     )
     monkeypatch.chdir(tmp_path)
+    prepare_example(name, tmp_path)
+    before = folder_snapshot(tmp_path)
+    assert (before == {}) is (name not in PREPARED)
     args = [name, *command.mutation_example_args, "--json"]
 
     code, out, err = _invoke(capsys, args)
-    assert code == 4 and list(tmp_path.iterdir()) == []
+    assert code == 4 and folder_snapshot(tmp_path) == before
     assert _assert_envelope(name, out)["result"]["plan"]
     assert _assert_error(err, 4)["code"] == "FEN-4001"
 
     code, out, _ = _invoke(capsys, [*args, "--dry-run"])
-    assert code == 0 and list(tmp_path.iterdir()) == []
+    assert code == 0 and folder_snapshot(tmp_path) == before
+    assert before or list(tmp_path.iterdir()) == []
     plan = _assert_envelope(name, out)["result"]["plan"]
 
     code, out, _ = _invoke(capsys, [*args, "--confirm"])

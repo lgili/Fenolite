@@ -15,6 +15,7 @@ from fenolite.cli.output import Issue
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--issue", action="append", choices=["error", "warning", "info"], default=[],
                         help="emit an issue of this severity (repeatable)")  # fmt: skip
+    parser.add_argument("--issues", type=int, default=0, metavar="N", help="emit N numbered warnings first")
     parser.add_argument("--raise", dest="raise_", action="store_true", help="raise an internal exception")
     parser.add_argument("--write", metavar="PATH", help="plan a write of --content to PATH")
     parser.add_argument("--content", default="echo\n", help="content for --write")
@@ -25,7 +26,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.raise_:
         raise RuntimeError("requested failure (--raise)")
     severities: list[str] = args.issue
-    issues = tuple(
+    numbered = tuple(
+        Issue(
+            code="echo.warning",
+            severity="warning",
+            message=f"requested issue {n + 1} of {args.issues}",
+            where="_echo",
+        )  # fmt: skip
+        for n in range(args.issues)
+    )
+    issues = numbered + tuple(
         Issue(code=f"echo.{sev}", severity=sev, message=f"requested {sev} issue", where="_echo")  # type: ignore[arg-type]
         for sev in severities
     )
@@ -47,4 +57,5 @@ COMMAND = Command(
     run=_run,
     example_args=(),
     mutation_example_args=("--write", "echo.txt"),
+    paged="issues",
 )

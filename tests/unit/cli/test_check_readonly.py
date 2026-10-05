@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``check``, ``inspect``, ``doctor``, ``export`` and ``render`` leave the project folder untouched, even
-with a ``kicad-cli`` that writes next to its input and rewrites it (capability verification-loop, "Check is
-read-only", scenario "Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013, c0020
-and c0029; cli-contract, "Export command", scenario "Source is untouched"; change c0024). ``bom`` and
-``pnp`` write one file where ``--out`` says and nothing in the project (cli-contract, "Bom command" and
-"Pnp command"; change c0064)."""
+"""``check``, ``inspect``, ``roundtrip``, ``doctor``, ``export`` and ``render`` leave the project folder
+untouched, even with a ``kicad-cli`` that writes next to its input and rewrites it (capability
+verification-loop, "Check is read-only", scenario "Fake kicad-cli that writes", and "New stages stay
+read-only"; changes c0013, c0020 and c0029; cli-contract, "Export command", scenario
+"Source is untouched"; change c0024). ``bom`` and ``pnp`` write one file where ``--out`` says and nothing
+in the project (cli-contract, "Bom command" and "Pnp command"; change c0064)."""
 
 from __future__ import annotations
 
@@ -74,6 +74,22 @@ def test_inspect_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Pa
     before = tree_snapshot(root)
     code, _, _, _ = run(monkeypatch, root, "inspect", str(root / "board.kicad_pcb"))
     assert code == 0
+    _untouched(root, before)
+
+
+def test_roundtrip_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
+    """``roundtrip`` reads the board and, for RT2, runs the tool on copies (cli-contract, "Roundtrip
+    command"; change c0066)."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(monkeypatch, root, "roundtrip", str(root / "board.kicad_pcb"))
+    assert code == 0 and env["result"]["level"] == "rt1" and calls(fake) == []
+    _untouched(root, before)
+    code, env, _, _ = run(
+        monkeypatch, root, "roundtrip", str(root), "--level", "rt2", "--kicad-cli", str(fake)
+    )
+    assert code == 0, env["issues"]
+    assert ("pcb", "upgrade", "--force") in [tuple(c["args"][:3]) for c in calls(fake)]
     _untouched(root, before)
 
 

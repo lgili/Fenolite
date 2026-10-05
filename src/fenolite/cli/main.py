@@ -6,24 +6,28 @@ mutation protocol. See ``docs/cli-contract.md``."""
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import random
 import sys
 import time
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import NoReturn, TextIO, cast
+from typing import Any, NoReturn, TextIO, cast
 
 from fenolite import __version__
 from fenolite.cli.api import Command, Context, Result, discover
 from fenolite.cli.errors import CliError, ErrorInfo, from_exception
 from fenolite.cli.exitcodes import ExitCode
 from fenolite.cli.output import (
+    CursorError,
     Envelope,
     FieldNotFoundError,
     OutputMode,
     Receipt,
     WrittenFile,
+    make_receipt,
+    page,
     parse_fields,
     project_fields,
     render_json,
@@ -37,6 +41,9 @@ from fenolite.core.io import atomic_write, sha256_bytes
 KICAD_TARGETS = (9, 10)
 """The values of ``--kicad-version``: the KiCad majors Fenolite writes for (``versions.TARGET_MAJORS``)."""
 DEFAULT_KICAD_TARGET = 10
+FORMATS = ("concise", "detailed")
+"""The values of ``--format``."""
+PAGED_ISSUES = "issues"
 
 
 class _Parser(argparse.ArgumentParser):
@@ -55,6 +62,12 @@ def _add_global_options(parser: argparse.ArgumentParser, *, top_level: bool) -> 
                        help="force human-readable output")  # fmt: skip
     group.add_argument("--fields", default=None if top_level else default, metavar="A,B.C",
                        help="keep only these dotted paths of 'result'")  # fmt: skip
+    group.add_argument("--limit", type=int, default=None if top_level else default, metavar="N",
+                       help="keep N items of the command's main list (see 'page' in the result)")  # fmt: skip
+    group.add_argument("--cursor", default=None if top_level else default, metavar="TOKEN",
+                       help="continue a list from the 'next' of the page before")  # fmt: skip
+    group.add_argument("--format", choices=FORMATS, default="detailed" if top_level else default,
+                       help="concise keeps one issue per code, with counts (default detailed)")  # fmt: skip
     group.add_argument("--seed", type=int, default=None if top_level else default,
                        help="seed for generated ids (reproducible output)")  # fmt: skip
     group.add_argument("--timestamp", default=None if top_level else default, metavar="ISO8601",
@@ -143,6 +156,96 @@ def _refusal(exc: Exception) -> Result:
     return Result()
 
 
+def _usage(message: str, where: str) -> CliError:
+    return CliError("FEN-2001", message, where=where)
+
+
+def _limit(command: Command, args: argparse.Namespace) -> int | None:
+    """The page size in force: ``--limit``, else the command's default. Refused before the command runs:
+    a limit below 1, ``--limit`` on a command without a paged list, and a cursor without a limit."""
+    given: int | None = args.limit
+    if given is not None and command.paged is None:
+        raise _usage(f"{command.name} has no list to page; --limit does not apply", "--limit")
+    if given is not None and given < 1:
+        raise _usage("--limit is at least 1", "--limit")
+    limit = given if given is not None else command.default_limit
+    if args.cursor is not None and limit is None:
+        raise _usage("--cursor needs a limit in force: pass --limit as on the page before", "--cursor")
+    return limit
+
+
+def _holder(result: dict[str, Any], path: str) -> tuple[dict[str, Any], str] | None:
+    """The mapping that holds the list at the dotted ``path`` and its key, or ``None``."""
+    node: dict[str, Any] = result
+    parts = path.split(".")
+    for part in parts[:-1]:
+        inner: object = node.get(part)
+        if not isinstance(inner, dict):
+            return None
+        node = cast(dict[str, Any], inner)
+    return (node, parts[-1]) if isinstance(node.get(parts[-1]), list) else None
+
+
+def _concise(issues: tuple[Issue, ...]) -> tuple[tuple[Issue, ...], list[dict[str, object]]]:
+    """The first issue of each code in order, and per code its count and its counts by severity."""
+    first: dict[str, Issue] = {}
+    counts: dict[str, dict[str, int]] = {}
+    for issue in issues:
+        first.setdefault(issue.code, issue)
+        by_severity = counts.setdefault(issue.code, {})
+        by_severity[issue.severity] = by_severity.get(issue.severity, 0) + 1
+    summary: list[dict[str, object]] = [
+        {"code": code, "count": sum(counts[code].values()), "by_severity": dict(sorted(counts[code].items()))}
+        for code in sorted(counts)
+    ]
+    return tuple(first.values()), summary
+
+
+def _paged(command: Command, result: dict[str, Any], issues: tuple[Issue, ...], limit: int,
+           cursor: str | None) -> tuple[dict[str, Any], tuple[Issue, ...]]:  # fmt: skip
+    """``result`` and ``issues`` with the command's paged list cut to one page and ``result.page`` set.
+    A ``total`` and a ``truncated`` beside the list are set to the whole length and to whether the page
+    is not the whole list."""
+    assert command.paged is not None
+    try:
+        for path in command.paged.split("|"):
+            if path == PAGED_ISSUES:
+                cut = page(issues, limit, cursor)
+                issues = cast(tuple[Issue, ...], cut.items)
+            else:
+                found = _holder(result, path)
+                if found is None:
+                    continue
+                holder, key = found
+                cut = page(cast(list[Any], holder[key]), limit, cursor)
+                result = _replaced(result, path, list(cut.items), cut)
+            result["page"] = {
+                "path": path, "limit": cut.limit, "offset": cut.offset, "total": cut.total, "next": cut.next,
+            }  # fmt: skip
+            return result, issues
+    except CursorError as exc:
+        raise _usage(str(exc), "--cursor") from exc
+    if cursor is not None:
+        raise _usage(f"{command.name} returned no list to continue", "--cursor")
+    return result, issues
+
+
+def _replaced(result: dict[str, Any], path: str, items: list[Any], cut: Any) -> dict[str, Any]:
+    """A copy of ``result`` with the list at ``path`` replaced by ``items`` (the holders are copied)."""
+    parts = path.split(".")
+    out = dict(result)
+    node = out
+    for part in parts[:-1]:
+        node[part] = dict(node[part])
+        node = node[part]
+    node[parts[-1]] = items
+    if "total" in node:
+        node["total"] = cut.total
+    if "truncated" in node:
+        node["truncated"] = len(items) < cut.total
+    return out
+
+
 def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started: float,
               out: TextIO, err: TextIO) -> int:  # fmt: skip
     dry_run = bool(getattr(args, "dry_run", False))
@@ -150,6 +253,7 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
     if dry_run and confirm:
         raise CliError("FEN-2003")
     fields = parse_fields(args.fields) if args.fields else []
+    limit = _limit(command, args)
 
     try:
         outcome = command.run(args, ctx)
@@ -169,6 +273,11 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
     error: ErrorInfo | None = None
     receipt: Receipt | None = None
     result = dict(outcome.result)
+    shown = outcome.issues  # ok, the exit code and the error come from the whole result, never from this
+    if args.format == "concise":
+        shown, result["issues_summary"] = _concise(shown)
+    if limit is not None:
+        result, shown = _paged(command, result, shown, limit, args.cursor)
     if outcome.writes and (dry_run or not confirm):
         result["plan"] = [
             {"path": w.path, "kind": w.kind, "bytes": len(w.data), "sha256": sha256_bytes(w.data),
@@ -191,13 +300,14 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
             written.append(WrittenFile(path=w.path, sha256=receipt_io.sha256))
             if receipt_io.backup_path is not None:
                 backups.append(w.path + ".bak")
-        receipt = Receipt(written=tuple(written), backup=tuple(backups))
+        receipt = make_receipt(written, backups)
 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     if code is ExitCode.OK and n_errors:
         code = ExitCode.FINDINGS
         error = CliError("FEN-5001", f"{n_errors} finding(s) of severity error", where=command.name).info()
 
+    outcome = dataclasses.replace(outcome, issues=shown)
     _emit(
         _envelope(command, outcome, result, ok=code is ExitCode.OK, receipt=receipt, started=started),
         ctx.mode,
@@ -233,4 +343,4 @@ def main(argv: Sequence[str] | None = None) -> int:
         return int(exc.exit_code)
 
 
-__all__ = ["DEFAULT_KICAD_TARGET", "KICAD_TARGETS", "build_parser", "main"]
+__all__ = ["DEFAULT_KICAD_TARGET", "FORMATS", "KICAD_TARGETS", "build_parser", "main"]

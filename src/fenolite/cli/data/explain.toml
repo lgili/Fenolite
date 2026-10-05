@@ -1,0 +1,1495 @@
+# What every error code and issue code of Fenolite means and what to do about it (`fenolite explain`).
+# One table per code: `meaning` and `fix`, each at most 400 characters, and `see`, a heading of
+# docs/cli-contract.md. A table whose name ends in `.*` explains every code of that family.
+# The texts are written for Fenolite from its own code and docs. tests/unit/cli/test_explain_cmd.py
+# fails for a code without a table and for a table without a code.
+
+["FEN-1001"]
+meaning = "Fenolite raised an exception it did not expect. This is a bug in Fenolite, not a problem of the input."
+fix = "Report the command line and the input; do not retry the same call unchanged."
+see = "Exit codes"
+
+["FEN-2001"]
+meaning = "The command line is wrong: an unknown flag, a missing argument, a value outside the accepted set, or an input the command does not take."
+fix = "Read the message and the hint, or run the command with --help, and correct the arguments."
+see = "Exit codes"
+
+["FEN-2002"]
+meaning = "A path given to --fields does not exist in the command's result."
+fix = "Run the command once with --json and without --fields to see the result keys, then name existing dotted paths."
+see = "Output"
+
+["FEN-2003"]
+meaning = "--dry-run and --confirm were given together, and they ask for opposite things."
+fix = "Pass --dry-run to see the plan, or --confirm to write; never both."
+see = "Writing files"
+
+["FEN-2004"]
+meaning = "The value of --timestamp is not an ISO 8601 date and time."
+fix = "Pass a value such as 2026-01-01T00:00:00Z."
+see = "Determinism"
+
+["FEN-3001"]
+meaning = "An input file or folder is missing, is not of the expected kind, or cannot be opened."
+fix = "Check the path, relative to the working directory, and its permissions."
+see = "Exit codes"
+
+["FEN-3002"]
+meaning = "The input was written by a KiCad version newer than this Fenolite reads."
+fix = "Upgrade Fenolite, or save the file from a supported KiCad version."
+see = "KiCad output"
+
+["FEN-3003"]
+meaning = "The input's format version is older than the oldest one Fenolite reads."
+fix = "Upgrade the file with the kicad-cli upgrade command for its kind, which the hint names, then run again."
+see = "KiCad output"
+
+["FEN-3004"]
+meaning = "The input is malformed: a syntax error, a missing version, a wrong value or a script that failed. The message and 'where' locate the problem."
+fix = "Correct the file at the place 'where' names; for a file that KiCad wrote, re-save it in KiCad."
+see = "Exit codes"
+
+["FEN-3005"]
+meaning = "Geometry in the input cannot be represented exactly, for example an arc through three points on a line."
+fix = "Correct the geometry the message names, with its code and points."
+see = "Exit codes"
+
+["FEN-4001"]
+meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
+fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
+see = "Writing files"
+
+["FEN-5001"]
+meaning = "The command ran and reported at least one issue of severity error. The envelope on stdout holds them."
+fix = "Read 'issues' in the envelope, and run 'fenolite explain' on a code you do not know; --format concise shows one issue per code."
+see = "Exit codes"
+
+["FEN-6001"]
+meaning = "An external tool that the command needs, such as kicad-cli, was not found or did not answer."
+fix = "Install the tool, or name it with --kicad-cli or FENOLITE_KICAD_CLI; 'fenolite doctor' shows what Fenolite finds."
+see = "Discovery"
+
+["FEN-6002"]
+meaning = "The external tool was found but its version is not supported, or it is older than the file it has to read."
+fix = "Install a supported version; 'fenolite capabilities' lists the supported majors."
+see = "Discovery"
+
+["FEN-7001"]
+meaning = "The operation would lose or overwrite information, so Fenolite refused it and wrote nothing."
+fix = "Read the issues to see what would be lost. Change the input, or pass --allow-lossy when the hint names it and the loss is acceptable."
+see = "KiCad output"
+
+["FEN-7002"]
+meaning = "The target format version is older than the input's, and Fenolite does not downgrade files."
+fix = "Choose a target at least as new as the input with --kicad-version."
+see = "KiCad output"
+
+["FEN-7003"]
+meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not write back."
+fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
+see = "KiCad output"
+
+["altium.copper-board-mismatch"]
+meaning = "The board given with --copper-from does not match the design: a component, a footprint, a pad net or the outline differs."
+fix = "Build the KiCad board from the same script first, or correct the script, so both describe one design."
+see = "Build target"
+
+["altium.copper-invalid"]
+meaning = "A copper item cannot be written: a track of zero length, a width of 0 or less, a drill not below its diameter, or an unknown net id."
+fix = "Correct the item that 'where' names in the script or in the source board."
+see = "Build target"
+
+["altium.copper-layer"]
+meaning = "A track, arc, via or zone names a layer that is not one of the board's copper layers."
+fix = "Move the item to a copper layer of the board, or declare the stack-up that holds its layer."
+see = "Build target"
+
+["altium.copper-net-missing"]
+meaning = "Copper of the source board is on a net whose name the design does not hold."
+fix = "Rename the net in the script or re-route the source board from the current design."
+see = "Build target"
+
+["altium.copper-no-document"]
+meaning = "A copper source was given, but the PCB document is not written in this build."
+fix = "Meet the conditions of the PCB document (see altium.pcbdoc-not-written) or drop the copper source."
+see = "Build target"
+
+["altium.copper-stack"]
+meaning = "The copper layers are not the two-layer or four-layer stack Fenolite writes for Altium, their count differs from board(copper=...), or a plane names a wrong layer or net."
+fix = "Use F.Cu and B.Cu, or F.Cu, In1.Cu, In2.Cu and B.Cu, and put planes on inner layers with nets of the design."
+see = "Build target"
+
+["altium.footprint-extras-dropped"]
+meaning = "The texts, properties or 3D model links of a footprint are not written to the Altium library."
+fix = "Nothing to do unless you need them; add them in Altium."
+see = "Build target"
+
+["altium.footprint-form"]
+meaning = "A footprint reference is not of the form library:name with both parts."
+fix = "Write the footprint as library:name in the script."
+see = "Build target"
+
+["altium.footprint-name-collision"]
+meaning = "Two KiCad footprint links give the same Altium footprint name."
+fix = "Rename one of the footprints or use one library entry for both parts."
+see = "Build target"
+
+["altium.footprint-unresolved"]
+meaning = "A KiCad footprint link of the script does not resolve to a library file, so the footprint is not written."
+fix = "Add the library to the script's libraries or correct the link."
+see = "Build target"
+
+["altium.footprint-unsupported"]
+meaning = "A footprint holds a pad or a graphic that has no exact Altium form, so the footprint is refused."
+fix = "Use a footprint with supported pad shapes, or accept that this part has no footprint in the output."
+see = "Build target"
+
+["altium.generic-symbols"]
+meaning = "Components that name Altium library links were drawn with generic bodies, because Fenolite does not read those libraries here."
+fix = "Nothing to do; replace the symbols in Altium if their drawing matters."
+see = "Build target"
+
+["altium.harness-name"]
+meaning = "A harness type or entry name holds '=', ',' or ';', collides with another name in letter case, or equals a net name."
+fix = "Rename the harness type or the entry."
+see = "Build target"
+
+["altium.harness-net-shared"]
+meaning = "A net is a member of two harnesses, or twice of one."
+fix = "Give each net to one harness entry only."
+see = "Build target"
+
+["altium.harness-power-net"]
+meaning = "A member of a harness is also a member of a power interface."
+fix = "Take the power net out of the harness."
+see = "Build target"
+
+["altium.lib-id-form"]
+meaning = "A lib_id is not of the form library:name with both parts."
+fix = "Write the symbol reference as library:name."
+see = "Build target"
+
+["altium.library-too-large"]
+meaning = "A schematic library would need more than 109 FAT sectors, which the compound file writer does not produce."
+fix = "Split the library, or use fewer distinct symbols."
+see = "Build target"
+
+["altium.name-case-collision"]
+meaning = "Two net names or two references differ only in letter case, which Altium does not tell apart."
+fix = "Rename one of them."
+see = "Build target"
+
+["altium.no-footprint"]
+meaning = "A part names no footprint, so its component has none in the output."
+fix = "Give the part a footprint in the script."
+see = "Build target"
+
+["altium.not-lowered"]
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part."
+fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand."
+see = "Build target"
+
+["altium.pcb-not-in-project"]
+meaning = "The existing project file was kept, so the PCB files are not listed in it."
+fix = "Add the files to the project in Altium, or remove the project file from --out and build again."
+see = "Build target"
+
+["altium.pcb-read.bad-frame"]
+meaning = "A name list, a section-key table or a wide-string table of the PCB file does not parse."
+fix = "The affected names are missing from the reading; re-save the file in Altium if they matter."
+see = "inspect"
+
+["altium.pcb-read.bad-index"]
+meaning = "Records name a net, component or polygon index that does not exist in the file."
+fix = "The records are read without that link; re-save the file in Altium if the links matter."
+see = "inspect"
+
+["altium.pcb-read.bad-stack"]
+meaning = "The copper layer chain of the board links to a layer without a name, or loops."
+fix = "The layer stack cannot be trusted; re-save the file in Altium."
+see = "inspect"
+
+["altium.pcb-read.bad-value"]
+meaning = "A typed key holds a text that does not parse, so its value is absent from the reading."
+fix = "Check the key that 'where' names; the rest of the record is read."
+see = "inspect"
+
+["altium.pcb-read.count-mismatch"]
+meaning = "A count in a stream header differs from the number of records read."
+fix = "Treat the stream as possibly incomplete; re-save the file in Altium."
+see = "inspect"
+
+["altium.pcb-read.missing-stream"]
+meaning = "A footprint that the library lists has no storage in the file."
+fix = "The footprint is absent from the reading; re-save the library in Altium."
+see = "inspect"
+
+["altium.pcb-read.short-record"]
+meaning = "A subrecord is shorter than the minimum of its type, so the record is kept raw."
+fix = "The record is not interpreted; nothing else is affected."
+see = "inspect"
+
+["altium.pcb-read.truncated"]
+meaning = "A block or subrecord runs past the end of its stream; what follows is kept as trailing bytes."
+fix = "The stream is damaged or of an unknown layout; re-save the file in Altium."
+see = "inspect"
+
+["altium.pcb-read.unknown-type"]
+meaning = "A record starts with a type byte that is no primitive type, and reading of the stream stops there."
+fix = "The rest of the stream is not read; re-save the file in Altium."
+see = "inspect"
+
+["altium.pcb-read.unlisted-footprint"]
+meaning = "A footprint storage exists that the library's list does not name; it is read as well."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.pcb-read.wrong-type"]
+meaning = "A primitive storage holds a record of another type; it is kept apart."
+fix = "Nothing to do unless that record matters."
+see = "inspect"
+
+["altium.pcb-staged"]
+meaning = "Components without a placement were put in rows beside the board outline."
+fix = "Place them with place() in the script, or move them in Altium."
+see = "Build target"
+
+["altium.pcb-too-large"]
+meaning = "The PCB library or document would need more than 109 FAT sectors."
+fix = "Reduce the board content, for example the number of distinct footprints."
+see = "Build target"
+
+["altium.pcbdoc-not-written"]
+meaning = "The conditions for writing the PCB document do not hold, so only the other files are written; the message says which condition."
+fix = "Meet the condition the message names, for example a board with an outline and resolved footprints."
+see = "Build target"
+
+["altium.pin-lossy"]
+meaning = "A pin's electrical type or shape has no Altium equivalent and was mapped to the nearest one."
+fix = "Check the pin in Altium if its type matters for the ERC."
+see = "Build target"
+
+["altium.pin-text-too-long"]
+meaning = "A pin name or number is longer than 255 bytes."
+fix = "Shorten the pin name or number."
+see = "Build target"
+
+["altium.placement-from-board"]
+meaning = "Components are placed as the board of --copper-from places them, not as the script asks."
+fix = "Nothing to do; update the script's place() calls if they should agree."
+see = "Build target"
+
+["altium.plane-copper"]
+meaning = "A track or arc lies on a plane layer, or a zone on a plane layer has another net than the plane."
+fix = "Move the copper off the plane layer, or give the zone the plane's net."
+see = "Build target"
+
+["altium.plane-zone-merged"]
+meaning = "A zone on a plane layer with the plane's own net is left to the plane and not written."
+fix = "Nothing to do."
+see = "Build target"
+
+["altium.primitive-dropped"]
+meaning = "A footprint graphic or a pad setting has no Altium form and was left out."
+fix = "Check the footprint in Altium if the missing detail matters."
+see = "Build target"
+
+["altium.project-kept"]
+meaning = "A project file already exists in --out and was kept as it is."
+fix = "Nothing to do; remove it first if Fenolite should write a new one."
+see = "Build target"
+
+["altium.sch.bad-value"]
+meaning = "A modelled key holds a value that does not parse, or a count disagrees with the keys present."
+fix = "The value is absent from the reading; check the record that 'where' names."
+see = "inspect"
+
+["altium.sch.empty-stream"]
+meaning = "A stream that should hold records has 0 bytes."
+fix = "The file may be damaged; re-save it in Altium."
+see = "inspect"
+
+["altium.sch.malformed-record"]
+meaning = "A record is malformed: a property list without its end, no record type, or a pin cut inside a required field."
+fix = "The record is kept raw; re-save the file in Altium if it matters."
+see = "inspect"
+
+["altium.sch.no-sheet"]
+meaning = "The first record of the schematic is not the sheet record."
+fix = "The sheet settings are unknown; re-save the file in Altium."
+see = "inspect"
+
+["altium.sch.orphan-record"]
+meaning = "A record names an owner that is no earlier record."
+fix = "The record is read without its owner; re-save the file in Altium."
+see = "inspect"
+
+["altium.sch.part-out-of-range"]
+meaning = "A child record lies outside its component's part count or display-mode count."
+fix = "The child is kept; check the component in Altium."
+see = "inspect"
+
+["altium.sch.pin-trailing-bytes"]
+meaning = "Bytes follow the last known field of a binary pin; they are kept."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.sch.storage-opaque"]
+meaning = "A storage record does not have the embedded-file layout and is kept without decoding."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.sch.text-undecodable"]
+meaning = "A text holds a byte that its encoding does not define; the text view shows a replacement character."
+fix = "Check the text in Altium; the bytes are kept."
+see = "inspect"
+
+["altium.sch.unknown-record"]
+meaning = "A record type that Fenolite has no class for; it is kept, and reported once per type with the count."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.sch.unknown-stream"]
+meaning = "A stream or section that the reader keeps without reading."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.sch.weight-mismatch"]
+meaning = "A count stored in the file differs from the number of records read."
+fix = "Treat the file as possibly incomplete; re-save it in Altium."
+see = "inspect"
+
+["altium.schematic-too-large"]
+meaning = "The binary schematic would need more than 109 FAT sectors, about 7 MB."
+fix = "Build with --altium-format ascii, or split the design into more sheets."
+see = "Build target"
+
+["altium.schlib-generic"]
+meaning = "A library was written with generic symbols."
+fix = "Nothing to do; replace the symbols in Altium if their drawing matters."
+see = "Build target"
+
+["altium.schlib-not-in-project"]
+meaning = "The existing project file was kept, so the libraries are not listed in it."
+fix = "Add the libraries to the project in Altium, or remove the project file from --out and build again."
+see = "Build target"
+
+["altium.schlib.missing-component"]
+meaning = "The library header lists a component that has no storage."
+fix = "The component is absent from the reading; re-save the library in Altium."
+see = "inspect"
+
+["altium.schlib.no-component"]
+meaning = "The first record of a component's data stream is not the component record."
+fix = "The component cannot be read; re-save the library in Altium."
+see = "inspect"
+
+["altium.schlib.side-stream-opaque"]
+meaning = "A side stream with pin details is kept without decoding."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.schlib.side-stream-orphan"]
+meaning = "An entry of a pin side stream names no pin."
+fix = "Nothing to do unless pin details are missing in the reading."
+see = "inspect"
+
+["altium.schlib.unlisted-component"]
+meaning = "A component storage exists that the library header does not list; it is read as well."
+fix = "Nothing to do."
+see = "inspect"
+
+["altium.section-key"]
+meaning = "A library reference longer than 31 characters is stored under a section key, as Altium does."
+fix = "Nothing to do."
+see = "Build target"
+
+["altium.sheet-custom"]
+meaning = "The schematic layout does not fit on A0, so a custom sheet size is written."
+fix = "Nothing to do; split the design into modules for smaller sheets."
+see = "Build target"
+
+["altium.sheet-name-collision"]
+meaning = "Two top-level module names differ only in letter case, so their sheet files would collide."
+fix = "Rename one of the modules."
+see = "Build target"
+
+["altium.sheets-not-in-project"]
+meaning = "The existing project file was kept, so the module sheets and harness files are not listed in it."
+fix = "Add them to the project in Altium, or remove the project file from --out and build again."
+see = "Build target"
+
+["altium.symbol-name-collision"]
+meaning = "Two lib ids give the same library and storage name, or two library file names differ only in letter case."
+fix = "Rename one symbol or one library."
+see = "Build target"
+
+["altium.symbol-off-grid"]
+meaning = "A pin position or a pin length of a resolved symbol is not a multiple of 10 mil."
+fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
+see = "Build target"
+
+["altium.symbol-simplified"]
+meaning = "A symbol's graphics became rectangles, or its other body styles or alternates were dropped."
+fix = "Nothing to do; redraw the symbol in Altium if its look matters."
+see = "Build target"
+
+["altium.text-unwritable"]
+meaning = "A text cannot be written: it is not printable 7-bit ASCII, holds '|', is empty, has a blank at an end, or is a value that starts with '='."
+fix = "Change the text that 'where' names."
+see = "Build target"
+
+["altium.unique-id-collision"]
+meaning = "Two components, sheet symbols or ports would get the same unique id."
+fix = "Change the path or reference of one of them so the ids differ."
+see = "Build target"
+
+["altium.unknown-pin"]
+meaning = "A net member names neither a pin number nor a pin name of the part's symbol."
+fix = "Correct the pin in the script; the symbol's pins are listed by 'fenolite inspect' of its library."
+see = "Build target"
+
+["altium.via-unsupported"]
+meaning = "A via is blind, buried or micro, or does not span the top and the bottom layer."
+fix = "Use through vias, or leave the via out of the Altium build."
+see = "Build target"
+
+["altium.zone-unsupported"]
+meaning = "A zone has fewer than three outline points, or names no layer."
+fix = "Correct the zone's outline and layers."
+see = "Build target"
+
+["altium.zones-unpoured"]
+meaning = "Polygons are written without poured copper, because Fenolite does not pour for Altium."
+fix = "Repour the polygons in Altium."
+see = "Build target"
+
+["analysis.clearance-below"]
+meaning = "The straight-line distance between two conductors is below the requirement of their voltages."
+fix = "Move the conductors apart, or correct the requirement table if it is too strict."
+see = "analyze"
+
+["analysis.clearance-undecided"]
+meaning = "The requirement lies inside the interval that Fenolite can prove for the clearance, so it can neither pass nor fail it."
+fix = "Measure the gap by hand, or increase it until the lower bound passes."
+see = "analyze"
+
+["analysis.creepage-below"]
+meaning = "The shortest path along the board surface between two conductors is below the requirement."
+fix = "Move the conductors apart or add a slot between them."
+see = "analyze"
+
+["analysis.creepage-undecided"]
+meaning = "The requirement lies inside the interval for the creepage, or the search was cut short."
+fix = "Measure the path by hand, or increase the distance until the lower bound passes."
+see = "analyze"
+
+["analysis.current-exceeded"]
+meaning = "The current capacity of a track or via is below the current its net requires."
+fix = "Widen the track, add copper thickness or vias, or correct the required current."
+see = "analyze"
+
+["analysis.embedded-below"]
+meaning = "A gap between conductors on an inner layer is below the requirement for insulation inside the laminate."
+fix = "Increase the gap on that layer."
+see = "analyze"
+
+["analysis.fit-out-of-range"]
+meaning = "A capacity was computed outside the range for which its source states the fitted formula."
+fix = "Treat those rows as extrapolated and check them against another source."
+see = "analyze"
+
+["analysis.input-missing"]
+meaning = "An input that Fenolite does not assume is absent, so the items that need it were left out and counted."
+fix = "Pass the missing input, for example --temp-rise or --copper-thickness."
+see = "analyze"
+
+["analysis.item-unsupported"]
+meaning = "Copper that could not be given a shape, or a conductor outside the board, was left out of the analysis."
+fix = "Check those items by hand; 'where' names the kind."
+see = "analyze"
+
+["analysis.requirement-unmatched"]
+meaning = "A row of the requirements matches no net, or a voltage is above every step of the table."
+fix = "Correct the net pattern or extend the table."
+see = "analyze"
+
+["assembly.template-invalid"]
+meaning = "The column template of a BOM or placement table is malformed: an unknown table or key, an unknown field, two columns with one name, an empty column list, or a value outside its set. One issue per problem; `where` is the key path."
+fix = "Correct the template file at the key that `where` names; docs/assembly.md lists the keys and the fields."
+see = "bom"
+
+["bom.property-missing"]
+meaning = "A column of the BOM template names a property that no part of the design has, so the column is empty."
+fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
+see = "bom"
+
+["build.global-library"]
+meaning = "A part's footprint comes from a library outside the project, so it was copied into the project's libraries."
+fix = "Nothing to do; result.vendored lists the copied files."
+see = "build"
+
+["build.interface-not-lowered"]
+meaning = "An interface such as a differential pair is kept in the model and is not written to the KiCad files."
+fix = "Nothing to do; enter the pair in KiCad if the router needs it."
+see = "build"
+
+["build.layout-exists"]
+meaning = "The output folder holds a library table or a library folder that the build would overwrite."
+fix = "Build into another folder, or remove those files; a board there is merged, never overwritten."
+see = "build"
+
+["build.library-changed"]
+meaning = "A vendored library file differs from the one the last build recorded."
+fix = "Check that the library update is wanted; the build goes on with the new file."
+see = "build"
+
+["build.library-too-new"]
+meaning = "A library file has a format version newer than the KiCad version the build targets."
+fix = "Target the newer KiCad with --kicad-version, or use a library saved by the older one."
+see = "build"
+
+["build.name-case-collision"]
+meaning = "Two net names or two class names differ only in letter case."
+fix = "Rename one of them."
+see = "build"
+
+["build.no-board"]
+meaning = "The design script declares no board(), so nothing can be placed."
+fix = "Add board(...) to the script."
+see = "build"
+
+["build.no-connect-on-net"]
+meaning = "A pin is marked as not connected and is also a member of a net."
+fix = "Remove the mark or take the pin off the net."
+see = "build"
+
+["build.no-footprint"]
+meaning = "Neither the part nor its symbol names a footprint."
+fix = "Give the part a footprint in the script."
+see = "build"
+
+["build.pad-without-pin"]
+meaning = "A pad of the footprint has no symbol pin mapped to it and stays without a net."
+fix = "Nothing to do for a mechanical pad; else correct the pin-to-pad map."
+see = "build"
+
+["build.pin-ambiguous"]
+meaning = "A pin designator is one pin's number and another pin's name; the number wins."
+fix = "Use the pin number to be exact."
+see = "build"
+
+["build.pin-on-two-nets"]
+meaning = "One pin of a part is a member of two nets."
+fix = "Connect the pin to one net only."
+see = "build"
+
+["build.pin-pad-map-invalid"]
+meaning = "The pin-to-pad map of a part names a missing symbol pin or footprint pad, or maps two pins to one pad."
+fix = "Correct the map so each listed pin and pad exists and no pad is used twice."
+see = "build"
+
+["build.pin-without-pad"]
+meaning = "A pin that is connected to a net has no pad in the footprint."
+fix = "Choose a footprint with that pad, or map the pin to an existing pad."
+see = "build"
+
+["build.plane-not-lowered"]
+meaning = "A plane of the script is not written to the KiCad board; one issue per plane."
+fix = "Draw a zone for it with zone() in the script, or in KiCad."
+see = "Build target"
+
+["build.property-conflict"]
+meaning = "A user property of a part has another value than the footprint library already holds for it."
+fix = "Remove the property from the script or use the library's value."
+see = "build"
+
+["build.property-invalid"]
+meaning = "A user property has a name or a value that cannot be written."
+fix = "Correct the property that 'where' names."
+see = "build"
+
+["build.property-reserved"]
+meaning = "A user property uses a name that KiCad or Fenolite reserves."
+fix = "Rename the property."
+see = "build"
+
+["build.unknown-pin"]
+meaning = "A net member or a no-connect mark names a pin that the part's symbol does not have."
+fix = "Correct the pin number or name in the script."
+see = "build"
+
+["build.unused-pin-without-pad"]
+meaning = "A pin that is on no net has no pad in the footprint."
+fix = "Nothing to do if the pin is unused on purpose; else choose a footprint with that pad."
+see = "build"
+
+["build.vendor-unsafe-name"]
+meaning = "A library or entry name cannot be a file name on every system, or two names differ only in letter case, so no file is copied."
+fix = "Rename the library or the footprint."
+see = "build"
+
+["check.cache-unreadable"]
+meaning = "The built model in .fenolite/ cannot be loaded, so the two model stages were skipped."
+fix = "Build the project again to write a fresh .fenolite/."
+see = "check"
+
+["check.copy-skipped"]
+meaning = "A file or folder that the project names was left out of the copy that kicad-cli sees; the message gives the reason."
+fix = "Nothing to do unless KiCad needs that file; then put it under the project folder."
+see = "check"
+
+["check.footprint-unresolved"]
+meaning = "A component that is not marked do-not-populate has no footprint reference or no footprint on the board."
+fix = "Give the part a footprint and build again."
+see = "check"
+
+["check.oracle-failed"]
+meaning = "kicad-cli wrote no report or export, or timed out."
+fix = "Run again, with a larger --timeout for a large board; 'fenolite doctor' checks the tool."
+see = "check"
+
+["check.read-refused"]
+meaning = "Fenolite cannot read the board; the message starts with the FEN code of the reason."
+fix = "Run 'fenolite explain' on that FEN code and correct the file at the place 'where' names."
+see = "check"
+
+["check.rt1-failed"]
+meaning = "The board does not rebuild to itself: reading and writing it back would change it. 'where' is the first difference."
+fix = "Do not edit this board through Fenolite; report the difference, or re-save the board in KiCad."
+see = "check"
+
+["check.rt2-failed"]
+meaning = "KiCad's DRC gives another count of a violation for the re-dumped board than for the original."
+fix = "Do not edit this board through Fenolite; report the violation type and position."
+see = "check"
+
+["check.rt2-unstable"]
+meaning = "Some violations differ between two DRC runs of the same file, so they were left out of the comparison."
+fix = "Nothing to do; the message says when RT2 is therefore not judged."
+see = "check"
+
+["check.symbol-unresolved"]
+meaning = "A built component has no symbol reference."
+fix = "Give the part a symbol in the script and build again."
+see = "check"
+
+["copper.clearance"]
+meaning = "Copper of two nets is closer than the clearance in force for the pair; 'where' names both items."
+fix = "Move the items apart, or correct the clearance of the net class or the rule."
+see = "check"
+
+["copper.clearance-unset"]
+meaning = "Some item pairs were judged for shorts only, because no clearance is in force for them."
+fix = "Set a clearance in the net class or in a rule to have them judged."
+see = "check"
+
+["copper.item-unsupported"]
+meaning = "Copper items of a kind were left out of the copper check; 'where' is the kind."
+fix = "Check those items with KiCad's DRC."
+see = "check"
+
+["copper.rules-incomplete"]
+meaning = "The clearance rules are incomplete: a rule stayed opaque, a project file was not read, or no rules source was given."
+fix = "Rely on KiCad's DRC for the rules Fenolite could not read."
+see = "check"
+
+["copper.short"]
+meaning = "Copper of two different nets touches or overlaps on a shared copper layer; 'where' names both items."
+fix = "Move or remove one of the items, or correct the net of one of them."
+see = "check"
+
+["copper.zone-overlap"]
+meaning = "Zones of different nets and equal priority overlap on a shared layer, so their fill order is undefined."
+fix = "Give the zones different priorities or separate their outlines."
+see = "check"
+
+["doctor.help-unparsed"]
+meaning = "A help page of kicad-cli did not parse, so Fenolite cannot tell which options that command has."
+fix = "Run with a supported kicad-cli version."
+see = "doctor"
+
+["doctor.tool-missing"]
+meaning = "A tool is absent, or --kicad-cli or FENOLITE_KICAD_CLI names a file that does not exist."
+fix = "Install the tool or correct the path."
+see = "doctor"
+
+["doctor.tool-unsupported"]
+meaning = "A kicad-cli that was found has a major other than 9 or 10, or reports no version."
+fix = "Install KiCad 9 or 10, or name another binary."
+see = "doctor"
+
+["erc.lite.floating-pin"]
+meaning = "A pin is on no net and is not marked as not connected."
+fix = "Connect the pin, or mark it with no_connect in the script."
+see = "check"
+
+["erc.lite.output-conflict"]
+meaning = "Two or more driving outputs are on one net."
+fix = "Separate the outputs, or correct the pin types if they do not both drive."
+see = "check"
+
+["erc.lite.power-undriven"]
+meaning = "A power input is on a net without a power output or a power interface."
+fix = "Connect a power source to the net, or declare the net in a power interface."
+see = "check"
+
+["export.failed"]
+meaning = "The export of one kind failed: kicad-cli exited with an error, wrote no file or timed out. 'where' is the kind."
+fix = "Run again, with a larger --timeout if it timed out; run 'fenolite check' to see whether KiCad loads the board."
+see = "export"
+
+["export.kind-unavailable"]
+meaning = "The running kicad-cli major cannot export this kind, so no tool ran for it."
+fix = "Use a kicad-cli that has the command, or drop the kind from the request."
+see = "export"
+
+["fmt.would-change"]
+meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
+fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
+see = "fmt"
+
+["kicad.board.dropped-too-new"]
+meaning = "With --allow-lossy, content that the target KiCad version cannot read was removed from the written board."
+fix = "Nothing to do if the loss is accepted; else target the newer KiCad with --kicad-version."
+see = "KiCad output"
+
+["kicad.board.duplicate-uuid"]
+meaning = "An item of the board uses a uuid that another item of the file already has."
+fix = "Re-save the board in KiCad, which gives new uuids; Fenolite keeps both items."
+see = "inspect"
+
+["kicad.board.flip-unsupported"]
+meaning = "A footprint cannot be moved to the bottom side, because it holds content that Fenolite does not know how to mirror."
+fix = "Flip the footprint in KiCad, or keep it on its side."
+see = "place"
+
+["kicad.board.inexact-angle"]
+meaning = "An angle of the file is not a whole number of microdegrees and was rounded in the model."
+fix = "Nothing to do; the file's own text is kept when the item is not edited."
+see = "inspect"
+
+["kicad.board.inexact-length"]
+meaning = "A length of the file is not a whole number of nanometres and was rounded in the model."
+fix = "Nothing to do; the file's own text is kept when the item is not edited."
+see = "inspect"
+
+["kicad.board.kept-opaque"]
+meaning = "A part of the board that Fenolite models could not be read into the model here, so it is kept verbatim and written back unchanged."
+fix = "Nothing to do; that part cannot be edited through Fenolite."
+see = "inspect"
+
+["kicad.board.obsolete-dropped"]
+meaning = "Writing for KiCad 10 removed or converted content that only KiCad 9 writes."
+fix = "Nothing to do; KiCad 10 does the same when it saves the board."
+see = "KiCad output"
+
+["kicad.board.opaque-net-ref"]
+meaning = "Kept content refers to a net in a form Fenolite does not know, or by a number absent from the file's net table, so the board cannot be written safely."
+fix = "Re-save the board in KiCad; if it stays, report the item that 'where' names."
+see = "KiCad output"
+
+["kicad.board.outline-conflict"]
+meaning = "The design has an outline and the board also holds edge graphics, so two outlines would be written."
+fix = "Keep one: remove the outline from the script, or the edge graphics from the board."
+see = "KiCad output"
+
+["kicad.board.paper-unmodelled"]
+meaning = "The board's paper setting has a form that the model does not hold, so the sheet is left unset and the text is kept."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.board.projection-read-only"]
+meaning = "A value that Fenolite shows from kept content, other than the reference and the value, was changed; Fenolite cannot write that change."
+fix = "Change it in KiCad, or leave the value as it was read."
+see = "KiCad output"
+
+["kicad.board.unknown-net"]
+meaning = "An item refers to a net number that the file's net table does not hold; it is read without a net."
+fix = "Re-save the board in KiCad."
+see = "inspect"
+
+["kicad.board.zone-outline-opaque"]
+meaning = "A zone or rule area has an outline with arcs or with several polygons, which the model does not hold; it is kept verbatim."
+fix = "Nothing to do; that zone's outline cannot be edited through Fenolite."
+see = "inspect"
+
+["kicad.copper.bad-intent"]
+meaning = "A track(), via(), zone() or stitch() call of the script is malformed: its path, region, pitch, margin or key, or a key is used twice."
+fix = "Correct the call that 'where' names."
+see = "build"
+
+["kicad.copper.bad-layer"]
+meaning = "A layer of a copper call is not a copper layer of the board, or a via step does not change the layer."
+fix = "Use a copper layer of the board; a via must join two different layers."
+see = "build"
+
+["kicad.copper.bad-size"]
+meaning = "A size is not positive, or a drill is not smaller than its via diameter."
+fix = "Correct the width, the diameter or the drill."
+see = "build"
+
+["kicad.copper.duplicate"]
+meaning = "The board holds copper without a script uuid that equals an item the script creates; the board's copy was removed."
+fix = "Nothing to do."
+see = "build"
+
+["kicad.copper.end-unplaced"]
+meaning = "A copper call ends at a part that has no placement yet, so it creates nothing."
+fix = "Place the part with place(), then build again."
+see = "build"
+
+["kicad.copper.layer-mismatch"]
+meaning = "No pad at the end of a track has copper on the track's layer."
+fix = "Start the track on a layer of the pad, or add a via."
+see = "build"
+
+["kicad.copper.net-conflict"]
+meaning = "The pads at the ends of a track are on two nets or on none, or the net named in the call differs from theirs."
+fix = "Connect pads of one net, and name that net or none."
+see = "build"
+
+["kicad.copper.no-net"]
+meaning = "A via, a stitch or a track without a pad end names no net."
+fix = "Pass net=... in the call."
+see = "build"
+
+["kicad.copper.pad-not-found"]
+meaning = "A copper call names a part that has no footprint, a pad number that does not exist, or an index beyond the pads of that number."
+fix = "Correct the part reference or the pad in the call."
+see = "build"
+
+["kicad.copper.regenerated"]
+meaning = "Copper that the script creates was replaced by a new copy, because it was edited in KiCad or its pads moved."
+fix = "Nothing to do; to keep a manual edit, remove the call from the script."
+see = "build"
+
+["kicad.copper.size-missing"]
+meaning = "A width, a via size or a clearance is neither given in the call nor set by the net's class."
+fix = "Give the size in the call or in the net class."
+see = "build"
+
+["kicad.copper.stale"]
+meaning = "Copper that an earlier build created has no call in the script any more and was removed."
+fix = "Nothing to do; put the call back to keep the copper."
+see = "build"
+
+["kicad.copper.stitch-empty"]
+meaning = "A stitch() call keeps no via: every candidate position was rejected."
+fix = "Enlarge the region or reduce the pitch or the margin."
+see = "build"
+
+["kicad.copper.stitch-skipped"]
+meaning = "Some via positions of a stitch() call were dropped for clearance; the message gives the count."
+fix = "Nothing to do."
+see = "build"
+
+["kicad.copper.unknown-net"]
+meaning = "A copper call names a net that is not a net of the design."
+fix = "Correct the net name."
+see = "build"
+
+["kicad.drc.*"]
+meaning = "A finding of KiCad's own design rule check; the last part of the code is KiCad's violation type, and 'where' names the items."
+fix = "Fix the board as KiCad's message says, or change the rule or its severity in the project, then run 'fenolite check' again."
+see = "check"
+
+["kicad.drc.rules-not-loaded"]
+meaning = "KiCad did not apply the project's custom rules in this run: the canary rule did not fire, or the rules file has no project file next to it."
+fix = "Keep the .kicad_dru and the .kicad_pro of the same stem next to the board; the DRC findings of this run do not include the custom rules."
+see = "check"
+
+["kicad.drc.rules-unchecked"]
+meaning = "Fenolite could not tell whether KiCad applied the custom rules; the message names the reason."
+fix = "Treat the custom rules as unverified in this run and remove the cause the message names."
+see = "check"
+
+["kicad.footprint.dropped-too-new"]
+meaning = "With --allow-lossy, content of a footprint that the target KiCad version cannot read was removed."
+fix = "Nothing to do if the loss is accepted; else target the newer KiCad."
+see = "KiCad output"
+
+["kicad.footprint.projection-read-only"]
+meaning = "A footprint field that the writer keeps as it was read was changed; Fenolite cannot write that change."
+fix = "Change it in KiCad's footprint editor."
+see = "KiCad output"
+
+["kicad.frame.courtyard-malformed"]
+meaning = "A footprint's courtyard does not close, so the hull of its pieces is used as its extent."
+fix = "Close the courtyard in the footprint editor."
+see = "place"
+
+["kicad.frame.no-courtyard"]
+meaning = "A footprint has no courtyard, so the hull of its pads is used as its extent, or nothing when it has no pad copper."
+fix = "Nothing to do; draw a courtyard for an exact extent."
+see = "place"
+
+["kicad.frame.shape-approximated"]
+meaning = "A pad's copper is given as a shape that is at least as large as the real one."
+fix = "Nothing to do; distances to that pad may be reported slightly short."
+see = "check"
+
+["kicad.lib.disabled"]
+meaning = "A library nickname exists only in rows of the library table that are disabled."
+fix = "Enable the row or name another library."
+see = "build"
+
+["kicad.lib.duplicate-nickname"]
+meaning = "A library table holds a second row with the same nickname; the first one is used."
+fix = "Remove or rename one of the rows."
+see = "build"
+
+["kicad.lib.extends-cycle"]
+meaning = "The 'extends' chain of a symbol loops back to itself."
+fix = "Correct the symbol library."
+see = "build"
+
+["kicad.lib.invalid-id"]
+meaning = "A library reference is not library:name: it has no colon, an empty part, or a second colon."
+fix = "Write the reference as library:name."
+see = "build"
+
+["kicad.lib.kept-opaque"]
+meaning = "A part of a library file is kept verbatim, because the model does not hold it."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.lib.missing-3d-model"]
+meaning = "A footprint names a 3D model file that was not found."
+fix = "Nothing to do for fabrication; correct the model path for 3D views."
+see = "build"
+
+["kicad.lib.missing-entry"]
+meaning = "The library exists but holds no footprint or symbol of that name."
+fix = "Correct the entry name; 'fenolite catalog list' and 'fenolite inspect' show what a library holds."
+see = "build"
+
+["kicad.lib.missing-library"]
+meaning = "The path of a library, with its variables expanded, does not exist or is of the wrong kind."
+fix = "Correct the library path in the table or in the script."
+see = "build"
+
+["kicad.lib.missing-parent"]
+meaning = "A symbol extends a symbol that its library does not hold."
+fix = "Correct the symbol library."
+see = "build"
+
+["kicad.lib.missing-table"]
+meaning = "A library table names a nested table file that does not exist."
+fix = "Remove the row or restore the file."
+see = "build"
+
+["kicad.lib.name-mismatch"]
+meaning = "The name inside a footprint file differs from the file's name; the file name is used."
+fix = "Rename the file or the footprint so they agree."
+see = "build"
+
+["kicad.lib.nested-table-target"]
+meaning = "Nested library table rows are used with KiCad 9 as the target, which does not read them."
+fix = "Target KiCad 10, or list the libraries directly."
+see = "build"
+
+["kicad.lib.table-cycle"]
+meaning = "A nested library table includes a table that is already being read."
+fix = "Remove the row that closes the loop."
+see = "build"
+
+["kicad.lib.unknown-nickname"]
+meaning = "A library nickname is in no row of the library tables."
+fix = "Add the library to the script's libraries or to the project's table."
+see = "build"
+
+["kicad.lib.unresolved-variable"]
+meaning = "A library path uses a variable that has no value."
+fix = "Set the variable in the environment or in the project, or write the path out."
+see = "build"
+
+["kicad.lib.unsupported-type"]
+meaning = "A library table row has a type other than KiCad or Table."
+fix = "Convert the library to KiCad's format."
+see = "build"
+
+["kicad.project.below-floor"]
+meaning = "A net class value written to the project is below the board's minimum for it, so KiCad's DRC will report it."
+fix = "Raise the class value or lower the minimum."
+see = "KiCad output"
+
+["kicad.project.class-shadowed"]
+meaning = "A board-wide clearance rule overrides a larger clearance of a net class."
+fix = "Restrict the rule with a condition, or raise its value."
+see = "check"
+
+["kicad.project.default-over-rule"]
+meaning = "The clearance of the Default class stays above a board-wide clearance rule on this KiCad version, so the rule does not lower it."
+fix = "Lower the Default class clearance if the rule's value is the one wanted."
+see = "check"
+
+["kicad.project.dropped-pattern"]
+meaning = "With --allow-lossy, a net whose name cannot be a safe pattern was written without its class assignment."
+fix = "Rename the net, or assign its class in KiCad."
+see = "KiCad output"
+
+["kicad.project.dropped-too-new"]
+meaning = "With --allow-lossy, a project setting that the target KiCad version does not read was removed."
+fix = "Nothing to do if the loss is accepted."
+see = "KiCad output"
+
+["kicad.project.dropped-variable"]
+meaning = "With --allow-lossy, a text variable that cannot be written to the project was left out."
+fix = "Rename the variable."
+see = "KiCad output"
+
+["kicad.project.inexact-value"]
+meaning = "A class value or a minimum of the project is not a whole number of nanometres and was rounded."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.project.minimum-kept"]
+meaning = "The board-wide rule that governs a minimum has a severity other than error, or no minimum, so the project's minimum was left as it is."
+fix = "Nothing to do."
+see = "KiCad output"
+
+["kicad.project.minimum-replaced"]
+meaning = "A minimum of the project file was written again, because it was absent, not a number, or different."
+fix = "Nothing to do."
+see = "KiCad output"
+
+["kicad.project.multiple-classes"]
+meaning = "Several net classes match one net; the model takes the first."
+fix = "Make the class patterns of the project exclusive."
+see = "inspect"
+
+["kicad.project.pattern-conflict"]
+meaning = "A class assignment that the project file already holds gives a net another class than the design does."
+fix = "Remove the entry in KiCad, or change the design's class."
+see = "KiCad output"
+
+["kicad.project.pattern-unsafe"]
+meaning = "A net with a class has '*' or '?' in its name, or its exact-name pattern would also match a net of another class."
+fix = "Rename the net."
+see = "KiCad output"
+
+["kicad.project.reserved-variable"]
+meaning = "A text variable of the design uses a name that KiCad reserves."
+fix = "Rename the variable."
+see = "KiCad output"
+
+["kicad.project.rule-below-minimum"]
+meaning = "A rule asks for less than a board minimum, and this KiCad version applies the minimum instead."
+fix = "Lower the minimum or raise the rule's value."
+see = "check"
+
+["kicad.project.too-new-key"]
+meaning = "The project holds a setting that only KiCad 10 reads, and it is being written for KiCad 9."
+fix = "Target KiCad 10, or pass --allow-lossy to drop the setting."
+see = "KiCad output"
+
+["kicad.project.unknown-class"]
+meaning = "A pattern or an assignment of the project names a net class that the project does not define."
+fix = "Define the class or remove the entry in KiCad."
+see = "inspect"
+
+["kicad.project.unlowered-field"]
+meaning = "A net class description is not written to the project file."
+fix = "Nothing to do."
+see = "KiCad output"
+
+["kicad.project.unread-entry"]
+meaning = "A pattern or assignment entry of the project has an unexpected shape and was not read."
+fix = "Re-save the project in KiCad."
+see = "inspect"
+
+["kicad.project.unread-variable"]
+meaning = "A text variable of the project has an unexpected shape and was not read."
+fix = "Re-save the project in KiCad."
+see = "inspect"
+
+["kicad.wks.below-resolution"]
+meaning = "A length of the drawing sheet is not a whole number of micrometres, which the file format cannot hold."
+fix = "Round the length to a micrometre."
+see = "template"
+
+["kicad.wks.dropped-item"]
+meaning = "With --allow-lossy, a kept item that the target cannot read was left out of the drawing sheet."
+fix = "Nothing to do if the loss is accepted."
+see = "template"
+
+["kicad.wks.kept-opaque"]
+meaning = "An item of the drawing sheet is kept verbatim, because the model does not hold it; the message says why."
+fix = "Nothing to do."
+see = "inspect"
+
+["kicad.wks.legacy-root"]
+meaning = "The drawing sheet uses an older root name; it is read as usual."
+fix = "Nothing to do; KiCad writes the new name when it saves the file."
+see = "inspect"
+
+["kicad.wks.literal-variable"]
+meaning = "A text would be written with '${' or with '%' and a letter that no token produced, which KiCad would read as a variable."
+fix = "Use a token for the variable, or change the text."
+see = "template"
+
+["kicad.wks.param-reserved"]
+meaning = "A {param:X} token uses the name of a variable that KiCad reserves."
+fix = "Rename the parameter."
+see = "template"
+
+["kicad.wks.uninventoried"]
+meaning = "The writer met a name that the token inventory does not list, so it cannot tell which KiCad versions read it."
+fix = "Report the name; it is a gap in Fenolite's inventory."
+see = "template"
+
+["kicad.wks.unknown-value"]
+meaning = "A setting of a sheet item has a value outside the set that KiCad reads."
+fix = "Correct the value that 'where' names."
+see = "template"
+
+["kicad.zone.forced"]
+meaning = "A locked zone() of the script replaced a zone of the board that differed from it."
+fix = "Nothing to do; unlock the zone() to keep edits made in KiCad."
+see = "build"
+
+["kicad.zone.orphan"]
+meaning = "A zone that an earlier build created has no zone() in the script any more and was removed."
+fix = "Nothing to do; put the call back to keep the zone."
+see = "build"
+
+["kicad.zone.overridden"]
+meaning = "An unlocked zone() differs from the zone on the board, and the board's zone was kept."
+fix = "Nothing to do; lock the zone() to make the script win."
+see = "build"
+
+["layout.alias-unused"]
+meaning = "A moved() alias matched nothing on the board, or its part was already matched in another way."
+fix = "Remove the alias from the script."
+see = "build"
+
+["layout.alias-used"]
+meaning = "A part was found on the board through a moved() alias and is now kept under its new path."
+fix = "Nothing to do; the alias can be removed after this build."
+see = "build"
+
+["layout.board-only"]
+meaning = "A footprint of the board that Fenolite did not create matched no part of the script and is kept."
+fix = "Nothing to do."
+see = "build"
+
+["layout.copper-mismatch"]
+meaning = "The existing board's copper layers differ from board(copper=...) of the script."
+fix = "Make the script's layer count equal to the board's, or change the stack-up in KiCad."
+see = "build"
+
+["layout.footprint-replaced"]
+meaning = "A part's footprint changed in the script, so the footprint on the board was replaced and placed again."
+fix = "Check the part's place on the board."
+see = "build"
+
+["layout.net-removed"]
+meaning = "Copper on a net that the design no longer has was removed from the board."
+fix = "Nothing to do; rename with care, since a renamed net is a removed and an added net."
+see = "build"
+
+["layout.orphan"]
+meaning = "A footprint that an earlier build created has no part in the script any more and was removed."
+fix = "Nothing to do; use moved() when a part only changed its path."
+see = "build"
+
+["layout.outline-kept"]
+meaning = "The board's edge drawing differs from the script's outline, and the board's was kept."
+fix = "Remove the outline from the script, or redraw the edge in KiCad to match."
+see = "build"
+
+["layout.place-forced"]
+meaning = "A locked place() of the script moved a footprint whose placement on the board differed."
+fix = "Nothing to do; unlock the place() to keep placements made in KiCad."
+see = "build"
+
+["layout.place-overridden"]
+meaning = "An unlocked place() differs from the footprint's placement on the board, and the board's placement was kept."
+fix = "Nothing to do; lock the place() to make the script win."
+see = "build"
+
+["layout.unplaced"]
+meaning = "A part has no placement, so its footprint was put in a row beside the board."
+fix = "Place it with place() in the script, with 'fenolite place', or in KiCad."
+see = "build"
+
+["netlist.assignment-differs"]
+meaning = "A pad is on different nets in two sources of the design: the model, the board file or KiCad's own export."
+fix = "Find which source is right for the pad that 'where' names; build again if the board is stale."
+see = "check"
+
+["netlist.uncovered"]
+meaning = "Some pads are named by one source and not by the other, per reason."
+fix = "Nothing to do unless the reason is unexpected."
+see = "check"
+
+["place.copper-left"]
+meaning = "A footprint that was moved had tracks ending on its pads; the tracks stay where they were."
+fix = "Route those nets again, or move the tracks in KiCad."
+see = "place"
+
+["place.courtyard-overlap"]
+meaning = "The courtyards of two footprints on the same side overlap; 'where' names both."
+fix = "Move one of the parts; 'fenolite neighbors' shows what is near."
+see = "place"
+
+["place.edge-clearance"]
+meaning = "A courtyard is closer to the board edge than the edge clearance."
+fix = "Move the part away from the edge."
+see = "place"
+
+["place.locked"]
+meaning = "The footprint is locked on the board, so it was not moved."
+fix = "Pass --force to move it, or unlock it in KiCad."
+see = "place"
+
+["place.no-definition"]
+meaning = "A rotation or a change of side needs the footprint's library definition, which was not found."
+fix = "Make the library available, or only translate the footprint."
+see = "place"
+
+["place.no-extent"]
+meaning = "A footprint has neither a courtyard nor pad copper, so it is not judged for overlaps."
+fix = "Nothing to do."
+see = "place"
+
+["place.no-outline"]
+meaning = "The board has no closed outline, so only courtyard overlaps are judged."
+fix = "Draw a closed outline to have the edge judged."
+see = "place"
+
+["place.no-room"]
+meaning = "The automatic placement found no free position for a part; it stays where it was."
+fix = "Enlarge the board, or place the part by hand with --move."
+see = "place"
+
+["place.outside-outline"]
+meaning = "A courtyard leaves the board outline or enters a cut-out."
+fix = "Move the part inside the board."
+see = "place"
+
+["place.script-locked"]
+meaning = "The part has a locked placement in the design script, so the next build puts it back."
+fix = "Change the place() call in the script instead."
+see = "place"
+
+["place.unknown-ref"]
+meaning = "--move or --only names a reference that the board does not hold."
+fix = "Correct the reference; 'fenolite inspect' and 'fenolite net' show what the board holds."
+see = "place"
+
+["pnp.no-outline"]
+meaning = "The placement template asks for positions relative to the board outline, and the board has no closed outline. No row and no file is written."
+fix = "Close the outline on the board, or set the origin of the template to the file origin."
+see = "pnp"
+
+["render.failed"]
+meaning = "A view could not be produced; 'where' is the view. It is never an error: a render is not a gate."
+fix = "Run again; check that kicad-cli of the running version has the render command."
+see = "render"
+
+["restore.backup-missing"]
+meaning = "A backup that the receipt names does not exist any more, so the write cannot be undone as a whole. Nothing was restored."
+fix = "Restore the files from version control or another copy."
+see = "restore"
+
+["restore.changed-since"]
+meaning = "A file that the write produced is missing or no longer has the content that write gave it, so restoring would destroy a later change. Nothing was restored."
+fix = "Undo the later change first, or copy the wanted content from the .bak file by hand."
+see = "restore"
+
+["restore.kept"]
+meaning = "A file that the write created has no backup, so it stays as it is while the others are restored."
+fix = "Remove the file by hand if it is unwanted."
+see = "restore"
+
+["restore.nothing"]
+meaning = "The receipt kept no backup: the write created its files or ran with --no-backup, so there is nothing to put back."
+fix = "Remove a created file by hand if it is unwanted; restore never deletes."
+see = "restore"
+
+["roundtrip.failed"]
+meaning = "The file does not survive the level named in the message: reading it and writing it back would change it. 'where' is the first difference."
+fix = "Do not edit the file through Fenolite; edit it in KiCad, or report the difference."
+see = "roundtrip"
+
+["route.bad-item"]
+meaning = "The router returned copper that is malformed, so nothing was written."
+fix = "Report it with the router's name; try another router."
+see = "route"
+
+["route.copper-removed"]
+meaning = "The router dropped copper that the board already had."
+fix = "Compare with 'fenolite diff' before confirming; route fewer nets if the loss is not wanted."
+see = "route"
+
+["route.fill-stale"]
+meaning = "The new copper makes the filled zones out of date."
+fix = "Run 'fenolite fill' on the board."
+see = "route"
+
+["route.option-ignored"]
+meaning = "A --router-option that this router does not support was ignored."
+fix = "Remove the option, or use the router that takes it."
+see = "route"
+
+["route.tool-failed"]
+meaning = "The external router exited with an error or wrote no result."
+fix = "Read the message; run again with other options, or use --router direct."
+see = "route"
+
+["route.tool-missing"]
+meaning = "The configured external router was not found."
+fix = "Install it or name it with --router-path."
+see = "route"
+
+["route.tool-unpinned"]
+meaning = "The external router is not the version that Fenolite was tested with."
+fix = "Use the pinned version for results that can be repeated."
+see = "route"
+
+["route.unrouted"]
+meaning = "A selected net is still not fully routed, or the router reports open connections."
+fix = "Route the rest by hand, give the router more passes, or free some space."
+see = "route"
+
+["route.zone-net-skipped"]
+meaning = "A net that a zone carries was left out of the routing."
+fix = "Pass the flag that includes zone nets if tracks are wanted for it."
+see = "route"
+
+["rules.dropped-for-target"]
+meaning = "With --allow-lossy, a rule that the target KiCad version cannot load was left out of the rules file."
+fix = "Nothing to do if the loss is accepted; else target the newer KiCad."
+see = "KiCad output"
+
+["rules.kept-opaque"]
+meaning = "A rule of the rules file is kept verbatim, because the model does not hold its form; the message names the reason."
+fix = "Nothing to do; Fenolite's own copper check does not apply that rule."
+see = "inspect"
+
+["rules.unsupported-layer"]
+meaning = "A rule names a layer that is not a KiCad layer name, or a layer clause that the target does not take."
+fix = "Correct the layer of the rule."
+see = "KiCad output"
+
+["rules.unsupported-limit"]
+meaning = "A rule has a limit that its kind does not take, or no limit at all."
+fix = "Give the rule the limit of its kind, for example min for a clearance."
+see = "KiCad output"
+
+["rules.unsupported-selector"]
+meaning = "A rule selects items in a way that cannot be written as a KiCad rule condition for the target."
+fix = "Simplify the selector to nets, net classes, layers and item kinds."
+see = "KiCad output"
+
+["specctra.pad-approximated"]
+meaning = "A pad shape has no exact Specctra form and was given to the router as a larger simple shape."
+fix = "Nothing to do; the router keeps a little more distance from that pad."
+see = "route"
+
+["specctra.renamed"]
+meaning = "A name was changed for the Specctra file, because the format cannot hold it."
+fix = "Nothing to do; the board keeps the original name."
+see = "route"
+
+["specctra.rounded"]
+meaning = "A coordinate was rounded to the resolution of the Specctra file."
+fix = "Nothing to do."
+see = "route"
+
+["specctra.session-moved"]
+meaning = "The router's result places a component elsewhere than the board does, so the result was refused."
+fix = "Run the router again; do not let it move components."
+see = "route"
+
+["specctra.unknown-list"]
+meaning = "The router's result holds a list that Fenolite does not read; it was skipped."
+fix = "Nothing to do."
+see = "route"
+
+["specctra.unknown-padstack"]
+meaning = "The router's result uses a via that the design file did not offer."
+fix = "Run the router again; report it if it repeats."
+see = "route"
+
+["template.bad-value"]
+meaning = "The sheet specification has a wrong type or value, a missing required key, or a TOML syntax error."
+fix = "Correct the key that 'where' names."
+see = "template"
+
+["template.bitmap-not-png"]
+meaning = "A bitmap file of the specification is not a PNG file."
+fix = "Convert the image to PNG."
+see = "template"
+
+["template.cell-outside"]
+meaning = "A cell of the title block lies outside its grid."
+fix = "Correct the cell's row, column or span."
+see = "template"
+
+["template.cell-overlap"]
+meaning = "Two cells of the title block cover the same grid position."
+fix = "Change the span or the position of one of them."
+see = "template"
+
+["template.resolution"]
+meaning = "A length of the specification is not a whole number of micrometres."
+fix = "Round the length to a micrometre."
+see = "template"
+
+["template.too-wide"]
+meaning = "The title block is wider or taller than the area inside the margins of a listed page size."
+fix = "Make the block smaller, or drop that page size."
+see = "template"
+
+["template.unknown-key"]
+meaning = "The specification holds a key or a table that the format does not define."
+fix = "Remove it or correct its spelling."
+see = "template"
+
+["template.unknown-token"]
+meaning = "A cell's token or label is not a valid token text."
+fix = "Use a token that docs/sheet-templates.md lists."
+see = "template"
+
+["template.unproven-value"]
+meaning = "A number of the specification has no entry in its provenance table, which this template requires."
+fix = "Add the number to [provenance.values] with its source."
+see = "template"
+
+["template.zone-letters"]
+meaning = "A listed page size would need more than 8 letter rows for its zones."
+fix = "Use fewer rows, or drop that page size."
+see = "template"
+
+["zone.fill-mismatch"]
+meaning = "A zone exists in only one of the two boards, so the refilled board is not a refill of this one."
+fix = "Pass the refill of the same board to --from."
+see = "fill"
+
+["zone.fill-stale"]
+meaning = "The saved copper of a zone differs from what KiCad fills now."
+fix = "Run 'fenolite fill' on the board."
+see = "check"
+
+["zone.fill-unchecked"]
+meaning = "The selected tool cannot refill zones, or two refills differ, so the fills were not checked."
+fix = "Use kicad-cli 10 for this stage."
+see = "check"
+
+["zone.fill-unstable"]
+meaning = "Another refill does not reproduce a zone's fill, so it cannot be relied on to be repeatable."
+fix = "Nothing to do; the fill is still written."
+see = "fill"
+
+["zone.none"]
+meaning = "The board has no zone with a net, so there is nothing to refill."
+fix = "Nothing to do."
+see = "fill"
+
+["zone.unfilled"]
+meaning = "KiCad's refill produces copper for a zone, but the saved board has none for it."
+fix = "Run 'fenolite fill' on the board."
+see = "check"

@@ -82,7 +82,8 @@ class SchemaBuilder:
             _apply_metadata(prop, dict(f.metadata))
             properties[f.name] = prop
             no_default = f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
-            if self.all_required or no_default:
+            # a wire field added after v0 was published is marked ``optional``: old documents stay valid
+            if no_default or (self.all_required and not f.metadata.get("optional")):
                 required.append(f.name)
         schema: dict[str, Any] = {}
         doc = (cls.__doc__ or "").strip().splitlines()

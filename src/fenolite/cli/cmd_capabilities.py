@@ -107,6 +107,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     commands = [
         {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
         | ({"example_tools": list(c.example_tools)} if c.example_tools else {})
+        | ({"paged": c.paged, "default_limit": c.default_limit} if c.paged else {})
         for c in sorted(discover().values(), key=lambda c: c.name)
     ]
     result: dict[str, Any] = {

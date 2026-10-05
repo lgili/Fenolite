@@ -2,14 +2,15 @@
 
 ### Requirement: Paged results
 The dispatcher SHALL accept the global flags `--limit N` and `--cursor TOKEN` and SHALL cut the paged list of a command to one page, without keeping any state between calls.
-- `fenolite.cli.api.Command` MUST have the fields `paged: str | None = None`, the dotted path of the command's main list in `result` or the literal `"issues"`, and `default_limit: int | None = None`.
-- With a limit (the flag, or else `default_limit`), the dispatcher MUST keep the items `offset` to `offset + limit - 1` of the paged list and MUST set `result.page` to `{path, limit, offset, total, next}`: `total` is the length of the whole list, and `next` the cursor of the following page or `null` on the last. Without a limit the list is whole and `result.page` is absent.
+- `fenolite.cli.api.Command` MUST have the fields `paged: str | None = None`, the dotted path of the command's main list in `result` or the literal `"issues"`, and `default_limit: int | None = None`. Several paths separated by `|` are alternatives: the first one that the result holds is paged, and `result.page.path` names it.
+- With a limit (the flag, or else `default_limit`), the dispatcher MUST keep the items `offset` to `offset + limit - 1` of the paged list and MUST set `result.page` to `{path, limit, offset, total, next}`: `total` is the length of the whole list, and `next` the cursor of the following page or `null` on the last. Without a limit the list is whole and `result.page` is absent. When the object that holds the paged list also holds `total` or `truncated`, the dispatcher MUST set them to the length of the whole list and to whether the page is shorter than it.
 - A cursor MUST be `<offset>.<digest>`, the digest being the first 8 hex digits of the SHA-256 of the canonical JSON of the whole list. `--cursor` MUST be refused with exit 2 (`FEN-2001`) when it is malformed, when its offset is past the end, when its digest is not that of the present list (the message says that the result changed since the cursor was issued), or when it is given without a limit in force.
 - For `paged == "issues"` the envelope's `issues` list MUST be the page, and `result.page.path` MUST be `issues`.
 - `ok`, the exit code, the error on stderr and every count in `result` MUST come from the whole result, never from the page.
 - `--limit` MUST be at least 1; a value below 1, and `--limit` on a command whose `paged` is `None`, MUST exit 2 with `FEN-2001`.
 - `--fields` MUST apply after paging and MUST be able to keep `page`.
-- `capabilities` MUST list `paged` and `default_limit` for each command that has them. `check` MUST declare `paged = "issues"`.
+- `capabilities` MUST list `paged` and `default_limit` for each command that has them. `check` and `analyze` MUST declare `paged = "issues"`.
+- The hidden `_echo` command MUST take `--issues N`, which gives N numbered warnings of the code `echo.warning` before the issues of `--issue`, and MUST declare `paged = "issues"`.
 
 #### Scenario: Two pages of issues
 - **GIVEN** `_echo` producing five warnings
@@ -133,7 +134,8 @@ The dispatcher SHALL accept the global flag `--format concise|detailed`, default
 - **Without `--check`.** The command MUST return one `PlannedWrite` with the canonical text when it differs from the file, and none when it does not; `result.formatted` then says whether the file already was canonical.
 - **Result.** `result` MUST hold `kind`, `formatted`, `lines` (of the file) and `first_difference` (a line number or `null`).
 - A tree that `dumps` refuses (comments below the root) MUST exit 7 with `FEN-7001`; a file that does not parse MUST exit 3 with `FEN-3004`.
-- `example_args` MUST be `(EXAMPLE_BOARD, "--check")`; `mutation_example_args` MUST format a copy of an authored file that is not canonical, made by the suite in its empty folder. Both MUST run no subprocess.
+- `example_args` MUST be `(EXAMPLE_BOARD, "--check")`; `mutation_example_args` MUST be `(cmd_fmt.EXAMPLE_COPY,)`, a copy of the authored board that is not canonical, which `tests/_cliexamples.py::prepare_example` writes into the suite's folder before the command runs. Both MUST run no subprocess.
+- For a command that `tests/_cliexamples.py::PREPARED` names, `tests/consistency/test_cli_consistency.py` and `tests/unit/cli/test_hermetic_examples.py` MUST prepare the working directory first, and the mutation-protocol test MUST prove that an unconfirmed run and a dry run leave every file of that folder as it was; for every other command the folder MUST stay empty, as before.
 
 #### Scenario: Canonical file
 - **GIVEN** the text `dumps(parse(text))` of `two_layer.kicad_pcb` written to `tmp_path`
@@ -226,7 +228,7 @@ The receipt of a confirmed mutating command SHALL carry, beside `written` and `b
 - **THEN** the exit code is 0 and `result.plan` lists the file
 
 ### Requirement: Net command
-`fenolite net PATH [NAME]` SHALL be registered by `src/fenolite/cli/cmd_net.py` with `mutates=False` and `paged = "nets"`, and SHALL describe the nets of a board, or one net, from the board model, without running any tool.
+`fenolite net PATH [NAME]` SHALL be registered by `src/fenolite/cli/cmd_net.py` with `mutates=False` and `paged = "nets|net.pads"`, and SHALL describe the nets of a board, or one net, from the board model, without running any tool.
 - `PATH` MUST resolve with `projectset.resolve_board`; the board is read through `registry.for_path`, narrowed to `BoardFrame` for the pads.
 - **Without `NAME`.** `result.nets` MUST be `analysis.views.net_list(design)`: one row per net, sorted by name, with `name`, `class`, `pads`, `tracks`, `vias`, `zones` and `length` (the summed centre-line length of its tracks and arcs, in nm).
 - **With `NAME`.** `result.net` MUST be `analysis.views.net_view(design, NAME, pads=…)`: `name`, `class`, `pads` (each `where` as `REF-PIN`, `layers`, `position`), `copper` (per layer: `tracks`, `arcs`, `length`), `vias`, `zones` (each `layers` and `filled`) and `box` (the bounding box of its pads and copper, or `null`). The paged list is then `net.pads`.
@@ -269,7 +271,7 @@ The receipt of a confirmed mutating command SHALL carry, beside `written` and `b
 ### Requirement: Neighbors command
 `fenolite neighbors PATH REF [--radius L]` SHALL be registered by `src/fenolite/cli/cmd_neighbors.py` with `mutates=False` and `paged = "neighbors"`, and SHALL list the footprints near one part.
 - `--radius` MUST be a length with a unit, default `5mm`.
-- `result.part` MUST hold `ref`, `position`, `rotation`, `side` and `box` (of its extent); `result.neighbors` MUST be the rows of `analysis.views.neighbors_view(…)`: `ref`, `distance` (nm; 0 when the extents touch or overlap), `overlap`, `side` and `shared_nets` (sorted names), sorted by distance and then reference.
+- `result.radius` MUST be the radius in nm. `result.part` MUST hold `ref`, `position`, `rotation`, `side` and `box` (of its extent); `result.neighbors` MUST be the rows of `analysis.views.neighbors_view(…)`: `ref`, `distance` (nm; 0 when the extents touch or overlap), `overlap`, `side` and `shared_nets` (sorted names), sorted by distance and then reference.
 - Only footprints on the part's side are neighbours; a through-hole part is on both sides.
 - An unknown reference MUST exit 2 with `FEN-2001` and the closest references in the hint.
 - `example_args` MUST be `(EXAMPLE_BOARD, "R1")`.

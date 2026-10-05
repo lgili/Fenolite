@@ -126,6 +126,43 @@ class TestMutationProtocol:
         assert receipt["written"] == [{"path": "out.txt", "sha256": hashlib.sha256(b"new\n").hexdigest()}]
         assert receipt["backup"] == ["out.txt.bak"]
 
+    def test_receipt_identity(self, capsys: CapSys, tmp_path_factory: pytest.TempPathFactory) -> None:
+        """ "Receipt identity" (c0066): equal writes have equal ids whatever the folder, seed and time, and
+        ``undo`` is offered only when a backup was kept."""
+        receipts = []
+        for seed in ("1", "2"):
+            folder = tmp_path_factory.mktemp("write")
+            with pytest.MonkeyPatch.context() as patch:
+                patch.chdir(folder)
+                code, out, _ = _run(capsys, "_echo", "--write", "out.txt", "--confirm", "--seed", seed)
+            assert code == 0 and out is not None
+            receipts.append(out["receipt"])
+        first, second = receipts
+        assert first["id"] == second["id"] and len(first["id"]) == 16 and int(first["id"], 16) >= 0
+        assert first["undo"] is None and set(first) == {"written", "backup", "id", "undo"}
+
+        (self.dir / "out.txt").write_text("old\n")
+        code, out, _ = _run(capsys, "_echo", "--write", "out.txt", "--confirm")
+        assert code == 0 and out is not None
+        assert out["receipt"]["undo"] == "fenolite restore - --confirm"
+        assert out["receipt"]["id"] != first["id"]  # the backup list is part of the identity
+        body = {"written": out["receipt"]["written"], "backup": out["receipt"]["backup"]}
+        text = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        assert out["receipt"]["id"] == hashlib.sha256(text.encode()).hexdigest()[:16]
+
+    def test_receipt_without_identity_still_validates(self) -> None:
+        import _schema
+
+        schema = _schema.load("fenolite.envelope.v0.json")
+        envelope = {
+            "ok": True, "command": "x", "schema": "fenolite.x.v0", "input": None, "result": {}, "issues": [],
+            "evidence": {"level": "UNVERIFIED", "oracle": None, "hypotheses": []},
+            "receipt": {"written": [], "backup": []}, "elapsed_ms": 0,
+        }  # fmt: skip
+        assert _schema.validate(envelope, schema) == []
+        envelope["receipt"] = {"written": [], "backup": [], "id": "zz", "undo": None}
+        assert _schema.validate(envelope, schema) != []
+
     def test_no_backup(self, capsys: CapSys) -> None:
         (self.dir / "out.txt").write_text("old\n")
         code, out, _ = _run(capsys, "_echo", "--write", "out.txt", "--confirm", "--no-backup")

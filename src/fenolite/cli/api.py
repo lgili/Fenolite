@@ -70,6 +70,12 @@ class Command:
     mutation_example_args: tuple[str, ...] | None = None
     example_tools: tuple[str, ...] = ()
     """External tools the examples need (``kicad-cli``); the test suites provide a fake for each."""
+    paged: str | None = None
+    """The list that ``--limit`` and ``--cursor`` cut: a dotted path in ``result``, or ``"issues"`` for
+    the envelope's issues. Several paths separated by ``|`` name alternatives: the first one that the
+    result holds is paged."""
+    default_limit: int | None = None
+    """The page size in force without ``--limit``; ``None`` gives the whole list."""
 
     @property
     def hidden(self) -> bool:

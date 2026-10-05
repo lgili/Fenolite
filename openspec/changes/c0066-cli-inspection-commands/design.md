@@ -30,6 +30,15 @@
 
 2. **Matching.** Ids, native ids and provenance never take part. Named entities are matched by name (`ref`, net name, `REF-PIN`, `<library>:<name>`); copper and graphics by content. A moved footprint is one `changed` at `/footprint/<ref>/position`; a moved track is one `removed` and one `added`. For sheets: `symbol` by reference and unit, `sheet_ref` by name, `lib_symbol` by embedded name, labels and no-connect flags by content.
 
+   - Added while implementing (2026-10-05), because the requirement says "every difference" and the kind
+     lists left parts of the model out: `interface` and `module` are keyed kinds; the values a design
+     holds once (outline, finish, sheet, title block) are fields of the keyless kind `design`; the
+     design's name is not compared, since a board read from `a.kicad_pcb` and one read from
+     `b.kicad_pcb` would otherwise always differ. A key is escaped as a JSON pointer segment, because
+     KiCad net names start with `/`. "Canonical order" of unmatched content entities is the order of
+     their compact canonical JSON: the model's own canonical order sorts by id, which a diff must not
+     read. c0044 re-bases on this text.
+
 3. **`fenolite diff A B`** (`mutates=False`). Each input is a KiCad board, footprint file, symbol library or schematic, or a folder with `.fenolite/meta.json`. Both must be of one family (design, library or sheet).
    - `--view model` (default): the report of Decision 1; `--ext` also compares the opaque content, as a hash.
    - `--view tree`: two KiCad files of one kind; `result.equal` is `tree_equal`, with the locator of the first difference and the counts of root children by head where they differ. It answers "did anything at all change", opaque content included, without a list.
@@ -48,6 +57,12 @@
    - Accepted: `.kicad_pcb`, `.kicad_mod`, `.kicad_sch`, `.kicad_sym`, `.kicad_wks`. Refused with exit 2: `.kicad_pro` (JSON, kept byte for byte), `.kicad_dru` (not a single S-expression), any other file. A tree with comments below the root, which `dumps` refuses, exits 7 (`FEN-7001`).
    - The tree is unchanged by construction (RT0); only the layout changes. Identity with KiCad's own printer is measured elsewhere (`H-K-FMT-*`) and is not a goal.
    - The corpus test proves the plan's sentence: formatting a formatted file changes nothing, on every corpus file.
+
+   - Added while implementing (2026-10-05): `fmt` and `restore` are the first commands whose examples
+     act on a file of the working directory, and the consistency suite asserted an empty folder before a
+     confirmed write. `tests/_cliexamples.py` now prepares the example files of the commands it names,
+     and the suite compares the folder before and after; the assertion for every other command is as
+     strict as it was.
 
 6. **`fenolite explain CODE`** (`mutates=False`). `cli/data/explain.toml` holds one entry per code: `meaning` and `fix`, each one or two sentences, and `see` (a section of `docs/cli-contract.md`).
    - `cli/explain.py::TABLES` names every issue-code table of the package; `all_codes()` returns their union with the FEN registry.
@@ -72,6 +87,10 @@
    - For `"issues"` the envelope's `issues` list is cut; `result.page` describes it.
    - The exit code, `ok` and every count in `result` come from the whole result, never from the page.
    - `--limit` on a command without a paged list exits 2. `check` pages `issues`; `diff` pages `differences`; `netlist` (c0063) `nets`; `bom` and `pnp` (c0064) `lines` and `rows`; `manifest` (c0065) `artifacts`; `net`, `region` and `neighbors` their lists.
+
+   - Added while implementing (2026-10-05): `paged` may name alternatives (`nets|net.pads`), because
+     `net` returns one of two lists; and the dispatcher sets `total` and `truncated` beside a paged
+     list, so `diff` keeps c0044's two keys without knowing the page.
 
 10. **Concise output.** `--format concise|detailed` (default `detailed`). `concise` keeps, for each issue code, the first issue in order and drops the others, and adds `result.issues_summary`: per code, its severity counts and total. Paging applies after it. An agent that fixes one problem per iteration reads one issue per kind and the counts.
     - `result` is otherwise unchanged; `--fields` already trims it.
