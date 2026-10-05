@@ -42,5 +42,6 @@
   - 2026-10-05: residue, schema check, `make check-fast` and `openspec validate` pass locally; the rules oracle passes on 10.0.6 and 9.0.9 (local). The full `make check` and `gh pr checks` are left to the coordinator's merge run (one full suite at a time).
 - [x] 6.2 Update the evidence: the three rows become `KICAD-VERIFIED (9.0.x, 10.0.x)` with their per-major outcomes (creepage `absent` on 9.0.9 is part of the verified statement), or record what failed. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
   - 2026-10-05: done from the local runs of both majors; the CI runs are to be added to the rows when the jobs pass.
+  - 2026-10-06: the `kicad-9` and `kicad-10` jobs passed on commit cfaedf8 (run https://github.com/lgili/Fenolite/actions/runs/37307337846); the run is cited in the hypothesis rows.
 - [x] 6.3 Add to `CHANGELOG.md` under Unreleased: "Six more rule kinds (hole to hole, hole clearance, annular width, courtyard, silkscreen, creepage) in the model, the `.kicad_dru` writer and reader, and `design.rules.rule()` with selectors from `fenolite.dsl.select`; creepage rules are written for KiCad 10 only". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
   - 2026-10-05: done.

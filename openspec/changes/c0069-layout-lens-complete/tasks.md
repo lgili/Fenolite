@@ -62,5 +62,6 @@
   - 2026-10-06: residue, `make check-fast` and `openspec validate` pass locally; the lens oracle and the probe files pass on 10.0.6 and 9.0.9 (local). The full `make check` and `gh pr checks` are left to the coordinator's merge run (one full suite at a time).
 - [x] 8.2 Update the evidence: `H-K-LENS-RENAME` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` with the run, or records the outcome that failed and the stop rule taken. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
   - 2026-10-06: done from the local runs of both majors; the CI run is to be added to the row when the jobs pass.
+  - 2026-10-06: the `kicad-9` and `kicad-10` jobs passed on commit cfaedf8 (run https://github.com/lgili/Fenolite/actions/runs/37307337846); the run is cited in the hypothesis rows.
 - [x] 8.3 Add to `CHANGELOG.md` under Unreleased: "`moved()` takes module paths and `moved_net()` renames nets without losing their routing; a footprint renamed through an alias keeps its KiCad edits; `fenolite sync --to-source` writes `placements.toml`, which `build` reads beside the script". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
   - 2026-10-06: done.

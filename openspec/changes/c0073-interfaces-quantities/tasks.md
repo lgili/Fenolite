@@ -39,5 +39,6 @@
   - 2026-10-05: residue, `make check-fast` and `openspec validate` pass locally; the probe files are verified on 10.0.6 and 9.0.9 (local). The full `make check` and `gh pr checks` are left to the coordinator's merge run (one full suite at a time).
 - [x] 5.2 Update the evidence: `H-K-DIFFPAIR-NAMES` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` with the run, or records the case that differed. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
   - 2026-10-05: done from the local runs of both majors; the CI runs are to be added to the row when the jobs pass.
+  - 2026-10-06: the `kicad-9` and `kicad-10` jobs passed on commit cfaedf8 (run https://github.com/lgili/Fenolite/actions/runs/37307337846); the run is cited in the hypothesis rows.
 - [x] 5.3 Add to `CHANGELOG.md` under Unreleased: "Exact `Quantity` values in the DSL (`ohm("4k7")`, `farad("100n")`), typed `I2C`, `SPI`, `UART` and `USB2` interfaces with `attach` by role, and build warnings for differential-pair names KiCad does not pair and for I2C lines without a pull-up". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
   - 2026-10-05: done.
