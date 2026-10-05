@@ -17,6 +17,7 @@ takes the next free number. Ids follow the form `cNNNN-<slug>`, a project conven
 CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A slug may still change
 until its change is proposed. The nine v0.2a changes were allocated together as c0060–c0068 on
 2026-10-04, while c0058 was being written, so c0057 stays unused.
+The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -80,6 +81,12 @@ until its change is proposed. The nine v0.2a changes were allocated together as 
 | c0066 | `cli-inspection-commands` | v0.2a | — |
 | c0067 | `evidence-matrix` | v0.2a | — |
 | c0068 | `v01-followups` | v0.2a | c0025, c0028, c0029, c0031 |
+| c0069 | `layout-lens-complete` | v0.2b | c0019 |
+| c0070 | `schematic-hierarchy-layout` | v0.2b | c0061, c0063 |
+| c0071 | `rules-complete` | v0.2b | c0018, c0026, c0054 |
+| c0072 | `schematic-board-parity` | v0.2b | c0062 |
+| c0073 | `interfaces-quantities` | v0.2b | — |
+| c0074 | `drawing-sheets-followups` | v0.2b | c0012, c0068 |
 | c0075 | `standard-component-catalog` | dogfood gap: offline common symbols and footprints | c0008, c0058 |
 | c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 

@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Proposed the six v0.2b OpenSpec changes c0069–c0074: complete layout lens, hierarchical readable schematics, complete rules, schematic/board parity, typed interfaces and quantities, and drawing-sheet follow-ups.
 - Scoped c0076 to a documented target of 100 reusable footprint variants, including 14 already shipped and 86 planned. The priority inventory uses Fenolite's aggregate review of a fixed public-board corpus and official package-family sources; no new footprint geometry is shipped by this scope update (c0076).
 - Added three independently drawn generic schematic symbols found missing during the visual review: a two-winding common-mode choke, non-polar two-electrode gas discharge tube, and common-cathode dual LED. Their functional roles cite public manufacturer documents; package pinouts and footprints remain explicit (c0076).
 
