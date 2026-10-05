@@ -309,7 +309,7 @@ copies the copper of a routed KiCad board.
 - `equivalent`, level 5.
 - Verification kit, run by a user on their own machine (`ALTIUM-VERIFIED(kit)`).
 - DSL footprint generator and assignment/resolution: c0055. A separate footprint-library lint remains planned.
-- Offline built-in component catalog: c0075 starts with generic passive symbols and 0402–1206 chip footprints. c0076 expands it to common passive, semiconductor, protection, power/control and electromechanical families with public provenance; its target is 100 distinct, sourced footprint variants, with 14 shipped and 86 planned in the current branch inventory. Custom package geometry remains project-authored.
+- Offline built-in component catalog: c0075 starts with generic passive symbols and 0402–1206 chip footprints. c0076 expands it to 49 symbols and 100 distinct footprint variants with public provenance. All target slots are implemented and c0076 is archived on local dev; full-suite CI is deferred to the maintainer's next batch. Custom package geometry remains project-authored.
 
 An author report never promotes an operation to verified. The rows `H-A-WRITE-*` and `H-A-PH-*`
 wait for the kit to reproduce them.

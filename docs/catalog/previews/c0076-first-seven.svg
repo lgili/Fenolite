@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="960" viewBox="0 0 900 960">
+<rect width="900" height="960" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16" fill="#0f172a">Chip_0201_Vishay_Draloric</text>
+<rect x="216.30" y="125.65" width="17.40" height="8.70" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="194.12" y="109.41" width="61.77" height="41.18" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="208.62" y="123.91" width="12.47" height="12.18" fill="#f59e0b" stroke="#b45309"/>
+<text x="214.85" y="134.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="228.91" y="123.91" width="12.47" height="12.18" fill="#f59e0b" stroke="#b45309"/>
+<text x="235.15" y="134.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16" fill="#0f172a">Chip_1210_Vishay_Draloric</text>
+<rect x="630.05" y="93.75" width="89.90" height="72.50" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="601.77" y="77.08" width="146.45" height="105.85" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="616.27" y="91.58" width="33.35" height="76.85" fill="#f59e0b" stroke="#b45309"/>
+<text x="632.95" y="134.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="700.38" y="91.58" width="33.35" height="76.85" fill="#f59e0b" stroke="#b45309"/>
+<text x="717.05" y="134.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16" fill="#0f172a">Chip_2010_Vishay_RCWP</text>
+<rect x="152.50" y="333.89" width="145.00" height="72.21" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="122.05" y="318.67" width="205.90" height="102.66" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="136.55" y="333.17" width="29.58" height="73.66" fill="#f59e0b" stroke="#b45309"/>
+<text x="151.34" y="374.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="283.87" y="333.17" width="29.58" height="73.66" fill="#f59e0b" stroke="#b45309"/>
+<text x="298.66" y="374.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="276" font-family="Arial" font-size="16" fill="#0f172a">Chip_2512_Vishay_RCWP</text>
+<rect x="582.92" y="324.32" width="184.15" height="91.35" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="553.63" y="309.39" width="242.73" height="121.22" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="568.13" y="323.89" width="29.58" height="92.22" fill="#f59e0b" stroke="#b45309"/>
+<text x="582.92" y="374.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="752.28" y="323.89" width="29.58" height="92.22" fill="#f59e0b" stroke="#b45309"/>
+<text x="767.07" y="374.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="10" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="516" font-family="Arial" font-size="16" fill="#0f172a">MELF_0102_Vishay_MMU</text>
+<rect x="193.10" y="594.05" width="63.80" height="31.90" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="166.28" y="577.38" width="117.45" height="65.25" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="180.78" y="591.88" width="30.45" height="36.25" fill="#f59e0b" stroke="#b45309"/>
+<text x="196.00" y="614.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="238.78" y="591.88" width="30.45" height="36.25" fill="#f59e0b" stroke="#b45309"/>
+<text x="254.00" y="614.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="516" font-family="Arial" font-size="16" fill="#0f172a">SOT23_6_TI_DBV0006A</text>
+<rect x="651.80" y="567.95" width="46.40" height="84.10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="606.85" y="553.45" width="136.30" height="113.10" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="621.35" y="573.75" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="637.30" y="586.45" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="621.35" y="601.30" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="637.30" y="614.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="621.35" y="628.85" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="637.30" y="641.55" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="696.75" y="628.85" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="712.70" y="641.55" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">4</text>
+<rect x="696.75" y="601.30" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="712.70" y="614.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">5</text>
+<rect x="696.75" y="573.75" width="31.90" height="17.40" fill="#f59e0b" stroke="#b45309"/>
+<text x="712.70" y="586.45" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">6</text>
+<rect x="10" y="730" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="756" font-family="Arial" font-size="16" fill="#0f172a">SC70_6_TI_DCK0006A</text>
+<rect x="206.88" y="821.00" width="36.25" height="58.00" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray=""/>
+<rect x="165.55" y="806.50" width="118.90" height="87.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="180.05" y="825.35" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="193.10" y="835.15" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="180.05" y="844.20" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="193.10" y="854.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="180.05" y="863.05" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="193.10" y="872.85" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="243.85" y="863.05" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="256.90" y="872.85" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">4</text>
+<rect x="243.85" y="844.20" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="256.90" y="854.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">5</text>
+<rect x="243.85" y="825.35" width="26.10" height="11.60" fill="#f59e0b" stroke="#b45309"/>
+<text x="256.90" y="835.15" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">6</text>
+</svg>

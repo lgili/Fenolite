@@ -136,6 +136,31 @@ shipping the affected entry. No footprint may be counted complete merely because
 the inventory. The 100-entry goal is complete only when all entries are discoverable and pass
 their focused proofs and the repository checks required before merge.
 
+## Additional 20 symbol drawings
+
+The expansion inventory in `docs/catalog/target-20-symbols.md` defines exact names, conceptual
+pin roles and public references. All coordinates and arrowhead vertices are authored by Fenolite
+in integer nanometres; no CAD definition is copied. Numbering is deliberately independent of
+manufacturer package numbers and footprints remain unassigned. Use the existing line, polygon,
+rectangle and circle primitives, including outline arrowheads. No new graphics model is required.
+
+NPN/PNP differ by the emitter arrow. Enhancement MOSFETs have three separate channel segments,
+an isolated gate, a source/body connection, and oppositely oriented body diodes for N/P devices.
+The generic IGBT does not assert an integrated diode. SCR and TRIAC gates enter the cathode/MT1
+side. Schottky hooks form one continuous cathode, and TVS terminals are non-polar.
+
+Use the selected zigzag resistor path for potentiometer and thermistor motifs. The wiper ends
+on that path. Vector coefficient marks distinguish NTC and PTC without adding text primitives.
+Contacts show the unactuated state: SPST and pushbutton open, SPDT/relay COM connected to NC
+and separated from NO. The four-terminal pushbutton exposes two common pairs, supporting explicit
+mapping to the two catalog tact-switch variants. Transformer windings remain electrically
+separate; phase dots are explicitly conceptual. Photodetector light arrows point inward.
+
+A deterministic native SVG review tool renders the actual model, preserves background-filled polygons,
+shows role names where useful and splits the gallery into review pages. Focused tests cover
+all 49 symbols, family-specific topology, offline discovery and an explicit device pin-map build.
+Keep evidence `INFERRED` for independently authored generic geometry and numbering.
+
 ## Dependencies
 
 This change builds on the completed catalog and graphics path (c0075), authored footprint and
@@ -147,3 +172,9 @@ own OpenSpec change instead of approximating or silently omitting it.
 
 Estimate: 10 design-days for the first complete family pack, source register and tests. Any package
 geometry outside the existing model/writer subset is a separately estimated follow-up.
+
+The micro-B candidate is resolved to Würth 629105150521 with its public readable drawing; it is not an alias for the provisional Amphenol part. The existing c0056 slot/NPTH model supports its mixed mounting features without a new geometry primitive.
+
+## Local dev integration and closure
+
+On 2026-10-05 the maintainer authorized one local squash commit on `dev`, including the archive and normative specification update, without a GitHub push. Preserve the current dev changes, including normalized CLI output paths. Validate the combined tree with focused catalog/build proofs and `make check-fast`; the maintainer defers the full suite to a later batch of CI. This explicit instruction replaces the earlier premerge/full-suite task for this closure. No successful full-suite CI run is claimed by the archive.

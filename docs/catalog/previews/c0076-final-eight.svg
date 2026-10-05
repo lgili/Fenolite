@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="960" viewBox="0 0 900 960">
+<rect width="900" height="960" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16" fill="#0f172a">SW_Tact_Wurth_430181038816</text>
+<rect x="171.82" y="91.82" width="106.36" height="106.36" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="106.82" y="80.00" width="236.36" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<circle cx="225.00" cy="145.00" r="29.55" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="118.64" y="93.00" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="142.27" y="113.55" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="284.09" y="93.00" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="307.73" y="113.55" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="118.64" y="163.91" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="142.27" y="184.45" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="284.09" y="163.91" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="307.73" y="184.45" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16" fill="#0f172a">SW_Tact_Wurth_430186043716</text>
+<rect x="618.78" y="88.78" width="112.43" height="112.43" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="593.31" y="80.00" width="163.38" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<circle cx="675.00" cy="145.00" r="30.74" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<ellipse cx="617.91" cy="105.47" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="609.12" y="96.69" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="617.91" y="109.47" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="617.91" cy="184.53" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="609.12" y="175.74" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="617.91" y="188.53" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<ellipse cx="732.09" cy="105.47" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="723.31" y="96.69" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="732.09" y="109.47" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<ellipse cx="732.09" cy="184.53" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="723.31" y="175.74" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="732.09" y="188.53" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16" fill="#0f172a">C_Electrolytic_Panasonic_FR_D5_P2</text>
+<circle cx="225.00" cy="385.00" r="50.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="160.00" y="320.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="196.00" y1="360.00" x2="204.00" y2="360.00" stroke="#2563eb" stroke-width="2"/>
+<line x1="200.00" y1="364.00" x2="200.00" y2="356.00" stroke="#2563eb" stroke-width="2"/>
+<line x1="246.00" y1="360.00" x2="254.00" y2="360.00" stroke="#2563eb" stroke-width="2"/>
+<ellipse cx="205.00" cy="385.00" rx="16.00" ry="16.00" fill="#f59e0b" stroke="#b45309"/><rect x="197.00" y="377.00" width="16.00" height="16.00" rx="8.00" fill="white" stroke="#b45309"/><text x="205.00" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="245.00" cy="385.00" rx="16.00" ry="16.00" fill="#f59e0b" stroke="#b45309"/><rect x="237.00" y="377.00" width="16.00" height="16.00" rx="8.00" fill="white" stroke="#b45309"/><text x="245.00" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="276" font-family="Arial" font-size="16" fill="#0f172a">C_Electrolytic_Panasonic_FR_D6.3_P2.5</text>
+<circle cx="675.00" cy="385.00" r="52.50" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="610.00" y="320.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="645.42" y1="358.75" x2="652.08" y2="358.75" stroke="#2563eb" stroke-width="2"/>
+<line x1="648.75" y1="362.08" x2="648.75" y2="355.42" stroke="#2563eb" stroke-width="2"/>
+<line x1="697.92" y1="358.75" x2="704.58" y2="358.75" stroke="#2563eb" stroke-width="2"/>
+<ellipse cx="654.17" cy="385.00" rx="13.33" ry="13.33" fill="#f59e0b" stroke="#b45309"/><rect x="647.50" y="378.33" width="13.33" height="13.33" rx="6.67" fill="white" stroke="#b45309"/><text x="654.17" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="695.83" cy="385.00" rx="13.33" ry="13.33" fill="#f59e0b" stroke="#b45309"/><rect x="689.17" y="378.33" width="13.33" height="13.33" rx="6.67" fill="white" stroke="#b45309"/><text x="695.83" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="10" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="516" font-family="Arial" font-size="16" fill="#0f172a">MountingHole_M2_D2.4</text>
+<circle cx="225.00" cy="625.00" r="54.17" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="160.00" y="560.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="225.00" cy="625.00" rx="26.00" ry="26.00" fill="white" stroke="#b45309"/><rect x="199.00" y="599.00" width="52.00" height="52.00" rx="26.00" fill="white" stroke="#b45309"/><text x="225.00" y="629.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b"></text>
+<rect x="460" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="516" font-family="Arial" font-size="16" fill="#0f172a">MountingHole_M3_D3.4</text>
+<circle cx="675.00" cy="625.00" r="56.88" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="610.00" y="560.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="675.00" cy="625.00" rx="27.62" ry="27.62" fill="white" stroke="#b45309"/><rect x="647.38" y="597.38" width="55.25" height="55.25" rx="27.62" fill="white" stroke="#b45309"/><text x="675.00" y="629.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b"></text>
+<rect x="10" y="730" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="756" font-family="Arial" font-size="16" fill="#0f172a">TestPoint_SMD_D1.0</text>
+<circle cx="225.00" cy="865.00" r="27.50" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="170.00" y="810.00" width="110.00" height="110.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="225.00" cy="865.00" rx="27.50" ry="27.50" fill="#f59e0b" stroke="#b45309"/><text x="225.00" y="869.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="460" y="730" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="756" font-family="Arial" font-size="16" fill="#0f172a">LED5050_Worldsemi_WS2812B_V6</text>
+<rect x="620.83" y="810.83" width="108.33" height="108.33" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="594.83" y="800.00" width="160.33" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="714.00" y1="919.17" x2="729.17" y2="904.00" stroke="#2563eb" stroke-width="2"/>
+<circle cx="675.00" cy="865.00" r="43.33" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="605.67" y="818.42" width="32.50" height="21.67" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="621.92" y="833.25" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="605.67" y="889.92" width="32.50" height="21.67" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="621.92" y="904.75" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="711.83" y="889.92" width="32.50" height="21.67" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="728.08" y="904.75" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="711.83" y="818.42" width="32.50" height="21.67" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="728.08" y="833.25" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+</svg>

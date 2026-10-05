@@ -8,6 +8,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - Test of the Altium schematic reader's cost: it counts function calls instead of comparing two wall-clock times, so it no longer fails on a busy machine.
 - Isolated the KiCad worksheet version oracle with fresh input copies, private configuration, home, cache, data and temporary directories and the C locale; retained strict future-version rejection checks and required an exported SVG (c0082).
+- Completed and archived c0076 on the local dev branch with a single signed-off squash commit; the catalog provides 49 generic symbols and 100 footprint variants. Full-suite CI is deferred to the maintainer's next batch.
 - `design.sheet()` and `design.title_block()` put the user's drawing sheet and title block on the board, and on the schematic when a build writes one: the build writes `<name>.kicad_wks` from a `.kicad_wks` or `*.sheet.toml` beside the script; `fenolite export --preset` applies the user's fab options from a TOML file; board outlines join endpoints closer than 10 µm and include footprint edge items, so all 21 demo boards close; stitching avoids rule areas that forbid vias and the board edge. KiCad 9.0.9 and 10.0.6 close an outline across a gap below 10 µm (c0074).
 - `capabilities` lists `result.matrix`: for each backend and file kind, the evidence level of `detect`, `read`, `write`, `roundtrip_exact` and `roundtrip_modified`, the hypotheses behind it and the operations that are experimental. Every backend module now declares its evidence, and `docs/evidence/matrix.md` is generated from the declarations (`tools/gen_evidence_matrix.py`, with `--check`). A backend module without a declaration fails `tests/unit/backends/test_evidence_declared.py`, whose message says what to add, and every declared level is held to `docs/hypotheses.md`. The KiCad backend lists the write kind `kicad_lib_table`, and the Altium schematic reader's evidence no longer names the refuted `H-A-RD-SCH-TEXT` (c0067).
 - `diff` compares two schematics in its model view (`diff_sheets`: symbols by reference and unit, sheet references and embedded symbols by name, labels and no-connect flags by content), and `roundtrip` reaches RT1 on a schematic through the schematic reader's rebuild. The fixed point of `fmt` is measured over the 132 schematic rows of the corpus as well (c0066 follow-up).
@@ -27,6 +28,29 @@ All notable changes to Fenolite are documented here. The format follows
 - Altium schematic reader: `fenolite.backends.altium.read.sch.read_schematic` reads `.SchDoc` and `.SchDot` files (binary and ASCII), and `read.schlib.read_schlib` reads `.SchLib` files into typed records with an owner tree. Unknown keys, records, streams and trailing bytes are preserved; streams rebuild byte for byte. Nine schematic and nine library rows join the corpus, and `tools/altium_census.py` reports their census (c0040).
 - Altium PCB reader: lossless typed readers for Altium `.PcbDoc` and `.PcbLib` files preserve record bytes and keys, accept long and short record forms, and report located issues with strict mode available. Checked against eleven public files and KiCad CLI import/upgrade (c0041).
 - Proposed the six v0.2b OpenSpec changes c0069–c0074: complete layout lens, hierarchical readable schematics, complete rules, schematic/board parity, typed interfaces and quantities, and drawing-sheet follow-ups.
+- Added 20 independently drawn functional symbols, bringing c0076 to 49 symbols and 100 footprints: bipolar/enhancement MOS transistors, IGBT, thyristors, Schottky/TVS, potentiometer/thermistors, crystal, resting contacts, relay, transformer and photodetectors. Public references, conceptual terminal maps, offline build proofs and reproducible native SVG galleries accompany every family; footprints remain explicitly assigned.
+
+- Audited all 100 c0076 footprints against the final inventory, source registry, distinct physical geometry and complete courtyard bounds. Offline API builds assign and read back every pattern for KiCad 9/10 targets; five reproducible review sheets show the complete catalog.
+
+- Completed the 100 c0076 footprint slots with two Würth buttons, two Panasonic radial electrolytic cases, two non-plated mounting holes, a paste-free test point and Worldsemi WS2812B-V6. Circular bodies, variant terminal pairings and mechanical/BOM semantics are explicit.
+
+- Added two Kingbright LED lands, two Vishay axial resistor forms, two Wima film capacitor boxes and an Abracon ABM8 crystal land; 92 of 100 c0076 patterns are available.
+
+- Added nine generic 2.54 mm headers, two exact bossless JST XH connectors and a Würth Micro-USB-B with four plated slots and two non-plated locating holes; 85 of 100 c0076 patterns are available.
+
+- Completed the c0076 IC target group with seven DIP4–28 through-hole variants and public body bounds; 73 of 100 patterns are available. Drills, annular lands and formed-lead row spacing are documented as inferred choices.
+
+- Added QFN48, two distinct DFN packages and four QFP44–100 variants with sourced pad spacing and top-view numbering; 66 of 100 c0076 patterns are available. QFN48 has the manufacturer’s sixteen-window stencil geometry.
+
+- Added five sourced QFN16–32 footprints with separate exposed copper and four stencil windows; 59 of 100 c0076 patterns are available. Pin numbering and paste geometry survive readback; EP mapping and assembly qualification remain explicit.
+
+- Added nine TSSOP, MSOP and SSOP manufacturer variants with distinct fine pad pitch and row spacing; 54 of 100 c0076 target patterns are available.
+- Added five manufacturer-qualified SOIC footprints with 14–28 pins; the c0076 catalog now covers 45 of 100 target patterns.
+- Completed the c0076 chip/discrete target group with Nexperia SOD128 and SOT883 and a sourced TO220 vertical starting footprint; 40 of 100 target patterns are available.
+- Added six sourced axial, asymmetric small-outline and power-tab footprints; c0076 now has 37 of 100 patterns. Through-hole bend pitch and holes remain inferred.
+- Added manufacturer-qualified SOT323-3, SOT523-3 and SOT563-6 footprints with distinct compact pad pitch and numbering; 31 of the 100 c0076 target patterns are now available.
+- Added a TDK CGA8 1812 MLCC midpoint land and six Diodes SMB/SMC/SOD suggested lands, with explicit cathode pad and fabrication marks. The c0076 footprint target is now 28 of 100 available.
+- Added seven source-qualified catalog footprints: Vishay 0201/1210/2010/2512 chip resistor and 0102 MELF lands, plus TI six-lead SOT-23 and SC-70 lands. The c0076 target is now 21 of 100 available; all new patterns remain `INFERRED` pending part and assembly review.
 - Scoped c0076 to a documented target of 100 reusable footprint variants, including 14 already shipped and 86 planned. The priority inventory uses Fenolite's aggregate review of a fixed public-board corpus and official package-family sources; no new footprint geometry is shipped by this scope update (c0076).
 - Added three independently drawn generic schematic symbols found missing during the visual review: a two-winding common-mode choke, non-polar two-electrode gas discharge tube, and common-cathode dual LED. Their functional roles cite public manufacturer documents; package pinouts and footprints remain explicit (c0076).
 

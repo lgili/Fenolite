@@ -46,18 +46,22 @@ MUST NOT be used as provenance.
 - **AND** it rejects catalog provenance that points to a private board artifact or third-party CAD
   library file
 
+## ADDED Requirements
+
 ### Requirement: Physically separated and oriented footprint lands
 Every shipped surface-mount footprint SHALL use land shapes, dimensions, pitch, orientation and
 numbering traceable to an official package or land-pattern drawing. Pads with different numbers
 MUST have positive copper clearance. A footprint courtyard MUST contain its body and all pads, and
 silkscreen graphics MUST NOT cross copper. Multiple shapes carrying one pad number MAY form one
-documented terminal, provided their copper remains connected. Where an official example uses a
+documented shared terminal. Disconnected lands MUST document the assumed component-side connection
+and its evidence, and MUST NOT imply copper connectivity on the PCB. Where an official example uses a
 rounded rectangle but the current model provides only a rectangle, the approximation SHALL remain
 labelled `INFERRED`.
 
 #### Scenario: A package is serialized and checked
 - **WHEN** any built-in footprint is serialized and read back
-- **THEN** its pad shapes, positions, sizes, numbers and graphic layers match the source-backed
+- **THEN** its pad shapes, positions, sizes, numbers, kinds, layers, drills and plated-slot dimensions,
+  footprint attributes and complete drawing geometry match the source-backed
   definition
 - **AND** no two pads with different numbers overlap
 - **AND** its courtyard contains every pad and the body outline
@@ -97,7 +101,7 @@ graphic. Families without a device-specific pinout SHALL remain explicitly conce
   the marked positive plate
 
 #### Scenario: Complete visual family review
-- **WHEN** all 26 catalog symbols are rendered on one gallery sheet
+- **WHEN** all 49 catalog symbols are rendered on one gallery sheet
 - **THEN** passive and protection contours remain readable at normal schematic scale and their
   pin stems meet the intended body graphics
 - **AND** multi-circuit connectors show grouped housings, separate square contacts and one
@@ -144,3 +148,43 @@ evidence, geometry, serialization, clearance and explicit-assignment requirement
 - **THEN** all 100 inventory slots resolve to distinct built-in footprints with the required
   evidence, previews and checks
 - **AND** aliases sharing identical lands do not inflate the count
+
+#### Scenario: All final patterns are used offline
+- **WHEN** the 100 definitions returned by the catalog API are explicitly assigned in an authored
+  terminal-only audit design and supplied to `build_design()` as `authored_footprints`
+- **THEN** the build succeeds with no network connection, CAD installation or global library table
+- **AND** every footprint ID, pad geometry, drill/slot, explicit pin mapping and assigned pad net
+  survives board readback for the supported KiCad 9 and 10 writer targets
+- **AND** the CLI discovers the same 100 IDs and the five review sheets reproduce their definitions
+- **AND** this audit does not claim a functional device pinout, routing or manufacturing qualification
+
+### Requirement: Additional 20 generic symbol families
+Fenolite SHALL add exactly 20 source-backed, independently drawn symbol variants listed in
+`docs/catalog/target-20-symbols.md`, bringing its symbol count to 49. Their terminal numbers SHALL
+remain conceptual, their functional roles SHALL be explicit, and no default footprint SHALL be
+selected. Public-source registration, connected stems, deterministic discovery and writer/readback
+checks SHALL apply to every new definition.
+
+#### Scenario: Discrete and power families are drawn
+- **WHEN** NPN/PNP, N/P enhancement MOSFET, IGBT, SCR, TRIAC, Schottky and bidirectional TVS are inspected
+- **THEN** emitter arrows distinguish NPN from PNP, MOSFET gates are isolated from segmented channels
+  and N/P body diodes have opposite polarity
+- **AND** the SCR gate joins the cathode side and the TRIAC gate joins the MT1 side
+- **AND** Schottky cathode hooks are continuous, TVS terminals are non-polar and IGBT diode integration
+  is not inferred
+
+#### Scenario: Passive, mechanical and optical families are drawn
+- **WHEN** potentiometer, NTC/PTC, crystal, SPST/SPDT, pushbutton, relay, transformer and photodetectors
+  are inspected
+- **THEN** the potentiometer wiper meets the resistance path, NTC/PTC marks differ by coefficient
+  sign, and crystal electrodes remain separate
+- **AND** switch/relay graphics show resting contacts with COM connected to NC and a visible NO gap;
+  the pushbutton exposes two internally common terminal pairs with an open contact at rest
+- **AND** transformer windings have separate terminals and photodetector arrows point inward
+
+#### Scenario: New symbols remain usable offline
+- **WHEN** the catalog API and CLI list symbols and an explicitly mapped new symbol is built
+- **THEN** all 49 IDs are discoverable without network access, and the selected symbol's pin roles
+  and graphics survive local-library serialization/readback
+- **AND** source registration and the native 20-symbol and complete 49-symbol galleries are reproducible
+- **AND** a footprint is never selected from a generic symbol name

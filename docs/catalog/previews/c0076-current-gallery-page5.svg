@@ -1,0 +1,299 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="2400" viewBox="0 0 900 2400">
+<rect width="900" height="2400" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16.00" fill="#0f172a">SOT23_6_TI_DBV0006A</text>
+<rect x="198.33" y="96.67" width="53.33" height="96.67" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="146.67" y="80.00" width="156.67" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="163.33" y="103.33" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="181.67" y="117.33" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="163.33" y="135.00" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="181.67" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="163.33" y="166.67" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="181.67" y="180.67" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="250.00" y="166.67" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="268.33" y="180.67" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="250.00" y="135.00" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="268.33" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">5</text>
+<rect x="250.00" y="103.33" width="36.67" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="268.33" y="117.33" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">6</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16.00" fill="#0f172a">SOT323_3_Diodes_Standard</text>
+<rect x="647.92" y="101.67" width="54.17" height="86.67" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="599.17" y="80.00" width="151.67" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="620.83" y="120.73" width="26.00" height="20.37" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="633.83" y="134.92" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="620.83" y="148.90" width="26.00" height="20.37" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="633.83" y="163.08" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="703.17" y="134.82" width="26.00" height="20.37" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="716.17" y="149.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16.00" fill="#0f172a">SOT523_3_Diodes</text>
+<rect x="205.00" y="345.00" width="40.00" height="80.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="155.00" y="320.00" width="140.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="180.00" y="357.50" width="25.50" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="192.75" y="371.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="180.00" y="392.50" width="25.50" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="192.75" y="406.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="244.50" y="375.00" width="25.50" height="20.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="257.25" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="460" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="276" font-family="Arial" font-size="16.00" fill="#0f172a">SOT563_6_Diodes</text>
+<rect x="645.00" y="345.00" width="60.00" height="80.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="601.50" y="320.00" width="147.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="626.50" y="352.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="643.25" y="364.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="626.50" y="377.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="643.25" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="626.50" y="402.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="643.25" y="414.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="690.00" y="402.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="706.75" y="414.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="690.00" y="377.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="706.75" y="389.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">5</text>
+<rect x="690.00" y="352.50" width="33.50" height="15.00" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="706.75" y="364.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">6</text>
+<rect x="10" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="516" font-family="Arial" font-size="16.00" fill="#0f172a">SOT883_3_Nexperia_DFN1006</text>
+<rect x="197.50" y="608.50" width="55.00" height="33.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="167.25" y="578.25" width="115.50" height="93.50" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="194.75" y="605.75" width="22.00" height="13.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="205.75" y="616.52" text-anchor="middle" font-family="Arial" font-size="11.69" font-weight="bold" fill="#1e293b">1</text>
+<rect x="194.75" y="630.50" width="22.00" height="13.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="205.75" y="641.27" text-anchor="middle" font-family="Arial" font-size="11.69" font-weight="bold" fill="#1e293b">2</text>
+<rect x="233.25" y="605.75" width="22.00" height="38.50" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="244.25" y="629.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="460" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="516" font-family="Arial" font-size="16.00" fill="#0f172a">SOT89_3</text>
+<rect x="622.11" y="595.61" width="105.79" height="58.77" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="610.35" y="560.00" width="129.29" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="632.92" y="639.93" width="13.63" height="38.32" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.74" y="662.95" text-anchor="middle" font-family="Arial" font-size="11.59" font-weight="bold" fill="#1e293b">1</text>
+<rect x="666.07" y="641.81" width="17.87" height="36.44" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="664.03" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="703.44" y="639.93" width="13.63" height="38.32" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.26" y="662.95" text-anchor="middle" font-family="Arial" font-size="11.59" font-weight="bold" fill="#1e293b">3</text>
+<rect x="652.28" y="571.75" width="45.44" height="71.23" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="611.37" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="10" y="730" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="756" font-family="Arial" font-size="16.00" fill="#0f172a">SSOP16_Diodes_CJ</text>
+<rect x="182.03" y="811.02" width="85.93" height="107.97" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="141.93" y="800.00" width="166.14" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="152.95" y="811.51" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="818.59" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">1</text>
+<rect x="152.95" y="825.50" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="832.58" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">2</text>
+<rect x="152.95" y="839.50" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="846.57" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">3</text>
+<rect x="152.95" y="853.49" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="860.56" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">4</text>
+<rect x="152.95" y="867.48" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="874.56" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">5</text>
+<rect x="152.95" y="881.47" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="888.55" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">6</text>
+<rect x="152.95" y="895.46" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="902.54" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">7</text>
+<rect x="152.95" y="909.45" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="169.47" y="916.53" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">8</text>
+<rect x="264.00" y="909.45" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="916.53" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">9</text>
+<rect x="264.00" y="895.46" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="902.54" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">10</text>
+<rect x="264.00" y="881.47" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="888.55" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">11</text>
+<rect x="264.00" y="867.48" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="874.56" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">12</text>
+<rect x="264.00" y="853.49" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="860.56" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">13</text>
+<rect x="264.00" y="839.50" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="846.57" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">14</text>
+<rect x="264.00" y="825.50" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="832.58" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">15</text>
+<rect x="264.00" y="811.51" width="33.05" height="9.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="280.53" y="818.59" text-anchor="middle" font-family="Arial" font-size="7.68" font-weight="bold" fill="#1e293b">16</text>
+<rect x="460" y="730" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="756" font-family="Arial" font-size="16.00" fill="#0f172a">SW_Tact_Wurth_430181038816</text>
+<rect x="621.82" y="811.82" width="106.36" height="106.36" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="556.82" y="800.00" width="236.36" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<circle cx="675.00" cy="865.00" r="29.55" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="568.64" y="813.00" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="592.27" y="833.55" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="734.09" y="813.00" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="757.73" y="833.55" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="568.64" y="883.91" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="592.27" y="904.45" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="734.09" y="883.91" width="47.27" height="33.09" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="757.73" y="904.45" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="10" y="970" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="996" font-family="Arial" font-size="16.00" fill="#0f172a">SW_Tact_Wurth_430186043716</text>
+<rect x="168.78" y="1048.78" width="112.43" height="112.43" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="143.31" y="1040.00" width="163.38" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<circle cx="225.00" cy="1105.00" r="30.74" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<ellipse cx="167.91" cy="1065.47" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="159.12" y="1056.69" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="167.91" y="1069.47" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="167.91" cy="1144.53" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="159.12" y="1135.74" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="167.91" y="1148.53" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<ellipse cx="282.09" cy="1065.47" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="273.31" y="1056.69" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="282.09" y="1069.47" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<ellipse cx="282.09" cy="1144.53" rx="15.81" ry="15.81" fill="#f59e0b" stroke="#b45309"/><rect x="273.31" y="1135.74" width="17.57" height="17.57" rx="8.78" fill="white" stroke="#b45309"/><text x="282.09" y="1148.53" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="460" y="970" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="996" font-family="Arial" font-size="16.00" fill="#0f172a">TO220_3_Diodes_Vertical</text>
+<rect x="588.33" y="1048.10" width="173.33" height="78.57" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="580.23" y="1040.00" width="189.53" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="633.85" cy="1144.08" rx="17.82" ry="17.82" fill="#f59e0b" stroke="#b45309"/><rect x="621.70" y="1131.93" width="24.30" height="24.30" rx="12.15" fill="white" stroke="#b45309"/><text x="633.85" y="1148.08" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="675.00" cy="1144.08" rx="17.82" ry="17.82" fill="#f59e0b" stroke="#b45309"/><rect x="662.85" y="1131.93" width="24.30" height="24.30" rx="12.15" fill="white" stroke="#b45309"/><text x="675.00" y="1148.08" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<ellipse cx="716.15" cy="1144.08" rx="17.82" ry="17.82" fill="#f59e0b" stroke="#b45309"/><rect x="704.00" y="1131.93" width="24.30" height="24.30" rx="12.15" fill="white" stroke="#b45309"/><text x="716.15" y="1148.08" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="1210" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="1236" font-family="Arial" font-size="16.00" fill="#0f172a">TO252_3_Diodes_Standard</text>
+<rect x="188.44" y="1311.11" width="73.11" height="67.78" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="182.89" y="1280.00" width="84.22" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="193.71" y="1375.56" width="11.78" height="28.89" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="199.60" y="1393.34" text-anchor="middle" font-family="Arial" font-size="10.01" font-weight="bold" fill="#1e293b">1</text>
+<rect x="193.71" y="1285.56" width="62.58" height="63.33" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="225.00" y="1321.22" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="244.51" y="1375.56" width="11.78" height="28.89" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="250.40" y="1393.34" text-anchor="middle" font-family="Arial" font-size="10.01" font-weight="bold" fill="#1e293b">3</text>
+<rect x="460" y="1210" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="1236" font-family="Arial" font-size="16.00" fill="#0f172a">TO263_3_Diodes_Standard</text>
+<rect x="636.13" y="1310.49" width="77.74" height="69.02" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="631.35" y="1280.00" width="87.30" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="651.36" y="1379.39" width="8.42" height="26.78" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="655.57" y="1395.17" text-anchor="middle" font-family="Arial" font-size="7.15" font-weight="bold" fill="#1e293b">1</text>
+<rect x="635.17" y="1283.83" width="79.65" height="53.64" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="1314.64" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="690.23" y="1379.39" width="8.42" height="26.78" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="694.43" y="1395.17" text-anchor="middle" font-family="Arial" font-size="7.15" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="1450" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="1476" font-family="Arial" font-size="16.00" fill="#0f172a">TQFP44_Microchip_PT</text>
+<rect x="178.24" y="1538.24" width="93.53" height="93.53" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="160.00" y="1520.00" width="130.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="178.24" y1="1541.98" x2="181.98" y2="1538.24" stroke="#2563eb" stroke-width="2"/>
+<rect x="164.68" y="1545.02" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1549.05" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">1</text>
+<rect x="164.68" y="1552.50" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1556.53" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">2</text>
+<rect x="164.68" y="1559.98" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1564.01" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">3</text>
+<rect x="164.68" y="1567.46" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1571.49" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">4</text>
+<rect x="164.68" y="1574.95" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1578.98" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">5</text>
+<rect x="164.68" y="1582.43" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1586.46" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">6</text>
+<rect x="164.68" y="1589.91" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1593.94" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">7</text>
+<rect x="164.68" y="1597.39" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1601.42" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">8</text>
+<rect x="164.68" y="1604.87" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1608.90" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">9</text>
+<rect x="164.68" y="1612.36" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1616.39" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">10</text>
+<rect x="164.68" y="1619.84" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="171.69" y="1623.87" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">11</text>
+<rect x="185.02" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="187.59" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">12</text>
+<rect x="192.50" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="195.07" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">13</text>
+<rect x="199.98" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="202.55" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">14</text>
+<rect x="207.46" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="210.04" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">15</text>
+<rect x="214.95" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="217.52" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">16</text>
+<rect x="222.43" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="225.00" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">17</text>
+<rect x="229.91" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="232.48" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">18</text>
+<rect x="237.39" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="239.96" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">19</text>
+<rect x="244.87" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="247.45" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">20</text>
+<rect x="252.36" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="254.93" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">21</text>
+<rect x="259.84" y="1631.29" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="262.41" y="1639.51" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">22</text>
+<rect x="271.29" y="1619.84" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1623.87" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">23</text>
+<rect x="271.29" y="1612.36" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1616.39" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">24</text>
+<rect x="271.29" y="1604.87" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1608.90" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">25</text>
+<rect x="271.29" y="1597.39" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1601.42" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">26</text>
+<rect x="271.29" y="1589.91" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1593.94" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">27</text>
+<rect x="271.29" y="1582.43" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1586.46" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">28</text>
+<rect x="271.29" y="1574.95" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1578.98" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">29</text>
+<rect x="271.29" y="1567.46" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1571.49" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">30</text>
+<rect x="271.29" y="1559.98" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1564.01" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">31</text>
+<rect x="271.29" y="1552.50" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1556.53" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">32</text>
+<rect x="271.29" y="1545.02" width="14.03" height="5.14" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="278.31" y="1549.05" text-anchor="middle" font-family="Arial" font-size="4.37" font-weight="bold" fill="#1e293b">33</text>
+<rect x="259.84" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="262.41" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">34</text>
+<rect x="252.36" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="254.93" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">35</text>
+<rect x="244.87" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="247.45" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">36</text>
+<rect x="237.39" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="239.96" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">37</text>
+<rect x="229.91" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="232.48" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">38</text>
+<rect x="222.43" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="225.00" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">39</text>
+<rect x="214.95" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="217.52" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">40</text>
+<rect x="207.46" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="210.04" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">41</text>
+<rect x="199.98" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="202.55" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">42</text>
+<rect x="192.50" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="195.07" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">43</text>
+<rect x="185.02" y="1524.68" width="5.14" height="14.03" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="187.59" y="1532.89" text-anchor="middle" font-family="Arial" font-size="3.60" font-weight="bold" fill="#1e293b">44</text>
+<rect x="460" y="1450" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="1476" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP14_Diodes</text>
+<rect x="627.33" y="1530.83" width="95.33" height="108.33" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="584.54" y="1520.00" width="180.92" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="595.38" y="1537.88" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1545.51" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">1</text>
+<rect x="595.38" y="1551.96" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1559.60" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">2</text>
+<rect x="595.38" y="1566.04" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1573.68" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">3</text>
+<rect x="595.38" y="1580.12" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1587.76" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">4</text>
+<rect x="595.38" y="1594.21" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1601.85" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">5</text>
+<rect x="595.38" y="1608.29" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1615.93" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">6</text>
+<rect x="595.38" y="1622.38" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="611.08" y="1630.01" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">7</text>
+<rect x="723.21" y="1622.38" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1630.01" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">8</text>
+<rect x="723.21" y="1608.29" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1615.93" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">9</text>
+<rect x="723.21" y="1594.21" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1601.85" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">10</text>
+<rect x="723.21" y="1580.12" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1587.76" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">11</text>
+<rect x="723.21" y="1566.04" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1573.68" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">12</text>
+<rect x="723.21" y="1551.96" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1559.60" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">13</text>
+<rect x="723.21" y="1537.88" width="31.42" height="9.75" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="738.92" y="1545.51" text-anchor="middle" font-family="Arial" font-size="8.29" font-weight="bold" fill="#1e293b">14</text>
+<rect x="10" y="1690" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="1716" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP16_Diodes_A1</text>
+<rect x="177.33" y="1770.83" width="95.33" height="108.33" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="140.50" y="1760.00" width="169.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="151.33" y="1771.92" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1777.86" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">1</text>
+<rect x="151.33" y="1786.00" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1791.94" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">2</text>
+<rect x="151.33" y="1800.08" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1806.02" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">3</text>
+<rect x="151.33" y="1814.17" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1820.11" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">4</text>
+<rect x="151.33" y="1828.25" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1834.19" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">5</text>
+<rect x="151.33" y="1842.33" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1848.27" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">6</text>
+<rect x="151.33" y="1856.42" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1862.36" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">7</text>
+<rect x="151.33" y="1870.50" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="166.50" y="1876.44" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">8</text>
+<rect x="268.33" y="1870.50" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1876.44" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">9</text>
+<rect x="268.33" y="1856.42" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1862.36" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">10</text>
+<rect x="268.33" y="1842.33" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1848.27" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">11</text>
+<rect x="268.33" y="1828.25" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1834.19" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">12</text>
+<rect x="268.33" y="1814.17" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1820.11" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">13</text>
+<rect x="268.33" y="1800.08" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1806.02" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">14</text>
+<rect x="268.33" y="1786.00" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1791.94" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">15</text>
+<rect x="268.33" y="1771.92" width="30.33" height="7.58" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="283.50" y="1777.86" text-anchor="middle" font-family="Arial" font-size="6.45" font-weight="bold" fill="#1e293b">16</text>
+<rect x="460" y="1690" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="1716" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP20_Diodes</text>
+<rect x="636.87" y="1768.67" width="76.27" height="112.67" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="599.43" y="1760.00" width="151.15" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="608.09" y="1770.66" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1776.36" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">1</text>
+<rect x="608.09" y="1781.93" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1787.63" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">2</text>
+<rect x="608.09" y="1793.19" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1798.90" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">3</text>
+<rect x="608.09" y="1804.46" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1810.16" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">4</text>
+<rect x="608.09" y="1815.73" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1821.43" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">5</text>
+<rect x="608.09" y="1826.99" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1832.70" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">6</text>
+<rect x="608.09" y="1838.26" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1843.96" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">7</text>
+<rect x="608.09" y="1849.53" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1855.23" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">8</text>
+<rect x="608.09" y="1860.79" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1866.50" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">9</text>
+<rect x="608.09" y="1872.06" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="623.52" y="1877.76" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">10</text>
+<rect x="711.05" y="1872.06" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1877.76" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">11</text>
+<rect x="711.05" y="1860.79" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1866.50" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">12</text>
+<rect x="711.05" y="1849.53" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1855.23" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">13</text>
+<rect x="711.05" y="1838.26" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1843.96" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">14</text>
+<rect x="711.05" y="1826.99" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1832.70" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">15</text>
+<rect x="711.05" y="1815.73" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1821.43" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">16</text>
+<rect x="711.05" y="1804.46" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1810.16" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">17</text>
+<rect x="711.05" y="1793.19" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1798.90" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">18</text>
+<rect x="711.05" y="1781.93" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1787.63" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">19</text>
+<rect x="711.05" y="1770.66" width="30.85" height="7.28" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="726.48" y="1776.36" text-anchor="middle" font-family="Arial" font-size="6.19" font-weight="bold" fill="#1e293b">20</text>
+<rect x="10" y="1930" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="1956" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP24_TI_PW0024A</text>
+<rect x="192.50" y="2007.39" width="65.00" height="115.23" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="163.69" y="2000.00" width="122.61" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="171.08" y="2008.86" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2014.07" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">1</text>
+<rect x="171.08" y="2018.47" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2023.67" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">2</text>
+<rect x="171.08" y="2028.07" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2033.28" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">3</text>
+<rect x="171.08" y="2037.67" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2042.88" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">4</text>
+<rect x="171.08" y="2047.27" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2052.48" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">5</text>
+<rect x="171.08" y="2056.88" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2062.08" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">6</text>
+<rect x="171.08" y="2066.48" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2071.68" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">7</text>
+<rect x="171.08" y="2076.08" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2081.29" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">8</text>
+<rect x="171.08" y="2085.68" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2090.89" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">9</text>
+<rect x="171.08" y="2095.28" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2100.49" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">10</text>
+<rect x="171.08" y="2104.89" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2110.09" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">11</text>
+<rect x="171.08" y="2114.49" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="182.16" y="2119.70" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">12</text>
+<rect x="256.76" y="2114.49" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2119.70" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">13</text>
+<rect x="256.76" y="2104.89" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2110.09" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">14</text>
+<rect x="256.76" y="2095.28" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2100.49" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">15</text>
+<rect x="256.76" y="2085.68" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2090.89" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">16</text>
+<rect x="256.76" y="2076.08" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2081.29" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">17</text>
+<rect x="256.76" y="2066.48" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2071.68" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">18</text>
+<rect x="256.76" y="2056.88" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2062.08" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">19</text>
+<rect x="256.76" y="2047.27" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2052.48" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">20</text>
+<rect x="256.76" y="2037.67" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2042.88" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">21</text>
+<rect x="256.76" y="2028.07" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2033.28" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">22</text>
+<rect x="256.76" y="2018.47" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2023.67" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">23</text>
+<rect x="256.76" y="2008.86" width="22.16" height="6.65" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="267.84" y="2014.07" text-anchor="middle" font-family="Arial" font-size="5.65" font-weight="bold" fill="#1e293b">24</text>
+<rect x="460" y="1930" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="1956" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP28_Microchip_NRB</text>
+<rect x="648.27" y="2006.07" width="53.46" height="117.85" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="623.97" y="2000.00" width="102.06" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="630.05" y="2010.93" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2015.22" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">1</text>
+<rect x="630.05" y="2018.83" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2023.11" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">2</text>
+<rect x="630.05" y="2026.73" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2031.01" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">3</text>
+<rect x="630.05" y="2034.63" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2038.91" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">4</text>
+<rect x="630.05" y="2042.52" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2046.81" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">5</text>
+<rect x="630.05" y="2050.42" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2054.70" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">6</text>
+<rect x="630.05" y="2058.32" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2062.60" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">7</text>
+<rect x="630.05" y="2066.21" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2070.50" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">8</text>
+<rect x="630.05" y="2074.11" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2078.39" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">9</text>
+<rect x="630.05" y="2082.01" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2086.29" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">10</text>
+<rect x="630.05" y="2089.91" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2094.19" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">11</text>
+<rect x="630.05" y="2097.80" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2102.09" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">12</text>
+<rect x="630.05" y="2105.70" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2109.98" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">13</text>
+<rect x="630.05" y="2113.60" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="639.16" y="2117.88" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">14</text>
+<rect x="701.73" y="2113.60" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2117.88" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">15</text>
+<rect x="701.73" y="2105.70" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2109.98" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">16</text>
+<rect x="701.73" y="2097.80" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2102.09" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">17</text>
+<rect x="701.73" y="2089.91" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2094.19" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">18</text>
+<rect x="701.73" y="2082.01" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2086.29" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">19</text>
+<rect x="701.73" y="2074.11" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2078.39" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">20</text>
+<rect x="701.73" y="2066.21" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2070.50" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">21</text>
+<rect x="701.73" y="2058.32" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2062.60" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">22</text>
+<rect x="701.73" y="2050.42" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2054.70" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">23</text>
+<rect x="701.73" y="2042.52" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2046.81" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">24</text>
+<rect x="701.73" y="2034.63" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2038.91" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">25</text>
+<rect x="701.73" y="2026.73" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2031.01" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">26</text>
+<rect x="701.73" y="2018.83" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2023.11" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">27</text>
+<rect x="701.73" y="2010.93" width="18.22" height="5.47" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="710.84" y="2015.22" text-anchor="middle" font-family="Arial" font-size="4.65" font-weight="bold" fill="#1e293b">28</text>
+<rect x="10" y="2170" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="2196" font-family="Arial" font-size="16.00" fill="#0f172a">TSSOP8_Diodes</text>
+<rect x="153.54" y="2256.15" width="142.92" height="97.70" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="84.18" y="2240.00" width="281.64" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="100.33" y="2266.24" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="129.07" y="2277.51" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+<rect x="100.33" y="2287.24" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="129.07" y="2298.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">2</text>
+<rect x="100.33" y="2308.23" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="129.07" y="2319.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">3</text>
+<rect x="100.33" y="2329.22" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="129.07" y="2340.49" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">4</text>
+<rect x="292.18" y="2329.22" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="320.93" y="2340.49" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">5</text>
+<rect x="292.18" y="2308.23" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="320.93" y="2319.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">6</text>
+<rect x="292.18" y="2287.24" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="320.93" y="2298.50" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">7</text>
+<rect x="292.18" y="2266.24" width="57.49" height="14.53" rx="0.00" fill="#f59e0b" stroke="#b45309"/><text x="320.93" y="2277.51" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">8</text>
+<rect x="460" y="2170" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="2196" font-family="Arial" font-size="16.00" fill="#0f172a">TestPoint_SMD_D1.0</text>
+<circle cx="675.00" cy="2305.00" r="27.50" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="620.00" y="2250.00" width="110.00" height="110.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="675.00" cy="2305.00" rx="27.50" ry="27.50" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="2309.00" text-anchor="middle" font-family="Arial" font-size="12.00" font-weight="bold" fill="#1e293b">1</text>
+</svg>

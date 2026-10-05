@@ -33,6 +33,16 @@ in real circuit designs.
 - Modeling every manufacturer-specific symbol variant or package option.
 - Claiming that a public-board sample establishes the 100 globally most-used commercial packages.
 
+## Additional 20 schematic symbols
+
+Add BJT NPN/PNP, enhancement MOSFET N/P, IGBT, SCR, TRIAC, Schottky diode,
+bidirectional TVS, potentiometer, NTC/PTC thermistors, crystal, SPST/SPDT switches,
+normally-open pushbutton, SPDT relay, two-winding transformer, photodiode and phototransistor.
+This brings the symbol catalog from 29 to 49. Selection is based on catalog coverage gaps;
+the footprint corpus has not established symbol-use frequencies. Draw independent vectors
+from public functional conventions and datasheets, with conceptual terminals and no default
+footprint. Keep the current drawing style and the feature branch unmerged.
+
 ## Evidence level required
 
 Catalog entries must be Fenolite-authored. Public datasheets, package standards, and public component

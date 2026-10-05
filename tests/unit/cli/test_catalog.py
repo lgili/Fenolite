@@ -9,13 +9,24 @@ from pathlib import Path
 
 import pytest
 
+from fenolite.catalog import list_entries
 from fenolite.cli.main import main
+
+
+def test_catalog_cli_discovers_all_100_footprints(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--json", "catalog", "list", "--kind", "footprint"]) == 0
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["result"]["count"] == 100
+    assert {e["lib_id"] for e in envelope["result"]["entries"]} == {
+        e.lib_id for e in list_entries(kind="footprint")
+    }
+    assert envelope["evidence"]["level"] == "INFERRED"
 
 
 def test_catalog_list_and_show(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--json", "catalog", "list", "--kind", "symbol", "--query", "passive"]) == 0
     listed = json.loads(capsys.readouterr().out)
-    assert listed["result"]["count"] == 9
+    assert listed["result"]["count"] == 14
     assert all(item["category"] == "Passive" for item in listed["result"]["entries"])
     assert any(item["lib_id"] == "Fenolite:Common_Mode_Choke" for item in listed["result"]["entries"])
 
@@ -83,3 +94,21 @@ def test_build_resolves_catalog_without_global_libraries(
     }
     assert "out/lib/Fenolite.kicad_sym" in files
     assert "out/lib/Fenolite.pretty/Chip_0603.kicad_mod" in files
+
+
+def test_cli_lists_all_49_symbols_offline(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import socket
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Catalog discovery attempted network access")
+
+    monkeypatch.setattr(socket.socket, "connect", forbidden)
+    assert main(["--json", "catalog", "list", "--kind", "symbol"]) == 0
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["result"]["count"] == 49
+    assert {e["lib_id"] for e in envelope["result"]["entries"]} == {
+        e.lib_id for e in list_entries(kind="symbol")
+    }
+    assert envelope["evidence"]["level"] == "INFERRED"

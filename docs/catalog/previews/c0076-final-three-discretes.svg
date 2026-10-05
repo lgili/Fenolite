@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="480" viewBox="0 0 900 480">
+<rect width="900" height="480" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16" fill="#0f172a">SOD128_Nexperia_CFP5</text>
+<rect x="156.39" y="98.06" width="137.22" height="93.89" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="102.22" y="80.00" width="245.56" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="178.06" y1="186.53" x2="178.06" y2="103.47" stroke="#2563eb" stroke-width="2"/>
+<rect x="120.28" y="107.08" width="50.56" height="75.83" fill="#f59e0b" stroke="#b45309"/><text x="145.56" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="279.17" y="107.08" width="50.56" height="75.83" fill="#f59e0b" stroke="#b45309"/><text x="304.44" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16" fill="#0f172a">SOT883_3_Nexperia_DFN1006</text>
+<rect x="647.50" y="128.50" width="55.00" height="33.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="617.25" y="98.25" width="115.50" height="93.50" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="644.75" y="125.75" width="22.00" height="13.75" fill="#f59e0b" stroke="#b45309"/><text x="655.75" y="136.62" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="644.75" y="150.50" width="22.00" height="13.75" fill="#f59e0b" stroke="#b45309"/><text x="655.75" y="161.38" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="683.25" y="125.75" width="22.00" height="38.50" fill="#f59e0b" stroke="#b45309"/><text x="694.25" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16" fill="#0f172a">TO220_3_Diodes_Vertical</text>
+<rect x="170.88" y="325.06" width="108.25" height="49.07" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="165.82" y="320.00" width="118.37" height="81.19" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<ellipse cx="199.30" cy="385.00" rx="11.13" ry="11.13" fill="#f59e0b" stroke="#b45309"/><circle cx="199.30" cy="385.00" r="7.59" fill="white" stroke="#b45309"/><text x="199.30" y="389.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="225.00" cy="385.00" rx="11.13" ry="11.13" fill="#f59e0b" stroke="#b45309"/><circle cx="225.00" cy="385.00" r="7.59" fill="white" stroke="#b45309"/><text x="225.00" y="389.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<ellipse cx="250.70" cy="385.00" rx="11.13" ry="11.13" fill="#f59e0b" stroke="#b45309"/><circle cx="250.70" cy="385.00" r="7.59" fill="white" stroke="#b45309"/><text x="250.70" y="389.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+</svg>
