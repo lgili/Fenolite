@@ -16,6 +16,7 @@ import hashlib
 from pathlib import Path
 
 import fenolite
+from fenolite.backends.kicad import sch
 from fenolite.cli._script import DesignScriptError, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.cmd_build import MINIMAL
@@ -26,7 +27,8 @@ from fenolite.dsl import BOARD_ORIGIN, DslError, module_moves, moves, net_moves,
 from fenolite.lens.moved import Aliases
 from fenolite.lens.placements import FILE_NAME
 from fenolite.lens.preserve import read_existing
-from fenolite.lens.sync import EVIDENCE, issue, plan_sync
+from fenolite.lens.sync import EVIDENCE, SYMBOL_FILE_NAME, issue, plan_sync
+from fenolite.model.schematic import SchematicSheet
 
 HELP = (
     "copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run "
@@ -57,7 +59,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 
 def first_difference(old: str | None, new: str) -> str:
-    """The header of the first table of ``new`` whose text ``old`` does not hold, or ``schema``."""
+    """The header of the first table of ``new`` whose text ``old`` does not hold, or ``schema`` when
+    the difference is before the tables."""
     held = set((old or "").split("\n\n"))
     for block in new.split("\n\n"):
         if block not in held:
@@ -73,6 +76,15 @@ def _text(path: Path) -> str | None:
         return path.read_bytes().decode("utf-8")
     except UnicodeDecodeError as error:
         raise FormatError(f"not UTF-8 text: {error}", file=path.name) from error
+
+
+def _sheets(root: Path) -> list[SchematicSheet] | None:
+    """The sheets of the schematic ``root``: the root file and every sheet file it names, each read once.
+    ``None`` when the project has no schematic."""
+    if not root.is_file():
+        return None
+    tree = sch.sheet_files(root)
+    return [sch.read_schematic(root.parent / name, file=name) for name in tree.files]
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -105,15 +117,25 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             hint="run fenolite build first",
         )
     folder = script.parent
-    current = _text(script_path.resolve().parent / FILE_NAME)
+    source = script_path.resolve().parent
+    current = _text(source / FILE_NAME)
+    sheets = _sheets(out_dir / f"{design.name}.kicad_sch")
+    held = {FILE_NAME: current, SYMBOL_FILE_NAME: _text(source / SYMBOL_FILE_NAME)}
     plan = plan_sync(
-        model, existing, name=design.name, aliases=aliases, origin=BOARD_ORIGIN, placements_text=current
+        model,
+        existing,
+        name=design.name,
+        aliases=aliases,
+        origin=BOARD_ORIGIN,
+        placements_text=current,
+        symbol_placements_text=held[SYMBOL_FILE_NAME],
+        sheets=sheets,
     )
     issues: list[Issue] = list(plan.issues)
     writes: tuple[PlannedWrite, ...] = ()
     if args.check:
         for name, text in sorted(plan.files.items()):
-            table = first_difference(current if name == FILE_NAME else None, text)
+            table = first_difference(held.get(name), text)
             issues.append(
                 issue(
                     "sync.would-change",

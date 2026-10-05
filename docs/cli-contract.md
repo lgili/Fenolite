@@ -259,15 +259,16 @@ source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating com
   bare `sync` does.
 - The board `DIR/<design name>.kicad_pcb` must exist: otherwise exit 3, `FEN-3001`, with the hint to run
   `fenolite build` first. The refusals of a build over an existing board apply unchanged.
-- **Writes** go beside the design script, not under `DIR`: `placements.toml`, and only when its text
+- **Writes** go beside the design script, not under `DIR`: `placements.toml`, and
+  `schematic-placements.toml` when `DIR` holds the schematic of the design; each only when its text
   would change. A run that changes nothing plans nothing and asks for no confirmation.
 - **`--check`** plans nothing and reports one `sync.would-change` (error) per file that would change,
   naming its first differing table: exit 5 when a committed file is stale, 0 otherwise. `--check` with
   `--confirm` is a usage error (exit 2).
 - **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of entries),
   `unplaced` (matched parts that lie off the board and stay out of the file), `orphans` and `board_only`
-  (references), `symbols` (`null`: the schematic half needs the schematic reader), `files` (the names
-  that change) and `script_output`.
+  (references), `symbols` (the number of tables of `schematic-placements.toml`, or `null` when `DIR`
+  holds no schematic), `files` (the names that change) and `script_output`.
 - **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change`
   (error), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` and `sync.symbol-off-grid`
   (warnings).

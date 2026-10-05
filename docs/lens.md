@@ -397,10 +397,18 @@ the next build would drop or overwrite:
 - **`--check`** writes nothing and gives one `sync.would-change` per file that would change, so the
   command exits 5 when the committed file is stale. Run it in CI.
 - **Both files.** The second file of `sync` is `schematic-placements.toml`, the symbol placements of the
-  generated schematic. That half needs the schematic reader and writer, which are not in this version;
-  until then `result.symbols` is `null` and `sync.symbol-off-grid` is not produced.
-- A schematic edited in KiCad is replaced by the next build, so `sync` is how its symbol moves will
-  reach the source first.
+  generated schematic (`docs/schematic.md`, "Placements file"). `sync` reads `DIR/<name>.kicad_sch` and
+  every sheet file it names, takes each symbol whose `fenolite.path` is a component path of the script,
+  and writes one table per unit: `x` and `y` of the symbol origin in millimetres, `rotation` when it is
+  not 0 and `mirror` when the symbol is mirrored (`fenolite.lens.schplacements`). `result.symbols` is the
+  number of tables, or `null` when `DIR` holds no schematic (a build with `--schematic skip`); then the
+  file is not planned.
+- **Off the grid.** A symbol whose origin is not on the 1.27 mm grid, or whose rotation and mirror the
+  schematic writer does not produce, gives `sync.symbol-off-grid` (warning) and no table: the next build
+  places it automatically. Symbols without `fenolite.path` (power flags, symbols drawn in KiCad) are not
+  in the file.
+- A schematic edited in KiCad is replaced by the next build, so run `sync` first: the build then draws
+  the schematic again with every symbol where the file says.
 
 ## Issue codes
 

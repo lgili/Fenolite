@@ -141,9 +141,37 @@ def test_closed_set() -> None:
     produced: set[str] = set()
     for path in (Path(__file__), ROOT / "tests" / "unit" / "cli" / "test_sync_cmd.py"):
         produced |= set(CODE.findall(path.read_text(encoding="utf-8")))
-    # sync.symbol-off-grid belongs to the schematic half, which waits for the schematic reader (c0060)
-    waiting = {"sync.symbol-off-grid"}
-    assert produced <= set(SYNC_ISSUE_CODES) and set(SYNC_ISSUE_CODES) - waiting <= produced
+    assert produced == set(SYNC_ISSUE_CODES)
     source = (ROOT / "src" / "fenolite").rglob("*.py")
     used = {code for path in source for code in CODE.findall(path.read_text(encoding="utf-8"))}
     assert used == set(SYNC_ISSUE_CODES)
+
+
+def test_symbol_placements_are_planned_with_the_sheets() -> None:
+    """The schematic half: with the sheets the second file is planned, and not when its text is held."""
+    from _buildhelp import build
+
+    from fenolite.backends.kicad.sch import read_schematic
+    from fenolite.lens.schplacements import read_placements as read_symbols
+    from fenolite.lens.sync import SYMBOL_FILE_NAME
+
+    files = build(blink(), 10).files
+    sheet = read_schematic(files["blink.kicad_sch"].decode("utf-8"), file="blink.kicad_sch")
+
+    def run(held: str | None) -> SyncPlan:
+        return plan_sync(
+            to_model(blink()),
+            ExistingProject(board=files["blink.kicad_pcb"].decode("utf-8")),
+            name="blink",
+            aliases=Aliases({}, {}, {}),
+            origin=BOARD_ORIGIN,
+            placements_text=None,
+            symbol_placements_text=held,
+            sheets=[sheet],
+        )
+
+    first = run(None)
+    assert SYMBOL_FILE_NAME == "schematic-placements.toml" and first.result["symbols"] == 3
+    assert sorted(read_symbols(first.files[SYMBOL_FILE_NAME])) == ["D1", "R1", "U1"]
+    assert SYMBOL_FILE_NAME not in run(first.files[SYMBOL_FILE_NAME]).files
+    assert plan(blink(), files["blink.kicad_pcb"].decode("utf-8")).result["symbols"] is None

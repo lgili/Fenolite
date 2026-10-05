@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The lens acceptance (capability layout-lens, "Lens acceptance fixture"; change c0069): five footprints
 moved and three tracks routed "in KiCad", then a part added and a module renamed with ``moved()``, and
-everything is preserved. The stand-in for *Update PCB from Schematic* joins when the schematic writer
-(c0061) exists."""
+everything is preserved, also when the edited board first passes through the stand-in for *Update PCB
+from Schematic* (``update_from_schematic``, c0061)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import runpy
 from pathlib import Path
 
 import pytest
-from _layout_edit import MM, footprint_node, group_members, node_uuid
+from _layout_edit import MM, footprint_node, group_members, node_uuid, update_from_schematic
 from _lensfix import (
     FIELD_REF,
     FOLDER,
@@ -83,11 +83,30 @@ def test_fixture_shape() -> None:
     assert sum(1 for ref in MOVES if PATHS[ref].startswith("power/")) == 3 and len(set(MOVES.values())) == 5
 
 
+def sheet_children(text: str, ref: str) -> list[str]:
+    node = footprint_node(text, ref)
+    return [n.atoms()[0].value for name in ("sheetname", "sheetfile") for n in node.nodes(name)]
+
+
+def updated(p: Project) -> list[str]:
+    """Pass the board of ``p`` through the stand-in update, and give the references it reached."""
+    schematic = (p.out / f"{NAME}.kicad_sch").read_text(encoding="utf-8")
+    before = p.board.read_text(encoding="utf-8")
+    p.board.write_text(update_from_schematic(before, schematic), encoding="utf-8")
+    after = p.board.read_text(encoding="utf-8")
+    return [ref for ref in PATHS if sheet_children(after, ref)]
+
+
+@pytest.mark.parametrize("stand_in", [False, True], ids=["edited", "updated"])
 @pytest.mark.parametrize("target", [9, 10])
-def test_rename_keeps_everything(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: int) -> None:
+def test_rename_keeps_everything(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: int, stand_in: bool
+) -> None:
     p = Project(tmp_path, monkeypatch, target, folder=FOLDER, name=NAME)
     built = p.read()
     p.edit_board(edit_board)
+    reached = updated(p) if stand_in else []
+    assert reached == (list(PATHS) if stand_in else [])
     edited_text = p.board.read_text(encoding="utf-8")
     edited = p.read()
     for ref, (dx, dy) in MOVES.items():
@@ -118,6 +137,9 @@ def test_rename_keeps_everything(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     # the group lists the two renamed footprints by their new uuids
     assert group_members(text, GROUP) == [footprint_uuid(renamed(PATHS[ref])) for ref in GROUPED]
     assert group_members(edited_text, GROUP) == [footprint_uuid(PATHS[ref]) for ref in GROUPED]
+    # the footprints the update reached keep their sheetname and sheetfile children
+    for ref in reached:
+        assert sheet_children(text, ref) == ["/", f"{NAME}.kicad_sch"], ref
     # the new part is staged, and nothing was lost
     assert [i["where"] for i in env["issues"] if i["code"] == "layout.unplaced"] == ["io/R9"]  # type: ignore[union-attr,index]
     assert not LOST & set(codes(env)), codes(env)

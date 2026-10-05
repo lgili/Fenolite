@@ -39,7 +39,8 @@
   - 2026-10-06: done. `sync` declares no `mutation_example_args`: it writes beside the script, so the example would write into the package folder; the requirement was corrected and `test_sync_cmd.py::test_mutation_protocol` runs the protocol on a copy. The committed example folder leaves out `.fenolite/`, which `.gitignore` excludes.
 - [x] 5.2 Add `--check` (scenarios "Stale file found by check" and "Current file passes check"). Proof: `uv run pytest tests/unit/cli/test_sync_cmd.py -k check`.
   - 2026-10-06: done.
-- [ ] 5.3 When c0060 and c0061 are archived: add `extract_symbol_placements` and `write_placements` to `lens/schplacements.py` and the schematic half of `sync` (scenarios of "Symbol placement extraction"). Proof: `uv run pytest tests/unit/lens/test_schplacements.py tests/unit/cli/test_sync_cmd.py`.
+- [x] 5.3 When c0060 and c0061 are archived: add `extract_symbol_placements` and `write_placements` to `lens/schplacements.py` and the schematic half of `sync` (scenarios of "Symbol placement extraction"). Proof: `uv run pytest tests/unit/lens/test_schplacements.py tests/unit/cli/test_sync_cmd.py`.
+  - 2026-10-05: done on `dev` with c0061 (76ef4916). `sync` reads the root schematic and its sheet files, writes `schematic-placements.toml` beside the script and gives `sync.symbol-off-grid`; a build with the written file draws the symbol where it was moved, and `result.symbols` is `null` only when the output folder holds no schematic.
   - 2026-10-06: waits: c0061 (schematic writer, `lens.schplacements`) is not implemented. `plan_sync` already takes `sheets` and `symbol_placements_text`, and `result.symbols` is `null` until then.
 
 ## 6. Documentation
@@ -51,6 +52,7 @@
 
 - [x] 7.1 Author `tests/data/lens/acceptance/design.py` and write `tests/unit/lens/test_lens_acceptance.py` (scenarios of "Lens acceptance fixture"), with the stand-in step when c0061 is archived. Proof: `uv run pytest tests/unit/lens/test_lens_acceptance.py -rA`.
   - 2026-10-06: done for targets 9 and 10, without the stand-in step (c0061 is not archived).
+  - 2026-10-05: the stand-in step is in: `test_rename_keeps_everything` runs with and without `update_from_schematic` on both targets, the update reaches every footprint, and each keeps its `sheetname` and `sheetfile` children through the rename.
 - [x] 7.2 Write `tests/kicad/lens/test_rename_oracle.py` with the probes `lens-rename-t9` and `lens-rename-t10`, and record their outcomes. Proof: `uv run pytest tests/kicad/lens/test_rename_oracle.py -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image; `FENOLITE_PROBES_WRITE=1` updates both probe files; `uv run pytest tests/kicad/test_probe_results.py`.
   - 2026-10-06: done on 10.0.6 (local) and 9.0.9 (pinned image): both probes `equal`. One fact was found: a 10.0.6 re-save writes a group's members sorted by uuid, so the re-save check compares the members as a set.
 - [x] 7.3 Write `tests/kicad/lens/test_lens_acceptance_oracle.py`: the acceptance fixture's rebuilt and discarded-layout boards load on both majors and keep the DRC report of the edited board. Proof: `uv run pytest tests/kicad/lens -rA` on both majors.

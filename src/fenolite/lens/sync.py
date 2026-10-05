@@ -19,11 +19,12 @@ from fenolite.backends.kicad import pcb
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
-from fenolite.lens import preserve
+from fenolite.lens import preserve, schplacements
 from fenolite.lens.extract import extract_placements
 from fenolite.lens.moved import Aliases, resolve_aliases
 from fenolite.lens.placements import FILE_NAME, write_placements
 from fenolite.model.design import Design
+from fenolite.model.schematic import SchematicSheet
 
 SYNC_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -35,7 +36,7 @@ SYNC_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     }
 )
 EVIDENCE = preserve.EVIDENCE
-SYMBOL_FILE_NAME = "schematic-placements.toml"
+SYMBOL_FILE_NAME = schplacements.FILE_NAME
 COPPER_KINDS: tuple[str, ...] = ("tracks", "arcs", "vias", "zones")
 
 
@@ -129,20 +130,20 @@ def plan_sync(
     origin: Point,
     placements_text: str | None,
     symbol_placements_text: str | None = None,
-    sheets: Sequence[object] | None = None,
+    sheets: Sequence[SchematicSheet] | None = None,
 ) -> SyncPlan:
     """What ``sync --to-source`` writes and reports for the board text of ``existing``.
 
     ``aliases`` holds the script's aliases: its ``parts`` and ``modules``, and in ``nets`` the names of
     ``moved_net()``; the net aliases that the module aliases give are resolved against the board here.
     ``placements_text`` is the current text of ``placements.toml`` (``None`` without the file). ``sheets``
-    are the sheets of the generated schematic; the schematic half waits for the schematic reader, so the
-    symbol placements are planned only when a reader gives sheets, and ``result.symbols`` is ``None``
-    without them.
+    are the sheets of the project's schematic, the root and every sheet file it names, as
+    ``sch.read_schematic`` gives them: with them the symbol placements are planned as
+    ``schematic-placements.toml``, against ``symbol_placements_text``. Without ``sheets``,
+    ``result.symbols`` is ``None``.
     """
     if existing.board is None:
         raise ValueError("plan_sync needs the board text of the built project")
-    del symbol_placements_text  # read with the sheets, when the schematic reader exists
     file = f"{name}.kicad_pcb"
     read: list[Issue] = []
     board = pcb.read_board(existing.board, file=file, issues=read)
@@ -174,13 +175,21 @@ def plan_sync(
         )
     issues += _net_issues(design, board, resolved.nets)
     issues += _value_issues(design, board, match)
+    symbols: int | None = None
+    if sheets is not None:
+        entries, off_grid = schplacements.extract_symbol_placements(sheets, design=design)
+        issues += off_grid
+        symbols = len(entries)
+        symbol_text = schplacements.write_placements(entries)
+        if symbol_text != symbol_placements_text:
+            files[SYMBOL_FILE_NAME] = symbol_text
     result: dict[str, object] = {
         "board": file,
         "placements": len(extracted.placements),
         "unplaced": list(extracted.unplaced),
         "orphans": orphans,
         "board_only": [refs.get(fp.component_id, "?") for fp in match.board_only],
-        "symbols": None if sheets is None else 0,
+        "symbols": symbols,
         "files": sorted(files),
     }
     return SyncPlan(MappingProxyType(files), MappingProxyType(result), tuple(issues))

@@ -138,6 +138,21 @@ def group_members(text: str, uuid: str) -> list[str]:
     return [a.value for a in members.atoms()]
 
 
+def move_symbol(text: str, ref: str, dx: Nm, dy: Nm) -> str:
+    """The schematic ``text`` with the symbol of ``ref`` moved by ``(dx, dy)``: its ``at`` only, as a drag
+    of the symbol's origin; the stand-in for moving a symbol in KiCad's schematic editor."""
+    root = parse(text)
+    children: list[Node | Atom] = []
+    found = 0
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "symbol" and _reference(child) == ref:
+            child = _shift_at(child, dx, dy)
+            found += 1
+        children.append(child)
+    assert found == 1, f"{ref}: {found} symbols"
+    return dumps(root.with_children(children), style="kicad")
+
+
 def add_items(text: str, *items: str) -> str:
     """``text`` with each item text appended as a root child, before the closing parenthesis."""
     root = parse(text)
@@ -290,6 +305,7 @@ __all__ = [
     "group_members",
     "move_footprint",
     "move_property",
+    "move_symbol",
     "net_ref",
     "node_uuid",
     "pad_position",
