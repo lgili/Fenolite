@@ -12,6 +12,9 @@ Every command prints one JSON envelope, never asks a question, and writes only w
 
 1. **`capabilities` first.** `fenolite capabilities --json` lists the commands, the routers and the
    external tools found on this machine, with their versions. Do not assume a tool is there.
+   Read `result.matrix` before choosing an operation on a file kind: it says, per backend and kind,
+   whether `detect`, `read`, `write` and the two round trips exist (`null` when they do not), at which
+   evidence level, and which of them are `experimental`.
 2. **Read the exit code before the output.**
 
    | exit | meaning | what to do |

@@ -11,6 +11,8 @@ holds 6 characters and the pin field 4, so longer values are truncated. Vias are
 the reference ``VIA``, a blank pin and the midpoint flag ``M`` in column 32.
 """
 
+# evidence: see padnets
+
 from __future__ import annotations
 
 import re

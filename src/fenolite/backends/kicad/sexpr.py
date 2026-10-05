@@ -19,8 +19,23 @@ from pathlib import Path
 from typing import Literal
 
 from fenolite.core.errors import FormatError
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import round_half_even_div
 
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-K-SEXPR-ESCAPES",
+        "H-K-SEXPR-LEX-10",
+        "H-K-SEXPR-LEX-9",
+        "H-K-SEXPR-NUM-CORPUS",
+        "H-K-SEXPR-NUM-READ",
+        "H-K-SEXPR-NUM-WRITE-2",
+        "H-K-SEXPR-STRICT",
+    ),
+)
+"""The syntax layer: every ``H-K-SEXPR-*`` row that is not refuted. ``INFERRED``, the level of
+``H-K-SEXPR-STRICT`` and ``H-K-SEXPR-NUM-CORPUS``: lowest wins (declared by change c0067)."""
 MAX_DEPTH = 256
 XY_WRAP_COLUMNS = 99
 

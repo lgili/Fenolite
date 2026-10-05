@@ -27,8 +27,24 @@ from fenolite.backends.kicad.mod import footprint_from
 from fenolite.backends.kicad.sexpr import AtomKind, Node, parse
 from fenolite.backends.kicad.sym import resolve_extends, symbols_from
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.library import FootprintDef, SymbolDef
 
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-K-LIB-COMMON",
+        "H-K-LIB-CONFIGHOME",
+        "H-K-LIB-FALLBACK",
+        "H-K-LIB-NESTED",
+        "H-K-LIB-RELPATH-2",
+        "H-K-LIB-SCAN",
+    ),
+)
+"""Reading library tables and resolving their rows: ``INFERRED``, the level of ``H-K-LIB-SCAN``; the
+other rows hold for the cases their tests ran, on the majors they name (declared by change c0067)."""
+WRITE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-BUILD-LIBTABLE",))
+"""``write_lib_table``: ``kicad-cli`` reads the tables that the build oracle wrote, not every table."""
 TableKind = Literal["footprint", "symbol"]
 RowOrigin = Literal["project", "global", "template", "scan"]
 SourceKind = Literal["env", "cache", "install"]

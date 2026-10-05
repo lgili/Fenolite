@@ -3,6 +3,8 @@
 """Component bodies of imported footprints (capability altium-import, "Component body records";
 ``docs/formats/altium/pcb-bodies.md``, "Mapping to the model"; change c0043)."""
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from fenolite.backends.altium.adapter import units

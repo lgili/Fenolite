@@ -8,6 +8,8 @@ summary form written beside Gerber outputs holds a header line and short records
 maps the records.
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 from dataclasses import dataclass

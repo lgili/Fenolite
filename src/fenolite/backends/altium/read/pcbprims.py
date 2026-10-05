@@ -9,6 +9,8 @@ field the reader knows are the record's ``tail``. Every record keeps ``raw``, so
 joined, give the stream back.
 """
 
+# evidence: see read.pcb, read.pcblib
+
 from __future__ import annotations
 
 import struct

@@ -8,6 +8,8 @@ so it is exact; ``nm()`` converts it to nanometres, rounding half to even, and `
 rounded. No float is used anywhere.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import re

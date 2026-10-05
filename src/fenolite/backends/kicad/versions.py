@@ -22,6 +22,11 @@ from typing import Any, Literal
 
 from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse, walk
 from fenolite.core.errors import FenoliteError, FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
+
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-TOK-CONSTANTS",))
+"""Naming the kind and the version of a file from its name or its header: ``INFERRED``, because the
+constants that no command writes are read from public sources only (``H-K-TOK-CONSTANTS``)."""
 
 
 class FileKind(StrEnum):

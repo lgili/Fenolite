@@ -7,6 +7,8 @@ A pad's position is brought into the footprint frame by the inverse of the footp
 a mirror: a bottom footprint holds mirrored pad coordinates, as one read from a KiCad board does.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from fenolite.backends.altium.adapter import units

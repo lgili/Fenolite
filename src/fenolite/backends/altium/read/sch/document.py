@@ -9,6 +9,8 @@ decompressed. Facts: ``docs/formats/altium/schematic-records.md``, ``schematic-a
 ``schematic-binary.md``.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import struct

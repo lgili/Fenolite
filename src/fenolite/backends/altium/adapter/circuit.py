@@ -8,6 +8,8 @@ designator per sheet instance, the nets, one module per sheet-symbol instance, o
 one bus per bus group, and the pins left open on purpose.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from collections.abc import Sequence

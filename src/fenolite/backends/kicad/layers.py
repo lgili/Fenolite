@@ -6,6 +6,8 @@ Facts and Fenolite choices: ``docs/formats/kicad/board.md``. Canonical names com
 S-0021; the ``*.Adhes`` row and the fallback for names outside the table are Fenolite choices.
 """
 
+# evidence: see pcb
+
 from __future__ import annotations
 
 import re

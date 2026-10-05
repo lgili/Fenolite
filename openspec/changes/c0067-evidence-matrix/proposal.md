@@ -21,6 +21,7 @@ None.
 
 ### Modified Capabilities
 - `backend-protocol`: ADDED "Evidence matrix rows", "Backend modules declare their evidence".
+- `altium-schematic-reader`: MODIFIED "Schematic reader entry points" (`read.sch.EVIDENCE` names no refuted row).
 - `cli-contract`: ADDED "Evidence matrix in capabilities".
 - `verification-evidence`: ADDED "Declared levels agree with the register", "Generated evidence matrix page".
 

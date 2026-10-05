@@ -8,6 +8,8 @@ graphics, texts, the outline as ``Edge.Cuts`` graphics, the rules that map, and 
 the pads. It parses no byte and opens no file.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from collections.abc import Mapping

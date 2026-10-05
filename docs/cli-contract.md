@@ -285,7 +285,7 @@ that is not TOML or has another `schema` exits 3 with `FEN-3004`.
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
-experimental features, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
+experimental features, the evidence matrix, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
 versions, and whether any enabled feature sends data off the machine. Agents should call it first.
 A command whose examples need an external tool also lists `example_tools` (`export` and `render`:
 `kicad-cli`); the test suites run such examples against a fake of the tool, and every other command's
@@ -313,7 +313,7 @@ Each entry of `result.backends` is one backend's capability report, sorted by na
 
 ```json
 {"name": "kicad", "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
- "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks"],
+ "write_kinds": ["kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks", "kicad_lib_table"],
  "targets": [9, 10], "default_target": 10, "downgrade": "unsupported",
  "operations": ["detect", "read", "write", "lower", "validate"],
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]}}
@@ -347,6 +347,36 @@ the kinds it writes, its `targets` (oldest first), the `default_target` used whe
 whether a file read at a newer version can be written for an older target (`downgrade`). Listing backends runs no external
 tool, so the entry is the same with `--no-tools`. The `kicad-cli` entry of `result.tools` is found
 by `fenolite.backends.kicad.cli.find_kicad_cli()`.
+
+`result.matrix` is the evidence matrix (change c0067): one entry per backend package and file kind,
+sorted by `backend` and then `kind`, with exactly the keys `backend`, `kind`, the five operations,
+`verified_by` and `experimental`. It also lists packages that are not registered backends, such as the
+`specctra` codec. An operation holds the label of its evidence, or `null` when the package does not
+implement it for that kind:
+
+| operation | meaning |
+|---|---|
+| `detect` | the package names the kind of a file from its name or its content |
+| `read` | a reader builds a model object from a file of the kind |
+| `write` | a writer produces a file of the kind from a model object that Fenolite created |
+| `roundtrip_exact` | a file read and written back for the same version, unchanged in between, keeps its whole content, modelled or not |
+| `roundtrip_modified` | a file read, changed through the model and written keeps everything the change did not touch, or the write is refused |
+
+```json
+{"backend": "kicad", "kind": "kicad_pcb", "detect": "INFERRED", "read": "INFERRED",
+ "write": "INFERRED", "roundtrip_exact": "INFERRED", "roundtrip_modified": "INFERRED",
+ "verified_by": ["H-K-PCB-READ", "H-K-PCB-WRITE", "H-K-TOK-CONSTANTS"], "experimental": []}
+```
+
+A label states what holds for an arbitrary file of the kind, so it is often weaker than the rows it
+names: `verified_by` lists the hypothesis ids behind the row, sorted, and `docs/evidence/matrix.md`
+shows the level that `docs/hypotheses.md` holds for each. A label is never stronger than a row it
+names (`tests/unit/test_evidence_register.py`). An operation listed in `experimental` may change its
+output, its options or its issue codes in any release; an operation labelled `UNVERIFIED` is always
+listed there, and every write kind of `result.experimental` has a row whose `write` is experimental.
+Listing the matrix runs no external tool, so it is the same with `--no-tools`. Every label comes from
+a declaration in the code (`fenolite.backends.matrix`), and a backend module that declares nothing
+fails the test suite.
 
 ## Altium import
 

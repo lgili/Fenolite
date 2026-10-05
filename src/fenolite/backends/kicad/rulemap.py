@@ -8,6 +8,8 @@ written for a KiCad major only when ``SELECTOR_SUPPORT`` lists that major, which
 ``dru-cond-*`` probe adds (``H-K-DRU-COND``, ``H-K-DRU-GLOB``).
 """
 
+# evidence: see dru, lowering
+
 from __future__ import annotations
 
 import dataclasses

@@ -6,6 +6,8 @@ A leaf module (it imports only ``core``), so ``sym`` and ``libs`` can both raise
 without importing each other. The closed set is the table of ``docs/formats/kicad/libraries.md``.
 """
 
+# evidence: none, issue codes and the error class of library reading
+
 from __future__ import annotations
 
 from collections.abc import Mapping

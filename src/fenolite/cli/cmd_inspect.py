@@ -22,13 +22,12 @@ from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.model.library import Library
 
 HELP = "summarise a KiCad file or list an Altium compound file's streams (runs no tool)"
 HEADER_ONLY = frozenset({versions.FileKind.SCHEMATIC, versions.FileKind.WORKSHEET})
-HEADER_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-TOK-CONSTANTS",))
+HEADER_EVIDENCE = versions.EVIDENCE
 DEFERRED = (".kicad_pro", ".kicad_dru")
 READS = "inspect reads .kicad_pcb, .kicad_mod, .kicad_sym(dir), .kicad_sch and .kicad_wks"
 

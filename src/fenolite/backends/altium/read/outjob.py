@@ -6,6 +6,8 @@
 output. Facts: ``docs/formats/altium/output-job.md``.
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 import re

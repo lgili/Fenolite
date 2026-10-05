@@ -7,6 +7,8 @@ length and whose top byte is the kind, then the payload (S-0130, S-0147, S-0148)
 record per line, ending with CR LF or LF (S-0131, S-0143).
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import struct

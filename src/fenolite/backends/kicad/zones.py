@@ -11,6 +11,8 @@ script with those of an existing board for the layout lens. This module imports 
 ``_fpmap``: both call it.
 """
 
+# evidence: see pcb
+
 from __future__ import annotations
 
 import uuid

@@ -65,8 +65,8 @@ def test_imports_only_core_and_model() -> None:
     """The package imports ``fenolite.core``, ``fenolite.model``, itself and a few pure stdlib modules: no
     file, process or environment access."""
     for path in sorted(PACKAGE.glob("*.py")):
-        if path.name == "backend.py":
-            continue  # the reading backend of change c0043 does the file work; its rules are its own tests
+        if path.name in ("backend.py", "claims.py"):
+            continue  # the reading backend (c0043) and the matrix rows (c0067) have their own rules and tests
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

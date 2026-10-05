@@ -3,6 +3,8 @@
 """The KiCad backend as seen through ``fenolite.backends.base``: detection, reading, writing, validation
 and capabilities."""
 
+# evidence: none, the facade of the registered backend: a read or a write returns its module's evidence
+
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
@@ -31,7 +33,7 @@ SYMBOL_DIR_SUFFIX = ".kicad_symdir"
 CAPABILITIES = CapabilityReport(
     name="kicad",
     read_kinds=("kicad_pcb", "kicad_mod", "kicad_sym"),
-    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks"),
+    write_kinds=("kicad_pcb", "kicad_mod", "kicad_dru", "kicad_pro", "kicad_wks", "kicad_lib_table"),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
     downgrade="unsupported",

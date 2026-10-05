@@ -8,6 +8,8 @@ the first section and lines that are neither a section nor a key all stay, and `
 the input. Names are matched exactly as written (``docs/formats/altium/project.md``).
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 import re

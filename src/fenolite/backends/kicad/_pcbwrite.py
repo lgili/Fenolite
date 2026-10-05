@@ -10,6 +10,8 @@ removes or rewrites nodes headed ``net``, ``net_name`` or a row no longer writte
 indexes a node among its siblings of the same head.
 """
 
+# evidence: see pcb
+
 from __future__ import annotations
 
 from collections import Counter

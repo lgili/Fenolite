@@ -8,6 +8,8 @@ Every issue of the adapter carries a code of the closed table ``IMPORT_ISSUE_COD
 (``altium.sch.*``, ``altium.schlib.*``, ``altium.pcb-read.*``, ``altium.project.*``, ``altium.rule.*``).
 """
 
+# evidence: none, issue codes of the import and the counters of its census
+
 from __future__ import annotations
 
 from collections import Counter

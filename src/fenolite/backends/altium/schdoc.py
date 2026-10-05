@@ -18,6 +18,8 @@ Every record and key is a fact of ``docs/formats/altium/schematic-ascii.md``; th
 and the values marked as choices are Fenolite's.
 """
 
+# evidence: see project
+
 from __future__ import annotations
 
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units

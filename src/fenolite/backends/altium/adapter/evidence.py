@@ -3,6 +3,8 @@
 """The evidence of an import, re-exported from ``fenolite.backends.altium.import_evidence`` (the backend
 names it there without loading the adapter)."""
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from fenolite.backends.altium.import_evidence import EVIDENCE, HYPOTHESES, LEVELS, READER_LEVELS

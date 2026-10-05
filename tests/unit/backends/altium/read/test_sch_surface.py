@@ -82,8 +82,11 @@ def test_document_accessors_and_signatures() -> None:
 
 def test_evidence_is_the_lowest_registered_row() -> None:
     rows = {row.id: row for row in load_register(REGISTER) if row.id.startswith("H-A-RD-SCH-")}
-    assert set(sch.EVIDENCE.hypotheses) == set(rows)
-    assert sch.EVIDENCE.level == min_level(*(row.level for row in rows.values()))
+    assert set(sch.HYPOTHESES) == set(rows)
+    live = {ident: row for ident, row in rows.items() if not row.refuted}
+    assert set(sch.REFUTED) == set(rows) - set(live) == {"H-A-RD-SCH-TEXT"}
+    assert set(sch.EVIDENCE.hypotheses) == set(live), "a refuted row supports no claim (change c0067)"
+    assert sch.EVIDENCE.level == min_level(*(row.level for row in live.values()))
 
 
 def test_capabilities_do_not_list_the_reader() -> None:

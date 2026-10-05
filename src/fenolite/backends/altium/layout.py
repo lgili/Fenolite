@@ -12,6 +12,8 @@ one per part. The sheet sizes and the connection rules are facts of
 ``docs/formats/altium/schematic-ascii.md``; the cell sizes and text estimates are Fenolite choices.
 """
 
+# evidence: see project
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence

@@ -8,6 +8,8 @@ byte is a NUL. The text is ``KEY=VALUE`` fields separated by ``|``, decoded as I
 byte is one character; a ``%UTF8%<KEY>`` field holds UTF-8 and is preferred by :meth:`PropertyRecord.get`.
 """
 
+# evidence: see read.pcb, read.pcblib
+
 from __future__ import annotations
 
 import re

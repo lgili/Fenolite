@@ -7,6 +7,8 @@ Two stack views are given and not merged: the numbered keys ``LAYER<i>…`` with
 ``LAYER<i>NEXT`` links from layer 1, and the physical list ``V9_STACK_LAYER<i>_…``.
 """
 
+# evidence: see read.pcb, read.pcblib
+
 from __future__ import annotations
 
 import re

@@ -8,6 +8,8 @@ rule and replaces its header: the id and native id of the import's tables, the p
 ``rule_kind``, ``scope1`` and ``scope2``. Unmapped rules are counted per rule kind.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 import dataclasses

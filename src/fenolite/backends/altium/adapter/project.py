@@ -8,6 +8,8 @@ Footprints link to schematic components by the unique-id path, then by designato
 nets by name. What does not link is added to the circuit and reported.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 import dataclasses

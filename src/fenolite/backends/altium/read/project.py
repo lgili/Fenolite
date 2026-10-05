@@ -23,6 +23,27 @@ from fenolite.backends.altium.read.rules import RuleMapping, map_rules
 from fenolite.backends.altium.read.stackup import StackupFile, read_stackup
 from fenolite.backends.altium.read.textfile import text_issue
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
+
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-RD-PRJ-DOCS",
+        "H-A-RD-PRJ-ENC-2",
+        "H-A-RD-PRJ-HIER",
+        "H-A-RD-PRJ-INI",
+        "H-A-RD-PRJ-OUTJOB",
+        "H-A-RD-PRJ-PARAM",
+        "H-A-RD-PRJ-RUL-EXPORT",
+        "H-A-RD-PRJ-RUL-SUMMARY",
+        "H-A-RD-PRJ-RULE-MAP",
+        "H-A-RD-PRJ-SCOPE",
+        "H-A-RD-PRJ-STACKUP",
+    ),
+)
+"""The project file and the text files it names (output job, rule file, stack-up): every
+``H-A-RD-PRJ-*`` row that is not refuted. ``INFERRED``, the lowest level among them (declared by
+change c0067)."""
 
 DocumentKind = Literal[
     "schematic",

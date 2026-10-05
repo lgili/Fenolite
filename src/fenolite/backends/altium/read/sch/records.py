@@ -9,6 +9,8 @@ bytes. Each class declares ``FIELDS``, the keys and key patterns it reads (``X<n
 record id of the closed table ``RECORD_TYPES``; any other record is an ``UnknownRecord``.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import re

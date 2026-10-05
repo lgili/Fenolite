@@ -4,6 +4,8 @@
 "Schematic components and pins" and "Symbol libraries"; ``docs/formats/altium/schematic-library.md``;
 change c0043)."""
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from collections.abc import Mapping

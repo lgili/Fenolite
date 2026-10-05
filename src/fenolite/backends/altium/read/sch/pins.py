@@ -8,6 +8,8 @@ S-0150 version 1). The strings after the designator are optional from the end, a
 known field is kept in ``tail``. ``encode_pin`` rebuilds the payload from the decoded fields.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import struct

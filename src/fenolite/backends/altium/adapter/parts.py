@@ -8,6 +8,8 @@ Altium places one component record per part; the parts of one component share th
 references and its pin table. Plain data, without ids: a sheet may be instantiated more than once.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from dataclasses import dataclass

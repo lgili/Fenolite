@@ -9,6 +9,8 @@ digests agree. ``difference`` locates the first failing condition: the ``kicad-s
 first differing node (``sexpr.first_difference``), else ``model`` or ``opaque``.
 """
 
+# evidence: see pcb
+
 from __future__ import annotations
 
 import dataclasses

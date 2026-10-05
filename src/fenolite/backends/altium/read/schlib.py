@@ -9,6 +9,8 @@ tree, its pin side streams and any other stream as bytes. ``PinFrac`` is decoded
 lost: ``encode_stream`` rebuilds ``FileHeader``, ``SectionKeys``, ``Storage`` and every ``Data`` stream.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import re

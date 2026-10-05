@@ -47,6 +47,9 @@ from fenolite.model.library import (
 )
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-LIB-READ",))
+WRITE_EVIDENCE = Evidence(Level.UNVERIFIED)
+"""``write_symbol_library`` (the symbols a design authors, change c0058) has no row in the register,
+so the matrix lists it as experimental (declared by change c0067)."""
 TILDE_UNTIL = 20250318
 """Symbol-library version from which ``~`` is a literal tilde instead of empty text (S-0031)."""
 SYMBOL_FIELDS: Mapping[str, str] = MappingProxyType(

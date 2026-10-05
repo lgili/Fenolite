@@ -8,6 +8,8 @@ net identifier scope, then by the buses and the harnesses, and each net gets one
 different kinds never join by name; names are compared without letter case.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 import re

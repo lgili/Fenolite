@@ -7,6 +7,8 @@ Facts and Fenolite choices: ``docs/formats/kicad/project.md``. Parsing goes thro
 original spelling, and ``NaN``, ``Infinity`` and duplicate keys are refused with a JSON pointer.
 """
 
+# evidence: see pro
+
 from __future__ import annotations
 
 import json

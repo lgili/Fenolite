@@ -102,6 +102,7 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
     commands = [
@@ -117,6 +118,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "experimental": _experimental(
             [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]
         ),
+        "matrix": [row.to_json() for row in matrix.rows()],
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "routers": [

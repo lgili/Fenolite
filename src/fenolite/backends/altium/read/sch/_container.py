@@ -2,6 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The only module of the schematic reader that touches the compound-file reader ``read.cfb`` (c0039)."""
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 from fenolite.backends.altium.read import cfb

@@ -7,6 +7,8 @@ so Fenolite never hands out one without the others (``docs/formats/kicad/project
 Fenolite reads or writes ``.kicad_prl``.
 """
 
+# evidence: see dru, pcb, pro
+
 from __future__ import annotations
 
 from collections.abc import Collection

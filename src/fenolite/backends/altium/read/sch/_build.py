@@ -5,6 +5,8 @@
 Private to the schematic reader; ``document`` and ``schlib`` share it.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import re

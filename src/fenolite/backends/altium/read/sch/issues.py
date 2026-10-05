@@ -2,6 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The closed set of findings of the schematic reader and a collector that keeps them in stream order."""
 
+# evidence: none, issue codes of the schematic reader and their collector
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

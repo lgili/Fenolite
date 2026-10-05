@@ -7,6 +7,8 @@ of a record: the header text is given by its kind (``schematic-binary``, ``schem
 and a library's storage names, which are component names, are replaced by ``<component>``.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 from collections import Counter

@@ -9,6 +9,8 @@ UTF-8 comes back equal. The typed text is UTF-8 when the bytes allow it, else La
 byte (``docs/formats/altium/project.md``, "The project file as Altium saves it").
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 import re

@@ -8,6 +8,8 @@ Copper layers are named by their position in the chain of the board record: ``F.
 is no model layer.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from collections.abc import Mapping

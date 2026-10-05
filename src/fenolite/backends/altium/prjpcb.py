@@ -17,6 +17,8 @@ class, so that
 Altium takes the net classes from the directives of the schematic (``H-A-ECO-PRJ-KEYS``, ``H-A-ECO-ROOMS``).
 """
 
+# evidence: see project
+
 from __future__ import annotations
 
 from collections.abc import Sequence

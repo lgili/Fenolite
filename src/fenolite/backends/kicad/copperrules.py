@@ -13,6 +13,8 @@ the minimum, from the tables that the minimums oracle measured per major (``lowe
 write.
 """
 
+# evidence: see dru, pro
+
 from __future__ import annotations
 
 import dataclasses

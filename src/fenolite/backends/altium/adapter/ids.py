@@ -8,6 +8,8 @@ from its model fields and an occurrence counter, so equal objects get different 
 object changes none. A file hash never enters an id.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 from collections import Counter

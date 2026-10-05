@@ -8,6 +8,8 @@ neutral model and writes nothing: the Altium writers stay experimental features 
 imports no reader and no adapter until ``read`` is called, so registering the backend stays cheap.
 """
 
+# evidence: none, the facade of the registered backend: every read returns the evidence of import_evidence
+
 from __future__ import annotations
 
 import hashlib

@@ -13,6 +13,8 @@ reporting clearance violations near 499 per run, and the canary's pair can then 
 byte of the user's files is kept, and nothing is written to the project.
 """
 
+# evidence: see oracle
+
 from __future__ import annotations
 
 import dataclasses

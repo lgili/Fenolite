@@ -9,6 +9,8 @@ run reads: the board, the project and rules files of its stem, the project ``fp-
 ``H-K-CHECK-COPYSET``). This module plans the set and writes nothing; the runner copies it.
 """
 
+# evidence: see oracle
+
 from __future__ import annotations
 
 import re

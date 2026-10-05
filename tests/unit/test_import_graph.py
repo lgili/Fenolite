@@ -67,7 +67,11 @@ def _key(parts: list[str]) -> str:
     return head
 
 
-BACKENDS_TOP = ("backends.base", "backends.registry")  # top-level modules: the ``backends`` row
+BACKENDS_TOP = (
+    "backends.base",
+    "backends.matrix",
+    "backends.registry",
+)  # top-level modules: the ``backends`` row
 
 
 def _pattern(key: str) -> str:

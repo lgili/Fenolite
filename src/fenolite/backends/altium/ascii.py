@@ -14,6 +14,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from fenolite.core.evidence import Evidence, Level
+
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-SCH-LINEEND",))
+"""The record text every Altium writer shares: ``INFERRED``, the level of the one row it names."""
 Field = tuple[str, str]
 """One ``|KEY=VALUE`` field of a record."""
 

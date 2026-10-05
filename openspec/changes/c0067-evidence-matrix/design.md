@@ -145,3 +145,235 @@ Additive. `result.matrix` is a new key of a free-form `result`, so `schemas/feno
 - **Guard outside `backends/`.** Default: not in v0.2a; the page already lists what is declared there only for backends.
 - **A `tested` level per row.** The weakest register level of a row's ids would say what tests covered. It needs the register at run time. Default: page only.
 - **Version dimension.** Default: v1.0, with the conformance matrix.
+
+## Implementation notes (2026-10-05)
+
+The change was implemented on `origin/dev` while c0061 (schematic writer) and c0065 were still being
+written, so the guard lands before their modules. This section records what the audit found, what the
+spec had wrong about the code, and what stays open.
+
+### Corrections to the spec
+
+1. **`altium` is a registered backend.** Decision 4 was written when only `kicad` was registered. Since
+   c0043 `registry.all_backends()` gives `altium` with six read kinds, so "Evidence matrix rows" asks for
+   `detect` and `read` on those rows. `read` is `Evidence.combine(<reader constant>, import_evidence.EVIDENCE)`:
+   the backend returns the import's evidence for every read, and the reader's ids are worth listing.
+   `detect` is `import_evidence.EVIDENCE`, the evidence of the backend's report, whose operations are
+   `detect` and `read`. No register row is about detection by suffix alone (see "Not settled").
+2. **A constant is any module-level `Evidence` assigned in the module**, not only `EVIDENCE` and
+   `<NAME>_EVIDENCE`: `altium/read/cfb.py` names its constants `EVIDENCE_V3` and `EVIDENCE_V4`
+   (`altium-compound-reader` fixes those names). A rule by name would have let them, and any later
+   constant with an unusual name, escape the register check. A name the module only imports
+   (`adapter/evidence.py` re-exports `EVIDENCE`) is not a declaration: the module carries a `see` marker.
+3. **`__init__.py` may hold constants.** `altium/read/sch/__init__.py` assigns `EVIDENCE`. An `__init__`
+   need not declare, but one that assigns constants is listed under its package's name (`read.sch`) and
+   can be named by `see`.
+4. **`packages()` returns dotted names** (`fenolite.backends.kicad`), the form `module_claims` and
+   `problems` take, so the functions compose and the tests can pass a temporary package.
+5. **`read.sch.EVIDENCE` named a refuted row.** `H-A-RD-SCH-TEXT` is refuted and superseded by
+   `H-A-RD-SCH-TEXT-2`, and the living requirement asked the constant to name "every registered" id. A
+   refuted row supports no claim, so `report_problems` rejects it. The constant now names the ids that are
+   not refuted (`HYPOTHESES` still lists all, `REFUTED` the refuted ones); its level stays `INFERRED`.
+   `altium-schematic-reader`, "Schematic reader entry points", is MODIFIED for this one sentence.
+6. **Layering and import rules.** `backends/matrix.py` is a top-level module of `backends` (it imports
+   `registry` inside a function), so `tests/unit/test_import_graph.py` lists it next to `base` and
+   `registry`. `altium/claims.py` imports `fenolite.backends.base`, so
+   `tests/unit/backends/altium/test_project.py::test_imports_only_core_and_model` skips it as it skips
+   `backend.py`.
+7. **The guard's message.** The requirement now fixes the text a failing guard prints
+   (`matrix.failure_text`: the problems, then `matrix.HELP`), because modules of changes in flight will
+   meet it without having read this change.
+8. **The literal scenario** builds its `claims` module in a temporary package named `kicad` instead of
+   copying the live file, so the test of task 2.2 does not depend on task 3.2.
+
+### Decisions taken
+
+- **Library tables (Open Questions).** The default was taken: row `kicad_lib_table`, `read` =
+  `libs.EVIDENCE`, `write` = `libs.WRITE_EVIDENCE` (`INFERRED`, `H-K-BUILD-LIBTABLE`), and the kind is
+  added to `CAPABILITIES.write_kinds`.
+- **`kicad_sym` write.** `sym.WRITE_EVIDENCE` is `UNVERIFIED` with no id, and the cell is experimental,
+  as the design said: no register row covers `sym.write_symbol_library`.
+- **New constants are never above `INFERRED`.** Where the audit gave a module a constant
+  (`kicad.versions`, `kicad.sexpr`, `kicad.libs`, `altium.ascii`, `altium.read.project`, `specctra.ses`),
+  it names the rows the module's own text names, or every row of its family that is not refuted, at
+  `INFERRED`. Several of those rows are stronger; raising the constant is the business of a change that
+  shows the row covers an arbitrary file.
+- **Round-trip cells and their tests** (Decision 8):
+
+  | row | cell | constant | test |
+  |---|---|---|---|
+  | `kicad_pcb` | `roundtrip_exact`, `roundtrip_modified` | fixed by the spec | `tests/unit/backends/kicad/test_pcb_rebuild.py`, `tests/unit/backends/kicad/test_pcb_write.py` |
+  | `kicad_sch` | `roundtrip_exact` | `sch.EVIDENCE` | `tests/unit/backends/kicad/test_sch_rebuild.py::test_roundtrip_of_every_fixture`, `tests/corpus/test_schematic_rt.py` |
+  | `kicad_wks` | `roundtrip_exact` | `wks.EVIDENCE` | `tests/unit/backends/kicad/test_wks_read.py::test_rt1_on_authored_fixtures` |
+  | `kicad_pro` | `roundtrip_exact` | `pro.EVIDENCE` | `tests/unit/backends/kicad/test_pro.py::test_fixture_round_trip` (byte-identical) |
+
+  Left unset because no test proves "the whole content, modelled or not": `kicad_mod` (`test_mod_write.py::test_round_trip`
+  compares the model and the opaque fragments with the header rows left out), `kicad_dru` (only the fixture
+  `comments` is compared as text), `kicad_sym` and `kicad_lib_table` (no rebuild from slots), every
+  `roundtrip_modified` but the board's, and every Altium and Specctra row (no file is read and written back).
+
+### Audit
+
+Every module of the three packages on `origin/dev` at `1cc5f93f`, with what it declares. "yes" marks a
+declaration this change added; the other constants existed and keep their level. The same list, kept
+current, is the "Modules" section of `docs/evidence/matrix.md`.
+
+**`altium`**
+
+| module | declaration | added by this change |
+|---|---|---|
+| `adapter.board` | see `import_evidence` | yes |
+| `adapter.bodies` | see `import_evidence` | yes |
+| `adapter.circuit` | see `import_evidence` | yes |
+| `adapter.codes` | none: issue codes of the import and the counters of its census | yes |
+| `adapter.connectivity` | see `import_evidence` | yes |
+| `adapter.context` | see `import_evidence` | yes |
+| `adapter.copper` | see `import_evidence` | yes |
+| `adapter.evidence` | see `import_evidence` | yes |
+| `adapter.ids` | see `import_evidence` | yes |
+| `adapter.layers` | see `import_evidence` | yes |
+| `adapter.library` | see `import_evidence` | yes |
+| `adapter.netlist` | see `import_evidence` | yes |
+| `adapter.pads` | see `import_evidence` | yes |
+| `adapter.parts` | see `import_evidence` | yes |
+| `adapter.pins` | see `import_evidence` | yes |
+| `adapter.project` | see `import_evidence` | yes |
+| `adapter.rules` | see `import_evidence` | yes |
+| `adapter.units` | see `import_evidence` | yes |
+| `altsym` | see `project`, `schlib` | yes |
+| `ascii` | `EVIDENCE` INFERRED (1 ids) | yes |
+| `backend` | none: the facade of the registered backend: every read returns the evidence of import_evidence | yes |
+| `binary` | `EVIDENCE` INFERRED (5 ids) |  |
+| `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` | yes |
+| `docboard` | see `pcbdoc` | yes |
+| `hierarchy` | `EVIDENCE` INFERRED (10 ids) |  |
+| `import_evidence` | `EVIDENCE` INFERRED (20 ids) |  |
+| `layout` | see `project` | yes |
+| `libboard` | see `pcbdoc`, `pcblib` | yes |
+| `pcbdoc` | `EVIDENCE` INFERRED (18 ids) |  |
+| `pcblib` | `EVIDENCE` INFERRED (5 ids) |  |
+| `pcbrecords` | `EVIDENCE` INFERRED (13 ids) |  |
+| `prjpcb` | see `project` | yes |
+| `project` | `EVIDENCE` INFERRED (10 ids) |  |
+| `read.bodies` | see `import_evidence` | yes |
+| `read.cfb` | `EVIDENCE_V3` CORPUS-VERIFIED (2 ids); `EVIDENCE_V4` INFERRED (3 ids) |  |
+| `read.ini` | see `read.project` | yes |
+| `read.outjob` | see `read.project` | yes |
+| `read.pcb` | `EVIDENCE` CORPUS-VERIFIED (8 ids) |  |
+| `read.pcblib` | `EVIDENCE` CORPUS-VERIFIED (4 ids) |  |
+| `read.pcbprims` | see `read.pcb`, `read.pcblib` | yes |
+| `read.pcbprops` | see `read.pcb`, `read.pcblib` | yes |
+| `read.pcbstack` | see `read.pcb`, `read.pcblib` | yes |
+| `read.project` | `EVIDENCE` INFERRED (11 ids) | yes |
+| `read.proptext` | see `read.project` | yes |
+| `read.rul` | see `read.project` | yes |
+| `read.rules` | see `import_evidence`, `read.project` | yes |
+| `read.sch` | `EVIDENCE` INFERRED (15 ids) | yes |
+| `read.sch._build` | see `read.sch` | yes |
+| `read.sch._container` | see `read.sch` | yes |
+| `read.sch.census` | see `read.sch` | yes |
+| `read.sch.document` | see `read.sch` | yes |
+| `read.sch.framing` | see `read.sch` | yes |
+| `read.sch.issues` | none: issue codes of the schematic reader and their collector | yes |
+| `read.sch.pins` | see `read.sch` | yes |
+| `read.sch.props` | see `read.sch` | yes |
+| `read.sch.records` | see `read.sch` | yes |
+| `read.sch.units` | see `read.sch` | yes |
+| `read.schlib` | see `read.sch` | yes |
+| `read.scope` | see `import_evidence`, `read.project` | yes |
+| `read.sheet` | `EVIDENCE` INFERRED (8 ids) |  |
+| `read.stackup` | see `read.project` | yes |
+| `read.textfile` | see `read.project` | yes |
+| `schdoc` | see `project` | yes |
+| `schlib` | `EVIDENCE` INFERRED (6 ids) |  |
+| `symbols` | see `project` | yes |
+
+**`kicad`**
+
+| module | declaration | added by this change |
+|---|---|---|
+| `_fpmap` | see `mod`, `pcb` | yes |
+| `_json` | see `pro` | yes |
+| `_libread` | see `mod`, `sym` | yes |
+| `_pcbwrite` | see `pcb` | yes |
+| `altium_import` | `IMPORT_EVIDENCE` INFERRED (2 ids) |  |
+| `backend` | none: the facade of the registered backend: a read or a write returns its module's evidence | yes |
+| `canary` | see `oracle` | yes |
+| `cli` | see `altium_import`, `helpmatrix`, `oracle`, `plot` | yes |
+| `copper` | `EVIDENCE` INFERRED (2 ids) |  |
+| `copperrules` | see `dru`, `pro` | yes |
+| `drc` | `EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `dru` | `EVIDENCE` KICAD-VERIFIED (4 ids) |  |
+| `embed` | `EVIDENCE` KICAD-VERIFIED (3 ids) |  |
+| `fields` | `EVIDENCE` INFERRED (3 ids) |  |
+| `fill` | `EVIDENCE` KICAD-VERIFIED (3 ids) |  |
+| `frame` | `EVIDENCE` INFERRED (5 ids) |  |
+| `helpmatrix` | `EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `ipcd356` | see `padnets` | yes |
+| `layers` | see `pcb` | yes |
+| `libcache` | none: pins, hashes and stamps of the fetched libraries: no statement about a KiCad format or tool | yes |
+| `liberrors` | none: issue codes and the error class of library reading | yes |
+| `libs` | `EVIDENCE` INFERRED (6 ids); `WRITE_EVIDENCE` INFERRED (1 ids) | yes |
+| `lowering` | `EVIDENCE` KICAD-VERIFIED (4 ids) |  |
+| `mod` | `AUTHORING_EVIDENCE` INFERRED (1 ids); `EVIDENCE` INFERRED (1 ids) |  |
+| `oracle` | `EVIDENCE` KICAD-VERIFIED (2 ids); `NORMALISE_EVIDENCE` KICAD-VERIFIED (1 ids); `RT2_EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `outline` | `EVIDENCE` INFERRED (2 ids) |  |
+| `padnets` | `EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `pcb` | `EVIDENCE` INFERRED (1 ids); `WRITE_EVIDENCE` INFERRED (1 ids) |  |
+| `plot` | `EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `pro` | `EVIDENCE` INFERRED (1 ids) |  |
+| `proerrors` | none: issue codes of the project file | yes |
+| `projectset` | see `oracle` | yes |
+| `replace` | `EVIDENCE` KICAD-VERIFIED (1 ids) |  |
+| `roundtrip` | see `pcb` | yes |
+| `rulemap` | see `dru`, `lowering` | yes |
+| `sch` | `EVIDENCE` CORPUS-VERIFIED (2 ids) |  |
+| `sexpr` | `EVIDENCE` INFERRED (7 ids) | yes |
+| `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` | yes |
+| `sym` | `EVIDENCE` INFERRED (1 ids); `WRITE_EVIDENCE` UNVERIFIED (0 ids) | yes |
+| `triad` | see `dru`, `pcb`, `pro` | yes |
+| `versions` | `EVIDENCE` INFERRED (1 ids) | yes |
+| `wks` | `EVIDENCE` INFERRED (1 ids); `WRITE_EVIDENCE` INFERRED (1 ids) |  |
+| `zones` | see `pcb` | yes |
+
+**`specctra`**
+
+| module | declaration | added by this change |
+|---|---|---|
+| `dsn` | `EVIDENCE` INFERRED (3 ids) |  |
+| `lexer` | see `dsn`, `ses` | yes |
+| `ses` | `EVIDENCE` INFERRED (3 ids) | yes |
+
+### Not settled
+
+These are declared at the lowest defensible level, or with the marker that fits the code as it is, but
+the audit could not decide them from the register and the module text alone:
+
+- **`altium` `detect`.** Detection is by file suffix (`backend.SUFFIXES`); no row states it. The cell
+  repeats the report's evidence. A row of its own, or a `None` cell with a relaxed rule for `read_kinds`,
+  would be more exact.
+- **`altium.read.project` and the readers of c0042** (`read.ini`, `read.outjob`, `read.rul`, `read.rules`,
+  `read.scope`, `read.stackup`, `read.textfile`, `read.proptext`). They had no constant. One constant in
+  `read.project` names the eleven `H-A-RD-PRJ-*` rows that are not refuted, at `INFERRED`, and the others
+  point at it. `read.outjob`, `read.rul` and `read.stackup` are readers of their own file kinds, which
+  have no matrix row because no backend report lists them.
+- **`altium.read.bodies`** (c0043) points at `import_evidence`, which names `H-A-IMP-BODY`; no
+  `H-A-RD-*` row is about the body records themselves.
+- **`kicad.libs`.** `EVIDENCE` names six `H-K-LIB-*` rows about tables and path variables; whether
+  `H-K-LIB-NAME-STEM`, `H-K-LIB-SYMDIR` and `H-K-LIB-EXTENDS` belong to `libs`, `mod` or `sym` is open.
+  `WRITE_EVIDENCE` names `H-K-BUILD-LIBTABLE`, which the build oracle settled for `fp-lib-table` only.
+- **`kicad.sexpr`.** `EVIDENCE` names the seven `H-K-SEXPR-*` rows that are not refuted. The printers
+  also rest on `H-K-FMT-*` rows, which `cmd_fmt` declares outside `backends/`.
+- **`kicad.cli`** points at the four modules that run the tool (`altium_import`, `helpmatrix`, `oracle`,
+  `plot`); the runner's own behaviour (copies, isolation) has rows (`H-K-CHECK-COPYSET`) that `oracle` names.
+- **`kicad.libcache`** is marked `none`: it pins and hashes fetched libraries. If the pins count as a
+  statement about the official libraries, it needs a constant.
+- **Levels that existing constants claim for an arbitrary file.** `kicad.sch.EVIDENCE` is
+  `CORPUS-VERIFIED` and `kicad.dru.EVIDENCE`, `kicad.lowering.EVIDENCE` are `KICAD-VERIFIED`, each equal
+  to its weakest row, while `pcb`, `mod`, `sym`, `wks` and `pro` stay `INFERRED` below stronger rows
+  "because a constant states what holds for any file". Both conventions pass the register rule, and the
+  matrix repeats them unchanged; the maintainer may want one convention.
+- **`altium.import_evidence.LEVELS`** repeats the level of twenty rows in code. A test keeps it equal to
+  the register, so it is not a second source of truth for the matrix, but it is one for the module.
+- **Size of `verified_by` on Altium rows.** The Altium constants name every row of their family, so a
+  row lists 30 to 60 ids. Decision 5 wanted small rows; the ids are what the constants declare.

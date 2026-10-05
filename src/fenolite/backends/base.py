@@ -147,6 +147,67 @@ class CapabilityReport:
         }
 
 
+MATRIX_OPERATIONS = ("detect", "read", "write", "roundtrip_exact", "roundtrip_modified")
+"""The operations of an evidence matrix row, in the order they are listed."""
+
+
+@dataclass(frozen=True, slots=True)
+class MatrixRow:
+    """What one backend package does with one file kind, and how well each operation is verified.
+
+    A cell that is ``None`` means that the package does not implement that operation for the kind.
+    ``detect``: the package names the kind of a file from its name or its content. ``read``: a reader
+    builds a model object from a file of the kind. ``write``: a writer produces a file of the kind from a
+    model object that Fenolite created. ``roundtrip_exact``: a file read and written back for the same
+    version, unchanged in between, keeps its whole content. ``roundtrip_modified``: a file read, changed
+    through the model and written keeps everything the change did not touch, or the write is refused.
+    ``experimental`` names the operations that may change in any release.
+    """
+
+    backend: str
+    kind: str
+    detect: Evidence | None = None
+    read: Evidence | None = None
+    write: Evidence | None = None
+    roundtrip_exact: Evidence | None = None
+    roundtrip_modified: Evidence | None = None
+    experimental: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        where = f"matrix row {self.backend}/{self.kind}"
+        if self.roundtrip_exact is not None and self.read is None:
+            raise ValueError(f"{where}: roundtrip_exact needs read")
+        if self.roundtrip_modified is not None and (self.read is None or self.write is None):
+            raise ValueError(f"{where}: roundtrip_modified needs read and write")
+        if len(set(self.experimental)) != len(self.experimental):
+            raise ValueError(f"{where}: experimental names an operation twice")
+        for operation in self.experimental:
+            if operation not in MATRIX_OPERATIONS:
+                raise ValueError(f"{where}: experimental names {operation!r}, which is not an operation")
+            if getattr(self, operation) is None:
+                raise ValueError(f"{where}: experimental names {operation!r}, whose cell is not set")
+
+    def cells(self) -> tuple[tuple[str, Evidence], ...]:
+        """The cells that are set, as ``(operation, evidence)`` in the order of ``MATRIX_OPERATIONS``."""
+        found = ((operation, getattr(self, operation)) for operation in MATRIX_OPERATIONS)
+        return tuple((operation, cell) for operation, cell in found if cell is not None)
+
+    def verified_by(self) -> tuple[str, ...]:
+        """The hypothesis ids of the cells that are set, each once, sorted."""
+        return tuple(sorted({ident for _, cell in self.cells() for ident in cell.hypotheses}))
+
+    def to_json(self) -> dict[str, Any]:
+        """A JSON-compatible mapping: the row's names, a label or ``None`` per operation, the ids and the
+        experimental operations."""
+        row: dict[str, Any] = {"backend": self.backend, "kind": self.kind}
+        for operation in MATRIX_OPERATIONS:
+            cell: Evidence | None = getattr(self, operation)
+            row[operation] = None if cell is None else cell.label()
+        row["verified_by"] = list(self.verified_by())
+        row["experimental"] = [o for o in MATRIX_OPERATIONS if o in self.experimental]
+        return row
+
+
 SkipReason = Literal[
     "outside-root", "variable", "relative", "missing", "nested-table", "too-large", "reserved-name"
 ]
@@ -546,6 +607,8 @@ __all__ = [
     "DrcViolation",
     "FillOracle",
     "FillOutcome",
+    "MATRIX_OPERATIONS",
+    "MatrixRow",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",

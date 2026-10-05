@@ -10,6 +10,8 @@ key is typed only when its row of the fact page has a source; every key stays in
 ``encode(read_bodies(data)) == data``.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 import struct

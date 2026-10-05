@@ -99,7 +99,10 @@ HYPOTHESES = (
     "H-A-RD-SCH-KICAD",
 )
 """Every registered ``H-A-RD-SCH-*`` id (``docs/hypotheses.md``)."""
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=HYPOTHESES)
+REFUTED = ("H-A-RD-SCH-TEXT",)
+"""Ids of ``HYPOTHESES`` whose row is refuted: a refuted row supports no claim, so ``EVIDENCE`` leaves
+them out (change c0067; ``H-A-RD-SCH-TEXT-2`` succeeds it)."""
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=tuple(h for h in HYPOTHESES if h not in REFUTED))
 """The lowest level among the registered rows: ``INFERRED`` while ``H-A-RD-SCH-ASCII`` and
 ``H-A-RD-SCH-PARTS`` stay so (``docs/evidence/altium-read-schematic.md``)."""
 

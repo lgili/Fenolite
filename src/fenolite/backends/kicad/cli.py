@@ -7,6 +7,8 @@ fresh temporary folder, runs there with an isolated environment and returns the 
 created or changed. The caller's files are only ever read. Commands: S-0022 (10.0), S-0037 (9.0).
 """
 
+# evidence: see altium_import, helpmatrix, oracle, plot
+
 from __future__ import annotations
 
 import hashlib

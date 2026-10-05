@@ -10,6 +10,8 @@ point connects to the wires it lies on and to the points at its position. Buses,
 harness lines are not wires.
 """
 
+# evidence: see import_evidence
+
 from __future__ import annotations
 
 import re

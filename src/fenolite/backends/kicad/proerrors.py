@@ -5,6 +5,8 @@
 A leaf module, so that ``lowering`` (net classes) and ``pro`` (project files) share one closed table.
 """
 
+# evidence: none, issue codes of the project file
+
 from __future__ import annotations
 
 from collections.abc import Mapping

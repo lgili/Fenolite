@@ -10,6 +10,8 @@ decoded late, by the rules of ``schematic-records.md``, "Text": the ``%UTF8%`` t
 ASCII file whose whole content is UTF-8, then the reader's single-byte code page.
 """
 
+# evidence: see read.sch
+
 from __future__ import annotations
 
 import builtins
