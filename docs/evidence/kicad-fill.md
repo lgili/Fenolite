@@ -16,5 +16,9 @@ when the PWR clearance rose to 5.0 mm. Dropping that fill is conservative and co
 was verified with another refill. No demo board showed unstable fills. If later refills differ,
 `zone.fill` reports `zone.fill-unchecked` and leaves the stale judgment unmade.
 
-`H-K-CLI-DOCKER` remains `INFERRED` pending a CI image comparison. The local Docker result above is
-an observation, not a portable guarantee.
+`H-K-CLI-DOCKER` remains `INFERRED` and is verified locally only. Run again on 2026-10-04 for the v0.1
+record: Docker 28.3.2, the image `kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec`
+and the local `kicad-cli` 10.0.6 gave equal filled text
+(`tests/kicad/fill/test_docker_cli.py::test_container_matches_local` passed). No CI job runs this test:
+the jobs that hold a KiCad binary run inside a container and cannot start one, and the others hold no KiCad
+binary to compare with. The local result is an observation, not a portable guarantee.

@@ -7,10 +7,10 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-import pytest
 from _checkcli import run
 from _fakefreerouting import create_fake_jar, create_fake_java
 from _fakerouter import create_fake_router
+from _resources import posix_tools
 from _specctra import two_pads
 
 from fenolite.backends.base import BoardPad
@@ -185,7 +185,7 @@ def test_freerouting_is_refused_without_allow_offsite(monkeypatch, tmp_path: Pat
     assert "--allow-offsite" in error["hint"]
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+@posix_tools
 def test_freerouting_through_the_command(monkeypatch, tmp_path: Path) -> None:
     """The whole path with a fake java: ``--router-path`` names the jar, ``--router-option max-passes``
     reaches the command line, and the authored session's copper is planned into the board."""
@@ -223,6 +223,7 @@ def test_freerouting_through_the_command(monkeypatch, tmp_path: Path) -> None:
     assert argv[argv.index("-mp") + 1] == "3" and "-da" in argv
 
 
+@posix_tools
 def test_freerouting_needs_a_board_outline(monkeypatch, tmp_path: Path) -> None:
     """A board without an outline cannot be written as a design file: ``route.tool-failed``, no run."""
     monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path)))

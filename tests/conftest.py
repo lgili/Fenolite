@@ -28,6 +28,17 @@ from _resources import (  # noqa: E402  (imported after the sys.path setup above
 
 pytest_plugins = ["pytester"]
 
+if sys.platform == "win32":
+    # The test helpers write their fixtures with ``Path.write_text`` and the code under test reads bytes.
+    # Windows would write CR LF where the fixtures mean LF, so a helper's text keeps its own line ends.
+    _write_text = Path.write_text
+
+    def _write_text_lf(self: Path, data: str, encoding: str | None = None, errors: str | None = None,
+                       newline: str | None = "\n") -> int:  # fmt: skip
+        return _write_text(self, data, encoding, errors, newline)
+
+    Path.write_text = _write_text_lf  # type: ignore[method-assign]
+
 WRITE_MODES = {
     "FENOLITE_PROBES_WRITE": "1",
     "FENOLITE_GOLDEN_WRITE": "1",

@@ -12,9 +12,12 @@ from typing import Any
 
 import _schema
 import pytest
+from _resources import posix_tools
 
 from fenolite.cli import cmd_capabilities
 from fenolite.cli.main import main
+
+pytestmark = posix_tools  # the fake tool of this file is a shell script
 
 ENVELOPE = _schema.load("fenolite.envelope.v0.json")
 

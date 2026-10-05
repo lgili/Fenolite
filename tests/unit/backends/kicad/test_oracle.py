@@ -13,6 +13,7 @@ import _ipc
 import pytest
 from _fakecli import calls, fake_kicad_cli, report_with
 from _projects import STEM, authored_project, native_project, tree_snapshot
+from _resources import posix_tools
 
 from fenolite.backends.base import NetlistOracle, Oracle, Plotter, RoundTripOracle
 from fenolite.backends.kicad import canary
@@ -215,6 +216,7 @@ def test_missing_report(tmp_path: Path) -> None:
     assert outcome.evidence.level == Level.UNVERIFIED
 
 
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
 def test_timeout(tmp_path: Path) -> None:
     oracle, _ = _oracle(tmp_path, sleep=10.0)
     outcome = oracle.drc(project_set(authored_project(tmp_path, major=10)))
@@ -366,6 +368,7 @@ def test_rt2_no_canary_and_no_writes(tmp_path: Path) -> None:
     assert tree_snapshot(root) == before
 
 
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
 def test_rt2_failures_give_what_was_obtained(tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=10)
     oracle, _ = _oracle(tmp_path, upgrade="fail")

@@ -550,8 +550,10 @@ file". Note codes are `cfb.note.minor-version`, `cfb.note.header-fields`, `cfb.n
 ## doctor
 
 `fenolite doctor [--kicad-cli PATH]... [--no-run]` reports the external tools. `result.kicad_cli` holds
-one entry per `kicad-cli` candidate (each `--kicad-cli`, `FENOLITE_KICAD_CLI`, `kicad-cli` on `PATH`,
-the macOS application bundle; one entry per binary) with `path`, `source`, `version`, `major`,
+one entry per `kicad-cli` candidate (each `--kicad-cli`, `FENOLITE_KICAD_CLI`, `kicad-cli` on `PATH`
+(`kicad-cli.exe` and the other `PATHEXT` names on Windows), KiCad's default Windows install folders
+`<Program Files>\KiCad\10.0\bin` and `…\9.0\bin` (source `windows-install`), the macOS application
+bundle; one entry per binary) with `path`, `source`, `version`, `major`,
 `supported`, `selected`, `matrix` (each command and option of the matrix `true`, `false` or `"unknown"`,
 read from the help pages through the package runner) and `evidence`. `result.by_major` maps each major
 to its candidates' paths; `result.java` (`path`, `version`, `major`) and `result.docker` (`path`,

@@ -50,3 +50,5 @@ Read this file before changing anything. Humans: this is also the short version 
    with `--confirm`. The `receipt` lists every written file with its SHA-256.
 5. Pass `--seed` and `--timestamp` when you need byte-identical outputs.
 6. Every reply carries `evidence.level`; treat anything below `KICAD-VERIFIED` as unconfirmed.
+7. The loop is `capabilities`, `build`, `place`, `route`, `fill`, `check`, `export`, `render`, `inspect`:
+   `agent/SKILL.md` holds the ten commands and what to do for each exit code.

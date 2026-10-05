@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 
 import pytest
 from _fakefreerouting import create_fake_docker, create_fake_jar, create_fake_java
 from _placed import mm, pt
+from _resources import posix_tools
 from _specctra import Bench, two_pads
 
 from fenolite.core.evidence import Level
@@ -30,7 +30,7 @@ from fenolite.routing.plugins.specctra.freerouting import (
 from fenolite.routing.protocol import JobNet, JobPad, Router, RoutingJob
 from fenolite.routing.registry import routers
 
-pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the fake java is a shell script")
+pytestmark = posix_tools
 SESSION = Path(__file__).resolve().parents[2] / "data" / "specctra" / "two_pads.ses"
 PROJECT = Path(__file__).resolve().parents[3]
 

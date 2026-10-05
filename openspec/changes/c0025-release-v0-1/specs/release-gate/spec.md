@@ -3,10 +3,10 @@
 ### Requirement: Second example board
 `examples/board_40parts/design.py` SHALL be an authored design of exactly forty parts that builds with no fetch, from the authored mini library through the folder's own `fp-lib-table` and `sym-lib-table`.
 - The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and the line stating that it was authored for Fenolite.
-- It MUST hold two controllers, twenty resistors and eighteen LEDs, at least two modules, one netclass, a two-copper board of 100 mm × 80 mm and one zone on the bottom copper layer.
+- It MUST hold two controllers, twenty resistors and eighteen LEDs, at least two modules, one netclass, a two-copper board of 100 mm × 80 mm and one zone that covers the bottom copper layer.
 - It MUST state its board-wide minimums (clearance, track width, via size) through the rule constructor of the design DSL (c0054), and the built rule set MUST hold them.
 - Only the two controllers MUST have a position in the file; they MUST be locked.
-- `fenolite build examples/board_40parts/design.py --out <dir> --confirm` MUST exit 0 for `--target 9` and `--target 10`, and `validate` and `erc.lite` MUST report no error on the result.
+- `fenolite build examples/board_40parts/design.py --out <dir> --confirm` MUST exit 0 for `--kicad-version 9` and `--kicad-version 10`, and `validate` and `erc.lite` MUST report no error on the result.
 - `examples/README.md` MUST list the example.
 
 #### Scenario: Forty parts
@@ -19,7 +19,7 @@
 - **THEN** both builds exit 0 and each writes a project, a board and a rules file
 
 ### Requirement: Acceptance loop
-`tests/routing/test_acceptance_loop.py::test_loop` SHALL run the loop `build`, `place --strategy grid`, `route`, `fill`, `check`, `export --all --manifest`, `render --svg --png` through the CLI, for `blink_2layer` and `board_40parts` and for targets 9 and 10, on `kicad-cli` 10.0.6 with the router of c0016's gate verdict.
+`tests/routing/test_acceptance_loop.py::test_loop` SHALL run the loop `build`, `place --strategy grid`, `route`, `fill`, `check`, `export --all --manifest`, `render --svg --png` through the CLI, for `blink_2layer` and `board_40parts` and for targets 9 and 10, on `kicad-cli` 10.0.6 with Freerouting 2.4.1 (`--router freerouting`), the router whose gate passed in c0023 and whose two runs give the same copper (`dsn-repeat`).
 - Every command MUST run with `--confirm` in a temporary folder and MUST exit 0.
 - `check` MUST report no DRC violation and no unconnected item, no net-assignment difference and an equal round-trip.
 - The router MUST run with a limit of 600 s. Copper that `design.py` scripts for nets the router cannot close MUST be counted, and the count MUST be in the release record (`H-K-REL-LOOP40`).
@@ -27,7 +27,7 @@
 - Each recorded project MUST have a row in `tests/data/MANIFEST.toml` naming the router and its version and the `kicad-cli` version.
 
 #### Scenario: Loop closes on the blink
-- **WHEN** `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py -k "loop and blink"` runs on 10.0.6
+- **WHEN** `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py -k "loop and blink"` runs on 10.0.6
 - **THEN** the seven commands exit 0 for targets 9 and 10, and `check` reports no unconnected item
 
 #### Scenario: Loop closes on forty parts
@@ -56,7 +56,7 @@
 
 #### Scenario: Rebuild is the identity
 - **GIVEN** a copy of `tests/data/acceptance/board_40parts_t10`
-- **WHEN** `fenolite build examples/board_40parts/design.py --out <copy> --target 10 --confirm` runs twice
+- **WHEN** `fenolite build examples/board_40parts/design.py --out <copy> --kicad-version 10 --confirm` runs twice
 - **THEN** every file of the copy has the bytes of the recorded project
 
 #### Scenario: Re-netted pad is detected
@@ -83,7 +83,7 @@
 - **THEN** it fails and names `--engine`
 
 #### Scenario: Ten commands close the loop
-- **WHEN** `FENOLITE_REQUIRE=kicad,router uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block` runs on 10.0.6
+- **WHEN** `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block` runs on 10.0.6
 - **THEN** every line exits 0, every envelope carries `evidence.level`, and the count of lines is at most ten
 
 ### Requirement: README describes v0.1

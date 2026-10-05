@@ -923,6 +923,192 @@ corpus_id = ""
 notes = "authored requirements file of the board analyses (c0047): round illustrative numbers, no value of any standard"
 
 [[file]]
+path = "tests/data/acceptance/blink_2layer_t10/blink.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/blink.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t10/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/blink.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/blink.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/blink_2layer_t9/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/blink_2layer for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/board_40parts.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/board_40parts.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/board_40parts.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t10/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 10 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/board_40parts.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/board_40parts.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/board_40parts.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/lib/Mini.pretty/Mini_LED_THT_3mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/lib/Mini.pretty/Mini_QFP-32_7x7mm_P0.8mm.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "tests/data/acceptance/board_40parts_t9/lib/Mini.pretty/Mini_R_0603.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "finished project of the v0.1 acceptance loop on examples/board_40parts for KiCad 9 (c0025): built, placed, routed by Freerouting 2.4.1, filled by kicad-cli 10.0.6 and settled by one rebuild; written by tests/routing/test_acceptance_loop.py with FENOLITE_ACCEPTANCE_WRITE=1"
+
+[[file]]
+path = "examples/board_40parts/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
+
+[[file]]
+path = "examples/board_40parts/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
+
+[[file]]
+path = "examples/board_40parts/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
+
+[[file]]
 path = "tests/data/altium/read/project_utf8.PrjPcb"
 origin = "authored"
 corpus_id = ""

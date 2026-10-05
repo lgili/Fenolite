@@ -58,5 +58,6 @@ def test_permissions_of_existing_file_are_kept(tmp_path: Path) -> None:
     target = tmp_path / "script.sh"
     target.write_bytes(b"#!/bin/sh\n")
     os.chmod(target, 0o750)
+    before = stat.S_IMODE(target.stat().st_mode)  # 0o750, or what Windows keeps of it (the write bit)
     fio.atomic_write(target, b"#!/bin/sh\necho hi\n")
-    assert stat.S_IMODE(target.stat().st_mode) == 0o750
+    assert stat.S_IMODE(target.stat().st_mode) == before

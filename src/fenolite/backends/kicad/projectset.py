@@ -127,8 +127,8 @@ class _Planner:
             return self.inside(written, match.group(1).replace("\\", "/"), folder=folder)
         if "${" in written:
             return self.skip(written, "variable")
-        if Path(written).is_absolute():
-            return None  # read in place by KiCad
+        if Path(written).is_absolute() or written.startswith(("/", "\\")):
+            return None  # read in place by KiCad (a rooted path counts as absolute on Windows too)
         if kind == "library":
             return self.skip(written, "relative")
         return self.inside(written, written.replace("\\", "/"), folder=folder)

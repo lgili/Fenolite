@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from _resources import posix_tools
 
 from fenolite.backends.kicad.cli import (
     DRC_REPORT,
@@ -20,6 +21,8 @@ from fenolite.backends.kicad.cli import (
     KicadCliVersionError,
     find_kicad_cli,
 )
+
+pytestmark = posix_tools  # the fake tool of this file is a shell script
 
 FAKE = """import json, os, sys, time
 args = sys.argv[1:]

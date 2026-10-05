@@ -289,7 +289,7 @@ class FreeroutingRouter:
         try:
             with tempfile.TemporaryDirectory(prefix="fenolite-freerouting-") as name:
                 folder = Path(name)
-                (folder / "board.dsn").write_text(written.text, encoding="utf-8")
+                (folder / "board.dsn").write_text(written.text, encoding="utf-8", newline="\n")
                 try:
                     done = subprocess.run(
                         self.command(folder, passes),

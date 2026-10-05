@@ -128,7 +128,8 @@ def test_edited_vendored_footprint_refused(monkeypatch: pytest.MonkeyPatch, tmp_
         code, env, err = run(monkeypatch, design, "--out", str(out), *flags)
         assert code == 7 and json.loads(err)["code"] == "FEN-7001"
         found = [i for i in env["issues"] if i["code"] == "build.layout-exists"]  # type: ignore[index, union-attr]
-        assert len(found) == 1 and found[0]["where"].endswith("lib/Mini.pretty/Mini_R_0603.kicad_mod")
+        where = str(found[0]["where"]).replace("\\", "/")  # an OS path: backslashes on Windows
+        assert len(found) == 1 and where.endswith("lib/Mini.pretty/Mini_R_0603.kicad_mod")
         assert {p: p.read_bytes() for p in out.rglob("*") if p.is_file()} == before
 
 
@@ -191,7 +192,7 @@ def _global_row(tmp_path: Path) -> None:
     """Row ``G`` in the global footprint table of the test's ``KICAD_CONFIG_HOME``."""
     folder = tmp_path / "kicad-config" / "10.0"
     folder.mkdir(parents=True, exist_ok=True)
-    uri = ROOT / "tests" / "data" / "libs" / "Mini_v9.pretty"
+    uri = (ROOT / "tests" / "data" / "libs" / "Mini_v9.pretty").as_posix()
     row = f'(lib (name "G") (type "KiCad") (uri "{uri}") (options "") (descr ""))'
     (folder / "fp-lib-table").write_text(f"(fp_lib_table\n\t(version 7)\n\t{row}\n)\n", encoding="utf-8")
 

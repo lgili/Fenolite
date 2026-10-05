@@ -195,7 +195,8 @@ def stamp_matches(folder: Path, pin: LibraryPin) -> bool:
 
 
 def write_stamp(folder: Path, pin: LibraryPin) -> None:
-    (folder / STAMP).write_text(json.dumps(_stamp(pin), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    stamp = json.dumps(_stamp(pin), indent=2, sort_keys=True) + "\n"
+    (folder / STAMP).write_text(stamp, encoding="utf-8", newline="\n")
 
 
 def verified_folders(

@@ -17,8 +17,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python: ["3.12"]
+        include:
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.13"
+          - os: macos-latest
+            python: "3.12"
+          - os: windows-latest
+            python: "3.12"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +47,49 @@ jobs:
         run: uv run python tools/residue/scan.py
       - name: Tests
         run: uv run pytest -q -n auto --dist loadfile
+
+  wheel:
+    name: wheel (the built package installs alone)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Build the package and its alias
+        run: |
+          uv build --out-dir dist
+          uv build packaging/phenolite --out-dir dist
+      - name: Residue scan of the artefacts
+        run: uv run --no-project python tools/residue/scan.py
+      - name: Install with no index
+        run: |
+          uv venv /tmp/wheel-venv
+          uv pip install --python /tmp/wheel-venv/bin/python --no-index --find-links dist fenolite
+      - name: The installed package runs and needs nothing else
+        run: |
+          cd /tmp
+          /tmp/wheel-venv/bin/fenolite capabilities --json > /tmp/capabilities.json
+          /tmp/wheel-venv/bin/python -c "import json; assert json.load(open('/tmp/capabilities.json'))['ok']"
+          /tmp/wheel-venv/bin/python -c "import importlib.metadata as m; r = m.requires('fenolite') or []; assert all('extra ==' in x for x in r), r"
+      - name: The wheel holds no test, private or example file
+        run: |
+          python3 - <<'PY'
+          import glob, zipfile
+          (wheel,) = glob.glob("dist/fenolite-*.whl")
+          bad = [n for n in zipfile.ZipFile(wheel).namelist() if n.startswith(("tests/", "private/", "examples/"))]
+          assert not bad, bad
+          PY
+
+  dco:
+    name: dco (every commit is signed off)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Sign-off check
+        run: python3 tools/dco_check.py
 
   kicad-10:
     name: kicad-10 (kicad-cli oracle and corpus)
@@ -63,7 +115,7 @@ jobs:
           path: /root/.cache/fenolite/corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch corpus
-        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses cfb --uses altium-text --exclude-uses heavy
+        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-text --exclude-uses heavy
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus

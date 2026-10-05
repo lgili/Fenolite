@@ -58,6 +58,13 @@ until its change is proposed.
 | c0045 | `design-equivalence` | v0.3 | — |
 | c0046 | `altium-sheet-template-import` | v0.3 | — |
 | c0047 | `board-analyses` | v0.3 | — |
+| c0048 | `altium-eco-clean` | v0.3 (Altium writer) | c0038 |
+| c0049 | `test-speed` | v0.1 | — |
+| c0050 | `transform-composition-bound` | v0.1 | — |
+| c0051 | `drc-canary-repeatability` | v0.1 | — |
+| c0052 | `release-hygiene` | v0.1 | — |
+| c0053 | `altium-script-copper` | v0.1 (Altium writer) | c0038 |
+| c0054 | `dsl-rule-constructor` | v0.1 | c0011 |
 | c0055 | `dsl-footprint-authoring` | dogfood gap / v0.4 footprint generator | c0011, c0018 |
 | c0056 | `dsl-pin-pad-map-slots` | dogfood gap / v0.4 footprint generator | c0055 |
 

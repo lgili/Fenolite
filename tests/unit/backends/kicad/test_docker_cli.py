@@ -9,10 +9,13 @@ import os
 from pathlib import Path
 
 import pytest
+from _resources import posix_tools
 
 from fenolite.backends.kicad.cli import DockerCli, cli_for, find_kicad_cli
 from fenolite.cli._kicadtool import preflight
 from fenolite.cli.errors import CliError
+
+pytestmark = posix_tools  # the fake tool of this file is a shell script
 
 FIXTURES = Path(__file__).resolve().parents[3] / "data" / "kicad" / "fill"
 IMAGE = "kicad/kicad:10.0.6@sha256:" + "a" * 64

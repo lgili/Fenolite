@@ -8,6 +8,9 @@ import stat
 from pathlib import Path
 
 import pytest
+from _resources import posix_tools
+
+pytestmark = posix_tools  # the fake tool of this file is a shell script
 
 TESTS = Path(__file__).resolve().parents[1]
 INI = """[pytest]

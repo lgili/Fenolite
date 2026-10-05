@@ -35,7 +35,7 @@ def script(tmp_path: Path, body: str) -> Path:
     folder = tmp_path / "s"
     folder.mkdir(exist_ok=True)
     for kind, lib in (("fp", "Mini_v9.pretty"), ("sym", "Mini_v9.kicad_sym")):
-        row = f'(lib (name "Mini") (type "KiCad") (uri "{LIBS / lib}") (options "") (descr ""))'
+        row = f'(lib (name "Mini") (type "KiCad") (uri "{(LIBS / lib).as_posix()}") (options "") (descr ""))'
         (folder / f"{kind}-lib-table").write_text(f"({kind}_lib_table\n\t(version 7)\n\t{row}\n)\n")
     path = folder / "design.py"
     path.write_text("from fenolite.dsl import *\n" + body, encoding="utf-8")

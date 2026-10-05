@@ -18,6 +18,7 @@ PROJECT = MINI / "project"
 
 
 def _row(name: str, uri: str, kind: str = "KiCad", extra: str = "") -> str:
+    uri = str(uri).replace("\\", "/")  # KiCad writes "/" on every system; "\\" starts an escape
     return f'(lib (name "{name}") (type "{kind}") (uri "{uri}") (options "") (descr ""){extra})'
 
 

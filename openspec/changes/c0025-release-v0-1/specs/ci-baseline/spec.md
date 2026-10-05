@@ -3,6 +3,7 @@
 ### Requirement: Unit CI job on two operating systems
 The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml` with a job `unit` that runs on every push and pull request, using `uv`, on these five combinations: `ubuntu-latest` with Python 3.11, 3.12 and 3.13, `macos-latest` with Python 3.12, and `windows-latest` with Python 3.12.
 - The steps MUST be the same on every combination.
+- No combination MAY carry `continue-on-error`: Windows is a merge gate like the others (the maintainer's decision of 2026-10-05, after a first run with 35 failures).
 - `tests/unit/test_ci_workflow.py` SHALL check the five combinations textually.
 - A test that needs a POSIX executable MUST be skipped on Windows only through `tests/_resources.py::posix_tools`, with the reason `posix-only fake tool`, and the skipped tests MUST be fewer than 5 % of the collected tests (`H-G-REL-WINDOWS`).
 
@@ -12,7 +13,7 @@ The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml
 
 #### Scenario: Matrix checked
 - **WHEN** `uv run pytest tests/unit/test_ci_workflow.py -k unit_matrix` runs
-- **THEN** it passes only if `ci.yml` names the three operating systems and Python 3.11, 3.12 and 3.13
+- **THEN** it passes only if `ci.yml` names the three operating systems and Python 3.11, 3.12 and 3.13, and no run carries `continue-on-error`
 
 #### Scenario: Fake tool runs on Windows
 - **WHEN** `uv run pytest tests/unit/backends/kicad -k fake` runs on `windows-latest`
@@ -25,10 +26,10 @@ The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml
 3. `kicad-cli version`
 4. `uv sync --locked --extra dev`
 5. `actions/cache` of the corpus cache, keyed on `hashFiles('tests/corpus/manifest.toml')`
-6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --exclude-uses heavy`
+6. `uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-text --exclude-uses heavy`
 7. `uv run pytest tests/kicad tests/corpus -q -n auto --dist loadfile` with `FENOLITE_REQUIRE=kicad,corpus`
 
-The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--uses project`, `--exclude-uses heavy`, the environment variable and the parallel options of the pytest step.
+The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL check the job textually, because the dev extra has no YAML parser: the digest pin, the container options, the order of the steps above, the cache key, `--uses libs`, `--uses project`, `--uses cfb` and `--uses altium-text` (the rows that c0039 and c0042 added to the workflow), `--exclude-uses heavy`, the environment variable and the parallel options of the pytest step.
 
 #### Scenario: Oracle job runs on a pull request
 - **WHEN** a pull request is opened
@@ -97,7 +98,7 @@ The job MUST fail if any step fails. `tests/unit/test_ci_workflow.py` SHALL chec
 
 `tools/dco_check.py [<revision range>]` SHALL use only the standard library and `git` as a subprocess.
 - Without an argument it MUST read every commit reachable from `HEAD`; with one, the commits of that range.
-- It MUST skip commits with more than one parent.
+- It MUST skip commits with more than one parent, and commits whose full hash is listed in `tools/dco_exceptions.txt` with a reason: a commit already on the main branch cannot gain a trailer. A malformed line of that file MUST make the tool exit 2.
 - A commit passes when its message holds a trailer line `Signed-off-by: <name> <<address>>`. The tool MUST NOT compare the trailer with the author.
 - It MUST print one line `<short hash> <subject>` per failing commit and exit 1, exit 0 when none fails, and exit 2 when `git` fails.
 

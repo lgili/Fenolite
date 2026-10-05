@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """A fake ``kicad-cli`` for hermetic tests of ``check``, ``doctor`` and the oracle (change c0013 Decision 19).
 
-The fake is a ``#!/bin/sh`` wrapper around a Python script, as in c0009's runner tests. It answers
+The fake is a launcher around a Python script (a ``#!/bin/sh`` script, or a ``.cmd`` file on Windows;
+``_resources.fake_tool``). It answers
 ``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
 board unchanged, ``"fail"`` exits 1; c0020), and the export and render commands of c0024
@@ -20,10 +21,11 @@ run writes the n-th report text, and the last one from then on.
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
+
+from _resources import fake_tool
 
 from fenolite.backends.kicad.canary import CANARY_RULE_NAME, CANARY_UUIDS
 
@@ -41,7 +43,7 @@ if config["log"]:
     count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in files.items():
         if name.endswith((".kicad_pcb", ".kicad_dru")):
-            open(os.path.join(config["log"], f"{count}-{name}"), "w").write(text)
+            open(os.path.join(config["log"], f"{count}-{name}"), "w", newline="").write(text)
 if args[:1] == ["version"]:
     print(config["version"])
     sys.exit(0)
@@ -54,12 +56,12 @@ if args and args[-1] == "--help":
     sys.exit(0)
 time.sleep(config["sleep"])
 for name in config["writes"]:
-    open(name, "w").write("{}")
+    open(name, "w", newline="").write("{}")
 if args[:3] == ["pcb", "export", "ipcd356"] and "/" not in args[args.index("-o") + 1]:
     if config["ipcd356"] is None:
         print("Failed to load board", file=sys.stderr)
         sys.exit(3)
-    open(args[args.index("-o") + 1], "w").write(config["ipcd356"])
+    open(args[args.index("-o") + 1], "w", newline="").write(config["ipcd356"])
     sys.exit(0)
 if args[:2] == ["pcb", "upgrade"]:
     if config["upgrade"] == "fail":
@@ -67,7 +69,7 @@ if args[:2] == ["pcb", "upgrade"]:
         sys.exit(1)
     board = args[-1]
     text = open(board, encoding="utf-8").read()
-    open(board, "w", encoding="utf-8").write(text)
+    open(board, "w", encoding="utf-8", newline="").write(text)
 kind = None
 if args[:2] == ["pcb", "export"] and len(args) > 2:
     kind = args[2]
@@ -91,13 +93,13 @@ if kind is not None and kind in config["export_files"]:
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
     if "--save-board" in args and config["refill_board"] is not None:
-        open(board, "w", encoding="utf-8").write(config["refill_board"])
+        open(board, "w", encoding="utf-8", newline="").write(config["refill_board"])
     if config["rewrite_input"] and "--save-board" not in args:
-        open(board, "a").write("(rewritten)")
+        open(board, "a", newline="").write("(rewritten)")
     if config["drc_sequence"]:
         done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"pcb", "drc"' in line)
         sequence = config["drc_sequence"]
-        open(args[args.index("-o") + 1], "w").write(sequence[min(done, len(sequence)) - 1])
+        open(args[args.index("-o") + 1], "w", newline="").write(sequence[min(done, len(sequence)) - 1])
         sys.exit(0)
     if config["drc_report"] == "":
         print("Failed to load board", file=sys.stderr)
@@ -116,7 +118,7 @@ if args[:2] == ["pcb", "drc"]:
         report = {"source": board, "date": "2026-10-02", "kicad_version": config["version"],
                   "coordinate_units": "mm", "violations": violations, "unconnected_items": [],
                   "schematic_parity": []}
-    open(args[args.index("-o") + 1], "w").write(json.dumps(report))
+    open(args[args.index("-o") + 1], "w", newline="").write(json.dumps(report))
 """
 
 
@@ -189,10 +191,7 @@ def fake_kicad_cli(
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")
-    script = folder / "kicad-cli"
-    script.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{folder / "fake.py"}" "$@"\n', encoding="utf-8")
-    script.chmod(0o755)
-    return script
+    return fake_tool(folder / "kicad-cli", folder / "fake.py")
 
 
 def calls(script: Path) -> list[dict[str, Any]]:

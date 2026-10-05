@@ -15,6 +15,7 @@ import pytest
 from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
 from _projects import STEM, authored_project
+from _resources import posix_tools
 
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.pcb import opaque_count, read_board
@@ -153,6 +154,7 @@ def test_unsupported_or_older_major(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert [c["args"] for c in calls(fake)] == [["version"]]
 
 
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
 def test_oracle_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=10)
     fake = fake_kicad_cli(tmp_path / "bin", sleep=30.0)

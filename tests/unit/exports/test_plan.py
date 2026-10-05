@@ -132,7 +132,7 @@ def test_failed_kind(tmp_path: Path) -> None:
     assert result.artifacts == ()
     (failure,) = result.issues
     assert failure.code == "export.failed" and failure.severity == "error" and failure.where == "drill"
-    assert "Failed to plot two_layer.kicad_pcb" in failure.message
+    assert "Failed to plot" in failure.message and "two_layer.kicad_pcb" in failure.message
     assert "<tmp>" not in failure.message and "fenolite-kicad-" not in failure.message
 
 

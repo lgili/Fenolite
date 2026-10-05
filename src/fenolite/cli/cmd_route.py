@@ -10,6 +10,7 @@ import fnmatch
 import hashlib
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from fenolite.backends.kicad import pro
@@ -36,10 +37,14 @@ DEFAULTS = (200_000, 200_000, 600_000, 300_000)
 def _safe_log(lines: tuple[str, ...], cwd: Path) -> list[str]:
     """Keep diagnostic lines useful without exposing temporary or home paths."""
     home = str(Path.home())
-    temp = os.getenv("TMPDIR", "/tmp")
+    temp = os.getenv("TMPDIR") or tempfile.gettempdir()
+    # the longer prefix first: on Windows the temporary folder lies inside the home folder
+    prefixes = sorted(((home, "<home>"), (temp, "<tmp>")), key=lambda pair: -len(pair[0]))
     result: list[str] = []
     for line in lines[:20]:
-        safe = line.replace(home, "<home>").replace(temp, "<tmp>")
+        safe = line
+        for prefix, label in prefixes:
+            safe = safe.replace(prefix, label)
         safe = re.sub(r"/(?:private/)?tmp/[^\s:'\"]+", "<tmp>", safe)
         safe = safe.replace(str(cwd), "<workdir>")
         result.append(safe)
@@ -99,6 +104,14 @@ def _router(name: str, args: argparse.Namespace) -> Router:
         timeout = args.timeout if args.timeout != 600 else DEFAULT_TIMEOUT
         return FreeroutingRouter(args.router_path, timeout=timeout)
     return selected
+
+
+def _relative(path: Path, cwd: Path) -> str:
+    """``path`` relative to ``cwd``, or as it is when the two are on different Windows drives."""
+    try:
+        return os.path.relpath(path, cwd)
+    except ValueError:
+        return str(path)
 
 
 def _with_project_classes(design: Design, board_path: Path, issues: list[Issue]) -> Design:
@@ -277,7 +290,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     target = source_info(design)
     major = target.major if target is not None and target.major is not None else ctx.kicad_target
     board_text = write_board(merged, target=major, allow_lossy=ctx.allow_lossy).text
-    output = args.out or os.path.relpath(board_path, ctx.cwd)
+    output = args.out or _relative(board_path, ctx.cwd)
     writes = (
         (PlannedWrite(output, board_text.encode("utf-8"), "kicad_pcb"),)
         if merged_ok and outcome.routed and (args.out is not None or board_text != text)
