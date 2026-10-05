@@ -8,4 +8,4 @@
 
 ## Later batch integration
 
-- [ ] 6. Run `make check` on the final rebased integration tree before merging, and require the next authorized CI run to pass before archival.
+- [x] 6. Run `make check` on the final rebased integration tree before merging, and require the next authorized CI run to pass before archival. Done on 2026-10-05: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37321422952 on dev c50bdead passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing); it runs the full suite, so no second local `make check` was started.
