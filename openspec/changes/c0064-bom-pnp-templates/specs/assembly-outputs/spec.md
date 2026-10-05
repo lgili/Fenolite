@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Neutral BOM parts and lines
-`fenolite.exports.bom` SHALL define `BomPart(ref, value, footprint, description, datasheet, dnp, properties)`, `BomLine(refs, quantity, fields)`, `parts_from_model(design) -> tuple[BomPart, ...]` and `group(parts, template) -> tuple[BomLine, ...]`.
+`fenolite.exports.bom` SHALL define `BomPart(ref, value, footprint, description, datasheet, dnp, properties)`, `BomLine(refs, quantity, fields, key)`, `parts_from_model(design) -> tuple[BomPart, ...]` and `group(parts, template) -> tuple[BomLine, ...]`, where `template` is the `[bom]` table of an assembly template and `key` holds the line's values of the `group_by` fields (its reference when `group_by` is empty).
 - `parts_from_model` MUST give one part per component that has a placed footprint, leaving out a component whose footprint has the attribute `board_only` or `exclude_from_bom` and a reference that starts with `#`. `footprint` MUST be `Component.lib_footprint_ref`; `dnp` MUST be true when `Component.dnp` is true or the footprint has the attribute `dnp`; `properties` MUST be the component's properties without `Reference`, `Value`, `Footprint`, `Datasheet` and `Description`; `description` and `datasheet` MUST be those two properties, or `""`.
 - Parts MUST be sorted by the natural order of the reference (`R2` before `R10`).
 - `group` MUST first leave out DNP parts when the template's `exclude_dnp` is true, then put into one line the parts whose values are equal for every field of `group_by`, with `refs` in natural order and `quantity` their count. Lines MUST be sorted by the natural order of their first reference. An empty `group_by` MUST give one line per part.
@@ -14,8 +14,8 @@
 - **THEN** it returns three lines whose `refs` are (`D1`), (`R1`, `R2`) and (`R10`), in this order, with quantities 1, 2 and 1
 
 #### Scenario: A property splits a group
-- **GIVEN** the same parts, where `R1` has the property `MPN` `A` and `R2` has `B`
-- **WHEN** `group` runs with `group_by = ("value", "footprint", "property:MPN")`
+- **GIVEN** the same parts, where `R1` has the property `Bin` `A` and `R2` has `B`
+- **WHEN** `group` runs with `group_by = ("value", "footprint", "property:Bin")`
 - **THEN** `R1` and `R2` are on two lines
 
 #### Scenario: DNP parts
@@ -42,10 +42,10 @@
 - **THEN** it returns one `removed` entry for the `330` line and one `added` entry for the `470` line
 
 ### Requirement: Neutral placement rows
-`fenolite.exports.placement` SHALL define `PlacementRow(ref, value, footprint, position, rotation, side, dnp, mount, properties)`, `rows_from_model(design) -> tuple[PlacementRow, ...]` and `apply(rows, template, *, outline=None) -> tuple[PlacedRow, ...]`.
+`fenolite.exports.placement` SHALL define `PlacementRow(ref, value, footprint, position, rotation, side, dnp, mount, properties)`, `rows_from_model(design) -> tuple[PlacementRow, ...]` and `apply(rows, template, *, outline=None, issues=None) -> tuple[PlacedRow, ...]`, where `template` is the `[placement]` table of an assembly template.
 - `rows_from_model` MUST give one row per footprint that lacks the attribute `exclude_from_pos_files`, in natural order of the reference. `position` MUST be the footprint's position in the board file's frame, in nm; `rotation` its stored angle in µdeg; `side` `top` or `bottom`; `mount` `smd` or `through_hole` from the attributes, else `other`.
 - `apply` MUST, in this order: leave out DNP rows when `exclude_dnp` is true and rows whose `mount` is not `smd` when `smd_only` is true; subtract the origin; turn the Y axis; apply the rotation rule; leave lengths in nm and angles in µdeg for the renderer.
-- **Origin.** `page` MUST subtract nothing. `outline` MUST subtract the left edge of the bounding box of the board outline and, on the Y axis, its lower edge on the page when `y_axis` is `up` and its upper edge when it is `down`; without a closed outline it MUST give the issue `pnp.no-outline` (error) and no row.
+- **Origin.** `page` MUST subtract nothing. `outline` MUST subtract the left edge of the bounding box of the board outline and, on the Y axis, its lower edge on the page when `y_axis` is `up` and its upper edge when it is `down`; without a closed outline it MUST give no row and the issue `pnp.no-outline` (error), appended to `issues`, or raised as `NoOutlineError` when the caller passes no list.
 - **Y axis.** `up` MUST negate Y after the origin is subtracted, so Y grows upward on the page, as in KiCad's position file; `down` MUST keep the file's direction.
 - **Rotation rule.** The rotation MUST become `(sign × rotation + side offset + footprint offset) mod 360°`, with the `sign` and `offset` of the row's side, and the `offset` of the first `rotation.footprint` entry whose `match` fits the footprint's lib id by `fnmatch.fnmatchcase`, or 0.
 - The functions MUST use no float.
@@ -81,7 +81,7 @@
 - A column MUST be `{ name, field }`. `BOM_FIELDS` MUST be `refs`, `quantity`, `value`, `footprint`, `footprint_name`, `description`, `datasheet`, `dnp`, `item` and `property:<NAME>`; `PLACEMENT_FIELDS` MUST be `ref`, `value`, `footprint`, `footprint_name`, `x`, `y`, `rotation`, `side` and `property:<NAME>`. `footprint_name` is the lib id without its library.
 - Every table and key is optional and takes the value of `DEFAULT`: BOM columns `refs`, `quantity`, `value`, `footprint`, each named by its field, grouped by `value` and `footprint`, `ref_separator` `,`, `exclude_dnp` true; placement columns `ref`, `value`, `footprint_name`, `x`, `y`, `rotation`, `side`, `units` `mm`, `decimals` 4, `rotation_decimals` 2, `origin` `page`, `y_axis` `up`, sides `top` and `bottom`, `exclude_dnp` true, `smd_only` false, signs 1 and offsets 0; CSV `,`, `minimal`, `lf`, header, `utf-8`.
 - `sign` MUST be 1 or −1; an `offset` MUST be a number of degrees that is a whole number of µdeg.
-- An unknown table or key, a field outside the vocabulary, two columns with one name, an empty `columns` list, or a value outside its set MUST raise `TemplateError` (`cli_code` `FEN-3004`) carrying one `assembly.template-invalid` issue per problem, each naming the key.
+- An unknown table or key, a field outside the vocabulary, two columns with one name, an empty `columns` list, a `group_by` field that a single part does not have (`refs`, `quantity`, `item`), or a value outside its set MUST raise `TemplateError` (`cli_code` `FEN-3004`) carrying one `assembly.template-invalid` issue per problem, each naming the key.
 - No template other than `DEFAULT` MUST be packaged with Fenolite, and no file of the repository MUST hold a template that names a company, a service or a product.
 
 #### Scenario: Default without a file
@@ -90,19 +90,19 @@
 
 #### Scenario: Authored template
 - **WHEN** `read_template` reads `tests/data/assembly/columns.toml`
-- **THEN** the BOM has the columns `Designator`, `Quantity`, `Comment`, `Package` and `Part number`, the last with the field `property:MPN`, and every key the file leaves out has the default value
+- **THEN** the BOM has the columns `Parts`, `Count`, `Marking`, `Shape` and `Bin`, names made up for Fenolite, the last with the field `property:Bin`, and every key the file leaves out has the default value
 
 #### Scenario: Invalid template
 - **WHEN** `read_template` reads `tests/data/assembly/invalid.toml`, which has an unknown key, a field `price` and `units = "cm"`
-- **THEN** `TemplateError` is raised with three `assembly.template-invalid` issues naming `price`, `units` and the unknown key
+- **THEN** `TemplateError` is raised with three `assembly.template-invalid` issues, in file order, naming `price`, the unknown key and `units`
 
 #### Scenario: Only the default ships
 - **WHEN** `uv run pytest tests/unit/exports/test_assembly.py -k packaged tests/residue` runs
-- **THEN** the package holds no `.toml` template, and the templates under `tests/data/assembly/` and in `docs/assembly.md` name no company
+- **THEN** the package holds no `.toml` template, and each template under `tests/data/assembly/` and in `docs/assembly.md` uses column names made up for Fenolite and says so
 
 ### Requirement: CSV rendering
 `assembly.render_csv(header, rows, options) -> bytes` SHALL write a table as CSV with the stdlib writer under the template's `[csv]` options, and `bom.table` and `placement.table` SHALL give it the cells as text.
-- With `quote = "minimal"`, a field MUST be quoted only when it holds the delimiter, a quote or a line break; with `all`, every field. A quote inside a field MUST be doubled (S-0340).
+- With `quote = "minimal"`, a field MUST be quoted only when it holds the delimiter, a quote or a line break; with `all`, every field. A quote inside a field MUST be doubled (S-0365).
 - Lines MUST end with LF or CRLF as `line_end` says, the last line included; `header` false MUST leave the header line out; `utf-8-sig` MUST put a byte order mark first.
 - `assembly.format_length(nm, units, decimals)` MUST print a length from integer nm in `mm`, `in` (25.4 mm) or `mil` (0.0254 mm) as a decimal rounded half to even at `decimals` places, with trailing zeros kept; `assembly.format_angle(udeg, decimals)` MUST do the same for degrees. Neither MUST create a float.
 - `dnp` MUST print `DNP` or an empty field; `quantity` and `item` MUST print integers; `side` MUST print the name of `sides`.
@@ -130,9 +130,9 @@
 - Parts MUST be sorted by natural order of the reference.
 
 #### Scenario: Rows to parts
-- **GIVEN** the authored `tests/data/assembly/bom_export.csv` with the header `"Reference","Value","Footprint","Datasheet","Description","${DNP}","MPN"` and the rows of `D1`, `R1` and `R10`, the last with `DNP`
+- **GIVEN** the authored `tests/data/assembly/bom_export.csv` with the header `"Reference","Value","Footprint","Datasheet","Description","${DNP}","Bin"` and the rows of `D1`, `R1` and `R10`, the last with `DNP`
 - **WHEN** `read_bom_csv` reads it with those fields
-- **THEN** it returns three parts in the order `D1`, `R1`, `R10`, `R10.dnp` is true, and `R1.properties == {"MPN": "A"}`
+- **THEN** it returns three parts in the order `D1`, `R1`, `R10`, `R10.dnp` is true, and `R1.properties == {"Bin": "A"}`
 
 #### Scenario: Unexpected header
 - **GIVEN** the same text with the header's second cell `Val`

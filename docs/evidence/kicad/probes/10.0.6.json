@@ -229,6 +229,7 @@
     "place-move-rotate": "equal",
     "place-move-translate": "equal",
     "place-touch": "absent",
+    "pos-rows": "equal",
     "pro-anchor-t10": "absent",
     "pro-anchor-t9": "absent",
     "pro-decoys-t10": "present",

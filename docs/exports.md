@@ -102,6 +102,13 @@ reports the size and SHA-256 of each view. It runs only when named.
 `build` → `place` → `route` → `fill` → `check` → `export` → `render`. `export` does not run `check` for
 you and does not refuse a board with findings: the order is yours to keep.
 
+## Assembly tables
+
+`export --pos` writes KiCad's own position file, with KiCad's columns. For a bill of materials and a
+placement table in the columns, units and rotation convention that an assembly service asks for, write a
+column template and use `fenolite bom` and `fenolite pnp`: see [`docs/assembly.md`](assembly.md), which
+also says how the two placement files relate. Fenolite ships no template of any service.
+
 ## Evidence
 
 On 2026-10-03 the file sets, the date lines and the renders were measured on `kicad-cli` 9.0.9 and

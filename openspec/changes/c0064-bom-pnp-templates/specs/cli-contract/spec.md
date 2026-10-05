@@ -20,7 +20,7 @@
 #### Scenario: File with a template
 - **GIVEN** the blink built into `tmp_path`
 - **WHEN** `fenolite bom <dir> --source model --template tests/data/assembly/columns.toml --out bom.csv --confirm` runs
-- **THEN** `bom.csv` starts with the header `Designator,Quantity,Comment,Package,Part number`, `receipt.written` lists it with its SHA-256, and a second run writes identical bytes
+- **THEN** `bom.csv` starts with the header `Parts,Count,Marking,Shape,Bin`, `receipt.written` lists it with its SHA-256, and a second run writes identical bytes
 
 #### Scenario: Confirmation required
 - **WHEN** the same command runs without `--confirm`
@@ -42,7 +42,7 @@
 
 ### Requirement: Pnp command
 `fenolite pnp PATH [--template FILE] [--side top|bottom|both] [--out FILE]` SHALL be registered by `src/fenolite/cli/cmd_pnp.py` with `mutates=True`, and SHALL give the placement table of a board from its model, written as a CSV file only with `--out`. It MUST run no subprocess.
-- **Board.** `PATH` MUST resolve with `projectset.resolve_board`. Built input MUST read the `.fenolite/` model, and native input the board.
+- **Board.** `PATH` MUST resolve with `projectset.resolve_board`. The design MUST be read from the board file for built and native input alike, never from the `.fenolite/` model: `place`, `route` and `fill` write the board only, so the board is the one description of where the parts are.
 - **Rows.** The rows MUST be `placement.apply(placement.rows_from_model(design), template, outline=<the board outline>)`, filtered by `--side` (default `both`).
 - **Result.** `result` MUST hold `template`, `columns`, `rows` (one object per row, keyed by column name, as rendered text), `counts` (`rows`, `top`, `bottom`, `dnp`, `left_out`), `units`, `origin` and `y_axis`.
 - **Writes.** With `--out FILE`, one `PlannedWrite` of kind `pnp`; without it, none.
@@ -62,6 +62,11 @@
 #### Scenario: File with rotation rules
 - **WHEN** `fenolite pnp <dir> --template tests/data/assembly/rotated.toml --out pnp.csv --confirm` runs
 - **THEN** `pnp.csv` holds the columns of the template, the rotation of `U1` is its stored rotation plus the footprint offset of the template, and a second run writes identical bytes
+
+#### Scenario: After a move
+- **GIVEN** the built blink, and `fenolite place <dir> --move R1=12mm,8mm --confirm`
+- **WHEN** `fenolite pnp <dir> --json` runs
+- **THEN** the row of `R1` holds the position the board file has, and the other rows are unchanged
 
 #### Scenario: Hermetic
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise

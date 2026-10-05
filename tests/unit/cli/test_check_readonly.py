@@ -3,7 +3,9 @@
 """``check``, ``inspect``, ``doctor``, ``export`` and ``render`` leave the project folder untouched, even
 with a ``kicad-cli`` that writes next to its input and rewrites it (capability verification-loop, "Check is
 read-only", scenario "Fake kicad-cli that writes", and "New stages stay read-only"; changes c0013, c0020
-and c0029; cli-contract, "Export command", scenario "Source is untouched"; change c0024)."""
+and c0029; cli-contract, "Export command", scenario "Source is untouched"; change c0024). ``bom`` and
+``pnp`` write one file where ``--out`` says and nothing in the project (cli-contract, "Bom command" and
+"Pnp command"; change c0064)."""
 
 from __future__ import annotations
 
@@ -127,4 +129,25 @@ def test_place_dry_run_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tu
     code, env, _, _ = run(monkeypatch, root, "place", str(root), "--move", "R1=12mm,8mm", "--dry-run")
     assert [p["path"] for p in env["result"].get("plan", [])] == ["board.kicad_pcb"], (code, env["issues"])
     assert env["receipt"] is None and calls(fake) == []
+    _untouched(root, before)
+
+
+@pytest.mark.parametrize("command", [("bom", "--source", "model"), ("pnp",)], ids=["bom", "pnp"])
+@pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
+def test_bom_and_pnp_leave_the_source_untouched(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    project: tuple[Path, Path],
+    command: tuple[str, ...],
+    protocol: str,
+) -> None:
+    root, fake = project
+    before = tree_snapshot(root)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    name, *flags = command
+    code, env, _, _ = run(monkeypatch, elsewhere, name, str(root), *flags, "--out", "table.csv", protocol)
+    assert code == 0, env["issues"]
+    assert calls(fake) == []  # neither command runs a tool
+    assert (elsewhere / "table.csv").is_file() is (protocol == "--confirm")
     _untouched(root, before)

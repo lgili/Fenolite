@@ -162,5 +162,8 @@ def test_issue_codes() -> None:
         "export.failed": "error",
         "export.kind-unavailable": "error",
         "render.failed": "warning",
+        "assembly.template-invalid": "error",
+        "bom.property-missing": "info",
+        "pnp.no-outline": "error",
     }
     assert isinstance(KINDS["gerbers"], Kind)

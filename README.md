@@ -31,6 +31,8 @@ first circuit boards on.
 
 The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`. Fabrication
 files and review renders (`fenolite export`, `fenolite render`) are described in `docs/exports.md`.
+The bill of materials and the placement table (`fenolite bom`, `fenolite pnp`), rendered through a column
+template that you write, are described in `docs/assembly.md`.
 
 ## Evidence labels
 

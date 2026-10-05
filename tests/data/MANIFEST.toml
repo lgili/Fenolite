@@ -1149,3 +1149,21 @@ path = "tests/data/altium/read/two_layer.stackup"
 origin = "authored"
 corpus_id = ""
 notes = "stack-up file authored for the c0042 reader tests: four entries, no line end"
+
+[[file]]
+path = "tests/data/assembly/columns.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template authored for the c0064 tests; every column name and the property Bin are made up"
+
+[[file]]
+path = "tests/data/assembly/rotated.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template authored for the c0064 tests; made-up names, side names and rotation offsets"
+
+[[file]]
+path = "tests/data/assembly/invalid.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template with three problems, authored for the c0064 tests"

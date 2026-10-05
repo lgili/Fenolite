@@ -125,7 +125,7 @@ do:
 | no Fenolite check for shorts and clearance; reported: KiCad silently re-nets a via that touches a track of another net, and its DRC shows no short | c0029 |
 | zone clearance, pad connection and thermal reliefs are not in the model | c0031 |
 | pads only in the footprint frame; power copper drawn from hand-computed coordinates | c0028 |
-| BOM and placement files in an assembly house's columns | v0.2a |
+| BOM and placement files in an assembly house's columns | c0064 (the user writes the column template; none ships) |
 | part numbers and other user properties cannot be written onto footprints | c0027 |
 | footprints from the official libraries fail the library check of an isolated `kicad-cli` | c0027 |
 | how fills computed by `kicad-cli` come back into the model | c0015 |
@@ -163,7 +163,7 @@ and the commands an agent asks small questions with.
 | c0061 | `kicad-schematic-writer` | `build` writes `<name>.kicad_sch`, the project symbol libraries and `sym-lib-table`; no-connect flags from `Circuit.no_connects` (c0036), power flags, net names in KiCad's stored form, pad nets of unconnected pins | proposed | c0060 | 14 |
 | c0062 | `erc-oracle` | KiCad's ERC as a stage of `check`, in place of the three-rule ERC stage; schematic parity in the DRC stage | proposed | c0060, c0061 | 8.5 |
 | c0063 | `netlist-compare` | the schematic's netlist in `check`; Fenolite's own netlist of the schematics it generates, compared with `kicad-cli` at build; `netlist` command | proposed | c0060, c0061 | 6.75 |
-| c0064 | `bom-pnp-templates` | BOM and placement tables with a user-supplied column template (names, order, units, rotation offsets, side names, grouping); `bom` and `pnp` commands. No template of any assembly house ships with Fenolite | proposed | c0061 for the BOM through `kicad-cli` | 7 |
+| c0064 | `bom-pnp-templates` | BOM and placement tables with a user-supplied column template (names, order, units, rotation offsets, side names, grouping); `bom` and `pnp` commands. No template of any assembly house ships with Fenolite | implemented on 2026-10-05 without the BOM through `kicad-cli`: `pnp`, the template and the `model` source of `bom` are in; the `kicad` source and its two hypotheses wait for c0061 | c0061 for the BOM through `kicad-cli` | 7 |
 | c0065 | `artifact-manifest-states` | the project manifest, with SHA-256 and a state per artefact; `manifest` command | proposed | c0062, c0064 | 5 |
 | c0066 | `cli-inspection-commands` | `diff`, `roundtrip`, `fmt`, `explain`, `restore`; paging and concise output; `net`, `region` and `neighbors` | proposed | c0060 and c0062 for schematic inputs | 13.5 |
 | c0067 | `evidence-matrix` | the evidence matrix in `capabilities` and on a generated page; every backend module declares its evidence | proposed | best last | 5 |

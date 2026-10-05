@@ -769,3 +769,62 @@ KiCad.
 The twelve `altium.sheet.*` codes: `not-representable`, `not-template-content`, `builtin-not-drawn`,
 `outside`, `image-not-kept`, `image-size`, `unknown-string`, `dynamic-string` and `style-dropped` are
 warnings (losses); `appearance`, `rounded` and `builtin-drawn` are infos.
+## bom
+
+`fenolite bom PATH [--source kicad|model] [--template FILE] [--out FILE] [--against OTHER]` gives the bill
+of materials of the project `PATH` names (resolved as for `check`) as a neutral table, rendered through a
+column template that the user writes (`docs/assembly.md`). Fenolite ships no template of any assembly
+service; without `--template` the built-in default applies, whose column names are Fenolite's field names.
+
+- `--source model` lists the parts of the `.fenolite/` model of a built project, or of the board read for
+  any other project. It runs no tool.
+- `--source kicad`, the default, is the bill that `kicad-cli` exports from the project's schematic. It is
+  **not available yet** (it arrives with the schematic writer, together with `--kicad-cli` and
+  `--timeout`). Until then the command never falls back: without a `<stem>.kicad_sch` next to the board it
+  exits 3 with `FEN-3001`, with one it exits 2 with `FEN-2001`, and both hints name `--source model`.
+- `--against OTHER` reads `OTHER` as `PATH`, with the same source and template, and adds `result.changes`:
+  what changed from `OTHER` to `PATH`.
+
+`result` holds `source`, `template` (the file name without its folder, or `default`), `columns` (the
+column names), `lines` (one object per line, keyed by column name, with the text the file would hold),
+`counts` (`parts`, `lines`, `dnp`, `left_out`) and, with `--against`, `changes` (each `key`, the values of
+the grouping fields; `change`, one of `added`, `removed`, `changed`; `a_refs`, the references in `OTHER`;
+`b_refs`, those in `PATH`). No value holds a date or an absolute path, and two runs on an unchanged
+project give the same output apart from `elapsed_ms`.
+
+It is a mutating command that writes only with `--out FILE`: the plan then holds one write of kind `bom`,
+the CSV bytes of the table, and the mutation protocol applies (4 without `--dry-run` or `--confirm`).
+Without `--out` nothing is planned and the exit code is 0. The project folder never changes.
+
+| code | severity | when |
+|---|---|---|
+| `assembly.template-invalid` | error | the template has an unknown table or key, an unknown field, two columns with one name, an empty column list or a value outside its set; one issue per problem, `where` is the key path; the command exits 3 with `FEN-3004` |
+| `bom.property-missing` | info | a column names a `property:<NAME>` that no part has; the column is empty; `where` is the column name |
+
+Exit codes: 0, 4 as above, 2 for a usage error, 3 for a missing path, a template that cannot be read
+(`FEN-3001`) or is invalid (`FEN-3004`), or a `.fenolite/` model that cannot be read (`FEN-3004`). The
+evidence of the `model` source is `INFERRED` (`H-K-BOM-MODEL`), combined with the evidence of the board
+read when the project was not built by Fenolite.
+
+## pnp
+
+`fenolite pnp PATH [--template FILE] [--side top|bottom|both] [--out FILE]` gives the placement
+(pick-and-place) table of the board `PATH` names (resolved as for `check`), rendered through the same kind
+of template (`docs/assembly.md`). It runs no tool. The rows always come from the board file, also in a
+built project, because `place`, `route` and `fill` write the board and not the `.fenolite/` model.
+
+`result` holds `template`, `columns`, `rows` (one object per row, keyed by column name, with the text the
+file would hold), `counts` (`rows`, `top`, `bottom`, `dnp`, `left_out`), `units`, `origin` and `y_axis`.
+`--side` (default `both`) keeps the rows of one side. With `--out FILE` the plan holds one write of kind
+`pnp`; without it nothing is planned.
+
+| code | severity | when |
+|---|---|---|
+| `assembly.template-invalid` | error | as for `bom` |
+| `pnp.no-outline` | error | the template has `origin = "outline"` and the board has no closed outline; there is no row and no file |
+
+Exit codes: 0, 4 without `--dry-run` or `--confirm` when `--out` is given, 5 with `pnp.no-outline`, 2 for
+a usage error, 3 for a missing path or template or an invalid template. The evidence is
+`placement.EVIDENCE` (`H-K-PCB-POS`, `H-K-POS-ROWS`) combined with the evidence of the board read. Under
+the default template the table holds the content of `kicad-cli pcb export pos`, without the DNP parts and
+with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differences.

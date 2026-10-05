@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The issue codes of ``fenolite export`` and ``fenolite render`` (capability manufacturing-exports,
-"Export kinds and their arguments")."""
+"Export kinds and their arguments"), and of ``fenolite bom`` and ``fenolite pnp`` (capability
+assembly-outputs, "Assembly issue codes and evidence")."""
 
 from __future__ import annotations
 
@@ -15,6 +16,9 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "export.failed": "error",
         "export.kind-unavailable": "error",
         "render.failed": "warning",
+        "assembly.template-invalid": "error",
+        "bom.property-missing": "info",
+        "pnp.no-outline": "error",
     }
 )
 

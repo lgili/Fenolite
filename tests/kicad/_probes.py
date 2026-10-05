@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 
 import _acceptance
+import _asmcases
 import _bench
 import _benches
 import _buildcases
@@ -239,6 +240,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _drccases.drc_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _netcases.net_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _asmcases.assembly_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

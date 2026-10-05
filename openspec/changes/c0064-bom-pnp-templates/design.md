@@ -63,23 +63,23 @@
 
    [bom]
    columns = [
-     { name = "Designator", field = "refs" },
-     { name = "Quantity", field = "quantity" },
-     { name = "Comment", field = "value" },
-     { name = "Package", field = "footprint_name" },
-     { name = "Part number", field = "property:MPN" },
+     { name = "Parts", field = "refs" },
+     { name = "Count", field = "quantity" },
+     { name = "Marking", field = "value" },
+     { name = "Shape", field = "footprint_name" },
+     { name = "Bin", field = "property:Bin" },
    ]
-   group_by = ["value", "footprint", "property:MPN"]
+   group_by = ["value", "footprint", "property:Bin"]
    ref_separator = ","
    exclude_dnp = true
 
    [placement]
    columns = [
-     { name = "Designator", field = "ref" },
-     { name = "X", field = "x" },
-     { name = "Y", field = "y" },
-     { name = "Side", field = "side" },
-     { name = "Rotation", field = "rotation" },
+     { name = "Part", field = "ref" },
+     { name = "Across", field = "x" },
+     { name = "Up", field = "y" },
+     { name = "Face", field = "side" },
+     { name = "Turn", field = "rotation" },
    ]
    units = "mm"         # mm | in | mil
    decimals = 4
@@ -104,7 +104,7 @@
    - An unknown key, an unknown field, a duplicate column name, a `group_by` field outside the vocabulary, or a value outside its set gives `assembly.template-invalid` (error) naming the key, and the command exits 3 (`FEN-3004`).
    - The column names of the example above are invented for this document. No other template is in the repository.
 
-7. **Rendering.** `assembly.render_csv(header, rows, csv_options) -> bytes` with the stdlib `csv` writer: quoting `minimal` or `all` as RFC 4180 describes it (S-0340), the delimiter and line end of the template, UTF-8.
+7. **Rendering.** `assembly.render_csv(header, rows, csv_options) -> bytes` with the stdlib `csv` writer: quoting `minimal` or `all` as RFC 4180 describes it (S-0365), the delimiter and line end of the template, UTF-8.
    - Lengths are printed from nm as exact decimals rounded half to even at `decimals`; rotations from µdeg at `rotation_decimals`; never through a float.
    - `dnp` prints `DNP` or an empty field; `quantity` and `item` print integers.
    - Two renderings of one table under one template are byte-identical.
@@ -141,10 +141,10 @@
 
 | id | URL | used for |
 |---|---|---|
-| S-0340 | https://www.rfc-editor.org/rfc/rfc4180 | CSV: fields that hold the delimiter, a quote or a line break are quoted, and a quote inside a quoted field is doubled |
-| S-0341 | https://docs.python.org/3/library/csv.html | the stdlib writer's `QUOTE_MINIMAL` and `QUOTE_ALL`, `delimiter` and `lineterminator` |
+| S-0365 | https://www.rfc-editor.org/rfc/rfc4180 | CSV: fields that hold the delimiter, a quote or a line break are quoted, and a quote inside a quoted field is doubled |
+| S-0366 | https://docs.python.org/3/library/csv.html | the stdlib writer's `QUOTE_MINIMAL` and `QUOTE_ALL`, `delimiter` and `lineterminator` |
 
-Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch export bom` and `pcb export pos` with their options). Task 1.1 widens S-0020, S-0022 and S-0037. S-0342 to S-0344 stay unused.
+Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch export bom` and `pcb export pos` with their options). Task 9.1 widens S-0020, S-0022 and S-0037 for `sch export bom`. The proposal reserved S-0340 to S-0344; c0076 registered those ids first, so this change takes S-0365 and S-0366, above every block that a pending change reserves.
 
 ## Hypotheses registered by this change
 
@@ -201,3 +201,18 @@ Additive: three modules, a backend reader, one runner helper, two commands. `exp
 - **Should `export --all` also write the two tables?** Default: no; `export` stays KiCad's raw files. c0065's manifest lists every file whatever command wrote it.
 - **A unit suffix on lengths** (`12.7mm`). Default: no; a template key can be added when a user needs it.
 - **Maintainer:** is an example template with generic column names in `docs/assembly.md` acceptable under the clean-room rule? Default: yes, the names are common English words and belong to no one.
+
+## Implementation notes (2026-10-05, first run: everything except the `kicad` BOM source)
+
+What the code does today, where it differs from the text above, and why.
+
+1. **Scope.** The `kicad` source of the bill (Decision 4, `KicadCli.export_bom`, `backends/kicad/bom.py`, `bom.EVIDENCE_KICAD`, `bom.field-unsupported`, the six `bom-csv-*` probes and the two `bom-model-*` probes) needs a schematic that `kicad-cli` can export from. The schematic writer (c0061) is not started, so those tasks stay open (tasks 2.1, 2.2, 4.2 and group 9). This is cut 3 of the cut order.
+2. **`--source` meanwhile.** The option keeps both values and its default `kicad`, so no script changes meaning when the source arrives. Until then the `kicad` source refuses and never falls back: without `<stem>.kicad_sch` it exits 3 with `FEN-3001` (as specified), with one it exits 2 with `FEN-2001`; both hints name `--source model`. `--kicad-cli` and `--timeout` are not registered yet.
+3. **`pnp` reads the board file, never the `.fenolite/` model.** The proposal said that built input reads the model. `place`, `route` and `fill` write the board and leave the model as it was, so after a move the model's positions are older than the board's, and a placement file from the model would disagree with the board that is fabricated. `tests/unit/cli/test_pnp_cmd.py::test_the_board_is_read_not_the_model` shows it. The spec delta of "Pnp command" is corrected. `bom --source model` still reads the model of a built project: `place` does not change parts.
+4. **Example column names.** The proposal's example used names that are common in real assembly files. Every example now uses names made up for Fenolite (`Parts`, `Count`, `Marking`, `Shape`, `Bin`; `Part`, `Across`, `Up`, `Turn`, `Face`), and the example property is `Bin`. Each authored template says so in its header, and a test checks the header.
+5. **Source ids.** S-0365 and S-0366, see "Sources registered by this change".
+6. **Signatures.** `bom.group` and `bom.table` take the template's `[bom]` table (`BomTemplate`), `placement.apply` and `placement.table` its `[placement]` table. `BomLine` has a fourth field, `key`, the values of the `group_by` fields (the reference when `group_by` is empty), which `difference` matches on. `placement.apply` takes `issues=`, a list that receives `pnp.no-outline`; without it the function raises `NoOutlineError`, so the empty result is never silent. `TemplateError` is defined in `exports/assembly.py`: the layering test does not let `exports` import `templates`.
+7. **`group_by`** accepts the fields a single part has; `refs`, `quantity` and `item` belong to a line and are refused.
+8. **The default template is not exactly KiCad's file.** Measured on 9.0.9 and 10.0.6: KiCad lists DNP parts, and the default has `exclude_dnp = true`; KiCad prints a rotation within (−180°, 180°] (`-90.000000`) and Fenolite within [0°, 360°) (`270.00`). `docs/assembly.md` has the table. `H-K-POS-ROWS` compares with DNP kept and angles modulo 360°, as specified.
+9. **Probe files.** `pos-rows` is `equal` on 10.0.6 (local binary; the whole of `tests/kicad/test_probe_results.py` passes with it) and on 9.0.9 (the pinned image, started by the package's own `docker:` runner from a scratch script, not by pytest inside the image). The 9.0.9 file was not regenerated: the one key was added. The `kicad-9` job is the first full run of that test on 9.0.9, so `H-K-POS-ROWS` and `placement.EVIDENCE` stay `INFERRED` until it passes (task 8.2).
+10. **Open design question for the maintainer.** With `exclude_dnp = false` and the default `group_by`, a fitted part and a DNP part of one value share a line and a quantity. The spec asks for exactly that; the guide tells the user to add `dnp` to `group_by`. Splitting by DNP always would be safer.
