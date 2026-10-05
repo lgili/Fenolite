@@ -1,3 +1,10 @@
+# Every text file has LF line ends in a checkout, on Windows too: fixtures, golden files and hashes
+# compare bytes (change c0025).
+* text=auto eol=lf
+# Test data is compared byte for byte, its own line ends included.
+tests/data/** -text
+*.Harness -text
+
 # Altium files keep their exact bytes: CR LF line ends are part of what is checked (change c0032).
 *.SchDoc -text
 *.PrjPcb -text

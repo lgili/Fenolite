@@ -45,7 +45,10 @@ def _project(tmp_path: Path, kind: str, *rows: tuple[str, str]) -> Path:
     root, name = (
         ("fp_lib_table", "fp-lib-table") if kind == "footprint" else ("sym_lib_table", "sym-lib-table")
     )
-    body = " ".join(f'(lib (name "{n}") (type "KiCad") (uri "{u}") (options "") (descr ""))' for n, u in rows)
+    body = " ".join(
+        f'(lib (name "{n}") (type "KiCad") (uri "{str(u).replace(chr(92), "/")}") (options "") (descr ""))'
+        for n, u in rows
+    )
     (project / name).write_text(f"({root} (version 7) {body})", encoding="utf-8")
     return project
 

@@ -54,8 +54,8 @@ pip install fenolite
 ```
 
 It installs no other package. `fenolite capabilities --json` then says which external tools it found:
-`kicad-cli` (KiCad 9.0 or 10.0) for the checks, the fills and the exports, and a router. Linux and macOS
-are supported; Windows is not yet.
+`kicad-cli` (KiCad 9.0 or 10.0) for the checks, the fills and the exports, and a router. It runs on Linux, macOS
+and Windows.
 
 ## The loop
 

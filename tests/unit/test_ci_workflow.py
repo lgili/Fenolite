@@ -335,8 +335,8 @@ def test_unit_matrix() -> None:
     assert unit_combinations(text) == UNIT_COMBINATIONS
     job = job_text(text, "unit")
     assert "runs-on: ${{ matrix.os }}" in job
-    # the cut of c0025 (design Decision 7): the Windows run is measured and does not block a merge
-    assert "continue-on-error: ${{ matrix.os == 'windows-latest' }}" in job
+    # Windows is a merge gate like the others (the maintainer's decision of 2026-10-05: no cut)
+    assert "continue-on-error" not in job
     reduced = text.replace('          - os: windows-latest\n            python: "3.12"\n', "")
     assert unit_combinations(reduced) != UNIT_COMBINATIONS
 

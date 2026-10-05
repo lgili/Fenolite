@@ -28,7 +28,8 @@ Every command prints one JSON envelope, never asks a question, and writes only w
    On a non-zero exit, stderr holds one error object: `code`, `message`, `hint`, `retryable`.
 3. **`--dry-run`, then `--confirm`.** A writing command writes nothing by default. `--dry-run` returns
    `result.plan`, the list of files it would write; `--confirm` writes them and returns a `receipt`
-   with the SHA-256 of each.
+   with the SHA-256 of each. Look at the plan first whenever the files already exist: a confirmed
+   write replaces them.
 4. **Evidence.** Every envelope carries `evidence.level`. `KICAD-VERIFIED` means `kicad-cli` judged the
    result. Treat every level below it (`ORACLE-VERIFIED`, `CORPUS-VERIFIED`, `INFERRED`, `UNKNOWN`,
    `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.
@@ -60,11 +61,13 @@ What each step is for:
 - `build` runs the design script and writes the project, the board, the rules file and the library
   tables. Parts without a position are left beside the board; a second build keeps what was placed,
   routed and filled since.
-- `place --strategy grid` puts those parts on the board. `--move REF=X,Y` moves one part by hand.
+- `place --strategy grid` puts those parts on the board; when `build` reports `result.staged` empty, every
+  part already has a position and this step changes nothing. `--move REF=X,Y` moves one part by hand.
 - `route` closes the open nets. `result.unrouted` lists what the router left open; an empty list is not
-  yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 and the Freerouting jar
+  yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 or newer and the Freerouting jar
   named by `FENOLITE_FREEROUTING_JAR`; `fenolite capabilities` lists the other routers.
-- `fill` refills the copper zones through `kicad-cli` 10. A board without zones needs no fill.
+- `fill` refills the copper zones through `kicad-cli` 10. A board without zones needs no fill, and the
+  step changes nothing there.
 - `check` is the judge: the model, the electrical rules, the copper clearances, KiCad's own design-rule
   check, and the comparison of the nets between the script and the board. Exit code 0 means no error.
 - `export` writes Gerber, drill, position and netlist files with a manifest; `render` writes views to

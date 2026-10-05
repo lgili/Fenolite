@@ -101,6 +101,14 @@ def _router(name: str, args: argparse.Namespace) -> Router:
     return selected
 
 
+def _relative(path: Path, cwd: Path) -> str:
+    """``path`` relative to ``cwd``, or as it is when the two are on different Windows drives."""
+    try:
+        return os.path.relpath(path, cwd)
+    except ValueError:
+        return str(path)
+
+
 def _with_project_classes(design: Design, board_path: Path, issues: list[Issue]) -> Design:
     """``design`` with the net classes of the project file beside the board, so that a router gets each
     net's own track width, clearance and via size. A KiCad board holds no net class: without the project,
@@ -277,7 +285,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     target = source_info(design)
     major = target.major if target is not None and target.major is not None else ctx.kicad_target
     board_text = write_board(merged, target=major, allow_lossy=ctx.allow_lossy).text
-    output = args.out or os.path.relpath(board_path, ctx.cwd)
+    output = args.out or _relative(board_path, ctx.cwd)
     writes = (
         (PlannedWrite(output, board_text.encode("utf-8"), "kicad_pcb"),)
         if merged_ok and outcome.routed and (args.out is not None or board_text != text)

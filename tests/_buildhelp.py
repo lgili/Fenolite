@@ -105,9 +105,16 @@ def codes(output: BuildOutput) -> list[str]:
     return [i.code for i in output.issues]
 
 
+def _uri(uri: str) -> str:
+    """A library path as a table row holds it: with ``/``, as KiCad writes it on every system. A ``\\`` in a
+    quoted KiCad string starts an escape, so a Windows path must not be written as it is."""
+    return uri.replace("\\", "/")
+
+
 def _rows(rows: dict[str, str]) -> str:
     return "".join(
-        f'\t(lib (name "{n}") (type "KiCad") (uri "{u}") (options "") (descr ""))\n' for n, u in rows.items()
+        f'\t(lib (name "{n}") (type "KiCad") (uri "{_uri(u)}") (options "") (descr ""))\n'
+        for n, u in rows.items()
     )
 
 

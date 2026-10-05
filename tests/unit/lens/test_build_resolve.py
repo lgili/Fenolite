@@ -58,13 +58,16 @@ def _global_variant(tmp_path: Path, **kwargs: object) -> BuildOutput:
     """The blink whose ``R1`` footprint ``G:Mini_R_0603`` comes from a global row (c0027)."""
     config = tmp_path / "config"
     (config / "10.0").mkdir(parents=True)
-    row = f'(lib (name "G") (type "KiCad") (uri "{LIBS / "Mini_v9.pretty"}") (options "") (descr ""))'
+    uri = (LIBS / "Mini_v9.pretty").as_posix()
+    row = f'(lib (name "G") (type "KiCad") (uri "{uri}") (options "") (descr ""))'
     (config / "10.0" / "fp-lib-table").write_text(
         f"(fp_lib_table\n\t(version 7)\n\t{row}\n)\n", encoding="utf-8"
     )
     (tmp_path / "p").mkdir()
     folder = project(
-        tmp_path / "p", {"Mini": str(LIBS / "Mini_v9.pretty")}, {"Mini": str(LIBS / "Mini_v9.kicad_sym")}
+        tmp_path / "p",
+        {"Mini": (LIBS / "Mini_v9.pretty").as_posix()},
+        {"Mini": (LIBS / "Mini_v9.kicad_sym").as_posix()},
     )
     d = blink()
     d.parts["R1"].footprint = "G:Mini_R_0603"
