@@ -1,0 +1,59 @@
+name: nightly
+
+# Oracle runs that are too heavy for every push. Nothing here is a check of pull requests or a merge gate.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos-app:
+    # The kicad-cli of the official KiCad 10.0.6 macOS disk image: what the hypothesis register records
+    # as "confirmed with local kicad-cli 10.0.6 (macOS)", repeated in CI (H-K-CI-MACOSAPP). KiCad is run
+    # as a subprocess from the mounted image; it is never installed into or copied into the repository.
+    # The corpus is not fetched and tests/corpus is not run: the kicad-10 job of ci.yml covers them.
+    name: macos-app (kicad-cli of the 10.0.6 macOS disk image)
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      KICAD_DMG_URL: https://github.com/KiCad/kicad-source-mirror/releases/download/10.0.6/kicad-unified-universal-10.0.6.dmg
+      KICAD_DMG_SHA256: ef4dcd4278c46d3efcd28c8db273d5957d68efda028f6bf79b4811fc5302dc68
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Disk image cache
+        id: dmg
+        uses: actions/cache@v4
+        with:
+          path: ~/kicad-dmg
+          key: kicad-dmg-ef4dcd4278c46d3efcd28c8db273d5957d68efda028f6bf79b4811fc5302dc68
+      - name: Download the disk image
+        if: steps.dmg.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/kicad-dmg
+          curl --fail --location --silent --show-error --retry 3 -o ~/kicad-dmg/kicad.dmg "$KICAD_DMG_URL"
+      - name: Check the SHA-256 of the disk image
+        run: echo "ef4dcd4278c46d3efcd28c8db273d5957d68efda028f6bf79b4811fc5302dc68  $HOME/kicad-dmg/kicad.dmg" | shasum -a 256 --check
+      - name: Mount the disk image
+        run: |
+          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$RUNNER_TEMP/kicad-image" ~/kicad-dmg/kicad.dmg
+          echo "FENOLITE_KICAD_CLI=$RUNNER_TEMP/kicad-image/KiCad/KiCad.app/Contents/MacOS/kicad-cli" >> "$GITHUB_ENV"
+      - name: kicad-cli version
+        run: |
+          "$FENOLITE_KICAD_CLI" version
+          "$FENOLITE_KICAD_CLI" version | grep -F 10.0.6
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev
+      - name: Oracle tests
+        env:
+          FENOLITE_REQUIRE: kicad
+        run: uv run pytest tests/kicad -q -n auto --dist loadfile
