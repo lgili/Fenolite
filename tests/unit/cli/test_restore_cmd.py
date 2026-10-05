@@ -105,8 +105,10 @@ def test_created_files_stay_after_a_rebuild_is_undone(
     assert code == 0 and env["receipt"]["backup"], env["issues"]
     rebuilt = folder_snapshot(work)
     (tmp_path / "receipt.json").write_text(raw, encoding="utf-8")
-    overwritten = {b[: -len(".bak")] for b in env["receipt"]["backup"]}
-    without_backup = sorted(w["path"] for w in env["receipt"]["written"] if w["path"] not in overwritten)
+    # the receipt holds paths as the system writes them; restore and the snapshot name files with "/"
+    overwritten = {Path(b[: -len(".bak")]).as_posix() for b in env["receipt"]["backup"]}
+    written = [Path(w["path"]).as_posix() for w in env["receipt"]["written"]]
+    without_backup = sorted(path for path in written if path not in overwritten)
 
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
@@ -116,8 +118,7 @@ def test_created_files_stay_after_a_rebuild_is_undone(
     assert code == 0, env["issues"]
     after = folder_snapshot(work)
     assert set(after) >= set(rebuilt), "restore deleted a file"
-    # the receipt holds paths as the system writes them; the snapshot keys use "/"
-    assert all(after[Path(path).as_posix()] == first[Path(path).as_posix()] for path in overwritten)
+    assert all(after[path] == first[path] for path in overwritten)
     assert sorted(i["where"] for i in env["issues"] if i["code"] == "restore.kept") == without_backup
     assert (
         sorted(env["result"]["restored"]) == sorted(overwritten) and env["result"]["kept"] == without_backup
