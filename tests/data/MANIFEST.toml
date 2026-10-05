@@ -1311,3 +1311,9 @@ path = "tests/data/lens/sync_minimal/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol library table of the same build (c0061): no row, the minimal design has no part"
+
+[[file]]
+path = "tests/data/assembly/bom_export.csv"
+origin = "authored"
+corpus_id = ""
+notes = "a bill in the shape kicad-cli sch export bom writes, authored for the c0064 tests; every part and the property Bin are made up"

@@ -8,6 +8,7 @@ The fake is a launcher around a Python script (a ``#!/bin/sh`` script, or a ``.c
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
 board unchanged, ``"fail"`` exits 1; c0020), ``pcb import`` (``imported=<board text>`` writes it to the
 ``-o`` file with a JSON report and prints ``import_output``; without it, exit 0 and no file; c0045), and
+``sch export bom`` (the ``bom`` text written to the ``-o`` file; without it, exit 3; c0064), and
 the export and render commands of c0024
 (``export_files``): an export whose ``-o`` names a folder or a file in a folder, as ``fenolite export``
 asks for, while the netlist oracle of c0020 exports to the run folder itself. Without ``drc_report`` its
@@ -90,6 +91,12 @@ if args[:3] == ["sch", "export", "netlist"]:
         print("Failed to load schematic", file=sys.stderr)
         sys.exit(3)
     open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["netlist"])
+    sys.exit(0)
+if args[:3] == ["sch", "export", "bom"]:
+    if config["bom"] is None:
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["bom"])
     sys.exit(0)
 kind = None
 if args[:2] == ["pcb", "export"] and len(args) > 2:
@@ -177,6 +184,7 @@ def fake_kicad_cli(
     sleep: float = 0.0,
     ipcd356: str | None = None,
     netlist: str | None = None,
+    bom: str | None = None,
     upgrade: Literal["copy", "fail"] = "copy",
     log: Path | None = None,
     drc_sequence: Sequence[str] = (),
@@ -204,6 +212,7 @@ def fake_kicad_cli(
         "sleep": sleep,
         "ipcd356": ipcd356,
         "netlist": netlist,
+        "bom": bom,
         "upgrade": upgrade,
         "log": str(log) if log is not None else "",
         "drc_sequence": list(drc_sequence),

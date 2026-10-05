@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite bom`` with the ``model`` source (capability cli-contract, "Bom command"; change c0064).
-Hermetic: no tool runs. The ``kicad`` source waits for the schematic writer (c0061); here it only has to
-refuse and name the other source."""
+"""``fenolite bom`` (capability cli-contract, "Bom command"; change c0064). Hermetic: the ``model`` source
+runs no tool, and the tests of the ``kicad`` source (their names hold ``kicad``) run a fake ``kicad-cli``
+that writes an authored bill."""
 
 from __future__ import annotations
 
@@ -12,10 +12,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import _asmcli
 import _schema
 import pytest
 from _asmcli import COLUMNS, FIXTURE, INVALID, R1, built, isolate
-from _checkcli import run, without_elapsed
+from _checkcli import hide_kicad, run, without_elapsed
+from _fakecli import calls, fake_kicad_cli
 from _projects import tree_snapshot
 
 from fenolite.cli.cmd_bom import COMMAND
@@ -24,9 +26,20 @@ WITH_BIN = R1.replace(")", ', properties={"Bin": "A7"})')
 """The blink's resistor with a made-up user property."""
 
 
+EXPORT = (
+    (Path(_asmcli.__file__).resolve().parents[2] / "data" / "assembly" / "bom_export.csv")
+    .read_bytes()
+    .decode("utf-8")
+)
+"""The authored bill, with the fields the template ``columns.toml`` makes the command ask for."""
+
+
 @pytest.fixture(autouse=True)
-def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def isolated(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     isolate(monkeypatch, tmp_path)
+    if "kicad" in request.node.name:  # these run the fake tool, and never the machine's own
+        hide_kicad(monkeypatch, tmp_path)
+        return
 
     def refuse(*args: object, **kwargs: object) -> None:
         raise AssertionError("a subprocess was started")
@@ -74,10 +87,21 @@ def test_file_with_a_template(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert b"\r" not in data and data.endswith(b"\n")
     assert env["receipt"]["written"] == [{"path": "bom.csv", "sha256": hashlib.sha256(data).hexdigest()}]
     assert env["result"]["template"] == "columns.toml" and env["issues"] == []
-    assert env["evidence"] == {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-BOM-MODEL"]}
+    # a project Fenolite built, with its schematic: the one case where the model was compared with KiCad
+    assert env["evidence"] == {"level": "KICAD-VERIFIED", "oracle": None, "hypotheses": ["H-K-BOM-MODEL"]}
     code, _, _, _ = run(monkeypatch, second, *args)
     assert code == 0 and (second / "bom.csv").read_bytes() == data
     assert tree_snapshot(folder) == before
+
+
+def test_a_built_project_without_its_schematic_is_inferred(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    folder = built(monkeypatch, tmp_path)
+    (folder / "blink.kicad_sch").unlink()
+    code, env, _, _ = run(monkeypatch, tmp_path, "bom", str(folder), "--source", "model")
+    assert code == 0
+    assert env["evidence"] == {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-BOM-MODEL"]}
 
 
 def test_a_property_no_part_has(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -107,16 +131,111 @@ def test_no_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert env["ok"] is False and env["result"] == {}
 
 
-def test_the_kicad_source_never_falls_back(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """With a schematic next to the board, the ``kicad`` source still cannot answer in this version: the
-    command says so instead of listing the model's parts under the wrong name."""
-    board = tmp_path / "two_layer.kicad_pcb"
+def _with_schematic(tmp_path: Path) -> Path:
+    """The authored board in a folder of its own, with a schematic file next to it (the fake reads none)."""
+    folder = tmp_path / "project"
+    (folder / "sub").mkdir(parents=True)
+    board = folder / "two_layer.kicad_pcb"
     shutil.copyfile(FIXTURE, board)
     board.with_suffix(".kicad_sch").write_text("(kicad_sch)\n", encoding="utf-8", newline="\n")
-    for extra in ((), ("--source", "kicad")):
-        code, env, err, _ = run(monkeypatch, tmp_path, "bom", str(board), *extra)
-        assert code == 2 and err["code"] == "FEN-2001"
-        assert "--source model" in err["hint"] and env["result"] == {}
+    (folder / "sub" / "child.kicad_sch").write_text("(kicad_sch)\n", encoding="utf-8", newline="\n")
+    return board
+
+
+def test_from_kicad_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)
+    before = tree_snapshot(board.parent)
+    code, env, err, _ = run(
+        monkeypatch, tmp_path, "bom", str(board), "--template", COLUMNS, "--kicad-cli", str(fake)
+    )
+    assert code == 0, err
+    result = env["result"]
+    assert (result["source"], result["columns"]) == ("kicad", ["Parts", "Count", "Marking", "Shape", "Bin"])
+    assert result["lines"] == [
+        {"Parts": "D1", "Count": "1", "Marking": "LED", "Shape": "Mini_LED_THT_3mm", "Bin": ""},
+        {"Parts": "R1", "Count": "1", "Marking": "10k", "Shape": "Mini_R_0603", "Bin": "A"},
+    ]  # R10 is DNP and the template leaves DNP parts out
+    assert result["counts"] == {"parts": 2, "lines": 2, "dnp": 1, "left_out": None}
+    assert env["evidence"]["oracle"] == "kicad-cli 10.0.6"
+    assert env["evidence"]["hypotheses"] == ["H-K-BOM-CSV"]
+    (call,) = [c["args"] for c in calls(fake) if c["args"][:3] == ["sch", "export", "bom"]]
+    fields = call[call.index("--fields") + 1]
+    assert fields == "Reference,Value,Footprint,Datasheet,Description,${DNP},Bin"
+    assert call[call.index("--labels") + 1] == fields and call[-1] == "two_layer.kicad_sch"
+    assert tree_snapshot(board.parent) == before  # the tool ran on a copy
+
+
+def test_kicad_source_writes_the_same_file_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)
+    args = ("bom", str(board), "--template", COLUMNS, "--kicad-cli", str(fake), "--out", "bom.csv")
+    first, second = tmp_path / "a", tmp_path / "b"
+    first.mkdir()
+    second.mkdir()
+    code, env, _, _ = run(monkeypatch, first, *args, "--confirm")
+    assert code == 0 and env["receipt"]["written"][0]["path"] == "bom.csv"
+    data = (first / "bom.csv").read_bytes()
+    assert data.decode("utf-8").splitlines()[0] == "Parts,Count,Marking,Shape,Bin"
+    code, _, _, _ = run(monkeypatch, second, *args, "--confirm")
+    assert code == 0 and (second / "bom.csv").read_bytes() == data
+
+
+def test_kicad_source_against_another_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "bom", str(board), "--template", COLUMNS, "--kicad-cli", str(fake),
+        "--against", str(board),
+    )  # fmt: skip
+    assert code == 0 and env["result"]["changes"] == []
+    assert len([c for c in calls(fake) if c["args"][:3] == ["sch", "export", "bom"]]) == 2
+
+
+def test_kicad_source_without_a_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _with_schematic(tmp_path)
+    code, env, err, _ = run(monkeypatch, tmp_path, "bom", str(board))
+    assert code == 6 and err["code"] == "FEN-6001" and env["result"] == {}
+
+
+def test_kicad_source_when_the_tool_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin")  # exits 3 and writes no bill
+    code, _, err, _ = run(monkeypatch, tmp_path, "bom", str(board), "--kicad-cli", str(fake))
+    assert code == 3 and err["code"] == "FEN-3004" and err["where"] == "two_layer.kicad_sch"
+    assert "exited with 3" in err["message"] and "--source model" in err["hint"]
+    assert str(tmp_path) not in err["message"]
+
+
+def test_kicad_source_refuses_another_header(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The default template asks for the six base fields; a bill with one more column is not read."""
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)
+    code, _, err, _ = run(monkeypatch, tmp_path, "bom", str(board), "--kicad-cli", str(fake))
+    assert code == 3 and err["code"] == "FEN-3004" and "'Bin'" in err["message"]
+
+
+def test_kicad_source_refuses_a_property_with_a_comma(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)
+    template = tmp_path / "odd.toml"
+    template.write_text(
+        '[bom]\ncolumns = [{ name = "Parts", field = "refs" }, { name = "Odd", field = "property:a,b" }]\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    code, env, err, _ = run(
+        monkeypatch, tmp_path, "bom", str(board), "--template", str(template), "--kicad-cli", str(fake)
+    )
+    assert code == 3 and err["code"] == "FEN-3004"
+    assert [(i["code"], i["where"]) for i in env["issues"]] == [("bom.field-unsupported", "property:a,b")]
+    assert calls(fake) == []
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "bom", str(board), "--template", str(template), "--source", "model"
+    )
+    assert code == 0 and env["result"]["columns"] == ["Parts", "Odd"]  # the model source reads it
 
 
 def test_difference_of_two_projects(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

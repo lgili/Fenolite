@@ -165,6 +165,7 @@ def test_issue_codes() -> None:
         "render.failed": "warning",
         "assembly.template-invalid": "error",
         "bom.property-missing": "info",
+        "bom.field-unsupported": "error",
         "pnp.no-outline": "error",
         "manifest.unreadable": "error",
         "manifest.missing": ("warning", "error"),

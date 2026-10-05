@@ -123,16 +123,17 @@
 - **THEN** the bytes hold exactly two CRLF pairs and no header line
 
 ### Requirement: BOM parts from kicad-cli
-`fenolite.backends.kicad.bom.read_bom_csv(text, *, fields) -> tuple[BomPart, ...]` SHALL read the CSV that `KicadCli.export_bom` asks `kicad-cli` to write into the same `BomPart`s that `parts_from_model` gives.
-- `bom.bom_fields(template) -> tuple[str, ...]` MUST return `Reference`, `Value`, `Footprint`, `Datasheet`, `Description`, `${DNP}` and then, sorted, the name of each `property:<NAME>` that a BOM column or `group_by` of the template names. A property name that holds `,` MUST raise `TemplateError` with one `bom.field-unsupported` issue.
-- The header MUST equal `fields`; any other header MUST raise `FormatError` (`FEN-3004`) naming the first difference.
-- A row MUST give one part: `dnp` true when the `${DNP}` cell is not empty, `properties` holding the property cells that are not empty.
-- Parts MUST be sorted by natural order of the reference.
+`fenolite.backends.kicad.bom.read_bom_csv(text, *, fields, file="") -> tuple[BomRow, ...]` SHALL read the CSV that `KicadCli.export_bom` asks `kicad-cli` to write, one `BomRow(ref, value, footprint, datasheet, description, dnp, properties)` per row in file order, and `fenolite.exports.bom.parts_from_kicad(rows) -> tuple[BomPart, ...]` SHALL give the same `BomPart`s that `parts_from_model` gives. The reader returns rows and not parts because a backend may not import `exports`.
+- `backends.kicad.bom.bom_fields(properties) -> tuple[str, ...]` MUST return `BASE_FIELDS` (`Reference`, `Value`, `Footprint`, `Datasheet`, `Description`, `${DNP}`) and then the property names, sorted and without repeats.
+- `exports.bom.kicad_fields(template) -> tuple[str, ...]` MUST return `bom_fields` of the name of each `property:<NAME>` that a BOM column or `group_by` of the template names. A property name that holds `,` MUST raise `TemplateError` with one `bom.field-unsupported` issue per name, before any tool runs.
+- The header MUST equal `fields`; any other header, a row with another number of cells, or a row without a reference MUST raise `FormatError` (`FEN-3004`) naming the first difference and its line.
+- A row MUST give one `BomRow`: `dnp` true when the `${DNP}` cell is not empty, `properties` holding the property cells that are not empty.
+- `parts_from_kicad` MUST sort the parts by natural order of the reference and drop a reference that starts with `#`.
 
 #### Scenario: Rows to parts
 - **GIVEN** the authored `tests/data/assembly/bom_export.csv` with the header `"Reference","Value","Footprint","Datasheet","Description","${DNP}","Bin"` and the rows of `D1`, `R1` and `R10`, the last with `DNP`
-- **WHEN** `read_bom_csv` reads it with those fields
-- **THEN** it returns three parts in the order `D1`, `R1`, `R10`, `R10.dnp` is true, and `R1.properties == {"Bin": "A"}`
+- **WHEN** `read_bom_csv` reads it with those fields and `parts_from_kicad` takes the rows
+- **THEN** there are three parts in the order `D1`, `R1`, `R10`, `R10.dnp` is true, and `R1.properties == {"Bin": "A"}`
 
 #### Scenario: Unexpected header
 - **GIVEN** the same text with the header's second cell `Val`
@@ -141,7 +142,7 @@
 
 ### Requirement: Assembly issue codes and evidence
 `fenolite.exports.codes.ISSUE_CODES` SHALL gain `assembly.template-invalid` (error), `bom.property-missing` (info), `bom.field-unsupported` (error) and `pnp.no-outline` (error), and `docs/cli-contract.md` MUST document them.
-- `bom.EVIDENCE_KICAD` MUST be `INFERRED` (`H-K-BOM-CSV`), `bom.EVIDENCE_MODEL` `INFERRED` (`H-K-BOM-MODEL`) and `placement.EVIDENCE` `INFERRED` (`H-K-PCB-POS`, `H-K-POS-ROWS`), each until its rows are `KICAD-VERIFIED (9.0.x, 10.0.x)` in `docs/hypotheses.md`.
+- `bom.EVIDENCE_KICAD` (`H-K-BOM-CSV`; the evidence that `backends.kicad.bom` declares), `bom.EVIDENCE_MODEL` (`H-K-BOM-MODEL`) and `placement.EVIDENCE` (`H-K-PCB-POS`, `H-K-POS-ROWS`) MUST each carry the level of the weakest row it names in `docs/hypotheses.md`: `INFERRED` until that row is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
 - `bom.EVIDENCE_MODEL` MUST be used as `KICAD-VERIFIED` only for a built project that has a schematic; for any other input the envelope MUST carry `INFERRED`.
 - `docs/assembly.md` MUST hold the template reference, one worked example with invented column names, what each rotation key does with numbers, which BOM source to use when, and the sentence that Fenolite ships no template of any assembly service and that a template's fit to a service is the user's to check.
 

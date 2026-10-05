@@ -13,14 +13,27 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
+from fenolite.backends.kicad import bom as kicad_bom
 from fenolite.core.evidence import Evidence, Level
-from fenolite.exports.assembly import DNP_TEXT, BomTemplate, footprint_name, natural_key, property_name
+from fenolite.exports.assembly import (
+    DNP_TEXT,
+    PROPERTY_PREFIX,
+    BomTemplate,
+    TemplateError,
+    footprint_name,
+    natural_key,
+    property_name,
+)
+from fenolite.exports.codes import issue
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 
-EVIDENCE_MODEL = Evidence(Level.INFERRED, hypotheses=("H-K-BOM-MODEL",))
-"""``INFERRED``: no built project has a schematic that ``kicad-cli`` could list the parts of, so
-``H-K-BOM-MODEL`` is pending."""
+EVIDENCE_KICAD = kicad_bom.EVIDENCE
+"""The evidence of parts read from ``kicad-cli`` (``H-K-BOM-CSV``); the caller adds the oracle's version."""
+EVIDENCE_MODEL = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-BOM-MODEL",))
+"""``KICAD-VERIFIED`` for a built project that has its schematic: there the parts of the model equal the
+parts ``kicad-cli`` lists, on 9.0.9 and 10.0.6 (``H-K-BOM-MODEL``). A caller that lists any other input
+lowers the level to ``INFERRED``."""
 RESERVED_PROPERTIES = frozenset({"Reference", "Value", "Footprint", "Datasheet", "Description"})
 """The component properties that are fields of a part and so are left out of ``BomPart.properties``."""
 LEFT_OUT_ATTRIBUTES = frozenset({"board_only", "exclude_from_bom"})
@@ -107,6 +120,50 @@ def parts_from_model(design: Design) -> tuple[BomPart, ...]:
     return tuple(sorted(kept, key=lambda part: _ref_key(part.ref)))
 
 
+def kicad_fields(template: BomTemplate) -> tuple[str, ...]:
+    """The fields to ask ``kicad-cli`` for under ``template``: the base fields, then each user property
+    that a column or ``group_by`` names, sorted. A property name with a comma cannot be asked for: it
+    raises ``TemplateError`` with one ``bom.field-unsupported`` issue per name."""
+    names = [
+        name
+        for field_name in (*(column.field for column in template.columns), *template.group_by)
+        if (name := property_name(field_name)) is not None
+    ]
+    bad = kicad_bom.unsupported_fields(names)
+    if bad:
+        raise TemplateError(
+            tuple(
+                issue(
+                    "bom.field-unsupported",
+                    f"the property {name!r} has a comma in its name, which kicad-cli cannot be asked for",
+                    where=f"{PROPERTY_PREFIX}{name}",
+                    hint="use --source model, or rename the property",
+                )
+                for name in bad
+            )
+        )
+    return kicad_bom.bom_fields(names)
+
+
+def parts_from_kicad(rows: Iterable[kicad_bom.BomRow]) -> tuple[BomPart, ...]:
+    """The parts of the rows that ``kicad-cli`` exported, in natural order of the reference. KiCad has
+    already left out what is not on the bill; a reference that starts with ``#`` is dropped all the same."""
+    parts = [
+        BomPart(
+            ref=row.ref,
+            value=row.value,
+            footprint=row.footprint,
+            description=row.description,
+            datasheet=row.datasheet,
+            dnp=row.dnp,
+            properties=dict(row.properties),
+        )
+        for row in rows
+        if not row.ref.startswith(VIRTUAL_PREFIX)
+    ]
+    return tuple(sorted(parts, key=lambda part: _ref_key(part.ref)))
+
+
 def part_value(part: BomPart, field_name: str) -> str:
     """The text of a field of one part (the fields a part has: not ``refs``, ``quantity`` or ``item``)."""
     name = property_name(field_name)
@@ -186,6 +243,7 @@ def difference(a: Iterable[BomLine], b: Iterable[BomLine]) -> tuple[BomChange, .
 
 
 __all__ = [
+    "EVIDENCE_KICAD",
     "EVIDENCE_MODEL",
     "LEFT_OUT_ATTRIBUTES",
     "RESERVED_PROPERTIES",
@@ -194,7 +252,9 @@ __all__ = [
     "BomPart",
     "difference",
     "group",
+    "kicad_fields",
     "part_value",
+    "parts_from_kicad",
     "parts_from_model",
     "table",
 ]

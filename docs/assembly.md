@@ -246,18 +246,30 @@ So the two files give the same angle for every part, written differently when it
 
 `fenolite bom` has a `--source` option.
 
+- `--source kicad`, the default, asks `kicad-cli` for the parts of the project's schematic
+  (`<name>.kicad_sch` next to the board). KiCad is the judge of what a schematic holds: which symbols are on
+  the bill, which are DNP, what their fields say. The tool runs on a copy, so the project folder does not
+  change. Fenolite asks for one row per reference and does the grouping itself, so both sources group the
+  same way. Use it whenever the project has a schematic.
 - `--source model` lists the parts of the model: in a project that Fenolite built, the `.fenolite/` model;
   for any other project, the board file as Fenolite reads it. It needs no tool and no schematic. Use it
-  for a board whose parts and properties you declared in a Fenolite script.
-- `--source kicad` asks `kicad-cli` for the parts of the project's schematic. It is the default by
-  contract, because KiCad is the judge of what a schematic holds, and **it is not available yet**: it
-  arrives with the schematic writer. Until then, `fenolite bom PATH` without `--source model` exits with
-  an error that names `--source model`. It never falls back to the model silently, so a file never
-  claims a source it did not have.
+  where `kicad-cli` is not installed, or for a board without a schematic.
 
-A bill from the model is labelled `INFERRED`: nothing outside Fenolite has confirmed it. On a board that
-Fenolite did not build, a part is whatever the board file holds; a component that exists only in the
-schematic is not on it.
+The command never falls back from one source to the other, so a file never claims a source it did not
+have: without a schematic, `fenolite bom PATH` exits with an error that names `--source model`.
+
+For a project that Fenolite built, the two sources give the same parts: references, values, footprints,
+DNP marks, descriptions and user properties. That was measured on KiCad 9.0.9 and 10.0.6
+(`tests/kicad/assembly/test_assembly_oracle.py`, hypothesis `H-K-BOM-MODEL`). They can differ on a project
+that was edited in KiCad afterwards, and on a board Fenolite did not build: there a part is whatever the
+board file holds, a component that exists only in the schematic is not on it, and the bill from the model
+is labelled `INFERRED`.
+
+What `kicad-cli` is asked for (`sch export bom`), measured on both versions (`H-K-BOM-CSV`): one row per
+reference, also for a symbol with several units; `DNP` in the DNP column of a part marked so; no power flag
+and no symbol that is marked as not in the bill; an empty cell for a property a part does not have. A
+property whose name holds a comma cannot be asked for (`bom.field-unsupported`); the `model` source reads
+it.
 
 `--against OTHER` also lists what changed from the project `OTHER` to `PATH`, line by line, under the same
 template: `removed` (a line only `OTHER` has), `added` (a line only `PATH` has) and `changed` (the same
@@ -276,7 +288,8 @@ grouping values with different references).
 ## Counts in the result
 
 `result.counts` of `bom`: `parts` (the parts on the lines), `lines`, `dnp` (the DNP parts the source has,
-listed or not) and `left_out` (the footprints of the board that are not parts of the bill). Of `pnp`:
+listed or not) and `left_out` (the footprints of the board that are not parts of the bill; `null` for the
+`kicad` source, because KiCad does not say what it leaves out). Of `pnp`:
 `rows`, `top`, `bottom`, `dnp` (the DNP footprints the board has, listed or not) and `left_out` (the
 footprints of the board that have no row, for any reason: a filter, `--side`, or the attribute).
 
@@ -287,8 +300,9 @@ footprints of the board that have no row, for any reason: a filter, `--side`, or
 - The placement rows rest on `H-K-PCB-POS` (positions and stored angles equal KiCad's, verified) and on
   `H-K-POS-ROWS` (the whole rows, as above). The envelope carries the level recorded for them in
   `docs/hypotheses.md`, combined with the level of the board read.
-- The bill from the model rests on `H-K-BOM-MODEL`, which is open until a schematic exists to compare
-  with.
+- The bill from `kicad-cli` rests on `H-K-BOM-CSV`: what the export writes for the call Fenolite makes.
+- The bill from the model rests on `H-K-BOM-MODEL`: on a built project it equals the bill from
+  `kicad-cli`. For any other input it is `INFERRED`.
 
 Sources: RFC 4180 (S-0365) and the Python `csv` documentation (S-0366) for the CSV rules; the observed
 output of `kicad-cli` (S-0020) and its manuals (S-0022, S-0037) for the position file. They are listed in

@@ -107,9 +107,9 @@ changes between identical runs gives `inconclusive` instead of a false differenc
 | `pcb export pos` has `--format`, `--units`, `--side`, `--exclude-dnp`, `--exclude-fp-th`, `--smd-only`, `--use-drill-file-origin` and `--bottom-negate-x` on both majors; `--format ascii` writes a `.pos` file and `--format gerber` a `.gbr` file | S-0020, S-0022, S-0037 | INFERRED | H-K-EXPORT-OPTIONS |
 | Two runs on one board differ only in the lines that start with `%TF.CreationDate`, `G04 Created by KiCad`, `; DRILL file` or `; #@! TF.CreationDate`, and in the job file's `"CreationDate":` line | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-REPEAT |
 | The position CSV and the IPC-D-356 file are byte-equal across two runs | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-REPEAT |
-| In the position CSV (`Ref,Val,Package,PosX,PosY,Rot,Side`), `Ref`, `Val` and `Package` are in double quotes and the numbers and the side are bare; `Val` is the footprint's Value and `Package` the footprint's name without its library (measured on the authored board and on the built blink, c0064) | S-0020 | INFERRED | H-K-POS-ROWS |
-| Without a DNP option, the position CSV lists a footprint that has the attribute `dnp` and leaves out one that has `exclude_from_pos_files` (measured on the built blink with both flags set, c0064) | S-0020 | INFERRED | H-K-POS-ROWS |
-| `Rot` is the stored angle printed with 6 decimals in the range above −180° up to 180°: 180° is `180.000000` and 270° is `-90.000000`, on the top and on the bottom side (measured on the built blink turned to those angles, c0064) | S-0020 | INFERRED | H-K-POS-ROWS |
+| In the position CSV (`Ref,Val,Package,PosX,PosY,Rot,Side`), `Ref`, `Val` and `Package` are in double quotes and the numbers and the side are bare; `Val` is the footprint's Value and `Package` the footprint's name without its library (measured on the authored board and on the built blink, c0064) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-POS-ROWS |
+| Without a DNP option, the position CSV lists a footprint that has the attribute `dnp` and leaves out one that has `exclude_from_pos_files` (measured on the built blink with both flags set, c0064) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-POS-ROWS |
+| `Rot` is the stored angle printed with 6 decimals in the range above −180° up to 180°: 180° is `180.000000` and 270° is `-90.000000`, on the top and on the bottom side (measured on the built blink turned to those angles, c0064) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-POS-ROWS |
 | `--check-zones` exists on 10.0 only and refills zones before plotting; Fenolite never passes it | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 | `pcb export svg --mode-single -o <file> --layers <list>` writes one SVG on both majors; `--mirror` mirrors it | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
 | `pcb render --side top\|bottom --width W --height H -o <file>.png` writes a PNG no larger than that size (368 × 280 for 400 × 300) with no display | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
@@ -133,3 +133,20 @@ the counts per document are in `docs/evidence/equivalence-triangle.md`.
 | `kicad-10.0-octagon-shape`: an octagonal pad is a rounded rectangle in the converted board; Fenolite's import gives it a custom shape, and the model has no octagon (2 pads of one public document) | S-0020, S-0176 | INFERRED | H-G-EQ-PADSHAPE |
 | A converted length is held in steps of 10 nm; after the translation no footprint position, pad position, pad size or drill of seven public documents differs by more than 9 nm from Fenolite's read | S-0020, S-0002 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-G-EQ-ROUND-2 |
 | A pad that belongs to no component becomes a footprint without a reference, as in Fenolite's import; a footprint is named by the designator text the board shows | S-0020, S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-G-EQ-FREE-2 |
+
+## Bill of materials
+
+`fenolite bom` (change c0064) runs `sch export bom` on a copy of the schematic, once, and reads the file
+back (`backends/kicad/bom.py`). Everything below was measured by running the binary (S-0020) on schematics
+that `fenolite build` wrote; no manual page is cited.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `sch export bom` exists on 9.0.9 and 10.0.6, and its help page lists `--fields`, `--labels`, `--group-by`, `--sort-field`, `--sort-asc`, `--filter`, `--exclude-dnp`, `--include-excluded-from-bom`, `--field-delimiter`, `--string-delimiter`, `--ref-delimiter`, `--ref-range-delimiter`, `--keep-tabs`, `--keep-line-breaks`, `--preset`, `--format-preset` and `--output` on both; 10.0.6 adds `--variant` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| With `--fields <list>` and `--labels <the same list>`, the first line is the labels, each in double quotes, separated by commas; every cell of every row is in double quotes too. These are the tool's default delimiters | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| Without `--group-by` there is one row per reference: two parts of one value are on two rows, and a symbol with three units is on one row | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| The field `${DNP}` is `DNP` for a symbol marked `(dnp yes)` and empty for the others; the DNP part is listed | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| A symbol whose reference starts with `#` (a power flag) and a symbol marked `(in_bom no)` are not listed | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| A user property named in `--fields` gives its column, with the value of each symbol that has it; a field that no symbol has gives an empty column, and the run exits 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| The call without `--fields` writes the header `"Refs","Value","Footprint","Qty","DNP"` and one row per part, on both majors | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
+| For a project that `build` wrote, the rows equal the parts of the built model: reference, value, footprint, DNP mark, description, datasheet and user properties | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-MODEL |

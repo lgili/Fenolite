@@ -1022,23 +1022,27 @@ The twelve `altium.sheet.*` codes: `not-representable`, `not-template-content`, 
 warnings (losses); `appearance`, `rounded` and `builtin-drawn` are infos.
 ## bom
 
-`fenolite bom PATH [--source kicad|model] [--template FILE] [--out FILE] [--manifest] [--against OTHER]` gives the bill
+`fenolite bom PATH [--source kicad|model] [--template FILE] [--out FILE] [--manifest] [--against OTHER]
+[--kicad-cli PATH] [--timeout SECONDS]` gives the bill
 of materials of the project `PATH` names (resolved as for `check`) as a neutral table, rendered through a
 column template that the user writes (`docs/assembly.md`). Fenolite ships no template of any assembly
 service; without `--template` the built-in default applies, whose column names are Fenolite's field names.
 
+- `--source kicad`, the default, is the bill that `kicad-cli` exports from the project's schematic,
+  `<stem>.kicad_sch` next to the board: `sch export bom` with one row per reference, run on a copy of the
+  schematic, of the project file and of every other `.kicad_sch` under the project folder. Fenolite reads
+  the rows back and groups them itself. `--kicad-cli` and `--timeout` (300 s) are as for `export`. A
+  project without that schematic exits 3 with `FEN-3001` and a hint that names `--source model`: the
+  command never falls back to the other source.
 - `--source model` lists the parts of the `.fenolite/` model of a built project, or of the board read for
   any other project. It runs no tool.
-- `--source kicad`, the default, is the bill that `kicad-cli` exports from the project's schematic. It is
-  **not available yet** (it arrives with the schematic writer, together with `--kicad-cli` and
-  `--timeout`). Until then the command never falls back: without a `<stem>.kicad_sch` next to the board it
-  exits 3 with `FEN-3001`, with one it exits 2 with `FEN-2001`, and both hints name `--source model`.
 - `--against OTHER` reads `OTHER` as `PATH`, with the same source and template, and adds `result.changes`:
   what changed from `OTHER` to `PATH`.
 
 `result` holds `source`, `template` (the file name without its folder, or `default`), `columns` (the
 column names), `lines` (one object per line, keyed by column name, with the text the file would hold),
-`counts` (`parts`, `lines`, `dnp`, `left_out`) and, with `--against`, `changes` (each `key`, the values of
+`counts` (`parts`, `lines`, `dnp`, and `left_out`, which is `null` for the `kicad` source: KiCad does not
+say what it leaves off a bill) and, with `--against`, `changes` (each `key`, the values of
 the grouping fields; `change`, one of `added`, `removed`, `changed`; `a_refs`, the references in `OTHER`;
 `b_refs`, those in `PATH`). No value holds a date or an absolute path, and two runs on an unchanged
 project give the same output apart from `elapsed_ms`.
@@ -1055,11 +1059,18 @@ merged as `export` merges it, with one entry of kind `bom` or `pnp`: `tool` `fen
 |---|---|---|
 | `assembly.template-invalid` | error | the template has an unknown table or key, an unknown field, two columns with one name, an empty column list or a value outside its set; one issue per problem, `where` is the key path; the command exits 3 with `FEN-3004` |
 | `bom.property-missing` | info | a column names a `property:<NAME>` that no part has; the column is empty; `where` is the column name |
+| `bom.field-unsupported` | error | with the `kicad` source, the template names a property that has a comma in its name, which cannot be asked of `kicad-cli`; the command exits 3 with `FEN-3004`; `--source model` reads it |
 
 Exit codes: 0, 4 as above, 2 for a usage error, 3 for a missing path, a template that cannot be read
-(`FEN-3001`) or is invalid (`FEN-3004`), or a `.fenolite/` model that cannot be read (`FEN-3004`). The
-evidence of the `model` source is `INFERRED` (`H-K-BOM-MODEL`), combined with the evidence of the board
-read when the project was not built by Fenolite.
+(`FEN-3001`) or is invalid (`FEN-3004`), or a `.fenolite/` model that cannot be read (`FEN-3004`). With the
+`kicad` source: 3 without a schematic (`FEN-3001`), when `kicad-cli` writes no bill or times out, or when
+its bill does not have the header that was asked for (`FEN-3004`); 6 when `kicad-cli` is missing
+(`FEN-6001`), of an unsupported major or older than the board's format (`FEN-6002`).
+
+The evidence of the `kicad` source is `bom.EVIDENCE_KICAD` (`H-K-BOM-CSV`) with the oracle
+`kicad-cli <version>`. The evidence of the `model` source is `bom.EVIDENCE_MODEL` (`H-K-BOM-MODEL`) for a
+project that Fenolite built and that has its schematic, because only there were the two sources
+compared; for any other input it is `INFERRED`, combined with the evidence of the board read.
 
 ## pnp
 

@@ -1,6 +1,14 @@
 {
   "version": "9.0.9",
   "probes": {
+    "bom-csv-dnp": "equal",
+    "bom-csv-header": "equal",
+    "bom-csv-left-out": "equal",
+    "bom-csv-rows": "equal",
+    "bom-csv-units": "equal",
+    "bom-csv-unknown-field": "equal",
+    "bom-model-blink": "equal",
+    "bom-model-units": "equal",
     "build-baseline-t9": "absent",
     "build-canary-t9": "present",
     "build-class-t9": "present",

@@ -35,8 +35,10 @@ from fenolite.exports.codes import issue
 from fenolite.model.board import FootprintInstance, Side
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PCB-POS", "H-K-POS-ROWS"))
-"""``INFERRED`` until ``H-K-POS-ROWS`` holds on both KiCad majors (``H-K-PCB-POS`` already does)."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PCB-POS", "H-K-POS-ROWS"))
+"""``KICAD-VERIFIED``: both rows hold on 9.0.9 and 10.0.6. The level covers the rows under the default
+template with DNP parts kept; what a template then does to them is arithmetic, and whether it suits a
+service is the user's claim."""
 Mount = Literal["smd", "through_hole", "other"]
 
 

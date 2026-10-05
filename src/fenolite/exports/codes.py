@@ -19,6 +19,7 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "render.failed": "warning",
         "assembly.template-invalid": "error",
         "bom.property-missing": "info",
+        "bom.field-unsupported": "error",
         "pnp.no-outline": "error",
         "manifest.unreadable": "error",
         "manifest.missing": ("warning", "error"),

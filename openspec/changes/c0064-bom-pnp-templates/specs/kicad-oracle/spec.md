@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: BOM export through the package runner
-`KicadCli.export_bom(schematic, *, fields, files=None) -> CliRun` SHALL run `sch export bom` through `KicadCli.run` on a copy, with `--fields <fields joined by commas>`, `--labels` equal to the fields, an empty `--ref-range-delimiter`, `--field-delimiter ,`, `--string-delimiter "` and `-o <out>`, and without `--group-by`, `--preset`, `--format-preset`, `--exclude-dnp` and `--include-excluded-from-bom`.
+`KicadCli.export_bom(schematic, *, fields, files=None) -> CliRun` SHALL run `sch export bom` through `KicadCli.run` on a copy, with `--fields <fields joined by commas>`, `--labels` equal to the fields, an empty `--ref-range-delimiter` and `-o <out>`, and without `--group-by`, `--preset`, `--format-preset`, `--exclude-dnp`, `--include-excluded-from-bom`, `--field-delimiter` and `--string-delimiter`: the comma and the double quote are the tool's defaults on both majors, which the probe `bom-csv-header` pins.
 - It MUST NOT raise for a non-zero exit; the written CSV is among `CliRun.outputs`.
 - `tests/kicad/assembly/test_bom_probes.py` (marker `needs_kicad`, major-aware) MUST settle `H-K-BOM-CSV` on 9.0.9 and 10.0.6 with projects that `tests/kicad/assembly/_asmcases.py` builds into `tmp_path`, each outcome a probe of `PROBES`:
   - the header equals the labels (`bom-csv-header`);

@@ -185,5 +185,5 @@ def test_property_and_unit_cells() -> None:
 
 
 def test_evidence_names_both_rows() -> None:
-    assert placement.EVIDENCE.level is Level.INFERRED
+    assert placement.EVIDENCE.level is Level.KICAD_VERIFIED
     assert placement.EVIDENCE.hypotheses == ("H-K-PCB-POS", "H-K-POS-ROWS")

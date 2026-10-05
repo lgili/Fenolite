@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
 from _assembly import LED, QFP, R_0603, Part, design_of
 
+from fenolite.backends.kicad import bom as kicad_bom
 from fenolite.core.evidence import Level
 from fenolite.exports import bom
-from fenolite.exports.assembly import DEFAULT, BomTemplate, Column
+from fenolite.exports.assembly import DEFAULT, BomTemplate, Column, TemplateError
 from fenolite.exports.bom import BomChange, BomPart, difference, group, parts_from_model, table
 
 PARTS = (
@@ -146,6 +148,45 @@ def test_a_value_changed() -> None:
     )
 
 
-def test_evidence_is_inferred_until_the_schematic_exists() -> None:
-    assert bom.EVIDENCE_MODEL.level is Level.INFERRED
+def test_evidence_of_the_model_source() -> None:
+    assert bom.EVIDENCE_MODEL.level is Level.KICAD_VERIFIED
     assert bom.EVIDENCE_MODEL.hypotheses == ("H-K-BOM-MODEL",)
+
+
+def test_fields_for_the_kicad_source() -> None:
+    template = _template(
+        columns=(Column("Parts", "refs"), Column("Bin", "property:Bin"), Column("Lot", "property:Lot")),
+        group_by=("value", "property:Area", "property:Bin"),
+    )
+    assert bom.kicad_fields(template) == (
+        "Reference", "Value", "Footprint", "Datasheet", "Description", "${DNP}", "Area", "Bin", "Lot",
+    )  # fmt: skip
+    assert bom.kicad_fields(DEFAULT.bom) == kicad_bom.BASE_FIELDS
+
+
+def test_a_property_with_a_comma_is_refused_for_the_kicad_source() -> None:
+    template = _template(columns=(Column("Parts", "refs"), Column("Odd", "property:a,b")))
+    with pytest.raises(TemplateError) as caught:
+        bom.kicad_fields(template)
+    assert [(i.code, i.severity, i.where) for i in caught.value.issues] == [
+        ("bom.field-unsupported", "error", "property:a,b")
+    ]
+    assert "--source model" in caught.value.issues[0].hint
+
+
+def test_parts_from_kicad_rows() -> None:
+    rows = (
+        kicad_bom.BomRow("R10", "330", R_0603, dnp=True),
+        kicad_bom.BomRow("#FLG01", "PWR_FLAG"),
+        kicad_bom.BomRow("R2", "10k", R_0603, "none", "made-up resistor", properties={"Bin": "A"}),
+    )
+    parts = bom.parts_from_kicad(rows)
+    assert parts == (
+        BomPart("R2", "10k", R_0603, "made-up resistor", "none", False, {"Bin": "A"}),
+        BomPart("R10", "330", R_0603, dnp=True),
+    )
+
+
+def test_evidence_of_the_kicad_source_is_the_backend_s() -> None:
+    assert bom.EVIDENCE_KICAD is kicad_bom.EVIDENCE
+    assert bom.EVIDENCE_KICAD.hypotheses == ("H-K-BOM-CSV",)

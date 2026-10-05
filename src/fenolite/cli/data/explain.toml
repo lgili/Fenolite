@@ -739,6 +739,11 @@ meaning = "The column template of a BOM or placement table is malformed: an unkn
 fix = "Correct the template file at the key that `where` names; docs/assembly.md lists the keys and the fields."
 see = "bom"
 
+["bom.field-unsupported"]
+meaning = "The BOM template names a property with a comma in its name. The `kicad` source asks `kicad-cli` for its fields as one comma-separated list, so it cannot ask for that property."
+fix = "Run `bom` with `--source model`, which reads the property from the model, or rename the property in the design."
+see = "bom"
+
 ["bom.property-missing"]
 meaning = "A column of the BOM template names a property that no part of the design has, so the column is empty."
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."

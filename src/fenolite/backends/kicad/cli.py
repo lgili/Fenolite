@@ -50,6 +50,8 @@ CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
 NETLIST = "out.net"
 """The file name ``export_netlist`` asks ``kicad-cli`` to write."""
+BOM = "bom.csv"
+"""The file name ``export_bom`` asks ``kicad-cli`` to write."""
 RENDER_DIR = "render"
 IMPORTED_BOARD = "imported.kicad_pcb"
 """The file name ``import_board`` asks ``kicad-cli`` to write."""
@@ -389,6 +391,18 @@ class KicadCli:
         args = ["sch", "export", "netlist", "--format", "kicadsexpr", "-o", NETLIST, name]
         return self.run(args, files=_with(schematic, files))
 
+    def export_bom(
+        self, schematic: Path, *, fields: Sequence[str], files: Mapping[str, Path] | None = None
+    ) -> CliRun:
+        """``sch export bom`` on a copy, one row per reference: ``fields`` are the columns and their own
+        labels, nothing is grouped and no reference range is folded. The CSV (comma-separated, text in
+        double quotes: the tool's defaults) is under ``BOM`` in the outputs when one was written; the run
+        never raises for a non-zero exit."""
+        name = Path(schematic).name
+        joined = ",".join(fields)
+        args = ["sch", "export", "bom", "--fields", joined, "--labels", joined]
+        return self.run([*args, "--ref-range-delimiter", "", "-o", BOM, name], files=_with(schematic, files))
+
     def upgrade_schematic(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> bytes:
         """``sch upgrade --force`` (10.0 only): the schematic re-saved in the running version's format."""
         self._require_ten("sch upgrade")
@@ -527,6 +541,7 @@ def _sanitise(text: str, tmp: Path) -> str:
 __all__ = [
     "WINDOWS_KICAD_VERSIONS",
     "windows_kicad_clis",
+    "BOM",
     "DRC_REPORT",
     "DOCKER_PREFIX",
     "IMPORTED_BOARD",

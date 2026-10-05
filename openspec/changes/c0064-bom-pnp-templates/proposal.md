@@ -47,5 +47,5 @@ Size: 7 design-days; cut order in the design.
 - New: `src/fenolite/exports/{bom,placement,assembly}.py`, `backends/kicad/bom.py`, `cli/cmd_bom.py`, `cli/cmd_pnp.py`, `docs/assembly.md`, `tests/data/assembly/`.
 - Changed: `backends/kicad/cli.py`, `exports/codes.py`, `docs/cli-contract.md`, `docs/exports.md`.
 - No model change, no runtime dependency (`tomllib` and `csv` are stdlib).
-- Implemented on 2026-10-05 without the `kicad` source (design, "Implementation notes").
+- Implemented on 2026-10-05 without the `kicad` source, and completed with it on 2026-10-06 (design, "Implementation notes").
 - Depends on c0061 for the `kicad` source (a schematic to export from); the `model` source and `pnp` need no pending change.

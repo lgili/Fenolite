@@ -400,3 +400,39 @@ def test_netlist_helper_refuses_other_roots() -> None:
     with pytest.raises(ValueError, match="kicad_sch"):
         _netlist.components("(kicad_sch (version 1))")
     assert _netlist.components('(export (version "E"))') == set()
+
+
+def test_export_bom_arguments(tmp_path: Path) -> None:
+    """``sch export bom`` with the fields as their own labels, nothing grouped (capability kicad-oracle,
+    "BOM export through the package runner"; change c0064)."""
+    from _fakecli import calls, fake_kicad_cli
+
+    from fenolite.backends.kicad.cli import BOM
+
+    fake = fake_kicad_cli(tmp_path / "bin", bom='"Reference","Value","Bin"\n')
+    before = _folder_state(FLAT.parent)
+    run = KicadCli(fake).export_bom(FLAT, fields=("Reference", "Value", "Bin"))
+    assert run.ok and run.outputs[BOM] == b'"Reference","Value","Bin"\n'
+    assert _folder_state(FLAT.parent) == before
+    args = next(c["args"] for c in calls(fake) if c["args"][:3] == ["sch", "export", "bom"])
+    assert args[args.index("--fields") + 1] == "Reference,Value,Bin"
+    assert args[args.index("--labels") + 1] == "Reference,Value,Bin"
+    assert args[args.index("--ref-range-delimiter") + 1] == ""
+    assert args[args.index("-o") + 1] == BOM and args[-1] == "flat.kicad_sch"
+    for option in (
+        "--group-by",
+        "--preset",
+        "--format-preset",
+        "--exclude-dnp",
+        "--include-excluded-from-bom",
+    ):
+        assert option not in args
+
+
+def test_export_bom_does_not_raise_for_a_failed_load(tmp_path: Path) -> None:
+    from _fakecli import fake_kicad_cli
+
+    from fenolite.backends.kicad.cli import BOM
+
+    run = KicadCli(fake_kicad_cli(tmp_path / "bin")).export_bom(FLAT, fields=("Reference",))
+    assert not run.ok and run.returncode == 3 and BOM not in run.outputs
