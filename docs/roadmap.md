@@ -1,7 +1,7 @@
 # Roadmap to 1.0
 
 Status on 2026-10-02. Released: `0.0.1.dev0` (2026-09-30, pre-alpha). Next planned tag:
-`v0.1.0-alpha1`, after c0019 and c0020. Next planned release: `v0.1.0`.
+`v0.1.0-alpha1`, after c0019 and c0020. Released: `v0.1.0` on 2026-10-05. Next planned release: `v0.2.0`.
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. Every id after c0031 is an estimate, and so is every budget.
@@ -87,7 +87,7 @@ rebuilds.
 | c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | done | c0019, c0028, c0030 | 6 |
 | c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | done | c0016 | 10 |
 | c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | done | c0013 | 5.25 |
-| c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | in progress: tasks 0 to 5.7 done on 2026-10-05; the verdict and the version commit remain | every v0.1 change | 5.75 |
+| c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | done; v0.1.0 released on 2026-10-05 with the maintainer's verdict (`docs/release/v0.1.md`) | every v0.1 change | 5.75 |
 | c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | done | c0010 | 6.5 |
 | c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | done | c0011 | 5.25 |
 | c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | done | c0019, c0021 | 21.5 |
@@ -110,8 +110,8 @@ rebuilds.
   the same order, because several of them modify requirements that an earlier one adds; each design
   states its archive-order dependencies.
 - The last column is the size in design-days: from the designs ("Budget") for proposed and done
-  changes, planning estimates for roadmap changes. On 2026-10-05 every v0.1 change is done except
-  c0025, the release itself. c0049 to c0056 joined v0.1 on 2026-10-04 (loose ends found by the v0.1
+  changes, planning estimates for roadmap changes. On 2026-10-05 every v0.1 change is done and
+  v0.1.0 is released. c0049 to c0056 joined v0.1 on 2026-10-04 (loose ends found by the v0.1
   audit, and DSL work of the other agent); c0055 and c0056 give no size in their designs.
 
 **Gaps found by the dogfood board.** On 2026-10-02 a testing agent built a real board (a 12–24 V to
