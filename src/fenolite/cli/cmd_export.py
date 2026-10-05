@@ -23,8 +23,10 @@ from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence
 from fenolite.exports import EVIDENCE, manifest
+from fenolite.exports import preset as presets
 from fenolite.exports.plan import KINDS, Artifact, run_kind
 
 HELP = "export fabrication files through kicad-cli on a copy of the project (writes under DIR)"
@@ -40,6 +42,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--ipcd356", action="store_true", help="IPC-D-356 netlist")
     parser.add_argument("--all", action="store_true", help="the four kinds")
     parser.add_argument("--manifest", action="store_true", help=f"also write {manifest.FILE_NAME}")
+    parser.add_argument(
+        "--preset",
+        metavar="FILE",
+        default=None,
+        help="a TOML file of your fabrication options for the Gerber, drill and position exports",
+    )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS", help="per kicad-cli run (300)"
@@ -50,11 +58,31 @@ def _joined(out: str, path: str) -> str:
     return (PurePosixPath(Path(out).as_posix()) / path).as_posix()
 
 
+def _preset(given: str | None, cwd: Path) -> tuple[presets.Preset | None, dict[str, str] | None]:
+    """The preset of ``--preset`` and ``result.preset`` (its name as given and its SHA-256), read before
+    any run."""
+    if given is None:
+        return None, None
+    path = Path(given) if Path(given).is_absolute() else cwd / given
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        message = f"cannot read the preset {given}: {error.strerror or error}"
+        raise CliError("FEN-3001", message, where=str(given)) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=Path(given).name) from error
+    preset = presets.read_preset(text, file=Path(given).name)
+    return preset, {"file": str(given), "sha256": hashlib.sha256(data).hexdigest()}
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [kind for kind in KINDS if args.all or getattr(args, kind)]
     if not kinds:
         raise CliError("FEN-2001", "no export kind selected", hint="pass --all or one of --gerbers, --drill, "
                        "--pos, --ipcd356")  # fmt: skip
+    preset, preset_result = _preset(args.preset, ctx.cwd)
     given = Path(args.path)
     board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
     project = project_set(board)
@@ -69,7 +97,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     issues: list[Issue] = []
     tool_writes: set[str] = set()
     for kind in kinds:
-        found = run_kind(cli, kind, board, others, major=major, design=design)
+        found = run_kind(
+            cli,
+            kind,
+            board,
+            others,
+            major=major,
+            design=design,
+            args=lambda k, stem, layers: presets.arguments(k, preset, stem=stem, layers=layers),
+        )
         artifacts += found.artifacts
         issues += found.issues
         tool_writes.update(found.tool_writes)
@@ -87,6 +123,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ],
         "tool_version": version,
         "tool_writes": sorted(tool_writes),
+        "preset": preset_result,
     }
     writes: list[PlannedWrite] = []
     if not issues:
@@ -103,7 +140,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     return Result(
         result=result,
         issues=tuple(issues),
-        evidence=dataclasses.replace(EVIDENCE, oracle=f"kicad-cli {version}"),
+        evidence=dataclasses.replace(
+            EVIDENCE if preset is None else Evidence.combine(EVIDENCE, presets.EVIDENCE),
+            oracle=f"kicad-cli {version}",
+        ),
         input=InputRef(
             path=board.name,
             sha256=board_sha,

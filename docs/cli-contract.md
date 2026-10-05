@@ -271,6 +271,11 @@ source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating com
   (warnings).
 - Two runs on equal inputs plan equal bytes.
 
+`build` writes the drawing sheet that `design.sheet(drawing_sheet=…)` names as `<name>.kicad_wks`
+(`docs/dsl.md`, "Drawing sheet and title block"). `result.drawing_sheet` holds `source` (the path in
+the script), `file` and `items`, or `null`. A source that is missing exits 3 with `FEN-3001`, and one
+that does not parse with `FEN-3004`, before anything is planned.
+
 `build` reads `placements.toml` beside the script when it exists (`docs/lens.md`, "placements.toml").
 `result.preserved` gains `module_aliases` and `net_aliases` (new → old, empty without an existing board)
 and `source`, with `file` (`placements.toml` or `null`), `used` (component paths placed from the file),
@@ -583,7 +588,7 @@ give the same stdout apart from `elapsed_ms`.
 ## export
 
 `fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest]
-[--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
+[--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
 copy of the board `PATH` names (resolved as for `check`). Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
 becomes a planned write under `DIR` (relative to the working directory). The mutation protocol applies:
@@ -598,6 +603,12 @@ that selects none exits 2. `--timeout` defaults to 300 s and applies to each run
 | `--ipcd356` | `pcb export ipcd356` | `netlist/<stem>.d356` |
 
 `--check-zones` and `--board-plot-params` are never passed, so the files show the board as it is.
+`--preset FILE` applies your fabrication options from a TOML file (`docs/exports.md`, "Presets"): it
+is read before any run, and each of its keys replaces one option of the table above. A preset that is
+not TOML, has another `schema`, or holds an unknown table, key or value exits 3 with `FEN-3004`,
+naming the `table.key`; a preset that cannot be read exits 3 with `FEN-3001`. With `pos.format`, the
+position file ends in `.csv`, `.pos` or `.gbr`. `result.preset` holds `file` (the name as given) and
+`sha256`, or `null`; with a preset the evidence also names `H-K-EXPORT-OPTIONS`.
 `--manifest` adds `DIR/fenolite-artifacts.json` (`schemas/fenolite.artifacts.v0.json`; `docs/exports.md`).
 `result` holds `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`,
 `content_sha256`; sorted by path), `tool_version` and `tool_writes` (files the tool wrote outside its

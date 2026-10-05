@@ -45,7 +45,7 @@ from fenolite.geometry import (
 )
 from fenolite.geometry.transform import TRIG_BITS
 from fenolite.model.base import Opaque
-from fenolite.model.board import FootprintInstance, Graphic, Pad, PadShape, Size
+from fenolite.model.board import Board, FootprintInstance, Graphic, Pad, PadShape, Size
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
@@ -235,6 +235,46 @@ def _shape(node: Node, *, default_fill: bool) -> _Shape | None:
     if None in found:
         return None
     return _Shape(kind, tuple(p for p in found if p is not None), width, filled, (), layer)
+
+
+EDGE_HEADS: frozenset[str] = frozenset({"fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly"})
+"""The footprint children that can be part of a board outline; texts and other items are not taken."""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class EdgeItem:
+    """A footprint graphic on an edge layer, in the board frame: ``kind`` is ``line``, ``arc`` (start, mid,
+    end), ``circle`` (centre, a point on it) or ``polygon`` (a closed ring; a rectangle is one)."""
+
+    kind: str
+    points: tuple[Point, ...]
+    layer: str
+    footprint: str
+    """The id of the footprint that holds the item."""
+
+
+def footprint_edges(board: Board, layers: Iterable[str]) -> tuple[EdgeItem, ...]:
+    """The ``fp_line``, ``fp_arc``, ``fp_circle``, ``fp_rect`` and ``fp_poly`` items that the footprints of
+    ``board`` hold on ``layers``, placed in the board frame through each footprint's position and
+    rotation, in footprint and file order (``H-K-OUTLINE-FPEDGE``). A bottom footprint stores its
+    children already mirrored, so no flip is applied."""
+    wanted = frozenset(layers)
+    found: list[EdgeItem] = []
+    for footprint in board.footprints:
+        placement = _Placement(footprint.position, footprint.rotation)
+        for node in _opaque_nodes(footprint):
+            if node.name not in EDGE_HEADS:
+                continue
+            shape = _shape(node, default_fill=False)
+            if shape is None or shape.layer not in wanted:
+                continue
+            kind, points = shape.kind, shape.points
+            if kind == "rect" and len(points) == 2:
+                a, b = points
+                kind, points = "polygon", (a, Point(b.x, a.y), b, Point(a.x, b.y))
+            placed = placement.points(_frac(p) for p in points)
+            found.append(EdgeItem(kind, placed, shape.layer, footprint.id))
+    return tuple(found)
 
 
 def _graphic_shape(graphic: Graphic) -> _Shape:

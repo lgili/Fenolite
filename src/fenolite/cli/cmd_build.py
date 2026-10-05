@@ -42,7 +42,7 @@ from fenolite.backends.altium.project import (
     SheetMode,
 )
 from fenolite.backends.kicad import copper as kicad_copper
-from fenolite.backends.kicad import copperrules
+from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.backend import KicadBackend
@@ -71,6 +71,7 @@ from fenolite.dsl import (
     BOARD_ORIGIN,
     DslError,
     copper,
+    drawing_sheet_source,
     fields,
     module_moves,
     moves,
@@ -80,6 +81,7 @@ from fenolite.dsl import (
     planes,
     to_model,
 )
+from fenolite.dsl import Design as DslDesign
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -90,6 +92,7 @@ from fenolite.lens.altium import (
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    SHEET_SUFFIX,
     VENDOR_MODES,
     PlacementRequest,
     build_design,
@@ -101,7 +104,9 @@ from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
+from fenolite.templates import build_sheet, load_spec
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
 HELP = (
@@ -344,6 +349,45 @@ def read_source(
     return found.entries, found.issues, hashlib.sha256(data).hexdigest()
 
 
+def read_drawing_sheet_source(
+    design: DslDesign, script_path: Path
+) -> tuple[DrawingSheet | None, tuple[Issue, ...], dict[str, object] | None]:
+    """The drawing sheet that ``design.sheet(drawing_sheet=…)`` names, read from the script's folder: a
+    ``.kicad_wks`` file through the drawing-sheet reader, a ``*.sheet.toml`` specification through the
+    sheet-template builder. Returns the sheet, the reader's issues and ``result.drawing_sheet``.
+
+    A missing file is an input error: KiCad falls back to its default frame without a word for a sheet it
+    does not find (``H-K-WKS-FALLBACK``)."""
+    named = drawing_sheet_source(design)
+    if named is None:
+        return None, (), None
+    path = script_path.resolve().parent / named
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise CliError(
+            "FEN-3001",
+            f"the drawing sheet {named} of sheet() cannot be read: {error.strerror or error}",
+            where=named,
+            hint="name a .kicad_wks or *.sheet.toml file beside the design script",
+        ) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=named) from error
+    found: list[Issue] = []
+    if named.endswith(".sheet.toml"):
+        sheet = build_sheet(load_spec(text, file=named), base_dir=path.parent, issues=found)
+    else:
+        sheet = wks.read_drawing_sheet(text, file=Path(named).name, issues=found)
+    result: dict[str, object] = {
+        "source": named,
+        "file": f"{design.name}{SHEET_SUFFIX}",
+        "items": len(sheet.items),
+    }
+    return sheet, tuple(found), result
+
+
 def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
     """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
     tables."""
@@ -416,6 +460,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
@@ -480,6 +525,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
         source_sha256=source_sha,
+        drawing_sheet=frame_sheet,
     )
     files = {} if refused else dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]
@@ -516,6 +562,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         },
         "copper_check": copper_check,
         "placement": placement,
+        "drawing_sheet": sheet_result,
         "script_output": run.output,
     }
     result["preserved"] = {
@@ -525,7 +572,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=(*source_issues, *built.issues, *plane_issues(plane_nets), *copper_issues, *placement_issues),
+        issues=(
+            *sheet_issues,
+            *source_issues,
+            *built.issues,
+            *plane_issues(plane_nets),
+            *copper_issues,
+            *placement_issues,
+        ),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),

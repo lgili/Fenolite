@@ -6,8 +6,9 @@ kicad-file-backend, "Board outline as rings"; ``H-G-PLACE-OUTLINE``; change c002
 A measurement over the readable non-heavy demo boards: it fails only when ``board_outline`` raises or
 breaks its own contract, and records counts (never content) through ``census`` for
 ``docs/evidence/kicad-board-read.md``. Where a ``kicad-cli`` 10.0 is present, each verdict is compared with
-``board.has_outline`` of KiCad's own ``pcb export stats``; the comparison is recorded, not asserted, because
-KiCad also chains the edge items of footprints, which stay opaque here.
+``board.has_outline`` of KiCad's own ``pcb export stats``; the comparison is recorded. Since change c0074
+``board_outline`` joins endpoints closer than 10 µm and chains the edge items of footprints, as KiCad does,
+and every demo board gives a ring.
 """
 
 from __future__ import annotations
@@ -61,6 +62,7 @@ def test_outlines() -> None:
             counts["source:edge"] += 1
             counts["rings"] += len(found.rings)
             counts["boards:approximated"] += not found.exact
+            counts["boards:joined"] += found.joined > 0
         else:
             assert found.problem in PROBLEMS
             counts[f"problem:{found.problem}"] += 1
@@ -72,4 +74,6 @@ def test_outlines() -> None:
             ] += 1
     census("outline-rings", "native", dict(sorted(counts.items())))
     assert counts["boards"] == len(items)
+    # c0074: with endpoints closer than 10 µm joined and footprint edge items chained, every demo closes
+    assert counts["source:edge"] == len(items), dict(counts)
     assert counts["source:edge"] + sum(counts[f"problem:{p}"] for p in PROBLEMS) == len(items)

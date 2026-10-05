@@ -462,12 +462,21 @@ SHEET_KEY_PATHS: frozenset[str] = frozenset({"/text_variables/*"})
 
 
 def apply_sheet_keys(
-    project_text: str, design: Design, *, allow_lossy: bool = False, issues: list[Issue] | None = None
+    project_text: str,
+    design: Design,
+    *,
+    schematic: bool = False,
+    allow_lossy: bool = False,
+    issues: list[Issue] | None = None,
 ) -> str:
     """``project_text`` with ``pcbnew.page_layout_descr_file`` and ``text_variables`` set from the design's
     ``Board.sheet.drawing_sheet`` and ``Board.title_block.params`` (``kicad-file-backend``, "Projects
     carry the drawing sheet and text variables"). The text comes back unchanged when the design sets
-    neither; existing variables are replaced in place, new ones appended sorted by name, none deleted."""
+    neither; existing variables are replaced in place, new ones appended sorted by name, none deleted.
+
+    With ``schematic``, which a build passes when it writes a schematic, the drawing sheet is also set as
+    ``schematic.page_layout_descr_file``, the key that gives the schematic its frame
+    (``H-K-PRO-WKS-SCH``); otherwise that key is not touched."""
     found = issues if issues is not None else []
     board = design.board
     sheet = board.sheet if board is not None else None
@@ -504,6 +513,11 @@ def apply_sheet_keys(
         if not isinstance(pcbnew, dict):
             raise FormatError("'pcbnew' is not an object", locator="/pcbnew")
         cast(JsonObject, pcbnew)["page_layout_descr_file"] = drawing_sheet
+        if schematic:
+            eeschema = data.setdefault("schematic", {})
+            if not isinstance(eeschema, dict):
+                raise FormatError("'schematic' is not an object", locator="/schematic")
+            cast(JsonObject, eeschema)["page_layout_descr_file"] = drawing_sheet
     if kept:
         variables = data.setdefault("text_variables", {})
         if not isinstance(variables, dict):

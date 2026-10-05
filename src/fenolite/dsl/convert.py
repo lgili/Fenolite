@@ -9,6 +9,7 @@ seed or on the order of the script, and no object holds a provenance (no absolut
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -24,6 +25,7 @@ from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, N
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.manufacturing import Manifest
+from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.rules import Rule, RuleSet, Selector
 
 DSL_BACKEND = "dsl"
@@ -181,10 +183,34 @@ def to_model(design: Design) -> ModelDesign:
             modules=modules,
             no_connects=marks,
         ),
-        board=Board(id=key_id("board"), outline=outline, zones=zones),
+        board=Board(
+            id=key_id("board"),
+            outline=outline,
+            zones=zones,
+            sheet=_sheet(design),
+            title_block=design.block,
+        ),
         rules=RuleSet(id=key_id("rules"), rules=_rules(design)),
         manufacturing=Manifest(id=key_id("manifest")),
     )
+
+
+SHEET_SUFFIX = ".kicad_wks"
+
+
+def _sheet(design: Design) -> SheetFrameRef | None:
+    """The model's sheet: the paper of ``sheet()``, and ``<design name>.kicad_wks`` as the drawing sheet
+    when the script names one. The script's path never enters the model."""
+    frame = design.sheet_frame
+    if frame is None or design.sheet_source is None:
+        return frame
+    return dataclasses.replace(frame, drawing_sheet=f"{design.name}{SHEET_SUFFIX}")
+
+
+def drawing_sheet_source(design: Design) -> str | None:
+    """The drawing sheet that ``sheet()`` names, as written in the script (a path relative to the script's
+    folder), or ``None``."""
+    return design.sheet_source
 
 
 def _module(module: DslModule) -> Module:
@@ -319,6 +345,7 @@ __all__ = [
     "DSL_BACKEND",
     "KEYS",
     "PATH_PROPERTY",
+    "drawing_sheet_source",
     "fields",
     "pad_zones",
     "key_id",

@@ -23,6 +23,7 @@
 - `build_design` MUST add `<name>.kicad_wks` from `wks.write_drawing_sheet(<the sheet>, target=target, allow_lossy=allow_lossy)`; its errors MUST stop the build with its codes, as other writers do.
 - The file MUST be recorded in `.fenolite/build.json` and MUST follow "Edited outputs are not overwritten".
 - The project MUST name it through `apply_sheet_keys`, for the board and, when the build writes a schematic, for the schematic (`kicad-file-backend`, "Projects carry the drawing sheet and text variables").
+- On a rebuild over an existing board, the paper and the title block that the script declares MUST be written from the script; a board whose script declares neither keeps its own (`layout-lens`, "Board content outside the design is kept").
 - `result.drawing_sheet` MUST hold `source` (the path given in the script), `file` (`<name>.kicad_wks`) and `items` (the number of drawn items), or be `null` without a drawing sheet.
 
 #### Scenario: User sheet in a built project

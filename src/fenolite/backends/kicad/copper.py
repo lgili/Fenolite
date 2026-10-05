@@ -22,6 +22,9 @@ from typing import Protocol, cast, runtime_checkable
 
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.frame import board_pads
+from fenolite.backends.kicad.layers import expand_layers
+from fenolite.backends.kicad.outline import BoardOutline, board_outline
+from fenolite.backends.kicad.rulemap import rule_order
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -40,7 +43,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Track, Via, ViaType
+from fenolite.model.board import Arc, Keepout, Track, Via, ViaType
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -704,6 +707,60 @@ def _obstacles(
     return found
 
 
+@dataclass(frozen=True, slots=True)
+class _Barriers:
+    """Where a stitch via may not go besides other copper: the rule areas that forbid vias, and the rings
+    of the board outline with the edge clearance in force (change c0074; ``H-K-STITCH-AVOID``)."""
+
+    keepouts: tuple[_Obstacle, ...] = ()
+    edges: tuple[_Obstacle, ...] = ()
+    edge_clearance: int = 0
+    rings: tuple[tuple[Point, ...], ...] = ()
+    """The board ring, then its cut-outs, as ``board_outline`` gives them."""
+
+    def blocks(self, point: Point, diameter: int) -> bool:
+        """Whether the via disc at ``point`` meets a keep-out, comes closer to the board edge than the
+        edge clearance, or lies off the board: outside its ring or inside a cut-out."""
+        if any(_closer(point, diameter, area, 0, touching=True) for area in self.keepouts):
+            return True
+        if any(_closer(point, diameter, ring, self.edge_clearance) for ring in self.edges):
+            return True
+        if not self.rings:
+            return False
+        if point_in_ring(point, self.rings[0]) is Location.OUTSIDE:
+            return True
+        return any(point_in_ring(point, hole) is Location.INSIDE for hole in self.rings[1:])
+
+
+def edge_clearance_in_force(design: Design, floor: Nm = 0) -> Nm:
+    """The copper-to-edge clearance a stitch via keeps: the ``min`` of the governing board-wide
+    ``edge_clearance`` rule, the last of them in ``rulemap.rule_order``, else ``floor``, the project's
+    ``min_copper_edge_clearance``."""
+    rules = design.rules.rules if design.rules is not None else ()
+    wide = [
+        rule
+        for rule in rule_order(rules)
+        if rule.kind == "edge_clearance" and rule.selector_a.op == "all" and rule.min is not None
+    ]
+    limit = wide[-1].min if wide else floor
+    return max(0, limit if limit is not None else 0)
+
+
+def _barriers(
+    board: _Board, keepouts: Iterable[Keepout], outline: BoardOutline, edge_clearance: int
+) -> _Barriers:
+    """The keep-outs that forbid vias on a copper layer (a through via crosses every copper layer), and
+    each ring of a closed outline as a closed polyline. Without a closed outline the edge is not checked."""
+    copper = board.copper_layers
+    areas = tuple(
+        _Obstacle(tuple(area.outline), 0, True, None)
+        for area in keepouts
+        if area.no_vias and len(area.outline) >= 3 and set(expand_layers(area.layers, copper)) & set(copper)
+    )
+    rings = tuple(_Obstacle((*ring, ring[0]), 0, False, None) for ring in outline.rings)
+    return _Barriers(areas, rings, edge_clearance, outline.rings)
+
+
 def _along(points: Sequence[Point], pitch: int) -> list[tuple[str, Point]]:
     """The division points of a polyline: each segment in the fewest equal parts no longer than ``pitch``."""
     found: list[Point] = []
@@ -736,7 +793,11 @@ def _region(ring: Sequence[Point], origin: Point, pitch: int, reach: int) -> lis
 
 
 def _resolve_stitch(
-    board: _Board, intent: StitchIntentLike, obstacles: Sequence[_Obstacle], issues: list[Issue]
+    board: _Board,
+    intent: StitchIntentLike,
+    obstacles: Sequence[_Obstacle],
+    issues: list[Issue],
+    barriers: _Barriers | None = None,
 ) -> list[Via]:
     key = intent.key
     along, region = tuple(intent.along), tuple(intent.region)
@@ -794,6 +855,7 @@ def _resolve_stitch(
             if _closer(point, diameter, obstacle, 0 if own else clearance, touching=own):
                 blocked = True
                 break
+        blocked = blocked or (barriers is not None and barriers.blocks(point, diameter))
         cell = (point.x // diameter, point.y // diameter)
         if not blocked:
             near = (cells.get((cell[0] + dx, cell[1] + dy), ()) for dx in (-1, 0, 1) for dy in (-1, 0, 1))
@@ -808,7 +870,7 @@ def _resolve_stitch(
             _issue(
                 "kicad.copper.stitch-skipped",
                 f"{key}: {dropped} stitch candidate(s) dropped to keep {_format(clearance)} mm from other "
-                "copper",
+                "copper, out of the rule areas that forbid vias and off the board edge",
                 key,
             )
         )
@@ -934,16 +996,30 @@ def resolve_copper(
     *,
     unplaced: Collection[str] = (),
     issues: list[Issue] | None = None,
+    keepouts: Sequence[Keepout] = (),
+    outline: BoardOutline | None = None,
+    edge_floor: Nm = 0,
 ) -> Design:
     """``design`` with the copper of ``intents``: the tracks, arcs and vias that ``merge_copper`` keeps, in
     their order, followed by the created tracks, arcs and vias in intent order. An intent with an error
-    creates nothing; ``unplaced`` names the components the build staged. Nothing is read or written."""
+    creates nothing; ``unplaced`` names the components the build staged. Nothing is read or written.
+
+    Stitch vias also stay out of the rule areas that forbid vias, those of the design and the ``keepouts``
+    given besides (a rebuild passes those of the existing board), and off the board edge: ``outline`` is
+    the outline to keep clear of (default: ``board_outline(design)``), and ``edge_floor`` the project's
+    ``min_copper_edge_clearance``, used when no board-wide ``edge_clearance`` rule governs."""
     found: list[Issue] = []
     if design.board is None:
         if issues is not None and intents:
             issues.append(_issue("kicad.copper.bad-intent", "the design has no board to draw copper on", ""))
         return design
     board = _board(design, unplaced)
+    barriers = _barriers(
+        board,
+        (*design.board.keepouts, *keepouts),
+        outline if outline is not None else board_outline(design),
+        edge_clearance_in_force(design, edge_floor),
+    )
     user = [
         [item for item in group if not is_copper_uuid(item.native_ids.get("kicad", ""))]
         for group in (design.board.tracks, design.board.arcs, design.board.vias)
@@ -970,7 +1046,7 @@ def resolve_copper(
                     (*cast("list[Arc]", user[1]), *arcs),
                     (*cast("list[Via]", user[2]), *vias),
                 )
-                vias += _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found)
+                vias += _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found, barriers)
             else:
                 vias.append(_resolve_via(board, cast(ViaIntentLike, intent)))
         except _Refused as refused:

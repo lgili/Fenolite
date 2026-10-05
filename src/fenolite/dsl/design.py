@@ -18,6 +18,8 @@ from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
+from fenolite.model.design import presentation_issues
+from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
@@ -25,6 +27,10 @@ if TYPE_CHECKING:
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
+PAPERS: tuple[str, ...] = get_args(PaperSize)
+"""The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
+SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
+"""What a drawing sheet named by ``sheet()`` ends in."""
 INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
 """The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
 
@@ -294,6 +300,12 @@ class Design(Container):
         """``moved()`` aliases: new path → old path, of a part or of a module."""
         self.net_aliases: dict[str, str] = {}
         """``moved_net()`` aliases: new net name → old net name."""
+        self.sheet_frame: SheetFrameRef | None = None
+        """The paper of ``sheet()``, without the drawing sheet's name."""
+        self.sheet_source: str | None = None
+        """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
+        self.block: TitleBlock | None = None
+        """The title block of ``title_block()``."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
@@ -348,6 +360,88 @@ class Design(Container):
         self.size = (w, h)
         self.copper = copper
         self.planes = declared
+
+    def sheet(
+        self,
+        paper: str = "A4",
+        *,
+        portrait: bool = False,
+        width: object = None,
+        height: object = None,
+        drawing_sheet: str | None = None,
+    ) -> None:
+        """The board's paper and, with ``drawing_sheet``, its frame: a ``.kicad_wks`` file or a
+        ``*.sheet.toml`` specification beside the script, which the build writes as ``<name>.kicad_wks``
+        (``docs/dsl.md``, "Drawing sheet and title block"). ``width`` and ``height`` are given together,
+        for the paper ``custom``."""
+        if self.sheet_frame is not None:
+            raise DslError("sheet() is called once")
+        if paper not in PAPERS:
+            raise DslError(f"sheet(): paper is one of {', '.join(PAPERS)}, not {paper!r}")
+        if not isinstance(portrait, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"sheet(): portrait is True or False, not {portrait!r}")
+        w = None if width is None else as_nm(width, name="width")
+        h = None if height is None else as_nm(height, name="height")
+        frame = SheetFrameRef(cast(PaperSize, paper), portrait, w, h)
+        for found in presentation_issues(frame, None, "sheet"):
+            raise DslError(f"sheet(): {found.message}")
+        if w is not None and h is not None and (w <= 0 or h <= 0):
+            raise DslError("sheet(): width and height must be positive")
+        if drawing_sheet is not None:
+            self._sheet_path(drawing_sheet)
+        self.sheet_frame = frame
+        self.sheet_source = drawing_sheet
+
+    @staticmethod
+    def _sheet_path(path: object) -> None:
+        if not isinstance(path, str) or not path.endswith(SHEET_SUFFIXES):
+            raise DslError(
+                f"sheet(): drawing_sheet {path!r} is not a .kicad_wks file or a *.sheet.toml specification"
+            )
+        parts = path.replace("\\", "/").split("/")
+        if path.startswith(("/", "\\")) or ":" in parts[0] or ".." in parts or "" in parts:
+            raise DslError(
+                f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
+            )
+
+    def title_block(
+        self,
+        *,
+        title: str = "",
+        date: str = "",
+        revision: str = "",
+        organization: str = "",
+        doc_id: str = "",
+        responsible: str = "",
+        approver: str = "",
+        variables: Mapping[str, str] | None = None,
+    ) -> None:
+        """The title block of the board and of the schematic. ``variables`` are the user's text variables
+        (``${NAME}`` in a drawing sheet), written to the project file."""
+        if self.block is not None:
+            raise DslError("title_block() is called once")
+        texts = {
+            "title": title,
+            "date": date,
+            "revision": revision,
+            "organization": organization,
+            "doc_id": doc_id,
+            "responsible": responsible,
+            "approver": approver,
+        }
+        for name, value in texts.items():
+            if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"title_block(): {name} is a text, not {value!r}")
+        params: dict[str, str] = {}
+        if variables is not None and not isinstance(variables, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"title_block(): variables maps names to texts, not {variables!r}")
+        for name, value in cast(Mapping[object, object], variables or {}).items():
+            if not isinstance(name, str) or not PARAM_NAME.fullmatch(name):
+                raise DslError(f"title_block(): variable name {name!r} does not match {PARAM_NAME.pattern}")
+            if not isinstance(value, str):
+                raise DslError(f"title_block(): variable {name} is a text, not {value!r}")
+            params[name] = value
+        self.block = TitleBlock(**texts, params=dict(sorted(params.items())))
 
     @staticmethod
     def _planes(copper: int, planes: object) -> dict[str, str]:

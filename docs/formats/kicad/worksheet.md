@@ -31,6 +31,7 @@ code.
 | A sheet that fails to load prints "Error loading drawing sheet", the default sheet is drawn and the exit code is 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-WKS-ORACLE |
 | A `--drawing-sheet` path naming a missing file, and a project `page_layout_descr_file` naming a missing file, fall back to the default sheet silently: exit 0 and no message | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-WKS-FALLBACK |
 | The project key `pcbnew.page_layout_descr_file`, holding a project-relative name or `${KIPRJMOD}/<name>`, gives the sheet that `pcb export svg` draws without `--drawing-sheet` | S-0045, S-0075, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-WKS |
+| The project key `schematic.page_layout_descr_file`, holding a project-relative name or `${KIPRJMOD}/<name>`, gives the sheet that `sch export svg` draws on every sheet of the schematic; with the key absent, or with only `pcbnew.page_layout_descr_file`, no sheet shows it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-WKS-SCH |
 | `pcb export svg <board> -l Edge.Cuts --mode-single [--drawing-sheet <file>]` writes the page size in mm as the SVG `width` and `height`; each drawn sheet text is written again as a hidden `<text opacity="0">` with the resolved string, its x at the text anchor and its y within half the text height of it; sheet lines and rectangles are `<path>` elements, and glyph strokes sit in `<g class="stroked-text">` groups | S-0022, S-0037, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-WKS-SVG |
 
 ## Fenolite choices

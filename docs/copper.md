@@ -204,7 +204,14 @@ A stitch places through vias of one net, along a polyline or on a grid in a regi
   with integers. Tracks of its own net are no obstacle.
 - Dropped candidates give one `kicad.copper.stitch-skipped` info with their count; a stitch that keeps
   none gives the warning `kicad.copper.stitch-empty`.
-- Zones, rule areas and the board edge are not avoided in v0.1.
+- A candidate is also dropped when its via disc meets a rule area that forbids vias on a copper layer
+  (a through via crosses every copper layer), when it comes closer to the board edge than the edge
+  clearance, or when it lies off the board: outside the outline or inside a cut-out. The edge
+  clearance is the `min` of the governing board-wide `edge_clearance` rule, else the project's
+  `min_copper_edge_clearance`. On a rebuild the rule areas and the edge of the existing board count.
+  Without a closed outline the edge is not checked. These candidates join the count of
+  `kicad.copper.stitch-skipped`.
+- Zones are not avoided: a stitch is usually meant to tie zones together.
 
 KiCad reports a through via that touches copper on one layer only as `via_dangling` (a warning): a fence
 of vias along a track on one layer gets it until a zone or a second track reaches them.
@@ -230,7 +237,7 @@ of vias along a track on one layer gets it until a zone or a second track reache
 | `kicad.copper.stitch-empty` | warning | a stitch keeps no candidate |
 | `kicad.copper.regenerated` | info | script copper differs from its regenerated copy and is replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper is removed |
-| `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance (with the count) |
+| `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance, a rule area that forbids vias or the board edge (with the count) |
 
 ## Evidence
 

@@ -284,6 +284,13 @@ script's rectangle, `layout.outline-kept` says so: a new size needs KiCad or `--
 board whose copper layers differ from `board(copper=…)` cannot be preserved (`layout.copper-mismatch`,
 error).
 
+The paper and the title block are the board's too, unless the script declares them with
+`design.sheet()` or `design.title_block()`: a declared one is written again from the script on every
+build (`docs/dsl.md`, "Drawing sheet and title block").
+
+An outline read from a board is what KiCad takes as its outline: endpoints closer than 10 µm are one
+point, and edge items inside footprints count (`backends.kicad.outline.board_outline`).
+
 ## Fill digests
 
 A kept zone keeps its fills when two text digests are unchanged between the existing board and the

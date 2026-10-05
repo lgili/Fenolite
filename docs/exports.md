@@ -51,6 +51,60 @@ v0.1 has one way to export each kind; these options are the whole list. Two opti
   as it is. Fill the board with `fenolite fill`, check it, then export.
 - `--board-plot-params` would make the files depend on plot settings stored in the board.
 
+## Presets
+
+A fabricator's options are yours to state, in a file of your own. `fenolite export … --preset fab.toml`
+reads it and gives each key as one `kicad-cli` option; a key you leave out keeps the fixed value of the
+table above, so an empty preset and no preset run the same commands. Fenolite ships no preset and knows
+no fabricator: take the values from your fabricator's own instructions.
+
+```toml
+# fab.toml: an example of the form, not a recommendation
+schema = "fenolite.export-preset.v0"
+
+[gerbers]
+protel_extensions = true
+subtract_soldermask = true
+
+[drill]
+units = "in"
+map = "pdf"
+
+[pos]
+side = "front"
+exclude_dnp = true
+```
+
+| table | key | values | default |
+|---|---|---|---|
+| `gerbers` | `layers` | a list of KiCad layer names | the board's copper, mask, paste, silkscreen and edge layers |
+| | `protel_extensions` | bool | false |
+| | `x2`, `netlist_attributes`, `aperture_macros` | bool | true |
+| | `precision` | 5 or 6 | KiCad's |
+| | `subtract_soldermask`, `use_drill_file_origin`, `include_border_title`, `exclude_refdes`, `exclude_value` | bool | false |
+| `drill` | `format` | `excellon`, `gerber` | `excellon` |
+| | `units` | `mm`, `in` | `mm` |
+| | `separate_th` | bool | true |
+| | `mirror_y`, `minimal_header` | bool | false |
+| | `origin` | `absolute`, `plot` | `absolute` |
+| | `zeros` | `decimal`, `suppressleading`, `suppresstrailing`, `keep` | KiCad's |
+| | `oval_format` | `route`, `alternate` | KiCad's |
+| | `map` | `none`, `pdf`, `gerberx2`, `ps`, `dxf`, `svg` | `none` |
+| | `gerber_precision` | 5 or 6, with `format = "gerber"` | KiCad's |
+| `pos` | `format` | `csv`, `ascii`, `gerber` | `csv` |
+| | `units` | `mm`, `in` | `mm` |
+| | `side` | `front`, `back`, `both` | `both` |
+| | `exclude_dnp`, `exclude_fp_th`, `smd_only`, `use_drill_file_origin`, `bottom_negate_x` | bool | false |
+
+- Every key maps to an option that `kicad-cli` 9.0 and 10.0 both have. Options of one major only, and
+  the two options that would make the files depend on more than the board as it is (`--check-zones`,
+  `--board-plot-params`), cannot be given.
+- The Excellon keys (`units`, `separate_th`, `mirror_y`, `minimal_header`, `zeros`, `oval_format`) are
+  refused with `format = "gerber"`, and `gerber_precision` without it.
+- A wrong table, key or value stops the command before any run (exit 3), naming the `table.key`.
+- What an option does to a file is KiCad's and your fabricator's to judge. Six keys change nothing on a
+  board that has nothing for them to act on, such as `drill.oval_format` on a board without an oval hole.
+
 ## The manifest
 
 `fenolite-artifacts.json` (schema `schemas/fenolite.artifacts.v0.json`):

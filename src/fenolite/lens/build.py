@@ -21,7 +21,7 @@ from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
 from fenolite.backends.kicad import copper as copper_mod
-from fenolite.backends.kicad import dru, embed, frame, lowering, mod, pcb, pro, sym, versions
+from fenolite.backends.kicad import dru, embed, frame, lowering, mod, pcb, pro, sym, versions, wks
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
     PATH_PROPERTY,
@@ -33,6 +33,7 @@ from fenolite.backends.kicad.embed import (
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
+from fenolite.backends.kicad.outline import BoardOutline, board_outline
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
@@ -51,8 +52,11 @@ from fenolite.model.board import FootprintInstance, Pad, Side
 from fenolite.model.circuit import Component, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.presentation import DrawingSheet
 
 RECORD_FILE = ".fenolite/build.json"
+SHEET_SUFFIX = ".kicad_wks"
+"""The drawing sheet of a build is ``<name>.kicad_wks``, beside the project file."""
 RECORD_SCHEMA = "fenolite.build-record.v0"
 CACHE_DIR = ".fenolite"
 STAGING_OFFSET = 5_000_000
@@ -518,11 +522,14 @@ def build_design(
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     source_sha256: str | None = None,
+    drawing_sheet: DrawingSheet | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
     ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
+    ``drawing_sheet`` is the sheet that the script names (``design.sheet(drawing_sheet=…)``), read by the
+    caller: it is written as ``<name>.kicad_wks``, the file the project names as its frame.
 
     ``vendor`` is ``"all"`` (every placed footprint is copied into ``lib/``) or ``"project"`` (only those
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
@@ -657,7 +664,21 @@ def build_design(
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
         assert built.board is not None
-        built = resolve_copper(built, copper_intents, unplaced=staged, issues=issues)
+        held = prepared.board if prepared is not None else None
+        project_text = prepared.existing.project if prepared is not None else None
+        project_data = (
+            pro.read_project_text(project_text) if project_text is not None else pro.template(target)
+        )
+        built = resolve_copper(
+            built,
+            copper_intents,
+            unplaced=staged,
+            issues=issues,
+            # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those
+            keepouts=held.board.keepouts if held is not None and held.board is not None else (),
+            outline=_kept_outline(held, built),
+            edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
+        )
         assert built.board is not None
         created = (("tracks", built.board.tracks), ("arcs", built.board.arcs), ("vias", built.board.vias))
         for kind, items in created:
@@ -714,6 +735,10 @@ def build_design(
             texts[pcb_name] = written.text
         preserved["fills"] = preserve.fill_counts(prepared.board, stale)
     files: dict[str, bytes] = {n: t.encode("utf-8") for n, t in texts.items()}
+    if drawing_sheet is not None:
+        written_sheet = wks.write_drawing_sheet(drawing_sheet, target=target, allow_lossy=allow_lossy)
+        issues += written_sheet.issues
+        files[f"{name}{SHEET_SUFFIX}"] = written_sheet.text.encode("utf-8")
     readback = read_board(texts[pcb_name], file=pcb_name, issues=[])
     layout = preserve.merge_layout(built, readback, preserve.match_footprints(built, readback)).design
     vendored = _vendor(plan, target, files, record, issues)
@@ -844,6 +869,16 @@ def _keep_pad_zones(
         footprints = tuple(changed.get(fp.component_id, fp) for fp in design.board.footprints)
         design = dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=footprints))
     return design, {key: sorted(set(values)) for key, values in summary.items()}
+
+
+def _kept_outline(existing: Design | None, built: Design) -> BoardOutline:
+    """The outline a build writes: the edge content of the existing board when it has any (the lens keeps
+    it), else the design's outline."""
+    if existing is not None:
+        held = board_outline(existing)
+        if held.problem != "no-edge-content":
+            return held
+    return board_outline(built)
 
 
 def board_read(prepared: Prepared | None) -> TypeGuard[Prepared]:

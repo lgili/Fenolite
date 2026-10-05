@@ -4,30 +4,37 @@
 rings"; facts: ``docs/formats/kicad/board.md``; change c0022).
 
 A design with a model outline gives its points and cut-outs. A read board gives the root graphics on its
-edge layer, chained by exact endpoint equality with ``geometry.assemble_rings``: no snapping tolerance
-(``H-G-EDGE-EXACT``). Edge items inside footprints stay opaque and are not chained; a board whose only
-edge items are there gets the problem ``footprint-edges-only``.
+edge layer together with the edge items of its footprints (``frame.footprint_edges``;
+``H-K-OUTLINE-FPEDGE``), chained with ``geometry.assemble_rings`` after endpoints closer than
+``CHAIN_GAP`` are joined, as KiCad joins them (``H-K-OUTLINE-CHAIN``). ``H-G-EDGE-EXACT``, the earlier
+premise that endpoints meet exactly, is refuted by that measurement.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
-from fenolite.backends.kicad.slots import from_ext
+from fenolite.backends.kicad.frame import footprint_edges
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry import DEFAULT_TOL, Arc, Circle, GeometryError, Segment, area2, assemble_rings
 from fenolite.geometry.errors import BRANCHING_CONTOUR
-from fenolite.model.base import Opaque
-from fenolite.model.board import Board, Graphic
+from fenolite.model.board import Board
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-PLACE-OUTLINE", "H-G-EDGE-EXACT"))
+EVIDENCE = Evidence(
+    Level.INFERRED, hypotheses=("H-G-PLACE-OUTLINE", "H-K-OUTLINE-CHAIN", "H-K-OUTLINE-FPEDGE")
+)
 """Raised to ``CORPUS-VERIFIED`` when ``H-G-PLACE-OUTLINE`` is settled."""
+CHAIN_GAP = 10_000
+"""Edge endpoints closer than this (nm, strictly) are one point. Both majors close an outline across a gap
+below 10 µm and report it open above; at exactly 10 µm, 10.0.6 closes and 9.0.9 does not, so Fenolite
+says open there: the safe answer for 9.0."""
 OutlineSource = Literal["model", "edge"]
-OutlineProblem = Literal["", "open-contour", "branching-contour", "no-edge-content", "footprint-edges-only"]
-PROBLEMS: tuple[str, ...] = ("open-contour", "branching-contour", "no-edge-content", "footprint-edges-only")
+OutlineProblem = Literal["", "open-contour", "branching-contour", "no-edge-content"]
+PROBLEMS: tuple[str, ...] = ("open-contour", "branching-contour", "no-edge-content")
 DEFAULT_EDGE = "Edge.Cuts"
 Ring = tuple[Point, ...]
 
@@ -35,12 +42,14 @@ Ring = tuple[Point, ...]
 @dataclass(frozen=True, slots=True)
 class BoardOutline:
     """The outline of a board: ``rings[0]`` is the board (the ring of largest area) and the others are its
-    cut-outs. ``problem`` says why ``rings`` is empty; ``exact`` is false when a curve was polygonised."""
+    cut-outs. ``problem`` says why ``rings`` is empty; ``exact`` is false when a curve was polygonised;
+    ``joined`` counts the groups of endpoints closer than ``CHAIN_GAP`` that were joined into one point."""
 
     rings: tuple[Ring, ...] = ()
     source: OutlineSource = "edge"
     problem: OutlineProblem = ""
     exact: bool = True
+    joined: int = 0
 
     def __post_init__(self) -> None:
         if bool(self.rings) == bool(self.problem):
@@ -53,24 +62,64 @@ def _edge_layers(board: Board) -> frozenset[str]:
     )
 
 
-def _footprint_edges(board: Board, layers: frozenset[str]) -> bool:
-    """Whether a footprint holds an item on an edge layer among its opaque children."""
-    marks = tuple(f'(layer "{name}")' for name in layers)
-    for footprint in board.footprints:
-        bag = footprint.ext.get("kicad")
-        if bag is None:
+class _EdgeLike(Protocol):
+    """What an edge graphic gives: a root ``Graphic`` or a ``frame.EdgeItem``."""
+
+    @property
+    def kind(self) -> str: ...
+
+    @property
+    def points(self) -> Sequence[Point]: ...
+
+
+def _join(pieces: list[Segment | Arc]) -> tuple[list[Segment | Arc], int]:
+    """``pieces`` with every group of endpoints closer than ``CHAIN_GAP`` joined into the group's smallest
+    point, and the number of groups joined. Distances are compared squared, with integers. A piece whose
+    two ends join into one point is left out."""
+    points = sorted({end for piece in pieces for end in (piece.start, piece.end)})
+    if len(points) < 2:
+        return pieces, 0
+    parent = {point: point for point in points}
+
+    def root(point: Point) -> Point:
+        while parent[point] != point:
+            parent[point] = parent[parent[point]]
+            point = parent[point]
+        return point
+
+    cells: dict[tuple[int, int], list[Point]] = {}
+    for point in points:
+        cell = (point.x // CHAIN_GAP, point.y // CHAIN_GAP)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for other in cells.get((cell[0] + dx, cell[1] + dy), ()):
+                    gap2 = (point.x - other.x) ** 2 + (point.y - other.y) ** 2
+                    if gap2 < CHAIN_GAP * CHAIN_GAP:
+                        a, b = root(point), root(other)
+                        if a != b:
+                            parent[max(a, b)] = min(a, b)
+        cells.setdefault(cell, []).append(point)
+    moved = {point: root(point) for point in points if root(point) != point}
+    if not moved:
+        return pieces, 0
+    joined: list[Segment | Arc] = []
+    for piece in pieces:
+        start, end = moved.get(piece.start, piece.start), moved.get(piece.end, piece.end)
+        if start == end:
             continue
-        for slot in from_ext(bag):
-            if (
-                isinstance(slot, Opaque)
-                and slot.fragment.startswith("(fp_")
-                and any(mark in slot.fragment for mark in marks)
-            ):
-                return True
-    return False
+        if (start, end) == (piece.start, piece.end):
+            joined.append(piece)
+        elif isinstance(piece, Arc):
+            try:
+                joined.append(Arc(start, piece.mid, end))
+            except (GeometryError, ValueError):
+                joined.append(Segment(start, end))
+        else:
+            joined.append(Segment(start, end))
+    return joined, len(set(moved.values()))
 
 
-def _pieces(graphic: Graphic) -> tuple[list[Segment | Arc], bool]:
+def _pieces(graphic: _EdgeLike) -> tuple[list[Segment | Arc], bool]:
     """The pieces of one edge graphic that is not a circle, and whether one of them is an arc."""
     points = graphic.points
     if graphic.kind == "arc" and len(points) == 3:
@@ -98,8 +147,9 @@ def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
     """The outline of ``design``'s board as rings in the board frame.
 
     From ``Board.outline`` when the model has one (``source`` ``model``: its points, then its cut-outs),
-    otherwise from the root graphics on the edge layer (``source`` ``edge``). Never raises on what it
-    finds: a board without a closed outline gets a ``problem``.
+    otherwise from the root graphics on the edge layer and the edge items of the footprints (``source``
+    ``edge``), with endpoints closer than ``CHAIN_GAP`` joined. Never raises on what it finds: a board
+    without a closed outline gets a ``problem``.
     """
     board = design.board
     if board is None:
@@ -111,9 +161,9 @@ def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
     rings: list[Ring] = []
     pieces: list[Segment | Arc] = []
     exact = True
-    for graphic in board.graphics:
-        if graphic.layer not in layers:
-            continue
+    edge_items: list[_EdgeLike] = [graphic for graphic in board.graphics if graphic.layer in layers]
+    edge_items += footprint_edges(board, layers)
+    for graphic in edge_items:
         if graphic.kind == "circle" and len(graphic.points) == 2:
             circle = Circle.from_kicad(graphic.points[0], graphic.points[1])
             if circle.radius2 > 0:
@@ -125,10 +175,8 @@ def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
         pieces += kept
         exact = exact and not (curved and kept)
     if not pieces and not rings:
-        problem: OutlineProblem = (
-            "footprint-edges-only" if _footprint_edges(board, layers) else "no-edge-content"
-        )
-        return BoardOutline(problem=problem)
+        return BoardOutline(problem="no-edge-content")
+    pieces, joined = _join(pieces)
     if pieces:
         try:
             paths = assemble_rings(pieces)
@@ -141,7 +189,7 @@ def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
                 rings.append(ring)
     if not rings:
         return BoardOutline(problem="open-contour")
-    return BoardOutline(_sorted(rings), "edge", exact=exact)
+    return BoardOutline(_sorted(rings), "edge", exact=exact, joined=joined)
 
 
-__all__ = ["EVIDENCE", "PROBLEMS", "BoardOutline", "board_outline"]
+__all__ = ["CHAIN_GAP", "EVIDENCE", "PROBLEMS", "BoardOutline", "board_outline"]

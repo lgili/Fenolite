@@ -99,6 +99,7 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
+- `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
 - `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
@@ -710,6 +711,34 @@ errors = [issue for issue in report.issues if issue.severity == "error"]
 
 `report.findings` holds each short and clearance violation with its layer, a point and both items;
 write the files only when `errors` is empty.
+
+## Drawing sheet and title block
+
+```python
+design.sheet("A3", drawing_sheet="frames/mine.kicad_wks")
+design.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"})
+```
+
+- **`design.sheet(paper="A4", *, portrait=False, width=None, height=None, drawing_sheet=None)`** sets the
+  board's paper: `A0` to `A5`, `Letter`, `Legal`, `Tabloid`, or `custom` with `width` and `height`
+  (lengths, given together). It is called at most once.
+- **`drawing_sheet`** names your frame: a `.kicad_wks` file, or a `*.sheet.toml` specification
+  (`docs/sheet-templates.md`), by a path relative to the folder of the design script. Any other ending,
+  an absolute path or a path that leaves that folder raises `DslError`. Fenolite ships no frame of any
+  organisation: the file is yours.
+- **The build writes `<name>.kicad_wks`** beside the project from that source and names it in the
+  project file, so `pcbnew` shows it; when a build writes a schematic, the schematic's key is set too. A
+  `.kicad_wks` is written again, not copied: the root becomes `kicad_wks` and a token that the target
+  KiCad does not know is refused. Your source file is never changed. A missing source stops the build
+  (`FEN-3001`), because KiCad would fall back to its default frame without a word.
+- The model holds the written name, never your path: `dsl.drawing_sheet_source(design)` gives the path.
+- **`design.title_block(*, title, date, revision, organization, doc_id, responsible, approver,
+  variables)`** sets the title block, at most once. `variables` maps names (`[A-Za-z_][A-Za-z0-9_]*`) to
+  texts: they become the project's text variables, which a drawing sheet shows as `${NAME}`. A name that
+  KiCad reserves is refused by the project writer.
+- **On a rebuild** the paper and the title block that the script declares are written again from the
+  script. Without these calls the board keeps the ones it has (`docs/lens.md`).
+- `result.drawing_sheet` of `build` holds `source`, `file` and `items`, or `null`.
 
 ## Path aliases (`moved()`)
 

@@ -474,7 +474,10 @@ circles are polygonised with the kernel's tolerance, and `exact` is then false.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| The board outline is the set of closed shapes drawn on `Edge.Cuts`; root `gr_line`, `gr_arc`, `gr_rect`, `gr_poly` and `gr_circle` items on that layer chain into rings by exact endpoint equality, without a snapping tolerance | S-0010, S-0021, S-0058 | INFERRED | H-G-PLACE-OUTLINE |
+| The board outline is the set of closed shapes drawn on `Edge.Cuts`; root `gr_line`, `gr_arc`, `gr_rect`, `gr_poly` and `gr_circle` items on that layer, and the edge items of footprints, chain into rings | S-0010, S-0021, S-0058 | INFERRED | H-G-PLACE-OUTLINE |
+| KiCad closes an outline across a gap between two endpoints below 10 µm and reports `invalid_outline` above it: a rectangle whose last line stops 9.999 µm short of its corner is closed, and 10.001 µm short is open, on 9.0.9 and 10.0.6; at exactly 10 µm, 10.0.6 closes it and 9.0.9 reports `invalid_outline` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-OUTLINE-CHAIN |
+| `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` items of a footprint on `Edge.Cuts` are part of the board outline: an `fp_line` that closes an opening of the root edge lines removes `invalid_outline`, and a track across an `fp_circle` on that layer inside the board gets `copper_edge_clearance` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-OUTLINE-FPEDGE |
+| A via inside a rule area whose `keepout` has `(vias not_allowed)` is reported as `items_not_allowed`, and a via closer to the board edge than the edge clearance as `copper_edge_clearance`, each naming the via | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-STITCH-AVOID |
 
 ### Moved footprints (c0022)
 

@@ -35,6 +35,7 @@ import _exportcases
 import _fieldbench
 import _fieldprobe
 import _fillcases
+import _followcases
 import _fpwrite
 import _framecases
 import _kindcases
@@ -225,6 +226,7 @@ def _probes() -> dict[str, Probe]:
         **_vendorcases.vendor_probes(),
         **_lenscases.lens_probes(),
         **_renamecases.rename_probes(),
+        **_followcases.followup_probes(),
         **_exportcases.export_probes(),
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),

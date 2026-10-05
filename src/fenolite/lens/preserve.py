@@ -907,8 +907,16 @@ def merge_layout(
                 "change the outline in KiCad, or re-run with --discard-layout",
             )
         )
+    # the paper and the title block that the script declares are the script's (c0074); without a call
+    # they stay as the board has them
+    declared = {
+        name: value
+        for name, value in (("sheet", built.board.sheet), ("title_block", built.board.title_block))
+        if value is not None
+    }
     merged_board = dataclasses.replace(
         _with_groups(board.board, renamed_uuids),
+        **declared,
         outline=outline,
         footprints=tuple(placed),
         tracks=tuple(tracks),

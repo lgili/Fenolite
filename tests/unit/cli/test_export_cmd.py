@@ -199,3 +199,74 @@ def test_evidence_in_the_envelope(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert env["evidence"]["level"] == EVIDENCE.level.value
     assert env["evidence"]["oracle"] == "kicad-cli 10.0.6"
     assert env["evidence"]["hypotheses"] == ["H-K-EXPORT-FILES", "H-K-EXPORT-REPEAT"]
+
+
+# -- presets (c0074)
+
+PRESET = 'schema = "fenolite.export-preset.v0"\n[drill]\nunits = "in"\n'
+
+
+def _export_calls(fake: str) -> dict[str, list[str]]:
+    return {c["args"][2]: c["args"] for c in calls(Path(fake)) if c["args"][:2] == ["pcb", "export"]}
+
+
+def test_preset_changes_the_drill_units(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(PRESET, encoding="utf-8")
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    drill = _export_calls(fake)["drill"]
+    assert drill[drill.index("--excellon-units") + 1] == "in"
+    preset = env["result"]["preset"]
+    assert preset["file"] == "fab.toml"
+    assert preset["sha256"] == hashlib.sha256(PRESET.encode("utf-8")).hexdigest()
+    assert "H-K-EXPORT-OPTIONS" in env["evidence"]["hypotheses"]
+
+
+def test_no_preset_runs_the_fixed_arguments(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--kicad-cli", fake, "--dry-run")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0 and env["result"]["preset"] is None
+    drill = _export_calls(fake)["drill"]
+    assert drill[drill.index("--excellon-units") + 1] == "mm"
+    assert "H-K-EXPORT-OPTIONS" not in env["evidence"]["hypotheses"]
+
+
+def test_invalid_preset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text('schema = "other.v1"\n', encoding="utf-8")
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, _, err, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 3 and err["code"] == "FEN-3004" and "fab.toml" in err["message"] + err.get("where", "")
+    assert calls(Path(fake)) == []
+
+
+def test_missing_preset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "none.toml", "--kicad-cli", fake)
+    code, _, err, _ = run(monkeypatch, tmp_path, *args, "--dry-run")
+    assert code == 3 and err["code"] == "FEN-3001" and calls(Path(fake)) == []
+
+
+def test_position_file_follows_its_format(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(
+        'schema = "fenolite.export-preset.v0"\n[pos]\nformat = "ascii"\n', encoding="utf-8"
+    )
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--pos", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    assert [p["path"] for p in env["result"]["plan"]] == ["fab/pos/board-pos.pos"]
+    assert "pos/board-pos.pos" in _export_calls(fake)["pos"]

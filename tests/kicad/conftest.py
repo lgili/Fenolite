@@ -31,6 +31,7 @@ for folder in (
     HERE / "acceptance",
     HERE / "assembly",
     HERE / "schematic",
+    HERE / "followups",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
