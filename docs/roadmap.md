@@ -75,25 +75,33 @@ rebuilds.
 | c0010 | `kicad-project-file` | `.kicad_pro` writer, net classes | done | c0017, c0018 | 6.5 |
 | c0011 | `dsl-thin-build` | thin Python DSL and `build` | done | c0010, c0017, c0018 | 8.5 |
 | c0012 | `sheet-templates-kicad` | sheet templates to `.kicad_wks` | done | c0010, c0017 | 9.5 |
-| c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | proposed | c0010, c0011 | 8.5 |
+| c0013 | `kicad-oracle-and-check` | read-only `check` v0, `inspect`, `doctor` | done | c0010, c0011 | 8.5 |
 | c0014 | `verification-evidence` | hypothesis-register guard, label grammar, release rule | done | — | 3 |
 | c0015 | `zone-fill` | zone fill through `kicad-cli` 10 for both targets; fills read back from the saved board and merged by zone uuid, RT1 kept; `fill` command, `zone.fill` check stage, container runner | implemented in draft PR; full local check and KiCad 9/10 CI passed | c0013, c0019, c0031 | 6 |
 | c0016 | `routing-plugins` | routing protocol, `route` command, KiCadRoutingTools plugin and its feasibility gate | done; gate and full CI passed on KiCad 9.0.9 and 10.0.6 | c0015, c0020, c0022 | 7.5 |
 | c0017 | `kicad-board-writer` | board writer for 9.0 and 10.0 | done | c0009, c0014 | 7.75 |
 | c0018 | `kicad-rules-footprints` | footprint and custom-rules writers | done | c0017 | 5.75 |
-| c0019 | `layout-preserve` | layout kept across rebuilds | proposed | c0011, c0013, c0027 | 8.25 |
-| c0020 | `check-netlist-drc` | DRC findings, netlist compare, corpus RT2, negative tests | proposed | c0013 | 8.75 |
+| c0019 | `layout-preserve` | layout kept across rebuilds | done | c0011, c0013, c0027 | 8.25 |
+| c0020 | `check-netlist-drc` | DRC findings, netlist compare, corpus RT2, negative tests | done | c0013 | 8.75 |
 | c0021 | `kicad-libs-cache` | library fetch, cache, resolution probes | done | c0017, c0019, c0027 | 9.5 |
 | c0022 | `placement-grid` | manual and grid placement; pre-write legality check (courtyard overlap, outside the outline, edge clearance) | done | c0019, c0028, c0030 | 6 |
-| c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | proposed | c0016 | 10 |
+| c0023 | `specctra-freerouting` | Specctra DSN/SES, Freerouting plugin (time-boxed; first in the cut order; needs ADR-0006) | done | c0016 | 10 |
 | c0024 | `manufacturing-exports` | `export` and `render` through `kicad-cli`, the artefact manifest, opt-in `render` check stage | done | c0013 | 5.25 |
-| c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | proposed | every v0.1 change | 5.75 |
-| c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | proposed | c0010 | 6.5 |
-| c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | proposed | c0011 | 5.25 |
+| c0025 | `release-v0-1` | second example board, acceptance loop on both majors, agent guide, CI matrix and `wheel` job, release record | in progress: tasks 0 to 5.7 done on 2026-10-05; the verdict and the version commit remain | every v0.1 change | 5.75 |
+| c0026 | `kicad-board-minimums` | board-setup minimums written from board-wide rules | done | c0010 | 6.5 |
+| c0027 | `build-properties-vendoring` | user properties on built footprints; footprints of every library row vendored | done | c0011 | 5.25 |
 | c0028 | `board-frame-copper` | pads and courtyards in the board frame; script copper (tracks, vias, stitching) | done | c0019, c0021 | 21.5 |
 | c0029 | `copper-check` | Fenolite's own short and clearance check, build guard, via re-net probe | done | c0020, c0026, c0028 | 12 |
 | c0030 | `footprint-fields` | Reference, Value and other footprint fields: placed, read, written, kept | done | c0019, c0028 | 10.25 |
 | c0031 | `zone-settings` | typed zone settings, pad zone connection, target-9 fill outline fix | done | c0019, c0028 | 8 |
+| c0049 | `test-speed` | parallel test runs, `make check-fast` | done | — | 2 |
+| c0050 | `transform-composition-bound` | the true bound of two successive transforms | done | — | 0.5 |
+| c0051 | `drc-canary-repeatability` | KiCad's clearance report limit; the two-run canary test | done | — | 2 |
+| c0052 | `release-hygiene` | capability evidence, packaging metadata, contract and provenance docs | done | — | 1.5 |
+| c0053 | `altium-script-copper` | script copper in the Altium build | done | c0038 | 2 |
+| c0054 | `dsl-rule-constructor` | design minimums declared in the script | done | c0011 | 3 |
+| c0055 | `dsl-footprint-authoring` | footprints authored in the design script | done | c0011 | — |
+| c0056 | `dsl-pin-pad-map-slots` | symbol pin to pad maps, slotted pads | done | c0055 | — |
 
 - c0006–c0009 and c0014 were archived on 2026-10-01; c0017, c0018, c0010, c0011 and c0012 on 2026-10-02.
 - Implementation order from here: c0032 (the experimental Altium schematic writer, see Phase 4) →
@@ -102,7 +110,9 @@ rebuilds.
   the same order, because several of them modify requirements that an earlier one adds; each design
   states its archive-order dependencies.
 - The last column is the size in design-days: from the designs ("Budget") for proposed and done
-  changes, planning estimates for roadmap changes. Every v0.1 change is now proposed.
+  changes, planning estimates for roadmap changes. On 2026-10-05 every v0.1 change is done except
+  c0025, the release itself. c0049 to c0056 joined v0.1 on 2026-10-04 (loose ends found by the v0.1
+  audit, and DSL work of the other agent); c0055 and c0056 give no size in their designs.
 
 **Gaps found by the dogfood board.** On 2026-10-02 a testing agent built a real board (a 12–24 V to
 5 V / 3 A buck converter) only through Fenolite's public API. c0026–c0031 come from what it could not
