@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-05
+
 ### Added
 
 - v0.1 acceptance: a second example board of forty parts, the loop proved on both examples and both KiCad majors, the agent guide `agent/SKILL.md`, the `wheel` and `dco` jobs, Windows and Python 3.11 to 3.13 in CI, and the release record `docs/release/v0.1.md`.

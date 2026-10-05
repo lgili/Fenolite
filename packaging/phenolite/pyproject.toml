@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phenolite"
-version = "0.0.1.dev0"
+version = "0.1.0"
 description = "Alias of Fenolite (headless, agent-first PCB design automation). Installs the 'fenolite' package."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
-dependencies = ["fenolite==0.0.1.dev0"]
+dependencies = ["fenolite==0.1.0"]
 
 [project.urls]
 Source = "https://github.com/lgili/Fenolite"
