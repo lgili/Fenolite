@@ -90,4 +90,6 @@ The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
 | c0075 | `standard-component-catalog` | dogfood gap: offline common symbols and footprints | c0008, c0058 |
 | c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 
+| c0082 | `kicad-worksheet-oracle-isolation` | CI correction: isolated worksheet boundary oracle | — |
+
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

@@ -10,9 +10,10 @@ from pathlib import Path
 
 import pytest
 from _corpus import manifest_items
-from _kicad import loads, major, run, run_raw
+from _kicad import cli, loads, major, run
 
 from fenolite.backends.kicad import load
+from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind, detect_version
 
 pytestmark = pytest.mark.needs_kicad
@@ -62,10 +63,37 @@ def _sheet_errors(tmp_path: Path, version: int) -> str:
     sheet = tmp_path / f"w{version}.kicad_wks"
     text = (TOKENS / "skeleton.kicad_wks").read_text(encoding="utf-8")
     sheet.write_text(re.sub(r"\(version \d+\)", f"(version {version})", text, count=1), encoding="utf-8")
-    board = tmp_path / "board.kicad_pcb"
-    shutil.copy(TOKENS / "skeleton.kicad_pcb", board)
-    options = ["--drawing-sheet", sheet, "-l", "Edge.Cuts", "--mode-single", "-o", tmp_path / "out.svg"]
-    result = run_raw("pcb", "export", "svg", board, *options)
+    # KiCad also uses home/cache/data and the OS temp directory (including instance locks).
+    # KICAD_CONFIG_HOME alone does not isolate those paths between parallel oracle processes.
+    home = tmp_path / f"home-{version}"
+    temporary = home / "tmp"
+    temporary.mkdir(parents=True)
+    result = KicadCli(Path(cli()), timeout=600).run(
+        [
+            "pcb",
+            "export",
+            "svg",
+            "board.kicad_pcb",
+            "--drawing-sheet",
+            "sheet.kicad_wks",
+            "-l",
+            "Edge.Cuts",
+            "--mode-single",
+            "-o",
+            "out.svg",
+        ],
+        files={"board.kicad_pcb": TOKENS / "skeleton.kicad_pcb", "sheet.kicad_wks": sheet},
+        env={
+            "HOME": str(home),
+            "XDG_CACHE_HOME": str(home / "cache"),
+            "XDG_DATA_HOME": str(home / "data"),
+            "TMPDIR": str(temporary),
+            "TMP": str(temporary),
+            "TEMP": str(temporary),
+        },
+    )
+    assert result.ok, result.stdout + result.stderr
+    assert "out.svg" in result.outputs, result.stdout + result.stderr
     return result.stdout + result.stderr
 
 
