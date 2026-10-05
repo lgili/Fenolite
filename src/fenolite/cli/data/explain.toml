@@ -584,9 +584,19 @@ meaning = "A column of the BOM template names a property that no part of the des
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
 see = "bom"
 
+["build.diff-pair-name"]
+meaning = "The two nets of a diff_pair or usb2 interface do not form a differential pair for KiCad by their names, so KiCad's pair rules and its pair router do not see them as one."
+fix = "Rename the nets as the hint proposes (a common base name with the suffixes KiCad pairs)."
+see = "build"
+
 ["build.global-library"]
 meaning = "A part's footprint comes from a library outside the project, so it was copied into the project's libraries."
 fix = "Nothing to do; result.vendored lists the copied files."
+see = "build"
+
+["build.i2c-pullup-missing"]
+meaning = "A line of an I2C interface has no two-pin part to the supply net of the power interface it names, so the bus has no pull-up in the design."
+fix = "Add a pull-up resistor from each line to the supply net, or ignore the warning if the pull-ups are elsewhere."
 see = "build"
 
 ["build.interface-not-lowered"]
@@ -1493,6 +1503,11 @@ see = "KiCad output"
 meaning = "A rule of the rules file is kept verbatim, because the model does not hold its form; the message names the reason."
 fix = "Nothing to do; Fenolite's own copper check does not apply that rule."
 see = "inspect"
+
+["rules.kind-unchecked"]
+meaning = "A rule of the design has a kind that the target KiCad version cannot check, for example a creepage rule for KiCad 9. Writing it would leave a rule that nothing judges, so the build stops."
+fix = "Build for a KiCad version that checks the rule, or pass --allow-lossy to leave the rule out of the rules file; it is then reported as rules.dropped-for-target."
+see = "Build target"
 
 ["rules.unsupported-layer"]
 meaning = "A rule names a layer that is not a KiCad layer name, or a layer clause that the target does not take."
