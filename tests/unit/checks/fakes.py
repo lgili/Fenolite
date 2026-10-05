@@ -23,6 +23,10 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    ErcItem,
+    ErcOutcome,
+    ErcReport,
+    ErcViolation,
     FillOutcome,
     ModelScope,
     NetlistOutcome,
@@ -97,8 +101,15 @@ class FakeRulesValidator(FakeValidator):
         return ()
 
 
-def report(*violations: DrcViolation, unconnected: tuple[DrcViolation, ...] = ()) -> DrcReport:
-    return DrcReport("board.kicad_pcb", "", "1.0", "mm", violations=violations, unconnected_items=unconnected)
+def report(
+    *violations: DrcViolation,
+    unconnected: tuple[DrcViolation, ...] = (),
+    parity: tuple[DrcViolation, ...] = (),
+) -> DrcReport:
+    return DrcReport(
+        "board.kicad_pcb", "", "1.0", "mm", violations=violations, unconnected_items=unconnected,
+        schematic_parity=parity,
+    )  # fmt: skip
 
 
 def violation(kind: str = "clearance", severity: str = "error", uid: str = "u1") -> DrcViolation:
@@ -113,6 +124,8 @@ def outcome(
     missing: bool = False,
     timeout: bool = False,
     evidence: Evidence = VERIFIED,
+    parity_judged: bool = False,
+    message: str = "",
 ) -> DrcOutcome:
     found = None if missing or timeout else (drc if drc is not None else report())
     return DrcOutcome(
@@ -124,8 +137,9 @@ def outcome(
         tool_writes=("z.kicad_prl", "a.kicad_prl"),
         outcome="timeout" if timeout else "exit",
         returncode=None if timeout else (3 if missing else 0),
-        message="no board" if missing else "",
+        message="no board" if missing else message,
         evidence=evidence if found is not None else Evidence(),
+        parity_judged=parity_judged and found is not None,
     )
 
 
@@ -222,6 +236,49 @@ class FakeSchematicOracle(FakeFullOracle):
     def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome:
         self.schematic_calls.append(project)
         return self.schematic_result
+
+
+def erc_violation(
+    kind: str = "pin_not_connected", severity: str = "error", *, where: str = "", sheet: str = "/",
+    excluded: bool = False, at: tuple[int, int] = (0, 0), uid: str = "e1", description: str = "",
+) -> ErcViolation:  # fmt: skip
+    item = ErcItem(uid, "item", Point(*at), where)
+    return ErcViolation(kind, description or kind, severity, (item,), excluded, sheet, f"/root{sheet}")
+
+
+def erc_report(
+    *violations: ErcViolation, sheets: tuple[str, ...] = ("/",), ignored: tuple[str, ...] = (),
+    source: str = "board.kicad_sch",
+) -> ErcReport:  # fmt: skip
+    return ErcReport(source, "", "1.0", "mm", violations, ignored, sheets=sheets)
+
+
+def erc_outcome(
+    found: ErcReport | None = None, *, missing: bool = False, timeout: bool = False,
+    evidence: Evidence = VERIFIED, message: str = "",
+) -> ErcOutcome:  # fmt: skip
+    report_ = None if missing or timeout else (found if found is not None else erc_report())
+    return ErcOutcome(
+        report=report_,
+        tool_version="1.0",
+        tool_writes=("z.kicad_prl", "a.kicad_prl"),
+        outcome="timeout" if timeout else "exit",
+        returncode=None if timeout else (3 if missing else 0),
+        message=message or ("Failed to load schematic" if missing else ""),
+        evidence=evidence if report_ is not None else Evidence(),
+    )
+
+
+@dataclass
+class FakeErcOracle(FakeOracle):
+    """A fake that also satisfies ``ErcOracle`` (change c0062)."""
+
+    erc_result: ErcOutcome = field(default_factory=erc_outcome)
+    erc_calls: list[ProjectSet] = field(default_factory=lambda: [])
+
+    def erc(self, project: ProjectSet) -> ErcOutcome:
+        self.erc_calls.append(project)
+        return self.erc_result
 
 
 def project(

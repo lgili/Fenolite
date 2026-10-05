@@ -32,7 +32,9 @@ ROOT = Path(__file__).resolve().parents[3]
 RECORDED = ROOT / "tests" / "data" / "acceptance"
 PROJECTS = sorted(path.name for path in RECORDED.iterdir() if path.is_dir()) if RECORDED.is_dir() else []
 SEED = ("--seed", "250025", "--timestamp", "2026-10-04T00:00:00Z")
-JUDGED = ("model.validate", "erc.lite", "drc.kicad", "netlist.assignment_compare", "roundtrip")
+# ``erc.kicad`` is KiCad's own ERC (change c0062). The recorded projects of v0.1 hold no schematic; the
+# build that ``test_check`` runs first writes one, and the stage judges it.
+JUDGED = ("model.validate", "erc.kicad", "drc.kicad", "netlist.assignment_compare", "roundtrip")
 COPPER = ("(segment", "(arc", "(via", "(zone")
 FREE_SPOT = {"blink_2layer": (46_000_000, 4_000_000), "board_40parts": (50_000_000, 72_000_000)}
 NET = re.compile(r'\(net (?:\d+ )?"[^"]*"\)')

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""ERC lite on authored models (capability verification-loop, "ERC lite stage"; change c0013)."""
+"""ERC lite on authored models (capability verification-loop, "ERC lite stage"; changes c0013 and c0062:
+the three rules are a function for inputs without an ERC oracle, and no stage of the KiCad pipeline)."""
 
 from __future__ import annotations
 
@@ -12,10 +13,10 @@ from pathlib import Path
 import pytest
 from _buildhelp import blink_variant
 
-import fenolite
 import fenolite.cli.main as cli_main
 from fenolite.checks import erc_lite as erc
-from fenolite.checks.erc_lite import ERC_RULES, REMOVE_IN, check_removal, erc_lite, erc_stage
+from fenolite.checks.erc_lite import ERC_RULES, erc_lite, erc_stage
+from fenolite.model.canonical import load_dir
 from fenolite.model.circuit import Circuit, Component, Interface, Net, Pin, PinRef
 from fenolite.model.design import Design
 
@@ -102,15 +103,11 @@ def test_erc_lite_warnings_only() -> None:
     assert erc.EVIDENCE.hypotheses == ("H-K-CHECK-ERC",)
 
 
-def test_remove_in_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
-    assert REMOVE_IN == (0, 2)
-    monkeypatch.setattr(fenolite, "__version__", "0.2.0")
-    with pytest.raises(RuntimeError, match=r"erc\.lite.*REMOVE_IN"):
-        check_removal(fenolite.__version__)
-
-
-def test_remove_in_live_version() -> None:
-    assert check_removal(fenolite.__version__) is None
+def test_erc_lite_has_no_removal_deadline() -> None:
+    """The removal that ``REMOVE_IN`` announced is done for KiCad input (change c0062); the rules stay."""
+    assert not hasattr(erc, "REMOVE_IN") and not hasattr(erc, "check_removal")
+    assert erc.__all__ == ["ERC_RULES", "EVIDENCE", "erc_lite", "erc_stage"]
+    assert erc_stage(CLEAN).name == "erc.lite"
 
 
 # --- no-connect marks (change c0036) ------------------------------------------------------------------
@@ -156,7 +153,7 @@ def test_erc_lite_no_connect_marked_pin_on_a_net_is_not_reported() -> None:
     assert "erc.lite.power-undriven" not in _codes(_marked(undriven, ("cmp_2", "1")))
 
 
-def test_erc_lite_no_connect_marked_pins_of_a_built_project(
+def test_erc_lite_no_connect_marked_pins_of_a_built_model(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     unused = [n for n in range(1, 33) if n not in (1, 9, 10)]
@@ -178,12 +175,13 @@ def test_erc_lite_no_connect_marked_pins_of_a_built_project(
     built = tmp_path / "B"
     code, _ = run("build", str(script), "--out", str(built), "--confirm")
     assert code == 0
-    code, reply = run("check", str(built), "--stages", "erc.lite")
-    floating = [i for i in reply["issues"] if i["code"] == "erc.lite.floating-pin"]  # type: ignore[union-attr]
-    assert code == 0 and not [i for i in floating if i["where"].startswith("U1-")], floating
+    floating = [i for i in erc_lite(load_dir(built / ".fenolite")) if i.code == "erc.lite.floating-pin"]
+    assert not [i for i in floating if i.where.startswith("U1-")], floating
     plain = tmp_path / "plain"
     unmarked = blink_variant(tmp_path / "p", marks=False)
     code, _ = run("build", str(unmarked), "--out", str(plain), "--confirm")
-    code, reply = run("check", str(plain), "--stages", "erc.lite")
-    floating = [i for i in reply["issues"] if i["code"] == "erc.lite.floating-pin"]  # type: ignore[union-attr]
-    assert {"U1-11", "U1-12"} <= {i["where"] for i in floating}, "the control: unmarked pins still float"
+    floating = [i for i in erc_lite(load_dir(plain / ".fenolite")) if i.code == "erc.lite.floating-pin"]
+    assert {"U1-11", "U1-12"} <= {i.where for i in floating}, "the control: unmarked pins still float"
+    # the rules are no stage of ``check`` on a KiCad project any more
+    code, _ = run("check", str(built), "--stages", "erc.lite")
+    assert code == 2

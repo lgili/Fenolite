@@ -1,0 +1,65 @@
+{
+  "$schema": "https://schemas.kicad.org/erc.v1.json",
+  "coordinate_units": "mm",
+  "date": "2026-10-05T12:00:00",
+  "ignored_checks": [
+    {
+      "description": "Assigned footprint doesn't match footprint filters",
+      "key": "footprint_filter"
+    }
+  ],
+  "included_severities": ["error", "warning", "exclusion"],
+  "kicad_version": "10.0.6",
+  "sheets": [
+    {
+      "path": "/",
+      "uuid_path": "/11111111-0000-4000-8000-000000000001",
+      "violations": [
+        {
+          "description": "Pin not connected",
+          "items": [
+            {
+              "description": "Symbol U1 Pin 2 [IN, Input, Line]",
+              "pos": {"x": 1.397, "y": 0.5969},
+              "uuid": "22222222-0000-4000-8000-000000000002"
+            }
+          ],
+          "severity": "error",
+          "type": "pin_not_connected"
+        },
+        {
+          "description": "The current configuration does not include the symbol library 'Authored'",
+          "excluded": true,
+          "items": [
+            {
+              "description": "Symbol U1 [Part]",
+              "pos": {"x": 1.27, "y": 0.508},
+              "uuid": "22222222-0000-4000-8000-000000000001"
+            }
+          ],
+          "severity": "warning",
+          "type": "lib_symbol_issues"
+        }
+      ]
+    },
+    {
+      "path": "/Child/",
+      "uuid_path": "/11111111-0000-4000-8000-000000000001/11111111-0000-4000-8000-000000000002",
+      "violations": [
+        {
+          "description": "Label connected to only one pin",
+          "items": [
+            {
+              "description": "Global Label 'SENSE'",
+              "pos": {"x": 0.254, "y": 0.381},
+              "uuid": "33333333-0000-4000-8000-000000000001"
+            }
+          ],
+          "severity": "warning",
+          "type": "isolated_pin_label"
+        }
+      ]
+    }
+  ],
+  "source": "authored.kicad_sch"
+}

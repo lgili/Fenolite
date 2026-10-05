@@ -509,7 +509,7 @@ def test_rebuilt_blink_with_a_mounting_hole_added_in_kicad(
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr("sys.stdout", out)
     monkeypatch.setattr("sys.stderr", err)
-    stages = "model.validate,erc.lite,roundtrip"
+    stages = "model.validate,roundtrip"
     code = cli_main.main(["check", str(p.out), "--stages", stages, "--json"])
     env = json.loads(out.getvalue())
     assert code == 0, err.getvalue()

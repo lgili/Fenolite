@@ -13,3 +13,9 @@ pytestmark = pytest.mark.needs_kicad
 
 def test_copy_set_equals_folder() -> None:
     assert run("check-copyset") == "equal"
+
+
+def test_copy_set_equals_folder_with_a_schematic() -> None:
+    """The second proof of ``H-K-CHECK-COPYSET`` (change c0062): the folder holds a schematic, its symbol
+    libraries and table, and the run asks for the parity test."""
+    assert run("check-copyset-schematic") == "equal"

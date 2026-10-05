@@ -8,7 +8,7 @@
   - c0044 (proposed, v0.3) runs the three rules on Altium documents through its own pipeline and asks that this change "keeps the three rules for document input and moves `REMOVE_IN` to the KiCad use only".
 - **Observed at proposal time** (2026-10-04) on `kicad-cli` 9.0.9 (pinned image) and 10.0.6 (macOS), on a hand-made sheet for the built blink:
   - `sch erc` takes `--format json|report`, `--units`, `--severity-all`, `--severity-error`, `--severity-warning`, `--severity-exclusions`, `--exit-code-violations`, `-o` and `--define-var` on both majors.
-  - The JSON report has `$schema`, `source`, `date`, `kicad_version`, `coordinate_units`, `included_severities` and `sheets`; each sheet has `path`, `uuid_path` and `violations`; each violation has `type`, `severity`, `description` and `items`; each item has `uuid`, `description` and `pos`. 10.0.6 adds `ignored_checks` (key and description per ignored check); 9.0.9 has no such key. The public schema says the same and makes `excluded` optional (S-0330, S-0331).
+  - The JSON report has `$schema`, `source`, `date`, `kicad_version`, `coordinate_units`, `included_severities` and `sheets`; each sheet has `path`, `uuid_path` and `violations`; each violation has `type`, `severity`, `description` and `items`; each item has `uuid`, `description` and `pos`. 10.0.6 adds `ignored_checks` (key and description per ignored check); 9.0.9 has no such key. The public schema says the same and makes `excluded` optional (S-0450, S-0451).
   - With `coordinate_units` `mm`, the item at sheet position (139.7, 59.69) mm is reported at `x` 1.397 and `y` 0.5969, on both majors: positions are divided by 100.
   - Types seen: `pin_not_connected`, `pin_not_driven`, `power_pin_not_driven` (errors); `lib_symbol_issues`, `multiple_net_names` (warnings); for a label on a single pin, `isolated_pin_label` on 10.0.6 and `global_label_dangling` on 9.0.9.
   - Exit codes: 0 with a report when `--exit-code-violations` is absent; 5 with it when violations exist; 3 and no report for a schematic that does not load (a broken file, a missing file, a version above the tool's; 10.0.6).
@@ -107,16 +107,16 @@
 
 | id | URL | used for |
 |---|---|---|
-| S-0330 | https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/resources/schemas/erc.v1.json | key names and required keys of the ERC report at 10.0.6, `ignored_checks` included; not vendored |
-| S-0331 | https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/resources/schemas/erc.v1.json | the same at 9.0.9.1: no `ignored_checks` |
+| S-0450 | https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/resources/schemas/erc.v1.json | key names and required keys of the ERC report at 10.0.6, `ignored_checks` included; not vendored |
+| S-0451 | https://gitlab.com/kicad/code/kicad/-/raw/9.0.9.1/resources/schemas/erc.v1.json | the same at 9.0.9.1: no `ignored_checks` |
 
-Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch erc`, `pcb drc --schematic-parity`), S-0046 (the ERC checks of the schematic editor), S-0055 and S-0056 (the DRC report schema, for the shape of parity entries). Task 1.1 widens S-0020, S-0022, S-0037 and S-0046. S-0332 to S-0334 stay unused.
+Rows of other changes cited here: S-0020 (observed `kicad-cli` behaviour), S-0022 and S-0037 (`sch erc`, `pcb drc --schematic-parity`), S-0046 (the ERC checks of the schematic editor), S-0055 and S-0056 (the DRC report schema, for the shape of parity entries). Task 1.1 widens S-0020, S-0022, S-0037 and S-0046.
 
 ## Hypotheses registered by this change
 
 | id | statement | settling test | criterion |
 |---|---|---|---|
-| H-K-ERC-JSON | `sch erc --format json --severity-all` writes a report with the keys of Decision 4 and exits 0 when the schematic loads; it writes none and exits 3 when it does not (S-0330, S-0331, S-0020) | `tests/kicad/check/test_erc_facts.py::test_report_shape` | on 9.0.9 and 10.0.6: probes `erc-report-keys` = `equal`, `erc-ignored-checks` = `present` on 10 and `absent` on 9, `erc-unloadable` = `absent` (no report) with exit 3 |
+| H-K-ERC-JSON | `sch erc --format json --severity-all` writes a report with the keys of Decision 4 and exits 0 when the schematic loads; it writes none and exits 3 when it does not (S-0450, S-0451, S-0020) | `tests/kicad/check/test_erc_facts.py::test_report_shape` | on 9.0.9 and 10.0.6: probes `erc-report-keys` = `equal`, `erc-ignored-checks` = `present` on 10 and `absent` on 9, `erc-unloadable` = `absent` (no report) with exit 3 |
 | H-K-ERC-POS | An item's `pos` is its sheet position in the report's unit divided by 100 (S-0020) | `::test_positions` | on both majors: for five items of known position, `read_erc_report` gives the sheet position in nm; probe `erc-position-scale` = `equal` |
 | H-K-ERC-TYPES | The five controls give `pin_not_connected`, `pin_not_driven`, `power_pin_not_driven`, `lib_symbol_issues` and the single-pin label warning of each major, and each follows the project's `erc.rule_severities` (S-0046, S-0020) | `::test_types` | on both majors: probes `erc-type-<type>` = `present`; with the key set to `ignore`, `erc-type-<type>-ignored` = `absent`; with `warning`, the severity is `warning` |
 | H-K-ERC-COPYSET | ERC on the copy set gives the violations of ERC on a copy of the whole project folder | `tests/kicad/check/test_erc_oracle.py::test_copy_set` | on both majors, for the built blink, the authored hierarchy and three corpus projects: equal `entries()`; probe `erc-copyset` = `equal` |
@@ -183,3 +183,40 @@ Cut order: (1) RT2 on corpus projects outside the acceptance list; (2) `REF-PIN`
 - **Should `erc.kicad` warn when a built project has no schematic (`--schematic skip`)?** Default: the stage is skipped with `no-schematic` and says nothing more.
 - **Should a native project's `lib_symbol_issues` be demoted to info?** Default: no; Fenolite reports KiCad's severity.
 - **A `roundtrip.rt2` stage for schematics in `check`.** Default: no (Decision 11).
+
+## Implementation notes (2026-10-05)
+
+- **Source ids.** S-0330 and S-0331 were taken on `dev` by c0076 before this change was implemented; the
+  two schema rows are S-0450 and S-0451, and every text of this change names them.
+- **Re-base on c0044.** c0044 was implemented first and is not archived. The deltas of "Check command
+  input" and "ERC lite stage" start from the text c0044 leaves and apply this change's edits on top, so
+  either archive order gives the same living text once both are archived.
+- **c0061 is on `dev`, not archived.** Task 0.1 asked for the archive; the code it needs is there.
+- **Two fields the proposal's report lacked.** `ErcViolation.sheet_id` holds the report's `uuid_path`
+  of the sheet: the symbols of a schematic name their uses by that path, not by the readable one, so
+  `item_locations` is keyed by it. `ErcReport.sheets` holds the readable path of every sheet of the
+  report: without it `summary.sheets` cannot count a sheet that has no violation. `erc.REQUIRED_KEYS`
+  is a mapping of the three levels to their keys, because one flat tuple cannot say which level a key
+  belongs to.
+- **Violations listed under another sheet.** Measured on 10.0.6 and 9.0.9: a check that looks at a
+  sheet file and not at one use of it (a pin off the grid, a missing library) is listed under `/`
+  even when its item lies in a child file. `item_locations` therefore also holds, under the sheet id
+  `""`, the location on which every use of an item agrees, and `erc.located` falls back to it. An
+  item of a sheet used twice has two references and keeps `where == ""` in that case.
+- **The `pin_not_driven` control is a variant, not an edit.** The blink connects no input pin, so
+  no token edit of its sheet gives that type alone. The control is the blink built with two input
+  pins of `U1` on a net of their own. The other four controls are edits of the built blink.
+- **Probe names.** A type is spelled with `-` in a probe id. The label on a single pin has two
+  probes, `erc-type-isolated-pin-label` and `erc-type-global-label-dangling`, each on both majors,
+  so the files record which major reports which. Two probes were added: `erc-writes-prl` (10.0.6
+  writes `<stem>.kicad_prl`, 9.0.9 writes nothing but its report; the proposal had seen the file
+  on both) and `check-copyset-schematic`, the second proof of `H-K-CHECK-COPYSET`.
+- **Parity and a schematic that does not load.** Measured on both majors: with the flag, such a
+  run exits 255 and writes no report at all, so the DRC verdict would be lost with the parity one.
+  `KicadOracle.drc` therefore runs again without the flag when the flagged run gives no report
+  (Decision 9 only said that the stage reports `parity-unchecked`). The error line of that run
+  starts with a time of day; `_first_line` drops it, or two `check` runs would differ.
+- **`erc.kicad` reads no board.** `run_checks` leaves the stage out of the stages that ask for the
+  board read: `--stages erc.kicad` on a project whose board Fenolite cannot read still runs.
+- **`sch.SheetTree.missing`.** The copy set needs the name of a sheet file that does not exist, and
+  the issues of `sheet_files` hold it only inside a message; the tree now lists the names.

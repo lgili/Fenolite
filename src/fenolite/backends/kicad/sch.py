@@ -195,11 +195,13 @@ class SchComponent:
 @dataclass(frozen=True, slots=True)
 class SheetTree:
     """The schematic files of a hierarchy: ``files`` relative to the root file's folder, the root first;
-    ``references`` counts the sheet references that name each file (0 for the root)."""
+    ``references`` counts the sheet references that name each file (0 for the root); ``missing`` names
+    the files that a sheet reference names and that do not exist, in the order they were met."""
 
     files: tuple[str, ...]
     references: Mapping[str, int]
     issues: tuple[Issue, ...] = ()
+    missing: tuple[str, ...] = ()
 
 
 class _Unmodelled(Exception):
@@ -1175,6 +1177,7 @@ class _Walk:
     files: list[str] = field(default_factory=lambda: [])
     references: dict[str, int] = field(default_factory=lambda: {})
     issues: list[Issue] = field(default_factory=lambda: [])
+    missing: list[str] = field(default_factory=lambda: [])
 
 
 def _relative(path: Path, base: Path) -> str | None:
@@ -1233,6 +1236,8 @@ def sheet_files(root_file: str | os.PathLike[str]) -> SheetTree:
                     )
                 continue
             if not target.is_file():
+                if name not in walk.missing:
+                    walk.missing.append(name)
                 walk.issues.append(
                     Issue(
                         "kicad.sch.sheet-missing",
@@ -1247,7 +1252,9 @@ def sheet_files(root_file: str | os.PathLike[str]) -> SheetTree:
                 read.add(target)
                 walk.files.append(name)
                 queue.append((target, (*trail, target)))
-    return SheetTree(tuple(walk.files), MappingProxyType(dict(walk.references)), tuple(walk.issues))
+    return SheetTree(
+        tuple(walk.files), MappingProxyType(dict(walk.references)), tuple(walk.issues), tuple(walk.missing)
+    )
 
 
 def components(

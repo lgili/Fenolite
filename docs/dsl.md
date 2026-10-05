@@ -321,7 +321,9 @@ no_connect(u1[11], u1[12])  # NRST and OSC_IN are left open on purpose
   mark becomes a no-connect flag of the generated schematic (`docs/schematic.md`), so KiCad's ERC
   does not report the pin; the board, project and rules files are byte for byte those of the same
   design without marks.
-- **Check.** `fenolite check` no longer reports `erc.lite.floating-pin` for a marked pin.
+- **Check.** `fenolite check` runs KiCad's own ERC on the generated schematic (stage `erc.kicad`). A
+  marked pin is not reported; an unmarked pin on no net is `kicad.erc.pin-not-connected` (error), located
+  as `REF-PIN`.
 - **Altium target.** Each marked pin gets a No ERC directive and no wire stub (`docs/altium.md`,
   "No-connect marks").
 

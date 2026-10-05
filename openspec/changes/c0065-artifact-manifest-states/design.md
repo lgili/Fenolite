@@ -169,3 +169,12 @@ is today changed these points; the delta specs say the same.
 12. **An export with a preset** (c0074, merged while this change was implemented) has the envelope
     level `INFERRED`. Its manifest entries take that level instead of `exports.EVIDENCE`'s: an entry
     claims no more than the run that wrote it.
+
+## Follow-up by c0062 (2026-10-05)
+
+c0062 added the stage `erc.kicad` to `check`, so corrections 1 and 2 above are lifted as they said
+they would be: the entries of `states.PENDING` moved into `states.RULES`, and a sheet, a symbol library
+and `sym-lib-table` reach `native-verified` when `erc.kicad` is `ok` at `KICAD-VERIFIED`. The scenario
+"States from a check" and task 4.1 ask for that state again. `tests/kicad/export/test_manifest_oracle.py`
+uses the schematic the build writes, no authored sheet; for that, `examples/blink_routed` marks its
+unused pins as `examples/blink_2layer` does (its board is byte for byte the same).

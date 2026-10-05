@@ -29,6 +29,8 @@ SUMMARY_KEYS = {
     "excluded",
     "tool_writes",
     "violations_judged",
+    "parity",
+    "parity_judged",
     "types",
 }
 
@@ -136,3 +138,45 @@ def test_drc_stage_timeout_is_retryable() -> None:
     result = drc_stage(FakeOracle(outcome("inconclusive", "no-report", timeout=True)), project(), built=False)
     (found,) = result.issues
     assert found.code == "check.oracle-failed" and found.retryable and "timed out" in found.message
+
+
+# -- parity findings (capability verification-loop, "Parity findings"; change c0062)
+
+
+def test_drc_stage_parity_entries_are_findings() -> None:
+    conflict = violation("net_conflict", "warning", uid="p1")
+    drc = report(violation("clearance"), parity=(conflict,))
+    oracle = FakeOracle(outcome("fired", drc=drc, parity_judged=True))
+    result = drc_stage(oracle, project(schematic=True), built=True)
+    assert ("fake.drc.net-conflict", "warning") in [(i.code, i.severity) for i in result.issues]
+    assert result.summary["parity"] == 1 and result.summary["parity_judged"] is True
+    assert result.summary["violations"] == 1  # the parity entry is counted apart from the violations
+    assert result.summary["types"]["fake.drc.net-conflict"] == "net_conflict"  # type: ignore[index]
+    assert not [i for i in result.issues if i.code == "fake.drc.parity-unchecked"]
+    assert result.evidence.level == Level.KICAD_VERIFIED
+
+
+def test_drc_stage_parity_asked_for_and_not_judged() -> None:
+    line = "Error: Expecting kicad_sch in '<tmp>/board.kicad_sch', line 2, offset 1."
+    oracle = FakeOracle(outcome("fired", parity_judged=False, message=line))
+    result = drc_stage(oracle, project(schematic=True), built=True)
+    (unchecked,) = [i for i in result.issues if i.code == "fake.drc.parity-unchecked"]
+    assert unchecked.severity == "warning" and unchecked.where == "board.kicad_sch"
+    assert unchecked.message == f"the board was not compared with its schematic: {line}"
+    assert result.summary["parity_judged"] is False and result.summary["parity"] == 0
+    assert (
+        result.status == "ok" and result.evidence.level == Level.KICAD_VERIFIED
+    )  # the copper verdict stands
+
+
+def test_drc_stage_project_without_a_schematic_has_no_parity_verdict() -> None:
+    result = drc_stage(FakeOracle(outcome("fired")), project(), built=True)
+    assert result.summary["parity_judged"] is False and result.summary["parity"] == 0
+    assert not [i for i in result.issues if i.code.endswith("parity-unchecked")]
+
+
+def test_drc_stage_no_report_gives_no_parity_verdict() -> None:
+    result = drc_stage(FakeOracle(outcome(missing=True)), project(schematic=True), built=True)
+    assert [i.code for i in result.issues if i.code.startswith("check.")] == ["check.oracle-failed"]
+    assert not [i for i in result.issues if i.code.endswith("parity-unchecked")]
+    assert result.summary["parity_judged"] is False

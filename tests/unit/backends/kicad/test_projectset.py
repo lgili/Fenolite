@@ -9,12 +9,14 @@ import json
 from pathlib import Path
 
 import pytest
-from _projects import STEM, authored_project, tree_snapshot
+from _projects import STEM, authored_project, built_blink_project, hierarchy_project, tree_snapshot
 
 from fenolite.backends.kicad import pro
 from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
 from fenolite.backends.kicad.projectset import (
     MAX_COPY_BYTES,
+    SCHEMATIC_WORKSHEET_POINTER,
+    SYMBOL_TABLE,
     WORKSHEET_POINTER,
     ProjectNotFoundError,
     ProjectResolutionError,
@@ -141,3 +143,140 @@ def test_board_resolution(tmp_path: Path) -> None:
 
 def test_worksheet_pointer_matches_pro() -> None:
     assert pro.PAGE_LAYOUT_POINTER == WORKSHEET_POINTER
+
+
+# -- the schematic files of the set (change c0062)
+
+SCHEMATICS = Path(__file__).resolve().parents[4] / "tests" / "data" / "kicad" / "schematic"
+TRIAD = {"blink.kicad_pcb", "blink.kicad_pro", "blink.kicad_dru"}
+BLINK_SET = TRIAD | {
+    "blink.kicad_sch",
+    "fp-lib-table",
+    "sym-lib-table",
+    "lib/Mini.pretty",
+    "lib/Mini.kicad_sym",
+    "lib/fenolite.kicad_sym",
+}
+
+
+def _built_blink(root: Path) -> Path:
+    return built_blink_project(root, cache=False)
+
+
+def _hierarchy(root: Path) -> Path:
+    return hierarchy_project(root)
+
+
+def test_schematic_files_included(tmp_path: Path) -> None:
+    root = _built_blink(tmp_path / "blink")
+    (root / "notes.txt").write_text("not a KiCad file\n", encoding="utf-8")
+    (root / "blink.kicad_prl").write_text("{}\n", encoding="utf-8")
+    before = tree_snapshot(root)
+    project = project_set(root)
+    assert set(project.files) == BLINK_SET and project.skipped == ()
+    assert project.files["lib/Mini.kicad_sym"] == root / "lib" / "Mini.kicad_sym"
+    assert tree_snapshot(root) == before
+
+
+def test_schematic_sheet_files_of_a_hierarchy(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "hier")
+    (root / "other.kicad_sch").write_bytes((SCHEMATICS / "flat.kicad_sch").read_bytes())
+    project = project_set(root)
+    assert {"top.kicad_sch", "child.kicad_sch"} <= set(project.files)
+    assert "other.kicad_sch" not in project.files and project.skipped == ()
+    assert list(project.files).index("top.kicad_sch") < list(project.files).index("child.kicad_sch")
+
+
+def test_schematic_unreadable_root_is_included_alone(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "hier")
+    (root / "top.kicad_sch").write_text("(", encoding="utf-8")
+    project = project_set(root)
+    assert [name for name in project.files if name.endswith(".kicad_sch")] == ["top.kicad_sch"]
+    assert project.skipped == ()
+
+
+def test_schematic_of_another_stem_is_left_out(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10, decoys=True)
+    (root / "other.kicad_sch").write_bytes((SCHEMATICS / "flat.kicad_sch").read_bytes())
+    project = project_set(root)
+    assert set(project.files) == CORE | {LIB}  # no schematic of the board's stem: no sheet, no symbol table
+
+
+def test_schematic_sheet_outside_the_root_and_missing(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "p" / "hier")
+    top = (root / "top.kicad_sch").read_text(encoding="utf-8")
+    assert '"child.kicad_sch"' in top
+    (root / "top.kicad_sch").write_text(
+        top.replace('"child.kicad_sch"', '"../shared.kicad_sch"'), encoding="utf-8", newline="\n"
+    )
+    (root.parent / "shared.kicad_sch").write_bytes((SCHEMATICS / "flat.kicad_sch").read_bytes())
+    project = project_set(root)
+    assert [(s.name, s.reason) for s in project.skipped] == [("../shared.kicad_sch", "outside-root")]
+    (root / "top.kicad_sch").write_text(
+        top.replace('"child.kicad_sch"', '"gone.kicad_sch"'), encoding="utf-8", newline="\n"
+    )
+    project = project_set(root)
+    assert [(s.name, s.reason) for s in project.skipped] == [("gone.kicad_sch", "missing")]
+    assert "child.kicad_sch" not in project.files
+
+
+def test_schematic_symbol_library_rows(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "hier")
+    (root / "one.kicad_sym").write_text("(kicad_symbol_lib (version 20241209))\n", encoding="utf-8")
+    (root / "many").mkdir()
+    (root / "many" / "a.kicad_sym").write_text("(kicad_symbol_lib (version 20241209))\n", encoding="utf-8")
+    rows = (
+        LibRow("One", "KiCad", "${KIPRJMOD}/one.kicad_sym"),
+        LibRow("Many", "KiCad", "${KIPRJMOD}/many"),
+        LibRow("Gone", "KiCad", "${KIPRJMOD}/gone.kicad_sym"),
+        LibRow("Var", "KiCad", "${KICAD10_SYMBOL_DIR}/Device.kicad_sym"),
+        LibRow("Rel", "KiCad", "rel.kicad_sym"),
+        LibRow("Out", "KiCad", "${KIPRJMOD}/../out.kicad_sym"),
+        LibRow("Abs", "KiCad", "/abs/lib.kicad_sym"),
+        LibRow("Nested", "Table", "${KIPRJMOD}/more-tables"),
+        LibRow("Off", "KiCad", "${KIPRJMOD}/off.kicad_sym", disabled=True),
+    )
+    (root / "sym-lib-table").write_text(
+        write_lib_table(LibTable("symbol", rows), target=10), encoding="utf-8"
+    )
+    project = project_set(root)
+    assert {"sym-lib-table", "one.kicad_sym", "many"} <= set(project.files)
+    assert [(s.name, s.reason) for s in project.skipped] == [
+        ("gone.kicad_sym", "missing"),
+        ("${KICAD10_SYMBOL_DIR}/Device.kicad_sym", "variable"),
+        ("rel.kicad_sym", "relative"),
+        ("${KIPRJMOD}/../out.kicad_sym", "outside-root"),
+        ("${KIPRJMOD}/more-tables", "nested-table"),
+    ]
+
+
+def test_schematic_drawing_sheet(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "hier")
+    (root / "sch.kicad_wks").write_text("(kicad_wks (version 20231118))\n", encoding="utf-8")
+    data = {"schematic": {"page_layout_descr_file": "${KIPRJMOD}/sch.kicad_wks"}}
+    (root / "top.kicad_pro").write_text(json.dumps(data), encoding="utf-8")
+    assert "sch.kicad_wks" in project_set(root).files
+    (root / "top.kicad_sch").unlink()
+    assert "sch.kicad_wks" not in project_set(root).files  # only a schematic's own sheet is looked up
+    assert SCHEMATIC_WORKSHEET_POINTER == "/schematic/page_layout_descr_file"
+    assert SYMBOL_TABLE == "sym-lib-table"
+
+
+def test_schematic_size_limit_keeps_the_root_and_the_tables(tmp_path: Path) -> None:
+    root = _built_blink(tmp_path / "blink")
+    always = TRIAD | {"blink.kicad_sch", "fp-lib-table", "sym-lib-table"}
+    core = sum((root / name).stat().st_size for name in always)
+    project = project_set(root, max_bytes=core + 10)
+    assert set(project.files) == always
+    assert [(s.name, s.reason) for s in project.skipped] == [
+        ("lib/Mini.pretty", "too-large"),
+        ("lib/Mini.kicad_sym", "too-large"),
+        ("lib/fenolite.kicad_sym", "too-large"),
+    ]
+
+
+def test_schematic_child_too_large_is_skipped_before_the_libraries(tmp_path: Path) -> None:
+    root = _hierarchy(tmp_path / "hier")
+    always = sum((root / n).stat().st_size for n in ("top.kicad_pcb", "top.kicad_pro", "top.kicad_sch"))
+    project = project_set(root, max_bytes=always + 10)
+    assert [(s.name, s.reason) for s in project.skipped] == [("child.kicad_sch", "too-large")]

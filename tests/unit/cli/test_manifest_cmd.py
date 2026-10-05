@@ -36,7 +36,6 @@ HIER = DATA / "schematic" / "hier"
 SYMBOLS = DATA.parent / "libs" / "Mini.kicad_sym"
 STAMP = ("--timestamp", "2026-01-02T03:04:05+00:00")
 NAME = "fenolite-artifacts.json"
-ERC_HELD = "native-verified: erc.kicad is not a stage of this version of Fenolite"
 CLEARANCE = {
     "type": "clearance",
     "description": "Clearance violation",
@@ -243,26 +242,26 @@ def test_states_from_a_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     result = env["result"]
     stages = {s["name"]: s for s in result["check"]["stages"]}
     assert list(stages) == [
-        "model.validate", "erc.lite", "copper.clearance", "zone.fill", "drc.kicad",
+        "model.validate", "erc.kicad", "copper.clearance", "zone.fill", "drc.kicad",
         "netlist.assignment_compare", "roundtrip",
     ]  # fmt: skip
     assert stages["drc.kicad"] == {
         "name": "drc.kicad", "status": "ok", "level": "KICAD-VERIFIED", "oracle": "kicad-cli 10.0.6",
     }  # fmt: skip
-    assert result["check"]["tool_version"] == "10.0.6" and "erc.kicad" not in stages
+    assert result["check"]["tool_version"] == "10.0.6" and stages["erc.kicad"]["status"] == "ok"
     shown = {a["path"]: a for a in result["artifacts"]}
     assert (shown["board.kicad_pcb"]["state"], shown["board.kicad_pcb"]["held"]) == ("native-verified", "")
     for name in ("board.kicad_pro", "board.kicad_dru", "fp-lib-table"):
         assert shown[name]["state"] == "native-verified", name
     assert [a["state"] for a in shown.values() if a["kind"] == "kicad_mod"] == ["native-verified"] * 4
-    # the schematic side: KiCad's ERC is not a stage yet, so RT1 is the most that is said, with the reason
-    for name in ("board.kicad_sch", "child.kicad_sch"):
-        assert (shown[name]["state"], shown[name]["held"]) == ("roundtrip-ok", ERC_HELD)
-    assert (shown["sym-lib-table"]["state"], shown["sym-lib-table"]["held"]) == ("checked", ERC_HELD)
+    # the schematic side: KiCad's ERC is the stage ``erc.kicad`` (change c0062)
+    for name in ("board.kicad_sch", "child.kicad_sch", "sym-lib-table"):
+        assert (shown[name]["state"], shown[name]["held"]) == ("native-verified", ""), name
+    assert stages["erc.kicad"]["level"] == "KICAD-VERIFIED"
     fabrication = [a for a in shown.values() if a["path"].startswith("fab/")]
     assert len(fabrication) == 7 and {a["state"] for a in fabrication} == {"checked"}
     assert result["states"] == {
-        "generated": 0, "checked": 8, "roundtrip-ok": 2, "oracle-verified": 0, "native-verified": 8,
+        "generated": 0, "checked": 7, "roundtrip-ok": 0, "oracle-verified": 0, "native-verified": 11,
     }  # fmt: skip
     assert env["evidence"]["level"] == "INFERRED" and "H-K-SCH-READ" in env["evidence"]["hypotheses"]
     assert env["issues"] == [] or all(i["severity"] != "error" for i in env["issues"])
@@ -290,7 +289,9 @@ def test_errors_still_give_a_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path:
     listed = _by_path(data)
     assert listed["board.kicad_pcb"]["state"] == "roundtrip-ok"
     assert listed["board.kicad_pcb"]["held"] == "native-verified: drc.kicad reported errors"
-    assert listed["board.kicad_pro"]["state"] == "checked" and data["states"]["native-verified"] == 0
+    # the DRC error holds the board side; the schematic side follows the ERC, which found nothing
+    assert listed["board.kicad_pro"]["state"] == "checked" and data["states"]["native-verified"] == 3
+    assert listed["board.kicad_sch"]["state"] == "native-verified"
     assert listed["board.kicad_pro"]["held"] == "native-verified: the board is roundtrip-ok"
     drc = next(s for s in data["check"]["stages"] if s["name"] == "drc.kicad")
     assert drc["status"] == "errors"
@@ -354,7 +355,7 @@ def test_verify_an_unchanged_folder(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert env["result"]["verified"] is True and env["result"]["differences"] == []
     assert "check" not in env["result"] and "plan" not in env["result"] and env["receipt"] is None
     assert env["result"]["manifest"] == f"{root.name}/{NAME}"
-    assert env["result"]["states"]["native-verified"] == 8 and len(env["result"]["artifacts"]) == 19
+    assert env["result"]["states"]["native-verified"] == 11 and len(env["result"]["artifacts"]) == 19
     assert env["evidence"]["level"] == "UNVERIFIED" and env["issues"] == []
     assert tree_snapshot(root) == before
 

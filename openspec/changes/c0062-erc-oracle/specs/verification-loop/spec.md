@@ -2,7 +2,7 @@
 
 ### Requirement: ERC stage
 `fenolite.checks.erc.erc_stage(oracle, project) -> StageResult` SHALL report KiCad's electrical rules check of the project's schematic as the stage `erc.kicad`, second in `STAGE_ORDER`, a default stage and a member of `ORACLE_STAGES`.
-- **Input.** The stage MUST run on built and on native input alike, through `oracle.erc(project)` (`backend-protocol`, "ERC oracle protocol"), and MUST need no board model: a refused board read does not skip it.
+- **Input.** The stage MUST run on built and on native input alike, through `oracle.erc(project)` (`backend-protocol`, "ERC oracle protocol"), and MUST need no board model: a refused board read does not skip it, and `run_checks` MUST NOT read the board for this stage alone.
 - **Skips.** It MUST be skipped with reason `no-schematic` when `project.files` holds no `<board stem>.kicad_sch`, and with reason `unsupported-oracle` when `isinstance(oracle, ErcOracle)` is false. Neither skip counts in the envelope evidence.
 - **Issues.** With a report, the issues MUST be those of `checks.erc_json.finding_issues(report, oracle=oracle.name)` ("ERC findings as issues"). Without a report, or on a timeout, the stage MUST report `check.oracle-failed` (error) with `ErcOutcome.message`, and `retryable: true` on a timeout.
 - **Summary.** `summary` MUST hold `tool_version`, `sheets` (the number of sheets in the report), `violations` (total), `by_type`, `by_severity`, `excluded`, `ignored_checks`, `types` (each emitted code mapped to the tool's raw type) and `tool_writes`.
@@ -35,7 +35,7 @@
 
 ### Requirement: ERC findings as issues
 `fenolite.checks.erc_json.finding_issues(report, *, oracle) -> tuple[Issue, ...]` SHALL map every violation of an `ErcReport` to exactly one issue.
-- **Code.** The code MUST be `f"{oracle}.erc.{suffix}"`, the suffix being `checks.codes.type_suffix(type)`: the rule that `drc_json.type_code` applies to DRC types (lower case, `_` and every other character outside `[a-z0-9-]` replaced by `-`, runs collapsed, `unknown` when nothing remains). `drc_json.type_code` MUST use the same helper. The raw type MUST be kept in `summary.types`.
+- **Code.** The code MUST be `erc_json.type_code(oracle, type)`, that is `f"{oracle}.erc.{suffix}"`, the suffix being `checks.codes.type_suffix(type)`: the rule that `drc_json.type_code` applies to DRC types (lower case, `_` and every other character outside `[a-z0-9-]` replaced by `-`, runs collapsed, `unknown` when nothing remains). `drc_json.type_code` MUST use the same helper. A suffix in `erc_json.RESERVED_SUFFIXES = ("position-unscaled",)`, the code a reader of ERC reports uses for itself, MUST become `type-<suffix>`. The raw type MUST be kept in `summary.types`.
 - **Severity.** `info` when `excluded` is true, otherwise `error` for `error`, `warning` for `warning`, and `error` for any other value.
 - **Where.** The locations of the items, in report order, joined with `, `: an item's `where` when the oracle filled it (`REF-PIN` for a pin, `REF` for a symbol, the text for a label), and otherwise `<sheet>@<x>,<y>`, the sheet path and the item position in millimetres as an exact decimal without trailing zeros.
 - **Message.** `<type>: <description>`, with the parent folder of `report.source` replaced by `<tmp>` and the home directory by `~`.
@@ -63,6 +63,8 @@
 |---|---|---|
 | `<oracle>.erc.<type>` | error, warning or info | an ERC violation of that type; `info` when excluded |
 | `<oracle>.drc.parity-unchecked` | warning | parity was asked for and the tool did not judge it |
+
+`cli/data/explain.toml` MUST explain `kicad.erc.*`, `kicad.drc.parity-unchecked` and the reader's own `kicad.erc.position-unscaled` (`cli-contract`, "Explain command").
 
 `checks.codes.table_key` MUST map an oracle's `.erc.` code to the key `<oracle>.erc.<type>`. The codes `erc.lite.*` MUST stay keys of `ISSUE_CODES` ("ERC lite stage").
 
@@ -94,8 +96,9 @@ When the DRC run tested schematic parity (`kicad-oracle`, "Parity in the DRC run
 ## MODIFIED Requirements
 
 ### Requirement: Check command input
-`fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names without writing any file.
+`fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
+- **Document input.** Before the board is looked for, the command MUST take `PATH` as document input when it is a file for which `registry.for_path(PATH)` gives a backend that satisfies `DocumentValidator` (`backend-protocol`, "Document sets and container round trips"), or a folder that holds exactly one file such a backend detects as a project file (its `documents(folder)` gives a set) and no `.kicad_pro` and no `.kicad_pcb` file. A folder that holds a KiCad project or board and files of such a backend without exactly one project file stays KiCad input. A folder that holds both a KiCad project or board and such a project file MUST exit 2 with `FEN-2001` and a hint that names both. Document input MUST be checked by `fenolite.checks.documents.run_document_checks` ("Document check pipeline"), `--stages` MUST then select a subset of `DOCUMENT_STAGES`, no oracle MUST be built and no subprocess MUST run, and `--kicad-cli` and `--timeout` MUST be accepted and ignored. Its result and exit codes are those of `altium-verification`, "Check on Altium inputs".
 - **Flags.** `--stages a,b` MUST select a subset of `STAGE_ORDER`; an unknown or empty stage name MUST exit 2 with `FEN-2001`. `--kicad-cli PATH` MUST be passed to `find_kicad_cli` as the explicit path. `--timeout SECONDS` MUST default to 300 and MUST be passed to `KicadCli`.
 - **Built or native.** The input MUST be built when `<root>/.fenolite/meta.json` or `<root>/.fenolite/build.json` exists, `<root>` being the board's folder, and native otherwise. Built input MUST load its model with `model.canonical.load_dir(<root>/.fenolite)`. The board's `generator` atom MUST NOT decide it.
 - **Injection.** The command MUST narrow `registry.for_path(board)` with `isinstance(backend, Validator)` (`Validator` is `@runtime_checkable`), exit 2 with `FEN-2001` when no backend validates the board, and pass the narrowed backend as the `Validator` and `KicadOracle(KicadCli(path, timeout=…))` as the `Oracle` to `fenolite.checks.stages.run_checks`. It MUST build the oracle only when a stage of `ORACLE_STAGES` is selected ("Stages added for findings and round trips").
@@ -129,6 +132,20 @@ When the DRC run tested schematic parity (`kicad-oracle`, "Parity in the DRC run
 #### Scenario: Consistency suite from another folder
 - **WHEN** `uv run pytest tests/consistency` runs from a temporary working directory, as in c0011's scenario "Consistency suite"
 - **THEN** it passes for `check`, `inspect` and `doctor`
+
+#### Scenario: Altium project folder dispatched
+- **GIVEN** a copy of `tests/data/altium/blink/` in `tmp_path`, with `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_check_altium.py -k dispatch` runs `fenolite check <folder> --json`
+- **THEN** `result.project.project` is `blink.PrjPcb`, `result.stages` names only stages of `DOCUMENT_STAGES`, and no subprocess ran
+
+#### Scenario: Folder with two backends
+- **GIVEN** a folder that holds `a.kicad_pcb` and `b.PrjPcb`
+- **WHEN** `fenolite check <folder> --json` runs
+- **THEN** the exit code is 2, stderr carries `FEN-2001`, and its hint names `a.kicad_pcb` and `b.PrjPcb`
+
+#### Scenario: KiCad stage name on document input
+- **WHEN** `fenolite check tests/data/altium/blink/blink.PrjPcb --stages drc.kicad` runs
+- **THEN** the exit code is 2 with `FEN-2001`, and the hint lists `DOCUMENT_STAGES`
 
 ### Requirement: Check stages and statuses
 `fenolite.checks.stages` SHALL define `STAGE_ORDER` and `run_checks(*, project, stages, model, built, validator, oracle, cache_error="") -> CheckReport`, where a non-empty `cache_error` says that `.fenolite/` failed `load_dir`. `STAGE_ORDER` MUST hold `model.validate`, `erc.kicad`, `drc.kicad` and `roundtrip` in this relative order, and a later change MAY insert a stage through its own ADDED requirement. `run_checks` MUST run the selected stages in `STAGE_ORDER`, whatever order `--stages` gives, and MUST leave unselected stages out of `CheckReport.stages`.
@@ -224,7 +241,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 - **THEN** the issues hold one `check.cache-unreadable` warning, `model.validate` is skipped with reason `cache-unreadable`, and `roundtrip` has status `ok`
 
 ### Requirement: ERC lite stage
-`checks.erc_lite` SHALL define `ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")`, `erc_lite(design) -> tuple[Issue, ...]`, `erc_stage(design) -> StageResult` and `EVIDENCE` (`INFERRED`, `H-K-CHECK-ERC`). The three rules are a function for pipelines of inputs that have no ERC oracle; the KiCad pipeline does not run them: `STAGE_ORDER` holds `erc.kicad` instead ("ERC stage"), and `run_checks` MUST NOT call `erc_stage`.
+`checks.erc_lite` SHALL define `ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")`, `erc_lite(design) -> tuple[Issue, ...]`, `erc_stage(design) -> StageResult` and `EVIDENCE` (`INFERRED`, `H-K-CHECK-ERC`). The three rules are a function for pipelines of inputs that have no ERC oracle; the KiCad pipeline does not run them: `STAGE_ORDER` holds `erc.kicad` instead ("ERC stage"), and `run_checks` MUST NOT call `erc_stage`. `run_document_checks` runs them on the built model, or on the reading of the schematic documents ("Document check pipeline").
 - `erc.lite.output-conflict`: a net with two or more member pins whose `etype` is `output` or `power_out`.
 - `erc.lite.power-undriven`: a net with a `power_in` member pin and no `power_out` member pin, whose id is not a value of the `members` of any `Interface` with `kind == "power"` (c0011's `Power(hv, lv)`, which acts as a power flag).
 - `erc.lite.floating-pin`: a pin whose `etype` is not `no_connect`, that no net lists and that `Circuit.no_connects` does not list (`design-model`, "No-connect marks in the circuit model"), reported once per pin. A mark is matched by `PinRef(<component id>, <pin number>)`, the form the builds store.
@@ -252,6 +269,11 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 - **GIVEN** a fake `Validator` and a fake `Oracle`
 - **WHEN** `uv run pytest tests/unit/checks/test_stages.py -k no_lite` runs `run_checks` with the default stages on built input
 - **THEN** no stage is named `erc.lite`, no issue code starts with `erc.lite.`, and `checks.erc_lite` has no attribute `REMOVE_IN`
+
+#### Scenario: Rules run on a schematic reading
+- **GIVEN** a fake `DocumentValidator` whose schematic reading holds a component `U1` with the `input` pins `1` and `2`, pin `1` on a net with a `power_out` pin and pin `2` on no net
+- **WHEN** `uv run pytest tests/unit/checks/test_documents.py -k erc_native` calls `run_document_checks` with `stages=("erc.lite",)` and `built=False`
+- **THEN** `erc.lite` has status `ok` and exactly one `erc.lite.floating-pin` warning, whose `where` is `U1-2`
 
 ### Requirement: DRC stage and the rules canary
 `checks.drc.drc_stage(oracle, project, *, built, design=None) -> StageResult` SHALL run DRC once through `oracle.drc(project)` and SHALL turn the rules verdict into issues. DRC violations MUST always be counted in `summary`. `summary.violations_judged` MUST be `true` exactly when the run also maps DRC violations to issues. Whenever a report exists, the stage MUST map them with `checks.drc_json.finding_issues(report, oracle=oracle.name, design=design)` ("DRC findings as issues"), where `design` is the board model that `run_checks` read, or `None` when that read was refused; without a report it maps none, and `violations_judged` is `false`.

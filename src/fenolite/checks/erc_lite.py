@@ -1,17 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""ERC lite: three electrical warnings on a built model until ``sch erc`` replaces them (capability
+"""ERC lite: three electrical warnings on a model, for inputs that have no ERC oracle (capability
 verification-loop, "ERC lite stage").
 
-In ``run_checks`` the stage runs on built input only. In ``run_document_checks`` (change c0044) the same
-rules also run on the reading of a project's schematic documents, which holds pin electrical types and
-no-connect marks; the caller then combines ``EVIDENCE`` with the reading's.
+The KiCad pipeline does not run them: ``run_checks`` asks KiCad's own ERC instead (``checks.erc``, the stage
+``erc.kicad``; change c0062), and the removal that ``REMOVE_IN`` announced is done there. The rules stay as a
+function for ``run_document_checks`` (change c0044), which runs them on the built model or on the reading of
+a project's schematic documents, where pin electrical types and no-connect marks exist; the caller then
+combines ``EVIDENCE`` with the reading's.
 
 The rules follow KiCad's own checks in spirit (the unconnected-pin check of the schematic editor, S-0046),
 and their claim is bounded by ``H-K-CHECK-ERC``: a heuristic, so warnings only. Pins of DNP components
 are ignored, and so are the pins that ``Circuit.no_connects`` marks as intentionally unconnected (change
 c0036): a marked pin is not floating, and a marked pin on a net is ``model.no-connect-on-net``.
-``check_removal`` makes the suite fail from 0.2 on, when the stage must go.
 """
 
 from __future__ import annotations
@@ -26,18 +27,7 @@ from fenolite.model.design import Design
 
 ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-CHECK-ERC",))
-REMOVE_IN = (0, 2)
 _DRIVERS = frozenset({"output", "power_out"})
-
-
-def check_removal(version: str) -> None:
-    """Raise ``RuntimeError`` once ``version`` reaches ``REMOVE_IN``: ``erc.lite`` must then be removed."""
-    parts: list[int] = []
-    for piece in version.split(".")[:2]:
-        digits = "".join(ch for ch in piece if ch.isdigit())
-        parts.append(int(digits) if digits else 0)
-    if tuple(parts) >= REMOVE_IN:
-        raise RuntimeError(f"erc.lite is due for removal at REMOVE_IN {REMOVE_IN} (version {version})")
 
 
 def erc_lite(design: Design) -> tuple[Issue, ...]:
@@ -77,4 +67,4 @@ def erc_stage(design: Design) -> StageResult:
     return ran("erc.lite", found, EVIDENCE, summary)
 
 
-__all__ = ["ERC_RULES", "EVIDENCE", "REMOVE_IN", "check_removal", "erc_lite", "erc_stage"]
+__all__ = ["ERC_RULES", "EVIDENCE", "erc_lite", "erc_stage"]

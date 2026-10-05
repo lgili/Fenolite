@@ -508,20 +508,26 @@ read-only. `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
 drawing sheet): nothing under the project folder is created or changed. `--timeout` defaults to 300 s.
+When a schematic of the board's stem lies beside it (`<stem>.kicad_sch`), the copy also holds what an
+ERC run reads: that schematic, the sheet files its hierarchy reaches, `sym-lib-table` with the
+`${KIPRJMOD}` symbol libraries it names (a `.kicad_sym` file or a folder of them) and the schematic's
+drawing sheet. A schematic of another stem, a sheet file the hierarchy does not reach and a
+`sym-lib-table` without that schematic are never copied. A sheet file outside the project folder or
+missing is listed in `project.skipped` (`outside-root`, `missing`).
 `--kicad-cli docker:<image>` runs the same copied project in a named local image; a missing image
 returns `FEN-6001` with a `docker pull` hint.
 The input is *built* when `.fenolite/meta.json` or `.fenolite/build.json` exists next to the board.
 
 The stages run in this order (`STAGE_ORDER`); `--stages` selects a subset, and unselected stages are left
 out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGES`), which costs two
-re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assignment_compare` and
+re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
 
 | stage | runs on | evidence |
 |---|---|---|
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
-| `erc.lite` | built input only; skipped with `native-input` otherwise | `INFERRED` (`H-K-CHECK-ERC`) |
+| `erc.kicad` | `kicad-cli sch erc` on the copy set, built and native input alike; every violation becomes a located issue. Skipped with `no-schematic` when the project has no `<stem>.kicad_sch` | ERC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
@@ -532,15 +538,19 @@ re-saves and three DRC runs and is selected by name. `drc.kicad`, `netlist.assig
 
 Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `status` is `ok` (ran, no
 error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused`,
-`cache-unreadable`, `unsupported-oracle`, `oracle-unsupported` or `oracle-unstable` (two refill runs differ; never counted in the
+`cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
+`unsupported-oracle`, `oracle-unsupported` or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
 project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_reason`,
 `canary_removed`, `violations`, `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`,
-`violations_judged` and `types`. Whenever a report exists, each violation and unconnected item is one
-issue and `violations_judged` is `true`; `types` maps each emitted `kicad.drc.<type>` code to KiCad's raw
-type. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
+`violations_judged`, `parity`, `parity_judged` and `types`. Whenever a report exists, each violation,
+unconnected item and parity entry is one issue and `violations_judged` is `true`; `types` maps each
+emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary holds `tool_version`,
+`sheets` (the sheets of the report), `violations`, `by_type`, `by_severity`, `excluded`,
+`ignored_checks` (the checks the project sets to ignore; KiCad 10 lists them, KiCad 9 does not),
+`types` and `tool_writes`. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
 
@@ -570,6 +580,31 @@ lists the items in report order: `REF-PIN` for a numbered pad, `REF` for a footp
 pad, the item's locator in the board file for a track, via or zone, and `@<x>,<y>` (the report position
 in millimetres) when the item cannot be named. The message is `<type>: <description>` without temporary
 or absolute paths.
+
+**ERC.** `erc.kicad` is KiCad's own electrical rules check of the schematic, run on the copy set like
+the DRC; it replaces the three rules of `erc.lite`, which are no stage of a KiCad check any more
+(`--stages erc.lite` is a usage error). The stage needs the schematic and no board model, so it runs on
+built and on native input, and also when Fenolite cannot read the board. The code is `kicad.erc.`
+followed by KiCad's type with `_` as `-` (`pin_not_connected` gives `kicad.erc.pin-not-connected`); the
+severity is the report's, which follows `erc.rule_severities` of the project; an excluded entry is
+`info`. `where` lists the items in report order: `REF-PIN` for a pin, `REF` for a symbol, the text of a
+label, and `<sheet>@<x>,<y>` (the sheet path and the position on the sheet in millimetres) for an item
+that cannot be named, such as a wire, or a symbol of a sheet that is used twice when KiCad lists the
+violation under the root sheet. A schematic `kicad-cli` cannot load gives `check.oracle-failed` on the
+stage; the board is still judged by the other stages. The isolated `kicad-cli` sees no global library
+table, as for footprints: a native project that takes its symbols from KiCad's global libraries gets one
+`kicad.erc.lib-symbol-issues` warning per symbol, which says that the library was not found in this run
+and nothing about the symbol. A built project carries its symbols (`lib/*.kicad_sym` and
+`sym-lib-table`), so its report has none.
+
+**Parity.** When the project has a schematic of the board's stem, the DRC run also asks KiCad to compare
+the board with it (`--schematic-parity`). Each entry of that comparison is a `kicad.drc.<type>` finding
+(`net_conflict`, `missing_footprint`, `extra_footprint`, `footprint_symbol_mismatch`, warnings by KiCad's
+defaults), located like any other; `summary.parity` counts them and `summary.parity_judged` says that
+the comparison was made. When KiCad cannot load the schematic it writes no report at all with that
+option, so `check` runs the DRC again without it: the copper findings and their evidence stand, and
+`kicad.drc.parity-unchecked` (warning) says that the board was not compared, with KiCad's own line.
+A project without a schematic has `parity_judged` `false` and no such issue.
 
 **Assignment compare.** Elements are `REF-PIN`. Two sources agree when they put the same elements
 together, whatever the nets are called; pads on no net form one class. The pairs are (`model`, `board`)
@@ -624,22 +659,24 @@ repeat.
 | code | severity | when |
 |---|---|---|
 | `check.read-refused` | error | Fenolite cannot read the board; the message starts with the FEN code, `where` is `file:locator:@offset` |
-| `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; both model stages are skipped |
+| `check.cache-unreadable` | warning | `.fenolite/` cannot be loaded; `model.validate` is skipped |
 | `check.footprint-unresolved` | error | a non-DNP component has no footprint reference or instance |
 | `check.symbol-unresolved` | error | a built component that carries `fenolite.path` has no symbol reference; a board-only footprint added in KiCad, without that key, is not asked for one (`docs/lens.md`) |
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
-| `check.oracle-failed` | error | `kicad-cli` wrote no DRC report or netlist export, or timed out (`retryable: true`) |
+| `check.oracle-failed` | error | `kicad-cli` wrote no DRC report, ERC report or netlist export, or timed out (`retryable: true`) |
 | `check.copy-skipped` | info | a file or folder the project names was left out of the copy |
 | `kicad.drc.rules-not-loaded` | error (built), info (native) | the canary is `absent`, or a rules file has no project file next to it |
 | `kicad.drc.rules-unchecked` | warning | the canary is `inconclusive`; the message names the reason |
-| `kicad.drc.<type>` | error, warning, info | one per DRC violation or unconnected item; `<type>` comes from KiCad's type |
+| `kicad.drc.parity-unchecked` | warning | the DRC run was asked to compare the board with its schematic and KiCad did not do it; the copper findings stand |
+| `kicad.drc.<type>` | error, warning, info | one per DRC violation, unconnected item or schematic parity entry; `<type>` comes from KiCad's type |
+| `kicad.erc.<type>` | error, warning, info | one per ERC violation of the schematic; `<type>` comes from KiCad's type, and an excluded one is `info` |
 | `netlist.assignment-differs` | error | an element whose net block differs between the two sources of a pair |
 | `netlist.uncovered` | info | elements that one side of a pair does not cover, per reason |
 | `check.rt2-failed` | error | a violation whose count differs between the original and the re-dump |
 | `check.rt2-unstable` | info | violations that differ between DRC runs of one file; the message says when RT2 is therefore not judged |
-| `erc.lite.output-conflict` | warning | two or more driving outputs on one net |
-| `erc.lite.power-undriven` | warning | a power input without a power output or a power interface |
-| `erc.lite.floating-pin` | warning | a pin on no net that `no_connect` does not mark |
+| `erc.lite.output-conflict` | warning | document input only: two or more driving outputs on one net |
+| `erc.lite.power-undriven` | warning | document input only: a power input without a power output or a power interface |
+| `erc.lite.floating-pin` | warning | document input only: a pin on no net that `no_connect` does not mark |
 | `render.failed` | warning | the `render` stage could not produce a view; `where` is the view name. Never an error: a render is not a gate |
 | `copper.short` | error | copper of two nets touches or overlaps on a shared copper layer; `where` names both items |
 | `copper.clearance` | error, warning | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error |
@@ -661,7 +698,7 @@ repeat.
 (error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, and `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
-`kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,erc.lite,roundtrip`),
+`kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
 of an unsupported major, or older than the board's format (`FEN-6002`). Two runs on the same project
 give the same stdout apart from `elapsed_ms`.
 

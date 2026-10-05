@@ -12,7 +12,7 @@ from the corpus is kept.
 | runs | 21 | 20 |
 | project folder unchanged (paths, SHA-256, `st_mtime_ns`) | 21 | 20 |
 | `model.validate` `ok` / `errors` | 19 / 2 | 18 / 2 |
-| `erc.lite` skipped (`native-input`) | 21 | 20 |
+| `erc.lite` skipped (`native-input`); the stage of that date, replaced by `erc.kicad` in c0062 | 21 | 20 |
 | `drc.kicad` `ok` | 21 | 20 |
 | `roundtrip` `ok` | 21 | 20 |
 | canary `fired` | 21 | 0 |
@@ -273,3 +273,49 @@ Below 499 the canary always fired. No public statement of the limit was found in
 S-0022, S-0038); it is measured (S-0020). `KicadOracle.drc` therefore gives `inconclusive` with reason
 `clearance-limit`, not `absent`, when the canary run's report holds no canary pair and at least
 `CLEARANCE_REPORT_LIMIT` = 499 `clearance` violations; it does not repeat the run.
+
+## ERC and schematic parity (change c0062)
+
+Measured on 2026-10-05 with `kicad-cli` 10.0.6 (macOS) and 9.0.9 (pinned image) by
+`tests/kicad/check/test_erc_facts.py`, `test_erc_oracle.py`, `test_parity.py` and `test_copy_set.py`.
+Every case starts from the blink that `build` writes for the running major and changes one thing by
+token edit. The outcomes are the probes of `docs/evidence/kicad/probes/<version>.json`.
+
+| probe | 9.0.9 | 10.0.6 |
+|---|---|---|
+| `erc-report-keys` (the keys of `erc.REQUIRED_KEYS`, exit 0 with and without violations) | equal | equal |
+| `erc-ignored-checks` | absent | present |
+| `erc-unloadable` (an unknown root child: exit 3, `Failed to load schematic`, no report) | absent | absent |
+| `erc-writes-prl` (`<stem>.kicad_prl` beside the input) | absent | present |
+| `erc-position-scale` (five open pins reported at their connection points, positions times 100) | equal | equal |
+| `erc-type-pin-not-connected`, `-pin-not-driven`, `-power-pin-not-driven`, `-lib-symbol-issues` | present | present |
+| `erc-type-isolated-pin-label` / `erc-type-global-label-dangling` (a label alone on one pin) | absent / present | present / absent |
+| `erc-type-<type>-ignored`, five controls (`ignore` in `erc.rule_severities`) | absent | absent |
+| `erc-sev-<type>-warning`, five controls (`warning` in `erc.rule_severities`) | equal | equal |
+| `erc-copyset` (the built blink and the authored hierarchy, each with decoys) | equal | equal |
+| `check-copyset-schematic` (DRC with parity on the copy set against the whole folder) | equal | equal |
+| `drc-parity-flag` / `drc-parity-noflag` (a pad on another net) | present / absent | present / absent |
+| `drc-parity-canary` (the staged canary run against the plain run) | equal | equal |
+| `drc-parity-unloadable` (the flag with a schematic that does not load: exit 255, no report) | absent | absent |
+
+- **Default severities of the controls.** `pin_not_connected`, `pin_not_driven` and
+  `power_pin_not_driven` are errors; `lib_symbol_issues` and the single-pin label are warnings. With
+  `ignore`, 10.0.6 lists the key in `ignored_checks`; 9.0.9 has no such list.
+- **Copy set on corpus projects.** The first three root rows of the acceptance list that each major
+  loads give equal entries for the copy set and the whole demo folder
+  (`test_copy_set_corpus_projects`), on both majors.
+- **Sheets used twice.** A check that looks at a sheet file is listed under the root sheet `/` with the
+  reference of one use; the item is then located by its position, never by a guessed reference.
+- **A schematic that does not load.** `erc.kicad` reports `check.oracle-failed`; the DRC run with the
+  parity flag writes no report, so the oracle runs it again without the flag and the stage reports
+  `kicad.drc.parity-unchecked` with the canary state and the findings of that second run.
+- **The examples.** `examples/blink_2layer` and `examples/board_40parts`, built for targets 9 and 10 and
+  checked with 10.0.6: `erc.kicad` `ok` with 0 violations, and `drc.kicad` with `parity_judged` true and
+  `parity` 0. `examples/blink_routed` had 29 `pin_not_connected` and 2 `pin_not_driven` errors until its
+  unused pins were marked. `examples/blink_official` takes its symbols from KiCad's own libraries and
+  leaves pins open: 27 `pin_not_connected`, 2 `power_pin_not_driven` and one `ground_pin_not_ground`
+  warning on 10.0.6, findings of that design.
+- **Time of the stage** (10.0.6, macOS, median of three `fenolite check --stages …` runs, other jobs
+  sharing the machine): `erc.kicad` 1.7 s on the blink and 1.8 s on the 40-part board; `drc.kicad`, two
+  runs with the canary, 2.9 s and 3.5 s; the two tool-free stages `model.validate,roundtrip` 1.0 s and
+  1.4 s. Most of each figure is the start of the interpreter and of `kicad-cli`.

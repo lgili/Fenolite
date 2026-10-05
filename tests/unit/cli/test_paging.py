@@ -133,7 +133,7 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
 def test_check_pages_its_issues(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     board = tmp_path / "dup.kicad_pcb"
     board.write_text(TWO_LAYER.read_text(encoding="utf-8").replace('"Reference" "D1"', '"Reference" "R1"'))
-    stages = ("--stages", "model.validate,erc.lite")
+    stages = ("--stages", "model.validate")
     code, whole, _, _ = run(monkeypatch, tmp_path, "check", str(board), *stages)
     assert len(whole["issues"]) >= 2
     paged_code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), *stages, "--limit", "1")

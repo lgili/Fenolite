@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
-from fenolite.backends.base import DrcReport
+from fenolite.backends.base import DrcReport, ErcReport
 from fenolite.core.errors import FenoliteError
 
 MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
@@ -48,6 +48,7 @@ def windows_kicad_clis() -> tuple[Path, ...]:
 
 CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
+ERC_REPORT = "erc.json"
 NETLIST = "out.net"
 """The file name ``export_netlist`` asks ``kicad-cli`` to write."""
 BOM = "bom.csv"
@@ -416,22 +417,48 @@ class KicadCli:
         *,
         files: Mapping[str, Path] | None = None,
         env: Mapping[str, str] | None = None,
+        schematic_parity: bool = False,
     ) -> DrcRun:
         """``pcb drc --format json --severity-all``: the run and its report (``None`` when none was written).
 
         The exit code is only a load signal; ``--exit-code-violations`` is never passed, and every
         verdict is read from the report. ``env`` is passed unchanged to ``run``, which applies its entries
         after its own ``KICAD_CONFIG_HOME``: the way a probe names a configuration folder or a library
-        variable.
+        variable. With ``schematic_parity`` the run also passes ``--schematic-parity``, which makes the
+        tool compare the board with the schematic of its stem (c0062).
         """
         from fenolite.backends.kicad.drc import read_drc_report
 
         name = Path(board).name
-        args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, name]
+        parity = ["--schematic-parity"] if schematic_parity else []
+        args = ["pcb", "drc", "--format", "json", "--severity-all", *parity, "-o", DRC_REPORT, name]
         run = self.run(args, files=_with(board, files), env=env)
         data = run.outputs.get(DRC_REPORT)
         report = None if data is None else read_drc_report(data.decode("utf-8"), file=DRC_REPORT)
         return DrcRun(run, report)
+
+    def erc(
+        self,
+        schematic: Path,
+        *,
+        files: Mapping[str, Path] | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> ErcRun:
+        """``sch erc --format json --severity-all``: the run and its report (``None`` when none was
+        written), on a copy of ``schematic`` and of ``files``.
+
+        As for ``drc``, the exit code is only a load signal: ``--exit-code-violations`` is never passed,
+        and every verdict is read from the report. A non-zero exit does not raise, and a timeout is the
+        run's ``timeout`` outcome.
+        """
+        from fenolite.backends.kicad.erc import read_erc_report
+
+        name = Path(schematic).name
+        args = ["sch", "erc", "--format", "json", "--severity-all", "-o", ERC_REPORT, name]
+        run = self.run(args, files=_with(schematic, files), env=env)
+        data = run.outputs.get(ERC_REPORT)
+        report = None if data is None else read_erc_report(data.decode("utf-8"), file=ERC_REPORT)
+        return ErcRun(run, report)
 
     def refill(self, board: Path, *, files: Mapping[str, Path] | None = None) -> RefillRun:
         """Refill zones on a copy with KiCad 10 and return the saved board bytes."""
@@ -515,6 +542,14 @@ class DrcRun:
     report: DrcReport | None
 
 
+@dataclass(frozen=True)
+class ErcRun:
+    """A ``sch erc`` run and the report it wrote, or ``None`` when it wrote none."""
+
+    run: CliRun
+    report: ErcReport | None
+
+
 def _with(board: Path, files: Mapping[str, Path] | None) -> dict[str, Path]:
     """The board under its own name, and the extra files next to it."""
     found = {Path(board).name: Path(board)}
@@ -554,6 +589,8 @@ __all__ = [
     "CliCandidate",
     "CliRun",
     "DrcRun",
+    "ERC_REPORT",
+    "ErcRun",
     "DockerCli",
     "KicadCli",
     "KicadCliError",

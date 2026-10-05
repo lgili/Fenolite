@@ -13,11 +13,18 @@ here, and the issues and severities are ``checks``'s policy.
 ``netlist`` exports IPC-D-356 and pairs its records with the board's pads (``padnets``); ``rt2`` runs DRC
 twice on the board and once on Fenolite's re-dump of it, both re-saved by ``pcb upgrade`` on 10.0 (c0020
 Decisions 9 and 10).
+
+Change c0062 (capability kicad-oracle, "ERC oracle", "Parity in the DRC run" and "Schematic RT2 over the
+corpus"): ``erc`` runs ``sch erc`` on the schematic of the board's stem and locates the items of its report
+as ``REF-PIN``; ``drc`` passes ``--schematic-parity`` when the copy set holds that schematic, and runs
+again without it when the flagged run writes no report, so that the copper verdict never depends on the
+schematic; ``rt2_erc`` runs ERC twice on the project and once on Fenolite's re-dump of its sheets.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import re
 import shutil
 import tempfile
 from collections.abc import Mapping
@@ -28,6 +35,10 @@ from fenolite.backends.base import (
     CanaryState,
     DrcOutcome,
     DrcReport,
+    ErcOracle,
+    ErcOutcome,
+    ErcReport,
+    ErcRt2Outcome,
     FillOutcome,
     NetlistOracle,
     NetlistOutcome,
@@ -43,10 +54,12 @@ from fenolite.backends.base import (
 )
 from fenolite.backends.kicad import canary, padnets, sch
 from fenolite.backends.kicad import drc as drcmod
+from fenolite.backends.kicad import erc as ercmod
 from fenolite.backends.kicad import netlist as netlistmod
 from fenolite.backends.kicad import plot as plotmod
 from fenolite.backends.kicad.cli import (
     DRC_REPORT,
+    ERC_REPORT,
     NETLIST,
     CliRun,
     KicadCli,
@@ -57,7 +70,9 @@ from fenolite.backends.kicad.fill import EVIDENCE as FILL_EVIDENCE
 from fenolite.backends.kicad.fill import fill_set, zone_fills
 from fenolite.backends.kicad.ipcd356 import read_ipcd356
 from fenolite.backends.kicad.pcb import read_board, rebuild_board
-from fenolite.backends.kicad.sexpr import dumps
+from fenolite.backends.kicad.sch import EVIDENCE as SCH_EVIDENCE
+from fenolite.backends.kicad.sch import read_schematic, rebuild_schematic
+from fenolite.backends.kicad.sexpr import Node, dumps, parse
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
@@ -74,6 +89,12 @@ RT2_REPEATS = 3
 NORMALISE_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-FMT-RESAVE",))
 """``pcb upgrade --force`` of a board and of its re-dump give equal trees (10.0.x); combined when
 normalised."""
+PARITY_NOT_JUDGED = "Failed to fetch schematic netlist"
+"""What ``pcb drc --schematic-parity`` prints when it writes its report without having compared the board
+with a schematic (``docs/formats/kicad/erc.md``; observed on 9.0.9 and 10.0.6)."""
+SCHEMATIC_SUFFIX = ".kicad_sch"
+_CLOCK = re.compile(r"^\d{1,2}:\d{2}:\d{2}(\s?[AP]M)?:\s+")
+"""The time of day that ``kicad-cli`` writes before some of its error lines."""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -87,8 +108,10 @@ class _Plan:
 
 
 def _first_line(text: str) -> str:
+    """The first line of ``text`` that is not blank, without the time of day the tool may put before it:
+    a message that is copied into the output of ``check`` must not change from run to run."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return lines[0] if lines else ""
+    return _CLOCK.sub("", lines[0]) if lines else ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -125,13 +148,10 @@ def with_sheets(schematic: Path, files: Mapping[str, Path]) -> dict[str, Path]:
 
 
 def schematic_files(project: ProjectSet) -> dict[str, Path]:
-    """The files of an export run: the copy set and, when the set does not hold them, the root schematic
-    beside the board and the sheet files it names inside the project folder. Empty without a schematic."""
-    name = schematic_name(project)
-    if name in project.files:
-        return dict(project.files)
-    root = project.root / name
-    return with_sheets(root, project.files) if root.is_file() else {}
+    """The files of an export run: the copy set, which holds the root schematic of the board's stem and the
+    sheet files its hierarchy reaches (``projectset.project_set``, change c0062). Empty without that
+    schematic: ERC, the parity test and the netlist export all read the one set."""
+    return dict(project.files) if schematic_name(project) in project.files else {}
 
 
 def export_schematic_netlist(cli: KicadCli, project: ProjectSet) -> SchematicExport:
@@ -274,7 +294,7 @@ class KicadOracle:
         return _Plan("fired", board=board, rules=rules)  # the state after the run decides fired or absent
 
     def _run(
-        self, project: ProjectSet, staged: Path | None, plan: _Plan
+        self, project: ProjectSet, staged: Path | None, plan: _Plan, parity: bool = False
     ) -> tuple[CliRun, DrcReport | None, str]:
         others = {name: path for name, path in project.files.items() if name != project.board}
         board = project.files[project.board]
@@ -285,29 +305,50 @@ class KicadOracle:
             (staged / rules).write_bytes(plan.rules)
             others[rules] = staged / rules
         try:
-            result = self.cli.drc(board, files=others)
+            result = self.cli.drc(board, files=others, schematic_parity=parity)
         except FormatError as exc:  # the tool wrote a file that is no DRC report
             return CliRun("exit", None, "", "", {}), None, f"unreadable DRC report: {exc}"
         return result.run, result.report, ""
 
+    def _runs(
+        self, project: ProjectSet, staged: Path | None, plan: _Plan, major: int, parity: bool
+    ) -> tuple[CliRun, DrcReport | None, str, CliRun, DrcReport | None]:
+        """The counted run with its report and problem, and the run and report that carry the canary."""
+        if plan.board is not None and major in canary.CANARY_TWO_RUN:
+            run, report, problem = self._run(project, None, plan, parity)
+            canary_run, verdict_report, _ = self._run(project, staged, plan, parity)
+            return run, report, problem, canary_run, verdict_report
+        run, report, problem = self._run(project, staged, plan, parity)
+        return run, report, problem, run, report
+
     def drc(self, project: ProjectSet) -> DrcOutcome:
-        """``pcb drc`` on the copy set, with the canary when it applies; nothing is written under the root."""
+        """``pcb drc`` on the copy set, with the canary when it applies and with the parity test when the
+        set holds the board's schematic; nothing is written under the root."""
         version, major = self.version(), self.major()
         plan = self._plan(project, major)
         applies = plan.board is not None
+        parity = schematic_name(project) in project.files
+        parity_note = ""
         staged: Path | None = None
         try:
             if applies:
                 staged = Path(tempfile.mkdtemp(prefix="fenolite-check-"))
                 if staged.resolve().is_relative_to(project.root.resolve()):
                     raise RuntimeError("the canary staging folder lies inside the project")
-            if applies and major in canary.CANARY_TWO_RUN:
-                plain_run, report, problem = self._run(project, None, plan)
-                canary_run, verdict_report, _ = self._run(project, staged, plan)
-                run = plain_run
-            else:
-                run, report, problem = self._run(project, staged, plan)
-                canary_run, verdict_report = run, report
+            run, report, problem, canary_run, verdict_report = self._runs(
+                project, staged, plan, major, parity
+            )
+            judged = parity and report is not None and PARITY_NOT_JUDGED not in run.stderr
+            if parity and report is None and run.outcome == "exit":
+                # The tool wrote no report with the flag: a schematic it cannot load stops the whole run
+                # (probe drc-parity-unloadable). The copper verdict must not depend on the schematic, so
+                # DRC runs again without the flag, and parity is reported as not judged.
+                parity_note = problem or _first_line(run.stderr) or "no DRC report with --schematic-parity"
+                run, report, problem, canary_run, verdict_report = self._runs(
+                    project, staged, plan, major, False
+                )
+            elif parity and not judged:
+                parity_note = _first_line(run.stderr)
             fired = verdict_report is not None and canary.canary_fired(verdict_report)
             # Without the pair, a saturated report proves nothing: KiCad stops reporting clearance
             # violations near the limit and may have left the canary's out (H-K-DRC-LIMIT).
@@ -342,8 +383,121 @@ class KicadOracle:
             tool_writes=tuple(sorted(name for name in run.outputs if name != DRC_REPORT)),
             outcome=run.outcome,
             returncode=run.returncode,
-            message=problem or _first_line(run.stderr),
+            message=(parity_note if report is not None else "") or problem or _first_line(run.stderr),
             evidence=evidence,
+            parity_judged=judged and report is not None,
+        )
+
+    # -- ERC (c0062)
+
+    def _sheets(self, project: ProjectSet) -> dict[str, Node]:
+        """The parsed sheet files of the copy set; a file that does not parse is left out."""
+        trees: dict[str, Node] = {}
+        for name, path in project.files.items():
+            if not name.endswith(SCHEMATIC_SUFFIX):
+                continue
+            try:
+                trees[name] = parse(Path(path).read_text(encoding="utf-8"), file=name)
+            except (FormatError, OSError, UnicodeDecodeError):
+                continue
+        return trees
+
+    def _erc(self, schematic: Path, others: dict[str, Path]) -> tuple[CliRun, ErcReport | None, str]:
+        try:
+            result = self.cli.erc(schematic, files=others)
+        except FormatError as exc:  # the tool wrote a file that is no ERC report
+            return CliRun("exit", None, "", "", {}), None, f"unreadable ERC report: {_first_line(str(exc))}"
+        return result.run, result.report, ""
+
+    def erc(self, project: ProjectSet) -> ErcOutcome:
+        """``sch erc`` on the copy set, its items located from the sheet files; nothing is written under
+        the root and no canary is staged."""
+        version = self.version()
+        name = schematic_name(project)
+        if name not in project.files:
+            return ErcOutcome(None, version, message="the project has no schematic of the board's stem")
+        others = {key: path for key, path in project.files.items() if key != name}
+        run, report, problem = self._erc(project.files[name], others)
+        writes = tuple(sorted(key for key in run.outputs if key != ERC_REPORT))
+        if report is None:
+            message = problem or _first_line(run.stderr) or _first_line(run.stdout) or "no ERC report"
+            return ErcOutcome(
+                None, version, writes, outcome=run.outcome, returncode=run.returncode, message=message
+            )
+        locations = ercmod.item_locations(self._sheets(project), PurePosixPath(project.board).stem)
+        combined = Evidence.combine(ercmod.EVIDENCE, EVIDENCE)
+        return ErcOutcome(
+            ercmod.located(report, locations),
+            version,
+            writes,
+            outcome=run.outcome,
+            returncode=run.returncode,
+            message=_first_line(run.stderr),
+            evidence=dataclasses.replace(combined, oracle=f"kicad-cli {version}"),
+        )
+
+    def rt2_erc(self, project: ProjectSet) -> ErcRt2Outcome:
+        """ERC twice on the project as it is and once on a copy in which every sheet file that Fenolite
+        reads is its re-dump; a sheet it cannot read stays as it is and is counted in ``kept``."""
+        version = self.version()
+        name = schematic_name(project)
+
+        def failed(
+            before: tuple[ErcReport, ...],
+            message: str,
+            run: CliRun | None = None,
+            counts: tuple[int, int] = (0, 0),
+        ) -> ErcRt2Outcome:
+            timeout = run is not None and run.outcome == "timeout"
+            return ErcRt2Outcome(
+                before, None, version, outcome="timeout" if timeout else "exit",
+                returncode=None if timeout else (run.returncode if run is not None else 0), message=message,
+                redumped=counts[0], kept=counts[1],
+            )  # fmt: skip
+
+        if name not in project.files:
+            return failed((), "the project has no schematic of the board's stem")
+        others = {key: path for key, path in project.files.items() if key != name}
+        before: list[ErcReport] = []
+        for _ in range(2):
+            run, report, problem = self._erc(project.files[name], others)
+            if report is None:
+                return failed(tuple(before), problem or _first_line(run.stderr) or "no ERC report", run)
+            before.append(report)
+        staged = Path(tempfile.mkdtemp(prefix="fenolite-rt2-erc-"))
+        try:
+            if staged.resolve().is_relative_to(project.root.resolve()):
+                raise RuntimeError("the RT2 staging folder lies inside the project")
+            sides = dict(project.files)
+            redumped = kept = 0
+            for key, path in project.files.items():
+                if not key.endswith(SCHEMATIC_SUFFIX):
+                    continue
+                try:
+                    sheet = read_schematic(Path(path).read_text(encoding="utf-8"), file=key)
+                    text = dumps(rebuild_schematic(sheet))
+                except (FormatError, ValueError, OSError, UnicodeDecodeError):
+                    kept += 1
+                    continue
+                target = staged / key
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text, encoding="utf-8", newline="\n")
+                sides[key] = target
+                redumped += 1
+            run, after, problem = self._erc(sides[name], {k: v for k, v in sides.items() if k != name})
+        finally:
+            shutil.rmtree(staged, ignore_errors=True)
+        if after is None:
+            message = problem or _first_line(run.stderr) or "no ERC report"
+            return failed(tuple(before), message, run, (redumped, kept))
+        combined = Evidence.combine(ercmod.EVIDENCE, SCH_EVIDENCE, EVIDENCE)
+        return ErcRt2Outcome(
+            tuple(before),
+            after,
+            version,
+            evidence=dataclasses.replace(combined, oracle=f"kicad-cli {version}"),
+            redumped=redumped,
+            kept=kept,
         )
 
     # -- review views (c0024)
@@ -502,9 +656,11 @@ def _entries(report: DrcReport) -> object:
     )
 
 
-def _protocols(oracle: KicadOracle) -> tuple[Oracle, NetlistOracle, RoundTripOracle]:  # pyright: ignore[reportUnusedFunction]
-    """``KicadOracle`` as each of the three oracle protocols; ``pyright`` checks the assignment."""
-    return oracle, oracle, oracle
+def _protocols(  # pyright: ignore[reportUnusedFunction]
+    oracle: KicadOracle,
+) -> tuple[Oracle, NetlistOracle, RoundTripOracle, ErcOracle]:
+    """``KicadOracle`` as each of the four oracle protocols; ``pyright`` checks the assignment."""
+    return oracle, oracle, oracle, oracle
 
 
 def _schematic_protocol(oracle: KicadOracle) -> SchematicNetlistOracle:  # pyright: ignore[reportUnusedFunction]
@@ -515,6 +671,7 @@ def _schematic_protocol(oracle: KicadOracle) -> SchematicNetlistOracle:  # pyrig
 __all__ = [
     "EVIDENCE",
     "NORMALISE_EVIDENCE",
+    "PARITY_NOT_JUDGED",
     "RT2_EVIDENCE",
     "KicadOracle",
     "SchematicExport",

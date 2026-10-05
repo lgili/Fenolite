@@ -6,6 +6,11 @@ DRC runs once through the injected ``Oracle``. Its violations are counted, and w
 each one becomes a located issue (``checks.drc_json``; ``violations_judged`` is then true). The oracle's
 canary state becomes the rules verdict: a project whose rules were not loaded, or could not be checked, is
 never a silent pass.
+
+When the project has a schematic of the board's stem, the oracle also asks the tool to compare the board
+with it ("Parity findings", change c0062). Its entries are findings like the others, and ``parity_judged``
+says whether the comparison was made: when it was asked for and not made, the stage says so with
+``<oracle>.drc.parity-unchecked`` and keeps the copper verdict and its evidence.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ def _summary(outcome: DrcOutcome, oracle: str) -> dict[str, object]:
     report = outcome.report
     violations = report.violations if report is not None else ()
     unconnected = report.unconnected_items if report is not None else ()
+    parity = report.schematic_parity if report is not None else ()
     return {
         "tool_version": outcome.tool_version,
         "canary": outcome.canary,
@@ -38,6 +44,8 @@ def _summary(outcome: DrcOutcome, oracle: str) -> dict[str, object]:
         "excluded": sum(1 for v in (*violations, *unconnected) if v.excluded),
         "tool_writes": sorted(outcome.tool_writes),
         "violations_judged": report is not None,
+        "parity": len(parity),
+        "parity_judged": outcome.parity_judged and report is not None,
         "types": finding_types(report, oracle=oracle) if report is not None else {},
     }
 
@@ -70,6 +78,16 @@ def drc_stage(
                             f"whether the rules were loaded is unknown ({outcome.canary_reason})",
                             where=rules))  # fmt: skip
         rules_issue = True
+    schematic = f"{PurePosixPath(project.board).stem}.kicad_sch"
+    if schematic in project.files and outcome.report is not None and not outcome.parity_judged:
+        detail = f": {outcome.message}" if outcome.message else ""
+        issues.append(
+            issue(
+                oracle_code(oracle.name, "parity-unchecked"),
+                f"the board was not compared with its schematic{detail}",
+                where=schematic,
+            )
+        )
     if outcome.report is not None:
         issues += finding_issues(outcome.report, oracle=oracle.name, design=design)
     evidence = outcome.evidence if outcome.report is not None and not rules_issue else Evidence()

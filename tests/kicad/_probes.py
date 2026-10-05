@@ -31,6 +31,7 @@ import _checkcases
 import _copperparity
 import _creepbench
 import _drccases
+import _erccases
 import _exportcases
 import _fieldbench
 import _fieldprobe
@@ -263,6 +264,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _gencases.gen_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _netlistcases.netlist_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _erccases.erc_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

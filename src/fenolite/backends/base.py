@@ -118,6 +118,71 @@ class DrcReport:
 
 
 @dataclass(frozen=True, slots=True)
+class ErcItem:
+    """A schematic item an ERC violation names: its uuid, the tool's description, its position on the
+    sheet, and ``where``, the location a backend found for it (``REF-PIN``, ``REF`` or a label text)."""
+
+    uuid: str
+    description: str
+    position: Point
+    where: str = ""
+
+    def __post_init__(self) -> None:
+        if type(self.position.x) is not int or type(self.position.y) is not int:
+            raise TypeError(f"ERC positions are integer nanometres, got {self.position!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class ErcViolation:
+    """One violation of an ERC report; ``type`` and ``severity`` are the tool's own strings, ``sheet`` is
+    the tool's readable path of the sheet it is listed under and ``sheet_id`` the tool's own identifier of
+    that sheet (for KiCad, its path of uuids)."""
+
+    type: str
+    description: str
+    severity: str
+    items: tuple[ErcItem, ...] = ()
+    excluded: bool = False
+    sheet: str = ""
+    sheet_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ErcReport:
+    """An ERC report in report order, sheet by sheet, independent of the tool that wrote it; ``sheets``
+    holds the readable path of every sheet the report lists, with or without violations."""
+
+    source: str
+    date: str
+    kicad_version: str
+    coordinate_units: str
+    violations: tuple[ErcViolation, ...] = ()
+    ignored_checks: tuple[str, ...] = ()
+    included_severities: tuple[str, ...] = ()
+    sheets: tuple[str, ...] = ()
+
+    def entries(self) -> tuple[tuple[str, str, str, bool, tuple[tuple[str, int, int], ...]], ...]:
+        """The violations as a sorted tuple of ``(sheet, type, severity, excluded, items)``, each item as
+        its description and position: item uuids, ``where`` and the report order are left out, so two
+        runs of a tool can be compared."""
+        found = [
+            (
+                v.sheet,
+                v.type,
+                v.severity,
+                v.excluded,
+                tuple(sorted((i.description, i.position.x, i.position.y) for i in v.items)),
+            )
+            for v in self.violations
+        ]
+        return tuple(sorted(found))
+
+    def of_type(self, type: str) -> tuple[ErcViolation, ...]:  # noqa: A002 (the report's own key)
+        """The violations of ``type``, in report order."""
+        return tuple(v for v in self.violations if v.type == type)
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityReport:
     """What a backend can do here. ``operations`` lists only what is implemented."""
 
@@ -294,7 +359,8 @@ CanaryState = Literal["fired", "absent", "inconclusive", "not-applicable"]
 @dataclass(frozen=True, slots=True)
 class DrcOutcome:
     """An oracle's DRC run: the report (``None`` when none was written, canary items removed), the canary
-    state, the files the tool wrote in its copy, and the evidence of the run."""
+    state, the files the tool wrote in its copy, and the evidence of the run. ``parity_judged`` is true
+    exactly when the run asked the tool to compare the board with its schematic and the tool did so."""
 
     report: DrcReport | None
     tool_version: str
@@ -306,6 +372,7 @@ class DrcOutcome:
     returncode: int | None = 0
     message: str = ""
     evidence: Evidence = Evidence()
+    parity_judged: bool = False
 
 
 class Oracle(Protocol):
@@ -317,6 +384,49 @@ class Oracle(Protocol):
     def version(self) -> str: ...
 
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ErcOutcome:
+    """An oracle's ERC run: the report (``None`` when none was written, ``message`` then being the first
+    sanitised line of the tool's output), the files the tool wrote in its copy, and the evidence."""
+
+    report: ErcReport | None
+    tool_version: str
+    tool_writes: tuple[str, ...] = ()
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
+class ErcRt2Outcome:
+    """The ERC reports of a schematic RT2 run: the runs on the project as it is, in run order, the run on
+    the backend's re-dump of its sheets (``None`` when it wrote no report), and the numbers of sheet files
+    re-dumped and left as they are."""
+
+    before: tuple[ErcReport, ...]
+    after: ErcReport | None
+    tool_version: str
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+    redumped: int = 0
+    kept: int = 0
+
+
+@runtime_checkable
+class ErcOracle(Protocol):
+    """An external tool that gives ERC verdicts on a project copy set; it never writes under its root and
+    reports a timeout as ``outcome == "timeout"``."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def erc(self, project: ProjectSet) -> ErcOutcome: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -803,6 +913,12 @@ __all__ = [
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "ErcItem",
+    "ErcOracle",
+    "ErcOutcome",
+    "ErcReport",
+    "ErcRt2Outcome",
+    "ErcViolation",
     "FillOracle",
     "FillOutcome",
     "MATRIX_OPERATIONS",

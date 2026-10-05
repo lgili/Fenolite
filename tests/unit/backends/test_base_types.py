@@ -25,6 +25,12 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    ErcItem,
+    ErcOracle,
+    ErcOutcome,
+    ErcReport,
+    ErcRt2Outcome,
+    ErcViolation,
     FillOutcome,
     ModelScope,
     NetlistOracle,
@@ -136,6 +142,75 @@ def test_outcome_is_immutable() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         outcome.canary = "fired"  # type: ignore[misc]
     assert outcome.outcome == "exit" and outcome.returncode == 0 and outcome.tool_writes == ()
+
+
+def test_parity_flag_defaults_to_false() -> None:
+    outcome = DrcOutcome(report=None, tool_version="10.0.6", canary="not-applicable")
+    assert outcome.parity_judged is False
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.parity_judged = True  # type: ignore[misc]
+
+
+# -- the neutral ERC report and the ERC oracle (backend-protocol, change c0062)
+
+
+def erc_violation(kind: str, uid: str = "u", sheet: str = "/", at: tuple[int, int] = (1, 2)) -> ErcViolation:
+    item = ErcItem(uuid=uid, description="d", position=Point(*at))
+    return ErcViolation(type=kind, description=kind, severity="error", items=(item,), sheet=sheet)
+
+
+def erc_report(*violations: ErcViolation) -> ErcReport:
+    return ErcReport("s", "d", "10.0.6", "mm", violations=violations, sheets=("/",))
+
+
+def test_erc_violations_by_type() -> None:
+    pin, lib = erc_violation("pin_not_connected"), erc_violation("lib_symbol_issues")
+    report = erc_report(pin, lib, pin)
+    assert report.of_type("lib_symbol_issues") == (lib,)
+    assert report.of_type("pin_not_connected") == (pin, pin) and report.of_type("other") == ()
+
+
+def test_erc_entries_leave_out_uuids_and_order() -> None:
+    first = erc_report(erc_violation("a", "u1"), erc_violation("b", "u2", sheet="/Child/"))
+    other = erc_report(erc_violation("b", "x9", sheet="/Child/"), erc_violation("a", "x8"))
+    assert first.entries() == other.entries()
+    assert first.entries() == (
+        ("/", "a", "error", False, (("d", 1, 2),)),
+        ("/Child/", "b", "error", False, (("d", 1, 2),)),
+    )
+    assert erc_report(erc_violation("a", "u1")).entries() != first.entries()
+    moved = erc_report(erc_violation("a", "u1", at=(1, 3)), erc_violation("b", "u2", sheet="/Child/"))
+    assert moved.entries() != first.entries()
+    located = dataclasses.replace(
+        first.violations[0], items=(dataclasses.replace(first.violations[0].items[0], where="U1-2"),)
+    )
+    assert erc_report(located, first.violations[1]).entries() == first.entries()
+
+
+def test_erc_integer_positions_only() -> None:
+    with pytest.raises(TypeError):
+        ErcItem(uuid="u", description="d", position=Point(1.5, 0))  # type: ignore[arg-type]
+    assert ErcItem(uuid="u", description="d", position=Point(1, 0)).where == ""
+
+
+def test_erc_types_are_immutable() -> None:
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        erc_violation("x").type = "y"  # type: ignore[misc]
+    outcome = ErcOutcome(report=None, tool_version="10.0.6")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.message = "x"  # type: ignore[misc]
+    assert (outcome.outcome, outcome.returncode, outcome.tool_writes) == ("exit", 0, ())
+    rt2 = ErcRt2Outcome(before=(), after=None, tool_version="10.0.6")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rt2.redumped = 1  # type: ignore[misc]
+    assert (rt2.redumped, rt2.kept, rt2.outcome) == (0, 0, "exit")
+
+
+def test_erc_protocol_narrows_an_oracle() -> None:
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeOracle(), ErcOracle)
+    assert not isinstance(fakes.FakeFullOracle(), ErcOracle)
+    assert isinstance(fakes.FakeErcOracle(), ErcOracle)
 
 
 def test_fill_outcome_is_immutable() -> None:

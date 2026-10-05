@@ -10,10 +10,12 @@ import dataclasses
 import pytest
 from fakes import (
     VERIFIED,
+    FakeErcOracle,
     FakeFillOracle,
     FakeFullOracle,
     FakeOracle,
     FakeValidator,
+    erc_outcome,
     netlist,
     netlist_outcome,
     outcome,
@@ -33,7 +35,7 @@ from fenolite.model.design import Design
 def test_stage_order() -> None:
     assert STAGE_ORDER == (
         "model.validate",
-        "erc.lite",
+        "erc.kicad",
         "copper.clearance",
         "zone.fill",
         "drc.kicad",
@@ -44,7 +46,9 @@ def test_stage_order() -> None:
     )
     assert OPT_IN_STAGES == ("roundtrip.rt2", "render")
     assert DEFAULT_STAGES == STAGE_ORDER[:-2]
+    assert "erc.lite" not in STAGE_ORDER  # the three rules are no stage of the KiCad pipeline (c0062)
     assert ORACLE_STAGES == (
+        "erc.kicad",
         "zone.fill",
         "drc.kicad",
         "netlist.assignment_compare",
@@ -68,36 +72,84 @@ def test_fixed_order() -> None:
     assert len(validator.calls) == 1  # validate runs at most once
 
 
-def test_skipped_by_design_on_native_input() -> None:
+def test_skipped_by_design_without_a_schematic() -> None:
+    oracle = FakeErcOracle()
     report = run_checks(
         project=project(),
         stages=STAGE_ORDER[:2] + ("roundtrip",),
         model=None,
         built=False,
         validator=FakeValidator(),
-        oracle=None,
+        oracle=oracle,
     )
-    erc = next(s for s in report.stages if s.name == "erc.lite")
-    assert (erc.status, erc.reason, erc.issues) == ("skipped", "native-input", ())
-    assert erc.evidence.level == Level.UNVERIFIED
-    assert {s.name: s.status for s in report.stages if s.name != "erc.lite"} == {
+    erc = next(s for s in report.stages if s.name == "erc.kicad")
+    assert (erc.status, erc.reason, erc.issues) == ("skipped", "no-schematic", ())
+    assert erc.evidence.level == Level.UNVERIFIED and oracle.erc_calls == []
+    assert {s.name: s.status for s in report.stages if s.name != "erc.kicad"} == {
         "model.validate": "ok",
         "roundtrip": "ok",
     }
 
 
+def test_no_lite_stage_in_the_kicad_pipeline() -> None:
+    """Scenario "Not part of the KiCad pipeline": the default stages on built input run no ``erc.lite``."""
+    from fenolite.checks import erc_lite
+
+    report = run_checks(
+        project=project(schematic=True),
+        stages=None,
+        model=Design.new("built", seed=0),
+        built=True,
+        validator=FakeValidator(),
+        oracle=FakeErcOracle(),
+        fill_oracle=FakeFillOracle(),
+    )
+    assert "erc.lite" not in [s.name for s in report.stages] and "erc.kicad" in [
+        s.name for s in report.stages
+    ]
+    assert not [i for i in report.issues if i.code.startswith("erc.lite.")]
+    assert not hasattr(erc_lite, "REMOVE_IN") and not hasattr(erc_lite, "check_removal")
+    assert erc_lite.erc_stage(Design.new("built", seed=0)).name == "erc.lite"  # the function stays
+
+
+def test_erc_stage_needs_no_board_read() -> None:
+    """A refused board read does not skip ``erc.kicad``, and the stage alone asks for no read at all."""
+    validator = FakeValidator(error=FormatError("bad", file="board.kicad_pcb"))
+    oracle = FakeErcOracle()
+    alone = run_checks(
+        project=project(schematic=True), stages=("erc.kicad",), model=None, built=False,
+        validator=validator, oracle=oracle,
+    )  # fmt: skip
+    assert [s.status for s in alone.stages] == ["ok"] and validator.calls == [] and alone.read_error is None
+    both = run_checks(
+        project=project(schematic=True), stages=("erc.kicad", "roundtrip"), model=None, built=False,
+        validator=validator, oracle=oracle,
+    )  # fmt: skip
+    assert [(s.name, s.status) for s in both.stages] == [("erc.kicad", "ok"), ("roundtrip", "skipped")]
+    assert len(oracle.erc_calls) == 2
+
+
+def test_erc_stage_without_an_oracle_is_a_programming_error() -> None:
+    with pytest.raises(ValueError, match="erc.kicad"):
+        run_checks(
+            project=project(schematic=True), stages=("erc.kicad",), model=None, built=False,
+            validator=FakeValidator(), oracle=None,
+        )  # fmt: skip
+
+
 def test_envelope_evidence_lowest_of_the_stages_that_ran() -> None:
     report = run_checks(
         project=project(),
-        stages=("erc.lite", "drc.kicad", "roundtrip"),
+        stages=("erc.kicad", "drc.kicad", "roundtrip"),
         model=None,
         built=False,
         validator=FakeValidator(),
         oracle=FakeOracle(),
     )
     levels = {s.name: s.evidence.level for s in report.stages}
+    assert report.stages[0].reason == "no-schematic"  # skipped, so it does not count in the envelope
     assert levels == {
-        "erc.lite": Level.UNVERIFIED,
+        "erc.kicad": Level.UNVERIFIED,
         "drc.kicad": Level.KICAD_VERIFIED,
         "roundtrip": Level.INFERRED,
     }
@@ -151,7 +203,34 @@ def test_unsupported_format_code_in_message() -> None:
     assert report.issues[0].message == "FEN-3003: too old"
 
 
-def test_cache_unreadable_skips_both_model_stages() -> None:
+def test_envelope_evidence_does_not_count_an_unsupported_erc_oracle() -> None:
+    report = run_checks(
+        project=project(schematic=True),
+        stages=("erc.kicad", "drc.kicad"),
+        model=None,
+        built=False,
+        validator=FakeValidator(),
+        oracle=FakeOracle(outcome("fired")),
+    )
+    erc, drc = report.stages
+    assert (erc.status, erc.reason) == ("skipped", "unsupported-oracle")
+    assert report.evidence.level == drc.evidence.level
+
+
+def test_envelope_evidence_counts_the_erc_stage_that_ran() -> None:
+    weak = Evidence(Level.INFERRED, oracle="fake 1.0", hypotheses=("H-FAKE-ERC",))
+    report = run_checks(
+        project=project(schematic=True),
+        stages=("erc.kicad", "drc.kicad"),
+        model=None,
+        built=False,
+        validator=FakeValidator(),
+        oracle=FakeErcOracle(outcome("fired"), erc_result=erc_outcome(evidence=weak)),
+    )
+    assert report.evidence.level == Level.INFERRED and "H-FAKE-ERC" in report.evidence.hypotheses
+
+
+def test_cache_unreadable_skips_the_model_stage() -> None:
     report = run_checks(
         project=project(),
         stages=DEFAULT_STAGES,
@@ -164,7 +243,7 @@ def test_cache_unreadable_skips_both_model_stages() -> None:
     )
     statuses = {s.name: (s.status, s.reason) for s in report.stages}
     assert statuses["model.validate"] == ("skipped", "cache-unreadable")
-    assert statuses["erc.lite"] == ("skipped", "cache-unreadable")
+    assert statuses["erc.kicad"] == ("skipped", "no-schematic")  # it needs no model: only a schematic
     assert statuses["roundtrip"][0] == "ok" and statuses["drc.kicad"][0] == "ok"
     assert report.issues[0].code == "check.cache-unreadable" and report.issues[0].severity == "warning"
     assert report.evidence.level == Level.UNVERIFIED  # a skipped model stage counts
@@ -175,14 +254,14 @@ def test_built_input_uses_the_cache_model() -> None:
     model = Design.new("built", seed=0)
     report = run_checks(
         project=project(),
-        stages=("model.validate", "erc.lite"),
+        stages=("model.validate",),
         model=model,
         built=True,
         validator=validator,
         oracle=None,
     )
-    assert [s.status for s in report.stages] == ["ok", "ok"]
-    assert validator.calls == []  # neither stage needs the board read on built input
+    assert [s.status for s in report.stages] == ["ok"]
+    assert validator.calls == []  # the stage does not need the board read on built input
 
 
 def test_issues_follow_input_then_stage_order() -> None:

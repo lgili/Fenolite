@@ -256,3 +256,82 @@ in 16, a net name with a slash in 18, a module in 18 and an open pin without a m
 `fenolite netlist` gives equal nets, counts and components from its two sources for the built blink and
 for the built units design on both versions; only `class` differs, which the source `fenolite` leaves
 empty.
+## RT2 through KiCad's ERC (change c0062)
+
+`tests/kicad/schematic/test_corpus_rt2.py`, run on 2026-10-05 with `kicad-cli` 10.0.6 (macOS) and 9.0.9
+(pinned image). A project is a root row (`sch-root`) with every cached row of its demo folder, rebuilt in
+a temporary folder; the cache is only read. `KicadOracle.rt2_erc` runs ERC twice on the project as it is
+and once on a copy in which every sheet Fenolite reads is its re-dump. RT2 *holds* when the re-dump gives
+the violations of the original (`ErcReport.entries()`); a project whose two runs of the original differ
+is *not judged*. These numbers settle `H-K-ERC-RT2` and `H-K-ERC-REPEAT`.
+
+| | 10.0.6 | 9.0.9 |
+|---|---|---|
+| projects run | 34 | 35 |
+| judged / holds / differs | 33 / 33 / 0 | 35 / 35 / 0 |
+| not judged (the two runs of the original differ) | 1: `kicad-demo-10-0-6-sch-037` | 0 |
+| acceptance list (rows without `sch-bus`, `sch-multi`, `sch-old`): projects / judged / holds | 24 / 24 / 24 | 24 / 24 / 24 |
+| the other projects: run / judged / holds | 10 / 9 / 9 | 11 / 11 / 11 |
+| sheet files: re-dumped / left as they are | 111 / 0 | 87 / 4 |
+| violations of the first run, all projects | 11093 | 6491 |
+| seconds in all, and of the slowest project | 120.7, 42.1 | 148.8, 48.2 |
+
+- The four sheets left as they are on 9.0.9 are the roots older than the read floor (`sch-old`): Fenolite
+  does not read them, so the third run sees the original file and the verdict says nothing about a
+  re-dump. On 10.0.6 the rows of tag 10.0.6 hold no such root.
+- On 9.0.9 the projects are those of tag 9.0.9.1 whose sheets are at format `20250114` or older; on
+  10.0.6 those of tag 10.0.6. 13 root rows are no project at tag 10.0.6 and 12 none at tag 9.0.9.1.
+- The project that is not judged on 10.0.6 is outside the acceptance list; its two ERC runs of the same
+  files gave different entries, so nothing is said about its re-dump (`H-K-ERC-REPEAT` does not hold for
+  it on 10.0.6; it does on 9.0.9).
+
+| project (root row) | list | sheet files | re-dumped / kept | 10.0.6: violations, verdict | 9.0.9: violations, verdict |
+|---|---|---|---|---|---|
+| kicad-demo-10-0-6-sch-003 | other | 8 | 8 / 0 | 203, holds | not run |
+| kicad-demo-10-0-6-sch-01 | acceptance | 2 | 2 / 0 | 113, holds | 73, holds |
+| kicad-demo-10-0-6-sch-011 | acceptance | 1 | 1 / 0 | 32, holds | 37, holds |
+| kicad-demo-10-0-6-sch-012 | acceptance | 1 | 1 / 0 | 35, holds | 32, holds |
+| kicad-demo-10-0-6-sch-013 | other | 1 | 1 / 0 | 76, holds | 55, holds |
+| kicad-demo-10-0-6-sch-017 | other | 15 | 15 / 0 | 3012, holds | not run |
+| kicad-demo-10-0-6-sch-032 | other | 3 | 3 / 0 | 340, holds | 281, holds |
+| kicad-demo-10-0-6-sch-035 | acceptance | 2 | 2 / 0 | 103, holds | 97, holds |
+| kicad-demo-10-0-6-sch-037 | other | 3 | 3 / 0 | 1026, not-judged | not run |
+| kicad-demo-10-0-6-sch-039 | other | 2 | 2 / 0 | 190, holds | not run |
+| kicad-demo-10-0-6-sch-041 | other | 5 | 5 / 0 | 212, holds | 146, holds |
+| kicad-demo-10-0-6-sch-042 | acceptance | 1 | 1 / 0 | 2, holds | 2, holds |
+| kicad-demo-10-0-6-sch-047 | acceptance | 1 | 1 / 0 | 39, holds | not run |
+| kicad-demo-10-0-6-sch-048 | acceptance | 1 | 1 / 0 | 8, holds | 8, holds |
+| kicad-demo-10-0-6-sch-049 | acceptance | 1 | 1 / 0 | 47, holds | 47, holds |
+| kicad-demo-10-0-6-sch-050 | acceptance | 1 | 1 / 0 | 18, holds | 18, holds |
+| kicad-demo-10-0-6-sch-051 | acceptance | 1 | 1 / 0 | 28, holds | not run |
+| kicad-demo-10-0-6-sch-052 | acceptance | 1 | 1 / 0 | 40, holds | 40, holds |
+| kicad-demo-10-0-6-sch-053 | acceptance | 1 | 1 / 0 | 28, holds | not run |
+| kicad-demo-10-0-6-sch-054 | acceptance | 1 | 1 / 0 | 21, holds | not run |
+| kicad-demo-10-0-6-sch-055 | acceptance | 1 | 1 / 0 | 28, holds | 28, holds |
+| kicad-demo-10-0-6-sch-056 | acceptance | 1 | 1 / 0 | 16, holds | not run |
+| kicad-demo-10-0-6-sch-057 | acceptance | 1 | 1 / 0 | 123, holds | not run |
+| kicad-demo-10-0-6-sch-058 | acceptance | 1 | 1 / 0 | 26, holds | 24, holds |
+| kicad-demo-10-0-6-sch-059 | acceptance | 1 | 1 / 0 | 527, holds | 448, holds |
+| kicad-demo-10-0-6-sch-060 | acceptance | 1 | 1 / 0 | 8, holds | not run |
+| kicad-demo-10-0-6-sch-061 | acceptance | 1 | 1 / 0 | 18, holds | not run |
+| kicad-demo-10-0-6-sch-062 | acceptance | 3 | 3 / 0 | 20, holds | 20, holds |
+| kicad-demo-10-0-6-sch-065 | acceptance | 1 | 1 / 0 | 9, holds | 9, holds |
+| kicad-demo-10-0-6-sch-066 | acceptance | 1 | 1 / 0 | 39, holds | 39, holds |
+| kicad-demo-10-0-6-sch-067 | acceptance | 1 | 1 / 0 | 79, holds | 50, holds |
+| kicad-demo-10-0-6-sch-069 | other | 2 | 2 / 0 | 507, holds | 376, holds |
+| kicad-demo-10-0-6-sch-077 | other | 8 | 8 / 0 | 584, holds | 426, holds |
+| kicad-demo-10-0-6-sch-106 | other | 36 | 36 / 0 | 3536, holds | 3519, holds |
+| kicad-demo-9-0-9-1-sch-001 | acceptance | 1 | 1 / 0 | not run | 8, holds |
+| kicad-demo-9-0-9-1-sch-002 | acceptance | 3 | 3 / 0 | not run | 125, holds |
+| kicad-demo-9-0-9-1-sch-005 | other | 2 | 2 / 0 | not run | 127, holds |
+| kicad-demo-9-0-9-1-sch-007 | acceptance | 1 | 1 / 0 | not run | 28, holds |
+| kicad-demo-9-0-9-1-sch-008 | other | 1 | 0 / 1 | not run | 28, holds |
+| kicad-demo-9-0-9-1-sch-009 | acceptance | 1 | 1 / 0 | not run | 79, holds |
+| kicad-demo-9-0-9-1-sch-010 | acceptance | 1 | 1 / 0 | not run | 15, holds |
+| kicad-demo-9-0-9-1-sch-011 | acceptance | 1 | 1 / 0 | not run | 123, holds |
+| kicad-demo-9-0-9-1-sch-012 | other | 1 | 0 / 1 | not run | 42, holds |
+| kicad-demo-9-0-9-1-sch-013 | other | 1 | 0 / 1 | not run | 8, holds |
+| kicad-demo-9-0-9-1-sch-014 | other | 1 | 0 / 1 | not run | 19, holds |
+| kicad-demo-9-0-9-1-sch-015 | acceptance | 1 | 1 / 0 | not run | 8, holds |
+| kicad-demo-9-0-9-1-sch-016 | acceptance | 1 | 1 / 0 | not run | 106, holds |
+

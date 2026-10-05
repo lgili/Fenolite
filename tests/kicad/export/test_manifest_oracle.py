@@ -5,9 +5,9 @@ cli-contract, "Manifest command"; manufacturing-exports, "Artefact states" and "
 change c0065).
 
 The routed blink reaches ``native-verified`` for its board, because KiCad's DRC reports no error, and
-``checked`` for the files made from it; the unrouted blink stops at ``roundtrip-ok``. The schematic is
-an authored sheet put next to the board (``build`` writes none yet): it stops at ``roundtrip-ok`` on both
-majors, because KiCad's ERC is not a stage of ``check`` before change c0062."""
+``checked`` for the files made from it; the unrouted blink stops at ``roundtrip-ok``. The schematic is the
+one the build writes: it reaches ``native-verified`` with its symbol libraries and their table on both
+majors, because KiCad's ERC, the stage ``erc.kicad`` of ``check`` (change c0062), reports no error."""
 
 from __future__ import annotations
 
@@ -28,11 +28,8 @@ pytestmark = pytest.mark.needs_kicad
 ROOT = Path(__file__).resolve().parents[3]
 ROUTED = ROOT / "examples" / "blink_routed" / "design.py"
 UNROUTED = ROOT / "examples" / "blink_2layer" / "design.py"
-SHEETS = {9: "flat_v9.kicad_sch", 10: "flat.kicad_sch"}
-"""The authored flat schematic in the format of each major."""
 STAMP = "2026-01-02T03:04:05+00:00"
 NAME = "fenolite-artifacts.json"
-ERC_HELD = "native-verified: erc.kicad is not a stage of this version of Fenolite"
 
 
 def fenolite(cwd: Path, *args: str) -> tuple[int, dict[str, Any], str]:
@@ -54,9 +51,6 @@ def _built(work: Path, script: Path, name: str) -> Path:
 def routed(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The routed blink with exported files, views and a placement table in ``fab/``, and a schematic."""
     project = _built(tmp_path_factory.mktemp("manifest-routed"), ROUTED, "routed")
-    (board,) = project.glob("*.kicad_pcb")
-    sheet = ROOT / "tests" / "data" / "kicad" / "schematic" / SHEETS[major()]
-    shutil.copyfile(sheet, project / f"{board.stem}.kicad_sch")
     cli = ("--kicad-cli", str(runner().path), "--confirm")
     for args in (
         ("export", str(project), "--out", "fab", "--all", "--manifest", *cli),
@@ -105,7 +99,9 @@ def test_routed_blink_reaches_native_verified(routed: Path) -> None:
     }  # fmt: skip
     for name in ("model.validate", "copper.clearance", "roundtrip"):
         assert stages[name]["status"] == "ok", name
-    assert "erc.kicad" not in stages
+    assert stages["erc.kicad"] == {
+        "name": "erc.kicad", "status": "ok", "level": "KICAD-VERIFIED", "oracle": f"kicad-cli {version}",
+    }  # fmt: skip
 
     listed = {e["path"]: e for e in data["artifacts"]}
     for item in listed.values():
@@ -118,7 +114,7 @@ def test_routed_blink_reaches_native_verified(routed: Path) -> None:
         assert listed[name]["state"] == "native-verified", name
     assert {e["state"] for e in data["artifacts"] if e["kind"] == "kicad_mod"} == {"native-verified"}
     sheet = listed[f"{board.stem}.kicad_sch"]
-    assert (sheet["state"], sheet["held"], sheet["tool"]) == ("roundtrip-ok", ERC_HELD, None)
+    assert (sheet["state"], sheet["held"]) == ("native-verified", "")
     assert data["project"]["schematic"]["sha256"] == sheet["sha256"]
 
     made = [e for e in data["artifacts"] if e["path"].startswith("fab/")]
@@ -132,12 +128,11 @@ def test_routed_blink_reaches_native_verified(routed: Path) -> None:
     assert data["states"]["generated"] == 0 and data["states"]["oracle-verified"] == 0
     # c0061: a build also writes the project's symbol libraries and their table, which the manifest lists
     # with the other project files
-    symbol_side = sorted(
-        e["path"] for e in data["artifacts"] if e["state"] == "checked" and not e["path"].startswith("fab/")
-    )
-    assert symbol_side == ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym", "sym-lib-table"]
-    assert data["states"]["roundtrip-ok"] == 1
-    assert data["states"]["checked"] == len(made) + len(symbol_side)
+    # with the other project files; KiCad's ERC loaded them with the sheet
+    for name in ("lib/Mini.kicad_sym", "lib/fenolite.kicad_sym", "sym-lib-table"):
+        assert (listed[name]["state"], listed[name]["held"]) == ("native-verified", ""), name
+    assert data["states"]["roundtrip-ok"] == 0
+    assert data["states"]["checked"] == len(made)
     assert env["result"]["states"] == data["states"]
     assert not [i for i in env["issues"] if i["severity"] == "error"]
     for needle in (str(routed.parent), str(Path.home()), "fenolite-kicad-"):
@@ -189,6 +184,10 @@ def test_unrouted_blink_stops_at_roundtrip_ok(tmp_path_factory: pytest.TempPathF
     listed = {e["path"]: e for e in data["artifacts"]}
     assert listed[board.name]["state"] == "roundtrip-ok"
     assert listed[board.name]["held"] == "native-verified: drc.kicad reported errors"
-    assert data["states"]["native-verified"] == 0
+    # the schematic side follows the ERC, which reports nothing on the blink: the sheet, its two symbol
+    # libraries and their table
+    sheet = listed[f"{board.stem}.kicad_sch"]
+    assert (sheet["state"], sheet["held"]) == ("native-verified", "")
+    assert data["states"]["native-verified"] == 4
     drc = next(s for s in data["check"]["stages"] if s["name"] == "drc.kicad")
     assert (drc["status"], drc["level"]) == ("errors", "KICAD-VERIFIED")

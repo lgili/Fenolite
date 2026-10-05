@@ -25,17 +25,23 @@
 - [x] 3.2 Add the check: run the stages as `check` does, build the stage mapping and the sheet verdicts, assign the states, report the check's issues (scenarios "States from a check", "Errors still give a manifest" and "No tool"). Proof: `uv run pytest tests/unit/cli/test_manifest_cmd.py tests/unit/cli/test_check_readonly.py`; `uv run pyright src`.
   - Open for c0062: the scenario "States from a check" asked for `native-verified` on the schematic from
     `erc.kicad`. There is no such stage; the test pins `roundtrip-ok` with the reason in `held`.
+  - 2026-10-05, by c0062: the stage exists; the test pins `native-verified` for both sheets and for
+    `sym-lib-table`.
 - [x] 3.3 Add `--verify` (scenarios "Verify an unchanged folder" and "Verify after an edit"). Proof: `uv run pytest tests/unit/cli/test_manifest_cmd.py -k verify`.
 
 ## 4. Oracle proof (both majors)
 
-- [ ] 4.1 Write `tests/kicad/export/test_manifest_oracle.py`: `examples/blink_routed` built with a schematic reaches `native-verified` for its board and its schematic and `checked` for its exported files; the unrouted blink leaves the board at `roundtrip-ok`; `--verify` passes right after, and fails after one exported file is edited. Proof: `uv run pytest tests/kicad/export/test_manifest_oracle.py -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
+- [x] 4.1 Write `tests/kicad/export/test_manifest_oracle.py`: `examples/blink_routed` built with a schematic reaches `native-verified` for its board and its schematic and `checked` for its exported files; the unrouted blink leaves the board at `roundtrip-ok`; `--verify` passes right after, and fails after one exported file is edited. Proof: `uv run pytest tests/kicad/export/test_manifest_oracle.py -rA` on the local KiCad 10.0.6 and inside the pinned 9.0.9 image.
   - 2026-10-05: everything but the schematic's `native-verified` is written and passes: 3 passed on the
     local `kicad-cli` 10.0.6 and 3 passed inside the pinned `kicad/kicad:9.0.9` image. The routed blink
     gets an authored sheet next to its board (`build` writes none before c0061) and the test pins
     `roundtrip-ok` for it with the reason in `held`.
   - Open, waits for c0062 (`erc.kicad` in `STAGE_ORDER`): the schematic of the routed example reaching
     `native-verified`. The task stays unticked for that one assertion.
+  - 2026-10-06, by c0062: `erc.kicad` is a stage. The test uses the schematic the build writes (no authored
+    sheet) and pins `native-verified` for the board, the schematic, the two symbol libraries and their
+    table of the routed blink: 3 passed on the local `kicad-cli` 10.0.6 and 3 passed inside the pinned
+    9.0.9 image. `examples/blink_routed` marks its unused pins for that; its board is unchanged.
 
 
 ## 5. Documentation

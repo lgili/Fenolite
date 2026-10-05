@@ -403,7 +403,9 @@ def test_schematic_file_of_a_project(tmp_path: Path) -> None:
     assert schematic_file(project()) == "" and schematic_file(project(schematic=True)) == "board.kicad_sch"
     board = tmp_path / "x.kicad_pcb"
     board.write_text("", encoding="utf-8")
+    sheet = tmp_path / "x.kicad_sch"
+    sheet.write_text("", encoding="utf-8")
     beside = ProjectSet(tmp_path, "x.kicad_pcb", {"x.kicad_pcb": board})
-    assert schematic_file(beside) == ""
-    (tmp_path / "x.kicad_sch").write_text("", encoding="utf-8")
-    assert schematic_file(beside) == "x.kicad_sch"
+    assert schematic_file(beside) == ""  # the copy set decides (c0062 plans the schematic into it)
+    listed = ProjectSet(tmp_path, "x.kicad_pcb", {"x.kicad_pcb": board, "x.kicad_sch": sheet})
+    assert schematic_file(listed) == "x.kicad_sch"

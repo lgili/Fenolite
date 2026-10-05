@@ -184,6 +184,9 @@ because of it.
   `KicadOracle.schematic_netlist` copies the project's files and, when the set does not hold them, the
   root schematic and the sheet files that `sch.sheet_files` lists inside the root. Once c0062 is merged
   the files come from the set and this addition does nothing. `projectset.py` is not touched here.
+  **Merged with c0062 (2026-10-06):** the copy set holds the schematic files, so the lookup beside the
+  board was removed: `assignment_compare.schematic_file` and `oracle.schematic_files` ask `project.files`
+  alone, as the `erc.kicad` stage does. `oracle.with_sheets` stays for `fenolite netlist` on a schematic.
 - **`KicadCli.export_netlist` returns the run**, not a text: the netlist is `run.outputs[NETLIST]`.
   `tests/_fakecli.py` already takes a `netlist` argument (c0060), and `tests/_erc.py::netlist` reads
   the nets of an export for tests (c0061).

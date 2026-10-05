@@ -16,6 +16,7 @@ from _resources import posix_tools
 
 from fenolite.backends.kicad.cli import (
     DRC_REPORT,
+    ERC_REPORT,
     NETLIST,
     KicadCli,
     KicadCliError,
@@ -63,6 +64,14 @@ elif mode == "drc":
     open(out, "w").write(json.dumps(report))
     print(json.dumps({"env": dict(os.environ)}))
 elif mode == "nodrc":
+    sys.exit(3)
+elif mode == "erc":
+    sheet = args[-1]
+    open(sheet.rsplit(".", 1)[0] + ".kicad_prl", "w").write("{}")
+    open(args[args.index("-o") + 1], "w").write(open(os.environ["FAKE_ERC"]).read())
+    print(json.dumps({"env": dict(os.environ)}))
+elif mode == "noerc":
+    print("Failed to load schematic", file=sys.stderr)
     sys.exit(3)
 elif mode == "list":
     print(json.dumps(sorted(os.listdir("."))))
@@ -436,3 +445,68 @@ def test_export_bom_does_not_raise_for_a_failed_load(tmp_path: Path) -> None:
 
     run = KicadCli(fake_kicad_cli(tmp_path / "bin")).export_bom(FLAT, fields=("Reference",))
     assert not run.ok and run.returncode == 3 and BOM not in run.outputs
+
+
+# -- ERC and the parity flag (capability kicad-oracle, "ERC runs through the package runner"; c0062)
+
+ERC_TEN = Path(__file__).resolve().parents[4] / "tests" / "data" / "kicad" / "erc" / "report_10.json"
+
+
+def test_erc_arguments_and_report(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("FAKE_MODE", "erc")
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    monkeypatch.setenv("FAKE_ERC", str(ERC_TEN))
+    before = _folder_state(FLAT.parent)
+    run = KicadCli(fake).erc(FLAT)
+    assert _folder_state(FLAT.parent) == before
+    command = next(c for c in map(json.loads, log.read_text().splitlines()) if c[:1] == ["sch"])
+    assert command == ["sch", "erc", "--format", "json", "--severity-all", "-o", ERC_REPORT, "flat.kicad_sch"]
+    assert "--exit-code-violations" not in command
+    assert run.run.ok and run.report is not None
+    assert run.report.violations[0].type == "pin_not_connected"
+    assert run.report.violations[0].items[0].position.x == 139_700_000
+    assert sorted(run.run.outputs) == [ERC_REPORT, "flat.kicad_prl"]
+
+
+def test_erc_without_report(fake: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "noerc")
+    run = KicadCli(fake).erc(FLAT)
+    assert run.report is None and run.run.returncode == 3
+    assert "Failed to load schematic" in run.run.stderr
+
+
+def test_erc_timeout_is_an_outcome(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "sleep")
+    monkeypatch.setenv("FAKE_RECORD", str(tmp_path / "cwd.txt"))
+    run = KicadCli(fake, timeout=0.5).erc(FLAT)
+    assert run.report is None and run.run.outcome == "timeout" and run.run.returncode is None
+
+
+def test_erc_env_and_extra_files(fake: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "erc")
+    monkeypatch.setenv("FAKE_ERC", str(ERC_TEN))
+    table = tmp_path / "sym-lib-table"
+    table.write_text("(sym_lib_table (version 7))", encoding="utf-8")
+    run = KicadCli(fake).erc(FLAT, files={"sym-lib-table": table}, env={"FENOLITE_PROBE": "x"})
+    seen = json.loads(run.run.stdout)["env"]
+    assert seen["FENOLITE_PROBE"] == "x" and seen["KICAD_CONFIG_HOME"] == "<tmp>/config"
+    monkeypatch.setenv("FAKE_MODE", "list")
+    listed = KicadCli(fake).run(["x"], files={"flat.kicad_sch": FLAT, "sym-lib-table": table})
+    assert {"flat.kicad_sch", "sym-lib-table"} <= set(json.loads(listed.stdout))
+
+
+def test_parity_flag_only_when_asked(
+    fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("FAKE_MODE", "drc")
+    monkeypatch.setenv("FAKE_LOG", str(log))
+    KicadCli(fake).drc(board, schematic_parity=True)
+    KicadCli(fake).drc(board)
+    with_flag, plain = [c for c in map(json.loads, log.read_text().splitlines()) if c[:2] == ["pcb", "drc"]]
+    assert with_flag == [
+        "pcb", "drc", "--format", "json", "--severity-all", "--schematic-parity", "-o", DRC_REPORT,
+        "b.kicad_pcb",
+    ]  # fmt: skip
+    assert plain == ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, "b.kicad_pcb"]

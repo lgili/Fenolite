@@ -23,7 +23,7 @@ DESIGN = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "de
 REF_PIN = re.compile(r"^[A-Za-z]+[0-9]+-[0-9A-Za-z]+$")
 DEFAULT = [
     "model.validate",
-    "erc.lite",
+    "erc.kicad",
     "copper.clearance",
     "zone.fill",
     "drc.kicad",
@@ -73,9 +73,12 @@ def test_built_blink_before_routing(tmp_path: Path) -> None:
         assert env, err
         assert [s["name"] for s in env["result"]["stages"]] == DEFAULT
         assert env["result"]["project"]["built"] is True
-        assert stage(env, "erc.lite")["status"] == "ok"
+        erc = stage(env, "erc.kicad")  # KiCad's ERC of the schematic the build wrote (change c0062)
+        assert erc["status"] == "ok" and erc["summary"]["violations"] == 0, env["issues"]
+        assert erc["summary"]["sheets"] == 1 and erc["evidence"]["oracle"].startswith("kicad-cli ")
         drc = stage(env, "drc.kicad")["summary"]
         assert drc["canary"] == "fired" and drc["violations_judged"] is True
+        assert drc["parity_judged"] is True and drc["parity"] == 0  # the board agrees with its schematic
         assert stage(env, "roundtrip")["status"] == "ok"
         _assert_unconnected_located(env)
         assert tree_snapshot(out) == before

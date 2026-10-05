@@ -206,12 +206,11 @@ def net_text(label: str, names: Mapping[str, str]) -> str:
 
 
 def schematic_file(project: ProjectSet) -> str:
-    """The name of the project's root schematic, ``<board stem>.kicad_sch``, when the project has one: it
-    is a file of the copy set, or a file beside the board; ``""`` otherwise."""
+    """The name of the project's root schematic, ``<board stem>.kicad_sch``, when the copy set holds it
+    (it does whenever the file lies beside the board; change c0062); ``""`` otherwise. The ``erc.kicad``
+    stage decides by the same rule."""
     name = f"{PurePosixPath(project.board).stem}.kicad_sch"
-    if name in project.files or (project.root / name).is_file():
-        return name
-    return ""
+    return name if name in project.files else ""
 
 
 def _pair_issues(pair: PairResult, names: Mapping[str, Mapping[str, str]]) -> list[Issue]:

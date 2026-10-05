@@ -10,10 +10,15 @@ The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper
 the build's copper guard emits too.
 The last six codes are those of the document check (``checks.documents``; "Document check issue codes",
 change c0044): the input of a backend whose project is a set of documents.
+The row ``<oracle>.erc.<type>`` stands for every ERC finding code of an oracle (``checks.erc_json``), and
+``<oracle>.drc.parity-unchecked`` says that the parity test of a DRC run was asked for and not judged ("ERC
+stage issue codes", change c0062). ``type_suffix`` is the one rule that turns a tool's own type into the
+last part of a code, for DRC and ERC alike.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -22,6 +27,10 @@ from fenolite.core.errors import Issue, Severity
 ORACLE = "<oracle>"
 FINDING = f"{ORACLE}.drc.<type>"
 """The table key of every DRC finding code."""
+ERC_FINDING = f"{ORACLE}.erc.<type>"
+"""The table key of every ERC finding code."""
+_OUTSIDE = re.compile(r"[^a-z0-9-]")
+_RUNS = re.compile(r"-{2,}")
 ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
     {
         "check.read-refused": ("error",),
@@ -33,7 +42,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.copy-skipped": ("info",),
         f"{ORACLE}.drc.rules-not-loaded": ("error", "info"),
         f"{ORACLE}.drc.rules-unchecked": ("warning",),
+        f"{ORACLE}.drc.parity-unchecked": ("warning",),
         FINDING: ("error", "warning", "info"),
+        ERC_FINDING: ("error", "warning", "info"),
         "netlist.assignment-differs": ("error",),
         "netlist.uncovered": ("info",),
         "check.rt2-failed": ("error",),
@@ -66,9 +77,24 @@ def oracle_code(oracle: str, suffix: str) -> str:
     return f"{oracle}.drc.{suffix}"
 
 
+def erc_code(oracle: str, suffix: str) -> str:
+    """The code ``<oracle name>.erc.<suffix>``, for example ``kicad.erc.pin-not-connected``."""
+    return f"{oracle}.erc.{suffix}"
+
+
+def type_suffix(type: str) -> str:  # noqa: A002 (the report's own key)
+    """The last part of a finding code for a tool's own type: lower case, every character outside
+    ``[a-z0-9-]`` as ``-``, runs of ``-`` collapsed and the ends trimmed; ``unknown`` when nothing remains."""
+    return _RUNS.sub("-", _OUTSIDE.sub("-", type.lower())).strip("-") or "unknown"
+
+
 def table_key(code: str) -> str:
     """The ``ISSUE_CODES`` key of ``code``: an oracle's ``.drc.`` codes with ``<oracle>`` for its name, and
-    ``FINDING`` for every suffix that is not a rules verdict."""
+    ``FINDING`` for every suffix that is not a verdict of the stage; an oracle's ``.erc.`` codes give
+    ``ERC_FINDING``."""
+    head, sep, _ = code.partition(".erc.")
+    if sep and head and "." not in head:
+        return ERC_FINDING
     head, sep, rest = code.partition(".drc.")
     if not sep or "." in head:
         return code
@@ -95,4 +121,14 @@ def issue(
     return Issue(code, chosen, message, where=where, hint=hint, retryable=retryable)
 
 
-__all__ = ["FINDING", "ISSUE_CODES", "ORACLE", "issue", "oracle_code", "table_key"]
+__all__ = [
+    "ERC_FINDING",
+    "FINDING",
+    "ISSUE_CODES",
+    "ORACLE",
+    "erc_code",
+    "issue",
+    "oracle_code",
+    "table_key",
+    "type_suffix",
+]

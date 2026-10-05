@@ -1313,6 +1313,11 @@ meaning = "A finding of KiCad's own design rule check; the last part of the code
 fix = "Fix the board as KiCad's message says, or change the rule or its severity in the project, then run 'fenolite check' again."
 see = "check"
 
+["kicad.drc.parity-unchecked"]
+meaning = "The DRC run was asked to compare the board with its schematic and KiCad did not do it, for example because it could not load the schematic. The copper findings of the run stand; no parity finding was looked for."
+fix = "Open the schematic in KiCad and fix what the message names, or run the erc.kicad stage, which reports why the schematic does not load."
+see = "check"
+
 ["kicad.drc.rules-not-loaded"]
 meaning = "KiCad did not apply the project's custom rules in this run: the canary rule did not fire, or the rules file has no project file next to it."
 fix = "Keep the .kicad_dru and the .kicad_pro of the same stem next to the board; the DRC findings of this run do not include the custom rules."
@@ -1321,6 +1326,16 @@ see = "check"
 ["kicad.drc.rules-unchecked"]
 meaning = "Fenolite could not tell whether KiCad applied the custom rules; the message names the reason."
 fix = "Treat the custom rules as unverified in this run and remove the cause the message names."
+see = "check"
+
+["kicad.erc.*"]
+meaning = "A finding of KiCad's own electrical rules check of the schematic; the last part of the code is KiCad's violation type, and 'where' names the pins, symbols or labels."
+fix = "Fix the schematic, or the script that generates it, as KiCad's message says, or change the severity of the check in the project, then run 'fenolite check' again."
+see = "check"
+
+["kicad.erc.position-unscaled"]
+meaning = "The ERC report comes from a KiCad version for which the scale of report positions is not proved, so the positions are kept as the report gives them."
+fix = "Use a supported kicad-cli (9 or 10); locate the items by their reference instead of their position."
 see = "check"
 
 ["kicad.footprint.dropped-too-new"]

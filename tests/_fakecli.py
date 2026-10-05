@@ -19,6 +19,15 @@ report and exits 3. Every call appends ``{"args", "files"}`` to ``<folder>/calls
 and the text of each board and rules file in the run folder. With ``log``, every board and rules file
 of every run is also copied there as ``<call number>-<name>``. With ``drc_sequence``, the n-th ``pcb drc``
 run writes the n-th report text, and the last one from then on.
+
+Change c0062 adds ``sch erc``: with ``erc_report`` (a report text) the run writes it to the ``-o`` file and
+exits 0; with ``erc_report=""`` it prints ``Failed to load schematic`` and exits 3 without a report; without
+the argument it writes a report with one sheet ``/`` and no violation. ``erc_sequence`` gives the n-th
+``sch erc`` run its own report text. Each call also records the text of every ``.kicad_sch`` of the run
+folder under ``sheets``. ``parity`` is a list of DRC violations that a ``pcb drc`` run puts in
+``schematic_parity`` only when it got ``--schematic-parity``; ``parity_fail`` makes such a run print
+``parity_fail`` and exit 255 without a report, as KiCad does for a schematic it cannot load, and
+``parity_note`` makes it print that line and still write its report.
 """
 
 from __future__ import annotations
@@ -40,8 +49,14 @@ files = {}
 for name in sorted(os.listdir(".")):
     if name.endswith((".kicad_pcb", ".kicad_dru", ".kicad_pro")) and os.path.isfile(name):
         files[name] = open(name, encoding="utf-8", errors="replace").read()
+sheets = {}
+for folder, _, names in sorted(os.walk(".")):
+    for name in sorted(names):
+        if name.endswith(".kicad_sch"):
+            path = os.path.normpath(os.path.join(folder, name)).replace(os.sep, "/")
+            sheets[path] = open(path, encoding="utf-8", errors="replace").read()
 with open(os.path.join(HERE, "calls.jsonl"), "a") as log:
-    log.write(json.dumps({"args": args, "files": files}) + "\\n")
+    log.write(json.dumps({"args": args, "files": files, "sheets": sheets}) + "\\n")
 if config["log"]:
     count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in files.items():
@@ -86,6 +101,22 @@ if args[:2] == ["sch", "upgrade"]:
     text = open(sheet, encoding="utf-8").read()
     open(sheet, "w", encoding="utf-8", newline="").write(text)
     sys.exit(0)
+if args[:2] == ["sch", "erc"]:
+    text = config["erc_report"]
+    if config["erc_sequence"]:
+        done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"sch", "erc"' in line)
+        sequence = config["erc_sequence"]
+        text = sequence[min(done, len(sequence)) - 1]
+    if text == "":
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    if text is None:
+        text = json.dumps({"source": args[-1], "date": "2026-10-05", "kicad_version": config["version"],
+                           "coordinate_units": "mm", "sheets": [
+                               {"path": "/", "uuid_path": "/00000000-0000-4000-8000-000000000000",
+                                "violations": []}]})
+    open(args[args.index("-o") + 1], "w", newline="").write(text)
+    sys.exit(0)
 if args[:3] == ["sch", "export", "netlist"]:
     if config["netlist"] is None:
         print("Failed to load schematic", file=sys.stderr)
@@ -120,6 +151,12 @@ if kind is not None and kind in config["export_files"]:
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
+    asked = "--schematic-parity" in args
+    if asked and config["parity_fail"]:
+        print(config["parity_fail"], file=sys.stderr)
+        sys.exit(255)
+    if asked and config["parity_note"]:
+        print(config["parity_note"], file=sys.stderr)
     if "--save-board" in args and config["refill_board"] is not None:
         open(board, "w", encoding="utf-8", newline="").write(config["refill_board"])
     if config["rewrite_input"] and "--save-board" not in args:
@@ -146,6 +183,8 @@ if args[:2] == ["pcb", "drc"]:
         report = {"source": board, "date": "2026-10-02", "kicad_version": config["version"],
                   "coordinate_units": "mm", "violations": violations, "unconnected_items": [],
                   "schematic_parity": []}
+    if asked and config["parity"]:
+        report["schematic_parity"] = config["parity"]
     open(args[args.index("-o") + 1], "w", newline="").write(json.dumps(report))
 """
 
@@ -201,6 +240,11 @@ def fake_kicad_cli(
     imported: str | None = None,
     import_output: str = "",
     import_warnings: Sequence[str] = (),
+    erc_report: str | None = None,
+    erc_sequence: Sequence[str] = (),
+    parity: Sequence[Mapping[str, Any]] = (),
+    parity_fail: str = "",
+    parity_note: str = "",
 ) -> Path:
     """An executable fake ``kicad-cli`` in ``folder`` (``help_pages`` keyed by the command words, ``""``
     for the root page).
@@ -233,6 +277,11 @@ def fake_kicad_cli(
         "imported": imported,
         "import_output": import_output,
         "import_warnings": list(import_warnings),
+        "erc_report": erc_report,
+        "erc_sequence": list(erc_sequence),
+        "parity": [dict(entry) for entry in parity],
+        "parity_fail": parity_fail,
+        "parity_note": parity_note,
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")
@@ -254,4 +303,35 @@ def report_with(*violations: Mapping[str, Any]) -> str:
                        "schematic_parity": []})  # fmt: skip
 
 
-__all__ = ["DRILL", "EXAMPLE_NETLIST", "EXPORT_FILES", "GERBER", "calls", "fake_kicad_cli", "report_with"]
+def erc_report_with(*violations: Mapping[str, Any], sheets: Sequence[Mapping[str, Any]] = ()) -> str:
+    """An ERC report text: ``violations`` on the root sheet ``/``, then the ``sheets`` given whole."""
+    root = {"path": "/", "uuid_path": "/00000000-0000-4000-8000-000000000000", "violations": list(violations)}
+    return json.dumps({"source": "board.kicad_sch", "date": "2026-10-05", "kicad_version": "10.0.6",
+                       "coordinate_units": "mm", "sheets": [root, *sheets]})  # fmt: skip
+
+
+def erc_entry(
+    kind: str, uuid: str, *, severity: str = "error", x: float = 0.0, y: float = 0.0, description: str = "",
+    excluded: bool | None = None,
+) -> dict[str, Any]:  # fmt: skip
+    """One violation of an ERC report with one item."""
+    item = {"uuid": uuid, "description": "item", "pos": {"x": x, "y": y}}
+    entry: dict[str, Any] = {
+        "type": kind, "description": description or kind, "severity": severity, "items": [item]
+    }  # fmt: skip
+    if excluded is not None:
+        entry["excluded"] = excluded
+    return entry
+
+
+__all__ = [
+    "DRILL",
+    "EXAMPLE_NETLIST",
+    "EXPORT_FILES",
+    "GERBER",
+    "calls",
+    "erc_entry",
+    "erc_report_with",
+    "fake_kicad_cli",
+    "report_with",
+]

@@ -27,9 +27,10 @@ from _probes import run, runner
 from _projects import tree_snapshot
 from _schbuild import write_files
 
-from fenolite.backends.base import PadAssignment, PadNetList, ProjectSet
+from fenolite.backends.base import PadAssignment, PadNetList
 from fenolite.backends.kicad import schlayout
 from fenolite.backends.kicad.oracle import KicadOracle
+from fenolite.backends.kicad.projectset import project_set
 from fenolite.checks.assignment_compare import board_netlist, compare
 
 pytestmark = pytest.mark.needs_kicad
@@ -100,7 +101,7 @@ def _sheet_netlist(tmp_path: Path, text: str) -> PadNetList:
     shutil.copyfile(FIXTURE, root / "probe.kicad_pcb")
     (root / "probe.kicad_sch").write_text(text, encoding="utf-8", newline="\n")
     before = tree_snapshot(root)
-    project = ProjectSet(root, "probe.kicad_pcb", {"probe.kicad_pcb": root / "probe.kicad_pcb"})
+    project = project_set(root / "probe.kicad_pcb")  # the copy set holds the schematic (c0062)
     outcome = KicadOracle(runner()).schematic_netlist(project)
     assert outcome.netlist is not None, outcome.message
     assert outcome.netlist.source == "schematic" and outcome.evidence.oracle.startswith("kicad-cli ")
@@ -137,7 +138,7 @@ def test_unloadable_schematic_is_an_outcome(tmp_path: Path) -> None:
     root.mkdir()
     shutil.copyfile(FIXTURE, root / "probe.kicad_pcb")
     (root / "probe.kicad_sch").write_text("(kicad_sch (version 1)", encoding="utf-8")
-    project = ProjectSet(root, "probe.kicad_pcb", {"probe.kicad_pcb": root / "probe.kicad_pcb"})
+    project = project_set(root / "probe.kicad_pcb")  # the copy set holds the schematic (c0062)
     outcome = KicadOracle(runner()).schematic_netlist(project)
     assert outcome.netlist is None and outcome.message and str(tmp_path) not in outcome.message
 

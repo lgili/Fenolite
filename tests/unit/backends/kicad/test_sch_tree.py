@@ -62,6 +62,7 @@ def test_missing_file(tmp_path: Path) -> None:
     assert tree.files == ("root.kicad_sch",)
     assert [(i.code, i.severity) for i in tree.issues] == [("kicad.sch.sheet-missing", "warning")]
     assert "gone.kicad_sch" in tree.issues[0].message
+    assert tree.missing == ("gone.kicad_sch",)  # the name itself, for the copy set of a check (c0062)
 
 
 def test_file_outside_the_folder_tree(tmp_path: Path) -> None:

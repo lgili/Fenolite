@@ -2,7 +2,7 @@
 
 ### Requirement: Schematic netlist through the package runner
 `KicadOracle.schematic_netlist(project) -> NetlistOutcome` SHALL export the netlist of `<board stem>.kicad_sch` with `KicadCli.export_netlist` on the project's copy set, read it with `netlist.read_netlist`, and return it as the `PadNetList` of `backend-protocol`, "Schematic netlist oracle".
-- **Files of the run.** The run MUST get the files of the copy set and, when the set does not hold them, the root schematic `<board stem>.kicad_sch` beside the board and the sheet files that `sch.sheet_files` lists inside the project folder (`oracle.schematic_files`). "Check project copy set" is not modified by this change; once the copy set holds the schematic files, nothing is added. A project without that schematic MUST give `netlist=None` and no run.
+- **Files of the run.** The run MUST get the files of the copy set (`oracle.schematic_files`), which holds the root schematic `<board stem>.kicad_sch` and the sheet files of its hierarchy since change c0062 ("Check project copy set"); nothing is looked up beside the board. A project without that schematic MUST give `netlist=None` and no run.
 - A run that writes no netlist, and an export that `read_netlist` refuses, MUST give `netlist=None` with the first sanitised line as `message`; a timeout MUST give `outcome="timeout"`. No exception is raised.
 - `NetlistOutcome.evidence` MUST be `Evidence.combine(netlist.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`, and `UNVERIFIED` when no netlist was read.
 - `oracle.export_schematic_netlist(cli, project) -> SchematicExport(netlist, outcome, returncode, message)` MUST be the one place that runs and reads the export; the method and the `netlist` command both use it.

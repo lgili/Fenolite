@@ -17,9 +17,9 @@
 - **THEN** the exit code is 0, `result.plan` lists `m.json`, every entry of `result.artifacts` has the state `generated`, and `result.check` is `null`
 
 #### Scenario: States from a check
-- **GIVEN** a fake `kicad-cli` whose DRC report holds no violation, and a built project with an authored two-sheet schematic next to its board (`build` writes no schematic yet, and `check` has no `erc.kicad` stage before c0062)
+- **GIVEN** a fake `kicad-cli` whose DRC and ERC reports hold no violation, and a built project with an authored two-sheet schematic next to its board
 - **WHEN** `uv run pytest tests/unit/cli/test_manifest_cmd.py -k states` runs `fenolite manifest <dir> --confirm --json`
-- **THEN** the board has the state `native-verified`, each sheet has the state `roundtrip-ok` with a `held` that names `erc.kicad`, and `result.check` names `drc.kicad` with status `ok` and no `erc.kicad`
+- **THEN** the board and each sheet have the state `native-verified`, and `result.check` names `drc.kicad` and `erc.kicad` with status `ok`
 
 #### Scenario: Errors still give a manifest
 - **GIVEN** a fake whose DRC report holds one `clearance` violation of severity `error`

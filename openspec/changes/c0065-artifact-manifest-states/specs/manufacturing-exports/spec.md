@@ -8,7 +8,7 @@ Every manifest entry SHALL carry one `state` of `manifest.STATES = ("generated",
 - **`roundtrip-ok`.** Applies to kinds `kicad_pcb` and `kicad_sch` only: the board needs `roundtrip` with status `ok`, and a sheet needs `sheets_ok[path]` true. Every other design kind skips the rung.
 - **`oracle-verified`.** No rule assigns it; every kind skips the rung. The state is reserved for a tool that is neither the producer of a file nor its format's own application.
 - **`native-verified`.** The board needs `drc.kicad` with status `ok` and level exactly `KICAD-VERIFIED`. The files KiCad loads to judge the board (kinds `kicad_pro`, `kicad_dru`, `kicad_mod`, `kicad_wks`, and a `lib-table` other than `sym-lib-table`) reach it exactly when the board does. A file of kind `file` (any other file of a library folder) stops at `checked`: no tool is known to load it.
-- **Schematic side.** A sheet (`kicad_sch`), a symbol library (`kicad_sym`) and the `lib-table` named `sym-lib-table` are judged by KiCad's ERC, not by its DRC. Until `check` has the stage `erc.kicad` (change c0062) `states.RULES` MUST hold no `native-verified` rule for them and `states.PENDING` MUST name the rung and the stage: a sheet stops at `roundtrip-ok`, a symbol library and the symbol table at `checked`, whatever `stages` holds, and `held` MUST be `native-verified: erc.kicad is not a stage of this version of Fenolite`.
+- **Schematic side.** A sheet (`kicad_sch`), a symbol library (`kicad_sym`) and the `lib-table` named `sym-lib-table` are judged by KiCad's ERC, not by its DRC. Each reaches `native-verified` when `erc.kicad` (change c0062) is in `stages` with status `ok` and level exactly `KICAD-VERIFIED`: the ERC loaded the sheets with the libraries the table names. A sheet needs `roundtrip-ok` first; a symbol library and the symbol table skip that rung. Without that stage, or with an ERC error, a sheet stops at `roundtrip-ok` and a symbol library and the symbol table at `checked`, and `held` names `erc.kicad`. `states.PENDING` MUST be empty: no role waits for a stage that `check` lacks.
 - A stage that is missing from `stages`, skipped, or below the level its rule names MUST NOT give its rung, and a rung that is not reached MUST stop the ladder for that file.
 - `assign` MUST be pure, MUST import nothing from `checks`, and with an empty `stages` MUST leave every entry `generated`.
 
@@ -37,10 +37,10 @@ Every manifest entry SHALL carry one `state` of `manifest.STATES = ("generated",
 - **WHEN** `assign` runs
 - **THEN** its state is `generated` and `stale` is true
 
-#### Scenario: Schematic waits for the ERC
+#### Scenario: Schematic follows the ERC
 - **GIVEN** the stages of the first scenario, with and without an `erc.kicad` entry that is `ok` at `KICAD-VERIFIED`, and a sheet whose RT1 verdict is true
 - **WHEN** `uv run pytest tests/unit/exports/test_states.py -k erc` calls `assign`
-- **THEN** the sheet is `roundtrip-ok`, the symbol library and `sym-lib-table` are `checked`, and each `held` names `erc.kicad`
+- **THEN** with the entry the sheet, the symbol library and `sym-lib-table` are `native-verified` with an empty `held`; without it, with status `errors`, or at another level, the sheet is `roundtrip-ok`, the other two are `checked`, and each `held` names `erc.kicad`
 
 #### Scenario: No check, no claim
 - **WHEN** `assign` runs with `stages` empty

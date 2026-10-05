@@ -2,38 +2,37 @@
 # Copyright (c) 2026 Fenolite contributors
 """DRC violations as located issues (capability verification-loop, "DRC findings as issues").
 
-Every violation and unconnected item of a DRC report becomes one issue. Its code names the tool's check
-(``<oracle>.drc.<type>``), its severity follows the report, and its location comes from the native ids of
-the re-read board: ``REF-PIN`` for a numbered pad, ``REF`` for a footprint, the file locator for any other
-item, and the report position when the uuid names no item or several. A location is never guessed, so a
-wrong ``REF-PIN`` cannot appear. ``checks`` names no backend: the ids sit under the oracle's own name.
+Every violation, unconnected item and schematic parity entry of a DRC report becomes one issue. Its code
+names the tool's check (``<oracle>.drc.<type>``), its severity follows the report, and its location comes
+from the native ids of the re-read board: ``REF-PIN`` for a numbered pad, ``REF`` for a footprint, the
+file locator for any other item, and the report position when the uuid names no item or several. A
+location is never guessed, so a wrong ``REF-PIN`` cannot appear. ``checks`` names no backend: the ids sit
+under the oracle's own name.
 """
 
 from __future__ import annotations
 
-import re
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from fenolite.backends.base import DrcReport, DrcViolation
-from fenolite.checks.codes import issue, oracle_code
+from fenolite.checks.codes import issue, oracle_code, type_suffix
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.model.base import Entity
 from fenolite.model.design import Design
 
-RESERVED_SUFFIXES = ("rules-not-loaded", "rules-unchecked")
-"""The rules-verdict suffixes; a DRC type that would give one of them becomes ``type-<suffix>``."""
-_OUTSIDE = re.compile(r"[^a-z0-9-]")
-_RUNS = re.compile(r"-{2,}")
+RESERVED_SUFFIXES = ("rules-not-loaded", "rules-unchecked", "parity-unchecked")
+"""The verdict suffixes of the stage; a DRC type that would give one of them becomes ``type-<suffix>``."""
 NM_PER_MM = 1_000_000
 
 
 def type_code(oracle: str, type: str) -> str:  # noqa: A002 (the report's own key)
-    """``<oracle>.drc.<suffix>``: the type in lower case, every character outside ``[a-z0-9-]`` as ``-``,
-    runs of ``-`` collapsed and the ends trimmed; ``unknown`` when nothing remains."""
-    suffix = _RUNS.sub("-", _OUTSIDE.sub("-", type.lower())).strip("-") or "unknown"
+    """``<oracle>.drc.<suffix>``, the suffix by ``checks.codes.type_suffix``: the type in lower case, every
+    character outside ``[a-z0-9-]`` as ``-``, runs of ``-`` collapsed and the ends trimmed; ``unknown``
+    when nothing remains."""
+    suffix = type_suffix(type)
     if suffix in RESERVED_SUFFIXES:
         suffix = f"type-{suffix}"
     return oracle_code(oracle, suffix)
@@ -107,7 +106,7 @@ def sanitise(text: str, *, source: str) -> str:
 
 
 def _entries(report: DrcReport) -> tuple[DrcViolation, ...]:
-    return (*report.violations, *report.unconnected_items)
+    return (*report.violations, *report.unconnected_items, *report.schematic_parity)
 
 
 def finding_types(report: DrcReport, *, oracle: str) -> dict[str, str]:
@@ -116,7 +115,8 @@ def finding_types(report: DrcReport, *, oracle: str) -> dict[str, str]:
 
 
 def finding_issues(report: DrcReport, *, oracle: str, design: Design | None) -> tuple[Issue, ...]:
-    """One issue per violation and unconnected item of ``report``; ``schematic_parity`` is not mapped."""
+    """One issue per violation, unconnected item and schematic parity entry of ``report`` (the parity
+    list is empty unless the run asked for the parity test; "Parity findings")."""
     locations = item_locations(design, oracle)
     issues: list[Issue] = []
     for violation in _entries(report):

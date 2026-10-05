@@ -31,7 +31,7 @@ from fenolite.model.design import Design
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
-    "erc.lite",
+    "erc.kicad",
     "copper.clearance",
     "zone.fill",
     "drc.kicad",
@@ -41,11 +41,13 @@ STAGE_ORDER: tuple[str, ...] = (
     "render",
 )
 """The order stages run in; a later change may insert a stage. ``copper.clearance`` (change c0029) needs no
-external tool, so it runs before KiCad's DRC and is not an oracle stage."""
+external tool, so it runs before KiCad's DRC and is not an oracle stage. ``erc.kicad`` (change c0062) stands
+where ``erc.lite`` stood: the three rules of ``checks.erc_lite`` are no stage of this pipeline any more."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
 ORACLE_STAGES: tuple[str, ...] = (
+    "erc.kicad",
     "zone.fill",
     "drc.kicad",
     "netlist.assignment_compare",
@@ -53,7 +55,8 @@ ORACLE_STAGES: tuple[str, ...] = (
     "render",
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
-_READING_STAGES = frozenset({"roundtrip", "copper.clearance", *ORACLE_STAGES} - {"render"})
+_READING_STAGES = frozenset({"roundtrip", "copper.clearance", *ORACLE_STAGES} - {"render", "erc.kicad"})
+"""Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
 StageStatus = Literal["ok", "errors", "skipped"]
 StageSkip = Literal[
     "native-input",
@@ -159,7 +162,7 @@ def run_checks(
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
-    from fenolite.checks.erc_lite import erc_stage
+    from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
     from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
@@ -191,11 +194,9 @@ def run_checks(
         return validate_stage(validation.read.design, built=False, evidence=validation.read.evidence)
 
     def erc() -> StageResult:
-        if not built:
-            return skipped("erc.lite", "native-input")
-        if cache_error or model is None:
-            return skipped("erc.lite", "cache-unreadable")
-        return erc_stage(model)
+        if oracle is None:
+            raise ValueError("erc.kicad is selected but no oracle was given")
+        return erc_stage(oracle, project)
 
     def copper() -> StageResult:
         if validation is None:
@@ -238,7 +239,7 @@ def run_checks(
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
-        "erc.lite": erc,
+        "erc.kicad": erc,
         "copper.clearance": copper,
         "zone.fill": fill,
         "drc.kicad": drc,

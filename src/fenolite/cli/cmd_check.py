@@ -37,12 +37,12 @@ from fenolite.core.errors import FormatError, Issue
 from fenolite.model.design import Design
 
 HELP = (
-    "check a KiCad project (model, ERC lite, KiCad DRC findings, pad nets, round trips) or an Altium "
+    "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
     "project or document (model, ERC lite, pad nets, round trips RT-A0 to RT-A2), read-only"
 )
 NO_TOOL_HINT = (
     "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli, or run "
-    "--stages model.validate,erc.lite,roundtrip"
+    "--stages model.validate,roundtrip"
 )
 
 
@@ -224,5 +224,5 @@ COMMAND = Command(
     register=_register,
     run=_run,
     paged="issues",
-    example_args=(EXAMPLE_BOARD, "--stages", "model.validate,erc.lite,roundtrip"),
+    example_args=(EXAMPLE_BOARD, "--stages", "model.validate,roundtrip"),
 )

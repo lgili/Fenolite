@@ -147,7 +147,7 @@ def test_dsl_copper_is_what_the_command_passes() -> None:
 
 # --- arcs and via kinds in a build (change c0068) -----------------------------------------------------
 
-IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, via_step\n"
+IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect, via_step\n"
 BEND = (
     '\ndesign.track("bend", (mm(20), mm(3)), arc_to((mm(21), mm(4)), (mm(20), mm(5))), (mm(24), mm(5)),'
     " net=gnd, width=mm(0.25))\n"

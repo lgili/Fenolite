@@ -84,18 +84,30 @@ def test_missing_and_skipped_stages() -> None:
     assert found[GERBER.path].held == "checked: the board is generated"
 
 
-def test_schematic_side_waits_for_the_erc() -> None:
-    with_erc = {**PASSING, "erc.kicad": ("ok", KICAD)}
-    for stages in (PASSING, with_erc):
+def test_schematic_side_follows_the_erc() -> None:
+    """KiCad's ERC is the stage ``erc.kicad`` (change c0062): it gives the schematic side its top state."""
+    found = _states({**PASSING, "erc.kicad": ("ok", KICAD)})
+    for item in (SHEET, SYMBOLS, SYM_TABLE):
+        assert (found[item.path].state, found[item.path].held) == ("native-verified", "")
+    waiting = {
+        "native-verified: erc.kicad did not run": PASSING,
+        "native-verified: erc.kicad reported errors": {**PASSING, "erc.kicad": ("errors", KICAD)},
+        "native-verified: erc.kicad was skipped": {**PASSING, "erc.kicad": ("skipped", "UNVERIFIED")},
+        "native-verified: erc.kicad is INFERRED, below KICAD-VERIFIED": {
+            **PASSING,
+            "erc.kicad": ("ok", "INFERRED"),
+        },
+    }
+    for held, stages in waiting.items():
         found = _states(stages)
         assert found[SHEET.path].state == "roundtrip-ok"
         assert found[SYMBOLS.path].state == found[SYM_TABLE.path].state == "checked"
-        for item in (SHEET, SYMBOLS, SYM_TABLE):
-            assert found[item.path].held == (
-                "native-verified: erc.kicad is not a stage of this version of Fenolite"
-            )
-    assert set(PENDING) == {"sheet", "schematic-support"}
-    assert all("native-verified" not in [rule.state for rule in RULES[role]] for role in PENDING)
+        assert {found[item.path].held for item in (SHEET, SYMBOLS, SYM_TABLE)} == {held}
+    # the two sides are judged apart: a DRC error does not hold the schematic back
+    found = _states({**PASSING, "erc.kicad": ("ok", KICAD), "drc.kicad": ("errors", KICAD)})
+    assert found[SHEET.path].state == "native-verified" and found[BOARD.path].state == "roundtrip-ok"
+    assert dict(PENDING) == {}
+    assert all(RULES[role][-1].state == "native-verified" for role in ("sheet", "schematic-support"))
 
 
 def test_sheet_roundtrip() -> None:
@@ -163,7 +175,7 @@ def test_roles_and_ranks() -> None:
 
 STATUS = st.sampled_from(["ok", "errors", "skipped"])
 LEVELS = st.sampled_from([level.value for level in Level])
-NAMES = ["model.validate", "copper.clearance", "roundtrip", "drc.kicad", "erc.kicad", "erc.lite", "render"]
+NAMES = ["model.validate", "copper.clearance", "roundtrip", "drc.kicad", "erc.kicad", "render"]
 STAGES = st.dictionaries(st.sampled_from(NAMES), st.tuples(STATUS, LEVELS))
 HASHES = st.sampled_from(["0" * 64, BOARD.sha256, SHEET.sha256, GERBER.sha256])
 
@@ -195,6 +207,7 @@ def test_states_never_exceed_what_the_stages_give(
     assert [item.path for item in found] == [item.path for item in entries]
     checked = _ok(stages, "model.validate") and _ok(stages, "copper.clearance")
     native = checked and _ok(stages, "roundtrip") and _ok(stages, "drc.kicad", KICAD)
+    erc = checked and _ok(stages, "erc.kicad", KICAD)
     for before, item in zip(entries, found, strict=True):
         role = role_of(item)
         assert dataclasses.replace(item, state="generated", stale=False, held="") == dataclasses.replace(
@@ -215,7 +228,9 @@ def test_states_never_exceed_what_the_stages_give(
             assert rank(item.state) <= rank("checked") or sheets.get(item.path) is True
         if role in PENDING or role == "other":
             assert rank(item.state) < rank("native-verified")
-        if item.state == "native-verified":
+        if item.state == "native-verified" and role in ("sheet", "schematic-support"):
+            assert erc
+        elif item.state == "native-verified":
             assert native and current[BOARD.path] == BOARD.sha256
     if not stages:
         assert {item.state for item in found} == {"generated"}

@@ -41,6 +41,8 @@ SOURCE_KINDS: Mapping[str, str] = {"board": BOARD_KIND, "schematic": SHEET_KIND}
 CHECKED_STAGES = ("model.validate", "copper.clearance")
 ROUNDTRIP_STAGE = "roundtrip"
 NATIVE_STAGE = "drc.kicad"
+SCHEMATIC_STAGE = "erc.kicad"
+"""The stage whose verdict is the format's own tool's on the schematic side: KiCad's ERC (change c0062)."""
 NATIVE_LEVEL = Level.KICAD_VERIFIED.value
 OK = "ok"
 
@@ -63,9 +65,13 @@ RULES: Mapping[Role, tuple[Rule, ...]] = {
         Rule("roundtrip-ok", stages=(ROUNDTRIP_STAGE,)),
         Rule("native-verified", stages=(NATIVE_STAGE,), level=NATIVE_LEVEL),
     ),
-    "sheet": (_CHECKED, Rule("roundtrip-ok", need="sheet-rt1")),
+    "sheet": (
+        _CHECKED,
+        Rule("roundtrip-ok", need="sheet-rt1"),
+        Rule("native-verified", stages=(SCHEMATIC_STAGE,), level=NATIVE_LEVEL),
+    ),
     "board-support": (_CHECKED, Rule("native-verified", need="board")),
-    "schematic-support": (_CHECKED,),
+    "schematic-support": (_CHECKED, Rule("native-verified", stages=(SCHEMATIC_STAGE,), level=NATIVE_LEVEL)),
     "other": (_CHECKED,),
     "derived": (Rule("checked", need="sources"),),
 }
@@ -73,13 +79,12 @@ RULES: Mapping[Role, tuple[Rule, ...]] = {
 has a rule for ``oracle-verified``: that state waits for a tool that is neither the producer of a file
 nor its format's own application."""
 
-PENDING: Mapping[Role, tuple[State, str]] = {
-    "sheet": ("native-verified", "erc.kicad"),
-    "schematic-support": ("native-verified", "erc.kicad"),
-}
-"""The state a role cannot reach yet, and the stage whose rule is missing: KiCad's ERC is not a stage of
-``check``, so nothing here gives a schematic, a symbol library or the symbol table ``native-verified``,
-whatever ``stages`` holds. ``held`` says so."""
+PENDING: Mapping[Role, tuple[State, str]] = {}
+"""The state a role cannot reach yet, and the stage whose rule is missing. It is empty since change c0062:
+KiCad's ERC is the stage ``erc.kicad`` of ``check``, and its rules stand in ``RULES``. A sheet, a symbol
+library and the symbol table reach ``native-verified`` when that stage is ``ok`` at ``KICAD-VERIFIED``: the
+ERC loaded the sheets with the libraries the table names. A role listed here would stop below its top
+state whatever ``stages`` holds, and ``held`` would say so."""
 
 
 def rank(state: str) -> int:

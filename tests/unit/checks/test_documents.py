@@ -111,11 +111,8 @@ def test_stage_names() -> None:
         "roundtrip.rta2",
     )
     assert "roundtrip.rta0" not in STAGE_ORDER  # the KiCad pipeline is unchanged
-    assert set(DOCUMENT_STAGES) & set(STAGE_ORDER) == {
-        "model.validate",
-        "erc.lite",
-        "netlist.assignment_compare",
-    }
+    # ``erc.lite`` is a stage of the document pipeline only: the KiCad one asks KiCad's ERC (c0062)
+    assert set(DOCUMENT_STAGES) & set(STAGE_ORDER) == {"model.validate", "netlist.assignment_compare"}
 
 
 def test_fixed_order_with_a_fake_validator() -> None:

@@ -55,7 +55,7 @@ def codes(stage: StageResult) -> list[str]:
 
 def test_stage_is_a_default_stage_without_a_tool() -> None:
     assert STAGE in DEFAULT_STAGES and STAGE not in ORACLE_STAGES
-    assert DEFAULT_STAGES.index("erc.lite") + 1 == DEFAULT_STAGES.index(STAGE)
+    assert DEFAULT_STAGES.index("erc.kicad") + 1 == DEFAULT_STAGES.index(STAGE)
     assert DEFAULT_STAGES.index(STAGE) + 1 == DEFAULT_STAGES.index("zone.fill")
 
 

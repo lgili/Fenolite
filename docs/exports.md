@@ -179,16 +179,17 @@ state that is not reached stops the ladder there.
 | `checked` | the stages `model.validate` and `copper.clearance` ran on the project with status `ok`, and the file is the one that was hashed; a derived file (Gerber, drill, table, view) also needs its `from` to hold the present hash of a source that is `checked` | that the file itself was read: a Gerber is `checked` because the board it came from was |
 | `roundtrip-ok` | board: the stage `roundtrip` is `ok`; schematic sheet: it passes RT1. Other kinds skip this state | that the design is right: only that Fenolite reads and writes the file without loss |
 | `oracle-verified` | **unused**: no rule assigns it. It is kept for a tool that is neither the producer of a file nor its format's own application | — |
-| `native-verified` | board: the stage `drc.kicad` is `ok` and its evidence is `KICAD-VERIFIED`. The project file, the rules file, the footprint table, the footprint libraries and the drawing sheet reach it exactly when the board does: they are what KiCad loaded to judge it | that the board works: KiCad reported no error under the rules of the project, no more |
+| `native-verified` | board: the stage `drc.kicad` is `ok` and its evidence is `KICAD-VERIFIED`. The project file, the rules file, the footprint table, the footprint libraries and the drawing sheet reach it exactly when the board does: they are what KiCad loaded to judge it. Schematic sheet, symbol library and `sym-lib-table`: the stage `erc.kicad` is `ok` and its evidence is `KICAD-VERIFIED` | that the board works: KiCad reported no error under the rules of the project, no more |
 
-Three limits are deliberate:
+Two limits are deliberate, and the schematic side has its own stage:
 
 - **A derived file stops at `checked`.** KiCad produced the Gerbers; nothing judged them. The producer
   of a file does not verify it.
-- **The schematic side stops below `native-verified`.** A sheet reaches `roundtrip-ok`, and a symbol
-  library and `sym-lib-table` reach `checked`. KiCad's DRC does not load them; its ERC does, and the ERC
-  is not a stage of `check` yet. Their `held` says `native-verified: erc.kicad is not a stage of this
-  version of Fenolite`.
+- **The schematic side follows KiCad's ERC, not its DRC.** A sheet, a symbol library and
+  `sym-lib-table` reach `native-verified` when the stage `erc.kicad` of `check` is `ok` at
+  `KICAD-VERIFIED` (change c0062): the ERC loaded the sheets with the libraries the table names. A
+  schematic with an ERC error stays at `roundtrip-ok` (`held`: `native-verified: erc.kicad reported
+  errors`), whatever the board reaches, and a board with a DRC error does not hold the schematic back.
 - **A file of unknown origin stays `generated`.** A derived entry without `from` (an entry of a v0.1
   manifest, or a file edited after it was exported) names no source, so nothing can be said about it.
 

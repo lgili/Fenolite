@@ -1329,3 +1329,15 @@ path = "tests/data/assembly/bom_export.csv"
 origin = "authored"
 corpus_id = ""
 notes = "a bill in the shape kicad-cli sch export bom writes, authored for the c0064 tests; every part and the property Bin are made up"
+
+[[file]]
+path = "tests/data/kicad/erc/report_10.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored ERC report in the shape of 10.0.6 for the reader's unit tests (c0062): two sheets, one excluded violation, one ignored check; key names as the tool writes them (S-0450)"
+
+[[file]]
+path = "tests/data/kicad/erc/report_9.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored ERC report in the shape of 9.0.9 for the reader's unit tests (c0062): no ignored_checks; key names as the tool writes them (S-0451)"
