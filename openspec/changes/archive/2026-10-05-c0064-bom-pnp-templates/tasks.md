@@ -61,7 +61,7 @@ The first run (2026-10-05) implemented everything except the `kicad` source of t
 
 ## 8. Closing
 
-- [ ] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0064-bom-pnp-templates --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing.
+- [x] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0064-bom-pnp-templates --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing. Done on 2026-10-05: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37332434011 on dev e6fdabbb passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing on both majors); it runs the full suite, so no second local `make check` was started.
 
   Open: the coordinator runs the one full `make check` at the merge, and the two KiCad jobs run in CI. Passed on 2026-10-06 in the worktree: `make check-fast`, the residue scan, `openspec validate --strict`, `tests/kicad/assembly` on 10.0.6 and inside the pinned 9.0.9 image, and `tests/kicad/test_probe_results.py` on 10.0.6.
 - [x] 8.2 Update the evidence labels: `H-K-BOM-CSV`, `H-K-BOM-MODEL` and `H-K-POS-ROWS` become `KICAD-VERIFIED (9.0.x, 10.0.x)` or are refuted with a successor and the fallback applied. Raise `bom.EVIDENCE_KICAD`, `bom.EVIDENCE_MODEL` and `placement.EVIDENCE` only for rows that hold on both majors. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py`.
