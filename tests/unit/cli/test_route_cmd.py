@@ -223,6 +223,7 @@ def test_freerouting_through_the_command(monkeypatch, tmp_path: Path) -> None:
     assert argv[argv.index("-mp") + 1] == "3" and "-da" in argv
 
 
+@posix_tools
 def test_freerouting_needs_a_board_outline(monkeypatch, tmp_path: Path) -> None:
     """A board without an outline cannot be written as a design file: ``route.tool-failed``, no run."""
     monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path)))

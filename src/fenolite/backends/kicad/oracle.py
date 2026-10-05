@@ -341,7 +341,7 @@ class KicadOracle:
             for path in sides.values():
                 path.parent.mkdir(parents=True)
             sides["original"].write_bytes(original.read_bytes())
-            sides["redump"].write_text(redump, encoding="utf-8")
+            sides["redump"].write_text(redump, encoding="utf-8", newline="\n")
             if normalise:
                 for path in sides.values():
                     try:

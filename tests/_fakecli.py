@@ -43,7 +43,7 @@ if config["log"]:
     count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in files.items():
         if name.endswith((".kicad_pcb", ".kicad_dru")):
-            open(os.path.join(config["log"], f"{count}-{name}"), "w").write(text)
+            open(os.path.join(config["log"], f"{count}-{name}"), "w", newline="").write(text)
 if args[:1] == ["version"]:
     print(config["version"])
     sys.exit(0)
@@ -56,12 +56,12 @@ if args and args[-1] == "--help":
     sys.exit(0)
 time.sleep(config["sleep"])
 for name in config["writes"]:
-    open(name, "w").write("{}")
+    open(name, "w", newline="").write("{}")
 if args[:3] == ["pcb", "export", "ipcd356"] and "/" not in args[args.index("-o") + 1]:
     if config["ipcd356"] is None:
         print("Failed to load board", file=sys.stderr)
         sys.exit(3)
-    open(args[args.index("-o") + 1], "w").write(config["ipcd356"])
+    open(args[args.index("-o") + 1], "w", newline="").write(config["ipcd356"])
     sys.exit(0)
 if args[:2] == ["pcb", "upgrade"]:
     if config["upgrade"] == "fail":
@@ -69,7 +69,7 @@ if args[:2] == ["pcb", "upgrade"]:
         sys.exit(1)
     board = args[-1]
     text = open(board, encoding="utf-8").read()
-    open(board, "w", encoding="utf-8").write(text)
+    open(board, "w", encoding="utf-8", newline="").write(text)
 kind = None
 if args[:2] == ["pcb", "export"] and len(args) > 2:
     kind = args[2]
@@ -93,13 +93,13 @@ if kind is not None and kind in config["export_files"]:
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
     if "--save-board" in args and config["refill_board"] is not None:
-        open(board, "w", encoding="utf-8").write(config["refill_board"])
+        open(board, "w", encoding="utf-8", newline="").write(config["refill_board"])
     if config["rewrite_input"] and "--save-board" not in args:
-        open(board, "a").write("(rewritten)")
+        open(board, "a", newline="").write("(rewritten)")
     if config["drc_sequence"]:
         done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"pcb", "drc"' in line)
         sequence = config["drc_sequence"]
-        open(args[args.index("-o") + 1], "w").write(sequence[min(done, len(sequence)) - 1])
+        open(args[args.index("-o") + 1], "w", newline="").write(sequence[min(done, len(sequence)) - 1])
         sys.exit(0)
     if config["drc_report"] == "":
         print("Failed to load board", file=sys.stderr)
@@ -118,7 +118,7 @@ if args[:2] == ["pcb", "drc"]:
         report = {"source": board, "date": "2026-10-02", "kicad_version": config["version"],
                   "coordinate_units": "mm", "violations": violations, "unconnected_items": [],
                   "schematic_parity": []}
-    open(args[args.index("-o") + 1], "w").write(json.dumps(report))
+    open(args[args.index("-o") + 1], "w", newline="").write(json.dumps(report))
 """
 
 

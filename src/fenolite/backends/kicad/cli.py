@@ -25,6 +25,25 @@ from fenolite.backends.base import DrcReport
 from fenolite.core.errors import FenoliteError
 
 MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
+WINDOWS_KICAD_VERSIONS = ("10.0", "9.0")
+"""The install folders KiCad's Windows installer uses, newest first: ``<Program Files>\\KiCad\\<major>.0``."""
+
+
+def windows_kicad_clis() -> tuple[Path, ...]:
+    """``kicad-cli.exe`` in each default Windows install folder, newest first; empty on other systems.
+    KiCad's installer does not put ``kicad-cli`` on ``PATH``."""
+    if os.name != "nt":
+        return ()
+    roots = dict.fromkeys(
+        os.environ[name] for name in ("ProgramW6432", "ProgramFiles") if os.environ.get(name)
+    )
+    return tuple(
+        Path(root) / "KiCad" / version / "bin" / "kicad-cli.exe"
+        for version in WINDOWS_KICAD_VERSIONS
+        for root in roots
+    )
+
+
 CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
 RENDER_DIR = "render"
@@ -33,8 +52,9 @@ DOCKER_PREFIX = "docker:"
 
 
 def find_kicad_cli(explicit: str | os.PathLike[str] | None = None) -> Path | None:
-    """The ``kicad-cli`` to use: ``explicit``, else ``FENOLITE_KICAD_CLI``, else ``PATH``, else the
-    macOS application bundle. An explicit path or override naming a missing file gives ``None``."""
+    """The ``kicad-cli`` to use: ``explicit``, else ``FENOLITE_KICAD_CLI``, else ``PATH``, else the default
+    Windows install folder, else the macOS application bundle. An explicit path or override naming a
+    missing file gives ``None``."""
     if explicit is not None:
         if os.fspath(explicit).startswith(DOCKER_PREFIX) and os.fspath(explicit)[len(DOCKER_PREFIX) :]:
             return Path(os.fspath(explicit))
@@ -48,10 +68,13 @@ def find_kicad_cli(explicit: str | os.PathLike[str] | None = None) -> Path | Non
     found = shutil.which("kicad-cli")
     if found:
         return Path(found)
+    installed = next((path for path in windows_kicad_clis() if path.is_file()), None)
+    if installed is not None:
+        return installed
     return MACOS_KICAD_CLI if MACOS_KICAD_CLI.is_file() else None
 
 
-CandidateSource = Literal["explicit", "env", "path", "macos-app"]
+CandidateSource = Literal["explicit", "env", "path", "windows-install", "macos-app"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +83,15 @@ class CliCandidate:
 
     path: Path
     source: CandidateSource
+
+
+def _program_names(stem: str) -> tuple[str, ...]:
+    """The file names a program has in a ``PATH`` folder: the bare name, and on Windows the name with each
+    extension of ``PATHEXT`` (``kicad-cli.exe`` for KiCad itself)."""
+    if os.name != "nt":
+        return (stem,)
+    extensions = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(os.pathsep)
+    return (stem, *(stem + extension.lower() for extension in extensions if extension))
 
 
 def kicad_cli_candidates(explicit: Sequence[str | os.PathLike[str]] = ()) -> tuple[CliCandidate, ...]:
@@ -71,7 +103,8 @@ def kicad_cli_candidates(explicit: Sequence[str | os.PathLike[str]] = ()) -> tup
         found.append((Path(override), "env"))
     for entry in os.environ.get("PATH", "").split(os.pathsep):
         if entry:
-            found.append((Path(entry) / "kicad-cli", "path"))
+            found.extend((Path(entry) / name, "path") for name in _program_names("kicad-cli"))
+    found.extend((path, "windows-install") for path in windows_kicad_clis())
     found.append((MACOS_KICAD_CLI, "macos-app"))
     seen: set[Path] = set()
     candidates: list[CliCandidate] = []
@@ -440,6 +473,8 @@ def _sanitise(text: str, tmp: Path) -> str:
 
 
 __all__ = [
+    "WINDOWS_KICAD_VERSIONS",
+    "windows_kicad_clis",
     "DRC_REPORT",
     "DOCKER_PREFIX",
     "MACOS_KICAD_CLI",

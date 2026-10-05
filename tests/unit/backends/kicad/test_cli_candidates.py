@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,7 @@ def test_order_and_sources(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     on_path = fake_kicad_cli(tmp_path / "c")
     app = fake_kicad_cli(tmp_path / "d")
     monkeypatch.setenv("FENOLITE_KICAD_CLI", str(env))
-    monkeypatch.setenv("PATH", f"{tmp_path / 'empty'}:{on_path.parent}")
+    monkeypatch.setenv("PATH", f"{tmp_path / 'empty'}{os.pathsep}{on_path.parent}")
     monkeypatch.setattr(kicad_cli, "MACOS_KICAD_CLI", app)
     assert kicad_cli_candidates([explicit]) == (
         CliCandidate(explicit, "explicit"),

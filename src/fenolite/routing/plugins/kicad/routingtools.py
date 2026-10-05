@@ -106,13 +106,13 @@ class KicadRoutingToolsRouter:
                 folder = Path(name)
                 stem = "fenolite-routing"
                 for filename, contents in write_triad(job.design, name=stem, target=target).items():
-                    (folder / filename).write_text(contents, encoding="utf-8")
+                    (folder / filename).write_text(contents, encoding="utf-8", newline="\n")
                 board_path = folder / f"{stem}.kicad_pcb"
                 project_set(board_path)
                 current = job.design
                 for index, net in enumerate(job.nets):
                     board_text = write_board(current, target=target).text
-                    board_path.write_text(board_text, encoding="utf-8")
+                    board_path.write_text(board_text, encoding="utf-8", newline="\n")
                     baseline = read_board(board_text, file=board_path.name)
                     output_path = folder / f"routed-{index}.kicad_pcb"
                     args = [

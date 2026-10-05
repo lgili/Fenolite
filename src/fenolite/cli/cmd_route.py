@@ -10,6 +10,7 @@ import fnmatch
 import hashlib
 import os
 import re
+import tempfile
 from pathlib import Path
 
 from fenolite.backends.kicad import pro
@@ -36,10 +37,14 @@ DEFAULTS = (200_000, 200_000, 600_000, 300_000)
 def _safe_log(lines: tuple[str, ...], cwd: Path) -> list[str]:
     """Keep diagnostic lines useful without exposing temporary or home paths."""
     home = str(Path.home())
-    temp = os.getenv("TMPDIR", "/tmp")
+    temp = os.getenv("TMPDIR") or tempfile.gettempdir()
+    # the longer prefix first: on Windows the temporary folder lies inside the home folder
+    prefixes = sorted(((home, "<home>"), (temp, "<tmp>")), key=lambda pair: -len(pair[0]))
     result: list[str] = []
     for line in lines[:20]:
-        safe = line.replace(home, "<home>").replace(temp, "<tmp>")
+        safe = line
+        for prefix, label in prefixes:
+            safe = safe.replace(prefix, label)
         safe = re.sub(r"/(?:private/)?tmp/[^\s:'\"]+", "<tmp>", safe)
         safe = safe.replace(str(cwd), "<workdir>")
         result.append(safe)

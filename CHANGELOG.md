@@ -61,6 +61,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- Windows: `kicad-cli.exe` is found on `PATH` and in KiCad's default install folders, which KiCad's installer does not put on `PATH`; files Fenolite writes keep LF line ends; a board on another drive than the working folder can be routed; a drawing-sheet path starting with `/` counts as absolute.
 - `fenolite route` reads the net classes from the project file beside the board. Before, every net was routed with the default track width, clearance and via size, whatever its class said: a KiCad board holds no net class.
 - `fenolite route --router freerouting` lists a net under `unrouted` when Freerouting reports that it left one of its connections open. Before, a net with any copper counted as routed, so a partly routed net was reported as done; KiCad's DRC in `fenolite check` still found it.
 - A board whose rotated pad or rotated footprint carries a slotted hole is read and written again, and its footprints can be written as library files: the writer refused them (`KiCad writer cannot represent this slot rotation`, `KiCad oval drills can encode only horizontal or vertical slot axes`). `Padstack.hole_rotation` is now the slot's axis in the pad's own frame everywhere; on a board it used to include the pad's angle.
