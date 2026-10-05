@@ -8,6 +8,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Added
 
+- v0.1 acceptance: a second example board of forty parts, the loop proved on both examples and both KiCad majors, the agent guide `agent/SKILL.md`, the `wheel` and `dco` jobs, Windows and Python 3.11 to 3.13 in CI, and the release record `docs/release/v0.1.md`.
 - Board analyses: `fenolite analyze PATH` measures the current capacity of tracks, arcs and vias from one published fit (each constant recorded with its source in `docs/analyses.md`; `decimal` arithmetic, rounded down), the clearance of pairs of nets through air, and their creepage along the board surface, around cut-outs and around the board edge (`fenolite.analysis`). Fenolite measures and the user decides: requirements come from a user TOML file (`fenolite.requirements.v0`, integers only, a voltage table looked up without interpolation), no requirement value and no default thickness or temperature rise is shipped, and every reply is `INFERRED` or lower. Ten `analysis.*` codes; an error finding exits 5. A recorded probe on `kicad-cli` 10.0.6 shows that KiCad's `creepage` rule agrees with Fenolite around a slot (11 mm) and reports nothing for copper on opposite faces across the board edge.
 - DSL footprint authoring: a design-scoped builder creates pads and graphics; exact-ID assignments resolve in KiCad and experimental Altium builds (c0055).
 - DSL component pin-to-pad mapping and authored slotted drills; KiCad writes supported aligned oval drills, while Altium reports its unsupported slot geometry (c0056).
