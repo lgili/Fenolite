@@ -184,6 +184,8 @@
     "fp-write-mini-v9-9-reread": "equal",
     "lens-keep-t10": "equal",
     "lens-keep-t9": "equal",
+    "lens-rename-t10": "equal",
+    "lens-rename-t9": "equal",
     "lens-resave-t10": "present",
     "lens-rewrite-t10": "equal",
     "lens-rewrite-t9": "equal",

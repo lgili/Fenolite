@@ -12,6 +12,7 @@ form the board already uses: numbers with a table up to 9.0, names from board ve
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from fractions import Fraction
 
 from fenolite.backends.kicad.pcb import read_board
@@ -68,6 +69,72 @@ def move_footprint(text: str, ref: str, dx: Nm, dy: Nm) -> str:
         children.append(child)
     assert found == 1, f"{ref}: {found} footprints"
     return dumps(root.with_children(children), style="kicad")
+
+
+def _edit_footprint(text: str, ref: str, change: Callable[[Node], Node]) -> str:
+    root = parse(text)
+    children: list[Node | Atom] = []
+    found = 0
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "footprint" and _reference(child) == ref:
+            child = change(child)
+            found += 1
+        children.append(child)
+    assert found == 1, f"{ref}: {found} footprints"
+    return dumps(root.with_children(children), style="kicad")
+
+
+def move_property(text: str, ref: str, name: str, dx: Nm, dy: Nm) -> str:
+    """``text`` with the property ``name`` of the footprint of ``ref`` moved by ``(dx, dy)``."""
+
+    def change(fp: Node) -> Node:
+        return fp.with_children(
+            [
+                _shift_at(c, dx, dy)
+                if isinstance(c, Node) and c.name == "property" and c.atoms()[0].value == name
+                else c
+                for c in fp.children
+            ]
+        )
+
+    return _edit_footprint(text, ref, change)
+
+
+def add_to_footprint(text: str, ref: str, item: str) -> str:
+    """``text`` with the node ``item`` appended inside the footprint of ``ref``."""
+    return _edit_footprint(text, ref, lambda fp: fp.with_children([*fp.children, parse(item)]))
+
+
+def footprint_node(text: str, ref: str) -> Node:
+    """The ``footprint`` node of ``ref``."""
+    (found,) = [
+        c
+        for c in parse(text).children
+        if isinstance(c, Node) and c.name == "footprint" and _reference(c) == ref
+    ]
+    return found
+
+
+def node_uuid(node: Node) -> str:
+    found = node.find("uuid")
+    assert found is not None
+    return found.atoms()[0].value
+
+
+def add_group(text: str, uuid: str, *refs: str, name: str = "") -> str:
+    """``text`` with a root ``group`` of uuid ``uuid`` whose members are the footprints of ``refs``."""
+    members = " ".join(f'"{node_uuid(footprint_node(text, ref))}"' for ref in refs)
+    return add_items(text, f'(group "{name}" (uuid "{uuid}") (members {members}))')
+
+
+def group_members(text: str, uuid: str) -> list[str]:
+    """The member uuids of the root group ``uuid``, in order."""
+    (group,) = [
+        c for c in parse(text).children if isinstance(c, Node) and c.name == "group" and node_uuid(c) == uuid
+    ]
+    members = group.find("members")
+    assert members is not None
+    return [a.value for a in members.atoms()]
 
 
 def add_items(text: str, *items: str) -> str:
@@ -145,9 +212,15 @@ __all__ = [
     "EDIT_UUIDS",
     "ZONE_UUID",
     "add_filled_zone",
+    "add_group",
     "add_items",
+    "add_to_footprint",
     "edit_blink",
+    "footprint_node",
+    "group_members",
     "move_footprint",
+    "move_property",
     "net_ref",
+    "node_uuid",
     "pad_position",
 ]

@@ -99,7 +99,8 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Part.field(name, *, dx, dy, rot, layer, visible, size, thickness, justify, outside, gap, locked)`,
   once per field name: where the `Reference` or the `Value` of the part's footprint goes ("Field
   placement"). `fields(design)` returns the requests.
-- `Design.moved(old, new)`: a path alias that keeps a renamed part's layout ("Path aliases").
+- `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
+  aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
 - `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
   `copper=4`) declares an inner layer as an internal plane on a net (a `Net` or a net name); a plane
   holds one net. It is a build parameter, as `copper` is: the model does not change. The Altium target
@@ -712,13 +713,31 @@ write the files only when `errors` is empty.
 
 ## Path aliases (`moved()`)
 
-`design.moved(old, new)` records that the part at component path `new` was at `old` in an earlier
-build, so a rebuild keeps its layout (`docs/lens.md`). `dsl.moves(design)` returns the aliases, new path
-to old path. Both paths must be component paths (`R1`, `power/R1`); `old == new`, a malformed path and a
-second alias with the same `old` or the same `new` raise `DslError` at the call. `moves` raises it when
-`new` is not an added part or `old` still is one, so chains are refused; `fenolite build` reports this
-as `FEN-3004`. Aliases are not model data: `to_model` and every id ignore them. One build is enough:
-the footprint is re-placed under its new path, and the alias can then be removed.
+`design.moved(old, new)` records that the part or the module at path `new` was at `old` in an earlier
+build, so a rebuild keeps its layout (`docs/lens.md`, "moved()" and "Module aliases").
+
+- **Part alias.** When `new` is a component path of the design (`R1`, `power/R1`), the part keeps the
+  footprint that was at `old`.
+- **Module alias.** When `new` is a module path of the design, every part `<new>/<rest>` gets the alias
+  `<old>/<rest>`, and the module's nets follow ("Net aliases" below). A part alias wins over a module
+  alias for its part, and a longer module path over a shorter one, so `moved("power", "supply")` and
+  `moved("power/R1", "supply/R9")` can be written together.
+- `dsl.moves(design)` returns the part aliases, new path to old path, with every module alias expanded;
+  `dsl.module_moves(design)` returns the module aliases.
+- **Errors.** `old == new`, a malformed path and a second alias with the same `old` or the same `new`
+  raise `DslError` at the call. `moves` and `module_moves` raise it when `new` is neither a part nor a
+  module of the design, or when `old` still is one, so chains are refused; `fenolite build` reports this
+  as `FEN-3004`.
+- Aliases are not model data: `to_model` and every id ignore them. One build is enough: the footprint is
+  kept under its new path, and the alias can then be removed.
+
+### Net aliases (`moved_net()`)
+
+`design.moved_net(old, new)` records that the net named `new` was named `old`, so the rebuild keeps its
+tracks, vias and zones under the new name (`docs/lens.md`, "Net aliases"). `dsl.net_moves(design)` returns
+the aliases, new name to old name. `new` must be a net of the design and `old` must not be; the same
+errors as for `moved()` apply. A net alias is not model data and is needed for one build only. A net
+under a renamed module needs no call: the module alias covers it.
 
 ## Determinism
 

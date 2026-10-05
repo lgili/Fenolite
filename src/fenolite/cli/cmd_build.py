@@ -65,9 +65,21 @@ from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.dsl import DslError, copper, fields, moves, pad_zones, placements, planes, to_model
+from fenolite.dsl import (
+    BOARD_ORIGIN,
+    DslError,
+    copper,
+    fields,
+    module_moves,
+    moves,
+    net_moves,
+    pad_zones,
+    placements,
+    planes,
+    to_model,
+)
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -85,7 +97,9 @@ from fenolite.lens.build import (
     plane_issues,
     read_record,
 )
-from fenolite.lens.preserve import prepare, read_existing
+from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
+from fenolite.lens.placements import SourcePlacement, read_placements
+from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
 from fenolite.model.design import Design as ModelDesign
 from fenolite.placement import legality
 
@@ -313,6 +327,35 @@ def placement_guard(
     return issues, {"ran": True, "counts": dict(sorted(counts.items()))}
 
 
+def read_source(
+    script_path: Path,
+) -> tuple[Mapping[str, SourcePlacement], tuple[Issue, ...], str | None]:
+    """The entries of ``placements.toml`` beside the script, its issues and its SHA-256; no entry and no
+    hash without the file (``design-dsl``, "Placements file in a build")."""
+    path = script_path.resolve().parent / PLACEMENTS_FILE
+    if not path.is_file():
+        return {}, (), None
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=PLACEMENTS_FILE) from error
+    found = read_placements(text, origin=BOARD_ORIGIN, file=PLACEMENTS_FILE)
+    return found.entries, found.issues, hashlib.sha256(data).hexdigest()
+
+
+def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
+    """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
+    tables."""
+    placed: Mapping[str, object] = prepared.placements if prepared is not None else {}
+    return {
+        "file": PLACEMENTS_FILE if read else None,
+        "used": sorted(path for path, found in placed.items() if isinstance(found, FilePlacement)),
+        "stale": sorted(i.where for i in issues if i.code == "layout.source-stale"),
+        "unknown": sorted(i.where for i in issues if i.code == "layout.source-unknown"),
+    }
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
@@ -365,15 +408,36 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
+        module_aliases = module_moves(design)
+        net_aliases = net_moves(design)
         plane_nets = planes(design)
         intents = copper(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    source, source_issues, source_sha = read_source(script_path)
+    refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
-        return _run_altium(
-            args, ctx, run, model, requested, plane_nets, script_path, out, out_dir, board_path, intents
+        # both targets place a part from the file: the lens runs without an existing project (c0069)
+        from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        made = _run_altium(
+            args,
+            ctx,
+            run,
+            model,
+            cast(Mapping[str, PlacementRequest], from_file.placements),
+            plane_nets,
+            script_path,
+            out,
+            out_dir,
+            board_path,
+            intents,
+        )
+        return dataclasses.replace(
+            made,
+            issues=(*source_issues, *from_file.issues, *made.issues),
+            writes=() if refused else made.writes,
         )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
@@ -382,8 +446,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     prepared = None
     if not args.discard_layout:
         prepared = prepare(
-            model, requested, read_existing(out_dir, design.name), name=design.name, moves=aliases
+            model,
+            requested,
+            read_existing(out_dir, design.name),
+            name=design.name,
+            moves=aliases,
+            module_moves=module_aliases,
+            net_moves=net_aliases,
+            source=source,
         )
+    elif source:
+        # the file is source, like the script: it applies to a discarded layout too, and no output is read
+        prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
         model,
         {key: fp.definition for key, fp in design.footprints.items()},
@@ -405,8 +479,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
         authored_symbols=authored_symbols,
+        source_sha256=source_sha,
     )
-    files = dict(built.files)
+    files = {} if refused else dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -443,10 +518,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "placement": placement,
         "script_output": run.output,
     }
+    result["preserved"] = {
+        **cast(Mapping[str, object], built.summary["preserved"]),
+        "source": source_summary(prepared, built.issues, read=source_sha is not None),
+    }
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=(*built.issues, *plane_issues(plane_nets), *copper_issues, *placement_issues),
+        issues=(*source_issues, *built.issues, *plane_issues(plane_nets), *copper_issues, *placement_issues),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),

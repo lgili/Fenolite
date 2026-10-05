@@ -217,7 +217,7 @@ checked, and a project carries its user's frame and fab options.
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
-| c0069 | `layout-lens-complete` | module and net aliases, alias matches kept under the new identity, `lens/extract.py`, `placements.toml` and `fenolite sync --to-source [--check]`, the project plan's lens acceptance fixture | proposed | c0060, c0061 for the schematic half | 12.5 |
+| c0069 | `layout-lens-complete` | module and net aliases, alias matches kept under the new identity, `lens/extract.py`, `placements.toml` and `fenolite sync --to-source [--check]`, the project plan's lens acceptance fixture | being implemented (board half and local oracle runs complete on 2026-10-06; the schematic half of `sync` waits for c0061) | c0060, c0061 for the schematic half | 12.5 |
 | c0070 | `schematic-hierarchy-layout` | one pinless sheet per module under `sheets/`, 2-pin parts snapped to IC pins with one straight wire, hierarchical footprint paths, the own netlist over the sheet tree | proposed | c0060, c0061, c0063 | 13 |
 | c0071 | `rules-complete` | hole-to-hole, hole clearance, annular width, courtyard, silkscreen and creepage rules, per-kind selectors and per-major support, `design.rules.rule()` and `fenolite.dsl.select` | being implemented (code and local oracle runs complete on 2026-10-05; archive pending) | — | 10 |
 | c0072 | `schematic-board-parity` | a backend-free comparison of schematic and board and of pins and pads, `parity` command and `check` stage, agreement with KiCad's parity test on the public demos | proposed | c0060, c0062, c0063 | 10 |

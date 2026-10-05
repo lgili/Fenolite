@@ -755,7 +755,7 @@ fix = "Nothing to do; result.vendored lists the copied files."
 see = "build"
 
 ["build.i2c-pullup-missing"]
-meaning = "A line of an I2C interface has no two-pin part to the supply net of the power interface it names, so the bus has no pull-up in the design."
+meaning = "A line of an I2C interface has no part of exactly two pins between it and the hv net of a power interface of the design, so Fenolite sees no pull-up on the bus. A resistor array is not recognised."
 fix = "Add a pull-up resistor from each line to the supply net, or ignore the warning if the pull-ups are elsewhere."
 see = "build"
 
@@ -1479,6 +1479,16 @@ meaning = "A part's footprint changed in the script, so the footprint on the boa
 fix = "Check the part's place on the board."
 see = "build"
 
+["layout.net-alias-unused"]
+meaning = "A moved_net(old, new) call names an old net that the board does not have, so nothing follows the alias."
+fix = "Remove the moved_net() call; an alias is needed for one build only."
+see = "build"
+
+["layout.net-alias-used"]
+meaning = "The copper and the board-only pads of a net were kept under the net's new name, through a moved_net() alias or the alias of a renamed module."
+fix = "Nothing to do; the alias can be removed after this build."
+see = "build"
+
 ["layout.net-removed"]
 meaning = "Copper on a net that the design no longer has was removed from the board."
 fix = "Nothing to do; rename with care, since a renamed net is a removed and an added net."
@@ -1503,6 +1513,21 @@ see = "build"
 meaning = "An unlocked place() differs from the footprint's placement on the board, and the board's placement was kept."
 fix = "Nothing to do; lock the place() to make the script win."
 see = "build"
+
+["layout.source-invalid"]
+meaning = "A table or a key of placements.toml is not valid: a path that is no component path, an unknown key, a missing x or y, a value that is not a whole number of nanometres or microdegrees, or a side other than top and bottom. The build stops."
+fix = "Correct the entry, or write the file again with fenolite sync --to-source."
+see = "build"
+
+["layout.source-stale"]
+meaning = "An entry of placements.toml differs from the placement that the board keeps for the part; the board wins."
+fix = "Run fenolite sync --to-source to bring the file up to date."
+see = "sync"
+
+["layout.source-unknown"]
+meaning = "A table of placements.toml names a component path that is not a part of the design."
+fix = "Remove the table, or run fenolite sync --to-source, which writes the parts of the design only."
+see = "sync"
 
 ["layout.unplaced"]
 meaning = "A part has no placement, so its footprint was put in a row beside the board."
@@ -1713,6 +1738,31 @@ see = "route"
 meaning = "The router's result uses a via that the design file did not offer."
 fix = "Run the router again; report it if it repeats."
 see = "route"
+
+["sync.net-dropped"]
+meaning = "The board holds copper on a net that the design no longer has and that no alias covers; the next build drops that copper."
+fix = "Keep the net in the script, or name its new name with moved_net(old, new) before building."
+see = "sync"
+
+["sync.orphan"]
+meaning = "A footprint that Fenolite placed is on the board and its part is not in the design; the next build removes it."
+fix = "Keep the part in the script, or name its new path with moved(old, new) before building."
+see = "sync"
+
+["sync.symbol-off-grid"]
+meaning = "A symbol of the schematic is off the 1.27 mm grid or has a rotation and mirror that the schematic writer does not produce, so its placement cannot be written to schematic-placements.toml."
+fix = "Move the symbol onto the grid in KiCad and run sync again."
+see = "sync"
+
+["sync.value-differs"]
+meaning = "The value, the library footprint or a user property of a part differs between the board and the script; the next build writes the script's."
+fix = "Change the script when the board is right; otherwise nothing to do."
+see = "sync"
+
+["sync.would-change"]
+meaning = "With --check, a file beside the script is not what sync would write: the committed copy of the layout is stale."
+fix = "Run fenolite sync --to-source --confirm and commit the file."
+see = "sync"
 
 ["template.bad-value"]
 meaning = "The sheet specification has a wrong type or value, a missing required key, or a TOML syntax error."

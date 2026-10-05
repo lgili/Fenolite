@@ -9,6 +9,8 @@ Fenolite reads or writes ``.kicad_prl``.
 
 from __future__ import annotations
 
+from collections.abc import Collection
+
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
@@ -27,6 +29,7 @@ def write_triad(
     name: str,
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
+    renamed_nets: Collection[str] = (),
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
 ) -> dict[str, str]:
@@ -47,7 +50,12 @@ def write_triad(
         )
     else:
         project = update_project(
-            existing_project, design, target=target, allow_lossy=allow_lossy, issues=found
+            existing_project,
+            design,
+            target=target,
+            allow_lossy=allow_lossy,
+            issues=found,
+            renamed_nets=renamed_nets,
         )
     project = apply_sheet_keys(project, design, allow_lossy=allow_lossy, issues=found)
     if issues is not None:

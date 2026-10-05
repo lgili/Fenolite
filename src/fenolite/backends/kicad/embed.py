@@ -219,6 +219,19 @@ def _uuids(tree: Node, key: str) -> Node:
     return visit(tree, f"/{tree.name}")
 
 
+def uuid_locators(defn: FootprintDef) -> tuple[str, ...]:
+    """The locators of every node of a placed copy of ``defn`` that holds a ``uuid``: the footprint itself
+    and each node that ``place_footprint`` gives ``placement_uuid(key, locator)``. With them a caller can
+    tell the uuids of the same definition placed under another key (``lens.moved.identity_map``)."""
+    tree = emit_footprint(defn)
+    tree = tree.with_children([c for c in tree.children if not (isinstance(c, Node) and c.name in HEADER)])
+    found = ["/footprint"]
+    for loc, current in walk(tree):
+        if loc != "/footprint" and current.find("uuid") is not None:
+            found.append(loc)
+    return tuple(found)
+
+
 def _header(tree: Node, defn: FootprintDef, component: Component, at: Point, rotation: Udeg, side: Side,
             locked: bool, key: str) -> Node:  # fmt: skip
     """Name, ``locked``, ``layer``, ``uuid`` and ``at`` in canonical position; Reference and Value set."""

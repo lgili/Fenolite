@@ -18,12 +18,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Literal, Protocol, cast
+from typing import Literal, Protocol, TypeGuard, cast
 
 from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, embed, frame, lowering, mod, pcb, pro, sym, versions
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
-from fenolite.backends.kicad.embed import PATH_PROPERTY, footprint_extent, place_footprint, with_property
+from fenolite.backends.kicad.embed import (
+    PATH_PROPERTY,
+    footprint_extent,
+    place_footprint,
+    uuid_locators,
+    with_property,
+)
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
@@ -38,6 +44,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
+from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical
 from fenolite.model.board import FootprintInstance, Pad, Side
@@ -510,8 +517,12 @@ def build_design(
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
+    source_sha256: str | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
+    ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
 
     ``vendor`` is ``"all"`` (every placed footprint is copied into ``lib/``) or ``"project"`` (only those
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
@@ -549,11 +560,24 @@ def build_design(
     staged: list[str] = []
     bottom = False
     written_properties = False
+    alias_matches = (
+        {m.path for m in prepared.match.matches.values() if m.key == "alias"}
+        if prepared is not None and prepared.match is not None
+        else set[str]()
+    )
+    identities: dict[str, Mapping[str, str]] = {}
     for part in parts:
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
+        user_locators: list[str] = []
         for prop_name, prop_value in _user_properties(part, issues):
             extended = with_property(extended, name=prop_name, value=prop_value)
+            user_locators.append(f"/footprint/property:{prop_name}")
             written_properties = True
+        if prepared is not None and part.path in alias_matches:
+            # the uuids a footprint kept through an alias takes under its new path (c0069)
+            identities[part.path] = identity_map(
+                prepared.aliases[part.path], part.path, (*uuid_locators(extended), *user_locators)
+            )
         component = dataclasses.replace(
             part.component,
             pins=tuple(pins[part.component.id]),
@@ -643,7 +667,9 @@ def build_design(
     preserved: dict[str, object] = {}
     target_design = built
     if prepared is not None and prepared.board is not None and prepared.match is not None:
-        merged = preserve.merge_layout(built, prepared.board, prepared.match)
+        merged = preserve.merge_layout(
+            built, prepared.board, prepared.match, net_aliases=prepared.net_aliases, identities=identities
+        )
         issues += merged.issues
         preserved.update(merged.summary)
         decided = merge_fields(merged, prepared.board, prepared.match, fields)
@@ -659,6 +685,7 @@ def build_design(
         name=name,
         target=target,
         existing_project=existing.project,
+        renamed_nets=tuple(prepared.net_aliases.values()) if prepared is not None else (),
         allow_lossy=allow_lossy,
         issues=issues,
     )
@@ -674,7 +701,12 @@ def build_design(
         )
     if prepared is not None and prepared.board is not None:
         stale, fill_issues = preserve.drop_stale_fills(
-            prepared.board, target_design, existing=existing, project=texts[pro_name], rules=texts[dru_name]
+            prepared.board,
+            target_design,
+            existing=existing,
+            project=texts[pro_name],
+            rules=texts[dru_name],
+            net_aliases=prepared.net_aliases,
         )
         if fill_issues:
             issues += fill_issues
@@ -721,9 +753,12 @@ def build_design(
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     for file_name, text in canonical.dump_texts(layout).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
+    recorded: dict[str, object] = {"design": name, "files": record, "schema": RECORD_SCHEMA, "target": target}
+    if source_sha256 is not None:
+        recorded["source"] = {"placements.toml": source_sha256}
     files[RECORD_FILE] = (
         json.dumps(
-            {"design": name, "files": record, "schema": RECORD_SCHEMA, "target": target},
+            recorded,
             sort_keys=True,
             indent=2,
             ensure_ascii=False,
@@ -811,6 +846,10 @@ def _keep_pad_zones(
     return design, {key: sorted(set(values)) for key, values in summary.items()}
 
 
+def board_read(prepared: Prepared | None) -> TypeGuard[Prepared]:
+    return prepared is not None and prepared.board is not None
+
+
 def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[str, object]:
     """``result.preserved`` (``layout-lens``, "Layout preservation evidence")."""
     zero = {"tracks": 0, "arcs": 0, "vias": 0, "zones": 0}
@@ -826,6 +865,8 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
+        "module_aliases": dict(prepared.module_aliases) if board_read(prepared) else {},
+        "net_aliases": dict(prepared.net_aliases) if board_read(prepared) else {},
         "reader_infos": prepared.reader_infos if prepared is not None else 0,
     }
 

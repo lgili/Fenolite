@@ -1251,3 +1251,45 @@ path = "tests/data/kicad/tokens/skeleton.kicad_sym"
 origin = "authored"
 corpus_id = ""
 notes = "symbol-library skeleton of the token fuzz, in the 8.0 token set (c0060)"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/acceptance/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the lens acceptance fixture (c0069), authored from the Mini library"
+
+[[file]]
+path = "tests/data/lens/acceptance/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint library table of the lens acceptance fixture (c0069): the authored Mini library"
+
+[[file]]
+path = "tests/data/lens/acceptance/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol library table of the lens acceptance fixture (c0069): the authored Mini library"

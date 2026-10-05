@@ -38,3 +38,8 @@ reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every
 path = "tests/data/acceptance/*/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the finished projects of the v0.1 acceptance loop (c0025)"
+
+[[waiver]]
+path = "tests/data/lens/sync_minimal/*.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"

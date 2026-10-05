@@ -291,7 +291,9 @@ class Design(Container):
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
         self.aliases: dict[str, str] = {}
-        """``moved()`` aliases: new component path → old component path."""
+        """``moved()`` aliases: new path → old path, of a part or of a module."""
+        self.net_aliases: dict[str, str] = {}
+        """``moved_net()`` aliases: new net name → old net name."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
@@ -497,11 +499,11 @@ class Design(Container):
         return tuple(points)
 
     def moved(self, old: str, new: str) -> None:
-        """Record that the part at component path ``new`` was at ``old`` in an earlier build, so a rebuild
-        keeps its layout (``docs/lens.md``, "moved()")."""
+        """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a
+        rebuild keeps its layout (``docs/lens.md``, "moved()" and "Module aliases")."""
         for what, path in (("old", old), ("new", new)):
             if not isinstance(path, str) or not all(NAME.fullmatch(p) for p in path.split("/")):  # pyright: ignore[reportUnnecessaryIsInstance]
-                raise DslError(f"moved(): {what} path {path!r} is not a component path")
+                raise DslError(f"moved(): {what} path {path!r} is not a component or module path")
         if old == new:
             raise DslError(f"moved(): old and new are both {old!r}")
         if new in self.aliases:
@@ -509,6 +511,20 @@ class Design(Container):
         if old in self.aliases.values():
             raise DslError(f"moved(): {old!r} is already the old path of an alias")
         self.aliases[new] = old
+
+    def moved_net(self, old: str, new: str) -> None:
+        """Record that the net named ``new`` was named ``old`` in an earlier build, so a rebuild keeps its
+        copper (``docs/lens.md``, "Net aliases")."""
+        for what, name in (("old", old), ("new", new)):
+            if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"moved_net(): {what} name {name!r} is not a net name")
+        if old == new:
+            raise DslError(f"moved_net(): old and new are both {old!r}")
+        if new in self.net_aliases:
+            raise DslError(f"moved_net(): {new!r} already has an alias ({self.net_aliases[new]!r})")
+        if old in self.net_aliases.values():
+            raise DslError(f"moved_net(): {old!r} is already the old name of an alias")
+        self.net_aliases[new] = old
 
     # -- copper intents (resolved by the build after placement; ``docs/dsl.md``, "Copper")
 

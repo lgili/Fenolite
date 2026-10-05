@@ -152,6 +152,7 @@
     "fp-write-mini-v9-9": "load",
     "fp-write-mini-v9-9-reread": "equal",
     "lens-keep-t9": "equal",
+    "lens-rename-t9": "equal",
     "lens-rewrite-t9": "equal",
     "netlist-label-collision": "different",
     "netlist-partition": "equal",

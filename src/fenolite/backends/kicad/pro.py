@@ -13,7 +13,7 @@ import dataclasses
 import hashlib
 import os
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
 from importlib import resources
@@ -745,8 +745,13 @@ def update_project(
     target: int = DEFAULT_TARGET,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    renamed_nets: Collection[str] = (),
 ) -> str:
-    """``existing_text`` with only its managed keys changed (project.md, "Updates")."""
+    """``existing_text`` with only its managed keys changed (project.md, "Updates").
+
+    ``renamed_nets`` are the old names of the nets that the design renamed (``moved_net()``): the
+    exact-name pattern of such a net is Fenolite's own entry for a net that now has another name, so it is
+    left out instead of being kept as a user's pattern."""
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
     found = issues if issues is not None else []
@@ -792,7 +797,7 @@ def update_project(
     for entry in cast(list[Any], existing) if isinstance(existing, list) else []:
         pattern = cast(JsonObject, entry).get("pattern") if isinstance(entry, dict) else None
         exact = isinstance(pattern, str) and not (UNSAFE_PATTERN_CHARS & set(pattern))
-        if exact and pattern in names:
+        if exact and (pattern in names or pattern in renamed_nets):
             continue
         kept.append(entry)
     _conflicts(kept, settings.get("netclass_assignments"), names, found)

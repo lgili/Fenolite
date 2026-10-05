@@ -26,7 +26,10 @@ from fenolite.cli.main import main
 
 COMMANDS = discover()
 NAMES = sorted(COMMANDS)
-MUTATING = sorted(n for n, c in COMMANDS.items() if c.mutates)
+SOURCE_WRITERS = frozenset({"sync"})
+"""Mutating commands that write beside their input instead of under the working directory, so an example
+would write into the package folder: each runs the mutation protocol in its own tests, on a copy."""
+MUTATING = sorted(n for n, c in COMMANDS.items() if c.mutates and n not in SOURCE_WRITERS)
 ENVELOPE = _schema.load("fenolite.envelope.v0.json")
 ERROR = _schema.load("fenolite.error.v0.json")
 CapSys = pytest.CaptureFixture[str]

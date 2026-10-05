@@ -50,6 +50,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.lens.altium_copper", "COPPER_ISSUE_CODES"),
     ("fenolite.lens.build", "BUILD_ISSUE_CODES"),
     ("fenolite.lens.preserve", "PRESERVE_ISSUE_CODES"),
+    ("fenolite.lens.sync", "SYNC_ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),
     ("fenolite.templates.spec", "ISSUE_CODES"),

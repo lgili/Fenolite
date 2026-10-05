@@ -247,6 +247,36 @@ code. The guard runs on `--dry-run` too, reads and writes no file, and runs no t
 `--target altium` there is no `result.placement`. A Python caller of `build_design` is not guarded; it
 calls `placement.check` itself (`docs/placement.md`).
 
+## `sync`
+
+`fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
+source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating command: the writes follow
+"Writing files", `.bak` files included. It runs `DESIGN.py` as `build` does and starts no external tool.
+
+- `--to-source` is required (exit 2, `FEN-2001` without it), so a later direction cannot change what a
+  bare `sync` does.
+- The board `DIR/<design name>.kicad_pcb` must exist: otherwise exit 3, `FEN-3001`, with the hint to run
+  `fenolite build` first. The refusals of a build over an existing board apply unchanged.
+- **Writes** go beside the design script, not under `DIR`: `placements.toml`, and only when its text
+  would change. A run that changes nothing plans nothing and asks for no confirmation.
+- **`--check`** plans nothing and reports one `sync.would-change` (error) per file that would change,
+  naming its first differing table: exit 5 when a committed file is stale, 0 otherwise. `--check` with
+  `--confirm` is a usage error (exit 2).
+- **`result`**: `design`, `out`, `board` (the file name), `placements` (the number of entries),
+  `unplaced` (matched parts that lie off the board and stay out of the file), `orphans` and `board_only`
+  (references), `symbols` (`null`: the schematic half needs the schematic reader), `files` (the names
+  that change) and `script_output`.
+- **Issues**: those of the board read, and the `sync.*` codes of `docs/lens.md`: `sync.would-change`
+  (error), `sync.orphan`, `sync.net-dropped`, `sync.value-differs` and `sync.symbol-off-grid`
+  (warnings).
+- Two runs on equal inputs plan equal bytes.
+
+`build` reads `placements.toml` beside the script when it exists (`docs/lens.md`, "placements.toml").
+`result.preserved` gains `module_aliases` and `net_aliases` (new → old, empty without an existing board)
+and `source`, with `file` (`placements.toml` or `null`), `used` (component paths placed from the file),
+`stale` and `unknown`. An invalid file gives `layout.source-invalid` (exit 5, nothing written); a file
+that is not TOML or has another `schema` exits 3 with `FEN-3004`.
+
 ## Discovery
 
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,

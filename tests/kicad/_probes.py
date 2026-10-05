@@ -46,6 +46,7 @@ import _offsetbench
 import _paircases
 import _placecases
 import _procases
+import _renamecases
 import _rulecases
 import _schcases
 import _sheetcases
@@ -223,6 +224,7 @@ def _probes() -> dict[str, Probe]:
         **_mincases.min_probes(),
         **_vendorcases.vendor_probes(),
         **_lenscases.lens_probes(),
+        **_renamecases.rename_probes(),
         **_exportcases.export_probes(),
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),

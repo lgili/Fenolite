@@ -5,15 +5,15 @@ and an existing board, read from a (possibly edited) board text."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from _buildhelp import blink, build
 
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.dsl import Design as DslDesign
-from fenolite.dsl import moves, placements, to_model
+from fenolite.dsl import module_moves, moves, net_moves, placements, to_model
 from fenolite.lens.build import BuildOutput
-from fenolite.lens.preserve import ExistingProject, Merged, Prepared, merge_layout, prepare
+from fenolite.lens.preserve import ExistingProject, Merged, PlacementLike, Prepared, merge_layout, prepare
 from fenolite.model.design import Design
 
 
@@ -26,16 +26,37 @@ def board_text(target: int = 10, edit: Callable[[str], str] | None = None) -> st
     return edit(text) if edit is not None else text
 
 
-def prepared(design: DslDesign, text: str, *, target: int = 10) -> Prepared:
+def prepared(
+    design: DslDesign,
+    text: str | None,
+    *,
+    target: int = 10,
+    source: Mapping[str, PlacementLike] | None = None,
+) -> Prepared:
+    """``prepare`` of ``design`` over the board ``text`` (``None``: no board), with the script's aliases and
+    the entries ``source`` of a placements file."""
     del target
     return prepare(
-        to_model(design), placements(design), ExistingProject(board=text), name="blink", moves=moves(design)
+        to_model(design),
+        placements(design),
+        ExistingProject(board=text),
+        name="blink",
+        moves=moves(design),
+        module_moves=module_moves(design),
+        net_moves=net_moves(design),
+        source=source,
     )
 
 
-def rebuild(design: DslDesign, text: str, target: int = 10) -> BuildOutput:
+def rebuild(
+    design: DslDesign,
+    text: str | None,
+    target: int = 10,
+    *,
+    source: Mapping[str, PlacementLike] | None = None,
+) -> BuildOutput:
     """``build_design`` of ``design`` over the existing board ``text``."""
-    ready = prepared(design, text, target=target)
+    ready = prepared(design, text, target=target, source=source)
     return build(design, target, prepared=ready, placements_override=ready.placements)
 
 

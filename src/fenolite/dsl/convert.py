@@ -253,18 +253,65 @@ def planes(design: Design) -> Mapping[str, str]:
     return MappingProxyType(dict(design.planes))
 
 
-def moves(design: Design) -> Mapping[str, str]:
-    """The ``moved()`` aliases, new component path → old, in path order (``docs/lens.md``, "moved()").
-
-    A ``new`` path that is not an added part, or an ``old`` path that still is one, raises ``DslError``:
-    the old part would lose its layout to the new one, so chains are refused too.
-    """
+def _checked_aliases(design: Design) -> tuple[dict[str, str], dict[str, str]]:
+    """The ``moved()`` aliases split into part aliases and module aliases, new → old, after the checks."""
+    parts: dict[str, str] = {}
+    modules: dict[str, str] = {}
     for new, old in sorted(design.aliases.items()):
-        if new not in design.parts:
-            raise DslError(f"moved({old!r}, {new!r}): {new!r} is not a part of the design")
-        if old in design.parts:
-            raise DslError(f"moved({old!r}, {new!r}): {old!r} is still a part of the design")
-    return MappingProxyType(dict(sorted(design.aliases.items())))
+        if old in design.parts or old in design.modules:
+            kind = "part" if old in design.parts else "module"
+            raise DslError(f"moved({old!r}, {new!r}): {old!r} is still a {kind} of the design")
+        if new in design.parts:
+            parts[new] = old
+        elif new in design.modules:
+            modules[new] = old
+        else:
+            raise DslError(f"moved({old!r}, {new!r}): {new!r} is not a part or a module of the design")
+    return parts, modules
+
+
+def moves(design: Design) -> Mapping[str, str]:
+    """The part aliases of ``moved()``, new component path → old, in path order, with every module alias
+    expanded to the parts under the module (``docs/lens.md``, "moved()" and "Module aliases").
+
+    A part alias wins over a module alias for its part, and a longer module path over a shorter one. A
+    ``new`` path that is neither a part nor a module, or an ``old`` path that still is one, raises
+    ``DslError``: the old part would lose its layout to the new one, so chains are refused too.
+    """
+    parts, modules = _checked_aliases(design)
+    taken = set(parts.values())
+    out = dict(parts)
+    for path in design.parts:
+        if path in out:
+            continue
+        owners = [new for new in modules if path.startswith(f"{new}/")]
+        if not owners:
+            continue
+        new = max(owners, key=len)
+        old = modules[new] + path[len(new) :]
+        if old not in taken:
+            out[path] = old
+    return MappingProxyType(dict(sorted(out.items())))
+
+
+def module_moves(design: Design) -> Mapping[str, str]:
+    """The module aliases of ``moved()``, new module path → old, in path order; the checks of ``moves``
+    apply."""
+    return MappingProxyType(_checked_aliases(design)[1])
+
+
+def net_moves(design: Design) -> Mapping[str, str]:
+    """The ``moved_net()`` aliases, new net name → old, in name order (``docs/lens.md``, "Net aliases").
+
+    A ``new`` name that is not a net of the design, or an ``old`` name that still is one, raises
+    ``DslError``: the old net's copper would move to the new one, so chains are refused too.
+    """
+    for new, old in sorted(design.net_aliases.items()):
+        if new not in design.nets:
+            raise DslError(f"moved_net({old!r}, {new!r}): {new!r} is not a net of the design")
+        if old in design.nets:
+            raise DslError(f"moved_net({old!r}, {new!r}): {old!r} is still a net of the design")
+    return MappingProxyType(dict(sorted(design.net_aliases.items())))
 
 
 __all__ = [
@@ -275,7 +322,9 @@ __all__ = [
     "fields",
     "pad_zones",
     "key_id",
+    "module_moves",
     "moves",
+    "net_moves",
     "placements",
     "planes",
     "to_model",
