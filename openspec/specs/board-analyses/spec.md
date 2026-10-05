@@ -1,7 +1,7 @@
 # board-analyses Specification
 
 ## Purpose
-TBD - created by archiving change c0047-board-analyses. Update Purpose after archive.
+Compute engineering measures on a board with `fenolite analyze`: the current capacity of tracks, arcs and vias from a published fit within its stated range, and clearance and creepage distances on a layer, on the board surface and across the board edge, judged against requirement tables that the user supplies. Fenolite ships no requirement values.
 ## Requirements
 ### Requirement: Analysis package and report
 `fenolite.analysis` SHALL hold the analyses of a board on the neutral model. It MUST import only the standard library, `core`, `model`, `geometry` and `backends.base` (`package-layering`, "Allowed import edges"), and its functions MUST be pure: they read no file, run no subprocess and write nothing.

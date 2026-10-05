@@ -1,7 +1,7 @@
 # design-equivalence Specification
 
 ## Purpose
-TBD - created by archiving change c0045-design-equivalence. Update Purpose after archive.
+Decide whether two designs are equivalent at four levels (components, netlist as REF-PIN sets, footprints and pads, placement) with stated tolerances, normalisation and exclusion lists, and report each difference with its location. It defines `fenolite equivalent` and the triangle oracle that compares Fenolite's own read of an Altium PCB document with `kicad-cli`'s import of the same file.
 ## Requirements
 ### Requirement: Equivalence package
 The package `fenolite.checks.equivalence` SHALL compare two `fenolite.model.design.Design` values and SHALL hold the modules `model.py`, `norm.py`, `levels.py`, `exclusions.py` and `codes.py`.

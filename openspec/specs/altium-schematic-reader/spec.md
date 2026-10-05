@@ -1,7 +1,7 @@
 # altium-schematic-reader Specification
 
 ## Purpose
-TBD - created by archiving change c0040-altium-schematic-reader. Update Purpose after archive.
+Read Altium schematic documents and schematic libraries, in the binary and the ASCII form, into typed records that keep every field: framing, text decoding, the owner tree, pins, parts and display modes, embedded files, the issue codes and the bounds for untrusted files. Mapping the records onto the design model belongs to altium-import.
 ## Requirements
 ### Requirement: Schematic reader entry points
 The package `fenolite.backends.altium.read.sch` SHALL export `read_schematic(data: bytes, *, file: str = "", codepage: str = DEFAULT_CODEPAGE, issues: list[Issue] | None = None) -> SchDocument` and `detect(data: bytes) -> str | None`, and the module `fenolite.backends.altium.read.schlib` SHALL export `read_schlib(data: bytes, *, file: str = "", codepage: str = DEFAULT_CODEPAGE, issues: list[Issue] | None = None) -> SchLibrary`.

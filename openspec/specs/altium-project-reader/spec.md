@@ -1,7 +1,7 @@
 # altium-project-reader Specification
 
 ## Purpose
-TBD - created by archiving change c0042-altium-project-reader. Update Purpose after archive.
+Read the text files of an Altium project (the project file, output jobs, rule files and stack-up files) while keeping each byte for byte, load a project with its documents, and map the rules onto the neutral model where a closed scope grammar allows it.
 ## Requirements
 ### Requirement: Text forms are kept byte for byte
 `fenolite.backends.altium.read.textfile.split_text(data, *, file="")` SHALL split the bytes of a text file into a `TextBytes(bom, encoding, lines)` and `TextBytes.to_bytes()` MUST return exactly `data`, for every input it accepts.

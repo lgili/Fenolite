@@ -1,7 +1,7 @@
 # altium-pcb-reader Specification
 
 ## Purpose
-TBD - created by archiving change c0041-altium-pcb-reader. Update Purpose after archive.
+Read Altium PCB documents and PCB libraries into lossless typed records: the board and its layer stack, nets, components, classes, pads, tracks, arcs, vias, fills, regions, polygons and texts, with rules kept opaque. It states the read issues, the strict mode, the evidence per field and the oracles and corpus rows that hold it. Mapping the records onto the design model belongs to altium-import.
 ## Requirements
 ### Requirement: PCB reader package
 Fenolite SHALL provide the product reader of Altium PCB files as the modules `pcbprops`, `pcbprims`, `pcbstack`, `pcb` and `pcblib` of the package `fenolite.backends.altium.read` (the package of change c0039).

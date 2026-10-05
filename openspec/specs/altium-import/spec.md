@@ -1,7 +1,7 @@
 # altium-import Specification
 
 ## Purpose
-TBD - created by archiving change c0043-altium-import. Update Purpose after archive.
+Map what the Altium readers return onto the design model: units and frame, identifiers and provenance, layers, nets, footprints, padstacks, copper, zones, outline, the circuit of a schematic with its hierarchy, buses and harnesses, rules and libraries. It defines the registered Altium backend, the import issue codes, the count of unmapped records and the oracles that judge the result.
 ## Requirements
 ### Requirement: Adapter package
 Fenolite SHALL provide the adapter from the Altium readers' records into the neutral model as the package `fenolite.backends.altium.adapter`.

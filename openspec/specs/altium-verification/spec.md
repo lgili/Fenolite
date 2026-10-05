@@ -1,7 +1,7 @@
 # altium-verification Specification
 
 ## Purpose
-TBD - created by archiving change c0044-altium-inspect-check-diff. Update Purpose after archive.
+Verify Altium files without external tools: the document set that an input names, the round-trip levels RT-A0 (container), RT-A1 (records per stream) and RT-A2 (built model), `fenolite check` and `fenolite inspect` on Altium inputs, the records view of `fenolite diff`, and the evidence that each stage carries over the public corpus and the committed samples.
 ## Requirements
 ### Requirement: Altium document sets
 `fenolite.backends.altium.docset.document_set(path: Path) -> DocumentSet` SHALL name the documents that an Altium input holds (`backend-protocol`, "Document sets and container round trips"), reading only the project file and the first eight bytes of each document.
