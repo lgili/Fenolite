@@ -699,6 +699,24 @@ and raise `FormatError` with `file`, `locator` and `offset`. Everything else is 
 Evidence: `read.sch.EVIDENCE` is the lowest level of the `H-A-RD-SCH-*` rows of `docs/hypotheses.md`; the
 corpus census and the library oracle are in `docs/evidence/altium-read-schematic.md`.
 
+## Importing a sheet template
+
+Change c0046 imports an Altium sheet template (`.SchDot`, or the template graphics that a record 39 owns in
+a `.SchDoc`) into the neutral drawing sheet, on top of the schematic reader:
+
+```
+fenolite template import SRC --target kicad --out OUT --dry-run
+```
+
+`fenolite.backends.altium.read.sheet.import_sheet(data)` returns a `SheetImport`: the `DrawingSheet`, the
+`source` (form, style, paper, orientation, drawing area), the `issues`, the record counts `imported` and
+`reported`, the special `strings` with their neutral texts and the names of the sheet-level `parameters`.
+The size, lines, rectangles, texts, special strings and embedded PNG images are imported; everything else is
+reported with its record number under one of twelve `altium.sheet.*` codes, and a loss needs
+`--allow-lossy`. Nothing is written back to Altium: writing a `.SchDot` is a later roadmap item. The user
+guide is `docs/sheet-templates.md`, "Importing an Altium sheet template"; the facts are in
+`docs/formats/altium/sheet-template.md` (`H-A-RD-SHT-*`, all `INFERRED`).
+
 ## Reading PCB files
 
 Change c0041 reads PCB documents and libraries that Altium Designer saved, and every file Fenolite

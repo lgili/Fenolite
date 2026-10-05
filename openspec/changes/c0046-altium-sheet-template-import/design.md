@@ -269,3 +269,64 @@ A size, not calendar time.
    row; it does not block this change.
 6. Should `=CompanyName` map to `{organization}` when the template has no `=Organization`? Default:
    no; one fixed map is easier to predict.
+
+## Implementation notes
+
+Recorded during the implementation (2026-10-05). Where the spec delta changed, it was amended in this folder.
+
+1. **Names taken from c0040, re-checked against the code.** Nothing this change uses was renamed:
+   `read.sch.read_schematic(data, *, file, codepage, issues)`, `SchDocument.form`, `.sheet`, `.records`,
+   `.additional`, `.walk`, `.get(ref)`, `.templates()`, `.image_data(image)` and `EmbeddedFile.data()`; the
+   records `Sheet`, `Template`, `Label`, `Line`, `Rectangle`, `Polyline`, `Polygon`, `Image`, `Parameter`.
+   Details the design did not state: the header is not a record of `records`, so `records[0]` is the sheet
+   and `record.ref.index` is the number used in `record[<n>]`; `props` is a `PropertyList` with `int`,
+   `bool`, `text` and `has`, and `PropertyList.get` returns text; `Sheet.fonts` gives `Font` entries;
+   `SchLength.value` is an exact count, which the importer rounds to the micrometre itself (one rounding,
+   not `nm()` and then a second one). The importer copies none of the reader's issues: a malformed record
+   is an `UnknownRecord` and is reported as `altium.sheet.not-template-content`.
+2. **`H-A-RD-SHT-WIDTH` holds.** S-0130, re-read by task 1.2, states 4, 10, 20 and 40 mil; no table changed.
+   No hypothesis of this change was refuted.
+3. **Report details the spec left open**, now in the spec delta: `reported` is in record order, not in text
+   order (`record[10]` after `record[4]`); `strings` is a tuple of pairs (an object in the command's
+   `result`, where the keys of `imported` are decimal strings); `altium.sheet.appearance` is given only when
+   an imported record holds a colour key or the font table holds a name, so that the template `mixed` gives
+   exactly its two warnings; the infos `appearance` and `rounded` come last with an empty `where`.
+4. **Losses the spec did not list**, reported rather than dropped silently: a line-end shape of a polyline
+   and a `JUSTIFICATION` outside 0 to 8 (`style-dropped`); a polyline or polygon with fewer than two points
+   (`not-representable`); a border whose margin is half the shorter side or more, zones with a count below 1,
+   and zones asked for while the border is asked for and not drawn (`builtin-not-drawn`); an embedded file
+   that cannot be decompressed (`image-not-kept`, reason `missing`).
+5. **Small rules.** An `ORIENTATION` outside 0 to 3 is taken modulo 4. A sheet without a font-table entry
+   for its system font uses size 10. An item whose bounding box is centred on the drawing area takes the
+   right, top corner, as the rule "`l` when 2 × cx < width" gives. The centre of an image box is rounded
+   down to the micrometre. Rounded lengths are counted for imported records, the custom size and the margin
+   of a drawn border.
+6. **Corpus findings** (counts in `docs/formats/altium/sheet-template.md`): the three templates are binary,
+   hold only root records and no record 39. None holds `USECUSTOMSHEET`, although all hold `CUSTOMX` and
+   `CUSTOMY`; all use a standard style with `BORDERON=T`, so all need `--allow-lossy` and come out without a
+   border, as the first risk foresaw. Two hold text frames (kind 28), reported. The one embedded image is
+   found in `Storage` but holds bitmap bytes under a name ending in `.png`: it is reported as `not-png`, and
+   no corpus row exercises a kept image. A key `REFERENCEZONESTYLE` exists that no source describes. Seven
+   schematic documents of c0040's rows hold a record 39; in one, the template graphics lie outside the
+   document's own drawing area and are reported as `outside`.
+7. **Corpus rows and CI.** The three rows carry `altium-sch`, so c0040's corpus test reads them; no
+   `EXPECTED` entry was needed (no reader warning). The new use `altium-sheet` was added to
+   `ALTIUM_READER_USES` of `tests/unit/test_ci_workflow.py` and to the fetch step of the `kicad-10` job,
+   although the rows were already fetched through `altium-sch`. The corpus test also checks record 39, the
+   special strings and the embedded images on every `altium-sch` row (`H-A-RD-SHT-OWNER`, `-STRINGS`,
+   `-IMAGE`).
+8. **Oracle.** `tests/kicad/sheets/test_sheet_import.py` passes on `kicad-cli` 10.0.6 and 9.0.9. The
+   comparison of c0012 accepts a text within half a text height of its anchor, which covers `bottom` and
+   `center`; KiCad draws a `top`-justified text one height below its anchor, so the test moves that one
+   expectation by half a height. Nothing in `_acceptance.py` or `_sheet_bench.py` changed.
+9. **Command.** The positional file keeps the destination `spec` with the metavar `FILE`; a writer refusal
+   keeps the importer's issues in front of the writer's. The help text of `template` names both actions.
+10. **Order of tasks and proofs.** The hashes of task 1.4 were needed for the source rows of task 1.1, so the
+    files were fetched first. `CHANGELOG.md` has no `### Added` heading under `[Unreleased]` on `dev`; the
+    entry is a bullet of that section, like those of c0040 and c0041. The branch was rebased onto
+    `origin/dev` by the coordinator during the work. Task 7.1 stays unticked: its proof is the full
+    `make check` and the full `pytest -q`, which the coordinator runs once at landing; the other commands of
+    7.1 were run and passed.
+11. **Sources.** S-0130 and the Altium pages S-0261 to S-0263 were read on 2026-10-05. S-0131 was not opened
+    during the implementation; its facts are those the design recorded on 2026-10-03.
+

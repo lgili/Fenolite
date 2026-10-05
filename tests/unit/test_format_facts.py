@@ -148,6 +148,7 @@ def test_altium_fact_tables() -> None:
         "schematic-binary.md",
         "schematic-library.md",
         "schematic-records.md",
+        "sheet-template.md",
         "stackup-file.md",
     ]
     problems: list[str] = []

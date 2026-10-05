@@ -2638,3 +2638,39 @@ license_variant = ""
 embeddable = false
 uses = ["altium", "origin:third-party", "altium-schlib"]
 notes = "S-0279; schlib; 171008 bytes; 2023."
+
+# --- change c0046: public sheet templates saved by Altium (fetch-only measurement material; source ids in
+# notes). Nothing of these rows is asserted, printed or stored beyond counts.
+
+[[file]]
+id = "altium-third-party-schdot-01"
+url = "https://raw.githubusercontent.com/SMotlaq/schematic-templates/75a3de258d5920835f5648e564dfecb8b7bc991d/S4N_SCH_A4_Landscape.SchDot"
+ref = "75a3de258d5920835f5648e564dfecb8b7bc991d"
+sha256 = "0b16adbc02bcdab9409ad4fbe5bd44c3f1737bd8291878d8059c45750cf2fa53"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch", "altium-sheet"]
+notes = "S-0264; schdot; 11264 bytes; 2024."
+
+[[file]]
+id = "altium-third-party-schdot-02"
+url = "https://raw.githubusercontent.com/SMotlaq/schematic-templates/75a3de258d5920835f5648e564dfecb8b7bc991d/S4N_SCH_A3_Portrait.SchDot"
+ref = "75a3de258d5920835f5648e564dfecb8b7bc991d"
+sha256 = "fae20df899537a1d6996d8842369f0527cfc789fdc1216a3f72d4c437c950a8f"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch", "altium-sheet"]
+notes = "S-0264; schdot; 10752 bytes; 2024."
+
+[[file]]
+id = "altium-third-party-schdot-03"
+url = "https://raw.githubusercontent.com/Fermium/AltiumTemplates/27f7fadb4443602b9cf23ff1ae71de0c2edb0e2d/A4.SchDot"
+ref = "27f7fadb4443602b9cf23ff1ae71de0c2edb0e2d"
+sha256 = "668bc256e6711c0b3ba17a2f3bc79394c7a06c591a1fab991246d519cbbdc694"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "origin:third-party", "altium-sch", "altium-sheet"]
+notes = "S-0265; schdot; 111104 bytes; 2021."

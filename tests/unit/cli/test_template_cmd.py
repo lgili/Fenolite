@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The ``template build`` command (capability sheet-templates, "Template build command" and scenario
-"Malformed input exit code"; change c0012)."""
+"Malformed input exit code"; change c0012; scenario "Unknown action", change c0046)."""
 
 from __future__ import annotations
 
@@ -68,6 +68,13 @@ def test_unknown_target(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
         monkeypatch, tmp_path, "build", EXAMPLE, "--target", "other", "--out", "o.kicad_wks", "--dry-run"
     )
     assert code == 2
+
+
+def test_unknown_action(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, _, _ = run(
+        monkeypatch, tmp_path, "export", "x", "--target", "kicad", "--out", "out.kicad_wks", "--dry-run"
+    )
+    assert code == 2 and not (tmp_path / "out.kicad_wks").exists()
 
 
 def test_malformed_input_exit_code(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

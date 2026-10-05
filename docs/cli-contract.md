@@ -684,7 +684,8 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 ## template
 
 `fenolite template build SPEC --target kicad -o OUT` builds a drawing sheet (`.kicad_wks`) from a
-`*.sheet.toml` specification and runs no tool. `build` is the only action, `--target` and `-o`/`--out`
+`*.sheet.toml` specification and runs no tool. The actions are `build` and `import` ("template import"
+below); `--target` and `-o`/`--out`
 are required, and `kicad` is the only target. It is a mutating command: without `--confirm` it exits 4
 with `FEN-4001` and writes nothing, `--dry-run` shows the plan and exits 0, and `--confirm` writes `OUT`
 and returns the `receipt`. The plan holds one write of kind `kicad_wks`. The format of the specification
@@ -728,3 +729,43 @@ A malformed specification reports every problem at once, as one issue each:
 | `template.zone-letters` | error | more than 8 letter rows on a listed size |
 | `template.bitmap-not-png` | error | a `[bitmap]` file without the PNG signature |
 | `template.too-wide` | warning | a title block wider or taller than the margin box of a listed size |
+
+### template import
+
+`fenolite template import SRC --target kicad -o OUT` is the second action of the command: it imports an
+Altium sheet template (`.SchDot`, or a `.SchDoc` with an applied template, binary or ASCII) into the neutral
+drawing sheet and writes it as a `.kicad_wks`, through the same mutation protocol. The form is taken from the
+content. The sheet's name is the stem of `SRC`. The format and the report are described in
+`docs/sheet-templates.md`, "Importing an Altium sheet template".
+
+`result` holds:
+
+- `sheet`: `name`, `items` and `tokens`, as for `build` (there is no `sizes`);
+- `source`: `form` (`binary` or `ascii`), `style` (the sheet style number, `null` for a custom sheet),
+  `paper`, `portrait`, and `width` and `height`, the drawing area in nanometres as oriented;
+- `imported`: per record kind (a decimal string), the number of records that gave at least one item;
+- `reported`: the `where` of each record that gave none, in record order;
+- `strings`: each distinct special string of the template with its neutral text;
+- `parameters`: the names of the sheet-level parameters, without their values;
+- `target`, `kicad_version` and `output`, as for `build`;
+- `drawn`: one entry, keyed by `source.paper`, with the `texts` and `lines` predicted on the template's own
+  page and `resolved`, the texts with an empty title block;
+- `plan` on a dry run or an unconfirmed run.
+
+`input` names `SRC` with its SHA-256 and the kind `altium-sheet`. The envelope's `issues` hold the importer's
+issues (`altium.sheet.*`), then the writer's. The evidence is `INFERRED` (`H-A-RD-SHT-SAME`,
+`H-K-WKS-CORNER`): no second reader of an Altium schematic exists, and the command does not open the sheet in
+KiCad.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run, or a confirmed write |
+| 2 | `FEN-2001` | an action other than `build` or `import`, a missing `--target` or `-o`, or a target other than `kicad` |
+| 3 | `FEN-3001` | `SRC` is missing or unreadable |
+| 3 | `FEN-3004` | `SRC` is not an Altium schematic, its record 0 is not the sheet record, or its sheet style is unknown |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+| 7 | `FEN-7001` | the import would lose something and `--allow-lossy` is not given, or the writer refuses an item; the envelope's `issues` name every loss, on a dry run too |
+
+The twelve `altium.sheet.*` codes: `not-representable`, `not-template-content`, `builtin-not-drawn`,
+`outside`, `image-not-kept`, `image-size`, `unknown-string`, `dynamic-string` and `style-dropped` are
+warnings (losses); `appearance`, `rounded` and `builtin-drawn` are infos.

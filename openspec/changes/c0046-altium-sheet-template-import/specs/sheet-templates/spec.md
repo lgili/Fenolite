@@ -7,7 +7,7 @@
 - The *template records* MUST be every record other than record 0 that has no owner, and every record whose owner is a template record of kind 39 (`H-A-RD-SHT-OWNER`). A record of kind 39 itself and a sheet-level parameter (kind 41) are template records that draw nothing. A record owned by any other record belongs to its top-level owner and is reported with it.
 - `source` MUST be a `SheetSource(form, style, paper, portrait, width, height)`: `form` is `binary` or `ascii`, `style` is the `SHEETSTYLE` number or `None` for a custom sheet, and `width` and `height` are the drawing area in nanometres as oriented.
 - `sheet.name` MUST be `name`, `sheet.id` MUST be `derived_id("wks", "altium", name)`, and items MUST carry no ids.
-- `parameters` MUST hold the names of the sheet-level parameters, sorted, without their values.
+- `parameters` MUST hold the names of the sheet-level parameters, sorted, without their values. `strings` MUST be a tuple of pairs (special string, neutral text).
 - `import_sheet` MUST write nothing, MUST NOT open any other file, and MUST use no clock, random generator or environment value. Two calls on the same bytes MUST return sheets with equal canonical JSON.
 - The module MUST import only `fenolite.core`, `fenolite.model`, `fenolite.backends.altium` and the standard library.
 
@@ -48,8 +48,8 @@ The importer SHALL derive the paper, the orientation and the `SheetSetup` from t
 - With `USECUSTOMSHEET=T`, the area MUST be `CUSTOMX` × `CUSTOMY`, the paper `custom` and `source.style` `None`. Without it, `CUSTOMX` and `CUSTOMY` MUST be ignored.
 - `WORKSPACEORIENTATION=1` MUST swap the area's width and height and set `source.portrait`.
 - For a named paper, the margins MUST centre the area on the page of `PAPER_SIZES` in the same orientation: left and right are half the width difference, top and bottom half the height difference. A named paper whose difference is negative or is not a whole number of micrometres per side MUST fall back to `custom` with four zero margins. A `custom` paper MUST have four zero margins.
-- `setup.text_size` MUST be the size of the system font (`SYSTEMFONT`, converted as a text size), `setup.line_width` 254 000 nm and `setup.text_line_width` 127 000 nm. Every imported item MUST carry its own width or size, so these defaults change no drawing.
-- Every length MUST be converted with the reader's exact unit and then rounded to the nearest micrometre, half to even. The number of rounded coordinates MUST be reported once as `altium.sheet.rounded`; the font-size rule is not counted.
+- `setup.text_size` MUST be the size of the system font (`SYSTEMFONT`, converted as a text size; size 10 when the font table has no such entry), `setup.line_width` 254 000 nm and `setup.text_line_width` 127 000 nm. Every imported item MUST carry its own width or size, so these defaults change no drawing.
+- Every length MUST be converted with the reader's exact unit and then rounded to the nearest micrometre, half to even. The number of rounded lengths of the imported records, of the custom size and of a drawn border's margin MUST be reported once as `altium.sheet.rounded`; the font-size rule, the divisions of the zones and the centre of an image box are not counted.
 
 #### Scenario: A4 style centred on the paper
 - **GIVEN** an authored ASCII template whose sheet record has `SHEETSTYLE=0` and no orientation key
@@ -73,14 +73,14 @@ The importer SHALL derive the paper, the orientation and the `SheetSetup` from t
 
 ### Requirement: Altium border and reference zones
 The importer SHALL draw the border and the reference zones that the sheet flags ask for only when the file gives their numbers, and SHALL report them otherwise (`H-A-RD-SHT-BORDER`).
-- With `BORDERON=T`, `USECUSTOMSHEET=T` and `CUSTOMMARGINWIDTH` = m > 0, the first two items MUST be a `SheetShape` of kind `rect` from `SheetPoint("lt", 0, 0)` to `SheetPoint("rb", 0, 0)` and one from `SheetPoint("lt", m, m)` to `SheetPoint("rb", m, m)`, both 254 000 nm wide.
+- With `BORDERON=T`, `USECUSTOMSHEET=T` and `CUSTOMMARGINWIDTH` = m > 0, m being less than half the shorter side of the drawing area, the first two items MUST be a `SheetShape` of kind `rect` from `SheetPoint("lt", 0, 0)` to `SheetPoint("rb", 0, 0)` and one from `SheetPoint("lt", m, m)` to `SheetPoint("rb", m, m)`, both 254 000 nm wide.
 - With also `REFERENCEZONESON=T`, `CUSTOMXZONES` = nx ≥ 1 and 1 ≤ `CUSTOMYZONES` = ny ≤ 26, the importer MUST add, after the two rectangles:
   - tick lines across the top and bottom bands at `i × width / nx` for i = 1 … nx − 1, and across the left and right bands at `j × height / ny` for j = 1 … ny − 1, each division rounded down to a micrometre;
   - the numbers `1` … `nx`, left to right, centred in each field of the top and of the bottom band;
   - the letters `A` … from the top, centred in each field of the left and of the right band;
   - labels of size m / 2, rounded down to a micrometre, justified `center` and `center`.
 - The drawn border MUST be reported once as `altium.sheet.builtin-drawn` (info).
-- A border asked for on a standard style, a border with m = 0, zones with ny > 26, and `TITLEBLOCKON=T` MUST each give one `altium.sheet.builtin-not-drawn` (warning) whose message names `border`, `zones` or `title-block`, and MUST draw nothing for it: no public source gives that geometry.
+- A border asked for on a standard style, a border with m = 0 or with m not less than half the shorter side, zones with nx < 1, ny < 1 or ny > 26, zones asked for with a border that is asked for and not drawn, and `TITLEBLOCKON=T` MUST each give one `altium.sheet.builtin-not-drawn` (warning) whose message names `border`, `zones` or `title-block`, and MUST draw nothing for it: no public source gives that geometry.
 - The ticks and labels MUST be anchored as every other item ("Altium sheet graphics"); only the two rectangles span two corners.
 
 #### Scenario: Custom border with zones
@@ -107,12 +107,12 @@ The importer SHALL turn the drawable template records into `SheetShape` and `She
 
 - `LINEWIDTH` 0 (or missing), 1, 2 and 3 MUST give the widths 102 000, 254 000, 508 000 and 1 016 000 nm (`H-A-RD-SHT-WIDTH`); any other value MUST give 254 000 nm and one `altium.sheet.style-dropped`.
 - A point (x, y) of the drawing area, measured from its bottom-left corner with y upwards, MUST become, for the item's corner: `lb` (x, y), `rb` (width − x, y), `lt` (x, height − y), `rt` (width − x, height − y).
-- The corner of an item MUST be chosen once for all its points from the centre (cx, cy) of the bounding box of its points: `l` when 2 × cx < width and `r` otherwise; `b` when 2 × cy < height and `t` otherwise. A polyline or polygon MUST use one corner for all its lines. The sheet is therefore exact on its own size, and each item keeps its distance to the nearest corner on another size.
-- A record with a point outside the drawing area MUST NOT be imported and MUST give `altium.sheet.outside`.
-- A label MUST map `JUSTIFICATION` 0 to 8 to (`vjustify`, `justify`) in the order bottom, center, top by left, center, right (0 is bottom-left, 4 center-center, 8 top-right; a missing key is 0), and `ORIENTATION` 0 to 3 to a rotation of 0, 90, 180 and 270 degrees in microdegrees (`H-A-RD-SHT-TEXT`).
+- The corner of an item MUST be chosen once for all its points from the centre (cx, cy) of the bounding box of its points: `l` when 2 × cx < width and `r` otherwise; `b` when 2 × cy < height and `t` otherwise (an item centred on the area therefore takes the right, top corner). A polyline or polygon MUST use one corner for all its lines. The sheet is therefore exact on its own size, and each item keeps its distance to the nearest corner on another size.
+- A record with a point outside the drawing area MUST NOT be imported and MUST give `altium.sheet.outside`. A polyline or polygon with fewer than two points MUST NOT be imported and MUST give `altium.sheet.not-representable`.
+- A label MUST map `JUSTIFICATION` 0 to 8 to (`vjustify`, `justify`) in the order bottom, center, top by left, center, right (0 is bottom-left, 4 center-center, 8 top-right; a missing key is 0), and `ORIENTATION` 0 to 3 to a rotation of 0, 90, 180 and 270 degrees in microdegrees (`H-A-RD-SHT-TEXT`). A `JUSTIFICATION` outside 0 to 8 MUST read as 0 and give `altium.sheet.style-dropped`; an `ORIENTATION` outside 0 to 3 MUST be taken modulo 4.
 - A label's `size` MUST be (s, s) with s = `SIZE<FONTID>` of the sheet's font table × 25 400 000 / 72 nm, rounded to the nearest micrometre; `bold` and `italic` MUST come from `BOLD<FONTID>` and `ITALIC<FONTID>`. A `FONTID` outside the table MUST use the system font. The size rule is a Fenolite choice (`H-A-RD-SHT-TEXT`).
-- A filled rectangle or polygon (`ISSOLID=T`), a line style other than solid, an underlined font and a mirrored label MUST be imported without that property and MUST each give `altium.sheet.style-dropped` naming the record and the property.
-- Colours and font names MUST be reported once, as one `altium.sheet.appearance` (info) that gives the number of records with a colour key and the sorted font names.
+- A filled rectangle or polygon (`ISSOLID=T`), a line style other than solid, a line-end shape of a polyline (`STARTLINESHAPE`, `ENDLINESHAPE`), an underlined font and a mirrored label MUST be imported without that property and MUST each give `altium.sheet.style-dropped` naming the record and the property.
+- Colours and font names MUST be reported once, as one `altium.sheet.appearance` (info) that gives the number of imported records with a colour key (`COLOR`, `AREACOLOR`, `TEXTCOLOR`) and the sorted font names of the sheet's font table. A template with neither MUST give no such issue.
 - Every other graphic kind (Bézier 5, ellipse 8, pie 9, rounded rectangle 10, elliptical arc 11, arc 12, text frame 28, note 209) MUST give `altium.sheet.not-representable`, and every other record kind (a component, a wire, a port, …) MUST give `altium.sheet.not-template-content`. Neither is imported.
 
 #### Scenario: Line near the bottom-right corner
@@ -177,7 +177,7 @@ A label whose text starts with `=` SHALL be read as a special string, and the im
 The importer SHALL keep an embedded PNG image (record kind 30) as a `SheetBitmap` and SHALL report every other image (`H-A-RD-SHT-IMAGE`).
 - An image with `EMBEDIMAGE=T` whose embedded file, found in the `Storage` stream under the image's `FILENAME`, starts with the eight bytes of the PNG signature MUST give one `SheetBitmap` whose `png` is the base64 text of those bytes, whose `pos` is the centre of the box from `LOCATION` to `CORNER`, anchored as a one-point item, and whose `scale_ppm` is 1 000 000.
 - Each kept image MUST give one `altium.sheet.image-size` (warning) whose message gives the box width and height in nanometres: `SheetBitmap` has no box, so the drawn size is the backend's.
-- An image that is not embedded, whose embedded file is missing, or whose bytes are not a PNG MUST NOT be imported and MUST give `altium.sheet.image-not-kept` naming the record, the reason (`linked`, `missing` or `not-png`) and the base name of `FILENAME` without its folders.
+- An image that is not embedded, whose embedded file is missing or cannot be decompressed, or whose bytes are not a PNG MUST NOT be imported and MUST give `altium.sheet.image-not-kept` naming the record, the reason (`linked`, `missing` or `not-png`) and the base name of `FILENAME` without its folders.
 - The importer MUST NOT open the path of a linked image, and MUST NOT convert an image.
 
 #### Scenario: Embedded PNG kept
@@ -204,13 +204,13 @@ The importer SHALL account for every template record: each is imported or named 
 | `altium.sheet.image-size` | warning | a kept image, whose box the model cannot hold |
 | `altium.sheet.unknown-string` | warning | a special string whose name is not a parameter name |
 | `altium.sheet.dynamic-string` | warning | a special string whose value a tool computes |
-| `altium.sheet.style-dropped` | warning | a fill, a line style, an underline, a mirror or an unknown line width |
+| `altium.sheet.style-dropped` | warning | a fill, a line style, a line-end shape, an underline, a mirror, or an unknown line width or justification |
 | `altium.sheet.appearance` | info | colours and font names, once |
 | `altium.sheet.rounded` | info | lengths rounded to the micrometre, once |
 | `altium.sheet.builtin-drawn` | info | a border drawn from the sheet flags, once |
 
-- Every warning about a record MUST carry `where == "record[<n>]"`, n being the record's number in file order, and a message that names the record kind. A warning about a sheet flag MUST carry `where == "record[0].<KEY>"`. A record of the `Additional` stream (a harness record) MUST give `altium.sheet.not-template-content` with `where == "additional[<n>]"`.
-- `imported` MUST map each record kind to the number of its records that gave at least one item, and `reported` MUST be the sorted `where` values of the records that gave none and are named in a warning. Every template record other than kind 39 and sheet-level kind 41 MUST be counted in exactly one of the two.
+- Every warning about a record MUST carry `where == "record[<n>]"`, n being the record's number in file order, and a message that names the record kind. A warning about a sheet flag MUST carry `where == "record[0].<KEY>"`. A record of the `Additional` stream (a harness record) that no record of `Additional` owns MUST give `altium.sheet.not-template-content` with `where == "additional[<n>]"`. The two once-only infos `appearance` and `rounded` carry an empty `where` and come last.
+- `imported` MUST map each record kind to the number of its records that gave at least one item, and `reported` MUST be the `where` values of the records that gave none and are named in a warning, in record order (by record number, then the `Additional` records). Every template record other than kind 39 and sheet-level kind 41 MUST be counted in exactly one of the two.
 - A warning is a loss. With `allow_lossy=False`, the default, `import_sheet` MUST raise `SheetLossError` (a `fenolite.core.errors.FenoliteError` with `cli_code = "FEN-7001"`) when at least one warning exists; its `issues` MUST hold every issue, in record order, and its hint MUST name `--allow-lossy`. With `allow_lossy=True` it MUST return the same issues in `SheetImport.issues`.
 - An import without a warning MUST return whatever `allow_lossy` is.
 
@@ -232,8 +232,8 @@ The importer SHALL account for every template record: each is imported or named 
 ### Requirement: Template import command
 `fenolite template import SRC --target kicad --out OUT` SHALL import `SRC` with `import_sheet` and write `OUT` with `write_drawing_sheet` through the mutation protocol of `cli-contract`. It is the action `import` of the command `template` (requirement "Template build command").
 - `SRC` is a `.SchDot` or `.SchDoc` file in either form. The sheet's name MUST be the stem of `SRC`. The global `--allow-lossy` MUST be passed to `import_sheet` and to the writer.
-- `result` MUST hold `sheet` (`name`, `items`, `tokens`), `source` (`form`, `style`, `paper`, `portrait`, `width`, `height`), `imported`, `reported`, `strings`, `parameters`, `target`, `kicad_version`, `drawn` and `output`, and also `plan` on a `--dry-run` or unconfirmed run. `drawn` MUST hold one entry, keyed by `source.paper`, with the text and line counts that `layout` predicts on the source's own page and the texts resolved by `resolve_text` with an empty `TitleBlock`.
-- The envelope's `issues` MUST hold the importer's issues, then the writer's. `input.kind` MUST be `altium-sheet`.
+- `result` MUST hold `sheet` (`name`, `items`, `tokens`), `source` (`form`, `style`, `paper`, `portrait`, `width`, `height`), `imported` (an object keyed by the record kind as a decimal string), `reported`, `strings` (an object from each special string to its neutral text), `parameters`, `target`, `kicad_version`, `drawn` and `output`, and also `plan` on a `--dry-run` or unconfirmed run. `drawn` MUST hold one entry, keyed by `source.paper`, with the text and line counts that `layout` predicts on the source's own page and the texts resolved by `resolve_text` with an empty `TitleBlock`.
+- The envelope's `issues` MUST hold the importer's issues, then the writer's, also when the writer refuses. `input.kind` MUST be `altium-sheet`.
 - Exit codes MUST be: 0 ok; 2 usage; 3 with `FEN-3001` for a missing or unreadable file and with `FEN-3004` for a file the reader or the importer refuses; 4 without `--confirm` (`FEN-4001`); 7 with `FEN-7001` for a loss without `--allow-lossy` and for a writer refusal. A refusal MUST carry its issues, on a `--dry-run` too. No new FEN code is added.
 - The command MUST NOT run `kicad-cli` and MUST NOT write any file other than `OUT`. Its envelope evidence MUST be `INFERRED` with the hypotheses `H-A-RD-SHT-SAME` and `H-K-WKS-CORNER`.
 - `fenolite capabilities` MUST keep one `template` entry with `mutates` true. `example_args` and `mutation_example_args` of the command stay those of `build`.
