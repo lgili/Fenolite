@@ -18,6 +18,8 @@ CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A 
 until its change is proposed. The nine v0.2a changes were allocated together as c0060–c0068 on
 2026-10-04, while c0058 was being written, so c0057 stays unused.
 The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
+The ten v0.4 changes were allocated together as c0083–c0092 on 2026-10-06; c0077–c0081 stay unused,
+and c0100–c0120 are used by a proposed milestone on another branch.
 c0093 was taken for the release of v0.2 on 2026-10-06: the numbers from c0083 to c0092 are reserved on another
 branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed milestone on another branch.
 
@@ -93,6 +95,16 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 
 | c0082 | `kicad-worksheet-oracle-isolation` | CI correction: isolated worksheet boundary oracle | — |
+| c0083 | `altium-repeated-sheets` | v0.4 | c0043 |
+| c0084 | `altium-rule-lowering` | v0.4 | c0038, c0042 |
+| c0085 | `altium-pcb-complete` | v0.4 | c0035, c0038 |
+| c0086 | `altium-schematic-complete` | v0.4 | c0032 |
+| c0087 | `altium-outjob-sheet` | v0.4 | c0042, c0046 |
+| c0088 | `altium-light-drc` | v0.4 | c0044, c0072 |
+| c0089 | `equivalence-level-5` | v0.4 | c0045 |
+| c0090 | `altium-roundtrip-write` | v0.4 | c0044 |
+| c0091 | `altium-verification-kit` | v0.4 | — |
+| c0092 | `altium-write-graduation` | v0.4 | c0091 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
 

@@ -43,7 +43,7 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | c0039–c0047 | read, equivalence levels 1–4, analyses | every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for the milestone (`docs/release/v0.2.md`, “Also in this package”) |
-| 4. Second backend | v0.4 | c0032–c0038 pulled forward; the rest not allocated | write, equivalence level 5, verification kit | c0032–c0038, c0055 and c0056 done; remainder estimate |
+| 4. Second backend | v0.4 | c0032–c0038 pulled forward; c0083–c0092 | write, equivalence level 5, verification kit | c0032–c0038, c0053, c0055 and c0056 done; c0083–c0092 proposed on 2026-10-06 |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
@@ -324,7 +324,7 @@ tracks, arcs, vias, unpoured polygons, a 2- or 4-layer stack with planes, net cl
 (script copper), c0016 and c0023 (router plugins) feed this writer; until they land, `--copper-from`
 copies the copper of a routed KiCad board.
 
-**v0.4 write (ids not allocated; the experimental writers c0032–c0038 were pulled forward).**
+**v0.4 write, c0083–c0092 (proposed on 2026-10-06; the experimental writers c0032–c0038 were pulled forward).**
 
 - Writers for the four document kinds, starting with the ASCII schematic format.
 - Project-file and output-job writers.
@@ -338,6 +338,51 @@ copies the copper of a routed KiCad board.
 
 An author report never promotes an operation to verified. The rows `H-A-WRITE-*` and `H-A-PH-*`
 wait for the kit to reproduce them.
+
+The ten changes that remain, all proposed and none implemented. What exists when they start: every
+Altium write is `experimental`, no Altium file is read and written back, three kinds of rule are
+written, and the kit is named and not defined.
+
+| id | slug | scope | status | depends on | design-days |
+|---|---|---|---|---|---|
+| c0083 | `altium-repeated-sheets` | the import instantiates repeated sheets: channels, their designators and nets; the annotation file; the pin-to-pad map | proposed | c0043, c0044 | 5.5 |
+| c0084 | `altium-rule-lowering` | a closed table from the neutral rule kinds to Altium rule kinds, scoped rule records, the same kinds read back, a rule file export | proposed | c0038, c0042, c0071 | 7 |
+| c0085 | `altium-pcb-complete` | stacks up to 16 signal layers, blind and buried vias, board texts, graphics, keep-outs, non-plated holes, bodies; polygons unpoured by contract; every item accounted | proposed | c0035, c0038, c0041, c0043 | 10 |
+| c0086 | `altium-schematic-complete` | symbol graphics, the module tree at any depth, port directions, buses, text outside ASCII, parameters | proposed | c0032–c0037, c0040, c0070 | 9.5 |
+| c0087 | `altium-outjob-sheet` | an output job from the export preset; a `.SchDot` and the sheet on schematics from the sheet specification | proposed | c0032, c0042, c0046, c0074 | 7 |
+| c0088 | `altium-light-drc` | `copper.clearance` and `parity` on Altium documents, an Altium parity adapter, a copper guard in the Altium build | proposed | c0029, c0072, c0044, c0084 | 5 |
+| c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | proposed | c0045, c0029 | 4.25 |
+| c0090 | `altium-roundtrip-write` | a model with a board written as Altium documents; RT-A2 on footprints and copper; the level RT-A3 over the corpus; the first round-trip notes in the claims | proposed | c0083–c0086, c0089 | 7 |
+| c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | proposed | c0084–c0090 | 6.25 |
+| c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.4 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
+
+- **Total:** 64.75 design-days (sizes, not time).
+- **Order:** c0083 first; it depends on nothing of v0.4 and repairs a read defect, so it can ship
+  before the rest. Then c0084, c0085, c0086, c0087 and c0089 in parallel. c0088 after c0084. c0090
+  after c0084, c0085, c0086 and c0089. c0091 can be written at any time; its first real run needs
+  c0084 to c0090. c0092 last.
+- **Roadmap bullets and their changes:** writers for the four document kinds → c0085, c0086 and
+  c0090; project-file and output-job writers → c0087 (the project-file writer is c0032's); rule
+  lowering → c0084; a light DRC → c0088; sheet templates → c0087; `equivalent` level 5 → c0089; the
+  verification kit → c0091; what leaves `experimental` → c0092.
+- **What only the maintainer can do:** one Altium session for each of c0084 (rules editor and rule
+  check), c0085 (the six-layer board), c0086 (the hierarchical schematic) and c0087 (output job and
+  sheet template), each written as numbered steps in the change's design; an optional one for c0083
+  (channel naming formats) and for c0088; and the kit run of c0091 on his machine, which c0092 records.
+
+**v0.4 acceptance (a proposal; the project plan's text for this milestone is not in these pages).**
+
+1. A project built for both targets is the same design: `equivalent` at level 5 between the KiCad
+   board and the Altium documents, and between the KiCad board and KiCad's import of those documents
+   (c0089, c0092).
+2. A public Altium project is imported, written back and imported again with an equal model inside
+   the written scope, and what the write leaves out is counted per record kind (RT-A3, c0090), on
+   documents of at least three public repositories, the one with repeated sheets among them (c0083).
+3. `fenolite check` on an Altium project finds a short, a clearance violation and a board that
+   disagrees with its schematic, with no tool (c0088).
+4. Every rule of a script reaches the Altium board exactly or is named with its reason (c0084).
+5. One recorded kit run in Altium passes on the acceptance tree, and at least the PCB document and
+   the schematic document writes leave `experimental` by the rule of c0092 (c0091, c0092).
 
 **Equivalence levels** (`equivalent A B --level N`, project plan):
 
@@ -508,9 +553,16 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | pending. Recommended: as proposed |
 | 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | pending. Recommended: as proposed |
 | 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | pending. Recommended: as proposed |
+| 21 | v0.4: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 are free | this page; `openspec/README.md` | pending. Recommended: keep the block and the ten changes; the alternative is eight, with c0087 folded into c0085 and c0086, and c0092 into c0091 |
+| 22 | v0.4: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`; no script runs inside Altium | proposal and design of c0091 | pending. Recommended: as proposed; an authored script can be added as one requirement |
+| 23 | v0.4: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | pending. Recommended: as proposed |
+| 24 | v0.4: c0083 (repeated sheets in the import) is inside v0.4, first and independent, or a v0.3 follow-up released earlier | proposal of c0083 | pending. Recommended: inside v0.4; moving it is an edit of two table rows |
+| 25 | v0.4: level 5 of `equivalent` compares connectivity, vias and length per net; exact geometry stays level 7 | proposal of c0089 | pending. Recommended: as proposed; a strict mode can be added as one requirement |
+| 26 | v0.4: variants stay in v0.5b | proposal of c0086 | pending. Recommended: as the roadmap has them |
+| 27 | v0.4: the acceptance block above is a proposal derived from the roadmap's bullets | this page; design of c0092 | pending |
 
-Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046
-and c0060–c0074).
+Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
+c0060–c0074 and c0083–c0092).
 
 Later questions, asked when their change is proposed:
 

@@ -5,6 +5,7 @@ All notable changes to Fenolite are documented here. The format follows
 [Semantic Versioning](https://semver.org/) (pre-1.0: minor versions may break).
 
 ## [Unreleased]
+- Proposed the ten v0.4 OpenSpec changes c0083–c0092 for the write side of the second backend: repeated sheets in the import, rule lowering, the complete PCB document and schematic, the output job and the sheet template, a copper and parity check on Altium input, equivalence level 5, the round trip of a written model, the verification kit, and the rule by which a write leaves `experimental`.
 
 ## [0.2.0] - 2026-10-06
 
