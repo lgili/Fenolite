@@ -40,6 +40,13 @@ populate") when the component or its footprint says so.
 A **line** is the parts that share the values of the template's `group_by` fields. References inside a
 line, and lines among themselves, are in natural order (`R2` before `R10`).
 
+A DNP part never shares a line with a fitted part, whether or not `group_by` names `dnp`: a line is all
+DNP or all fitted, and its quantity counts only its own parts. With `exclude_dnp = false`, fitted and
+DNP parts of one value therefore give two lines. DNP lines have no place of their own in the bill: like
+every line, a DNP line stands where its first reference puts it. For `R1` and `R3` fitted and `R2` and
+`R4` DNP, all of one value, the bill has the line `R1,R3` and then the line `R2,R4`. Add a column with
+the field `dnp` to see which lines are DNP.
+
 | field | what a column holds |
 |---|---|
 | `refs` | the references of the line, joined with `ref_separator` |
@@ -49,7 +56,7 @@ line, and lines among themselves, are in natural order (`R2` before `R10`).
 | `footprint` | the footprint's lib id, `Library:Name` |
 | `footprint_name` | the lib id without its library, `Name` |
 | `description`, `datasheet` | those two properties of the component |
-| `dnp` | `DNP`, or nothing |
+| `dnp` | `DNP` on a line of DNP parts, or nothing |
 | `property:<NAME>` | the user property `NAME` of the component, or nothing |
 
 When the parts of a line differ in a field that is not in `group_by`, the column holds each distinct
@@ -91,7 +98,7 @@ the command exits 3.
 | `[bom]` `columns` | a list of `{ name, field }`, with distinct names | `refs`, `quantity`, `value`, `footprint` |
 | `[bom]` `group_by` | a list of fields a single part has (not `refs`, `quantity`, `item`) | `["value", "footprint"]` |
 | `[bom]` `ref_separator` | a string | `","` |
-| `[bom]` `exclude_dnp` | `true` leaves DNP parts off the bill | `true` |
+| `[bom]` `exclude_dnp` | `true` leaves DNP parts off the bill; `false` lists them on lines of their own | `true` |
 | `[placement]` `columns` | a list of `{ name, field }`, with distinct names | `ref`, `value`, `footprint_name`, `x`, `y`, `rotation`, `side` |
 | `[placement]` `units` | `"mm"`, `"in"` or `"mil"` | `"mm"` |
 | `[placement]` `decimals` | 0 to 6, for `x` and `y` | `4` |
@@ -273,12 +280,16 @@ it.
 
 `--against OTHER` also lists what changed from the project `OTHER` to `PATH`, line by line, under the same
 template: `removed` (a line only `OTHER` has), `added` (a line only `PATH` has) and `changed` (the same
-grouping values with different references).
+grouping values with different references). The fitted line and the DNP line of one value are compared
+separately: the `key` of a DNP line is its grouping values followed by `DNP`, unless `group_by` names
+`dnp` (then `DNP` is among the values already) or is empty (then the key is the reference).
 
 ## Things to watch
 
-- **DNP parts and grouping.** With `exclude_dnp = false`, add `"dnp"` to `group_by`. Otherwise a fitted
-  part and a DNP part of the same value share one line and one quantity.
+- **DNP parts and grouping.** With `exclude_dnp = false`, DNP parts are listed on lines of their own
+  (see "Bill of materials" above), so the quantity of a line is what to fit or what to leave off, never a
+  mix. `"dnp"` in `group_by` is not needed for that. Without a `dnp` column the two lines of one value
+  look alike: add the column.
 - **The internal property `fenolite.path`.** A built project gives every component this property. It is
   listed only if a column names it.
 - **Units.** `"in"` is 25.4 mm and `"mil"` is 0.0254 mm, exactly.

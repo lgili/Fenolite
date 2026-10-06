@@ -6,6 +6,7 @@ difference"; change c0064). Hermetic. Every part, value and property here is mad
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Callable
 
 import pytest
 from _assembly import LED, QFP, R_0603, Part, design_of
@@ -97,6 +98,82 @@ def test_dnp_parts() -> None:
         (("R2",), "DNP"),
         (("R3",), ""),
     ]
+
+
+MIXED_ROWS = (
+    kicad_bom.BomRow("R4", "10k", R_0603, dnp=True),
+    kicad_bom.BomRow("R1", "10k", R_0603),
+    kicad_bom.BomRow("D1", "LED", LED, dnp=True),
+    kicad_bom.BomRow("R3", "10k", R_0603),
+    kicad_bom.BomRow("R2", "10k", R_0603, dnp=True),
+)
+"""Rows as ``kicad-cli`` lists them: four resistors of one value, two of them DNP, and a DNP diode."""
+MIXED_COLUMNS = tuple(Column(name, name) for name in ("item", "refs", "quantity", "value", "dnp"))
+
+
+def _mixed_from_model() -> tuple[BomPart, ...]:
+    return parts_from_model(
+        design_of(
+            Part("R1", "10k"),
+            Part("R2", "10k", dnp=True),
+            Part("R3", "10k"),
+            Part("R4", "10k", attributes=("smd", "dnp")),
+            Part("D1", "LED", LED, dnp=True),
+        )
+    )
+
+
+def _mixed_from_kicad() -> tuple[BomPart, ...]:
+    return bom.parts_from_kicad(MIXED_ROWS)
+
+
+@pytest.mark.parametrize("source", [_mixed_from_model, _mixed_from_kicad], ids=["model", "kicad"])
+def test_a_line_is_all_dnp_or_all_fitted(source: Callable[[], tuple[BomPart, ...]]) -> None:
+    """Scenario "DNP parts never share a line with fitted parts" (change c0094): ``dnp`` is not in
+    ``group_by``, and the parts of one value and footprint still fall on two lines."""
+    parts = source()
+    template = _template(columns=MIXED_COLUMNS, group_by=("value", "footprint"), exclude_dnp=False)
+    lines = group(parts, template)
+    assert table(lines, template) == (
+        ("1", "D1", "1", "LED", "DNP"),
+        ("2", "R1,R3", "2", "10k", ""),
+        ("3", "R2,R4", "2", "10k", "DNP"),
+    )  # sorted by first reference, as every line is
+    assert [line.refs for line in lines] == [("D1",), ("R1", "R3"), ("R2", "R4")]
+    assert [line.quantity for line in lines] == [1, 2, 2]
+    assert [line.key for line in lines] == [("LED", LED, "DNP"), ("10k", R_0603), ("10k", R_0603, "DNP")]
+    without = group(parts, dataclasses.replace(template, exclude_dnp=True))
+    assert [(line.refs, line.key) for line in without] == [(("R1", "R3"), ("10k", R_0603))]
+
+
+def test_a_dnp_line_sorts_by_its_first_reference() -> None:
+    parts = (BomPart("R1", "10k", R_0603, dnp=True), BomPart("R2", "10k", R_0603), BomPart("C1", "1u"))
+    lines = group(reversed(parts), _template(exclude_dnp=False))
+    assert [line.refs for line in lines] == [("C1",), ("R1",), ("R2",)]
+    assert [line.key for line in lines] == [("1u", ""), ("10k", R_0603, "DNP"), ("10k", R_0603)]
+
+
+def test_the_key_is_unchanged_when_group_by_names_dnp_or_is_empty() -> None:
+    parts = _mixed_from_kicad()
+    named = group(parts, _template(group_by=("value", "dnp"), exclude_dnp=False))
+    assert [(line.refs, line.key) for line in named] == [
+        (("D1",), ("LED", "DNP")),
+        (("R1", "R3"), ("10k", "")),
+        (("R2", "R4"), ("10k", "DNP")),
+    ]
+    single = group(parts, _template(group_by=(), exclude_dnp=False))
+    assert [line.key for line in single] == [("D1",), ("R1",), ("R2",), ("R3",), ("R4",)]
+
+
+def test_difference_keeps_dnp_and_fitted_lines_apart() -> None:
+    """Fitting ``R2`` moves it from the DNP line of its value to the fitted one: two changed lines."""
+    template = _template(exclude_dnp=False)
+    first = _mixed_from_kicad()
+    second = tuple(dataclasses.replace(part, dnp=False) if part.ref == "R2" else part for part in first)
+    assert difference(group(first, template), group(second, template)) == (
+        BomChange(("10k", R_0603), "changed", ("R1", "R3"), ("R1", "R2", "R3")),
+        BomChange(("10k", R_0603, "DNP"), "changed", ("R2", "R4"), ("R4",)),
+    )
 
 
 def test_an_empty_group_by_gives_one_line_per_part() -> None:

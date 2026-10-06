@@ -53,6 +53,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - `route` no longer hands a router the one-pad `unconnected-(…)` nets that a build gives unused pins since the schematic writer: with them Freerouting left one connection of the 40-part example open.
 - A component read from an Altium PCB document takes the designator text the board shows as its reference, and its source designator only without one, so the components of a repeated sheet no longer share a reference in a board read on its own; the fault was found by the equivalence triangle (c0045).
+- `fenolite bom` no longer puts a part marked "do not populate" (DNP) on the line of fitted parts of the same value: with `exclude_dnp = false` in the column template, a line is all DNP or all fitted, whether or not `group_by` names `dnp`, for both sources, so no quantity counts a part that is not fitted. A DNP line stands where its first reference puts it, like every line. With `--against`, the `key` of a DNP line ends with `DNP` (c0094; guide `docs/assembly.md`).
 
 ## [0.1.0] - 2026-10-05
 

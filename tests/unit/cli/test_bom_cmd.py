@@ -166,6 +166,92 @@ def test_from_kicad_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None
     assert tree_snapshot(board.parent) == before  # the tool ran on a copy
 
 
+MIXED_EXPORT = (
+    '"Reference","Value","Footprint","Datasheet","Description","${DNP}"\n'
+    '"R2","4,7 kΩ","Mini:Mini_R_0603","","","DNP"\n'
+    '"R1","4,7 kΩ","Mini:Mini_R_0603","","",""\n'
+    '"R3","4,7 kΩ","Mini:Mini_R_0603","","",""\n'
+)
+"""A made-up bill as ``kicad-cli`` writes it: three resistors of one value, ``R2`` marked DNP. The value
+is not ASCII, so the fake tool's file must be UTF-8 bytes."""
+
+
+def _mixed_template(tmp_path: Path, exclude_dnp: bool) -> str:
+    """A template that groups by value and footprint, without ``dnp`` in ``group_by``."""
+    path = tmp_path / f"mixed-{exclude_dnp}.toml"
+    path.write_text(
+        "[bom]\n"
+        "columns = [\n"
+        '  { name = "Parts", field = "refs" },\n'
+        '  { name = "Count", field = "quantity" },\n'
+        '  { name = "Marking", field = "value" },\n'
+        '  { name = "Fit", field = "dnp" },\n'
+        "]\n"
+        'group_by = ["value", "footprint"]\n'
+        f"exclude_dnp = {str(exclude_dnp).lower()}\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return str(path)
+
+
+def test_kicad_source_keeps_dnp_parts_on_their_own_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Capability assembly-outputs, "DNP parts never share a line with fitted parts" (change c0094)."""
+    board = _with_schematic(tmp_path)
+    fake = fake_kicad_cli(tmp_path / "bin", bom=MIXED_EXPORT)
+    args = ("bom", str(board), "--kicad-cli", str(fake), "--template")
+    code, env, err, _ = run(monkeypatch, tmp_path, *args, _mixed_template(tmp_path, False))
+    assert code == 0, err
+    assert env["result"]["lines"] == [
+        {"Parts": "R1,R3", "Count": "2", "Marking": "4,7 kΩ", "Fit": ""},
+        {"Parts": "R2", "Count": "1", "Marking": "4,7 kΩ", "Fit": "DNP"},
+    ]
+    assert env["result"]["counts"] == {"parts": 3, "lines": 2, "dnp": 1, "left_out": None}
+    code, env, err, _ = run(monkeypatch, tmp_path, *args, _mixed_template(tmp_path, True))
+    assert code == 0, err
+    assert env["result"]["lines"] == [{"Parts": "R1,R3", "Count": "2", "Marking": "4,7 kΩ", "Fit": ""}]
+    assert env["result"]["counts"] == {"parts": 2, "lines": 1, "dnp": 1, "left_out": None}
+
+
+def test_model_source_keeps_dnp_parts_on_their_own_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The authored board with both parts given one value and footprint name in the template's eyes
+    (grouped by value alone) and ``R1`` marked DNP: two lines, and one when DNP parts are left out."""
+    text = FIXTURE.read_bytes().decode("utf-8")
+    edits = (('(property "Value" "LED"', '(property "Value" "330"'), ("(attr smd)", "(attr smd dnp)"))
+    for old, new in edits:
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    board = tmp_path / "mixed.kicad_pcb"
+    board.write_text(text, encoding="utf-8", newline="\n")
+    template = Path(_mixed_template(tmp_path, False))
+    template.write_text(
+        template.read_text(encoding="utf-8").replace('["value", "footprint"]', '["value"]'),
+        encoding="utf-8",
+        newline="\n",
+    )
+    args = ("bom", str(board), "--source", "model", "--template", str(template))
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, err
+    assert env["result"]["lines"] == [
+        {"Parts": "D1", "Count": "1", "Marking": "330", "Fit": ""},
+        {"Parts": "R1", "Count": "1", "Marking": "330", "Fit": "DNP"},
+    ]
+    assert env["result"]["counts"] == {"parts": 2, "lines": 2, "dnp": 1, "left_out": 0}
+    template.write_text(
+        template.read_text(encoding="utf-8").replace("exclude_dnp = false", "exclude_dnp = true"),
+        encoding="utf-8",
+        newline="\n",
+    )
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, err
+    assert env["result"]["lines"] == [{"Parts": "D1", "Count": "1", "Marking": "330", "Fit": ""}]
+    assert env["result"]["counts"] == {"parts": 1, "lines": 1, "dnp": 1, "left_out": 0}
+
+
 def test_kicad_source_writes_the_same_file_twice(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     board = _with_schematic(tmp_path)
     fake = fake_kicad_cli(tmp_path / "bin", bom=EXPORT)

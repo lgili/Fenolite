@@ -4,7 +4,8 @@
 assembly-outputs, "Neutral BOM parts and lines" and "BOM difference"; user guide ``docs/assembly.md``).
 
 A part is one component that goes on the bill. A line is the parts that share the values of the
-template's ``group_by`` fields. Nothing here reads a file or runs a tool, and no float is used.
+template's ``group_by`` fields and are all fitted or all DNP. Nothing here reads a file or runs a tool,
+and no float is used.
 """
 
 from __future__ import annotations
@@ -57,8 +58,9 @@ class BomPart:
 
 @dataclass(frozen=True, slots=True)
 class BomLine:
-    """The parts of one group: ``fields`` holds the text of every field the template names, and ``key``
-    the values of its ``group_by`` fields (the reference, when ``group_by`` is empty)."""
+    """The parts of one group, all DNP or all fitted: ``fields`` holds the text of every field the
+    template names, and ``key`` the values of its ``group_by`` fields (the reference, when ``group_by``
+    is empty), followed by ``DNP`` for a line of DNP parts when ``group_by`` does not name ``dnp``."""
 
     refs: tuple[str, ...]
     quantity: int
@@ -191,18 +193,26 @@ def group(parts: Iterable[BomPart], template: BomTemplate) -> tuple[BomLine, ...
     """The lines of ``parts`` under ``template``: DNP parts left out first when ``exclude_dnp`` is true,
     then one line per distinct value of the ``group_by`` fields (one line per part when it is empty).
 
-    References inside a line and lines among themselves are in natural order of the reference.
+    A DNP part never shares a line with a fitted part, whether or not ``group_by`` names ``dnp``: a line
+    is all DNP or all fitted. When ``group_by`` does not name ``dnp``, the key of a DNP line ends with
+    one more value, ``DNP``, so that the two lines of one value have two keys.
+
+    References inside a line and lines among themselves are in natural order of the reference: a DNP
+    line stands where its first reference puts it, like any other line.
     """
     kept = sorted(
         (part for part in parts if not (template.exclude_dnp and part.dnp)),
         key=lambda part: _ref_key(part.ref),
     )
+    mark_dnp = "dnp" not in template.group_by
     groups: dict[tuple[str, ...], list[BomPart]] = {}
     for part in kept:
-        if template.group_by:
-            key = tuple(part_value(part, name) for name in template.group_by)
-        else:
+        if not template.group_by:
             key = (part.ref,)
+        else:
+            key = tuple(part_value(part, name) for name in template.group_by)
+            if part.dnp and mark_dnp:
+                key = (*key, DNP_TEXT)
         groups.setdefault(key, []).append(part)
     names = dict.fromkeys((*(column.field for column in template.columns), *template.group_by))
     lines: list[BomLine] = []

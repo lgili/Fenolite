@@ -1133,6 +1133,11 @@ the grouping fields; `change`, one of `added`, `removed`, `changed`; `a_refs`, t
 `b_refs`, those in `PATH`). No value holds a date or an absolute path, and two runs on an unchanged
 project give the same output apart from `elapsed_ms`.
 
+With either source, a line is all DNP or all fitted: a DNP part never shares a line with a fitted part,
+whether or not the template's `group_by` names `dnp`. Lines are in the natural order of their first
+reference, DNP lines included. The `key` of a line of DNP parts ends with one more value, `DNP`, when
+`group_by` is not empty and does not name `dnp`.
+
 It is a mutating command that writes only with `--out FILE`: the plan then holds one write of kind `bom`,
 the CSV bytes of the table, and the mutation protocol applies (4 without `--dry-run` or `--confirm`).
 Without `--out` nothing is planned and the exit code is 0. The project folder never changes.
