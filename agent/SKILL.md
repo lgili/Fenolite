@@ -117,6 +117,9 @@ These commands read and answer; none of them runs a tool unless it says so.
   `checked`, `roundtrip-ok`, `native-verified`); it runs the stages of `check`, so it needs
   `kicad-cli`. Read `held` of an entry to see what its next state is missing. Before you hand a folder
   over, `fenolite manifest build/blink --verify` says whether its files are still the listed ones.
+- `fenolite kit build --out kit --confirm` writes the Altium verification kit, a run that a person performs
+  in Altium Designer; `fenolite kit verify kit` judges the files that run left. You cannot perform the run:
+  nothing starts Altium (`docs/altium-kit.md`).
 - **Undo.** Keep the envelope of a confirmed write. When `receipt.undo` is not `null`,
   `fenolite restore ENVELOPE.json --confirm` puts the backups back. It refuses when a file changed since
   the write, and it never deletes a file.

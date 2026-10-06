@@ -327,3 +327,148 @@ def test_a_synthetic_id_elsewhere_fails(tmp_path: Path) -> None:
     assert citation_problems(root) == [
         "tests/unit/test_other.py: H-K-1 is not registered in docs/hypotheses.md"
     ]
+
+
+# --- kit label rows (capability verification-evidence, "Kit label rows"; change c0091) -------------------
+
+
+def kit_label_problems(rows: Sequence[HypothesisRow], root: Path) -> list[str]:
+    """One message per row that carries ``ALTIUM-VERIFIED(kit; …)`` without a committed, passing, current
+    run record under ``root`` (``fenolite.verify.kit.record.label_problems``). The kit that the tree builds
+    is built only when a row carries the label."""
+    if not any(row.level is Level.ALTIUM_VERIFIED_KIT for row in rows):
+        return []
+    from fenolite.cli._kit import kit_sources
+    from fenolite.verify.kit.manifest import kit_files, read_kit
+    from fenolite.verify.kit.record import label_problems, load_records
+
+    kit = read_kit(kit_files(kit_sources())["kit.json"])
+    return label_problems(rows, load_records(root), kit)
+
+
+def test_kit_labels_of_the_register_have_their_record() -> None:
+    problems = kit_label_problems(load_register(ROOT / REGISTER), ROOT)
+    assert not problems, "\n".join(problems)
+
+
+KIT_RUN = "2026-11-01-abcdef12"
+KIT_LABEL = f"ALTIUM-VERIFIED(kit; AD 26.5; 2026-11-01; {KIT_RUN})"
+KIT_ARCHIVE = "abcdef12" + "0" * 56
+
+
+def _kit_record(**changes: object) -> dict[str, object]:
+    """A run record written out for these tests: it is no run, and it is written only into a test folder."""
+    from fenolite.cli._kit import kit_sources
+    from fenolite.verify.kit.manifest import kit_files, read_kit
+    from fenolite.verify.kit.record import RUN_SCHEMA, step_source
+
+    kit = read_kit(kit_files(kit_sources())["kit.json"])
+    steps = [
+        {
+            "id": s.id,
+            "kind": s.kind,
+            "outcome": "pass",
+            "scripted": False,
+            "pending": [],
+            "source": step_source(kit, s),
+        }
+        for s in kit.steps
+    ]
+    record: dict[str, object] = {
+        "schema": RUN_SCHEMA,
+        "run_id": KIT_RUN,
+        "date": "2026-11-01",
+        "synthetic": False,
+        "kit_sha256": kit.digest,
+        "kit_version": 1,
+        "kit_fenolite_version": "0",
+        "fenolite_version": "0",
+        "altium_version": "AD 26.5",
+        "os_family": "Windows",
+        "samples": dict(kit.samples),
+        "script_sha256": kit.script_sha256,
+        "steps": steps,
+        "hypotheses": [
+            {"id": "H-A-KIT-RESAVE", "outcome": "pass", "form": False},
+            {"id": "H-A-PCBX-STACK", "outcome": "pass", "form": True},
+            {"id": "H-A-KIT-COMPILE", "outcome": "fail", "form": True},
+        ],
+        "results": [],
+        "privacy_findings": 0,
+        "archive": {"name": f"altium-kit-{KIT_RUN}.zip", "sha256": KIT_ARCHIVE, "size": 1},
+    }
+    record.update(changes)
+    return record
+
+
+def _committed(root: Path, record: Mapping[str, object]) -> Path:
+    import json
+
+    folder = root / "docs" / "evidence" / "altium-kit"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{record['run_id']}.json").write_text(json.dumps(record), encoding="utf-8", newline="\n")
+    return root
+
+
+def _kit_row(
+    ident: str = "H-A-KIT-RESAVE", result: str = f"confirmed (archive {KIT_ARCHIVE})"
+) -> HypothesisRow:
+    return _row(ident, level=KIT_LABEL, result=result)
+
+
+def test_kit_label_without_a_record(tmp_path: Path) -> None:
+    """Scenario "Label without a record": the row and the missing record are named."""
+    assert kit_label_problems([_kit_row()], tmp_path) == [
+        f"H-A-KIT-RESAVE: no run record {KIT_RUN}.json under docs/evidence/altium-kit"
+    ]
+
+
+def test_kit_label_with_a_record(tmp_path: Path) -> None:
+    """Scenario "Label with a record"."""
+    root = _committed(tmp_path, _kit_record())
+    assert kit_label_problems([_kit_row()], root) == []
+    typed = _kit_row("H-A-PCBX-STACK", f"confirmed (archive {KIT_ARCHIVE}); typed value (form)")
+    assert kit_label_problems([_kit_row(), typed], root) == []
+
+
+def test_kit_label_refusals(tmp_path: Path) -> None:
+    """A row that the run did not pass, a result text without the archive digest or without ``form``."""
+    root = _committed(tmp_path, _kit_record())
+    for row, text in (
+        (_kit_row("H-A-KIT-COMPILE"), "no passing verdict"),
+        (_kit_row("H-A-KIT-DRC"), "no passing verdict"),
+        (_kit_row(result="confirmed"), "archive digest"),
+        (_kit_row("H-A-PCBX-STACK"), "'form'"),
+    ):
+        problems = kit_label_problems([row], root)
+        assert len(problems) == 1 and text in problems[0], problems
+
+
+def test_kit_label_of_a_synthetic_record(tmp_path: Path) -> None:
+    """A record that says synthetic is not a record: the loader refuses the folder."""
+    from fenolite.core.errors import FormatError
+
+    root = _committed(tmp_path, _kit_record(synthetic=True))
+    with pytest.raises(FormatError, match="synthetic"):
+        kit_label_problems([_kit_row()], root)
+
+
+def test_kit_label_of_a_stale_run(tmp_path: Path) -> None:
+    """A run whose sample has other bytes than the kit the tree builds is stale for the rows of that
+    sample, and only for them."""
+    record = _kit_record()
+    samples = {**record["samples"], "board6": "0" * 64}  # type: ignore[dict-item]
+    steps = [
+        {**step, "source": "0" * 64} if step["id"].startswith("K5.") else step
+        for step in record["steps"]  # type: ignore[union-attr]
+    ]
+    root = _committed(tmp_path, {**record, "samples": samples, "steps": steps})
+    typed = _kit_row("H-A-PCBX-STACK", f"confirmed (archive {KIT_ARCHIVE}); typed value (form)")
+    flat_only = _row("H-A-SCHDOT-STRINGS", level=KIT_LABEL)
+    problems = kit_label_problems([typed, flat_only], root)
+    assert any(p.startswith("H-A-PCBX-STACK: its kit run is stale") for p in problems)
+    assert not any(p.startswith("H-A-SCHDOT-STRINGS: its kit run is stale") for p in problems)
+
+
+def test_rows_without_a_kit_label_need_no_kit(tmp_path: Path) -> None:
+    assert kit_label_problems([_row("H-K-UNIT")], tmp_path) == []

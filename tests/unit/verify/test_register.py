@@ -92,7 +92,9 @@ def test_settling_tests_are_named() -> None:
 
 def test_families_of_the_live_register() -> None:
     families = load_families(LIVE)
-    assert {"H-A-WRITE-*", "H-A-PH-*"} <= set(families)
+    # c0091 named the kit steps of the eight rows of these two families, so they are no longer reserved
+    assert not {"H-A-WRITE-*", "H-A-PH-*"} & set(families)
+    assert sum(1 for row in load_register(LIVE) if row.id.startswith(("H-A-WRITE-", "H-A-PH-"))) == 8
     assert "H-K-KRT-*" not in families
     # c0023 registered its rows, so its family is no longer reserved
     assert "H-G-DSN-*" not in families

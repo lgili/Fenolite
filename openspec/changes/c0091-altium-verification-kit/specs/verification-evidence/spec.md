@@ -15,3 +15,25 @@ A register row SHALL carry `ALTIUM-VERIFIED(kit; AD <major>.<minor>; <date>; <ru
 - **GIVEN** the same row and a committed record of that run with a passing verdict for the row
 - **WHEN** the register test runs
 - **THEN** it passes
+
+## MODIFIED Requirements
+
+### Requirement: Reserved id families
+`docs/hypotheses.md` SHALL state, above the register table, the following rules:
+- ids keep the prefixes `H-A-` (second backend), `H-G-` (general) and `H-K-` (KiCad);
+- rows about a tool acting on KiCad files use `H-K-`, and routing rows use the `H-K-KRT-` prefix;
+- Specctra rows use `H-G-DSN-*`, with backend `specctra`.
+
+It SHALL also hold a reserved-families table with the header `| family | backend | rows for | owner |`. `fenolite.verify.load_families(path)` SHALL return the families of that table as written.
+- Family cells MUST be written in backticks. A family cell, stripped and with one pair of enclosing backticks removed, MUST fully match an id stem followed by `-*`. Otherwise `load_families` MUST raise `ValueError` naming `<path>:<line>`.
+- A file without a reserved-families table MUST give the empty tuple. A file with two such tables MUST raise `ValueError` naming the path.
+- A family MUST be removed from the table once its rows are registered and each of them names its settling test. The table MUST NOT list `H-A-WRITE-*` or `H-A-PH-*`: their eight rows are registered and each names the kit steps that settle it (`altium-verification`, "Kit steps settle hypotheses"). It MUST NOT list `H-G-DSN-*` or `H-K-KRT-*`, whose rows are registered.
+
+#### Scenario: Families of the live register
+- **WHEN** `load_families("docs/hypotheses.md")` is called
+- **THEN** the result contains none of `"H-A-WRITE-*"`, `"H-A-PH-*"`, `"H-G-DSN-*"` and `"H-K-KRT-*"`
+
+#### Scenario: Reserved family
+- **GIVEN** a temporary register holding only `H-K-UNIT`, whose reserved-families table lists `H-A-WRITE-*`, and `docs/x.md` citing `H-A-WRITE-*`
+- **WHEN** `citation_problems(tree)` is called
+- **THEN** it returns no problem

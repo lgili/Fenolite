@@ -1757,6 +1757,51 @@ meaning = "An unlocked zone() differs from the zone on the board, and the board'
 fix = "Nothing to do; lock the zone() to make the script win."
 see = "build"
 
+["kit.file-changed"]
+meaning = "A file of the kit is missing or no longer has the SHA-256 that kit.json gives it. Every step of that sample fails, and no run is recorded from such a folder."
+fix = "Build the kit again with 'fenolite kit build' and repeat the run; change nothing outside results/."
+see = "kit"
+
+["kit.form"]
+meaning = "results/form.json is not sound as a whole: its schema, the tool version (AD <major>.<minor>), the system, the date or its fields."
+fix = "Fill the form as STEPS.md says, and keep exactly the fields the blank form has."
+see = "kit"
+
+["kit.pending"]
+meaning = "A check of a kit step was not run because the change that implements it is not there yet. The step passes on what was checked, and the rows that need the check stay pending."
+fix = "Nothing to do; the check runs once that change is implemented."
+see = "kit"
+
+["kit.privacy"]
+meaning = "A result file holds a string that looks like a home folder path or a login name. result.privacy gives the file, the byte offset and the string."
+fix = "Read the list before publishing the archive; save the document again from a neutral folder if the string must not be published."
+see = "kit"
+
+["kit.record-refused"]
+meaning = "kit record wrote nothing: the run is synthetic, a file of the kit differs from kit.json, the form is not sound, or a record of that run exists with other content."
+fix = "Record a run that a tool performed on an unchanged kit; a committed record is never edited."
+see = "kit"
+
+["kit.stale"]
+meaning = "A register row carries the label of a kit run, and a sample that the row's steps use has other bytes in the kit the tree builds now."
+fix = "Record a new run, or set the row back to the level it had and name the stale run in its result."
+see = "kit"
+
+["kit.step-failed"]
+meaning = "A step of the kit failed: its result file does not pass a check, or its typed value is not the expected one. The message holds the reasons."
+fix = "Read the reasons; repeat the step in Altium, or report the difference: a failed step refutes the rows it names."
+see = "kit"
+
+["kit.step-skipped"]
+meaning = "A step of the kit was not done: its result file does not exist, or no value is typed. The rows it settles stay as they are."
+fix = "Do the step, or leave it: a run may leave groups out."
+see = "kit"
+
+["kit.synthetic"]
+meaning = "The form says that the run is synthetic, or does not say that it is not: no tool saved its files. Such a run verifies nothing and is never recorded."
+fix = "Set synthetic to false only in the form of a run that was performed in Altium."
+see = "kit"
+
 ["layout.alias-unused"]
 meaning = "A moved() alias matched nothing on the board, or its part was already matched in another way."
 fix = "Remove the alias from the script."

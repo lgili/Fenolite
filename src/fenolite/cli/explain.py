@@ -49,6 +49,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.checks.parity", "PARITY_ISSUE_CODES"),
     ("fenolite.cli.cmd_doctor", "ISSUE_CODES"),
     ("fenolite.cli.cmd_fmt", "ISSUE_CODES"),
+    ("fenolite.cli.cmd_kit", "ISSUE_CODES"),
     ("fenolite.cli.cmd_restore", "ISSUE_CODES"),
     ("fenolite.cli.cmd_roundtrip", "ISSUE_CODES"),
     ("fenolite.exports.codes", "ISSUE_CODES"),

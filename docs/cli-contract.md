@@ -1850,3 +1850,58 @@ Exit codes: 0 when the manifest is planned or written, or verified; 4 without `-
 (`FEN-6001`; the hint names `--no-check` and `--stages`) or it is unsupported (`FEN-6002`). The evidence
 is that of the stages that ran, combined as `check` combines them, with the schematic reader's when a
 sheet was judged; it is `UNVERIFIED` with `--no-check` and `--verify`.
+
+## kit
+
+`fenolite kit build --out DIR [--samples DIR]`, `fenolite kit verify DIR`, `fenolite kit record DIR --out
+REPO` and `fenolite kit status [--repo DIR] [--samples DIR]` are the Altium verification kit: a fixed
+acceptance run that a person performs in Altium Designer on their own machine, and whose results are files
+(`docs/altium-kit.md`). Nothing starts or drives Altium.
+
+```
+fenolite kit build --out kit --confirm --json
+fenolite kit verify kit --json
+fenolite kit record kit --out . --dry-run --json
+fenolite kit status --json
+```
+
+- **`build`** writes the kit under the rules of "Writing files": `kit.json` (schema
+  `fenolite.altium-kit.v0`), `STEPS.md`, `kit_script.pas`, one folder per sample and `results/form.json`.
+  It builds the scripts under `examples/kit/` of a source checkout (`--samples` names another folder) and
+  runs no external tool. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
+  two builds of one commit are equal byte for byte. `result` holds `kit_sha256`, `samples` with their
+  digests, `steps`, `scripted` and `files`.
+- **`verify`** is read-only. `result` holds `steps` (per step `outcome`: `pass`, `fail` or `skipped`, its
+  `reasons`, `scripted` and its `pending` checks), `hypotheses` (per register row `pass`, `fail`,
+  `skipped` or `pending`, and `form` when the verdict rests on a typed value), `privacy` (file, byte
+  offset, kind and string of what looks like a home folder or a login name), `kit_problems`,
+  `form_problems`, `synthetic` and `passed`.
+- **`record`** is a mutating command. It writes `results.zip` beside `DIR` and the run record
+  `REPO/docs/evidence/altium-kit/<run id>.json` (schema `fenolite.altium-kit-run.v0`), and lists in
+  `result.rows` the register rows whose label may change, each with `label`, `form` and the `result` text
+  of its row. It refuses a synthetic run, a kit whose files differ from `kit.json`, a form that is not
+  sound, and a record that exists with other content (`kit.record-refused`, exit 5, nothing planned).
+- **`status`** is read-only: `result.runs` lists the committed records of the repository and
+  `result.stale` the register rows whose kit run is stale. In a folder without a record both are empty.
+- The evidence is `ALTIUM-VERIFIED(kit)` only for `verify` and `record` of a run in which every step
+  passed and that is not synthetic; it is `INFERRED` otherwise.
+
+| code | severity | when |
+|---|---|---|
+| `kit.file-changed` | error | a file of the kit is missing or differs from its digest in `kit.json` |
+| `kit.form` | error | `results/form.json` is not sound as a whole (schema, tool version, system, date, fields) |
+| `kit.step-failed` | error | a result file fails a check, or a typed value is not the expected one |
+| `kit.record-refused` | error | `record` wrote nothing; the message says why |
+| `kit.synthetic` | warning | the form does not say that a tool performed the run |
+| `kit.privacy` | warning | a result file holds what looks like a home folder or a login name |
+| `kit.stale` | warning | `status`: a row's kit run is stale |
+| `kit.step-skipped` | info | a step was not done |
+| `kit.pending` | info | a check of a step waits for a change that is not implemented, and was not run |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run or a confirmed write; `verify` with no failed step; `status` |
+| 2 | `FEN-2001` | an argument that the action does not take, or a missing `--out` or `DIR` |
+| 3 | `FEN-3001` | `DIR` holds no `kit.json`; the sample scripts are missing or do not build |
+| 4 | `FEN-4001` | `build` or `record` with neither `--dry-run` nor `--confirm` |
+| 5 | `FEN-5001` | a step failed, a kit file changed, the form is not sound, or `record` refused |

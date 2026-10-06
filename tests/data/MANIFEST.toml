@@ -1115,6 +1115,36 @@ corpus_id = ""
 notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
 
 [[file]]
+path = "examples/kit/board6/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the circuit of flat on six copper layers with a plane, blind and buried vias, texts, graphics, a keep-out and a hole (c0091)"
+
+[[file]]
+path = "examples/kit/flat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: a controller, a resistor, an LED and a connector on one sheet with a drawing sheet and a title block, on the catalog (c0091)"
+
+[[file]]
+path = "examples/kit/libs/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: seven catalog parts, for the schematic and PCB libraries the build writes (c0091)"
+
+[[file]]
+path = "examples/kit/routed/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the circuit of flat with tracks, vias, a polygon, five rules and two planted violations (c0091)"
+
+[[file]]
+path = "examples/kit/tree/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the tree of c0086 with its bus added by kit_model (c0091)"
+
+[[file]]
 path = "tests/data/altium/read/project_utf8.PrjPcb"
 origin = "authored"
 corpus_id = ""

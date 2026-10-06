@@ -64,7 +64,7 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
 | `KICAD-VERIFIED` | accepted by `kicad-cli` of the stated version, and the claim confirmed by its output |
 | `ORACLE-VERIFIED(<tool>)` | an independent parser or tool agreed |
 | `CORPUS-VERIFIED` | round-trip holds on public files listed in the corpus manifest |
-| `ALTIUM-VERIFIED(kit)` | confirmed by a native-tool acceptance run with archived results |
+| `ALTIUM-VERIFIED(kit)` | confirmed by a native-tool acceptance run with archived results: a run of the verification kit that `fenolite kit` builds, checks and records ([docs/altium-kit.md](docs/altium-kit.md)) |
 | `ALTIUM-VERIFIED(author-report)` | reported by the author from ordinary use; never enough for a release claim |
 | `INFERRED` | deduced from public documentation; a hypothesis in `docs/hypotheses.md` tracks it |
 | `UNKNOWN` | bytes or fields preserved without interpretation |
