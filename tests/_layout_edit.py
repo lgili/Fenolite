@@ -11,9 +11,12 @@ form the board already uses: numbers with a table up to 9.0, names from board ve
 
 from __future__ import annotations
 
+import posixpath
 import re
+from collections.abc import Callable, Mapping
 from fractions import Fraction
 
+from fenolite.backends.kicad.netnames import stored_name
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.core.coords import Point
@@ -70,6 +73,87 @@ def move_footprint(text: str, ref: str, dx: Nm, dy: Nm) -> str:
     return dumps(root.with_children(children), style="kicad")
 
 
+def _edit_footprint(text: str, ref: str, change: Callable[[Node], Node]) -> str:
+    root = parse(text)
+    children: list[Node | Atom] = []
+    found = 0
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "footprint" and _reference(child) == ref:
+            child = change(child)
+            found += 1
+        children.append(child)
+    assert found == 1, f"{ref}: {found} footprints"
+    return dumps(root.with_children(children), style="kicad")
+
+
+def move_property(text: str, ref: str, name: str, dx: Nm, dy: Nm) -> str:
+    """``text`` with the property ``name`` of the footprint of ``ref`` moved by ``(dx, dy)``."""
+
+    def change(fp: Node) -> Node:
+        return fp.with_children(
+            [
+                _shift_at(c, dx, dy)
+                if isinstance(c, Node) and c.name == "property" and c.atoms()[0].value == name
+                else c
+                for c in fp.children
+            ]
+        )
+
+    return _edit_footprint(text, ref, change)
+
+
+def add_to_footprint(text: str, ref: str, item: str) -> str:
+    """``text`` with the node ``item`` appended inside the footprint of ``ref``."""
+    return _edit_footprint(text, ref, lambda fp: fp.with_children([*fp.children, parse(item)]))
+
+
+def footprint_node(text: str, ref: str) -> Node:
+    """The ``footprint`` node of ``ref``."""
+    (found,) = [
+        c
+        for c in parse(text).children
+        if isinstance(c, Node) and c.name == "footprint" and _reference(c) == ref
+    ]
+    return found
+
+
+def node_uuid(node: Node) -> str:
+    found = node.find("uuid")
+    assert found is not None
+    return found.atoms()[0].value
+
+
+def add_group(text: str, uuid: str, *refs: str, name: str = "") -> str:
+    """``text`` with a root ``group`` of uuid ``uuid`` whose members are the footprints of ``refs``."""
+    members = " ".join(f'"{node_uuid(footprint_node(text, ref))}"' for ref in refs)
+    return add_items(text, f'(group "{name}" (uuid "{uuid}") (members {members}))')
+
+
+def group_members(text: str, uuid: str) -> list[str]:
+    """The member uuids of the root group ``uuid``, in order."""
+    (group,) = [
+        c for c in parse(text).children if isinstance(c, Node) and c.name == "group" and node_uuid(c) == uuid
+    ]
+    members = group.find("members")
+    assert members is not None
+    return [a.value for a in members.atoms()]
+
+
+def move_symbol(text: str, ref: str, dx: Nm, dy: Nm) -> str:
+    """The schematic ``text`` with the symbol of ``ref`` moved by ``(dx, dy)``: its ``at`` only, as a drag
+    of the symbol's origin; the stand-in for moving a symbol in KiCad's schematic editor."""
+    root = parse(text)
+    children: list[Node | Atom] = []
+    found = 0
+    for child in root.children:
+        if isinstance(child, Node) and child.name == "symbol" and _reference(child) == ref:
+            child = _shift_at(child, dx, dy)
+            found += 1
+        children.append(child)
+    assert found == 1, f"{ref}: {found} symbols"
+    return dumps(root.with_children(children), style="kicad")
+
+
 def add_items(text: str, *items: str) -> str:
     """``text`` with each item text appended as a root child, before the closing parenthesis."""
     root = parse(text)
@@ -79,6 +163,7 @@ def add_items(text: str, *items: str) -> str:
 def net_ref(text: str, name: str, *, zone: bool = False, pad: bool = False) -> str:
     """The reference of net ``name`` in the form ``text`` uses (a ``net_name`` follows for a 9.0 zone, and a
     9.0 pad names the net after its number)."""
+    name = stored_name(name)  # a board stores a slash of a net name as {slash} (c0061)
     match = re.search(rf'^\t\(net (\d+) "{re.escape(name)}"\)', text, flags=re.M)
     if match is None:
         return f'(net "{name}")'
@@ -140,14 +225,133 @@ def add_filled_zone(text: str, *, net: str, layer: str) -> str:
     return add_items(text, zone)
 
 
+def _symbols(schematic_text: str) -> tuple[str, dict[str, tuple[int, str, dict[str, str]]]]:
+    """The project name of a schematic, and per reference the lowest unit with its uuid and field texts."""
+    found: dict[str, tuple[int, str, dict[str, str]]] = {}
+    project = ""
+    for symbol in parse(schematic_text).nodes("symbol"):
+        fields = {p.atoms()[0].value: p.atoms()[1].value for p in symbol.nodes("property")}
+        unit = int(symbol.find("unit").atoms()[0].value)  # type: ignore[union-attr]
+        uuid = symbol.find("uuid").atoms()[0].value  # type: ignore[union-attr]
+        instances = symbol.find("instances")
+        if instances is not None and instances.find("project") is not None:
+            project = instances.find("project").atoms()[0].value  # type: ignore[union-attr]
+        ref = fields.get("Reference", "")
+        if ref not in found or unit < found[ref][0]:
+            found[ref] = (unit, uuid, fields)
+    return project, found
+
+
+def _sheet_boxes(text: str) -> list[tuple[str, str, str]]:
+    """The uuid, ``Sheetname`` and ``Sheetfile`` of each sheet reference of a schematic text."""
+    found: list[tuple[str, str, str]] = []
+    for box in parse(text).nodes("sheet"):
+        fields = {p.atoms()[0].value: p.atoms()[1].value for p in box.nodes("property")}
+        found.append((node_uuid(box), fields.get("Sheetname", ""), fields.get("Sheetfile", "")))
+    return found
+
+
+def _placed_symbols(
+    texts: Mapping[str, str],
+) -> tuple[str, dict[str, tuple[str, str, str, dict[str, str]]]]:
+    """Per reference the footprint path, sheet name, sheet file and field texts of its symbol, over the
+    root (the first text) and the child sheets it names, each keyed by its path from the root's folder."""
+    (root_key, root_text), *_ = texts.items()
+    found: dict[str, tuple[str, str, str, dict[str, str]]] = {}
+    project = ""
+    todo: list[tuple[str, str, str, str]] = [(root_key, "", "/", "")]
+    while todo:
+        key, prefix, sheetname, sheetfile = todo.pop(0)
+        name, symbols = _symbols(texts[key])
+        project = project or name
+        shown = sheetfile or f"{project}.kicad_sch"
+        for ref, (_, uuid, fields) in symbols.items():
+            found.setdefault(ref, (f"{prefix}/{uuid}", sheetname, shown, fields))
+        for uuid, box_name, file in _sheet_boxes(texts[key]):
+            child = posixpath.normpath(posixpath.join(posixpath.dirname(key), file))
+            if child in texts:
+                todo.append((child, f"{prefix}/{uuid}", box_name, file))
+    return project, found
+
+
+def update_from_schematic(board_text: str, schematic_text: str | Mapping[str, str]) -> str:
+    """The stand-in for KiCad's "Update PCB from Schematic" (c0061 Decision 18; ``H-K-SCH-UPDATE``).
+
+    Each footprint whose reference a symbol of the schematic has gets ``(sheetname "/")`` and
+    ``(sheetfile "<project>.kicad_sch")``, its ``path`` set to ``/<symbol uuid>`` (the symbol's lowest
+    unit), and each of its properties that the symbol also has rewritten with the symbol's text. Nothing
+    else changes. What the real update writes is the maintainer's report, not this function.
+
+    ``schematic_text`` is the text of a flat schematic, or the texts of a hierarchy keyed by their path
+    from the root's folder, the root first (c0070). A footprint whose symbol is in a child sheet gets the
+    path ``/<uuids of the sheet references from the top down>/<symbol uuid>``, the ``Sheetname`` of the
+    reference to that sheet as ``sheetname`` and the ``Sheetfile`` text that names its file as
+    ``sheetfile``: what ``kicad-cli``'s netlist lists for the component. What the real update writes
+    there was not measured (``H-K-SCH-HIER-PATH``).
+    """
+    texts = {"": schematic_text} if isinstance(schematic_text, str) else dict(schematic_text)
+    _, symbols = _placed_symbols(texts)
+    root = parse(board_text)
+    out: list[Node | Atom] = []
+    for child in root.children:
+        ref = _reference(child) if isinstance(child, Node) and child.name == "footprint" else None
+        if not isinstance(child, Node) or ref is None or ref not in symbols:
+            out.append(child)
+            continue
+        symbol_path, sheetname, sheetfile, fields = symbols[ref]
+        sheet = [
+            Node(Atom.symbol("sheetname"), (Atom.string(sheetname),)),
+            Node(Atom.symbol("sheetfile"), (Atom.string(sheetfile),)),
+        ]
+        path = Node(Atom.symbol("path"), (Atom.string(symbol_path),))
+        kids: list[Node | Atom] = []
+        placed = False
+        for kid in child.children:
+            if isinstance(kid, Node) and kid.name in ("sheetname", "sheetfile"):
+                continue
+            if isinstance(kid, Node) and kid.name == "property":
+                atoms = [a for a in kid.children if isinstance(a, Atom)]
+                if len(atoms) >= 2 and atoms[0].value in fields and atoms[1].value != fields[atoms[0].value]:
+                    parts = list(kid.children)
+                    parts[parts.index(atoms[1])] = Atom.string(fields[atoms[0].value])
+                    kid = kid.with_children(parts)
+            if isinstance(kid, Node) and kid.name == "path":
+                kids += [path, *sheet]
+                placed = True
+                continue
+            if (
+                not placed
+                and isinstance(kid, Node)
+                and (
+                    kid.name in ("attr", "pad", "zone", "group", "model", "embedded_fonts")
+                    or kid.name.startswith("fp_")
+                )
+            ):
+                kids += [path, *sheet]
+                placed = True
+            kids.append(kid)
+        if not placed:
+            kids += [path, *sheet]
+        out.append(child.with_children(kids))
+    return dumps(root.with_children(out), style="kicad")
+
+
 __all__ = [
     "D1_SHIFT",
     "EDIT_UUIDS",
     "ZONE_UUID",
     "add_filled_zone",
+    "add_group",
     "add_items",
+    "add_to_footprint",
     "edit_blink",
+    "footprint_node",
+    "group_members",
     "move_footprint",
+    "move_property",
+    "move_symbol",
     "net_ref",
+    "node_uuid",
     "pad_position",
+    "update_from_schematic",
 ]

@@ -15,6 +15,7 @@ import fenolite.dsl as dsl
 from fenolite.core.coords import Point
 from fenolite.dsl import (
     BOARD_ORIGIN,
+    ArcStep,
     Design,
     DslError,
     Net,
@@ -25,6 +26,7 @@ from fenolite.dsl import (
     TrackIntent,
     ViaIntent,
     ViaStep,
+    arc_to,
     connect,
     copper,
     mm,
@@ -224,3 +226,108 @@ def test_example_script() -> None:
     assert [(s.layer, s.diameter, s.drill) for s in steps] == [("B.Cu", 600_000, 300_000)] * 2
     text = ROUTED.read_text(encoding="utf-8")
     assert text.startswith("# SPDX-License-Identifier: CC0-1.0\n# Authored for Fenolite as an example")
+
+
+# --- arc steps and via kinds (change c0068) ---------------------------------------------------------
+
+
+def test_arc_step_recorded() -> None:
+    """Scenario "Arc step recorded"."""
+    design, _, _, gnd = _blink()
+    design.track(
+        "bend",
+        (mm(10), mm(10)),
+        arc_to((mm(11), mm(11)), (mm(10), mm(12))),
+        (mm(10), mm(15)),
+        net=gnd,
+        width=mm(0.25),
+    )
+    (intent,) = copper(design)
+    assert isinstance(intent, TrackIntent)
+    assert intent.path == (
+        Point(110_000_000, 110_000_000),
+        ArcStep(Point(111_000_000, 111_000_000), Point(110_000_000, 112_000_000)),
+        Point(110_000_000, 115_000_000),
+    )
+    assert (intent.net, intent.width, intent.layer) == ("GND", 250_000, "F.Cu")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        intent.path[1].mid = Point(0, 0)  # type: ignore[misc,union-attr]
+
+
+def test_via_kinds_recorded_and_earlier_calls_unchanged() -> None:
+    """Scenario "Via kinds recorded, earlier calls unchanged"."""
+    design, r1, d1, gnd = _blink()
+    design.track(
+        "inner", (mm(1), mm(1)), via_step(mm(5), mm(5), to="In1.Cu", kind="blind"), (mm(9), mm(5)), net=gnd
+    )
+    design.via("core", mm(8), mm(8), net=gnd, kind="buried", layers=("In1.Cu", "In2.Cu"))
+    design.via("plain", mm(9), mm(9), net=gnd)
+    design.track(
+        "led_a", r1.pad(2), (mm(36), mm(9)), via_step(mm(36), mm(14), to="B.Cu"), d1.pad(2), width=mm(0.3)
+    )
+    core, inner, led_a, plain = copper(design)
+    assert isinstance(inner, TrackIntent) and isinstance(core, ViaIntent) and isinstance(led_a, TrackIntent)
+    step = inner.path[1]
+    assert isinstance(step, ViaStep) and step.kind == "blind" and step.layer == "In1.Cu"
+    assert (core.kind, core.layers) == ("buried", ("In1.Cu", "In2.Cu"))
+    assert isinstance(plain, ViaIntent) and (plain.kind, plain.layers) == ("through", None)
+    # new fields come last and have defaults: the values earlier scripts and tests build compare equal
+    assert led_a.path[2] == ViaStep(Point(136_000_000, 114_000_000), "B.Cu", None, None)
+    assert plain == ViaIntent("plain", Point(109_000_000, 109_000_000), "GND", None, None)
+
+
+@pytest.mark.parametrize("kind", ["through", "blind", "buried", "micro"])
+def test_the_four_via_kinds(kind: str) -> None:
+    assert via_step(mm(1), mm(1), to="B.Cu", kind=kind).kind == kind
+
+
+def test_refused_arc_and_via_calls() -> None:
+    """Scenario "Refused arc and via calls"."""
+    design, r1, _, gnd = _blink()
+    with pytest.raises(DslError, match="arc step"):
+        design.track("k", arc_to((mm(1), mm(1)), (mm(2), mm(0))), r1.pad(1))
+    with pytest.raises(DslError, match="same point"):
+        arc_to((mm(1), mm(1)), (mm(1), mm(1)))
+    with pytest.raises(DslError, match="laser"):
+        via_step(mm(1), mm(1), to="B.Cu", kind="laser")
+    with pytest.raises(DslError, match="layers"):
+        design.via("v", mm(1), mm(1), net=gnd, layers=("F.Cu", "B.Cu"))
+    with pytest.raises(DslError, match="layers"):
+        design.via("w", mm(1), mm(1), net=gnd, kind="blind")
+    for layers in (
+        ("F.Cu",),
+        ("F.Cu", "F.Cu"),
+        ("F.Cu", ""),
+        "F.Cu",
+        ("F.Cu", "In1.Cu", "B.Cu"),
+        ("F.Cu", 2),
+    ):
+        with pytest.raises(DslError, match="layers"):
+            design.via("x", mm(1), mm(1), net=gnd, kind="blind", layers=layers)
+    with pytest.raises(DslError, match="kind"):
+        design.via("y", mm(1), mm(1), net=gnd, kind="laser")
+    with pytest.raises(DslError, match="point"):
+        arc_to(mm(1), (mm(1), mm(1)))
+    assert copper(design) == ()
+
+
+def test_arc_step_counts_as_its_end_point_in_a_path() -> None:
+    design, _, _, gnd = _blink()
+    bend = arc_to((mm(11), mm(11)), (mm(10), mm(12)))
+    with pytest.raises(DslError, match=r"path\[1\] and path\[2\]"):
+        design.track("same", (mm(10), mm(10)), bend, (mm(10), mm(12)), net=gnd)
+    # an arc that returns to where the path element before it is: two consecutive elements at one point
+    with pytest.raises(DslError, match=r"path\[0\] and path\[1\]"):
+        design.track("loop", (mm(10), mm(12)), bend, (mm(10), mm(15)), net=gnd)
+    design.track("two", (mm(10), mm(10)), bend, arc_to((mm(9), mm(13)), (mm(10), mm(14))), net=gnd)
+    (intent,) = copper(design)
+    assert isinstance(intent, TrackIntent) and [type(e).__name__ for e in intent.path] == [
+        "Point",
+        "ArcStep",
+        "ArcStep",
+    ]
+
+
+def test_arc_and_kind_reexports() -> None:
+    for name in ("ArcStep", "arc_to"):
+        assert name in dsl.__all__ and hasattr(dsl, name)

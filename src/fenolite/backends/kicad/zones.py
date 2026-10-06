@@ -11,6 +11,8 @@ script with those of an existing board for the layout lens. This module imports 
 ``_fpmap``: both call it.
 """
 
+# evidence: see pcb
+
 from __future__ import annotations
 
 import uuid
@@ -18,13 +20,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from types import MappingProxyType
-from typing import get_args
+from typing import Protocol, get_args
 
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import FENOLITE_NS, derived_id
 from fenolite.core.units import format_angle, parse_angle
 from fenolite.model.board import (
+    FootprintInstance,
     HatchBorder,
     IslandRemoval,
     Zone,
@@ -594,6 +597,152 @@ def merge_zones(built: Design, board: Design) -> ZoneMerge:
     )
 
 
+# --- pad zone connections of a script (design-dsl, "Pad zone connections in a build"; c0068) ---------
+
+
+class PadZoneRequestLike(Protocol):
+    """A request for how zones connect to pads of one part (the DSL's ``PadZoneRequest``), read by
+    attribute, so this module never imports the DSL."""
+
+    @property
+    def number(self) -> str: ...
+
+    @property
+    def index(self) -> int | None: ...
+
+    @property
+    def connection(self) -> str: ...
+
+    @property
+    def locked(self) -> bool: ...
+
+
+PAD_ZONE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
+    {
+        "kicad.pad.zone-forced": "warning",
+        "kicad.pad.zone-overridden": "info",
+        "kicad.pad.zone-unknown-pad": "error",
+    }
+)
+"""The closed set of codes that ``apply_pad_connections`` and ``keep_pad_connections`` report."""
+PAD_OVERRIDE_HINT = "lock the request in the script, edit the pad in KiCad, or re-run with --discard-layout"
+
+
+def _pad_issue(code: str, message: str, where: str, hint: str = "") -> Issue:
+    return Issue(code, PAD_ZONE_ISSUE_CODES[code], message, where=where, hint=hint)
+
+
+def _ordered(requests: Sequence[PadZoneRequestLike]) -> list[PadZoneRequestLike]:
+    return sorted(requests, key=lambda r: (r.number, r.index is not None, r.index or 0))
+
+
+def _named_pads(
+    instance: FootprintInstance, request: PadZoneRequestLike, where: str, issues: list[Issue]
+) -> list[int]:
+    """The positions, among the footprint's pads, of the pads that ``request`` names; none, with one
+    ``kicad.pad.zone-unknown-pad``, when the footprint has no such pad."""
+    carrying = [n for n, pad in enumerate(instance.pads) if pad.number == request.number]
+    found = carrying if request.index is None else carrying[request.index : request.index + 1]
+    if not found:
+        part = where or instance.lib_ref
+        which = "" if request.index is None else f" at index {request.index}"
+        has = (
+            f"it has {len(carrying)} pad(s) with that number"
+            if carrying
+            else "it has no pad with that number"
+        )
+        issues.append(
+            _pad_issue(
+                "kicad.pad.zone-unknown-pad",
+                f"{part}: the zone connection request names pad {request.number!r}{which}, which the "
+                f"footprint {instance.lib_ref} does not have: {has}",
+                f"{part}:{request.number}",
+            )
+        )
+    return found
+
+
+def _connection(request: PadZoneRequestLike) -> ZoneConnection:
+    if request.connection not in _PAD_NUMBERS:
+        raise ValueError(f"unknown zone connection {request.connection!r}")
+    return request.connection  # type: ignore[return-value]
+
+
+def apply_pad_connections(
+    instance: FootprintInstance,
+    requests: Sequence[PadZoneRequestLike],
+    *,
+    where: str = "",
+    issues: list[Issue] | None = None,
+) -> FootprintInstance:
+    """``instance``, a built copy of a library footprint, with ``Pad.zone_connection`` of every pad that a
+    request names set to the request's value: all pads with the number, or the one at ``index`` among
+    them. A pad that no request names keeps the value of the library footprint. ``where`` names the part
+    in an issue (the component path). Pure."""
+    found = issues if issues is not None else []
+    pads = list(instance.pads)
+    for request in _ordered(requests):
+        connection = _connection(request)
+        for position in _named_pads(instance, request, where, found):
+            if pads[position].zone_connection != connection:
+                pads[position] = replace(pads[position], zone_connection=connection)
+    return instance if tuple(pads) == instance.pads else replace(instance, pads=tuple(pads))
+
+
+def keep_pad_connections(
+    kept: FootprintInstance,
+    requests: Sequence[PadZoneRequestLike],
+    *,
+    where: str,
+    issues: list[Issue] | None = None,
+) -> FootprintInstance:
+    """``kept``, a footprint that a rebuild keeps as the board has it, with the zone connection of every
+    pad that a request names decided (``layout-lens``, "Pad zone connections across rebuilds"): a locked
+    request, then the setting the pad carries on the board, then an unlocked request.
+
+    - A pad that equals the request stays, without an issue.
+    - A pad without a setting of its own takes the request's value, locked or not, without an issue.
+    - A pad with another setting keeps it under an unlocked request (``kicad.pad.zone-overridden``), and
+      takes the request's value under a locked one (``kicad.pad.zone-forced``).
+
+    The ``where`` of those two issues is ``"<where>:<pad number>"``. Pure, and stable: run again on its
+    own result with the same requests, it returns an equal footprint, and a locked request reports
+    nothing."""
+    found = issues if issues is not None else []
+    pads = list(kept.pads)
+    for request in _ordered(requests):
+        connection = _connection(request)
+        for position in _named_pads(kept, request, where, found):
+            current = pads[position].zone_connection
+            if current == connection:
+                continue
+            if current is None:
+                pads[position] = replace(pads[position], zone_connection=connection)
+                continue
+            pad_where = f"{where}:{request.number}"
+            if request.locked:
+                pads[position] = replace(pads[position], zone_connection=connection)
+                found.append(
+                    _pad_issue(
+                        "kicad.pad.zone-forced",
+                        f"{where}: the locked request set the zone connection of pad {request.number} to "
+                        f"{connection}; the board had {current}",
+                        pad_where,
+                    )
+                )
+            else:
+                found.append(
+                    _pad_issue(
+                        "kicad.pad.zone-overridden",
+                        f"{where}: pad {request.number} keeps the zone connection {current} of the board; "
+                        f"the script asks for {connection}",
+                        pad_where,
+                        PAD_OVERRIDE_HINT,
+                    )
+                )
+    return kept if tuple(pads) == kept.pads else replace(kept, pads=tuple(pads))
+
+
 __all__ = [
     "CONNECT_ATOMS",
     "DEFAULT_PARTS",
@@ -601,12 +750,17 @@ __all__ = [
     "ISLAND_CODES",
     "MERGE_ISSUE_CODES",
     "PAD_CONNECT_CODES",
+    "PAD_OVERRIDE_HINT",
+    "PAD_ZONE_ISSUE_CODES",
     "SETTING_HEADS",
+    "PadZoneRequestLike",
     "SettingsRead",
     "ZoneMerge",
+    "apply_pad_connections",
     "area_from_mm2",
     "area_to_mm2",
     "emit_settings",
+    "keep_pad_connections",
     "merge_zones",
     "pad_connect_node",
     "project_settings",

@@ -39,3 +39,48 @@ design would cut the measurement (Decision 14), so no cut was applied.
 What makes it fast enough: one spatial index per layer for the candidate pairs, an index of the edges
 of every large fill for the exact tests and for the point-in-fill test, and a closest-pair search
 that widens from the shapes' boxes instead of visiting every pair of edges.
+
+## The zone's own clearance (c0068, 2026-10-05)
+
+`H-K-COPPER-ZONECLR`. `tests/corpus/test_zone_clearance_census.py` checks each readable non-heavy demo
+board twice with the classes and the board minimum of its own project file (the corpus holds no rules
+file for a demo): once as `check` now does, and once with the zone's value switched off, which is the
+rule of c0029. A stored fill of a demo may be stale, so nothing is gated. Boards without a filled zone
+are left out of the table (3 of 21).
+
+| board | zones with fills | of them with a clearance | pads with a clearance override | clearance findings without the zone value | clearance findings | of them with source `zone` | added by the zone value | kinds of the other item of the added ones | added ones naming a pad with an override |
+|---|---|---|---|---|---|---|---|---|---|
+| `kicad-demo-10-0-6-pcb-01` | 13 | 13 | 115 | 919 | 919 | 40 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-02` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-03` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-04` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-05` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-07` | 3 | 3 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-09` | 1 | 0 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-10` | 2 | 0 | 0 | 24 | 24 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-11` | 34 | 34 | 0 | 3 | 3 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-12` | 1 | 1 | 2 | 1 | 1 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-13` | 4 | 4 | 0 | 15 | 15 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-15` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-16` | 2 | 2 | 64 | 157 | 157 | 27 | 0 | none | 0 |
+| `kicad-demo-10-0-6-pcb-17` | 2 | 2 | 0 | 32 | 32 | 0 | 0 | none | 0 |
+| `kicad-demo-9-0-9-1-pcb-01` | 1 | 1 | 0 | 0 | 1 | 1 | 1 | 1 pad | 0 |
+| `kicad-demo-9-0-9-1-pcb-02` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+| `kicad-demo-9-0-9-1-pcb-03` | 1 | 1 | 2 | 4 | 4 | 2 | 0 | none | 0 |
+| `kicad-demo-9-0-9-1-pcb-06` | 1 | 1 | 0 | 0 | 0 | 0 | 0 | none | 0 |
+
+- The zone's value **adds 1 finding** over the 21 boards, and none on the boards of tag
+  10.0.6: the one added finding names a pad of a 9.0.9.1 demo. 69 findings that the check
+  reported already now carry the zone's value and the source `zone`, because that value is the larger.
+- No added finding names a track, an arc or a via. At proposal time, before the repair of the pad offset
+  and before a zone's value was judged against the narrowed arc, the same rule added 3 findings against
+  pads with an offset drill on one board and 6 against arc tracks on another (design, measurement 3);
+  both groups are gone.
+- **Clearance overrides of pads and footprints** (design, Open Questions). A pad or a footprint may carry
+  a `(clearance …)` of its own, which the copper check does not model. The last column counts the added
+  findings that name such a pad or a pad of such a footprint: 0. The boards that hold overrides do have
+  findings of source `zone` on those pads, but each of those pairs was a finding without the zone's
+  value too.
+- The census costs more than the measurement above: with zones the largest clearance of a board is
+  often the 0.5 mm of a zone, so the candidate search reaches further. `summary.max_clearance` says how
+  far.

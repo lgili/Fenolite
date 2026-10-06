@@ -13,7 +13,15 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id, new_id
 from fenolite.model import Graphic, Pad
 from fenolite.model.canonical import dumps, loads
-from fenolite.model.library import FootprintDef, Library, PinAlternate, SymbolDef, SymbolPin, SymbolUnit
+from fenolite.model.library import (
+    FootprintDef,
+    Library,
+    PinAlternate,
+    SymbolDef,
+    SymbolGraphic,
+    SymbolPin,
+    SymbolUnit,
+)
 
 
 def _pad(number: str, rng: random.Random) -> Pad:
@@ -132,6 +140,18 @@ def test_library_round_trip_keeps_value_objects() -> None:
     text = dumps(lib)
     assert dumps(loads(text, Library)) == text
     assert loads(text, Library).symbols[0].pins[0] == pin
+
+
+def test_symbol_graphics_keep_order_in_canonical_library() -> None:
+    graphics = (
+        SymbolGraphic("rect", (Point(-1, -1), Point(1, 1)), 10),
+        SymbolGraphic("line", (Point(-2, 0), Point(-1, 0)), 10),
+    )
+    symbol = SymbolDef(id=derived_id("sym", "kicad", "L:R"), name="R", graphics=graphics)
+    text = dumps(Library("L", symbols=(symbol,)))
+    loaded = loads(text, Library)
+    assert loaded.symbols[0].graphics == graphics
+    assert dumps(loaded) == text
 
 
 def test_float_rejected_by_the_library_schema() -> None:

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite export`` against the fake ``kicad-cli`` (capability cli-contract, "Export command";
-manufacturing-exports, "Export evidence"; change c0024). Hermetic."""
+manufacturing-exports, "Export evidence" and "Manifest merging"; changes c0024 and c0065). Hermetic."""
 
 from __future__ import annotations
 
@@ -199,3 +199,177 @@ def test_evidence_in_the_envelope(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert env["evidence"]["level"] == EVIDENCE.level.value
     assert env["evidence"]["oracle"] == "kicad-cli 10.0.6"
     assert env["evidence"]["hypotheses"] == ["H-K-EXPORT-FILES", "H-K-EXPORT-REPEAT"]
+
+
+# -- presets (c0074)
+
+PRESET = 'schema = "fenolite.export-preset.v0"\n[drill]\nunits = "in"\n'
+
+
+def _export_calls(fake: str) -> dict[str, list[str]]:
+    return {c["args"][2]: c["args"] for c in calls(Path(fake)) if c["args"][:2] == ["pcb", "export"]}
+
+
+def test_preset_changes_the_drill_units(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(PRESET, encoding="utf-8")
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    drill = _export_calls(fake)["drill"]
+    assert drill[drill.index("--excellon-units") + 1] == "in"
+    preset = env["result"]["preset"]
+    assert preset["file"] == "fab.toml"
+    assert preset["sha256"] == hashlib.sha256(PRESET.encode("utf-8")).hexdigest()
+    assert "H-K-EXPORT-OPTIONS" in env["evidence"]["hypotheses"]
+
+
+def test_no_preset_runs_the_fixed_arguments(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--kicad-cli", fake, "--dry-run")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0 and env["result"]["preset"] is None
+    drill = _export_calls(fake)["drill"]
+    assert drill[drill.index("--excellon-units") + 1] == "mm"
+    assert "H-K-EXPORT-OPTIONS" not in env["evidence"]["hypotheses"]
+
+
+def test_invalid_preset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text('schema = "other.v1"\n', encoding="utf-8")
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, _, err, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 3 and err["code"] == "FEN-3004" and "fab.toml" in err["message"] + err.get("where", "")
+    assert calls(Path(fake)) == []
+
+
+def test_missing_preset(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--drill", "--preset", "none.toml", "--kicad-cli", fake)
+    code, _, err, _ = run(monkeypatch, tmp_path, *args, "--dry-run")
+    assert code == 3 and err["code"] == "FEN-3001" and calls(Path(fake)) == []
+
+
+def test_position_file_follows_its_format(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(
+        'schema = "fenolite.export-preset.v0"\n[pos]\nformat = "ascii"\n', encoding="utf-8"
+    )
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--pos", "--preset", "fab.toml", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    assert [p["path"] for p in env["result"]["plan"]] == ["fab/pos/board-pos.pos"]
+    assert "pos/board-pos.pos" in _export_calls(fake)["pos"]
+
+
+def _listed(work: Path) -> dict[str, dict[str, object]]:
+    text = (work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8")
+    manifest = json.loads(text)
+    assert _schema.validate(manifest, _schema.load("fenolite.artifacts.v0.json")) == []
+    assert [e["path"] for e in manifest["artifacts"]] == sorted(e["path"] for e in manifest["artifacts"])
+    assert manifest["check"] is None and sum(manifest["states"].values()) == len(manifest["artifacts"])
+    return {e["path"]: e for e in manifest["artifacts"]}
+
+
+def test_merge_two_runs_into_one_manifest(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    base = ("export", str(root), "--out", "fab", "--manifest", "--kicad-cli", _fake(tmp_path), "--confirm")
+    code, env, _, _ = run(monkeypatch, work, *base, "--gerbers")
+    assert code == 0, env
+    gerbers = ["gerbers/board-Edge_Cuts.gbr", "gerbers/board-F_Cu.gbr", "gerbers/board-job.gbrjob"]
+    assert list(_listed(work)) == gerbers
+    code, env, _, _ = run(monkeypatch, work, *base, "--drill")
+    assert code == 0, env
+    assert [a["path"] for a in env["result"]["artifacts"]] == ["drill/board-NPTH.drl", "drill/board-PTH.drl"]
+    assert set(env["result"]["artifacts"][0]) == {
+        "path",
+        "kind",
+        "layer",
+        "bytes",
+        "sha256",
+        "content_sha256",
+    }
+    listed = _listed(work)
+    assert list(listed) == ["drill/board-NPTH.drl", "drill/board-PTH.drl", *gerbers]
+    first = hashlib.sha256((root / "board.kicad_pcb").read_bytes()).hexdigest()
+    for item in listed.values():
+        assert item["state"] == "generated" and item["stale"] is False
+        assert item["from"] == {"board": first} and item["tool"] == "kicad-cli 10.0.6"
+
+    # the board changes and the Gerbers are exported again: they are replaced by path, the rest is kept
+    board = root / "board.kicad_pcb"
+    board.write_bytes(board.read_bytes() + b"\n")
+    second = hashlib.sha256(board.read_bytes()).hexdigest()
+    code, env, _, _ = run(monkeypatch, work, *base, "--gerbers")
+    assert code == 0 and first != second, env
+    listed = _listed(work)
+    assert {listed[path]["from"]["board"] for path in gerbers} == {second}  # type: ignore[index]
+    assert listed["drill/board-PTH.drl"]["from"] == {"board": first}
+    manifest = json.loads((work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    assert manifest["board"]["sha256"] == second == manifest["project"]["board"]["sha256"]
+    assert manifest["states"]["generated"] == 5
+
+
+def test_merge_into_a_manifest_of_v01(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    (work / "fab").mkdir(parents=True)
+    old = Path(__file__).resolve().parents[2] / "data" / "exports" / "manifest_v01.json"
+    (work / "fab" / "fenolite-artifacts.json").write_bytes(old.read_bytes())
+    args = ("export", str(root), "--out", "fab", "--pos", "--manifest", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 0, env
+    listed = _listed(work)
+    assert list(listed) == ["drill/board-PTH.drl", "gerbers/board-F_Cu.gbr", "pos/board-pos.csv"]
+    kept = listed["gerbers/board-F_Cu.gbr"]
+    assert (kept["state"], kept["stale"], kept["from"], kept["tool"]) == ("generated", False, {}, None)
+    assert kept["sha256"] == "4" * 64 and listed["pos/board-pos.csv"]["tool"] == "kicad-cli 10.0.6"
+
+
+@pytest.mark.parametrize("text", ["{", '{"schema": "fenolite.artifacts.v9", "artifacts": []}'])
+def test_unreadable_manifest_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path, text: str
+) -> None:
+    work = tmp_path / "work"
+    (work / "fab").mkdir(parents=True)
+    (work / "fab" / "fenolite-artifacts.json").write_text(text, encoding="utf-8")
+    before = tree_snapshot(work)
+    args = ("export", str(root), "--out", "fab", "--gerbers", "--manifest", "--kicad-cli", _fake(tmp_path))
+    code, env, err, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 5 and err["code"] == "FEN-5001"
+    (refusal,) = env["issues"]
+    assert refusal["code"] == "manifest.unreadable" and refusal["severity"] == "error"
+    assert refusal["where"] == "fab/fenolite-artifacts.json"
+    assert "plan" not in env["result"] and env["receipt"] is None and tree_snapshot(work) == before
+    # without --manifest the command does not look at the file
+    code, env, _, _ = run(monkeypatch, work, *args[:5], *args[6:], "--confirm")
+    assert code == 0 and (work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8") == text
+
+
+def test_manifest_entry_of_a_preset_export_has_the_level_of_the_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    """An export with a preset is ``INFERRED`` (c0074); its entries claim no more than the envelope."""
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(PRESET, encoding="utf-8")
+    base = ("export", str(root), "--out", "fab", "--manifest", "--kicad-cli", _fake(tmp_path), "--confirm")
+    code, env, _, _ = run(monkeypatch, work, *base, "--pos")
+    assert code == 0 and env["evidence"]["level"] == "KICAD-VERIFIED", env
+    code, env, _, _ = run(monkeypatch, work, *base, "--drill", "--preset", "fab.toml")
+    assert code == 0 and env["evidence"]["level"] == "INFERRED", env
+    listed = _listed(work)
+    assert listed["pos/board-pos.csv"]["evidence"] == "KICAD-VERIFIED"
+    assert {listed[p]["evidence"] for p in listed if p.startswith("drill/")} == {"INFERRED"}

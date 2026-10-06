@@ -9,13 +9,14 @@ another backend.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
@@ -117,6 +118,77 @@ class DrcReport:
 
 
 @dataclass(frozen=True, slots=True)
+class ErcItem:
+    """A schematic item an ERC violation names: its uuid, the tool's description, its position on the
+    sheet, and ``where``, the location a backend found for it (``REF-PIN``, ``REF`` or a label text)."""
+
+    uuid: str
+    description: str
+    position: Point
+    where: str = ""
+
+    def __post_init__(self) -> None:
+        if type(self.position.x) is not int or type(self.position.y) is not int:
+            raise TypeError(f"ERC positions are integer nanometres, got {self.position!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class ErcViolation:
+    """One violation of an ERC report; ``type`` and ``severity`` are the tool's own strings, ``sheet`` is
+    the tool's readable path of the sheet it is listed under and ``sheet_id`` the tool's own identifier of
+    that sheet (for KiCad, its path of uuids)."""
+
+    type: str
+    description: str
+    severity: str
+    items: tuple[ErcItem, ...] = ()
+    excluded: bool = False
+    sheet: str = ""
+    sheet_id: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ErcReport:
+    """An ERC report in report order, sheet by sheet, independent of the tool that wrote it; ``sheets``
+    holds the readable path of every sheet the report lists, with or without violations."""
+
+    source: str
+    date: str
+    kicad_version: str
+    coordinate_units: str
+    violations: tuple[ErcViolation, ...] = ()
+    ignored_checks: tuple[str, ...] = ()
+    included_severities: tuple[str, ...] = ()
+    sheets: tuple[str, ...] = ()
+
+    def entries(self) -> tuple[tuple[str, str, str, bool, tuple[tuple[str, int, int], ...]], ...]:
+        """The violations as a sorted tuple of ``(sheet, type, severity, excluded, items)``, each item as
+        its description and position: item uuids, ``where`` and the report order are left out, so two
+        runs of a tool can be compared."""
+        found = [
+            (
+                v.sheet,
+                v.type,
+                v.severity,
+                v.excluded,
+                tuple(sorted((i.description, i.position.x, i.position.y) for i in v.items)),
+            )
+            for v in self.violations
+        ]
+        return tuple(sorted(found))
+
+    def kinds(self) -> tuple[tuple[str, str, str, bool], ...]:
+        """The violations as a sorted tuple of ``(sheet, type, severity, excluded)``, one entry per
+        violation and no item: what two runs of a tool on one project can be expected to share, because a
+        tool may name another of the pins or labels of one violation in each run."""
+        return tuple(sorted((v.sheet, v.type, v.severity, v.excluded) for v in self.violations))
+
+    def of_type(self, type: str) -> tuple[ErcViolation, ...]:  # noqa: A002 (the report's own key)
+        """The violations of ``type``, in report order."""
+        return tuple(v for v in self.violations if v.type == type)
+
+
+@dataclass(frozen=True, slots=True)
 class CapabilityReport:
     """What a backend can do here. ``operations`` lists only what is implemented."""
 
@@ -145,6 +217,67 @@ class CapabilityReport:
                 "hypotheses": list(self.evidence.hypotheses),
             },
         }
+
+
+MATRIX_OPERATIONS = ("detect", "read", "write", "roundtrip_exact", "roundtrip_modified")
+"""The operations of an evidence matrix row, in the order they are listed."""
+
+
+@dataclass(frozen=True, slots=True)
+class MatrixRow:
+    """What one backend package does with one file kind, and how well each operation is verified.
+
+    A cell that is ``None`` means that the package does not implement that operation for the kind.
+    ``detect``: the package names the kind of a file from its name or its content. ``read``: a reader
+    builds a model object from a file of the kind. ``write``: a writer produces a file of the kind from a
+    model object that Fenolite created. ``roundtrip_exact``: a file read and written back for the same
+    version, unchanged in between, keeps its whole content. ``roundtrip_modified``: a file read, changed
+    through the model and written keeps everything the change did not touch, or the write is refused.
+    ``experimental`` names the operations that may change in any release.
+    """
+
+    backend: str
+    kind: str
+    detect: Evidence | None = None
+    read: Evidence | None = None
+    write: Evidence | None = None
+    roundtrip_exact: Evidence | None = None
+    roundtrip_modified: Evidence | None = None
+    experimental: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        where = f"matrix row {self.backend}/{self.kind}"
+        if self.roundtrip_exact is not None and self.read is None:
+            raise ValueError(f"{where}: roundtrip_exact needs read")
+        if self.roundtrip_modified is not None and (self.read is None or self.write is None):
+            raise ValueError(f"{where}: roundtrip_modified needs read and write")
+        if len(set(self.experimental)) != len(self.experimental):
+            raise ValueError(f"{where}: experimental names an operation twice")
+        for operation in self.experimental:
+            if operation not in MATRIX_OPERATIONS:
+                raise ValueError(f"{where}: experimental names {operation!r}, which is not an operation")
+            if getattr(self, operation) is None:
+                raise ValueError(f"{where}: experimental names {operation!r}, whose cell is not set")
+
+    def cells(self) -> tuple[tuple[str, Evidence], ...]:
+        """The cells that are set, as ``(operation, evidence)`` in the order of ``MATRIX_OPERATIONS``."""
+        found = ((operation, getattr(self, operation)) for operation in MATRIX_OPERATIONS)
+        return tuple((operation, cell) for operation, cell in found if cell is not None)
+
+    def verified_by(self) -> tuple[str, ...]:
+        """The hypothesis ids of the cells that are set, each once, sorted."""
+        return tuple(sorted({ident for _, cell in self.cells() for ident in cell.hypotheses}))
+
+    def to_json(self) -> dict[str, Any]:
+        """A JSON-compatible mapping: the row's names, a label or ``None`` per operation, the ids and the
+        experimental operations."""
+        row: dict[str, Any] = {"backend": self.backend, "kind": self.kind}
+        for operation in MATRIX_OPERATIONS:
+            cell: Evidence | None = getattr(self, operation)
+            row[operation] = None if cell is None else cell.label()
+        row["verified_by"] = list(self.verified_by())
+        row["experimental"] = [o for o in MATRIX_OPERATIONS if o in self.experimental]
+        return row
 
 
 SkipReason = Literal[
@@ -232,7 +365,8 @@ CanaryState = Literal["fired", "absent", "inconclusive", "not-applicable"]
 @dataclass(frozen=True, slots=True)
 class DrcOutcome:
     """An oracle's DRC run: the report (``None`` when none was written, canary items removed), the canary
-    state, the files the tool wrote in its copy, and the evidence of the run."""
+    state, the files the tool wrote in its copy, and the evidence of the run. ``parity_judged`` is true
+    exactly when the run asked the tool to compare the board with its schematic and the tool did so."""
 
     report: DrcReport | None
     tool_version: str
@@ -244,6 +378,7 @@ class DrcOutcome:
     returncode: int | None = 0
     message: str = ""
     evidence: Evidence = Evidence()
+    parity_judged: bool = False
 
 
 class Oracle(Protocol):
@@ -255,6 +390,49 @@ class Oracle(Protocol):
     def version(self) -> str: ...
 
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ErcOutcome:
+    """An oracle's ERC run: the report (``None`` when none was written, ``message`` then being the first
+    sanitised line of the tool's output), the files the tool wrote in its copy, and the evidence."""
+
+    report: ErcReport | None
+    tool_version: str
+    tool_writes: tuple[str, ...] = ()
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
+class ErcRt2Outcome:
+    """The ERC reports of a schematic RT2 run: the runs on the project as it is, in run order, the run on
+    the backend's re-dump of its sheets (``None`` when it wrote no report), and the numbers of sheet files
+    re-dumped and left as they are."""
+
+    before: tuple[ErcReport, ...]
+    after: ErcReport | None
+    tool_version: str
+    outcome: Literal["exit", "timeout"] = "exit"
+    returncode: int | None = 0
+    message: str = ""
+    evidence: Evidence = Evidence()
+    redumped: int = 0
+    kept: int = 0
+
+
+@runtime_checkable
+class ErcOracle(Protocol):
+    """An external tool that gives ERC verdicts on a project copy set; it never writes under its root and
+    reports a timeout as ``outcome == "timeout"``."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def erc(self, project: ProjectSet) -> ErcOutcome: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -306,7 +484,8 @@ class Uncovered:
 
 @dataclass(frozen=True, slots=True)
 class PadNetList:
-    """The net-to-pad assignments of one source (``model``, ``board`` or ``export``) and its coverage."""
+    """The net-to-pad assignments of one source (``model``, ``board``, ``export`` or ``schematic``) and its
+    coverage."""
 
     source: str
     assignments: tuple[PadAssignment, ...]
@@ -316,6 +495,53 @@ class PadNetList:
         both = sorted({a.element for a in self.assignments} & {u.element for u in self.uncovered})
         if both:
             raise ValueError(f"{self.source}: assigned and uncovered at once: {', '.join(both)}")
+
+
+@dataclass(frozen=True, slots=True)
+class SideComponent:
+    """A component as a schematic gives it to the parity comparison: its value, the library id of its
+    footprint, the pin numbers of all its units in body style 1, common pins included, and those of the
+    flags ``dnp`` and ``exclude_from_bom`` that its symbol has."""
+
+    value: str = ""
+    footprint: str = ""
+    pins: frozenset[str] = frozenset()
+    attributes: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class SchematicSide:
+    """The schematic side of a parity comparison (``checks.parity``; change c0072): ``components`` by
+    reference, and ``nodes``, the net name of each (reference, pin number) in the backend's stored form.
+    A reference that starts with ``#`` is no component. ``fold`` lists the spellings that the backend
+    reads as one in a net name, as (text, replacement): both sides are compared after the replacements.
+    ``single_prefix`` starts the name of a net that the backend makes for one pin on no net (``""`` when it
+    makes none): on the board, further pads of that pin's number are on that name followed by ``_<n>``."""
+
+    components: Mapping[str, SideComponent]
+    nodes: Mapping[tuple[str, str], str]
+    fold: tuple[tuple[str, str], ...] = ()
+    single_prefix: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class SideOutcome:
+    """A schematic side and the evidence of the reading it came from; ``side`` is ``None`` when the
+    backend's own reading does not cover the schematic (``message`` says why)."""
+
+    side: SchematicSide | None
+    evidence: Evidence = Evidence()
+    message: str = ""
+
+
+@runtime_checkable
+class ParityInputs(Protocol):
+    """A backend that builds the schematic side of a project for the parity comparison. Without ``nodes``
+    the nets come from the backend's own reading of the schematic, and the result is ``None`` when that
+    reading does not cover the schematic; with ``nodes`` (an oracle's schematic netlist) they come from
+    it. It reads the files of the set and writes nothing."""
+
+    def schematic_side(self, project: ProjectSet, *, nodes: PadNetList | None = None) -> SideOutcome: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,6 +606,20 @@ class NetlistOracle(Protocol):
     def version(self) -> str: ...
 
     def netlist(self, project: ProjectSet, *, board: Design) -> NetlistOutcome: ...
+
+
+@runtime_checkable
+class SchematicNetlistOracle(Protocol):
+    """An oracle that exports the netlist of a project's schematic: a ``PadNetList`` of source
+    ``schematic`` with one assignment ``REF-PIN`` → net name per pin the tool lists. ``netlist`` is ``None``
+    when the tool wrote no export; a timeout is an outcome, not an exception. It never writes under the
+    project root (change c0063)."""
+
+    name: str
+
+    def version(self) -> str: ...
+
+    def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome: ...
 
 
 @runtime_checkable
@@ -513,6 +753,179 @@ class DesignRulesSource(Protocol):
     ) -> DesignRules: ...
 
 
+ChangeKind = Literal["added", "removed", "changed"]
+
+
+@dataclass(frozen=True, slots=True)
+class Change:
+    """One difference of a comparison: ``a`` and ``b`` hold the compact canonical JSON of each side (``""``
+    for none). ``checks.diff`` reports model differences with it, and a backend the differences between the
+    records of two files."""
+
+    path: str
+    change: ChangeKind
+    a: str = ""
+    b: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class DiffReport:
+    """Every difference between two models, sorted by path and then by change."""
+
+    equal: bool
+    changes: tuple[Change, ...]
+    summary: Mapping[str, Mapping[str, int]]
+
+    def to_json(self, limit: int | None = None) -> dict[str, Any]:
+        """``equal``, ``summary``, ``differences`` (the first ``limit`` changes, or all), ``total`` and
+        ``truncated``."""
+        shown = self.changes if limit is None else self.changes[: max(0, limit)]
+        return {
+            "equal": self.equal,
+            "summary": {kind: dict(counts) for kind, counts in self.summary.items()},
+            "differences": [dataclasses.asdict(change) for change in shown],
+            "total": len(self.changes),
+            "truncated": len(shown) < len(self.changes),
+        }
+
+
+DocumentRole = Literal["project", "schematic", "pcb", "symbol-library", "footprint-library", "other"]
+ContainerLevel = Literal["RT-A0", "RT-A1"]
+
+
+def _relative_name(name: str) -> bool:
+    rel = PurePosixPath(name)
+    return bool(name) and not rel.is_absolute() and ".." not in rel.parts and "\\" not in name
+
+
+@dataclass(frozen=True, slots=True)
+class Document:
+    """One document of a set: its POSIX name relative to the set's root, its read kind and its role."""
+
+    name: str
+    kind: str
+    role: DocumentRole
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSet:
+    """The documents an input names (a document alone, or a project's documents), sorted by name.
+
+    ``project`` and ``board`` are names of ``documents`` or ``None``; ``missing`` holds, sorted, the names
+    that the project file lists and that do not exist.
+    """
+
+    root: Path
+    project: str | None
+    board: str | None
+    documents: tuple[Document, ...]
+    missing: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        names = [document.name for document in self.documents]
+        for name in (*names, *self.missing):
+            if not _relative_name(name):
+                raise ValueError(f"document name {name!r} is not a relative POSIX name")
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(f"document names are repeated: {', '.join(repeated)}")
+        if names != sorted(names):
+            raise ValueError("documents must be sorted by name")
+        if list(self.missing) != sorted(self.missing):
+            raise ValueError("missing names must be sorted")
+        for what, name in (("project", self.project), ("board", self.board)):
+            if name is not None and name not in names:
+                raise ValueError(f"the {what} {name!r} is not one of the documents")
+
+    def named(self, name: str) -> Document:
+        """The document ``name``; ``KeyError`` when the set does not hold it."""
+        for document in self.documents:
+            if document.name == name:
+                return document
+        raise KeyError(name)
+
+    def of_role(self, role: DocumentRole) -> tuple[Document, ...]:
+        return tuple(document for document in self.documents if document.role == role)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectRead:
+    """Two readings of one document set, apart: every schematic document as one design, and the document
+    ``board``. A side without a document, or whose reading was refused, is ``None``; ``errors`` maps a
+    document name to the error that refused it."""
+
+    schematic: ReadResult | None
+    pcb: ReadResult | None
+    errors: Mapping[str, FormatError] = field(default_factory=lambda: {})
+
+
+@dataclass(frozen=True, slots=True)
+class ContainerRoundTrip:
+    """The verdict of one container round-trip level on one file.
+
+    ``different`` holds the paths of the streams that differ and ``difference`` locates the first one. A
+    level that cannot be judged has ``judged`` false and a ``reason``: it is neither a pass nor a failure.
+    """
+
+    level: ContainerLevel
+    judged: bool
+    passed: bool
+    streams: int = 0
+    different: tuple[str, ...] = ()
+    records: int = 0
+    bytes_equal: int = 0
+    opaque_count: int = 0
+    difference: str = ""
+    reason: str = ""
+    evidence: Evidence = Evidence()
+    """The backend's evidence for this verdict: its reader's level and the hypotheses the level rests on."""
+
+    def __post_init__(self) -> None:
+        if self.passed != (self.judged and not self.different):
+            raise ValueError("ContainerRoundTrip.passed must equal judged and not different")
+        if bool(self.reason) == self.judged:
+            raise ValueError("ContainerRoundTrip.reason is non-empty exactly when judged is false")
+        if bool(self.difference) != bool(self.different):
+            raise ValueError("ContainerRoundTrip.difference is empty exactly when different is empty")
+
+
+@dataclass(frozen=True, slots=True)
+class ModelScope:
+    """The model fields, per entity kind, that a comparison covers, and the tolerance for lengths (nm)."""
+
+    fields: Mapping[str, tuple[str, ...]]
+    length_tolerance: int = 0
+
+    def __post_init__(self) -> None:
+        if type(self.length_tolerance) is not int or self.length_tolerance < 0:
+            raise ValueError(f"length_tolerance is a non-negative int, got {self.length_tolerance!r}")
+
+
+@runtime_checkable
+class DocumentValidator(Protocol):
+    """A backend whose input is a set of documents: it names them, reads the schematic side and the PCB side
+    apart, judges the container round trip of one file, and states what its writers write.
+
+    ``documents`` decides from the path, the project file and at most the first eight bytes of each
+    document. No method writes a file. ``container_roundtrip`` raises the reader's ``FormatError`` for a
+    file it cannot read and returns ``judged=False`` with a reason for a level it cannot judge.
+    ``stage_evidence`` maps a check stage name to the evidence the backend adds to it (the hypotheses its
+    readings rest on for that stage), so that ``checks`` names no hypothesis of a backend.
+    """
+
+    name: str
+
+    def documents(self, path: Path) -> DocumentSet: ...
+
+    def read_documents(self, documents: DocumentSet) -> ProjectRead: ...
+
+    def container_roundtrip(self, path: Path, level: ContainerLevel) -> ContainerRoundTrip: ...
+
+    def written_scope(self) -> ModelScope: ...
+
+    def stage_evidence(self) -> Mapping[str, Evidence]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -537,29 +950,53 @@ __all__ = [
     "BoardPad",
     "CanaryState",
     "CapabilityReport",
+    "Change",
+    "ChangeKind",
+    "ContainerLevel",
+    "ContainerRoundTrip",
     "DesignRules",
     "DesignRulesSource",
+    "DiffReport",
+    "Document",
+    "DocumentRole",
+    "DocumentSet",
+    "DocumentValidator",
     "Downgrade",
     "DrcItem",
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "ErcItem",
+    "ErcOracle",
+    "ErcOutcome",
+    "ErcReport",
+    "ErcRt2Outcome",
+    "ErcViolation",
     "FillOracle",
     "FillOutcome",
+    "MATRIX_OPERATIONS",
+    "MatrixRow",
+    "ModelScope",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",
     "PadAssignment",
     "PadCopper",
     "PadNetList",
+    "ParityInputs",
     "PlacedExtent",
     "PlotOutcome",
     "PlotView",
     "Plotter",
+    "ProjectRead",
     "ProjectSet",
     "ReadResult",
     "RoundTrip",
     "RoundTripOracle",
+    "SchematicNetlistOracle",
+    "SchematicSide",
+    "SideComponent",
+    "SideOutcome",
     "Rt2Outcome",
     "SkipReason",
     "SkippedFile",

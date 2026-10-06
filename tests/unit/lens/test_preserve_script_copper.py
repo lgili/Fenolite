@@ -59,7 +59,7 @@ def test_copper_follows_a_moved_footprint(tmp_path: Path, monkeypatch: pytest.Mo
     regenerated = {i["where"] for i in env["issues"] if i["code"] == "kicad.copper.regenerated"}
     assert regenerated == {copper_uuid("led_a", "seg[2]"), copper_uuid("gnd", "seg[3]")}
     assert env["result"]["copper"] == {
-        "intents": 4, "tracks": 11, "vias": 7, "regenerated": 2, "stale": 0, "duplicates": 0,
+        "intents": 4, "tracks": 11, "arcs": 0, "vias": 7, "regenerated": 2, "stale": 0, "duplicates": 0,
     }  # fmt: skip
     assert "D1" in env["result"]["preserved"]["kept"]
     again = project.files()

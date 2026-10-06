@@ -7,6 +7,8 @@ fresh temporary folder, runs there with an isolated environment and returns the 
 created or changed. The caller's files are only ever read. Commands: S-0022 (10.0), S-0037 (9.0).
 """
 
+# evidence: see altium_import, helpmatrix, oracle, plot
+
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
-from fenolite.backends.base import DrcReport
+from fenolite.backends.base import DrcReport, ErcReport
 from fenolite.core.errors import FenoliteError
 
 MACOS_KICAD_CLI = Path("/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli")
@@ -46,7 +48,15 @@ def windows_kicad_clis() -> tuple[Path, ...]:
 
 CONFIG_DIR = "config"
 DRC_REPORT = "drc.json"
+ERC_REPORT = "erc.json"
+NETLIST = "out.net"
+"""The file name ``export_netlist`` asks ``kicad-cli`` to write."""
+BOM = "bom.csv"
+"""The file name ``export_bom`` asks ``kicad-cli`` to write."""
 RENDER_DIR = "render"
+IMPORTED_BOARD = "imported.kicad_pcb"
+"""The file name ``import_board`` asks ``kicad-cli`` to write."""
+IMPORT_REPORT = "import.json"
 _VERSION = re.compile(r"(\d+)\.(\d+)")
 DOCKER_PREFIX = "docker:"
 
@@ -140,6 +150,16 @@ class RefillRun:
 
     run: CliRun
     board: bytes | None
+
+
+@dataclass(frozen=True)
+class ImportRun:
+    """A ``pcb import`` run: the board KiCad wrote (``None`` when it wrote none) and its JSON report
+    (``None`` when it wrote none, or one that is not a JSON object)."""
+
+    run: CliRun
+    board: bytes | None
+    report: Mapping[str, object] | None
 
 
 class KicadCliError(FenoliteError):
@@ -344,28 +364,101 @@ class KicadCli:
         run = self._checked(["pcb", "upgrade", "--force", name], _with(board, files), "pcb upgrade")
         return run.outputs.get(name, Path(board).read_bytes())
 
+    def import_board(self, source: Path, *, format: str = "altium") -> ImportRun:  # noqa: A002
+        """``pcb import --format <format>`` (10.0 only) on a copy of ``source``: the run, the board it
+        wrote and its JSON report. It never raises for a non-zero exit; the caller reads ``board``."""
+        self._require_ten("pcb import")
+        name = Path(source).name
+        args = ["pcb", "import", "--format", format, "--report-format", "json"]
+        args += ["--report-file", IMPORT_REPORT, "-o", IMPORTED_BOARD, name]
+        run = self.run(args, files={name: Path(source)})
+        report: object = None
+        if IMPORT_REPORT in run.outputs:
+            try:
+                report = json.loads(run.outputs[IMPORT_REPORT].decode("utf-8", "replace"))
+            except ValueError:
+                report = None
+        return ImportRun(
+            run,
+            run.outputs.get(IMPORTED_BOARD),
+            cast(Mapping[str, object], report) if isinstance(report, dict) else None,
+        )
+
+    def export_netlist(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> CliRun:
+        """``sch export netlist --format kicadsexpr`` on a copy: the run, with the netlist under
+        ``NETLIST`` in its outputs when one was written. It never raises for a non-zero exit, so a
+        caller can use it as the load check of a schematic."""
+        name = Path(schematic).name
+        args = ["sch", "export", "netlist", "--format", "kicadsexpr", "-o", NETLIST, name]
+        return self.run(args, files=_with(schematic, files))
+
+    def export_bom(
+        self, schematic: Path, *, fields: Sequence[str], files: Mapping[str, Path] | None = None
+    ) -> CliRun:
+        """``sch export bom`` on a copy, one row per reference: ``fields`` are the columns and their own
+        labels, nothing is grouped and no reference range is folded. The CSV (comma-separated, text in
+        double quotes: the tool's defaults) is under ``BOM`` in the outputs when one was written; the run
+        never raises for a non-zero exit."""
+        name = Path(schematic).name
+        joined = ",".join(fields)
+        args = ["sch", "export", "bom", "--fields", joined, "--labels", joined]
+        return self.run([*args, "--ref-range-delimiter", "", "-o", BOM, name], files=_with(schematic, files))
+
+    def upgrade_schematic(self, schematic: Path, *, files: Mapping[str, Path] | None = None) -> bytes:
+        """``sch upgrade --force`` (10.0 only): the schematic re-saved in the running version's format."""
+        self._require_ten("sch upgrade")
+        name = Path(schematic).name
+        run = self._checked(["sch", "upgrade", "--force", name], _with(schematic, files), "sch upgrade")
+        return run.outputs.get(name, Path(schematic).read_bytes())
+
     def drc(
         self,
         board: Path,
         *,
         files: Mapping[str, Path] | None = None,
         env: Mapping[str, str] | None = None,
+        schematic_parity: bool = False,
     ) -> DrcRun:
         """``pcb drc --format json --severity-all``: the run and its report (``None`` when none was written).
 
         The exit code is only a load signal; ``--exit-code-violations`` is never passed, and every
         verdict is read from the report. ``env`` is passed unchanged to ``run``, which applies its entries
         after its own ``KICAD_CONFIG_HOME``: the way a probe names a configuration folder or a library
-        variable.
+        variable. With ``schematic_parity`` the run also passes ``--schematic-parity``, which makes the
+        tool compare the board with the schematic of its stem (c0062).
         """
         from fenolite.backends.kicad.drc import read_drc_report
 
         name = Path(board).name
-        args = ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, name]
+        parity = ["--schematic-parity"] if schematic_parity else []
+        args = ["pcb", "drc", "--format", "json", "--severity-all", *parity, "-o", DRC_REPORT, name]
         run = self.run(args, files=_with(board, files), env=env)
         data = run.outputs.get(DRC_REPORT)
         report = None if data is None else read_drc_report(data.decode("utf-8"), file=DRC_REPORT)
         return DrcRun(run, report)
+
+    def erc(
+        self,
+        schematic: Path,
+        *,
+        files: Mapping[str, Path] | None = None,
+        env: Mapping[str, str] | None = None,
+    ) -> ErcRun:
+        """``sch erc --format json --severity-all``: the run and its report (``None`` when none was
+        written), on a copy of ``schematic`` and of ``files``.
+
+        As for ``drc``, the exit code is only a load signal: ``--exit-code-violations`` is never passed,
+        and every verdict is read from the report. A non-zero exit does not raise, and a timeout is the
+        run's ``timeout`` outcome.
+        """
+        from fenolite.backends.kicad.erc import read_erc_report
+
+        name = Path(schematic).name
+        args = ["sch", "erc", "--format", "json", "--severity-all", "-o", ERC_REPORT, name]
+        run = self.run(args, files=_with(schematic, files), env=env)
+        data = run.outputs.get(ERC_REPORT)
+        report = None if data is None else read_erc_report(data.decode("utf-8"), file=ERC_REPORT)
+        return ErcRun(run, report)
 
     def refill(self, board: Path, *, files: Mapping[str, Path] | None = None) -> RefillRun:
         """Refill zones on a copy with KiCad 10 and return the saved board bytes."""
@@ -449,6 +542,14 @@ class DrcRun:
     report: DrcReport | None
 
 
+@dataclass(frozen=True)
+class ErcRun:
+    """A ``sch erc`` run and the report it wrote, or ``None`` when it wrote none."""
+
+    run: CliRun
+    report: ErcReport | None
+
+
 def _with(board: Path, files: Mapping[str, Path] | None) -> dict[str, Path]:
     """The board under its own name, and the extra files next to it."""
     found = {Path(board).name: Path(board)}
@@ -475,14 +576,21 @@ def _sanitise(text: str, tmp: Path) -> str:
 __all__ = [
     "WINDOWS_KICAD_VERSIONS",
     "windows_kicad_clis",
+    "BOM",
     "DRC_REPORT",
     "DOCKER_PREFIX",
+    "IMPORTED_BOARD",
+    "IMPORT_REPORT",
+    "ImportRun",
     "MACOS_KICAD_CLI",
+    "NETLIST",
     "RENDER_DIR",
     "CandidateSource",
     "CliCandidate",
     "CliRun",
     "DrcRun",
+    "ERC_REPORT",
+    "ErcRun",
     "DockerCli",
     "KicadCli",
     "KicadCliError",

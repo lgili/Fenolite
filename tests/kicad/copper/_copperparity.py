@@ -66,7 +66,39 @@ ZONE_CLEARANCE = (
 )
 """Inserted into every zone of the rule bench by token edit: the zone's own clearance is 0, so KiCad's
 verdict on a fill rests on the clearance in force alone, and the stored fill is not grown by a stroke.
-Without it KiCad applies its default zone clearance of 0.5 mm to the fill."""
+Without it KiCad applies its default zone clearance of 0.5 mm to the fill, and so does ``check_copper``
+since change c0068 (the zone's own clearance is proved by the ``zone`` benches below)."""
+ZONE_SOURCES = ("zone", "zone-floor")
+"""The benches of the zone's own clearance (change c0068, ``H-K-COPPER-ZONECLR``): written through the
+triad path with the scoped canary, each zone taking its clearance from the model. ``zone-floor`` sets the
+board minimum, which would govern the rows of the other cases."""
+ZONE_FLOOR = 400_000
+
+
+@dataclass(frozen=True)
+class ZoneCase:
+    """One case of "Zone clearance parity canaries": the zone's own clearance, the class clearance of
+    the probe nets (``None``: the template's ``Default`` class of 0.2 mm), a rule on the pair, the value
+    ``c`` that governs, where that value comes from, and the pair kinds."""
+
+    bench: str
+    zone: int
+    netclass: int | None
+    rule: int | None
+    c: int
+    source: str
+    kinds: tuple[str, ...]
+
+
+FILL_VIA, FILL_PAD = "fill-via", "fill-pad"
+ZONE_CASES: dict[str, ZoneCase] = {
+    "zone-above-class": ZoneCase("zone", 400_000, 300_000, None, 400_000, "zone", (FILL, FILL_VIA, FILL_PAD)),
+    "class-above-zone": ZoneCase("zone", 100_000, 300_000, None, 300_000, "class", (FILL,)),
+    "rule-below-zone": ZoneCase("zone", 500_000, 300_000, 200_000, 200_000, "rule", (FILL,)),
+    "floor-above-zone": ZoneCase("zone-floor", 300_000, None, None, ZONE_FLOOR, "floor", (FILL,)),
+}
+FILL_FILL = "fill-fill"
+FILL_FILL_GAP = 100_000
 SHORT, CLEAR = "shorting_items", "clearance"
 VERDICT = {"copper.short": "short", "copper.clearance": "clearance"}
 
@@ -127,7 +159,10 @@ class _Maker:
         self.count += 1
         return f"{self.prefix}{self.count}A", f"{self.prefix}{self.count}B"
 
-    def add(self, kind: str, group: str, gap: int, nets: tuple[str, str] | None = None) -> Row:
+    def add(self, kind: str, group: str, gap: int, nets: tuple[str, str] | None = None, *,
+            zone: int | None = None) -> Row:  # fmt: skip
+        """One row; ``zone`` is the own clearance of the zone of a fill row (the model's default when
+        ``None``)."""
         a, b = nets if nets is not None else self.nets()
         label = f"r{len(self.rows)}"
         made = self.made
@@ -148,7 +183,11 @@ class _Maker:
             made.parts(label, refs, gap=gap, target=self.target)
             a, b = f"{refs[0]}_NET", f"{refs[1]}_NET"
         elif kind == FILL:
-            made.fill_track(label, a, b, gap=gap)
+            made.fill_track(label, a, b, gap=gap, clearance=zone)
+        elif kind == FILL_VIA:
+            made.fill_via(label, a, b, gap=gap, clearance=zone)
+        elif kind == FILL_PAD:
+            made.fill_pad(label, f"R{len(self.rows)}", a, b, gap=gap, clearance=zone, target=self.target)
         else:
             raise KeyError(kind)
         row = Row(label, group, gap)
@@ -279,9 +318,75 @@ def _floor_bench(target: int) -> ParityBench:
     return ParityBench("floor", target, bench, tuple(maker.rows), files)
 
 
+def zone_group(case: str) -> str:
+    return f"zoneclr-{case}"
+
+
+def _zone_rows(maker: _Maker, bench: str) -> None:
+    """The rows of every zone case of ``bench``: per pair kind, one row per gap ``c − 10 µm``, ``c`` and
+    ``c + 10 µm``, on probe nets of its own; the class and the rule of a case hold its nets only."""
+    made = maker.made
+    for n, (name, case) in enumerate(ZONE_CASES.items(), start=1):
+        if case.bench != bench:
+            continue
+        nets: list[str] = []
+        for kind in case.kinds:
+            for delta in GAPS.values():
+                maker.add(kind, zone_group(name), case.c + delta, zone=case.zone)
+                nets.extend(maker.last_nets)
+        if case.netclass is not None:
+            made.netclass(f"ZC{n}", case.netclass, *nets)
+        if case.rule is not None:
+            zones = Selector("or", items=tuple(_net(net) for net in nets[0::2]))
+            others = Selector("or", items=tuple(_net(net) for net in nets[1::2]))
+            made.rule(_rule(10 + n, f"zone_rule_{n}", case.rule, zones, others))
+
+
+def _fill_fill(maker: _Maker) -> None:
+    """Two zones of different nets, each with a clearance of 0.5 mm, whose stored fills are 0.1 mm apart,
+    both nets in a class of 0.3 mm: recorded only (KiCad's DRC judges no pair of fills)."""
+    made = maker.made
+    top = made.row() + 2 * rb.MM
+    label = f"r{len(maker.rows)}"
+    middle = (rb.LEFT + rb.RIGHT) // 2
+    made.filled_zone(f"{label}_a", "FFA", top, clearance=500_000, x1=middle - FILL_FILL_GAP // 2)
+    made.filled_zone(f"{label}_b", "FFB", top, clearance=500_000, x0=middle + FILL_FILL_GAP // 2)
+    made.netclass("FF", 300_000, "FFA", "FFB")
+    maker.rows.append(Row(label, FILL_FILL, FILL_FILL_GAP))
+
+
+def _zone_bench(target: int) -> ParityBench:
+    maker = _Maker(target, "Z")
+    maker.made.rule(_canary())
+    _zone_rows(maker, "zone")
+    _fill_fill(maker)
+    bench = maker.made.build()
+    return ParityBench(
+        "zone", target, bench, tuple(maker.rows), write_triad(bench.design, name=NAME, target=target)
+    )
+
+
+def _zone_floor_bench(target: int) -> ParityBench:
+    maker = _Maker(target, "Z")
+    maker.made.rule(_canary())
+    _zone_rows(maker, "zone-floor")
+    bench = maker.made.build()
+    files = write_triad(bench.design, name=NAME, target=target)
+    data = _json.loads(files[PROJECT])
+    data["board"]["design_settings"]["rules"]["min_clearance"] = JsonNumber(f"{ZONE_FLOOR / 1e6:g}")  # type: ignore[index]
+    files[PROJECT] = _json.dumps(data)
+    return ParityBench("zone-floor", target, bench, tuple(maker.rows), files)
+
+
 @cache
 def parity_bench(source: str, target: int) -> ParityBench:
-    return {"rule": _rule_bench, "class": _class_bench, "floor": _floor_bench}[source](target)
+    return {
+        "rule": _rule_bench,
+        "class": _class_bench,
+        "floor": _floor_bench,
+        "zone": _zone_bench,
+        "zone-floor": _zone_floor_bench,
+    }[source](target)
 
 
 # --- verdicts -------------------------------------------------------------------------------------
@@ -413,6 +518,19 @@ def zone_overlap() -> str:
     return rb.outcome(bool(rb.violations_between(report, *bench.uuids(row))))
 
 
+def zone_clearance(case: str) -> str:
+    """``equal`` when every row of the zone case has the same verdict in KiCad and in Fenolite."""
+    return _equal(compared(ZONE_CASES[case].bench, (zone_group(case),)))
+
+
+def fill_fill() -> str:
+    """``present`` when a violation of any type names both zones of the two-fill row."""
+    bench = parity_bench("zone", running_target())
+    report = rb.require_canary(kicad_report("zone"), bench.bench)
+    (row,) = [row for row in bench.rows if row.group == FILL_FILL]
+    return rb.outcome(bool(rb.violations_between(report, *bench.uuids(row))))
+
+
 def parity_probes() -> Probes:
     both = (9, 10)
     probes: Probes = {f"copper-parity-{kind}": (lambda kind=kind: parity(kind), both) for kind in KINDS}
@@ -422,6 +540,9 @@ def parity_probes() -> Probes:
         probes[f"copper-resolve-{case}"] = (lambda case=case: resolve(case), both)
     for name in BOUNDARY:
         probes[f"copper-boundary-{name}"] = (lambda name=name: boundary(name), both)
+    for case in ZONE_CASES:
+        probes[f"copper-zoneclr-{case}"] = (lambda case=case: zone_clearance(case), both)
+    probes["copper-fill-fill"] = (fill_fill, both)
     return probes
 
 
@@ -429,12 +550,18 @@ __all__ = [
     "BOUNDARY",
     "CLEARANCE",
     "FILL",
+    "FILL_FILL",
+    "FILL_PAD",
+    "FILL_VIA",
     "GAPS",
     "KINDS",
     "RESOLVE",
     "SOURCES",
+    "ZONE_CASES",
+    "ZONE_SOURCES",
     "ParityBench",
     "Row",
+    "ZoneCase",
     "boundary",
     "compared",
     "fenolite_report",
@@ -446,5 +573,7 @@ __all__ = [
     "parity_probes",
     "resolve",
     "types_between",
+    "zone_clearance",
+    "zone_group",
     "zone_overlap",
 ]

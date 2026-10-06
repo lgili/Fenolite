@@ -7,7 +7,11 @@ so Fenolite never hands out one without the others (``docs/formats/kicad/project
 Fenolite reads or writes ``.kicad_prl``.
 """
 
+# evidence: see dru, pcb, pro
+
 from __future__ import annotations
+
+from collections.abc import Collection
 
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
@@ -27,13 +31,16 @@ def write_triad(
     name: str,
     target: int = DEFAULT_TARGET,
     existing_project: str | None = None,
+    renamed_nets: Collection[str] = (),
+    schematic: bool = False,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
 ) -> dict[str, str]:
     """``<name>.kicad_pcb``, ``<name>.kicad_pro`` and ``<name>.kicad_dru`` for ``target``.
 
     An error of any of the three writers aborts the whole set; warnings and infos of all three are
-    appended to ``issues``. Nothing is written to disk.
+    appended to ``issues``. Nothing is written to disk. ``schematic`` says that the caller also writes
+    the schematic of the project, so the drawing sheet of the design is named for it too.
     """
     found: list[Issue] = []
     board = write_board(design, target=target, allow_lossy=allow_lossy)
@@ -47,9 +54,14 @@ def write_triad(
         )
     else:
         project = update_project(
-            existing_project, design, target=target, allow_lossy=allow_lossy, issues=found
+            existing_project,
+            design,
+            target=target,
+            allow_lossy=allow_lossy,
+            issues=found,
+            renamed_nets=renamed_nets,
         )
-    project = apply_sheet_keys(project, design, allow_lossy=allow_lossy, issues=found)
+    project = apply_sheet_keys(project, design, schematic=schematic, allow_lossy=allow_lossy, issues=found)
     if issues is not None:
         issues.extend(found)
     return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}

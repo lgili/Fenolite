@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import pytest
 
+from fenolite.backends.kicad.mod import read_footprint, write_footprint
+from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, DslError, Footprint, Part, mm
 from fenolite.dsl.convert import to_model
 
@@ -34,6 +36,38 @@ def test_duplicate_ids_and_duplicate_pads_are_refused() -> None:
     design.add_footprint(footprint)
     with pytest.raises(DslError, match="registered twice"):
         design.add_footprint(Footprint("Local", "Pad"))
+
+
+def test_shared_pad_numbers_round_trip_with_stable_unique_ids() -> None:
+    footprint = Footprint("Local", "Tab")
+    footprint.pad("2", at=(mm(0), mm(-1)), size=(mm(1), mm(1)))
+    footprint.pad("2", at=(mm(0), mm(1)), size=(mm(2), mm(2)), shared=True)
+
+    pads = footprint.definition.pads
+    assert [pad.number for pad in pads] == ["2", "2"]
+    assert pads[0].id != pads[1].id
+    assert [pad.id for pad in pads] == [pad.id for pad in footprint.definition.pads]
+    repeated = Footprint("Local", "Tab")
+    repeated.pad("2", at=(mm(0), mm(-1)), size=(mm(1), mm(1)))
+    repeated.pad("2", at=(mm(0), mm(1)), size=(mm(2), mm(2)), shared=True)
+    assert [pad.id for pad in repeated.definition.pads] == [pad.id for pad in pads]
+
+    unique = Footprint("Local", "Unique")
+    unique.pad("1", at=(mm(0), mm(0)), size=(mm(1), mm(1)))
+    assert unique.definition.pads[0].id == derived_id("pad", "fenolite.dsl", "Local:Unique:pad:1")
+
+    issues = []
+    text = write_footprint(footprint.definition, target=10, issues=issues)
+    round_trip = read_footprint(text, library="Local")
+    assert issues == []
+    assert [pad.number for pad in round_trip.pads] == ["2", "2"]
+    assert len({pad.id for pad in round_trip.pads}) == 2
+
+
+def test_shared_pad_requires_an_earlier_matching_number() -> None:
+    footprint = Footprint("Local", "Tab")
+    with pytest.raises(DslError, match="no earlier pad"):
+        footprint.pad("2", at=(mm(0), mm(0)), size=(mm(1), mm(1)), shared=True)
 
 
 @pytest.mark.parametrize(

@@ -25,7 +25,7 @@ from typing import Literal, TypeVar, get_args
 
 from fenolite import __version__
 from fenolite.backends.base import WriteResult
-from fenolite.backends.kicad import _pcbwrite
+from fenolite.backends.kicad import _pcbwrite, netnames
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._fpmap import (
@@ -117,6 +117,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.zone-outline-opaque": "info",
         "kicad.board.duplicate-uuid": "warning",
         "kicad.board.unknown-net": "warning",
+        "kicad.board.net-name-collision": "info",
         KEPT_CODE: "info",
         "kicad.board.paper-unmodelled": "info",
     }
@@ -251,6 +252,27 @@ def pad_angle_to_board(relative: Udeg, footprint: Udeg) -> Udeg:
 
 
 # --- emitting -------------------------------------------------------------------------------------
+
+
+STORED_KEY = "stored"
+"""The pair of a net's ``kicad`` extension bag that keeps the spelling of a stored name with ``{slash}``."""
+
+
+def stored_net_name(net: Net) -> str:
+    """The name ``net`` has in a written board (``kicad-file-backend``, "Net names in KiCad's stored form").
+
+    A net read from a board keeps the spelling of its file. The reader gives a net stored with ``{slash}``
+    the name with the slash and keeps the spelling in the net's ``kicad`` bag; every other read net is
+    named as stored (KiCad writes the nets of sub-sheets with raw slashes), and its id is derived from
+    that name. Every other net is created, and a ``/`` in its name is written ``{slash}``, as KiCad stores
+    the net of a label whose text holds a slash.
+    """
+    kept = _ext_pairs(net).get(STORED_KEY)
+    if kept is not None:
+        return kept
+    if net.id == derived_id("net", "kicad", f"net:{net.name}"):
+        return net.name
+    return netnames.stored_name(net.name)
 
 
 @dataclass(frozen=True)
@@ -691,7 +713,8 @@ class EmitContext:
 
     @cached_property
     def nets(self) -> _Nets:
-        return _Nets(self.net_form, {n.id: n.name for n in self.design.circuit.nets}, self.net_numbers)
+        names = {n.id: stored_net_name(n) for n in self.design.circuit.nets}
+        return _Nets(self.net_form, names, self.net_numbers)
 
     @cached_property
     def version(self) -> int:
@@ -732,7 +755,7 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
     if isinstance(entity, Board):
         items = _emit_header(entity)
         rows = _sorted(n for n in ctx.design.circuit.nets if n.id in ctx.net_numbers)
-        items["nets"] = [_net_row(ctx.net_numbers[n.id], n.name) for n in rows]
+        items["nets"] = [_net_row(ctx.net_numbers[n.id], stored_net_name(n)) for n in rows]
         items["footprints"] = [_rebuild(fp, "footprint", ctx) for fp in _sorted(entity.footprints)]
         items["tracks"] = [_rebuild(t, "segment", ctx) for t in _sorted(entity.tracks)]
         items["arcs"] = [_rebuild(a, "arc", ctx) for a in _sorted(entity.arcs)]
@@ -1647,14 +1670,39 @@ class _Reader:
             Net(
                 id=entry.id,
                 provenance=self.ctx.provenance(entry.locator),
-                ext={"kicad": ExtBag(None, (("number", str(entry.number)),))}
-                if entry.number is not None
-                else {},
-                name=entry.name,
+                ext=self.net_ext(entry),
+                name=self.model_net_name(entry),
                 members=tuple(members[entry.id]),
             )
             for entry in self.nets.values()
         )
+
+    def net_ext(self, entry: _NetEntry) -> dict[str, ExtBag]:
+        """The ``kicad`` bag of a net: its table number, and its stored spelling when the model name
+        differs from it."""
+        pairs: list[tuple[str, str]] = []
+        if entry.number is not None:
+            pairs.append(("number", str(entry.number)))
+        if self.model_net_name(entry, report=False) != entry.name:
+            pairs.append((STORED_KEY, entry.name))
+        return {"kicad": ExtBag(None, tuple(pairs))} if pairs else {}
+
+    def model_net_name(self, entry: _NetEntry, *, report: bool = True) -> str:
+        """The model name of a net: ``{slash}`` in a stored name is the slash of a label text, unless
+        another net of the board already has that name (``kicad.board.net-name-collision``)."""
+        if netnames.SLASH not in entry.name:
+            return entry.name
+        name = netnames.model_name(entry.name)
+        if name in self.nets:
+            if report:
+                self.issue(
+                    "kicad.board.net-name-collision",
+                    f"net {entry.name!r} would be named {name!r}, which another net of the board is "
+                    "named; it keeps its stored spelling",
+                    entry.locator,
+                )
+            return entry.name
+        return name
 
 
 def read_board(source: Source, *, file: str = "", issues: list[Issue] | None = None) -> Design:
@@ -2043,7 +2091,7 @@ class _Writer:
         self.version = FORMAT_VERSIONS[FileKind.BOARD][target]
         self.errors: list[Issue] = []
         self.components = {c.id: c for c in design.circuit.components}
-        self.nets = _Nets("neutral", {n.id: n.name for n in design.circuit.nets}, {})
+        self.nets = _Nets("neutral", {n.id: stored_net_name(n) for n in design.circuit.nets}, {})
         self.pad_rotation = {pad.id: fp.rotation for fp in board.footprints for pad in fp.pads}
         self.field_owner = {f.id: fp for fp in board.footprints for f in fp.fields}
         self.copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
@@ -2273,7 +2321,7 @@ class _Writer:
         else:
             slots = _with_title_block(list(slots), board.title_block)
             rows = _sorted(n for n in self.design.circuit.nets if "number" in _ext_pairs(n))
-            items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), n.name) for n in rows]
+            items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), stored_net_name(n)) for n in rows]
         items["footprints"] = [self.entity(fp, "footprint") for fp in _write_order(board.footprints)]
         items["tracks"] = [self.entity(t, "segment") for t in _write_order(board.tracks)]
         items["arcs"] = [self.entity(a, "arc") for a in _write_order(board.arcs)]
@@ -2628,7 +2676,8 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     writer = _Writer(design, target)
     root = writer.root()
     opaque = _pcbwrite.opaque_locators(root, writer.opaque_ids)
-    forms = _pcbwrite.NetForms.of(target, writer.source_table(), [n.name for n in design.circuit.nets])
+    stored = [stored_net_name(n) for n in design.circuit.nets]
+    forms = _pcbwrite.NetForms.of(target, writer.source_table(), stored)
     root = _pcbwrite.convert_nets(root, forms, writer.errors)
     issues: list[Issue] = []
     if target < 10:

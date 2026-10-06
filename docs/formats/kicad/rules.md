@@ -30,6 +30,14 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | Every constraint type and clause of the 9.0 manual loads on 9.0.9 and 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-TOK-RULES-FLOOR |
 | A rule with a single-quoted name makes 9.0.9 and 10.0.6 drop the whole file, with exit 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-QUOTE |
 | `assign_component_class` is a rules keyword at tag 10.0.6 and not at 9.0.0; no public page documents its shape | S-0034 | INFERRED | H-K-TOK-CONSTANTS |
+| `hole_to_hole`, `hole_clearance` and `annular_width` rules with a `min` and a net condition are enforced, under violation types of the same names; 9.0.9 prints a 1 mm hole-to-hole limit as `0.9995 mm` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A `courtyard_clearance` rule is reported as `courtyards_overlap` ("Courtyards overlap (rule … clearance 1.0000 mm; actual 0.5100 mm)"); it selects a footprint with `A.Reference == '<ref>'`, and `A.memberOfFootprint('<ref>')` selects nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-COURTYARD |
+| A `silk_clearance` rule is reported as `silk_overlap`, between the silkscreen of two footprints and between a footprint's silkscreen and another footprint's courtyard rectangle; `silk_over_copper` is its type against pads | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A `creepage` rule on two nets (`A.NetName == … && B.NetName == …`) is reported as `creepage` on 10.0.6, 50 µm above the surface distance and not 50 µm below it; 9.0.9 loads the same rule and reports nothing for it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| KiCad reports one violation per item pair in the copper clearance test: a pair whose copper clearance fails gets a `clearance` entry and no `hole_clearance` entry, so a clearance rule that matches every pair hides the hole clearance of the pairs it flags | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A board-wide `hole_clearance`, `hole_to_hole` or `annular_width` rule governs below the template's board-setup minimum of its kind (0.25 mm, 0.25 mm and 0.1 mm): an item between the two is reported without the rule and not with it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-3 |
+| The later of two `hole_to_hole` rules that match one via pair governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| `A.inDiffPair('<base>')` matches the two nets named `<base>` plus a last character `P` and `N`, or `+` and `-` (`X_P`/`X_N` with the base `X` or `X_`, `X+`/`X-`, `X_DP`/`X_DN`, `XP`/`XN`); letter case counts, and `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` are not a pair | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DIFFPAIR-NAMES |
 
 ## Board-wide rules and board-setup minimums
 
@@ -72,7 +80,18 @@ semantics of each row are the hypotheses above.
 | `via_diameter` | `via_diameter` | `min`, `opt`, `max` |
 | `hole_size` | `hole_size` | `min`, `max` |
 | `via_drill` | `hole_size`, with `A.Type == 'Via'` as the first conjunct of the condition | `min`, `max` |
+| `hole_to_hole` | `hole_to_hole` | `min` |
+| `hole_clearance` | `hole_clearance` | `min` |
+| `annular_width` | `annular_width` | `min` |
+| `courtyard_clearance` | `courtyard_clearance` | `min` |
+| `silk_clearance` | `silk_clearance` | `min` |
+| `creepage` | `creepage` | `min` |
 
+- The last six kinds (change c0071) take `min` only, which is what the oracle measured, and a `min` of 0
+  is allowed for them.
+- `rulemap.KIND_SUPPORT` maps each kind to the KiCad majors on which `kicad-cli` enforces it as written:
+  both majors for every kind but `creepage`, which holds 10 only. A modelled rule of a kind outside its
+  entry gives `rules.kind-unchecked`; `allow_lossy` drops it with `rules.dropped-for-target`.
 - Values are written as the shortest exact millimetre decimal of the nanometre value (`0.25mm`,
   `0.2032mm`), never rounded. Limits are written in the order `min`, `opt`, `max`.
 - Values are read with `rulemap.parse_value`, which accepts `mm`, `mil` and `in` exactly. Other units
@@ -109,6 +128,26 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   key outside its entry for the target. A selector is never approximated.
 - A net with several classes compares a composite class name in KiCad; lowered designs assign one class
   per net (c0010), so `netclass` compares one name.
+
+### Selectors per kind
+
+`rulemap.KIND_SELECTORS` narrows the grammar for the kinds of change c0071. The six kinds of v0.1 take
+the whole table above.
+
+| kind | side A | side B | layer clause |
+|---|---|---|---|
+| `hole_to_hole`, `hole_clearance`, `annular_width` | the whole table | no | no |
+| `courtyard_clearance` | `all`, or `ref` leaves without `*`, combined with `and`, `or` and `not` | no | no |
+| `silk_clearance` | `all` only | no | no |
+| `creepage` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | the same | no |
+
+- A courtyard rule checks footprints, so its `ref v` is written `A.Reference == 'v'`. A courtyard rule
+  read with `memberOfFootprint` stays opaque: writing it back with `Reference` would change what KiCad
+  checks.
+- A silkscreen rule is board-wide because KiCad also applies it between a footprint's silkscreen and the
+  courtyard of its neighbours; a narrower selector would promise a precision the check does not have.
+- Anything outside a kind's row gives `rules.unsupported-selector` on write and keeps the rule opaque on
+  read.
 
 ### Layers and names
 
@@ -155,7 +194,8 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
 | `rules.unsupported-selector` | error | a selector outside the closed grammar for the target |
 | `rules.unsupported-limit` | error | a limit the kind does not take, or no limit |
 | `rules.unsupported-layer` | error | a layer name that `layers.is_canonical` refuses, or a layer clause for a target outside the `layer_clause` entry |
-| `rules.dropped-for-target` | warning | `allow_lossy` dropped a rule the target cannot load |
+| `rules.kind-unchecked` | error | a modelled rule of a kind whose `KIND_SUPPORT` entry lacks the target |
+| `rules.dropped-for-target` | warning | `allow_lossy` dropped a rule the target cannot load or does not check |
 | `rules.kept-opaque` | info | `read_rules` kept a rule opaque, naming the reason |
 
 The writers also pass on `kicad.token.uninventoried` warnings for target 10.
@@ -187,6 +227,15 @@ Per-major outcome of each row, from the oracle on 2026-10-02 (local `kicad-cli` 
 | `H-K-DRU-GLOB` (`*`) | holds | holds |
 | `H-K-DRU-QUOTE` (single-quoted name drops the file) | holds | holds |
 | `H-K-DRU-KIND` (each kind) | holds | holds |
+| `hole_to_hole` | `hole_to_hole` |
+| `hole_clearance` | `hole_clearance` |
+| `annular_width` | `annular_width` |
+| `courtyard_clearance` | `courtyards_overlap` |
+| `silk_clearance` | `silk_overlap` (and `silk_over_copper` against pads) |
+| `creepage` | `creepage` on 10.0.6; nothing on 9.0.9 |
+
+The benches of the last six kinds carry the canary scoped to its own net (`A.NetName == 'CANARY_A'`): the
+plain canary matches every pair and would take the one violation KiCad reports for a pair.
 
 **Letter case.** KiCad compares names without regard to case, while the model's selectors are
 case-sensitive. Lowering writes names as given, so two nets or classes whose names differ only in case

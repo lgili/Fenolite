@@ -64,3 +64,36 @@ Two things KiCad reports that are not failures of the copper API:
   pad 1, and KiCad reports that clearance violation. Script copper follows its pads; whether the result
   keeps its clearances is for `fenolite check` (and c0029's copper check) to say. The probe therefore
   moves `D1` along Y.
+
+## The offset of a pad's drill (c0068, 2026-10-05)
+
+`H-G-FRAME-OFFSET`. The bench of `tests/kicad/frame/_offsetbench.py` holds four copies of the authored
+footprint `Frame_Offset` (a through-hole `rect` pad of 2 mm × 2 mm with a 0.8 mm drill), each with its
+`(offset X Y)` set by token edit and one track of another net above it, under a class clearance of 0.2 mm
+and the scoped canary. The gap is the edge distance between the track and the pad's box.
+
+| row | offset | gap without the offset | gap with the copper moved | KiCad 10.0.6 | `check_copper`, v0.1 | `check_copper`, c0068 |
+|---|---|---|---|---|---|---|
+| `towards` | 0.4 mm towards the track | 0.5 mm | 0.1 mm | `clearance` | clean | `clearance` |
+| `short-of` | 0.25 mm towards the track | 0.5 mm | 0.25 mm | clean | clean | clean |
+| `away` | 0.5 mm away from the track | 0.1 mm | 0.6 mm | clean | `clearance` | clean |
+| `turned` | 0.4 mm towards the track, footprint at 90° | 0.5 mm | 0.1 mm | `clearance` | clean | `clearance` |
+
+So KiCad keeps the hole at the pad's `at` and moves the copper by the offset, which turns with the pad.
+v0.1 moved the hole and left the copper. Run with the local `kicad-cli` 10.0.6 (macOS) on 2026-10-05, and with 9.0.9 on 2026-10-06, in the pinned
+image and in the `kicad-9` job: the same four verdicts on both majors.
+The probe `pcb-frame-pad-offset` records `equal`.
+
+**Census** (`tests/corpus/test_copper_offset_census.py`, 21 readable non-heavy demo boards, each checked
+with the classes and the board minimum of its own project file; the corpus holds no rules file for a
+demo, and one board has no project file). Two boards hold pads whose drill has an offset; the other 19
+hold none, and their counts are the same before and after.
+
+| board | pads | pads with an offset drill | clearance findings, v0.1 | of them naming such a pad | clearance findings, c0068 | of them naming such a pad |
+|---|---|---|---|---|---|---|
+| `kicad-demo-10-0-6-pcb-02` | 165 | 27 | 35 | 35 (12 of a fill and a pad, 18 of two pads, 5 of a pad and a track) | 0 | 0 |
+| `kicad-demo-10-0-6-pcb-13` | 428 | 27 | 15 | 0 | 15 | 0 |
+
+Every false finding of v0.1 on the first board named a pad with an offset drill, and all 35 are gone. On
+the second board the pads with an offset drill were never close enough to other copper to be reported,
+under either reading.

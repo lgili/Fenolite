@@ -15,15 +15,22 @@ from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
+from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
-from fenolite.model.rules import RuleKind
+from fenolite.model.design import presentation_issues
+from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
+from fenolite.model.rules import RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import Recorded
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
+PAPERS: tuple[str, ...] = get_args(PaperSize)
+"""The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
+SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
+"""What a drawing sheet named by ``sheet()`` ends in."""
 INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
 """The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
 
@@ -64,7 +71,8 @@ MINIMUM_KINDS: tuple[RuleKind, ...] = (
     "hole_size",
     "edge_clearance",
 )
-"""The keywords of ``design.rules.minimum()``, which are the rule kinds of the model."""
+"""The keywords of ``design.rules.minimum()``: the first six rule kinds of the model. The other kinds are
+declared with ``design.rules.rule()``."""
 
 
 @dataclass(frozen=True)
@@ -77,11 +85,44 @@ class MinimumSpec:
     min: Nm
 
 
+RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
+RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
+BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
+"""The rule kinds that take a second selector (``between``)."""
+
+
+@dataclass(frozen=True)
+class RuleSpec:
+    """One ``design.rules.rule()`` call: a rule of any model kind, with its selectors as model selectors
+    and its limits in nanometres."""
+
+    name: str
+    kind: RuleKind
+    where: Selector
+    between: Selector | None
+    layers: tuple[str, ...]
+    min: Nm | None
+    opt: Nm | None
+    max: Nm | None
+    severity: RuleSeverity
+    priority: int
+
+
+def _leaf_values(selector: Selector | None, op: str) -> list[str]:
+    if selector is None:
+        return []
+    if selector.items:
+        return [value for item in selector.items for value in _leaf_values(item, op)]
+    return [selector.value] if selector.op == op else []
+
+
 class Rules:
-    """``design.rules``: net classes and design-rule minimums (``docs/dsl.md``, "Design rules")."""
+    """``design.rules``: net classes, design-rule minimums and rules (``docs/dsl.md``, "Design rules")."""
 
     def __init__(self, design: Design) -> None:
         self._design = design
+        self.named: dict[str, RuleSpec] = {}
+        """The rules of ``rule()`` by name, in call order."""
         self.netclasses: dict[str, NetClassSpec] = {}
         self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
         """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
@@ -121,6 +162,81 @@ class Rules:
             raise DslError("minimum(): give at least one length, for example clearance=mm(0.2)")
         for spec in found:
             self.minimums[(spec.kind, spec.netclass)] = spec
+
+    def rule(
+        self,
+        name: str,
+        kind: str,
+        *,
+        where: Select = ALL,
+        between: Select | None = None,
+        layers: tuple[str, ...] = (),
+        min: object = None,  # noqa: A002  (the model's field name)
+        opt: object = None,
+        max: object = None,  # noqa: A002
+        severity: str = "error",
+        priority: int = 0,
+    ) -> None:
+        """Declare one design rule of any model kind. ``where`` selects the items (``fenolite.dsl.select``),
+        ``between`` the second item of a ``clearance`` or ``creepage`` rule. Priority 0 is written first and
+        governs least; among the others, 1 governs most. What depends on the target (the limits a kind
+        takes, the majors that check it, globs, layer names) is judged when the rules are lowered."""
+        if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule(): a rule name must be a non-empty string, not {name!r}")
+        if name in self.named:
+            raise DslError(f"rule(): the rule {name!r} is declared twice")
+        if kind not in RULE_KINDS:
+            raise DslError(f"rule() {name!r}: kind {kind!r} is not one of {', '.join(RULE_KINDS)}")
+        if not isinstance(where, Select):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: where must be a selector of fenolite.dsl.select, not {where!r}")
+        if between is not None and not isinstance(between, Select):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: between must be a selector of fenolite.dsl.select")
+        if between is not None and kind not in BINARY_KINDS:
+            raise DslError(
+                f"rule() {name!r}: between is taken by clearance and creepage rules, not by {kind}"
+            )
+        if not isinstance(layers, tuple) or not all(isinstance(x, str) and x for x in layers):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"rule() {name!r}: layers must be a tuple of layer names, not {layers!r}")
+        if severity not in RULE_SEVERITIES:
+            raise DslError(
+                f"rule() {name!r}: severity {severity!r} is not one of {', '.join(RULE_SEVERITIES)}"
+            )
+        if type(priority) is not int or priority < 0:
+            raise DslError(f"rule() {name!r}: priority must be an integer of 0 or more, not {priority!r}")
+        limits: dict[str, Nm | None] = {}
+        for label, value in (("min", min), ("opt", opt), ("max", max)):
+            limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
+        given = [(label, value) for label, value in limits.items() if value is not None]
+        if not given:
+            raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
+        if limits["min"] is not None and limits["min"] < 0:
+            raise DslError(f"rule() {name!r}: min must not be negative")
+        for label in ("opt", "max"):
+            value = limits[label]
+            if value is not None and value <= 0:
+                raise DslError(f"rule() {name!r}: {label} must be above 0")
+        if any(a > b for (_, a), (_, b) in zip(given, given[1:], strict=False)):
+            raise DslError(f"rule() {name!r}: the limits must rise from min through opt to max")
+        selector_a = where.to_model()
+        selector_b = None if between is None else between.to_model()
+        for class_name in (*_leaf_values(selector_a, "netclass"), *_leaf_values(selector_b, "netclass")):
+            if "*" not in class_name and class_name != "Default" and class_name not in self.netclasses:
+                raise DslError(
+                    f"rule() {name!r}: netclass {class_name!r} is not a declared net class; "
+                    "call design.rules.netclass() first"
+                )
+        self.named[name] = RuleSpec(
+            name,
+            cast(RuleKind, kind),
+            selector_a,
+            selector_b,
+            layers,
+            limits["min"],
+            limits["opt"],
+            limits["max"],
+            cast(RuleSeverity, severity),
+            priority,
+        )
 
     def netclass(
         self,
@@ -176,11 +292,20 @@ class Design(Container):
         self.size: tuple[Nm, Nm] | None = None
         self.parts: dict[str, Part] = {}
         self.footprints: dict[str, Footprint] = {}
+        self.symbols: dict[str, object] = {}
         self.modules: dict[str, Module] = {}
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
         self.aliases: dict[str, str] = {}
-        """``moved()`` aliases: new component path → old component path."""
+        """``moved()`` aliases: new path → old path, of a part or of a module."""
+        self.net_aliases: dict[str, str] = {}
+        """``moved_net()`` aliases: new net name → old net name."""
+        self.sheet_frame: SheetFrameRef | None = None
+        """The paper of ``sheet()``, without the drawing sheet's name."""
+        self.sheet_source: str | None = None
+        """The drawing sheet of ``sheet()``, as the script names it: a path relative to its folder."""
+        self.block: TitleBlock | None = None
+        """The title block of ``title_block()``."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
@@ -193,6 +318,21 @@ class Design(Container):
         if footprint.lib_id in self.footprints:
             raise DslError(f"footprint {footprint.lib_id!r} is registered twice")
         self.footprints[footprint.lib_id] = footprint
+
+    def add(self, *objs: object) -> None:
+        """Attach authored symbols explicitly, or attach ordinary design objects as usual."""
+        from fenolite.dsl.symbol import Symbol
+
+        regular: list[object] = []
+        for obj in objs:
+            if isinstance(obj, Symbol):
+                if obj.lib_id in self.symbols:
+                    raise DslError(f"symbol {obj.lib_id!r} is registered twice")
+                self.symbols[obj.lib_id] = obj
+            else:
+                regular.append(obj)
+        if regular:
+            super().add(*regular)  # type: ignore[arg-type]
 
     @property
     def design(self) -> Design:
@@ -220,6 +360,88 @@ class Design(Container):
         self.size = (w, h)
         self.copper = copper
         self.planes = declared
+
+    def sheet(
+        self,
+        paper: str = "A4",
+        *,
+        portrait: bool = False,
+        width: object = None,
+        height: object = None,
+        drawing_sheet: str | None = None,
+    ) -> None:
+        """The board's paper and, with ``drawing_sheet``, its frame: a ``.kicad_wks`` file or a
+        ``*.sheet.toml`` specification beside the script, which the build writes as ``<name>.kicad_wks``
+        (``docs/dsl.md``, "Drawing sheet and title block"). ``width`` and ``height`` are given together,
+        for the paper ``custom``."""
+        if self.sheet_frame is not None:
+            raise DslError("sheet() is called once")
+        if paper not in PAPERS:
+            raise DslError(f"sheet(): paper is one of {', '.join(PAPERS)}, not {paper!r}")
+        if not isinstance(portrait, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"sheet(): portrait is True or False, not {portrait!r}")
+        w = None if width is None else as_nm(width, name="width")
+        h = None if height is None else as_nm(height, name="height")
+        frame = SheetFrameRef(cast(PaperSize, paper), portrait, w, h)
+        for found in presentation_issues(frame, None, "sheet"):
+            raise DslError(f"sheet(): {found.message}")
+        if w is not None and h is not None and (w <= 0 or h <= 0):
+            raise DslError("sheet(): width and height must be positive")
+        if drawing_sheet is not None:
+            self._sheet_path(drawing_sheet)
+        self.sheet_frame = frame
+        self.sheet_source = drawing_sheet
+
+    @staticmethod
+    def _sheet_path(path: object) -> None:
+        if not isinstance(path, str) or not path.endswith(SHEET_SUFFIXES):
+            raise DslError(
+                f"sheet(): drawing_sheet {path!r} is not a .kicad_wks file or a *.sheet.toml specification"
+            )
+        parts = path.replace("\\", "/").split("/")
+        if path.startswith(("/", "\\")) or ":" in parts[0] or ".." in parts or "" in parts:
+            raise DslError(
+                f"sheet(): drawing_sheet {path!r} must be a path inside the folder of the design script"
+            )
+
+    def title_block(
+        self,
+        *,
+        title: str = "",
+        date: str = "",
+        revision: str = "",
+        organization: str = "",
+        doc_id: str = "",
+        responsible: str = "",
+        approver: str = "",
+        variables: Mapping[str, str] | None = None,
+    ) -> None:
+        """The title block of the board and of the schematic. ``variables`` are the user's text variables
+        (``${NAME}`` in a drawing sheet), written to the project file."""
+        if self.block is not None:
+            raise DslError("title_block() is called once")
+        texts = {
+            "title": title,
+            "date": date,
+            "revision": revision,
+            "organization": organization,
+            "doc_id": doc_id,
+            "responsible": responsible,
+            "approver": approver,
+        }
+        for name, value in texts.items():
+            if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"title_block(): {name} is a text, not {value!r}")
+        params: dict[str, str] = {}
+        if variables is not None and not isinstance(variables, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"title_block(): variables maps names to texts, not {variables!r}")
+        for name, value in cast(Mapping[object, object], variables or {}).items():
+            if not isinstance(name, str) or not PARAM_NAME.fullmatch(name):
+                raise DslError(f"title_block(): variable name {name!r} does not match {PARAM_NAME.pattern}")
+            if not isinstance(value, str):
+                raise DslError(f"title_block(): variable {name} is a text, not {value!r}")
+            params[name] = value
+        self.block = TitleBlock(**texts, params=dict(sorted(params.items())))
 
     @staticmethod
     def _planes(copper: int, planes: object) -> dict[str, str]:
@@ -371,11 +593,11 @@ class Design(Container):
         return tuple(points)
 
     def moved(self, old: str, new: str) -> None:
-        """Record that the part at component path ``new`` was at ``old`` in an earlier build, so a rebuild
-        keeps its layout (``docs/lens.md``, "moved()")."""
+        """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a
+        rebuild keeps its layout (``docs/lens.md``, "moved()" and "Module aliases")."""
         for what, path in (("old", old), ("new", new)):
             if not isinstance(path, str) or not all(NAME.fullmatch(p) for p in path.split("/")):  # pyright: ignore[reportUnnecessaryIsInstance]
-                raise DslError(f"moved(): {what} path {path!r} is not a component path")
+                raise DslError(f"moved(): {what} path {path!r} is not a component or module path")
         if old == new:
             raise DslError(f"moved(): old and new are both {old!r}")
         if new in self.aliases:
@@ -384,25 +606,50 @@ class Design(Container):
             raise DslError(f"moved(): {old!r} is already the old path of an alias")
         self.aliases[new] = old
 
+    def moved_net(self, old: str, new: str) -> None:
+        """Record that the net named ``new`` was named ``old`` in an earlier build, so a rebuild keeps its
+        copper (``docs/lens.md``, "Net aliases")."""
+        for what, name in (("old", old), ("new", new)):
+            if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"moved_net(): {what} name {name!r} is not a net name")
+        if old == new:
+            raise DslError(f"moved_net(): old and new are both {old!r}")
+        if new in self.net_aliases:
+            raise DslError(f"moved_net(): {new!r} already has an alias ({self.net_aliases[new]!r})")
+        if old in self.net_aliases.values():
+            raise DslError(f"moved_net(): {old!r} is already the old name of an alias")
+        self.net_aliases[new] = old
+
     # -- copper intents (resolved by the build after placement; ``docs/dsl.md``, "Copper")
 
     def track(
         self, key: str, *path: object, layer: str = "F.Cu", width: object = None, net: Net | None = None
     ) -> None:
-        """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()`` and
-        ``via_step(…)`` layer changes. The net comes from the pads; the width from ``width`` or the net's
-        class. ``key`` names the intent, so its copper keeps its ids across builds."""
+        """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()``,
+        ``arc_to(…)`` bends and ``via_step(…)`` layer changes. The net comes from the pads; the width from
+        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds."""
         from fenolite.dsl import intents
 
         intents.record_track(self, key, path, layer, width, net)
 
     def via(
-        self, key: str, x: object, y: object, *, net: Net, diameter: object = None, drill: object = None
+        self,
+        key: str,
+        x: object,
+        y: object,
+        *,
+        net: Net,
+        diameter: object = None,
+        drill: object = None,
+        kind: str = "through",
+        layers: object = None,
     ) -> None:
-        """One through via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class."""
+        """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
+        ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
+        copper layers in ``layers``."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers)
 
     def stitch(
         self,

@@ -4,7 +4,7 @@
 Record, from public sources, every KiCad board and footprint token or value introduced after 8.0, the tokens 10.0 no longer writes, value-form changes, and the worksheet and rules vocabularies, with their minimum versions; generate `docs/formats/kicad/tokens.md` and check what a writer may emit for a target major.
 ## Requirements
 ### Requirement: Inventory file and loading
-The token inventory SHALL be the package data file `src/fenolite/backends/kicad/data/tokens.toml`, read with `tomllib` through `importlib.resources`. It SHALL contain `format = 1`, `collected_at` (the KiCad tags the facts were collected at), and arrays `[[token]]`, `[[form]]` and `[[note]]`. A `[[note]]` records one dated board-format version from S-0030 with only `version` and either `rows` (the row ids it introduced) or `no_row`, whose value MUST be `"no-token-change"` or `"superseded-in-cycle"`. Notes MUST NOT carry free text.
+The token inventory SHALL be the package data file `src/fenolite/backends/kicad/data/tokens.toml`, read with `tomllib` through `importlib.resources`. It SHALL contain `format = 1`, `collected_at` (the KiCad tags the facts were collected at), and arrays `[[token]]`, `[[form]]` and `[[note]]`. A `[[note]]` records one dated format version with only `version`, an optional `kind` and either `rows` (the row ids it introduced) or `no_row`, whose value MUST be `"no-token-change"`, `"superseded-in-cycle"` or `"unconfirmed"`. Without `kind` the note is a board-format version from S-0030; `kind = "kicad_sch"` or `"kicad_sym"` makes it a schematic or symbol-library version from S-0031, and every row it lists MUST be of that kind. `"unconfirmed"` says that the source names a change whose tokens could not be confirmed, so the inventory claims nothing about that version. Notes MUST NOT carry free text.
 
 `load_inventory()` SHALL cache the packaged file. When given text, it SHALL validate that text and return an `Inventory`. It MUST raise `FormatError`, naming the file and the row id, for any of these:
 - an unknown key;
@@ -17,7 +17,7 @@ The token inventory SHALL be the package data file `src/fenolite/backends/kicad/
 - `until_major` not greater than `since_major`;
 - `older_readers` other than `reject` or `ignore`;
 - an empty `sources`;
-- a `[[note]]` with both or neither of `rows` and `no_row`, an unknown `no_row` value, or an unknown row id.
+- a `[[note]]` with both or neither of `rows` and `no_row`, an unknown `no_row` value, an unknown row id, an unknown `kind`, or a `kind` that a listed row does not have.
 
 #### Scenario: Packaged inventory loads
 - **GIVEN** `fenolite` installed from the built wheel in an isolated environment
@@ -43,6 +43,11 @@ The token inventory SHALL be the package data file `src/fenolite/backends/kicad/
 - **GIVEN** a `[[note]]` with `version = 20240929`, `rows = ["pad-padstack"]` and a `summary` key
 - **WHEN** `load_inventory(text)` is called
 - **THEN** `FormatError` is raised naming the note's version and the key `summary`
+
+#### Scenario: Note of another kind rejected
+- **GIVEN** a `[[note]]` with `kind = "kicad_sym"` whose `rows` name a row of kind `kicad_sch` only
+- **WHEN** `load_inventory(text)` is called
+- **THEN** `FormatError` is raised naming the note's version, the row and `kicad_sym`
 
 ### Requirement: Inventory scope
 The inventory SHALL contain:
@@ -270,4 +275,41 @@ It SHALL be `INFERRED` otherwise; `inconclusive` cases never count.
 - **GIVEN** the `kicad-9` job with `kicad-cli` 9.0.9
 - **WHEN** `uv run pytest tests/kicad/test_token_census.py` runs
 - **THEN** `test_observed_paths` is skipped and nothing fails
+
+### Requirement: Schematic and symbol tokens are inventoried
+The inventory SHALL hold, besides the rows of "Inventory scope", rows of kinds `kicad_sch` and `kicad_sym`:
+- a `[[token]]` row for every schematic or symbol-library token name or symbol value introduced after the 8.0 constants (`20231120` for both kinds), according to the dated versions of the schematic format (S-0031);
+- a row with `until_major` for every token that a later major no longer writes and that the fuzz shows it still reads;
+- a `[[form]]` row for every value-form change that a path cannot express, such as a flag written bare in one version and as a `yes`/`no` child in a later one.
+
+These rules MUST hold:
+- Every dated version after the 8.0 constant up to the 10.0 constant in S-0031 MUST have a `[[note]]` for its kind, listing its rows or carrying a `no_row` reason, as "Inventory scope" requires for boards. A version whose tokens could not be confirmed from the registered sources carries `no_row = "unconfirmed"`, and no row is written for it.
+- A row MUST carry `since_version` only when a dated version of S-0031 for its own kind names the change; a token that the fuzz dates to a major but that no dated version of its kind names has `since_major` alone.
+- Every row introduced in 10.0 MUST be the only such row of at least one example, so that its rejection by 9.0.9 is credited to it; a token that cannot be isolated this way is left out.
+- Every name MUST be confirmed one by one at tags 9.0.9.1 and 10.0.6 in the keyword list of the schematic editor (S-0368); the list MUST NOT be converted into data ("Public-source discipline").
+- A row of kind `kicad_sym` MUST also match inside a schematic, under `kicad_sch/lib_symbols/…`, for the same chain under `kicad_symbol_lib/…`, when no row of kind `kicad_sch` matches there (`Inventory.match`).
+- Every new row MUST have an example and a committed fuzz result on both images ("Examples and controls", "Committed fuzz results"), obtained with the load checks of `kicad-oracle`, "Load checks for schematics and symbol libraries".
+- `docs/formats/kicad/tokens.md` MUST be regenerated by `tools/gen_token_docs.py`.
+
+#### Scenario: Rows of both kinds exist
+- **WHEN** the rows of the packaged inventory are listed by kind
+- **THEN** there is at least one row of kind `kicad_sch` and one of kind `kicad_sym`, each with `since_major` 9 or 10, a `since_version` and a source
+
+#### Scenario: Symbol row matches inside a sheet
+- **GIVEN** a row of kind `kicad_sym` for a child of `symbol` introduced after the 9.0 constant
+- **WHEN** `min_version(FileKind.SCHEMATIC, "kicad_sch/lib_symbols/symbol/<that child>")` and `min_version(FileKind.SYMBOL_LIB, "kicad_symbol_lib/symbol/<that child>")` are called
+- **THEN** both return the row's `since_version`
+
+#### Scenario: Dated version without a note
+- **GIVEN** a schematic version of S-0031 after `20231120` with no `[[note]]` of kind `kicad_sch`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_inventory.py` runs
+- **THEN** it fails naming the version
+
+#### Scenario: Fuzz agrees on both images
+- **WHEN** `uv run pytest tests/kicad/test_token_fuzz.py -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** every row of kinds `kicad_sch` and `kicad_sym` has the outcome its expectation states, and 9.0.9 rejects exactly the rows dated after its constants
+
+#### Scenario: Generated page up to date
+- **WHEN** `uv run python tools/gen_token_docs.py --check` runs
+- **THEN** it exits 0
 

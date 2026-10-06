@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from _copper import at, built_blink, end, routed_intents, track, via
+from _copper import arc, at, built_blink, end, routed_intents, track, via
 
 from fenolite.backends.kicad.copper import CopperMerge, copper_uuid, merge_copper, resolve_copper
 from fenolite.core.coords import Point
@@ -170,3 +170,83 @@ def test_merge_is_pure_and_names_nets() -> None:
 def test_design_without_a_board() -> None:
     bare = dataclasses.replace(built_blink(), board=None)
     assert merge_copper(bare, built_blink()) == CopperMerge(frozenset())
+
+
+# --- script arcs (change c0068) ---------------------------------------------------------------------
+
+BEND = track("bend", at(10, 10), arc(at(11, 11), at(10, 12)), at(10, 15), width=250_000, net="GND")
+
+
+def _arcs(design: Design) -> tuple[Arc, ...]:
+    assert design.board is not None
+    return design.board.arcs
+
+
+def test_arc_removed_from_the_script() -> None:
+    """Scenario "Arc removed from the script"."""
+    resolved, _ = _resolve(built_blink(), BEND)
+    (made,) = _arcs(resolved)
+    again, found = _resolve(resolved)
+    assert _arcs(again) == () and _tracks(again) == ()
+    assert [i.code for i in found] == ["kicad.copper.stale", "kicad.copper.stale"]
+    assert all(i.severity == "warning" for i in found)
+    (about_arc,) = [i for i in found if i.where == made.native_ids["kicad"]]
+    assert made.native_ids["kicad"] == copper_uuid("bend", "arc[1]")
+    for word in (made.native_ids["kicad"], "arc on F.Cu", "(110, 110) mm", "GND"):
+        assert word in about_arc.message, word
+
+
+def test_script_arc_is_regenerated_when_edited() -> None:
+    resolved, _ = _resolve(built_blink(), BEND)
+    (made,) = _arcs(resolved)
+    for change in ({"mid": at(11.5, 11)}, {"width": 300_000}, {"layer": "B.Cu"}, {"end": at(10, 12.5)}):
+        edited = dataclasses.replace(made, **change)  # type: ignore[arg-type]
+        again, found = _resolve(_board(resolved, arcs=(edited,)), BEND)
+        assert _arcs(again) == (made,), change
+        assert [i.code for i in found] == ["kicad.copper.regenerated"] and "arc on F.Cu" in found[0].message
+    quiet, found = _resolve(resolved, BEND)
+    assert quiet == resolved and found == []
+
+
+def test_user_arc_equal_to_a_script_arc_is_a_duplicate() -> None:
+    resolved, _ = _resolve(built_blink(), BEND)
+    (made,) = _arcs(resolved)
+    native = "00000000-0000-4000-8000-0000000000a1"
+    copy = dataclasses.replace(made, id=derived_id("arc", "kicad", native), native_ids={"kicad": native})
+    reversed_copy = dataclasses.replace(
+        copy, start=made.end, end=made.start
+    )  # the ends are an unordered pair
+    other = dataclasses.replace(copy, mid=at(9, 11))  # another mid point: another arc, kept
+    for user, kept in ((copy, False), (reversed_copy, False), (other, True)):
+        again, found = _resolve(_board(resolved, arcs=(user, made)), BEND)
+        assert (user in _arcs(again)) is kept, user
+        assert [i.code for i in found] == ([] if kept else ["kicad.copper.duplicate"])
+        assert made in _arcs(again)
+
+
+def test_merge_counts_arcs() -> None:
+    blink = built_blink()
+    resolved, _ = _resolve(blink, BEND)
+    merge = merge_copper(resolved, resolved)
+    assert isinstance(merge, CopperMerge)
+    assert (merge.kept, merge.regenerated, merge.stale, merge.duplicates) == (frozenset(), 0, 0, 0)
+    empty = merge_copper(resolved, blink)
+    assert empty.stale == 2 and empty.kept == frozenset()
+
+
+def test_created_items_follow_the_kept_ones_in_path_order() -> None:
+    blink = built_blink()
+    native = "00000000-0000-4000-8000-0000000000a2"
+    user = Arc(id=derived_id("arc", "kicad", native), native_ids={"kicad": native}, start=at(1, 1),
+               mid=at(2, 0), end=at(3, 1), width=200_000, layer="F.Cu")  # fmt: skip
+    two = track(
+        "two", at(20, 3), arc(at(21, 4), at(20, 5)), arc(at(19, 6), at(20, 7)), width=250_000, net="GND"
+    )
+    result, found = _resolve(_board(blink, arcs=(user,)), two, BEND)
+    assert found == []
+    assert [a.native_ids["kicad"] for a in _arcs(result)] == [
+        native,
+        copper_uuid("two", "arc[1]"),
+        copper_uuid("two", "arc[2]"),
+        copper_uuid("bend", "arc[1]"),
+    ]

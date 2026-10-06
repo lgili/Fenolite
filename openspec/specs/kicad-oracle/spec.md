@@ -778,18 +778,19 @@ Each run MUST be the source of probes of `tests/kicad/_probes.py`: `pro-min-<run
 - **THEN** the official blink built into `tmp_path` holds its three footprints under `lib/`, its report holds no `lib_footprint_issues` and no `lib_footprint_mismatch`, and `uv run pytest tests/residue/test_official_libs.py` passes
 
 ### Requirement: Check project copy set
-`fenolite.backends.kicad.projectset` SHALL plan, without writing anything, the closed set of project files that `kicad-cli pcb drc` reads, and c0009's runner SHALL copy them through c0017's `KicadCli.drc(board, files=…)`.
+`fenolite.backends.kicad.projectset` SHALL plan, without writing anything, the closed set of project files that `kicad-cli pcb drc` and `kicad-cli sch erc` read, and c0009's runner SHALL copy them through `KicadCli.drc(board, files=…)` and `KicadCli.erc(schematic, files=…)`.
 - **Board.** `resolve_board(path) -> Path` MUST accept a `.kicad_pcb` file; a `.kicad_pro` file (the board of the same stem); or a folder holding exactly one `.kicad_pro` (the board of its stem), or else exactly one `.kicad_pcb`. A folder with several candidates or none MUST raise `ProjectResolutionError` (`cli_code` `FEN-2001`) whose `candidates` list them. A missing path or board MUST raise a `FenoliteError` with `cli_code` `FEN-3001`.
 - **Included.** `project_set(path, *, max_bytes=MAX_COPY_BYTES) -> ProjectSet` MUST include, under names relative to the board's folder: the board; `<stem>.kicad_pro` and `<stem>.kicad_dru` when present (`has_project`, `has_rules`), because KiCad reads rules only with a project file next to the board (`H-K-TOK-RULES-SILENT`) and pairs them by stem (`H-K-CHECK-COPYSET`); the top-level `fp-lib-table`, read with c0008's `read_lib_table`, and each library folder that a row names as `${KIPRJMOD}/<rel>` inside the root, under `<rel>`; and the drawing sheet named at `WORKSHEET_POINTER = "/pcbnew/page_layout_descr_file"` of the project (read with c0010's `read_project` and `_json.get`) when it is a `${KIPRJMOD}` or relative path inside the root.
-- **Never included.** `.kicad_prl`, `.kicad_sch`, `sym-lib-table`, backups, `fp-info-cache`, `.fenolite/` and every other file. Absolute library rows and an absolute drawing-sheet path MUST stay as written and be read in place by KiCad.
+- **Schematic.** When `<stem>.kicad_sch` exists beside the board, the set MUST also include: that file; every file that `sch.sheet_files(<stem>.kicad_sch)` lists inside the root (`kicad-schematic`, "Sheet tree of a project"); the top-level `sym-lib-table` and each symbol library, a `.kicad_sym` file or a folder of them, that a row names as `${KIPRJMOD}/<rel>` inside the root; and the drawing sheet named at `SCHEMATIC_WORKSHEET_POINTER = "/schematic/page_layout_descr_file"` of the project, under the rule of the board's drawing sheet. A root schematic that Fenolite cannot read MUST still be included, alone, so that KiCad judges it. A sheet file outside the root MUST give a `SkippedFile` with reason `outside-root`, and a missing one `missing`.
+- **Never included.** `.kicad_prl`, backups, `fp-info-cache`, `.fenolite/`, a `.kicad_sch` that the sheet tree of `<stem>.kicad_sch` does not reach, a `sym-lib-table` without that schematic, and every other file. Absolute library rows and an absolute drawing-sheet path MUST stay as written and be read in place by KiCad.
 - **Skips.** Each named file or folder that is not copied MUST give a `SkippedFile(name, reason)`: `outside-root`, `variable` (a variable other than `${KIPRJMOD}`), `relative` (a library row without a variable), `missing`, `nested-table` (a `Table` row), `too-large`, or `reserved-name` (a name whose first path part is `config`, which c0009's runner reserves for `KICAD_CONFIG_HOME` and refuses in `files`).
-- **Size.** `MAX_COPY_BYTES` MUST be `256 * 2**20`. The board, project, rules file and table MUST always be included. The drawing sheet, then the library folders in table order, MUST be skipped with `too-large` when adding them would bring the total over `max_bytes`.
+- **Size.** `MAX_COPY_BYTES` MUST be `256 * 2**20`. The board, project, rules file, both tables and the root schematic MUST always be included. The drawing sheets, then the sheet files in tree order, then the footprint library folders and the symbol libraries in table order, MUST be skipped with `too-large` when adding them would bring the total over `max_bytes`.
 - `H-K-CHECK-COPYSET` MUST be settled before `projectset.py` is final: DRC on the copy set gives the same violations and unconnected items as DRC on a copy of the whole project folder. If it is refuted, the missing kind MUST join the include list.
 
 #### Scenario: Closed include list
 - **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, decoys=True)`, with a `${KIPRJMOD}` library row, `notes.txt`, a `sym-lib-table` and a `.kicad_prl`
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_projectset.py -k include` calls `project_set` on it
-- **THEN** the keys of `files` are exactly the board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and the library folder, `skipped` is empty, and the folder snapshot is unchanged
+- **THEN** the keys of `files` are exactly the board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and the library folder, `skipped` is empty, and the folder snapshot is unchanged: the `sym-lib-table` is left out because the project has no `<stem>.kicad_sch`
 
 #### Scenario: Skipped rows
 - **GIVEN** an `fp-lib-table` with rows `${KIPRJMOD}/../Other.pretty`, `${MYLIBS}/X.pretty`, `Rel.pretty`, `${KIPRJMOD}/config/Y.pretty` (an existing folder) and one `Table` row
@@ -810,6 +811,21 @@ Each run MUST be the source of probes of `tests/kicad/_probes.py`: `pro-min-<run
 - **GIVEN** the authored built project with a KiCad-written `.kicad_prl`, a `sym-lib-table` and `notes.txt`
 - **WHEN** `uv run pytest tests/kicad/check/test_copy_set.py::test_copy_set_equals_folder` runs on 9.0.9 and on 10.0.6
 - **THEN** both runs give equal multisets of (type, severity, excluded, sorted item uuids) over violations and unconnected items, and the probe `check-copyset` records `equal`
+
+#### Scenario: Schematic files included
+- **GIVEN** the blink built with a schematic into `tmp_path`, with `notes.txt` and a `.kicad_prl` added
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_projectset.py -k schematic` calls `project_set` on it
+- **THEN** the keys of `files` are exactly the triad, `blink.kicad_sch`, `fp-lib-table`, `sym-lib-table`, `lib/Mini.pretty`, `lib/Mini.kicad_sym` and `lib/fenolite.kicad_sym`, and `skipped` is empty
+
+#### Scenario: Sheet files of a hierarchy
+- **GIVEN** `tests/data/kicad/schematic/hier/` copied into `tmp_path` with a board and a project file of the stem `top`, and an unrelated `other.kicad_sch` beside them
+- **WHEN** `project_set` runs
+- **THEN** `files` holds `top.kicad_sch` and `child.kicad_sch`, and does not hold `other.kicad_sch`
+
+#### Scenario: Unreadable root schematic
+- **GIVEN** a project whose `<stem>.kicad_sch` holds `(`
+- **WHEN** `project_set` runs
+- **THEN** `files` holds that file, no error is raised, and no other `.kicad_sch` is in the set
 
 ### Requirement: Check canary injection
 `fenolite.backends.kicad.canary` and `fenolite.backends.kicad.oracle.KicadOracle` SHALL prove, with a canary run of its own on a major of `CANARY_TWO_RUN` and in the counted run otherwise, whether a project's custom rules were loaded, with a canary scoped to its own nets and placed only in temporary copies (exempt from c0018's "Fenolite lowers only the design's rules").
@@ -1345,7 +1361,7 @@ The meaning of zone settings SHALL be proved with `kicad-cli` on benches built t
 - **Benches.** A bench whose rows need a project setting (net classes or the board minimum) MUST be written through c0010's triad path with the canary of c0010's `tests/_netclass_bench.py`, scoped by a `net` condition to `CANARY_A`, as c0010's net-class oracle does, because the unconditional canary rule would govern every pair over the classes; a custom rule of such a bench MUST come after the canary rule. Every other bench MUST follow "Rules proofs carry a canary" with `_rulebench.Builder` and a `{}` project, its rules selecting the probe nets only, so the canary pair stays under the canary rule. This change extends `_rulebench.Builder` with `arc_pair`, `via_pair`, `pad_track`, `tht_track` and `fill_track` rows, and with net classes and model rules, which both kinds of bench use. Every bench MUST fail with "rules file not loaded" when its canary violation is missing.
 - **Rows.** Per pair kind (track–track, arc–track, via–track, via–via, SMD pad–track with `Mini_R_0603`, pad–pad of two footprints, through-hole pad–track on `B.Cu` with `Mini_LED_THT_3mm`, and, on 10.0.6 with a target-10 board, zone fill–track), one row per edge gap: `c − 10 µm`, `c` and `c + 10 µm`, each pair on two probe nets of its own. An arc pair has no row at `c`: at exactly the clearance its band may report (`copper-check`, "Clearance findings").
 - **No overlapping or touching row.** KiCad's verdict on copper of two nets that touches is not repeatable: without a pad on both nets it treats the copper as one net and reports nothing, and with one 10.0.6 reports the short in about half of its runs ("Via re-net probe"). Such rows MUST NOT be compared or pinned; `check_copper`'s shorts are proved by its own exact tests, and the re-net probes record KiCad's side.
-- **Zone clearance of the fill rows.** The zone of a fill row MUST carry `(connect_pads (clearance 0))` and `(filled_areas_thickness no)`, inserted by token edit into the written board, so that KiCad's verdict rests on `c` alone: without them KiCad applies its default zone clearance of 0.5 mm to the fill, and `check_copper` does not apply the zone's own clearance (`copper-check`, "Supported cases are documented against KiCad's DRC").
+- **Zone clearance of the fill rows.** The zone of a fill row MUST carry `(connect_pads (clearance 0))` and `(filled_areas_thickness no)`, inserted by token edit into the written board, so that KiCad's verdict rests on `c` alone: without them KiCad applies its default zone clearance of 0.5 mm to the fill, and so does `check_copper` (`copper-check`, "Clearance in force"). The zone's own clearance is proved by "Zone clearance parity canaries".
 - **Clearance sources.** `c` is given once by a clearance rule on the probe nets (0.2 mm), once by the net class of both nets (0.3 mm), and once by the project's `board.design_settings.rules.min_clearance` above the classes (0.4 mm), set as c0010's `test_netclass_drc.py::test_floor` sets it. The three values differ from each other, and the last two from the template's `Default` class clearance of 0.2 mm, so each source is told from the others.
 - **Resolution rows.** A rule below the class value, a rule above it, two classes (the larger governs), a floor above a rule (the rule governs on both majors, `H-K-PRO-MIN-RULE-2`), a rule with severity `ignore`, and an `item_kind track` rule on an arc pair. Each case MUST hold a row that KiCad reports and a row that it does not.
 - **Verdicts.** KiCad's verdict for a row MUST be `short` when a `shorting_items` violation names both items' uuids, `clearance` when a `clearance` violation does, and `clean` otherwise (`H-K-DRC-TYPES`, `H-K-DRC-UUID`). Fenolite's verdict MUST come from `check_copper` on the board read back with `read_board`, with the bench's project and rules texts applied by `design_rules_from_texts` for the running major (so the switches follow c0026's tables) and the pads of c0028's frame. They MUST be equal on every row.
@@ -1526,4 +1542,568 @@ The outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/r
 - **GIVEN** no `FENOLITE_FREEROUTING_JAR`
 - **WHEN** `uv run pytest tests/routing -m needs_freerouting -rs` runs
 - **THEN** every test is skipped with a reason naming the variable
+
+### Requirement: Load checks for schematics and symbol libraries
+`tools/kicad_token_fuzz.py` SHALL decide whether `kicad-cli` loads a schematic or a symbol-library case file with one command per kind, beside the four kinds of "Load check per file kind", and SHALL record the same outcomes:
+
+| kind | command | outcome `load` when |
+|---|---|---|
+| schematic | `sch export netlist <file> -o <out>.net` | exit 0 and the netlist exists |
+| symbol library | `sym export svg <file> -o <existing dir>` | exit 0 and an SVG exists |
+
+- Any other result MUST be `reject`. A schematic case MUST be `inconclusive` when its skeleton did not load in the same run.
+- The harness MUST hold one authored skeleton per kind and major (`skeleton.kicad_sch`, `skeleton.kicad_sym`), each loaded as the positive control.
+- "Isolation and time limits" applies: a fresh temporary folder per case, holding only the case files, and a timeout per invocation.
+- A symbol case that the tool cannot plot, although it loads the library, MUST be run embedded in the schematic skeleton instead, and its row MUST say which check gave its result.
+
+#### Scenario: Schematic rejected
+- **GIVEN** a schematic case that holds an invented root child
+- **WHEN** the harness runs it on `kicad-cli` 10.0.6
+- **THEN** the outcome is `reject`, and `exit_code` is `3`
+
+#### Scenario: Skeletons load on their majors
+- **WHEN** `uv run pytest tests/kicad/test_token_fuzz.py -k skeleton` runs on 9.0.9 and on 10.0.6
+- **THEN** the schematic and symbol-library skeletons of the running major have the outcome `load`
+
+#### Scenario: Missing output is not a load
+- **GIVEN** a schematic run that exits 0 but writes no netlist
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fuzz_harness.py -k schematic` classifies it with a fake `kicad-cli`
+- **THEN** the outcome is `reject`
+
+### Requirement: Schematic components agree with kicad-cli
+`tests/kicad/schematic/test_components_oracle.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that the components Fenolite reads from a schematic are those `kicad-cli` exports, and SHALL record each comparison as a probe of `PROBES`.
+- **Runner.** `KicadCli.export_netlist(schematic, *, files=None) -> CliRun` MUST run `sch export netlist --format kicadsexpr -o <out>` through `KicadCli.run`, on copies, and MUST NOT raise for a non-zero exit.
+- **Fixtures.** For the flat sheet, the units sheet and the two-sheet hierarchy of the running major's format, the set of `(ref, value, footprint)` of `sch.hierarchy_components(<root>)` MUST equal the `components` of the exported netlist, read by `tests/_netlist.py::components`, and MUST equal `sch.components(…, project=<stem>)` over the files of `sch.sheet_files` (probes `sch-components-flat`, `sch-components-units` and `sch-components-hier`, outcome `equal`).
+- **Symbols left off the board.** The probe `sch-components-on-board` MUST record whether the netlist lists the symbol with `(on_board no)` of the flat sheet (`present` or `absent`). When it is `absent` on a major, the comparisons of that major MUST call `sch.components` with `on_board_only=True`, and the fact row MUST say so.
+- **Corpus.** With the corpus cached, every project of the demo tree of tag 10.0.6 whose root row carries `sch-root` and none of whose sheets carries `sch-old` MUST give equal sets on major 10, `sch.hierarchy_components` against the netlist, multi-instance sheets included; on major 9, the projects of the demo tree of tag 9.0.9.1 (the rows with `sch-9`) whose sheets all have a format version of at most the 9.0 constant. A value or footprint that holds a text variable (`${…}`) matches any text, because the netlist lists it resolved. The counts MUST be written through `tests/_boards.py::census` and copied into `docs/evidence/kicad-schematic.md`. The `kicad-9` job fetches the `sch-9` rows, so it runs the comparison of major 9 too.
+- The test MUST read only the `components` of the netlist and MUST store no netlist.
+- Both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+
+#### Scenario: Fixtures on both majors
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and 10.0.6 locally
+- **WHEN** `uv run pytest tests/kicad/schematic/test_components_oracle.py -k fixtures -rA` runs on each
+- **THEN** the three `sch-components-*` probes of the fixtures record `equal`, and `sch-components-on-board` records one of `present` and `absent`
+
+#### Scenario: Corpus projects on 10.0.6
+- **GIVEN** the `sch` rows cached and `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_components_oracle.py -k corpus -rA` runs
+- **THEN** every selected project gives equal sets, and the census names the number of projects compared and of projects left out by reason
+
+#### Scenario: Runner on copies
+- **GIVEN** a fake `kicad-cli` that records its arguments and writes `<stem>.kicad_prl` next to its input
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k export_netlist` calls `KicadCli.export_netlist` on the flat sheet
+- **THEN** the fake saw `sch export netlist --format kicadsexpr`, and the fixture folder is unchanged
+
+### Requirement: Third-party schematics are read as upgraded copies
+`tests/kicad/schematic/test_schematic_upgraded.py` (markers `needs_kicad`, `needs_corpus`, `kicad_min_major(10)`) SHALL re-save each `third-party-sch-*` row once with `kicad-cli sch upgrade --force` in a temporary folder and SHALL run RT0 and RT1 on the copy.
+- `KicadCli.upgrade_schematic(schematic, *, files=None) -> bytes` MUST run `sch upgrade --force` on a copy and return the re-saved bytes, as `upgrade_board` does for a board.
+- The cache MUST NOT be written, and a copy MUST NOT be committed.
+- The verdicts and `opaque_count` MUST be written through `tests/_boards.py::census` with origin `third-party`.
+
+#### Scenario: Two upgraded copies
+- **GIVEN** the two third-party rows cached and `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_schematic_upgraded.py -rA` runs
+- **THEN** both copies pass RT0 and RT1, and `git status --porcelain` and the SHA-256 of every cached file are unchanged
+
+#### Scenario: Skipped on 9.0
+- **GIVEN** `kicad-cli` 9.0.9, which has no `sch upgrade`
+- **WHEN** the test is collected
+- **THEN** it is skipped by its major marker
+
+### Requirement: New rule kinds are enforced by kicad-cli
+`tests/kicad/rules/test_rule_kinds_new.py`, `test_rule_floors.py` and the extended `test_rule_order.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DRU-KIND-2`, `H-K-DRU-COURTYARD` and `H-K-PRO-MIN-RULE-3` on the running `kicad-cli`, with benches built by `tests/kicad/rules/_rulebench.py`, through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, judging DRC only from the JSON report.
+- **Canary.** Every bench MUST carry the canary scoped to its own net (`A.NetName == 'CANARY_A'`), and a run whose canary does not fire MUST fail. An unscoped canary MUST NOT be used: KiCad reports one violation per item pair, so it would hide the constraint under test.
+- **Kinds.** One bench per new kind, with a probed item and a control item, and the rule as Decisions 1 and 2 of the design write it: two vias whose holes are closer than the rule (`hole_to_hole`); a via hole near a track of another net (`hole_clearance`); a via whose ring is below the rule (`annular_width`); two footprints whose courtyards are closer than the rule (`courtyard_clearance`); two footprints whose silkscreen overlaps (`silk_clearance`, board-wide); c0047's slot bench (`creepage`). Probe `dru-kind-<kind>` MUST record `present` when the probed item gives a violation of the kind's DRC types and the control item none, and `absent` otherwise.
+- **Courtyard selection.** `dru-courtyard-reference` MUST record `present` when the rule with `A.Reference == '<ref>'` gives `courtyards_overlap` for that footprint, and `dru-courtyard-member` `absent` when the same rule with `A.memberOfFootprint('<ref>')` gives none.
+- **Order.** Two `hole_to_hole` rules matching the same vias, 0.5 mm then 1 mm, MUST give the violation, and swapped MUST give none, on both majors (the plan's overlapping-rule fixture, for a new kind).
+- **Floors.** `pro-min-rule-<kind>-tM` for `hole_clearance`, `hole_to_hole` and `annular_width`, on a project that holds the template's board-setup minimums: a board-wide rule whose `min` is below the minimum of its kind, and an item between the two values; `present` when no violation of the kind's type is reported for it, and a control run without the rule MUST report one. `silk_clearance` has no such probe: the template's `min_silk_clearance` is 0, and no rule can be below it.
+- Outcomes MUST be recorded in both probe files; `KIND_SUPPORT` and, through Decision 7 of the design, `MINIMUM_KEYS` MUST follow them; the facts MUST be written to `docs/formats/kicad/rules.md` and `docs/formats/kicad/drc.md` with sources and labels.
+- **Stop rules.** A `dru-kind-*` outcome other than `present` leaves that kind out of `KIND_SUPPORT` for that major and is recorded; `dru-courtyard-reference` other than `present` stops courtyard selectors other than `all`.
+
+#### Scenario: Kinds on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/rules/test_rule_kinds_new.py -rA` runs on the local KiCad 10.0.6
+- **THEN** every `dru-kind-*` probe records `present`, the courtyard probes record `present` and `absent`, and the canary fires in every run
+
+#### Scenario: Kinds on 9.0.9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and `FENOLITE_REQUIRE=kicad`
+- **WHEN** the same tests run in the `kicad-9` job
+- **THEN** `dru-kind-creepage` records `absent`, the other kinds `present`, and `KIND_SUPPORT["creepage"]` is `frozenset({10})`
+
+#### Scenario: Overlapping hole rules
+- **WHEN** `uv run pytest tests/kicad/rules/test_rule_order.py -k hole_to_hole -rA` runs on both majors
+- **THEN** the later rule governs in both orders
+
+### Requirement: Differential pair names are probed
+`tests/kicad/rules/test_diffpair_names.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DIFFPAIR-NAMES` on the running `kicad-cli`, with one bench of `tests/kicad/rules/_rulebench.py` holding, per case, two parallel tracks 0.3 mm apart on the case's two nets, one rule per case with the condition `A.inDiffPair('<base>')` and a 3 mm clearance, and the canary scoped to its own net. DRC MUST be judged only from the JSON report.
+- Cases and bases: `X_P`/`X_N` (base `X`, and again with base `X_`), `X+`/`X-` (`X`), `X_DP`/`X_DN` (`X_D`), `XP`/`XN` (`X`), `X_DP`/`X_DM` (`X_D`), `X_p`/`X_n` (`X_`) and `X_P`/`X-` (`X`), each case with its own `X`.
+- Probe `dru-diffpair-<case>` MUST record `present` when the clearance violation between the case's two tracks is reported, and `absent` otherwise; a run whose canary does not fire MUST fail.
+- The outcomes MUST be recorded in both probe files, and the rule MUST be written to `docs/formats/kicad/rules.md` with its sources and label. `build.diff-pair-name` MUST follow the outcomes: a case recorded `present` on a major MUST pass the check, and one recorded `absent` MUST fail it.
+
+#### Scenario: Names on both majors
+- **WHEN** `uv run pytest tests/kicad/rules/test_diffpair_names.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the cases `X_P`/`X_N` (both bases), `X+`/`X-`, `X_DP`/`X_DN` and `XP`/`XN` record `present`, the cases `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` record `absent`, and the canary fires in every run
+
+### Requirement: Zone clearance parity canaries
+`tests/kicad/copper/test_copper_parity.py` SHALL also compare the verdicts of `check_copper` with those of `kicad-cli pcb drc` on fills whose zone has a clearance of its own, on 9.0.9 and 10.0.6 (`H-K-COPPER-ZONECLR`), with the benches, the canary and the verdict rules of "Copper verdict parity canaries".
+- **Benches.** The rows MUST be on benches written through the triad path with the scoped canary; the `floor-above-zone` case MUST be on the bench that sets the board minimum, because that minimum would govern the rows of the other cases. Each zone takes its clearance from the model (`ZoneSettings.clearance`) and holds its stored fill; no token edit sets it. `_rulebench.Builder` gains `fill_via` and `fill_pad` rows beside `fill_track`.
+- **Cases.** Each case has one row per edge gap `c − 10 µm`, `c` and `c + 10 µm`, on probe nets of its own, `c` being the value that governs:
+
+| case | zone | class | rule on the pair | board minimum | `c` | pairs |
+|---|---|---|---|---|---|---|
+| `zone-above-class` | 0.4 mm | 0.3 mm | none | none | 0.4 mm | fill–track, fill–via, fill–pad |
+| `class-above-zone` | 0.1 mm | 0.3 mm | none | none | 0.3 mm | fill–track |
+| `rule-below-zone` | 0.5 mm | 0.3 mm | 0.2 mm | none | 0.2 mm | fill–track |
+| `floor-above-zone` | 0.3 mm | 0.2 mm | none | 0.4 mm | 0.4 mm | fill–track |
+
+- **Probes.** Each case MUST be recorded as `copper-zoneclr-<case>` for majors 9 and 10: `equal` when every row has the same verdict in KiCad and in Fenolite, `different` otherwise.
+- **Two fills.** Two zones of different nets, each with a clearance of 0.5 mm, whose stored fills are 0.1 mm apart, both nets in a class of 0.3 mm, MUST be recorded only, as `copper-fill-fill` for majors 9 and 10: `absent` when no violation names both zone uuids, `present` otherwise. `check_copper` reports that pair with the class value; the difference is documented (`copper-check`, "Supported cases are documented against KiCad's DRC") and MUST NOT be compared.
+- **Fallback.** A case that records `different` on a major MUST stop the copper-check part of this change at that point: the rule of "Clearance in force" is corrected to what the rows show for that major, through the switches that `DesignRules` already carries per major, before the part merges.
+- **Hermetic half.** `tests/kicad/copper/test_parity_bench.py` MUST check without `kicad-cli`, for targets 9 and 10, that `check_copper` gives a clearance finding on every row below `c` and none on the others.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and copied into the supported-cases table of `docs/formats/kicad/copper.md`.
+
+#### Scenario: Zone clearance parity on both majors
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k zone_clearance` runs on 9.0.9 and on 10.0.6
+- **THEN** every `copper-zoneclr-*` probe records `equal`, and the bench's canary violation is present
+
+#### Scenario: Rule below the zone clearance
+- **GIVEN** a fill and a track of another net 0.21 mm apart, a zone clearance of 0.5 mm and a rule of 0.2 mm on the pair
+- **WHEN** the row runs
+- **THEN** neither KiCad nor `check_copper` reports a clearance violation on it, and both report one on the row at 0.19 mm
+
+#### Scenario: Two fills are recorded, not compared
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k fill_fill` runs on either major
+- **THEN** the probe `copper-fill-fill` records `absent` or `present`, and the test passes on either outcome
+
+#### Scenario: Hermetic rows
+- **WHEN** `uv run pytest tests/kicad/copper/test_parity_bench.py -k zone_clearance` runs without `kicad-cli`
+- **THEN** on targets 9 and 10 every row below `c` has a `copper.clearance` finding whose source is `zone`, `class:<name>`, `rule:<name>` or `floor` as its case says, and no other row has one
+
+### Requirement: Fresh fills stay clean under the zone clearance
+`tests/kicad/zones/test_zone_oracle.py` SHALL prove on 10.0.6 that a fill which KiCad has just made is not reported by `check_copper` for its zone's own clearance (`H-K-COPPER-ZONECLR`): the value the check applies is the value KiCad's filler cuts to.
+- **Bench.** One pour whose zone clearance (0.5 mm) is above the class clearance (0.2 mm), around copper of other nets of every kind the check shapes: a track, an arc track, a via, an SMD pad, a round and a rectangular through-hole pad, and a through-hole pad whose drill has an offset. The board MUST be written without fills and refilled on copies with `pcb drc --refill-zones --save-board`, as "Zone settings pass the oracle" refills its benches.
+- `check_copper` on the refilled board, read back with `read_board` and judged with the bench's project and rules texts, MUST report no `copper.clearance` whose source is `zone`. The probe `copper-zoneclr-fresh` MUST record `absent` for major 10, and `present` otherwise.
+- **Fallback.** When the probe records `present`, the smallest shortfall and the kind of the other item MUST be written into the register row, and a margin MUST be taken from the zone's value in "Clearance in force": the smallest whole number of nanometres that makes the bench clean, at most 1 000 nm, which is the bound of KiCad's own tolerance at the boundary (`copper-boundary-1um`). A shortfall above that bound MUST stop the copper-check part of this change.
+- `tests/corpus/test_zone_clearance_census.py` (marker `needs_corpus`) MUST count, on the readable non-heavy demo boards with their own project and rules files where the corpus holds them, the `copper.clearance` findings whose source is `zone`, per kind of the other item, and write the counts through `tests/_boards.py::census` into `docs/evidence/copper-check.md`. Stored fills of a demo may be stale, so the test MUST NOT fail on any count.
+
+#### Scenario: A refilled pour is clean
+- **WHEN** `uv run pytest tests/kicad/zones/test_zone_oracle.py -k fresh_fill` runs on 10.0.6
+- **THEN** the refilled board holds fills, `check_copper` reports no `copper.clearance` whose source is `zone`, and `copper-zoneclr-fresh` records `absent`
+
+#### Scenario: A stale fill is still reported
+- **GIVEN** the refilled bench, after which its track is moved 0.3 mm towards the fill by token edit, the fill kept
+- **WHEN** `check_copper` runs on that board
+- **THEN** it reports one `copper.clearance` between the fill and the track with source `zone`, as `kicad-cli pcb drc` does without a refill
+
+#### Scenario: The corpus census is recorded
+- **GIVEN** the `rt0` corpus cached
+- **WHEN** `uv run pytest tests/corpus/test_zone_clearance_census.py -rA` runs with `FENOLITE_CENSUS_OUT` set
+- **THEN** the census file holds, per demo board with filled zones, the number of findings with source `zone` by kind of the other item
+
+### Requirement: Arcs and via kinds pass the oracle
+`tests/kicad/frame/test_copper_oracle.py` SHALL prove on the running `kicad-cli` that the arcs and the via kinds that script copper creates load, keep their uuids and connect what they join, with the probe rules of "Script copper passes the oracle".
+- **Arc** (`H-G-FRAME-ARC`), on a build of the routed blink in which one script track is replaced by a track, an arc step and a track:
+  - `pcb-frame-arc` (majors 9 and 10): `absent` when the report holds no `unconnected_items` entry and no violation that names the arc;
+  - `pcb-frame-arc-cut` (majors 9 and 10): the same board without the arc MUST give exactly one unconnected item, `present`;
+  - `pcb-frame-arc-keep` (major 10): after `pcb upgrade --force` the arc keeps its uuid, `equal`.
+- **Via kinds** (`H-K-COPPER-VIAKINDS`), on a build with four copper layers in which each via joins a track on each of its two layers, the via sizes at or above the project minimums:
+  - `pcb-frame-via-blind` and `pcb-frame-via-micro` (majors 9 and 10) and `pcb-frame-via-buried` (major 10): `absent` when the board loads, no violation names the via, and no unconnected item is reported between its two tracks;
+  - without `kicad-cli`: the build of the buried via for target 9 MUST be refused by the board writer, with a message naming `via buried` and KiCad 10.
+- A `reject`, `present` or `different` outcome of an arc or via probe MUST stop that part of the change; the kind is then left out of the DSL and recorded in the register row.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and built files MUST NOT be committed.
+
+#### Scenario: An arc connects its ends
+- **WHEN** `uv run pytest tests/kicad/frame/test_copper_oracle.py -k arc` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** on both majors `pcb-frame-arc` is `absent` and `pcb-frame-arc-cut` is `present`, and on 10.0.6 `pcb-frame-arc-keep` is `equal`
+
+#### Scenario: Via kinds load and connect
+- **WHEN** `uv run pytest tests/kicad/frame/test_copper_oracle.py -k via_kinds` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `pcb-frame-via-blind` and `pcb-frame-via-micro` are `absent` on both majors, and `pcb-frame-via-buried` is `absent` on 10.0.6
+
+#### Scenario: Buried via refused for target 9
+- **WHEN** `uv run pytest tests/unit/lens/test_build_copper.py -k buried_target_9` builds a four-layer design with a buried via for target 9
+- **THEN** the build exits 7 and writes nothing, and the error names `via buried`
+
+### Requirement: Pad shape offset passes the oracle
+`tests/kicad/frame/test_pad_offset.py` (markers `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that the `(offset X Y)` of a pad's drill moves the pad's copper and not its hole (`H-G-FRAME-OFFSET`), by comparing the verdicts of `check_copper` with those of `kicad-cli pcb drc` on a bench with the scoped canary and a class clearance of 0.2 mm.
+- **Rows.** Each row holds one through-hole pad and one track of another net, the track at a known edge gap from the pad's copper as it lies without an offset:
+
+| row | offset | gap without the offset | gap with the copper moved | expected verdict |
+|---|---|---|---|---|
+| `towards` | 0.4 mm towards the track | 0.5 mm | 0.1 mm | `clearance` |
+| `short-of` | 0.25 mm towards the track | 0.5 mm | 0.25 mm | `clean` |
+| `away` | 0.5 mm away from the track | 0.1 mm | 0.6 mm | `clean` |
+| `turned` | 0.4 mm towards the track, the footprint placed at 90° | 0.5 mm | 0.1 mm | `clearance` |
+
+- The verdict of `check_copper` MUST equal KiCad's on every row, and KiCad's MUST be the expected one. The probe `pcb-frame-pad-offset` MUST record `equal` for majors 9 and 10 when both hold, and `different` otherwise.
+- A `different` outcome MUST stop the board-frame part of this change: the living rule stays, and the register row records what KiCad showed.
+- `tests/corpus/test_copper_offset_census.py` (marker `needs_corpus`) MUST count, on the readable non-heavy demo boards with their own project and rules files, the `copper.clearance` findings that name a pad whose drill has an offset, and write the counts through `tests/_boards.py::census` into `docs/evidence/kicad-frame.md`. The test MUST NOT fail on any count.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`.
+
+#### Scenario: Offset rows agree on both majors
+- **WHEN** `uv run pytest tests/kicad/frame/test_pad_offset.py` runs on 9.0.9 and on 10.0.6
+- **THEN** `pcb-frame-pad-offset` records `equal`, KiCad reporting `clearance` on `towards` and `turned` and nothing on `short-of` and `away`
+
+#### Scenario: The census is recorded
+- **GIVEN** the `rt0` corpus cached
+- **WHEN** `uv run pytest tests/corpus/test_copper_offset_census.py -rA` runs with `FENOLITE_CENSUS_OUT` set
+- **THEN** the census file holds, per demo board, the number of pads with an offset drill and the number of clearance findings that name one
+
+### Requirement: Renamed footprints pass the oracle
+`tests/kicad/lens/test_rename_oracle.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-LENS-RENAME` on the running `kicad-cli`, with the boards of the lens acceptance fixture (`layout-lens`, "Lens acceptance fixture") before and after the rebuild that renames the module `power`. Every run MUST use c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, and judge DRC only from the JSON report read with `read_drc_report`.
+- **Load.** `pcb export pos` of the rebuilt board MUST list every footprint of the edited board, by reference, at the same position, rotation and side, on 9.0.9 for target 9 and on 10.0.6 for both targets.
+- **DRC.** The DRC report of the rebuilt board MUST hold the same multiset of (type, severity) pairs and the same number of `unconnected_items` as the report of the edited board.
+- **Re-save.** On 10.0.6 (`kicad_min_major(10)`), `pcb upgrade --force` of the rebuilt target-10 board MUST keep the group with the two renamed footprints, by their new uuids, and every uuid of their identity maps.
+- **Probes.** `lens-rename-t9` (majors 9 and 10) and `lens-rename-t10` (major 10) MUST record `equal` when every check holds and `different` otherwise, in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`.
+- **Stop rule.** A `different` outcome stops the keeping of alias matches until the difference is explained and recorded in `docs/formats/kicad/board.md`; meanwhile alias matches are re-placed as before this change, and the acceptance fixture records the loss.
+- `H-K-LENS-RENAME` MUST become `KICAD-VERIFIED (9.0.x, 10.0.x)` when both probes are `equal` on both majors and the `kicad-9` and `kicad-10` jobs pass.
+
+#### Scenario: Renamed module on 10.0.6
+- **GIVEN** the acceptance fixture built for target 10 on the local KiCad 10.0.6, edited, and rebuilt with `power` renamed `supply`
+- **WHEN** `uv run pytest tests/kicad/lens/test_rename_oracle.py -rA` runs
+- **THEN** `pcb export pos` lists every footprint at its edited placement, the two DRC reports hold the same (type, severity) multiset and `unconnected_items` count, and the re-saved board keeps the group by the new uuids
+
+#### Scenario: Target 9 on 9.0.9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and `FENOLITE_REQUIRE=kicad`
+- **WHEN** `uv run pytest tests/kicad/lens -rA` runs in the `kicad-9` job
+- **THEN** the target-9 rename case runs and passes, and the re-save case is skipped by `kicad_min_major(10)`
+
+#### Scenario: Probe outcomes pinned
+- **GIVEN** `docs/evidence/kicad/probes/10.0.6.json` regenerated with `FENOLITE_PROBES_WRITE=1`
+- **WHEN** `uv run pytest tests/kicad/test_probe_results.py` runs on the local KiCad 10.0.6
+- **THEN** it passes, and the file holds an outcome for `lens-rename-t9` and `lens-rename-t10`
+
+### Requirement: Follow-up facts are probed
+`tests/kicad/followups/test_followup_probes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PRO-WKS-SCH`, `H-K-OUTLINE-CHAIN`, `H-K-OUTLINE-FPEDGE`, `H-K-EXPORT-OPTIONS` and `H-K-STITCH-AVOID` on the running `kicad-cli`, through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, judging DRC only from the JSON report.
+- **Schematic frame.** A two-sheet project written by the test and a drawing sheet with one distinctive text: `wks-sch-key-relative` and `wks-sch-key-kiprjmod` MUST record `present` when `sch export svg` writes that text on both sheets with the schematic key set as named, and `wks-sch-key-absent` and `wks-sch-key-board-only` `absent` when it does not, without the key or with only the board key.
+- **Outline gap.** A board of four edge lines whose last line stops short of the first corner by 9 999, 10 000 and 10 001 nm: `outline-gap-<nm>` MUST record whether `invalid_outline` is reported.
+- **Footprint edges.** `outline-fp-edge-closes`: a board whose edge is closed only with a footprint's `fp_line` items gives no `invalid_outline`; `outline-fp-edge-cutout`: a footprint `fp_circle` on the edge layer inside the board gives `copper_edge_clearance` for a track crossing it.
+- **Export options.** The help of `pcb export gerbers`, `drill` and `pos` MUST give a row `help-pcb-export-<kind>-<option>` for each option of the preset table, and one run per preset key on the built blink MUST record `export-option-<kind>-<key>`: `different` when its files differ from the default run, `equal` when the board has nothing for the option to change, `reject` when the tool refuses the arguments. No run MUST be rejected; `H-K-EXPORT-OPTIONS` stays `INFERRED` while a key records `equal`.
+- **Stitching.** A built board with a stitch fence across a rule area that forbids vias and along the board edge: `stitch-avoid` MUST record `equal` when its DRC report holds no `items_not_allowed` and no `copper_edge_clearance` entry for a stitch via, and the same fence built without Decision 7 of the design holds both.
+- The outcomes MUST be recorded in both probe files, and the facts written to `docs/formats/kicad/worksheet.md`, `docs/formats/kicad/board.md` and `docs/formats/kicad/cli.md` with their sources and labels. `outline.CHAIN_GAP` MUST stay below the smallest gap that a major reports as open.
+
+#### Scenario: Probes on both majors
+- **WHEN** `uv run pytest tests/kicad/followups/test_followup_probes.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the schematic-key probes record `present`, `present`, `absent` and `absent`; `outline-gap-9999` records no `invalid_outline` and `outline-gap-10001` records it; `outline-gap-10000` records none on 10.0.6 and one on 9.0.9; the footprint-edge and stitching probes record their expected outcomes, every help row is `present`, and 23 of the 29 option runs record `different` and 6 `equal` on both majors
+
+#### Scenario: Demo outlines close
+- **WHEN** `uv run pytest tests/corpus/test_outline_corpus.py` runs over the 21 native demo boards
+- **THEN** every board gives at least one ring, `kicad-demo-10-0-6-pcb-01` has `joined` 1, and `-14` and `-16` close with their footprints' edge items
+
+### Requirement: Schematic naming facts are probed
+`tests/kicad/schematic/test_naming_probes.py` (marker `needs_kicad`, major-aware) SHALL settle on 9.0.9 and 10.0.6 the facts the schematic generator is written from, with sheets that `tests/kicad/schematic/_gencases.py` writes into `tmp_path`, and SHALL record each outcome as a probe of `PROBES`.
+- **Pin frame** (`H-K-SCH-PINFRAME`). For each rotation (0, 90, 180, 270) and mirror (none, `x`, `y`), an instance of the 32-pin IC with one global label at each point `schlayout.pin_point` gives MUST leave no `pin_not_connected` violation (probes `sch-pin-frame-<angle>-<mirror>`, the mirror spelled `none`, `x` or `y`; outcome `absent`). A control whose labels follow another frame MUST leave pins open, or the probe is `inconclusive`. `schlayout.PROVED_FRAMES` MUST equal the pairs that are `absent` on both majors.
+- **Unconnected pins** (`H-K-SCH-UNCONNECTED`). The names `sch export netlist` gives pins on no net MUST equal `netnames.unconnected_name` for: the named pins of the 32-pin IC and the two pins without a name of an authored probe symbol (probes `sch-unconnected-plain`, `sch-unconnected-unnamed`), named and unnamed pins of the three units of `Mini_DualGate` (`sch-unconnected-units`), and one pin per character class of an authored probe symbol: a blank, `/`, `+`, `~`, an overbar group, a digit start, a name used by two pins, `-`, `_`, `.` and braces (`sch-unconnected-chars`). Outcome `equal`; a class whose name differs MUST be recorded as `different` and left out of `PROVED_PIN_CHARS`.
+- **Label texts** (`H-K-SCH-SLASH`). The net name of a global label MUST equal its text for the texts of `_gencases.LABEL_TEXTS` (letters, digits, blank, brackets, braces, parentheses, quote, backslash, a non-ASCII letter, `+`, `.`, `-`, `_`, `:`, `,`, `#`, `$`, `~`, `=`) (probes `sch-label-plain`, `sch-label-chars`), and `netnames.stored_name` of its text when it holds `/` (`sch-label-slash`). With a pad stored as `stored_name`, parity MUST report no `net_conflict` (`sch-parity-slash-stored`, outcome `absent`); with the pad stored raw, it MUST (`sch-parity-slash-raw`, outcome `present`).
+- **Power** (`H-K-SCH-POWER`). A net with one `power_in` pin MUST give `power_pin_not_driven`, and MUST NOT once `fenolite:PWR_FLAG` is on it (`sch-power-flag`, outcome `absent`). Two hidden `power_in` pins of one name with labels of different nets MUST end on one net (`sch-hidden-power-joined`, outcome `present`), and the same pins embedded without `hide` MUST end on their two nets (`sch-shown-power-separate`, outcome `equal`).
+- **Library rows** (`H-K-SCH-LIBTABLE`). Without a project table, ERC MUST report `lib_symbol_issues` (`sch-lib-missing`, outcome `present`). With the libraries of "Symbols of a built project", it MUST report neither `lib_symbol_issues` nor `lib_symbol_mismatch`, for a plain symbol (`sch-lib-vendored`) and for a pin-pad variant (`sch-lib-variant`), outcome `absent`.
+- Oracle tests MUST assert on the reports read through `tests/_erc.py`, MUST run every tool through `KicadCli.run` on copies, and both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+- A probe whose outcome contradicts `design.md` MUST change the design and the affected requirement before the generator relies on it, and the task note MUST say which fallback was applied.
+
+#### Scenario: Probes on both majors
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and 10.0.6 locally
+- **WHEN** `uv run pytest tests/kicad/schematic/test_naming_probes.py tests/kicad/test_probe_results.py -rA` runs on each
+- **THEN** every probe of this requirement has an outcome in the committed probe file of that version, and `sch-pin-frame-0-none` is `absent` on both
+
+#### Scenario: Hidden power pins join
+- **GIVEN** the probe sheet with two hidden `power_in` pins named `VSS`, labelled `GND` and `OTHER`
+- **WHEN** its netlist is exported on 10.0.6
+- **THEN** both pins are on one net, and the probe records `present`
+
+#### Scenario: Slash stored
+- **GIVEN** a sheet whose global label is `mod/LED_A`
+- **WHEN** its netlist is exported
+- **THEN** the net is named `mod{slash}LED_A`
+
+### Requirement: Generated schematics pass ERC and parity
+`tests/kicad/schematic/test_generated_oracle.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that the projects `build` writes are accepted by KiCad's ERC and by its parity test, for `examples/blink_2layer` and for an authored units design (one `Mini_DualGate` with marks, one part with a `pin_pad_map`, one module net with a slash), each built into `tmp_path` for the running major.
+- **ERC** (`H-K-SCH-MINIMAL`). `sch erc --format json --severity-all --exit-code-violations` MUST exit 0 with no violation in any sheet (probes `sch-gen-erc-blink` and `sch-gen-erc-units`, outcome `equal`).
+- **ERC controls.** Each of these edits of the built blink MUST give its violation: the label of one pin removed (`pin_not_connected`); the power flag of `VIN` removed (`power_pin_not_driven`); `sym-lib-table` removed (`lib_symbol_issues`).
+- **Parity** (`H-K-SCH-PARITY`). `pcb drc --schematic-parity --format json --severity-all` MUST give an empty `schematic_parity` list for both designs.
+- **Stand-in.** `tests/kicad/lens/test_update_stand_in.py` MUST show that `kicad-cli` loads a board rebuilt after the update stand-in (`layout-lens`, "Boards updated from the schematic keep their layout") and that its parity test and ERC report nothing.
+- **Parity controls.** One pad moved to another net MUST give `net_conflict`; the Value of one footprint changed MUST give `footprint_symbol_mismatch`; one reference renamed on the board MUST give `missing_footprint` and `extra_footprint`; the paths of two footprints exchanged MUST give nothing.
+- **Netlist.** The nets of `sch export netlist` MUST be, as sets of (reference, pin number): the nets of the built circuit with pins mapped to pads, plus one single-pin net per entry of `pad_nets` with that entry's name.
+- **Check.** `fenolite check <dir> --json` MUST report no issue of severity `error` other than `kicad.drc.unconnected-items` (the designs are unrouted), with `netlist.assignment_compare` at 0 differences and `roundtrip` `ok`.
+- **Re-save** (`H-K-SCH-RESAVE`, major 10). `sch upgrade --force` on a copy MUST leave ERC without violations, and a second re-save MUST be byte-identical (probe `sch-gen-resave`, outcome `equal`). The heads that the first re-save adds, drops or reorders MUST be written through `tests/_boards.py::census` and copied into `docs/evidence/kicad-schematic.md`; a difference MUST NOT fail the test.
+- **Read-only.** The built folder's snapshot MUST be equal before and after every tool run.
+
+#### Scenario: Blink on both majors
+- **GIVEN** the blink built for the running major
+- **WHEN** `uv run pytest tests/kicad/schematic/test_generated_oracle.py -k "erc or parity" -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** ERC exits 0 with no violation, `schematic_parity` is empty, and every control gives its finding
+
+#### Scenario: Units design
+- **GIVEN** the units design built for the running major
+- **WHEN** the same tests run
+- **THEN** ERC reports no violation and no unplaced unit, parity is empty, and the netlist lists the mapped part's pins by pad number
+
+#### Scenario: Check on a built project with a schematic
+- **WHEN** `uv run pytest tests/kicad/schematic/test_generated_oracle.py -k check` runs `fenolite check` on both built designs
+- **THEN** `netlist.assignment_compare` reports 0 differences, and no issue names an `unconnected-` net as a difference
+
+#### Scenario: Re-save recorded on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_generated_oracle.py -k resave -rA` runs with `FENOLITE_CENSUS_OUT` set
+- **THEN** the probe `sch-gen-resave` records `equal`, and the census names the heads the re-save changed
+
+### Requirement: BOM export through the package runner
+`KicadCli.export_bom(schematic, *, fields, files=None) -> CliRun` SHALL run `sch export bom` through `KicadCli.run` on a copy, with `--fields <fields joined by commas>`, `--labels` equal to the fields, an empty `--ref-range-delimiter` and `-o <out>`, and without `--group-by`, `--preset`, `--format-preset`, `--exclude-dnp`, `--include-excluded-from-bom`, `--field-delimiter` and `--string-delimiter`: the comma and the double quote are the tool's defaults on both majors, which the probe `bom-csv-header` pins.
+- It MUST NOT raise for a non-zero exit; the written CSV is among `CliRun.outputs`.
+- `tests/kicad/assembly/test_bom_probes.py` (marker `needs_kicad`, major-aware) MUST settle `H-K-BOM-CSV` on 9.0.9 and 10.0.6 with projects that `tests/kicad/assembly/_asmcases.py` builds into `tmp_path`, each outcome a probe of `PROBES`:
+  - the header equals the labels (`bom-csv-header`);
+  - one row per reference, two parts of one value on two rows (`bom-csv-rows`);
+  - a three-unit symbol on one row (`bom-csv-units`);
+  - a DNP part listed with `DNP` in its `${DNP}` cell and the others with an empty cell (`bom-csv-dnp`);
+  - no power flag and no part whose footprint has `exclude_from_bom` (`bom-csv-left-out`);
+  - a field that no symbol has gives an empty column and exit 0 (`bom-csv-unknown-field`).
+  Each probe's outcome MUST be `equal`; a probe that is `different` on a major MUST change `read_bom_csv` or the argument list before the command relies on it, and the task note MUST say how.
+- Both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+
+#### Scenario: Arguments
+- **GIVEN** a fake `kicad-cli` that records its arguments
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k export_bom` calls `KicadCli.export_bom(schematic, fields=("Reference", "Value", "MPN"))`
+- **THEN** the fake saw `sch export bom` with `--fields Reference,Value,MPN`, `--labels Reference,Value,MPN` and an empty `--ref-range-delimiter`, and no `--group-by`
+
+#### Scenario: Probes on both majors
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and 10.0.6 locally
+- **WHEN** `uv run pytest tests/kicad/assembly/test_bom_probes.py tests/kicad/test_probe_results.py -rA` runs on each
+- **THEN** the six `bom-csv-*` probes have an outcome in the probe file of that version
+
+### Requirement: Assembly tables agree with kicad-cli
+`tests/kicad/assembly/test_assembly_oracle.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that the neutral tables hold what KiCad exports.
+- **BOM sources** (`H-K-BOM-MODEL`). For the blink built with user properties on two parts and one DNP part, and for c0061's units design, `bom.parts_from_model` of the built model MUST equal `read_bom_csv` of `KicadCli.export_bom` on the built schematic, part by part: reference, value, footprint, DNP flag and the user properties the fields name (probes `bom-model-blink`, `bom-model-units`, outcome `equal`).
+- **Placement rows** (`H-K-POS-ROWS`). For the built blink, whose `D1` is on the bottom, for that blink with its parts turned to 180° and 270°, for that blink with one part marked DNP and one left out of position files, and for `tests/data/kicad/board/two_layer.kicad_pcb`, the table of `placement.apply` under `assembly.DEFAULT` with `exclude_dnp` false MUST have the rows of `pcb export pos --format csv --units mm --side both`: equal references, values and package names, X and Y equal to the micrometre, rotations equal modulo 360°, and equal sides (probe `pos-rows`, outcome `equal`).
+- **Commands.** `fenolite bom <dir> --json` and `fenolite bom <dir> --source model --json` MUST give equal `result.lines` on the built blink, and the project folder's snapshot MUST be equal before and after.
+- Tools MUST run through `KicadCli` on copies; both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+
+#### Scenario: Two sources, one BOM
+- **WHEN** `uv run pytest tests/kicad/assembly/test_assembly_oracle.py -k bom_sources -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** `bom-model-blink` and `bom-model-units` record `equal`
+
+#### Scenario: Placement equals the position file
+- **WHEN** `uv run pytest tests/kicad/assembly/test_assembly_oracle.py -k pos_rows -rA` runs on both majors
+- **THEN** `pos-rows` records `equal`, the bottom-side part included
+
+#### Scenario: Project untouched
+- **WHEN** the command comparison runs
+- **THEN** the built folder holds the same files with the same bytes afterwards
+
+### Requirement: ERC runs through the package runner
+`KicadCli.erc(schematic, *, files=None, env=None) -> ErcRun` SHALL run `sch erc --format json --severity-all -o <out> <schematic>` through `KicadCli.run` on a copy, and SHALL return `ErcRun(run, report)`, `report` being `read_erc_report` of the written file, or `None` when no report was written.
+- `--exit-code-violations` MUST NOT be passed: the exit code is a load signal, and every verdict comes from the report.
+- `env` MUST be passed unchanged to `KicadCli.run`, as for `KicadCli.drc`.
+- The method MUST NOT raise for a non-zero exit, and a timeout MUST surface as the runner's timeout outcome.
+- `KicadCli.drc` SHALL accept the keyword `schematic_parity=False`; with `True` it MUST add `--schematic-parity` to its command, and with the default its command MUST be the one of "DRC verdicts come from the JSON report".
+
+#### Scenario: Arguments
+- **GIVEN** a fake `kicad-cli` that records its arguments and writes an authored ERC report
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k erc` calls `KicadCli.erc` on `tests/data/kicad/schematic/flat.kicad_sch`
+- **THEN** the fake saw `sch erc --format json --severity-all -o` and no `--exit-code-violations`, `ErcRun.report` is an `ErcReport`, and the fixture folder is unchanged
+
+#### Scenario: No report
+- **GIVEN** a fake that prints `Failed to load schematic` and exits 3 without writing a file
+- **WHEN** `KicadCli.erc` runs
+- **THEN** `ErcRun.report` is `None` and `ErcRun.run.returncode` is 3
+
+#### Scenario: Parity flag
+- **WHEN** `KicadCli.drc(board, schematic_parity=True)` and `KicadCli.drc(board)` run with the recording fake
+- **THEN** only the first run saw `--schematic-parity`
+
+### Requirement: ERC oracle
+`KicadOracle.erc(project) -> ErcOutcome` SHALL run `KicadCli.erc` on `<board stem>.kicad_sch` with the project's copy set and SHALL satisfy `ErcOracle` (`backend-protocol`, "ERC oracle protocol").
+- It MUST fill each item's `where` with `erc.located(report, erc.item_locations(trees, project))`, the map being built from the parsed trees of the sheet files of the copy set and keyed by `(sheet id, uuid)`: `REF-PIN` for the uuid of a `pin` child of a symbol, `REF` for a symbol's uuid, and the label text for a label's uuid, the reference being the one the symbol's `instances` give for the violation's `sheet_id` (under the project's name when the symbol lists it, else under another project's use of the same path).
+- KiCad lists the violations of a check that looks at a sheet file, not at one use of it, under the root sheet, whatever file the item lies in. The map MUST therefore also hold, under the sheet id `erc.ROOT_PATH` (`""`), the location on which every use of a uuid agrees, and `located` MUST fall back to it. An item whose uses give two references, and an item whose uuid the map lacks, MUST keep `where == ""`: a location is never guessed.
+- A sheet file that Fenolite cannot parse MUST NOT fail the run: its items keep `where == ""`.
+- `tool_writes` MUST name the files the tool created or changed in the copy, sorted, without the report. `message` MUST be the first line of the tool's stderr that is not blank, else of its stdout, without the time of day that `kicad-cli` writes before some error lines, so that the output of `check` repeats.
+- `ErcOutcome.evidence` MUST be `Evidence.combine(erc.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>` when a report exists, and `UNVERIFIED` otherwise. `erc.EVIDENCE` MUST start `INFERRED` (`H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET`) and MUST become `KICAD-VERIFIED` only when the three rows are `KICAD-VERIFIED (9.0.x, 10.0.x)`.
+- The method MUST NOT write under `project.root`, MUST NOT raise on a timeout, and MUST stage no canary.
+
+#### Scenario: Pin uuid located
+- **GIVEN** a fake `kicad-cli` whose report names, on sheet `/`, the uuid of pin 2 of `U1` of the built blink schematic
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle.py -k erc_where` runs `KicadOracle(cli).erc(project)`
+- **THEN** that item's `where` is `U1-2`
+
+#### Scenario: Two uses of one sheet
+- **GIVEN** `tests/data/kicad/schematic/multi/` as a project, and a fake report with one violation per instance path of `cell.kicad_sch`, both naming the uuid of the same symbol, and a third violation that lists that symbol under the root sheet
+- **WHEN** the oracle runs
+- **THEN** the two items have different references, each the one of its instance path, and the third item keeps `where == ""`
+
+#### Scenario: No writes in the project
+- **GIVEN** a fake that writes `<stem>.kicad_prl` next to its input
+- **WHEN** the oracle runs on a project folder
+- **THEN** `tool_writes` names `<stem>.kicad_prl`, and the project snapshot is unchanged
+
+### Requirement: ERC facts proved per major
+`tests/kicad/check/test_erc_facts.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-ERC-JSON`, `H-K-ERC-POS` and `H-K-ERC-TYPES` on 9.0.9 and 10.0.6, with projects that `tests/kicad/check/_erccases.py` builds into temporary folders, and SHALL record each outcome as a probe of `PROBES`. A probe id spells a type with `-` for `_`.
+- **Shape.** The report of the built blink MUST hold the keys that `erc.REQUIRED_KEYS` names (probe `erc-report-keys`, outcome `equal`); `ignored_checks` MUST be present on 10 and absent on 9 (probe `erc-ignored-checks`); a schematic with an invented root child MUST give no report and exit 3 (probe `erc-unloadable`, outcome `absent`); and the probe `erc-writes-prl` MUST record whether the run writes `<stem>.kicad_prl` beside its input (`present` on 10.0.6, `absent` on 9.0.9).
+- **Positions.** For the built blink with five labels removed, the position that `read_erc_report` gives each `pin_not_connected` item MUST be the connection point of that pin in the schematic, in nm (probe `erc-position-scale`, outcome `equal`).
+- **Types.** Five controls MUST each give their type: the built blink with a removed label (`pin_not_connected`), with a removed power flag (`power_pin_not_driven`), with a removed `sym-lib-table` (`lib_symbol_issues`) and with a label left on a single pin (`isolated_pin_label` on 10.0.6, `global_label_dangling` on 9.0.9; both probes run on both majors and record `present` or `absent`), and the blink built with two input pins of `U1` on a net of their own (`pin_not_driven`: the blink connects no input pin, so no edit of its sheet gives that type) (probes `erc-type-<type>`, outcome `present`). With the project's `erc.rule_severities` key of a control's type set to `ignore`, the run MUST give no entry of that type (`erc-type-<type>-ignored`, outcome `absent`), and with `warning`, every entry of it MUST have severity `warning` (`erc-sev-<type>-warning`, outcome `equal`); the two probes of the single-pin label are named `single-pin-label`.
+- **Copy set** (`H-K-ERC-COPYSET`, `tests/kicad/check/test_erc_oracle.py::test_copy_set`). ERC on the copy set and ERC on a copy of the whole folder MUST give equal `entries()` for the built blink, the authored hierarchy and, with the corpus cached, three corpus projects (probe `erc-copyset`, outcome `equal`). Each folder MUST hold decoys that the run must not need: a text file, a schematic that the hierarchy does not reach, a symbol library that no table names and a `.kicad_prl`. The three corpus projects are the first three root rows of the acceptance list, by id, that the running major loads (`tests/kicad/check/test_erc_oracle.py::test_copy_set_corpus_projects`, marker `needs_corpus`). `H-K-CHECK-COPYSET` MUST be proved again with a schematic in the folder: DRC with the parity test on the copy set equals DRC on a copy of the whole folder, for the blink whose board disagrees with its schematic (probe `check-copyset-schematic`, outcome `equal`; `tests/kicad/check/test_copy_set.py`).
+- Oracle tests MUST assert on reports read through `KicadCli.erc` and `read_erc_report`, and both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+
+#### Scenario: Shape and positions on both majors
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and 10.0.6 locally
+- **WHEN** `uv run pytest tests/kicad/check/test_erc_facts.py -k "shape or positions" -rA` runs on each
+- **THEN** `erc-report-keys` and `erc-position-scale` record `equal`, and `erc-ignored-checks` records `present` on 10 and `absent` on 9
+
+#### Scenario: Severities follow the project
+- **GIVEN** the blink with one label removed and `pin_not_connected` set to `warning` in the project
+- **WHEN** `uv run pytest tests/kicad/check/test_erc_facts.py -k types` runs on both majors
+- **THEN** the violation has severity `warning`, and `fenolite check` reports `kicad.erc.pin-not-connected` as a warning
+
+### Requirement: Parity in the DRC run
+`KicadOracle.drc(project)` SHALL pass `schematic_parity=True` to every `KicadCli.drc` call of the run when `project.files` holds `<board stem>.kicad_sch`, and SHALL NOT pass it otherwise. When the flagged run exits without a report, the oracle SHALL run the DRC again without the flag, canary included, and SHALL return that report with `parity_judged` false and, as `message`, the first line of the flagged run: the copper verdict MUST NOT depend on the schematic. `tests/kicad/check/test_parity.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PARITY-RUN` on both majors.
+- The parity entries of the counted report MUST be those of the run from which the canary's violations were removed; a canary entry MUST never be a parity entry.
+- With the flag, the report of a project whose pads differ from the schematic MUST hold parity entries (probe `drc-parity-flag`, outcome `present`); without it, none (`drc-parity-noflag`, outcome `absent`).
+- The staged canary run and the plain run MUST give equal parity entries (`drc-parity-canary`, outcome `equal`).
+- `drc-parity-unloadable` MUST record, per major, what the tool writes when the flag is passed and the schematic does not load (`absent`: no report, on 9.0.9 and on 10.0.6); `DrcOutcome` MUST then say that parity was not judged, which the stage reports as `<oracle>.drc.parity-unchecked` (`verification-loop`, "Parity findings").
+- A flagged run that writes its report and prints the line `oracle.PARITY_NOT_JUDGED` (`Failed to fetch schematic netlist`, which both majors print when they find no schematic to compare with) MUST also give `parity_judged` false, with that line as `message`.
+
+#### Scenario: Flag follows the schematic
+- **GIVEN** a recording fake `kicad-cli`, a project with `<stem>.kicad_sch` and one without
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle.py -k parity` runs `KicadOracle.drc` on each
+- **THEN** every `pcb drc` run of the first saw `--schematic-parity`, and no run of the second did
+
+#### Scenario: Flagged run without a report
+- **GIVEN** a fake `kicad-cli` that exits 255 without a report when it gets `--schematic-parity`, printing an error line that starts with a time of day
+- **WHEN** `KicadOracle.drc` runs on a project with a schematic
+- **THEN** the last `pcb drc` run had no flag, the outcome holds a report and the canary state `fired`, `parity_judged` is false, and `message` is that line without the time
+
+#### Scenario: Parity on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_parity.py -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** `drc-parity-flag` records `present`, `drc-parity-noflag` `absent` and `drc-parity-canary` `equal`
+
+### Requirement: Schematic RT2 over the corpus
+`KicadOracle.rt2_erc(project) -> ErcRt2Outcome` SHALL produce the ERC reports that RT2 compares for schematics, and `tests/kicad/schematic/test_corpus_rt2.py` (markers `needs_kicad`, `needs_corpus`, `slow`) SHALL run it over the corpus for the v0.2a acceptance.
+- **Runs.** ERC MUST run twice on the project as it is, and once on a copy in which every sheet file that `read_schematic` reads is replaced by `dumps(rebuild_schematic(read_schematic(text)))`, staged in a private temporary folder. A sheet that Fenolite cannot read stays as it is and is counted.
+- **Verdict.** The reports MUST be compared by `ErcReport.kinds()`, the sheet, type, severity and exclusion of every violation, and not by their items: for one violation KiCad can name another of the pins or labels involved in each run (`H-K-ERC-REPEAT-2`). RT2 is judged when the two reports of the original have equal `kinds()`, and holds when the `kinds()` of the re-dump's report equal those of the first report (`H-K-ERC-RT2-2`). When the `kinds()` of the two reports of the original differ, RT2 MUST be recorded as not judged for that project, never as failed. The test MUST make the three runs once per project, without further attempts.
+- **Set.** On major 10: every corpus project whose root row carries `sch-root`. On major 9: those of tag 9.0.9.1 whose sheets are all at format `20250114` or older. Each project MUST be checked in a folder built in `tmp_path` from the cached files; the cache MUST NOT be written.
+- **Folder.** A project is the folder of its root row in the demo tree, rebuilt from every cached row of that folder (`tests/_schprojects.py`), with an authored empty board of the root's stem when the folder has none, because a copy set is planned from a board.
+- **Record.** For each project, the verdict, `judged`, `exact` (whether the three reports also have equal `entries()`, as information only), the number of sheets re-dumped and left as they are, the violation counts and the seconds MUST be written through `tests/_boards.py::census` and copied into `docs/evidence/kicad-schematic.md` as ids and counts only. The page MUST state the verdict of the acceptance list (rows without `sch-bus`, `sch-multi` and `sch-old`) apart from the other projects.
+- **Evidence.** `ErcRt2Outcome.evidence` MUST be `Evidence.combine(erc.EVIDENCE, sch.EVIDENCE, oracle.EVIDENCE)`, and `UNVERIFIED` when a report is missing.
+- RT2 MUST never fail on a project that was not judged, and MUST fail on a judged difference, naming the project row and the first kind whose count differs.
+
+#### Scenario: Corpus projects on 10.0.6
+- **GIVEN** the `sch` rows cached and `kicad-cli` 10.0.6
+- **WHEN** `FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/schematic/test_corpus_rt2.py -rA` runs
+- **THEN** RT2 holds or is not judged on every project and fails on none, and every project of the acceptance list is judged
+
+#### Scenario: Rows of tag 9.0.9.1 on 9.0.9
+- **GIVEN** the `kicad-9` job with the `sch` rows of tag 9.0.9.1 cached
+- **WHEN** the test runs
+- **THEN** the selected projects hold or are not judged, and the others are skipped
+
+#### Scenario: Three runs and no write
+- **GIVEN** a recording fake `kicad-cli` and the authored hierarchy as a project
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle.py -k rt2_erc` runs `KicadOracle.rt2_erc`
+- **THEN** the fake saw three `sch erc` runs, the third on re-dumped sheets, and the project snapshot is unchanged
+
+### Requirement: Schematic netlist through the package runner
+`KicadOracle.schematic_netlist(project) -> NetlistOutcome` SHALL export the netlist of `<board stem>.kicad_sch` with `KicadCli.export_netlist` on the project's copy set, read it with `netlist.read_netlist`, and return it as the `PadNetList` of `backend-protocol`, "Schematic netlist oracle".
+- **Files of the run.** The run MUST get the files of the copy set (`oracle.schematic_files`), which holds the root schematic `<board stem>.kicad_sch` and the sheet files of its hierarchy since change c0062 ("Check project copy set"); nothing is looked up beside the board. A project without that schematic MUST give `netlist=None` and no run.
+- A run that writes no netlist, and an export that `read_netlist` refuses, MUST give `netlist=None` with the first sanitised line as `message`; a timeout MUST give `outcome="timeout"`. No exception is raised.
+- `NetlistOutcome.evidence` MUST be `Evidence.combine(netlist.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`, and `UNVERIFIED` when no netlist was read.
+- `oracle.export_schematic_netlist(cli, project) -> SchematicExport(netlist, outcome, returncode, message)` MUST be the one place that runs and reads the export; the method and the `netlist` command both use it.
+- The method MUST NOT write under `project.root`, and nothing of the export's `design` and `libraries` sections MUST reach the outcome.
+- `tests/kicad/schematic/test_netlist_facts.py` (marker `needs_kicad`, major-aware) MUST settle `H-K-NETLIST-SHAPE` on 9.0.9 and 10.0.6 on the built blink: the heads the reader uses exist with the atoms it reads (probe `netlist-shape`, outcome `equal`); no component and no node has a reference that starts with `#` although the sheet holds power flags (`netlist-power-symbols`, outcome `absent`); the `pintype` of each node is the electrical type of its pin, with `+no_connect` under a flag (`netlist-pintype`, outcome `equal` or `different`, recorded per major).
+
+#### Scenario: Export read on both majors
+- **GIVEN** the blink built with a schematic for the running major
+- **WHEN** `uv run pytest tests/kicad/schematic/test_netlist_facts.py -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** `netlist-shape` records `equal` and `netlist-power-symbols` records `absent`
+
+#### Scenario: Elements of the outcome
+- **GIVEN** a fake `kicad-cli` that writes the authored `export_10.net`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle.py -k schematic_netlist` runs the method
+- **THEN** the `PadNetList` has the source `schematic` and holds `PadAssignment("U1-10", "GND")`, and no assignment holds a path or a date
+
+#### Scenario: Unloadable schematic
+- **GIVEN** a fake that prints `Failed to load schematic` and exits 3
+- **WHEN** the method runs
+- **THEN** `netlist` is `None` and `message` holds that line
+
+### Requirement: Own netlists equal kicad-cli's
+`tests/kicad/schematic/test_own_netlist.py` (marker `needs_kicad`, major-aware) SHALL prove `H-K-NETLIST-OWN` on 9.0.9 and 10.0.6: for every schematic that `build` writes in the test set, `netlist.differences(sch_netlist.own_netlist(<the sheet>), netlist.read_netlist(<kicad-cli's export>))` is empty.
+- **Set.** `examples/blink_2layer`, c0061's units design, every example under `examples/` that builds for the KiCad target, and the 25 designs of `tests/_gendesigns.py::designs(seed=20261004, count=25)`: one to twelve parts of the Mini library, with multi-unit symbols, pin-pad maps, no-connect marks, power interfaces and net names with a slash, generated by a seeded generator and never read from a file.
+- **Compared.** Components (reference, value, footprint), net names, nodes and, where the probe `netlist-pintype` is `equal` on that major, pin types. Net classes are not compared.
+- **Probes.** `netlist-own-blink`, `netlist-own-units` and `netlist-own-generated` MUST record `equal`; a difference MUST fail the test, naming the design and the first difference.
+- The export MUST be made through `KicadCli.export_netlist` on a copy; the built folders MUST be unchanged; both probe files MUST be regenerated with `FENOLITE_PROBES_WRITE=1`.
+- A difference is a defect of the generator, of `netnames` or of the own netlist; it MUST be fixed there, and the affected hypothesis of c0061 (`H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-POWER`) MUST record it.
+
+#### Scenario: Examples on both majors
+- **WHEN** `uv run pytest tests/kicad/schematic/test_own_netlist.py -k "blink or units or examples" -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** every comparison is empty, and the probes `netlist-own-blink` and `netlist-own-units` record `equal`
+
+#### Scenario: Generated designs
+- **WHEN** `uv run pytest tests/kicad/schematic/test_own_netlist.py -k generated -rA` runs on each major
+- **THEN** all 25 designs build, each comparison is empty, and `netlist-own-generated` records `equal`
+
+#### Scenario: The generator is deterministic
+- **WHEN** `uv run pytest tests/unit/test_gendesigns.py` calls `designs(seed=20261004, count=25)` twice
+- **THEN** the two lists of designs are equal, and each design passes `Design.validate()` without an error
+
+### Requirement: Parity types are probed
+`tests/kicad/check/test_parity_probes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PARITY-TYPES` on the running `kicad-cli`, with the blink that `build` writes for the running major, and judged only from the report of `pcb drc --schematic-parity` as `KicadCli.drc` reads it. The probes need no corpus. Marked `needs_corpus`, the same edits MUST be run on the `pic_programmer` demo of the running major's tag (its board and its schematics from the corpus, with a `{}` project file), where the types an edit adds to those of the published demo MUST be the same; when the published demo already holds `footprint_symbol_mismatch` entries, as at tag 9.0.9.1, that type is not judged there.
+- Edits of the board text, one per run: `ref` (one footprint's reference renamed), `value`, `libid` (one footprint's library id changed), `net` (one pad given another net of the board), `dup` (one footprint given another's reference), `extra` (a copy of a footprint with a new reference and uuid), and `none`.
+- Probe `parity-type-<edit>` MUST record `equal` when the parity types are those of `H-K-PARITY-TYPES` for that edit, with their counts, and `different` otherwise, in both probe files. For `dup` the types are one `duplicate_footprints` and one `missing_footprint`; `footprint_symbol_mismatch`, `footprint_symbol_field_mismatch` and `net_conflict` may come with them, when the footprint that took the reference comes first on the board; the facts MUST be written to `docs/formats/kicad/drc.md` with their sources and labels.
+- A further run with both the value and the library id of one footprint changed MUST record `equal` for two `footprint_symbol_mismatch` entries (`parity-type-value-and-libid`), which Decision 2 of the design relies on.
+
+#### Scenario: Types on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/check/test_parity_probes.py -rA` runs on the local KiCad 10.0.6
+- **THEN** every `parity-type-*` probe records `equal`
+
+#### Scenario: Types on 9.0.9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image, the 9.0.9.1 demo files in the corpus cache and `FENOLITE_REQUIRE=kicad`
+- **WHEN** the same tests run in the `kicad-9` job
+- **THEN** every `parity-type-*` probe records `equal`, and the 9.0.9 probe file holds them
+
+### Requirement: Own parity agrees with kicad-cli
+`tests/kicad/check/test_parity_agreement.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PARITY-OWN`: for every corpus demo of the running major's tag that has a cached, readable board and a schematic, for the edits of "Parity types are probed" on `pic_programmer`, and for the blink built with a schematic and the same edits, the counts per KiCad type of `checks.parity.compare` (with the side built from `kicad-cli`'s netlist export) MUST equal the counts per type of `kicad-cli`'s parity report, for the five types of `checks.parity.KICAD_TYPES`. Entries of another KiCad type (`footprint_symbol_field_mismatch` on 10.0.6) are counted and printed, not compared. Counts are compared, never the items of two runs.
+- A mismatch MUST fail the test, naming the project, the type and both counts.
+- For the built blink, the side built from the own netlist MUST give the same counts as the side built from the export.
+- Probe `parity-own-agreement` MUST record `equal` when every comparison on the built blink holds, so the probe needs no corpus; the demos are a `needs_corpus` test.
+- The copies MUST be made in `tmp_path`; the corpus cache and the built folders MUST be unchanged.
+
+#### Scenario: Demos on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_parity_agreement.py -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** every comparison holds, and `parity-own-agreement` records `equal`
+
+#### Scenario: Duplicated reference
+- **GIVEN** the `dup` edit of `pic_programmer`
+- **WHEN** the agreement test runs it
+- **THEN** Fenolite gives one `parity.duplicate-footprints`, one `parity.missing-footprint` and as many findings of type `net_conflict` as KiCad gives
+
+### Requirement: Hierarchy and wire facts are probed
+`tests/kicad/schematic/test_hierarchy_probes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-SCH-HIER-FILE` and `H-K-SCH-WIRE-END` on the running `kicad-cli`, with sheets written by the test for Fenolite, before the generator writes a child sheet or a wire. Each probe MUST run `sch erc --format json --severity-all` and `sch export netlist` on a copy with an empty `KICAD_CONFIG_HOME`, through c0009's `KicadCli`. A hand-written sheet comes without a symbol table, so ERC always reports `lib_symbol_issues` for it (`H-K-SCH-LIBTABLE`); the probes MUST NOT count that type, and "no violation" below means none of another type.
+- `sch-hier-file-parent`: a root naming `sheets/a.kicad_sch`, which names `b.kicad_sch` in the same folder, each sheet with one `Mini_R` whose pins carry the global labels `VCC` and `SIG`. `present` when the netlist lists the symbol of `b` with the sheet path names `/a/b/`.
+- `sch-hier-file-project`: the same with `a` naming `sheets/b.kicad_sch`. `absent` when the netlist lists no symbol of `b`, ERC reports no violation and both commands exit 0.
+- `sch-hier-global`: in the `parent` tree, `equal` when the nets `VCC` and `SIG` each hold the three symbols' pins, ERC reports no violation, and the `tstamps` of each child symbol's `sheetpath` are `/<uuid of a>/` and `/<uuid of a>/<uuid of b>/`.
+- `sch-wire-ends`: a flat sheet with two `Mini_R` whose pins 1 are joined by one wire and carry one global label `MID` at one end. `equal` when the net `MID` holds both pins and ERC reports no violation.
+- `sch-wire-middle`: a third `Mini_R` whose pin 1 ends in the middle of that wire, without a junction. `absent` when that pin is not in `MID`.
+- Outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts MUST be written to `docs/formats/kicad/schematic.md` with their source and label.
+- **Stop rules.** `sch-hier-file-parent` other than `present` stops the hierarchy until the file names are revised; `sch-hier-global` other than `equal` stops it until a pinless design is shown to name nets; `sch-wire-ends` other than `equal` stops the satellites.
+
+#### Scenario: Probes on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_hierarchy_probes.py -rA` runs on the local KiCad 10.0.6
+- **THEN** the five probes give `present`, `absent`, `equal`, `equal` and `absent`
+
+#### Scenario: Probes on 9.0.9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image and `FENOLITE_REQUIRE=kicad`
+- **WHEN** the same tests run in the `kicad-9` job
+- **THEN** they give the same outcomes, and the 9.0.9 probe file holds them
+
+### Requirement: Hierarchical schematics pass the oracles
+`tests/kicad/schematic/test_hierarchy_oracle.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that projects built with module sheets and satellites are accepted as c0061's flat ones are, for the lens acceptance design of c0069, for the nested design of `kicad-schematic`, "Two modules, one nested", and for the designs of `tests/_gendesigns.py::designs(seed=20261005, count=25, modules=True)`, each built for the running major and judged on copies.
+- **ERC.** For the nested design, which marks every pin it leaves open, `sch erc --format json --severity-all` MUST report no violation in any sheet. The acceptance design and the generated designs leave pins open and labels alone, which ERC reports whatever the sheets look like; for them no violation type MUST be counted more often than for the same design built with `--schematic-layout grid`, the form `Generated schematics pass ERC and parity` proved: the sheets and the wires add no finding. (Equal counts are not asked: 9.0.9 reports one open pin of one generated design on the flat sheet and not on the readable sheets, while both exports give that pin the same `unconnected-(…)` net.) Only counts per type are compared, never the items, which KiCad names differently from run to run.
+- **Parity.** `pcb drc --schematic-parity --format json --severity-all` MUST give an empty `schematic_parity` list.
+- **Netlist.** `netlist.differences(sch_netlist.own_netlist(<root>, project=<name>, children=<children>), netlist.read_netlist(<kicad-cli's export>))` MUST be empty, so every child sheet was reached.
+- **Paths** (`H-K-SCH-HIER-PATH`). For every component of the export, the `path` of its footprint on the built board MUST be its `sheetpath` `tstamps` joined with one of its own `tstamps`: a part of several units lists the uuid of each unit's symbol, and Fenolite writes that of the lowest unit.
+- **Controls.** The `Sheetfile` of one child edited to a missing file MUST make `netlist.differences` non-empty, while ERC reports nothing about the sheet: at most `isolated_pin_label`, `global_label_dangling` or `pin_not_connected` for the pins that lost their net's other pins. One snap wire removed MUST give `pin_not_connected` or a changed net.
+- Probes `sch-hier-oracle-acceptance` and `sch-hier-oracle-generated` MUST record `equal` on both majors, and the built folders MUST be unchanged by every tool run.
+
+#### Scenario: Acceptance design on both majors
+- **WHEN** `uv run pytest tests/kicad/schematic/test_hierarchy_oracle.py -k acceptance -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** ERC reports no violation type more often than for the flat form, parity is empty, the netlists are equal, every footprint path is a joined `tstamps`, and both controls give their finding
+
+#### Scenario: Generated designs
+- **WHEN** `uv run pytest tests/kicad/schematic/test_hierarchy_oracle.py -k generated -rA` runs on each major
+- **THEN** all 25 designs build, with at least ten child sheets and five satellites among them, and every check holds
 

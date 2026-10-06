@@ -5,19 +5,24 @@ module", "Board-frame pads", "Pad copper entries", "Pad holes"; change c0028). H
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
 
 import pytest
-from _placed import Part, design_of, mm, pt
+from _placed import LIBS, Part, design_of, mm, pt
 
 import fenolite.backends.kicad as kicad
 from fenolite.backends.base import BoardPad, PadCopper
 from fenolite.backends.kicad import frame
 from fenolite.backends.kicad.backend import KicadBackend
+from fenolite.backends.kicad.embed import place_footprint
 from fenolite.backends.kicad.frame import board_pads, find_pads
+from fenolite.backends.kicad.mod import read_footprint
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
+from fenolite.geometry import Transform
 from fenolite.model import canonical
+from fenolite.model.circuit import Component
 
 TWO_LAYER = Path(__file__).resolve().parents[3] / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 DEG = 1_000_000
@@ -182,3 +187,75 @@ def test_holes_turn_with_the_footprint() -> None:
     # local (0, -2.5) at 90° is (-2.5, 0); the slot along Y becomes a slot along X
     assert pads["2"][0].position == pt(7.5, 10)
     assert pads["2"][0].hole == (Point(mm(7.1), mm(10)), Point(mm(7.9), mm(10)))
+
+
+# -- the offset of a pad's drill (change c0068, ``H-G-FRAME-OFFSET``)
+
+
+def _box(entry: PadCopper) -> tuple[Point, Point]:
+    xs, ys = [p.x for p in entry.core], [p.y for p in entry.core]
+    return Point(min(xs), min(ys)), Point(max(xs), max(ys))
+
+
+def test_offset_drill_leaves_the_hole_at_the_pad_position() -> None:
+    """Scenario "Hole of a pad with an offset drill": KiCad keeps the hole at the pad's ``at``."""
+    (pad,) = find_pads(design_of(Part("J1", "Frame_Offset", 10, 10, library="Frame")), "J1", 1)
+    assert pad.position == pt(10, 10)
+    assert pad.hole == (pt(10, 10),), "hole: the offset of the drill must not move the hole"
+    assert pad.drill == mm(0.8)
+
+
+def test_offset_drill_moves_the_copper() -> None:
+    """Scenario "Copper of a pad with an offset drill": the pad's box moved by (0, −0.4 mm)."""
+    (pad,) = find_pads(design_of(Part("J1", "Frame_Offset", 10, 10, library="Frame")), "J1", 1)
+    assert [entry.layer for entry in pad.copper] == ["F.Cu", "B.Cu"]
+    for entry in pad.copper:
+        assert entry.filled and entry.width == 0 and entry.exact
+        assert _box(entry) == (pt(9, 8.6), pt(11, 10.6)), "copper box: the offset must move the copper"
+    (hole,) = pad.hole
+    low, high = _box(pad.copper[0])
+    assert low.x < hole.x < high.x and low.y < hole.y < high.y
+
+
+@pytest.mark.parametrize("angle", [90, 180, 270])
+def test_offset_turns_with_the_footprint(angle: int) -> None:
+    """Scenario "The offset turns with the footprint"."""
+    design = design_of(Part("J1", "Frame_Offset", 10, 10, angle, library="Frame"))
+    (pad,) = find_pads(design, "J1", 1)
+    assert pad.hole == (pt(10, 10),)
+    low, high = _box(pad.copper[0])
+    centre = Point((low.x + high.x) // 2, (low.y + high.y) // 2)
+    assert centre == Transform.placement(pad.position, pad.rotation).apply(Point(0, mm(-0.4)))
+    assert (centre.x - 10 * 1_000_000) ** 2 + (centre.y - 10 * 1_000_000) ** 2 == mm(0.4) ** 2
+
+
+def test_offset_on_the_bottom_side_is_mirrored_with_the_pad() -> None:
+    design = design_of(Part("J1", "Frame_Offset", 10, 10, side="bottom", library="Frame"))
+    (pad,) = find_pads(design, "J1", 1)
+    assert pad.hole == (pt(10, 10),)
+    low, high = _box(pad.copper[0])
+    assert (high.x - low.x, high.y - low.y) == (mm(2), mm(2))
+    centre = Point((low.x + high.x) // 2, (low.y + high.y) // 2)
+    assert abs(centre.x - mm(10)) + abs(centre.y - mm(10)) == mm(0.4)
+
+
+def test_offset_of_an_oval_drill_moves_the_copper_and_not_the_slot() -> None:
+    """An oval drill with an offset stays opaque (``drill is None`` in the model); the frame reads it."""
+    text = (LIBS / "Frame.pretty" / "Frame_Offset.kicad_mod").read_text(encoding="utf-8")
+    old = "(drill 0.8\n\t\t\t(offset 0 -0.4)\n\t\t)"
+    assert old in text
+    defn = read_footprint(
+        text.replace(old, "(drill oval 0.8 1.2\n\t\t\t(offset 0.3 0)\n\t\t)"), library="Frame"
+    )
+    component = Component(id="cmp_00000000-0000-4000-8000-000000000001", ref="J1")
+    placed = place_footprint(defn, component=component, at=pt(10, 10), key="J1")
+    base = design_of()
+    assert base.board is not None
+    design = dataclasses.replace(
+        base,
+        circuit=dataclasses.replace(base.circuit, components=(component,)),
+        board=dataclasses.replace(base.board, footprints=(placed,)),
+    )
+    (pad,) = board_pads(design)
+    assert (pad.hole, pad.drill) == ((pt(10, 9.8), pt(10, 10.2)), mm(0.8))
+    assert _box(pad.copper[0]) == (pt(9.3, 9), pt(11.3, 11))

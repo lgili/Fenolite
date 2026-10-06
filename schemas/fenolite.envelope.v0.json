@@ -197,6 +197,20 @@
           "items": {
             "type": "string"
           }
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{16})?$"
+        },
+        "undo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

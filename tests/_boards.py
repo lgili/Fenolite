@@ -134,6 +134,7 @@ SCENARIOS: dict[str, str] = {
     ),
     "zone-two-polygons": board(zone(1, inner=f"{SQUARE} {SQUARE}")),
     "paper-unmodelled": board().replace('(paper "A4")', '(paper "USLetter")'),
+    "net-collision": board(segment(1, net="(net 1)"), nets=("", "a/b", "a{slash}b")),
     "island-10": board(
         zone(
             1,

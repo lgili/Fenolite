@@ -15,6 +15,8 @@ two or four copper layers, each inner layer a signal layer or an internal plane,
 thicknesses and the dielectrics between them. Without one, the stack is the two-layer stack of c0035.
 """
 
+# evidence: see pcbdoc, pcblib
+
 from __future__ import annotations
 
 import hashlib

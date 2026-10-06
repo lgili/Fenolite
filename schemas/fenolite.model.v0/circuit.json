@@ -35,6 +35,12 @@
         "$ref": "#/$defs/Module"
       }
     },
+    "buses": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Bus"
+      }
+    },
     "no_connects": {
       "type": "array",
       "items": {
@@ -44,6 +50,69 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "Bus": {
+      "description": "An indexed vector of nets (``D[0..7]``): ``name`` is the vector's name without its range and",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/BusMember"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "BusMember": {
+      "description": "One member of a bus: its index in the vector and the net it names.",
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer"
+        },
+        "net_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "net_id"
+      ]
+    },
     "Component": {
       "description": "A part in the circuit. ``ref`` is an attribute, never a key; ``path`` is hierarchical.",
       "type": "object",

@@ -91,7 +91,10 @@ def run_loop(folder: Path, example: str, target: int) -> LoopRun:
     for step in STEPS:
         cwd, args = steps[step]
         code, envelope, error = run_cli(cwd, *args, timeout=ROUTER_LIMIT + 300)
-        assert code == 0, f"{step} exited {code} for {example} (KiCad {target}): {error or envelope}"
+        found = [issue for issue in envelope.get("issues", []) if issue.get("severity") == "error"]  # type: ignore[union-attr]
+        assert code == 0, (
+            f"{step} exited {code} for {example} (KiCad {target}): {error or envelope}; errors: {found}"
+        )
         assert envelope.get("ok") is True, (step, envelope)
         envelopes[step] = envelope
     return LoopRun(project, board, envelopes)

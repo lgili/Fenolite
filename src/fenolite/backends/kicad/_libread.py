@@ -6,6 +6,8 @@ Facts: ``docs/formats/kicad/libraries.md``. Locators are the bare ``kicad-sexpr`
 (``/footprint/pad[1]``) in both ``FormatError.locator`` and ``Provenance.locator``.
 """
 
+# evidence: see mod, sym
+
 from __future__ import annotations
 
 import hashlib

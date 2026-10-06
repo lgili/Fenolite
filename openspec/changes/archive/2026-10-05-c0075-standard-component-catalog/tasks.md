@@ -1,0 +1,6 @@
+- [x] Add symbol-local graphic primitives to the model, DSL, canonical schema, and KiCad reader/writer; test graphic round-trip and old-symbol compatibility.
+- [x] Add the pure-data catalog registry, immutable metadata, stable API, and generic passive symbols/chip footprints with tests for identity, ordering, search, provenance, and writer/readback.
+- [x] Add `fenolite catalog list/show` and merge built-ins into build resolution, preserving project override behavior; add offline build tests.
+- [x] Run focused catalog/build tests, `make check-fast`, and the residue scan; proof: all commands exit successfully.
+- [x] Update the source register and evidence labels; proof: the catalog provenance test passes for every entry.
+- [x] Update catalog documentation and `docs/roadmap.md`, `docs/cli-contract.md`, and `CHANGELOG.md`; proof: `git diff --check` and OpenSpec strict validation pass.

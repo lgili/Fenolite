@@ -101,6 +101,11 @@ does not hold for the native demos; it stays `INFERRED` with these gaps, and c00
 
 ### Outline rings (`H-G-PLACE-OUTLINE`)
 
+Measured again on 2026-10-06, after change c0074 joined endpoints closer than 10 µm and chained the edge
+items of footprints: all 21 boards give a ring (`edge` 21, 5 approximated, no problem). Three boards have
+joined endpoints (`kicad-demo-10-0-6-pcb-01` one group, `-14` two, `-16` six), and `-14` and `-16` take 5
+and 9 edge items from footprints. The table below is the measurement of 2026-10-04, before that change.
+
 `tests/corpus/test_outline_corpus.py::test_outlines` (c0022), measured on 2026-10-04 over the 21 readable
 non-heavy native demos with `backends.kicad.outline.board_outline`, and compared with `board.has_outline`
 of `pcb export stats` on `kicad-cli` 10.0.6. No call raised.

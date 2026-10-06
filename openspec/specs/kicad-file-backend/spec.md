@@ -738,7 +738,7 @@ For any board whose `Board.outline` has points, created or read and then given a
 - `RulesDocument.node` MUST be the synthetic `kicad_dru` node of the version and rule lists, without comments.
 
 `read_rules(text, *, file="", issues=None)` SHALL return a `RuleSet`:
-- A rule list MUST be lifted into a `Rule` only when every child belongs to the closed grammar of `rules-model`: a name, one constraint of a mapped kind with allowed limits and values in `mm`, `mil` or `in` (parsed exactly with `core.units.parse_length`), at most one condition in the closed selector grammar (up to whitespace and redundant parentheses), at most one layer clause with one layer name, and at most one severity among `error`, `warning` and `ignore`. A `hole_size` rule whose condition starts with the conjunct `A.Type == 'Via'` MUST lift as `hole_size` with an `item_kind via` selector.
+- A rule list MUST be lifted into a `Rule` only when every child belongs to the closed grammar of `rules-model`: a name, one constraint of a mapped kind (`rules-model`, "Rule kinds and limits") with allowed limits and values in `mm`, `mil` or `in` (parsed exactly with `core.units.parse_length`), at most one condition in the closed selector grammar of that kind ("Closed selector grammar"; up to whitespace and redundant parentheses), at most one layer clause with one layer name where the kind takes one, and at most one severity among `error`, `warning` and `ignore`. A `courtyard_clearance` rule whose condition is `A.Reference == 'v'` MUST lift with a `ref v` selector; one written with `memberOfFootprint` MUST stay opaque, with the reason that `memberOfFootprint` selects no footprint for that kind (`H-K-DRU-COURTYARD`). A `hole_size` rule whose condition starts with the conjunct `A.Type == 'Via'` MUST lift as `hole_size` with an `item_kind via` selector.
 - Any other rule list, every comment line, and every rule with a comment inside MUST be kept as an `Opaque` slot of `RuleSet.ext["kicad"]` with its exact source text, in file order, and every unlifted rule MUST add the info `rules.kept-opaque` naming the reason.
 - A lifted rule MUST get the priority "number of rule items after it, plus 1", the id `derived_id("rul", "kicad", "rule:<name>")` (with `:<k>` for the k-th repetition of a name), its clause order as slots in its own `ext["kicad"]`, and provenance with locator `/kicad_dru/rule[i]` and `dru.EVIDENCE`. A missing severity MUST lift as `"error"`.
 - In a future file, every item MUST be kept opaque with the file version as minimum version.
@@ -767,7 +767,7 @@ For any board whose `Board.outline` has points, created or read and then given a
 - **THEN** `FormatError` is raised with `file == "broken.kicad_dru"` and `locator == "line 3"`
 
 #### Scenario: Unrepresentable rule kept opaque
-- **GIVEN** a rule `(rule ring (constraint annular_width (min 0.1mm)))` between two lifted rules
+- **GIVEN** a rule `(rule spokes (constraint thermal_spoke_width (min 0.3mm)))` between two lifted rules
 - **WHEN** it is read with an `issues` list and written for target 9
 - **THEN** it is an `Opaque` slot between the two `rules` slots, `issues` holds one `rules.kept-opaque`, and the written text holds it verbatim at the same position
 
@@ -804,6 +804,16 @@ For any board whose `Board.outline` has points, created or read and then given a
 - **GIVEN** the comments, units and selectors fixtures, each on a bench with the canary
 - **WHEN** `uv run pytest tests/kicad/rules/test_rule_dialect.py` runs on 9.0.9 and on 10.0.6
 - **THEN** the canary violation is present for each fixture, and the `mil` and `in` rules each give their violation
+
+#### Scenario: New kind lifted
+- **GIVEN** a rules text holding `(rule ring (constraint annular_width (min 0.1mm)))`
+- **WHEN** it is read and written for target 10
+- **THEN** the rule set holds one `annular_width` rule with `selector_a == Selector("all")` and `min == 100_000`, no `rules.kept-opaque` is given, and the written text holds the rule `ring` with the same constraint and no added severity clause
+
+#### Scenario: Courtyard rule by membership stays opaque
+- **GIVEN** a rules text holding `(rule c (condition "A.memberOfFootprint('U1')") (constraint courtyard_clearance (min 0.5mm)))`
+- **WHEN** it is read with an `issues` list
+- **THEN** the rule is an `Opaque` slot, and `issues` holds one `rules.kept-opaque` naming `memberOfFootprint`
 
 ### Requirement: Project JSON is preserved exactly
 `fenolite.backends.kicad.pro.read_project_text(text, *, file="")` SHALL parse a `.kicad_pro` file into a `JsonObject` that keeps the key order of every object and keeps every number as a `JsonNumber` holding its original text, and `write_project_text(data)` SHALL print it back. No float MUST exist at any step.
@@ -1217,8 +1227,8 @@ Every row MUST cite an id of `docs/evidence/sources.md`, and every row below `KI
 - **THEN** it passes, and every corpus board's `opaque_count` equals the value before this change
 
 ### Requirement: Projects carry the drawing sheet and text variables
-`fenolite.backends.kicad.pro.apply_sheet_keys(project_text, design, *, allow_lossy=False, issues=None)` SHALL return the project text with `pcbnew.page_layout_descr_file` (`pro.PAGE_LAYOUT_POINTER`) and `text_variables` set from the design, and `triad.write_triad` SHALL run it on the project text after `synthesize_project` or `update_project`. The three codes below are rows of the closed table of "Project issue codes".
-- When `Board.sheet.drawing_sheet` is not `None`, `pcbnew.page_layout_descr_file` MUST be set to it verbatim; otherwise the existing value MUST be kept. `schematic.page_layout_descr_file` MUST NOT be touched.
+`fenolite.backends.kicad.pro.apply_sheet_keys(project_text, design, *, schematic=False, allow_lossy=False, issues=None)` SHALL return the project text with `pcbnew.page_layout_descr_file` (`pro.PAGE_LAYOUT_POINTER`) and `text_variables` set from the design, and `triad.write_triad` SHALL run it on the project text after `synthesize_project` or `update_project`. The three codes below are rows of the closed table of "Project issue codes".
+- When `Board.sheet.drawing_sheet` is not `None`, `pcbnew.page_layout_descr_file` MUST be set to it verbatim; otherwise the existing value MUST be kept. With `schematic=True`, which the build passes when it writes a schematic, `schematic.page_layout_descr_file` MUST be set to the same value (`H-K-PRO-WKS-SCH`); otherwise it MUST NOT be touched.
 - Each key of `TitleBlock.params` MUST add or replace one member of `text_variables`. New members MUST be appended after the existing ones, sorted by name, and no member MUST be deleted. The key paths `pro.SHEET_KEY_PATHS` (`/text_variables/*`) MUST be the only paths that `write_triad` adds beyond the template's and `pro.PATTERN_ENTRY_PATHS`.
 - A name in `wks.RESERVED_VARIABLES` MUST give the error `kicad.project.reserved-variable` and raise `LossyWriteError` (`FEN-7001`, `droppable=True`); with `allow_lossy=True` the variable MUST be left out with the warning `kicad.project.dropped-variable`.
 - When the design sets neither key (no `Board.sheet.drawing_sheet` and no parameter), the text MUST come back unchanged, so every c0010 scenario holds byte for byte.
@@ -1255,6 +1265,11 @@ Every row MUST cite an id of `docs/evidence/sources.md`, and every row below `KI
 - **GIVEN** a design with params `{"TITLE": "x"}`
 - **WHEN** `write_triad(design, name="b", target=10)` is called, then again with `allow_lossy=True` and an `issues` list
 - **THEN** the first call raises `LossyWriteError` with `kicad.project.reserved-variable`; the second writes no `TITLE` member and `issues` holds `kicad.project.dropped-variable`
+
+#### Scenario: Schematic key with a schematic
+- **GIVEN** a design whose `Board.sheet.drawing_sheet` is `blink.kicad_wks`
+- **WHEN** `apply_sheet_keys` runs on a template project text with `schematic=True`, and again with `schematic=False`
+- **THEN** the first text holds `blink.kicad_wks` under both `pcbnew.page_layout_descr_file` and `schematic.page_layout_descr_file`, and the second only under `pcbnew`
 
 ### Requirement: Drawing sheet format facts are documented
 `docs/formats/kicad/worksheet.md` SHALL hold the worksheet facts in a table with the header `| fact | source | label | hypothesis |`: the roots and header constant, the setup and item heads, corner atoms and the default corner, repeat and its clipping, label increment, page-1 options, value atoms, text variables and their resolution on a board, the legacy `%` text codes that KiCad still resolves, the stated 1 µm resolution and what KiCad draws for finer lengths, `pngdata` rows, the silent fallback for missing files, and the SVG form used by the oracle. Every row MUST cite a source id, and every row below `KICAD-VERIFIED` or `CORPUS-VERIFIED` MUST name a hypothesis.
@@ -1710,11 +1725,12 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 - **THEN** `PlacementError` is raised with `place.locked`
 
 ### Requirement: Board outline as rings
-`fenolite.backends.kicad.outline.board_outline(design) -> BoardOutline` SHALL give the board outline as closed rings in the board frame, without a snapping tolerance (`H-G-EDGE-EXACT`):
+`fenolite.backends.kicad.outline.board_outline(design) -> BoardOutline` SHALL give the board outline as closed rings in the board frame, joining edge endpoints closer than `outline.CHAIN_GAP` (10 000 nm) as KiCad does (`H-K-OUTLINE-CHAIN`):
 - from `Board.outline.points`, followed by each ring of `Board.outline.cutouts`, when the model has an outline (`source == "model"`);
-- otherwise from the root graphics on the layer of kind `edge`, chained by `geometry.assemble_rings` (`source == "edge"`); circles are rings by themselves;
+- otherwise from the root graphics on the layer of kind `edge` and the edge items of footprints that `frame.footprint_edges` gives in the board frame (`fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly`; `H-K-OUTLINE-FPEDGE`), chained by `geometry.assemble_rings` (`source == "edge"`); circles and closed footprint polygons are rings by themselves;
+- before chaining, endpoints whose squared distance is below `CHAIN_GAP` squared MUST be joined into the smallest point of their group, decided with integers; a group with more than two piece ends stays a `branching-contour`, and `joined` MUST count the groups that were joined;
 - `rings[0]` MUST be the ring of largest area, and the others its cut-outs;
-- when no ring closes, `rings` MUST be empty and `problem` MUST be one of `open-contour`, `branching-contour`, `no-edge-content` and `footprint-edges-only`;
+- when no ring closes, `rings` MUST be empty and `problem` MUST be one of `open-contour`, `branching-contour` and `no-edge-content`;
 - `exact` MUST be false when an arc was approximated.
 
 `H-G-PLACE-OUTLINE` MUST be measured over the readable non-heavy demo boards and its counts recorded.
@@ -1736,5 +1752,90 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 
 #### Scenario: Demo outlines counted
 - **WHEN** `uv run pytest tests/corpus/test_outline_corpus.py` runs over the cached readable non-heavy demo boards
-- **THEN** no call raises, and the counts of `model`, `edge` and each `problem` are recorded for `H-G-PLACE-OUTLINE`
+- **THEN** no call raises, every board gives at least one ring, and the counts of `model`, `edge`, each `problem` and the boards with `joined` above 0 are recorded for `H-G-PLACE-OUTLINE`
+
+#### Scenario: Gap below the chaining distance
+- **GIVEN** the authored rectangle of "Edge graphics with a cut-out" whose last line stops 9 999 nm short of its first corner, and the same with 10 000 nm
+- **WHEN** `board_outline` runs on each
+- **THEN** the first has one ring and `joined` 1, and the second has the problem `open-contour`
+
+#### Scenario: Edge closed by a footprint
+- **GIVEN** an authored board whose edge lines leave a 5 mm opening that the `fp_line` items of one placed footprint on `Edge.Cuts` close
+- **WHEN** `board_outline` runs
+- **THEN** `rings[0]` holds the footprint's edge points in the board frame
+
+### Requirement: Net names in KiCad's stored form
+`fenolite.backends.kicad.netnames` SHALL define `stored_name(name) -> str`, which replaces each `/` by `{slash}`, and `model_name(stored) -> str`, its inverse, and the board reader and writer SHALL use them so that a net name with a slash is stored as KiCad stores a literal slash (`H-K-SCH-SLASH`).
+- **Writing.** `write_board` MUST write a created net with `stored_name(net.name)`, in the net table and in every reference, for both targets. A net read from a file MUST be written with the spelling of its file, so a same-version rebuild stays tree-equal. `pcb.stored_net_name(net)` gives the written name: the stored spelling that the reader kept, else the name itself when the net's id is the one derived from `net:<name>` ("Identifiers of board items"), else `stored_name(net.name)`.
+- **Reading.** `read_board` MUST give a net whose stored name holds `{slash}` the name `model_name(<stored name>)`, MUST keep its id derived from `net:<stored name>`, and MUST keep the stored spelling as the pair `stored` of the net's `kicad` extension bag. The id alone cannot give the spelling back: a net of a sub-sheet whose label text holds a slash is stored with both (`/cpu/A{slash}B`). A stored name without `{slash}` MUST be the net's name unchanged, a leading or inner `/` included: KiCad writes hierarchical net names with raw slashes.
+- **Collision.** When `model_name(<stored name>)` is already the name of another net of the board, the net MUST keep its stored spelling as its name, with one `kicad.board.net-name-collision` info naming both. The code joins the closed table of "Board read issue codes".
+- **Layout matching.** Layout preservation matches nets by model name (`layout-lens`, "Copper items follow their nets"), so copper on a net that an older build stored with a raw slash follows the design net of the same name, and the next write stores it with `{slash}`.
+- No other character is changed by either function, and `model_name(stored_name(x)) == x` MUST hold for every string that holds no `{slash}`.
+
+#### Scenario: Created net with a slash
+- **GIVEN** a created design whose net `mod/LED_A` joins two pads
+- **WHEN** it is written for target 10 and for target 9
+- **THEN** the target-10 text holds `(net "mod{slash}LED_A")` on both pads, the target-9 text holds one table row named `mod{slash}LED_A`, and neither holds `mod/LED_A`
+
+#### Scenario: Reads back with the slash
+- **WHEN** either text is read with `read_board`
+- **THEN** the net is named `mod/LED_A`, and writing the read design again gives a tree equal to the text that was read
+
+#### Scenario: Hierarchical net untouched
+- **GIVEN** a copy of `tests/data/kicad/board/two_layer.kicad_pcb`, built in the test, whose net `VCC` is renamed `/power/VCC`
+- **WHEN** it is read and written for target 9
+- **THEN** the net is named `/power/VCC` in the model and in the written text, and `roundtrip` passes
+
+#### Scenario: A sheet path and a label slash in one name
+- **GIVEN** a board, built in the test, with the net `/cpu/A{slash}B`
+- **WHEN** it is read and written for target 9
+- **THEN** the net is named `/cpu/A/B`, the written text holds `/cpu/A{slash}B`, and a rebuild is tree-equal
+
+#### Scenario: Collision keeps the stored spelling
+- **GIVEN** a board, built in the test, that holds the nets `a/b` and `a{slash}b`
+- **WHEN** it is read with an `issues` list
+- **THEN** the two nets are named `a/b` and `a{slash}b`, `issues` holds one `kicad.board.net-name-collision` info, and a rebuild is tree-equal
+
+#### Scenario: Board of an older build
+- **GIVEN** a confirmed blink variant with the net `mod/LED_A`, whose board text is then edited to store that net as `mod/LED_A` with one track on it
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the written board stores the net as `mod{slash}LED_A` with the track on it, and `issues` holds no `layout.net-removed`
+
+### Requirement: ERC report reading
+`fenolite.backends.kicad.erc.read_erc_report(text, *, file="", major=None, issues=None) -> ErcReport` SHALL return an `ErcReport` (`backend-protocol`, "Neutral ERC report") for the JSON text that `kicad-cli sch erc --format json` writes.
+- The text MUST be parsed as strict JSON with numbers kept as text. `NaN`, `Infinity` and `-Infinity` MUST raise `FormatError`, and no float is ever created.
+- `erc.REQUIRED_KEYS` MUST map `report`, `sheet` and `violation` to the keys required at that level, and a missing one MUST raise `FormatError` naming the key: at the root `source`, `date`, `kicad_version` and `sheets`; in a sheet `path`, `uuid_path` and `violations`; in a violation `type`, `description`, `severity` and `items`. Unknown keys MUST be ignored.
+- `excluded` MUST default to false. `ignored_checks`, present at 10.0.6 only, MUST be kept as the `key` string of each entry, and `included_severities` MUST be kept when present. A report without `coordinate_units` MUST be read as millimetres.
+- **Positions.** Each `pos` MUST be converted to integer nanometres from `coordinate_units` (`mm`, `mils`, `in`) with exact rational arithmetic, and then multiplied by `erc.POSITION_SCALE[<major>]`, the major being `major` or, when it is `None`, the first number of `kicad_version`. `POSITION_SCALE` MUST hold 100 for each major whose probe `erc-position-scale` is `equal` (`H-K-ERC-POS`). For a major it does not hold, the position MUST stay as converted, and the reader MUST add the info `kicad.erc.position-unscaled` to `issues` when a list is given.
+- Each violation's `sheet` MUST be the `path` of its sheet and its `sheet_id` the `uuid_path`; `ErcReport.sheets` MUST list the `path` of every sheet of the file; and violations MUST keep file order, sheet by sheet. `type` and `severity` MUST stay KiCad's strings.
+- `docs/formats/kicad/erc.md` MUST describe the report structure in Fenolite's own words, in a table with the header `| fact | source | label | hypothesis |`, with the key names the tool writes (S-0020), which S-0450 and S-0451 also hold; `erc.v1.json` MUST NOT be vendored or read at run time.
+
+#### Scenario: Report of 10.0
+- **GIVEN** the authored `tests/data/kicad/erc/report_10.json`, whose first violation is a `pin_not_connected` on sheet `/` with an item at `x` 1.397 and `y` 0.5969, and whose `ignored_checks` holds one entry
+- **WHEN** `read_erc_report` reads it
+- **THEN** `report.violations[0].type == "pin_not_connected"`, its `sheet` is `/`, `report.sheets` is `("/", "/Child/")`, its first item has `position == Point(139_700_000, 59_690_000)`, and `report.ignored_checks` holds that entry's key
+
+#### Scenario: Report of 9.0
+- **GIVEN** the authored `tests/data/kicad/erc/report_9.json`, without `ignored_checks`
+- **WHEN** `read_erc_report` reads it
+- **THEN** `report.ignored_checks == ()`, and its positions are scaled as in the 10.0 report
+
+#### Scenario: Missing required key
+- **GIVEN** `report_10.json` without `sheets`
+- **WHEN** `read_erc_report` reads it
+- **THEN** `FormatError` is raised naming `sheets`
+
+#### Scenario: Non-strict number rejected
+- **GIVEN** `report_10.json` with one coordinate replaced by `NaN`
+- **WHEN** `read_erc_report` reads it
+- **THEN** `FormatError` is raised
+
+#### Scenario: Unknown major
+- **GIVEN** `report_10.json` with `kicad_version` `11.0.0`
+- **WHEN** `read_erc_report(text, issues=[])` reads it with an `issues` list
+- **THEN** the first item's position is `Point(1_397_000, 596_900)`, and the list holds one `kicad.erc.position-unscaled` info
+
+#### Scenario: Fact table checked
+- **WHEN** `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py` runs
+- **THEN** it passes with `erc.md` present
 

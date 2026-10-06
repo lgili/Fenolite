@@ -20,6 +20,7 @@ user. Nothing is dropped to make a document fit: copper that cannot be written e
 from __future__ import annotations
 
 import dataclasses
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -31,6 +32,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.project import component_path
 from fenolite.backends.kicad.embed import PATH_PROPERTY
+from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.lens.build import PlacementRequest
@@ -651,6 +653,16 @@ def match_source(
         else:
             by_ref.setdefault(refs[footprint.id], []).append(footprint)
     source_nets = {net.id: net.name for net in source.design.circuit.nets}
+    # A board built beside a schematic names the net of each unconnected pin as KiCad does (c0061): a net
+    # ``unconnected-(…)`` that holds one pad is that pad on no net.
+    pads_on = Counter(
+        pad.net_id for fp in (board.footprints if board is not None else ()) for pad in fp.pads if pad.net_id
+    )
+    open_nets = {
+        net_id
+        for net_id, name in source_nets.items()
+        if name.startswith(UNCONNECTED_PREFIX) and pads_on[net_id] <= 1
+    }
     pin_nets: dict[str, dict[str, str]] = {}
     for net in design.circuit.nets:
         for member in net.members:
@@ -691,7 +703,8 @@ def match_source(
                 issues.append(_mismatch(source, message, path))
                 continue
         for pad in footprint.pads:
-            got_net = source_nets.get(pad.net_id) if pad.net_id is not None else None
+            named = pad.net_id is not None and pad.net_id not in open_nets
+            got_net = source_nets.get(pad.net_id or "") if named else None
             want_net = pin_nets.get(component.id, {}).get(pad.number)
             if got_net != want_net:
                 message = (

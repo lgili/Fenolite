@@ -9,11 +9,12 @@ import ast
 from pathlib import Path
 
 from _build_preserve_variants import without_r1
-from _buildhelp import blink
+from _buildhelp import blink, build
 from _layout_edit import ZONE_UUID, add_filled_zone
 from _preserve_help import board_text, merged
 
 from fenolite.backends.kicad.pcb import read_board, write_board
+from fenolite.lens.build import lower_for_schematic
 from fenolite.lens.preserve import ExistingProject, drop_stale_fills, fill_inputs_digest, zone_digest
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -41,8 +42,15 @@ def test_digests_ignore_ids_and_formats() -> None:
 
 def test_unchanged_layout_keeps_fills() -> None:
     result, board = merged(blink(), filled())
-    kept, issues = drop_stale_fills(board, result.design, existing=SAME, project="{}", rules=RULES)
+    schematic = build(blink()).schematic
+    assert schematic is not None  # the board follows the schematic, and so must the layout (c0061)
+    lowered = lower_for_schematic(result.design, schematic)
+    kept, issues = drop_stale_fills(board, lowered, existing=SAME, project="{}", rules=RULES)
     assert issues == () and len(zone(kept).fills) == 2  # type: ignore[attr-defined]
+    # a pad that only gains the name of its unconnected pin is no change for a fill: a board built
+    # before the schematic existed keeps its fills
+    _, stale = drop_stale_fills(board, result.design, existing=SAME, project="{}", rules=RULES)
+    assert stale == ()
 
 
 def test_a_removed_part_drops_fills() -> None:

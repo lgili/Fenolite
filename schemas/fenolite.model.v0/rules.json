@@ -140,7 +140,7 @@
       ]
     },
     "Rule": {
-      "description": "One design rule. Binary rules (clearance) use ``selector_b`` for the second object.",
+      "description": "One design rule. Binary rules (clearance, creepage) use ``selector_b`` for the second object.",
       "type": "object",
       "properties": {
         "id": {
@@ -179,7 +179,13 @@
             "via_diameter",
             "via_drill",
             "hole_size",
-            "edge_clearance"
+            "edge_clearance",
+            "hole_to_hole",
+            "hole_clearance",
+            "annular_width",
+            "courtyard_clearance",
+            "silk_clearance",
+            "creepage"
           ]
         },
         "selector_a": {

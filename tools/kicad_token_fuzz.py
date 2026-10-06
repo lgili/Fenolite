@@ -55,8 +55,19 @@ SKELETONS = {
     FileKind.FOOTPRINT: "skeleton.kicad_mod",
     FileKind.WORKSHEET: "skeleton.kicad_wks",
     FileKind.RULES: "canary/canary.kicad_dru",
+    FileKind.SCHEMATIC: "skeleton.kicad_sch",
+    FileKind.SYMBOL_LIB: "skeleton.kicad_sym",
 }
-FLOOR_MAJOR = {FileKind.BOARD: 8, FileKind.FOOTPRINT: 8, FileKind.WORKSHEET: 8, FileKind.RULES: 9}
+FLOOR_MAJOR = {
+    FileKind.BOARD: 8,
+    FileKind.FOOTPRINT: 8,
+    FileKind.WORKSHEET: 8,
+    FileKind.RULES: 9,
+    FileKind.SCHEMATIC: 8,
+    FileKind.SYMBOL_LIB: 8,
+}
+VERSIONED = (FileKind.BOARD, FileKind.FOOTPRINT, FileKind.SCHEMATIC, FileKind.SYMBOL_LIB)
+"""The kinds whose case header is chosen from the inventory (the skeleton's own header is replaced)."""
 EXAMPLE_KEYS = {"id", "kinds", "host", "mode", "fragment", "file", "exercises", "expect", "header", "note"}
 OUTCOMES = ("load", "reject", "timeout", "inconclusive")
 WORKSHEET_ERROR = "Error loading drawing sheet"
@@ -311,11 +322,15 @@ def _case_files(example: Example, kind: FileKind, header: int, base: Path) -> di
         tree = parse(_skeleton_text(kind, base))
     else:
         tree, _ = _insert(parse(_skeleton_text(kind, base)), example)
-    if kind in (FileKind.BOARD, FileKind.FOOTPRINT):
+    if kind in VERSIONED:
         tree = _set_header(tree, header)
     data = dumps(tree).encode("utf-8")
     if kind == FileKind.BOARD:
         return {"case.kicad_pcb": data}
+    if kind == FileKind.SCHEMATIC:
+        return {"case.kicad_sch": data}
+    if kind == FileKind.SYMBOL_LIB:
+        return {"case.kicad_sym": data}
     if kind == FileKind.FOOTPRINT:
         return {"case.pretty/case.kicad_mod": data}
     return {"case.kicad_wks": data, "board.kicad_pcb": (base / SKELETONS[FileKind.BOARD]).read_bytes()}
@@ -349,7 +364,7 @@ def build_cases(
             top = max([s for s, _, _ in sinces], default=FLOOR_MAJOR[kind])
             if example.header is not None:
                 headers = [example.header]
-            elif kind in (FileKind.BOARD, FileKind.FOOTPRINT):
+            elif kind in VERSIONED:
                 headers = [FORMAT_VERSIONS[kind][min(major, top)]]
                 if any(u is not None and u < major for _, u, _ in sinces):
                     headers.append(FORMAT_VERSIONS[kind][major])
@@ -369,8 +384,9 @@ def build_cases(
                 fixed = example.header is not None or example.file is not None
                 cases.append(Case(example.id, kind, header, example.sha256, rows, expected, files, fixed))
     if baseline is not None:
-        boards = (FileKind.BOARD, FileKind.FOOTPRINT)
-        used = sorted({(c.kind, c.header_version) for c in cases if c.kind in boards and not c.fixed_header})
+        used = sorted(
+            {(c.kind, c.header_version) for c in cases if c.kind in VERSIONED and not c.fixed_header}
+        )
         used += [(kind, _header_of(baseline, kind, base)) for kind in (FileKind.WORKSHEET, FileKind.RULES)]
         for kind, header in used:
             if kind not in baseline.kinds:
@@ -457,6 +473,11 @@ def run_case(
         elif case.kind == FileKind.FOOTPRINT:
             (tmp / "out").mkdir()
             args = ["fp", "export", "svg", "case.pretty", "-o", "out"]
+        elif case.kind == FileKind.SCHEMATIC:
+            args = ["sch", "export", "netlist", "case.kicad_sch", "-o", "out.net"]
+        elif case.kind == FileKind.SYMBOL_LIB:
+            (tmp / "out").mkdir()
+            args = ["sym", "export", "svg", "case.kicad_sym", "-o", "out"]
         elif case.kind == FileKind.WORKSHEET:
             args = [
                 "pcb",
@@ -480,8 +501,10 @@ def run_case(
         detail = sanitise(result.output, tmp)
         if case.kind == FileKind.BOARD:
             loaded = result.returncode == 0 and (tmp / "out.svg").is_file()
-        elif case.kind == FileKind.FOOTPRINT:
+        elif case.kind in (FileKind.FOOTPRINT, FileKind.SYMBOL_LIB):
             loaded = result.returncode == 0 and any((tmp / "out").glob("*.svg"))
+        elif case.kind == FileKind.SCHEMATIC:
+            loaded = result.returncode == 0 and (tmp / "out.net").is_file()
         elif case.kind == FileKind.WORKSHEET:
             loaded = result.returncode == 0 and WORKSHEET_ERROR not in result.output
             if not loaded and WORKSHEET_ERROR in result.output:

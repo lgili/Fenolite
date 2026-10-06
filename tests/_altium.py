@@ -10,6 +10,8 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
+from _buildhelp import MARKS as BLINK_MARKS
+
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.layout import MARGIN, SheetPlan
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
@@ -359,8 +361,11 @@ def hier_board() -> Design:
 
 def blink(text: str = "", new: str = "") -> Design:
     """The KiCad-footprint sample of change c0035 (``examples/blink_2layer``), with ``text`` replaced by
-    ``new`` in its script."""
+    ``new`` in its script. The sample is the example without the no-connect marks that c0061 added to it,
+    so the golden files of the author reports keep their bytes; the marks themselves are c0036's tests."""
     source = BLINK.read_text(encoding="utf-8")
+    assert BLINK_MARKS in source
+    source = source.replace(BLINK_MARKS, "")
     if text:
         assert text in source, text
         source = source.replace(text, new)

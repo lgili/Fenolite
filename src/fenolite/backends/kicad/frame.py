@@ -45,7 +45,7 @@ from fenolite.geometry import (
 )
 from fenolite.geometry.transform import TRIG_BITS
 from fenolite.model.base import Opaque
-from fenolite.model.board import FootprintInstance, Graphic, Pad, PadShape, Size
+from fenolite.model.board import Board, FootprintInstance, Graphic, Pad, PadShape, Size
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
@@ -237,6 +237,46 @@ def _shape(node: Node, *, default_fill: bool) -> _Shape | None:
     return _Shape(kind, tuple(p for p in found if p is not None), width, filled, (), layer)
 
 
+EDGE_HEADS: frozenset[str] = frozenset({"fp_line", "fp_arc", "fp_circle", "fp_rect", "fp_poly"})
+"""The footprint children that can be part of a board outline; texts and other items are not taken."""
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class EdgeItem:
+    """A footprint graphic on an edge layer, in the board frame: ``kind`` is ``line``, ``arc`` (start, mid,
+    end), ``circle`` (centre, a point on it) or ``polygon`` (a closed ring; a rectangle is one)."""
+
+    kind: str
+    points: tuple[Point, ...]
+    layer: str
+    footprint: str
+    """The id of the footprint that holds the item."""
+
+
+def footprint_edges(board: Board, layers: Iterable[str]) -> tuple[EdgeItem, ...]:
+    """The ``fp_line``, ``fp_arc``, ``fp_circle``, ``fp_rect`` and ``fp_poly`` items that the footprints of
+    ``board`` hold on ``layers``, placed in the board frame through each footprint's position and
+    rotation, in footprint and file order (``H-K-OUTLINE-FPEDGE``). A bottom footprint stores its
+    children already mirrored, so no flip is applied."""
+    wanted = frozenset(layers)
+    found: list[EdgeItem] = []
+    for footprint in board.footprints:
+        placement = _Placement(footprint.position, footprint.rotation)
+        for node in _opaque_nodes(footprint):
+            if node.name not in EDGE_HEADS:
+                continue
+            shape = _shape(node, default_fill=False)
+            if shape is None or shape.layer not in wanted:
+                continue
+            kind, points = shape.kind, shape.points
+            if kind == "rect" and len(points) == 2:
+                a, b = points
+                kind, points = "polygon", (a, Point(b.x, a.y), b, Point(a.x, b.y))
+            placed = placement.points(_frac(p) for p in points)
+            found.append(EdgeItem(kind, placed, shape.layer, footprint.id))
+    return tuple(found)
+
+
 def _graphic_shape(graphic: Graphic) -> _Shape:
     return _Shape(graphic.kind, tuple(graphic.points), graphic.width, graphic.filled, (), graphic.layer)
 
@@ -396,11 +436,22 @@ def _primitive_entries(
     return [(ring, width, True, False)] if shape.filled else [((*ring, ring[0]), width, False, False)]
 
 
+def _drill_offset(tokens: Mapping[str, Node]) -> Point:
+    """The ``(offset X Y)`` of the pad's drill node, in the pad's own frame, else (0, 0)."""
+    node = tokens.get("drill")
+    return (_xy(node.find("offset")) if node is not None else None) or Point(0, 0)
+
+
 def _copper(
     pad: Pad, layers: Sequence[str], inner: frozenset[str], placement: _Placement, tokens: Mapping[str, Node]
 ) -> tuple[PadCopper, ...]:
     if pad.kind == "np_thru_hole":
         return ()
+    # KiCad keeps the hole at the pad's position and moves the pad's copper by the offset of its drill
+    # (``H-G-FRAME-OFFSET``): every entry is built around the offset point, which turns with the pad.
+    offset = _drill_offset(tokens)
+    if offset != Point(0, 0):
+        placement = _Placement(placement.apply(_frac(offset)), placement.udeg)
     primitives: list[_Shape] = []
     if pad.shape == "custom" and "primitives" in tokens:
         shapes = (_shape(node, default_fill=True) for node in tokens["primitives"].nodes())
@@ -454,14 +505,14 @@ def _hole(pad: Pad, placement: _Placement, tokens: Mapping[str, Node]) -> tuple[
     sizes = [_nm(a) for a in _numbers(node)]
     if not sizes:
         return (), None
-    offset = _xy(node.find("offset")) or Point(0, 0)
-    ox, oy = _frac(offset)
+    # the ``(offset X Y)`` of the node does not move the hole: it moves the copper (``_copper``)
     oval = any(a.text == "oval" for a in node.atoms())
     w, h = sizes[0], sizes[1] if oval and len(sizes) > 1 else sizes[0]
     if w == h:
-        return (placement.apply((ox, oy)),), w
+        return (placement.at,), w
     half = Fraction(abs(w - h), 2)
-    ends = ((ox - half, oy), (ox + half, oy)) if w > h else ((ox, oy - half), (ox, oy + half))
+    zero = Fraction(0)
+    ends = ((-half, zero), (half, zero)) if w > h else ((zero, -half), (zero, half))
     return tuple(sorted(placement.points(ends))), min(w, h)
 
 

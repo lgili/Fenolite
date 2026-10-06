@@ -9,7 +9,8 @@ import random
 from _coppercheck import Copper, ident, mm
 
 from fenolite.backends.kicad import rulemap
-from fenolite.checks.clearance import UNSET, Clearance, ClearanceResolver, rule_precedence
+from fenolite.checks.clearance import UNSET, ZONE_SOURCE, Clearance, ClearanceResolver, rule_precedence
+from fenolite.core.coords import Point
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSubject, Selector
 
@@ -245,3 +246,99 @@ def test_resolution_is_memoised() -> None:
     resolver = ClearanceResolver(design)
     track, pad = pair(resolver, design)
     assert resolver.resolve(track, pad) is resolver.resolve(track, pad) is resolver.resolve(pad, track)
+
+
+# --- the zone's own clearance (change c0068, ``H-K-COPPER-ZONECLR``) -------------------------------
+
+
+def zoned(*, rule: int | None = None) -> Design:
+    """Nets ``A`` and ``B`` in the class ``Signal`` (0.2 mm), and optionally the rule ``pair`` on them."""
+    made = Copper()
+    made.netclass("Signal", mm(0.2))
+    made.net("A", "Signal")
+    made.net("B", "Signal")
+    if rule is not None:
+        made.rule("pair", rule, net("A"), net("B"))
+    return made.build()
+
+
+def resolve_zone(design: Design, zone_clearance: int | None, **switches: object) -> Clearance:
+    """A fill of ``A`` against a track of ``B``."""
+    resolver = ClearanceResolver(design, **switches)  # type: ignore[arg-type]
+    ids = {n.name: n.id for n in design.circuit.nets}
+    fill = resolver.subject("fill", ids["A"], ref=None, layer="F.Cu")
+    track = resolver.subject("track", ids["B"], ref=None, layer="F.Cu")
+    found = resolver.resolve(fill, track, zone_clearance=zone_clearance)
+    assert resolver.resolve(track, fill, zone_clearance=zone_clearance) == found
+    return found
+
+
+def test_zone_clearance_above_the_class() -> None:
+    """Scenario "Zone clearance above the class"."""
+    assert resolve_zone(zoned(), 300_000) == Clearance(mm(0.3), "error", ZONE_SOURCE)
+    assert resolve_zone(zoned(), 100_000) == Clearance(mm(0.2), "error", "class:Signal")
+    assert ZONE_SOURCE == "zone"
+
+
+def test_zone_clearance_equal_values_name_the_class_then_the_zone() -> None:
+    assert resolve_zone(zoned(), mm(0.2)).source == "class:Signal"
+    assert resolve_zone(zoned(), mm(0.3), min_clearance=mm(0.3)).source == "zone"
+
+
+def test_zone_clearance_of_zero_or_none_counts_for_nothing() -> None:
+    for value in (None, 0, -5):
+        assert resolve_zone(zoned(), value) == Clearance(mm(0.2), "error", "class:Signal")
+    bare = Copper()
+    bare.net("A")
+    bare.net("B")
+    assert resolve_zone(bare.build(), None) == UNSET
+    assert resolve_zone(bare.build(), mm(0.3)) == Clearance(mm(0.3), "error", "zone")
+
+
+def test_rule_replaces_the_zone_clearance() -> None:
+    """Scenario "Rule replaces the zone clearance"."""
+    design = zoned(rule=mm(0.2))
+    assert resolve_zone(design, 500_000) == Clearance(mm(0.2), "error", "rule:pair")
+    assert resolve_zone(design, 500_000, rules_over_classes=False) == Clearance(mm(0.5), "error", "zone")
+    # a rule below the class value: the class is kept where a class value is kept, and the zone above it
+    low = zoned(rule=mm(0.1))
+    assert resolve_zone(low, 150_000, rules_over_classes=False).source == "class:Signal"
+    assert resolve_zone(low, 150_000) == Clearance(mm(0.1), "error", "rule:pair")
+
+
+def test_zone_clearance_under_an_ignore_rule() -> None:
+    made = Copper()
+    made.net("A")
+    made.net("B")
+    made.rule("quiet", mm(0.2), net("A"), net("B"), severity="ignore")
+    found = resolve_zone(made.build(), mm(0.5))
+    assert found.value is None and found.source == "rule:quiet"
+
+
+def test_board_minimum_above_the_zone() -> None:
+    """Scenario "Board minimum above the zone"."""
+    assert resolve_zone(zoned(), 300_000, min_clearance=mm(0.4)) == Clearance(mm(0.4), "error", "floor")
+    assert resolve_zone(zoned(), 300_000, min_clearance=mm(0.25)) == Clearance(mm(0.3), "error", "zone")
+
+
+def test_zone_clearance_is_part_of_the_memo_key() -> None:
+    design = zoned()
+    resolver = ClearanceResolver(design)
+    ids = {n.name: n.id for n in design.circuit.nets}
+    fill = resolver.subject("fill", ids["A"], ref=None, layer="F.Cu")
+    track = resolver.subject("track", ids["B"], ref=None, layer="F.Cu")
+    assert resolver.resolve(fill, track, zone_clearance=mm(0.5)).value == mm(0.5)
+    assert resolver.resolve(fill, track).value == mm(0.2)
+    assert resolver.resolve(fill, track, zone_clearance=mm(0.3)).value == mm(0.3)
+
+
+def test_max_value_holds_the_clearance_of_zones_with_fills() -> None:
+    ring = (Point(0, 0), Point(mm(4), 0), Point(mm(4), mm(4)), Point(0, mm(4)))
+    made = Copper()
+    made.netclass("Signal", mm(0.2))
+    made.zone("A", ring, clearance=mm(0.7))  # no fill: nothing of it is judged
+    assert ClearanceResolver(made.build()).max_value == mm(0.2)
+    made.zone("A", ring, fills=[ring], clearance=mm(0.6))
+    assert ClearanceResolver(made.build()).max_value == mm(0.6)
+    made.zone("A", ring, fills=[ring], clearance=0)
+    assert ClearanceResolver(made.build()).max_value == mm(0.6)

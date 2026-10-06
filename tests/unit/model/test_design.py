@@ -14,7 +14,19 @@ from strategies import designs
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id, new_id
-from fenolite.model import Component, Design, FootprintInstance, Net, Pad, Pin, PinRef, Track
+from fenolite.model import (
+    Bus,
+    BusMember,
+    Component,
+    ComponentBody,
+    Design,
+    FootprintInstance,
+    Net,
+    Pad,
+    Pin,
+    PinRef,
+    Track,
+)
 from fenolite.model.canonical import dump_dir, load_dir
 
 
@@ -207,3 +219,72 @@ def test_no_connect_mark_before_a_build_and_net_findings() -> None:
     design = _marked(design, PinRef(u1.id, "TP"))
     assert design.validate() == ()
     assert {name: len(pads) for name, pads in design.by_net.items()} == {"GND": 2, "VIN": 2}
+
+
+# --- buses and bodies (change c0043) --------------------------------------------------------------------
+
+
+def _with_buses(design: Design, *buses: Bus) -> Design:
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, buses=buses))
+
+
+def test_bus_survives_the_canonical_round_trip(tmp_path: Path) -> None:
+    design = _small()
+    gnd, vin = design.circuit.nets
+    bus = Bus(
+        id=new_id("bus", random.Random(9)), name="D", members=(BusMember(0, gnd.id), BusMember(1, vin.id))
+    )
+    design = _with_buses(design, bus)
+    assert design.validate() == () and bus in list(design.entities())
+    dump_dir(design, tmp_path / "d")
+    assert load_dir(tmp_path / "d").circuit.buses == (bus,)
+    data = json.loads((tmp_path / "d" / "circuit.json").read_text())
+    schema = _schema.load("fenolite.model.v0/circuit.json")
+    assert _schema.validate(data, schema) == []
+    assert "buses" in schema["properties"] and "buses" not in schema.get("required", [])
+
+
+def test_bus_free_circuit_keeps_its_old_bytes(tmp_path: Path) -> None:
+    design = _small()
+    dump_dir(design, tmp_path / "a")
+    text = (tmp_path / "a" / "circuit.json").read_text()
+    assert "buses" not in text
+    loaded = load_dir(tmp_path / "a")
+    assert loaded.circuit.buses == ()
+    dump_dir(loaded, tmp_path / "b")
+    assert (tmp_path / "b" / "circuit.json").read_text() == text
+
+
+def test_bus_member_without_a_net_and_a_repeated_index() -> None:
+    design = _small()
+    gnd, vin = design.circuit.nets
+    rng = random.Random(10)
+    lost = Bus(id=new_id("bus", rng), name="A", members=(BusMember(0, "net_nope"),))
+    twice = Bus(id=new_id("bus", rng), name="B", members=(BusMember(3, gnd.id), BusMember(3, vin.id)))
+    found = _with_buses(design, lost, twice).validate()
+    assert [(i.code, i.severity, i.where) for i in found] == [
+        ("model.unknown-net", "error", "A"),
+        ("model.duplicate-bus-index", "error", "B"),
+    ]
+    assert _with_buses(design, lost, twice).by_net == design.by_net
+
+
+def test_body_height_below_its_standoff() -> None:
+    design = _small()
+    assert design.board is not None
+    rng = random.Random(11)
+    good = ComponentBody(id=new_id("bdy", rng), kind="extruded", height=1_016_000)
+    bad = ComponentBody(id=new_id("bdy", rng), kind="extruded", height=500_000, standoff=800_000)
+    below = ComponentBody(id=new_id("bdy", rng), kind="model", height=0, standoff=-1)
+    fp = dataclasses.replace(design.board.footprints[0], bodies=(good, bad, below))
+    found = design.replace_entity(fp).validate()
+    assert [(i.code, i.severity, i.where) for i in found] == [
+        ("model.body-height", "error", bad.id),
+        ("model.body-height", "error", below.id),
+    ]
+
+
+def test_body_prefix() -> None:
+    assert derived_id("bdy", "altium", "x").startswith("bdy_")
+    with pytest.raises(ValueError, match="unknown id prefix"):
+        derived_id("bdyx", "altium", "x")

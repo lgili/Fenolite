@@ -31,6 +31,7 @@ ALLOWED: dict[str, set[str]] = {
     "model": set(),
     "geometry": set(),
     "dsl": {"model"},
+    "catalog": {"model"},
     "lens": {"model", "backends*"},
     "backends": {"model", "geometry", "backends*"},
     "backends.<x>": {"model", "geometry", "backends.base"},
@@ -47,7 +48,7 @@ ALLOWED: dict[str, set[str]] = {
     "verify": {"model", "geometry", "backends*"},
     "agent": {"cli"},
 }
-STDLIB_ONLY = {"core", "model", "geometry", "dsl"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -66,7 +67,11 @@ def _key(parts: list[str]) -> str:
     return head
 
 
-BACKENDS_TOP = ("backends.base", "backends.registry")  # top-level modules: the ``backends`` row
+BACKENDS_TOP = (
+    "backends.base",
+    "backends.matrix",
+    "backends.registry",
+)  # top-level modules: the ``backends`` row
 
 
 def _pattern(key: str) -> str:
@@ -223,7 +228,10 @@ def test_layering() -> None:
         ("cli", "backends.kicad", True),
         ("agent", "model", False),
         ("dsl", "model", True),
+        ("catalog", "model", True),
         ("lens", "backends.kicad", True),
+        ("checks", "backends.kicad", False),
+        ("analysis", "backends.kicad", False),
     ],
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:

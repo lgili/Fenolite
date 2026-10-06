@@ -58,11 +58,15 @@ class Footprint:
         drill_rotation: object | None = None,
         layers: tuple[str, ...] | None = None,
         rotation: object = 0,
+        shared: bool = False,
     ) -> None:
         if not isinstance(number, str) or not number:  # type: ignore[reportUnnecessaryIsInstance]
             raise DslError("pad number must be a non-empty string")
-        if any(p.number == number for p in self._pads):
+        occurrences = sum(p.number == number for p in self._pads)
+        if occurrences and not shared:
             raise DslError(f"footprint {self.lib_id}: pad {number!r} is declared twice")
+        if shared and not occurrences:
+            raise DslError(f"footprint {self.lib_id}: shared pad {number!r} has no earlier pad")
         if shape not in ("circle", "rect", "oval", "roundrect"):
             raise DslError(f"unsupported authored pad shape {shape!r}")
         pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
@@ -93,9 +97,12 @@ class Footprint:
         if shape == "circle" and w != h:
             raise DslError("a circular pad must have equal width and height; use shape='oval' otherwise")
         default_layers = ("*.Cu", "*.Mask") if pad_kind != "smd" else ("F.Cu", "F.Paste", "F.Mask")
+        pad_key = f"{self.lib_id}:pad:{number}"
+        if occurrences:
+            pad_key += f":shared:{occurrences + 1}"
         self._pads.append(
             Pad(
-                id=derived_id("pad", "fenolite.dsl", f"{self.lib_id}:pad:{number}"),
+                id=derived_id("pad", "fenolite.dsl", pad_key),
                 number=number,
                 shape=shape,  # type: ignore[arg-type]
                 size=Size(w, h),
@@ -105,7 +112,7 @@ class Footprint:
                 drill=hole,
                 padstack=(
                     Padstack(
-                        id=derived_id("pst", "fenolite.dsl", f"{self.lib_id}:pad:{number}:padstack"),
+                        id=derived_id("pst", "fenolite.dsl", f"{pad_key}:padstack"),
                         hole_shape="slot",
                         hole_length=hole_length,
                         hole_rotation=hole_rotation,

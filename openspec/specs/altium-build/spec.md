@@ -866,7 +866,7 @@ When the design carries resolved script copper, the Altium build SHALL write it.
 - **Footprints.** A matched footprint MUST have the component's footprint link as its `lib_ref`, and the same pad numbers at the same positions in the footprint's own frame as the definition written to `<name>.PcbLib`; else `altium.copper-board-mismatch` with `where` = the component path.
 - **Placements.** The board's placements win: every matched component MUST be written at the board footprint's position, rotation, side and lock, and none is staged. The copper is only right relative to the footprints as the board places them, and the exported tool project is the source of truth for layout (`design-model`, "Layout authority"). When a placement differs from the script's request, or the script requests none, the build MUST give one `altium.placement-from-board` info that names the refs.
 - **Outline.** The bounding box of the board's `Edge.Cuts` graphics (or of its `Board.outline`) MUST equal the bounding box of the design's outline; else `altium.copper-board-mismatch` with `where` = `outline`.
-- **Nets.** Every pad of a matched footprint MUST be on the net of the same name as the design puts its pin on, or on none in both; else `altium.copper-board-mismatch` with `where` = `<ref>.<pad number>`. A track, arc, via or zone on a net whose name the design does not hold MUST give one `altium.copper-net-missing` per net name, naming the count of items and the layer and position of the first. Copper without a net is copied without a net.
+- **Nets.** Every pad of a matched footprint MUST be on the net of the same name as the design puts its pin on, or on none in both; else `altium.copper-board-mismatch` with `where` = `<ref>.<pad number>`. A net of the board whose name starts with `unconnected-(` and that holds one pad counts as no net: a board built beside a schematic names the pad of each unconnected pin as KiCad does (`design-dsl`, "Board follows the schematic"). A track, arc, via or zone on a net whose name the design does not hold MUST give one `altium.copper-net-missing` per net name, naming the count of items and the layer and position of the first. Copper without a net is copied without a net.
 - **Copper.** Via types, layers and planes follow "Copper issue codes" and "Internal planes in an Altium build"; a zone's `fills` are not copied. Keep-outs, texts, graphics and holes of the board are not copied and give one `altium.not-lowered` info per kind with `where` = the path.
 - Every issue of this requirement MUST name the path, and an issue about a copper item MUST name its layer and its position in millimetres from the outline's corner.
 - A copper source given while the PCB document is not planned MUST give `altium.copper-no-document` (error).
@@ -891,6 +891,11 @@ When the design carries resolved script copper, the Altium build SHALL write it.
 #### Scenario: Option without the Altium target
 - **WHEN** `fenolite build examples/blink_2layer/design.py --out B --copper-from x.kicad_pcb --dry-run` runs
 - **THEN** the exit code is 2, stderr carries `FEN-2001`, and nothing is written
+
+#### Scenario: Board built beside a schematic
+- **GIVEN** the blink built for KiCad with its schematic, so the pads of its 29 unconnected pins are on `unconnected-(…)` nets
+- **WHEN** `fenolite build examples/blink_2layer/design.py --out A --target altium --copper-from <that board> --dry-run --json` runs
+- **THEN** the exit code is 0 and `issues` holds no `altium.copper-board-mismatch`
 
 ### Requirement: Copper round trip oracle
 `tests/kicad/altium/test_copper_from_oracle.py` SHALL prove with `kicad-cli` that copper copied by `--copper-from` survives the way back (S-0161, S-0166, S-0020; `H-A-PCB-CU-ROUNDTRIP`).
@@ -1108,4 +1113,14 @@ The Altium build SHALL NOT write the rules of `design.rules` into any file, and 
 - **GIVEN** the blink design as committed
 - **WHEN** it is built with `--target altium`
 - **THEN** no issue has `where == "design-rules"`
+
+### Requirement: Typed interfaces in an Altium build
+An Altium build SHALL keep interfaces of the kinds `i2c`, `spi`, `uart` and `usb2` (`design-dsl`, "Typed interfaces in the DSL") in the model only, and SHALL report them with the `altium.not-lowered` info that names the design's diff pairs.
+- The info for the kind `interfaces` MUST name every `diff_pair`, `i2c`, `spi`, `uart` and `usb2` interface, sorted by name; with none of them, no such info is given.
+- Their nets MUST be written as plain nets; harness lowering MUST NOT take them, and every planned file outside `.fenolite/` MUST equal, byte for byte, the file of the same design without them; `.fenolite/circuit.json` holds the interfaces.
+
+#### Scenario: I2C in an Altium build
+- **GIVEN** `examples/altium_sample/design.py` and a variant that adds `I2C(sda, scl)` on two of its signal nets
+- **WHEN** both are built with `--target altium --dry-run --json`
+- **THEN** the variant's planned files outside `.fenolite/` equal the example's byte for byte, and its `issues` hold one `altium.not-lowered` info for `interfaces` naming the I2C interface
 

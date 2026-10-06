@@ -15,6 +15,7 @@ from _placed import mm, pt
 from fenolite.core.coords import Point
 from fenolite.dsl import (
     BOARD_ORIGIN,
+    ArcStep,
     CopperIntent,
     PadEnd,
     StitchIntent,
@@ -60,9 +61,14 @@ def end(component: str, number: str | int, index: int | None = None) -> PadEnd:
     return PadEnd(component, str(number), index)
 
 
-def step(x: float, y: float, layer: str = "B.Cu", **sizes: int | None) -> ViaStep:
+def step(x: float, y: float, layer: str = "B.Cu", kind: str = "through", **sizes: int | None) -> ViaStep:
     chosen = {**SIZES, **sizes}
-    return ViaStep(at(x, y), layer, chosen["diameter"], chosen["drill"])
+    return ViaStep(at(x, y), layer, chosen["diameter"], chosen["drill"], kind)
+
+
+def arc(mid: Point, to: Point) -> ArcStep:
+    """An arc step through ``mid`` to ``to`` (board-frame points, as ``at`` gives them; change c0068)."""
+    return ArcStep(mid, to)
 
 
 def track(
@@ -71,9 +77,16 @@ def track(
     return TrackIntent(key, tuple(path), layer, width, net)  # type: ignore[arg-type]
 
 
-def via(key: str, point: Point, net: str | None = "GND", **sizes: int | None) -> ViaIntent:
+def via(
+    key: str,
+    point: Point,
+    net: str | None = "GND",
+    kind: str = "through",
+    layers: tuple[str, str] | None = None,
+    **sizes: int | None,
+) -> ViaIntent:
     chosen = {**SIZES, **sizes}
-    return ViaIntent(key, point, net, chosen["diameter"], chosen["drill"])  # type: ignore[arg-type]
+    return ViaIntent(key, point, net, chosen["diameter"], chosen["drill"], kind, layers)  # type: ignore[arg-type]
 
 
 def stitch(key: str, net: str | None = "GND", pitch: int = 3_000_000, **fields: object) -> StitchIntent:
@@ -85,6 +98,7 @@ __all__ = [
     "ROUTED",
     "ROUTED_DIR",
     "SIZES",
+    "arc",
     "at",
     "built_blink",
     "end",

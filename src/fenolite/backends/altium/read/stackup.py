@@ -7,6 +7,8 @@ carry a thickness: copper (``COPTHICK``) and dielectrics (``DIELHEIGHT``), from 
 ``docs/formats/altium/stackup-file.md``.
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 import re

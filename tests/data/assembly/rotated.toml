@@ -1,0 +1,38 @@
+# Authored for Fenolite as test data (CC0-1.0). The column names, the side names, the footprint
+# patterns and every offset are made up for this file: they describe no assembly service, machine,
+# distributor, manufacturer or company. "Mini" is Fenolite's own authored test library.
+schema = "fenolite.assembly-template.v0"
+
+[csv]
+delimiter = ";"
+quote = "all"
+line_end = "crlf"
+
+[placement]
+columns = [
+  { name = "Part", field = "ref" },
+  { name = "Shape", field = "footprint_name" },
+  { name = "Across", field = "x" },
+  { name = "Up", field = "y" },
+  { name = "Turn", field = "rotation" },
+  { name = "Face", field = "side" },
+]
+units = "mil"
+decimals = 1
+rotation_decimals = 1
+origin = "outline"
+y_axis = "up"
+sides = { top = "upper", bottom = "lower" }
+exclude_dnp = false
+
+[placement.rotation]
+top = { sign = 1, offset = 0 }
+bottom = { sign = -1, offset = 180 }
+
+[[placement.rotation.footprint]]
+match = "Mini:Mini_QFP*"
+offset = 90
+
+[[placement.rotation.footprint]]
+match = "Mini:Mini_R_*"
+offset = -22.5

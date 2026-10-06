@@ -63,7 +63,10 @@ A pad has entries for each copper layer of its `layers`, in that order, and none
 entry, else `Inner` for an inner layer, else the pad's own shape.
 
 `hole` is the drilled hole in the board frame: one point for a round drill, the two ends of the slot for
-an oval one, with the drill `offset` applied; `drill` is its diameter (the shorter size of a slot).
+an oval one, centred on the pad's `position`; `drill` is its diameter (the shorter size of a slot). The
+`(offset X Y)` of a pad's drill does not move the hole: as in KiCad, it moves the pad's copper, so every
+entry of `copper` is built around `position` plus the offset turned with the pad. v0.1 moved the hole
+instead, and `check` reported clearance errors on such pads that KiCad's DRC does not report.
 
 `copper_polygon(entry)` gives a polygon on request: the ring itself for a filled entry of width 0, and an
 outer polygon (vertices within `width / 2 + tol + 2` nm) for a disc, a segment or a convex ring with a
@@ -117,9 +120,28 @@ intents. A build calls it for you (`build_design(…, copper_intents=…)`; `fen
 script's intents). Intents are read by attribute, so the DSL's dataclasses and any object with the same
 attributes work: one with `path` is a track, one with `pitch` a stitch, any other a via.
 
-- **Tracks.** A path holds pad ends, points and via steps. One track joins each pair of consecutive
-  points on the current layer; a via step places a through via and changes the layer. Pad ends may stand
-  anywhere, so one intent can chain several pads.
+- **Tracks.** A path holds pad ends, points, arc steps and via steps. One track joins each pair of
+  consecutive points on the current layer; a via step places a via and changes the layer. Pad ends may
+  stand anywhere, so one intent can chain several pads. An element with `component` is a pad end, one
+  with `mid` an arc step, any other that is not a point a via step.
+- **Arcs.** An arc step `(mid, end)` replaces the segment that would end at it by one arc from the point
+  before it through `mid` to `end`, on the current layer, with the width and the net of the intent. Its
+  three points must be distinct and must not lie on one line, which is decided exactly with integers;
+  otherwise the intent is `kicad.copper.bad-intent`. The copper check and the stitch clearance treat a
+  script arc as any arc: within a band of about 1 µm.
+- **Via kinds.** A via step or a via intent has a `kind`: `through` (also when it has none), `blind`,
+  `buried` or `micro`. A through via spans the first and the last copper layer. Any other kind holds
+  its two layers in stack order, and they must fit it, else `kicad.copper.bad-layer`:
+
+  | kind | its two layers |
+  |---|---|
+  | `blind` | exactly one is the first or the last copper layer |
+  | `buried` | neither is |
+  | `micro` | exactly one is, and the two are next to each other in the stack |
+
+  A via step takes the layer the track is on and the layer it changes to; a single via names its
+  two layers in `layers`. `resolve_copper` knows no target: the board writer refuses a `buried` via
+  for KiCad 9, so that build exits 7. Stitching vias are through vias.
 - **Which pad.** Among pads sharing a number, the first pad end takes the one nearest to the next
   element (or the nearest pair, when the next element is a pad end too), and every later one the pad
   nearest to the element before it. `index=` picks one outright. Only pads with copper on the segment's
@@ -140,9 +162,10 @@ bring a track too close to something else; `fenolite check` tells you.
 
 ## Ids and markers
 
-Every track and via gets the KiCad uuid `copper_uuid(key, locator)`: a version-8 UUID (RFC 9562) whose
-first 48 bits are the bytes `fenoli`, so its text starts with `66656e6f-6c69-8`, and whose other bits are
-a hash of the intent's key and the item's locator in it (`seg[i]`, `via[i]`, `via`, `via[k]`,
+Every track, arc and via gets the KiCad uuid `copper_uuid(key, locator)`: a version-8 UUID (RFC 9562)
+whose first 48 bits are the bytes `fenoli`, so its text starts with `66656e6f-6c69-8`, and whose other
+bits are a hash of the intent's key and the item's locator in it (`seg[i]` for the segment that leaves
+path element `i`, `arc[i]` for the arc of the arc step at element `i`, `via[i]`, `via`, `via[k]`,
 `via[i,j]`). The Fenolite id derives from that uuid, as for any imported object.
 
 - The same key and locator give the same ids in every build: the seed and `PYTHONHASHSEED` play no part,
@@ -157,9 +180,9 @@ The script owns its copper. `merge_copper(existing, built)` decides what stays o
 
 | existing item | outcome |
 |---|---|
-| a copper uuid that the build creates again | replaced by the new copy; `kicad.copper.regenerated` (info) when a field differs, because it was edited in KiCad or its pads moved |
+| a copper uuid that the build creates again (a track, an arc or a via) | replaced by the new copy; `kicad.copper.regenerated` (info) when a field differs, because it was edited in KiCad or its pads moved |
 | a copper uuid whose intent is gone | removed; `kicad.copper.stale` (warning) |
-| no copper uuid, but equal to a script item | removed; `kicad.copper.duplicate` (info) |
+| no copper uuid, but equal to a script item (an arc: the same ends in either order and the same mid point) | removed; `kicad.copper.duplicate` (info) |
 | anything else | kept, and it then follows its net as any board copper does |
 
 So a footprint moved in KiCad pulls its tracks along on the next build, removing an intent removes its
@@ -181,7 +204,14 @@ A stitch places through vias of one net, along a polyline or on a grid in a regi
   with integers. Tracks of its own net are no obstacle.
 - Dropped candidates give one `kicad.copper.stitch-skipped` info with their count; a stitch that keeps
   none gives the warning `kicad.copper.stitch-empty`.
-- Zones, rule areas and the board edge are not avoided in v0.1.
+- A candidate is also dropped when its via disc meets a rule area that forbids vias on a copper layer
+  (a through via crosses every copper layer), when it comes closer to the board edge than the edge
+  clearance, or when it lies off the board: outside the outline or inside a cut-out. The edge
+  clearance is the `min` of the governing board-wide `edge_clearance` rule, else the project's
+  `min_copper_edge_clearance`. On a rebuild the rule areas and the edge of the existing board count.
+  Without a closed outline the edge is not checked. These candidates join the count of
+  `kicad.copper.stitch-skipped`.
+- Zones are not avoided: a stitch is usually meant to tie zones together.
 
 KiCad reports a through via that touches copper on one layer only as `via_dangling` (a warning): a fence
 of vias along a track on one layer gets it until a zone or a second track reaches them.
@@ -193,10 +223,10 @@ of vias along a track on one layer gets it until a zone or a second track reache
 | `kicad.frame.courtyard-malformed` | warning | a courtyard face does not close; its convex hull is used |
 | `kicad.frame.no-courtyard` | info | a footprint has no courtyard; its pads' hull, or nothing, is used |
 | `kicad.frame.shape-approximated` | info | a pad's copper entries are a conservative superset |
-| `kicad.copper.bad-intent` | error | a path, region, pitch, margin or key is malformed, or a key repeats |
+| `kicad.copper.bad-intent` | error | a path, region, pitch, margin, key or via kind is malformed, a key repeats, or the three points of an arc are not distinct or lie on one line |
 | `kicad.copper.pad-not-found` | error | no footprint, no pad with the number, or an index beyond the matches |
 | `kicad.copper.layer-mismatch` | error | no pad of a pad end has copper on the segment's layer |
-| `kicad.copper.bad-layer` | error | a layer is not a copper layer of the board, or a via step keeps the layer |
+| `kicad.copper.bad-layer` | error | a layer is not a copper layer of the board, a via step keeps the layer, or the layers of a via do not fit its kind |
 | `kicad.copper.net-conflict` | error | pad ends on two nets or without a net, or a named net that differs from theirs |
 | `kicad.copper.unknown-net` | error | a named net is not a net of the design |
 | `kicad.copper.no-net` | error | a via, a stitch or a track without a pad end names no net |
@@ -207,7 +237,7 @@ of vias along a track on one layer gets it until a zone or a second track reache
 | `kicad.copper.stitch-empty` | warning | a stitch keeps no candidate |
 | `kicad.copper.regenerated` | info | script copper differs from its regenerated copy and is replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper is removed |
-| `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance (with the count) |
+| `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance, a rule area that forbids vias or the board edge (with the count) |
 
 ## Evidence
 

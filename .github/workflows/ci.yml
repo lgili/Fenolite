@@ -115,7 +115,7 @@ jobs:
           path: /root/.cache/fenolite/corpus
           key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch corpus
-        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-text --exclude-uses heavy
+        run: uv run python tools/corpus_fetch.py --uses rt0 --uses libs --uses project --uses cfb --uses altium-import --uses altium-pcbdoc --uses altium-pcblib --uses altium-sch --uses altium-schlib --uses altium-text --uses altium-sheet --uses rta --exclude-uses heavy
       - name: Oracle and corpus tests
         env:
           FENOLITE_REQUIRE: kicad,corpus
@@ -139,13 +139,13 @@ jobs:
         run: kicad-cli version
       - name: Sync (locked)
         run: uv sync --locked --extra dev
-      - name: Corpus cache (rt2-9 rows)
+      - name: Corpus cache (rt2-9 and sch-9 rows)
         uses: actions/cache@v4
         with:
           path: /root/.cache/fenolite/corpus
-          key: corpus-rt2-9-${{ hashFiles('tests/corpus/manifest.toml') }}
-      - name: Fetch the rt2-9 rows
-        run: uv run python tools/corpus_fetch.py --uses rt2-9
+          key: corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - name: Fetch the rt2-9 and sch-9 rows
+        run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9
       - name: Oracle tests
         env:
           FENOLITE_REQUIRE: kicad

@@ -22,10 +22,14 @@ from fenolite.backends.specctra.dsn import UNIT_NM, Names, to_units
 from fenolite.backends.specctra.lexer import SNode, number, parse
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.model.board import Track, Via, ViaType
 
 BACKEND = "specctra"
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-UNITS"))
+"""The three rows this module's docstring names, at the level ``dsn.EVIDENCE`` holds for the same rows;
+a route read from a session is ``UNVERIFIED`` until a check judges it (declared by change c0067)."""
 UNITS_NM: dict[str, int] = {"inch": 25_400_000, "mil": 25_400, "cm": 10_000_000, "mm": 1_000_000, "um": 1_000}
 """Nanometres per dimension unit."""
 _SESSION = frozenset({"base_design", "history", "placement", "was_is", "routes"})

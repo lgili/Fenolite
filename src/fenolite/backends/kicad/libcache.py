@@ -9,6 +9,8 @@ hash and file count; ``tools/kicad_libs_fetch.py`` makes the cache, and a folder
 equals its pin. This module imports only ``core`` and the standard library.
 """
 
+# evidence: none, pins, hashes and stamps of the fetched libraries: no statement about a KiCad format or tool
+
 from __future__ import annotations
 
 import hashlib

@@ -36,6 +36,7 @@ from fenolite.model.board import (
     ViaType,
     Zone,
     ZoneFill,
+    ZoneSettings,
 )
 from fenolite.model.circuit import Circuit, Component, Net, NetClass
 from fenolite.model.design import Design
@@ -263,7 +264,9 @@ class Copper:
         fills: Sequence[Sequence[Point]] = (),
         name: str = "",
         locator: str = "",
+        clearance: int | None = None,
     ) -> Zone:
+        """A zone; ``clearance`` is its own clearance (the model's default of 0.5 mm when ``None``)."""
         zone = Zone(
             id=self._next("zon"),
             provenance=_provenance(locator),
@@ -273,6 +276,7 @@ class Copper:
             net_id=self.net(net),
             priority=priority,
             fills=tuple(ZoneFill(layer, tuple(polygon)) for polygon in fills),
+            settings=ZoneSettings() if clearance is None else ZoneSettings(clearance=clearance),
         )
         self.zones.append(zone)
         return zone

@@ -1,0 +1,22 @@
+# Authored for Fenolite as test data (CC0-1.0). Every column name and the property "Bin" are made up
+# for this file: they are not the columns of any assembly service, distributor, manufacturer or company.
+schema = "fenolite.assembly-template.v0"
+
+[bom]
+columns = [
+  { name = "Parts", field = "refs" },
+  { name = "Count", field = "quantity" },
+  { name = "Marking", field = "value" },
+  { name = "Shape", field = "footprint_name" },
+  { name = "Bin", field = "property:Bin" },
+]
+group_by = ["value", "footprint", "property:Bin"]
+
+[placement]
+columns = [
+  { name = "Part", field = "ref" },
+  { name = "Across", field = "x" },
+  { name = "Up", field = "y" },
+  { name = "Face", field = "side" },
+  { name = "Turn", field = "rotation" },
+]

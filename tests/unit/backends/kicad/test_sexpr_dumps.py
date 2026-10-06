@@ -5,10 +5,18 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from fenolite.backends.kicad import Atom, Node, dumps, first_difference, parse, tree_equal, walk
+from fenolite.backends.kicad.sexpr import canonical, first_line_difference
+from fenolite.core.errors import FormatError
+
+DATA = Path(__file__).resolve().parents[3] / "data"
+SUFFIXES = (".kicad_pcb", ".kicad_mod", ".kicad_sch", ".kicad_sym", ".kicad_wks")
+AUTHORED = sorted(p for p in DATA.rglob("*") if p.is_file() and p.suffix in SUFFIXES)
+"""The authored KiCad S-expression files of the test data (c0066)."""
 
 
 def test_layout_of_a_pad() -> None:
@@ -153,3 +161,49 @@ def test_locator_of_the_second_footprint() -> None:
         "/kicad_pcb/footprint[1]/pad[0]",
         "/kicad_pcb/footprint[2]",
     ]
+
+
+# --- canonical print (capability kicad-sexpr, "Canonical print check"; change c0066) -----------------
+
+
+def test_canonical_fixed_point_on_the_authored_board() -> None:
+    text = (DATA / "kicad" / "board" / "two_layer.kicad_pcb").read_text(encoding="utf-8")
+    once = canonical(text)
+    assert canonical(once) == once
+    assert tree_equal(parse(once), parse(text))
+
+
+def test_canonical_fixed_point_on_authored_files() -> None:
+    """Every authored KiCad S-expression file that ``canonical`` accepts is a fixed point after one print
+    and parses tree-equal to its source (``H-K-FMT-IDEMPOTENT``, without the corpus). The files it
+    refuses are the authored negatives of the parser."""
+    accepted = 0
+    for path in AUTHORED:
+        try:
+            text = path.read_bytes().decode("utf-8")
+            once = canonical(text, file=path.name)
+        except (FormatError, UnicodeDecodeError):
+            continue
+        accepted += 1
+        assert canonical(once, file=path.name) == once, path
+        assert tree_equal(parse(once), parse(text)), path
+    assert accepted >= 50 and len(AUTHORED) - accepted < accepted
+
+
+def test_canonical_raises_the_parser_and_printer_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(FormatError):
+        canonical("(kicad_pcb (version 1)")
+    nested = Node(Atom.symbol("a"), (replace(parse("(b 1)"), comments=("# x",)),))
+    monkeypatch.setattr("fenolite.backends.kicad.sexpr.parse", lambda text, file="": nested)
+    with pytest.raises(ValueError, match="comments on a nested node"):
+        canonical("(a (b 1))")
+
+
+def test_first_line_difference() -> None:
+    text = canonical("(a (b 1) (c (d 2)) (e 3))")
+    lines = text.split("\n")
+    lines[2] += "  "
+    assert first_line_difference(text, "\n".join(lines)) == 3
+    assert first_line_difference(text, text) is None
+    assert first_line_difference(text, text + "x\n") == len(lines)
+    assert first_line_difference("a\nb", "a") == 2

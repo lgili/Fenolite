@@ -23,10 +23,11 @@ DESIGN = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "de
 REF_PIN = re.compile(r"^[A-Za-z]+[0-9]+-[0-9A-Za-z]+$")
 DEFAULT = [
     "model.validate",
-    "erc.lite",
+    "erc.kicad",
     "copper.clearance",
     "zone.fill",
     "drc.kicad",
+    "parity",
     "netlist.assignment_compare",
     "roundtrip",
 ]
@@ -73,9 +74,12 @@ def test_built_blink_before_routing(tmp_path: Path) -> None:
         assert env, err
         assert [s["name"] for s in env["result"]["stages"]] == DEFAULT
         assert env["result"]["project"]["built"] is True
-        assert stage(env, "erc.lite")["status"] == "ok"
+        erc = stage(env, "erc.kicad")  # KiCad's ERC of the schematic the build wrote (change c0062)
+        assert erc["status"] == "ok" and erc["summary"]["violations"] == 0, env["issues"]
+        assert erc["summary"]["sheets"] == 1 and erc["evidence"]["oracle"].startswith("kicad-cli ")
         drc = stage(env, "drc.kicad")["summary"]
         assert drc["canary"] == "fired" and drc["violations_judged"] is True
+        assert drc["parity_judged"] is True and drc["parity"] == 0  # the board agrees with its schematic
         assert stage(env, "roundtrip")["status"] == "ok"
         _assert_unconnected_located(env)
         assert tree_snapshot(out) == before
@@ -85,7 +89,7 @@ def test_assignment_blink(tmp_path: Path) -> None:
     for target in _targets():
         _, env, _, err = check(_blink(tmp_path, target))
         assert env, err
-        _assert_assignment_clean(env, pairs=2)
+        _assert_assignment_clean(env, pairs=3)  # with (model, schematic) since c0063
 
 
 def test_assignment_authored_built_project(tmp_path: Path) -> None:

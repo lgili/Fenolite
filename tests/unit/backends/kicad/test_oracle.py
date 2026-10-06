@@ -6,25 +6,46 @@ round-trip oracles"; changes c0013 and c0020). Hermetic: the fake reports the ca
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
 import _ipc
 import pytest
-from _fakecli import calls, fake_kicad_cli, report_with
-from _projects import STEM, authored_project, native_project, tree_snapshot
+from _fakecli import calls, erc_entry, erc_report_with, fake_kicad_cli, report_with
+from _projects import (
+    STEM,
+    authored_project,
+    built_blink_project,
+    hierarchy_project,
+    native_project,
+    tree_snapshot,
+)
 from _resources import posix_tools
 
-from fenolite.backends.base import NetlistOracle, Oracle, Plotter, RoundTripOracle
+from fenolite.backends.base import (
+    ErcOracle,
+    NetlistOracle,
+    Oracle,
+    PadAssignment,
+    Plotter,
+    RoundTripOracle,
+    SchematicNetlistOracle,
+)
 from fenolite.backends.kicad import canary
 from fenolite.backends.kicad import drc as drcmod
+from fenolite.backends.kicad import erc as ercmod
 from fenolite.backends.kicad import oracle as oraclemod
+from fenolite.backends.kicad import sch as schmod
 from fenolite.backends.kicad.canary import CANARY_RULE_NAME, CANARY_UUIDS
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.projectset import project_set
-from fenolite.core.evidence import Level, strength
+from fenolite.backends.kicad.sch import read_schematic, rebuild_schematic
+from fenolite.backends.kicad.sexpr import dumps
+from fenolite.backends.kicad.sexpr import parse as parse_tree
+from fenolite.core.evidence import Evidence, Level, strength
 
 
 def _oracle(tmp_path: Path, **fake: object) -> tuple[KicadOracle, Path]:
@@ -394,8 +415,8 @@ def test_rt2_unreadable_board(tmp_path: Path) -> None:
 def test_kicad_oracle_satisfies_the_three_protocols(tmp_path: Path) -> None:
     oracle = KicadOracle(KicadCli(tmp_path / "kicad-cli"))
     assert isinstance(oracle, NetlistOracle) and isinstance(oracle, RoundTripOracle)
-    drc_only, netlist, rt2 = oraclemod._protocols(oracle)  # pyright: ignore[reportPrivateUsage]
-    assert drc_only is netlist is rt2 is oracle
+    drc_only, netlist, rt2, erc = oraclemod._protocols(oracle)  # pyright: ignore[reportPrivateUsage]
+    assert drc_only is netlist is rt2 is erc is oracle
 
 
 def test_plot_outcome_holds_no_bytes(tmp_path: Path) -> None:
@@ -429,3 +450,383 @@ def test_plot_names_the_views_that_failed(tmp_path: Path) -> None:
     empty = none.plot(project_set(root))
     assert empty.views == () and len(empty.failed) == 4
     assert strength(empty.evidence.level) == strength(Level.UNVERIFIED)
+
+
+# -- the schematic's netlist (c0063)
+
+NETLISTS = Path(__file__).resolve().parents[3] / "data" / "kicad" / "netlist"
+SHEETS = Path(__file__).resolve().parents[3] / "data" / "kicad" / "schematic"
+
+
+def _with_schematic(tmp_path: Path, text: str = "(kicad_sch)\n") -> Path:
+    root = authored_project(tmp_path, major=10)
+    (root / f"{STEM}.kicad_sch").write_text(text, encoding="utf-8", newline="\n")
+    return root
+
+
+def _export(major: int = 10) -> str:
+    return (NETLISTS / f"export_{major}.net").read_text(encoding="utf-8")
+
+
+def test_schematic_netlist_elements(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, script = _oracle(tmp_path, netlist=_export())
+    before = tree_snapshot(root)
+    outcome = oracle.schematic_netlist(project_set(root))
+    listed = outcome.netlist
+    assert listed is not None and listed.source == "schematic" and listed.uncovered == ()
+    assert PadAssignment("U1-10", "GND") in listed.assignments
+    assert PadAssignment("U1-2", "unconnected-(U1-PA1-Pad2)") in listed.assignments
+    assert len(listed.assignments) == 8
+    dumped = repr(outcome)
+    for part in ("2026-01-01", "/authored", "KIPRJMOD", str(tmp_path)):
+        assert part not in dumped, part
+    assert outcome.evidence.oracle == "kicad-cli 10.0.6"
+    assert outcome.evidence.level == oraclemod.netlistmod.EVIDENCE.level
+    assert set(outcome.evidence.hypotheses) >= {"H-K-NETLIST-SHAPE", "H-K-CHECK-COPYSET"}
+    (call,) = [c for c in calls(script) if c["args"][:3] == ["sch", "export", "netlist"]]
+    assert call["args"][-1] == f"{STEM}.kicad_sch" and "kicadsexpr" in call["args"]
+    assert f"{STEM}.kicad_pro" in call["files"]  # the project files travel with the schematic
+    assert tree_snapshot(root) == before
+
+
+def test_schematic_netlist_of_both_shapes_is_equal(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    nine, _ = _oracle(tmp_path / "nine", netlist=_export(9), version="9.0.9")
+    ten, _ = _oracle(tmp_path / "ten", netlist=_export(10))
+    first, second = nine.schematic_netlist(project_set(root)), ten.schematic_netlist(project_set(root))
+    assert first.netlist is not None and first.netlist == second.netlist
+
+
+def test_schematic_netlist_unloadable(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path)  # no netlist text: "Failed to load schematic", exit 3
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.outcome == "exit" and outcome.returncode == 3
+    assert outcome.message == "Failed to load schematic" and outcome.evidence.level == Level.UNVERIFIED
+
+
+def test_schematic_netlist_unreadable_export(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path, netlist="(kicad_sch (version 20260306))")
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.message.startswith("unreadable netlist export")
+    assert "kicad_sch" in outcome.message and outcome.evidence.level == Level.UNVERIFIED
+
+
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
+def test_schematic_netlist_timeout(tmp_path: Path) -> None:
+    root = _with_schematic(tmp_path)
+    oracle, _ = _oracle(tmp_path, sleep=10.0, netlist=_export())
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and outcome.outcome == "timeout" and outcome.returncode is None
+
+
+def test_schematic_netlist_without_a_schematic(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    oracle, script = _oracle(tmp_path, netlist=_export())
+    outcome = oracle.schematic_netlist(project_set(root))
+    assert outcome.netlist is None and "no schematic" in outcome.message
+    assert not [c for c in calls(script) if c["args"][:2] == ["sch", "export"]]
+
+
+def test_schematic_files_are_the_copy_set(tmp_path: Path) -> None:
+    root = authored_project(tmp_path, major=10)
+    project = project_set(root)
+    assert oraclemod.schematic_files(project) == {}
+    (root / f"{STEM}.kicad_sch").write_bytes((SHEETS / "hier" / "top.kicad_sch").read_bytes())
+    (root / "child.kicad_sch").write_bytes((SHEETS / "hier" / "child.kicad_sch").read_bytes())
+    project = project_set(root)
+    files = oraclemod.schematic_files(project)
+    assert files == dict(project.files)  # the copy set holds the schematic and its sheets (c0062)
+    assert files[f"{STEM}.kicad_sch"] == root / f"{STEM}.kicad_sch" and "child.kicad_sch" in files
+    (root / f"{STEM}.kicad_sch").write_text("not a schematic", encoding="utf-8")
+    assert f"{STEM}.kicad_sch" in oraclemod.schematic_files(project_set(root))
+
+
+def test_kicad_oracle_satisfies_the_schematic_netlist_protocol(tmp_path: Path) -> None:
+    oracle = KicadOracle(KicadCli(tmp_path / "kicad-cli"))
+    assert isinstance(oracle, SchematicNetlistOracle)
+    assert oraclemod._schematic_protocol(oracle) is oracle  # pyright: ignore[reportPrivateUsage]
+
+
+# -- ERC (kicad-oracle, "ERC oracle"; change c0062)
+
+
+def _sheet(root: Path, name: str):  # type: ignore[no-untyped-def]
+    return parse_tree((root / name).read_text(encoding="utf-8"))
+
+
+def _uuid(node) -> str:  # type: ignore[no-untyped-def]
+    return node.find("uuid").atoms()[0].value
+
+
+def _symbol(tree, ref: str):  # type: ignore[no-untyped-def]
+    for symbol in tree.nodes("symbol"):
+        if any([a.value for a in p.atoms()[:2]] == ["Reference", ref] for p in symbol.nodes("property")):
+            return symbol
+    raise KeyError(ref)
+
+
+def _erc_calls(script: Path) -> list[dict[str, object]]:
+    return [c for c in calls(script) if c["args"][:2] == ["sch", "erc"]]  # type: ignore[index]
+
+
+def _on_root(root_uuid: str, *violations: dict[str, object]) -> str:
+    sheet = {"path": "/", "uuid_path": f"/{root_uuid}", "violations": list(violations)}
+    return json.dumps({"source": "blink.kicad_sch", "date": "d", "kicad_version": "10.0.6",
+                       "coordinate_units": "mm", "sheets": [sheet]})  # fmt: skip
+
+
+def test_erc_where_names_the_pin(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    tree = _sheet(root, "blink.kicad_sch")
+    u1 = _symbol(tree, "U1")
+    pin = next(p for p in u1.nodes("pin") if p.atoms()[0].value == "2")
+    label = next(c for c in tree.nodes("global_label"))
+    report = _on_root(
+        _uuid(tree),
+        erc_entry("pin_not_connected", _uuid(pin).upper(), x=1.397, y=0.5969),
+        erc_entry("lib_symbol_issues", _uuid(u1), severity="warning"),
+        erc_entry("isolated_pin_label", _uuid(label), severity="warning"),
+        erc_entry("endpoint_off_grid", "99999999-0000-4000-8000-000000000000", severity="warning"),
+    )
+    oracle, script = _oracle(tmp_path, erc_report=report)
+    outcome = oracle.erc(project_set(root))
+    assert outcome.report is not None and outcome.outcome == "exit" and outcome.returncode == 0
+    pin_item, symbol_item, label_item, unknown = (v.items[0] for v in outcome.report.violations)
+    assert pin_item.where == "U1-2" and pin_item.position.x == 139_700_000
+    assert symbol_item.where == "U1" and label_item.where == label.atoms()[0].value
+    assert unknown.where == ""
+    (call,) = _erc_calls(script)
+    assert call["args"][-1] == "blink.kicad_sch" and "--exit-code-violations" not in call["args"]  # type: ignore[index, operator]
+    assert not _drc_calls(script)  # no canary and no DRC run
+
+
+def test_erc_where_two_uses_of_one_sheet(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "multi", folder="multi")
+    top, cell = _sheet(root, "top.kicad_sch"), _sheet(root, "cell.kicad_sch")
+    symbol = next(s for s in cell.nodes("symbol") if s.find("instances") is not None)
+    uses = [f"/{_uuid(top)}/{_uuid(sheet)}" for sheet in top.nodes("sheet")]
+    assert len(uses) == 2
+    sheets = [
+        {"path": f"/Cell{i}/", "uuid_path": use, "violations": [erc_entry("pin_not_driven", _uuid(symbol))]}
+        for i, use in enumerate(uses)
+    ]
+    # A third entry lists the same symbol under the root, as KiCad does for the checks of a sheet file.
+    report = erc_report_with(erc_entry("lib_symbol_issues", _uuid(symbol), severity="warning"), sheets=sheets)
+    oracle, _ = _oracle(tmp_path, erc_report=report)
+    outcome = oracle.erc(project_set(root))
+    assert outcome.report is not None
+    under_root, first, second = (v.items[0].where for v in outcome.report.violations)
+    assert first and second and first != second
+    assert under_root == ""  # two references for one uuid: no location is guessed
+    assert [v.sheet for v in outcome.report.violations] == ["/", "/Cell0/", "/Cell1/"]
+
+
+def test_erc_no_writes_in_the_project(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, script = _oracle(tmp_path, writes=("blink.kicad_prl",))
+    before = tree_snapshot(root)
+    outcome = oracle.erc(project_set(root))
+    assert outcome.tool_writes == ("blink.kicad_prl",)
+    assert tree_snapshot(root) == before
+    (call,) = _erc_calls(script)
+    assert set(call["sheets"]) == {"blink.kicad_sch"}  # type: ignore[call-overload]
+
+
+def test_erc_copy_set_reaches_the_tool(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "hier")
+    (root / "other.kicad_sch").write_bytes((root / "child.kicad_sch").read_bytes())
+    oracle, script = _oracle(tmp_path)
+    assert oracle.erc(project_set(root)).report is not None
+    (call,) = _erc_calls(script)
+    assert set(call["sheets"]) == {"top.kicad_sch", "child.kicad_sch"}  # type: ignore[call-overload]
+
+
+def test_erc_missing_report(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, _ = _oracle(tmp_path, erc_report="")
+    outcome = oracle.erc(project_set(root))
+    assert outcome.report is None and outcome.returncode == 3
+    assert outcome.message == "Failed to load schematic"
+    assert outcome.evidence.level == Level.UNVERIFIED
+
+
+def test_erc_unreadable_report_is_no_report(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, _ = _oracle(tmp_path, erc_report='{"source": "x"}')
+    outcome = oracle.erc(project_set(root))
+    assert outcome.report is None and outcome.message.startswith("unreadable ERC report")
+
+
+@posix_tools  # a timeout kills the .cmd launcher of the fake, not its Python child
+def test_erc_timeout(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, _ = _oracle(tmp_path, sleep=10.0)
+    outcome = oracle.erc(project_set(root))
+    assert outcome.outcome == "timeout" and outcome.returncode is None and outcome.report is None
+
+
+def test_erc_without_a_schematic_runs_nothing(tmp_path: Path) -> None:
+    oracle, script = _oracle(tmp_path)
+    outcome = oracle.erc(project_set(authored_project(tmp_path, major=10)))
+    assert outcome.report is None and "no schematic" in outcome.message
+    assert _erc_calls(script) == [] and outcome.evidence.level == Level.UNVERIFIED
+
+
+def test_erc_where_survives_a_sheet_that_does_not_parse(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "hier")
+    top = _sheet(root, "top.kicad_sch")
+    child = _sheet(root, "child.kicad_sch")
+    in_child = next(s for s in child.nodes("symbol") if s.find("instances") is not None)
+    in_top = next(s for s in top.nodes("symbol") if s.find("instances") is not None)
+    report = _on_root(_uuid(top), erc_entry("a", _uuid(in_top)), erc_entry("b", _uuid(in_child)))
+    project = project_set(root)
+    (root / "child.kicad_sch").write_text("(kicad_sch (version 20250114)", encoding="utf-8")
+    oracle, _ = _oracle(tmp_path, erc_report=report)
+    outcome = oracle.erc(project)
+    assert outcome.report is not None
+    known, unknown = (v.items[0].where for v in outcome.report.violations)
+    assert known and unknown == ""
+
+
+def test_erc_evidence_never_above_its_parts(tmp_path: Path) -> None:
+    oracle, _ = _oracle(tmp_path)
+    outcome = oracle.erc(project_set(built_blink_project(tmp_path / "blink")))
+    assert outcome.evidence.oracle == "kicad-cli 10.0.6"
+    for part in (ercmod.EVIDENCE, oraclemod.EVIDENCE):
+        assert strength(outcome.evidence.level) <= strength(part.level)
+    assert set(outcome.evidence.hypotheses) >= {"H-K-ERC-JSON", "H-K-ERC-POS", "H-K-ERC-COPYSET"}
+    assert outcome.evidence == dataclasses.replace(
+        Evidence.combine(ercmod.EVIDENCE, oraclemod.EVIDENCE), oracle="kicad-cli 10.0.6"
+    )
+
+
+def test_first_line_drops_the_time_of_day() -> None:
+    first = oraclemod._first_line  # pyright: ignore[reportPrivateUsage]
+    assert first("\n10:50:25 PM: Error: Expecting kicad_sch\nmore") == "Error: Expecting kicad_sch"
+    assert first("14:50:38: Error: Expecting 'kicad_sch'") == "Error: Expecting 'kicad_sch'"
+    assert first("Failed to load board") == "Failed to load board" and first("  \n") == ""
+
+
+# -- parity in the DRC run (kicad-oracle, "Parity in the DRC run"; change c0062)
+
+PARITY_ENTRY = {
+    "type": "net_conflict", "description": "Pad net (GND) doesn't match net given by schematic (LED_A).",
+    "severity": "warning", "items": [{"uuid": "p1", "description": "Pad 2", "pos": {"x": 1, "y": 2}}],
+}  # fmt: skip
+
+
+def test_parity_flag_follows_the_schematic(tmp_path: Path) -> None:
+    with_schematic = built_blink_project(tmp_path / "blink")
+    oracle, script = _oracle(tmp_path / "a", parity=[PARITY_ENTRY])
+    outcome = oracle.drc(project_set(with_schematic))
+    runs = _drc_calls(script)
+    assert len(runs) == (2 if oracle.major() in canary.CANARY_TWO_RUN else 1)
+    assert all("--schematic-parity" in run["args"] for run in runs)  # type: ignore[operator]
+    assert outcome.parity_judged is True and outcome.canary == "fired"
+    assert outcome.report is not None and [v.type for v in outcome.report.schematic_parity] == [
+        "net_conflict"
+    ]
+    assert all(set(run["sheets"]) == {"blink.kicad_sch"} for run in runs)  # type: ignore[call-overload]
+
+    without, other = _oracle(tmp_path / "b", parity=[PARITY_ENTRY])
+    plain = without.drc(project_set(authored_project(tmp_path, major=10)))
+    assert _drc_calls(other) and not any("--schematic-parity" in run["args"] for run in _drc_calls(other))  # type: ignore[operator]
+    assert plain.parity_judged is False and plain.report is not None and plain.report.schematic_parity == ()
+
+
+def test_parity_unloadable_schematic_keeps_the_copper_verdict(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    line = "10:50:25 PM: Error: Expecting kicad_sch in '<tmp>/blink.kicad_sch', line 2, offset 1."
+    oracle, script = _oracle(tmp_path, parity_fail=line)
+    outcome = oracle.drc(project_set(root))
+    flags = ["--schematic-parity" in run["args"] for run in _drc_calls(script)]  # type: ignore[operator]
+    assert flags[0] is True and flags[-1] is False and False in flags
+    assert outcome.report is not None and outcome.parity_judged is False
+    assert outcome.canary == "fired"  # the verdict of the runs without the flag
+    assert outcome.message == "Error: Expecting kicad_sch in '<tmp>/blink.kicad_sch', line 2, offset 1."
+    assert strength(outcome.evidence.level) == strength(
+        Evidence.combine(drcmod.EVIDENCE, oraclemod.EVIDENCE).level
+    )
+
+
+def test_parity_not_judged_when_the_tool_says_so(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    note = "Failed to fetch schematic netlist for parity tests."
+    oracle, script = _oracle(tmp_path, parity_note=note)
+    outcome = oracle.drc(project_set(root))
+    assert all("--schematic-parity" in run["args"] for run in _drc_calls(script))  # type: ignore[operator]
+    assert outcome.report is not None and outcome.parity_judged is False and outcome.message == note
+
+
+def test_parity_no_report_at_all(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, _ = _oracle(tmp_path, drc_report="")
+    outcome = oracle.drc(project_set(root))
+    assert outcome.report is None and outcome.parity_judged is False
+    assert outcome.message == "Failed to load board" and outcome.canary_reason == "no-report"
+
+
+def test_rt2_of_the_board_asks_for_no_parity(tmp_path: Path) -> None:
+    root = built_blink_project(tmp_path / "blink")
+    oracle, script = _oracle(tmp_path)
+    assert oracle.rt2(project_set(root)).after is not None
+    assert not any("--schematic-parity" in run["args"] for run in _drc_calls(script))  # type: ignore[operator]
+
+
+# -- RT2 for schematics (kicad-oracle, "Schematic RT2 over the corpus"; change c0062)
+
+
+def test_rt2_erc_three_runs_and_no_write(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "hier")
+    oracle, script = _oracle(tmp_path, writes=("top.kicad_prl",))
+    before = tree_snapshot(root)
+    outcome = oracle.rt2_erc(project_set(root))
+    assert tree_snapshot(root) == before
+    runs = _erc_calls(script)
+    assert len(runs) == 3 and not _drc_calls(script)
+    assert len(outcome.before) == 2 and outcome.after is not None
+    assert (outcome.redumped, outcome.kept) == (2, 0)
+    for name in ("top.kicad_sch", "child.kicad_sch"):
+        original = (root / name).read_text(encoding="utf-8")
+        redump = dumps(rebuild_schematic(read_schematic(original, file=name)))
+        assert runs[0]["sheets"][name] == original and runs[1]["sheets"][name] == original  # type: ignore[index]
+        assert runs[2]["sheets"][name] == redump  # type: ignore[index]
+    assert outcome.evidence == dataclasses.replace(
+        Evidence.combine(ercmod.EVIDENCE, schmod.EVIDENCE, oraclemod.EVIDENCE), oracle="kicad-cli 10.0.6"
+    )
+
+
+def test_rt2_erc_keeps_a_sheet_it_cannot_read(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "hier")
+    project = project_set(root)
+    broken = "(kicad_sch (version 20250114)"
+    (root / "child.kicad_sch").write_text(broken, encoding="utf-8")
+    oracle, script = _oracle(tmp_path)
+    outcome = oracle.rt2_erc(project)
+    assert (outcome.redumped, outcome.kept) == (1, 1) and outcome.after is not None
+    assert _erc_calls(script)[2]["sheets"]["child.kicad_sch"] == broken  # type: ignore[index]
+
+
+def test_rt2_erc_failures_give_what_was_obtained(tmp_path: Path) -> None:
+    root = hierarchy_project(tmp_path / "hier")
+    none, _ = _oracle(tmp_path / "a", erc_report="")
+    missing = none.rt2_erc(project_set(root))
+    assert missing.before == () and missing.after is None and missing.message == "Failed to load schematic"
+    assert missing.evidence.level == Level.UNVERIFIED and missing.returncode == 3
+    good = erc_report_with()
+    last, script = _oracle(tmp_path / "b", erc_sequence=(good, good, ""))
+    third = last.rt2_erc(project_set(root))
+    assert len(third.before) == 2 and third.after is None and third.evidence.level == Level.UNVERIFIED
+    assert (third.redumped, third.kept) == (2, 0) and len(_erc_calls(script)) == 3
+    no_sheet, other = _oracle(tmp_path / "c")
+    absent = no_sheet.rt2_erc(project_set(authored_project(tmp_path, major=10)))
+    assert absent.before == () and "no schematic" in absent.message and _erc_calls(other) == []
+
+
+def test_kicad_oracle_satisfies_the_erc_protocol(tmp_path: Path) -> None:
+    oracle = KicadOracle(KicadCli(tmp_path / "kicad-cli"))
+    assert isinstance(oracle, ErcOracle)
+    assert oraclemod._protocols(oracle)[3] is oracle  # pyright: ignore[reportPrivateUsage]

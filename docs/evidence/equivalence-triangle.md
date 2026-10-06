@@ -1,0 +1,176 @@
+# Equivalence triangle: Fenolite's Altium import against `kicad-cli pcb import`
+
+The record of `fenolite equivalent A.PcbDoc --against kicad-import` (change c0045, capability
+design-equivalence): one PCB document is read twice, by Fenolite's Altium backend and by
+`kicad-cli pcb import --format altium` followed by Fenolite's KiCad reader, and the two models are
+compared at levels 1 to 4. The page holds counts only. Documents are named by corpus row id and licence;
+no content of a document is written here.
+
+What the label means: `ORACLE-VERIFIED(kicad-cli)` says that two independent readers of one file agree.
+It says nothing about Altium Designer, and it settles no `H-A-*` row.
+
+## Where the triangle runs
+
+The triangle reads the seven PCB document rows of change c0041 (the use `altium-pcbdoc` of
+`tests/corpus/manifest.toml`); this change adds no row and no use. None of them is embeddable, so each is
+fetched into the cache and never committed.
+
+| row id | licence | source |
+|---|---|---|
+| `altium-third-party-pcbdoc-01` | LGPL-3.0 | S-0188 |
+| `altium-third-party-pcbdoc-02` | Apache-2.0 | S-0176 |
+| `altium-third-party-pcbdoc-03` | Apache-2.0 | S-0172 |
+| `altium-third-party-pcbdoc-04` | MIT | S-0199 |
+| `altium-third-party-pcbdoc-05` | BSD-2-Clause | S-0174 |
+| `altium-third-party-pcbdoc-06` | MIT | S-0175 |
+| `altium-third-party-pcbdoc-07` | MIT | S-0200 |
+
+- **The file in the repository.** `tests/kicad/equivalence/test_triangle_blink.py` runs the triangle on
+  `tests/data/altium/blink/blink.PcbDoc`, a document Fenolite wrote from its authored CC0 library. It
+  needs no corpus and runs in the `kicad-10` job of `.github/workflows/ci.yml` (`tests/kicad`).
+- **Corpus.** The `kicad-10` job fetches the rows of the use `altium-pcbdoc` by name (its fetch step passes
+  `--uses altium-pcbdoc`, which `tests/unit/test_ci_workflow.py` checks) and runs `tests/kicad` with
+  `FENOLITE_REQUIRE=kicad,corpus`, so `tests/kicad/equivalence/test_triangle_corpus.py` runs there on every
+  row, and locally on `kicad-cli` 10.0.6 (macOS). The design of this change expected a local run only; the
+  fetch step has been widened since.
+- **Rows that fail in `kicad-cli`.** `docs/evidence/altium-pcb-read.md` ("Document oracle") records one:
+  on the Linux build of `kicad-cli` 10.0.6, `pcb import` exits 255 on `altium-third-party-pcbdoc-02` with an
+  unhandled exception of KiCad's own importer, whose class changes between runs. The macOS build imports
+  the row. The corpus test skips that row where the tool writes no board and compares it where it does;
+  it matches only the exit code and the stable part of KiCad's message.
+- **Below 10.0.** `pcb import` does not exist in 9.0 (`H-K-00`), so every test of
+  `tests/kicad/equivalence/` is skipped there.
+
+## Committed document, kicad-cli 10.0
+
+`uv run pytest tests/kicad/equivalence/test_triangle_blink.py -s` with `kicad-cli` 10.0.6 (macOS, local,
+2026-10-05): 3 passed. `tests/data/altium/blink/blink.PcbDoc` holds three components (`U1`, `R1` on the
+top side, `D1` on the bottom side) and 36 pads.
+
+| run | level 1 | level 2 | level 3 | level 4 |
+|---|---|---|---|---|
+| empty profile (relative frame, tolerance 0, no rule): compared / differences | 3 / 0 | 36 / 0 | 36 / 68 (`pad-size` 36, `pad-position` 30, `pad-drill` 2) | 3 / 1 (`position` 1) |
+| profile `kicad-import` 10.0 (tolerance 10 nm): compared / differences / excluded | 3 / 0 / 0 | 36 / 0 / 0 | 36 / 0 / 0 | 3 / 0 / 0 |
+
+- Translation removed from KiCad's board: (98 101 100, 145 403 600) nm.
+- Largest difference after the translation: footprint position 1 nm, pad position 1 nm, pad size 1 nm,
+  drill 1 nm; no rotation differs. Every difference of the empty-profile run is this rounding: the document
+  holds lengths in units of 2.54 nm.
+- No rule matches. All four levels are `ORACLE-VERIFIED(kicad-cli)` (10.0.6) for this document, which is
+  what KiCad's importer reads of a file Fenolite wrote.
+- The import report lists no warning and no error; the tool prints 16 warnings about internal plane
+  layers that it does not map, which the command reports as `equiv.import-message` infos.
+
+`tests/unit/cli/test_equivalent_cmd.py -k two_backends` compares the same document with the KiCad board
+that Fenolite builds from the same design, with no tool: no difference at levels 1 to 4 with
+`--frame relative --tolerance-nm 1`.
+
+## Corpus, kicad-cli 10.0
+
+`FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/equivalence/test_triangle_corpus.py -s` with
+`kicad-cli` 10.0.6 (macOS, local, 2026-10-05): 85 passed, on all seven rows. In each cell: compared /
+differences / excluded, under the profile `kicad-import` 10.0 (relative frame, tolerance 10 nm, five
+rules).
+
+| row id | licence | level 1 | level 2 | level 3 | level 4 | translation (nm) | rules that matched |
+|---|---|---|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | LGPL-3.0 | 248 / 0 / 1 | 721 / 0 / 2 | 731 / 0 / 3 | 248 / 0 / 0 | −29 362 400, 254 482 600 | `kicad-10.0-value-empty` (1), `kicad-10.0-paste-pad-pin` (2), `kicad-10.0-paste-pad` (2), `kicad-10.0-component-copper-pad` (1) |
+| altium-third-party-pcbdoc-02 | Apache-2.0 | 41 / 0 / 0 | 143 / 0 / 0 | 143 / 0 / 2 | 41 / 0 / 0 | 73 326 065, 195 872 005 | `kicad-10.0-octagon-shape` (2) |
+| altium-third-party-pcbdoc-03 | Apache-2.0 | 52 / 0 / 0 | 210 / 0 / 0 | 217 / 0 / 1 | 52 / 0 / 0 | 47 663 100, 180 695 600 | `kicad-10.0-component-copper-pad` (1) |
+| altium-third-party-pcbdoc-04 | MIT | 15 / 0 / 0 | 50 / 0 / 0 | 51 / 0 / 1 | 15 / 0 / 0 | −187 891 421, 333 439 028 | `kicad-10.0-component-copper-pad` (1) |
+| altium-third-party-pcbdoc-05 | BSD-2-Clause | 23 / 0 / 0 | 96 / 0 / 0 | 96 / 0 / 0 | 23 / 0 / 0 | 118 656 100, 115 798 600 | none |
+| altium-third-party-pcbdoc-06 | MIT | 27 / 0 / 0 | 106 / 0 / 0 | 106 / 0 / 0 | 27 / 0 / 0 | 75 801 098, 159 203 601 | none |
+| altium-third-party-pcbdoc-07 | MIT | 12 / 0 / 0 | 112 / 0 / 0 | 114 / 0 / 0 | 12 / 0 / 0 | −156 786 903, 337 125 269 | none |
+
+Totals: 418 components, 1 438 `REF-PIN` elements, 1 458 pad pairs and 418 placements compared; 10
+differences excluded by five rules; none left.
+
+Largest differences after the translation, whatever the tolerance (`tests/_triangle.py::measure`), and
+the count of paired footprints on the bottom side:
+
+| row id | footprint position (nm) | pad position (nm) | pad size (nm) | drill (nm) | rotation (µdeg) | pad rotation (µdeg) | bottom footprints |
+|---|---|---|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | 5 | 9 | 1 | 1 | 0 | 0 | 119 |
+| altium-third-party-pcbdoc-02 | 3 | 5 | 5 | 4 | 0 | 0 | 14 |
+| altium-third-party-pcbdoc-03 | 4 | 9 | 4 | 2 | 0 | 0 | 3 |
+| altium-third-party-pcbdoc-04 | 8 | 9 | 1 | 0 | 0 | 0 | 0 |
+| altium-third-party-pcbdoc-05 | 1 | 1 | 1 | 0 | 0 | 0 | 0 |
+| altium-third-party-pcbdoc-06 | 6 | 9 | 3 | 1 | 0 | 0 | 2 |
+| altium-third-party-pcbdoc-07 | 6 | 9 | 1 | 1 | 0 | 0 | 8 |
+
+The measured maximum is 9 nm, so the profile's `tolerance_nm` is 10, the smallest multiple of 10 that
+covers it. KiCad holds a converted length in steps of 10 nm (`docs/formats/altium/pcb-read.md`, "What
+KiCad does not import"), and a pad's local position is computed from two rounded board positions.
+
+### Differences with the empty profile
+
+The first measurement ran with no rule and tolerance 0 in the relative frame. Counts by kind:
+
+| row id | level 1 | level 2 | level 3 | level 4 |
+|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | `ref-ambiguous` 1, `value` 1 | `pin-missing` 2 | `pad-size` 673, `pad-position` 643, `pad-drill` 25, `pad-missing` 3 | `position` 34 |
+| altium-third-party-pcbdoc-02 | none | none | `pad-position` 118, `pad-size` 75, `pad-drill` 4, `pad-shape` 2 | `position` 2 |
+| altium-third-party-pcbdoc-03 | `ref-ambiguous` 1 | none | `pad-size` 201, `pad-position` 146, `pad-drill` 21, `pad-missing` 1 | `position` 32 |
+| altium-third-party-pcbdoc-04 | `ref-ambiguous` 1 | none | `pad-position` 40, `pad-size` 33, `pad-missing` 1 | `position` 13 |
+| altium-third-party-pcbdoc-05 | `ref-ambiguous` 1 | none | `pad-size` 96, `pad-position` 36 | `position` 1 |
+| altium-third-party-pcbdoc-06 | none | none | `pad-size` 100, `pad-position` 65, `pad-drill` 8 | `position` 22 |
+| altium-third-party-pcbdoc-07 | `ref-ambiguous` 1 | none | `pad-position` 100, `pad-size` 114, `pad-drill` 19 | `position` 10 |
+
+Every `pad-size`, `pad-position`, `pad-drill` and `position` difference is below 10 nm and disappears at
+the tolerance. What remains at 10 nm is attributed below.
+
+### What Fenolite caused, and was fixed
+
+Before the fix, the first row gave 88 `component-missing` and 5 more `ref-ambiguous` differences at
+level 1, and only 161 of its 248 components were compared. Fenolite's adapter took a component's
+reference from its source designator. The components of a repeated sheet share that designator (84
+components of this row), and a designator changed on the board alone leaves it behind (2 components);
+KiCad's importer names a footprint by the designator text the board shows. The adapter now takes the
+designator text first and the source designator only without one
+(`fenolite.backends.altium.adapter.board`; regression test
+`tests/unit/backends/altium/adapter/test_board.py::test_the_reference_is_the_designator_the_board_shows`).
+The model of that row no longer holds the seven duplicate references of the repeated sheet.
+
+### Rules of the profile `kicad-import` 10.0
+
+| rule | level, kind | attribution | what was observed | rows |
+|---|---|---|---|---|
+| `kicad-10.0-value-empty` | 1, `value` | undecided | one component whose comment text the document holds has an empty value in the converted board | altium-third-party-pcbdoc-01 (1) |
+| `kicad-10.0-paste-pad-pin` | 2, `pin-missing` | importer | two pads of one component lie on a paste layer; KiCad imports no such pad | altium-third-party-pcbdoc-01 (2) |
+| `kicad-10.0-paste-pad` | 3, `pad-missing` | importer | the same two pads at level 3 | altium-third-party-pcbdoc-01 (2) |
+| `kicad-10.0-component-copper-pad` | 3, `pad-missing` | importer | KiCad turns component copper regions and net-less component fills into pads without a number: 2, 8 and 6 such pads | altium-third-party-pcbdoc-01 (1), -03 (1), -04 (1) |
+| `kicad-10.0-octagon-shape` | 3, `pad-shape` | undecided | two octagonal pads are `roundrect` in KiCad's board and `custom` in Fenolite's import | altium-third-party-pcbdoc-02 (2) |
+
+The three `importer` rules restate rows of `docs/formats/altium/pcb-read.md` ("What KiCad does not
+import"), which the reader oracle of change c0041 verified record by record. A rule selects by a glob
+over `where` and cannot see a pad's layer or shape, so the paste and octagon rules name the pads they were
+observed on; the same behaviour on another board shows as a difference.
+
+### References that a document holds several times
+
+These cannot be paired. They are a property of the document, get no rule, and are left out of the corpus
+test by name (`IGNORED_REFS` in `tests/kicad/equivalence/test_triangle_corpus.py`; `--ignore-ref` on the
+command line). Without that option each gives one `ref-ambiguous` difference.
+
+| row id | reference | count in Fenolite's read | count in KiCad's read | what it is |
+|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | empty | 12 | 4 | pads that belong to no component; 8 of them lie on a paste layer, which KiCad does not import |
+| altium-third-party-pcbdoc-03 | `*` | 3 | 3 | three components with the designator `*` |
+| altium-third-party-pcbdoc-04 | empty | 2 | 2 | pads that belong to no component |
+| altium-third-party-pcbdoc-05 | empty | 4 | 4 | pads that belong to no component |
+| altium-third-party-pcbdoc-07 | empty | 2 | 2 | pads that belong to no component |
+
+### Labels per level
+
+A level is `ORACLE-VERIFIED(kicad-cli)` (10.0.6) for a document when no `undecided` rule matched at that
+level or below.
+
+| row id | level 1 | level 2 | level 3 | level 4 |
+|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | INFERRED (`kicad-10.0-value-empty`) | INFERRED | INFERRED | INFERRED |
+| altium-third-party-pcbdoc-02 | ORACLE-VERIFIED(kicad-cli) | ORACLE-VERIFIED(kicad-cli) | INFERRED (`kicad-10.0-octagon-shape`) | INFERRED |
+| altium-third-party-pcbdoc-03 to -07 | ORACLE-VERIFIED(kicad-cli) | ORACLE-VERIFIED(kicad-cli) | ORACLE-VERIFIED(kicad-cli) | ORACLE-VERIFIED(kicad-cli) |
+
+Over all rows, each of `H-G-EQ-L1` to `H-G-EQ-L4` therefore stays `INFERRED`: one `undecided` rule matched
+at level 1 on one row and one at level 3 on another. The Linux run of the `kicad-10` job compares six
+rows; `altium-third-party-pcbdoc-02` is skipped there as recorded under "Where the triangle runs".

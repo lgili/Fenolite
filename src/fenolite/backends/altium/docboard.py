@@ -14,6 +14,8 @@ Change c0038 adds the copper stack (``StackSpec``, "Four-layer stack"): the link
 the physical lists, the layer sets and ``PLANE<k>NETNAME`` follow it (``pcb-copper.md``, "Layer stack").
 """
 
+# evidence: see pcbdoc
+
 from __future__ import annotations
 
 from collections.abc import Collection, Sequence

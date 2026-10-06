@@ -21,6 +21,8 @@ TRIAD = {"blink.kicad_pcb", "blink.kicad_pro", "blink.kicad_dru"}
 VENDORED = {
     f"lib/Mini.pretty/{n}.kicad_mod" for n in ("Mini_R_0603", "Mini_LED_THT_3mm", "Mini_QFP-32_7x7mm_P0.8mm")
 }
+SCHEMATIC = {"blink.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"}
+"""What a build with a schematic adds (c0061)."""
 CACHE = {
     f".fenolite/{n}.json" for n in ("meta", "circuit", "board", "rules", "manufacturing", "findings", "build")
 }
@@ -28,8 +30,11 @@ CACHE = {
 
 def test_files_of_a_target_9_build() -> None:
     out = build(blink(), 9)
-    assert set(out.files) == TRIAD | VENDORED | CACHE | {"fp-lib-table"}
+    assert set(out.files) == TRIAD | VENDORED | CACHE | SCHEMATIC | {"fp-lib-table"}
     assert b"version" not in out.files["fp-lib-table"]
+    assert b"version" not in out.files["sym-lib-table"]
+    skipped = build(blink(), 9, schematic="skip")
+    assert set(skipped.files) == TRIAD | VENDORED | CACHE | {"fp-lib-table"}
     for rel in VENDORED:
         assert out.files[rel] == (LIBS / "Mini_v9.pretty" / Path(rel).name).read_bytes()
     assert out.files["blink.kicad_dru"] == b"(version 1)\n"
@@ -44,7 +49,7 @@ def test_build_record() -> None:
     assert record["schema"] == RECORD_SCHEMA and record["design"] == "blink" and record["target"] == 10
     assert set(record) == {"design", "files", "schema", "target"}
     outside = {k for k in out.files if not k.startswith(".fenolite/")}
-    assert set(record["files"]) == outside and len(outside) == 7
+    assert set(record["files"]) == outside and len(outside) == 11
     assert all(record["files"][k] == hashlib.sha256(out.files[k]).hexdigest() for k in outside)
     assert out.files[RECORD_FILE].endswith(b"\n")
 

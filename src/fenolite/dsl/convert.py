@@ -9,6 +9,7 @@ seed or on the order of the script, and no object holds a provenance (no absolut
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -18,12 +19,13 @@ from fenolite.core.ids import derived_id
 from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
-from fenolite.dsl.part import FieldRequest, Part, Placement
+from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement
 from fenolite.model.board import Board, Outline, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.manufacturing import Manifest
+from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.rules import Rule, RuleSet, Selector
 
 DSL_BACKEND = "dsl"
@@ -88,6 +90,21 @@ def _rules(design: Design) -> tuple[Rule, ...]:
             priority=0 if spec.netclass is None else 1,
         )
         for spec in specs
+    ) + tuple(
+        Rule(
+            id=key_id("rule", "named", spec.name),
+            name=spec.name,
+            kind=spec.kind,
+            selector_a=spec.where,
+            selector_b=spec.between,
+            layers=spec.layers,
+            min=spec.min,
+            opt=spec.opt,
+            max=spec.max,
+            severity=spec.severity,
+            priority=spec.priority,
+        )
+        for spec in design.rules.named.values()
     )
 
 
@@ -166,10 +183,34 @@ def to_model(design: Design) -> ModelDesign:
             modules=modules,
             no_connects=marks,
         ),
-        board=Board(id=key_id("board"), outline=outline, zones=zones),
+        board=Board(
+            id=key_id("board"),
+            outline=outline,
+            zones=zones,
+            sheet=_sheet(design),
+            title_block=design.block,
+        ),
         rules=RuleSet(id=key_id("rules"), rules=_rules(design)),
         manufacturing=Manifest(id=key_id("manifest")),
     )
+
+
+SHEET_SUFFIX = ".kicad_wks"
+
+
+def _sheet(design: Design) -> SheetFrameRef | None:
+    """The model's sheet: the paper of ``sheet()``, and ``<design name>.kicad_wks`` as the drawing sheet
+    when the script names one. The script's path never enters the model."""
+    frame = design.sheet_frame
+    if frame is None or design.sheet_source is None:
+        return frame
+    return dataclasses.replace(frame, drawing_sheet=f"{design.name}{SHEET_SUFFIX}")
+
+
+def drawing_sheet_source(design: Design) -> str | None:
+    """The drawing sheet that ``sheet()`` names, as written in the script (a path relative to the script's
+    folder), or ``None``."""
+    return design.sheet_source
 
 
 def _module(module: DslModule) -> Module:
@@ -210,6 +251,22 @@ def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:
     return MappingProxyType(out)
 
 
+def pad_zones(design: Design) -> Mapping[str, tuple[PadZoneRequest, ...]]:
+    """The pad zone connection requests of every part that has one: component path, in path order, → its
+    requests by pad number and then index, ``None`` first (``docs/dsl.md``, "Zones")."""
+    out: dict[str, tuple[PadZoneRequest, ...]] = {}
+    for path, part in sorted(design.parts.items()):
+        if part.pad_zone_requests:
+            out[path] = tuple(
+                request
+                for _, request in sorted(
+                    part.pad_zone_requests.items(),
+                    key=lambda entry: (entry[0][0], entry[0][1] is not None, entry[0][1] or 0),
+                )
+            )
+    return MappingProxyType(out)
+
+
 def planes(design: Design) -> Mapping[str, str]:
     """The internal planes of ``design.board(planes=…)``: inner layer name → net name, in layer order.
 
@@ -222,18 +279,65 @@ def planes(design: Design) -> Mapping[str, str]:
     return MappingProxyType(dict(design.planes))
 
 
-def moves(design: Design) -> Mapping[str, str]:
-    """The ``moved()`` aliases, new component path → old, in path order (``docs/lens.md``, "moved()").
-
-    A ``new`` path that is not an added part, or an ``old`` path that still is one, raises ``DslError``:
-    the old part would lose its layout to the new one, so chains are refused too.
-    """
+def _checked_aliases(design: Design) -> tuple[dict[str, str], dict[str, str]]:
+    """The ``moved()`` aliases split into part aliases and module aliases, new → old, after the checks."""
+    parts: dict[str, str] = {}
+    modules: dict[str, str] = {}
     for new, old in sorted(design.aliases.items()):
-        if new not in design.parts:
-            raise DslError(f"moved({old!r}, {new!r}): {new!r} is not a part of the design")
-        if old in design.parts:
-            raise DslError(f"moved({old!r}, {new!r}): {old!r} is still a part of the design")
-    return MappingProxyType(dict(sorted(design.aliases.items())))
+        if old in design.parts or old in design.modules:
+            kind = "part" if old in design.parts else "module"
+            raise DslError(f"moved({old!r}, {new!r}): {old!r} is still a {kind} of the design")
+        if new in design.parts:
+            parts[new] = old
+        elif new in design.modules:
+            modules[new] = old
+        else:
+            raise DslError(f"moved({old!r}, {new!r}): {new!r} is not a part or a module of the design")
+    return parts, modules
+
+
+def moves(design: Design) -> Mapping[str, str]:
+    """The part aliases of ``moved()``, new component path → old, in path order, with every module alias
+    expanded to the parts under the module (``docs/lens.md``, "moved()" and "Module aliases").
+
+    A part alias wins over a module alias for its part, and a longer module path over a shorter one. A
+    ``new`` path that is neither a part nor a module, or an ``old`` path that still is one, raises
+    ``DslError``: the old part would lose its layout to the new one, so chains are refused too.
+    """
+    parts, modules = _checked_aliases(design)
+    taken = set(parts.values())
+    out = dict(parts)
+    for path in design.parts:
+        if path in out:
+            continue
+        owners = [new for new in modules if path.startswith(f"{new}/")]
+        if not owners:
+            continue
+        new = max(owners, key=len)
+        old = modules[new] + path[len(new) :]
+        if old not in taken:
+            out[path] = old
+    return MappingProxyType(dict(sorted(out.items())))
+
+
+def module_moves(design: Design) -> Mapping[str, str]:
+    """The module aliases of ``moved()``, new module path → old, in path order; the checks of ``moves``
+    apply."""
+    return MappingProxyType(_checked_aliases(design)[1])
+
+
+def net_moves(design: Design) -> Mapping[str, str]:
+    """The ``moved_net()`` aliases, new net name → old, in name order (``docs/lens.md``, "Net aliases").
+
+    A ``new`` name that is not a net of the design, or an ``old`` name that still is one, raises
+    ``DslError``: the old net's copper would move to the new one, so chains are refused too.
+    """
+    for new, old in sorted(design.net_aliases.items()):
+        if new not in design.nets:
+            raise DslError(f"moved_net({old!r}, {new!r}): {new!r} is not a net of the design")
+        if old in design.nets:
+            raise DslError(f"moved_net({old!r}, {new!r}): {old!r} is still a net of the design")
+    return MappingProxyType(dict(sorted(design.net_aliases.items())))
 
 
 __all__ = [
@@ -241,9 +345,13 @@ __all__ = [
     "DSL_BACKEND",
     "KEYS",
     "PATH_PROPERTY",
+    "drawing_sheet_source",
     "fields",
+    "pad_zones",
     "key_id",
+    "module_moves",
     "moves",
+    "net_moves",
     "placements",
     "planes",
     "to_model",

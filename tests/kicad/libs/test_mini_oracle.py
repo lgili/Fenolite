@@ -70,7 +70,11 @@ def test_symbols_load(tmp_path: Path) -> None:
 
 def _plain(entity: Any) -> Any:
     """``entity`` without provenance and ``ext``, recursively for pads, padstacks and graphics."""
-    changes: dict[str, Any] = {"provenance": None, "ext": {}}
+    changes: dict[str, Any] = {}
+    if hasattr(entity, "provenance"):
+        changes["provenance"] = None
+    if hasattr(entity, "ext"):
+        changes["ext"] = {}
     for name in ("pads", "graphics"):
         if hasattr(entity, name):
             changes[name] = tuple(_plain(e) for e in getattr(entity, name))

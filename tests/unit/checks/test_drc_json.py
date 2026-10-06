@@ -159,13 +159,36 @@ def test_paths_removed_from_messages() -> None:
     assert sanitise("x/y", source="b.kicad_pcb") == "x/y"  # a bare name has no folder to replace
 
 
-def test_unconnected_mapped_and_parity_only_counted() -> None:
+def test_unconnected_and_parity_entries_are_mapped() -> None:
     open_net = DrcViolation("unconnected_items", "missing", "error", (_item("u1"), _item("u2", 1_000_000, 0)))
-    parity = DrcViolation("footprint_missing", "p", "error")
+    parity = DrcViolation("missing_footprint", "p", "warning", (_item("u3", 2_000_000, 0),))
     report = _report(unconnected=(open_net,), parity=(parity,))
-    (found,) = finding_issues(report, oracle="kicad", design=None)
-    assert (found.code, found.where) == ("kicad.drc.unconnected-items", "@0,0, @1,0")
-    assert finding_types(report, oracle="kicad") == {"kicad.drc.unconnected-items": "unconnected_items"}
+    first, second = finding_issues(report, oracle="kicad", design=None)
+    assert (first.code, first.where) == ("kicad.drc.unconnected-items", "@0,0, @1,0")
+    assert (second.code, second.severity, second.where) == ("kicad.drc.missing-footprint", "warning", "@2,0")
+    assert finding_types(report, oracle="kicad") == {
+        "kicad.drc.missing-footprint": "missing_footprint",
+        "kicad.drc.unconnected-items": "unconnected_items",
+    }
+
+
+def test_parity_entry_located_as_ref_pin() -> None:
+    """Scenario "Parity entry mapped": a ``net_conflict`` that names pad 2 of ``R1``."""
+    design = _design()
+    assert design.board is not None
+    refs = {c.id: c.ref for c in design.circuit.components}
+    r1 = next(f for f in design.board.footprints if refs[f.component_id] == "R1")
+    pad = next(p for p in r1.pads if p.number == "2")
+    entry = DrcViolation("net_conflict", "Pad net differs", "warning", (_item(pad.native_ids["kicad"]),))
+    (found,) = finding_issues(_report(parity=(entry,)), oracle="kicad", design=design)
+    assert (found.code, found.severity, found.where) == ("kicad.drc.net-conflict", "warning", "R1-2")
+    excluded = dataclasses.replace(entry, excluded=True)
+    assert finding_issues(_report(parity=(excluded,)), oracle="kicad", design=design)[0].severity == "info"
+
+
+def test_parity_verdict_suffix_is_reserved() -> None:
+    assert RESERVED_SUFFIXES == ("rules-not-loaded", "rules-unchecked", "parity-unchecked")
+    assert type_code("kicad", "parity_unchecked") == "kicad.drc.type-parity-unchecked"
 
 
 def test_order_follows_the_report() -> None:

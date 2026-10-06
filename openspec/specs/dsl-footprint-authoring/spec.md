@@ -1,7 +1,7 @@
 # dsl-footprint-authoring Specification
 
 ## Purpose
-TBD - created by archiving change c0055-dsl-footprint-authoring. Update Purpose after archive.
+Define and register project-authored footprints using the Fenolite DSL and supported file backends.
 ## Requirements
 ### Requirement: Define and register footprints
 The DSL SHALL let a design declare a footprint using safe library and footprint identifiers, supported pads and graphics, and integer-nanometre geometry. Registration SHALL reject duplicate library IDs and invalid geometry before writing output. Authored definitions SHALL remain outside the canonical model and `.fenolite` persistence.
@@ -68,3 +68,25 @@ The footprint DSL SHALL support a slot whose drill width is `drill`, whose overa
 - GIVEN an authored slot footprint built for a target whose writer does not support slots
 - WHEN the build is planned
 - THEN it reports the target-specific unsupported geometry and writes no incomplete footprint
+
+### Requirement: Author repeated physical pads for one terminal
+
+`Footprint.pad(number, ..., shared=False)` SHALL keep pad numbers unique by default. A caller MAY declare a subsequent physical pad with a number already present only by passing `shared=True`. Passing `shared=True` without an earlier pad of that number MUST raise `DslError`. All physical pads with the same number SHALL remain separate pads and receive the electrical net of that footprint pad number during build resolution. Their generated entity IDs MUST be unique and deterministic; existing IDs of footprints with unique pad numbers MUST remain unchanged.
+
+#### Scenario: Two physical lands share a symbol terminal
+
+- **GIVEN** a footprint with pad `2` and a second pad `2` declared with `shared=True`
+- **WHEN** the footprint is built for a part whose symbol pin `2` is on net `GND`
+- **THEN** both physical pads numbered `2` carry net `GND` and have distinct stable IDs
+
+#### Scenario: Accidental duplicate remains an error
+
+- **GIVEN** a footprint that declares pad `2` twice without `shared=True`
+- **WHEN** the second pad is declared
+- **THEN** `DslError` reports the duplicate pad number
+
+#### Scenario: Shared flag requires a prior pad
+
+- **GIVEN** a footprint with no pad `2`
+- **WHEN** pad `2` is declared with `shared=True`
+- **THEN** `DslError` reports that there is no earlier pad to share

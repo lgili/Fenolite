@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="720" viewBox="0 0 900 720">
+<rect width="900" height="720" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16" fill="#0f172a">DO35_P10.16_Diodes</text>
+<rect x="168.57" y="116.79" width="112.85" height="56.43" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="45.00" y="102.68" width="360.00" height="84.64" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="275.78" y1="168.98" x2="275.78" y2="121.02" stroke="#2563eb" stroke-width="2"/>
+<ellipse cx="81.68" cy="145.00" rx="22.57" ry="22.57" fill="#f59e0b" stroke="#b45309"/><circle cx="81.68" cy="145.00" r="11.29" fill="white" stroke="#b45309"/><text x="81.68" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="368.32" cy="145.00" rx="22.57" ry="22.57" fill="#f59e0b" stroke="#b45309"/><circle cx="368.32" cy="145.00" r="11.29" fill="white" stroke="#b45309"/><text x="368.32" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16" fill="#0f172a">DO41_P10.16_Diodes</text>
+<rect x="604.81" y="108.35" width="140.39" height="73.29" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="495.00" y="94.88" width="360.00" height="100.24" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<line x1="739.81" y1="177.60" x2="739.81" y2="112.40" stroke="#2563eb" stroke-width="2"/>
+<ellipse cx="538.11" cy="145.00" rx="29.64" ry="29.64" fill="#f59e0b" stroke="#b45309"/><circle cx="538.11" cy="145.00" r="14.82" fill="white" stroke="#b45309"/><text x="538.11" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<ellipse cx="811.89" cy="145.00" rx="29.64" ry="29.64" fill="#f59e0b" stroke="#b45309"/><circle cx="811.89" cy="145.00" r="14.82" fill="white" stroke="#b45309"/><text x="811.89" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16" fill="#0f172a">SOT143_4_Diodes</text>
+<rect x="174.05" y="354.78" width="101.89" height="60.43" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="156.49" y="320.00" width="137.03" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="180.73" y="407.84" width="35.14" height="24.59" fill="#f59e0b" stroke="#b45309"/><text x="198.30" y="424.14" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="248.19" y="407.84" width="21.08" height="24.59" fill="#f59e0b" stroke="#b45309"/><text x="258.73" y="424.14" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="248.19" y="337.57" width="21.08" height="24.59" fill="#f59e0b" stroke="#b45309"/><text x="258.73" y="353.86" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="180.73" y="337.57" width="21.08" height="24.59" fill="#f59e0b" stroke="#b45309"/><text x="191.27" y="353.86" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">4</text>
+<rect x="460" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="276" font-family="Arial" font-size="16" fill="#0f172a">SOT223_3_Diodes</text>
+<rect x="625.87" y="358.55" width="98.26" height="52.91" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="618.31" y="320.00" width="113.37" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="631.16" y="421.28" width="18.14" height="21.16" fill="#f59e0b" stroke="#b45309"/><text x="640.23" y="435.86" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="648.55" y="327.56" width="52.91" height="21.16" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="342.14" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="700.70" y="421.28" width="18.14" height="21.16" fill="#f59e0b" stroke="#b45309"/><text x="709.77" y="435.86" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="516" font-family="Arial" font-size="16" fill="#0f172a">TO252_3_Diodes_Standard</text>
+<rect x="188.44" y="591.11" width="73.11" height="67.78" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="182.89" y="560.00" width="84.22" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="193.71" y="655.56" width="11.78" height="28.89" fill="#f59e0b" stroke="#b45309"/><text x="199.60" y="674.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="193.71" y="565.56" width="62.58" height="63.33" fill="#f59e0b" stroke="#b45309"/><text x="225.00" y="601.22" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="244.51" y="655.56" width="11.78" height="28.89" fill="#f59e0b" stroke="#b45309"/><text x="250.40" y="674.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="460" y="490" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="516" font-family="Arial" font-size="16" fill="#0f172a">TO263_3_Diodes_Standard</text>
+<rect x="636.13" y="590.49" width="77.74" height="69.02" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="631.35" y="560.00" width="87.30" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="651.36" y="659.39" width="8.42" height="26.78" fill="#f59e0b" stroke="#b45309"/><text x="655.57" y="676.78" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="635.17" y="563.83" width="79.65" height="53.64" fill="#f59e0b" stroke="#b45309"/><text x="675.00" y="594.64" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="690.23" y="659.39" width="8.42" height="26.78" fill="#f59e0b" stroke="#b45309"/><text x="694.43" y="676.78" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+</svg>

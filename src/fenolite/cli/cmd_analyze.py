@@ -284,6 +284,7 @@ COMMAND = Command(
     mutates=False,
     register=_register,
     run=_run,
+    paged="issues",
     example_args=(EXAMPLE_BOARD, "--kinds", "current", "--temp-rise", "10", "--copper-thickness", "35um"),
 )
 

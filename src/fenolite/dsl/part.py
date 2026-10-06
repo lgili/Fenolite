@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, cast
 from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.quantity import Quantity
 from fenolite.dsl.units import as_nm, as_udeg
 
 if TYPE_CHECKING:
@@ -119,6 +120,22 @@ class Request:
     locked: bool
 
 
+PAD_ZONE_CONNECTIONS = ("solid", "thermal", "none", "thru_hole_only")
+"""The values of ``Pad.zone_connection`` (``docs/design-model.md``)."""
+
+
+@dataclass(frozen=True, slots=True)
+class PadZoneRequest:
+    """A request for how copper zones connect to pads of a part, as the script gave it: the pad
+    ``number``, the ``index`` among the pads that carry it (``None``: every one), the ``connection`` and
+    whether the request wins over a setting made in KiCad (``docs/dsl.md``, "Zones")."""
+
+    number: str
+    index: int | None
+    connection: str
+    locked: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class FieldRequest:
     """A placement request for one footprint field of a part, as the script gave it: lengths in nm, the
@@ -159,7 +176,7 @@ class Part:
         ref: str,
         lib_id: str,
         footprint: str | None = None,
-        value: str = "",
+        value: str | Quantity = "",
         *,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str] | None = None,
@@ -169,8 +186,10 @@ class Part:
             raise DslError(f"part {ref}: lib_id must be a non-empty string")
         if footprint is not None and (not isinstance(footprint, str) or not footprint):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: footprint must be a non-empty string or None")
+        if isinstance(value, Quantity):
+            value = value.text()
         if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise DslError(f"part {ref}: value must be a string")
+            raise DslError(f"part {ref}: value must be a string or a Quantity")
         self.lib_id = lib_id
         self.footprint = footprint
         self.value = value
@@ -195,6 +214,8 @@ class Part:
         self.request: Request | None = None
         self.field_requests: dict[str, FieldRequest] = {}
         """The field placement requests of ``field()``, by field name."""
+        self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
+        """The requests of ``zone_connection()``, by pad number and index."""
         self.connections: dict[str, Net] = {}
         self.no_connects: set[str] = set()
         """Designators marked as intentionally unconnected, as written (``no_connect``)."""
@@ -323,6 +344,36 @@ class Part:
             raise DslError(f"{what}: the request sets nothing")
         self.field_requests[name] = request
 
+    def zone_connection(
+        self, number: str | int, connection: str, *, index: int | None = None, locked: bool = False
+    ) -> None:
+        """Request how copper zones connect to the pads of this part numbered ``number``: ``solid``,
+        ``thermal``, ``none`` or ``thru_hole_only``. ``index`` names one of several pads that share the
+        number, in the footprint's pad order. On a rebuild a setting made in KiCad wins unless the
+        request is ``locked`` (``docs/lens.md``)."""
+        if isinstance(number, bool) or not isinstance(number, (str, int)) or str(number) == "":  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {self.ref}: a pad number is a non-empty str or an int, not {number!r}")
+        text = str(number)
+        what = f"part {self.ref}: zone connection of pad {text}"
+        if index is not None and (isinstance(index, bool) or not isinstance(index, int) or index < 0):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: index is None or a non-negative int, not {index!r}")
+        if connection not in PAD_ZONE_CONNECTIONS:
+            raise DslError(
+                f"{what}: connection must be one of {', '.join(PAD_ZONE_CONNECTIONS)}, not {connection!r}"
+            )
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{what}: locked must be a bool, not {locked!r}")
+        if (text, index) in self.pad_zone_requests:
+            where = "" if index is None else f" index {index}"
+            raise DslError(f"part {self.ref}: pad {text}{where} already has a zone connection request")
+        taken = [key for key in self.pad_zone_requests if key[0] == text]
+        if taken and (index is None or any(key[1] is None for key in taken)):
+            raise DslError(
+                f"part {self.ref}: pad {text} has a zone connection request with an index and one without: "
+                "the two would name the same pad"
+            )
+        self.pad_zone_requests[(text, index)] = PadZoneRequest(text, index, connection, locked)
+
     def __repr__(self) -> str:
         return f"Part({self.ref!r}, {self.lib_id!r})"
 
@@ -376,6 +427,8 @@ __all__ = [
     "FIELD_SIDES",
     "NAME",
     "FieldRequest",
+    "PAD_ZONE_CONNECTIONS",
+    "PadZoneRequest",
     "Net",
     "Part",
     "PinHandle",

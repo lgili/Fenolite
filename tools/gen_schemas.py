@@ -37,7 +37,13 @@ class Target:
 
 
 def _targets() -> list[Target]:
-    from fenolite.model.schema import LAYER_SCHEMAS, LIBRARY_SCHEMA, SCHEMA_DIR, SHEET_SCHEMA
+    from fenolite.model.schema import (
+        LAYER_SCHEMAS,
+        LIBRARY_SCHEMA,
+        SCHEMA_DIR,
+        SCHEMATIC_SCHEMA,
+        SHEET_SCHEMA,
+    )
 
     wire = [
         Target(
@@ -53,7 +59,8 @@ def _targets() -> list[Target]:
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [
-        Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA)
+        Target(sid, ref, f"{SCHEMA_DIR}/{name}", False)
+        for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA)
     ]
     return [*wire, *model, *definitions]
 
@@ -80,10 +87,13 @@ class SchemaBuilder:
         for f in dataclasses.fields(cls):
             prop = self.type_schema(hints[f.name])
             _apply_metadata(prop, dict(f.metadata))
-            properties[f.name] = prop
+            # ``name`` is the key on the wire when it is a Python keyword (``from_`` is written ``from``)
+            key = str(f.metadata.get("name", f.name))
+            properties[key] = prop
             no_default = f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
-            if self.all_required or no_default:
-                required.append(f.name)
+            # a wire field added after v0 was published is marked ``optional``: old documents stay valid
+            if no_default or (self.all_required and not f.metadata.get("optional")):
+                required.append(key)
         schema: dict[str, Any] = {}
         doc = (cls.__doc__ or "").strip().splitlines()
         if doc and not doc[0].startswith(cls.__name__ + "("):

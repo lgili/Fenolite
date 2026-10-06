@@ -5,7 +5,12 @@
 Stdlib only; imports nothing from ``fenolite`` but ``core`` (reading Markdown registers needs no model).
 """
 
-from fenolite.verify.evidence import RELEASE_VERIFIED, is_release_evidence, release_verified
+from fenolite.verify.evidence import (
+    RELEASE_VERIFIED,
+    is_release_evidence,
+    release_verified,
+    report_problems,
+)
 from fenolite.verify.hypotheses import (
     FAMILIES_HEADER,
     ID_PATTERN,
@@ -31,4 +36,5 @@ __all__ = [
     "parse_level",
     "proposed_ids",
     "release_verified",
+    "report_problems",
 ]

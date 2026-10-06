@@ -22,6 +22,8 @@ from functools import cache
 from pathlib import Path
 
 import _acceptance
+import _arccases
+import _asmcases
 import _bench
 import _benches
 import _buildcases
@@ -29,19 +31,30 @@ import _checkcases
 import _copperparity
 import _creepbench
 import _drccases
+import _erccases
 import _exportcases
 import _fieldbench
 import _fieldprobe
 import _fillcases
+import _followcases
 import _fpwrite
 import _framecases
+import _gencases
+import _hiercases
+import _kindcases
 import _lenscases
 import _libtables
 import _mincases
 import _netcases
+import _netlistcases
+import _offsetbench
+import _paircases
+import _paritycases
 import _placecases
 import _procases
+import _renamecases
 import _rulecases
+import _schcases
 import _sheetcases
 import _triad
 import _vendorcases
@@ -217,6 +230,8 @@ def _probes() -> dict[str, Probe]:
         **_mincases.min_probes(),
         **_vendorcases.vendor_probes(),
         **_lenscases.lens_probes(),
+        **_renamecases.rename_probes(),
+        **_followcases.followup_probes(),
         **_exportcases.export_probes(),
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),
@@ -227,6 +242,10 @@ def _probes() -> dict[str, Probe]:
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
         **_creepbench.creepage_probes(),
+        **_offsetbench.offset_probes(),
+        **_arccases.arc_probes(),
+        **_kindcases.kind_probes(),
+        **_paircases.pair_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
@@ -239,6 +258,20 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _drccases.drc_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _netcases.net_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _asmcases.assembly_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _schcases.sch_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _gencases.gen_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _netlistcases.netlist_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _erccases.erc_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _paritycases.parity_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _hiercases.hier_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

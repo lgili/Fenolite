@@ -7,7 +7,7 @@ The copper is declared by pad references and points in the frame of ``place()``.
 after placement, so a part moved in KiCad pulls its tracks along on the next build (``docs/copper.md``).
 """
 
-from fenolite.dsl import Design, Net, Part, Power, connect, mm, via_step
+from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect, via_step
 
 design = Design("blink_routed")
 design.board(mm(50), mm(30))
@@ -22,6 +22,8 @@ connect(vin, u1[9])
 connect(gnd, u1[10], d1[1])
 connect(led_drv, u1[1], r1[1])
 connect(led_a, r1[2], d1[2])
+# The other 29 pins of the controller are left open on purpose: marked, so KiCad's ERC accepts the schematic.
+no_connect(*(u1[pin] for pin in range(1, 33) if pin not in (1, 9, 10)))
 design.add(Power(vin, gnd))
 design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))
 

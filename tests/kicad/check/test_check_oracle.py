@@ -63,10 +63,11 @@ def test_canary(tmp_path: Path) -> None:
     assert drc["evidence"]["oracle"] == f"kicad-cli {version()}"
     assert [s["name"] for s in env["result"]["stages"]] == [
         "model.validate",
-        "erc.lite",
+        "erc.kicad",
         "copper.clearance",
         "zone.fill",
         "drc.kicad",
+        "parity",
         "netlist.assignment_compare",
         "roundtrip",
     ]

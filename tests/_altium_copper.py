@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from _altium import BLINK, blink_resolver, blink_tree
+from _buildhelp import MARKS as BLINK_MARKS
 
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.core.coords import Point
@@ -67,6 +68,8 @@ def at(x: float, y: float) -> Point:
 def routed_script(board: str = "design.board(mm(50), mm(30), copper=4)") -> str:
     """The sample's script: the blink example renamed, with the board line ``board``."""
     source = BLINK.read_text(encoding="utf-8")
+    assert BLINK_MARKS in source  # the routed sample predates the marks of the example (c0061)
+    source = source.replace(BLINK_MARKS, "")
     for old, new in (('Design("blink")', f'Design("{NAME}")'), (BOARD_LINE, board)):
         assert old in source, old
         source = source.replace(old, new)

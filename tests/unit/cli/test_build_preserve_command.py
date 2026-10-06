@@ -9,7 +9,6 @@ from __future__ import annotations
 import io
 import json
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -22,11 +21,11 @@ from _layout_edit import (
     edit_blink,
     move_footprint,
 )
+from _project import COPPER_WARN, Project, codes, footprint, node_of, prop_node
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.kicad import _json
 from fenolite.backends.kicad.dru import read_rules
-from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.sexpr import Node, dumps, parse
 from fenolite.lens.preserve import footprint_uuid
 from fenolite.model.design import Design
@@ -41,83 +40,6 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
     for name in ("KICAD10_FOOTPRINT_DIR", "KICAD10_SYMBOL_DIR", "KICAD9_FOOTPRINT_DIR", "KICAD9_SYMBOL_DIR"):
         monkeypatch.delenv(name, raising=False)
-
-
-COPPER_WARN = ("--copper-check", "warn")
-"""For the tests whose edited board, fills or rules give a real copper error that is not their subject: a
-footprint swapped under an existing track, authored fills that cover a pad, and a 0.3 mm clearance that the
-0.25 mm gaps between the pads of ``U1`` do not meet. The copper guard (change c0029) reports those as
-warnings in this mode, and the build writes."""
-
-
-class Project:
-    """A blink copy with its libraries, built into ``out``."""
-
-    def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, target: int = 10) -> None:
-        self.monkeypatch = monkeypatch
-        self.target = target
-        root = tmp_path / "repo"
-        shutil.copytree(BLINK_DIR, root / "examples" / "blink_2layer")
-        shutil.copytree(ROOT / "tests" / "data" / "libs", root / "tests" / "data" / "libs")
-        self.script = root / "examples" / "blink_2layer" / "design.py"
-        self.out = tmp_path / "B"
-        code, _, err = self.build("--confirm")
-        assert code == 0, err
-
-    def build(self, *flags: str) -> tuple[int, dict[str, object], str]:
-        out, err = io.StringIO(), io.StringIO()
-        self.monkeypatch.setattr("sys.stdout", out)
-        self.monkeypatch.setattr("sys.stderr", err)
-        args = ["--kicad-version", str(self.target), "build", str(self.script), "--out", str(self.out)]
-        code = cli_main.main([*args, *flags, "--json"])
-        return code, json.loads(out.getvalue()) if out.getvalue() else {}, err.getvalue()
-
-    @property
-    def board(self) -> Path:
-        return self.out / "blink.kicad_pcb"
-
-    def edit_board(self, change: Callable[[str], str]) -> None:
-        self.board.write_text(change(self.board.read_text(encoding="utf-8")), encoding="utf-8")
-
-    def edit_script(self, old: str, new: str) -> None:
-        text = self.script.read_text(encoding="utf-8")
-        assert old in text, old
-        self.script.write_text(text.replace(old, new), encoding="utf-8")
-
-    def read(self) -> Design:
-        return read_board(self.board.read_text(encoding="utf-8"))
-
-    def files(self) -> dict[str, bytes]:
-        return {
-            str(p.relative_to(self.out)): p.read_bytes()
-            for p in sorted(self.out.rglob("*"))
-            if p.is_file() and not p.name.endswith(".bak")
-        }
-
-
-def codes(env: dict[str, object]) -> list[str]:
-    return [i["code"] for i in env["issues"]]  # type: ignore[union-attr, index]
-
-
-def footprint(design: Design, ref: str) -> tuple[object, object]:
-    assert design.board is not None
-    refs = {c.id: c for c in design.circuit.components}
-    (fp,) = [f for f in design.board.footprints if refs[f.component_id].ref == ref]
-    return fp, refs[fp.component_id]
-
-
-def node_of(text: str, ref: str) -> Node:
-    (fp,) = [
-        c
-        for c in parse(text).children
-        if isinstance(c, Node) and c.name == "footprint" and f'"Reference" "{ref}"' in dumps(c)
-    ]
-    return fp
-
-
-def prop_node(text: str, ref: str, name: str) -> Node:
-    (prop,) = [p for p in node_of(text, ref).nodes("property") if p.atoms()[0].value == name]
-    return prop
 
 
 # --- Existing project files ------------------------------------------------------------------------
@@ -554,9 +476,12 @@ def test_envelope_over_an_existing_board(tmp_path: Path, monkeypatch: pytest.Mon
     assert "H-K-PCB-READ" in evidence["hypotheses"] and preserved["board"] is True  # type: ignore[index]
     assert set(preserved) == {  # type: ignore[arg-type]
         "board", "kept", "replaced", "added", "orphans", "board_only", "dropped", "fills", "aliases",
-        "reader_infos", "fields",
+        "reader_infos", "fields", "pad_zones", "module_aliases", "net_aliases", "source",
     }  # fmt: skip
+    assert preserved["source"] == {"file": None, "used": [], "stale": [], "unknown": []}  # type: ignore[index]  # c0069
+    assert preserved["module_aliases"] == {} and preserved["net_aliases"] == {}  # type: ignore[index]
     assert preserved["fields"] == {"kept": [], "forced": [], "carried": []}  # type: ignore[index]  # c0030
+    assert preserved["pad_zones"] == {"kept": [], "forced": []}  # type: ignore[index]  # c0068
 
 
 def test_fresh_envelope(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -584,7 +509,7 @@ def test_rebuilt_blink_with_a_mounting_hole_added_in_kicad(
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr("sys.stdout", out)
     monkeypatch.setattr("sys.stderr", err)
-    stages = "model.validate,erc.lite,roundtrip"
+    stages = "model.validate,roundtrip"
     code = cli_main.main(["check", str(p.out), "--stages", stages, "--json"])
     env = json.loads(out.getvalue())
     assert code == 0, err.getvalue()

@@ -24,6 +24,7 @@ names were recorded, and the files are never vendored or read at runtime. Source
 | The library checks report `lib_footprint_issues` (footprint not found in an active library) and `lib_footprint_mismatch` (footprint differs from its library copy) | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
 | `kicad-cli` 9.0.9 and 10.0.6 write strict JSON reports that hold the 7 required keys; `ignored_checks` appears in the 10.0.6 report and not in the 9.0.9 one | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-JSON |
 | The unrouted blink placed through the model API (`tests/kicad/build/_probe_boards.py`), for target 9 on 9.0.9 and for targets 9 and 10 on 10.0.6, gives one violation type, `lib_footprint_issues` with severity `warning`, and 3 `unconnected_items`; the variant with one part moved off the board outline gives the same type, severity and count | S-0020, S-0022 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BUILD-TRIAD |
+| The custom-rule kinds of change c0071 are reported under the types `hole_to_hole`, `hole_clearance`, `annular_width`, `courtyards_overlap` (courtyard clearance), `silk_overlap` and `silk_over_copper` (silkscreen clearance) and `creepage` (10.0.6 only), each with the rule name and the limit and actual values in its `description` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 
 ## How Fenolite reads it
 
@@ -114,7 +115,32 @@ These are Fenolite's choices, not facts about KiCad:
   `@<x>,<y>`, the report position in millimetres. A location is never guessed.
 - **Messages.** `<type>: <description>`, with the temporary folder of the run replaced by `<tmp>` and
   the home directory by `~`.
-- **Parity.** `schematic_parity` entries are counted, not mapped: no parity check runs before v0.2a.
+- **Parity.** `schematic_parity` entries are findings like the others since v0.2a (`docs/formats/kicad/erc.md`,
+  "Parity in the DRC run"); what each type means is under "Schematic parity" below.
+
+## Schematic parity
+
+What `pcb drc --schematic-parity` reports, measured on 9.0.9 and 10.0.6 with the blink that `build` writes
+and with the public demos (change c0072). Fenolite's own comparison (`checks/parity.py`) follows these
+facts, and `tests/kicad/check/test_parity_agreement.py` compares its counts with KiCad's.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint whose reference was renamed gives one `missing_footprint` (no item; the text is `Missing footprint <ref> (<value>)`) and one `extra_footprint` (the footprint as item); a copied footprint with a new reference gives one `extra_footprint`; a project that agrees gives no entry | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-TYPES |
+| A changed value and a changed library id give one `footprint_symbol_mismatch` each, two when both differ | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-TYPES |
+| A pad on another net gives one `net_conflict` with the pad as item; so does a pad on no net whose pin has a net | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-TYPES |
+| A footprint that takes another's reference gives one `duplicate_footprints` (both footprints as items) and one `missing_footprint` for the reference it lost; the symbol is compared with the footprint of that reference that comes first on the board | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-TYPES |
+| Components and footprints are matched by reference; `n` footprints of one reference give `n - 1` `duplicate_footprints`, footprints without a reference included; a footprint with the attribute `board_only` is never extra and never a duplicate, and it still stands for the component of its reference | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-OWN |
+| A net name with `{slash}` in the schematic's netlist and with `/` on the board is one net; a second pad of the number of a pin on no net may carry that pin's net name followed by `_<n>` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-OWN |
+| A pin whose number no pad has gives a `net_conflict` with the footprint as item (`No pad found for pin <n> …`); a pad on a net whose number no pin has gives a `net_conflict` with the pad as item; a pin without a number and a pad without a number are not compared | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PARITY-OWN |
+| A footprint whose do-not-populate or exclude-from-BOM flag differs from its symbol's gives one `footprint_symbol_mismatch` (`Footprint attributes don't match symbol: …`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PARITY-OWN |
+| 10.0.6 also reports `footprint_symbol_field_mismatch` for a field whose text differs between the footprint and the symbol; Fenolite does not compare fields | S-0020 | INFERRED | H-K-PARITY-OWN |
+
+- **Severities.** Every parity entry is a warning by KiCad's defaults; the project's severities apply.
+- **Keys.** An entry is compared by its type and its first item: the reference of a footprint, or
+  `REF-PAD` of a pad. A missing footprint has no item, so its reference is read from its text.
+- **Published demos.** The demos of tag 9.0.9.1 disagree with their schematics as published (61
+  `footprint_symbol_mismatch` on `pic_programmer`), so a probe on a demo counts what an edit adds.
 
 ## RT2
 

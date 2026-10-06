@@ -4,13 +4,14 @@
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
 ## Requirements
 ### Requirement: Check command input
-`fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names without writing any file.
+`fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
+- **Document input.** Before the board is looked for, the command MUST take `PATH` as document input when it is a file for which `registry.for_path(PATH)` gives a backend that satisfies `DocumentValidator` (`backend-protocol`, "Document sets and container round trips"), or a folder that holds exactly one file such a backend detects as a project file (its `documents(folder)` gives a set) and no `.kicad_pro` and no `.kicad_pcb` file. A folder that holds a KiCad project or board and files of such a backend without exactly one project file stays KiCad input. A folder that holds both a KiCad project or board and such a project file MUST exit 2 with `FEN-2001` and a hint that names both. Document input MUST be checked by `fenolite.checks.documents.run_document_checks` ("Document check pipeline"), `--stages` MUST then select a subset of `DOCUMENT_STAGES`, no oracle MUST be built and no subprocess MUST run, and `--kicad-cli` and `--timeout` MUST be accepted and ignored. Its result and exit codes are those of `altium-verification`, "Check on Altium inputs".
 - **Flags.** `--stages a,b` MUST select a subset of `STAGE_ORDER`; an unknown or empty stage name MUST exit 2 with `FEN-2001`. `--kicad-cli PATH` MUST be passed to `find_kicad_cli` as the explicit path. `--timeout SECONDS` MUST default to 300 and MUST be passed to `KicadCli`.
 - **Built or native.** The input MUST be built when `<root>/.fenolite/meta.json` or `<root>/.fenolite/build.json` exists, `<root>` being the board's folder, and native otherwise. Built input MUST load its model with `model.canonical.load_dir(<root>/.fenolite)`. The board's `generator` atom MUST NOT decide it.
 - **Injection.** The command MUST narrow `registry.for_path(board)` with `isinstance(backend, Validator)` (`Validator` is `@runtime_checkable`), exit 2 with `FEN-2001` when no backend validates the board, and pass the narrowed backend as the `Validator` and `KicadOracle(KicadCli(path, timeout=…))` as the `Oracle` to `fenolite.checks.stages.run_checks`. It MUST build the oracle only when a stage of `ORACLE_STAGES` is selected ("Stages added for findings and round trips").
 - **Result.** `result.project` MUST hold `board`, `built`, `files` and `skipped`, with names relative to `<root>`. `result.stages` MUST hold one object per selected stage. `input.path` MUST be the board name relative to `<root>`.
-- `example_args` MUST be `(EXAMPLE_BOARD, "--stages", "model.validate,erc.lite,roundtrip")`, which runs no subprocess. `fenolite.cli._examples.EXAMPLE_BOARD` MUST be the absolute path of `tests/data/kicad/board/two_layer.kicad_pcb`, resolved at import from `Path(fenolite.__file__).resolve().parents[2]`, so that the consistency suite passes from any working directory of a source checkout.
+- `example_args` MUST be `(EXAMPLE_BOARD, "--stages", "model.validate,roundtrip")`, which runs no subprocess. `fenolite.cli._examples.EXAMPLE_BOARD` MUST be the absolute path of `tests/data/kicad/board/two_layer.kicad_pcb`, resolved at import from `Path(fenolite.__file__).resolve().parents[2]`, so that the consistency suite passes from any working directory of a source checkout.
 
 #### Scenario: Project folder resolved
 - **GIVEN** a folder holding `a.kicad_pro`, `a.kicad_pcb` and `b.kicad_pcb`
@@ -28,8 +29,8 @@ Check a KiCad project without writing to it: `fenolite check` runs model validat
 
 #### Scenario: Built input detected
 - **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, built=True)`, which writes `.fenolite/` with `dump_dir`
-- **WHEN** `fenolite check <project> --stages model.validate,erc.lite,roundtrip --json` runs
-- **THEN** `result.project.built` is `true` and the `erc.lite` stage has status `ok`
+- **WHEN** `fenolite check <project> --stages model.validate,roundtrip --json` runs
+- **THEN** `result.project.built` is `true` and the `model.validate` stage has status `ok`
 
 #### Scenario: Example arguments are hermetic
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise, and the working directory changed to an empty `tmp_path`
@@ -40,42 +41,61 @@ Check a KiCad project without writing to it: `fenolite check` runs model validat
 - **WHEN** `uv run pytest tests/consistency` runs from a temporary working directory, as in c0011's scenario "Consistency suite"
 - **THEN** it passes for `check`, `inspect` and `doctor`
 
+#### Scenario: Altium project folder dispatched
+- **GIVEN** a copy of `tests/data/altium/blink/` in `tmp_path`, with `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_check_altium.py -k dispatch` runs `fenolite check <folder> --json`
+- **THEN** `result.project.project` is `blink.PrjPcb`, `result.stages` names only stages of `DOCUMENT_STAGES`, and no subprocess ran
+
+#### Scenario: Folder with two backends
+- **GIVEN** a folder that holds `a.kicad_pcb` and `b.PrjPcb`
+- **WHEN** `fenolite check <folder> --json` runs
+- **THEN** the exit code is 2, stderr carries `FEN-2001`, and its hint names `a.kicad_pcb` and `b.PrjPcb`
+
+#### Scenario: KiCad stage name on document input
+- **WHEN** `fenolite check tests/data/altium/blink/blink.PrjPcb --stages drc.kicad` runs
+- **THEN** the exit code is 2 with `FEN-2001`, and the hint lists `DOCUMENT_STAGES`
+
 ### Requirement: Check stages and statuses
-`fenolite.checks.stages` SHALL define `STAGE_ORDER` and `run_checks(*, project, stages, model, built, validator, oracle, cache_error="") -> CheckReport`, where a non-empty `cache_error` says that `.fenolite/` failed `load_dir`. `STAGE_ORDER` MUST hold `model.validate`, `erc.lite`, `drc.kicad` and `roundtrip` in this relative order; this change defines exactly these four, and a later change MAY insert a stage through its own ADDED requirement. `run_checks` MUST run the selected stages in `STAGE_ORDER`, whatever order `--stages` gives, and MUST leave unselected stages out of `CheckReport.stages`.
+`fenolite.checks.stages` SHALL define `STAGE_ORDER` and `run_checks(*, project, stages, model, built, validator, oracle, cache_error="") -> CheckReport`, where a non-empty `cache_error` says that `.fenolite/` failed `load_dir`. `STAGE_ORDER` MUST hold `model.validate`, `erc.kicad`, `drc.kicad` and `roundtrip` in this relative order, and a later change MAY insert a stage through its own ADDED requirement. `run_checks` MUST run the selected stages in `STAGE_ORDER`, whatever order `--stages` gives, and MUST leave unselected stages out of `CheckReport.stages`.
 - Each stage MUST return a frozen `StageResult(name, status, evidence, issues, summary, reason)`. `StageResult.to_json()` MUST return `{name, status, reason, evidence, summary}`, with `evidence` as `{level, oracle, hypotheses}`.
-- `status` MUST be `ok` when the stage ran and gave no issue of severity `error`, `errors` when it gave at least one, and `skipped` when it did not run. A skipped stage MUST give no issue and a `reason`. The four stages of this change MUST use only `native-input`, `read-refused` and `cache-unreadable`; a stage added later defines its own reasons.
+- `status` MUST be `ok` when the stage ran and gave no issue of severity `error`, `errors` when it gave at least one, and `skipped` when it did not run. A skipped stage MUST give no issue and a `reason`. `model.validate`, `drc.kicad` and `roundtrip` MUST use only `native-input`, `read-refused` and `cache-unreadable`; `erc.kicad` uses `no-schematic` and `unsupported-oracle` ("ERC stage"), and a stage added later defines its own reasons.
 - `CheckReport.issues`, which the envelope's `issues` MUST equal, MUST be the input issues (`check.read-refused`, `check.cache-unreadable`) followed by the issues of each stage in stage order.
 - `run_checks` MUST call `validator.validate` at most once per run.
-- The functions of the four stages MUST be `checks.validate.validate_stage`, `checks.erc_lite.erc_stage`, `checks.drc.drc_stage` and `checks.roundtrip.roundtrip_stage`.
+- The functions of the four stages MUST be `checks.validate.validate_stage`, `checks.erc.erc_stage`, `checks.drc.drc_stage` and `checks.roundtrip.roundtrip_stage`. `STAGE_ORDER` MUST NOT hold `erc.lite`, and `--stages erc.lite` MUST be an unknown stage ("Check command input").
 - `checks` MUST import only `core`, `model`, `geometry` and `backends.base` (`package-layering`), and MUST reach KiCad only through the injected `Validator` and `Oracle`.
 
 #### Scenario: Fixed order
 - **GIVEN** a fake `Validator` and a fake `Oracle`
 - **WHEN** `run_checks` is called with `stages=("roundtrip", "model.validate")`
-- **THEN** `CheckReport.stages` names `model.validate` then `roundtrip`, and holds no `erc.lite` or `drc.kicad` entry
+- **THEN** `CheckReport.stages` names `model.validate` then `roundtrip`, and holds no `erc.kicad` or `drc.kicad` entry
 
 #### Scenario: Skipped by design
-- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages model.validate,erc.lite,roundtrip --json` runs
-- **THEN** `erc.lite` has status `skipped`, reason `native-input` and no issue, and the other two stages have status `ok`
+- **GIVEN** a fake `kicad-cli` passed with `--kicad-cli`
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages model.validate,erc.kicad,roundtrip --json` runs
+- **THEN** `erc.kicad` has status `skipped`, reason `no-schematic` and no issue, and the other two stages have status `ok`
 
 #### Scenario: Checks stay backend-free
 - **GIVEN** a module under `src/fenolite/checks/` that imports `fenolite.backends.kicad`
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
 - **THEN** it fails naming `checks → backends.kicad`
 
+#### Scenario: The old stage name is refused
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages erc.lite` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
 ### Requirement: Evidence per check stage
-Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stage SHALL carry `UNVERIFIED`. The envelope evidence SHALL be `Evidence.combine` of the stages with status `ok` or `errors` and of the stages skipped with reason `read-refused` or `cache-unreadable`, because their input failed. A stage skipped with reason `native-input` MUST NOT count, and the envelope MUST be `UNVERIFIED` when nothing counts.
+Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stage SHALL carry `UNVERIFIED`. The envelope evidence SHALL be `Evidence.combine` of the stages with status `ok` or `errors` and of the stages skipped with reason `read-refused` or `cache-unreadable`, because their input failed. A stage skipped with reason `native-input`, `no-schematic` or `unsupported-oracle` MUST NOT count, and the envelope MUST be `UNVERIFIED` when nothing counts.
 
 | stage | evidence |
 |---|---|
 | `model.validate`, native | `Validation.read.evidence` (`pcb.EVIDENCE`: `INFERRED`, `H-K-PCB-READ`) |
 | `model.validate`, built | `INFERRED` (Fenolite's structural rules) |
-| `erc.lite` | `erc_lite.EVIDENCE`: `INFERRED`, `H-K-CHECK-ERC` |
+| `erc.kicad` | `ErcOutcome.evidence` (for KiCad, `Evidence.combine(erc.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`; `KICAD-VERIFIED` only once `H-K-ERC-JSON`, `H-K-ERC-POS` and `H-K-ERC-COPYSET` are) when a report exists; `UNVERIFIED` otherwise |
 | `drc.kicad` | `DrcOutcome.evidence` (for KiCad, `Evidence.combine(drc.EVIDENCE, oracle.EVIDENCE)` with oracle `kicad-cli <version>`; `KICAD-VERIFIED` only once `H-K-DRC-JSON`, `H-K-CHECK-COPYSET` and `H-K-CHECK-CANARY`, or its `-2` successor, are) when a report exists and the stage gave neither `<oracle>.drc.rules-not-loaded` nor `<oracle>.drc.rules-unchecked`; `UNVERIFIED` otherwise |
 | `roundtrip` | `Validation.read.evidence` |
 
 #### Scenario: Lowest level of the stages that ran
-- **GIVEN** fakes for which `drc.kicad` gives `KICAD-VERIFIED`, `roundtrip` gives `INFERRED` and `erc.lite` is skipped
+- **GIVEN** fakes for which `drc.kicad` gives `KICAD-VERIFIED`, `roundtrip` gives `INFERRED` and `erc.kicad` is skipped with reason `no-schematic`
 - **WHEN** `uv run pytest tests/unit/checks -k envelope_evidence` runs `run_checks`
 - **THEN** `CheckReport.evidence.level` is `INFERRED`, and its hypotheses hold those of both stages that ran
 
@@ -124,7 +144,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 - It MUST report `check.footprint-unresolved` (error, `where` = the reference) for each component that is not DNP and has an empty `lib_footprint_ref` or no footprint instance.
 - On built input it MUST report `check.symbol-unresolved` (error, `where` = the reference) for each component with an empty `lib_symbol_ref`, DNP or not, whose `properties` hold a `fenolite.path` key.
 - A component of built input whose `properties` hold no `fenolite.path` key is board-only: a footprint added in KiCad, which a rebuild keeps with the component that `read_board` gives it and no symbol (`layout-lens`, "Orphan and board-only footprints"). It MUST NOT be reported as `check.symbol-unresolved`; every other rule of this stage applies to it.
-- A `.fenolite/` folder that `load_dir` cannot load MUST give one `check.cache-unreadable` warning, and `model.validate` and `erc.lite` MUST be skipped with reason `cache-unreadable`. The other stages MUST still run.
+- A `.fenolite/` folder that `load_dir` cannot load MUST give one `check.cache-unreadable` warning, and `model.validate` MUST be skipped with reason `cache-unreadable`. The other stages MUST still run.
 
 #### Scenario: Clean built project
 - **GIVEN** the authored built project, in which every component has a `lib_symbol_ref` and a placed footprint
@@ -143,23 +163,23 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 
 #### Scenario: Rebuilt blink with a mounting hole added in KiCad
 - **GIVEN** a confirmed target-10 blink build in `B` whose board gets, by token edit, a footprint `H1` that stands in for a mounting hole added in KiCad (made from `Mini_R_0603`, without a `fenolite.path` property, pad `1` on `GND` and pad `2` on no net), after which `fenolite build examples/blink_2layer/design.py --out B --confirm` runs again
-- **WHEN** `fenolite check B --stages model.validate,erc.lite,roundtrip --json` runs
+- **WHEN** `fenolite check B --stages model.validate,roundtrip --json` runs
 - **THEN** the exit code is 0, no issue has severity `error`, and no `check.symbol-unresolved` is reported
 
 #### Scenario: Unreadable cache
 - **GIVEN** the authored built project whose `.fenolite/board.json` holds `{`
-- **WHEN** `fenolite check <project> --stages model.validate,erc.lite,roundtrip --json` runs
-- **THEN** the issues hold one `check.cache-unreadable` warning, both model stages are skipped with reason `cache-unreadable`, and `roundtrip` has status `ok`
+- **WHEN** `fenolite check <project> --stages model.validate,roundtrip --json` runs
+- **THEN** the issues hold one `check.cache-unreadable` warning, `model.validate` is skipped with reason `cache-unreadable`, and `roundtrip` has status `ok`
 
 ### Requirement: ERC lite stage
-`checks.erc_lite` SHALL define `ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")`, `erc_lite(design) -> tuple[Issue, ...]`, `erc_stage(design) -> StageResult`, `EVIDENCE` (`INFERRED`, `H-K-CHECK-ERC`) and `REMOVE_IN = (0, 2)`. The stage MUST run on built input only; on native input it MUST be skipped with reason `native-input`.
+`checks.erc_lite` SHALL define `ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")`, `erc_lite(design) -> tuple[Issue, ...]`, `erc_stage(design) -> StageResult` and `EVIDENCE` (`INFERRED`, `H-K-CHECK-ERC`). The three rules are a function for pipelines of inputs that have no ERC oracle; the KiCad pipeline does not run them: `STAGE_ORDER` holds `erc.kicad` instead ("ERC stage"), and `run_checks` MUST NOT call `erc_stage`. `run_document_checks` runs them on the built model, or on the reading of the schematic documents ("Document check pipeline").
 - `erc.lite.output-conflict`: a net with two or more member pins whose `etype` is `output` or `power_out`.
 - `erc.lite.power-undriven`: a net with a `power_in` member pin and no `power_out` member pin, whose id is not a value of the `members` of any `Interface` with `kind == "power"` (c0011's `Power(hv, lv)`, which acts as a power flag).
 - `erc.lite.floating-pin`: a pin whose `etype` is not `no_connect`, that no net lists and that `Circuit.no_connects` does not list (`design-model`, "No-connect marks in the circuit model"), reported once per pin. A mark is matched by `PinRef(<component id>, <pin number>)`, the form the builds store.
 - The three rules MUST NOT report a marked pin that a net also lists: that is `model.no-connect-on-net`, a finding of `Design.validate()` and of the `model.validate` stage.
 - Pins of components with `dnp == True` MUST be ignored by the three rules.
 - Every finding MUST have severity `warning`.
-- `check_removal(version: str) -> None` MUST raise `RuntimeError` naming `erc.lite` and `REMOVE_IN` when `version` is at least `REMOVE_IN`. A unit test MUST call it with `fenolite.__version__`, so the suite fails once the package reaches 0.2 and the stage is removed or replaced by `sch erc` (v0.2a).
+- `REMOVE_IN` and `check_removal` MUST NOT exist: the removal they announced is done for KiCad input, and the rules stay for the other inputs.
 
 #### Scenario: One case per rule
 - **GIVEN** one authored model per rule and a clean control model
@@ -171,20 +191,20 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 - **WHEN** `erc_lite` runs
 - **THEN** it reports no `erc.lite.power-undriven`
 
-#### Scenario: Removal deadline
-- **GIVEN** `fenolite.__version__` patched to `0.2.0`, and the live version below `0.2`
-- **WHEN** `uv run pytest tests/unit/checks -k remove_in` runs
-- **THEN** it passes: `check_removal` raises `RuntimeError` naming `erc.lite` and `REMOVE_IN` for the patched version (`pytest.raises`), and returns `None` for the live version
-
 #### Scenario: Marked pin is not floating
 - **GIVEN** a model whose component `U1` has the `input` pins `11`, `12` and `13` on no net, and whose `Circuit.no_connects` holds `PinRef(<U1 id>, "11")` and `PinRef(<U1 id>, "12")`
 - **WHEN** `uv run pytest tests/unit/checks -k "erc_lite and no_connect"` runs `erc_lite`
 - **THEN** it reports exactly one `erc.lite.floating-pin`, whose `where` is `U1-13`
 
-#### Scenario: Marked pins of a built project
-- **GIVEN** a blink variant with `U1` of `Mini:Mini_QFP32_IC` whose supply pins are connected and whose remaining pins are all marked with `no_connect`, built with `--confirm` into `B`
-- **WHEN** `fenolite check B --stages erc.lite --json` runs
-- **THEN** the exit code is 0 and no `erc.lite.floating-pin` issue names `U1`
+#### Scenario: Not part of the KiCad pipeline
+- **GIVEN** a fake `Validator` and a fake `Oracle`
+- **WHEN** `uv run pytest tests/unit/checks/test_stages.py -k no_lite` runs `run_checks` with the default stages on built input
+- **THEN** no stage is named `erc.lite`, no issue code starts with `erc.lite.`, and `checks.erc_lite` has no attribute `REMOVE_IN`
+
+#### Scenario: Rules run on a schematic reading
+- **GIVEN** a fake `DocumentValidator` whose schematic reading holds a component `U1` with the `input` pins `1` and `2`, pin `1` on a net with a `power_out` pin and pin `2` on no net
+- **WHEN** `uv run pytest tests/unit/checks/test_documents.py -k erc_native` calls `run_document_checks` with `stages=("erc.lite",)` and `built=False`
+- **THEN** `erc.lite` has status `ok` and exactly one `erc.lite.floating-pin` warning, whose `where` is `U1-2`
 
 ### Requirement: DRC stage and the rules canary
 `checks.drc.drc_stage(oracle, project, *, built, design=None) -> StageResult` SHALL run DRC once through `oracle.drc(project)` and SHALL turn the rules verdict into issues. DRC violations MUST always be counted in `summary`. `summary.violations_judged` MUST be `true` exactly when the run also maps DRC violations to issues. Whenever a report exists, the stage MUST map them with `checks.drc_json.finding_issues(report, oracle=oracle.name, design=design)` ("DRC findings as issues"), where `design` is the board model that `run_checks` read, or `None` when that read was refused; without a report it maps none, and `violations_judged` is `false`.
@@ -192,7 +212,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
   - canary `absent`, or a `<stem>.kicad_dru` in the copy set without a `<stem>.kicad_pro`: `rules-not-loaded`, severity `error` on built input and `info` on native input;
   - canary `inconclusive`: `rules-unchecked` (warning), with `canary_reason` in the message, except for reason `no-report`, which gives only `check.oracle-failed`;
   - canary `fired`, or `not-applicable` without a rules file: no issue.
-- **Summary.** `summary` MUST hold `tool_version`, `canary`, `canary_reason`, `canary_removed`, `violations` (total), `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`, `violations_judged` and `types` (each emitted `<oracle>.drc.<type>` code mapped to the tool's raw type), counted on the report from which every canary violation was removed.
+- **Summary.** `summary` MUST hold `tool_version`, `canary`, `canary_reason`, `canary_removed`, `violations` (total), `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`, `violations_judged`, `parity`, `parity_judged` ("Parity findings") and `types` (each emitted `<oracle>.drc.<type>` code mapped to the tool's raw type), counted on the report from which every canary violation was removed.
 - **Copy skips.** Each `SkippedFile` of the project MUST give one `check.copy-skipped` info naming the file and its reason. It MUST NOT lower the stage evidence.
 - **No report.** When KiCad wrote no report or timed out, the stage MUST report `check.oracle-failed` (error) with `DrcOutcome.message`, and `retryable: true` on a timeout.
 
@@ -239,7 +259,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 #### Scenario: Built blink before routing
 - **GIVEN** c0011's `examples/blink_2layer` built into `tmp_path` for the running major with `fenolite build … --confirm`
 - **WHEN** `uv run pytest tests/kicad/check/test_check_built.py` runs `fenolite check <dir> --json` on both majors
-- **THEN** the stages are `model.validate`, `erc.lite`, `drc.kicad`, `netlist.assignment_compare` and `roundtrip` in this order, `erc.lite` runs, `summary.canary` is `fired`, `summary.violations_judged` is `true`, `roundtrip` is `ok`, and every `kicad.drc.unconnected-items` issue names `REF-PIN` pads in its `where`
+- **THEN** the stages are `model.validate`, `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and `roundtrip` in this order, `erc.kicad` runs, `summary.canary` is `fired`, `summary.violations_judged` is `true`, `roundtrip` is `ok`, and every `kicad.drc.unconnected-items` issue names `REF-PIN` pads in its `where`
 
 ### Requirement: Round-trip stage
 `checks.roundtrip.roundtrip_stage(validation) -> StageResult` SHALL report RT1 of the board for native and built input alike, because the board is the layout authority (`design-model`, "Layout authority").
@@ -265,7 +285,7 @@ Each `StageResult` SHALL carry the evidence of its own stage, and a skipped stag
 ### Requirement: Inputs Fenolite cannot read
 When the board read raises `FormatError` (`FEN-3004`), or its subclass `UnsupportedFormatError` (`FEN-3003`, a board older than the read floor), `check` SHALL report one `check.read-refused` error and SHALL still run `drc.kicad` when it is selected (`H-K-SEXPR-STRICT`). A newer board is read with `kicad.version.future` (`kicad-file-backend`, "Board version policy"), so `FEN-3002` never reaches this path.
 - The message MUST start with the FEN code. `where` MUST be the error's own location, `file:locator:@offset` with empty parts left out, as `FormatError` joins it, and `file` relative to the project root.
-- Stages that need the board model MUST be skipped with reason `read-refused`: `roundtrip` always, and `model.validate` on native input. On built input, `model.validate` and `erc.lite` MUST use the `.fenolite/` model and run.
+- Stages that need the board model MUST be skipped with reason `read-refused`: `roundtrip` always, and `model.validate` on native input. On built input, `model.validate` MUST use the `.fenolite/` model and run. `erc.kicad` needs no board model and runs on either input.
 - When the canary applies (`kicad-oracle`, "Check canary injection"), it MUST be `inconclusive` with reason `board-unparsed`.
 - When no DRC report exists, because KiCad failed too or `drc.kicad` was not selected, `check` MUST exit 3 with the read error's FEN code on stderr. It MUST raise `cmd_check.ReadRefusedError`, a `FormatError` subclass, or its subclass `UnsupportedReadRefusedError` (`cli_code = "FEN-3003"`) when the read error is an `UnsupportedFormatError`. The raised error MUST keep the read error's message, `file`, `locator`, `offset` and `hint`, and MUST carry `issues = CheckReport.issues`, so that the dispatcher puts them in the envelope's `issues` (`cli-contract`, "Refusals carry their issues", c0011) and the envelope's `issues` still equal `CheckReport.issues`.
 - The probe `check-unparsed-drc` MUST record whether KiCad writes a DRC report for `unmirrored/trailing-content.kicad_pcb` on each major.
@@ -315,7 +335,7 @@ When the board read raises `FormatError` (`FEN-3004`), or its subclass `Unsuppor
 
 ### Requirement: Check exit codes
 `check` SHALL exit 2 for usage errors (`FEN-2001`), 3 for a missing path (`FEN-3001`) or an unreadable board without a DRC report, and 6 when the tool pre-flight below fails. Otherwise it SHALL exit 5 (`FEN-5001`) when any issue has severity `error`, and 0 when none has.
-- When `drc.kicad` is selected, `check` MUST verify before any stage runs that `kicad-cli` exists (else exit 6 with `FEN-6001` and a hint naming `--stages model.validate,erc.lite,roundtrip` and `FENOLITE_KICAD_CLI`), that its major is in `TARGET_MAJORS`, and, when the board parses, that the header's format version is not above `FORMAT_VERSIONS[FileKind.BOARD][<tool major>]`, so a header of a newer major or with status `FUTURE` is refused (else exit 6 with `FEN-6002`). When the board does not parse, the header check MUST be skipped.
+- When `drc.kicad` is selected, `check` MUST verify before any stage runs that `kicad-cli` exists (else exit 6 with `FEN-6001` and a hint naming `--stages model.validate,roundtrip` and `FENOLITE_KICAD_CLI`), that its major is in `TARGET_MAJORS`, and, when the board parses, that the header's format version is not above `FORMAT_VERSIONS[FileKind.BOARD][<tool major>]`, so a header of a newer major or with status `FUTURE` is refused (else exit 6 with `FEN-6002`). When the board does not parse, the header check MUST be skipped.
 - Usage and path errors MUST be reported before this pre-flight.
 - `check` MUST NOT skip DRC and exit 0 when `kicad-cli` is missing.
 
@@ -348,7 +368,7 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **THEN** the two stdouts are equal apart from `elapsed_ms`, and hold no `<tmp>`, home or absolute path
 
 #### Scenario: Hermetic stages
-- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages model.validate,erc.lite,roundtrip --json` runs twice
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages model.validate,roundtrip --json` runs twice
 - **THEN** the two stdouts are equal apart from `elapsed_ms`
 
 #### Scenario: A board whose DRC report the tool does not repeat
@@ -361,9 +381,9 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **THEN** its `check` section names `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items` as the issues that can differ between two runs, and the reason `clearance-limit`
 
 ### Requirement: Stages added for findings and round trips
-`fenolite.checks.stages.STAGE_ORDER` SHALL be `("model.validate", "erc.lite", "copper.clearance", "drc.kicad", "netlist.assignment_compare", "roundtrip", "roundtrip.rt2")`: c0020 inserts `netlist.assignment_compare` before `roundtrip` and `roundtrip.rt2` after it, and c0029 inserts `copper.clearance` between `erc.lite` and `drc.kicad`, as "Check stages and statuses" allows.
+`fenolite.checks.stages.STAGE_ORDER` SHALL be `("model.validate", "erc.kicad", "copper.clearance", "drc.kicad", "netlist.assignment_compare", "roundtrip", "roundtrip.rt2")`: c0020 inserts `netlist.assignment_compare` before `roundtrip` and `roundtrip.rt2` after it, and c0029 inserts `copper.clearance` between the ERC stage and `drc.kicad`, as "Check stages and statuses" allows.
 - `OPT_IN_STAGES` MUST be `("roundtrip.rt2",)` and `DEFAULT_STAGES` MUST be `STAGE_ORDER` without them. `fenolite check` without `--stages` MUST run `DEFAULT_STAGES`, and `--stages` MUST accept every name of `STAGE_ORDER`.
-- `ORACLE_STAGES` MUST be `("drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")`. When any of them is selected, `cmd_check` MUST run the `kicad-cli` pre-flight of "Check exit codes" and MUST pass `KicadOracle(KicadCli(path, timeout=…))` as the oracle. `copper.clearance` MUST NOT be in `ORACLE_STAGES`: it runs no tool.
+- `ORACLE_STAGES` MUST be `("erc.kicad", "drc.kicad", "netlist.assignment_compare", "roundtrip.rt2")`. When any of them is selected, `cmd_check` MUST run the `kicad-cli` pre-flight of "Check exit codes" and MUST pass `KicadOracle(KicadCli(path, timeout=…))` as the oracle. `copper.clearance` MUST NOT be in `ORACLE_STAGES`: it runs no tool.
 - `run_checks` MUST pass the `Validation` of its single `validator.validate` call, or `None` when that read was refused, to `assignment_stage`, and its board model (`Validation.read.design`), or `None`, to `drc_stage`. It MUST pass that board model with `Validation.read.evidence` and the project set to `copper_stage`, with the validator as `rules_source` when `isinstance(validator, DesignRulesSource)` is true and as `frame` when `isinstance(validator, BoardFrame)` is true, and `None` for each otherwise. It MUST still call `validator.validate` at most once per run.
 - The functions of the two stages that c0020 adds MUST be `checks.assignment_compare.assignment_stage` and `checks.rt2.rt2_stage`. Each MUST be skipped with reason `read-refused` when the board read was refused, and with reason `unsupported-oracle` when `isinstance(oracle, NetlistOracle)`, respectively `isinstance(oracle, RoundTripOracle)`, is false (`backend-protocol`, "Netlist and round-trip oracles"). A stage skipped with `unsupported-oracle` MUST NOT count in the envelope evidence.
 - The function of `copper.clearance` MUST be `checks.copper.copper_stage` ("Copper clearance stage").
@@ -372,7 +392,7 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 #### Scenario: Default stages leave RT2 out
 - **GIVEN** the native `two_layer` project and a fake `kicad-cli` 10.0.6 that writes a DRC report and an IPC-D-356 export, passed with `--kicad-cli`, and `MACOS_KICAD_CLI` patched to a missing path
 - **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k default_stages` runs `fenolite check <project> --json`
-- **THEN** `result.stages` names `model.validate`, `erc.lite`, `copper.clearance`, `drc.kicad`, `netlist.assignment_compare` and `roundtrip` in this order, and no `roundtrip.rt2`
+- **THEN** `result.stages` names `model.validate`, `erc.kicad`, `copper.clearance`, `drc.kicad`, `netlist.assignment_compare` and `roundtrip` in this order, and no `roundtrip.rt2`
 
 #### Scenario: RT2 selected
 - **GIVEN** the same project and fake
@@ -405,8 +425,8 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **THEN** the project snapshot is equal before and after, and no `.fenolite/`, `native/` or `.kicad_prl` entry was created
 
 ### Requirement: DRC findings as issues
-`fenolite.checks.drc_json.finding_issues(report, *, oracle, design) -> tuple[Issue, ...]` SHALL map every violation and every unconnected item of a DRC report, after the canary was stripped, to exactly one issue. `schematic_parity` entries MUST be counted in `summary` and MUST NOT be mapped, because no parity check runs before v0.2a.
-- **Code.** `type_code(oracle, type)` MUST return `f"{oracle}.drc.{suffix}"`. The suffix is the type in lower case, with `_` and every other character outside `[a-z0-9-]` replaced by `-`, runs of `-` collapsed, leading and trailing `-` removed, and `unknown` when nothing remains. A suffix in `RESERVED_SUFFIXES = ("rules-not-loaded", "rules-unchecked")` MUST become `type-<suffix>`, so a KiCad type never takes a rules-verdict code. The raw type MUST be kept in `summary.types`.
+`fenolite.checks.drc_json.finding_issues(report, *, oracle, design) -> tuple[Issue, ...]` SHALL map every violation, every unconnected item and every `schematic_parity` entry of a DRC report, after the canary was stripped, to exactly one issue ("Parity findings").
+- **Code.** `type_code(oracle, type)` MUST return `f"{oracle}.drc.{suffix}"`. The suffix is the type in lower case, with `_` and every other character outside `[a-z0-9-]` replaced by `-`, runs of `-` collapsed, leading and trailing `-` removed, and `unknown` when nothing remains. A suffix in `RESERVED_SUFFIXES = ("rules-not-loaded", "rules-unchecked", "parity-unchecked")` MUST become `type-<suffix>`, so a KiCad type never takes a verdict code. The suffix rule itself MUST live in `checks.codes.type_suffix`, shared with the ERC codes ("ERC findings as issues"). The raw type MUST be kept in `summary.types`.
 - **Severity.** `issue_severity(violation)` MUST give `info` when `excluded` is true, otherwise `error` for `error`, `warning` for `warning`, and `error` for any other value.
 - **Where.** The locations of the items, in report order, joined with `, `. `item_locations(design, oracle)` MUST map each uuid that names exactly one entity of the design's board through `native_ids[oracle]`: a numbered pad gives `REF-PIN` (its component's reference, `-`, the pad number), a pad without a number and a footprint give `REF`, and any other entity gives its `provenance.locator`. A uuid that names no entity or several, and every item when `design` is `None`, MUST give `@<x>,<y>`: the item's report position in millimetres, written as an exact decimal without trailing zeros.
 - **Message.** The message MUST be `<type>: <description>`, with the parent folder of `report.source` replaced by `<tmp>` and the home directory by `~`, so the check output holds no temporary or absolute path.
@@ -436,14 +456,19 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **WHEN** it is mapped
 - **THEN** the message holds `<tmp>/lib` and `~`, and no absolute path
 
+#### Scenario: Parity entry mapped
+- **GIVEN** the design read from `tests/data/kicad/board/two_layer.kicad_pcb`, and a `DrcReport` whose `schematic_parity` holds one `net_conflict` entry of severity `warning` naming the uuid of pad 2 of `R1`
+- **WHEN** `uv run pytest tests/unit/checks/test_drc_json.py -k parity` calls `finding_issues(report, oracle="kicad", design=design)`
+- **THEN** it returns one `kicad.drc.net-conflict` warning whose `where` is `R1-2`
+
 ### Requirement: Assignment compare stage
-`fenolite.checks.assignment_compare.assignment_stage(oracle, project, *, validation, model, built, min_pins=1) -> StageResult` SHALL compare the net-to-pad assignments of the model, of the re-read board and of the tool's netlist export as partitions of `REF-PIN` elements, never by net name.
-- **Sources.** `board_netlist(design)` (source `board`), with `design = validation.read.design`, MUST give, for each numbered pad of each footprint, `PadAssignment(f"{ref}-{number}", label)`, where the label is the pad's `net_id`, or `NO_NET` (`""`) for a pad on no net; pads with an empty number MUST be counted in `summary.unnumbered` and not compared. `model_netlist(model)` (source `model`, built input only) MUST give each `PinRef` member of a net with the net's id as label, and each other pin of a component with `NO_NET`. The export is the `PadNetList` of `oracle.netlist(project, board=design)` (source `export`). When the `.fenolite/` model could not be loaded, built input compares only (`board`, `export`).
-- **Pairs.** The stage MUST compare (`model`, `board`) on built input and (`board`, `export`) on every input.
-- **Partitions.** `compare(a, b, *, min_pins=1) -> PairResult` MUST use the elements that both sides cover. Two of them are together on a side when they share a label there, and `NO_NET` is a label like any other. An element with two labels on one side MUST always be a difference; apart from such elements, `compare` MUST give no difference exactly when the two relations are equal.
+`fenolite.checks.assignment_compare.assignment_stage(oracle, project, *, validation, model, built, min_pins=1) -> StageResult` SHALL compare the net-to-pad assignments of the model, of the re-read board, of the tool's netlist export and of the schematic's netlist as partitions of `REF-PIN` elements, never by net name.
+- **Sources.** `board_netlist(design)` (source `board`), with `design = validation.read.design`, MUST give, for each numbered pad of each footprint, `PadAssignment(f"{ref}-{number}", label)`, where the label is the pad's `net_id`, or `NO_NET` (`""`) for a pad on no net; pads with an empty number MUST be counted in `summary.unnumbered` and not compared. `model_netlist(model)` (source `model`, built input only) MUST give each `PinRef` member of a net with the net's id as label, and each other pin of a component with `NO_NET`; an element names the pad of its pin, that is the pin number or the pad that the component's `pin_pad_map` gives it, because the board and the export speak in pad numbers. The export is the `PadNetList` of `oracle.netlist(project, board=design)` (source `export`); a pad that the IPC-D-356 export labels `N/C` MUST get the label `NO_NET`, unless a net of the board is named so. The schematic's netlist is the `PadNetList` of `oracle.schematic_netlist(project)` (source `schematic`), taken when the project has a schematic, that is `<board stem>.kicad_sch` is one of `project.files` (the copy set holds it whenever it lies beside the board, change c0062), and `isinstance(oracle, SchematicNetlistOracle)` is true (`backend-protocol`, "Schematic netlist oracle"). When the `.fenolite/` model could not be loaded, built input compares only (`board`, `export`).
+- **Pairs.** The stage MUST compare (`model`, `board`) on built input and (`board`, `export`) on every input. With a schematic netlist, it MUST also compare (`model`, `schematic`) on built input with a loaded model, and (`schematic`, `board`) otherwise, so the model is the hub of built input and the board the hub of native input, and one wrong pad or pin is reported once. When the project has a schematic and its netlist cannot be exported, the stage MUST report `check.oracle-failed` (error, `retryable: true` on a timeout) and MUST still compare the other pairs.
+- **Partitions.** `compare(a, b, *, min_pins=1) -> PairResult` MUST use the elements that both sides cover. Two of them are together on a side when they share a label there that is not `NO_NET`. An element whose label is `NO_NET` is a block of its own: two pads on no net are not connected to each other, so a side that names the net of an unconnected pin, as KiCad does with its `unconnected-(…)` nets, equals a side that leaves that pin on no net. An element with two labels on one side MUST always be a difference; apart from such elements, `compare` MUST give no difference exactly when the two relations are equal.
 - **min_pins.** Blocks of fewer than `min_pins` elements MUST be left out of their side, and their elements counted as uncovered with reason `below-min-pins`. The default 1 keeps single-pin nets.
 - **Location.** Each difference MUST name one element. For each block of either side, when one block of the other side holds more of its elements than every other block does, each of its elements outside that block MUST be flagged. When the relations differ and nothing is flagged, every element of a block that has no equal block on the other side MUST be flagged.
-- **Issues.** One `netlist.assignment-differs` error per flagged element and pair, with the element as `where` and a message naming both sources and both nets (net names for `model` and `board`, the exported label for `export`). One `netlist.uncovered` info per pair, side and reason, with the count and the first five elements in sorted order. A reason is the source's own `Uncovered` reason, or `below-min-pins`, or `not-in-<source>` for an element that the other source does not name at all. No export, or a timeout, MUST give `check.oracle-failed` (error, `retryable: true` on a timeout).
+- **Issues.** One `netlist.assignment-differs` error per flagged element and pair, with the element as `where` and a message naming both sources and both nets (net names for `model` and `board`, the exported label for `export` and `schematic`). One `netlist.uncovered` info per pair, side and reason, with the count and the first five elements in sorted order. A reason is the source's own `Uncovered` reason, or `below-min-pins`, or `not-in-<source>` for an element that the other source does not name at all. No export, or a timeout, MUST give `check.oracle-failed` (error, `retryable: true` on a timeout).
 - **Summary.** `summary` MUST hold `pairs` (one `{a, b, common, only_a, only_b, differences}` per pair), `min_pins` and `unnumbered`.
 - **Evidence.** The stage evidence MUST be `Evidence.combine` of `validation.read.evidence`, `NetlistOutcome.evidence` and, on built input, `INFERRED` for Fenolite's model rules; `UNVERIFIED` when the export failed.
 
@@ -476,6 +501,46 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **GIVEN** the native `two_layer` project and a fake netlist oracle that returns the board's own partition under other labels
 - **WHEN** the stage runs
 - **THEN** `summary.pairs` holds one pair, (`board`, `export`), with 0 differences, and the status is `ok`
+
+#### Scenario: Unconnected pins named on one side
+- **GIVEN** a `model` list with `U1-2` and `U1-3` on no net, and a `board` list with `U1-2` on `unconnected-(U1-PA1-Pad2)` and `U1-3` on `unconnected-(U1-PA2-Pad3)`, both otherwise equal
+- **WHEN** `uv run pytest tests/unit/checks/test_assignment_compare.py -k unconnected` calls `compare`
+- **THEN** it returns no difference
+
+#### Scenario: Mapped pins are named by their pads
+- **GIVEN** a model whose component `R1` has `pin_pad_map == (("1", "2"), ("2", "1"))` and whose net `VIN` lists pin `1`
+- **WHEN** `model_netlist` runs
+- **THEN** the element on `VIN` is `R1-2`, and `R1-1` is on no net
+
+#### Scenario: Two unconnected pads joined on one side
+- **GIVEN** a `model` list with `U1-2` and `U1-3` on no net, and a `board` list with both on one net `X`
+- **WHEN** `compare(model, board)` runs
+- **THEN** it returns at least one difference, naming `U1-2` or `U1-3`
+
+#### Scenario: Schematic agrees with the model
+- **GIVEN** a `model` list and a `schematic` list that hold the same partition, the schematic naming each unconnected pin `unconnected-(…)`
+- **WHEN** `uv run pytest tests/unit/checks/test_assignment_compare.py -k schematic_pair` runs the stage on built input with a fake `SchematicNetlistOracle`
+- **THEN** `summary.pairs` holds (`model`, `board`), (`model`, `schematic`) and (`board`, `export`), each with 0 differences
+
+#### Scenario: Two nets joined on the sheet
+- **GIVEN** a `model` list with `U3-6` on `GND` and `U4-6` on `OTHER`, and a `schematic` list with both on one net
+- **WHEN** the stage runs on built input
+- **THEN** it reports `netlist.assignment-differs` for the pair (`model`, `schematic`), naming `U3-6` or `U4-6`, and nothing for (`model`, `board`)
+
+#### Scenario: Native input compares the schematic with the board
+- **GIVEN** a native project with a schematic, a fake oracle whose schematic netlist has `R1-2` on another net than the board has
+- **WHEN** the stage runs
+- **THEN** `summary.pairs` holds (`schematic`, `board`) and (`board`, `export`), and one difference names `R1-2`
+
+#### Scenario: Schematic export fails
+- **GIVEN** a native project with a schematic and a fake oracle whose `schematic_netlist` returns no netlist
+- **WHEN** the stage runs
+- **THEN** it reports one `check.oracle-failed` error, and `summary.pairs` holds (`board`, `export`)
+
+#### Scenario: No schematic, pairs as before
+- **GIVEN** the native `two_layer` project, which has no schematic
+- **WHEN** the stage runs
+- **THEN** `summary.pairs` holds only (`board`, `export`), and the oracle's `schematic_netlist` is not called
 
 ### Requirement: RT2 stage
 `fenolite.checks.rt2.rt2_stage(oracle, project) -> StageResult` SHALL report RT2 of the board: KiCad's DRC gives the same violations for the board and for Fenolite's re-dump of it, as the reports of `oracle.rt2(project)` show (`kicad-oracle`, "RT2 oracle").
@@ -666,4 +731,324 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 #### Scenario: Copper codes documented
 - **WHEN** `uv run pytest tests/consistency` runs
 - **THEN** the six `copper.*` codes appear in `docs/cli-contract.md`
+
+### Requirement: Document check pipeline
+`fenolite.checks.documents` SHALL define `DOCUMENT_STAGES = ("model.validate", "erc.lite", "netlist.assignment_compare", "roundtrip.rta0", "roundtrip.rta1", "roundtrip.rta2")` and `run_document_checks(*, documents: DocumentSet, stages: Sequence[str], model: Design | None, built: bool, validator: DocumentValidator, cache_error: str = "") -> CheckReport`, the check of an input that is a set of documents instead of one board. `STAGE_ORDER`, `run_checks` and the KiCad stages are unchanged.
+- **Order and results.** The selected stages MUST run in `DOCUMENT_STAGES` order whatever order is given, unselected stages MUST be left out, and each stage MUST return the `StageResult` of "Check stages and statuses". `validator.read_documents` MUST be called at most once per run and only when a selected stage needs a reading, and `validator.container_roundtrip` at most once per document and level.
+- **Input issues.** Each entry of `ProjectRead.errors`, and each document whose `container_roundtrip` raises `FormatError` and that `errors` does not name, MUST give one `check.read-refused` error built like `stages.read_refused`, with the document name as the file. Each name of `DocumentSet.missing` MUST give one `check.document-missing` warning. A non-empty `cache_error` MUST give `check.cache-unreadable`. `CheckReport.issues` MUST hold these first, sorted by code and `where`, then the issues of each stage in stage order. `CheckReport.read_error` MUST be the error of the only document when the set holds exactly one document and its reading was refused, and `None` otherwise.
+- **`model.validate`.** On built input the stage MUST report the `model.*` findings of `model.validate()`; with a `cache_error` it MUST be skipped with reason `cache-unreadable`. On native input it MUST report the `model.*` findings of the schematic reading and of the PCB reading, each `where` prefixed with `schematic:` or `pcb:`, together with the readers' own issues; without any reading it MUST be skipped, with reason `read-refused` when a reading was refused and `not-judged` when the set holds no schematic and no PCB document (a library alone). It MUST NOT report `check.footprint-unresolved` or `check.symbol-unresolved`. `summary` MUST hold, under the key of each side that was judged (`model`, `schematic`, `pcb`), its `components` and `nets`.
+- **`erc.lite`.** `erc_lite.erc_lite` MUST run on the built model, or on native input on the schematic reading. Without a schematic reading on native input the stage MUST be skipped with reason `no-schematic`, or `read-refused` when a schematic document exists and its reading was refused.
+- **`netlist.assignment_compare`.** The sources MUST be `model` (`assignment_compare.model_netlist` of the built model), `schematic` (`model_netlist` of the schematic reading) and `pcb` (`assignment_compare.board_netlist` of the PCB reading), each `PadNetList` named after its source. The pairs MUST be (`model`, `schematic`) and (`model`, `pcb`) on built input and (`schematic`, `pcb`) on native input, each only when both sources exist, compared with `assignment_compare.compare`. The issues and `summary` (`pairs`, `min_pins`, `unnumbered`) MUST have the form of "Assignment compare stage". Without any pair the stage MUST be skipped with reason `single-source`, or `cache-unreadable` on built input with a `cache_error`. It MUST NOT need an oracle. The stage's evidence combines the readings compared with `validator.stage_evidence()` of the stage.
+- **`roundtrip.rta0` and `roundtrip.rta1`.** `checks.containers.container_stage(name, level, verdicts)` MUST turn the `ContainerRoundTrip` of every document of the set into one stage; `verdicts` maps a document name to its verdict, or to `None` for a document whose reading raised `FormatError`. The stage's evidence is `Evidence.combine` of the evidence of the judged verdicts. A verdict that is judged and not passed MUST give one `check.rta0-failed` or `check.rta1-failed` error whose `where` is `<document>:<difference>`. A verdict that is not judged MUST be counted in `summary.unjudged` by reason and MUST give one `check.roundtrip-unjudged` info, except for the reasons `not-a-container` and `read-refused`, which are only counted. For `RT-A1`, a document with a stream whose records are equal and whose bytes differ MUST give one `check.rta1-normalised` info that counts those streams. `summary` MUST hold `level`, `documents` (judged), `streams`, `failed` and `unjudged`, and for `RT-A1` also `records`, `bytes_equal` and `opaque_count`. A document whose reading raises `FormatError` MUST be counted under `read-refused`. When no document is judged the stage MUST be skipped: with reason `read-refused` when every document was refused, else `not-judged`; the skipped stage keeps its summary and its `check.roundtrip-unjudged` infos.
+- **`roundtrip.rta2`.** `checks.rta2.rta2_stage(model, read, scope)` MUST run on built input only and MUST be skipped with reason `native-input` otherwise, `cache-unreadable` with a `cache_error`, and `read-refused` without any reading. It MUST compare the built model with the schematic reading over the circuit kinds of `scope` (`rta2.CIRCUIT_KINDS`: `component`, `net`, `no_connect`) and with the PCB reading over its other kinds, through `checks.diff.diff_designs(model, reading, scope=…)` ("Model difference scope"). A board kind (`rta2.BOARD_KINDS`) of which the built model holds no entity MUST NOT be compared: the build wrote that content from inputs outside the model, and the count of the reading's entities goes to `summary.not_in_model`. Each change MUST give one `check.rta2-failed` error whose `where` is the change's path prefixed with `schematic:` or `pcb:`, at most 50 per side; `summary` MUST hold `level` (`RT-A2`), `holds`, `differences` (the full count), `compared` (per side, the entity kinds compared) and `not_in_model` (per side, the count per board kind that was not compared). Without a schematic and without a PCB reading the stage is skipped with `read-refused` when a reading was refused, else `not-judged`.
+- **Evidence.** A skipped stage carries `UNVERIFIED`. The envelope evidence MUST follow "Evidence per check stage": the stages that ran, and those skipped with `read-refused` or `cache-unreadable`, are combined; a stage skipped with `native-input`, `no-schematic`, `single-source` or `not-judged` MUST NOT count.
+- **Layering.** `checks.documents`, `checks.containers` and `checks.rta2` MUST import only `core`, `model`, `geometry` and `backends.base`.
+
+#### Scenario: Fixed order with a fake validator
+- **GIVEN** a fake `DocumentValidator` in `tests/unit/checks/fakes.py` with one schematic and one PCB reading whose pad nets agree, and passing verdicts
+- **WHEN** `uv run pytest tests/unit/checks/test_documents.py -k order` calls `run_document_checks` with `stages=("roundtrip.rta1", "model.validate", "netlist.assignment_compare")` and `built=False`
+- **THEN** `CheckReport.stages` names `model.validate`, `netlist.assignment_compare` and `roundtrip.rta1` in this order, every status is `ok`, `read_documents` was called once, and the pair is (`schematic`, `pcb`) with 0 differences
+
+#### Scenario: Pad on another net in the PCB document
+- **GIVEN** the same fake whose PCB reading puts pad `R1-2` on the net of `R1-1`
+- **WHEN** `netlist.assignment_compare` runs
+- **THEN** the stage has status `errors` and at least one `netlist.assignment-differs` error, the `where` of one of them being `R1-2`
+
+#### Scenario: Schematic alone
+- **GIVEN** a fake whose set holds one schematic document and no PCB document
+- **WHEN** every stage is selected on native input
+- **THEN** `netlist.assignment_compare` is skipped with reason `single-source`, `roundtrip.rta2` with `native-input`, `erc.lite` ran, and neither skip counts in the envelope evidence
+
+#### Scenario: One refused document among others
+- **GIVEN** a fake whose PCB document raises `FormatError` and whose schematic reads
+- **WHEN** every stage is selected on native input
+- **THEN** the issues start with one `check.read-refused` error naming the PCB document, `model.validate` ran on the schematic, `summary.unjudged` of both container stages holds `read-refused: 1`, and `CheckReport.read_error` is `None`
+
+#### Scenario: Failed and unjudged verdicts
+- **GIVEN** verdicts for three documents: `RT-A0` failed with `difference` `Nets6/Data`, `RT-A0` unjudged with reason `too-large`, and `RT-A0` unjudged with reason `not-a-container`
+- **WHEN** `uv run pytest tests/unit/checks/test_containers.py` runs `container_stage`
+- **THEN** it reports one `check.rta0-failed` error whose `where` ends in `:Nets6/Data` and one `check.roundtrip-unjudged` info naming `too-large`, `summary.unjudged` is `{"not-a-container": 1, "too-large": 1}`, and the status is `errors`
+
+#### Scenario: RT-A2 difference located
+- **GIVEN** a built model whose component `R1` has the value `10k`, and a schematic reading in which it is `1k`
+- **WHEN** `uv run pytest tests/unit/checks/test_rta2.py` runs `rta2_stage` with a scope that holds `component: ("value",)`
+- **THEN** it reports one `check.rta2-failed` error whose `where` is `schematic:/component/R1/value`, and `summary.holds` is `false`
+
+#### Scenario: Document checks stay backend-free
+- **GIVEN** a module `src/fenolite/checks/documents.py` that imports `fenolite.backends.altium`
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it fails naming `checks → backends.altium`
+
+### Requirement: Document check issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. No FEN code is added.
+
+| code | severity | when |
+|---|---|---|
+| `check.document-missing` | warning | the project file lists a document that does not exist |
+| `check.rta0-failed` | error | a container copy lost or changed a storage or a stream; `where` is `<document>:<stream path>` |
+| `check.rta1-failed` | error | a stream's records differ after decode and encode; `where` is `<document>:<stream>#<record>` |
+| `check.rta1-normalised` | info | streams whose records are equal and whose re-encoded bytes differ |
+| `check.rta2-failed` | error | the built model and a reading of the written documents differ inside the written scope |
+| `check.roundtrip-unjudged` | info | a document whose level was not judged; the message names the reason |
+
+#### Scenario: New literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each of the six codes is a key of `ISSUE_CODES` with the severity of this table
+
+#### Scenario: New codes documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** the six codes appear in `docs/cli-contract.md`
+
+### Requirement: Model difference scope
+`fenolite.checks.diff.diff_designs` SHALL take the keyword-only argument `scope: ModelScope | None = None` (`backend-protocol`, "Document sets and container round trips"), as "Model difference report" (change c0066) allows a later change to add. Without a scope the report is the one of "Model difference report", unchanged; `diff_libraries` takes no scope.
+- **Scope.** With a `scope`, only the kinds that are keys of `scope.fields` and only the fields listed for each MUST be compared; the kind `design` is compared only when it is a key. A keyed kind with an empty field list (`no_connect`) compares the presence of its keys.
+- **Tolerance.** Two lengths (a value of a field typed `Nm`, `Point` or `Size`, or of a sequence of them) are equal when they differ by at most `scope.length_tolerance`. Every other value MUST be equal exactly.
+- **Content kinds.** Content kinds are then matched in the canonical order of `a`, each entity taking the first unmatched entity of `b`, in canonical order, that is equal under the tolerance. Unmatched entities are `removed` or `added` as without a scope, and their `a` and `b` hold only the scoped fields.
+- **Order and result.** `changes`, `summary`, `equal` and `to_json` are those of "Model difference report".
+- The module MUST still import only `core`, `model`, `geometry` and `backends.base`.
+
+#### Scenario: Tolerance on lengths
+- **GIVEN** design `b` equal to `a` except that one track end is moved by 2 nm and one footprint by 3 nm
+- **WHEN** `uv run pytest tests/unit/checks/test_diff.py -k tolerance` runs `diff_designs(a, b, scope=ModelScope({"track": ("start", "end", "width", "layer"), "footprint": ("position",)}, length_tolerance=2))`
+- **THEN** the only change is `/footprint/<ref>/position`
+
+#### Scenario: Scope hides other kinds
+- **GIVEN** two designs that differ only in one text
+- **WHEN** `diff_designs` runs with a scope whose `fields` hold only `component`
+- **THEN** `equal` is true
+
+#### Scenario: Scope hides other fields
+- **GIVEN** two designs whose component `R1` differs in `value` and in `properties`
+- **WHEN** `diff_designs` runs with `ModelScope({"component": ("value",)})`
+- **THEN** the only change is `/component/R1/value`
+
+#### Scenario: Without a scope nothing changes
+- **WHEN** `uv run pytest tests/unit/checks/test_diff.py` runs the cases of "Model difference report" (change c0066)
+- **THEN** they pass unchanged
+
+### Requirement: ERC stage
+`fenolite.checks.erc.erc_stage(oracle, project) -> StageResult` SHALL report KiCad's electrical rules check of the project's schematic as the stage `erc.kicad`, second in `STAGE_ORDER`, a default stage and a member of `ORACLE_STAGES`.
+- **Input.** The stage MUST run on built and on native input alike, through `oracle.erc(project)` (`backend-protocol`, "ERC oracle protocol"), and MUST need no board model: a refused board read does not skip it, and `run_checks` MUST NOT read the board for this stage alone.
+- **Skips.** It MUST be skipped with reason `no-schematic` when `project.files` holds no `<board stem>.kicad_sch`, and with reason `unsupported-oracle` when `isinstance(oracle, ErcOracle)` is false. Neither skip counts in the envelope evidence.
+- **Issues.** With a report, the issues MUST be those of `checks.erc_json.finding_issues(report, oracle=oracle.name)` ("ERC findings as issues"). Without a report, or on a timeout, the stage MUST report `check.oracle-failed` (error) with `ErcOutcome.message`, and `retryable: true` on a timeout.
+- **Summary.** `summary` MUST hold `tool_version`, `sheets` (the number of sheets in the report), `violations` (total), `by_type`, `by_severity`, `excluded`, `ignored_checks`, `types` (each emitted code mapped to the tool's raw type) and `tool_writes`.
+- **Evidence.** The stage evidence MUST be `ErcOutcome.evidence` when a report exists and `UNVERIFIED` otherwise ("Evidence per check stage").
+- The stage MUST keep "Check is read-only" and "Check output is deterministic": the tool runs on the copy set, and the output holds no report date and no temporary path.
+
+#### Scenario: Clean built project
+- **GIVEN** the blink built with a schematic for the running major
+- **WHEN** `uv run pytest tests/kicad/check/test_erc_oracle.py -k clean` runs `fenolite check <dir> --stages erc.kicad --json` on 9.0.9 and on 10.0.6
+- **THEN** the exit code is 0, the stage has status `ok`, `summary.violations` is 0, and the stage's oracle is `kicad-cli <running version>`
+
+#### Scenario: Unconnected pin reported
+- **GIVEN** the same project with the label of pin 1 of `R1` removed from the schematic by token edit
+- **WHEN** `fenolite check <dir> --stages erc.kicad --json` runs
+- **THEN** the exit code is 5, and the issues hold one `kicad.erc.pin-not-connected` error whose `where` is `R1-1`
+
+#### Scenario: No schematic
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages erc.kicad --json` runs with a fake `kicad-cli`
+- **THEN** the stage has status `skipped` and reason `no-schematic`, the fake saw no `sch erc` run, and the exit code is 0
+
+#### Scenario: Schematic the tool cannot load
+- **GIVEN** a fake `ErcOracle` that returns no report and the message `Failed to load schematic`
+- **WHEN** `uv run pytest tests/unit/checks/test_erc_stage.py -k no_report` runs the stage
+- **THEN** it reports one `check.oracle-failed` error holding that message, and the stage evidence is `UNVERIFIED`
+
+#### Scenario: Native project
+- **GIVEN** the authored hierarchy `tests/data/kicad/schematic/hier/` copied into `tmp_path` with a board and a project file of the stem `top`
+- **WHEN** `fenolite check <dir> --stages erc.kicad --json` runs on both majors
+- **THEN** the stage runs with `summary.sheets` 2, and the folder snapshot is equal before and after
+
+### Requirement: ERC findings as issues
+`fenolite.checks.erc_json.finding_issues(report, *, oracle) -> tuple[Issue, ...]` SHALL map every violation of an `ErcReport` to exactly one issue.
+- **Code.** The code MUST be `erc_json.type_code(oracle, type)`, that is `f"{oracle}.erc.{suffix}"`, the suffix being `checks.codes.type_suffix(type)`: the rule that `drc_json.type_code` applies to DRC types (lower case, `_` and every other character outside `[a-z0-9-]` replaced by `-`, runs collapsed, `unknown` when nothing remains). `drc_json.type_code` MUST use the same helper. A suffix in `erc_json.RESERVED_SUFFIXES = ("position-unscaled",)`, the code a reader of ERC reports uses for itself, MUST become `type-<suffix>`. The raw type MUST be kept in `summary.types`.
+- **Severity.** `info` when `excluded` is true, otherwise `error` for `error`, `warning` for `warning`, and `error` for any other value.
+- **Where.** The locations of the items, in report order, joined with `, `: an item's `where` when the oracle filled it (`REF-PIN` for a pin, `REF` for a symbol, the text for a label), and otherwise `<sheet>@<x>,<y>`, the sheet path and the item position in millimetres as an exact decimal without trailing zeros.
+- **Message.** `<type>: <description>`, with the parent folder of `report.source` replaced by `<tmp>` and the home directory by `~`.
+- The function MUST NOT emit a code literal; every code matches the `ISSUE_CODES` key `<oracle>.erc.<type>` ("ERC stage issue codes").
+
+#### Scenario: Pin located as REF-PIN
+- **GIVEN** an `ErcReport` whose one `pin_not_connected` violation of severity `error` has one item with `where == "U1-2"`
+- **WHEN** `uv run pytest tests/unit/checks/test_erc_json.py -k ref_pin` calls `finding_issues(report, oracle="kicad")`
+- **THEN** it returns one `kicad.erc.pin-not-connected` error whose `where` is `U1-2`
+
+#### Scenario: Item without a location
+- **GIVEN** a violation on sheet `/` whose only item has `where == ""` and position (139.7 mm, 59.69 mm)
+- **WHEN** it is mapped
+- **THEN** the issue's `where` is `/@139.7,59.69`
+
+#### Scenario: Excluded violation
+- **GIVEN** a violation with `excluded` true and severity `error`
+- **WHEN** it is mapped
+- **THEN** the issue has severity `info`
+
+### Requirement: ERC stage issue codes
+`checks.codes.ISSUE_CODES` SHALL gain the keys of this table, as "Check issue codes" allows, and `docs/cli-contract.md` MUST document them with `kicad` for `<oracle>`.
+
+| code | severity | when |
+|---|---|---|
+| `<oracle>.erc.<type>` | error, warning or info | an ERC violation of that type; `info` when excluded |
+| `<oracle>.drc.parity-unchecked` | warning | parity was asked for and the tool did not judge it |
+
+`cli/data/explain.toml` MUST explain `kicad.erc.*`, `kicad.drc.parity-unchecked` and the reader's own `kicad.erc.position-unscaled` (`cli-contract`, "Explain command").
+
+`checks.codes.table_key` MUST map an oracle's `.erc.` code to the key `<oracle>.erc.<type>`. The codes `erc.lite.*` MUST stay keys of `ISSUE_CODES` ("ERC lite stage").
+
+#### Scenario: Closed set still enforced
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each is a key of `ISSUE_CODES`, `kicad.erc.pin-not-connected` matches the key `<oracle>.erc.<type>`, and every key appears in `docs/cli-contract.md`
+
+### Requirement: Parity findings
+When the DRC run tested schematic parity (`kicad-oracle`, "Parity in the DRC run"), the `drc.kicad` stage SHALL report each parity entry as an issue and SHALL say in its summary whether parity was judged.
+- `summary.parity` MUST be the number of parity entries of the counted report, and `summary.parity_judged` MUST be true exactly when the run passed the parity flag and the tool judged it.
+- Each entry MUST be mapped by `drc_json.finding_issues` as a violation is ("DRC findings as issues").
+- When the flag was passed and the tool did not judge parity, the stage MUST report one `<oracle>.drc.parity-unchecked` warning with the tool's sanitised line, `summary.parity_judged` MUST be false, and the stage evidence MUST NOT be lowered: the copper verdict stands.
+- A project without a schematic MUST give `parity_judged` false and no parity issue.
+
+#### Scenario: Built project in agreement
+- **GIVEN** the blink built with a schematic for the running major
+- **WHEN** `uv run pytest tests/kicad/check/test_parity.py -k built` runs `fenolite check <dir> --stages drc.kicad --json` on both majors
+- **THEN** `summary.parity_judged` is `true`, `summary.parity` is 0, and no issue code is a parity type
+
+#### Scenario: Pad on another net
+- **GIVEN** the same board with pad 2 of `R1` moved to the net `GND` by token edit
+- **WHEN** the same command runs
+- **THEN** the issues hold `kicad.drc.net-conflict` with `where` `R1-2`, and `summary.parity` is at least 1
+
+#### Scenario: Project without a schematic
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages drc.kicad --json` runs with a fake `kicad-cli`
+- **THEN** the fake saw no `--schematic-parity`, and `summary.parity_judged` is `false`
+
+### Requirement: Model difference report
+`fenolite.checks.diff` SHALL define `Change(path: str, change: Literal["added", "removed", "changed"], a: str, b: str)`, `DiffReport(equal: bool, changes: tuple[Change, ...], summary: Mapping[str, Mapping[str, int]])`, `diff_designs(a: Design, b: Design, *, ext: bool = False) -> DiffReport`, `diff_libraries(a: Library, b: Library, *, ext: bool = False) -> DiffReport` and `diff_sheets(a: SchematicSheet, b: SchematicSheet, *, ext: bool = False) -> DiffReport`. The report lists every difference between two models exactly; it gives no verdict by level and removes no frame.
+- **Never compared.** `id`, `native_ids` and `provenance` MUST be left out. `ext` MUST be left out unless `ext=True`, and is then compared as the SHA-256 of its canonical JSON. A reference by id (`net_id`, `component_id`, `netclass_id`, a member's component) MUST be replaced by the key of the entity it names before values are compared.
+- **Keyed kinds.** `component` is matched by `ref`; `net` by `name`, and a net with an empty name by its sorted members as `REF-PIN`; `netclass` and `layer` by `name`; `no_connect` by `REF-PIN`; `footprint` by the `ref` of its component; `pad` by `<ref>-<number>`, with `#<k>` for the k-th further pad of one number or of no number; `interface` by `name` and `module` by `path`; in a library, `footprint_def` and `symbol_def` by `<library>:<name>` (the bare name for a definition without a library); in a sheet, `symbol` by `<ref>#<unit>`, `sheet_ref` by `name` and `lib_symbol` by its embedded name. An entity on one side only is `removed` (only in `a`) or `added` (only in `b`), with path `/<kind>/<key>`. A field that differs is `changed`, with path `/<kind>/<key>/<field>` and `a` and `b` holding the compact canonical JSON of each value. A key is one path segment: `~` is written `~0` and `/` is written `~1`, as in a JSON pointer, so a net called `/SDA` has the path `/net/~1SDA`. A key used twice in one kind takes `#<k>` as pads do. The values a design holds once (the board `outline`, the stack-up `finish`, `sheet` and `title_block`, and the board's `ext` with `ext=True`) are the fields of the kind `design`, which has no key: their paths are `/design/<field>`. In a sheet, `paper`, `title_block` and `pages` (and the sheet's `ext` with `ext=True`) are the fields of the keyless kind `sheet`, and the sheet's `name` MUST NOT be compared. The design's `name`, its manufacturing manifest and its findings MUST NOT be compared: the name identifies the design as an id does, and the other two describe outputs.
+- **Content kinds.** `track`, `arc`, `via`, `zone`, `keepout`, `text`, `graphic`, `hole`, `rule` and `stack_layer`, and in a sheet `label` and `no_connect_flag`, have no key: two entities match when every compared field is equal, and each entity matches at most one. Unmatched entities are `removed` or `added`, with path `/<kind>/<n>`, `n` being the index among the unmatched entities of that side in canonical order (the order of the entities' compact canonical JSON, which no id takes part in), and the entity's compact canonical JSON as `a` or `b`.
+- **Order.** `changes` MUST be sorted by path, then by change. `summary` MUST map each kind that has a change to its counts `added`, `removed` and `changed`. `equal` MUST be true exactly when `changes` is empty.
+- `DiffReport.to_json(limit: int | None)` MUST return `equal`, `summary`, `differences` (the first `limit` changes, or all), `total` and `truncated`.
+- The module MUST import only `core`, `model`, `geometry` and `backends.base`.
+- A later change MAY add keyword-only arguments with defaults to the three functions (a comparison scope, a length tolerance); each such requirement names this one.
+
+#### Scenario: Equal designs with different ids
+- **GIVEN** two designs built from the same data with different seeds, so every `id` differs
+- **WHEN** `uv run pytest tests/unit/checks/test_diff.py -k ids` runs `diff_designs`
+- **THEN** `equal` is true and `changes` is empty
+
+#### Scenario: One change per kind
+- **GIVEN** design `b` equal to `a` except: `R1` has another value, net `VIN` has one member more, one track is removed and one via is added
+- **WHEN** `diff_designs(a, b)` runs
+- **THEN** `changes` holds exactly `/component/R1/value` (`changed`), `/net/VIN/members` (`changed`), `/track/0` (`removed`) and `/via/0` (`added`), sorted by path
+
+#### Scenario: Moved footprint is one change
+- **GIVEN** design `b` equal to `a` except that the footprint of `R1` is moved by 1 mm in X
+- **WHEN** `diff_designs(a, b)` runs
+- **THEN** `changes` holds exactly one entry, `/footprint/R1/position` (`changed`), and no entry for the pads of `R1`, whose positions are stored relative to their footprint
+
+#### Scenario: Renamed net
+- **GIVEN** design `b` equal to `a` except that the net `VIN` is called `VBUS`
+- **WHEN** `diff_designs(a, b)` runs
+- **THEN** it reports `/net/VBUS` as `added` and `/net/VIN` as `removed`, and each pad of that net as `changed` in its `net_id` field
+
+#### Scenario: Libraries
+- **GIVEN** two libraries that hold the same footprint, the second with one pad 0.1 mm wider
+- **WHEN** `diff_libraries(a, b)` runs
+- **THEN** the only change is `changed` at `/pad/<library>:<name>-<number>/size`
+
+#### Scenario: Sheets
+- **GIVEN** two sheets read from `tests/data/kicad/schematic/flat.kicad_sch`, the second with `R1` moved and one global label removed
+- **WHEN** `diff_sheets(a, b)` runs
+- **THEN** `changes` holds `/symbol/R1#1/position` (`changed`) and one `/label/0` (`removed`)
+
+#### Scenario: Opaque content only with ext
+- **GIVEN** two sheets that differ in one opaque `wire`
+- **WHEN** `diff_sheets(a, b)` runs, and again with `ext=True`
+- **THEN** the first reports `equal` true, and the second one change whose path ends in `/ext`
+
+#### Scenario: Diff stays backend-free
+- **GIVEN** a version of `src/fenolite/checks/diff.py` that imports `fenolite.backends.kicad`
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it fails naming `checks → backends.kicad`
+
+### Requirement: Parity comparison
+`fenolite.checks.parity.compare(side, board, *, issues=None) -> ParityReport` SHALL compare a schematic side with a board, and SHALL report every difference with one code of "Parity issue codes".
+- `side` MUST be a `SchematicSide(components, nodes, fold, single_prefix)` of `backends.base`, re-exported here: `components` maps each reference to `SideComponent(value, footprint, pins, attributes)`, `pins` being the pin numbers of all the component's units in body style 1 and of its common pins, and `attributes` those of the flags `dnp` and `exclude_from_bom` that the symbol has; `nodes` maps (reference, pin number) to a net name in the backend's stored form. References that start with `#` MUST NOT be components.
+- `board` MUST be a `Design` with a board, as `read_board` gives it.
+- **Net names.** Both sides MUST be compared after the replacements of `side.fold` (KiCad: `{slash}` and `/` are one spelling). When `side.single_prefix` is not empty, a board net named `<node>_<digits>` MUST be the net of a node whose name starts with that prefix (a further pad of the number of a pin on no net).
+- **Matching.** Components and footprints MUST be matched by reference only. With several footprints of one reference, the component MUST be matched with the first in board order, a footprint with the attribute `board_only` included.
+- **Findings.** `parity.missing-footprint` for a component without a footprint of its reference; `parity.extra-footprint` for each footprint without a component, footprints with the attribute `board_only` left out; `parity.duplicate-footprints` for each further footprint of a reference (`n - 1` for `n` footprints, the empty reference included), footprints with `board_only` left out; `parity.footprint-mismatch` once per differing field of `FIELDS`: `value`, `footprint` (the library id) or `attributes` (the flags of `SHARED_ATTRIBUTES` that the symbol and the footprint do not share, one finding for all); `parity.net-conflict` for each numbered pad of a matched footprint whose net is not the node of its number, a pad on no net whose node has one and a pad on a net whose number no pin names included.
+- **Symbol and footprint.** For each matched pair: `parity.pin-without-pad` for a pin number that names no pad, an error when the node's net has another node and a warning otherwise; `parity.pad-without-pin` (info), once per number, for a numbered pad of a kind other than `np_thru_hole` that is on no net and whose number no pin names. A pin without a number and a pad without a number MUST NOT be compared.
+- **Report.** `ParityReport.findings` MUST be sorted by code, then key, then field; each `ParityFinding` holds `code`, `severity`, `key` (the reference, or `REF-PAD`), `field`, and the `schematic` and `board` values. `summary` MUST hold the count of each code and `refs_one_side` (missing plus extra footprints), `connections_missing` (net conflicts whose pad has no net while its node has one) and `nets_split` (schematic nets whose pads carry more than one board net name, or one other than the schematic's).
+- `KICAD_TYPES` MUST map each of the first five codes to its KiCad parity type (`H-K-PARITY-TYPES`), and `parity.pin-without-pad` to `net_conflict`: KiCad reports such a pin as a net conflict of the footprint. `oracle_entry(finding)` MUST give the KiCad type and key of a finding (the reference for a pin without a pad), or `None` for a finding that KiCad does not make.
+- The module MUST import only `core`, `model`, `geometry` and `backends.base`, and MUST be pure. `EVIDENCE` MUST be `INFERRED` with `H-K-PARITY-OWN`.
+
+#### Scenario: Agreeing project
+- **GIVEN** the side and board of the blink built with a schematic
+- **WHEN** `compare` runs
+- **THEN** `findings` is empty, and every summary count is 0
+
+#### Scenario: Reference on one side
+- **GIVEN** the same board with `R1`'s reference changed to `R99` by token edit
+- **WHEN** `compare` runs
+- **THEN** `findings` holds `parity.missing-footprint` keyed `R1` and `parity.extra-footprint` keyed `R99`, and `summary.refs_one_side` is 2
+
+#### Scenario: Pad on no net
+- **GIVEN** the same board with the net of pad 2 of `R1` removed by token edit
+- **WHEN** `compare` runs
+- **THEN** `findings` holds `parity.net-conflict` keyed `R1-2`, and `summary.connections_missing` is 1
+
+#### Scenario: Pin without a pad
+- **GIVEN** an authored side whose `U1` has a pin `33` on the net `VIN`, which also holds `R1` pin 1, and a board whose `U1` footprint has 32 pads
+- **WHEN** `compare` runs
+- **THEN** `findings` holds one `parity.pin-without-pad` error keyed `U1-33`
+
+#### Scenario: Board-only footprint
+- **GIVEN** the blink board with a footprint `H1` that has the attribute `board_only`
+- **WHEN** `compare` runs
+- **THEN** no finding names `H1`
+
+#### Scenario: Duplicated reference
+- **GIVEN** the blink board whose `R1` was given the reference `D1`
+- **WHEN** `compare` runs
+- **THEN** `findings` holds one `parity.duplicate-footprints` keyed `D1` and one `parity.missing-footprint` keyed `R1`, and nothing else, because the footprint `D1` that comes first is the diode's own
+
+### Requirement: Parity stage
+`fenolite check` SHALL gain the stage `parity`, after `drc.kicad` and before `roundtrip` in `STAGE_ORDER`, as "Check stages and statuses" allows, run by `checks.parity_stage.parity_stage`.
+- The stage MUST be `skipped` with the reason `no-schematic` when the project has no `<board stem>.kicad_sch`, with `read-refused` when the board was not read, and with `netlist-unavailable` when the sheet tree is outside Fenolite's netlist grammar and no netlist oracle is injected. The stage is not one of `ORACLE_STAGES`: selecting it alone builds no oracle.
+- The side MUST come from the validator when it is a `ParityInputs` of `backends.base` (`schematic_side(project, *, nodes=None) -> SideOutcome`): with the backend's own netlist when the tree is inside the grammar, else with the schematic netlist of the injected `SchematicNetlistOracle` (c0063). An oracle that writes no netlist MUST give `check.oracle-failed`, and a schematic that cannot be read `check.read-refused`.
+- Symbol ↔ footprint findings (`parity.pin-without-pad`, `parity.pad-without-pin`) MUST always become issues.
+- When `drc.kicad` ran in the same check with `summary.parity_judged` true, the other findings MUST NOT become issues. They MUST be compared with KiCad's parity entries by KiCad type and key (`oracle_entry`; the key of a KiCad entry is its first item's location, and the reference in its text for a missing footprint), and each difference MUST give one `parity.oracle-differs` (warning) naming the type, the key and the side that holds it. A KiCad type without a Fenolite code is not compared. Otherwise they MUST become issues.
+- `summary` MUST hold `netlist` (`own` or `oracle`), `compared` (whether KiCad's entries were compared), `differences`, and the counts of `ParityReport.summary`.
+- The stage evidence MUST be `checks.parity.EVIDENCE` combined with the netlist's, and `KICAD-VERIFIED` evidence of `drc.kicad` MUST NOT be lowered by this stage.
+
+#### Scenario: Agreement with KiCad
+- **GIVEN** the blink built with a schematic, whose pad 2 of `R1` was moved to `GND` by token edit
+- **WHEN** `fenolite check <dir> --stages drc.kicad,parity --json` runs with `kicad-cli`
+- **THEN** `drc.kicad` reports `kicad.drc.net-conflict` at `R1-2`, the stage `parity` reports no `parity.net-conflict` and no `parity.oracle-differs`, and its `summary.compared` is `true`
+
+#### Scenario: Without KiCad
+- **WHEN** the same check runs with `--stages parity` and no `kicad-cli`
+- **THEN** the stage `parity` reports `parity.net-conflict` at `R1-2`, `summary.netlist` is `own`, `summary.compared` is `false`, and the exit code is 5
+
+#### Scenario: Disagreement reported
+- **GIVEN** a fake oracle whose parity entries omit the net conflict
+- **WHEN** the check runs with both stages
+- **THEN** the stage `parity` reports one `parity.oracle-differs` naming `net_conflict`, `R1-2` and the side `fenolite`
+
+### Requirement: Parity issue codes
+`checks.parity.PARITY_ISSUE_CODES` SHALL be this closed table, and the codes SHALL join the check issue codes.
+
+| code | severity | when |
+|---|---|---|
+| `parity.missing-footprint` | error | a schematic component has no footprint |
+| `parity.extra-footprint` | error | a footprint has no schematic component |
+| `parity.duplicate-footprints` | error | a footprint holds the reference of an earlier one |
+| `parity.net-conflict` | error | a pad's net differs from the schematic's, or no pin names a pad that is on a net |
+| `parity.pin-without-pad` | error or warning | a pin names no pad: error when its net has another node |
+| `parity.footprint-mismatch` | warning | the value, the footprint or the shared flags differ |
+| `parity.oracle-differs` | warning | Fenolite's comparison and KiCad's parity test disagree |
+| `parity.pad-without-pin` | info | a numbered copper pad on no net that no pin names |
+
+#### Scenario: Closed set
+- **WHEN** `uv run pytest tests/unit/checks/test_parity.py -k closed_set` collects the codes that `test_parity.py` and `test_parity_stage.py` name
+- **THEN** each is a key of `PARITY_ISSUE_CODES` with an allowed severity, and every key is produced by at least one test
 

@@ -1,0 +1,13 @@
+(kicad_sch
+	(version 20260306)
+	(generator "fenolite")
+	(generator_version "10.0")
+	(uuid "a171a999-34fc-5ba4-a4ab-4ba222dd56ee")
+	(paper "A4")
+	(lib_symbols)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+)

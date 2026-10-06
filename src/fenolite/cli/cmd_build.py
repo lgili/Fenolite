@@ -11,6 +11,13 @@ layouts; ``--discard-layout`` replaces them, keeping backups. ``--vendor all`` (
 placed footprints of every library into ``DIR/lib/``; ``--vendor project`` copies only those of project
 tables (``docs/dsl.md``, "Vendored libraries").
 
+A KiCad build also writes the schematic of the design, ``<name>.kicad_sch``, with its symbol libraries and
+``sym-lib-table`` (change c0061; ``docs/schematic.md``): ``--schematic skip`` leaves them out. The sheet is
+a view of the script, so an edited schematic is replaced, with a warning and a backup; symbol positions are
+fixed in ``schematic-placements.toml`` beside the script. ``--schematic-layout readable`` (the default,
+change c0070) gives each module a sheet of its own under ``sheets/`` and puts 2-pin parts beside the IC
+pins they connect to; ``grid`` keeps the one flat sheet of v0.2a.
+
 Before a KiCad build plans its writes, the copper guard judges the triad it is about to write with
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
 short or a clearance error refuses the build unless ``--copper-check warn`` is given.
@@ -42,7 +49,7 @@ from fenolite.backends.altium.project import (
     SheetMode,
 )
 from fenolite.backends.kicad import copper as kicad_copper
-from fenolite.backends.kicad import copperrules
+from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.backend import KicadBackend
@@ -51,14 +58,39 @@ from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.replace import footprint_ref
+from fenolite.backends.kicad.schgen import LAYOUTS as SCHEMATIC_LAYOUTS
+from fenolite.backends.kicad.schgen import SHEETS_DIR
+from fenolite.catalog import (
+    ENTRIES as CATALOG_ENTRIES,
+)
+from fenolite.catalog import (
+    get_footprint as catalog_footprint,
+)
+from fenolite.catalog import (
+    get_symbol as catalog_symbol,
+)
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.dsl import DslError, copper, fields, moves, placements, planes, to_model
+from fenolite.dsl import (
+    BOARD_ORIGIN,
+    DslError,
+    copper,
+    drawing_sheet_source,
+    fields,
+    module_moves,
+    moves,
+    net_moves,
+    pad_zones,
+    placements,
+    planes,
+    to_model,
+)
+from fenolite.dsl import Design as DslDesign
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -69,6 +101,8 @@ from fenolite.lens.altium import (
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    SCHEMATIC_MODES,
+    SHEET_SUFFIX,
     VENDOR_MODES,
     PlacementRequest,
     build_design,
@@ -76,9 +110,15 @@ from fenolite.lens.build import (
     plane_issues,
     read_record,
 )
-from fenolite.lens.preserve import prepare, read_existing
+from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
+from fenolite.lens.placements import SourcePlacement, read_placements
+from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
+from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
+from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
+from fenolite.templates import build_sheet, load_spec
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
 HELP = (
@@ -96,7 +136,10 @@ SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "layout
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
 (change c0053): what the copper intents created or left out, and the parts that build staged. Its other
 warnings and infos concern KiCad files that are not written. Every error passes."""
+REPLACED_CODE = "build.schematic-replaced"
 _KINDS = {
+    ".kicad_sch": "kicad_sch",
+    ".kicad_sym": "kicad_sym",
     ".kicad_pcb": "kicad_pcb",
     ".kicad_pro": "kicad_pro",
     ".kicad_dru": "kicad_dru",
@@ -164,13 +207,30 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="all: copy the placed footprints of every library into DIR/lib/ (the copies keep their "
         "library's licence); project: copy only those of project tables",
     )
+    parser.add_argument(
+        "--schematic",
+        choices=SCHEMATIC_MODES,
+        default=None,
+        help="write (default): also write DIR/<name>.kicad_sch, its symbol libraries under DIR/lib/ and "
+        "sym-lib-table, and name the pads of unconnected pins as KiCad does; skip: write the board without "
+        f"a schematic; a usage error with --target {ALTIUM_TARGET}",
+    )
+    parser.add_argument(
+        "--schematic-layout",
+        dest="schematic_layout",
+        choices=SCHEMATIC_LAYOUTS,
+        default=None,
+        help="readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC "
+        "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
+        f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
+    )
 
 
 def _kind(rel: str, form: SchematicForm | None = None) -> str:
     if rel.startswith(".fenolite/"):
         return "fenolite"
-    if rel == "fp-lib-table":
-        return "fp-lib-table"
+    if rel in ("fp-lib-table", "sym-lib-table"):
+        return rel
     if form is not None and Path(rel).suffix == ".SchDoc":
         return SCHDOC_KINDS[form]
     return _KINDS.get(Path(rel).suffix, "file")
@@ -243,6 +303,30 @@ def copper_guard(
     return tuple(found), summary
 
 
+def _catalog_definitions(
+    design: ModelDesign,
+    authored_footprints: Mapping[str, Any],
+    authored_symbols: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], frozenset[str]]:
+    """Select only built-ins used by this design; project definitions override exact lib ids."""
+    symbol_ids = {entry.lib_id for entry in CATALOG_ENTRIES if entry.kind == "symbol"}
+    footprint_ids = {entry.lib_id for entry in CATALOG_ENTRIES if entry.kind == "footprint"}
+    symbols: dict[str, Any] = {}
+    footprints: dict[str, Any] = {}
+    used_builtin: set[str] = set()
+    for component in design.circuit.components:
+        symbol_id = component.lib_symbol_ref
+        if symbol_id in symbol_ids and symbol_id not in authored_symbols:
+            symbols[symbol_id] = catalog_symbol(symbol_id)
+            used_builtin.add(symbol_id)
+        symbol = authored_symbols.get(symbol_id) or symbols.get(symbol_id)
+        fp_id = component.lib_footprint_ref or (symbol.properties.get("Footprint", "") if symbol else "")
+        if fp_id in footprint_ids and fp_id not in authored_footprints:
+            footprints[fp_id] = catalog_footprint(fp_id)
+            used_builtin.add(fp_id)
+    return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
+
+
 def placement_guard(
     files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
@@ -280,6 +364,74 @@ def placement_guard(
     return issues, {"ran": True, "counts": dict(sorted(counts.items()))}
 
 
+def read_source(
+    script_path: Path,
+) -> tuple[Mapping[str, SourcePlacement], tuple[Issue, ...], str | None]:
+    """The entries of ``placements.toml`` beside the script, its issues and its SHA-256; no entry and no
+    hash without the file (``design-dsl``, "Placements file in a build")."""
+    path = script_path.resolve().parent / PLACEMENTS_FILE
+    if not path.is_file():
+        return {}, (), None
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=PLACEMENTS_FILE) from error
+    found = read_placements(text, origin=BOARD_ORIGIN, file=PLACEMENTS_FILE)
+    return found.entries, found.issues, hashlib.sha256(data).hexdigest()
+
+
+def read_drawing_sheet_source(
+    design: DslDesign, script_path: Path
+) -> tuple[DrawingSheet | None, tuple[Issue, ...], dict[str, object] | None]:
+    """The drawing sheet that ``design.sheet(drawing_sheet=…)`` names, read from the script's folder: a
+    ``.kicad_wks`` file through the drawing-sheet reader, a ``*.sheet.toml`` specification through the
+    sheet-template builder. Returns the sheet, the reader's issues and ``result.drawing_sheet``.
+
+    A missing file is an input error: KiCad falls back to its default frame without a word for a sheet it
+    does not find (``H-K-WKS-FALLBACK``)."""
+    named = drawing_sheet_source(design)
+    if named is None:
+        return None, (), None
+    path = script_path.resolve().parent / named
+    try:
+        data = path.read_bytes()
+    except OSError as error:
+        raise CliError(
+            "FEN-3001",
+            f"the drawing sheet {named} of sheet() cannot be read: {error.strerror or error}",
+            where=named,
+            hint="name a .kicad_wks or *.sheet.toml file beside the design script",
+        ) from None
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise FormatError(f"not UTF-8 text: {error}", file=named) from error
+    found: list[Issue] = []
+    if named.endswith(".sheet.toml"):
+        sheet = build_sheet(load_spec(text, file=named), base_dir=path.parent, issues=found)
+    else:
+        sheet = wks.read_drawing_sheet(text, file=Path(named).name, issues=found)
+    result: dict[str, object] = {
+        "source": named,
+        "file": f"{design.name}{SHEET_SUFFIX}",
+        "items": len(sheet.items),
+    }
+    return sheet, tuple(found), result
+
+
+def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: bool) -> dict[str, object]:
+    """``result.preserved.source``: the file read, the parts placed from it, and its stale and unknown
+    tables."""
+    placed: Mapping[str, object] = prepared.placements if prepared is not None else {}
+    return {
+        "file": PLACEMENTS_FILE if read else None,
+        "used": sorted(path for path, found in placed.items() if isinstance(found, FilePlacement)),
+        "stale": sorted(i.where for i in issues if i.code == "layout.source-stale"),
+        "unknown": sorted(i.where for i in issues if i.code == "layout.source-unknown"),
+    }
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
@@ -308,6 +460,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--copper-check",
             hint=f"drop --copper-check, or drop --target {ALTIUM_TARGET}",
         )
+    if args.schematic is not None and args.target == ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--schematic is an option of the KiCad target; the target is {args.target}",
+            where="--schematic",
+            hint=f"drop --schematic: --target {ALTIUM_TARGET} always writes its own schematic",
+        )
+    if args.schematic_layout is not None and args.target == ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--schematic-layout is an option of the KiCad target; the target is {args.target}",
+            where="--schematic-layout",
+            hint=f"drop --schematic-layout: --altium-sheets chooses the sheets of --target {ALTIUM_TARGET}",
+        )
     board_path: Path | None = None
     if args.copper_from is not None:
         if args.target != ALTIUM_TARGET:
@@ -332,14 +498,37 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
+        module_aliases = module_moves(design)
+        net_aliases = net_moves(design)
         plane_nets = planes(design)
         intents = copper(design)
         field_requests = fields(design)
+        pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
+    source, source_issues, source_sha = read_source(script_path)
+    refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
-        return _run_altium(
-            args, ctx, run, model, requested, plane_nets, script_path, out, out_dir, board_path, intents
+        # both targets place a part from the file: the lens runs without an existing project (c0069)
+        from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+        made = _run_altium(
+            args,
+            ctx,
+            run,
+            model,
+            cast(Mapping[str, PlacementRequest], from_file.placements),
+            plane_nets,
+            script_path,
+            out,
+            out_dir,
+            board_path,
+            intents,
+        )
+        return dataclasses.replace(
+            made,
+            issues=(*source_issues, *from_file.issues, *made.issues),
+            writes=() if refused else made.writes,
         )
     resolver = LibraryResolver(
         LibraryConfig(target_major=ctx.kicad_target, project_dir=script_path.resolve().parent)
@@ -348,7 +537,30 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     prepared = None
     if not args.discard_layout:
         prepared = prepare(
-            model, requested, read_existing(out_dir, design.name), name=design.name, moves=aliases
+            model,
+            requested,
+            read_existing(out_dir, design.name),
+            name=design.name,
+            moves=aliases,
+            module_moves=module_aliases,
+            net_moves=net_aliases,
+            source=source,
+        )
+    elif source:
+        # the file is source, like the script: it applies to a discarded layout too, and no output is read
+        prepared = prepare(model, requested, ExistingProject(), name=design.name, source=source)
+    authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
+        model,
+        {key: fp.definition for key, fp in design.footprints.items()},
+        {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+    )
+    schematic = cast(Literal["write", "skip"], args.schematic or SCHEMATIC_MODES[0])
+    symbol_issues: list[Issue] = []
+    symbol_placements = None
+    placements_path = script_path.resolve().parent / SYMBOL_PLACEMENTS_FILE
+    if schematic == "write" and placements_path.is_file():
+        symbol_placements = read_symbol_placements(
+            placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
     built = build_design(
         model,
@@ -363,9 +575,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         prepared=prepared,
         copper_intents=intents,
         fields=field_requests,
-        authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
+        pad_zones=pad_zone_requests,
+        authored_footprints=authored_footprints,
+        authored_symbols=authored_symbols,
+        source_sha256=source_sha,
+        drawing_sheet=frame_sheet,
+        schematic=schematic,
+        symbol_placements=symbol_placements,
+        schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
     )
-    files = dict(built.files)
+    files = {} if refused else dict(built.files)
+    if any(found.severity == "error" for found in symbol_issues):
+        files = {}  # a placements file with an error plans no write
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -382,9 +603,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
     if files:
+        # the root sheet and the child sheets under sheets/: views of the script, replaced when edited
+        sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
-        guarded = {rel: data for rel, data in files.items() if rel not in merged}
+        guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
+        for sheet in sheets:
+            symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
     writes = tuple(
         PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
     )
@@ -394,14 +619,31 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "out": str(out),
         "files": [w.path for w in writes],
         **built.summary,
+        "libraries": {
+            key: ("builtin" if key in builtin_ids else origin)
+            for key, origin in cast(Mapping[str, str], built.summary["libraries"]).items()
+        },
         "copper_check": copper_check,
         "placement": placement,
+        "drawing_sheet": sheet_result,
         "script_output": run.output,
+    }
+    result["preserved"] = {
+        **cast(Mapping[str, object], built.summary["preserved"]),
+        "source": source_summary(prepared, built.issues, read=source_sha is not None),
     }
     data = script_path.read_bytes()
     return Result(
         result=result,
-        issues=(*built.issues, *plane_issues(plane_nets), *copper_issues, *placement_issues),
+        issues=(
+            *sheet_issues,
+            *source_issues,
+            *built.issues,
+            *symbol_issues,
+            *plane_issues(plane_nets),
+            *copper_issues,
+            *placement_issues,
+        ),
         evidence=built.evidence,
         input=InputRef(
             path=str(args.design),
@@ -411,6 +653,38 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ),
         writes=writes,
     )
+
+
+def _child_sheet(rel: str) -> bool:
+    """Whether ``rel`` is the file of a child sheet of the generated schematic."""
+    return rel.startswith(f"{SHEETS_DIR}/") and rel.endswith(".kicad_sch")
+
+
+def _replaced_sheet(
+    out_dir: Path, out: Path, sheet: str, planned: bytes | None, record: Mapping[str, str] | None
+) -> list[Issue]:
+    """One ``build.schematic-replaced`` warning when the schematic file ``sheet`` in ``out_dir``, the root
+    or a child sheet, holds neither the planned bytes nor those of the last build: the sheet is
+    regenerated, and the mutation protocol keeps a backup. The file is hashed and never parsed."""
+    path = out_dir / sheet
+    if planned is None or not path.is_file():
+        return []
+    current = path.read_bytes()
+    if current == planned:
+        return []
+    if record is not None and record.get(sheet) == hashlib.sha256(current).hexdigest():
+        return []
+    return [
+        Issue(
+            REPLACED_CODE,
+            "warning",
+            f"{out / sheet} was changed since the last build and is replaced: the schematic is generated "
+            "from the script",
+            where=str(out / sheet),
+            hint=f"fix symbol positions in {SYMBOL_PLACEMENTS_FILE} beside the script; the edited file is "
+            "kept as a .bak copy unless --no-backup is given",
+        )
+    ]
 
 
 def _run_altium(

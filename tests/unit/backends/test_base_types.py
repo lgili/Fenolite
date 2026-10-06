@@ -17,20 +17,33 @@ from fenolite.backends import base, registry
 from fenolite.backends.base import (
     BoardFrame,
     BoardPad,
+    ContainerRoundTrip,
+    Document,
+    DocumentSet,
+    DocumentValidator,
     DrcItem,
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    ErcItem,
+    ErcOracle,
+    ErcOutcome,
+    ErcReport,
+    ErcRt2Outcome,
+    ErcViolation,
     FillOutcome,
+    ModelScope,
     NetlistOracle,
     PadAssignment,
     PadCopper,
     PadNetList,
     PlacedExtent,
+    ProjectRead,
     ProjectSet,
     RoundTrip,
     RoundTripOracle,
     Rt2Outcome,
+    SchematicNetlistOracle,
     SkippedFile,
     Uncovered,
     WriteResult,
@@ -131,6 +144,96 @@ def test_outcome_is_immutable() -> None:
     assert outcome.outcome == "exit" and outcome.returncode == 0 and outcome.tool_writes == ()
 
 
+def test_parity_flag_defaults_to_false() -> None:
+    outcome = DrcOutcome(report=None, tool_version="10.0.6", canary="not-applicable")
+    assert outcome.parity_judged is False
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.parity_judged = True  # type: ignore[misc]
+
+
+# -- the neutral ERC report and the ERC oracle (backend-protocol, change c0062)
+
+
+def erc_violation(kind: str, uid: str = "u", sheet: str = "/", at: tuple[int, int] = (1, 2)) -> ErcViolation:
+    item = ErcItem(uuid=uid, description="d", position=Point(*at))
+    return ErcViolation(type=kind, description=kind, severity="error", items=(item,), sheet=sheet)
+
+
+def erc_report(*violations: ErcViolation) -> ErcReport:
+    return ErcReport("s", "d", "10.0.6", "mm", violations=violations, sheets=("/",))
+
+
+def test_erc_violations_by_type() -> None:
+    pin, lib = erc_violation("pin_not_connected"), erc_violation("lib_symbol_issues")
+    report = erc_report(pin, lib, pin)
+    assert report.of_type("lib_symbol_issues") == (lib,)
+    assert report.of_type("pin_not_connected") == (pin, pin) and report.of_type("other") == ()
+
+
+def test_erc_entries_leave_out_uuids_and_order() -> None:
+    first = erc_report(erc_violation("a", "u1"), erc_violation("b", "u2", sheet="/Child/"))
+    other = erc_report(erc_violation("b", "x9", sheet="/Child/"), erc_violation("a", "x8"))
+    assert first.entries() == other.entries()
+    assert first.entries() == (
+        ("/", "a", "error", False, (("d", 1, 2),)),
+        ("/Child/", "b", "error", False, (("d", 1, 2),)),
+    )
+    assert erc_report(erc_violation("a", "u1")).entries() != first.entries()
+    moved = erc_report(erc_violation("a", "u1", at=(1, 3)), erc_violation("b", "u2", sheet="/Child/"))
+    assert moved.entries() != first.entries()
+    located = dataclasses.replace(
+        first.violations[0], items=(dataclasses.replace(first.violations[0].items[0], where="U1-2"),)
+    )
+    assert erc_report(located, first.violations[1]).entries() == first.entries()
+
+
+def test_erc_kinds_leave_out_the_items_and_keep_the_counts() -> None:
+    first = erc_report(erc_violation("a", "u1"), erc_violation("b", "u2", sheet="/Child/"))
+    moved = erc_report(
+        erc_violation("b", "x9", sheet="/Child/", at=(7, 8)), erc_violation("a", "x8", at=(1, 3))
+    )
+    assert moved.entries() != first.entries() and moved.kinds() == first.kinds()
+    assert first.kinds() == (("/", "a", "error", False), ("/Child/", "b", "error", False))
+    twice = erc_report(erc_violation("a"), erc_violation("a", at=(5, 5)), erc_violation("b", sheet="/Child/"))
+    assert twice.kinds() == (
+        ("/", "a", "error", False),
+        ("/", "a", "error", False),
+        ("/Child/", "b", "error", False),
+    )
+    assert twice.kinds() != first.kinds(), "one entry per violation: the counts matter"
+    elsewhere = erc_report(erc_violation("a", sheet="/Child/"), erc_violation("b", sheet="/Child/"))
+    excluded = erc_report(dataclasses.replace(first.violations[0], excluded=True), first.violations[1])
+    warning = erc_report(dataclasses.replace(first.violations[0], severity="warning"), first.violations[1])
+    assert len({first.kinds(), elsewhere.kinds(), excluded.kinds(), warning.kinds()}) == 4
+    assert erc_report().kinds() == ()
+
+
+def test_erc_integer_positions_only() -> None:
+    with pytest.raises(TypeError):
+        ErcItem(uuid="u", description="d", position=Point(1.5, 0))  # type: ignore[arg-type]
+    assert ErcItem(uuid="u", description="d", position=Point(1, 0)).where == ""
+
+
+def test_erc_types_are_immutable() -> None:
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        erc_violation("x").type = "y"  # type: ignore[misc]
+    outcome = ErcOutcome(report=None, tool_version="10.0.6")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        outcome.message = "x"  # type: ignore[misc]
+    assert (outcome.outcome, outcome.returncode, outcome.tool_writes) == ("exit", 0, ())
+    rt2 = ErcRt2Outcome(before=(), after=None, tool_version="10.0.6")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        rt2.redumped = 1  # type: ignore[misc]
+    assert (rt2.redumped, rt2.kept, rt2.outcome) == (0, 0, "exit")
+
+
+def test_erc_protocol_narrows_an_oracle() -> None:
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeOracle(), ErcOracle)
+    assert not isinstance(fakes.FakeFullOracle(), ErcOracle)
+    assert isinstance(fakes.FakeErcOracle(), ErcOracle)
+
+
 def test_fill_outcome_is_immutable() -> None:
     zones = (ZoneFills("zon_1", (), False),)
     outcome = FillOutcome(zones, "10.0.6")
@@ -171,6 +274,17 @@ def test_oracle_protocols() -> None:
     drc_only, full = fakes.FakeOracle(), fakes.FakeFullOracle()
     assert not isinstance(drc_only, NetlistOracle) and not isinstance(drc_only, RoundTripOracle)
     assert isinstance(full, NetlistOracle) and isinstance(full, RoundTripOracle)
+
+
+def test_schematic_netlist_oracle_narrows() -> None:
+    """Scenario "Narrowing": only an oracle with ``schematic_netlist`` is a ``SchematicNetlistOracle``."""
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeOracle(), SchematicNetlistOracle)
+    assert not isinstance(fakes.FakeFullOracle(), SchematicNetlistOracle)
+    full = fakes.FakeSchematicOracle()
+    assert isinstance(full, SchematicNetlistOracle) and isinstance(full, NetlistOracle)
+    listed = PadNetList("schematic", (PadAssignment("U1-10", "GND"),))
+    assert listed.source == "schematic" and listed.uncovered == ()
 
 
 def test_new_outcomes_are_immutable() -> None:
@@ -254,3 +368,67 @@ def test_rules_source_record_defaults() -> None:
     assert rules.evidence == base.Evidence()
     with pytest.raises(dataclasses.FrozenInstanceError):
         rules.min_clearance = 1  # type: ignore[misc]
+
+
+def test_container_verdict_consistency() -> None:
+    """Scenarios "Verdict consistency enforced" and "Unjudged verdict needs a reason" (change c0044)."""
+    lost = {"streams": 3, "different": ("Nets6/Data",), "difference": "Nets6/Data"}
+    with pytest.raises(ValueError, match="passed"):
+        ContainerRoundTrip(level="RT-A0", judged=True, passed=True, **lost)  # type: ignore[arg-type]
+    verdict = ContainerRoundTrip(level="RT-A0", judged=True, passed=False, **lost)  # type: ignore[arg-type]
+    assert verdict.difference == "Nets6/Data" and not verdict.reason
+    with pytest.raises(ValueError, match="reason"):
+        ContainerRoundTrip(level="RT-A0", judged=False, passed=False)
+    assert ContainerRoundTrip(level="RT-A0", judged=False, passed=False, reason="too-large").judged is False
+    with pytest.raises(ValueError, match="reason"):
+        ContainerRoundTrip(level="RT-A1", judged=True, passed=True, reason="too-large")
+    with pytest.raises(ValueError, match="difference"):
+        ContainerRoundTrip(level="RT-A1", judged=True, passed=False, different=("FileHeader",))
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        verdict.passed = True  # type: ignore[misc]
+
+
+def test_document_names_are_relative() -> None:
+    def one(name: str, **more: typing.Any) -> DocumentSet:
+        documents = (Document(name, "altium_pcbdoc", "pcb"),)
+        return DocumentSet(root=Path("."), project=None, board=None, documents=documents, **more)
+
+    for bad in ("../x.PcbDoc", "/abs/x.PcbDoc", "sub\\x.PcbDoc", ""):
+        with pytest.raises(ValueError, match="relative POSIX name"):
+            one(bad)
+    with pytest.raises(ValueError, match="../y.SchDoc"):
+        one("x.PcbDoc", missing=("../y.SchDoc",))
+    twice = (Document("x.PcbDoc", "altium_pcbdoc", "pcb"),) * 2
+    with pytest.raises(ValueError, match="repeated: x.PcbDoc"):
+        DocumentSet(Path("."), None, None, twice)
+    with pytest.raises(ValueError, match="the board 'y.PcbDoc'"):
+        DocumentSet(Path("."), None, "y.PcbDoc", twice[:1])
+    with pytest.raises(ValueError, match="the project 'y.PrjPcb'"):
+        DocumentSet(Path("."), "y.PrjPcb", None, twice[:1])
+    with pytest.raises(ValueError, match="sorted"):
+        DocumentSet(Path("."), None, None, (Document("b", "k", "other"), Document("a", "k", "other")))
+    found = DocumentSet(Path("."), None, "sub/x.PcbDoc", (Document("sub/x.PcbDoc", "altium_pcbdoc", "pcb"),))
+    assert found.named("sub/x.PcbDoc").role == "pcb" and found.of_role("schematic") == ()
+    assert found.missing == ()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        found.board = None  # type: ignore[misc]
+
+
+def test_model_scope_and_project_read() -> None:
+    assert ModelScope({"component": ("ref",)}).length_tolerance == 0
+    for bad in (-1, 1.0, True):
+        with pytest.raises(ValueError, match="length_tolerance"):
+            ModelScope({}, length_tolerance=bad)  # type: ignore[arg-type]
+    read = ProjectRead(None, None)
+    assert read.errors == {} and read.schematic is None and read.pcb is None
+    for cls in (Document, DocumentSet, ProjectRead, ContainerRoundTrip, ModelScope):
+        assert cls.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_document_validator_narrows_a_backend() -> None:
+    """Scenario "Narrowing a backend": a backend that only reads is not a ``DocumentValidator``."""
+    fakes = _fakes()
+    assert not isinstance(fakes.FakeReader(), DocumentValidator)
+    assert isinstance(fakes.FakeDocumentValidator(), DocumentValidator)
+    assert not isinstance(KicadBackend(), DocumentValidator)
+    assert not isinstance(fakes.FakeValidator(), DocumentValidator)

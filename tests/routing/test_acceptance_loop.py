@@ -29,7 +29,8 @@ RECORDED = ROOT / "tests" / "data" / "acceptance"
 # Left out of a recorded project: KiCad's local state and Fenolite's derived cache (rebuilt by any build).
 NOT_RECORDED = ("*.kicad_prl", "*-backups", "fp-info-cache", ".fenolite")
 # The stages of ``check`` that the acceptance reads, and what each must report.
-JUDGED = ("model.validate", "erc.lite", "drc.kicad", "netlist.assignment_compare", "roundtrip")
+# ``erc.kicad`` is KiCad's own ERC of the schematic that the build writes (change c0062).
+JUDGED = ("model.validate", "erc.kicad", "drc.kicad", "netlist.assignment_compare", "roundtrip")
 
 
 def stages(run: LoopRun) -> dict[str, dict[str, object]]:

@@ -392,7 +392,7 @@ notes = "the canary and a 10.0-only constraint (target gating)"
 path = "tests/data/kicad/rules/opaque.kicad_dru"
 origin = "authored"
 corpus_id = ""
-notes = "rules outside the closed grammar: annular width, an outer layer clause, a function condition"
+notes = "rules outside the closed grammar: a thermal spoke width, an outer layer clause, a function condition"
 
 [[file]]
 path = "tests/data/kicad/rules/broken.kicad_dru"
@@ -893,6 +893,12 @@ corpus_id = ""
 notes = "synthetic geometry for the board-frame bench (c0028), not a validated land pattern"
 
 [[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Offset.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for the pad shape offset (c0068): a through-hole pad whose drill has an offset; not a validated land pattern"
+
+[[file]]
 path = "examples/blink_routed/design.py"
 origin = "authored"
 corpus_id = ""
@@ -1149,3 +1155,201 @@ path = "tests/data/altium/read/two_layer.stackup"
 origin = "authored"
 corpus_id = ""
 notes = "stack-up file authored for the c0042 reader tests: four entries, no line end"
+
+[[file]]
+path = "tests/data/assembly/columns.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template authored for the c0064 tests; every column name and the property Bin are made up"
+
+[[file]]
+path = "tests/data/assembly/rotated.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template authored for the c0064 tests; made-up names, side names and rotation offsets"
+
+[[file]]
+path = "tests/data/assembly/invalid.toml"
+origin = "authored"
+corpus_id = ""
+notes = "assembly column template with three problems, authored for the c0064 tests"
+
+[[file]]
+path = "tests/data/kicad/schematic/flat.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "flat schematic of format 20260306 authored for the c0060 reader tests: Mini symbols, labels, no-connect flags, a DNP symbol and one left off the board"
+
+[[file]]
+path = "tests/data/kicad/schematic/flat_v9.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the flat schematic (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/units.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "three units of one Mini symbol under one reference, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/units_v9.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the units schematic (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root of a two-sheet hierarchy, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier/child.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "child sheet of the two-sheet hierarchy: a hierarchical label (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier_v9/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the hierarchy root (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/hier_v9/child.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "9.0-format (20250114) copy of the hierarchy child (c0060)"
+
+[[file]]
+path = "tests/data/kicad/netlist/export_10.net"
+origin = "authored"
+corpus_id = ""
+notes = "netlist export in the shape kicad-cli 10.0.6 writes (three parts, five nets), authored for the c0063 reader tests with a made-up date and path"
+
+[[file]]
+path = "tests/data/kicad/netlist/export_9.net"
+origin = "authored"
+corpus_id = ""
+notes = "the same netlist in the shape kicad-cli 9.0.9 writes (c0063)"
+
+[[file]]
+path = "tests/data/kicad/schematic/multi/top.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "root that references one sheet file twice, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/multi/cell.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "sheet used twice: every symbol has two uses (c0060)"
+
+[[file]]
+path = "tests/data/kicad/schematic/bus.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "a bus, two bus entries and a bus label, format 20260306 (c0060)"
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic skeleton of the token fuzz, in the 8.0 token set (c0060)"
+
+[[file]]
+path = "tests/data/kicad/tokens/skeleton.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "symbol-library skeleton of the token fuzz, in the 8.0 token set (c0060)"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "target-10 build of the packaged minimal script, the example project of fenolite sync (c0069); a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/acceptance/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "design script of the lens acceptance fixture (c0069), authored from the Mini library"
+
+[[file]]
+path = "tests/data/lens/acceptance/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "footprint library table of the lens acceptance fixture (c0069): the authored Mini library"
+
+[[file]]
+path = "tests/data/lens/acceptance/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol library table of the lens acceptance fixture (c0069): the authored Mini library"
+
+[[file]]
+path = "tests/data/exports/manifest_v01.json"
+origin = "authored"
+corpus_id = ""
+notes = "artefact manifest in the shape of v0.1, without the fields of c0065, authored for the c0065 tests; every hash is made up"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/minimal.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the target-10 build of the packaged minimal script (c0061): a build writes it beside the board; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/lens/sync_minimal/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "symbol library table of the same build (c0061): no row, the minimal design has no part"
+
+[[file]]
+path = "tests/data/assembly/bom_export.csv"
+origin = "authored"
+corpus_id = ""
+notes = "a bill in the shape kicad-cli sch export bom writes, authored for the c0064 tests; every part and the property Bin are made up"
+
+[[file]]
+path = "tests/data/kicad/erc/report_10.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored ERC report in the shape of 10.0.6 for the reader's unit tests (c0062): two sheets, one excluded violation, one ignored check; key names as the tool writes them (S-0450)"
+
+[[file]]
+path = "tests/data/kicad/erc/report_9.json"
+origin = "authored"
+corpus_id = ""
+notes = "authored ERC report in the shape of 9.0.9 for the reader's unit tests (c0062): no ignored_checks; key names as the tool writes them (S-0451)"
+
+[[file]]
+path = "tests/data/kicad/parity/agree/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the target-10 build of the blink example (c0072): the hermetic example of the parity command; a test keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/kicad/parity/agree/blink.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0072), beside its board"

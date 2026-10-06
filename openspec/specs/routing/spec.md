@@ -1,7 +1,7 @@
 # routing Specification
 
 ## Purpose
-TBD - created by archiving change c0016-routing-plugins. Update Purpose after archive.
+Route a board through a router plugin: the router protocol and registry, the selection of nets, the merge of routed copper into the board, the built-in direct router, the KiCadRoutingTools and Freerouting plugins that run as separate processes, and the routing issue codes.
 ## Requirements
 ### Requirement: Router protocol
 `fenolite.routing.protocol` SHALL define, as frozen dataclasses on `core` and `model` types only:

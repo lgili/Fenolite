@@ -3,42 +3,25 @@
 """A backend's capability evidence agrees with its operations and with the hypothesis register
 (capability backend-protocol, "Capability reports"; change c0052).
 
-``report_problems`` returns one message per problem: a named hypothesis with no row, a refuted row, or a
-report level that is stronger than a row it names. A weaker level is allowed: a row states what its test
-covered, and the report states what holds for an arbitrary file.
+``fenolite.verify.report_problems`` (moved there by change c0067) returns one message per problem: a named
+hypothesis with no row, a refuted row, or a report level that is stronger than a row it names. A weaker
+level is allowed: a row states what its test covered, and the report states what holds for an arbitrary
+file.
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from pathlib import Path
 
 from fenolite.backends import registry
 from fenolite.backends.kicad import backend as kicad_backend
 from fenolite.backends.kicad import pcb
-from fenolite.core.evidence import Evidence, Level, strength
+from fenolite.core.evidence import Evidence, Level
+from fenolite.verify import report_problems
 from fenolite.verify.hypotheses import HypothesisRow, load_register
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
-
-
-def report_problems(evidence: Evidence, rows: Sequence[HypothesisRow]) -> list[str]:
-    """One message per hypothesis of ``evidence`` that is unregistered, refuted, or weaker than the report."""
-    by_id = {row.id: row for row in rows}
-    problems: list[str] = []
-    for ident in evidence.hypotheses:
-        row = by_id.get(ident)
-        if row is None:
-            problems.append(f"{ident} is not registered")
-        elif row.refuted:
-            problems.append(f"{ident} is refuted and supports no report")
-        elif strength(evidence.level) > strength(row.level):
-            problems.append(
-                f"the report says {evidence.level.value}, stronger than {ident} "
-                f"({row.level.value}): lowest wins"
-            )
-    return problems
 
 
 def _row(ident: str, level: Level, result: str = "confirmed") -> HypothesisRow:

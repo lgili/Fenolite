@@ -27,8 +27,24 @@ from fenolite.backends.kicad.mod import footprint_from
 from fenolite.backends.kicad.sexpr import AtomKind, Node, parse
 from fenolite.backends.kicad.sym import resolve_extends, symbols_from
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.library import FootprintDef, SymbolDef
 
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-K-LIB-COMMON",
+        "H-K-LIB-CONFIGHOME",
+        "H-K-LIB-FALLBACK",
+        "H-K-LIB-NESTED",
+        "H-K-LIB-RELPATH-2",
+        "H-K-LIB-SCAN",
+    ),
+)
+"""Reading library tables and resolving their rows: ``INFERRED``, the level of ``H-K-LIB-SCAN``; the
+other rows hold for the cases their tests ran, on the majors they name (declared by change c0067)."""
+WRITE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-BUILD-LIBTABLE",))
+"""``write_lib_table``: ``kicad-cli`` reads the tables that the build oracle wrote, not every table."""
 TableKind = Literal["footprint", "symbol"]
 RowOrigin = Literal["project", "global", "template", "scan"]
 SourceKind = Literal["env", "cache", "install"]
@@ -677,6 +693,11 @@ class LibraryResolver:
 
     def symbol(self, lib_id: str, *, issues: list[Issue] | None = None) -> SymbolDef:
         """The flattened symbol behind ``lib_id``; parents are looked up in the same library."""
+        return resolve_extends(self.symbol_chain(lib_id, issues=issues))[0]
+
+    def symbol_chain(self, lib_id: str, *, issues: list[Issue] | None = None) -> tuple[SymbolDef, ...]:
+        """The symbol behind ``lib_id`` and the symbols it extends, as their library holds them: the
+        symbol first, its root parent last. A parent the library lacks ends the chain."""
         location = self.locate(lib_id, "symbol")
         nickname, entry = split_lib_id(lib_id)
         symbols = {
@@ -693,7 +714,7 @@ class LibraryResolver:
             if parent not in symbols:
                 break
             chain.append(symbols[parent])
-        return resolve_extends(chain)[0]
+        return tuple(chain)
 
     def missing_models(self, fp: FootprintDef) -> tuple[Issue, ...]:
         """One warning per 3D model path that names no file or has a variable without a value."""

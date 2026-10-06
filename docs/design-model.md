@@ -72,6 +72,22 @@ that the design leaves unconnected on purpose (`no_connect` of `docs/dsl.md`).
 - A marked pin is no member of any net: `by_net`, `model.single-pin-net` and `model.dangling-net` are
   unchanged.
 
+### Buses
+
+`Circuit.buses: tuple[Bus, ...]` (empty by default, change c0043) records a bus, an indexed vector of nets.
+
+- `Bus` carries the entity header (prefix `bus`), `name` (the vector's name without its range: `D` for
+  `D[0..7]`) and `members`, an ordered tuple of `BusMember(index, net_id)`. A member without a net is left
+  out, so indexes may have gaps.
+- A bus differs from an `Interface`, which maps role names to nets. A group of nets with different names
+  (a harness, a KiCad group bus) stays an `Interface`.
+- The change is additive: a design without buses gives the `circuit.json` bytes it gave before, and a file
+  without the key `buses` loads with `()`. `SCHEMA_VERSION` stays `"0"`.
+- `Design.entities()` yields buses. `Design.validate()` reports, with `where` set to the bus name:
+  - `model.unknown-net` (error): a member's `net_id` is no net of the circuit;
+  - `model.duplicate-bus-index` (error): an index is used twice in one bus.
+- A bus gives no net and no net member. No backend writes a bus; a build keeps it in `.fenolite/`.
+
 ## Library definitions
 
 `fenolite.model.library` holds reference data shared by many designs, outside `Design` and outside
@@ -81,8 +97,8 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 | Class | Contents |
 |---|---|
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
-| `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins` |
-| `SymbolPin`, `SymbolUnit`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` |
+| `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
+| `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
 | `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
 - Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,
@@ -124,6 +140,34 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   (an inconsistent custom or named size) and `model.param-name` (a parameter name outside
   `[A-Za-z_][A-Za-z0-9_]*`).
 
+
+## Schematic sheets
+
+`fenolite.model.schematic` (change c0060) holds what one schematic file says:
+
+- `SchematicSheet(name, paper, title_block, lib_symbols, symbols, labels, no_connects, wires, sheets, pages)`: a
+  definition outside `Design`, like a `DrawingSheet`, with prefix `sch` and its own schema
+  `schematic.json`. A generated sheet is derived from the circuit, and a sheet read from a file is checked
+  and compared, so a sheet is never written to the six layer files.
+- `SymbolInstance` (prefix `sci`): `lib_ref`, `position`, `rotation` (0, 90, 180 or 270 degrees in µdeg),
+  `mirror` (`""`, `"x"` or `"y"`), `unit`, `body_style`, the properties with `ref`, `value` and `footprint`
+  repeated as fields, the flags `dnp`, `in_bom`, `on_board` and `exclude_from_sim`, `lib_name`, and `uses`:
+  one `SymbolUse(project, path, ref, unit)` per place of the hierarchy that shows the symbol.
+- `NetLabel` (prefix `lbl`): `kind` (`local`, `global` or `hierarchical`, always written), `name`,
+  `position`, `rotation` and `shape`. `NoConnectFlag` (prefix `ncf`): `position`.
+- `SheetRef` (prefix `shr`): `name`, `file` (the text as written), `position`, `size` and `uses`, one
+  `SheetUse(project, path, page)` each. `SheetPage(path, page)` lists the pages the root sheet names.
+- `lib_symbols` holds the `SymbolDef` copies embedded in the file.
+- Collections keep file order; `properties` is sorted by key. Uses and pages carry no ids.
+- `Wire` (prefix `wir`, change c0070): `start` and `end`, horizontal or vertical and never a point. Only a
+  sheet that Fenolite creates holds wires: the straight segments its generator draws from pin end to pin
+  end. A backend keeps the wires of a file it reads as opaque slots, and `wires` stays empty.
+- Junctions and buses are not modelled: a backend keeps them as opaque slots of the sheet.
+- **Ids.** An entity read from a file has `derived_id(<prefix>, <backend>, <native id>)`. An entity that
+  Fenolite creates for a design has `derived_id("sch", "fenolite", "<design name>")` for the sheet and
+  `derived_id(<prefix>, "fenolite", "<design name>:<key>")` for the others, so two builds of one design
+  give equal ids.
+
 ## Boards read from a backend
 
 Normative text: requirements "Board entities read from file backends" and "Components synthesised
@@ -159,6 +203,31 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
+
+## Padstack holes, offsets and component bodies
+
+Change c0043 completes the padstack and adds the body of a part. Every field has a default, so documents
+written before them still load.
+
+- `Padstack.hole_shape` (`round`, `square`, `slot`), `hole_length` (the length of a slot along its axis,
+  ends included) and `hole_rotation` (the angle of the hole's axis relative to the footprint) describe a
+  hole that is not round. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a
+  square hole, the width of a slot.
+- `PadstackLayer.offset: Point` is where the copper's centre lies on that layer relative to `Pad.position`,
+  the centre of the hole, in the footprint frame.
+- `Padstack.layers` may be empty: one shape on all layers with a hole that is not round. `Pad.padstack is
+  None` still means one shape on all layers, a round hole or no hole, and no offset.
+- In a library definition `PadstackLayer.layer` may be the wildcard `In*.Cu`, every inner copper layer.
+- `ComponentBody` (prefix `bdy`) is the physical body of a part, in `FootprintInstance.bodies` and
+  `FootprintDef.bodies`, ordered and empty by default: `kind` (`extruded` or `model`), `height` (from the
+  board surface to the top of the body), `standoff` (from the board surface to its underside, 0 by
+  default), `outline` (a polygon in the footprint frame, empty when the source gives none), `layer`,
+  `model` (the name of a 3D model for the kind `model`) and `name`.
+- A body states a volume above the side the footprint is placed on and carries no model data. The height
+  of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
+  whose `height` is below its `standoff` or whose `standoff` is negative.
+- The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
 ## Zone settings
 

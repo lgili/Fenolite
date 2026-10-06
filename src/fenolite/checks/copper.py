@@ -23,7 +23,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRulesSource, ProjectSet
-from fenolite.checks.clearance import Clearance, ClearanceResolver, CopperKind
+from fenolite.checks.clearance import ZONE_SOURCE, Clearance, ClearanceResolver, CopperKind
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
 from fenolite.core.coords import Point
@@ -118,6 +118,11 @@ class _Shape:
     wide: Thick
     exact: bool = True
 
+    @property
+    def banded(self) -> bool:
+        """True for an arc: its two shapes differ by its band."""
+        return self.narrow is not self.wide
+
 
 @dataclass(slots=True)
 class _Item:
@@ -125,6 +130,8 @@ class _Item:
     net_id: str | None
     component: str | None = None
     shapes: dict[str, list[_Shape]] = field(default_factory=lambda: {})
+    zone_clearance: Nm | None = None
+    """For a fill: the own clearance of its zone (``settings.clearance``)."""
 
 
 def _sort_key(found: Issue) -> tuple[str, str, str]:
@@ -286,7 +293,9 @@ class _Items:
                 shapes.append((fill.layer, shape, shape, True))
             if shapes:
                 item = _Item(
-                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id)), zone.net_id
+                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id)),
+                    zone.net_id,
+                    zone_clearance=zone.settings.clearance,
                 )
                 self._add(item, shapes)
                 self.kinds["fill"] += len(shapes) - 1  # fills are counted, not zones
@@ -386,8 +395,45 @@ class _Judge:
             self._subjects[key] = found
         return found
 
-    def _resolve(self, a: int, b: int, layer: str) -> Clearance:
-        return self.resolver.resolve(self._subject(a, layer), self._subject(b, layer))
+    def _zone_clearance(self, a: int, b: int) -> Nm | None:
+        """The own clearance of the zone of a fill, for a pair of one fill and one item that is not a fill;
+        ``None`` for every other pair, two fills included (KiCad's DRC judges no pair of fills, and
+        nothing measured says which zone's value its filler keeps between two fills)."""
+        first, second = self.items.items[a], self.items.items[b]
+        if (first.ref.kind == "fill") == (second.ref.kind == "fill"):
+            return None
+        return first.zone_clearance if first.ref.kind == "fill" else second.zone_clearance
+
+    def _resolve(self, a: int, b: int, layer: str, *, zone: bool = True) -> Clearance:
+        return self.resolver.resolve(
+            self._subject(a, layer),
+            self._subject(b, layer),
+            zone_clearance=self._zone_clearance(a, b) if zone else None,
+        )
+
+    @staticmethod
+    def _too_close(
+        first: _Shape, second: _Shape, found: Clearance, base: Clearance | None
+    ) -> Clearance | None:
+        """The clearance the two shapes break, or ``None``.
+
+        A value that comes from a zone is the distance KiCad's filler cuts to around the true copper. An
+        arc is widened by twice its band so that no violation is missed, which would report every fill that
+        follows an arc at exactly the zone's value: for such a pair the zone's value is judged against the
+        arc narrowed by its band, and ``base``, the value in force without the zone, against the widened
+        arc, so no finding of the rule without zones is lost."""
+        assert found.value is not None
+        if base is None or not (first.banded or second.banded):
+            return found if thick_closer_than(first.wide, second.wide, found.value) else None
+        if thick_closer_than(first.narrow, second.narrow, found.value):
+            return found
+        if (
+            base.value
+            and base.severity is not None
+            and thick_closer_than(first.wide, second.wide, base.value)
+        ):
+            return base
+        return None
 
     def _refs(self, a: int, b: int) -> tuple[CopperRef, CopperRef]:
         first, second = sorted(
@@ -420,15 +466,18 @@ class _Judge:
             unset = unset or found.unset
             if not found.value or found.severity is None:
                 continue
-            closest: tuple[int, _Shape, _Shape] | None = None
+            base = self._resolve(a, b, layer, zone=False) if found.source == ZONE_SOURCE else None
+            closest: tuple[int, _Shape, _Shape, Clearance] | None = None
             for _, first, second in (entry for entry in ordered if entry[0] == rank):
                 self.judged += 1
-                if thick_closer_than(first.wide, second.wide, found.value):
+                broken = self._too_close(first, second, found, base)
+                if broken is not None:
                     gap = thick_gap_floor(first.wide, second.wide)
                     if closest is None or gap < closest[0]:
-                        closest = (gap, first, second)
+                        closest = (gap, first, second, broken)
             if closest is not None:
-                gap, first, second = closest
+                gap, first, second, found = closest
+                assert found.value is not None and found.severity is not None
                 at = thick_witness(first.wide, second.wide)
                 message = (
                     f"copper of {refs[0].net} and {refs[1].net} is {_mm(gap)} mm apart on {layer} at "

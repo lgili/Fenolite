@@ -13,6 +13,8 @@ corner. ``from_symbol_def`` maps a resolved KiCad ``SymbolDef``: its pins exactl
 rectangle per part, because the model holds no symbol graphics.
 """
 
+# evidence: see project, schlib
+
 from __future__ import annotations
 
 from collections.abc import Mapping

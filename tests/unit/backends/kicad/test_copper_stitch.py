@@ -13,14 +13,16 @@ import pytest
 from _copper import stitch
 from _placed import Part, design_of, mm, pt
 
-from fenolite.backends.kicad.copper import copper_uuid, resolve_copper
+from fenolite.backends.kicad.copper import copper_uuid, edge_clearance_in_force, resolve_copper
+from fenolite.backends.kicad.outline import board_outline
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
 from fenolite.geometry import dist2_point_segment
-from fenolite.model.board import Arc, Track, Via
+from fenolite.model.board import Arc, Keepout, Outline, Track, Via
 from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
+from fenolite.model.rules import Rule, RuleSet, Selector
 
 SQUARE = (pt(0, 0), pt(10, 0), pt(10, 10), pt(0, 10))
 GRID = [pt(2.5 * i, 2.5 * j) for j in (1, 2, 3) for i in (1, 2, 3)]
@@ -315,3 +317,116 @@ def test_clearance_agrees_with_brute_force() -> None:
         ]
         expected = [p for p in grid if allowed(p)]
         assert [v.position for v in kept] == expected, round_
+
+
+# -- keep-outs and the board edge (c0074; H-K-STITCH-AVOID)
+
+LINE = (pt(0, 0), pt(10, 0))
+BOARD = (pt(0, -20), pt(40, -20), pt(40, 20), pt(0, 20))
+
+
+def _keepout(*, no_vias: bool = True, layers: tuple[str, ...] = ("F.Cu", "B.Cu"), n: int = 1) -> Keepout:
+    """A rule area over x from 4 mm to 6 mm."""
+    ring = (pt(4, -2), pt(6, -2), pt(6, 2), pt(4, 2))
+    return Keepout(id=derived_id("kpo", "test", str(n)), outline=ring, layers=layers, no_vias=no_vias)
+
+
+def _outlined(design: Design, ring: tuple[Point, ...] = BOARD) -> Design:
+    return _with(design, outline=Outline(id=derived_id("out", "test", "o"), points=ring))  # type: ignore[arg-type]
+
+
+def _edge_rule(design: Design, minimum: int, *, name: str = "edge", priority: int = 0) -> Design:
+    rule = Rule(
+        id=derived_id("rul", "test", name),
+        name=name,
+        kind="edge_clearance",
+        selector_a=Selector("all"),
+        min=minimum,
+        priority=priority,
+    )
+    old = design.rules.rules if design.rules is not None else ()
+    return dataclasses.replace(design, rules=RuleSet(id=derived_id("rst", "test", "r"), rules=(*old, rule)))
+
+
+def test_fence_across_a_keep_out() -> None:
+    design = _with(_empty(), keepouts=(_keepout(),))
+    vias, found = _resolve(design, stitch("s", along=LINE))
+    assert [v.position for v in vias] == [pt(x, 0) for x in (0, 2.5, 7.5, 10)]
+    (skipped,) = found
+    assert skipped.code == "kicad.copper.stitch-skipped" and "1 stitch candidate" in skipped.message
+    assert [v.native_ids["kicad"] for v in vias] == [copper_uuid("s", f"via[{k}]") for k in (0, 1, 3, 4)]
+
+
+def test_keep_out_that_allows_vias_or_lies_on_no_copper_layer() -> None:
+    for area in (_keepout(no_vias=False), _keepout(layers=("F.SilkS",))):
+        vias, found = _resolve(_with(_empty(), keepouts=(area,)), stitch("s", along=LINE))
+        assert len(vias) == 5 and found == []
+    one_layer, _ = _resolve(_with(_empty(), keepouts=(_keepout(layers=("B.Cu",)),)), stitch("s", along=LINE))
+    assert len(one_layer) == 4  # a through via crosses every copper layer
+    wildcard, _ = _resolve(_with(_empty(), keepouts=(_keepout(layers=("*.Cu",)),)), stitch("s", along=LINE))
+    assert len(wildcard) == 4
+
+
+def test_via_disc_touching_a_keep_out_is_dropped() -> None:
+    """The disc of 0.6 mm at x = 3.7 mm touches the area that starts at x = 4 mm; at 3.699 mm it clears."""
+    design = _with(_empty(), keepouts=(_keepout(),))
+    touching, _ = _resolve(design, stitch("s", along=(pt(3.7, 0), pt(3.7, 1)), pitch=mm(5)))
+    clear, _ = _resolve(design, stitch("s", along=(pt(3.699, 0), pt(3.699, 1)), pitch=mm(5)))
+    assert touching == [] and len(clear) == 2
+
+
+def test_keep_outs_given_beside_the_design() -> None:
+    found: list[Issue] = []
+    result = resolve_copper(_empty(), (stitch("s", along=LINE),), issues=found, keepouts=(_keepout(),))  # type: ignore[arg-type]
+    assert result.board is not None and len(result.board.vias) == 4
+
+
+def test_fence_along_the_edge() -> None:
+    design = _edge_rule(_outlined(_empty()), mm(0.5))
+    vias, found = _resolve(design, stitch("s", along=(pt(0.4, -5), pt(0.4, 5))))
+    assert vias == [] and [i.code for i in found] == [
+        "kicad.copper.stitch-skipped",
+        "kicad.copper.stitch-empty",
+    ]
+    assert found[1].severity == "warning"
+
+
+def test_edge_clearance_is_measured_from_the_via_copper() -> None:
+    """With 0.5 mm of clearance a via of 0.6 mm is legal from x = 0.8 mm: 0.3 mm of copper, then the gap."""
+    design = _edge_rule(_outlined(_empty()), mm(0.5))
+    at_limit, _ = _resolve(design, stitch("s", along=(pt(0.8, -5), pt(0.8, 5))))
+    inside, _ = _resolve(design, stitch("s", along=(pt(0.799, -5), pt(0.799, 5))))
+    assert len(at_limit) == 5 and inside == []
+
+
+def test_no_closed_outline_no_edge_check() -> None:
+    design = _edge_rule(_empty(), mm(0.5))
+    assert board_outline(design).rings == ()
+    vias, found = _resolve(design, stitch("s", along=(pt(0.4, -5), pt(0.4, 5))))
+    assert len(vias) == 5 and found == []
+
+
+def test_edge_clearance_in_force() -> None:
+    plain = _outlined(_empty())
+    assert edge_clearance_in_force(plain) == 0 and edge_clearance_in_force(plain, mm(0.3)) == mm(0.3)
+    ruled = _edge_rule(plain, mm(0.5))
+    assert edge_clearance_in_force(ruled, mm(0.3)) == mm(0.5)
+    # the later rule governs: priority 1 is written last
+    both = _edge_rule(ruled, mm(0.2), name="tight", priority=1)
+    assert edge_clearance_in_force(both, mm(0.3)) == mm(0.2)
+    vias, _ = _resolve(both, stitch("s", along=(pt(0.5, -5), pt(0.5, 5))))
+    assert len(vias) == 5
+    floor: list[Issue] = []
+    result = resolve_copper(
+        plain, (stitch("s", along=(pt(0.4, -5), pt(0.4, 5))),), issues=floor, edge_floor=mm(0.5)
+    )  # type: ignore[arg-type]
+    assert result.board is not None and result.board.vias == ()
+
+
+def test_region_grid_keeps_off_a_cut_out() -> None:
+    hole = (pt(4, 4), pt(6, 4), pt(6, 6), pt(4, 6))
+    ring = (pt(-5, -5), pt(15, -5), pt(15, 15), pt(-5, 15))
+    outline = Outline(id=derived_id("out", "test", "o"), points=ring, cutouts=(hole,))
+    design = _edge_rule(_with(_empty(), outline=outline), mm(0.2))  # type: ignore[arg-type]
+    vias, _ = _resolve(design, stitch("s", region=SQUARE, pitch=mm(2.5), origin=pt(0, 0), margin=mm(0.2)))
+    assert pt(5, 5) not in [v.position for v in vias] and len(vias) == 8

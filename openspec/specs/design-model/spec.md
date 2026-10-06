@@ -171,7 +171,7 @@ For a design authored in Fenolite the exported tool project MUST be the source o
 ### Requirement: Library definitions
 The model SHALL provide the module `fenolite.model.library`. It holds library definitions that are independent of any `Design`:
 - `FootprintDef`: an entity with `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads`, `graphics` and `models`
-- `SymbolDef`: an entity with `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units` and `pins`
+- `SymbolDef`: an entity with `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins` and ordered symbol-local `graphics`
 - `SymbolPin`, `SymbolUnit` and `PinAlternate`: value objects without the entity header
 - `Library`: a container with `name`, `footprints` and `symbols`
 
@@ -181,6 +181,13 @@ Library definitions MUST obey these rules:
 - `FootprintDef.pads` and `FootprintDef.graphics` MUST reuse the board `Pad` and `Graphic` entities, with `net_id = None` and positions relative to the definition's origin. A pad with per-layer shapes MUST carry them in `Pad.padstack`.
 - Every field other than `name` MUST have a default. The tuples `keywords`, `flags`, `pads`, `graphics`, `models`, `units`, `pins` and `alternates` MUST be marked ordered, so the canonical form keeps their order. `properties` is a mapping and its canonical form is sorted by key.
 - Library definitions MUST NOT be part of `Design` or of the `.fenolite/` layer files.
+
+`SymbolGraphic` MUST be an immutable value object with a supported primitive kind, ordered `Point` coordinates in symbol-local nanometres, integer stroke width and fill state. The graphics tuple MUST keep drawing order in the canonical form.
+
+#### Scenario: Symbol body graphics keep order
+- **GIVEN** a `SymbolDef` with a rectangle followed by two line graphics
+- **WHEN** it is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the kinds remain `rect`, `line`, `line` in that order
 
 #### Scenario: Definitions are immutable
 - **GIVEN** a `FootprintDef`
@@ -604,4 +611,172 @@ The board layer SHALL model the text fields of a placed footprint as `fenolite.m
 - **GIVEN** a component with no explicit map
 - **WHEN** it is serialized and read back
 - **THEN** `pin_pad_map` is empty and the build applies identity mapping
+
+### Requirement: Buses in the circuit model
+The circuit layer SHALL record a bus, an indexed vector of nets, as the entity `fenolite.model.circuit.Bus` in `Circuit.buses: tuple[Bus, ...]`, empty by default.
+- `Bus` MUST carry the common entity header, `name: str` (the vector's name without its range, `D` for `D[0..7]`) and `members: tuple[BusMember, ...]`, ordered. `BusMember` MUST be a frozen value object with `index: int` and `net_id: str`. A member that has no net is left out, so indexes may have gaps.
+- A bus differs from an `Interface`, which maps role names to nets: a bus is ordered and indexed. A group of nets with different names (a harness, a KiCad group bus) stays an `Interface`.
+- The closed prefix table SHALL include `bus`.
+- The change MUST be additive. `canonical` omits the default, so a design without buses gives the `circuit.json` bytes it gave before, and a `circuit.json` without the key `buses` MUST load with `buses == ()`. `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/circuit.json` MUST be regenerated with `buses` as an optional array.
+- `Design.entities()` MUST yield buses, and `Design.validate()` MUST report, with `where` set to the bus name:
+  - `model.unknown-net` (error) for a member whose `net_id` is no net of the circuit;
+  - `model.duplicate-bus-index` (error) for an index used twice in one bus.
+- A bus gives no net and no net member: `by_net` and the net findings are unchanged. No backend writes a bus in this change; the KiCad and Altium builds MUST keep it in `.fenolite/` and MUST NOT depend on it.
+- `docs/design-model.md` MUST describe the entity and its two findings, and `docs/cli-contract.md` MUST list `model.duplicate-bus-index` with the model findings.
+
+#### Scenario: Buses survive the canonical round trip
+- **GIVEN** a design whose circuit holds the bus `D` with the members `(0, <D0 id>)` and `(1, <D1 id>)`
+- **WHEN** it is written with `canonical.dump_dir`, loaded with `canonical.load_dir` and its `circuit.json` validated against the regenerated schema
+- **THEN** the loaded bus equals the original with its member order, and validation passes
+
+#### Scenario: Circuits without buses are unchanged
+- **GIVEN** a `circuit.json` written before this change, and the same design dumped after it
+- **WHEN** the old file is loaded and the two texts are compared
+- **THEN** loading succeeds with `buses == ()`, and the texts are equal byte for byte
+
+#### Scenario: Member without a net
+- **GIVEN** a bus with a member whose `net_id` names no net, and a bus with the index 3 twice
+- **WHEN** `design.validate()` runs
+- **THEN** it reports one `model.unknown-net` and one `model.duplicate-bus-index`, both of severity `error`, each with the bus name as `where`
+
+#### Scenario: Bus prefix
+- **WHEN** `new_id("bus", rng)` and `new_id("busx", rng)` are called
+- **THEN** the first returns an id that starts with `bus_` and the second raises `ValueError`
+
+### Requirement: Padstack holes and offsets
+The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`, with fields that all have defaults, so that documents written before them still load. The three hole fields were already added by change c0056 (slotted pads of the DSL and of the KiCad footprint reader) when this change was implemented; this change adds `PadstackLayer.offset` and restates the others.
+- `Padstack.hole_shape: HoleShape = "round"`, one of `round`, `square` and `slot`.
+- `Padstack.hole_length: Nm | None = None`: the length of a slot along its axis, ends included. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a square hole and the width of a slot.
+- `Padstack.hole_rotation: Udeg = 0`: the angle of the hole's axis relative to the footprint.
+- `PadstackLayer.offset: Point = Point(0, 0)`: where the copper's centre lies on that layer relative to `Pad.position`, the centre of the hole, in the footprint frame.
+- `Padstack.layers` MAY be empty: a pad with one shape on all its layers and a hole that is not round has a padstack without layer entries. `Pad.padstack is None` MUST still mean one shape on all layers, a round hole or no hole, and no offset.
+- In a library definition, `PadstackLayer.layer` MAY be the wildcard `In*.Cu`, every inner copper layer, as `Pad.layers` of a definition may hold `*.Cu`. On a board it MUST be a real layer.
+- `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` and `library.json` with the new fields and the closed vocabulary of `hole_shape`.
+- No reader or writer of the KiCad backend changes in this change: the KiCad backend reads and writes a slotted hole since c0056, and a KiCad offset drill stays in the pad's opaque slots, as today.
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` written before this change that holds a pad with a padstack of two layers
+- **WHEN** `canonical.loads` reads it into a `Board`
+- **THEN** the padstack has `hole_shape == "round"`, `hole_length is None` and `hole_rotation == 0`, and each layer `offset == Point(0, 0)`
+
+#### Scenario: Unknown hole shape rejected
+- **GIVEN** a `board.json` document where a padstack's `hole_shape` is `"oval"`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails with the JSON pointer of that value
+
+#### Scenario: Slot without layer entries
+- **GIVEN** `Padstack(id=…, hole_shape="slot", hole_length=2_500_000, hole_rotation=90_000_000)` on a pad with `drill == 1_000_000`
+- **WHEN** the board is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the loaded padstack equals the original and has `layers == ()`
+
+#### Scenario: Schemas regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `board.json` and `library.json` list `hole_shape`, `hole_length`, `hole_rotation` and `offset`
+
+### Requirement: Component bodies
+The board layer SHALL describe the physical body of a part as the entity `fenolite.model.board.ComponentBody`, in `FootprintInstance.bodies: tuple[ComponentBody, ...]` and `FootprintDef.bodies: tuple[ComponentBody, ...]`, both ordered and empty by default.
+- `ComponentBody` MUST carry the common entity header and: `kind: BodyKind` (`extruded` or `model`); `height: Nm`, the distance from the board surface to the top of the body; `standoff: Nm = 0`, the distance from the board surface to its underside; `outline: tuple[Point, ...] = ()`, ordered, the body's footprint as a polygon in the footprint frame of "Board entities read from file backends" (empty when the source gives none); `layer: str = ""`, the layer the body is drawn on; `model: str = ""`, the name of a 3D model for the kind `model`; and `name: str = ""`.
+- A body states a volume above the side the footprint is placed on. It carries no model data: `FootprintDef.models` keeps its meaning (the model references of a definition), and no file is embedded.
+- The height of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- The closed prefix table SHALL include `bdy`.
+- `Design.validate()` MUST report `model.body-height` (error), with `where` set to the body's id, for a body whose `height` is below its `standoff` or whose `standoff` is negative.
+- No reader or writer of the KiCad backend changes: definitions read from KiCad files hold no body, so a placed copy has none, and a KiCad build MUST keep the bodies of a design in `.fenolite/` only.
+- `tools/gen_schemas.py` MUST regenerate `board.json` and `library.json` with `ComponentBody` and `bodies`. `docs/design-model.md` MUST describe the entity, and `docs/cli-contract.md` MUST list `model.body-height`.
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` and a `library.json` written before this change
+- **WHEN** `canonical.loads` reads them
+- **THEN** every footprint and every definition has `bodies == ()`
+
+#### Scenario: Body survives the canonical round trip
+- **GIVEN** a footprint with one `ComponentBody(kind="extruded", height=1_016_000, outline=<four points>, layer="Mech.13")`
+- **WHEN** its board is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the loaded body equals the original, and the outline keeps its point order
+
+#### Scenario: Height below standoff
+- **GIVEN** a body with `height == 500_000` and `standoff == 800_000`
+- **WHEN** `design.validate()` runs
+- **THEN** it reports one `model.body-height` of severity `error` whose `where` is the body's id
+
+#### Scenario: Unknown body kind rejected
+- **GIVEN** a `board.json` document where a body's `kind` is `"sphere"`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails with the JSON pointer of that value
+
+#### Scenario: Body prefix
+- **WHEN** `derived_id("bdy", "altium", "x")` and `derived_id("bdyx", "altium", "x")` are called
+- **THEN** the first returns an id that starts with `bdy_` and the second raises `ValueError`
+
+### Requirement: Schematic sheet definitions
+`fenolite.model.schematic` SHALL provide the schematic-sheet definition `SchematicSheet`, an entity with the common header, and the entities and value objects it holds:
+- `SchematicSheet(name, paper, title_block, lib_symbols, symbols, labels, no_connects, wires, sheets, pages)`: `paper` is a `SheetFrameRef` (default `SheetFrameRef("A4")`), `title_block` a `TitleBlock` or `None`, `lib_symbols` a tuple of `SymbolDef`, and the other collections tuples of the types below;
+- `SymbolInstance(lib_ref, position, rotation=0, mirror="", unit=1, body_style=1, ref="", value="", footprint="", properties={}, dnp=False, in_bom=True, on_board=True, exclude_from_sim=False, lib_name="", uses=())`, an entity: `mirror` in `"" | "x" | "y"`, and `uses` a tuple of `SymbolUse(project, path, ref, unit=1)`;
+- `NetLabel(kind, name, position, rotation=0, shape="")`, an entity: `kind` in `local | global | hierarchical`, `shape` in `"" | input | output | bidirectional | tri_state | passive`;
+- `NoConnectFlag(position)`, an entity;
+- `Wire(start, end)`, an entity: two `Point`s;
+- `SheetRef(name, file, position, size, uses=())`, an entity, with `uses` a tuple of `SheetUse(project, path, page)`;
+- `SheetPage(path, page)`.
+
+These rules MUST hold:
+- Every entity and value object MUST be immutable. Positions MUST be `Point` in integer nm and rotations integer µdeg; no field MAY be a float.
+- `SymbolInstance.rotation` MUST be 0, 90 000 000, 180 000 000 or 270 000 000.
+- `NetLabel.kind` MUST have no default, so the canonical form always writes it.
+- A `Wire` MUST be horizontal or vertical, with `start != end`; any other pair raises `ValueError`. Only created sheets hold wires: the KiCad reader leaves `wires` empty and keeps a file's wires as opaque slots (`kicad-schematic`, "Modelled schematic content").
+- `lib_symbols`, `symbols`, `labels`, `no_connects`, `wires`, `sheets`, `pages` and `uses` MUST be marked ordered, so the canonical form keeps file order. `properties` MUST be sorted by key in the canonical form.
+- A `SchematicSheet` MUST NOT be part of `Design` or of the `.fenolite/` layer files: a generated sheet is derived from the circuit, and a sheet read from a file is checked and compared, not imported.
+- `fenolite.model.schematic` MUST import only `core` and `model`.
+
+#### Scenario: Canonical round trip keeps order
+- **GIVEN** a `SchematicSheet` built in the test with two symbol instances, three labels of the three kinds, one no-connect flag and one wire, each with only its required fields set
+- **WHEN** it is dumped and loaded with `canonical.dumps` and `canonical.loads`
+- **THEN** the loaded sheet equals the original, and every collection keeps its order
+
+#### Scenario: Label kind is always written
+- **WHEN** a `NetLabel("local", "N1", Point(0, 0))` is dumped with `canonical.dumps`
+- **THEN** the text holds `"kind": "local"`
+
+#### Scenario: Sheets are not layer content
+- **GIVEN** a design built for the blink example
+- **WHEN** `canonical.dump_dir` writes it
+- **THEN** the same six layer files are written, and none of them contains a `SchematicSheet`
+
+#### Scenario: Model stays backend-free
+- **GIVEN** a version of `src/fenolite/model/schematic.py` that imports `fenolite.backends`
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it fails naming `model → backends`
+
+#### Scenario: Slanted wire refused
+- **WHEN** `Wire(Point(0, 0), Point(1_270_000, 1_270_000))` is created
+- **THEN** `ValueError` is raised
+
+### Requirement: Identifiers of schematic entities
+The closed prefix table SHALL include `sch` (schematic sheet), `sci` (symbol instance), `lbl` (label), `ncf` (no-connect flag), `shr` (sheet reference) and `wir` (wire).
+- An entity read from a file MUST have the id `derived_id(<prefix>, <backend>, <native id>)`, the native id being the one its backend names (`kicad-schematic`, "Identifiers of schematic items").
+- An entity that Fenolite creates for a design MUST have an id derived from the design, so two builds of one design give equal ids: the sheet `derived_id("sch", "fenolite", "<design name>")`, and each entity `derived_id(<prefix>, "fenolite", "<design name>:<key>")`, where `<key>` is stated by the change that creates it.
+- `SymbolUse`, `SheetUse` and `SheetPage` MUST carry no ids.
+
+#### Scenario: Prefixes accepted
+- **WHEN** `new_id` is called with each of `sch`, `sci`, `lbl`, `ncf`, `shr` and `wir` and `random.Random(1)`
+- **THEN** each returns an id that starts with its prefix, and `new_id("scx", random.Random(1))` raises `ValueError`
+
+#### Scenario: Same uuid, same id
+- **WHEN** `tests/data/kicad/schematic/flat.kicad_sch` is read twice
+- **THEN** both sheets have the id `derived_id("sch", "kicad", <the root uuid of the file>)`
+
+### Requirement: Schematic sheet schema
+`tools/gen_schemas.py` SHALL generate `schemas/fenolite.model.v0/schematic.json` with schema id `fenolite.schematic.v0` from `fenolite.model.schematic.SchematicSheet`. The schema drift test MUST cover it, and `canonical.dumps`/`canonical.loads` MUST round-trip a `SchematicSheet` idempotently.
+
+#### Scenario: Schema drift detected
+- **GIVEN** a contributor adds a field to `SymbolInstance` without regenerating schemas
+- **WHEN** `uv run pytest tests/unit/test_schema_drift.py` runs
+- **THEN** it fails naming `schematic.json`
+
+#### Scenario: Float rejected in a sheet document
+- **GIVEN** a `schematic.json` document where `symbols[0].position.x` is `1.5`
+- **WHEN** it is validated against the schematic schema with `tests/_schema.py`
+- **THEN** validation fails with a message naming `/symbols/0/position/x`
+
+#### Scenario: Schemas up to date
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs
+- **THEN** it exits 0
 

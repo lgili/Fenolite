@@ -7,6 +7,8 @@ written as a decimal number and ``mil`` or ``mm`` (``docs/formats/altium/rule-fi
 ``stackup-file.md``), exactly as a fraction rounded half to even to the nanometre.
 """
 
+# evidence: see read.project
+
 from __future__ import annotations
 
 import re

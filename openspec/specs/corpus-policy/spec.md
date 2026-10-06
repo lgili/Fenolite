@@ -114,12 +114,17 @@ Every row MUST set `license` from the repository-level statement. It MUST record
 - **THEN** the existing embeddable rule fails it, stating that only CC0 or public-domain items may be embeddable
 
 ### Requirement: Corpus rows carry no names outside URLs
-Vendor, product and project names SHALL appear only inside the `url` field of manifest rows and in the URLs of `docs/evidence/sources.md`. The id of every row whose `uses` contains `rt0` MUST match `^(kicad-demo-\d+(-\d+){2,3}|third-party)-(pcb|sch|sym|mod|fplib|wks)-\d{2}$`. `notes`, `docs/formats/kicad/corpus.md` and test output MUST describe rows by id, tag, format version and licence only.
+Vendor, product and project names SHALL appear only inside the `url` field of manifest rows and in the URLs of `docs/evidence/sources.md`. The id of every row whose `uses` contains `rt0` MUST match `^(kicad-demo-\d+(-\d+){2,3}|third-party)-(pcb|sch|sym|mod|fplib|wks)-\d{2,3}$`. `notes`, `docs/formats/kicad/corpus.md` and test output MUST describe rows by id, tag, format version and licence only.
 
 #### Scenario: Named id rejected
 - **GIVEN** an `rt0` row whose id is built from its demo folder name
 - **WHEN** `uv run pytest tests/corpus/test_manifest.py` runs
 - **THEN** the test fails naming the row and the expected pattern
+
+#### Scenario: Three-digit id accepted
+- **GIVEN** an `rt0` row with the id `kicad-demo-10-0-6-sch-104`
+- **WHEN** the manifest test runs
+- **THEN** it reports no id problem for that row
 
 ### Requirement: Selective fetch by use
 `tools/corpus_fetch.py` SHALL accept `--uses TAG` (repeatable; an item is kept if it has any of the tags) and `--exclude-uses TAG` (repeatable; an item with any of the tags is dropped). It SHALL store each file under `<cache>/<id>/<name>`, where `<name>` is the URL-decoded last path segment of the URL.
@@ -217,7 +222,7 @@ Every file under `tests/data/kicad/project/` SHALL be declared in `tests/data/MA
 `tests/corpus/manifest.toml` SHALL tag with the use `rt2-9` exactly the rows whose `ref` is `9.0.9.1`, whose URL names a `.kicad_pcb` file, and whose `uses` hold `rt0` and not `heavy`. Today these are `kicad-demo-9-0-9-1-pcb-01`, `-02`, `-03`, `-05` and `-06`; the malformed `-04` is not one of them.
 - `tests/corpus/test_manifest.py` MUST fail, naming the row, when a row carries `rt2-9` without meeting this rule, or meets the rule without `rt2-9`.
 - `rt2-9` rows MUST keep every other rule of the manifest (licence, `embeddable = false`, exactly one origin), and their files MUST stay out of the repository like every corpus file.
-- `uv run python tools/corpus_fetch.py --uses rt2-9` MUST fetch exactly these rows. It is the only corpus fetch of the `kicad-9` job (`ci-baseline`, "KiCad 9.0 oracle job").
+- `uv run python tools/corpus_fetch.py --uses rt2-9` MUST fetch exactly these rows. The `kicad-9` job fetches them together with the schematic rows of the 9.0.9.1 tree, in its only corpus fetch, `--uses rt2-9 --uses sch-9` (`ci-baseline`, "KiCad 9.0 oracle job"); a row MUST NOT carry `rt2-9` because it carries `sch-9`.
 
 #### Scenario: Five rows tagged
 - **WHEN** `uv run pytest tests/corpus/test_manifest.py` runs on the committed manifest
@@ -300,4 +305,125 @@ Every file under `tests/data/kicad/project/` SHALL be declared in `tests/data/MA
 #### Scenario: Rows of the compound-file census
 - **WHEN** `uv run pytest tests/corpus/test_manifest.py -k altium` runs on the committed manifest
 - **THEN** it finds ten rows with `altium` and `cfb`, from at least three repositories, all with `embeddable = false`
+
+### Requirement: Altium schematic corpus rows
+`tests/corpus/manifest.toml` SHALL contain rows for public schematic documents and schematic libraries that Altium Designer saved, for the schematic reader (`altium-schematic-reader`). Every such row follows "Second-backend corpus rows" (change c0039): its id pattern, the pinned commit in `ref` and `url`, the licence rule, `embeddable = false`, the uses `altium` and `origin:third-party`, and notes without names.
+- A schematic document row MUST also carry the use `altium-sch`, and a schematic library row the use `altium-schlib`. A row MUST NOT carry both.
+- The four schematic rows that change c0039 lists (`altium-third-party-schdoc-01` to `-04`) MUST gain `altium-sch`; no second row is added for a URL that a row already lists.
+- A later change MAY add rows with these tags (c0046 adds three `schdot` rows with `altium-sch`); the counts of this requirement are those of changes c0039 and c0040.
+- This change adds nine schematic rows, `altium-third-party-schdoc-05` to `-13`: the other four sheets of the design of S-0188, the other four of S-0187, and one sheet of S-0279. It adds nine library rows, `altium-third-party-schlib-01` to `-09`: six of S-0277, two of S-0278 and one of S-0279.
+- The rows with `altium-sch` MUST come from at least three repositories, and so MUST the rows with `altium-schlib`.
+- `tests/corpus/test_manifest.py` SHALL check, for every row with `altium-sch` or `altium-schlib`, that it holds `altium`, that its id kind is `schdoc` or `schdot` for `altium-sch` and `schlib` for `altium-schlib`, and that each tag covers three repositories, counted by the host and the first two path segments of `url`.
+- The files are measurement material: "Measurement versus embedding" and "Derived corpus files stay out of the repository" apply to them and to every file derived from them, such as the KiCad libraries that `kicad-cli sym upgrade` writes and the ASCII files rewritten from their records.
+
+#### Scenario: Tag on the wrong kind
+- **GIVEN** a row `altium-third-party-pcblib-01` whose `uses` holds `altium-schlib`
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py` runs
+- **THEN** the test fails naming the row and the kinds the tag allows
+
+#### Scenario: Tag without the family use
+- **GIVEN** a row with `uses = ["altium-sch", "origin:third-party"]`
+- **WHEN** the manifest test runs
+- **THEN** it fails stating that the row needs `altium`
+
+#### Scenario: Two repositories only
+- **GIVEN** a manifest whose `altium-schlib` rows come from two repositories
+- **WHEN** the manifest test runs
+- **THEN** it fails stating that library rows need three repositories
+
+#### Scenario: Fetch by use
+- **GIVEN** the manifest with the rows of changes c0039 and c0040
+- **WHEN** `uv run python tools/corpus_fetch.py --uses altium-sch --uses altium-schlib` runs
+- **THEN** 13 schematic rows and 9 library rows are fetched and verified by SHA-256, and the summary counts 22 items
+
+### Requirement: Altium project sets
+`tests/corpus/manifest.toml` SHALL mark the rows of one public Altium project as a set, so that the import of change c0043 can read a project's sheets and its PCB document together. This requirement extends "Second-backend corpus rows" (c0039), whose rules hold for every row of a set.
+- A set is the rows that carry the use `altium-set:<nn>`, `<nn>` two digits. A set MUST hold exactly one project file row (`altium-third-party-prjpcb-NN`), exactly one PCB document row, and every schematic sheet that the project file lists. All rows of a set MUST come from one repository at one commit and MUST carry one licence.
+- Every row of a set MUST also carry the use `altium-import`. The use `altium-import:known-diff` MAY be added to the project file row of a set whose sheets and PCB document disagree; its `notes` MUST then add, after the usual four fields, a sentence `Known difference: …` that gives the cause in lower-case words, row ids and counts only; the use and that sentence go together.
+- Change c0043 adds no file of a new kind: it tags rows that c0039 to c0042 list and adds the sheets, project files and PCB documents that those changes do not list for the chosen projects. Each added row follows the id pattern, the pinned commit and the licence rule of c0039, with its source id registered, takes the next free number of its kind, and carries only `altium`, `origin:third-party` and the set uses: it carries none of `cfb`, `altium-sch`, `altium-pcbdoc` and `altium-text`, so the row counts that c0039 to c0042 state still hold.
+- The sets MUST come from at least three repositories when they support a `CORPUS-VERIFIED` label; with fewer, the label is not given. The manifest holds five sets from five repositories (S-0187, S-0188, S-0174, S-0176, S-0175); S-0305 stays unused.
+- `tools/corpus_fetch.py --uses altium-import` MUST fetch exactly the rows of the sets.
+- `tests/corpus/test_manifest.py` SHALL check, for every `altium-set` use: one project file row and one PCB document row, one repository, one commit and one licence over the set, and `altium-import` on every row.
+- Nothing read from a set, and nothing derived from it, is committed.
+
+#### Scenario: Set without a PCB document
+- **GIVEN** rows that carry `altium-set:01`, among them a project file and four sheets but no PCB document
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py -k altium_set` runs
+- **THEN** it fails naming the set and the missing kind
+
+#### Scenario: Set from two commits
+- **GIVEN** a set whose sheets are pinned to one commit and whose PCB document to another
+- **WHEN** the manifest test runs
+- **THEN** it fails naming the set and the two commits
+
+#### Scenario: Fetch of the sets
+- **WHEN** `uv run python tools/corpus_fetch.py --uses altium-import` runs
+- **THEN** only rows with an `altium-set` use are fetched, and each file's SHA-256 is verified
+
+### Requirement: Schematic corpus rows
+`tests/corpus/manifest.toml` SHALL contain one row per distinct `.kicad_sch` under `demos/` of the KiCad source repository at tags 10.0.6 and 9.0.9.1, and one row for each of the two S-expression schematics that the third-party repositories of S-0027 and S-0028 hold at their pinned commits. A file whose SHA-256 is identical at both tags is listed once, and `notes` names the other tag and the tag commit.
+- **Ids.** New demo rows MUST have ids `kicad-demo-<tag>-sch-NNN` with three digits, and the third-party rows `third-party-sch-01` and `third-party-sch-02`. The row `kicad-demo-10-0-6-sch-01` keeps its id.
+- **Uses.** Every row MUST carry `rt0`, `sch` and exactly one origin, and these content tags, computed from the file and its project:
+  - `sch-root`: a project file of the same stem exists beside it at the same tag;
+  - `sch-bus`: the file holds a `bus`, `bus_entry` or `bus_alias` child, or a label whose text is a bus (a vector `NAME[m..n]` or a group in braces);
+  - `sch-multi`: the file holds a symbol with more than one use under one project, or more than one sheet reference of its project names it;
+  - `sch-old`: its format version is below `READ_FLOOR[FileKind.SCHEMATIC]`;
+  - `sch-9`: the file is in the demos at tag 9.0.9.1 (every row of that tag, and every row of tag 10.0.6 that is identical there). This tag is not recomputed from the file: it follows from the two tree listings (S-0024).
+- **Licence.** Every row MUST set `license`, `license_variant` and `embeddable = false` as "KiCad demo and third-party board rows" requires, and a demo folder whose licence carries a non-commercial clause MUST NOT be listed.
+- **Census.** `tests/corpus/test_schematic_census.py` (marker `needs_corpus`) MUST recompute the four content tags of every `sch` row from the cached files and MUST fail naming the row id when a tag is missing or wrong. It MUST write, through `tests/_boards.py::census`, the number of rows per tag, per format version and per origin, the root heads with their counts, and the number of rows that carry none of `sch-bus`, `sch-multi` and `sch-old`; the numbers are copied into `docs/evidence/kicad-schematic.md`.
+- **Acceptance list.** The rows that carry `sch` and none of `sch-bus`, `sch-multi` and `sch-old` are the "schematics without bus and without multi-instance" of the project plan's v0.2a acceptance; no second list is kept.
+- **Round trips.** `tests/corpus/test_schematic_rt.py` (marker `needs_corpus`) MUST run RT0 (`tree_equal(parse(dumps(parse(t))), parse(t))`) and RT1 (`sch.roundtrip_schematic`) on every demo row without `sch-old`, bus or not, and MUST record `opaque_count` per row. A row with `sch-old` MUST be counted as not read, with its format version.
+- **Fetch.** The `kicad-10` job fetches the `sch` rows through its existing `--uses rt0` selection. The `kicad-9` job fetches the rows of the 9.0.9.1 tree with `--uses sch-9`, beside its `rt2-9` rows (`ci-baseline`, "KiCad 9.0 oracle job").
+
+#### Scenario: Tags recomputed
+- **GIVEN** the `sch` rows cached, and a manifest in which one row with bus entries lacks `sch-bus`
+- **WHEN** `uv run pytest tests/corpus/test_schematic_census.py` runs
+- **THEN** it fails naming that row id and `sch-bus`
+
+#### Scenario: Round trips over the demo rows
+- **GIVEN** the `sch` rows cached
+- **WHEN** `uv run pytest tests/corpus/test_schematic_rt.py -rA` runs with `FENOLITE_CENSUS_OUT` set
+- **THEN** every demo row without `sch-old` passes RT0 and RT1, rows with `sch-old` are counted with their format version, and the census file holds one `opaque_count` per row read
+
+#### Scenario: Acceptance list is a query
+- **WHEN** the manifest rows with `sch` and without `sch-bus`, `sch-multi` and `sch-old` are selected
+- **THEN** the selection is not empty, and each selected row passed RT0 and RT1 in the census
+
+#### Scenario: Nothing derived is committed
+- **WHEN** the two corpus tests have run
+- **THEN** `git status --porcelain` and the SHA-256 of every cached file are unchanged
+
+### Requirement: Upgraded schematic copies keep their origin
+A copy of a `sch` row that `kicad-cli` 10.0.6 makes with `sch upgrade --force` SHALL count as that row's origin when an evidence rule needs files from two or more origins, under the conditions of "Upgraded copies keep their origin": made through the package runner (`KicadCli.upgrade_schematic`) from the cached file, kept only in memory or under `tmp_path`, never committed, used only by tests that carry `needs_corpus` and `kicad_min_major(10)`, and named as such in the result of the hypothesis row that relies on it.
+
+#### Scenario: Third-party origin through upgraded copies
+- **GIVEN** the cached rows `third-party-sch-01` and `-02`, below the read floor, and `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/schematic/test_schematic_upgraded.py -q` runs with `FENOLITE_REQUIRE=kicad,corpus`
+- **THEN** each upgraded copy is read and checked as origin `third-party`, and `git status --porcelain` is unchanged afterwards
+
+### Requirement: Round-trip use on Altium rows
+`tests/corpus/manifest.toml` SHALL tag with the use `rta` exactly the rows whose URL path ends, in any letter case, in `.SchDoc`, `.SchLib`, `.PcbDoc`, `.PcbLib` or `.PrjPcb`, and whose `uses` do not hold `malformed`. These are rows that c0039 to c0043 add; this change adds no row of its own unless "Altium project sets" (`corpus-policy`, c0043; the use `altium-set:<nn>`) holds fewer than three sets, in which case task 1.3 adds the project file, the schematic documents and the PCB document of the missing sets from the sources S-0245 to S-0247. A file that a row already lists MUST be reused by adding the set uses to that row; a new row takes the next free number of its kind ("Second-backend corpus rows") and carries only `altium`, `origin:third-party`, the set uses and `rta`.
+- `tests/corpus/test_manifest.py` MUST fail, naming the row, when a row carries `rta` without meeting this rule, or meets the rule without `rta`.
+- `rta` rows MUST keep every other rule of the manifest and of the requirement that added them (licence, pinned commit, `embeddable = false`, names only in the URL), and their files MUST stay out of the repository like every corpus file.
+- Test output and `docs/evidence/altium-roundtrip.md` MUST name rows by id, kind, size and licence only, and MUST report counts, stream names and record numbers, never a value of a record.
+- `uv run python tools/corpus_fetch.py --uses rta` MUST fetch exactly these rows. A row that also holds `heavy` is fetched and run only when `--exclude-uses heavy` is not given.
+
+#### Scenario: Every Altium row tagged
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py -k rta` runs on the committed manifest
+- **THEN** it passes, and every row whose URL ends in one of the five suffixes carries `rta`
+
+#### Scenario: Tag on a KiCad row
+- **GIVEN** a manifest in which `kicad-demo-10-0-6-pcb-01` also carries `rta`
+- **WHEN** the manifest test checks it
+- **THEN** it fails naming `kicad-demo-10-0-6-pcb-01` and the use `rta`
+
+#### Scenario: Tag missing
+- **GIVEN** a manifest in which one row whose URL ends in `.PcbDoc` lacks `rta`
+- **WHEN** the manifest test checks it
+- **THEN** it fails naming that row
+
+#### Scenario: Fetch by use
+- **GIVEN** a temporary manifest with one `rt0` row and one `rta` row
+- **WHEN** `uv run python tools/corpus_fetch.py --manifest <it> --cache <tmp> --uses rta` runs
+- **THEN** only the `rta` row is fetched, and the summary counts one item
 

@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 
 from fenolite.checks import STAGE_ORDER, codes
-from fenolite.checks.codes import FINDING, ISSUE_CODES, issue, oracle_code, table_key
+from fenolite.checks.codes import ERC_FINDING, FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.")
+CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.")
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -25,7 +25,9 @@ TABLE = {
     "check.copy-skipped": ("info",),
     "<oracle>.drc.rules-not-loaded": ("error", "info"),
     "<oracle>.drc.rules-unchecked": ("warning",),
+    "<oracle>.drc.parity-unchecked": ("warning",),
     "<oracle>.drc.<type>": ("error", "warning", "info"),
+    "<oracle>.erc.<type>": ("error", "warning", "info"),
     "netlist.assignment-differs": ("error",),
     "netlist.uncovered": ("info",),
     "check.rt2-failed": ("error",),
@@ -43,6 +45,20 @@ TABLE = {
     "zone.unfilled": ("warning",),
     "zone.fill-stale": ("warning",),
     "zone.fill-unchecked": ("info",),
+    "check.document-missing": ("warning",),
+    "check.rta0-failed": ("error",),
+    "check.rta1-failed": ("error",),
+    "check.rta1-normalised": ("info",),
+    "check.rta2-failed": ("error",),
+    "check.roundtrip-unjudged": ("info",),
+    "parity.missing-footprint": ("error",),
+    "parity.extra-footprint": ("error",),
+    "parity.duplicate-footprints": ("error",),
+    "parity.net-conflict": ("error",),
+    "parity.pin-without-pad": ("error", "warning"),
+    "parity.footprint-mismatch": ("warning",),
+    "parity.oracle-differs": ("warning",),
+    "parity.pad-without-pin": ("info",),
 }
 
 
@@ -78,7 +94,10 @@ def test_codes_closed_set() -> None:
     assert unknown(sources) == set()
     # the finding row is generated from the report's type, never written as a literal
     # ``copper.clearance`` is also a stage name, which ``code_literals`` leaves out
-    wanted = {k for k in TABLE if not k.startswith("erc.lite.") and k != FINDING and k not in STAGE_ORDER}
+    generated = (FINDING, ERC_FINDING)  # built from the report's type, never written as a literal
+    wanted = {
+        k for k in TABLE if not k.startswith("erc.lite.") and k not in generated and k not in STAGE_ORDER
+    }
     assert code_literals(sources) >= wanted
 
 

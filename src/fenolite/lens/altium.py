@@ -61,6 +61,8 @@ TARGET = "altium"
 DSL_BACKEND = "dsl"
 UPDATE_COMMAND = "Tools » Update From Libraries"
 MAX_PIN_TEXT = 255
+MODEL_ONLY_INTERFACES: frozenset[str] = frozenset({"diff_pair", "i2c", "spi", "uart", "usb2"})
+"""The interface kinds an Altium build keeps in the model and names in one ``altium.not-lowered`` info."""
 """The longest pin name or number a binary pin's short string holds."""
 ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -522,6 +524,17 @@ def resolve_footprints(
 def _comment(component: Component) -> str:
     link = split_link(component.lib_symbol_ref)
     return component.value or (link[1] if link is not None else component.ref)
+
+
+def with_written_values(design: Design) -> Design:
+    """``design`` with the value that the documents hold for every component whose value is empty: its
+    symbol's name, which both writers write as the comment (a component of Altium cannot be without one).
+    The model that a build stores is the model its documents read back to (change c0044, RT-A2)."""
+    components = tuple(
+        component if component.value else dataclasses.replace(component, value=_comment(component))
+        for component in design.circuit.components
+    )
+    return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
 
 
 def pcb_document(
@@ -1027,9 +1040,13 @@ def _not_lowered(
         )
         found.append(issue("altium.not-lowered", message, "design-rules"))
     found += altium_copper.board_not_lowered(design.board)
-    pairs = sorted(i.name for i in design.circuit.interfaces if i.kind == "diff_pair")
-    if pairs:
-        message = f"diff pairs {', '.join(pairs)} are kept in the model only"
+    kept = sorted((i.name, i.kind) for i in design.circuit.interfaces if i.kind in MODEL_ONLY_INTERFACES)
+    if kept:
+        if all(kind == "diff_pair" for _, kind in kept):
+            message = f"diff pairs {', '.join(name for name, _ in kept)} are kept in the model only"
+        else:  # change c0073: the typed buses are named with their kind
+            named = ", ".join(f"{name} ({kind})" for name, kind in kept)
+            message = f"interfaces {named} are kept in the model only; their nets are written as plain nets"
         found.append(issue("altium.not-lowered", message, "interfaces"))
     drawn = lowered_harnesses(design, sheets, form)
     harnesses = [i.name for i in hierarchy.harness_interfaces(design) if i.name not in drawn]
@@ -1165,7 +1182,7 @@ def build_altium(
     model, pin_issues = kicad_pins(design, resolved)
     issues += pin_issues
     symbols = library_symbols(resolved, issues)
-    model = generic_pins(model)
+    model = with_written_values(generic_pins(model))
     issues += list(model.validate())
     if not any(i.severity == "error" for i in issues):
         issues += _library_checks(model, name, symbols, project_exists)

@@ -102,11 +102,13 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
     commands = [
         {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
         | ({"example_tools": list(c.example_tools)} if c.example_tools else {})
+        | ({"paged": c.paged, "default_limit": c.default_limit} if c.paged else {})
         for c in sorted(discover().values(), key=lambda c: c.name)
     ]
     result: dict[str, Any] = {
@@ -116,6 +118,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "experimental": _experimental(
             [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]
         ),
+        "matrix": [row.to_json() for row in matrix.rows()],
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "routers": [

@@ -33,7 +33,16 @@ def pytest_steps(job: str) -> list[str]:
     return [line.strip() for line in job.splitlines() if line.strip().startswith("run: uv run pytest")]
 
 
-ALTIUM_READER_USES = (("altium-text", "the Altium text rows of the project reader"),)
+ALTIUM_READER_USES = (
+    ("altium-import", "the rows of the Altium project sets of the import"),
+    ("altium-pcbdoc", "the Altium PCB document rows of the PCB reader"),
+    ("altium-pcblib", "the Altium PCB library rows of the PCB reader"),
+    ("altium-sch", "the Altium schematic rows of the schematic reader"),
+    ("altium-schlib", "the Altium schematic library rows of the schematic reader"),
+    ("altium-text", "the Altium text rows of the project reader"),
+    ("altium-sheet", "the Altium sheet-template rows of the sheet import"),
+    ("rta", "the Altium rows of the round-trip levels"),
+)
 """Corpus uses of the Altium readers whose rows carry neither ``rt0`` nor ``cfb``: the ``kicad-10`` job
 fetches each of them by name."""
 
@@ -134,8 +143,8 @@ def test_unit_job_runs_in_parallel() -> None:
     assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
 
 
-KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9"
-KICAD9_KEY = "key: corpus-rt2-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
+KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9"
+KICAD9_KEY = "key: corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
@@ -164,14 +173,14 @@ def kicad9_problems(workflow: str) -> list[str]:
     if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
         problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
     if KICAD9_KEY not in job:
-        problems.append("kicad-9: cache key must be corpus-rt2-9-<hash of tests/corpus/manifest.toml>")
+        problems.append("kicad-9: cache key must be corpus-rt2-9-sch-9-<hash of tests/corpus/manifest.toml>")
     if pytest_steps(job) != [KICAD9_PYTEST]:
         problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
     if fetches != [KICAD9_FETCH]:
-        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9")
+        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9")
     return problems
 
 
@@ -208,6 +217,16 @@ def test_kicad_9_wider_fetch_rejected() -> None:
     text = WORKFLOW.read_text(encoding="utf-8").replace("--uses rt2-9", "--uses rt0")
     problems = kicad9_problems(text)
     assert any(p.startswith("kicad-9:") and "rt2-9" in p for p in problems)
+
+
+def test_kicad_9_fetch_without_the_schematic_rows_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "--uses rt2-9 --uses sch-9" in job_text(text, "kicad-9")
+    for edited in (text.replace(" --uses sch-9", ""), text.replace("--uses sch-9", "--uses sch")):
+        problems = kicad9_problems(edited)
+        assert any(p.startswith("kicad-9:") and "--uses sch-9" in p for p in problems)
+    old_key = text.replace("corpus-rt2-9-sch-9-", "corpus-rt2-9-")
+    assert any("cache key" in p and "sch-9" in p for p in kicad9_problems(old_key))
 
 
 def test_kicad_9_cache_key_and_order() -> None:
@@ -395,3 +414,134 @@ def test_dco_job() -> None:
         text.replace("fetch-depth: 0", "fetch-depth: 1")
     )
     assert "dco: step 'check' missing" in dco_problems(text.replace("tools/dco_check.py", "tools/other.py"))
+
+
+# --- the macos-app nightly job (capability ci-baseline, "macOS application nightly job"; c0068) ------
+
+NIGHTLY = ROOT / ".github" / "workflows" / "nightly.yml"
+MACOS_ASSET = (
+    "https://github.com/KiCad/kicad-source-mirror/releases/download/10.0.6/kicad-unified-universal-10.0.6.dmg"
+)
+MACOS_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("image cache", "uses: actions/cache"),
+    ("image download", "curl "),
+    ("digest check", "shasum -a 256 --check"),
+    ("mount", "hdiutil attach"),
+    ("kicad-cli version", '"$FENOLITE_KICAD_CLI" version'),
+    ("uv sync", "run: uv sync --locked --extra dev"),
+    ("pytest", "run: uv run pytest tests/kicad -q"),
+]
+MACOS_PYTEST = f"run: uv run pytest tests/kicad -q {PARALLEL}"
+MACOS_DIGEST = re.compile(r"echo \"([0-9a-f]{64})  \S+\" \| shasum -a 256 --check")
+
+
+def triggers(workflow: str) -> str:
+    """The lines of the ``on:`` block of a workflow."""
+    match = re.search(r"^on:\n(.*?)(?=^\S)", workflow, re.MULTILINE | re.DOTALL)
+    return match.group(1) if match else ""
+
+
+def macos_app_problems(workflow: str) -> list[str]:
+    job = job_text(workflow, "macos-app")
+    if not job:
+        return ["macos-app: job missing"]
+    problems: list[str] = []
+    on = triggers(workflow)
+    if not re.search(r"^  schedule:\n\s+- cron: \"\S+ \S+ \* \* \*\"\s*$", on, re.MULTILINE):
+        problems.append("macos-app: the workflow must run on a schedule, once a day")
+    if not re.search(r"^  workflow_dispatch:", on, re.MULTILINE):
+        problems.append("macos-app: the workflow must run on workflow_dispatch")
+    for trigger in ("push", "pull_request"):
+        if re.search(rf"^  {trigger}:", on, re.MULTILINE):
+            problems.append(f"macos-app: the workflow must not run on {trigger}: it is not a merge gate")
+    if not re.search(r"^\s+runs-on: macos-\S+\s*$", job, re.MULTILINE):
+        problems.append("macos-app: must run on a GitHub-hosted macOS runner")
+    if not re.search(r"^\s+timeout-minutes: \d+\s*$", job, re.MULTILINE):
+        problems.append("macos-app: must set timeout-minutes")
+    if MACOS_ASSET not in job:
+        problems.append(f"macos-app: the disk image must be the release asset {MACOS_ASSET}")
+    digest = MACOS_DIGEST.search(job)
+    if digest is None:
+        problems.append("macos-app: the digest check must pin the disk image by a 64-digit SHA-256 (shasum)")
+    elif f"key: kicad-dmg-{digest.group(1)}" not in job:
+        problems.append("macos-app: the cache of the disk image must be keyed on the pinned SHA-256")
+    positions = [(name, job.find(marker)) for name, marker in MACOS_STEPS]
+    for name, position in positions:
+        if position < 0:
+            problems.append(f"macos-app: step {name!r} missing")
+    present = [(n, p) for n, p in positions if p >= 0]
+    for (first, p1), (second, p2) in zip(present, present[1:], strict=False):
+        if p2 < p1:
+            problems.append(f"macos-app: step {second!r} must come after {first!r}")
+    if not re.search(r"hdiutil attach[^\n]*-readonly[^\n]*-nobrowse", job):
+        problems.append("macos-app: the image must be attached read-only and without opening a window")
+    if "cache-hit != 'true'" not in job:
+        problems.append("macos-app: the download must be skipped when the cache holds the image")
+    if not re.search(r"FENOLITE_KICAD_CLI=\S*KiCad\.app/Contents/MacOS/kicad-cli", job):
+        problems.append("macos-app: FENOLITE_KICAD_CLI must name the kicad-cli inside the mounted KiCad.app")
+    if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
+        problems.append("macos-app: pytest must run with FENOLITE_REQUIRE=kicad")
+    if "tests/corpus" in "\n".join(pytest_steps(job)) or "tools/corpus_fetch.py" in job:
+        problems.append("macos-app: must not fetch the corpus nor run tests/corpus (kicad-10 covers them)")
+    elif pytest_steps(job) != [MACOS_PYTEST]:
+        problems.append(f"macos-app: the pytest step must be {MACOS_PYTEST!r}")
+    if "continue-on-error" in job:
+        problems.append("macos-app: the job must fail if any step fails")
+    return problems
+
+
+def test_macos_app_job() -> None:
+    """Scenario "Workflow shape checked"."""
+    problems = macos_app_problems(NIGHTLY.read_text(encoding="utf-8"))
+    assert not problems, "\n".join(problems)
+
+
+def test_macos_app_unpinned_image_rejected() -> None:
+    """Scenario "Unpinned image rejected": the ``shasum`` step removed."""
+    text = NIGHTLY.read_text(encoding="utf-8")
+    removed = re.sub(r"      - name: Check the SHA-256 of the disk image\n        run: [^\n]*\n", "", text)
+    assert removed != text
+    problems = macos_app_problems(removed)
+    assert any(p.startswith("macos-app: the digest check") for p in problems), problems
+    assert "macos-app: step 'digest check' missing" in problems
+    short = MACOS_DIGEST.sub('echo "abc123  x.dmg" | shasum -a 256 --check', text)
+    assert any(p.startswith("macos-app: the digest check") for p in macos_app_problems(short))
+
+
+def test_macos_app_corpus_tests_rejected() -> None:
+    """Scenario "Corpus tests rejected"."""
+    text = NIGHTLY.read_text(encoding="utf-8").replace(
+        "uv run pytest tests/kicad -q", "uv run pytest tests/kicad tests/corpus -q"
+    )
+    problems = macos_app_problems(text)
+    assert any(p.startswith("macos-app:") and "tests/corpus" in p for p in problems), problems
+
+
+def test_macos_app_triggers_and_order() -> None:
+    text = NIGHTLY.read_text(encoding="utf-8")
+    gated = text.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n")
+    assert "macos-app: the workflow must not run on pull_request: it is not a merge gate" in (
+        macos_app_problems(gated)
+    )
+    unscheduled = re.sub(r"  schedule:\n\s+- cron: [^\n]*\n", "", text)
+    assert "macos-app: the workflow must run on a schedule, once a day" in macos_app_problems(unscheduled)
+    job = job_text(text, "macos-app")
+    swapped = (
+        job.replace("run: uv sync --locked --extra dev", "run: @@SYNC@@")
+        .replace(
+            "run: uv run pytest tests/kicad -q -n auto --dist loadfile", "run: uv sync --locked --extra dev"
+        )
+        .replace("run: @@SYNC@@", "run: uv run pytest tests/kicad -q -n auto --dist loadfile")
+    )
+    assert "macos-app: step 'pytest' must come after 'uv sync'" in macos_app_problems(
+        text.replace(job, swapped)
+    )
+    serial = text.replace(" -n auto --dist loadfile", "")
+    assert any("the pytest step must be" in p for p in macos_app_problems(serial))
+    assert macos_app_problems(text.replace("  macos-app:", "  other:")) == ["macos-app: job missing"]
+
+
+def test_macos_app_is_not_a_job_of_the_pull_request_workflow() -> None:
+    assert job_text(WORKFLOW.read_text(encoding="utf-8"), "macos-app") == ""

@@ -79,15 +79,19 @@ Define what every file-format backend offers, independent of any one backend: th
 
 ### Requirement: Backend registry
 `fenolite.backends.registry` SHALL provide `register(backend)`, `get(name)`, `all_backends()` and `for_path(path)`.
-- The built-in KiCad backend MUST be registered on the first call to any of them. Its module MUST be imported inside a function, not at module import.
+- The built-in backends, KiCad (`kicad`) and Altium (`altium`, `fenolite.backends.altium.backend.AltiumBackend`, change c0043), MUST be registered on the first call to any of them. Their modules MUST be imported inside a function, not at module import. Registering the Altium backend MUST NOT import a reader, the adapter or a writer: `backends/altium/backend.py` imports them inside `read`.
 - `register` MUST raise `ValueError` for a name already registered.
 - `get` MUST raise `KeyError` naming the known backends for an unknown name.
 - `all_backends()` MUST return the backends sorted by name.
-- `for_path` MUST return the first backend, in that order, whose `detect` returns `True`, or `None`.
+- `for_path` MUST return the first backend, in that order, whose `detect` returns `True`, or `None`. No path MUST be detected by two built-in backends.
 
-#### Scenario: Built-in backend listed
+#### Scenario: Built-in backends listed
 - **WHEN** `registry.all_backends()` is called in a fresh interpreter
-- **THEN** it returns one backend whose `name` is `kicad`
+- **THEN** it returns two backends whose names are `altium` and `kicad`, in that order
+
+#### Scenario: Registration stays cheap
+- **WHEN** a fresh interpreter calls `registry.all_backends()` and then lists `sys.modules`
+- **THEN** no module under `fenolite.backends.altium.read` or `fenolite.backends.altium.adapter` is loaded
 
 #### Scenario: Duplicate registration
 - **WHEN** a second backend named `kicad` is registered
@@ -95,11 +99,16 @@ Define what every file-format backend offers, independent of any one backend: th
 
 #### Scenario: Unknown backend
 - **WHEN** `registry.get("nope")` is called
-- **THEN** `KeyError` is raised and its message names `kicad`
+- **THEN** `KeyError` is raised and its message names `altium` and `kicad`
 
 #### Scenario: Backend for a path
-- **WHEN** `registry.for_path(Path("a.kicad_pcb"))` and `registry.for_path(Path("a.txt"))` are called
-- **THEN** the first returns the KiCad backend and the second returns `None`
+- **WHEN** `registry.for_path(Path("a.kicad_pcb"))`, `registry.for_path(Path("a.PcbDoc"))` and `registry.for_path(Path("a.txt"))` are called
+- **THEN** the first returns the KiCad backend, the second the Altium backend and the third `None`
+
+#### Scenario: Detection is disjoint
+- **GIVEN** one path per suffix that a built-in backend detects
+- **WHEN** `uv run pytest tests/unit/backends/test_registry.py -k disjoint` asks every built-in backend
+- **THEN** exactly one backend detects each path
 
 ### Requirement: Backend modules in the layering test
 `tests/unit/test_import_graph.py` SHALL check `backends/base.py` and `backends/registry.py` against the `backends` row of `package-layering` ("`backends` (its top-level modules such as `base` and `registry`) → `model`, `geometry`, any `backends.<x>`"). It MUST NOT report them as absent from the layering table. Every other `backends.<x>` MUST still be checked against the `backends.<x>` row.
@@ -199,7 +208,7 @@ A backend that lists `"validate"` in `operations` MUST satisfy `Validator`. `src
 - `SkippedFile(name: str, reason: Literal["outside-root", "variable", "relative", "missing", "nested-table", "too-large", "reserved-name"])`.
 - `ProjectSet(root: Path, board: str, files: Mapping[str, Path], skipped: tuple[SkippedFile, ...] = (), has_project: bool = False, has_rules: bool = False)`. `files` MUST map POSIX names relative to `root` to source paths, and `board` MUST be a key of `files`; construction MUST raise `ValueError` otherwise.
 - `CanaryState = Literal["fired", "absent", "inconclusive", "not-applicable"]`.
-- `DrcOutcome(report: DrcReport | None, tool_version: str, canary: CanaryState, canary_reason: str = "", canary_removed: int = 0, tool_writes: tuple[str, ...] = (), outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence())`. `report` MUST be `None` when the tool wrote no report, and MUST otherwise hold no violation or unconnected item that names a canary uuid. `message` MUST be the first sanitised line of the tool's stderr.
+- `DrcOutcome(report: DrcReport | None, tool_version: str, canary: CanaryState, canary_reason: str = "", canary_removed: int = 0, tool_writes: tuple[str, ...] = (), outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence(), parity_judged: bool = False)`. `report` MUST be `None` when the tool wrote no report, and MUST otherwise hold no violation or unconnected item that names a canary uuid. `message` MUST be the first sanitised line of the tool's stderr; when the run asked for the comparison with the schematic and the tool did not make it, it MUST be the line the tool gave for that. `parity_judged` MUST be true exactly when the run asked the tool to compare the board with its schematic and the tool did so.
 - `Oracle`, a `typing.Protocol` with `name: str`, `version() -> str` and `drc(project: ProjectSet) -> DrcOutcome`. `drc` MUST NOT write under `project.root`, and MUST return `outcome == "timeout"` instead of raising when the tool times out.
 
 These types MUST be frozen dataclasses. `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy `Oracle` with `name == "kicad"`.
@@ -222,6 +231,10 @@ These types MUST be frozen dataclasses. `fenolite.backends.kicad.oracle.KicadOra
 - **GIVEN** `DrcOutcome(report=None, tool_version="10.0.6", canary="not-applicable")`
 - **WHEN** code assigns `outcome.canary = "fired"`
 - **THEN** a `FrozenInstanceError` is raised
+
+#### Scenario: Parity flag defaults to false
+- **WHEN** `DrcOutcome(report=None, tool_version="10.0.6", canary="not-applicable")` is constructed
+- **THEN** its `parity_judged` is `False`
 
 ### Requirement: Netlist and round-trip oracles
 `fenolite.backends.base` SHALL define the neutral types through which `checks` asks an external tool for its netlist export and for the reports of an RT2 run, without importing a backend:
@@ -313,4 +326,201 @@ The records MUST be frozen dataclasses with slots whose field types are builtins
 #### Scenario: Base module stays neutral
 - **WHEN** `uv run pytest tests/unit/backends/test_registry.py -k base_imports` runs
 - **THEN** it passes, `backends/base.py` importing only `core` and `model`
+
+### Requirement: Evidence matrix rows
+`fenolite.backends.base` SHALL provide `MATRIX_OPERATIONS == ("detect", "read", "write", "roundtrip_exact", "roundtrip_modified")` and the frozen dataclass `MatrixRow(backend: str, kind: str, detect: Evidence | None = None, read: Evidence | None = None, write: Evidence | None = None, roundtrip_exact: Evidence | None = None, roundtrip_modified: Evidence | None = None, experimental: tuple[str, ...] = ())`. A row states what one backend package does with one file kind and how well each operation is verified. A cell that is `None` means that the package does not implement that operation for that kind.
+- The cells mean:
+  - `detect`: the package names the kind of a file from its name or its content;
+  - `read`: a reader of the package builds a model object from a file of the kind;
+  - `write`: a writer of the package produces a file of the kind from a model object that Fenolite created;
+  - `roundtrip_exact`: a file of the kind that is read and written back for the same version, with no change in between, keeps its whole content, modelled or not;
+  - `roundtrip_modified`: a file of the kind that is read, changed through the model and written keeps everything the change did not touch, or the write is refused.
+- Construction MUST raise `ValueError` when `roundtrip_exact` is set without `read`, when `roundtrip_modified` is set without both `read` and `write`, and when `experimental` names anything but an operation whose cell is set, or names one twice.
+- `verified_by() -> tuple[str, ...]` MUST return the hypothesis ids of the cells that are set, each once, sorted.
+- `to_json()` MUST return a mapping with exactly the keys `backend`, `kind`, the five operations, `verified_by` and `experimental`. Each operation is `Evidence.label()` of its cell, or `None`. `experimental` lists its operations in the order of `MATRIX_OPERATIONS`.
+- Every package `fenolite.backends.<name>` MUST provide the module `claims` with `MATRIX: tuple[MatrixRow, ...]`, whose rows all have `backend == <name>` and distinct kinds. Every cell MUST be an evidence constant of a module of that package, or `Evidence.combine` of such constants: `claims.py` MUST NOT name `Level` and MUST call `Evidence` only as `Evidence.combine`. A level therefore changes in one place, the module that owns the claim. A `claims` module imports `fenolite.backends.base`, `fenolite.core.evidence` and modules of its own package; the rule that the Altium writer modules import only `fenolite.core` and `fenolite.model` (`altium-schematic-writer`) does not apply to `altium/claims.py`, as it does not apply to `altium/backend.py`.
+- `fenolite.backends.matrix.packages() -> tuple[str, ...]` MUST return the dotted names of the sub-packages of `fenolite.backends` (`fenolite.backends.kicad`), sorted, and `fenolite.backends.matrix.rows() -> tuple[MatrixRow, ...]` MUST return the rows of every package, sorted by `(backend, kind)`. `rows()` MUST run no external tool and read no file but the modules it imports. Importing `fenolite.backends.matrix` MUST NOT import a backend package; `rows()` imports them. `backends/matrix.py` is a top-level module of `backends`, like `base` and `registry`, and `tests/unit/test_import_graph.py` MUST check it against the `backends` row of `package-layering` ("Backend modules in the layering test").
+- For every backend of `registry.all_backends()`, every kind of its report's `read_kinds` MUST have a row with `detect` and `read` set, and the kinds whose `write` is set and not experimental MUST be exactly the report's `write_kinds` ("Capability reports"). A kind MAY have `read` set without being in `read_kinds`: the package then has a reader that `Backend.read` does not dispatch.
+- The `kicad_pcb` row MUST have `read` equal to `pcb.EVIDENCE`, `write` equal to `pcb.WRITE_EVIDENCE`, `roundtrip_exact` equal to `pcb.EVIDENCE` (RT1; `kicad-file-backend`, "Round-trip verdict") and `roundtrip_modified` equal to `Evidence.combine(pcb.EVIDENCE, pcb.WRITE_EVIDENCE)`, which is the evidence of the KiCad capability report.
+- The `kicad` rows MUST include `kicad_lib_table` (the files `fp-lib-table` and `sym-lib-table`) with `read` equal to `libs.EVIDENCE` and `write` equal to `libs.WRITE_EVIDENCE`, and the KiCad report's `write_kinds` MUST contain `kicad_lib_table` ("Write capability fields": later writers add their kinds). The `kicad_sym` row MUST have `write` equal to `sym.WRITE_EVIDENCE` and listed in `experimental` while no register row covers `sym.write_symbol_library`.
+- The `altium` rows MUST include one row for every write kind of the experimental features (`cli-contract`, "Experimental features in capabilities"), each with `write` set and listed in `experimental`. Since change c0043 `altium` is a registered backend, so every kind of its `read_kinds` also has `detect` and `read` set: `read` combines the reader's constant with `import_evidence.EVIDENCE`, and `detect` is `import_evidence.EVIDENCE`, the evidence of the backend's report. The `specctra` rows MUST include `specctra_dsn` with `write` set and `specctra_ses` with `read` set.
+- A cell whose level is `INFERRED` MUST name at least one hypothesis, and a cell whose level is `UNVERIFIED` MUST be listed in its row's `experimental`.
+
+#### Scenario: Row as JSON
+- **GIVEN** `MatrixRow("kicad", "kicad_wks", read=Evidence(Level.INFERRED, hypotheses=("H-K-WKS-CORNER",)), write=Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-WKS-CORNER", "H-K-PCB-WRITE")), experimental=("write",))`
+- **WHEN** `uv run pytest tests/unit/backends/test_matrix_row.py -k json` calls `to_json()`
+- **THEN** the mapping has exactly the nine keys, `detect`, `roundtrip_exact` and `roundtrip_modified` are `None`, `read` is `INFERRED`, `write` is `KICAD-VERIFIED`, `verified_by` is `["H-K-PCB-WRITE", "H-K-WKS-CORNER"]`, and `experimental` is `["write"]`
+
+#### Scenario: Impossible rows are refused
+- **WHEN** a row is built with `roundtrip_exact` set and `read` unset, with `roundtrip_modified` set and `write` unset, with `experimental=("write",)` and `write` unset, and with `experimental=("read", "read")`
+- **THEN** each construction raises `ValueError`
+
+#### Scenario: Board row follows its constants
+- **WHEN** `uv run pytest tests/unit/backends/test_evidence_declared.py -k board_row` looks up the `kicad_pcb` row of `rows()`
+- **THEN** `read` is `pcb.EVIDENCE`, `write` is `pcb.WRITE_EVIDENCE`, `roundtrip_exact` is `pcb.EVIDENCE`, and `roundtrip_modified` equals `KicadBackend().capabilities().evidence`
+
+#### Scenario: Claims hold no literal level
+- **GIVEN** a `claims` module of a package named `kicad` in which one cell is `Evidence(Level.KICAD_VERIFIED)`
+- **WHEN** `uv run pytest tests/unit/backends/test_evidence_declared.py -k literal` runs
+- **THEN** it fails naming `kicad.claims`
+
+#### Scenario: Report kinds agree with the matrix
+- **GIVEN** every backend of `registry.all_backends()`
+- **WHEN** `uv run pytest tests/unit/backends/test_evidence_declared.py -k report_kinds` compares its report with its rows
+- **THEN** each kind of `read_kinds` has `detect` and `read` set, and the kinds with a `write` that is not experimental are exactly `write_kinds`
+
+#### Scenario: Rows are sorted and need no tool
+- **GIVEN** `subprocess.run` replaced by a function that raises
+- **WHEN** `rows()` is called twice
+- **THEN** both calls return the same tuple, sorted by `(backend, kind)`, with at least one row for each of `altium`, `kicad` and `specctra`
+
+#### Scenario: Importing the collector stays light
+- **WHEN** `uv run python -c "import sys, fenolite.backends.matrix; print(sorted(m for m in sys.modules if m.startswith(('fenolite.backends.altium', 'fenolite.backends.kicad', 'fenolite.backends.specctra'))))"` runs
+- **THEN** it prints `[]` and exits 0
+
+### Requirement: Backend modules declare their evidence
+Every module of a backend package, that is every `.py` file under `src/fenolite/backends/<name>/` at any depth except `__init__.py` and the package's `claims.py`, SHALL declare its evidence in exactly one of three forms:
+- **constants**: one or more module-level names assigned in that module to an `Evidence` (`EVIDENCE`, `WRITE_EVIDENCE`, `EVIDENCE_V3`, …). A name that the module only imports is not assigned there and is no declaration;
+- **`# evidence: see <module>[, <module>…]`**: the module makes no claim of its own, because its code runs only inside the operations of the named modules of the same package. A module is named by its dotted path below the package (`pcb`, `read.pcb`). Each named module MUST exist and MUST declare constants;
+- **`# evidence: none, <reason>`**: the module states nothing about a file format or a tool. The reason MUST NOT be empty.
+
+A marker is a comment that starts in column 0. The same text inside a string or a docstring is not a marker. An `__init__.py` need not declare; one that assigns constants (`altium/read/sch/__init__.py`) is listed as the module named by its package (`read.sch`), may be named by a `see` marker, and follows the same rules. A module with constants MUST NOT carry a marker, and no module may carry two markers. A constant whose level is `INFERRED` MUST name at least one hypothesis.
+- `fenolite.backends.matrix.module_claims(package) -> tuple[ModuleClaim, ...]` MUST return, for the package with that dotted name, one frozen `ModuleClaim(package, module, constants=(), see=(), none="")` per module, sorted by `module`: `constants` is a tuple of `(name, Evidence)` sorted by name, `see` a tuple of module names, `none` the reason or `""`. The constants are read by importing the module; the markers by tokenising its source.
+- `fenolite.backends.matrix.problems(packages=None) -> tuple[str, ...]` MUST return one message per broken rule of this requirement and of "Evidence matrix rows", sorted, each naming the module or the row. With `packages` `None` it checks every package of `packages()`. It MUST return an empty tuple when every rule holds.
+- `tests/unit/backends/test_evidence_declared.py` MUST fail while `problems()` is not empty, and its failure message MUST be `fenolite.backends.matrix.failure_text(problems)`: the problems, then `fenolite.backends.matrix.HELP`. It runs in the `unit` job, so a backend module without a declaration fails CI.
+- The message for a module that declares nothing MUST name the module and the three forms, and `HELP` MUST say when each form applies, give one example of each, name `docs/hypotheses.md` and the rule that the lowest level wins, and name the command that regenerates `docs/evidence/matrix.md`. A contributor who never read this requirement can fix the failure from the text alone.
+- The declarations MUST change no level: a constant that exists keeps its name and its level. One constant changes its ids: `read.sch.EVIDENCE` stops naming `H-A-RD-SCH-TEXT`, which is refuted (`altium-schematic-reader`, "Schematic reader entry points").
+
+#### Scenario: Every live module declares
+- **WHEN** `uv run pytest tests/unit/backends/test_evidence_declared.py -k live` calls `problems()`
+- **THEN** the tuple is empty, and `module_claims` returns at least one module with constants for each of `fenolite.backends.altium`, `fenolite.backends.kicad` and `fenolite.backends.specctra`
+
+#### Scenario: The four broken forms are named
+- **GIVEN** a temporary package on `sys.path` with the modules `good` (an `EVIDENCE` constant that names `H-K-PCB-READ`), `helper` (`# evidence: see good`), `plain` (no declaration), `both` (a constant and a marker), `lost` (`# evidence: see missing`), `quiet` (`# evidence: none,` with no reason) and a `claims` module whose `MATRIX` is empty
+- **WHEN** `problems([package])` is called
+- **THEN** it returns four messages, naming `plain`, `both`, `lost` and `quiet`, and none names `good` or `helper`
+
+#### Scenario: The message says what to add
+- **GIVEN** a temporary package with one module `schwrite` that declares nothing
+- **WHEN** `uv run pytest tests/unit/backends/test_evidence_declared.py -k says_what_to_add` reads `problems([package])` and `failure_text` of it
+- **THEN** the one message starts with the module's dotted name and holds `EVIDENCE = Evidence(`, `# evidence: see <module>` and `# evidence: none, <reason>`, and the text also holds `docs/hypotheses.md`, `lowest wins` and `uv run python tools/gen_evidence_matrix.py`
+
+#### Scenario: Marker text in a docstring does not count
+- **GIVEN** a module of that temporary package whose docstring holds the line `# evidence: none, only text` and that has no constant and no comment marker
+- **WHEN** `problems([package])` is called
+- **THEN** one message names that module as declaring nothing
+
+#### Scenario: Inferred level without a hypothesis
+- **GIVEN** a module of that temporary package with `EVIDENCE = Evidence(Level.INFERRED)`
+- **WHEN** `problems([package])` is called
+- **THEN** one message names the module, `EVIDENCE` and `INFERRED`
+
+#### Scenario: Unverified cell outside experimental
+- **GIVEN** a `claims` module of that temporary package with a row whose `write` cell is a constant of level `UNVERIFIED` and whose `experimental` is empty
+- **WHEN** `problems([package])` is called
+- **THEN** one message names the row's kind and `write`; with `experimental=("write",)` there is none
+
+### Requirement: Document sets and container round trips
+`fenolite.backends.base` SHALL define the neutral types through which `checks` and the CLI ask a backend for the documents of a project, for their readings and for the round trip of one container file, without importing a backend. Every dataclass MUST be frozen.
+- `DocumentRole = Literal["project", "schematic", "pcb", "symbol-library", "footprint-library", "other"]`.
+- `Document(name: str, kind: str, role: DocumentRole)`: `name` is a POSIX name relative to the set's root, and `kind` is a read kind of the backend's capability report.
+- `DocumentSet(root: Path, project: str | None, board: str | None, documents: tuple[Document, ...], missing: tuple[str, ...] = ())`: `documents` is sorted by name, `project` and `board` are names of `documents` or `None`, and `missing` holds, sorted, the names that the project file lists and that do not exist. Construction MUST raise `ValueError` for a name that is absolute, holds `..` or `\`, or is repeated, for `documents` or `missing` that are not sorted, and when `project` or `board` is not a name of `documents`. `named(name)` returns the document of that name and `of_role(role)` the documents of one role.
+- `ProjectRead(schematic: ReadResult | None, pcb: ReadResult | None, errors: Mapping[str, FormatError])`, with `errors` empty by default: `schematic` is the reading of every schematic document of the set as one design, `pcb` the reading of the document `board`, and `errors` maps a document name to the error that refused it. A side without a document, or whose reading was refused, MUST be `None`.
+- `ContainerLevel = Literal["RT-A0", "RT-A1"]` and `ContainerRoundTrip(level: ContainerLevel, judged: bool, passed: bool, streams: int = 0, different: tuple[str, ...] = (), records: int = 0, bytes_equal: int = 0, opaque_count: int = 0, difference: str = "", reason: str = "", evidence: Evidence = Evidence())`. `evidence` is the backend's evidence for the verdict (the level of the reader of the file's kind and the hypotheses the level rests on), so that `checks` names no hypothesis of a backend. Construction MUST raise `ValueError` unless `passed == (judged and not different)`, unless `reason` is non-empty exactly when `judged` is false, and unless `difference` is empty exactly when `different` is empty.
+- `ModelScope(fields: Mapping[str, tuple[str, ...]], length_tolerance: int = 0)`: the model fields, per entity kind, that a comparison covers, and the tolerance in nanometres for lengths. `length_tolerance` MUST be an `int` that is not negative.
+- `DocumentValidator`, a `@runtime_checkable` `typing.Protocol` with `name: str` and the methods `documents(path: Path) -> DocumentSet`, `read_documents(documents: DocumentSet) -> ProjectRead`, `container_roundtrip(path: Path, level: ContainerLevel) -> ContainerRoundTrip`, `written_scope() -> ModelScope` and `stage_evidence() -> Mapping[str, Evidence]`. `stage_evidence` maps the name of a check stage to the evidence that the backend adds to it (the hypotheses its readings rest on for that stage).
+- `ChangeKind`, `Change` and `DiffReport`, the result types of a comparison (`verification-loop`, "Model difference report", change c0066), are defined here and re-exported by `fenolite.checks.diff`: a backend returns them for the records of two files and MUST NOT import `checks`.
+
+`documents` MUST decide from the path, from the project file and from at most the first eight bytes of each document, which tell a compound file from a text file: a document path gives a set holding that document, and a project file or a folder gives the project's documents. No method MAY write a file. `container_roundtrip` MUST raise the reader's `FormatError` for a file it cannot read, and MUST return `judged=False` with a reason instead of raising when the level cannot be judged. `Validator`, `Validation` and `RoundTrip` are unchanged.
+
+#### Scenario: Verdict consistency enforced
+- **WHEN** `ContainerRoundTrip(level="RT-A0", judged=True, passed=True, streams=3, different=("Nets6/Data",), difference="Nets6/Data")` is constructed
+- **THEN** a `ValueError` is raised; with `passed=False` it is constructed
+
+#### Scenario: Unjudged verdict needs a reason
+- **WHEN** `ContainerRoundTrip(level="RT-A0", judged=False, passed=False)` is constructed
+- **THEN** a `ValueError` naming `reason` is raised; with `reason="too-large"` it is constructed
+
+#### Scenario: Document names are relative
+- **WHEN** `DocumentSet(root=Path("."), project=None, board=None, documents=(Document("../x.PcbDoc", "altium_pcbdoc", "pcb"),))` is constructed
+- **THEN** a `ValueError` naming `../x.PcbDoc` is raised
+
+#### Scenario: Narrowing a backend
+- **GIVEN** a fake backend in `tests/unit/checks/fakes.py` that implements only `detect`, `read` and `capabilities`, and a second fake that also implements the five methods of `DocumentValidator`
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k document_validator` checks them
+- **THEN** `isinstance(fake, DocumentValidator)` is false for the first and true for the second, and `KicadBackend()` is not a `DocumentValidator`
+
+#### Scenario: Base stays backend-free
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it passes, and `src/fenolite/backends/base.py` imports only `core` and `model`
+
+### Requirement: Neutral ERC report
+`fenolite.backends.base` SHALL provide the frozen dataclasses `ErcItem(uuid, description, position, where="")`, `ErcViolation(type, description, severity, items, excluded=False, sheet="", sheet_id="")` and `ErcReport(source, date, kicad_version, coordinate_units, violations, ignored_checks=(), included_severities=(), sheets=())`.
+- `position` MUST be a `Point` in integer nanometres on the sheet, and `ErcItem` MUST raise `TypeError` for a coordinate that is not an `int`. `where` is the location a backend found for the item (`REF-PIN`, `REF` or a label text), or `""`.
+- `type` and `severity` MUST be the tool's own strings. `sheet` MUST be the tool's readable path of the sheet the violation is listed under, and `sheet_id` the tool's own identifier of that sheet (for KiCad its path of uuids), by which a backend finds the reference a symbol has there. Violations MUST keep report order, sheet by sheet. `ErcReport.sheets` MUST hold the readable path of every sheet the report lists, with or without violations, in report order.
+- `ErcReport.of_type(type)` MUST return the violations of that type, in report order.
+- `ErcReport.entries()` MUST return the violations as a sorted tuple of `(sheet, type, severity, excluded, items)`, each item as `(description, x, y)`, leaving out uuids, `where`, `sheet_id` and the report order, so that one report can be compared with itself or with a copy of it.
+- `ErcReport.kinds()` MUST return the violations as a sorted tuple of `(sheet, type, severity, excluded)`, one entry per violation and no item, so that two runs of a tool on one project can be compared: a tool may name another item of one violation in each run.
+- `fenolite.backends.base` MUST NOT import any `fenolite.backends.<x>` module.
+
+#### Scenario: Violations by type
+- **GIVEN** an `ErcReport` with two `pin_not_connected` violations and one `lib_symbol_issues` violation
+- **WHEN** `report.of_type("lib_symbol_issues")` is called
+- **THEN** it returns the one violation
+
+#### Scenario: Entries leave out uuids and order
+- **GIVEN** two reports holding the same two violations in another order and with other item uuids
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k erc_entries` compares `entries()`
+- **THEN** they are equal, and a report with one violation fewer gives other entries
+
+#### Scenario: Kinds leave out the items and keep the counts
+- **GIVEN** two reports holding the same two violations with other items and positions, and a third holding one of them twice
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k erc_kinds` compares `kinds()`
+- **THEN** the first two are equal although their `entries()` differ, and the third differs from both
+
+#### Scenario: Integer positions only
+- **WHEN** `ErcItem(uuid="u", description="d", position=Point(1.5, 0))` is constructed
+- **THEN** a `TypeError` is raised
+
+### Requirement: ERC oracle protocol
+`fenolite.backends.base` SHALL define the neutral types through which `checks` asks an external tool for an ERC verdict, without importing a backend:
+- `ErcOutcome(report: ErcReport | None, tool_version: str, tool_writes: tuple[str, ...] = (), outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence())`. `report` MUST be `None` when the tool wrote no report, and `message` MUST then be the first sanitised line of the tool's output.
+- `ErcRt2Outcome(before: tuple[ErcReport, ...], after: ErcReport | None, tool_version: str, outcome: Literal["exit", "timeout"] = "exit", returncode: int | None = 0, message: str = "", evidence: Evidence = Evidence(), redumped: int = 0, kept: int = 0)`: the reports of the runs on the project as it is, the report of the run on the re-dump, and the numbers of sheet files re-dumped and left as they are.
+- `ErcOracle`, a `@runtime_checkable` `typing.Protocol` with `name: str`, `version() -> str` and `erc(project: ProjectSet) -> ErcOutcome`.
+
+The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` and MUST return `outcome == "timeout"` instead of raising when the tool times out. c0013's `Oracle` protocol is unchanged: a caller narrows an `Oracle` with `isinstance(oracle, ErcOracle)`. `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy `ErcOracle`, and the typed function of `oracle.py` that returns a `KicadOracle` as each protocol (`_protocols`, now a tuple of four) MUST cover it.
+
+#### Scenario: KiCad oracle satisfies the protocol
+- **WHEN** `uv run pyright src` runs
+- **THEN** it reports no error for the typed function that returns a `KicadOracle` as `ErcOracle`
+
+#### Scenario: Narrowing a drc-only oracle
+- **GIVEN** a fake `Oracle` in `tests/unit/checks/fakes.py` that implements only `name`, `version` and `drc`
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k erc_protocol` checks it
+- **THEN** `isinstance(fake, ErcOracle)` is false, and it is true for a fake that also implements `erc`
+
+#### Scenario: Outcome is immutable
+- **GIVEN** `ErcOutcome(report=None, tool_version="10.0.6")`
+- **WHEN** code assigns `outcome.message = "x"`
+- **THEN** a `FrozenInstanceError` is raised
+
+### Requirement: Schematic netlist oracle
+`fenolite.backends.base` SHALL define `SchematicNetlistOracle`, a `@runtime_checkable` `typing.Protocol` with `name: str`, `version() -> str` and `schematic_netlist(project: ProjectSet) -> NetlistOutcome`, through which `checks` asks an external tool for the netlist of a project's schematic without importing a backend.
+- The `NetlistOutcome` is the type of "Netlist and round-trip oracles". Its `PadNetList` MUST have the source `schematic` and one `PadAssignment(f"{ref}-{pin}", <net name>)` per pin the tool lists; a pin the tool does not list is not an element.
+- `netlist` MUST be `None` when the tool wrote no export, and `message` MUST then be the first sanitised line of the tool's output or of the parse error.
+- `schematic_netlist` MUST NOT write under `project.root`, and MUST return `outcome == "timeout"` instead of raising when the tool times out.
+- c0013's `Oracle` protocol is unchanged: a caller narrows with `isinstance(oracle, SchematicNetlistOracle)`. `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy the protocol, and a typed function of `oracle.py` MUST return a `KicadOracle` as `SchematicNetlistOracle`, so `pyright` checks the assignment.
+
+#### Scenario: KiCad oracle satisfies the protocol
+- **WHEN** `uv run pyright src` runs
+- **THEN** it reports no error for the typed function that returns a `KicadOracle` as `SchematicNetlistOracle`
+
+#### Scenario: Narrowing
+- **GIVEN** a fake `Oracle` in `tests/unit/checks/fakes.py` that implements `name`, `version`, `drc` and `netlist`
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k schematic_netlist` checks it
+- **THEN** `isinstance(fake, SchematicNetlistOracle)` is false, and it is true for a fake that also implements `schematic_netlist`
+
+#### Scenario: Base stays backend-free
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py tests/unit/checks` runs
+- **THEN** both pass, and `fenolite.backends.base` imports no `fenolite.backends.<x>` module
 

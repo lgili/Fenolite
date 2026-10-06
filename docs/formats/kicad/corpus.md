@@ -105,3 +105,18 @@ board rows with `read_board`). Folders are counted here, never named.
   `kicad/kicad:10.0.6`, pinned by digest (S-0029), with `FENOLITE_REQUIRE=kicad,corpus`.
 - First green run: https://github.com/lgili/Fenolite/actions/runs/36816175839 (commit `3654076`,
   2026-10-01): `kicad-cli` 10.0.6, 29 corpus items fetched, 158 passed and 10 skipped in required mode.
+
+## Schematic rows (change c0060)
+
+- One row per distinct `.kicad_sch` of the demo folders: 114 at tag 10.0.6 and 16 at tag 9.0.9.1 that
+  differ from or are absent at 10.0.6, and two third-party schematics (S-0027, S-0028; format `20230121`,
+  Apache-2.0). A file that is identical at both tags is listed once, under its 10.0.6 id.
+- **Ids.** `kicad-demo-<tag>-sch-NNN` with three digits and `third-party-sch-NN`; the row
+  `kicad-demo-10-0-6-sch-01` keeps its id.
+- **Uses.** `rt0`, `sch` and one origin, plus the content tags `sch-root`, `sch-bus`, `sch-multi` and
+  `sch-old`, which `tests/corpus/test_schematic_census.py` recomputes from the cached files, and `sch-9`
+  for a file that is in the demo tree of tag 9.0.9.1.
+- **Licence.** As the board rows: `license` from the repository notice and `license_variant` from the
+  demo folder; the folder whose licence has a non-commercial clause is not listed.
+- The rows with `sch` and none of `sch-bus`, `sch-multi` and `sch-old` are the acceptance list of v0.2a.
+  Counts and results: `docs/evidence/kicad-schematic.md`.

@@ -98,6 +98,24 @@ def test_schematic_key_untouched() -> None:
     assert data["pcbnew"]["page_layout_descr_file"] == "${KIPRJMOD}/f.kicad_wks"
 
 
+def test_schematic_key_with_a_schematic() -> None:
+    """c0074: a build that writes a schematic names the drawing sheet for it too (``H-K-PRO-WKS-SCH``)."""
+    made = design(SheetFrameRef("A4", drawing_sheet="blink.kicad_wks"))
+    template = pro.write_project_text(pro.template(10))
+    both = json.loads(pro.apply_sheet_keys(template, made, schematic=True))
+    board_only = json.loads(pro.apply_sheet_keys(template, made, schematic=False))
+    assert both["pcbnew"]["page_layout_descr_file"] == "blink.kicad_wks"
+    assert both["schematic"]["page_layout_descr_file"] == "blink.kicad_wks"
+    assert board_only["pcbnew"]["page_layout_descr_file"] == "blink.kicad_wks"
+    assert board_only["schematic"] == json.loads(template)["schematic"]
+    rest = {k: v for k, v in both["schematic"].items() if k != "page_layout_descr_file"}
+    assert rest == {
+        k: v for k, v in json.loads(template)["schematic"].items() if k != "page_layout_descr_file"
+    }
+    # without a drawing sheet nothing is set, with or without a schematic
+    assert pro.apply_sheet_keys(template, design(), schematic=True) == template
+
+
 def test_unsafe_sheet_path_refused_before_any_write() -> None:
     with pytest.raises(ConsistencyError, match="model.sheet-path"):
         write_triad(design(SheetFrameRef("A4", drawing_sheet="/abs/f.kicad_wks")), name="b", target=10)

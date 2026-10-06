@@ -43,3 +43,38 @@ the two `addsublayer` lines that 9.0 also writes (`H-K-FMT-MIXED`). The printer 
 this measurement: byte identity with KiCad's printer is not a goal, and a wrap rule belongs to
 `fmt --check` (v0.2a).
 
+
+## The canonical print is a fixed point (`fenolite fmt`)
+
+`tests/corpus/test_fmt_idempotent.py` (change c0066, `H-K-FMT-IDEMPOTENT`), measured again on 2026-10-05
+on macOS with the corpus cached, after change c0060 added its schematic rows: for every `rt0` row of the
+manifest whose file is cached and not heavy, and for every authored KiCad S-expression file under
+`tests/data/`, `canonical(t) = dumps(parse(t))` is printed twice. The print is parsed again and compared
+with the source for every file but the schematic rows of the corpus, whose RT0
+`tests/corpus/test_schematic_rt.py` already proves row by row. The census is written through
+`tests/_boards.py::census` (`FENOLITE_CENSUS_OUT`).
+
+| measure | corpus (`rt0` rows) | authored files (`tests/data/`) |
+|---|---|---|
+| rows in the manifest | 269 | not applicable |
+| files measured | 267 | 120 |
+| accepted by `canonical` | 267 | 108 |
+| of them `.kicad_pcb` | 24 | 29 |
+| of them `.kicad_mod` | 104 | 29 |
+| of them `.kicad_sch` | 132 | 13 |
+| of them `.kicad_sym` | 1 | 4 |
+| of them `.kicad_wks` | 1 | 33 |
+| of them `fp-lib-table` files | 5 | 0 |
+| refused: does not parse | 0 | 11 |
+| refused: invalid UTF-8 | 0 | 1 |
+| refused: the printer refuses the tree | 0 | 0 |
+| `canonical(canonical(t)) != canonical(t)` | 0 | 0 |
+| canonical print not tree-equal to the source (schematic rows: by `test_schematic_rt.py`) | 0 | 0 |
+
+Reading: on every file that `canonical` accepts, formatting a formatted file changes nothing, and the
+print holds the same tree as the source. The two manifest rows that were not measured are heavy items,
+which are not cached on this machine (`FENOLITE_HEAVY=1` includes them where they are). The twelve
+authored files that are refused are the parser's negatives. The printer refused no tree: the parser
+accepts comments before the root only, so a parsed file never holds a comment below it. Nothing here
+says that KiCad writes the same bytes; the sections above measure that. The first measurement of
+2026-10-05, before the schematic rows, covered 136 of 138 rows with the same result.

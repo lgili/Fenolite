@@ -19,6 +19,7 @@ from fenolite.backends.base import (
     DesignRulesSource,
     FillOracle,
     Oracle,
+    ParityInputs,
     Plotter,
     ProjectSet,
     Validation,
@@ -31,21 +32,26 @@ from fenolite.model.design import Design
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
-    "erc.lite",
+    "erc.kicad",
     "copper.clearance",
     "zone.fill",
     "drc.kicad",
+    "parity",
     "netlist.assignment_compare",
     "roundtrip",
     "roundtrip.rt2",
     "render",
 )
 """The order stages run in; a later change may insert a stage. ``copper.clearance`` (change c0029) needs no
-external tool, so it runs before KiCad's DRC and is not an oracle stage."""
+external tool, so it runs before KiCad's DRC and is not an oracle stage. ``erc.kicad`` (change c0062) stands
+where ``erc.lite`` stood: the three rules of ``checks.erc_lite`` are no stage of this pipeline any more.
+``parity`` (change c0072) runs after ``drc.kicad`` because it compares its findings with KiCad's parity
+entries when that stage judged them; it needs no tool itself, so it is not an oracle stage."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
 ORACLE_STAGES: tuple[str, ...] = (
+    "erc.kicad",
     "zone.fill",
     "drc.kicad",
     "netlist.assignment_compare",
@@ -53,7 +59,10 @@ ORACLE_STAGES: tuple[str, ...] = (
     "render",
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
-_READING_STAGES = frozenset({"roundtrip", "copper.clearance", *ORACLE_STAGES} - {"render"})
+_READING_STAGES = frozenset(
+    {"roundtrip", "copper.clearance", "parity", *ORACLE_STAGES} - {"render", "erc.kicad"}
+)
+"""Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
 StageStatus = Literal["ok", "errors", "skipped"]
 StageSkip = Literal[
     "native-input",
@@ -62,6 +71,10 @@ StageSkip = Literal[
     "unsupported-oracle",
     "oracle-unsupported",
     "oracle-unstable",
+    "no-schematic",
+    "single-source",
+    "not-judged",
+    "netlist-unavailable",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -156,8 +169,9 @@ def run_checks(
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
-    from fenolite.checks.erc_lite import erc_stage
+    from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
+    from fenolite.checks.parity_stage import parity_stage
     from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
@@ -188,11 +202,9 @@ def run_checks(
         return validate_stage(validation.read.design, built=False, evidence=validation.read.evidence)
 
     def erc() -> StageResult:
-        if not built:
-            return skipped("erc.lite", "native-input")
-        if cache_error or model is None:
-            return skipped("erc.lite", "cache-unreadable")
-        return erc_stage(model)
+        if oracle is None:
+            raise ValueError("erc.kicad is selected but no oracle was given")
+        return erc_stage(oracle, project)
 
     def copper() -> StageResult:
         if validation is None:
@@ -210,6 +222,19 @@ def run_checks(
             raise ValueError("drc.kicad is selected but no oracle was given")
         design = validation.read.design if validation is not None else None
         return drc_stage(oracle, project, built=built, design=design)
+
+    done: dict[str, StageResult] = {}
+
+    def parity() -> StageResult:
+        if validation is None:
+            return skipped("parity", "read-refused")
+        return parity_stage(
+            validator if isinstance(validator, ParityInputs) else None,
+            oracle,
+            project,
+            validation.read.design,
+            drc=done.get("drc.kicad"),
+        )
 
     def fill() -> StageResult:
         if validation is None:
@@ -235,16 +260,19 @@ def run_checks(
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
-        "erc.lite": erc,
+        "erc.kicad": erc,
         "copper.clearance": copper,
         "zone.fill": fill,
         "drc.kicad": drc,
+        "parity": parity,
         "netlist.assignment_compare": assignment,
         "roundtrip": roundtrip,
         "roundtrip.rt2": rt2,
         "render": render,
     }
-    results = tuple(runners[name]() for name in selected)
+    for name in selected:
+        done[name] = runners[name]()
+    results = tuple(done[name] for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]
     evidence = Evidence.combine(*counted) if counted else Evidence()
     drc_reported = any(

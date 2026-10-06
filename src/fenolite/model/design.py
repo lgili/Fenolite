@@ -218,7 +218,24 @@ class Design:
                 add("model.no-connect-on-net", "error",
                     f"pin is marked as not connected and is on net {listed[mark]}", where,
                     "remove the mark or take the pin off the net")  # fmt: skip
+        for bus in self.circuit.buses:
+            for member in bus.members:
+                if member.net_id not in net_ids:
+                    message = f"bus member {member.index} refers to unknown net {member.net_id}"
+                    add("model.unknown-net", "error", message, bus.name)
+            for index, count in sorted(Counter(m.index for m in bus.members).items()):
+                if count > 1:
+                    add(
+                        "model.duplicate-bus-index", "error", f"index {index} is used {count} times", bus.name
+                    )
         if self.board is not None:
+            for body in (b for fp in self.board.footprints for b in fp.bodies):
+                if body.standoff < 0 or body.height < body.standoff:
+                    message = (
+                        f"height {body.height} nm and standoff {body.standoff} nm do not describe a body"
+                    )
+                    hint = "the height is at least the standoff, and the standoff is not negative"
+                    add("model.body-height", "error", message, body.id, hint)
             for fp in self.board.footprints:
                 if fp.component_id and fp.component_id not in components:
                     add("model.unknown-component", "error", f"unknown component {fp.component_id}", fp.id)

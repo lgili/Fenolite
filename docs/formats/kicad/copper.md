@@ -24,6 +24,9 @@ shapes on `docs/formats/kicad/frame.md`; this page does not repeat them.
 | The DRC reports a clearance violation between two overlapping fills of different nets | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-COPPER-ZONES |
 | The DRC applies a tolerance at the clearance boundary: a gap 1 µm below the clearance is reported, a gap 1 nm below it is not | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-COPPER-SHAPES |
 | The DRC applies a zone's own clearance to its fill, and a default of 0.5 mm when the zone sets none | S-0038 | INFERRED | H-K-COPPER-ZONES |
+| The DRC judges a stored fill against a track, a via or a pad of another net with the largest of the zone's own clearance, the class clearance and the board minimum when no custom rule governs the pair, and names "zone clearance" when the zone's value governs; a governing custom rule replaces the zone's value as it replaces a class value. On the benches a gap 10 µm below that value is reported and a gap equal to it or 10 µm above is not | S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-COPPER-ZONECLR |
+| The DRC reports no clearance violation between two stored fills of different nets that do not touch: two fills 0.1 mm apart, each zone with a clearance of 0.5 mm, both nets in a class of 0.3 mm, give no violation naming both zones | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-COPPER-ZONECLR |
+| A fill that `pcb drc --refill-zones` has just made lies at the zone's clearance or beyond it from a track, an arc track, a via, an SMD pad, a round and a rectangular through-hole pad and a pad with an offset drill: `check_copper` reports none of them with the zone's value | S-0020, S-0022 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-COPPER-ZONECLR |
 | `kicad-cli` loads a via of one net whose copper touches only a track of another net, itself joined to a pad of that net, on the track's net: the IPC-D-356 export lists the via under it, the DRC reports no short for it, and a 10.0 re-save writes the via on that net | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIA-RENET |
 | Touching copper of two nets that holds no pad is treated as one net: the DRC reports no short and describes every item with one net name, and a 10.0 re-save writes that name on every item | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIA-RENET |
 
@@ -37,7 +40,17 @@ These are decisions of the code, not facts about KiCad.
 - Two items are judged when they share a copper layer and their nets differ. Copper without a net is
   judged against copper with a net.
 - A short is always an error. A clearance finding takes the severity of the rule that governs, and
-  `error` for a class or a board-minimum value.
+  `error` for a class, a zone or a board-minimum value.
+- A pair of one fill and one track, arc, via or pad also takes the own clearance of the fill's zone
+  (`ZoneSettings.clearance`), which counts as a class value does: the largest of it, the class value
+  and the board minimum governs without a rule (source `zone`), and a governing rule replaces it where
+  it replaces a class value. The value is read from the zone: no rule is written for it. Two fills
+  take no zone value: nothing measured says which of the two zones' values KiCad's filler keeps
+  between two fills.
+- A zone's value is the distance KiCad's filler cuts to around the true copper. An arc is widened by
+  its band so that no violation is missed, so for a value of source `zone` the arc narrowed by its
+  band is judged with the zone's value, and the widened arc with the value in force without the zone.
+  A fill that follows an arc at exactly the zone's clearance is therefore not reported.
 - The clearance in force comes from the project's own files: the classes, the class of each net and the
   board minimum of `<stem>.kicad_pro`, and the rules of `<stem>.kicad_dru`. Fenolite ships no rule
   values, so a board without them is judged for shorts only (`copper.clearance-unset`).
@@ -65,7 +78,8 @@ not repeatable ("Via re-net" below), so shorts are proved by Fenolite's own exac
 | net-tie pad groups | reported as shorts | pads of a net-tie group may touch | n/a | n/a | documented difference |
 | zone fills | checked as stored, as filled rings; a stale fill is judged as it is | checked as stored unless the DRC refills | n/a | equal | H-K-COPPER-ZONES |
 | zone outlines | not copper; only the overlap of two outlines of equal priority is reported | not copper | n/a | recorded: KiCad reports the overlapping fills as `clearance` | documented difference (`copper.zone-overlap` is a Fenolite rule) |
-| the zone's own clearance | not applied | applied to the fill, 0.5 mm when the zone sets none | n/a | n/a | documented difference (a v0.2a follow-up to c0029) |
+| the zone's own clearance | applied between a fill and a track, an arc, a via or a pad of another net, as a class value is: the largest of the zone, the class and the board minimum, and a governing custom rule replaces it | the same, 0.5 mm when the zone sets none | equal (the outcome recorded for the `kicad-9` job; measured by hand at proposal time) | equal | H-K-COPPER-ZONECLR: `copper-zoneclr-zone-above-class` (fill–track, fill–via, fill–pad), `-class-above-zone`, `-rule-below-zone`, `-floor-above-zone`; a refilled pour is clean (`copper-zoneclr-fresh`, 10.0.6) |
+| pairs of two fills | judged with the rule, class and board-minimum values only, never with a zone's clearance | judges no pair of fills that do not touch | recorded: `copper-fill-fill` `absent` | recorded: `copper-fill-fill` `absent` | documented difference (Fenolite may report more: a stale or hand-made fill that comes too close to another fill) |
 | graphics, texts, holes, board edges, mask and silkscreen | not checked | checked | n/a | n/a | documented difference |
 | project severity overrides and exclusions | not applied | applied | n/a | n/a | documented difference |
 | custom rules outside the closed grammar | not applied; `copper.rules-incomplete` and the stage is `UNVERIFIED` | applied | n/a | n/a | documented difference |

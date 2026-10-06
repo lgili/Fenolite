@@ -156,6 +156,10 @@ def match_pads(design: Design, export: Ipcd356) -> PadMatch:
     return PadMatch(tuple(pairs), tuple(unmatched), unpaired, vias, truncated, ambiguous, tuple(problems))
 
 
+NO_NET_LABEL = "N/C"
+"""The net field of an IPC-D-356 record of a pad on no net (``docs/formats/kicad/board.md``)."""
+
+
 def ambiguous_labels(design: Design) -> frozenset[str]:
     """The ids of the nets whose names share their last ``NET_WIDTH`` characters with another net's name,
     so the export gives them one label."""
@@ -170,16 +174,22 @@ def ambiguous_labels(design: Design) -> frozenset[str]:
 def export_netlist(design: Design, export: Ipcd356) -> PadNetList:
     """The export as a ``PadNetList`` (source ``export``) of full ``REF-PIN`` elements.
 
-    Pads on nets whose labels collide become ``net-label-ambiguous``; numbered pads that no record is paired
-    with become ``not-exported``; records paired with no pad become ``unmatched-record`` (truncated fields).
+    A pad the export labels ``N/C`` is on no net (label ``""``), so it is a block of its own in the
+    assignment compare. Pads on nets whose labels collide become ``net-label-ambiguous``; numbered pads
+    that no record is paired with become ``not-exported``; records paired with no pad become
+    ``unmatched-record`` (truncated fields).
     """
     match = match_pads(design, export)
     ambiguous_nets = ambiguous_labels(design)
     ambiguous = {p.element for p in _pads(design) if p.pad.net_id in ambiguous_nets and p.pad.number}
+    named = {net.name[-NET_WIDTH:] for net in design.circuit.nets}
     assignments: list[PadAssignment] = []
     for pair in match.pairs:
         if pair.pad.number and pair.element not in ambiguous:
-            assignments.append(PadAssignment(pair.element, pair.record.net))
+            label = pair.record.net
+            if label == NO_NET_LABEL and NO_NET_LABEL not in named:
+                label = ""  # the export's word for a pad on no net, unless a net of the board is named so
+            assignments.append(PadAssignment(pair.element, label))
     assigned = {a.element for a in assignments}
     uncovered = [Uncovered(e, "net-label-ambiguous") for e in sorted(ambiguous)]
     uncovered += [Uncovered(e, "not-exported") for e in match.unpaired if e not in ambiguous]
@@ -196,6 +206,7 @@ __all__ = [
     "BOUND_UNITS",
     "EVIDENCE",
     "NET_WIDTH",
+    "NO_NET_LABEL",
     "PIN_WIDTH",
     "REF_WIDTH",
     "MatchedPad",

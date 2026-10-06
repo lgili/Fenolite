@@ -1,0 +1,952 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.schematic.v0",
+  "title": "SchematicSheet",
+  "description": "One schematic file: embedded symbols, placed symbols, labels, flags, the wires of a created sheet",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "native_ids": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ext": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ExtBag"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "paper": {
+      "$ref": "#/$defs/SheetFrameRef"
+    },
+    "title_block": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TitleBlock"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lib_symbols": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SymbolDef"
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SymbolInstance"
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NetLabel"
+      }
+    },
+    "no_connects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/NoConnectFlag"
+      }
+    },
+    "wires": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Wire"
+      }
+    },
+    "sheets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SheetRef"
+      }
+    },
+    "pages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SheetPage"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name"
+  ],
+  "$defs": {
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "NetLabel": {
+      "description": "A net label. ``kind`` has no default, so it is always written; ``shape`` is ``\"\"`` when local.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "local",
+            "global",
+            "hierarchical"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "shape": {
+          "enum": [
+            "",
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "position"
+      ]
+    },
+    "NoConnectFlag": {
+      "description": "A no-connect flag at a pin end.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "position"
+      ]
+    },
+    "PinAlternate": {
+      "description": "An alternate function of a pin.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect"
+          ]
+        },
+        "shape": {
+          "enum": [
+            "line",
+            "inverted",
+            "clock",
+            "inverted_clock",
+            "input_low",
+            "clock_low",
+            "output_low",
+            "edge_clock_high",
+            "non_logic"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "etype",
+        "shape"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "SheetFrameRef": {
+      "description": "The board's paper and the drawing sheet its project names (a project-relative path).",
+      "type": "object",
+      "properties": {
+        "paper": {
+          "enum": [
+            "A0",
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "Letter",
+            "Legal",
+            "Tabloid",
+            "custom"
+          ]
+        },
+        "portrait": {
+          "type": "boolean"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "drawing_sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "SheetPage": {
+      "description": "The page of one sheet path, as the root sheet lists it.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "page"
+      ]
+    },
+    "SheetRef": {
+      "description": "A reference to a sub-sheet: its name, the file as written, its box and its uses.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "size": {
+          "$ref": "#/$defs/Size"
+        },
+        "uses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SheetUse"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "file",
+        "position",
+        "size"
+      ]
+    },
+    "SheetUse": {
+      "description": "One use of a sheet reference in a hierarchy: the project, the sheet path and the page there.",
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "page": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "path",
+        "page"
+      ]
+    },
+    "Size": {
+      "description": "A width and height in nanometres.",
+      "type": "object",
+      "properties": {
+        "w": {
+          "type": "integer"
+        },
+        "h": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "w",
+        "h"
+      ]
+    },
+    "SymbolDef": {
+      "description": "A symbol of a library. A derived symbol read as written has ``extends`` set and no pins.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "library": {
+          "type": "string"
+        },
+        "extends": {
+          "type": "string"
+        },
+        "power": {
+          "enum": [
+            "",
+            "global",
+            "local"
+          ]
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "in_bom": {
+          "type": "boolean"
+        },
+        "on_board": {
+          "type": "boolean"
+        },
+        "exclude_from_sim": {
+          "type": "boolean"
+        },
+        "pin_names_hidden": {
+          "type": "boolean"
+        },
+        "pin_numbers_hidden": {
+          "type": "boolean"
+        },
+        "pin_name_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolUnit"
+          }
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolPin"
+          }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolGraphic"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "SymbolGraphic": {
+      "description": "A vector primitive in symbol-local coordinates (nanometres).",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "line",
+            "circle",
+            "rect",
+            "polygon"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "filled": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "points"
+      ]
+    },
+    "SymbolInstance": {
+      "description": "A placed symbol. ``ref``, ``value`` and ``footprint`` repeat the properties of these names.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "lib_ref": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "mirror": {
+          "enum": [
+            "",
+            "x",
+            "y"
+          ]
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "footprint": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "dnp": {
+          "type": "boolean"
+        },
+        "in_bom": {
+          "type": "boolean"
+        },
+        "on_board": {
+          "type": "boolean"
+        },
+        "exclude_from_sim": {
+          "type": "boolean"
+        },
+        "lib_name": {
+          "type": "string"
+        },
+        "uses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SymbolUse"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "lib_ref",
+        "position"
+      ]
+    },
+    "SymbolPin": {
+      "description": "A pin of a symbol; ``position`` is its connection point, ``rotation`` 0/90/180/270 degrees.",
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "etype": {
+          "enum": [
+            "input",
+            "output",
+            "bidirectional",
+            "tri_state",
+            "passive",
+            "free",
+            "unspecified",
+            "power_in",
+            "power_out",
+            "open_collector",
+            "open_emitter",
+            "no_connect"
+          ]
+        },
+        "position": {
+          "$ref": "#/$defs/Point"
+        },
+        "shape": {
+          "enum": [
+            "line",
+            "inverted",
+            "clock",
+            "inverted_clock",
+            "input_low",
+            "clock_low",
+            "output_low",
+            "edge_clock_high",
+            "non_logic"
+          ]
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "alternates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinAlternate"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "number",
+        "name",
+        "etype",
+        "position"
+      ]
+    },
+    "SymbolUnit": {
+      "description": "One unit/body-style combination of a symbol.",
+      "type": "object",
+      "properties": {
+        "unit": {
+          "type": "integer"
+        },
+        "body_style": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "body_style"
+      ]
+    },
+    "SymbolUse": {
+      "description": "One use of a symbol in a hierarchy: the project, the sheet path, and the reference and unit there.",
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "path",
+        "ref"
+      ]
+    },
+    "TitleBlock": {
+      "description": "The title-block fields of a board and the user parameters its sheet may show.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        },
+        "organization": {
+          "type": "string"
+        },
+        "doc_id": {
+          "type": "string"
+        },
+        "responsible": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Wire": {
+      "description": "A straight wire of a created sheet, from ``start`` to ``end``: horizontal or vertical, never a",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end"
+      ]
+    }
+  }
+}

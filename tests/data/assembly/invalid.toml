@@ -1,0 +1,13 @@
+# Authored for Fenolite as test data (CC0-1.0): a template with three problems, to test that all of
+# them are reported at once. The names are made up and describe no service or company.
+schema = "fenolite.assembly-template.v0"
+
+[bom]
+columns = [
+  { name = "Parts", field = "refs" },
+  { name = "Cost", field = "price" },
+]
+colour = "green"
+
+[placement]
+units = "cm"

@@ -19,8 +19,23 @@ from pathlib import Path
 from typing import Literal
 
 from fenolite.core.errors import FormatError
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import round_half_even_div
 
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-K-SEXPR-ESCAPES",
+        "H-K-SEXPR-LEX-10",
+        "H-K-SEXPR-LEX-9",
+        "H-K-SEXPR-NUM-CORPUS",
+        "H-K-SEXPR-NUM-READ",
+        "H-K-SEXPR-NUM-WRITE-2",
+        "H-K-SEXPR-STRICT",
+    ),
+)
+"""The syntax layer: every ``H-K-SEXPR-*`` row that is not refuted. ``INFERRED``, the level of
+``H-K-SEXPR-STRICT`` and ``H-K-SEXPR-NUM-CORPUS``: lowest wins (declared by change c0067)."""
 MAX_DEPTH = 256
 XY_WRAP_COLUMNS = 99
 
@@ -531,6 +546,27 @@ def dumps(x: Node | Atom, *, style: Literal["kicad", "compact"] = "kicad") -> st
     return "\n".join(lines) + "\n"
 
 
+def canonical(text: str, *, file: str = "") -> str:
+    """Fenolite's canonical print of a KiCad S-expression text: ``dumps(parse(text))``.
+
+    No atom changes, so the result parses tree-equal to ``text``, and printing it again gives the same
+    bytes. The parser's ``FormatError`` and the printer's ``ValueError`` (comments below the root) are
+    raised unchanged. This is Fenolite's layout, not a claim about the bytes KiCad writes.
+    """
+    return dumps(parse(text, file=file))
+
+
+def first_line_difference(a: str, b: str) -> int | None:
+    """The number, from 1, of the first line at which two texts differ; ``None`` for equal texts."""
+    if a == b:
+        return None
+    lines_a, lines_b = a.split("\n"), b.split("\n")
+    for number, (x, y) in enumerate(zip(lines_a, lines_b, strict=False), start=1):
+        if x != y:
+            return number
+    return min(len(lines_a), len(lines_b)) + 1
+
+
 # --- equality and locators ------------------------------------------------------------------------
 
 
@@ -590,8 +626,10 @@ __all__ = [
     "Atom",
     "AtomKind",
     "Node",
+    "canonical",
     "dumps",
     "first_difference",
+    "first_line_difference",
     "load",
     "parse",
     "parse_bytes",

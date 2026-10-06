@@ -177,6 +177,40 @@ def upgraded_project(tmp_path: Path, item: CorpusItem, cli: KicadCli) -> Path:
     return root
 
 
+SCHEMATICS = DATA / "kicad" / "schematic"
+
+
+def built_blink_project(root: Path, *, target: int = 10, cache: bool = True) -> Path:
+    """The blink example built for ``target`` into ``root`` (stem ``blink``), with its schematic, symbol
+    libraries and tables (change c0061); ``cache=False`` leaves ``.fenolite/`` out, which makes the
+    project native input for ``check``. No tool runs."""
+    from _buildhelp import blink, build
+
+    output = build(blink(), target)
+    assert output.files, [i.message for i in output.issues if i.severity == "error"]
+    for rel, data in output.files.items():
+        if not cache and rel.startswith(".fenolite/"):
+            continue
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return root
+
+
+def hierarchy_project(root: Path, *, folder: str = "hier", stem: str = "top", major: int = 10) -> Path:
+    """An authored schematic hierarchy of ``tests/data/kicad/schematic/<folder>/`` as a native project in
+    ``root``: its sheets, the root one named ``<stem>.kicad_sch``, beside the authored board and a ``{}``
+    project file of that stem (changes c0060 and c0062). The board and the sheets are unrelated."""
+    root.mkdir(parents=True, exist_ok=True)
+    for sheet in sorted((SCHEMATICS / folder).glob("*.kicad_sch")):
+        name = f"{stem}.kicad_sch" if sheet.name == "top.kicad_sch" else sheet.name
+        (root / name).write_bytes(sheet.read_bytes())
+    text = write_triad(_design(major, built=False, rules=None), name=stem, target=major)[f"{stem}.kicad_pcb"]
+    (root / f"{stem}.kicad_pcb").write_text(text, encoding="utf-8", newline="\n")
+    (root / f"{stem}.kicad_pro").write_text("{}\n", encoding="utf-8", newline="\n")
+    return root
+
+
 def tree_snapshot(root: Path) -> dict[str, tuple[str, str, int]]:
     """``root`` and every path under it (by ``lstat``): kind, SHA-256 of a file, ``st_mtime_ns``."""
     found: dict[str, tuple[str, str, int]] = {".": ("dir", "", root.lstat().st_mtime_ns)}
@@ -196,7 +230,9 @@ __all__ = [
     "ONE_RULE",
     "STEM",
     "authored_project",
+    "built_blink_project",
     "demo_project",
+    "hierarchy_project",
     "native_project",
     "tree_snapshot",
     "upgraded_project",

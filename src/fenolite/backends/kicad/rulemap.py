@@ -8,6 +8,8 @@ written for a KiCad major only when ``SELECTOR_SUPPORT`` lists that major, which
 ``dru-cond-*`` probe adds (``H-K-DRU-COND``, ``H-K-DRU-GLOB``).
 """
 
+# evidence: see dru, lowering
+
 from __future__ import annotations
 
 import dataclasses
@@ -32,6 +34,12 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "via_diameter": "via_diameter",
         "hole_size": "hole_size",
         "via_drill": "hole_size",
+        "hole_to_hole": "hole_to_hole",
+        "hole_clearance": "hole_clearance",
+        "annular_width": "annular_width",
+        "courtyard_clearance": "courtyard_clearance",
+        "silk_clearance": "silk_clearance",
+        "creepage": "creepage",
     }
 )
 """Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``."""
@@ -43,9 +51,51 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
         "via_diameter": frozenset({"min", "opt", "max"}),
         "hole_size": frozenset({"min", "max"}),
         "via_drill": frozenset({"min", "max"}),
+        "hole_to_hole": frozenset({"min"}),
+        "hole_clearance": frozenset({"min"}),
+        "annular_width": frozenset({"min"}),
+        "courtyard_clearance": frozenset({"min"}),
+        "silk_clearance": frozenset({"min"}),
+        "creepage": frozenset({"min"}),
     }
 )
+"""The six kinds of change c0071 take ``min`` only: that is what the oracle measured for them."""
 LIMIT_ORDER = ("min", "opt", "max")
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class KindGrammar:
+    """What the sides of a rule kind take: the leaf ops (``and``, ``or`` and ``not`` combine them, and
+    ``all`` is always a whole side), a B side, a layer clause, and ``*`` in a leaf value."""
+
+    leaves: frozenset[str]
+    side_b: bool = False
+    layers: bool = False
+    glob: bool = True
+
+
+_LEAVES = frozenset({"net", "netclass", "ref", "item_kind"})
+KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
+    {
+        "clearance": KindGrammar(_LEAVES, side_b=True, layers=True),
+        "edge_clearance": KindGrammar(_LEAVES, layers=True),
+        "track_width": KindGrammar(_LEAVES, layers=True),
+        "via_diameter": KindGrammar(_LEAVES, layers=True),
+        "hole_size": KindGrammar(_LEAVES, layers=True),
+        "via_drill": KindGrammar(_LEAVES, layers=True),
+        "hole_to_hole": KindGrammar(_LEAVES),
+        "hole_clearance": KindGrammar(_LEAVES),
+        "annular_width": KindGrammar(_LEAVES),
+        "courtyard_clearance": KindGrammar(frozenset({"ref"}), glob=False),
+        "silk_clearance": KindGrammar(frozenset()),
+        "creepage": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
+    }
+)
+"""Each kind → the selectors it takes (rules.md, "Selectors per kind"). A courtyard rule selects footprints,
+so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
+because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards."""
+REFERENCE_KINDS: frozenset[RuleKind] = frozenset({"courtyard_clearance"})
+"""The kinds whose ``ref`` leaf is the footprint itself (``Reference``), not a member of it."""
 ITEM_TYPES: Mapping[str, str] = MappingProxyType(
     {"track": "Track", "via": "Via", "pad": "Pad", "zone": "Zone"}
 )
@@ -66,11 +116,33 @@ _BOTH = frozenset({9, 10})
 SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType({key: _BOTH for key in SELECTOR_KEYS})
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
 (``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``; every key holds on both majors)."""
+KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
+    {
+        "clearance": _BOTH,
+        "edge_clearance": _BOTH,
+        "track_width": _BOTH,
+        "via_diameter": _BOTH,
+        "hole_size": _BOTH,
+        "via_drill": _BOTH,
+        "hole_to_hole": _BOTH,
+        "hole_clearance": _BOTH,
+        "annular_width": _BOTH,
+        "courtyard_clearance": _BOTH,
+        "silk_clearance": _BOTH,
+        "creepage": frozenset({10}),
+    }
+)
+"""Each kind → the KiCad majors on which ``kicad-cli`` enforces it as written: for the six kinds of v0.1,
+``H-K-DRU-KIND``; for the six of change c0071, the majors whose ``dru-kind-<kind>`` probe recorded
+``present`` (``H-K-DRU-KIND-2``). 9.0.9 loads a ``creepage`` rule and reports nothing for it, so it is written
+for 10 only. A modelled rule of a kind outside its entry gives ``rules.kind-unchecked``."""
+KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "rules.unsupported-selector": "error",
         "rules.unsupported-limit": "error",
         "rules.unsupported-layer": "error",
+        KIND_UNCHECKED_CODE: "error",
         "rules.dropped-for-target": "warning",
         "rules.kept-opaque": "info",
     }
@@ -143,13 +215,21 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
     if op == "layer":
         return refuse("the 'layer' op is not lowered; use Rule.layers")
     value = selector.value
+    grammar = KIND_SELECTORS[rule.kind]
+    if op not in grammar.leaves:
+        taken = ", ".join(sorted(grammar.leaves)) or "no selector but 'all'"
+        return refuse(f"a {rule.kind} rule takes no '{op}' selector (it takes {taken})")
     if _FORBIDDEN & set(value):
         return refuse(f"value {value!r} contains one of ' \" ? [ ]")
     if not _supported(op, target):
         return refuse(f"'{op}' is not proved for KiCad {target}")
+    if "*" in value and not grammar.glob:
+        return refuse(f"a {rule.kind} rule takes no glob; {value!r} holds '*'")
     if "*" in value and not _supported("glob", target):
         return refuse(f"the glob {value!r} is not proved for KiCad {target}")
     if op == "ref":
+        if rule.kind in REFERENCE_KINDS:
+            return f"{side}.Reference == '{value}'"
         return f"{side}.memberOfFootprint('{value}')"
     if op == "item_kind":
         if value not in ITEM_TYPES:
@@ -168,9 +248,13 @@ def condition_text(rule: Rule, *, target: int) -> tuple[str | None, tuple[Issue,
         terms.append(_term(rule.selector_a, "A", target, rule, issues))
     b = rule.selector_b
     if b is not None and b.op != "all":
-        if rule.kind != "clearance":
+        if not KIND_SELECTORS[rule.kind].side_b:
             issues.append(
-                _issue("rules.unsupported-selector", "selector_b is allowed only for clearance", rule)
+                _issue(
+                    "rules.unsupported-selector",
+                    f"selector_b is allowed only for clearance and creepage, not for {rule.kind}",
+                    rule,
+                )
             )
         elif not _supported("selector_b", target):
             issues.append(
@@ -195,7 +279,8 @@ _Tree = tuple[str, object]
 class _Parse:
     """A recursive-descent reader of the closed expression grammar (rules.md, "Selectors")."""
 
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, *, reference: bool = False) -> None:
+        self.reference = reference
         self.tokens: list[tuple[str, str]] = []
         for match in _TOKEN.finditer(text):
             kind = match.lastgroup or "bad"
@@ -248,7 +333,7 @@ class _Parse:
             value = self.take(kind="str")[1:-1]
             self.take(")")
             return ("leaf", (side, Selector("ref", value)))
-        op = _PROP_OPS.get(prop)
+        op = "ref" if prop == "Reference" and self.reference else _PROP_OPS.get(prop)
         if op is None:
             raise ValueError(f"property {prop!r} is outside the closed grammar")
         self.take("==")
@@ -295,12 +380,13 @@ def _join(items: list[Selector]) -> Selector:
     return _flatten(items[0] if len(items) == 1 else Selector("and", items=tuple(items)))
 
 
-def parse_condition(text: str) -> tuple[Selector, Selector | None] | None:
+def parse_condition(text: str, *, reference: bool = False) -> tuple[Selector, Selector | None] | None:
     """``(selector_a, selector_b)`` of a condition in the closed grammar, or ``None``.
 
-    The top-level conjuncts are split by side; each must use one side only.
+    The top-level conjuncts are split by side; each must use one side only. With ``reference``, the form
+    of the kinds in ``REFERENCE_KINDS``, ``S.Reference == 'v'`` reads as ``ref v``.
     """
-    parser = _Parse(text)
+    parser = _Parse(text, reference=reference)
     try:
         tree = parser.expr()
         if parser.peek() is not None:
@@ -352,6 +438,8 @@ def rule_nodes(
             issues.append(_issue("rules.unsupported-limit", f"{rule.kind} takes no '{name}' limit", rule))
     condition, found = condition_text(rule, target=target)
     issues += found
+    if rule.layers and not KIND_SELECTORS[rule.kind].layers:
+        issues.append(_issue("rules.unsupported-selector", f"a {rule.kind} rule takes no layer clause", rule))
     for layer in rule.layers:
         if not is_canonical(layer):
             issues.append(
@@ -435,18 +523,25 @@ def lift_rule(node: Node) -> Rule | str:
         texts = cond.atoms()
         if cond.nodes() or len(texts) != 1 or texts[0].kind != AtomKind.STRING:
             return "the condition is not one string"
-        parsed = parse_condition(texts[0].value)
+        by_reference = kind in REFERENCE_KINDS
+        if by_reference and "memberOfFootprint" in texts[0].value:
+            return (
+                f"memberOfFootprint selects no footprint for {kind}; "
+                "KiCad selects one with A.Reference (H-K-DRU-COURTYARD)"
+            )
+        parsed = parse_condition(texts[0].value, reference=by_reference)
         if parsed is None:
             return "the condition is outside the closed grammar"
         selector_a, selector_b = parsed
-        if selector_b is not None and kind != "clearance":
-            return "a B side is lifted only for clearance"
     layers: tuple[str, ...] = ()
     if "layer" in clauses:
         atoms = clauses["layer"][0].atoms()
         if clauses["layer"][0].nodes() or len(atoms) != 1 or not is_canonical(atoms[0].value):
             return "the layer clause is not one KiCad layer name"
         layers = (atoms[0].value,)
+    outside = _outside_kind(kind, selector_a, selector_b, layers)
+    if outside is not None:
+        return outside
     severity: RuleSeverity = "error"
     if "severity" in clauses:
         atoms = clauses["severity"][0].atoms()
@@ -465,6 +560,31 @@ def lift_rule(node: Node) -> Rule | str:
         max=limits.get("max"),
         severity=severity,
     )
+
+
+def _leaves(selector: Selector | None) -> list[Selector]:
+    if selector is None:
+        return []
+    if selector.op in ("and", "or", "not"):
+        return [leaf for item in selector.items for leaf in _leaves(item)]
+    return [] if selector.op == "all" else [selector]
+
+
+def _outside_kind(
+    kind: RuleKind, selector_a: Selector, selector_b: Selector | None, layers: Sequence[str]
+) -> str | None:
+    """Why a parsed rule is outside the grammar of its kind (``KIND_SELECTORS``), or ``None``."""
+    grammar = KIND_SELECTORS[kind]
+    if selector_b is not None and not grammar.side_b:
+        return f"a B side is not taken by {kind}"
+    if layers and not grammar.layers:
+        return f"a layer clause is not taken by {kind}"
+    for leaf in (*_leaves(selector_a), *_leaves(selector_b)):
+        if leaf.op not in grammar.leaves:
+            return f"the selector '{leaf.op}' is not taken by {kind}"
+        if "*" in leaf.value and not grammar.glob:
+            return f"a glob is not taken by {kind}"
+    return None
 
 
 def normal_form(rule: Rule) -> Rule:
@@ -493,10 +613,15 @@ def rule_order(rules: Sequence[Rule]) -> tuple[Rule, ...]:
 __all__ = [
     "CLAUSE_FIELDS",
     "CLAUSE_ORDER",
+    "KindGrammar",
     "ITEM_TYPES",
     "KIND_MAP",
+    "KIND_SELECTORS",
+    "KIND_SUPPORT",
+    "KIND_UNCHECKED_CODE",
     "LIMITS",
     "LIMIT_ORDER",
+    "REFERENCE_KINDS",
     "RULE_ISSUE_CODES",
     "SELECTOR_KEYS",
     "SELECTOR_SUPPORT",

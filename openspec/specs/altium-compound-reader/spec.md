@@ -1,7 +1,7 @@
 # altium-compound-reader Specification
 
 ## Purpose
-TBD - created by archiving change c0039-altium-compound-reader. Update Purpose after archive.
+Read the compound file container that Altium binary documents use: the directory, the storages and the streams, with stated tolerances, located errors and bounds that hold on hostile files. The record contents of each stream belong to the schematic and PCB reader capabilities.
 ## Requirements
 ### Requirement: Compound file reading
 `fenolite.backends.altium.read.cfb.open_compound(data, *, file="", limits=DEFAULT_LIMITS, strict=False)` SHALL read the bytes of an MS-CFB compound file of version 3 or 4 and return a `CompoundFile` that gives every storage and every stream by its path, with the stream contents as `bytes` (S-0145, `docs/formats/altium/compound-file.md`, section "Reading"). `read_compound(path, *, limits=DEFAULT_LIMITS, strict=False)` SHALL do the same for a file on disk and pass the file name as `file`. `is_compound(data)` SHALL return whether `data` starts with the eight signature bytes. The module reads only; it writes no file and runs no tool.

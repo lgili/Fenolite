@@ -36,6 +36,9 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
+READING_MODULES = {"backend.py", "docset.py", "roundtrip.py"}
+"""The modules of the reading side (changes c0043 and c0044): the registered backend, the document sets and
+the round-trip levels. ``test_backend.py``, ``test_docset.py`` and ``test_roundtrip.py`` hold their rules."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
@@ -53,15 +56,20 @@ def test_files_of_the_sample() -> None:
     ]
 
 
-def test_not_a_registered_backend() -> None:
+def test_the_writers_are_not_part_of_the_registered_backend() -> None:
+    """Since change c0043 the package holds the registered backend ``altium``, which reads: it offers no
+    write kind, so the writers stay experimental features of ``build``."""
     assert "fenolite.backends.altium.project" in sys.modules
-    assert all(b.name != "altium" for b in registry.all_backends())
+    (altium,) = [b for b in registry.all_backends() if b.name == "altium"]
+    assert altium.capabilities().write_kinds == () and not hasattr(altium, "write")
 
 
 def test_imports_only_core_and_model() -> None:
     """The package imports ``fenolite.core``, ``fenolite.model``, itself and a few pure stdlib modules: no
     file, process or environment access."""
     for path in sorted(PACKAGE.glob("*.py")):
+        if path.name in READING_MODULES or path.name == "claims.py":
+            continue  # the reading side and the matrix rows (c0067) have their own rules and tests
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

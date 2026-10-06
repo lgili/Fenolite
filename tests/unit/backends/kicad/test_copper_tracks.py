@@ -8,7 +8,8 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-from _copper import at, built_blink, end, routed_intents, step, track, via
+from _boards import created_board
+from _copper import arc, at, built_blink, end, routed_intents, step, track, via
 from _placed import Part, design_of, mm, pt
 
 import fenolite.backends.kicad as kicad
@@ -312,3 +313,258 @@ def test_design_without_a_board_and_reexport() -> None:
     assert resolve_copper(bare, [via("v", at(1, 1))], issues=found) is bare
     assert [i.code for i in found] == ["kicad.copper.bad-intent"]
     assert kicad.resolve_copper is copper.resolve_copper and "resolve_copper" in kicad.__all__
+
+
+# -- arcs (change c0068)
+
+BEND = (at(10, 10), at(11, 11), at(10, 12), at(10, 15))
+"""``P``, ``M``, ``E`` and ``Q`` of the intent ``bend``: a half circle of radius 1 mm, then a segment."""
+
+
+def _bend(mid: object = BEND[1], **fields: object) -> object:
+    p, _, e, q = BEND
+    return track("bend", p, arc(mid, e), q, width=250_000, net="GND", **fields)  # type: ignore[arg-type]
+
+
+def test_arc_between_two_points() -> None:
+    """Scenario "Arc between two points"."""
+    blink = built_blink()
+    p, m, e, q = BEND
+    result, found = _resolve(blink, _bend())
+    assert found == [] and result.board is not None
+    (made,) = result.board.arcs
+    assert (made.start, made.mid, made.end, made.layer, made.width) == (p, m, e, "F.Cu", 250_000)
+    assert made.native_ids["kicad"] == copper_uuid("bend", "arc[1]")
+    assert made.id == derived_id("arc", "kicad", made.native_ids["kicad"]) and made.provenance is None
+    (segment,) = result.board.tracks
+    assert (segment.start, segment.end, segment.layer) == (e, q, "F.Cu")
+    assert segment.native_ids["kicad"] == copper_uuid("bend", "seg[1]")
+    gnd = _net(blink, "GND")
+    assert made.net_id == segment.net_id == gnd
+    uuids = {item.native_ids["kicad"] for item in (made, segment)}
+    assert copper_uuid("bend", "seg[0]") not in uuids  # the locator of the arc's segment stays unused
+
+
+def test_arc_on_one_line_and_repeated_points() -> None:
+    """Scenario "Arc on one line"."""
+    blink = built_blink()
+    p, _, e, _ = BEND
+    for mid in (at(10, 11), at(10, 20), p, e):
+        result, found = _resolve(blink, _bend(mid))
+        assert result.board is not None and result.board.arcs == () and result.board.tracks == ()
+        (issue,) = found
+        assert issue.code == "kicad.copper.bad-intent" and issue.where == "bend"
+        assert "bend" in issue.message and "arc step" in issue.message and "path[1]" in issue.message
+
+
+def test_arc_joins_pads_and_follows_a_via_step() -> None:
+    """An arc may start at a pad end, and run on the layer a via step changed to. Its ``end`` is a point:
+    an arc that ends on a pad is given the pad's position."""
+    blink = built_blink()
+    r1, d1 = find_pads(blink, "R1", 2)[0].position, find_pads(blink, "D1", 2)[0].position
+    intent = track("led_a", end("R1", 2), arc(at(34, 11), at(36, 9)), step(36, 14), arc(at(34, 17), d1))
+    result, found = _resolve(blink, intent)
+    assert found == [] and result.board is not None
+    first, second = result.board.arcs
+    assert (first.start, first.end, first.layer) == (r1, at(36, 9), "F.Cu")
+    assert (second.start, second.end, second.layer) == (at(36, 14), d1, "B.Cu")
+    assert [a.native_ids["kicad"] for a in (first, second)] == [
+        copper_uuid("led_a", "arc[1]"),
+        copper_uuid("led_a", "arc[3]"),
+    ]
+    (segment,) = result.board.tracks
+    assert segment.native_ids["kicad"] == copper_uuid("led_a", "seg[1]")
+    (through,) = result.board.vias
+    assert through.native_ids["kicad"] == copper_uuid("led_a", "via[2]")
+
+
+def test_arc_path_cannot_start_with_an_arc_step() -> None:
+    _refused(
+        built_blink(), track("k", arc(at(1, 1), at(2, 0)), at(3, 3), net="GND"), "kicad.copper.bad-intent"
+    )
+
+
+def test_arc_step_read_by_attribute() -> None:
+    """Any object with ``mid`` and ``end`` is an arc step; a via step without ``kind`` is a through via."""
+
+    @dataclasses.dataclass(frozen=True)
+    class Bend:
+        mid: object
+        end: object
+
+    @dataclasses.dataclass(frozen=True)
+    class OldStep:
+        at: object
+        layer: str
+        diameter: int = mm(0.6)
+        drill: int = mm(0.3)
+
+    p, m, e, q = BEND
+    result, found = _resolve(
+        built_blink(), track("bend", p, Bend(m, e), OldStep(q, "B.Cu"), at(12, 15), net="GND")
+    )
+    assert found == [] and result.board is not None
+    assert len(result.board.arcs) == 1 and result.board.vias[0].via_type == "through"
+    assert copper.ArcStepLike in vars(copper).values() and "ArcStepLike" in copper.__all__
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_arc_ids_survive_a_write_and_a_read(target: int) -> None:
+    """Scenario "Arc ids survive a write and a read"."""
+    resolved = resolve_copper(built_blink(target), [_bend()])  # type: ignore[list-item]
+    read = read_board(write_board(resolved, target=target).text, file="board.kicad_pcb")
+    assert read.board is not None
+    (made,) = read.board.arcs
+    native = copper_uuid("bend", "arc[1]")
+    assert (made.native_ids["kicad"], made.id) == (native, derived_id("arc", "kicad", native))
+    assert (made.start, made.mid, made.end) == BEND[:3]
+
+
+def test_arc_resolution_is_idempotent_and_pure() -> None:
+    blink = built_blink()
+    before = canonical.dump_texts(blink)
+    once = resolve_copper(blink, [_bend()])  # type: ignore[list-item]
+    again, found = _resolve(once, _bend())
+    assert again == once and found == [] and canonical.dump_texts(blink) == before
+
+
+# -- via kinds (change c0068)
+
+
+def _four() -> Design:
+    return created_board(4)
+
+
+def _inner(key: str, kind: str, start: str, to: str) -> object:
+    """A track on ``start`` with one via step of ``kind`` to ``to``, between two points, on ``GND``."""
+    return track(key, at(40, 5), step(42, 5, to, kind), at(44, 5), layer=start, net="GND")
+
+
+def _created(design: Design, result: Design) -> tuple[list, list]:  # type: ignore[type-arg]
+    assert design.board is not None and result.board is not None
+    old = {t.id for t in design.board.tracks} | {v.id for v in design.board.vias}
+    return (
+        [t for t in result.board.tracks if t.id not in old],
+        [v for v in result.board.vias if v.id not in old],
+    )
+
+
+def test_via_kinds_blind_via_step_on_four_copper_layers() -> None:
+    """Scenario "Blind via step on four copper layers"."""
+    four = _four()
+    result, found = _resolve(four, _inner("blind", "blind", "F.Cu", "In1.Cu"))
+    assert found == []
+    tracks, (made,) = _created(four, result)
+    assert (made.via_type, made.layers) == ("blind", ("F.Cu", "In1.Cu"))
+    assert [t.layer for t in tracks] == ["F.Cu", "In1.Cu"]
+    assert made.native_ids["kicad"] == copper_uuid("blind", "via[1]")
+
+
+@pytest.mark.parametrize(
+    ("kind", "start", "to", "layers"),
+    [
+        ("blind", "In2.Cu", "F.Cu", ("F.Cu", "In2.Cu")),  # stored in stack order
+        ("blind", "In1.Cu", "B.Cu", ("In1.Cu", "B.Cu")),
+        ("buried", "In2.Cu", "In1.Cu", ("In1.Cu", "In2.Cu")),
+        ("micro", "F.Cu", "In1.Cu", ("F.Cu", "In1.Cu")),
+        ("micro", "In2.Cu", "B.Cu", ("In2.Cu", "B.Cu")),
+        ("through", "In1.Cu", "In2.Cu", ("F.Cu", "B.Cu")),  # a through via spans the board
+    ],
+)
+def test_via_kinds_of_a_step_and_their_spans(kind: str, start: str, to: str, layers: tuple[str, str]) -> None:
+    four = _four()
+    result, found = _resolve(four, _inner("k", kind, start, to))
+    assert found == []
+    tracks, (made,) = _created(four, result)
+    assert (made.via_type, made.layers) == (kind, layers) and [t.layer for t in tracks] == [start, to]
+
+
+def test_via_kinds_layers_that_do_not_fit_the_kind() -> None:
+    """Scenario "Layers that do not fit the kind"."""
+    four = _four()
+    cases = [
+        (four, _inner("b", "buried", "F.Cu", "In1.Cu"), "buried"),
+        (four, _inner("m", "micro", "F.Cu", "In2.Cu"), "micro"),
+        (four, _inner("m2", "micro", "In1.Cu", "In2.Cu"), "micro"),
+        (four, _inner("x", "blind", "F.Cu", "B.Cu"), "blind"),
+        (four, _inner("y", "blind", "In1.Cu", "In2.Cu"), "blind"),
+        (built_blink(), _inner("two", "blind", "F.Cu", "B.Cu"), "blind"),
+    ]
+    for design, intent, kind in cases:
+        result, found = _resolve(design, intent)
+        assert _created(design, result) == ([], [])
+        (issue,) = found
+        assert issue.code == "kicad.copper.bad-layer", issue
+        assert intent.key in issue.message and kind in issue.message  # type: ignore[attr-defined]
+
+
+def test_via_kinds_unknown_kind_of_a_step() -> None:
+    four = _four()
+    result, found = _resolve(four, _inner("k", "laser", "F.Cu", "In1.Cu"))
+    assert _created(four, result) == ([], [])
+    assert [i.code for i in found] == ["kicad.copper.bad-intent"] and "laser" in found[0].message
+
+
+def test_via_kinds_buried_via_between_two_inner_layers() -> None:
+    """Scenario "Buried via between two inner layers"."""
+    four = _four()
+    result, found = _resolve(four, via("core", at(20, 20), kind="buried", layers=("In2.Cu", "In1.Cu")))
+    assert found == []
+    _, (made,) = _created(four, result)
+    assert (made.via_type, made.layers) == ("buried", ("In1.Cu", "In2.Cu"))
+    assert made.native_ids["kicad"] == copper_uuid("core", "via")
+    assert (made.diameter, made.drill) == (mm(0.6), mm(0.3))
+
+
+def test_via_kinds_single_via_layer_errors() -> None:
+    """Scenario "Layers on a through via", and the other refusals of "Single vias"."""
+    four = _four()
+    cases = [
+        via("through", at(20, 20), kind="through", layers=("F.Cu", "B.Cu")),
+        via("missing", at(20, 20), kind="blind"),
+        via("repeated", at(20, 20), kind="blind", layers=("F.Cu", "F.Cu")),
+        via("unknown", at(20, 20), kind="blind", layers=("F.Cu", "In9.Cu")),
+        via("misfit", at(20, 20), kind="buried", layers=("F.Cu", "In1.Cu")),
+        via("far", at(20, 20), kind="micro", layers=("F.Cu", "In2.Cu")),
+    ]
+    for intent in cases:
+        result, found = _resolve(four, intent)
+        assert _created(four, result) == ([], [])
+        (issue,) = found
+        assert issue.code == "kicad.copper.bad-layer" and intent.key in issue.message, issue
+    result, found = _resolve(four, via("odd", at(20, 20), kind="laser", layers=("F.Cu", "In1.Cu")))
+    assert [i.code for i in found] == ["kicad.copper.bad-intent"]
+
+
+def test_via_kinds_single_via_without_kind_is_a_through_via() -> None:
+    @dataclasses.dataclass(frozen=True)
+    class Old:
+        key: str
+        at: object
+        net: str
+        diameter: int = mm(0.6)
+        drill: int = mm(0.3)
+
+    four = _four()
+    result, found = _resolve(four, Old("old", at(20, 20), "GND"))
+    _, (made,) = _created(four, result)
+    assert found == [] and (made.via_type, made.layers) == ("through", ("F.Cu", "B.Cu"))
+
+
+def test_via_kinds_micro_takes_the_via_sizes_of_the_class() -> None:
+    """Design, Open Questions: a ``micro`` via takes its sizes from the call, else from ``via_diameter`` and
+    ``via_drill`` of the class, as any via."""
+    four = _four()
+    cls = NetClass(
+        id="ncl_00000000-0000-4000-8000-000000000001", name="P", via_diameter=mm(0.5), via_drill=mm(0.2)
+    )
+    nets = tuple(
+        dataclasses.replace(n, netclass_id=cls.id) if n.name == "GND" else n for n in four.circuit.nets
+    )
+    classed = dataclasses.replace(
+        four, circuit=dataclasses.replace(four.circuit, nets=nets, netclasses=(cls,))
+    )
+    intent = via("m", at(20, 20), kind="micro", layers=("F.Cu", "In1.Cu"), diameter=None, drill=None)
+    result, found = _resolve(classed, intent)
+    _, (made,) = _created(classed, result)
+    assert found == [] and (made.diameter, made.drill, made.via_type) == (mm(0.5), mm(0.2), "micro")

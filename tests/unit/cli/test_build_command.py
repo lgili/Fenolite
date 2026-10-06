@@ -66,6 +66,7 @@ def test_confirmed_build_and_rebuild(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert written == sorted(
         [
             "blink.kicad_dru", "blink.kicad_pcb", "blink.kicad_pro", "fp-lib-table",
+            "blink.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym", "lib/fenolite.kicad_sym",  # c0061
             *(f"lib/Mini.pretty/{n}.kicad_mod" for n in FOOTPRINTS),
             *(f".fenolite/{n}.json" for n in ("board", "build", "circuit", "findings", "manufacturing")),
             ".fenolite/meta.json", ".fenolite/rules.json",

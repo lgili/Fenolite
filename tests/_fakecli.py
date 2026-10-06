@@ -6,7 +6,10 @@ The fake is a launcher around a Python script (a ``#!/bin/sh`` script, or a ``.c
 ``_resources.fake_tool``). It answers
 ``version``, ``<words> --help`` from ``help_pages``, ``pcb drc``, ``pcb export ipcd356`` (the ``ipcd356``
 text; without it, exit 3 and no export) and ``pcb upgrade --force`` (``upgrade="copy"`` re-saves the
-board unchanged, ``"fail"`` exits 1; c0020), and the export and render commands of c0024
+board unchanged, ``"fail"`` exits 1; c0020), ``pcb import`` (``imported=<board text>`` writes it to the
+``-o`` file with a JSON report and prints ``import_output``; without it, exit 0 and no file; c0045), and
+``sch export bom`` (the ``bom`` text written to the ``-o`` file; without it, exit 3; c0064), and
+the export and render commands of c0024
 (``export_files``): an export whose ``-o`` names a folder or a file in a folder, as ``fenolite export``
 asks for, while the netlist oracle of c0020 exports to the run folder itself. Without ``drc_report`` its
 DRC report
@@ -16,6 +19,15 @@ report and exits 3. Every call appends ``{"args", "files"}`` to ``<folder>/calls
 and the text of each board and rules file in the run folder. With ``log``, every board and rules file
 of every run is also copied there as ``<call number>-<name>``. With ``drc_sequence``, the n-th ``pcb drc``
 run writes the n-th report text, and the last one from then on.
+
+Change c0062 adds ``sch erc``: with ``erc_report`` (a report text) the run writes it to the ``-o`` file and
+exits 0; with ``erc_report=""`` it prints ``Failed to load schematic`` and exits 3 without a report; without
+the argument it writes a report with one sheet ``/`` and no violation. ``erc_sequence`` gives the n-th
+``sch erc`` run its own report text. Each call also records the text of every ``.kicad_sch`` of the run
+folder under ``sheets``. ``parity`` is a list of DRC violations that a ``pcb drc`` run puts in
+``schematic_parity`` only when it got ``--schematic-parity``; ``parity_fail`` makes such a run print
+``parity_fail`` and exit 255 without a report, as KiCad does for a schematic it cannot load, and
+``parity_note`` makes it print that line and still write its report.
 """
 
 from __future__ import annotations
@@ -37,8 +49,14 @@ files = {}
 for name in sorted(os.listdir(".")):
     if name.endswith((".kicad_pcb", ".kicad_dru", ".kicad_pro")) and os.path.isfile(name):
         files[name] = open(name, encoding="utf-8", errors="replace").read()
+sheets = {}
+for folder, _, names in sorted(os.walk(".")):
+    for name in sorted(names):
+        if name.endswith(".kicad_sch"):
+            path = os.path.normpath(os.path.join(folder, name)).replace(os.sep, "/")
+            sheets[path] = open(path, encoding="utf-8", errors="replace").read()
 with open(os.path.join(HERE, "calls.jsonl"), "a") as log:
-    log.write(json.dumps({"args": args, "files": files}) + "\\n")
+    log.write(json.dumps({"args": args, "files": files, "sheets": sheets}) + "\\n")
 if config["log"]:
     count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in files.items():
@@ -70,6 +88,47 @@ if args[:2] == ["pcb", "upgrade"]:
     board = args[-1]
     text = open(board, encoding="utf-8").read()
     open(board, "w", encoding="utf-8", newline="").write(text)
+if args[:2] == ["pcb", "import"]:
+    if config["imported"] is not None:
+        open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["imported"])
+        report = {"errors": [], "warnings": config["import_warnings"], "source_file": args[-1],
+                  "source_format": "Altium Designer", "output_file": args[args.index("-o") + 1]}
+        open(args[args.index("--report-file") + 1], "w", newline="").write(json.dumps(report))
+        sys.stdout.write(config["import_output"])
+    sys.exit(0)
+if args[:2] == ["sch", "upgrade"]:
+    sheet = args[-1]
+    text = open(sheet, encoding="utf-8").read()
+    open(sheet, "w", encoding="utf-8", newline="").write(text)
+    sys.exit(0)
+if args[:2] == ["sch", "erc"]:
+    text = config["erc_report"]
+    if config["erc_sequence"]:
+        done = sum(1 for line in open(os.path.join(HERE, "calls.jsonl")) if '"sch", "erc"' in line)
+        sequence = config["erc_sequence"]
+        text = sequence[min(done, len(sequence)) - 1]
+    if text == "":
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    if text is None:
+        text = json.dumps({"source": args[-1], "date": "2026-10-05", "kicad_version": config["version"],
+                           "coordinate_units": "mm", "sheets": [
+                               {"path": "/", "uuid_path": "/00000000-0000-4000-8000-000000000000",
+                                "violations": []}]})
+    open(args[args.index("-o") + 1], "w", newline="").write(text)
+    sys.exit(0)
+if args[:3] == ["sch", "export", "netlist"]:
+    if config["netlist"] is None:
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["netlist"])
+    sys.exit(0)
+if args[:3] == ["sch", "export", "bom"]:
+    if config["bom"] is None:
+        print("Failed to load schematic", file=sys.stderr)
+        sys.exit(3)
+    open(args[args.index("-o") + 1], "w", encoding="utf-8", newline="").write(config["bom"])
+    sys.exit(0)
 kind = None
 if args[:2] == ["pcb", "export"] and len(args) > 2:
     kind = args[2]
@@ -92,6 +151,12 @@ if kind is not None and kind in config["export_files"]:
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
+    asked = "--schematic-parity" in args
+    if asked and config["parity_fail"]:
+        sys.stderr.buffer.write((config["parity_fail"] + "\\n").encode("utf-8"))  # not the code page
+        sys.exit(255)
+    if asked and config["parity_note"]:
+        print(config["parity_note"], file=sys.stderr)
     if "--save-board" in args and config["refill_board"] is not None:
         open(board, "w", encoding="utf-8", newline="").write(config["refill_board"])
     if config["rewrite_input"] and "--save-board" not in args:
@@ -118,6 +183,8 @@ if args[:2] == ["pcb", "drc"]:
         report = {"source": board, "date": "2026-10-02", "kicad_version": config["version"],
                   "coordinate_units": "mm", "violations": violations, "unconnected_items": [],
                   "schematic_parity": []}
+    if asked and config["parity"]:
+        report["schematic_parity"] = config["parity"]
     open(args[args.index("-o") + 1], "w", newline="").write(json.dumps(report))
 """
 
@@ -145,6 +212,13 @@ EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
 """What the fake writes for each export kind when ``export_files`` is not given."""
 
 
+EXAMPLE_NETLIST = (
+    Path(__file__).resolve().parent / "data" / "kicad" / "netlist" / "export_10.net"
+).read_text(encoding="utf-8")
+"""The authored export that the fake writes for the examples of ``fenolite netlist`` (c0063); without a
+``netlist`` argument the fake refuses the schematic."""
+
+
 def fake_kicad_cli(
     folder: Path,
     *,
@@ -155,12 +229,22 @@ def fake_kicad_cli(
     rewrite_input: bool = False,
     sleep: float = 0.0,
     ipcd356: str | None = None,
+    netlist: str | None = None,
+    bom: str | None = None,
     upgrade: Literal["copy", "fail"] = "copy",
     log: Path | None = None,
     drc_sequence: Sequence[str] = (),
     refill_board: str | None = None,
     export_files: Mapping[str, Mapping[str, str]] | None = None,
     export_fail: Sequence[str] = (),
+    imported: str | None = None,
+    import_output: str = "",
+    import_warnings: Sequence[str] = (),
+    erc_report: str | None = None,
+    erc_sequence: Sequence[str] = (),
+    parity: Sequence[Mapping[str, Any]] = (),
+    parity_fail: str = "",
+    parity_note: str = "",
 ) -> Path:
     """An executable fake ``kicad-cli`` in ``folder`` (``help_pages`` keyed by the command words, ``""``
     for the root page).
@@ -178,6 +262,8 @@ def fake_kicad_cli(
         "rewrite_input": rewrite_input,
         "sleep": sleep,
         "ipcd356": ipcd356,
+        "netlist": netlist,
+        "bom": bom,
         "upgrade": upgrade,
         "log": str(log) if log is not None else "",
         "drc_sequence": list(drc_sequence),
@@ -188,6 +274,14 @@ def fake_kicad_cli(
             k: dict(v) for k, v in (EXPORT_FILES if export_files is None else export_files).items()
         },
         "export_fail": list(export_fail),
+        "imported": imported,
+        "import_output": import_output,
+        "import_warnings": list(import_warnings),
+        "erc_report": erc_report,
+        "erc_sequence": list(erc_sequence),
+        "parity": [dict(entry) for entry in parity],
+        "parity_fail": parity_fail,
+        "parity_note": parity_note,
     }
     (folder / "config.json").write_text(json.dumps(config), encoding="utf-8")
     (folder / "fake.py").write_text(PROGRAM, encoding="utf-8")
@@ -209,4 +303,35 @@ def report_with(*violations: Mapping[str, Any]) -> str:
                        "schematic_parity": []})  # fmt: skip
 
 
-__all__ = ["DRILL", "EXPORT_FILES", "GERBER", "calls", "fake_kicad_cli", "report_with"]
+def erc_report_with(*violations: Mapping[str, Any], sheets: Sequence[Mapping[str, Any]] = ()) -> str:
+    """An ERC report text: ``violations`` on the root sheet ``/``, then the ``sheets`` given whole."""
+    root = {"path": "/", "uuid_path": "/00000000-0000-4000-8000-000000000000", "violations": list(violations)}
+    return json.dumps({"source": "board.kicad_sch", "date": "2026-10-05", "kicad_version": "10.0.6",
+                       "coordinate_units": "mm", "sheets": [root, *sheets]})  # fmt: skip
+
+
+def erc_entry(
+    kind: str, uuid: str, *, severity: str = "error", x: float = 0.0, y: float = 0.0, description: str = "",
+    excluded: bool | None = None,
+) -> dict[str, Any]:  # fmt: skip
+    """One violation of an ERC report with one item."""
+    item = {"uuid": uuid, "description": "item", "pos": {"x": x, "y": y}}
+    entry: dict[str, Any] = {
+        "type": kind, "description": description or kind, "severity": severity, "items": [item]
+    }  # fmt: skip
+    if excluded is not None:
+        entry["excluded"] = excluded
+    return entry
+
+
+__all__ = [
+    "DRILL",
+    "EXAMPLE_NETLIST",
+    "EXPORT_FILES",
+    "GERBER",
+    "calls",
+    "erc_entry",
+    "erc_report_with",
+    "fake_kicad_cli",
+    "report_with",
+]

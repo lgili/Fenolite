@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""A fake ``Validator`` and a fake ``Oracle`` for ``checks`` tests: no backend module is imported.
+"""A fake ``Validator``, a fake ``Oracle`` and a fake ``DocumentValidator`` for ``checks`` tests: no backend
+module is imported.
 
 ``FakeRulesValidator`` also satisfies ``DesignRulesSource`` and ``BoardFrame``, as the KiCad backend does
 (change c0029)."""
@@ -12,16 +13,27 @@ from pathlib import Path
 
 from fenolite.backends.base import (
     BoardPad,
+    CapabilityReport,
+    ContainerLevel,
+    ContainerRoundTrip,
     DesignRules,
+    Document,
+    DocumentSet,
     DrcItem,
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    ErcItem,
+    ErcOutcome,
+    ErcReport,
+    ErcViolation,
     FillOutcome,
+    ModelScope,
     NetlistOutcome,
     PadAssignment,
     PadNetList,
     PlacedExtent,
+    ProjectRead,
     ProjectSet,
     ReadResult,
     RoundTrip,
@@ -89,8 +101,15 @@ class FakeRulesValidator(FakeValidator):
         return ()
 
 
-def report(*violations: DrcViolation, unconnected: tuple[DrcViolation, ...] = ()) -> DrcReport:
-    return DrcReport("board.kicad_pcb", "", "1.0", "mm", violations=violations, unconnected_items=unconnected)
+def report(
+    *violations: DrcViolation,
+    unconnected: tuple[DrcViolation, ...] = (),
+    parity: tuple[DrcViolation, ...] = (),
+) -> DrcReport:
+    return DrcReport(
+        "board.kicad_pcb", "", "1.0", "mm", violations=violations, unconnected_items=unconnected,
+        schematic_parity=parity,
+    )  # fmt: skip
 
 
 def violation(kind: str = "clearance", severity: str = "error", uid: str = "u1") -> DrcViolation:
@@ -105,6 +124,8 @@ def outcome(
     missing: bool = False,
     timeout: bool = False,
     evidence: Evidence = VERIFIED,
+    parity_judged: bool = False,
+    message: str = "",
 ) -> DrcOutcome:
     found = None if missing or timeout else (drc if drc is not None else report())
     return DrcOutcome(
@@ -116,8 +137,9 @@ def outcome(
         tool_writes=("z.kicad_prl", "a.kicad_prl"),
         outcome="timeout" if timeout else "exit",
         returncode=None if timeout else (3 if missing else 0),
-        message="no board" if missing else "",
+        message="no board" if missing else message,
         evidence=evidence if found is not None else Evidence(),
+        parity_judged=parity_judged and found is not None,
     )
 
 
@@ -204,17 +226,168 @@ class FakeFullOracle(FakeOracle):
         return self.rt2_result
 
 
+@dataclass
+class FakeSchematicOracle(FakeFullOracle):
+    """A fake that also satisfies ``SchematicNetlistOracle`` (change c0063)."""
+
+    schematic_result: NetlistOutcome = field(default_factory=lambda: netlist_outcome(None))
+    schematic_calls: list[ProjectSet] = field(default_factory=lambda: [])
+
+    def schematic_netlist(self, project: ProjectSet) -> NetlistOutcome:
+        self.schematic_calls.append(project)
+        return self.schematic_result
+
+
+def erc_violation(
+    kind: str = "pin_not_connected", severity: str = "error", *, where: str = "", sheet: str = "/",
+    excluded: bool = False, at: tuple[int, int] = (0, 0), uid: str = "e1", description: str = "",
+) -> ErcViolation:  # fmt: skip
+    item = ErcItem(uid, "item", Point(*at), where)
+    return ErcViolation(kind, description or kind, severity, (item,), excluded, sheet, f"/root{sheet}")
+
+
+def erc_report(
+    *violations: ErcViolation, sheets: tuple[str, ...] = ("/",), ignored: tuple[str, ...] = (),
+    source: str = "board.kicad_sch",
+) -> ErcReport:  # fmt: skip
+    return ErcReport(source, "", "1.0", "mm", violations, ignored, sheets=sheets)
+
+
+def erc_outcome(
+    found: ErcReport | None = None, *, missing: bool = False, timeout: bool = False,
+    evidence: Evidence = VERIFIED, message: str = "",
+) -> ErcOutcome:  # fmt: skip
+    report_ = None if missing or timeout else (found if found is not None else erc_report())
+    return ErcOutcome(
+        report=report_,
+        tool_version="1.0",
+        tool_writes=("z.kicad_prl", "a.kicad_prl"),
+        outcome="timeout" if timeout else "exit",
+        returncode=None if timeout else (3 if missing else 0),
+        message=message or ("Failed to load schematic" if missing else ""),
+        evidence=evidence if report_ is not None else Evidence(),
+    )
+
+
+@dataclass
+class FakeErcOracle(FakeOracle):
+    """A fake that also satisfies ``ErcOracle`` (change c0062)."""
+
+    erc_result: ErcOutcome = field(default_factory=erc_outcome)
+    erc_calls: list[ProjectSet] = field(default_factory=lambda: [])
+
+    def erc(self, project: ProjectSet) -> ErcOutcome:
+        self.erc_calls.append(project)
+        return self.erc_result
+
+
 def project(
-    *, has_project: bool = True, has_rules: bool = True, skipped: tuple[SkippedFile, ...] = ()
+    *,
+    has_project: bool = True,
+    has_rules: bool = True,
+    skipped: tuple[SkippedFile, ...] = (),
+    schematic: bool = False,
 ) -> ProjectSet:
+    """A project set of one board; ``schematic`` adds ``board.kicad_sch`` to its files."""
     files = {"board.kicad_pcb": Path("p/board.kicad_pcb")}
+    if schematic:
+        files["board.kicad_sch"] = Path("p/board.kicad_sch")
     return ProjectSet(Path("p"), "board.kicad_pcb", files, skipped, has_project, has_rules)
 
 
+@dataclass
+class FakeReader:
+    """A backend that only detects, reads and reports: not a ``DocumentValidator``."""
+
+    name: str = "fake-reader"
+
+    def detect(self, path: Path) -> bool:
+        return path.suffix == ".fake"
+
+    def read(self, path: Path, *, issues: list[Issue] | None = None) -> ReadResult:
+        return ReadResult(Design.new("fake", seed=0), (), READ_EVIDENCE)
+
+    def capabilities(self) -> CapabilityReport:
+        return CapabilityReport(self.name, ("fake",), (), (), None, "unsupported", ("detect", "read"))
+
+
+def document_set(*documents: Document, missing: tuple[str, ...] = (), root: Path = Path("p")) -> DocumentSet:
+    """A set of ``documents``: its project is the first document of role ``project``, its board the first of
+    role ``pcb``."""
+    ordered = tuple(sorted(documents, key=lambda d: d.name))
+    project = next((d.name for d in ordered if d.role == "project"), None)
+    board = next((d.name for d in ordered if d.role == "pcb"), None)
+    return DocumentSet(root, project, board, ordered, tuple(sorted(missing)))
+
+
+CONTAINER_EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-FAKE-RT",))
+SCH = Document("a.sch", "fake_sch", "schematic")
+PCB = Document("a.pcb", "fake_pcb", "pcb")
+
+
+def passing(level: ContainerLevel, *, streams: int = 2) -> ContainerRoundTrip:
+    if level == "RT-A0":
+        return ContainerRoundTrip(level, True, True, streams=streams, evidence=CONTAINER_EVIDENCE)
+    return ContainerRoundTrip(
+        level, True, True, streams=streams, records=10, bytes_equal=streams, evidence=CONTAINER_EVIDENCE
+    )
+
+
+@dataclass
+class FakeDocumentValidator(FakeReader):
+    """A reader that also satisfies ``DocumentValidator``: it answers with what it was given and records
+    every call. A verdict that is a ``FormatError`` is raised; a document without a verdict passes."""
+
+    name: str = "fake-documents"
+    documents_result: DocumentSet = field(default_factory=lambda: document_set(SCH, PCB))
+    schematic: ReadResult | None = None
+    pcb: ReadResult | None = None
+    errors: dict[str, FormatError] = field(default_factory=lambda: {})
+    verdicts: dict[tuple[str, str], ContainerRoundTrip | FormatError] = field(default_factory=lambda: {})
+    scope: ModelScope = field(default_factory=lambda: ModelScope({}))
+    added: dict[str, Evidence] = field(default_factory=lambda: {})
+    read_calls: list[DocumentSet] = field(default_factory=lambda: [])
+    roundtrip_calls: list[tuple[str, str]] = field(default_factory=lambda: [])
+
+    def documents(self, path: Path) -> DocumentSet:
+        return self.documents_result
+
+    def read_documents(self, documents: DocumentSet) -> ProjectRead:
+        self.read_calls.append(documents)
+        return ProjectRead(self.schematic, self.pcb, dict(self.errors))
+
+    def container_roundtrip(self, path: Path, level: ContainerLevel) -> ContainerRoundTrip:
+        self.roundtrip_calls.append((path.name, level))
+        verdict = self.verdicts.get((path.name, level), passing(level))
+        if isinstance(verdict, FormatError):
+            raise verdict
+        return verdict
+
+    def written_scope(self) -> ModelScope:
+        return self.scope
+
+    def stage_evidence(self) -> dict[str, Evidence]:
+        return dict(self.added)
+
+
+def reading(
+    design: Design, *, issues: tuple[Issue, ...] = (), evidence: Evidence = READ_EVIDENCE
+) -> ReadResult:
+    return ReadResult(design, issues, evidence)
+
+
 __all__ = [
+    "PCB",
+    "SCH",
+    "FakeDocumentValidator",
+    "FakeReader",
+    "document_set",
+    "passing",
+    "reading",
     "FakeFullOracle",
     "FakeFillOracle",
     "FakeOracle",
+    "FakeSchematicOracle",
     "FakeValidator",
     "netlist",
     "netlist_outcome",

@@ -50,6 +50,8 @@ PCB_LAYER = "pcb"
 SIGNAL_LAYER = "signal"
 RESERVED_LAYERS = frozenset({PCB_LAYER, SIGNAL_LAYER, "power"})
 HOST = "fenolite"
+UNCONNECTED_PREFIX = "unconnected-("
+"""How KiCad names the net of a pin on no net (``docs/formats/kicad/schematic.md``, "Net names")."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,9 +342,15 @@ class _Writer:
 
         # nets that have pads, by name
         net_ids: dict[str, str] = {}
+        pad_count: dict[str, int] = {}
         for pad in self.pads:
             if pad.net is not None and pad.net_id is not None:
                 net_ids.setdefault(pad.net, pad.net_id)
+                pad_count[pad.net] = pad_count.get(pad.net, 0) + 1
+        # The net KiCad gives a pin on no net holds one pad and nothing to route: its pad is written as
+        # a pad on no net, so a router gets the same board with and without those names (c0061).
+        for name in [n for n in net_ids if n.startswith(UNCONNECTED_PREFIX) and pad_count[n] == 1]:
+            del net_ids[name]
         net_namer = _Namer("NET", self.issues, kind="net")
         net_out = {name: net_namer.name(name) for name in sorted(net_ids)}
         out_of_id = {net_ids[name]: out for name, out in net_out.items()}

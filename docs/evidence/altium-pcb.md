@@ -4,6 +4,9 @@ This page is the protocol by which the maintainer checks the PCB files that `fen
 altium` writes for `examples/blink_2layer/design.py` (change c0035, capability altium-build, "PCB author
 reports"). The files are committed under `tests/data/altium/blink/`; they are built from the authored CC0
 mini library (`tests/data/libs/Mini_v9.*`), so they may be uploaded and shared.
+Since change c0061 the example marks its 29 unused pins with `no_connect`; the committed files are those
+of the example without that call (`tests/_altium.py`), so their bytes and the SHA-256 values below are
+unchanged. A build of the example as it is adds one No ERC directive per marked pin to `blink.SchDoc`.
 
 - Results are recorded in `docs/hypotheses.md` as `ALTIUM-VERIFIED(author-report; <tool>; <YYYY-MM-DD>;
   no artefact)`, the tool being `A365 Viewer` or `AD <major>.<minor or x>`, with one generic outcome per

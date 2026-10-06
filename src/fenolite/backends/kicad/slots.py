@@ -9,6 +9,8 @@ extension bag of an entity as ``slot:<rel>:<kind>`` pairs, one group per relativ
 the entity node, ``effects[0]`` for a modelled sub-list), so no model dataclass changes.
 """
 
+# evidence: see dru, mod, pcb, sch, sym, wks
+
 from __future__ import annotations
 
 import re

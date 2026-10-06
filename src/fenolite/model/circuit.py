@@ -88,6 +88,24 @@ class Module(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class BusMember:
+    """One member of a bus: its index in the vector and the net it names."""
+
+    index: int
+    net_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class Bus(Entity):
+    """An indexed vector of nets (``D[0..7]``): ``name`` is the vector's name without its range and
+    ``members`` its nets in order. A member without a net is left out, so indexes may have gaps. A group
+    of nets with different names (a harness) is an ``Interface``, not a bus."""
+
+    name: str
+    members: tuple[BusMember, ...] = field(default=(), metadata={"ordered": True})
+
+
+@dataclass(frozen=True, slots=True)
 class Circuit:
     """The circuit layer of a design (``circuit.json``)."""
 
@@ -96,9 +114,23 @@ class Circuit:
     netclasses: tuple[NetClass, ...] = ()
     interfaces: tuple[Interface, ...] = ()
     modules: tuple[Module, ...] = ()
+    #: Buses, indexed vectors of nets; a bus gives no net and no net member.
+    buses: tuple[Bus, ...] = ()
     #: Pins the design leaves unconnected on purpose, in the form of net members: ``pin`` holds a
     #: designator as written until a build resolves it, and a pin number afterwards.
     no_connects: tuple[PinRef, ...] = ()
 
 
-__all__ = ["Circuit", "Component", "Interface", "Module", "Net", "NetClass", "Pin", "PinRef", "PinType"]
+__all__ = [
+    "Bus",
+    "BusMember",
+    "Circuit",
+    "Component",
+    "Interface",
+    "Module",
+    "Net",
+    "NetClass",
+    "Pin",
+    "PinRef",
+    "PinType",
+]

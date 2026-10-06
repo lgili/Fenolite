@@ -101,7 +101,7 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   sheet and the warning `altium.sheet-custom`.
 - **Unique ids.** Each component's unique id is derived from its component path. A rebuild that keeps
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
-- **Not lowered.** The board outline, placements, the rule values of net classes and diff pairs have no
+- **Not lowered.** The board outline, placements, the rule values of net classes, diff pairs and typed interfaces have no
   place in these files (the nets of a net class are declared by directives, see "Change order"). They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
   only order the layout and the schematic is one flat sheet; `--altium-sheets modules` gives each
   top-level module its own sheet (next section).
@@ -531,7 +531,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -633,6 +633,311 @@ Every malformed container raises `CompoundError`, a `FormatError` with `rule`, `
 
 CLI errors map to `FEN-3004` (exit 3); their `where` names the file, locator and byte offset when present.
 
+## Reading Altium schematics
+
+Change c0040 reads Altium schematics and schematic libraries back. It is a library API only: no command, no
+registered backend, and `fenolite capabilities` does not change.
+
+```python
+from fenolite.backends.altium.read import sch, schlib
+
+document = sch.read_schematic(data, file="top.SchDoc")  # .SchDoc or .SchDot, binary or ASCII
+library = schlib.read_schlib(data, file="parts.SchLib")
+sch.detect(data)  # "ascii", "binary", "library" or None
+sch.check_identity(document)  # () when every stream is rebuilt exactly
+```
+
+- **Bytes in, frozen records out.** Both readers take the file's bytes and open nothing. File names held by
+  records (images, templates, sheet files, model files) are returned as text and never resolved; embedded
+  files are decompressed only by `EmbeddedFile.data(limit)`, capped at 64 MiB. `codepage=` takes another
+  single-byte code page (default `cp1252`); `issues=` collects the findings, which the result also keeps.
+- **`SchDocument`.** `header`, `records` (the records of `FileHeader`, or of the ASCII file's first section),
+  `additional` (the `Additional` stream), `storage_header` and `embedded`, `streams` (the bytes read),
+  `extra_streams`, `roots`. Typed access: `components()`, `wires()`, `buses()`, `net_labels()`,
+  `power_ports()`, `ports()`, `junctions()`, `no_ercs()`, `sheet_symbols()`, `harnesses()`, `templates()`,
+  `template_children()`, `of_type(cls)`; the owner tree through `get(ref)`, `owner_of`, `children_of(record,
+  part=, mode=)`, `shown_children(component)` and `walk(record)`.
+- **`SchLibrary`.** `header`, `header_tail`, `listed_names`, `fonts`, `section_keys`, `components` (one
+  `SchLibComponent` per storage, in the header's order) and `get(lib_ref)`. A component has `name`,
+  `storage_name`, `records`, `component`, `pins`, `children(part=, mode=)`, `parts`, `modes`, `side_streams`
+  and `extra_streams`. `PinFrac` is decoded (`SIDE_STREAMS_DECODED`); the other side streams are kept as bytes.
+- **Records.** One class per record id of the closed table `RECORD_TYPES` (43 ids, the record page
+  `docs/formats/altium/schematic-records.md`); any other record is an `UnknownRecord`. Every record keeps its
+  `payload` and `props` (`PropertyList`: fields in file order, keys as written, raw values); typed attributes
+  are views of them, and `unknown_keys` lists what a class does not model. Lengths are `SchLength`: an exact
+  integer count of 1/100 000 of the 10-mil unit, with `nm()` (rounded half to even) and `exact`. Coordinates are
+  in the file's frame, Y upwards.
+- **What is kept.** Unknown keys, unknown records, a binary pin's trailing bytes (`Pin.tail`), opaque embedded
+  files, side streams, the bytes after the library header, unread streams and ASCII sections. Nothing is
+  normalised: letter case, key order, spaces, line ends and number formats stay as read.
+- **What is not done.** No net, connection or model entity is computed (change c0043); parts and display
+  modes are exposed, not chosen; the reader writes nothing.
+
+Fatal errors are few (neither form, no `FileHeader`, a wrong header text, a cut frame, a broken container)
+and raise `FormatError` with `file`, `locator` and `offset`. Everything else is an issue:
+
+| code | severity | when |
+|---|---|---|
+| `altium.sch.malformed-record` | warning | a property list without its final NUL, a record without an integer `RECORD`, a binary pin cut inside a required field |
+| `altium.sch.bad-value` | warning | a modelled key whose value does not parse, or a count that disagrees with the keys present |
+| `altium.sch.unknown-record` | info | a record id with no class (once per id, with the count) |
+| `altium.sch.unknown-stream` | info | a stream or ASCII section the reader keeps without reading |
+| `altium.sch.empty-stream` | warning | an `Additional` or `Data` stream of 0 bytes |
+| `altium.sch.weight-mismatch` | warning | `WEIGHT` or `COMPCOUNT` differs from what was read |
+| `altium.sch.orphan-record` | warning | an `OWNERINDEX` that names no earlier record |
+| `altium.sch.no-sheet` | warning | record 0 of a schematic is not the sheet |
+| `altium.sch.part-out-of-range` | warning | a child outside its component's part or display-mode count |
+| `altium.sch.text-undecodable` | warning | a byte the decoding does not define (the text view shows U+FFFD) |
+| `altium.sch.pin-trailing-bytes` | info | bytes after a binary pin's last known field |
+| `altium.sch.storage-opaque` | info | a `Storage` record without the embedded-file layout |
+| `altium.schlib.unlisted-component` | info | a component storage the header does not list |
+| `altium.schlib.missing-component` | warning | a listed lib ref without a storage |
+| `altium.schlib.no-component` | warning | a `Data` stream whose record 0 is not the component |
+| `altium.schlib.side-stream-opaque` | info | a pin side stream kept and not decoded |
+| `altium.schlib.side-stream-orphan` | warning | a side-stream entry that names no pin |
+
+Evidence: `read.sch.EVIDENCE` is the lowest level of the `H-A-RD-SCH-*` rows of `docs/hypotheses.md`; the
+corpus census and the library oracle are in `docs/evidence/altium-read-schematic.md`.
+
+## Importing a sheet template
+
+Change c0046 imports an Altium sheet template (`.SchDot`, or the template graphics that a record 39 owns in
+a `.SchDoc`) into the neutral drawing sheet, on top of the schematic reader:
+
+```
+fenolite template import SRC --target kicad --out OUT --dry-run
+```
+
+`fenolite.backends.altium.read.sheet.import_sheet(data)` returns a `SheetImport`: the `DrawingSheet`, the
+`source` (form, style, paper, orientation, drawing area), the `issues`, the record counts `imported` and
+`reported`, the special `strings` with their neutral texts and the names of the sheet-level `parameters`.
+The size, lines, rectangles, texts, special strings and embedded PNG images are imported; everything else is
+reported with its record number under one of twelve `altium.sheet.*` codes, and a loss needs
+`--allow-lossy`. Nothing is written back to Altium: writing a `.SchDot` is a later roadmap item. The user
+guide is `docs/sheet-templates.md`, "Importing an Altium sheet template"; the facts are in
+`docs/formats/altium/sheet-template.md` (`H-A-RD-SHT-*`, all `INFERRED`).
+
+## Reading PCB files
+
+Change c0041 reads PCB documents and libraries that Altium Designer saved, and every file Fenolite
+writes, into typed records. It reads; it writes nothing and runs no subprocess. Import into the model is
+change c0043.
+
+- `fenolite.backends.altium.read.pcb.read_pcbdoc(source, *, file="", strict=False)` returns a
+  `PcbDocument`; `fenolite.backends.altium.read.pcblib.read_pcblib(source, *, file="", strict=False)` a
+  `PcbLibrary`. `source` is the file's bytes or a `CompoundFile` of `read.cfb`; `read.pcb.detect_pcb`
+  tells `"pcbdoc"`, `"pcblib"` or `None`. Only the binary form is read: other bytes raise `PcbReadError`
+  (a `FormatError`), and a container error of `read.cfb` passes unchanged.
+- **Records.** `read.pcbprims` gives `TrackRecord`, `ArcRecord`, `ViaRecord`, `FillRecord`, `PadRecord`,
+  `TextRecord`, `RegionRecord` (with `RegionVertex`) and `RawPrimitive` (component bodies, and records
+  shorter than the reader's minimum), each with the common `Prefix`. `read.pcbstack.BoardRecord` gives
+  the outline, the numbered layers with `copper_chain`, the physical `stack`, `plane_nets` and
+  `layer_pairs`. `read.pcb` adds `NetRecord`, `ComponentRecord`, `ClassRecord`, `PolygonRecord` and
+  `RuleRecord` (rules stay opaque: every key in `fields`); `read.pcblib` gives `LibFootprint`.
+  `PcbDocument.net_name`, `primitives_of` and `regions_of` join records by index.
+- **Units.** Lengths stay integers of 1/10 000 mil and angles the stored doubles; `pcbprims.to_nm`
+  (half to even, as `fenolite.core.units.u_to_nm`) and `to_nm_exact` convert.
+- **Lossless.** Every record keeps its bytes in `raw`; typed fields are views, the bytes after the known
+  fields are `tail`, and unknown keys keep their order and duplicates. `PcbDocument.rebuild(storage)` and
+  `LibFootprint.rebuild()` join the records' bytes and the trailing bytes into the stream again; every
+  other stream is returned unchanged in `storages`.
+- **Lengths.** A subrecord at or above its minimum is typed whatever its length; the lengths seen in the
+  corpus are listed in `docs/formats/altium/pcb-read.md`.
+
+Problems are `Issue` values whose `where` is `<storage>/<stream>`, then `#<record>` and `@<byte offset>`;
+messages hold no value of the file. `strict=True` raises `PcbReadError` at the first error.
+
+| code | severity | meaning |
+|---|---|---|
+| `altium.pcb-read.truncated` | error | a block or subrecord runs past the end; the rest of the stream is kept as `trailing` |
+| `altium.pcb-read.unknown-type` | error | a type byte that is no primitive type; the stream stops there |
+| `altium.pcb-read.missing-stream` | error | a footprint listed in `Library/Data` has no storage |
+| `altium.pcb-read.bad-stack` | error | the copper chain links to a layer without a name, or loops |
+| `altium.pcb-read.short-record` | warning | a subrecord below the minimum; the record is a `RawPrimitive` |
+| `altium.pcb-read.count-mismatch` | warning | a `Header` count differs from the records read |
+| `altium.pcb-read.bad-index` | warning | records of a storage name a net, component or polygon that does not exist |
+| `altium.pcb-read.wrong-type` | warning | a record of another type in a primitive storage; it is in `others` |
+| `altium.pcb-read.bad-frame` | warning | a name list, `SectionKeys` or wide-string table does not parse |
+| `altium.pcb-read.bad-value` | warning | a typed key whose text does not parse; the view is `None` |
+| `altium.pcb-read.unlisted-footprint` | info | a footprint storage that `Library/Data` does not list; it is read too |
+
+Evidence: the framing, the identity of every typed stream, the lengths, regions, wide strings, rule
+framing and text encoding are `CORPUS-VERIFIED` on eleven public files saved between 2016 and 2025
+(`docs/evidence/altium-pcb-read.md`); nets, footprints, pads, vias, copper tracks and the copper chain
+are `ORACLE-VERIFIED(kicad-cli)` against `kicad-cli pcb import` and `fp upgrade` 10.0.6. Each typed
+field has its own level in `read.pcbprims.FIELD_LEVELS`, the label of its row of the fact page;
+`PcbDocument.evidence` and `PcbLibrary.evidence` are `CORPUS-VERIFIED`.
+
+## Reading Altium files
+
+The registered backend `altium` (`fenolite.backends.altium.backend.AltiumBackend`, change c0043) reads
+Altium files into the neutral model. `fenolite capabilities` lists it in `result.backends`, before `kicad`.
+It reads; it writes nothing: the writers above stay experimental features of `build`. The commands
+`inspect`, `check` and `diff` take Altium files (change c0044): see "Round trips" below and
+`docs/cli-contract.md`, sections "inspect", "check" and "diff".
+
+```python
+from pathlib import Path
+from fenolite.backends import registry
+
+backend = registry.for_path(Path("board.PcbDoc"))  # the Altium backend, by the file's suffix
+result = backend.read(Path("design.PrjPcb"))
+design = result.design  # a Design; result.issues lists what was found
+```
+
+| read kind | file | result |
+|---|---|---|
+| `altium_pcbdoc` | `.PcbDoc` | a `Design` with the board, a circuit synthesised from the pads (one component per footprint, one pin per pad name, pin type `unspecified`) and the rules that map |
+| `altium_schdoc_binary`, `altium_schdoc_ascii` | `.SchDoc` | a `Design` with the circuit of that one sheet and no board |
+| `altium_prjpcb` | `.PrjPcb` | a `Design` with the circuit of the listed sheets and the board of the first PCB document, linked |
+| `altium_pcblib` | `.PcbLib` | a `Library` of footprint definitions |
+| `altium_schlib` | `.SchLib` | a `Library` of symbol definitions |
+
+**What a board read gives.** Copper layers named by their position in the stack (`F.Cu`, `In<j>.Cu`,
+`B.Cu`), the stack-up, nets and net classes, one footprint per component with its pads in the footprint
+frame, tracks, arcs, vias, zones from polygon pours (with their poured copper as fills), the outline as
+graphics on `Edge.Cuts`, free graphics and texts, component bodies (height, standoff, outline), and the
+rules of the kinds Clearance, Width, Routing Via Style and Hole Size when they map exactly. Lengths are
+integer nanometres; the model's Y axis points down, so Y is negated; no origin is subtracted.
+
+**What a schematic read gives.** A sheet stores no netlist. The import derives the nets from wires,
+junctions, pin ends, net labels, power ports, ports, sheet entries, buses and signal harnesses, by the rules
+of `docs/formats/altium/connectivity.md`, and joins sheets by the project's net identifier scope
+(Automatic chooses hierarchical, flat or global as Altium documents it). It gives components with their
+pins and pin types, nets with their names and aliases, one module per sheet symbol, one interface per
+harness, buses, and the pins that a No ERC directive leaves open.
+
+**What a project read does.** It reads the sheets and the first PCB document that the project file lists
+inside the project folder. A footprint links to its schematic component by the unique-id path
+(`SOURCEUNIQUEID`), else by its designator; a PCB net links to the schematic net of the same name. Neither
+side is corrected by the other: a pad keeps the net the PCB document gives it. A component or a net that
+only the PCB document holds is added to the circuit and reported. A document outside the folder, a missing
+one or an unreadable one is skipped with `altium.import.document-skipped`.
+
+**What is not imported.** Nothing is dropped silently: `altium.import.unmapped` counts every record that
+gave no model entity.
+
+- Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
+  pairs, `Repeat` statements and the annotation of repeated sheets (a repeated sheet is read once per sheet
+  symbol, with the designators the sheet holds; a project read takes them from the PCB document).
+- Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
+  and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
+- Rules of other kinds, disabled rules, and rules whose scope is outside the mapper's grammar:
+  `altium.import.rule-unmapped` counts them per kind. No rule is approximated.
+- A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
+  shape with a net.
+- The pin-to-pad map of a footprint model is not applied: a pin whose pads have other names than its
+  designator is linked by name only.
+
+The issue codes `altium.import.*` are listed in `docs/cli-contract.md`, "Altium import". An error issue
+never stops an import.
+
+**Evidence.** Three kinds, none of which needs Altium Designer:
+
+- *Own files.* Every example that Fenolite builds for the Altium target imports to the nets, no-connect
+  marks, references, values and footprint names of its model, in both schematic forms
+  (`tests/unit/backends/altium/adapter/test_own_files.py`). This is `INFERRED`: Fenolite reads what
+  Fenolite wrote.
+- *Public project sets.* On public projects saved by Altium Designer, the netlist computed from the sheets
+  equals the pad netlist of the project's PCB document (`tests/corpus/test_altium_import.py`; results in
+  `docs/formats/altium/connectivity.md`, "Result per project set").
+- *KiCad's importer.* The board import agrees with `kicad-cli pcb import --format altium` 10.0 on copper
+  layers, footprint sides, rotations and positions, pad nets and positions, vias, tracks and zone outlines
+  (`tests/kicad/altium/test_import_oracle.py`; differences by kind in `docs/formats/altium/import.md`).
+
+The backend's report and every read stay `INFERRED` while any `H-A-IMP-*` row of `docs/hypotheses.md` is
+(the lowest wins).
+
+## Round trips
+
+Three levels say how far a reading or a build of Altium files can be trusted (change c0044). They are
+Fenolite's own measures: no level says that Altium Designer opens a file. Results on the public corpus
+and on the example builds are in `docs/evidence/altium-roundtrip.md`.
+
+| level | what is done | what it proves | what it does not prove |
+|---|---|---|---|
+| RT-A0 | a compound file is read, written again by Fenolite's compound writer and read again | no storage and no stream is lost or changed by a copy, byte for byte | nothing about the meaning of a stream; the sector layout, CLSIDs and times are not compared |
+| RT-A1 | every stream the reader types is encoded from its records and read again | the records of every stream survive a decode and an encode: key spelling, key order, raw values and kept bytes | that the records mean what Fenolite reads into the model |
+| RT-A2 | the model a build stored in `.fenolite/` is compared with the reading of the documents the build wrote | the writers and the import agree on what the built model holds, within 2 nm | that Altium reads the files (one tool writes and reads), and anything the built model does not hold |
+
+**A level that is not judged** is neither a pass nor a failure. The reasons:
+
+- `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
+- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
+  still judges its records.
+- `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
+  not write).
+- `native-input` (RT-A2): the files were not written by a Fenolite build. Writing an imported model is
+  not available before v0.4, so RT-A2 is judged on Fenolite's own builds only.
+
+**Commands.** `fenolite check PATH` reports the levels as the stages `roundtrip.rta0`, `roundtrip.rta1`
+and `roundtrip.rta2` (`docs/cli-contract.md`, "check"); `fenolite inspect FILE` gives the counts of RT-A1
+for one file (`opaque_count`, `streams`); `fenolite diff A B --view records` lists the records that
+differ between two Altium files of one kind.
+
+### The scope of RT-A2
+
+RT-A2 compares the fields that the writers write (`roundtrip.RT_A2_SCOPE`). A length is written in
+units of 2.54 nm, so two lengths within 2 nm are equal; angles are written with six decimals of a
+degree and must be equal. The circuit kinds (`component`, `net`, `no_connect`) are compared with the
+reading of the schematic documents, and every other kind with the reading of the PCB document.
+
+| kind | compared | with |
+|---|---|---|
+| `component` | `ref`, `value` | schematic |
+| `net` | `name`, `members` | schematic |
+| `no_connect` | the marked pins | schematic |
+| `netclass` | `name` | PCB document |
+| `footprint` | `position`, `rotation`, `side` | PCB document |
+| `pad` | `number`, `net_id`, `position`, `size` | PCB document |
+| `track` | `start`, `end`, `width`, `layer`, `net_id` | PCB document |
+| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id` | PCB document |
+| `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
+| `zone` | `outline`, `layers`, `net_id` | PCB document |
+
+**What the built model does not hold is counted, not compared.** The model that an Altium build stores
+is the model of the script: its board holds the outline and no footprint, pad, track or via. The build
+writes those from inputs outside the model (the script's placements, the footprints of the libraries,
+the copper source). A board kind of which the built model holds no entity is therefore listed in
+`summary.not_in_model` with the count the PCB document reads, and RT-A2 says nothing about it. On
+today's builds this is the case for `footprint`, `pad`, `track`, `arc`, `via` and `zone`: RT-A2 judges
+the circuit and the net classes. A build that stores its written board (as the KiCad build does) would
+make these kinds compared without a change to the scope.
+
+Fields of these kinds that the scope leaves out, and why:
+
+| kind | field | reason |
+|---|---|---|
+| `component` | `dnp` | the writer does not write it |
+| `component` | `lib_symbol_ref` | the writer writes a fixed value: the name of the generated schematic library for a KiCad lib id |
+| `component` | `lib_footprint_ref` | the writer writes a fixed value: the name of the generated PCB library for a KiCad footprint link |
+| `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
+| `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
+| `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
+| `component` | `pin_pad_map` | the writer does not write it |
+| `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
+| `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
+| `netclass` | `description` | the writer does not write it |
+| `footprint` | `component_id` | the reader maps it elsewhere: a footprint is matched by the reference of its component |
+| `footprint` | `lib_ref` | the writer writes a fixed value: the name of the generated PCB library |
+| `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
+| `footprint` | `attributes` | the writer does not write it |
+| `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
+| `footprint` | `fields` | the writer writes a fixed value: the designator and comment texts have fixed sizes and places |
+| `footprint` | `bodies` | the writer does not write it |
+| `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
+| `pad` | `zone_connection` | the writer does not write it |
+| `via` | `layers` | the writer writes a fixed value: only through vias are written |
+| `via` | `via_type` | the writer writes a fixed value: only through vias are written |
+| `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
+| `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
+| `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
+| `zone` | `settings` | the writer does not write it |
+| `zone` | `locked` | the writer does not write it |
+
+A component whose value is empty in the script is written with its symbol's name as the comment, and
+the built model stores that value, so that the model is what the documents read back to.
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a
@@ -655,5 +960,5 @@ no deeper levels, no routed wires between sheet symbols, no port directions, no 
 no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
 split planes, no blind, buried or micro vias and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII only. The v0.3 reader currently reads the MS-CFB container; schematic, PCB and Altium library
-records are interpreted by later changes.
+ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
+schematic and other Altium records are interpreted by later changes.

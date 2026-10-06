@@ -15,7 +15,23 @@ from typing import Literal
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
 
-RuleKind = Literal["clearance", "track_width", "via_diameter", "via_drill", "hole_size", "edge_clearance"]
+RuleKind = Literal[
+    "clearance",
+    "track_width",
+    "via_diameter",
+    "via_drill",
+    "hole_size",
+    "edge_clearance",
+    "hole_to_hole",
+    "hole_clearance",
+    "annular_width",
+    "courtyard_clearance",
+    "silk_clearance",
+    "creepage",
+]
+"""The first six kinds are those of v0.1; the last six were added by change c0071. Which sides, selector
+ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
+(``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
 SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "and", "or", "not"]
 LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind")
@@ -78,7 +94,7 @@ def _glob(value: str | None, pattern: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class Rule(Entity):
-    """One design rule. Binary rules (clearance) use ``selector_b`` for the second object."""
+    """One design rule. Binary rules (clearance, creepage) use ``selector_b`` for the second object."""
 
     name: str
     kind: RuleKind

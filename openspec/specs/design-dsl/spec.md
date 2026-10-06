@@ -166,7 +166,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - `Power(hv, lv)` MUST become `Interface(kind="power", members={"hv": <net id>, "lv": <net id>})`, and `DiffPair(p, n)` MUST become `Interface(kind="diff_pair", members={"p": <net id>, "n": <net id>})`.
 - The default name MUST be `"<first net name>/<second net name>"`.
 - Member nets join the design.
-- Interfaces are not lowered to KiCad. A build MUST give one `build.interface-not-lowered` info per `diff_pair` interface.
+- Interfaces are not lowered to KiCad. A build MUST give one `build.interface-not-lowered` info per `diff_pair` and per `usb2` interface ("Typed interfaces in the DSL"), and the nets of each such pair MUST pass the name check of "Interface checks in a build".
 
 #### Scenario: Power interface
 - **GIVEN** `Power(vin, gnd)` added to a design
@@ -177,6 +177,11 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **GIVEN** a blink variant holding `DiffPair(usb_p, usb_n)` on nets `USB_P` and `USB_N`
 - **WHEN** it is built with `--dry-run`
 - **THEN** `issues` holds one info `build.interface-not-lowered` naming `USB_P/USB_N`
+
+#### Scenario: Diff pair names checked
+- **GIVEN** a blink variant holding `DiffPair(clk_p, clk_n)` on nets `CLK_P` and `CLKN`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one info `build.interface-not-lowered` naming `CLK_P/CLKN` and one warning `build.diff-pair-name` naming both nets
 
 ### Requirement: DSL to model
 `dsl.to_model(design) -> fenolite.model.Design` SHALL convert a DSL design into model types only, with the ids of `design-model` "Identifier derivation" (fourth case).
@@ -244,8 +249,8 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **THEN** both returned designs are instances of the `fenolite.dsl.Design` class imported before the runs, and `sys.modules["fenolite.dsl"]` is the same module object as before
 
 ### Requirement: Build command
-`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project]` (`src/fenolite/cli/cmd_build.py`, schema `fenolite.build.v0`) SHALL be a mutating command that runs the script, converts it with `to_model`, `placements` and `moves`, prepares layout preservation with `lens.preserve.read_existing` and `lens.preserve.prepare` unless `--discard-layout` is given, builds it with `lens.build.build_design` for `Context.kicad_target` and the `--vendor` policy, and returns every output file as a planned write under `DIR`.
-- It MUST accept the global flags `--dry-run`, `--confirm`, `--seed`, `--timestamp`, `--no-backup`, `--kicad-version 9|10` and `--allow-lossy`. `--out` is required. `--discard-layout` and `--vendor` (choices `all` and `project`, default `all`, passed to `build_design` as `vendor`) are `build` options. The help text of `--vendor` MUST say that `all` copies the placed footprints of every library into `DIR/lib/` and that the copies keep their library's licence.
+`fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]` (`src/fenolite/cli/cmd_build.py`, schema `fenolite.build.v0`) SHALL be a mutating command that runs the script, converts it with `to_model`, `placements` and `moves`, prepares layout preservation with `lens.preserve.read_existing` and `lens.preserve.prepare` unless `--discard-layout` is given, builds it with `lens.build.build_design` for `Context.kicad_target` and the `--vendor` policy, and returns every output file as a planned write under `DIR`.
+- It MUST accept the global flags `--dry-run`, `--confirm`, `--seed`, `--timestamp`, `--no-backup`, `--kicad-version 9|10` and `--allow-lossy`. `--out` is required. `--discard-layout`, `--vendor` (choices `all` and `project`, default `all`, passed to `build_design` as `vendor`) and `--schematic` ("Schematic in a build") are `build` options. The help text of `--vendor` MUST say that `all` copies the placed footprints of every library into `DIR/lib/` and that the copies keep their library's licence.
 - An `--out` folder that resolves to the script folder MUST be a usage error (exit 2, `FEN-2001`), so the design's own tables are never overwritten.
 - `input` MUST hold the script path and its SHA-256, with kind `fenolite-dsl`.
 - The triad stem MUST be the design name, and plan entries MUST be sorted by path.
@@ -253,7 +258,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - Later requirements MAY add `build` options, steps of `cmd_build` and keys of `result`; each such requirement names this one.
 - `cmd_build` MUST turn a `DslError` raised by `to_model`, `placements` or `moves`, which run after `run_design_script` has returned, into `DesignScriptError` with `file` = the script path and no locator (`FEN-3004`, exit 3).
 - Unless `--discard-layout` is given, `cmd_build` MUST read the existing triad with `read_existing(DIR, <design name>)`, call `prepare(model, placements(design), existing, name=<design name>, moves=moves(design))`, and pass `prepared.placements` as `placements` and `prepared` as `prepared` to `build_design`. With `--discard-layout`, it MUST pass `placements(design)` and no `prepared`.
-- `cmd_build` MUST read the last build record once with `lens.build.read_record(DIR)`, pass it to `build_design` and to `lens.build.check_existing` as `record`, and call `check_existing` before it returns the plan, with every planned file except the board, project and rules files, which preservation merges ("Edited outputs are not overwritten").
+- `cmd_build` MUST read the last build record once with `lens.build.read_record(DIR)`, pass it to `build_design` and to `lens.build.check_existing` as `record`, and call `check_existing` before it returns the plan, with every planned file except the board, project and rules files, which preservation merges, and the schematic, which every build regenerates ("Edited outputs are not overwritten").
 - A build with an issue of severity `error` MUST return no planned write, so it exits 5 and writes nothing.
 - `example_args` (with `--dry-run`) and `mutation_example_args` MUST use the packaged `src/fenolite/dsl/_minimal.py` (Apache-2.0 header; a board with one net class and no parts), located through `fenolite.dsl.__file__`, so the consistency suite is hermetic from any working directory.
 
@@ -264,7 +269,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 
 #### Scenario: Confirmed build
 - **WHEN** the same command runs with `--confirm`
-- **THEN** the exit code is 0, and `receipt.written` lists `B/blink.kicad_pcb`, `B/blink.kicad_pro`, `B/blink.kicad_dru`, `B/fp-lib-table`, the three footprints under `B/lib/Mini.pretty/` and the seven files under `B/.fenolite/`
+- **THEN** the exit code is 0, and `receipt.written` lists `B/blink.kicad_pcb`, `B/blink.kicad_pro`, `B/blink.kicad_dru`, `B/blink.kicad_sch`, `B/fp-lib-table`, `B/sym-lib-table`, the three footprints under `B/lib/Mini.pretty/`, the two symbol libraries under `B/lib/` and the seven files under `B/.fenolite/`
 
 #### Scenario: Rebuild is identical
 - **WHEN** the confirmed build runs a second time
@@ -420,19 +425,19 @@ The build SHALL place every placed part with c0017's `embed.place_footprint` and
 - Later requirements MAY add keyword-only arguments with defaults to `build_design`, and steps between or within the steps above; each such requirement names this one.
 - An issue of severity `error` before the writer MUST return a `BuildOutput` with its issues and empty `files`. Writer refusals (`LossyWriteError`, `RulesLossError`, `FEN-7001`) MUST propagate with their issues.
 - `BuildOutput` is a frozen dataclass with `design`, `files: Mapping[str, bytes]` (paths relative to `--out`), `issues`, `evidence`, `summary` and `layout: Design | None`. `design` is the model built from the script at the given placements; `layout` is the model of the written board, and `None` when no file is returned.
-- The layout MUST be `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`, `fp-lib-table`, `lib/<nickname>.pretty/<entry>.kicad_mod`, the six layer files under `.fenolite/` and `.fenolite/build.json`.
+- The layout MUST be `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`, `fp-lib-table`, `lib/<nickname>.pretty/<entry>.kicad_mod`, the six layer files under `.fenolite/` and `.fenolite/build.json`, `<name>.kicad_sch` unless the schematic is skipped, and `sym-lib-table` and `lib/<nickname>.kicad_sym` when the schematic is written ("Schematic in a build", "Symbols of a built project") or the design authors symbols ("Project-authored symbols").
 - Every vendored footprint MUST be copied byte for byte from `Location.item_path` to `lib/<nickname>.pretty/<entry>.kicad_mod`, and `fp-lib-table` MUST hold one row per vendored nickname with `uri "${KIPRJMOD}/lib/<nickname>.pretty"`, written by `libs.write_lib_table` for the target. With `vendor="all"`, every footprint that the build places is vendored, whatever the origin of its row; with `vendor="project"`, only footprints resolved through a project-table row are ("Footprints of every row origin are vendored"). Any other `vendor` MUST raise `ValueError`.
 - With `vendor="project"`, footprints from rows of another origin MUST NOT be vendored and get no row (`build.global-library`, info). A vendored file whose header version is newer than the target's newest format MUST give `build.library-too-new` (warning). With `record`, a vendored file whose bytes differ from the hash recorded for its path MUST give `build.library-changed` (warning).
-- The build MUST NOT write a `sym-lib-table`, a symbol file, a `.kicad_prl`, a `native/` folder or a date.
+- The build MUST NOT write a `.kicad_prl`, a `native/` folder or a date, and with the schematic skipped it MUST write a `sym-lib-table` and symbol files only for the symbols that the design authors ("Project-authored symbols").
 - The `.fenolite/` layer texts MUST come from `canonical.dump_texts` of `BuildOutput.layout`, with an empty `findings.json` and no `FootprintDef`. `.fenolite/build.json` MUST have `schema` `fenolite.build-record.v0`, sorted keys and no date, and MUST record the SHA-256 of every file outside `.fenolite/` that the build writes. It is regenerable and marks a built project.
 
 #### Scenario: Files of a target-9 build
 - **WHEN** the blink is built for target 9
-- **THEN** `files` holds exactly the triad `blink.*`, `fp-lib-table` without a `version` child, three files under `lib/Mini.pretty/` byte-equal to their sources in `tests/data/libs/Mini_v9.pretty/`, the six layer files under `.fenolite/` and `.fenolite/build.json`
+- **THEN** `files` holds exactly the triad `blink.*`, `blink.kicad_sch`, `fp-lib-table` and `sym-lib-table` without a `version` child, three files under `lib/Mini.pretty/` byte-equal to their sources in `tests/data/libs/Mini_v9.pretty/`, `lib/Mini.kicad_sym` and `lib/fenolite.kicad_sym`, the six layer files under `.fenolite/` and `.fenolite/build.json`
 
 #### Scenario: Build record
 - **WHEN** `.fenolite/build.json` of a blink build is read
-- **THEN** its `schema` is `fenolite.build-record.v0`, it holds no date, and it maps each of the seven files outside `.fenolite/` to its SHA-256
+- **THEN** its `schema` is `fenolite.build-record.v0`, it holds no date, and it maps each of the eleven files outside `.fenolite/` to its SHA-256
 
 #### Scenario: Errors produce no files
 - **GIVEN** a blink variant with `connect(led, r1["X"])`
@@ -478,13 +483,13 @@ The build SHALL place every placed part with c0017's `embed.place_footprint` and
 - **THEN** the planned `blink.kicad_pro` holds the classes `PWR` and `USER`
 
 ### Requirement: Edited outputs are not overwritten
-`lens.build.check_existing(out_dir, files, *, record, discard_layout) -> None` SHALL refuse to replace a file outside `.fenolite/` that changed since Fenolite last wrote it, except the board, project and rules files of the triad, which layout preservation merges instead (`layout-lens`). For each other planned file outside `.fenolite/` that already exists, that is `fp-lib-table` and the vendored footprints under `lib/`:
+`lens.build.check_existing(out_dir, files, *, record, discard_layout) -> None` SHALL refuse to replace a file outside `.fenolite/` that changed since Fenolite last wrote it, except the board, project and rules files of the triad, which layout preservation merges instead (`layout-lens`), and the schematic, which every build regenerates and replaces with a warning ("Schematic in a build"). For each other planned file outside `.fenolite/` that already exists, that is `fp-lib-table`, `sym-lib-table` and the vendored footprints and symbol libraries under `lib/`:
 - bytes equal to the planned bytes: an identical rewrite, allowed;
 - SHA-256 equal to the one recorded in `.fenolite/build.json`: untouched since the last build, allowed, so a DSL edit never needs `--discard-layout`;
 - otherwise (edited, or found without a record): `LayoutExistsError` MUST be raised, with `cli_code = "FEN-7001"` (exit 7), one `build.layout-exists` issue per file, and the hint "re-run with --discard-layout to replace them (backups are kept), or build into another --out folder".
 
 Further rules:
-- `cmd_build` MUST NOT pass the board, project and rules files to the check.
+- `cmd_build` MUST NOT pass the board, project, rules and schematic files to the check.
 - The check MUST run before the plan is returned, so `--dry-run` refuses too, and nothing is written.
 - `--discard-layout` MUST skip the check, and the build then preserves nothing (`layout-lens`, "Existing project files"); the mutation protocol keeps a `.bak` of each replaced file unless `--no-backup` is given. `--allow-lossy` MUST NOT skip the check.
 - Without a record (for example after `.fenolite/` was deleted), only identical bytes are allowed.
@@ -518,6 +523,11 @@ Further rules:
 - **GIVEN** the edited footprint file
 - **WHEN** the build runs with `--allow-lossy --confirm`
 - **THEN** the exit code is 7 with `build.layout-exists`
+
+#### Scenario: Edited symbol library refused
+- **GIVEN** a confirmed blink build in `B` and one byte of `B/lib/Mini.kicad_sym` changed afterwards
+- **WHEN** the build runs again with `--confirm`
+- **THEN** it exits 7 with `FEN-7001`, and `issues` holds `build.layout-exists` naming `B/lib/Mini.kicad_sym`
 
 ### Requirement: Build issue codes
 The build SHALL report its own findings only with the codes of the closed table `lens.build.BUILD_ISSUE_CODES`, which MUST also hold every row of `lens.preserve.PRESERVE_ISSUE_CODES` (`layout-lens`, "Layout issue codes"). Every `kicad.*` code, such as those of the writers (`kicad.board.*`, `kicad.project.*`) and of the readers and the resolver (`kicad.board.*`, `kicad.version.*`, `kicad.lib.*`), the writers' `rules.*` codes and the codes of `Design.validate()` (`model.*`) MUST pass through unchanged. Later requirements MAY add codes that join the `build` envelope unchanged, from steps they add to the build or to `cmd_build`; each such requirement names this one.
@@ -743,7 +753,7 @@ The build SHALL write every user property of a component onto its placed footpri
 With `vendor="all"`, the default of `build_design` and of `fenolite build`, the build SHALL copy every footprint it places into the project's library folder, whatever the origin of the row that resolved it, so that a built project needs no global or template table.
 - Row origins are those of `LibraryResolver`: `project`, `global` and `template`, and any origin that a later change adds, such as c0021's `scan`. A footprint of any origin MUST be copied byte for byte from `Location.item_path` to `lib/<nickname>.pretty/<entry>.kicad_mod`, `nickname` being the nickname of the row that resolved it, with one `fp-lib-table` row per vendored nickname ("Built project files").
 - Lib ids MUST stay unchanged: the board's footprint names, `Component.lib_footprint_ref` and the `.fenolite/` texts keep the nicknames of the design. In KiCad's library check, the vendored row hides a global row with the same nickname, and with it the items that were not vendored (`H-K-VENDOR-SHADOW`).
-- Only placed footprints MUST be copied: no whole library, no 3D model, no symbol and no `sym-lib-table`. Symbol libraries get the same rule when built projects get schematics (v0.2a).
+- Only placed footprints MUST be copied: no whole library and no 3D model. Symbols follow the same rule in "Symbols of a built project".
 - With `vendor="project"` (`fenolite build --vendor project`), a footprint of a row whose origin is not `project` MUST NOT be copied and gets no row. Each such footprint gives `build.global-library` (info), as c0011 did.
 - **Unsafe names.** A vendored nickname that holds `/` or `\`, or a character that fails `str.isprintable()`, MUST give `build.vendor-unsafe-name` (error) with the build checks, and two vendored paths that differ but are equal after `str.casefold()` MUST give it too. Then no file is written outside `lib/`, and the folder survives a file system that ignores letter case.
 - **Library changes.** When `record` (the hashes that `read_record` returns) holds a hash for the path of a vendored file, and the planned bytes have another SHA-256, the build MUST give `build.library-changed` (warning) naming the file, because its library changed since the last build. The planned copy still replaces an old copy that is untouched since the last build ("Edited outputs are not overwritten").
@@ -763,7 +773,7 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 #### Scenario: Vendoring kept to project rows on request
 - **GIVEN** the global setup of the first scenario
 - **WHEN** `build_design` runs with `vendor="project"`
-- **THEN** `files` holds nothing under `lib/`, `fp-lib-table` holds no row, and `issues` holds three `build.global-library` infos, one for each footprint
+- **THEN** `files` holds no footprint under `lib/`, `fp-lib-table` holds no row, and `issues` holds one `build.global-library` info for each of the three footprints
 
 #### Scenario: Unsafe nickname
 - **GIVEN** a global row named `a/b`, made in the test, that serves `R1`'s footprint
@@ -781,12 +791,13 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **THEN** the origin is `project`, and the item path is `lib/Mini.pretty/Mini_R_0603.kicad_mod` inside the copy
 
 ### Requirement: Path aliases in the DSL
-`Design.moved(old, new)` SHALL record that the part at component path `new` was at component path `old` in an earlier build, and `dsl.moves(design) -> Mapping[str, str]` SHALL return the recorded aliases, new path to old path, in path order.
-- `old` and `new` MUST be component paths: segments matching `[A-Za-z0-9_.+-]+` joined by `/` ("Design structure and names"). A malformed path, `old == new`, or a second alias with the same `old` or the same `new` MUST raise `DslError` at the call.
-- `moves(design)` MUST raise `DslError` when `new` is not the path of a part added to the design, or when `old` is the path of a part added to the design, because the old part would lose its layout to the new one. Chains (`moved("A", "B")` with `moved("B", "C")`) are therefore refused.
+`Design.moved(old, new)` SHALL record that the part or module at path `new` was at path `old` in an earlier build. `dsl.moves(design) -> Mapping[str, str]` SHALL return the part aliases, new component path to old component path, in path order, with every module alias expanded, and `dsl.module_moves(design) -> Mapping[str, str]` SHALL return the module aliases, new module path to old module path, in path order; `fenolite.dsl` SHALL re-export `module_moves` (an addition under "DSL package").
+- `old` and `new` MUST be paths: segments matching `[A-Za-z0-9_.+-]+` joined by `/` ("Design structure and names"). A malformed path, `old == new`, or a second alias with the same `old` or the same `new` MUST raise `DslError` at the call.
+- An alias whose `new` is the path of a part added to the design is a part alias. One whose `new` is the path of a module added to the design is a module alias: it gives every part path `<new>/<rest>` of the design the alias `<old>/<rest>`. A part alias MUST win over a module alias for its part, and a longer module path over a shorter one.
+- `moves(design)` and `module_moves(design)` MUST raise `DslError` when `new` is neither a part path nor a module path of the design, or when `old` is the path of a part or a module added to the design, because the old part would lose its layout to the new one. Chains (`moved("A", "B")` with `moved("B", "C")`) are therefore refused.
 - `cmd_build` MUST turn such a `DslError` into `DesignScriptError` (`FEN-3004`, exit 3), as for `to_model` and `placements`.
 - Aliases are not model data: `to_model` MUST give the same model with and without them, and no id changes.
-- An alias is needed for one build only: the build re-places the footprint under its new path, and later builds match it by uuid (`layout-lens`, "Footprint matching"). An alias that matches nothing gives `layout.alias-unused` (warning).
+- An alias is needed for one build only: the build writes the footprint under its new path, keeping its board node when it can (`layout-lens`, "Kept and re-placed footprints"), and later builds match it by uuid ("Footprint matching"). An expanded alias that matches nothing gives `layout.alias-unused` (warning).
 
 #### Scenario: Alias recorded
 - **GIVEN** a design holding `Module("power")` with `Part("R1", "Mini:Mini_R")`, and `d.moved("R1", "power/R1")`
@@ -811,6 +822,21 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **GIVEN** the blink design with and without `d.moved("R0", "R1")`
 - **WHEN** `canonical.dump_texts(to_model(d))` is computed for both
 - **THEN** the texts are equal
+
+#### Scenario: Module alias expanded
+- **GIVEN** a design holding `Module("supply")` with parts `R1` and `C1`, and `d.moved("power", "supply")`
+- **WHEN** `moves(d)` and `module_moves(d)` are called
+- **THEN** they return `{"supply/C1": "power/C1", "supply/R1": "power/R1"}` and `{"supply": "power"}`
+
+#### Scenario: Part renamed inside a renamed module
+- **GIVEN** the same design with `R1` renamed `R9`, and `d.moved("power/R1", "supply/R9")` besides the module alias
+- **WHEN** `moves(d)` is called
+- **THEN** it returns `{"supply/C1": "power/C1", "supply/R9": "power/R1"}`
+
+#### Scenario: Old module still present
+- **GIVEN** a design holding modules `power` and `supply`, and `d.moved("power", "supply")`
+- **WHEN** `module_moves(d)` is called
+- **THEN** `DslError` is raised naming `power`
 
 ### Requirement: No-connect marks in the DSL
 `fenolite.dsl.part.no_connect(*pins) -> None` SHALL mark each pin handle as intentionally unconnected, and `fenolite.dsl` SHALL re-export `no_connect` (an addition under "DSL package": `part.py` imports nothing new).
@@ -844,13 +870,13 @@ With `vendor="all"`, the default of `build_design` and of `fenolite build`, the 
 - **THEN** the first prints `fenolite.dsl.part`, and the second passes with no `ALLOWED` change
 
 ### Requirement: No-connect marks in a build
-The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit.no_connects` to pin numbers by the rules of "Pins and pads in a build", refuse a pin that is marked and connected, and keep the marks in the `.fenolite/` model. It writes no schematic, so no written KiCad file changes.
+The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit.no_connects` to pin numbers by the rules of "Pins and pads in a build", refuse a pin that is marked and connected, and keep the marks in the `.fenolite/` model. With a schematic, each mark becomes a no-connect flag of the sheet ("Schematic in a build"); no other written KiCad file changes.
 - A designator MUST be read as a pin number first, and otherwise as a pin name that marks every pin with that name. A designator that is neither MUST give `build.unknown-pin` (error) naming the ref and the designator. A number that is also another pin's name MUST give `build.pin-ambiguous` (warning), and the number wins.
 - After resolution, a pin that is marked and that a net lists MUST give `build.no-connect-on-net` (error) naming the ref, the pin number and the net; the build MUST exit 5 and write nothing. This code joins the `build` envelope under "Build issue codes": it MUST be a key of `lens.build.BUILD_ISSUE_CODES` with severity `error`, and `docs/cli-contract.md` MUST list it.
 - After the build, `Circuit.no_connects` MUST hold `PinRef(<component id>, <pin number>)` in `PinRef` order without duplicates, and `.fenolite/circuit.json` MUST store them.
-- `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`, the library tables and the vendored files MUST be byte for byte those of the same design without marks: the pad of a marked pin gets no net, as the pad of any unconnected pin, and `build.unused-pin-without-pad` applies to a marked pin as to any unconnected pin.
+- `<name>.kicad_pcb`, `<name>.kicad_pro`, `<name>.kicad_dru`, the library tables, the symbol libraries and the vendored files MUST be byte for byte those of the same design without marks: the pad of a marked pin is written as the pad of any unconnected pin ("Board follows the schematic"), and `build.unused-pin-without-pad` applies to a marked pin as to any unconnected pin. `<name>.kicad_sch` MUST differ by one `no_connect` item per marked pin and by nothing else.
 - A rebuild takes the marks from the script; the layout lens neither reads nor keeps a mark from the board.
-- The KiCad schematic writer of v0.2a lowers these marks to KiCad's no-connect flags; until then the marks serve `fenolite check` ("ERC lite stage" of `verification-loop`).
+- The marks also serve `fenolite check` ("ERC lite stage" of `verification-loop`), and with `--schematic skip` no written KiCad file depends on them.
 
 #### Scenario: Marks resolved in the built model
 - **GIVEN** a blink variant with `u1 = Part("U1", "Mini:Mini_QFP32_IC", ...)`, its `GND` pins connected, and `no_connect(u1[11], u1[12])`
@@ -860,7 +886,7 @@ The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit
 #### Scenario: Written KiCad files do not change
 - **GIVEN** the variant above and the same variant without the `no_connect` call
 - **WHEN** both are built with the same `--seed` and `--timestamp`
-- **THEN** every planned file outside `.fenolite/` has the same SHA-256 in both receipts
+- **THEN** every planned file outside `.fenolite/` except `<name>.kicad_sch` has the same SHA-256 in both receipts, and the schematic of the marked variant holds two `no_connect` items that the other lacks
 
 #### Scenario: A name and a number of one pin
 - **GIVEN** `connect(gnd, u1["GND"])` and `no_connect(u1[10])` on `Mini:Mini_QFP32_IC`, whose pin `10` is named `GND`
@@ -924,13 +950,14 @@ The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit
 - **THEN** the exit code is 3 and stderr carries `FEN-3004` naming `NOPE`
 
 ### Requirement: Copper intents in the DSL
-The DSL SHALL record copper as intents, plain data that the build resolves after placement, through `Part.pad`, `via_step`, `Design.track`, `Design.via`, `Design.stitch` and `dsl.copper(design)`, and MUST still import only `core` and `model`.
+The DSL SHALL record copper as intents, plain data that the build resolves after placement, through `Part.pad`, `via_step`, `arc_to`, `Design.track`, `Design.via`, `Design.stitch` and `dsl.copper(design)`, and MUST still import only `core` and `model`.
 - `part.pad(number, *, index=None) -> PadRef` names the pads of the part with that number. `number` MUST be a non-empty `str` or an `int` (`part.pad(9)` names the same pads as `part.pad("9")`), and `index` a non-negative `int` or `None`.
-- `via_step(x, y, *, to, diameter=None, drill=None) -> ViaStep` is a through via at `BOARD_ORIGIN + (x, y)` after which the track continues on the copper layer `to`.
-- `Design.track(key, *path, layer="F.Cu", width=None, net=None)` takes `PadRef`s, via steps and points written as `(x, y)` pairs of lengths in the frame of `place()`. `Design.via(key, x, y, *, net, diameter=None, drill=None)` and `Design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None)` take the same pairs; `origin` defaults to the corner of the board, (0, 0) in that frame. Lengths follow "DSL lengths and angles", and nets MUST be `Net` objects.
-- `DslError` MUST be raised at the call for: a key that does not match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` or that the design already uses for copper; a track path with fewer than two elements, starting with a via step, holding an element of another type, or holding two consecutive elements at the same point; an empty `layer` or `to`; a width, diameter, drill or pitch that is not positive, or a negative margin; a stitch with both or neither of `along` and `region`, fewer than two `along` points or fewer than three `region` points.
-- `dsl.copper(design)` MUST return the intents as frozen dataclasses of `dsl/intents.py`, in key order: `PadEnd(component, number, index)` with the part's component path, `ViaStep(at, layer, diameter, drill)`, `TrackIntent(key, path, layer, width, net)`, `ViaIntent(key, at, net, diameter, drill)` and `StitchIntent(key, net, pitch, along, region, origin, diameter, drill, clearance, margin)`. Points MUST be `BOARD_ORIGIN` plus their offsets, lengths `int` nanometres and nets their names. A `PadRef` of a part that is not in the design, or a net that is not in it, MUST raise `DslError` naming it.
-- `fenolite.dsl` MUST re-export `PadRef`, `via_step`, `copper`, `PadEnd`, `ViaStep`, `TrackIntent`, `ViaIntent`, `StitchIntent` and `CopperIntent`, and `dsl/intents.py` is a module of the package; "DSL package" lets later requirements add both. `to_model` MUST NOT change: intents are not model objects.
+- `via_step(x, y, *, to, diameter=None, drill=None, kind="through") -> ViaStep` is a via of `kind` (`through`, `blind`, `buried` or `micro`) at `BOARD_ORIGIN + (x, y)` after which the track continues on the copper layer `to`.
+- `arc_to(mid, end) -> ArcStep` is an arc from the point of the path element before it through `mid` to `end`, both `(x, y)` pairs of lengths in the frame of `place()`; the path continues from `end`.
+- `Design.track(key, *path, layer="F.Cu", width=None, net=None)` takes `PadRef`s, via steps, arc steps and points written as `(x, y)` pairs of lengths in the frame of `place()`. `Design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None)`, whose `layers` are the two copper layer names of a via that is not a through via, and `Design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None)` take the same pairs; `origin` defaults to the corner of the board, (0, 0) in that frame. Lengths follow "DSL lengths and angles", and nets MUST be `Net` objects.
+- `DslError` MUST be raised at the call for: a key that does not match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` or that the design already uses for copper; a track path with fewer than two elements, starting with a via step or an arc step, holding an element of another type, or holding two consecutive elements at the same point, the point of an arc step being its `end`; an arc step whose `mid` equals its `end`; a `kind` outside the four; `layers` given for a `through` via, or anything but two different non-empty layer names for another kind; an empty `layer` or `to`; a width, diameter, drill or pitch that is not positive, or a negative margin; a stitch with both or neither of `along` and `region`, fewer than two `along` points or fewer than three `region` points.
+- `dsl.copper(design)` MUST return the intents as frozen dataclasses of `dsl/intents.py`, in key order: `PadEnd(component, number, index)` with the part's component path, `ViaStep(at, layer, diameter, drill, kind="through")`, `ArcStep(mid, end)`, `TrackIntent(key, path, layer, width, net)`, `ViaIntent(key, at, net, diameter, drill, kind="through", layers=None)` and `StitchIntent(key, net, pitch, along, region, origin, diameter, drill, clearance, margin)`. Points MUST be `BOARD_ORIGIN` plus their offsets, lengths `int` nanometres and nets their names. A `PadRef` of a part that is not in the design, or a net that is not in it, MUST raise `DslError` naming it.
+- `fenolite.dsl` MUST re-export `PadRef`, `via_step`, `arc_to`, `copper`, `PadEnd`, `ViaStep`, `ArcStep`, `TrackIntent`, `ViaIntent`, `StitchIntent` and `CopperIntent`, and `dsl/intents.py` is a module of the package; "DSL package" lets later requirements add both. `to_model` MUST NOT change: intents are not model objects.
 
 #### Scenario: A track in board coordinates
 - **GIVEN** the blink with `design.track("led_a", r1.pad(2), (mm(36), mm(9)), via_step(mm(36), mm(14), to="B.Cu"), d1.pad(2), width=mm(0.3))`
@@ -950,6 +977,20 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **GIVEN** a track intent from `r9.pad(1)` of a part `R9` that was never added
 - **WHEN** `copper(design)` is called
 - **THEN** `DslError` is raised naming `R9`
+
+#### Scenario: Arc step recorded
+- **GIVEN** the blink with `design.track("bend", (mm(10), mm(10)), arc_to((mm(11), mm(11)), (mm(10), mm(12))), (mm(10), mm(15)), net=gnd, width=mm(0.25))`
+- **WHEN** `copper(design)` is called
+- **THEN** the path of the `TrackIntent` holds `Point(110_000_000, 110_000_000)`, `ArcStep(Point(111_000_000, 111_000_000), Point(110_000_000, 112_000_000))` and `Point(110_000_000, 115_000_000)`
+
+#### Scenario: Via kinds recorded, earlier calls unchanged
+- **GIVEN** a track whose path holds `via_step(mm(5), mm(5), to="In1.Cu", kind="blind")`, the via `design.via("core", mm(8), mm(8), net=gnd, kind="buried", layers=("In1.Cu", "In2.Cu"))`, and the track `led_a` of "A track in board coordinates"
+- **WHEN** `copper(design)` is called
+- **THEN** the first step has `kind == "blind"`, the via intent has `kind == "buried"` and `layers == ("In1.Cu", "In2.Cu")`, and the via step of `led_a` still equals `ViaStep(Point(136_000_000, 114_000_000), "B.Cu", None, None)`
+
+#### Scenario: Refused arc and via calls
+- **WHEN** `design.track("k", arc_to((mm(1), mm(1)), (mm(2), mm(0))), r1.pad(1))`, `arc_to((mm(1), mm(1)), (mm(1), mm(1)))`, `via_step(mm(1), mm(1), to="B.Cu", kind="laser")`, `design.via("v", mm(1), mm(1), net=gnd, layers=("F.Cu", "B.Cu"))` and `design.via("w", mm(1), mm(1), net=gnd, kind="blind")` are called
+- **THEN** each raises `DslError`, the last naming `layers`
 
 ### Requirement: Copper intents in a build
 `lens.build.build_design` SHALL accept the keyword-only argument `copper_intents: Sequence[CopperIntentLike] = ()` and SHALL resolve it with `copper.resolve_copper` (`manual-copper`) after placing, staging, setting layers and assigning pad nets, and before the build checks and `Design.validate()`; `cli/cmd_build.py` SHALL pass `dsl.copper(design)`.
@@ -1170,7 +1211,7 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **THEN** `issues` holds no `place.*` issue, `result.placement.counts` is empty, and every file has the bytes it had before this change
 
 ### Requirement: Rule minimums in the DSL
-`design.rules.minimum(*, clearance=None, track_width=None, via_diameter=None, via_drill=None, hole_size=None, edge_clearance=None, netclass=None)` SHALL declare one design-rule minimum per given length. The keywords are the six rule kinds of the model (`fenolite.model.rules.RuleKind`), listed in this order by `dsl.design.MINIMUM_KINDS`.
+`design.rules.minimum(*, clearance=None, track_width=None, via_diameter=None, via_drill=None, hole_size=None, edge_clearance=None, netclass=None)` SHALL declare one design-rule minimum per given length. The keywords are the first six rule kinds of the model (`fenolite.model.rules.RuleKind`), listed in this order by `dsl.design.MINIMUM_KINDS`; the other kinds are declared with `rule()` ("Rule constructor in the DSL").
 - A value MUST be a `Length` or a string with a unit, as "DSL lengths and angles" rules, and MUST be above 0.
 - `netclass=None` declares board minimums. `netclass="<name>"` declares minimums for the nets of that class, which MUST already be declared with `design.rules.netclass`.
 - `minimum()` MAY be called several times. `DslError` MUST be raised at the call for: no length given; a bare number, a value without a unit or a value of 0 or less; a `netclass` that is not a declared class; and a kind declared twice for the same scope (the board, or one class). A refused call MUST record nothing.
@@ -1217,6 +1258,7 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **GIVEN** a built project whose script declares `minimum(track_width=mm(0.25))`, and a rule named `mine` added to its `.kicad_dru` by hand
 - **WHEN** the script changes the value to `mm(0.3)` and the project is built again
 - **THEN** the rules file holds `fenolite_0_min_track_width` once, with `(min 0.3mm)`, followed by the rule `mine`
+
 ### Requirement: Per-component pin-to-pad mapping
 The DSL build SHALL assign each symbol pin's net to the physical footprint pad named by `Component.pin_pad_map`, using identity mapping for pins not listed. Circuit net members and no-connects SHALL remain keyed by symbol pin number. A mapping with a missing source pin, missing pad target, or duplicate physical target MUST report `build.pin-pad-map-invalid` as an error and write no output. This issue SHALL join the closed build issue set of `design-dsl`, "Build issue codes".
 
@@ -1229,3 +1271,510 @@ The DSL build SHALL assign each symbol pin's net to the physical footprint pad n
 - **GIVEN** a map names a missing source pin or target pad
 - **WHEN** the component is built
 - **THEN** `build.pin-pad-map-invalid` is an error and the build writes no files
+
+### Requirement: Project-authored symbols
+
+`fenolite.dsl.Symbol(library, name, *, reference, value="", footprint="", description="")` SHALL author a one-unit symbol. `Symbol.pin(number, name, *, etype="passive", at, length, rotation=0, shape="line")` SHALL record a uniquely numbered pin with exact DSL lengths and one of the supported electrical types, shapes and cardinal rotations. `Design.add(symbol)` SHALL register symbols explicitly by `library:name`, and duplicate IDs or symbols without pins MUST be refused. The DSL SHALL expose the completed definition as a model `SymbolDef`, without adding library definitions to canonical design JSON.
+
+`fenolite build --target kicad` SHALL resolve component symbol IDs against the design's authored definitions before external library sources. It SHALL write one `lib/<nickname>.kicad_sym` per authored library and a `sym-lib-table` whose `${KIPRJMOD}` rows point at those files. These are planned writes on dry-run and appear in the receipt on confirmation. The serializer MUST be deterministic, and the build MUST NOT invoke KiCad tools. The Altium target is outside this requirement.
+
+#### Scenario: Build using only an authored symbol
+- **GIVEN** a component whose symbol ID is present only in a `Symbol` attached to the design, and a separately resolvable footprint
+- **WHEN** `fenolite build ... --target kicad --dry-run --json` runs
+- **THEN** it succeeds without a symbol library table row as input, resolves the symbol pins, and plans its symbol library plus `sym-lib-table`
+
+#### Scenario: Authored symbol library artifact
+- **GIVEN** a design with two authored symbols under nickname `Local`
+- **WHEN** its KiCad build is confirmed
+- **THEN** it writes one `lib/Local.kicad_sym` containing both symbols and one matching `${KIPRJMOD}` table row
+
+### Requirement: Rule constructor in the DSL
+`design.rules.rule(name, kind, *, where=select.ALL, between=None, layers=(), min=None, opt=None, max=None, severity="error", priority=0)` SHALL declare one design rule of any model kind (`fenolite.model.rules.RuleKind`), with selectors from `fenolite.dsl.select` ("Selectors in the DSL").
+- `DslError` MUST be raised at the call, and nothing recorded, for: a `name` that is not a non-empty string or is already used by `rule()`; a `kind` outside `RuleKind`; no limit; a limit that is not a `Length` or a string with a unit; a negative `min`, or an `opt` or `max` of 0 or less; `min` above `opt` or `max`, or `opt` above `max`; a `where` or `between` that is not a selector; a `between` for a kind other than `clearance` and `creepage`; a `layers` value that is not a tuple of strings; a `severity` outside `error`, `warning` and `ignore`; a `priority` that is not an integer of 0 or more.
+- What depends on the target is not checked here: limits per kind, kind support, globs, selector support and layer names are refused by the lowering with its codes, and `build` reports them (exit 7, `FEN-7001`).
+- `Rules.named` MUST hold one `dsl.design.RuleSpec` per call, in call order.
+- `dsl.to_model` MUST add one model `Rule` per call to `Design.rules.rules`, after the rules of `minimum()`, in call order: id `derived_id("rul", "dsl", "rule:named:<name>")`, the given name, kind, limits, severity and priority, `selector_a` from `where`, `selector_b` from `between` (`None` when not given) and `layers` as given.
+- `docs/dsl.md` MUST describe `rule()` in its section "Design rules", with an example per kind group, and say that priority 0 is written first and governs least.
+
+#### Scenario: Creepage rule in the model
+- **GIVEN** a design with the classes `HV` and `LV` and `d.rules.rule("mains", "creepage", where=select.netclass("HV"), between=select.netclass("LV"), min=mm(6.4))`
+- **WHEN** `to_model(d)` runs
+- **THEN** `rules.rules` holds one `creepage` rule named `mains`, with `selector_a == Selector("netclass", "HV")`, `selector_b == Selector("netclass", "LV")`, `min == 6_400_000` and the id `derived_id("rul", "dsl", "rule:named:mains")`
+
+#### Scenario: Board-wide hole pitch
+- **WHEN** `d.rules.rule("pitch", "hole_to_hole", min="0.25mm")` is declared and the design is built for target 10
+- **THEN** `<name>.kicad_dru` holds a rule `"fenolite_0_pitch"` with `(constraint hole_to_hole (min 0.25mm))` and no condition
+
+#### Scenario: Second side refused for a hole kind
+- **WHEN** `d.rules.rule("x", "hole_clearance", where=select.net("A"), between=select.net("B"), min=mm(0.3))` is called
+- **THEN** `DslError` is raised naming `between` and `hole_clearance`, and nothing is recorded
+
+#### Scenario: Target refusal reported by the build
+- **GIVEN** a design with a `creepage` rule
+- **WHEN** it is built with `--kicad-version 9 --dry-run --json`, and again with `--allow-lossy`
+- **THEN** the first exits 7 with `FEN-7001`, a message that names the rule and says that KiCad 9.0 does not check creepage rules, and a hint naming `--allow-lossy`; the second exits 0 with `rules.dropped-for-target` in `issues`
+
+### Requirement: Selectors in the DSL
+`fenolite.dsl.select` SHALL build rule selectors: `ALL`, `net(name)`, `netclass(name)`, `ref(name)` and `item(kind)`, each a `select.Select`, combined with `&` (and), `|` (or) and `~` (not); `fenolite.dsl` SHALL re-export `select` (an addition under "DSL package").
+- `net` MUST take a net name or a `Net`, `netclass` a class name declared with `design.rules.netclass`, `ref` a reference or a `Part`, and `item` one of `track`, `via`, `pad` and `zone`. A `Net` or `Part` MUST be stored by its name, so a rule follows a rename made where the object is created. An empty name, or an `item` value outside the list, MUST raise `DslError`.
+- `a & b` MUST give `Selector("and", items=…)` and `a | b` `Selector("or", items=…)`, flattening nested operations of the same op; `~a` MUST give `Selector("not", items=(a,))`. `ALL` MUST NOT be combined: `ALL & x` raises `DslError`.
+- A name MAY hold `*`, which the model keeps as a glob; whether a target writes it is decided by the lowering (`rules-model`, "Closed selector grammar").
+- `Select.to_model()` MUST return the model `Selector`, and two equal expressions MUST give equal selectors.
+
+#### Scenario: Compound selector
+- **WHEN** `(select.net("A") | select.net("B")) & ~select.item("via")` is turned into a model selector
+- **THEN** it is `Selector("and", items=(Selector("or", items=(Selector("net", "A"), Selector("net", "B"))), Selector("not", items=(Selector("item_kind", "via"),))))`
+
+#### Scenario: Net object
+- **GIVEN** `vbus = Net("VBUS")` added to the design and a rule with `where=select.net(vbus)`
+- **WHEN** `to_model` runs
+- **THEN** the rule's `selector_a` is `Selector("net", "VBUS")`
+
+#### Scenario: ALL combined
+- **WHEN** `select.ALL & select.net("A")` is evaluated
+- **THEN** `DslError` is raised
+
+### Requirement: Quantities in the DSL
+`fenolite.dsl.quantity` SHALL provide `Quantity`, an exact value of one unit among `ohm`, `farad`, `henry`, `volt`, `ampere`, `hertz`, `watt` and `second`, and the constructors `ohm(x)`, `farad(x)`, `henry(x)`, `volt(x)`, `amp(x)`, `hertz(x)`, `watt(x)` and `second(x)`; `fenolite.dsl` SHALL re-export `Quantity` and the constructors (an addition under "DSL package").
+- **Input.** `x` MUST be an `int`, a `fractions.Fraction`, or a text: a decimal number, an optional SI prefix among `p`, `n`, `u`, `µ`, `m`, `k`, `M` and `G`, and an optional symbol of the constructor's unit (`Ω`, `ohm` or `R`; `F`; `H`; `V`; `A`; `Hz`; `W`; `s`), with optional blanks between number and prefix; or the IEC 60062 letter code, where the prefix letter, or `R` for ohms, stands for the decimal point (`4k7`, `2R2`, `1n5`).
+- A `float`, a `bool`, a symbol of another unit, a text that does not parse, or a negative value for a unit other than volts and amperes MUST raise `DslError` naming the input.
+- **Value.** The value MUST be held as a `Fraction` of the unit. Equality, ordering and hashing MUST compare the unit and the exact value; ordering between different units MUST raise `TypeError`.
+- **Arithmetic.** `+` and `-` MUST take two quantities of one unit; `*` and `/` MUST take an `int` or a `Fraction`; any other operand MUST raise `TypeError`.
+- **Text.** `text()` MUST print the value scaled by the largest SI prefix, in steps of 1 000 from `p` to `G`, that keeps its magnitude at least 1 (no prefix between 1 and 1 000), as the shortest exact decimal, followed by the prefix (`u` for micro) and the symbol (`Ω`, `F`, `H`, `V`, `A`, `Hz`, `W`, `s`). A value that is not a terminating decimal at that scale MUST raise `DslError`. `text(code=True)` MUST print the IEC 60062 letter code for ohms, farads and henries, the prefix letter (or `R` without a prefix, for ohms) standing for the decimal point and no symbol, and MUST raise `DslError` for the other units.
+- No quantity MUST reach the model or `.fenolite/`: it is a script value.
+
+#### Scenario: Equal forms
+- **WHEN** `ohm("4k7")`, `ohm("4.7k")`, `ohm("4.7 kΩ")` and `ohm(4700)` are compared
+- **THEN** they are equal, have one hash, and `text()` of each is `4.7kΩ`
+
+#### Scenario: Canonical texts
+- **WHEN** `farad("0.1u").text()`, `volt("3.30").text()`, `hertz(16_000_000).text()` and `ohm("2R2").text(code=True)` are computed
+- **THEN** they are `100nF`, `3.3V`, `16MHz` and `2R2`
+
+#### Scenario: Float refused
+- **WHEN** `ohm(4.7e3)` is called
+- **THEN** `DslError` is raised naming the value
+
+#### Scenario: Wrong unit
+- **WHEN** `farad("10V")` is called
+- **THEN** `DslError` is raised naming `10V`
+
+### Requirement: Part values from quantities
+`Part(ref, lib_id, footprint=None, value="")` SHALL accept a `Quantity` as `value` and SHALL store its `text()`; a string value MUST keep working unchanged.
+- The model's `Component.value` MUST be that text, so two parts given equal quantities have equal values whatever their spelling in the script.
+
+#### Scenario: One value for two spellings
+- **GIVEN** `Part("R1", "Mini:Mini_R", value=ohm("4k7"))` and `Part("R2", "Mini:Mini_R", value=ohm("4700"))` in one design
+- **WHEN** `to_model` runs
+- **THEN** both components have the value `4.7kΩ`
+
+### Requirement: Typed interfaces in the DSL
+`fenolite.dsl.interfaces` SHALL define `I2C(sda, scl, *, name=None)`, `SPI(sck, mosi, miso, *, cs=(), name=None)`, `UART(tx, rx, *, name=None)` and `USB2(dp, dn, *, vbus=None, gnd=None, name=None)`, subclasses of `Interface` re-exported by `fenolite.dsl` (an addition under "DSL package"), which record buses as model `Interface` entities without any model delta. This requirement extends "Interfaces in the DSL", whose rules hold for them.
+- Kinds and members: `I2C` gives kind `i2c` with `sda` and `scl`; `SPI` gives `spi` with `sck`, `mosi`, `miso` and `cs0` … `cs<n-1>` for the nets of `cs` in order; `UART` gives `uart` with `tx` and `rx`, named from device A; `USB2` gives `usb2` with `dp` and `dn`, and `vbus` and `gnd` when given.
+- Every argument naming a net MUST be a `Net`; two members of one interface MUST be distinct nets; otherwise `DslError` is raised. A net MAY be a member of several interfaces.
+- The default name MUST be `"<first net name>/<second net name>"`, and the id MUST be `derived_id("itf", "dsl", "interface:<kind>:<name>")`. Member nets join the design.
+- A KiCad build MUST keep the four kinds in `.fenolite/`, and the written KiCad files outside it MUST NOT depend on them.
+
+#### Scenario: I2C in the model
+- **GIVEN** `I2C(sda, scl)` on the nets `SDA` and `SCL`, added to a design
+- **WHEN** `to_model` runs
+- **THEN** the model holds an `Interface` named `SDA/SCL` with kind `i2c` and members `sda` and `scl` equal to the ids of the two nets
+
+#### Scenario: SPI chip selects
+- **GIVEN** `SPI(sck, mosi, miso, cs=(cs_flash, cs_adc))`
+- **WHEN** `to_model` runs
+- **THEN** the interface has the members `sck`, `mosi`, `miso`, `cs0` (the net of `cs_flash`) and `cs1` (the net of `cs_adc`)
+
+#### Scenario: One net twice
+- **WHEN** `USB2(dp, dp)` is called
+- **THEN** `DslError` is raised naming the net
+
+### Requirement: Attaching parts to interfaces
+Each typed interface SHALL provide `attach(part, **roles)`, which connects pins of one part to the interface's nets by role through `connect`, so that every rule of `connect` applies.
+- `I2C.attach(part, *, sda, scl)` and `USB2.attach(part, *, dp, dn, vbus=None, gnd=None)` MUST connect each given pin to the net of its role. A role whose net the interface does not have (`vbus` on a `USB2` without `vbus`) MUST raise `DslError`.
+- `UART.attach(part, *, side, tx, rx)`: with `side="a"` the `tx` pin MUST join the `tx` net and the `rx` pin the `rx` net; with `side="b"` the `tx` pin MUST join the `rx` net and the `rx` pin the `tx` net. Any other `side` MUST raise `DslError`.
+- `SPI.attach(part, *, role, sck, mosi, miso, cs=None, cs_index=None)`: `sck`, `mosi` and `miso` MUST join the nets of their names. With `role="controller"`, `cs` MUST be a sequence with one pin per chip-select net, joined in order, and `cs_index` MUST be `None`. With `role="peripheral"`, `cs` MUST be one pin and `cs_index` the index of its chip-select net. Any other combination MUST raise `DslError`.
+- A pin argument MUST be a pin handle of `part`, or a designator, which MUST be resolved as `part[designator]`. A pin handle of another part MUST raise `DslError`.
+
+#### Scenario: UART crossed for the second device
+- **GIVEN** `uart = UART(a_tx, a_rx)`, `uart.attach(u1, side="a", tx=u1["TX"], rx=u1["RX"])` and `uart.attach(u2, side="b", tx=u2["TX"], rx=u2["RX"])`
+- **WHEN** `to_model` runs
+- **THEN** the net of `a_tx` holds `U1` pin `TX` and `U2` pin `RX`, and the net of `a_rx` holds `U1` pin `RX` and `U2` pin `TX`
+
+#### Scenario: SPI peripheral on its chip select
+- **GIVEN** the SPI of "SPI chip selects", a controller `U1` attached with `cs=(u1["CS0"], u1["CS1"])`, and a peripheral `U3` attached with `cs=u3["CS"]` and `cs_index=1`
+- **WHEN** `to_model` runs
+- **THEN** the net of `cs_adc` holds `U1` pin `CS1` and `U3` pin `CS`, and the net of `cs_flash` holds only `U1` pin `CS0`
+
+#### Scenario: Pin of another part
+- **WHEN** `bus.attach(u1, sda=u2["SDA"], scl=u1["SCL"])` is called on an `I2C`
+- **THEN** `DslError` is raised naming `U2`, and nothing is connected
+
+### Requirement: Interface checks in a build
+A build SHALL check the interfaces of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, and SHALL report two warnings, which join the closed build set ("Build issue codes"):
+
+| code | severity | when |
+|---|---|---|
+| `build.diff-pair-name` | warning | the two nets of a `diff_pair` (`p`, `n`) or `usb2` (`dp`, `dn`) interface do not form a KiCad differential pair by name |
+| `build.i2c-pullup-missing` | warning | an I2C line has no two-pin part to the `hv` net of a `power` interface |
+
+- **Pair names** (`H-K-DIFFPAIR-NAMES`). The names, in KiCad's stored form, form a pair when they are equal except for the last character, which is `P` for the first net and `N` for the second, or `+` and `-`; letter case counts. The hint MUST propose a second name: the first name with its last character `P` or `+` replaced by `N` or `-`; when the first name ends in neither, it MUST propose `<first name>_P` and `<first name>_N`.
+- **Pull-ups.** For the `sda` and `scl` nets of each `i2c` interface, a pull-up is a component whose resolved symbol has exactly two pins, one on that net and the other on the `hv` net of a `power` interface of the design. The issue MUST name the interface and the line.
+- The checks MUST NOT change any file or the model, and a design without interfaces MUST give neither code.
+
+#### Scenario: Pair names that KiCad does not pair
+- **GIVEN** a blink variant with `USB2(usb_dp, usb_dm)` on the nets `USB_DP` and `USB_DM`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one `build.diff-pair-name` naming `USB_DP` and `USB_DM`, with a hint naming `USB_DN`, and one `build.interface-not-lowered`
+
+#### Scenario: Pair names that KiCad pairs
+- **WHEN** the same variant uses the nets `USB_P` and `USB_N`
+- **THEN** `issues` hold no `build.diff-pair-name`
+
+#### Scenario: Missing pull-up
+- **GIVEN** a design with `Power(vdd, gnd)`, `I2C(sda, scl)`, a resistor from `SDA` to `VDD` and none on `SCL`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold one `build.i2c-pullup-missing` naming the interface and `scl`
+
+### Requirement: Pad zone connections in the DSL
+`Part.zone_connection(number, connection, *, index=None, locked=False)` SHALL record one request for how copper zones connect to the pads of the part's footprint that carry `number`, and `dsl.pad_zones(design) -> Mapping[str, tuple[PadZoneRequest, ...]]` SHALL return the requests of every added part that has one, keyed by component path in path order, each tuple sorted by `number` and then `index`, `None` first. A part without a request has no key.
+- `number` MUST be a non-empty `str` or an `int`, as in `Part.pad`. `index` MUST be `None` or a non-negative `int`: `None` names every pad that carries the number, an `int` the pad at that position among them, in the footprint's pad order.
+- `connection` MUST be `"solid"`, `"thermal"`, `"none"` or `"thru_hole_only"`, the values of `Pad.zone_connection` (`design-model`). `locked` MUST be a `bool`.
+- `DslError` MUST be raised at the call for another connection, for a second request for the same number and index of one part, and for a request with an index when the part already holds one for that number without an index, or the reverse: the two would name the same pad.
+- `PadZoneRequest` is a frozen dataclass with `number` (a `str`), `index`, `connection` and `locked`.
+- `fenolite.dsl` MUST also re-export `PadZoneRequest` and `pad_zones`, as "DSL package" allows, and the package keeps importing only the standard library, `core` and `model`. `to_model` MUST NOT change: a request is not a model object.
+
+#### Scenario: Requests recorded
+- **GIVEN** `u1.zone_connection(9, "solid")` and `u1.zone_connection("1", "none", locked=True)`
+- **WHEN** `pad_zones(design)["U1"]` is read
+- **THEN** it holds `PadZoneRequest("1", None, "none", True)` and then `PadZoneRequest("9", None, "solid", False)`
+
+#### Scenario: One of several pads
+- **GIVEN** `j1.zone_connection(1, "thermal", index=0)` and `j1.zone_connection(1, "solid", index=1)`
+- **WHEN** `pad_zones(design)["J1"]` is read
+- **THEN** it holds the two requests in index order
+
+#### Scenario: Refused calls
+- **WHEN** `u1.zone_connection(9, "direct")`, `u1.zone_connection("", "solid")`, a second `u1.zone_connection(9, "thermal")` after `u1.zone_connection(9, "solid")`, and `u1.zone_connection(9, "thermal", index=0)` after it are called
+- **THEN** each call raises `DslError`, the last two naming `U1` and `9`
+
+#### Scenario: Import edges
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it passes with no `ALLOWED` change
+
+### Requirement: Pad zone connections in a build
+`lens.build.build_design` SHALL accept the keyword-only argument `pad_zones: Mapping[str, Sequence[PadZoneRequestLike]]`, empty by default, and SHALL apply the requests of each component to the built copy of its footprint with `fenolite.backends.kicad.zones.apply_pad_connections(instance, requests, *, where="", issues=None) -> FootprintInstance`, `where` being the component path that an issue names, after placing and before the build checks and `Design.validate()`; `cli/cmd_build.py` SHALL pass `dsl.pad_zones(design)`.
+- `PadZoneRequestLike` is a structural protocol with the attributes of `PadZoneRequest`, so `zones.py` never imports the DSL.
+- A request MUST set `Pad.zone_connection` of every pad it names: all pads of the footprint with that number, or the one at `index` among them. A pad that no request names keeps the value of the library footprint.
+- A request whose number no pad carries, or whose index is beyond the pads that carry it, MUST give `kicad.pad.zone-unknown-pad` (error) naming the part, the number and the index; `build_design` then returns no files, so `build` exits 5 and writes nothing.
+- The board writer writes the value as `(zone_connect N)` (`kicad-file-backend`, "Pad zone connection"). Nothing else of the build changes: a call without `pad_zones` MUST behave as before, and `--seed`, `--timestamp` and `PYTHONHASHSEED` MUST NOT change any file of a build with requests.
+- With an existing board, `layout-lens`, "Pad zone connections across rebuilds", decides the pads of kept footprints.
+- `zones.PAD_ZONE_ISSUE_CODES` MUST be the closed table of the codes of this requirement and of that one. They are `kicad.*` codes, so they pass through `BUILD_ISSUE_CODES` and `PRESERVE_ISSUE_CODES` unchanged, as "Build issue codes" allows.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.pad.zone-unknown-pad` | error | a request names a pad number or index that the footprint does not have |
+| `kicad.pad.zone-forced` | warning | a locked request replaced the setting that a pad of a kept footprint carries |
+| `kicad.pad.zone-overridden` | info | an unlocked request differs from the setting that a pad of a kept footprint carries, which stays |
+
+- `--target altium` MUST NOT read the requests, as it does not read field requests; `docs/dsl.md` MUST say so, and MUST describe the call, the four values and the rebuild rule under "Zones".
+- The evidence of the build does not change: the written child is covered by the board writer's evidence, and its effect on a fill by `H-K-ZONE-CONNECT`. That a pad which differs from its library pad only by this child raises no library mismatch in KiCad's DRC is `H-K-PAD-ZONE-LIB`.
+
+#### Scenario: Solid exposed pad
+- **GIVEN** a blink pour variant in which `d1.zone_connection(1, "solid")` is called
+- **WHEN** it is built with `--dry-run --json` for target 10 and the planned board is read with `read_board`
+- **THEN** the exit code is 0, pad `1` of `D1` has `zone_connection == "solid"`, its other pad has `None`, and the board text holds `(zone_connect 2)` exactly once
+
+#### Scenario: Unknown pad stops the build
+- **GIVEN** the same variant with `d1.zone_connection(7, "solid")`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 5, `issues` hold one `kicad.pad.zone-unknown-pad` naming `D1` and `7`, and nothing is written
+
+#### Scenario: Builds with requests are reproducible
+- **WHEN** `uv run pytest tests/unit/lens/test_build_pad_zones.py -k reproducible` builds the variant twice for target 9 and target 10 with different seeds and `PYTHONHASHSEED` values
+- **THEN** both builds write every file with the same bytes
+
+#### Scenario: KiCad reports no library mismatch
+- **WHEN** `uv run pytest tests/kicad/zones/test_pad_zone_requests.py` builds the variant once per connection value, with its vendored library in place, and runs `pcb drc` on 9.0.9 and on 10.0.6
+- **THEN** each run writes a report that holds no `lib_footprint_mismatch` and no violation naming pad `1` of `D1`, and the probe `pad-zone-lib` records `absent` on both majors (`H-K-PAD-ZONE-LIB`)
+
+#### Scenario: Closed code table
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pad_zones.py -k closed_set` collects every code that `apply_pad_connections` and `keep_pad_connections` produce in their tests
+- **THEN** each is a key of `PAD_ZONE_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
+
+### Requirement: Net aliases in the DSL
+`Design.moved_net(old, new)` SHALL record that the net named `new` was named `old` in an earlier build, and `dsl.net_moves(design) -> Mapping[str, str]` SHALL return the recorded net aliases, new name → old name, in name order; `fenolite.dsl` SHALL re-export `net_moves` (an addition under "DSL package").
+- `old` and `new` MUST be non-empty strings. `old == new`, or a second alias with the same `old` or the same `new`, MUST raise `DslError` at the call.
+- `net_moves(design)` MUST raise `DslError` when `new` is not the name of a net of the design, or when `old` is, because the old net's copper would move to the new one. Chains are therefore refused.
+- `cmd_build` MUST turn such a `DslError` into `DesignScriptError` (`FEN-3004`, exit 3).
+- Net aliases are not model data: `to_model` MUST give the same model with and without them.
+- A net alias is needed for one build only: the build writes the copper under the new name (`layout-lens`, "Copper items follow their nets").
+
+#### Scenario: Net alias recorded
+- **GIVEN** a design holding the net `LED_ANODE` and `d.moved_net("LED_A", "LED_ANODE")`
+- **WHEN** `net_moves(d)` is called
+- **THEN** it returns `{"LED_ANODE": "LED_A"}`
+
+#### Scenario: Old net still present
+- **GIVEN** a design holding the nets `VIN` and `VBUS`, and `d.moved_net("VIN", "VBUS")`
+- **WHEN** `net_moves(d)` is called
+- **THEN** `DslError` is raised naming `VIN`
+
+#### Scenario: Model unchanged by net aliases
+- **GIVEN** the blink design with and without `d.moved_net("LED_X", "LED_A")`
+- **WHEN** `canonical.dump_texts(to_model(d))` is computed for both
+- **THEN** the texts are equal
+
+### Requirement: Placements file in a build
+`cmd_build` SHALL read `<script folder>/placements.toml` when it exists and pass its entries to the layout lens as `source`, as "Build command" allows for added steps and `result` keys.
+- The file MUST be read with `lens.placements.read_placements(text, origin=dsl.BOARD_ORIGIN, file="placements.toml")`; a `FormatError` MUST exit 3 (`FEN-3004`) before any planned write.
+- Its `layout.source-invalid` issues MUST be reported, and an error among them MUST stop the build as any other build error does (exit 5, nothing written).
+- Without `--discard-layout`, the entries MUST be passed to `prepare` as `source`. With `--discard-layout`, `cmd_build` MUST call `prepare` with an `ExistingProject` whose three texts are `None` and the same `source`, so no file of the output folder is read and the file still applies ("Placement precedence").
+- With `--target altium`, the placements passed on MUST be those that `prepare` gives with an `ExistingProject` whose texts are `None` and the same `source`, so both targets place a part from the file.
+- `result.preserved.source` MUST hold `file` (`placements.toml`, or `null` when no file was read), `used` (component paths that took their placement from the file), `stale` and `unknown` (paths of `layout.source-stale` and `layout.source-unknown`); "Layout preservation evidence" allows the key.
+- `.fenolite/build.json` MUST record the SHA-256 of the file that was read, so `check` can tell that the layout's source changed.
+
+#### Scenario: File places a part
+- **GIVEN** a blink variant whose `R1` has no `place()`, and a `placements.toml` beside its script with `[part."R1"]`, `x = 20`, `y = 10`
+- **WHEN** it is built into an empty folder with `--confirm --json`
+- **THEN** `R1` is at (120 mm, 110 mm), `issues` hold no `layout.unplaced`, and `result.preserved.source.used` is `["R1"]`
+
+#### Scenario: File survives a discarded layout
+- **GIVEN** a confirmed blink build in `B` edited by `edit_blink`, and a `placements.toml` written by `fenolite sync --to-source --confirm`
+- **WHEN** the blink is built again with `--discard-layout --confirm`
+- **THEN** `D1` is 4 mm right of its `place()` position, the segments and the via of the edit are gone, and `issues` hold one `layout.place-overridden` naming `D1`
+
+#### Scenario: Invalid file stops the build
+- **GIVEN** a `placements.toml` whose `R1` table has `side = "left"`
+- **WHEN** the build runs with `--confirm`
+- **THEN** the exit code is 5, `issues` hold `layout.source-invalid` naming `R1` and `side`, and nothing is written
+
+### Requirement: Drawing sheet and title block in the DSL
+`Design.sheet(paper="A4", *, portrait=False, width=None, height=None, drawing_sheet=None)` and `Design.title_block(*, title="", date="", revision="", organization="", doc_id="", responsible="", approver="", variables={})` SHALL record the board's sheet and title block, each at most once; a second call MUST raise `DslError`.
+- `paper`, `portrait`, `width` and `height` MUST follow the model's `SheetFrameRef` rules; `width` and `height` are lengths, given together for a user paper.
+- `drawing_sheet` MUST be a path relative to the folder of the design script, ending in `.kicad_wks` or `.sheet.toml`; any other ending, an absolute path, or a path leaving that folder MUST raise `DslError`.
+- `variables` MUST map text-variable names to string values; a name that does not match the model's parameter-name rule MUST raise `DslError`.
+- `dsl.to_model` MUST set `Board.sheet` to the `SheetFrameRef` of the call, with `drawing_sheet` equal to `"<design name>.kicad_wks"` when a drawing sheet is given, and `Board.title_block` to the `TitleBlock` of the call with `params` from `variables`. The source path MUST NOT enter the model; `dsl.drawing_sheet_source(design)` MUST return it, or `None`.
+- A design without these calls MUST give the model it gave before this requirement.
+
+#### Scenario: Sheet and title block in the model
+- **GIVEN** `d.sheet("A3", drawing_sheet="frames/company.kicad_wks")` and `d.title_block(title="Blink", revision="B", variables={"PROJECT_CODE": "X1"})` in the blink script
+- **WHEN** `to_model(d)` runs
+- **THEN** `Board.sheet` is `SheetFrameRef("A3", drawing_sheet="blink.kicad_wks")`, `Board.title_block.title` is `Blink`, its `revision` is `B`, its `params` hold `PROJECT_CODE`, and `drawing_sheet_source(d)` is `frames/company.kicad_wks`
+
+#### Scenario: Wrong file type
+- **WHEN** `d.sheet(drawing_sheet="frame.pdf")` is called
+- **THEN** `DslError` is raised naming `frame.pdf`
+
+### Requirement: Drawing sheets in a build
+`fenolite build` SHALL write the drawing sheet that the script names as `<name>.kicad_wks` beside the project, as "Built project files" allows for added steps of `build_design` and added files.
+- `cmd_build` MUST read the source: a `.kicad_wks` with `wks.read_drawing_sheet(text, file=<name of the source>)`, a `*.sheet.toml` with the reader of `sheet-templates` and `build_sheet`. A missing or unreadable source MUST exit 3 (`FEN-3001` or `FEN-3004`) before any planned write, because KiCad would fall back to its default frame without a word (`H-K-WKS-FALLBACK`). The reader's infos MUST be reported.
+- `build_design` MUST add `<name>.kicad_wks` from `wks.write_drawing_sheet(<the sheet>, target=target, allow_lossy=allow_lossy)`; its errors MUST stop the build with its codes, as other writers do.
+- The file MUST be recorded in `.fenolite/build.json` and MUST follow "Edited outputs are not overwritten".
+- The project MUST name it through `apply_sheet_keys`, for the board and, when the build writes a schematic, for the schematic (`kicad-file-backend`, "Projects carry the drawing sheet and text variables").
+- On a rebuild over an existing board, the paper and the title block that the script declares MUST be written from the script; a board whose script declares neither keeps its own (`layout-lens`, "Board content outside the design is kept").
+- `result.drawing_sheet` MUST hold `source` (the path given in the script), `file` (`<name>.kicad_wks`) and `items` (the number of drawn items), or be `null` without a drawing sheet.
+
+#### Scenario: User sheet in a built project
+- **GIVEN** the blink script with `d.sheet(drawing_sheet="frame.kicad_wks")` and an authored `frame.kicad_wks` beside it whose root is the legacy `page_layout`
+- **WHEN** it is built for target 9 with `--confirm --json`
+- **THEN** `receipt.written` lists `blink.kicad_wks`, whose root is `kicad_wks` with the header `(version 20231118)`, `blink.kicad_pro` holds `pcbnew.page_layout_descr_file` `blink.kicad_wks`, and `issues` hold the info `kicad.wks.legacy-root`
+
+#### Scenario: Missing source
+- **GIVEN** the same script without `frame.kicad_wks`
+- **WHEN** it is built with `--dry-run`
+- **THEN** the exit code is 3, stderr carries `FEN-3001` naming `frame.kicad_wks`, and nothing is planned
+
+#### Scenario: Schematic gets the frame
+- **GIVEN** c0061 archived and the same script with the file present
+- **WHEN** it is built with a schematic
+- **THEN** `blink.kicad_pro` holds `schematic.page_layout_descr_file` `blink.kicad_wks` too
+
+### Requirement: Schematic in a build
+`fenolite build` SHALL write the schematic of the design with the triad, as "Build command" and "Built project files" allow for added options, arguments and steps.
+- **Option.** `--schematic write|skip` (default `write`) MUST be passed to `build_design` as the keyword-only argument `schematic`; any other value of the argument MUST raise `ValueError`. With `skip`, the build MUST return the files, the board text and the `result` of a build without this requirement, and none of the lowerings of "Board follows the schematic". With `--target altium` the option MUST be a usage error (exit 2, `FEN-2001`).
+- **Steps.** With `schematic="write"`, `build_design` MUST, after the build checks and `Design.validate()` and before `write_triad`: call `schgen.generate_schematic(<the design to write>, parts, name=name, target=target, placements=symbol_placements, vendor=vendor, allow_lossy=allow_lossy)`; return no file when it gives an issue of severity `error`; apply `lens.build.lower_for_schematic` ("Board follows the schematic") to the design handed to `write_triad`. After the vendored footprints it MUST add `<name>.kicad_sch` from `sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)` and the files of "Symbols of a built project".
+- **With an existing board.** The design passed to the generator MUST be the merged layout, so a board-only footprint, which has no resolved symbol, gets no symbol.
+- **Placements.** `cmd_build` MUST read `<script folder>/schematic-placements.toml` when it exists and pass the result as `symbol_placements` ("Schematic placements file").
+- **Record.** `.fenolite/build.json` MUST record the SHA-256 of the schematic, of `sym-lib-table` and of every symbol library, like every other file outside `.fenolite/`.
+- **Replaced sheet.** When `DIR/<name>.kicad_sch` exists and its bytes are neither the planned bytes nor those whose SHA-256 the last build record holds, `cmd_build` MUST add one `build.schematic-replaced` warning naming the file, and the mutation protocol keeps its backup. The build MUST NOT read that file.
+- **Output.** `BuildOutput.schematic` MUST hold the `GeneratedSchematic`, or `None` when the schematic is skipped or no file is returned.
+- **Result.** `result.schematic` MUST hold `file`, `paper`, `symbols`, `labels`, `no_connects`, `power_flags`, `libraries` (the symbol library files) and `unconnected_pads` (the size of `pad_nets`); with `skip` it MUST be `null`.
+- **Evidence.** The build evidence MUST also combine `schgen.EVIDENCE`.
+
+#### Scenario: Blink gets a schematic
+- **WHEN** `fenolite build examples/blink_2layer/design.py --out B --confirm --json` runs for target 10
+- **THEN** `receipt.written` lists `B/blink.kicad_sch`, `B/sym-lib-table`, `B/lib/Mini.kicad_sym` and `B/lib/fenolite.kicad_sym`, and `result.schematic` holds `symbols` 5, `power_flags` 2, `no_connects` 29, `unconnected_pads` 29 and `paper` `A4`
+
+#### Scenario: Skipping the schematic
+- **WHEN** the same build runs with `--schematic skip` into an empty folder
+- **THEN** `receipt.written` holds no `.kicad_sch`, no `sym-lib-table` and no `.kicad_sym` file, `result.schematic` is `null`, and no pad of the board is on a net whose name starts with `unconnected-`
+
+#### Scenario: Rebuild is identical
+- **WHEN** the confirmed build with a schematic runs a second time
+- **THEN** every file has the bytes of the first build, and `issues` holds no `build.schematic-replaced`
+
+#### Scenario: Edited schematic replaced
+- **GIVEN** a confirmed blink build in `B` whose `blink.kicad_sch` then gets one more `text` item
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, `issues` holds one `build.schematic-replaced` warning, `B/blink.kicad_sch` has the bytes of the first build, and `B/blink.kicad_sch.bak` holds the edited bytes
+
+#### Scenario: Generator error writes nothing
+- **GIVEN** a `schematic-placements.toml` that puts one pin of `R1` on one pin of `D1`
+- **WHEN** the build runs with `--confirm`
+- **THEN** the exit code is 5, `issues` holds `build.symbol-short`, and no file is written
+
+#### Scenario: Altium target
+- **WHEN** `fenolite build examples/blink_2layer/design.py --out B --target altium --schematic skip --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+### Requirement: Symbols of a built project
+A build with a schematic SHALL write the symbols it embeds into project libraries, by the rule that "Footprints of every row origin are vendored" gives footprints: only what the design uses, under the nicknames of the design.
+- For each nickname with an embedded symbol, the build MUST write `lib/<nickname>.kicad_sym` with `symembed.write_symbol_library`, holding the embedded definitions of that nickname (flattened, pin-pad variants included) and, for a nickname that the design authors ("Project-authored symbols"), every authored symbol of it, embedded or not, and `sym-lib-table` MUST hold one row per written nickname with `uri "${KIPRJMOD}/lib/<nickname>.kicad_sym"`, written by `libs.write_lib_table` for the target, rows sorted by nickname.
+- The node of an authored symbol MUST be the one that `sym.write_symbol_library` writes ("Project-authored symbols"), in the library file and in the sheet alike. A library whose symbols are all authored, none of them with a pin-pad variant, therefore has the same bytes with the schematic written and with it skipped. An authored symbol counts as a project row for the `vendor` policy.
+- With `vendor="project"`, a symbol resolved through a row that is not a project row MUST still be embedded in the sheet, MUST get no library file and no row, and MUST give one `build.global-library` info.
+- When the sheet holds a power flag, `lib/fenolite.kicad_sym` and its row MUST be written whatever the `vendor` policy. A design whose parts name a library `fenolite`, or that authors a symbol in it, MUST give `build.reserved-library` (error).
+- The unsafe-name rule of "Footprints of every row origin are vendored" MUST apply to symbol library files, and `build.library-changed` MUST be given for a symbol library whose planned bytes differ from the recorded hash.
+- The copies keep their library's licence; `docs/dsl.md` MUST say so beside the footprint note.
+
+#### Scenario: Libraries of the blink
+- **WHEN** the blink is built for target 9
+- **THEN** `files` holds `lib/Mini.kicad_sym` with exactly the symbols `Mini_LED`, `Mini_QFP32_IC` and `Mini_R`, `lib/fenolite.kicad_sym` with `PWR_FLAG`, and a `sym-lib-table` with the rows `Mini` and `fenolite` in this order and no `version` child
+
+#### Scenario: Project policy
+- **GIVEN** the global setup of "Global footprints vendored"
+- **WHEN** `build_design` runs with `vendor="project"`
+- **THEN** `files` holds no `lib/Mini.kicad_sym`, `sym-lib-table` holds only the row `fenolite`, the sheet still embeds the three symbols, and `issues` holds one `build.global-library` info per symbol
+
+#### Scenario: Reserved nickname
+- **GIVEN** a design with a part of `fenolite:Thing`
+- **WHEN** it is built
+- **THEN** `files` is empty and `issues` holds `build.reserved-library`
+
+### Requirement: Schematic placements file
+`fenolite.lens.schplacements.read_placements(text, *, file="", issues=None) -> Mapping[str, SymbolPlacement]` SHALL read an optional `schematic-placements.toml`, with `tomllib` and `parse_float=Decimal`, so no float is created.
+- Each table MUST be keyed by a component path, or by `<path>#<unit>` for a unit above 1, MUST hold `x` and `y` (the symbol origin in millimetres), and MAY hold `rotation` (0, 90, 180 or 270) and `mirror` (`"x"` or `"y"`). A unit that stays in the flow has no cell of its own to turn in, so a table without a position is refused.
+- `x` and `y` MUST be multiples of 1.27 mm. A value off that grid, a missing `x` or `y`, an unknown key, a rotation or mirror outside these values, or a (rotation, mirror) pair outside `schlayout.PROVED_FRAMES` MUST give `build.symbol-placement-invalid` (error) naming the table and the key, appended to `issues`, and the table gives no placement. `cmd_build` MUST plan no write when the file gives an error.
+- A table that names no unit of the design MUST give `build.symbol-placement-unknown` (warning), reported by the build.
+- A file that is not valid TOML MUST raise `FormatError` (`FEN-3004`) naming the file.
+
+#### Scenario: Position in millimetres
+- **GIVEN** the text `["R1"]`, `x = 25.4`, `y = 50.8`
+- **WHEN** it is read
+- **THEN** `R1` has `x == 25_400_000` and `y == 50_800_000`, rotation 0 and no mirror
+
+#### Scenario: Off the grid
+- **GIVEN** `x = 25.5`
+- **WHEN** the build reads it
+- **THEN** `issues` holds one `build.symbol-placement-invalid` error naming `R1` and `x`
+
+#### Scenario: Unknown path
+- **GIVEN** a table `["R9"]` and a design without `R9`
+- **WHEN** the blink is built
+- **THEN** `issues` holds one `build.symbol-placement-unknown` warning, and the build writes its files
+
+### Requirement: Board follows the schematic
+`lens.build.lower_for_schematic(design, generated) -> Design` SHALL return the design that `write_triad` writes when a schematic is written, so that KiCad's parity test and its update find the board in agreement with the sheet.
+- **Unconnected pads.** Each pad named by `generated.pad_nets` MUST get a net of that name, with the id `derived_id("net", "fenolite", "unconnected:<component path>:<pad number>")`, no net class and no member. Every other pad and net MUST be unchanged.
+- **Symbol paths.** `Component.path` of each component named by `generated.paths` MUST be `/<kicad uuid of its instance with the lowest unit>` for a symbol of the root sheet, and `/<kicad uuids of the sheet references from the top down>/<kicad uuid of that instance>` for a symbol of a child sheet (`H-K-SCH-HIER-PATH`), which the board writer emits as the footprint's `path`.
+- **Stored layout.** `BuildOutput.layout`, the `.fenolite/` texts and `BuildOutput.design` MUST NOT hold those nets: their pads of unconnected pins stay on no net, and `Design.validate()` reports nothing about them.
+- **Net names.** Created nets are written in KiCad's stored form by the board writer (`kicad-file-backend`, "Net names in KiCad's stored form"), and labels carry the same form.
+- The function MUST be pure, and applying it twice MUST give the result of applying it once.
+
+#### Scenario: Pads of unconnected pins
+- **WHEN** the blink is built for target 10 and the board text is parsed
+- **THEN** pad `2` of `U1` holds `(net "unconnected-(U1-PA1-Pad2)")`, pad `16` holds `(net "unconnected-(U1-Pad16)")`, and the footprint of `U1` holds a `path` child whose text is `/` followed by the uuid of the symbol `U1` in `blink.kicad_sch`
+
+#### Scenario: Numbered form for target 9
+- **WHEN** the blink is built for target 9
+- **THEN** the net table of the board holds 29 rows whose names start with `unconnected-(U1-`, each referenced by exactly one pad
+
+#### Scenario: Stored model stays clean
+- **WHEN** `.fenolite/circuit.json` and `.fenolite/board.json` of that build are loaded
+- **THEN** no net name starts with `unconnected-`, pad `2` of `U1` has no net, and `fenolite check B --stages model.validate --json` reports no `model.single-pin-net` that names an `unconnected-` net
+
+#### Scenario: Slash net
+- **GIVEN** a blink variant whose net `LED_A` is named `mod/LED_A`
+- **WHEN** it is built for target 10
+- **THEN** the pads and the labels hold `mod{slash}LED_A`, `.fenolite/circuit.json` holds `mod/LED_A`, and a second build is byte-identical
+
+#### Scenario: Path of a symbol in a child sheet
+- **GIVEN** the design of "Two modules, one nested" (`kicad-schematic`, "Hierarchical sheets of a design") built for target 10
+- **WHEN** the board text is parsed
+- **THEN** the footprint of `C1` holds a `path` child whose text is `/`, the uuid of the sheet reference `power`, `/`, the uuid of the sheet reference `ldo`, `/` and the uuid of the symbol `C1`
+
+### Requirement: Schematic netlist guard in a build
+A build that writes a schematic SHALL prove, before it returns any file and without any tool, that the sheets it generated mean the circuit, as a step that "Built project files" allows after `schgen.generate_schematic`.
+- The guard MUST compute `sch_netlist.own_netlist(generated.sheet, project=name, children=generated.children)` and compare it with the expected netlist of the design: each net of the circuit under `netnames.stored_name` of its name, with each member whose component has a symbol (a key of `generated.paths`) named by its component's reference and its pad number (the pin number mapped through `pin_pad_map`), and each entry of `generated.pad_nets` as a net of one node under its name. Every other pin of the sheet MUST only be required to be a net of one node. A component without a symbol, such as a footprint a rebuild keeps from the board, is not compared.
+- Two nets of the circuit with members on the sheet and one stored name MUST be a difference: KiCad reads them as one net.
+- A member or a `pad_nets` entry that the sheet has on another net or not at all, a pin of the sheet that shares its net against the circuit, or a grammar issue (a child sheet that no reference reaches is one), MUST give one `build.schematic-netlist-differs` issue of severity `error`, naming the first net and `REF-PIN` in sorted order, and the build MUST return no file (exit 5).
+- The code SHALL join the closed build issue set of "Build issue codes".
+- With `schematic="skip"` the guard MUST NOT run.
+- The guard MUST NOT compare `pintype`, net classes or component values: it is about connectivity.
+
+#### Scenario: Examples pass the guard
+- **WHEN** `uv run pytest tests/unit/lens/test_build_netlist_guard.py -k examples` builds the blink and the units design for targets 9 and 10
+- **THEN** no `build.schematic-netlist-differs` is reported, and `files` holds the schematic
+
+#### Scenario: Generator defect caught
+- **GIVEN** a `generate_schematic` patched in the test to exchange the labels of the two pins of `R1`
+- **WHEN** `build_design` runs for the blink
+- **THEN** `files` is empty, and `issues` holds one `build.schematic-netlist-differs` error naming `LED_A` or `LED_DRV` and `R1-1` or `R1-2`
+
+#### Scenario: Two labels on one pin
+- **GIVEN** a `generate_schematic` patched in the test to put the label of `R1` pin `2` on pin `1`, beside the label of that pin
+- **WHEN** `build_design` runs for the blink
+- **THEN** `files` is empty, and the one `build.schematic-netlist-differs` error names the grammar reason `two-names`
+
+#### Scenario: A kept footprint without a symbol
+- **GIVEN** a rebuild over a board that holds a footprint the script does not, with a pad on a net of the circuit
+- **WHEN** `uv run pytest tests/unit/lens/test_net_alias.py -k board_only` rebuilds the project
+- **THEN** the build succeeds: the guard compares only the components that have a symbol
+
+#### Scenario: Skipped schematic, no guard
+- **WHEN** the blink is built with `schematic="skip"` and the same patch
+- **THEN** the build returns its files and no `build.schematic-netlist-differs`
+
+#### Scenario: Hermetic
+- **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** the blink is built with a schematic
+- **THEN** the build succeeds
+
+#### Scenario: Module sheets pass the guard
+- **WHEN** `uv run pytest tests/unit/lens/test_build_netlist_guard.py -k modules` builds the design of "Two modules, one nested" for targets 9 and 10
+- **THEN** no `build.schematic-netlist-differs` is reported, and `files` holds the root and three child sheets
+
+### Requirement: Hierarchical sheets in a build
+`fenolite build` SHALL write every child sheet that `generate_schematic` returns, as "Built project files" allows for added keyword arguments and steps of `build_design`, and as "Build command" allows for added options.
+- **Option.** `--schematic-layout readable|grid` (default `readable`) MUST be passed to `build_design` as the keyword-only argument `schematic_layout`, and from there to `generate_schematic` as `layout`; any other value of the argument MUST raise `ValueError`. With `--schematic skip` the option has no effect; with `--target altium` it MUST be a usage error (exit 2, `FEN-2001`).
+- **Files.** After `<name>.kicad_sch`, `build_design` MUST add one file per entry of `generated.children`, at its path under the output folder, from `sch.write_schematic(child, target=target, allow_lossy=allow_lossy)`. `.fenolite/build.json` MUST record the SHA-256 of each.
+- **Replaced sheet.** A child file whose bytes are neither the planned bytes nor those whose SHA-256 the last build record holds MUST give `build.schematic-replaced`, as the root does, and MUST NOT give `build.layout-exists`; the build MUST NOT read it.
+- **Stale sheet.** A `.kicad_sch` file under `sheets/` that the last build record lists and this build does not plan MUST give `build.sheet-stale` (warning) naming it, from `build_design`, and MUST be left in place: the build deletes nothing. The warning is given once, because the next record no longer lists the file.
+- **Result.** `result.schematic` MUST also hold `sheets` (the number of sheets, root included), `files` (the child sheet files, in page order), `wires` and `satellites` (the number of snapped satellites); `symbols`, `labels` and `no_connects` MUST count every sheet, and `paper` stays the root's.
+- **Stand-in update.** `tests/_layout_edit.py::update_from_schematic(board_text, schematic_texts)` MUST also take the root and child texts keyed by path, the root first. For a footprint whose symbol is in a child sheet, `path` MUST be `/<uuids of the sheet references from the top down>/<symbol uuid>`, `sheetname` the `Sheetname` of the reference to that sheet and `sheetfile` the `Sheetfile` text that names its file: the values that `kicad-cli`'s netlist export lists as the component's `Sheetname` and `Sheetfile` properties on both majors. What the real update writes there was not measured (`H-K-SCH-HIER-PATH`, the update half). Footprints of root symbols keep the form of "Boards updated from the schematic keep their layout".
+- The codes `build.sheet-file-collision` and `build.sheet-stale` join the build's closed set ("Build issue codes") through `schgen.ISSUE_CODES`.
+
+#### Scenario: Module sheets written
+- **GIVEN** the lens acceptance design of c0069 (`tests/data/lens/acceptance/design.py`)
+- **WHEN** it is built for target 10 with `--confirm --json`
+- **THEN** `receipt.written` lists `<name>.kicad_sch`, `sheets/io.kicad_sch` and `sheets/power.kicad_sch`, `result.schematic.sheets` is 3, and a second build writes every file with the same bytes
+
+#### Scenario: Grid layout on request
+- **WHEN** the same design is built with `--schematic-layout grid`
+- **THEN** `receipt.written` holds no file under `sheets/`, the schematic holds no wire, and `result.schematic.satellites` is 0
+
+#### Scenario: Module removed later
+- **GIVEN** a confirmed build of that design, after which the module `io` is removed from `design.py`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `issues` hold one `build.sheet-stale` naming `sheets/io.kicad_sch`, the file is still there, and the root no longer names it
+
+#### Scenario: Edited child sheet replaced
+- **GIVEN** a confirmed build of that design, after which a byte is appended to `sheets/io.kicad_sch`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, `issues` hold one `build.schematic-replaced` naming that file, and the file has the bytes of the first build
+
+#### Scenario: Board survives the first readable build
+- **GIVEN** a confirmed v0.2a-form build of that design, made with `--schematic-layout grid`, whose board was then edited by moving two footprints by token edit
+- **WHEN** it is built again with the default layout
+- **THEN** the two footprints keep their edited positions, every footprint `path` of a part in a module takes the hierarchical form, and `issues` hold no `layout.orphan` and no `layout.net-removed`
+

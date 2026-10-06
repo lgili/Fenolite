@@ -4,8 +4,9 @@
 
 The existing board is the layout authority; there is no stored base. ``match_footprints`` pairs the
 design's parts with the board's footprints (uuid, ``fenolite.path``, then a ``moved()`` alias);
-``effective_placements`` applies the precedence locked ``place()`` > board > ``place()`` > staging;
-``merge_layout`` keeps matched footprint nodes, copper on surviving nets and every other board content;
+``effective_placements`` applies the precedence locked ``place()`` > board > ``placements.toml`` >
+``place()`` > staging; ``merge_layout`` keeps matched footprint nodes (under the new identity for an alias
+match), copper on surviving or renamed nets and every other board content;
 ``drop_stale_fills`` drops fills whose text digests changed; ``merge_rules`` keeps the user's custom
 rules after Fenolite's. Geometry is never computed: positions are integers and digests are text.
 """
@@ -19,12 +20,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, pcb, pro, slots
 from fenolite.backends.kicad import zones as zones_mod
 from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
+from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
 from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
 from fenolite.core.coords import Point
@@ -32,17 +34,32 @@ from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Udeg
+from fenolite.lens.moved import resolve_aliases
 from fenolite.model import canonical
 from fenolite.model.base import Opaque, Slot
-from fenolite.model.board import Arc, FootprintField, FootprintInstance, Graphic, Pad, Side, Track, Via, Zone
+from fenolite.model.board import (
+    Arc,
+    Board,
+    FootprintField,
+    FootprintInstance,
+    Graphic,
+    Pad,
+    Side,
+    Track,
+    Via,
+    Zone,
+)
 from fenolite.model.circuit import Component, PinRef
 from fenolite.model.design import Design
 
 PRESERVE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "layout.copper-mismatch": "error",
+        "layout.source-invalid": "error",
         "layout.orphan": "warning",
         "layout.alias-unused": "warning",
+        "layout.net-alias-unused": "warning",
+        "layout.source-unknown": "warning",
         "layout.place-forced": "warning",
         "layout.footprint-replaced": "warning",
         "layout.net-removed": "warning",
@@ -50,6 +67,8 @@ PRESERVE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "zone.fill-stale": "warning",
         "layout.place-overridden": "info",
         "layout.alias-used": "info",
+        "layout.net-alias-used": "info",
+        "layout.source-stale": "info",
         "layout.board-only": "info",
     }
 )
@@ -61,6 +80,8 @@ covers the edited blink, not every board."""
 OVERRIDE_HINT = (
     "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout"
 )
+FILE_HINT = "lock the placement in the script, or edit placements.toml"
+STALE_HINT = "run fenolite sync --to-source"
 BAG = "kicad"
 
 
@@ -249,6 +270,12 @@ def _off_board(fp: FootprintInstance, design: Design, board: Design) -> bool:
     return not (min(xs) <= fp.position.x <= max(xs) and min(ys) <= fp.position.y <= max(ys))
 
 
+def off_board(fp: FootprintInstance, design: Design, board: Design) -> bool:
+    """Whether ``fp`` lies outside the design's outline, so a build stages or re-places its part
+    (``docs/lens.md``, "Placement precedence")."""
+    return _off_board(fp, design, board)
+
+
 def _same(a: PlacementLike, fp: FootprintInstance, *, lock: bool) -> bool:
     same = (a.at, a.rotation, a.side) == (fp.position, fp.rotation, fp.side)
     return same and (not lock or a.locked == fp.locked)
@@ -258,27 +285,38 @@ def _describe(at: Point, rotation: Udeg, side: Side) -> str:
     return f"({at.x / 1e6:g} mm, {at.y / 1e6:g} mm, {rotation / 1e6:g}°, {side})"
 
 
+@dataclass(frozen=True, slots=True)
+class FilePlacement(KeptPlacement):
+    """A placement taken from the placements file: a ``KeptPlacement``, so the build writes the entry's
+    lock, which gives the entry no precedence."""
+
+
+def _same_place(a: PlacementLike, b: PlacementLike) -> bool:
+    return (a.at, a.rotation, a.side) == (b.at, b.rotation, b.side)
+
+
 def effective_placements(
     placements: Mapping[str, PlacementLike],
     match: LayoutMatch,
     *,
     design: Design,
-    board: Design,
+    board: Design | None,
+    source: Mapping[str, PlacementLike] | None = None,
 ) -> tuple[Mapping[str, PlacementLike], tuple[Issue, ...]]:
-    """Each part's placement: locked ``place()`` > existing board > ``place()`` > staging (omitted)."""
+    """Each part's placement: locked ``place()`` > existing board > the placements file (``source``) >
+    ``place()`` > staging (omitted). An entry of ``source`` that wins is given as a ``FilePlacement``."""
+    entries = source or {}
     out: dict[str, PlacementLike] = {}
     issues: list[Issue] = []
-    for path in _paths(design):
+    paths = _paths(design)
+    for path in paths:
         request = placements.get(path)
         found = match.matches.get(path)
-        if found is None:
-            if request is not None:
-                out[path] = request
-            continue
-        fp = found.footprint
+        entry = entries.get(path)
+        fp = found.footprint if found is not None else None
         if request is not None and request.locked:
             out[path] = request
-            if not _same(request, fp, lock=True):
+            if fp is not None and not _same(request, fp, lock=True):
                 issues.append(
                     issue(
                         "layout.place-forced",
@@ -288,27 +326,61 @@ def effective_placements(
                     )
                 )
             continue
-        if _off_board(fp, design, board):
-            if request is not None:
-                out[path] = request
-            continue
-        out[path] = KeptPlacement(fp.position, fp.rotation, fp.side, fp.locked)
-        if request is not None and not _same(request, fp, lock=False):
-            issues.append(
-                issue(
-                    "layout.place-overridden",
-                    f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
-                    f"overridden by the board's {_describe(fp.position, fp.rotation, fp.side)}",
-                    path,
-                    OVERRIDE_HINT,
+        if fp is not None and not (board is not None and _off_board(fp, design, board)):
+            out[path] = KeptPlacement(fp.position, fp.rotation, fp.side, fp.locked)
+            if request is not None and not _same(request, fp, lock=False):
+                issues.append(
+                    issue(
+                        "layout.place-overridden",
+                        f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                        f"overridden by the board's {_describe(fp.position, fp.rotation, fp.side)}",
+                        path,
+                        OVERRIDE_HINT,
+                    )
                 )
+            if entry is not None and not _same(entry, fp, lock=True):
+                issues.append(
+                    issue(
+                        "layout.source-stale",
+                        f"{path}: placements.toml has {_describe(entry.at, entry.rotation, entry.side)}"
+                        f"{', locked' if entry.locked else ''} and the board keeps "
+                        f"{_describe(fp.position, fp.rotation, fp.side)}{', locked' if fp.locked else ''}",
+                        path,
+                        STALE_HINT,
+                    )
+                )
+            continue
+        if entry is not None:
+            out[path] = FilePlacement(entry.at, entry.rotation, entry.side, entry.locked)
+            if request is not None and not _same_place(request, entry):
+                issues.append(
+                    issue(
+                        "layout.place-overridden",
+                        f"{path}: place() {_describe(request.at, request.rotation, request.side)} is "
+                        f"overridden by placements.toml's {_describe(entry.at, entry.rotation, entry.side)}",
+                        path,
+                        FILE_HINT,
+                    )
+                )
+            continue
+        if request is not None:
+            out[path] = request
+    for path in sorted(set(entries) - set(paths)):
+        issues.append(
+            issue(
+                "layout.source-unknown",
+                f"placements.toml places {path!r}, which is not a part of the design",
+                path,
+                "remove the table, or run fenolite sync --to-source",
             )
+        )
     return MappingProxyType(out), tuple(issues)
 
 
 @dataclass(frozen=True)
 class Prepared:
-    """What ``build_design`` needs to merge with an existing project."""
+    """What ``build_design`` needs to merge with an existing project. ``aliases`` are the part aliases;
+    ``net_aliases`` and ``module_aliases`` are the resolved net and module aliases (new → old)."""
 
     existing: ExistingProject
     board: Design | None
@@ -317,6 +389,8 @@ class Prepared:
     issues: tuple[Issue, ...] = ()
     reader_infos: int = 0
     aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    net_aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    module_aliases: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
 
 
 def prepare(
@@ -326,26 +400,55 @@ def prepare(
     *,
     name: str,
     moves: Mapping[str, str] | None = None,
+    module_moves: Mapping[str, str] | None = None,
+    net_moves: Mapping[str, str] | None = None,
+    source: Mapping[str, PlacementLike] | None = None,
 ) -> Prepared:
-    """Read the existing board, match its footprints and decide the effective placements."""
-    aliases = MappingProxyType(dict(moves or {}))
+    """Read the existing board, resolve the aliases, match its footprints and decide the effective
+    placements. Without a board, only the placements file (``source``) changes the placements."""
     if existing.board is None:
-        return Prepared(existing, None, None, placements, aliases=aliases)
+        aliases, _ = resolve_aliases(
+            design, None, moves=moves, module_moves=module_moves, net_moves=net_moves
+        )
+        if not source:
+            return Prepared(
+                existing, None, None, placements, aliases=aliases.parts, module_aliases=aliases.modules
+            )
+        effective, more = effective_placements(
+            placements, LayoutMatch(MappingProxyType({})), design=design, board=None, source=source
+        )
+        return Prepared(
+            existing, None, None, effective, more, aliases=aliases.parts, module_aliases=aliases.modules
+        )
     found: list[Issue] = []
     board = pcb.read_board(existing.board, file=f"{name}.kicad_pcb", issues=found)
     issues = [i for i in found if i.severity != "info"]
-    match = match_footprints(design, board, moves=aliases)
+    aliases, alias_issues = resolve_aliases(
+        design, board, moves=moves, module_moves=module_moves, net_moves=net_moves
+    )
+    issues += alias_issues
+    match = match_footprints(design, board, moves=aliases.parts)
     for new, old in match.unused_aliases:
         issues.append(
             issue(
                 "layout.alias-unused",
-                f"moved({old!r}, {new!r}) matched nothing to re-place; remove the alias",
+                f"moved({old!r}, {new!r}) matched nothing to keep; remove the alias",
                 new,
             )
         )
-    effective, more = effective_placements(placements, match, design=design, board=board)
+    effective, more = effective_placements(placements, match, design=design, board=board, source=source)
     infos = sum(1 for i in found if i.severity == "info")
-    return Prepared(existing, board, match, effective, (*issues, *more), infos, aliases)
+    return Prepared(
+        existing,
+        board,
+        match,
+        effective,
+        (*issues, *more),
+        infos,
+        aliases.parts,
+        aliases.nets,
+        aliases.modules,
+    )
 
 
 # --- merging --------------------------------------------------------------------------------------
@@ -473,8 +576,110 @@ def _net_names(design: Design) -> dict[str, str]:
     return {n.id: n.name for n in design.circuit.nets}
 
 
-def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
-    """The layout to write: the existing board with the built design's circuit and footprints merged."""
+_NOT_REKEYED = frozenset({"id", "component_id", "net_id", "provenance"})
+"""Entity fields that hold model ids or provenance, never a KiCad uuid."""
+
+
+def _rekey(value: object, mapping: Mapping[str, str]) -> object:
+    """``value`` with every KiCad uuid that is a key of ``mapping`` replaced, in native ids and in the
+    verbatim fragments of the extension bags; every other text stays."""
+    if isinstance(value, str):
+        if len(value) < 36:
+            return value
+        if value in mapping:
+            return mapping[value]
+        for old, new in mapping.items():
+            if old in value:
+                value = value.replace(old, new)
+        return value
+    if isinstance(value, tuple):
+        old_items = cast(tuple[object, ...], value)
+        items = tuple(_rekey(item, mapping) for item in old_items)
+        return items if any(a is not b for a, b in zip(items, old_items, strict=True)) else old_items
+    if isinstance(value, Mapping):
+        return {key: _rekey(item, mapping) for key, item in cast(Mapping[object, object], value).items()}
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        changes: dict[str, object] = {}
+        for found in dataclasses.fields(value):
+            if found.name in _NOT_REKEYED:
+                continue
+            current = getattr(value, found.name)
+            renamed = _rekey(current, mapping)
+            if renamed is not current and renamed != current:
+                changes[found.name] = renamed
+        return dataclasses.replace(value, **changes) if changes else value
+    return value
+
+
+def _with_path(kept: FootprintInstance, path: str) -> FootprintInstance:
+    """``kept`` with its ``fenolite.path`` property set to ``path``, as a field or as an opaque node."""
+    fields = tuple(
+        _field_with_value(f, PATH_PROPERTY, path) if f.name == PATH_PROPERTY else f for f in kept.fields
+    )
+    current = list(_slots(kept))
+    changed = False
+    for index, slot in enumerate(current):
+        if _property_name(slot) == PATH_PROPERTY:
+            assert isinstance(slot, Opaque)
+            current[index] = Opaque(
+                _with_name_and_value(slot.fragment, PATH_PROPERTY, path), slot.min_version
+            )
+            changed = True
+    ext = {**kept.ext, BAG: slots.to_ext(current, kept.ext.get(BAG))} if changed else kept.ext
+    return dataclasses.replace(kept, fields=fields, ext=ext)
+
+
+def _group_members(fragment: str, mapping: Mapping[str, str]) -> str:
+    """A root ``group`` fragment whose ``members`` atoms follow ``mapping``; anything else unchanged."""
+    if not fragment.startswith("(group") or not any(old in fragment for old in mapping):
+        return fragment
+    node = parse_fragment(fragment)
+    if not isinstance(node, Node) or node.name != "group":
+        return fragment
+    children: list[Node | Atom] = []
+    for child in node.children:
+        if isinstance(child, Node) and child.name == "members":
+            child = child.with_children(
+                [
+                    Atom.string(mapping[a.value]) if isinstance(a, Atom) and a.value in mapping else a
+                    for a in child.children
+                ]
+            )
+        children.append(child)
+    return dumps(node.with_children(children), style="compact")
+
+
+def _with_groups(board: Board, mapping: Mapping[str, str]) -> Board:
+    """``board`` whose root groups name the renamed footprints by their new uuids."""
+    bag = board.ext.get(BAG)
+    if bag is None or not mapping:
+        return board
+    current = list(slots.from_ext(bag))
+    changed = False
+    for index, slot in enumerate(current):
+        if isinstance(slot, Opaque):
+            fragment = _group_members(slot.fragment, mapping)
+            if fragment != slot.fragment:
+                current[index] = Opaque(fragment, slot.min_version)
+                changed = True
+    if not changed:
+        return board
+    return dataclasses.replace(board, ext={**board.ext, BAG: slots.to_ext(current, bag)})
+
+
+def merge_layout(
+    built: Design,
+    board: Design,
+    match: LayoutMatch,
+    *,
+    net_aliases: Mapping[str, str] | None = None,
+    identities: Mapping[str, Mapping[str, str]] | None = None,
+) -> Merged:
+    """The layout to write: the existing board with the built design's circuit and footprints merged.
+
+    ``net_aliases`` (new name → old) lets copper follow a renamed net. ``identities`` maps the component
+    path of an alias match to its identity map (``lens.moved.identity_map``): with it the footprint is
+    kept under its new path, and without it an alias match is re-placed."""
     assert built.board is not None and board.board is not None
     issues: list[Issue] = []
     copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
@@ -497,6 +702,9 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
     nets_by_name = {n.name: n for n in built.circuit.nets}
     matched_ids = {m.footprint.id: m for m in match.matches.values()}
     orphan_ids = {fp.id for fp in match.orphans}
+    old_nets = {old: new for new, old in (net_aliases or {}).items()}
+    alias_used: dict[str, Counter[str]] = {}
+    renamed_uuids: dict[str, str] = {}
     kept_paths: list[str] = []
     replaced: list[str] = []
     placed: list[FootprintInstance] = []
@@ -517,18 +725,36 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
                 fp.side,
                 fp.locked,
             )
+            read = board_components.get(fp.component_id)
+            was = read.properties.get(PATH_PROPERTY) if read is not None else None
+            identity = (identities or {}).get(found.path) if found.key == "alias" else None
             if (
-                found.key != "alias"
+                (found.key != "alias" or identity is not None)
                 and fp.lib_ref == component.lib_footprint_ref
                 and same
                 and copy is not None
             ):
-                node, written = _apply_user_properties(fp, copy, found.path)
+                kept_fp = fp
+                if identity is not None:
+                    renamed = _rekey(fp, identity)
+                    assert isinstance(renamed, FootprintInstance)
+                    kept_fp = _with_path(renamed, found.path)
+                    renamed_uuids.update(identity)
+                    issues.append(
+                        issue(
+                            "layout.alias-used",
+                            f"{found.path} takes the layout of {was or fp.native_ids.get(BAG)}: its "
+                            "footprint is kept under the new path",
+                            found.path,
+                        )
+                    )
+                node, written = _apply_user_properties(kept_fp, copy, found.path)
                 pad_nets = {p.number: p.net_id for p in copy.pads}
                 kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
                 placed.append(dataclasses.replace(node, component_id=component.id, pads=kept_pads))
-                read = board_components.get(fp.component_id)
                 props = dict(read.properties) if read is not None else {}
+                if identity is not None and PATH_PROPERTY in props:
+                    props[PATH_PROPERTY] = found.path
                 for name in [k for k in props if k.casefold() in {w.casefold() for w in written}]:
                     del props[name]
                 props.update(written)
@@ -543,11 +769,12 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
                 issues.append(
                     issue(
                         "layout.alias-used",
-                        f"{found.path} takes the layout of {fp.native_ids.get(BAG)}",
+                        f"{found.path} takes the layout of {was or fp.native_ids.get(BAG)}: its "
+                        "footprint is replaced by the built copy at that placement",
                         found.path,
                     )
                 )
-            elif fp.lib_ref != component.lib_footprint_ref:
+            if fp.lib_ref != component.lib_footprint_ref:
                 issues.append(
                     issue(
                         "layout.footprint-replaced",
@@ -575,6 +802,10 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
         for pad in fp.pads:
             name = board_nets.get(pad.net_id or "")
             net = nets_by_name.get(name or "")
+            if name and net is None and name in old_nets:
+                net = nets_by_name.get(old_nets[name])
+                if net is not None:
+                    alias_used.setdefault(net.name, Counter())["pads"] += 1
             if name and net is None:
                 lost_pads[name] += 1
             pads.append(dataclasses.replace(pad, net_id=net.id if net is not None else None))
@@ -599,6 +830,10 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
             return True, None
         name = board_nets.get(item_net)
         net = nets_by_name.get(name or "")
+        if net is None and name in old_nets:
+            net = nets_by_name.get(old_nets[name])
+            if net is not None:
+                alias_used.setdefault(net.name, Counter())[kind] += 1
         if net is None:
             dropped.setdefault(name or "?", Counter())[kind] += 1
             return False, None
@@ -627,6 +862,7 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
         if ok:
             vias.append(dataclasses.replace(via, net_id=nid))
     tracks += [t for t in built.board.tracks if copper_mod.is_copper_uuid(t.native_ids.get(BAG, ""))]
+    arcs += [a for a in built.board.arcs if copper_mod.is_copper_uuid(a.native_ids.get(BAG, ""))]
     vias += [v for v in built.board.vias if copper_mod.is_copper_uuid(v.native_ids.get(BAG, ""))]
     # zones that the script declares are merged by uuid (c0031); the others follow their nets
     script_zones = zones_mod.merge_zones(built, board)
@@ -649,6 +885,17 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
                 name,
             )
         )
+    for new in sorted(alias_used):
+        counts = alias_used[new]
+        issues.append(
+            issue(
+                "layout.net-alias-used",
+                f"net {(net_aliases or {})[new]!r} is now {new!r}: kept {counts['tracks']} tracks, "
+                f"{counts['arcs']} arcs, {counts['vias']} vias, {counts['zones']} zones and "
+                f"{counts['pads']} board-only pads under the new name",
+                new,
+            )
+        )
     # board content and the outline rule
     edge = _edge_graphics(board)
     outline = None if edge else built.board.outline
@@ -661,8 +908,16 @@ def merge_layout(built: Design, board: Design, match: LayoutMatch) -> Merged:
                 "change the outline in KiCad, or re-run with --discard-layout",
             )
         )
+    # the paper and the title block that the script declares are the script's (c0074); without a call
+    # they stay as the board has them
+    declared = {
+        name: value
+        for name, value in (("sheet", built.board.sheet), ("title_block", built.board.title_block))
+        if value is not None
+    }
     merged_board = dataclasses.replace(
-        board.board,
+        _with_groups(board.board, renamed_uuids),
+        **declared,
         outline=outline,
         footprints=tuple(placed),
         tracks=tuple(tracks),
@@ -750,9 +1005,27 @@ def zone_digest(design: Design, zone: Zone) -> str:
     return _digest(lines)
 
 
-def fill_inputs_digest(design: Design, *, project: str | None, rules: str | None) -> str:
+def _pad_net(name: str) -> str:
+    """A pad's net name as the fill digest sees it: the net KiCad names for an unconnected pin
+    (``unconnected-(…)``, written beside a schematic since c0061) is no net, so a board built before the
+    schematic existed keeps its fills when its pads get those names."""
+    return "" if name.startswith(UNCONNECTED_PREFIX) else name
+
+
+def fill_inputs_digest(
+    design: Design,
+    *,
+    project: str | None,
+    rules: str | None,
+    net_aliases: Mapping[str, str] | None = None,
+) -> str:
     """SHA-256 of what a rebuild can change around a zone: footprints and pads, tracks, arcs, vias, zones,
-    rule areas, edge content and outline, the project's classes and patterns, and the rule items."""
+    rule areas, edge content and outline, the project's classes and patterns, and the rule items.
+
+    ``net_aliases`` (new name → old) are for the existing board of a rebuild: an exact-name pattern or an
+    assignment of ``project`` that names the old name of a net enters under the new one, as the nets of
+    ``design`` do after ``with_net_names``."""
+    renamed = {old: new for new, old in (net_aliases or {}).items()}
     board = design.board
     names = _net_names(design)
     lines: list[str] = []
@@ -760,7 +1033,7 @@ def fill_inputs_digest(design: Design, *, project: str | None, rules: str | None
         for fp in board.footprints:
             pads = sorted(
                 f"{p.number}|{p.shape}|{p.size.w}x{p.size.h}|{p.position.x},{p.position.y}|{p.kind}|{p.rotation}|"
-                f"{p.drill}|{'+'.join(p.layers)}|{names.get(p.net_id or '', '')}"
+                f"{p.drill}|{'+'.join(p.layers)}|{_pad_net(names.get(p.net_id or '', ''))}"
                 for p in fp.pads
             )
             lines.append(
@@ -790,10 +1063,10 @@ def fill_inputs_digest(design: Design, *, project: str | None, rules: str | None
         info = pro.read_project(project, issues=[])
         for cls in info.classes:
             lines.append(f"class {cls}")
-        for entry in info.patterns:
-            lines.append(f"pattern {entry}")
-        for entry in info.assignments:
-            lines.append(f"assignment {entry}")
+        for pattern, cls in info.patterns:
+            lines.append(f"pattern {(renamed.get(pattern, pattern), cls)}")
+        for net, classes in info.assignments:
+            lines.append(f"assignment {(renamed.get(net, net), classes)}")
     if rules is not None:
         for item in dru.parse_rules(rules).items:
             if isinstance(item, dru.RuleItem):
@@ -801,14 +1074,36 @@ def fill_inputs_digest(design: Design, *, project: str | None, rules: str | None
     return _digest(sorted(lines))
 
 
+def with_net_names(board: Design, net_aliases: Mapping[str, str]) -> Design:
+    """``board`` with each net named by the old name of an alias renamed to the new one: what the digests
+    of the existing board are computed from, so a pure rename keeps the fills."""
+    old_nets = {old: new for new, old in net_aliases.items()}
+    if not any(net.name in old_nets for net in board.circuit.nets):
+        return board
+    nets = tuple(
+        dataclasses.replace(net, name=old_nets[net.name]) if net.name in old_nets else net
+        for net in board.circuit.nets
+    )
+    return dataclasses.replace(board, circuit=dataclasses.replace(board.circuit, nets=nets))
+
+
 def drop_stale_fills(
-    board: Design, layout: Design, *, existing: ExistingProject, project: str, rules: str
+    board: Design,
+    layout: Design,
+    *,
+    existing: ExistingProject,
+    project: str,
+    rules: str,
+    net_aliases: Mapping[str, str] | None = None,
 ) -> tuple[Design, tuple[Issue, ...]]:
-    """``layout`` with the fills of each zone whose digests changed dropped (``zone.fill-stale``)."""
+    """``layout`` with the fills of each zone whose digests changed dropped (``zone.fill-stale``). The
+    existing board is digested after its net names are mapped through ``net_aliases`` (new → old)."""
     assert layout.board is not None and board.board is not None
+    board = with_net_names(board, net_aliases or {})
+    assert board.board is not None
     before = {z.native_ids.get(BAG): z for z in board.board.zones}
     same_inputs = fill_inputs_digest(
-        board, project=existing.project, rules=existing.rules
+        board, project=existing.project, rules=existing.rules, net_aliases=net_aliases
     ) == fill_inputs_digest(layout, project=project, rules=rules)
     issues: list[Issue] = []
     zones: list[Zone] = []

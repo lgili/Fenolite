@@ -8,6 +8,8 @@ string that says why, so that no scope is approximated. One parenthesis level ho
 operator, because no permitted source states the precedence (S-0296).
 """
 
+# evidence: see import_evidence, read.project
+
 from __future__ import annotations
 
 import re

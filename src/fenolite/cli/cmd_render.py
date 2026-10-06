@@ -19,15 +19,18 @@ from fenolite.backends.kicad.plot import DEFAULT_HEIGHT, DEFAULT_WIDTH, VIEWS, p
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
+from fenolite.cli._manifest import with_manifest
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
-from fenolite.exports import EVIDENCE
+from fenolite.exports import EVIDENCE, manifest
 from fenolite.exports.codes import issue
 
 HELP = "render review views of a board through kicad-cli on a copy of the project (writes under DIR)"
 MIN_SIZE, MAX_SIZE = 64, 8192
+MANIFEST_KIND = "render"
+"""The kind of every view in the manifest; ``result.views`` keeps ``svg`` and ``png``."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -38,6 +41,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--png", action="store_true", help="top.png and bottom.png (rendered images)")
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, metavar="PX", help="PNG width (1600)")
     parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT, metavar="PX", help="PNG height (1200)")
+    parser.add_argument(
+        "--manifest", action="store_true", help=f"also add the views to {manifest.FILE_NAME} in DIR"
+    )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli to run")
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS", help="per kicad-cli run (300)"
@@ -75,6 +81,25 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     version = cli.version()
     source = board.read_bytes()
     number = board_format(board)
+    if args.manifest:  # a view that failed has no entry; an unreadable manifest in DIR refuses every write
+        tool = manifest.ToolRef("kicad-cli", version)
+        sha = hashlib.sha256(source).hexdigest()
+        entries = [
+            manifest.file_entry(
+                PurePosixPath(w.path).name,
+                MANIFEST_KIND,
+                w.data,
+                evidence=EVIDENCE.level.value,
+                from_={"board": sha},
+                tool=f"{tool.name} {tool.version}",
+            )
+            for w in writes
+        ]
+        merged, refused = with_manifest(
+            writes, args.out, ctx, entries, board=manifest.BoardRef(project.board, sha, number), tool=tool
+        )
+        writes = list(merged)
+        issues += refused
     return Result(
         result={"board": project.board, "out": str(args.out), "views": views, "tool_version": version},
         issues=tuple(issues),

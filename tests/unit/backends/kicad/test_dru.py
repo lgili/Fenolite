@@ -170,7 +170,7 @@ def test_read_selectors_lifted() -> None:
 
 UNREPRESENTABLE = """(version 1)
 (rule first (constraint clearance (min 1mm)))
-(rule ring (constraint annular_width (min 0.1mm)))
+(rule spokes (constraint thermal_spoke_width (min 0.3mm)))
 (rule last (constraint clearance (min 2mm)))
 """
 
@@ -181,13 +181,13 @@ def test_read_unrepresentable_kept_opaque() -> None:
     slots = file_slots(ruleset)
     assert slots[1:] == [
         Modeled("rules"),
-        Opaque("(rule ring (constraint annular_width (min 0.1mm)))", "1"),
+        Opaque("(rule spokes (constraint thermal_spoke_width (min 0.3mm)))", "1"),
         Modeled("rules"),
     ]
     assert [i.code for i in issues] == ["rules.kept-opaque"] and issues[0].where == "/kicad_dru/rule[1]"
     text = write_rules(ruleset, target=9)
-    ring = text.index("\n(rule ring (constraint annular_width (min 0.1mm)))\n")
-    assert text.index('"first"') < ring < text.index('"last"')
+    spokes = text.index("\n(rule spokes (constraint thermal_spoke_width (min 0.3mm)))\n")
+    assert text.index('"first"') < spokes < text.index('"last"')
 
 
 def test_read_opaque_fixture() -> None:

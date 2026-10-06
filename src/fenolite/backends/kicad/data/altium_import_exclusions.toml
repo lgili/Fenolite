@@ -1,0 +1,74 @@
+# What `kicad-cli pcb import --format altium` changes in a board, per kicad-cli version line
+# (capability design-equivalence, "Importer exclusion list per version"; change c0045).
+#
+# `fenolite equivalent A.PcbDoc --against kicad-import` compares Fenolite's read of an Altium PCB
+# document with the read of the board that kicad-cli converts it to, under the profile `kicad-import`
+# of the running version line. A rule names one behaviour of KiCad's importer that was observed by
+# running the tool; its fact row is in docs/formats/kicad/cli.md ("Importer differences") and its counts
+# per document are in docs/evidence/equivalence-triangle.md. A difference that Fenolite causes gets no
+# rule: it is fixed. The format of this file is described in docs/equivalence.md.
+#
+# A rule selects differences by level, kind and a glob over `where`; it cannot select by a property of
+# a pad. Where the importer's behaviour depends on such a property (a pad on a paste layer, an octagonal
+# pad), the glob names the pads of the corpus rows it was observed on, and the same behaviour on another
+# board shows as a difference.
+
+schema = 1
+
+[[profile]]
+name = "kicad-import"
+tool = "kicad-cli"
+tool_version = "10.0"
+frame = "relative"
+tolerance_nm = 10
+tolerance_udeg = 0
+
+[[profile.rule]]
+id = "kicad-10.0-value-empty"
+level = 1
+kind = "value"
+where = "R58"
+attribution = "undecided"
+hypothesis = "H-G-EQ-VALUE"
+reason = "the converted board holds an empty value for one component whose comment text the document holds; no public source says why"
+corpus = ["altium-third-party-pcbdoc-01"]
+
+[[profile.rule]]
+id = "kicad-10.0-paste-pad-pin"
+level = 2
+kind = "pin-missing"
+where = "U6-7_[12]"
+attribution = "importer"
+hypothesis = "H-A-RD-PCB-KICAD-DOC"
+reason = "KiCad imports no pad that lies on a paste layer (docs/formats/altium/pcb-read.md, 'What KiCad does not import')"
+corpus = ["altium-third-party-pcbdoc-01"]
+
+[[profile.rule]]
+id = "kicad-10.0-paste-pad"
+level = 3
+kind = "pad-missing"
+where = "U6-7_[12]"
+attribution = "importer"
+hypothesis = "H-A-RD-PCB-KICAD-DOC"
+reason = "KiCad imports no pad that lies on a paste layer (docs/formats/altium/pcb-read.md, 'What KiCad does not import')"
+corpus = ["altium-third-party-pcbdoc-01"]
+
+[[profile.rule]]
+id = "kicad-10.0-component-copper-pad"
+level = 3
+kind = "pad-missing"
+where = "*-"
+attribution = "importer"
+hypothesis = "H-A-RD-PCB-KICAD-DOC"
+reason = "KiCad turns a copper region of a component, and a copper fill of a component without a net, into pads without a number (docs/formats/altium/pcb-read.md, 'What KiCad does not import'), so the counts of unnumbered pads differ"
+corpus = ["altium-third-party-pcbdoc-01", "altium-third-party-pcbdoc-03", "altium-third-party-pcbdoc-04"]
+
+[[profile.rule]]
+id = "kicad-10.0-octagon-shape"
+level = 3
+kind = "pad-shape"
+where = "D[34]-2"
+attribution = "undecided"
+hypothesis = "H-G-EQ-PADSHAPE"
+reason = "an octagonal pad is a rounded rectangle in the converted board and a custom shape in Fenolite's import; the model has no octagon, so neither reading is the reference"
+corpus = ["altium-third-party-pcbdoc-02"]

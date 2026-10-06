@@ -75,6 +75,10 @@ copied into a field; the child stays an opaque slot) or *opaque* (kept verbatim,
 
 - **Drill forms** are `(drill [oval] DIAMETER [WIDTH] [(offset X Y)])` (S-0001). Oval drills occur in
   the official library (S-0018).
+  - The `(offset X Y)` stays opaque in the pad's slots, and the board frame reads it from there. It is
+    in the pad's own frame and moves the pad's copper, not its hole: the hole stays at the pad's `at`
+    (`frame.md`; `H-G-FRAME-OFFSET`, KICAD-VERIFIED on 9.0.x and 10.0.x;
+    S-0020, S-0029).
 - **Padstacks** exist since board version `20240929` (S-0030; inventory row `pad-padstack`) and load on
   9.0.9 and 10.0.6 (`H-K-03`, KICAD-VERIFIED). The official library at 10.0.6 has none (S-0018).
   - The pad's own `shape` and `size` are those of its front layer, so the projection is one
@@ -525,3 +529,7 @@ KiCad sorts what it writes: graphics and pads of a footprint, symbols of a libra
 last), and pins. 10.0.6 orders pins by number, while 9.0.9 orders them by position. The mini library
 is written in that order, with pin numbers following positions, so a re-save keeps every tuple in place
 (S-0020).
+
+Fenolite's simple authored symbol subset writes the KiCad symbol-library root, symbol properties,
+one-unit pin records, and library-table rows as described by S-0043. The emitted serialization remains
+`INFERRED` until exercised by the KiCad oracle.

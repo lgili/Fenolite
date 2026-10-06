@@ -48,7 +48,7 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 
 ### Requirement: Pad copper entries
 `BoardPad.copper` SHALL hold, for each copper layer of `pad.layers` in that order, one or more `PadCopper` entries whose union is the pad's copper on that layer in the board frame, and SHALL be empty for a pad of kind `np_thru_hole`.
-- Each entry MUST be built in the pad's own frame and moved by `Transform.placement(position, rotation)`; every coordinate MUST be computed exactly and rounded half to even once, so it lies within 0.5 nm of the exact value and is exact at multiples of 90° when the pad's sizes are even. Rings MUST be stored in the normal form.
+- Each entry MUST be built in the pad's own frame, moved there by the `(offset X Y)` of the pad's drill node when it has one, read from the pad's slots as `docs/formats/kicad/libraries.md` ("Drill forms") describes, and then moved by `Transform.placement(position, rotation)`, so the offset turns with the pad as its shape does. KiCad keeps the hole at the pad's position and moves the copper by the offset (`H-G-FRAME-OFFSET`). `BoardPad.position` stays the pad's position, which is where its hole is; every coordinate MUST be computed exactly and rounded half to even once, so it lies within 0.5 nm of the exact value and is exact at multiples of 90° when the pad's sizes are even. Rings MUST be stored in the normal form.
 - With `w` and `h` the pad size, the entries of the pad tokens of S-0001 MUST be:
   - `circle`: the centre with width `w`;
   - `rect`: the four corners of the `w × h` box, filled, width 0;
@@ -83,13 +83,28 @@ The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend
 - **WHEN** `board_pads(design, issues=found)` runs
 - **THEN** the pad's entry is the filled box (−0.7, −0.7)–(0.7, 0.7) in mm with `exact` false, and `found` holds one `kicad.frame.shape-approximated` naming the footprint and pad `1`
 
+#### Scenario: Copper of a pad with an offset drill
+- **GIVEN** the footprint `Frame_Offset` of "Pad holes", placed at (10 mm, 10 mm), 0°, on the top
+- **WHEN** `board_pads(design)` is read
+- **THEN** each copper entry of pad `1` is the filled box (9, 8.6)–(11, 10.6) in mm, that is the pad's box moved by (0, −0.4 mm), and the hole lies inside it
+
+#### Scenario: The offset turns with the footprint
+- **GIVEN** the same footprint placed at 90°
+- **WHEN** `board_pads(design)` is read
+- **THEN** the centre of the copper box is 0.4 mm from the hole, at the point that `Transform.placement(position, rotation)` gives for (0, −0.4 mm)
+
 ### Requirement: Pad holes
-`BoardPad.hole` and `BoardPad.drill` SHALL give the drilled hole of a pad in the board frame: for `(drill D)`, the one point `position + R(rotation)·offset` with `drill == D`; for `(drill oval W H)`, the segment of length `|W − H|` along the longer of the two sizes, moved the same way, with `drill == min(W, H)`. `offset` MUST be the `(offset X Y)` of the drill node, else (0, 0), read from the pad's slots as `docs/formats/kicad/libraries.md` ("Drill forms") describes. A pad without a drill MUST have `hole == ()` and `drill is None`.
+`BoardPad.hole` and `BoardPad.drill` SHALL give the drilled hole of a pad in the board frame: for `(drill D)`, the one point `position` with `drill == D`; for `(drill oval W H)`, the segment of length `|W − H|` along the longer of the two sizes, centred on `position`, with `drill == min(W, H)`. The `(offset X Y)` of the drill node MUST NOT move the hole: KiCad keeps the hole at the pad's position and moves the pad's copper by the offset ("Pad copper entries"; `H-G-FRAME-OFFSET`, measured on 9.0.9 and 10.0.6). A pad without a drill MUST have `hole == ()` and `drill is None`.
 
 #### Scenario: Round and oval holes
 - **GIVEN** `Mini_Edge_Cases` placed at (0, 0), 0°, on the top
 - **WHEN** `board_pads(design)` is read
 - **THEN** pad `2` has the hole (0, −2.9 mm)–(0, −2.1 mm) with `drill` 0.8 mm, pad `4` the hole (−4 mm, 0) with `drill` 1 mm, the `np_thru_hole` pad the hole (0, 2 mm) with `drill` 1.2 mm, and pad `1` no hole
+
+#### Scenario: Hole of a pad with an offset drill
+- **GIVEN** the authored test footprint `Frame_Offset`, whose through-hole `rect` pad `1` of size 2 mm × 2 mm at (0, 0) has `(drill 0.8 (offset 0 -0.4))`, placed at (10 mm, 10 mm), 0°, on the top
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_frame_pads.py -k offset` reads `board_pads(design)`
+- **THEN** the pad has `position` (10 mm, 10 mm), the hole (10 mm, 10 mm) and `drill` 0.8 mm
 
 ### Requirement: Placed extents
 `placed_extent(footprint, *, definition=None, tol=DEFAULT_TOL, issues=None) -> PlacedExtent` SHALL return the courtyard of a placed footprint in the board frame, and `placed_extents(design, *, definitions=None, tol=DEFAULT_TOL, issues=None)` SHALL return one extent per footprint of `design.board`, in board order, `definitions` mapping a `lib_ref` to its definition.
@@ -173,4 +188,43 @@ The board-frame rules and the KiCad facts they rely on SHALL be documented in Fe
 #### Scenario: Fact tables are labelled
 - **WHEN** `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py` runs
 - **THEN** it passes, and every row of `docs/formats/kicad/frame.md` has a source id, a valid label and, below `KICAD-VERIFIED`, a hypothesis
+
+### Requirement: Board views
+`fenolite.analysis.views` SHALL compute three compact views of a board from a `Design` and the records of the `BoardFrame` protocol (`backend-protocol`, "Board-frame protocol"), as pure functions that read no file and import only `core`, `model`, `geometry` and `backends.base`.
+- **Nets.** `net_list(design) -> tuple[NetRow, ...]` MUST return one `NetRow(name, netclass, pads, tracks, vias, zones, length)` per net of the circuit, sorted by name, `tracks` counting tracks and arcs, `length` being the sum of the centre-line lengths of its tracks and arcs in nm, each arc's length rounded half to even. `net_view(design, name, *, pads) -> NetView` MUST return the net's class, its pads from `pads` (`where` as `REF-PIN`, `layers`, `position`), its copper per layer (`tracks`, `arcs`, `length`), its vias, its zones (`layers`, `filled`) and `box`, the bounding box of its pads' copper and of its tracks, arcs and vias, or `None` for a net without any. An unknown name MUST raise `KeyError`.
+- **Region.** `region_view(design, box, *, pads, extents, layer=None, kinds=ALL_KINDS) -> tuple[RegionItem, ...]` MUST return one `RegionItem(kind, where, net, layer, box)` per item that touches the closed rectangle `box`, sorted by kind in the order of `ALL_KINDS` and then by `where`. An item on several layers (a pad, a via, a zone) gives one item, whose `layer` is the first of its layers, or the layer asked for. A rectangle without area and a kind outside `ALL_KINDS` MUST raise `ValueError`. A pad, a track, an arc and a via touch it when the exact gap between the item's thick shape and the rectangle is 0 (`geometry-kernel`, "Exact gaps between thick shapes"); a footprint by the bounding box of its own extent face; a zone by the bounding box of its outline; a text by its position. `where` is `REF` for a footprint, `REF-PIN` for a pad, and the item's `provenance.locator` or id otherwise. With `layer`, only items on that layer are returned, a footprint counting for the copper layer of its side. `ALL_KINDS` MUST be `("footprint", "pad", "track", "arc", "via", "zone", "text")`.
+- **Neighbours.** `neighbors_view(design, ref, *, extents, pads, radius) -> NeighborsView` MUST return the part (`ref`, `position`, `rotation`, `side`, `box`) and one `Neighbor(ref, distance, overlap, side, shared_nets)` per other footprint whose own extent face lies within `radius` of the part's, on a side they share, sorted by distance and then reference. `distance` MUST be the exact gap between the two extents rounded up to a whole nm, and 0 with `overlap` true when they touch or overlap. A footprint with through-hole pads counts on both sides. An extent without a ring (`source` `none`) MUST use the footprint's position as a point. An unknown reference MUST raise `KeyError`.
+- Every length MUST be integer nm and every angle integer µdeg; the functions MUST use no float.
+- The package `fenolite.analysis` MUST exist with the layering row it already has; this requirement adds no import edge.
+- `views.arc_length(arc)` MUST give `r·θ` of the circle through the arc's three points, in fixed-point integer arithmetic, and the sum of the two chords for three points on a line.
+
+#### Scenario: Track length of a net
+- **GIVEN** a design with one net `N` that has two tracks of 3 mm and 4 mm on `F.Cu` and one of 5 mm on `B.Cu`
+- **WHEN** `uv run pytest tests/unit/analysis/test_views.py -k length` calls `net_list` and `net_view`
+- **THEN** the row of `N` has `length` 12 000 000, and the view gives 7 000 000 on `F.Cu` and 5 000 000 on `B.Cu`
+
+#### Scenario: Region touches a track
+- **GIVEN** a track of width 0.25 mm from (0, 0) to (10 mm, 0), and the box (4 mm, 0.1 mm)–(6 mm, 2 mm)
+- **WHEN** `region_view` runs
+- **THEN** the track is an item, because its copper reaches 0.125 mm from its centre line; with the box (4 mm, 0.2 mm)–(6 mm, 2 mm) it is not
+
+#### Scenario: Region against brute force
+- **GIVEN** boards generated by `tests/strategies.py::designs` and random boxes
+- **WHEN** the property test compares `region_view` with a check of every item one by one
+- **THEN** the two sets of items are equal
+
+#### Scenario: Neighbours sorted by distance
+- **GIVEN** three parts on the top side whose courtyards are 1 mm, 3 mm and 8 mm from the courtyard of `R1`, and one part on the bottom side under `R1`
+- **WHEN** `neighbors_view` runs for `R1` with a radius of 5 mm
+- **THEN** it returns the first two, in this order, with distances 1 000 000 and 3 000 000, and neither the third nor the bottom-side part
+
+#### Scenario: Overlapping courtyards
+- **GIVEN** two parts whose courtyards overlap
+- **WHEN** `neighbors_view` runs for one of them
+- **THEN** the other is listed with `distance` 0 and `overlap` true
+
+#### Scenario: Views stay backend-free
+- **GIVEN** a version of `src/fenolite/analysis/views.py` that imports `fenolite.backends.kicad`
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it fails naming `analysis → backends.kicad`
 

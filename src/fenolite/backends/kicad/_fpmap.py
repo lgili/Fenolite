@@ -11,6 +11,8 @@ return the items of each modelled field; ``pcb.ModelSource`` wraps them, so this
 ``pcb``.
 """
 
+# evidence: see mod, pcb
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence

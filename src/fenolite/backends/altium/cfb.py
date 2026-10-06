@@ -17,6 +17,8 @@ depth. Entries are numbered in pre-order; each storage gets its own sibling tree
 no sector or mini sector; their entry has size 0 and starts at ENDOFCHAIN.
 """
 
+# evidence: see binary, pcbdoc, pcblib, schlib
+
 from __future__ import annotations
 
 import struct

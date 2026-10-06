@@ -22,14 +22,16 @@ FENOLITE_NS = uuid.UUID("e59c7c86-e7fb-43e6-b058-8e03e7700b91")
 PREFIXES: frozenset[str] = frozenset(
     {
         "dsn",  # Design
-        "cmp", "pin", "net", "cls", "itf", "mod",  # circuit
+        "cmp", "pin", "net", "cls", "itf", "mod", "bus",  # circuit
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
         "zon", "kpo", "txt", "gfx", "hol", "out",  # board
         "fld",  # footprint fields
+        "bdy",  # component bodies
         "rst", "rul",  # rules
         "mfn",  # manufacturing
         "fpd", "sym",  # library definitions
         "wks",  # drawing-sheet definitions
+        "sch", "sci", "lbl", "ncf", "shr", "wir",  # schematic sheets
     }
 )  # fmt: skip
 

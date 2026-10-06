@@ -464,6 +464,30 @@ def test_unselected_nets_are_still_declared() -> None:
     assert all(node.first("circuit") is None for node in network.all("class"))
 
 
+def test_net_of_a_pin_on_no_net_is_left_out() -> None:
+    """The one-pad net KiCad names after an unused pin (c0061) is no net for a router: the file is the one
+    of the same board with that pad on no net. A net of that spelling with two pads is still declared."""
+    lone, pair = "unconnected-(R1-Pad1)", "unconnected-(R9-Pad1)"
+    with_name = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": lone, "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": pair}),
+            Part("R3", "Mini_R_0603", 20, 15, nets={"2": pair}),
+        )
+    ).write()
+    network = _section(with_name.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["A", pair]
+    assert lone not in with_name.text
+    without = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": pair}),
+            Part("R3", "Mini_R_0603", 20, 15, nets={"2": pair}),
+        )
+    ).write()
+    assert with_name.text == without.text
+
+
 def test_renamed_and_quoted_net_names() -> None:
     """A name with a blank is quoted; a name with the quote character gets a generated name."""
     design = design_of(

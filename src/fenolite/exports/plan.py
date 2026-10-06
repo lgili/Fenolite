@@ -10,7 +10,7 @@ stored in the board, and either way the files would not show the board as it is.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -157,16 +157,19 @@ def run_kind(
     *,
     major: int,
     design: Design | None = None,
+    args: Callable[[str, str, Sequence[str]], Sequence[str]] | None = None,
 ) -> KindResult:
     """Export ``kind`` from a copy of ``board`` (``files`` are the rest of its copy set); ``design`` is the
-    board's model, needed for the layers of a Gerber export."""
+    board's model, needed for the layers of a Gerber export. ``args(kind, stem, layers)`` replaces the
+    fixed arguments of the kind: it is how an export preset reaches the run (``exports.preset``)."""
     entry = KINDS[kind]
     if major not in entry.majors:
         message = f"kicad-cli {major}.0 cannot export {kind}"
         return KindResult(issues=(issue("export.kind-unavailable", message, where=kind),))
     stem = Path(board).stem
     layers = gerber_layers(design) if design is not None else ()
-    run = cli.export(arguments(kind, stem=stem, layers=layers), board, files=files, out=entry.folder)
+    wanted = arguments(kind, stem=stem, layers=layers) if args is None else list(args(kind, stem, layers))
+    run = cli.export(wanted, board, files=files, out=entry.folder)
     prefix = f"{entry.folder}/"
     produced = {name: data for name, data in run.outputs.items() if name.startswith(prefix)}
     tool_writes = tuple(sorted(name for name in run.outputs if name not in produced))

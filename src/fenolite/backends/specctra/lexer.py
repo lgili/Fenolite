@@ -10,6 +10,8 @@ reader) and a blank ends a string. The format has no escape, so a name holding t
 line end cannot be written; ``dumps`` raises ``ValueError`` for one.
 """
 
+# evidence: see dsn, ses
+
 from __future__ import annotations
 
 import re

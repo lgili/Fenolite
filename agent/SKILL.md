@@ -12,6 +12,9 @@ Every command prints one JSON envelope, never asks a question, and writes only w
 
 1. **`capabilities` first.** `fenolite capabilities --json` lists the commands, the routers and the
    external tools found on this machine, with their versions. Do not assume a tool is there.
+   Read `result.matrix` before choosing an operation on a file kind: it says, per backend and kind,
+   whether `detect`, `read`, `write` and the two round trips exist (`null` when they do not), at which
+   evidence level, and which of them are `experimental`.
 2. **Read the exit code before the output.**
 
    | exit | meaning | what to do |
@@ -35,7 +38,9 @@ Every command prints one JSON envelope, never asks a question, and writes only w
    `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.
 5. **Issues.** `issues` is a list of `{code, severity, message, where}`. An `error` makes the exit code
    5; a `warning` or an `info` does not. `where` names a reference such as `R1-2`, or a place in a file.
-6. **Small replies.** `--fields a,b.c` keeps only the named parts of `result`.
+6. **Small replies.** `--fields a,b.c` keeps only the named parts of `result`. `--format concise` keeps
+   one issue per code with the counts: use it to fix one problem per iteration. `--limit N` cuts a long
+   list to a page; the exit code still comes from the whole result.
 7. **Same bytes twice.** Pass `--seed` and `--timestamp` when two runs must give identical files.
 
 ## The loop
@@ -73,6 +78,11 @@ What each step is for:
 - `export` writes Gerber, drill, position and netlist files with a manifest; `render` writes views to
   look at; `inspect` reads a file back and reports what it holds.
 
+Before you write a track by hand in the script (`design.track`, `design.via`), ask where the pads are:
+`fenolite pads build/blink D1 --origin 100mm,100mm --json` lists each pad of `D1` with its position, layers
+and net. With `--origin 100mm,100mm` the positions are in the frame of `place()`, so they go into the
+script as they are. It reads the board and runs no tool.
+
 ## When a step fails
 
 - **`check` exits 5.** Read `issues`. `kicad.drc.unconnected-items` means copper is missing between the
@@ -86,6 +96,30 @@ What each step is for:
   the part, then build again.
 - **Exit 6.** The envelope of `fenolite doctor --json` says which tool is missing and where it is
   looked for.
+
+## Small questions between the steps
+
+These commands read and answer; none of them runs a tool unless it says so.
+
+- `fenolite explain CODE` says what an error code or an issue code means and what to do about it.
+- `fenolite roundtrip FILE` before you edit a file that Fenolite did not write: exit 5
+  (`roundtrip.failed`) means reading it and writing it back would change it, so edit it in KiCad.
+- `fenolite diff A B` lists what changed between two boards, libraries or built models; a moved
+  footprint is one change. `--view tree` says whether two KiCad files differ at all.
+- `fenolite net BOARD [NAME]`, `fenolite region BOARD --box 10mm,5mm,30mm,20mm` and
+  `fenolite neighbors BOARD R1` describe a net, a rectangle of the board and what is near a part.
+- `fenolite netlist build/blink --source fenolite` lists the components and nets of a schematic that
+  `build` wrote, without any tool; `--min-pins 2` hides the unconnected pins. For any other KiCad
+  schematic leave `--source` out: `kicad-cli` reads it (exit 6 without the tool).
+- `fenolite fmt FILE --check` says whether a file is in Fenolite's canonical print.
+- `fenolite manifest build/blink --artifacts build/blink/fab --confirm`, after `export`, writes one
+  file that lists every design file and exported file with its SHA-256 and a state (`generated`,
+  `checked`, `roundtrip-ok`, `native-verified`); it runs the stages of `check`, so it needs
+  `kicad-cli`. Read `held` of an entry to see what its next state is missing. Before you hand a folder
+  over, `fenolite manifest build/blink --verify` says whether its files are still the listed ones.
+- **Undo.** Keep the envelope of a confirmed write. When `receipt.undo` is not `null`,
+  `fenolite restore ENVELOPE.json --confirm` puts the backups back. It refuses when a file changed since
+  the write, and it never deletes a file.
 
 ## Limits
 

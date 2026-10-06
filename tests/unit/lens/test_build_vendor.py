@@ -101,9 +101,9 @@ def test_template_footprints_vendored(tmp_path: Path) -> None:
 
 def test_vendoring_kept_to_project_rows_on_request(tmp_path: Path) -> None:
     out = global_build(tmp_path, vendor="project")
-    assert not any(k.startswith("lib/") for k in out.files)
+    assert [k for k in out.files if k.startswith("lib/")] == ["lib/fenolite.kicad_sym"]  # c0061
     assert b"(lib " not in out.files["fp-lib-table"]
-    found = [i for i in out.issues if i.code == "build.global-library"]
+    found = [i for i in out.issues if i.code == "build.global-library" and "symbol" not in i.message]
     assert len(found) == 3 and all(i.severity == "info" for i in found)
     assert VENDOR_EVIDENCE.hypotheses[0] not in out.evidence.hypotheses
 

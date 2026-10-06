@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="480" viewBox="0 0 900 480">
+<rect width="900" height="480" fill="#f8fafc"/>
+<rect x="10" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="36" font-family="Arial" font-size="16" fill="#0f172a">SOT323_3_Diodes_Standard</text>
+<rect x="197.92" y="101.67" width="54.17" height="86.67" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="149.17" y="80.00" width="151.67" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="170.83" y="120.73" width="26.00" height="20.37" fill="#f59e0b" stroke="#b45309"/><text x="183.83" y="134.92" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="170.83" y="148.90" width="26.00" height="20.37" fill="#f59e0b" stroke="#b45309"/><text x="183.83" y="163.08" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="253.17" y="134.82" width="26.00" height="20.37" fill="#f59e0b" stroke="#b45309"/><text x="266.17" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="460" y="10" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="474" y="36" font-family="Arial" font-size="16" fill="#0f172a">SOT523_3_Diodes</text>
+<rect x="655.00" y="105.00" width="40.00" height="80.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="605.00" y="80.00" width="140.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="630.00" y="117.50" width="25.50" height="20.00" fill="#f59e0b" stroke="#b45309"/><text x="642.75" y="131.50" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="630.00" y="152.50" width="25.50" height="20.00" fill="#f59e0b" stroke="#b45309"/><text x="642.75" y="166.50" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="694.50" y="135.00" width="25.50" height="20.00" fill="#f59e0b" stroke="#b45309"/><text x="707.25" y="149.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="10" y="250" width="430" height="220" rx="12" fill="white" stroke="#cbd5e1"/>
+<text x="24" y="276" font-family="Arial" font-size="16" fill="#0f172a">SOT563_6_Diodes</text>
+<rect x="195.00" y="345.00" width="60.00" height="80.00" fill="none" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="151.50" y="320.00" width="147.00" height="130.00" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="5 4"/>
+<rect x="176.50" y="352.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="193.25" y="364.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">1</text>
+<rect x="176.50" y="377.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="193.25" y="389.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">2</text>
+<rect x="176.50" y="402.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="193.25" y="414.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">3</text>
+<rect x="240.00" y="402.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="256.75" y="414.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">4</text>
+<rect x="240.00" y="377.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="256.75" y="389.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">5</text>
+<rect x="240.00" y="352.50" width="33.50" height="15.00" fill="#f59e0b" stroke="#b45309"/><text x="256.75" y="364.00" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#1e293b">6</text>
+</svg>

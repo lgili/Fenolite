@@ -33,9 +33,10 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB|ECO|RD)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB|ECO|RD|IMP)-[A-Z0-9-]+\b"
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
-c0033, c0034, c0035), a row of the change order (c0048), or a reader row ``H-A-RD-*`` (c0039, c0042)."""
+c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
+or an import row ``H-A-IMP-*`` (c0043)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -136,16 +137,22 @@ def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
     assert [p.name for p in pages] == [
         "compound-file.md",
+        "connectivity.md",
+        "import.md",
         "output-job.md",
+        "pcb-bodies.md",
         "pcb-copper.md",
         "pcb-document.md",
         "pcb-library.md",
+        "pcb-read.md",
         "pcb-records.md",
         "project.md",
         "rule-file.md",
         "schematic-ascii.md",
         "schematic-binary.md",
         "schematic-library.md",
+        "schematic-records.md",
+        "sheet-template.md",
         "stackup-file.md",
     ]
     problems: list[str] = []
