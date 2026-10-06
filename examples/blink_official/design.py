@@ -7,7 +7,7 @@ Only ``tests/libs/test_build_official.py`` builds it, into a temporary folder, w
 libraries are installed; nothing generated from it is committed.
 """
 
-from fenolite.dsl import Design, Net, Part, Power, connect, mm
+from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect
 
 design = Design("blink_official")
 design.board(mm(50), mm(30))
@@ -18,10 +18,14 @@ d1 = Part("D1", "Device:LED", footprint="LED_THT:LED_D3.0mm", value="LED")
 design.add(u1, r1, d1)
 
 vin, gnd, led_drv, led_a = Net("VIN"), Net("GND"), Net("LED_DRV"), Net("LED_A")
-connect(vin, u1["VDD"])
-connect(gnd, u1["VSS"], d1["K"])
+connect(vin, u1["VDD"], u1["VDDA"])
+connect(gnd, u1["VSS"], u1["VSSA"], d1["K"])
 connect(led_drv, u1["PA5"], r1[1])
 connect(led_a, r1[2], d1["A"])
+# The pins the blink does not use carry a no-connect mark, so that KiCad's ERC has nothing to report.
+UNUSED = ("PG10", "PF0", "PF1", "PB0", *(f"PB{n}" for n in range(3, 9)),
+          *(f"PA{n}" for n in range(16) if n != 5))  # fmt: skip
+no_connect(*(u1[name] for name in UNUSED))
 design.add(Power(vin, gnd))
 design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))
 

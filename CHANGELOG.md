@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- `examples/blink_official` connects the analog supply pins of its microcontroller and marks its unused pins: KiCad's ERC reports nothing on it (it reported 29 errors and one warning).
 - Archived the completed spec of the schematic and board parity (c0072) after its CI run, and cited the run in its two hypothesis rows.
 - Archived the completed specs of the ERC stage (c0062), the netlist compare (c0063), the artifact manifest (c0065) and the inspection commands (c0066) after their CI run: the nine changes of v0.2a are archived.
 - Schematic RT2 compares what KiCad's ERC repeats: the sheet, type, severity and exclusion of every violation (`ErcReport.kinds()`), not the item KiCad names, which can differ between two runs on one unchanged project on 9.0.9 and on 10.0.6. `result.rt2.schematic` of `roundtrip` loses `attempts` and gains `exact`; the further attempts are gone from the command and from the corpus test (c0062, c0066).

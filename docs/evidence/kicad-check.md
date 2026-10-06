@@ -312,9 +312,10 @@ token edit. The outcomes are the probes of `docs/evidence/kicad/probes/<version>
 - **The examples.** `examples/blink_2layer` and `examples/board_40parts`, built for targets 9 and 10 and
   checked with 10.0.6: `erc.kicad` `ok` with 0 violations, and `drc.kicad` with `parity_judged` true and
   `parity` 0. `examples/blink_routed` had 29 `pin_not_connected` and 2 `pin_not_driven` errors until its
-  unused pins were marked. `examples/blink_official` takes its symbols from KiCad's own libraries and
-  leaves pins open: 27 `pin_not_connected`, 2 `power_pin_not_driven` and one `ground_pin_not_ground`
-  warning on 10.0.6, findings of that design.
+  unused pins were marked. `examples/blink_official` takes its symbols from KiCad's own libraries; it had
+  27 `pin_not_connected`, 2 `power_pin_not_driven` and one `ground_pin_not_ground` warning on 10.0.6
+  until, on 2026-10-06, its analog supply pins were connected and its 25 unused pins marked: 0 violations
+  since (10.0.6, the libraries of the local KiCad install; not run on 9.0.9, whose image has no such run).
 - **Time of the stage** (10.0.6, macOS, median of three `fenolite check --stages …` runs, other jobs
   sharing the machine): `erc.kicad` 1.7 s on the blink and 1.8 s on the 40-part board; `drc.kicad`, two
   runs with the canary, 2.9 s and 3.5 s; the two tool-free stages `model.validate,roundtrip` 1.0 s and
