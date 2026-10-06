@@ -244,6 +244,8 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
+| hole | `hol` | `hole:<key>` |
+| keepout | `kpo` | `keepout:<key>` |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum) |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
@@ -828,3 +830,24 @@ labels and power ports on wire stubs, and a grid layout. Altium's engineering ch
 the PCB. This build reads no library, so lib ids and footprints name Altium library files
 (`"MyParts.SchLib:LDO"`, `"MyParts.PcbLib:SOT23"`), and designators must be pin numbers. The board,
 placements, net classes and diff pairs stay in `.fenolite/` only. See `docs/altium.md`.
+
+## Mechanical requests
+
+`design.hole(key, x, y, drill, plated=False)` records a separate drill.
+`design.keepout(key, [(x, y), ...], layers=(...), no_footprints=True)` records an explicit polygon;
+`no_tracks`, `no_vias`, `no_pads` and `no_copper_pour` are also available. Lengths require units; keys
+are unique per kind. Both accept `frame="board"`, `tolerance="0nm"`, `source`, `status` (`measured`,
+`estimated`, `proposed`) and `evidence`. `BOARD_ORIGIN` is added once during conversion.
+For a fixed interface use `part.place(..., locked=True, anchor=MechanicalIntent(...))`.
+Intent metadata does not qualify assembly fit. A KiCad build refuses `design.hole()` with a located
+script error (exit 3, FEN-3004), naming its key: use a validated drill footprint. An Altium build writes
+a separate non-plated hole as a free pad without copper; unsupported hole forms are reported by that
+backend.
+
+Without explicit layers, conversion assigns a keepout every copper layer of the declared board. A
+native keepout read with no layers restricts nothing. On a KiCad rebuild the board's existing rule
+areas are kept: changing or adding a script keepout does not update them, and the current build does
+not report that difference. Edit the native area or explicitly discard layout to regenerate it.
+`Hole.intent` and `Keepout.intent` exist in `to_model` output, and a locked anchor's metadata in
+`placements` output. A build and rebuild do not retain this metadata in native files or the
+regenerable `.fenolite/` cache; the physical locked position remains enforced.

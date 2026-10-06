@@ -7,8 +7,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, cast, get_args
+from typing import TYPE_CHECKING, Literal, cast, get_args
 
+from fenolite.core.coords import Point
+from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
@@ -17,7 +20,7 @@ from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.units import as_nm, as_nm2
-from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
+from fenolite.model.board import Hole, IslandRemoval, Keepout, MechanicalIntent, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleKind, RuleSeverity, Selector
@@ -31,6 +34,8 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
+MECHANICAL_EVIDENCE = Evidence(Level.UNKNOWN)
+
 INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
 """The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
 
@@ -310,6 +315,8 @@ class Design(Container):
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
+        self.holes: dict[str, Hole] = {}
+        self.keepouts: dict[str, Keepout] = {}
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
@@ -360,6 +367,96 @@ class Design(Container):
         self.size = (w, h)
         self.copper = copper
         self.planes = declared
+
+    @staticmethod
+    def _mechanical_intent(
+        key: str, frame: str, tolerance: object, source: str, status: str, evidence: Evidence
+    ) -> MechanicalIntent:
+        try:
+            return MechanicalIntent(
+                key,
+                cast('Literal["board"]', frame),
+                as_nm(tolerance, name="tolerance"),
+                source,
+                cast('Literal["measured", "estimated", "proposed"]', status),
+                evidence,
+            )
+        except ValueError as error:
+            raise DslError(str(error)) from None
+
+    def hole(
+        self,
+        key: str,
+        x: object,
+        y: object,
+        drill: object,
+        *,
+        plated: bool = False,
+        frame: str = "board",
+        tolerance: object = "0nm",
+        source: str = "",
+        status: str = "proposed",
+        evidence: Evidence = MECHANICAL_EVIDENCE,
+    ) -> Hole:
+        """Declare one separate mechanical drill, in the board-relative frame, with a stable key."""
+        intent = self._mechanical_intent(key, frame, tolerance, source, status, evidence)
+        if key in self.holes:
+            raise DslError(f"hole {key!r} is declared twice")
+        diameter = as_nm(drill, name="drill")
+        if diameter <= 0 or type(plated) is not bool:
+            raise DslError("hole drill must be positive and plated must be a bool")
+        hole = Hole(
+            id=derived_id("hol", "dsl", f"hole:{key}"),
+            position=Point(as_nm(x, name="x"), as_nm(y, name="y")),
+            drill=diameter,
+            plated=plated,
+            intent=intent,
+        )
+        self.holes[key] = hole
+        return hole
+
+    def keepout(
+        self,
+        key: str,
+        outline: Sequence[tuple[object, object]],
+        *,
+        layers: Sequence[str] = (),
+        no_tracks: bool = False,
+        no_vias: bool = False,
+        no_pads: bool = False,
+        no_copper_pour: bool = False,
+        no_footprints: bool = False,
+        frame: str = "board",
+        tolerance: object = "0nm",
+        source: str = "",
+        status: str = "proposed",
+        evidence: Evidence = MECHANICAL_EVIDENCE,
+    ) -> Keepout:
+        """Declare a polygon and explicit exclusions; all geometry is supplied by the caller."""
+        intent = self._mechanical_intent(key, frame, tolerance, source, status, evidence)
+        if key in self.keepouts:
+            raise DslError(f"keepout {key!r} is declared twice")
+        points = tuple(Point(as_nm(x, name="x"), as_nm(y, name="y")) for x, y in outline)
+        if len(set(points)) < 3:
+            raise DslError("keepout needs at least three distinct vertices")
+        flags = (no_tracks, no_vias, no_pads, no_copper_pour, no_footprints)
+        if any(type(flag) is not bool for flag in flags) or not any(flags):
+            raise DslError("keepout needs at least one explicit boolean exclusion")
+        if isinstance(layers, str) or any(not isinstance(layer, str) or not layer for layer in layers):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("keepout layers must be a sequence of nonempty names")
+        keepout = Keepout(
+            id=derived_id("kpo", "dsl", f"keepout:{key}"),
+            outline=points,
+            layers=tuple(layers),
+            no_tracks=no_tracks,
+            no_vias=no_vias,
+            no_pads=no_pads,
+            no_copper_pour=no_copper_pour,
+            no_footprints=no_footprints,
+            intent=intent,
+        )
+        self.keepouts[key] = keepout
+        return keepout
 
     def sheet(
         self,

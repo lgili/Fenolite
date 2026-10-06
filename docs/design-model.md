@@ -329,3 +329,16 @@ atoms, and respelled fields written from changed model values).
 For a design authored in Fenolite, the exported tool project is the source of truth for layout;
 `.fenolite/` is a regenerable, git-ignored cache; imported third-party files are kept immutable by
 SHA-256 under `native/`.
+
+### Optional mechanical intent (c0096)
+
+`Hole.intent`, `Keepout.intent` and `FootprintInstance.anchor` optionally hold `MechanicalIntent`:
+a stable key, board-relative frame, integer nm tolerance, supplied source/evidence and `measured`,
+`estimated` or `proposed` status. Conversion adds the board origin once; absent fields remain omitted
+canonically. An anchor requires a locked DSL placement. Metadata records an input, not assembly fit.
+Planner reservations reference existing physical drill pads and never add a hole or change a net.
+
+The DSL's intent metadata is conversion-only: `Hole.intent` and `Keepout.intent` in `to_model`, and
+`Placement.anchor` in `placements`. Builds and rebuilds do not persist these fields in a native
+project or its `.fenolite/` cache. `FootprintInstance.anchor` is available to callers that explicitly
+construct a neutral model; the build does not synthesize it from a placement request.

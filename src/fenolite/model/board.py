@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point, Size
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
@@ -51,6 +52,28 @@ HatchBorder = Literal["hatch_thickness", "min_thickness"]
 FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
 ORDERED = {"ordered": True}
+
+
+@dataclass(frozen=True, slots=True)
+class MechanicalIntent:
+    """Declared mechanical provenance; a measured coordinate is still not a qualified fit."""
+
+    key: str
+    frame: Literal["board"] = "board"
+    tolerance: Nm = 0
+    source: str = ""
+    status: Literal["measured", "estimated", "proposed"] = "proposed"
+    evidence: Evidence = Evidence(Level.UNKNOWN)
+
+    def __post_init__(self) -> None:
+        if not self.key or not self.key.isprintable() or self.key != self.key.strip():
+            raise ValueError("mechanical key must be nonempty printable text without surrounding spaces")
+        if self.frame != "board":
+            raise ValueError("only the board-relative mechanical frame is supported")
+        if type(self.tolerance) is not int or self.tolerance < 0:
+            raise ValueError("mechanical tolerance must be nonnegative integer nm")
+        if self.status not in ("measured", "estimated", "proposed"):
+            raise ValueError("mechanical status must be measured, estimated or proposed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +210,7 @@ class FootprintInstance(Entity):
     pads: tuple[Pad, ...] = ()
     fields: tuple[FootprintField, ...] = field(default=(), metadata=ORDERED)
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
+    anchor: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -305,6 +329,7 @@ class Keepout(Entity):
     no_pads: bool = False
     no_copper_pour: bool = False
     no_footprints: bool = False
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -335,6 +360,7 @@ class Hole(Entity):
     position: Point
     drill: Nm
     plated: bool = False
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -376,6 +402,7 @@ __all__ = [
     "Keepout",
     "Layer",
     "LayerKind",
+    "MechanicalIntent",
     "Outline",
     "Pad",
     "PadKind",

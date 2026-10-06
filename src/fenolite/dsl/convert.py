@@ -47,6 +47,8 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "interface": ("itf", "interface:<kind>:<name>"),
         "layer": ("lay", "layer:<KiCad name>"),
         "zone": ("zon", "zone:<name>"),
+        "hole": ("hol", "hole:<key>"),
+        "keepout": ("kpo", "keepout:<key>"),
         "rule": ("rul", "rule:<kind>[:<net class>]"),
     }
 )
@@ -110,6 +112,8 @@ def _rules(design: Design) -> tuple[Rule, ...]:
 
 def to_model(design: Design) -> ModelDesign:
     """The model design of ``design``: model types only, no validation, no library access."""
+    if (design.holes or design.keepouts) and design.size is None:
+        raise DslError("mechanical requests need board()")
     parts = sorted(design.parts.values(), key=lambda p: p.path)
     components = tuple(_component(p) for p in parts)
     classes = {
@@ -187,6 +191,20 @@ def to_model(design: Design) -> ModelDesign:
             id=key_id("board"),
             outline=outline,
             zones=zones,
+            holes=tuple(
+                dataclasses.replace(
+                    h, position=Point(BOARD_ORIGIN.x + h.position.x, BOARD_ORIGIN.y + h.position.y)
+                )
+                for _, h in sorted(design.holes.items())
+            ),
+            keepouts=tuple(
+                dataclasses.replace(
+                    k,
+                    outline=tuple(Point(BOARD_ORIGIN.x + p.x, BOARD_ORIGIN.y + p.y) for p in k.outline),
+                    layers=k.layers or ("F.Cu", *(f"In{i}.Cu" for i in range(1, design.copper - 1)), "B.Cu"),
+                )
+                for _, k in sorted(design.keepouts.items())
+            ),
             sheet=_sheet(design),
             title_block=design.block,
         ),
@@ -237,7 +255,7 @@ def placements(design: Design) -> Mapping[str, Placement]:
         if request is None:
             continue
         at = Point(BOARD_ORIGIN.x + request.x, BOARD_ORIGIN.y + request.y)
-        out[path] = Placement(at, request.rotation, request.side, request.locked)
+        out[path] = Placement(at, request.rotation, request.side, request.locked, request.anchor)
     return MappingProxyType(out)
 
 

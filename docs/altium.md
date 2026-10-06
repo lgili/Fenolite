@@ -1219,6 +1219,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `component_id` | the reader maps it elsewhere: a footprint is matched by the reference of its component |
 | `footprint` | `lib_ref` | the writer writes a fixed value: the name of the generated PCB library |
 | `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
+| `footprint` | `anchor` | the writer does not write it: authoring intent metadata stays in the neutral model |
 | `footprint` | `attributes` | the writer does not write it |
 | `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
 | `footprint` | `fields` | the writer writes a fixed value: the designator and comment texts have fixed sizes and places |

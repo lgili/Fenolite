@@ -630,7 +630,23 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     run = run_design_script(script_path)
     design = run.design
     try:
+        if args.target != ALTIUM_TARGET and design.holes:
+            keys = ", ".join(repr(key) for key in sorted(design.holes))
+            raise DslError(
+                f"hole {keys}: KiCad needs a validated drill footprint; "
+                "design.hole() writes board holes only for the Altium target"
+            )
         model = to_model(design)
+        # Mechanical intent is DSL conversion metadata, not native project content.
+        if model.board is not None:
+            model = dataclasses.replace(
+                model,
+                board=dataclasses.replace(
+                    model.board,
+                    holes=tuple(dataclasses.replace(hole, intent=None) for hole in model.board.holes),
+                    keepouts=tuple(dataclasses.replace(area, intent=None) for area in model.board.keepouts),
+                ),
+            )
         requested = placements(design)
         aliases = moves(design)
         module_aliases = module_moves(design)

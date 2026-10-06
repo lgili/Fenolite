@@ -1073,6 +1073,27 @@ still off the board) and `legality` (the number of issues by code). The evidence
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
 `result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`.
 
+### Constrained placement request
+
+`place --strategy constrained [--constraints FILE] [--only REF,...] [--max-candidates N]
+[--preview-dir DIR]` reports a bounded translation proposal in `result.placement`. The integer JSON
+request schema is `fenolite.placement-request.v0`; `constraints` and `objectives` use exact entity
+identities. `--force` is refused. Locked and unselected footprints remain fixed.
+
+`result.placement.assessment` reports `findings`, `incomplete` or `checked` for the supplied placement
+checks. It retains intrinsic copper findings, missing verifiers, unknown geometry, unplaced parts
+and unmet objectives. It establishes no electrical or manufacturing qualification. Exact source
+and request hashes accompany the proposal. A missing optional body verifier is explicitly reported.
+
+| code | severity | when |
+|---|---|---|
+| `place.constraint` | error | supplied hard geometry, group region or mechanical constraints are violated |
+| `place.incomplete` | warning | geometry or a required verifier is missing, or the bounded search leaves a footprint unplaced |
+| `place.objective` | warning | a requested pad proximity or connection objective is unmet |
+
+SVG previews come from serialized board readback, use the same dry-run/confirm transaction and
+receipts, and report the written-board hash. See [placement](placement.md) for frames and objectives.
+
 ## analyze
 
 `fenolite analyze PATH [--kinds current,clearance,creepage] [--requirements FILE] [--temp-rise KELVIN]

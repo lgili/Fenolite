@@ -108,3 +108,46 @@ What the check does not judge:
 The board is the layout authority (`docs/lens.md`). A part that `place` moved onto the board is on the
 board, so the next `fenolite build` keeps it there. A part with a locked `place()` in the script goes
 back to the script's placement; `place` warns about it with `place.script-locked`.
+
+## Constrained proposals (c0096)
+
+`placement.constrained.propose_placement` consumes a neutral `BoardFrame`, explicit
+`PlacementConstraints` and optional exact-pad `PlacementObjective` rows. Its bounded, deterministic
+translation lattice preserves locks, unselected footprints, side, rotation, pads and net topology.
+A finite greedy search can miss a globally feasible layout; unplaced parts retain their positions
+and report reasons. Candidate counts, source/request SHA-256 and objective measures are returned.
+A connected-pad chain is represented by its ordered pair objectives with distinct keys.
+Pad centre distance is an airwire surrogate; it measures no routed electrical property.
+
+### Frames and inputs
+
+All constraints and volumes use the written board frame, integer nm and integer microdegrees.
+A `GroupRegion` confines listed footprint extents. Edge/gap, outline/cutouts, per-face keepouts,
+drills crossing both faces and duplicate drill intents are checked. `MechanicalReservation` links
+one existing drill pad to supplied physical volumes and measured/proposed source intent. Reservation
+geometry is independent of drill diameter and neither creates holes nor disconnects copper.
+`MechanicalConstraints` carries supplied board thickness, allowed penetrations, obstacles and named
+missing assembly inputs. No application geometry is assumed.
+
+### Checker interface and assessment
+
+The kernel imports no checks or analysis package. A `PlacementChecker` callback supplies neutral
+`PlacementLegality`, copper findings and mechanical inspections. The fallback checks geometry and
+reports absent copper/mechanical verifiers. Candidates with unavailable copper checking cannot be
+accepted. The CLI adapter runs the existing copper checker and uses the independent body-volume
+provider when available; absent or unknown body checking remains explicit. Intrinsic package
+findings retain their original severity, clearance, location and source. They are never exemptions.
+
+`PlacementAssessment.state` is `findings`, `incomplete` or `checked` for these supplied placement
+checks only. It retains missing inputs and known findings and does not establish electrical,
+routing, assembly or manufacturing readiness. Evidence stays `INFERRED`
+under H-G-CONSTRAINED-PLACE and H-G-PLACEMENT-PREVIEW.
+
+### CLI transaction and previews
+
+`fenolite place PATH --strategy constrained --constraints request.json --preview-dir views --dry-run`
+plans a request using `schemas/fenolite.placement-request.v0.json`. Repeating with `--confirm` writes
+the board and both SVGs with receipts. `--force` is refused. The previews query serialized board
+readback, show layer copper, holes, locks and optional conservative extents, and reflect the bottom
+view once globally. Through-hole copper appears on both faces. Existing manual/grid modes retain
+their contract.
