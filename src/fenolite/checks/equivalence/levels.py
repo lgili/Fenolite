@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The four levels of a design comparison (capability design-equivalence).
+"""The levels of a design comparison (capability design-equivalence).
 
 Level 1 pairs components by reference, level 2 compares the net-to-pin assignments as partitions of
 ``REF-PIN`` elements (the comparison of ``checks.assignment_compare``), level 3 compares footprints and
-pads in the footprint's own frame, and level 4 adds the placement. A component that a level reports as
+pads in the footprint's own frame, level 4 adds the placement, and level 5 the routing of each net
+(``routing.py``). A component that a level reports as
 missing or ambiguous takes no part in the later levels, so each fault is reported once. The comparison is
 pure: it reads no file and runs no tool.
 """
@@ -30,6 +31,7 @@ from fenolite.checks.equivalence.model import (
     LevelResult,
     Tolerances,
 )
+from fenolite.checks.equivalence.routing import has_copper, level_routing, pair_nets
 from fenolite.core.coords import Point
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.circuit import Component
@@ -357,8 +359,11 @@ def level_placement(
 
 
 def max_level(a: Design, b: Design) -> int:
-    """4 when both designs hold a board with at least one footprint, else 2."""
-    return 4 if _has_footprints(a) and _has_footprints(b) else 2
+    """5 when both designs hold a board with at least one footprint and at least one track, arc or via, 4
+    when both hold a board with at least one footprint, else 2."""
+    if not (_has_footprints(a) and _has_footprints(b)):
+        return 2
+    return 5 if has_copper(a) and has_copper(b) else 4
 
 
 def compare_designs(
@@ -372,14 +377,19 @@ def compare_designs(
     rules: Sequence[Rule] = (),
 ) -> EquivalenceReport:
     """Run the levels 1 to ``level`` in order and apply ``rules`` to each. ``ValueError`` for a level
-    outside ``LEVELS``, or above what both sides hold (the message names the side without footprints)."""
+    outside ``LEVELS``, or above what both sides hold (the message names the side without footprints, or
+    without copper when only level 5 is out of reach)."""
     if type(level) is not int or level not in LEVELS:
         raise ValueError(f"level is one of {', '.join(map(str, LEVELS))}, got {level!r}")
-    if level > max_level(a, b):
-        bare = " and ".join(name for name, side in (("a", a), ("b", b)) if not _has_footprints(side))
+    highest = max_level(a, b)
+    if level > highest:
+        held, needs = (
+            (_has_footprints, "footprints") if highest < 4 else (has_copper, "a track, an arc or a via")
+        )
+        bare = " and ".join(name for name, side in (("a", a), ("b", b)) if not held(side))
         raise ValueError(
-            f"level {level} needs footprints on both sides, and side {bare} holds none; "
-            f"the highest level available is {max_level(a, b)}"
+            f"level {level} needs {needs} on both sides, and side {bare} holds none; "
+            f"the highest level available is {highest}"
         )
     first, refs = level_components(a, b, ignore_refs=ignore_refs)
     results = [first]
@@ -392,6 +402,8 @@ def compare_designs(
         if level >= 4:
             fourth, shift = level_placement(pairs, tolerances, frame)
             results.append(fourth)
+        if level >= 5:
+            results.append(level_routing(a, b, pair_nets(a, b, refs), tolerances))
     return EquivalenceReport(
         levels=tuple(apply_rules(result, rules) for result in results),
         tolerances=tolerances,
@@ -408,5 +420,6 @@ __all__ = [
     "level_footprints",
     "level_netlist",
     "level_placement",
+    "level_routing",
     "max_level",
 ]

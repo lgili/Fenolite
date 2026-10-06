@@ -351,7 +351,7 @@ written, and the kit is named and not defined.
 | c0086 | `altium-schematic-complete` | symbol graphics, the module tree at any depth, port directions, buses, text outside ASCII, parameters | proposed | c0032–c0037, c0040, c0070 | 9.5 |
 | c0087 | `altium-outjob-sheet` | an output job from the export preset; a `.SchDot` and the sheet on schematics from the sheet specification | proposed | c0032, c0042, c0046, c0074 | 7 |
 | c0088 | `altium-light-drc` | `copper.clearance` and `parity` on Altium documents, an Altium parity adapter, a copper guard in the Altium build | proposed | c0029, c0072, c0044, c0084 | 5 |
-| c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | proposed | c0045, c0029 | 4.25 |
+| c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | implemented on its branch on 2026-10-06: the triangle holds at level 5 on `kicad-cli` 10.0.6 for the routed sample and the seven public documents (`docs/evidence/equivalence-triangle.md`); the full suite and the CI run are the maintainer's | c0045, c0029 | 4.25 |
 | c0090 | `altium-roundtrip-write` | a model with a board written as Altium documents; RT-A2 on footprints and copper; the level RT-A3 over the corpus; the first round-trip notes in the claims | proposed | c0083–c0086, c0089 | 7 |
 | c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium by checklist and by the kit's own script, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | proposed | c0084–c0090 | 7.25 |
 | c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.4 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
@@ -393,7 +393,7 @@ Approved as the working target on 2026-10-06, to be reviewed by the maintainer b
 | 2 | netlist (`REF-PIN`) | v0.3; delivered by c0045 (`docs/equivalence.md`) |
 | 3 | footprints and pads | v0.3; delivered by c0045 (`docs/equivalence.md`) |
 | 4 | placement | v0.3; delivered by c0045 (`docs/equivalence.md`) |
-| 5 | routing (tracks and vias per net) | v0.4 |
+| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.4; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
 | 6 | rules | v0.6 |
 | 7 | geometry (XOR) | v0.6 |
 | 8 | presentation | after 1.0 |

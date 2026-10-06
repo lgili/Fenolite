@@ -40,8 +40,16 @@ TABLE = (
     (4, "side", "side"),
     (4, "position", "position"),
     (4, "rotation", "rotation"),
+    (5, "route-missing", "copper"),
+    (5, "route-connectivity", "pads"),
+    (5, "route-vias", "vias"),
+    (5, "route-length", "length"),
+    (5, "route-stub", "stubs"),
+    (5, "route-unjudged", "zones"),
 )
 """The table of the requirement, written out a second time."""
+NOTICES = {"route-stub": "warning", "route-unjudged": "info"}
+"""The kinds that are notices, with their severity; every other kind is an error."""
 OTHER = {
     "equiv.excluded": ("info",),
     "equiv.import-message": ("info",),
@@ -53,13 +61,20 @@ OTHER = {
 def test_kinds_table_is_closed() -> None:
     assert levels.KINDS == TABLE and levels.KINDS is model.KINDS
     assert len({kind for _, kind, _ in TABLE}) == len(TABLE)
-    assert model.LEVELS == (1, 2, 3, 4)
-    assert dict(model.LEVEL_NAMES) == {1: "components", 2: "netlist", 3: "footprints", 4: "placement"}
+    assert model.LEVELS == (1, 2, 3, 4, 5)
+    assert dict(model.LEVEL_NAMES) == {
+        1: "components",
+        2: "netlist",
+        3: "footprints",
+        4: "placement",
+        5: "routing",
+    }
+    assert dict(model.NOTICE_SEVERITY) == NOTICES
     assert {level for level, _, _ in TABLE} == set(model.LEVELS)
 
 
 def test_codes_table() -> None:
-    kinds = {f"equiv.{kind}": ("error",) for _, kind, _ in TABLE if kind != "net"}
+    kinds = {f"equiv.{kind}": (NOTICES.get(kind, "error"),) for _, kind, _ in TABLE if kind != "net"}
     assert dict(EQUIVALENCE_CODES) == {**kinds, **OTHER}
     assert equivalence_codes.ISSUE_CODES is EQUIVALENCE_CODES
     for code in EQUIVALENCE_CODES:
@@ -70,13 +85,17 @@ def test_codes_table() -> None:
 
 
 def test_every_kind_gives_an_issue_of_its_code() -> None:
-    differences = tuple(Difference(level, kind, "R1-1", field, "x", "") for level, kind, field in TABLE)
-    report = EquivalenceReport((LevelResult(1, 0, differences),))
+    found = [Difference(level, kind, "R1-1", field, "x", "") for level, kind, field in TABLE]
+    differences = tuple(d for d in found if d.kind not in NOTICES)
+    notices = tuple(d for d in found if d.kind in NOTICES)
+    report = EquivalenceReport((LevelResult(1, 0, differences, notices=notices),))
     issues = difference_issues(report)
     assert [i.code for i in issues] == [
         "netlist.assignment-differs" if kind == "net" else f"equiv.{kind}" for _, kind, _ in TABLE
     ]
-    assert {i.severity for i in issues} == {"error"} and {i.where for i in issues} == {"R1-1"}
+    assert [i.severity for i in issues] == [NOTICES.get(kind, "error") for _, kind, _ in TABLE]
+    assert {i.where for i in issues} == {"R1-1"} and report.equivalent is False
+    assert EquivalenceReport((LevelResult(5, 0, notices=notices),)).equivalent
     assert (
         issues[0].message == "R1-1: ref is 'x' on side a and nothing on side b (level 1, component-missing)"
     )
@@ -92,7 +111,7 @@ def test_docs_list_every_kind() -> None:
         if line.startswith("| ") and line[2].isdigit()
     ]
     assert rows == [(str(level), f"`{kind}`", f"`{field}`") for level, kind, field in TABLE]
-    for name in ("components", "netlist", "footprints", "placement"):
+    for name in ("components", "netlist", "footprints", "placement", "routing"):
         assert f"`{name}`" in page.split("## Levels", 1)[1].split("\n## ", 1)[0]
 
 

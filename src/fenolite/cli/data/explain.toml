@@ -1143,6 +1143,36 @@ meaning = "A footprint's rotation differs by more than the angle tolerance, modu
 fix = "Rotate the footprint, or pass --tolerance-udeg when the difference is rounding."
 see = "equivalent"
 
+["equiv.route-connectivity"]
+meaning = "The copper of a net joins other pads on one side than on the other: a connection is open, or two parts of the net are joined on one side only. The message lists the pad sets that only one side holds."
+fix = "Route the missing connection, or restore the track or via that was lost; --level 4 compares without routing."
+see = "equivalent"
+
+["equiv.route-length"]
+meaning = "For the same joined pads, the routed length on a copper layer differs by more than the tolerance. A track moved to another layer shows as two lengths that differ."
+fix = "Make the routes agree, or pass --tolerance-nm or --tolerance-ppm for the rounding of a conversion."
+see = "equivalent"
+
+["equiv.route-missing"]
+meaning = "One side holds copper (a track, an arc, a via or a zone fill) on a net and the other side holds none."
+fix = "Route the net on the other side, or compare with --level 4 when one board is not routed yet."
+see = "equivalent"
+
+["equiv.route-stub"]
+meaning = "The copper of a net that reaches no pad (a stub, a lone via) differs in number of pieces or in total length. It is a warning and does not fail the comparison."
+fix = "Check that no stitching via or stub was lost; name a known difference in an exclusion profile."
+see = "equivalent"
+
+["equiv.route-unjudged"]
+meaning = "A net holds a zone without a fill on a side, and its pads are not joined without it, so its connectivity was not judged."
+fix = "Fill the zones (fenolite fill) and compare again."
+see = "equivalent"
+
+["equiv.route-vias"]
+meaning = "For the same joined pads, the count of vias per pair of copper layers differs."
+fix = "Restore the via that was lost, or remove the one that was added."
+see = "equivalent"
+
 ["equiv.side"]
 meaning = "A footprint is on the top side on one side of the comparison and on the bottom on the other."
 fix = "Flip the footprint on one of the boards."

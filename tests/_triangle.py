@@ -101,15 +101,24 @@ def profile_for(version: str) -> Profile:
     return found
 
 
-def report(found: Sides, *, rules: bool = True, ignore_refs: tuple[str, ...] = ()) -> EquivalenceReport:
-    """The comparison at levels 1 to 4 under the profile of the running version; ``rules=False`` keeps its
-    frame and tolerance and applies no rule."""
+def report(
+    found: Sides,
+    *,
+    rules: bool = True,
+    ignore_refs: tuple[str, ...] = (),
+    level: int = 4,
+    ppm: int | None = None,
+) -> EquivalenceReport:
+    """The comparison at levels 1 to ``level`` under the profile of the running version; ``rules=False``
+    keeps its frame and tolerance and applies no rule, and ``ppm`` replaces the profile's relative
+    tolerance of a routed length (level 5, change c0089)."""
     profile = profile_for(found.version)
+    relative = profile.tolerance_ppm if ppm is None else ppm
     return compare_designs(
         found.a,
         found.b,
-        level=4,
-        tolerances=Tolerances(profile.tolerance_nm, profile.tolerance_udeg),
+        level=level,
+        tolerances=Tolerances(profile.tolerance_nm, profile.tolerance_udeg, relative),
         frame=profile.frame,
         ignore_refs=ignore_refs,
         rules=profile.rules if rules else (),

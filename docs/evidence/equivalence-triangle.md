@@ -3,7 +3,8 @@
 The record of `fenolite equivalent A.PcbDoc --against kicad-import` (change c0045, capability
 design-equivalence): one PCB document is read twice, by Fenolite's Altium backend and by
 `kicad-cli pcb import --format altium` followed by Fenolite's KiCad reader, and the two models are
-compared at levels 1 to 4. The page holds counts only. Documents are named by corpus row id and licence;
+compared at levels 1 to 4, and at level 5 since change c0089 ("Level 5, kicad-cli 10.0", at the end). The
+page holds counts only. Documents are named by corpus row id and licence;
 no content of a document is written here.
 
 What the label means: `ORACLE-VERIFIED(kicad-cli)` says that two independent readers of one file agree.
@@ -174,3 +175,112 @@ level or below.
 Over all rows, each of `H-G-EQ-L1` to `H-G-EQ-L4` therefore stays `INFERRED`: one `undecided` rule matched
 at level 1 on one row and one at level 3 on another. The Linux run of the `kicad-10` job compares six
 rows; `altium-third-party-pcbdoc-02` is skipped there as recorded under "Where the triangle runs".
+
+## Level 5, kicad-cli 10.0 (change c0089)
+
+Level 5 compares the routing of each net: which pads the copper joins, the vias per pair of copper spans
+and the routed length per copper span (`docs/equivalence.md`, "Level 5: routing"). The triangle runs it on
+two sets of boards, with `tests/kicad/equivalence/test_triangle_level5.py`:
+
+- **The routed sample** (`tests/_altium_copper.py`, authored for Fenolite; four copper layers, five
+  tracks, one arc, three vias, one zone): its KiCad board, the PCB document that
+  `fenolite build --target altium --copper-from` writes from it, and the board that `kicad-cli pcb import`
+  converts that document to. Three corners, compared pairwise. The probe `equiv-l5-triangle`
+  (`docs/evidence/kicad/probes/10.0.6.json`) records `equal`.
+- **The seven public documents** of the table above. Fenolite writes nothing here, so each row has two
+  corners: Fenolite's read of the document and the read of KiCad's conversion.
+
+`uv run pytest tests/kicad/equivalence/test_triangle_level5.py -s` with `kicad-cli` 10.0.6 (macOS, local,
+2026-10-06): 20 passed. `pcb import` does not exist in 9.0, so nothing of this section runs there; the probe
+is registered for major 10 only and `docs/evidence/kicad/probes/9.0.9.json` does not hold it.
+
+### Tolerances
+
+The profile `kicad-import` 10.0 keeps its `tolerance_nm` of 10 and gains `tolerance_ppm` 20 for routed
+lengths. The sample needs neither more than 10 nm nor the relative tolerance. On the public documents
+the largest difference of a routed length on one copper span, with no tolerance at all, is 20 nm, and
+among the differences above 10 nm the largest share of the longer length is 18 parts per million; 20 is
+the smallest multiple of 10 that covers it. The cause is the rounding of `H-G-EQ-ROUND-2`: KiCad holds
+each end of each segment in steps of 10 nm, so the length of a route differs by more the more segments it
+has. With `tolerance_ppm` 0 the only level-5 differences on the public documents are `route-length`:
+connectivity and via counts agree exactly on every row.
+
+| row id | spans compared | largest length difference (nm) | largest share above 10 nm (ppm) |
+|---|---|---|---|
+| altium-third-party-pcbdoc-01 | 222 | 14 | 2 |
+| altium-third-party-pcbdoc-02 | 40 | 10 | none above 10 nm |
+| altium-third-party-pcbdoc-03 | 83 | 12 | 2 |
+| altium-third-party-pcbdoc-04 | 15 | 13 | 7 |
+| altium-third-party-pcbdoc-05 | 50 | 4 | none above 10 nm |
+| altium-third-party-pcbdoc-06 | 21 | 10 | none above 10 nm |
+| altium-third-party-pcbdoc-07 | 41 | 20 | 18 |
+
+### The routed sample
+
+Levels 1 to 5 in the relative frame at 10 nm, with no relative tolerance and no rule. In each cell of
+level 5: nets compared / differences / notices.
+
+| pair | levels 1 to 4 | level 5 | pieces a, b | vias a, b | total length a, b (nm) | zones without a fill a, b |
+|---|---|---|---|---|---|---|
+| KiCad board, written document | no difference | 4 / 0 / 1 | 5, 5 | 3, 3 | 51 020 987, 51 020 985 | 1, 2 |
+| written document, KiCad's import | no difference | 4 / 0 / 1 | 5, 5 | 3, 3 | 51 020 985, 51 020 987 | 2, 2 |
+| KiCad board, KiCad's import | no difference | 4 / 0 / 1 | 5, 5 | 3, 3 | 51 020 987, 51 020 987 | 1, 2 |
+
+- The three reads hold the same pieces: `LED_DRV` joins two pads on the top layer, `LED_A` joins two
+  pads through one via and the second inner layer, `VIN` and `GND` hold one pad with a via each. Each
+  length per copper span agrees within 10 nm.
+- The one notice is `route-unjudged` on `GND`: the sample's zone is written unpoured (the document's
+  polygons are repoured in Altium), so no read holds its fill and the net is not judged. The zone of two
+  layers of the KiCad board is one polygon per layer in the document, hence 1 and 2.
+- With one via taken out of KiCad's import, level 5 reports `route-connectivity` on that net: the
+  comparison is not blind on this board.
+
+### The public documents
+
+Profile `kicad-import` 10.0 (relative frame, 10 nm, 20 ppm), with the references of "References that a
+document holds several times" left out. No rule of the profile is of level 5, and none was needed. In the
+level-5 cell: nets compared / differences / excluded.
+
+| row id | level 5 | notices | pieces a, b | vias a, b | zones without a fill a, b | copper on no net a, b |
+|---|---|---|---|---|---|---|
+| altium-third-party-pcbdoc-01 | 153 / 0 / 0 | `route-unjudged` 8 | 419, 419 | 646, 646 | 0, 8 | 74, 0 |
+| altium-third-party-pcbdoc-02 | 34 / 0 / 0 | `route-unjudged` 4 | 44, 44 | 242, 242 | 1, 6 | 43, 1 |
+| altium-third-party-pcbdoc-03 | 54 / 0 / 0 | `route-stub` 1 | 54, 59 | 47, 47 | 0, 0 | 6, 0 |
+| altium-third-party-pcbdoc-04 | 10 / 0 / 0 | none | 10, 10 | 67, 67 | 0, 0 | 0, 0 |
+| altium-third-party-pcbdoc-05 | 30 / 0 / 0 | none | 30, 30 | 59, 59 | 0, 0 | 0, 0 |
+| altium-third-party-pcbdoc-06 | 18 / 0 / 0 | none | 19, 19 | 42, 42 | 0, 0 | 0, 0 |
+| altium-third-party-pcbdoc-07 | 21 / 0 / 0 | none | 22, 22 | 60, 60 | 0, 0 | 0, 0 |
+
+Totals: 320 nets compared, 1 163 vias on each side, no difference, no exclusion. Every net with copper is
+in a pair on every row (`nets_unpaired` is 0 on both sides).
+
+What level 5 did not judge, and why:
+
+- **Nets that depend on a pour** (`route-unjudged`, 8 nets on the first row and 4 on the second). The
+  document holds the poured copper of its polygons and Fenolite reads it as zone fills; KiCad's conversion
+  holds the same zones without a fill. Such a net has several pieces in KiCad's read and cannot be
+  compared. This is the non-goal "no judgement of unfilled zones".
+- **Copper on no net** (74, 43 and 6 items in Fenolite's read of the first three rows, 1 in KiCad's of
+  the second). Level 5 compares nets; these items are counted and not compared.
+- **One stub notice, caused by Fenolite** (`route-stub` on one net of the third row; a warning, which
+  fails nothing). The pour of that row is one region with 268 holes and five more regions, each of which
+  starts inside one of those holes. Fenolite's Altium adapter makes a zone fill from a region's outline
+  and drops its holes (`fenolite.backends.altium.adapter.copper.zones`), so in Fenolite's read the five
+  regions touch the main one and are part of its piece; in KiCad's read, which keeps the holes, they are
+  five pieces that reach no pad. The pads joined, the vias and the lengths of that net agree. The cause is
+  Fenolite's, so it gets no rule ("Importer exclusion list per version"); it is an open fault of the
+  adapter, outside this change, and the test pins the notice by count so that a fix shows.
+
+### Labels at level 5
+
+By the rule of "Labels per level" (no `undecided` rule at that level or below):
+
+| board | level 5 |
+|---|---|
+| routed sample, three pairs | ORACLE-VERIFIED(kicad-cli) (10.0.6), for the three nets that are judged; `GND` is not judged |
+| altium-third-party-pcbdoc-01, -02 | INFERRED (an `undecided` rule matched at a lower level; 8 and 4 nets are not judged) |
+| altium-third-party-pcbdoc-03 | INFERRED (the stub notice above is an open fault of Fenolite's adapter) |
+| altium-third-party-pcbdoc-04 to -07 | ORACLE-VERIFIED(kicad-cli) (10.0.6) |
+
+`H-G-EQ-L5-TRIANGLE` is about the first row of this table. The Linux run of the `kicad-10` job is open: it
+is the maintainer's, and it will compare six of the seven public rows, as at levels 1 to 4.

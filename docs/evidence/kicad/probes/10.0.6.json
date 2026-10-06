@@ -156,6 +156,7 @@
     "dru-order-hole-forward": "present",
     "dru-order-hole-reverse": "absent",
     "dru-order-reverse": "absent",
+    "equiv-l5-triangle": "equal",
     "erc-copyset": "equal",
     "erc-ignored-checks": "present",
     "erc-position-scale": "equal",

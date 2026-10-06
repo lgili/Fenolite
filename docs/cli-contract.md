@@ -1607,10 +1607,10 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 
 ## equivalent
 
-`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--frame absolute|relative]
-[--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import] [--kicad-cli PATH]
-[--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates every
-difference at `REF` or `REF-PIN`. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
+`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
+[--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
+[--kicad-cli PATH] [--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates
+every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
 defines the levels, the kinds of difference, the tolerance rules and the exclusion file.
 
 Each of `A` and `B` is one of:
@@ -1622,8 +1622,9 @@ Each of `A` and `B` is one of:
 
 | option | meaning |
 |---|---|
-| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement). The default is the highest level both sides hold: 4 when both have footprints, else 2 |
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing). The default is the highest level both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing |
 | `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
+| `--tolerance-ppm N` | level 5 only: two routed lengths are equal within the larger of `--tolerance-nm` and `N` parts per million of the longer one; a non-negative integer, default 0 |
 | `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
 | `--ignore-ref GLOB` | leave out the components whose reference matches (repeatable) |
 | `--exclusions FILE --profile NAME` | apply the rules of one profile of an exclusion file. The profile also gives the frame and the tolerances; an option on the command line overrides its value |
@@ -1637,14 +1638,15 @@ Each of `A` and `B` is one of:
 | `level` | the highest level that ran |
 | `equivalent` | `true` when no difference remains outside the rules |
 | `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board` or `circuit`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version` |
-| `tolerances` | `length_nm` and `angle_udeg` |
+| `tolerances` | `length_nm`, `angle_udeg` and `length_ppm` |
 | `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
-| `levels` | one object per level run: `level`, `name`, `compared`, `differences` and `excluded` (counts) and `summary` |
+| `levels` | one object per level run: `level`, `name`, `compared`, `differences`, `excluded` and `notices` (counts) and `summary`. The summary of level 5 holds `nets` (compared), `pieces`, `vias` and `length` (totals of side `a` and `b` over those nets), `unjudged`, `nets_unpaired`, `zones_unfilled`, `copper_no_net` and `unshaped` |
 | `differences`, `excluded` | objects `{level, kind, where, field, a, b}`, in level order and then by `where`; an excluded one also has `rule` |
+| `notices` | objects of the same form for what level 5 reports without failing: `route-stub` and `route-unjudged` |
 | `profile` | `null`, or `name`, `tool_version` and `rules` (the count of rules) |
 
-`issues` holds one error per difference that no rule excludes, then one `equiv.excluded` info per rule
-that matched, then the notices of the triangle, then the readers' warnings and infos of `A` and of `B`.
+`issues` holds one error per difference that no rule excludes, then one warning or info per notice, then
+one `equiv.excluded` info per rule that matched, then the notices of the triangle, then the readers' warnings and infos of `A` and of `B`.
 The evidence is the lowest of the two readings (a built design counts as `INFERRED`); with `--against`,
 `evidence.oracle` is `kicad-cli`.
 
@@ -1660,6 +1662,12 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.pad-missing` | error | different counts of pads of one number |
 | `equiv.pad-kind`, `equiv.pad-shape`, `equiv.pad-size`, `equiv.pad-drill`, `equiv.pad-position`, `equiv.pad-rotation`, `equiv.pad-copper` | error | a field of a pad differs, in the footprint's frame |
 | `equiv.side`, `equiv.position`, `equiv.rotation` | error | the placement of a footprint differs |
+| `equiv.route-missing` | error | one side has copper on a net and the other has none |
+| `equiv.route-connectivity` | error | the copper of a net joins other pads on one side than on the other |
+| `equiv.route-vias` | error | for the same joined pads, the via counts per pair of copper layers differ |
+| `equiv.route-length` | error | for the same joined pads, the routed length on a copper layer differs beyond the tolerance |
+| `equiv.route-stub` | warning | the copper that reaches no pad (stubs, lone vias) differs in number of pieces or in length; it does not fail the comparison |
+| `equiv.route-unjudged` | info | a net whose connectivity depends on a zone without a fill was not judged |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
 | `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
 | `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
@@ -1669,7 +1677,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 |---|---|---|
 | 0 | none | equivalent up to the level, outside the rules |
 | 5 | none | a difference remains, or `equiv.oracle-failed` |
-| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints); a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or above 5; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10 |
