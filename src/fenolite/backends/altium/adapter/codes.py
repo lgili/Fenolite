@@ -20,6 +20,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.bad-stack": "error",
     "altium.import.sheet-loop": "error",
     "altium.import.bad-length": "warning",
+    "altium.import.body-unknown": "warning",
     "altium.import.bad-geometry": "warning",
     "altium.import.layer-outside-stack": "warning",
     "altium.import.duplicate-net": "warning",

@@ -35,6 +35,25 @@ def test_largest_known_body() -> None:
     assert outward_height(footprint) == 9 * MM
 
 
+def test_largest_known_body_signed_bounds() -> None:
+    """c0099: a signed bound wins over that body's legacy height; a body of unknown projection makes no
+    claim."""
+    signed = ComponentBody(
+        id="bdy_00000000-0000-4000-8000-000000000002",
+        kind="extruded",
+        height=3 * MM,
+        z_min=-MM // 2,
+        z_max=9 * MM,
+    )
+    unknown = ComponentBody(
+        id="bdy_00000000-0000-4000-8000-000000000003",
+        kind="extruded",
+        height=30 * MM,
+        projection_unknown=True,
+    )
+    assert outward_height(_footprint(_body(1, 2 * MM), signed, unknown)) == 9 * MM
+
+
 def test_standoff_is_not_read() -> None:
     assert outward_height(_footprint(_body(1, 4 * MM, standoff=3 * MM))) == 4 * MM
 
@@ -42,6 +61,14 @@ def test_standoff_is_not_read() -> None:
 def test_no_known_height() -> None:
     assert outward_height(_footprint()) is None
     assert outward_height(_footprint(_body(1, 0))) is None
+    unknown = ComponentBody(
+        id="bdy_00000000-0000-4000-8000-000000000001", kind="extruded", height=MM, projection_unknown=True
+    )
+    assert outward_height(_footprint(unknown)) is None
+    below = ComponentBody(
+        id="bdy_00000000-0000-4000-8000-000000000001", kind="extruded", height=MM, z_min=-4 * MM, z_max=0
+    )
+    assert outward_height(_footprint(below)) is None
 
 
 # The files of the placement rules: a part's height is reached only through ``outward_height``.

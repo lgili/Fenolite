@@ -37,6 +37,7 @@ HYPOTHESES = (
     "H-A-IMP-PLANE-CUT",
     "H-A-IMP-VIA-PADLESS",
     "H-A-IMP-BODY",
+    "H-A-IMP-BODY-Z",
     "H-A-IMP-SYMFRAME",
     "H-A-IMP-FPGFX",
 )

@@ -1712,3 +1712,12 @@ part of it.
   is `severity`. A severity is no rule kind, so the rule table has no row for it.
 
 Neither kind is a loss of the board that is made: both are `info`, and a write is not refused for them.
+## Retained body projections (c0099)
+
+Native import retains each component body admitted by the existing component-owner adapter.
+Unknown projection, unsupported model type and unordered heights produce body-unknown and set
+projection_unknown; malformed heights additionally produce bad-length. Model references and
+source locators remain present. Source bytes stay with the native reader record rather than an
+unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
+and projection_unknown are analysis metadata; the body writer of change c0121 writes a body from its
+`height` and `standoff` and reads neither the signed bounds nor `projection_unknown`.

@@ -241,7 +241,9 @@ class ComponentBody(Entity):
     ``height`` is the distance from the board surface to the top of the body and ``standoff`` the distance
     to its underside. ``outline`` is the body's footprint as a polygon in the footprint frame (empty when
     the source gives none), ``layer`` the layer it is drawn on, and ``model`` the name of a 3D model for
-    the kind ``model``. No model data is carried."""
+    the kind ``model``. Optional signed ``z_min``/``z_max`` bound the extrusion away from the mounted
+    face. ``projection_unknown`` retains source information without claiming volume geometry.
+    No model data is carried."""
 
     kind: BodyKind
     height: Nm
@@ -250,6 +252,9 @@ class ComponentBody(Entity):
     layer: str = ""
     model: str = ""
     name: str = ""
+    z_min: Nm | None = None
+    z_max: Nm | None = None
+    projection_unknown: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,12 +288,16 @@ class FootprintInstance(Entity):
 def outward_height(footprint: FootprintInstance) -> Nm | None:
     """The height of a placed part above the board surface on its own side, or ``None`` when unknown.
 
-    The largest upper bound of the footprint's bodies (change c0140): a body's upper bound is its
-    ``height``. ``None`` when the footprint has no body or that bound is not positive. The one place of the
-    package that computes a part's height: it reads neither the component, nor a property, nor a 3D
-    model, nor ``standoff``. Change c0099 adds signed bounds and bodies of unknown projection; this
-    function then takes ``z_max`` as the upper bound of a body that has it and skips the others."""
-    tops = [body.height for body in footprint.bodies]
+    The largest upper bound of the footprint's known bodies (change c0140): a body is known when its
+    ``projection_unknown`` is false, and its upper bound is its ``z_max`` when it has signed bounds (change
+    c0099), its ``height`` otherwise. ``None`` when the footprint has no known body or that bound is not
+    positive. The one place of the package that computes a part's height: it reads neither the component,
+    nor a property, nor a 3D model, nor ``standoff``, nor ``z_min``."""
+    tops = [
+        body.height if body.z_max is None else body.z_max
+        for body in footprint.bodies
+        if not body.projection_unknown
+    ]
     if not tops:
         return None
     top = max(tops)

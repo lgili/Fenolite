@@ -67,9 +67,10 @@ def test_bodies_in_stream_order_and_free_bodies_unmapped() -> None:
         ]
     )
     first, second = footprints(data, issues)
-    assert first.bodies == () and [body.name for body in second.bodies] == ["A", "B"]
+    assert first.bodies == () and [body.name for body in second.bodies] == ["A", "B", ""]
+    assert second.bodies[-1].projection_unknown
     (unmapped,) = [i for i in issues if i.code == "altium.import.unmapped"]
-    assert "bodies 3" in unmapped.message and "ComponentBodies6" not in unmapped.message
+    assert "bodies 2" in unmapped.message and "ComponentBodies6" not in unmapped.message
     (bad,) = [i for i in issues if i.code == "altium.import.bad-length"]
     assert bad.where == "ComponentBodies6/Data#3"
 

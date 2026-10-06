@@ -267,17 +267,29 @@ written before them still load.
   board surface to the top of the body), `standoff` (from the board surface to its underside, 0 by
   default), `outline` (a polygon in the footprint frame, empty when the source gives none), `layer`,
   `model` (the name of a 3D model for the kind `model`) and `name`.
-- A body states a volume above the side the footprint is placed on and carries no model data. The height
-  of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- A legacy body states a volume above its mounted side and carries no model data. Outward height
+  is the largest known z_max (or legacy height); without known extents it is unknown.
 - `fenolite.model.board.outward_height(footprint)` (change c0140) is the one function of the package that
-  computes the height of a placed part: the largest upper bound of the footprint's bodies, `None` when it
-  has no body or that bound is not positive. It reads neither the component, nor a footprint property, nor
-  a 3D model, nor `standoff`. No other field holds a part's height: `Component` has none, and a script
-  states a height by giving the part a body (`docs/dsl.md`, `Part(height=…)`). Every consumer (the height
-  limits of `docs/placement.md`, a checker, an exporter) calls it. Change c0099 adds signed bounds; the
-  upper bound of a body is then its `z_max` when it has one, and a body of unknown projection makes no claim.
+  computes the height of a placed part: the largest upper bound of the footprint's known bodies, `None`
+  when it has no known body or that bound is not positive. A body is known when its `projection_unknown`
+  is false; its upper bound is its `z_max` when it has signed bounds (change c0099), and its `height`
+  otherwise. It reads neither the component, nor a footprint property, nor a 3D model, nor `standoff`, nor
+  `z_min`. No other field holds a part's height: `Component` has none, and a script states a height by
+  giving the part a body (`docs/dsl.md`, `Part(height=…)`). Every consumer (the height limits of
+  `docs/placement.md`, a checker, an exporter) calls it.
 - `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
-  whose `height` is below its `standoff` or whose `standoff` is negative.
+  without signed bounds and without unknown projection whose `height` is below its `standoff`
+  or whose `standoff` is negative.
+- Signed body intervals use integer-nm `z_min` and `z_max`, both present and ordered, in the
+  mounted-face frame with positive Z outwards. They take precedence over source height/standoff;
+  `model.body-volume` reports a half-specified or reversed interval at the body id.
+- `projection_unknown` defaults to false. Unknown projections are retained but have no qualified
+  extrusion; malformed source heights use 0, reversed heights, unsupported model types and mismatched
+  projection sides produce warnings and bypass `model.body-height`. Explicit intervals still validate.
+- Known imports serialize both bounds equal to source standoff/height, including negative standoff.
+  Old v0.2.0 body documents retain default fields and identical bytes; legacy validation applies until
+  source reimport. The canonical readers of releases 0.2.x and 0.3.0 refuse documents containing the new
+  body keys.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
 ## Footprint items and corner ratio
