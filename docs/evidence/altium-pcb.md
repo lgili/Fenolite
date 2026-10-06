@@ -364,15 +364,15 @@ the repository, which uses `tests/_altium_copper.py` and `rulemap.write_rule_fil
 | `rules/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
 | `rules/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
 | `rules/routed.RUL` | `aac210fee08abeaafd56351109bba5116f4bc09b0c20d672a5c9ad6baae7d4d5` |
-| `rules/routed.SchDoc` | `7fe119a7d4aeaac4e839efb62edaedcea16f0122cebd65a6529761a719f474be` |
-| `rules/routed.SchLib` | `d5c422088de0150389ebee25d625dbeeba298d7099973b8588bc70593680a0fe` |
+| `rules/routed.SchDoc` | `5c7ce5f3352ce91e6970dd49753f03d9f0b39c539f56b8a79b59d5c5679e7557` |
+| `rules/routed.SchLib` | `db7d0c5b55210c9f7a113120595fa48427c43263cff13c76452ed44312dd0e07` |
 
 The library, the project file and the schematic are the committed files of Part C; only the PCB document
 differs, and only in `Rules6`.
 
 **The rules written**, as Fenolite reads them back from `rules/routed.PcbDoc`. Every row but
 `Clearance_PWR` is a rule of the design; `Clearance_PWR` is the rule of the net class, which the board-wide
-rule `Clearance` now precedes. `routed.RUL` holds the ten records of the design's rules, not
+rule `Clearance` now precedes. `routed.RUL` holds the nine records of the design's rules, not
 `Clearance_PWR`.
 
 | Altium rule kind | name | priority | first scope | second scope | values |

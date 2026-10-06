@@ -367,8 +367,8 @@ The files are built outside the repository by `fenolite build examples/blink_rou
 | `blink_routed.PrjPcb` | `99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d` |
 | `blink_routed.PcbDoc` | `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a` |
 | `blink_routed.PcbLib` | `640bbcdb207a1dd724d310963f135101f6fb7525b5b59d22516a23ecaa4955ce` |
-| `blink_routed.SchDoc` | `f0ec3f334298227ed6c5e62fae6c563d67ab30a4ddfb31153c39568c4872161e` |
-| `blink_routed.SchLib` | `25ed4483c51cfc9321b83e81bded9abc645bbd3331d36cdd100cf38beef7b767` |
+| `blink_routed.SchDoc` | `50a062c3ae03c6dec28e803f42c01d18c1e7c7c39cb439c640135611e4065c14` |
+| `blink_routed.SchLib` | `44e8f59b353162278a631fa533f02197e4df3f40d88de8831cc3f111abe12e22` |
 
 The table sent with the files (what steps O1 and O2 are read against):
 
@@ -408,11 +408,11 @@ gives for the KiCad build of the same script; it is a visual reference only and 
 | file of 2026-10-06 | SHA-256 |
 |---|---|
 | `iso5457_generic.SchDot` (the bytes pinned in `tests/unit/backends/altium/test_schdot_write.py`; no template file is committed) | `0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1` |
-| `blink.SchDoc` | `9e2f1c503d1b2e33ba9cc5d0e73641246a31589c3d83e58ff46d46fa9bb8ae11` |
+| `blink.SchDoc` | `b95b062ead2024b560dfbaa811fb72106db401fa01ebaae12a01caa7ec256a43` |
 | `blink.PrjPcb` | `2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c` |
 | `blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
 | `blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
-| `blink.SchLib` | `4f3accb1f9634c7cedd305240493e6d6e9a2cfde3d3e0ff0aee0a75e6387517e` |
+| `blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
 | `blink.OutJob` | `e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e` |
 
 1. W1: open `iso5457_generic.SchDot`. Expected: no message; an A4 landscape sheet with a frame, reference
@@ -422,8 +422,8 @@ gives for the KiCad build of the same script; it is a visual reference only and 
 3. W3: open `blink.PrjPcb` and print `blink.SchDoc` to PDF; compare it with the reference PDF: frame, zones,
    title-block lines and labels. Report each difference in one sentence (known from the files: the text
    heights and the line widths differ, see `docs/sheet-templates.md`). Settles `H-A-SCHDOT-OPEN`.
-4. W4: read the title block of `blink.SchDoc`: title, revision, date and legal owner, and the sheet number.
-   Expected: `Blink`, `B`, `2026-10-06`, `Fenolite` and `1`. Then change the title in the document options
+4. W4: read the title block of `blink.SchDoc`: title, revision, date and legal owner, the sheet number,
+   and the sheet count where the title block shows one. Expected: `Blink`, `B`, `2026-10-06`, `Fenolite`, `1` and `1`. Then change the title in the document options
    and read it again. Expected: the new value. Settles `H-A-SCHDOT-STRINGS`.
 
 No report yet: the two rows are `INFERRED`, "pending (author report)".
@@ -518,7 +518,7 @@ Steps:
    (`tolerância ±10 %`, with its parameter `MPN` = `X-1`). Expected: as written. Then open `tree/ascii`
    and report whether it opens and what the comment of `L1` reads (`Inductor 10 uH`).
 8. **Y8**: "Design » Update PCB Document" into a new, empty PCB document added to `tree/binary`. Report
-   the number of components, nets, component classes and rooms the change order lists. Expected: 13
+   the number of components, nets, component classes and rooms the change order lists. Expected: 12
    components, 13 nets, the component classes `tree`, `io`, `leds` and `power`, no room.
 9. **Y9**: open each of the four projects under `samples/` (the regenerated samples). Expected: each
    opens without a prompt, and its three symbols of one unit show their own graphics, with the pins where
