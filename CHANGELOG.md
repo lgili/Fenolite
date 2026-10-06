@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archived the completed specs of the ERC stage (c0062), the netlist compare (c0063), the artifact manifest (c0065) and the inspection commands (c0066) after their CI run: the nine changes of v0.2a are archived.
 - Schematic RT2 compares what KiCad's ERC repeats: the sheet, type, severity and exclusion of every violation (`ErcReport.kinds()`), not the item KiCad names, which can differ between two runs on one unchanged project on 9.0.9 and on 10.0.6. `result.rt2.schematic` of `roundtrip` loses `attempts` and gains `exact`; the further attempts are gone from the command and from the corpus test (c0062, c0066).
 - `roundtrip --level rt2` also judges the schematic of a project: KiCad's ERC on the project and on Fenolite's re-dump of its sheets must give the same violations (`result.rt2.schematic`). A project on which ERC does not repeat itself is not judged (c0066, task 2.4b).
 - New command `parity` and `check` stage `parity`: schematic against board and symbol pins against footprint pads, without KiCad for generated projects, cross-checked with KiCad's parity test when it runs. Its counts per type equal KiCad's on the public demos of 9.0.9 and 10.0.6 (c0072).

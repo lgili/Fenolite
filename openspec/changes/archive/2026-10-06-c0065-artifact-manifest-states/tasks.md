@@ -50,7 +50,7 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `make check` passes; `openspec validate c0065-artifact-manifest-states --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing.
+- [x] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `make check` passes; `openspec validate c0065-artifact-manifest-states --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing. Done on 2026-10-06: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37395886697 on dev 2e826017 passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing on both majors), and the full `make check` passed locally on that tree (10878 passed, 60 skipped).
   - 2026-10-05, in the worktree: `make check-fast`, the residue suite and scan, `gen_schemas.py --check`
     and `openspec validate --strict` pass. Open: the full `make check` (the coordinator runs it once at
     the merge) and `gh pr checks` (the branch is not pushed).

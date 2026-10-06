@@ -1698,3 +1698,40 @@ A build with a schematic SHALL write the symbols it embeds into project librarie
 - **WHEN** it is built for target 10
 - **THEN** the pads and the labels hold `mod{slash}LED_A`, `.fenolite/circuit.json` holds `mod/LED_A`, and a second build is byte-identical
 
+### Requirement: Schematic netlist guard in a build
+A build that writes a schematic SHALL prove, before it returns any file and without any tool, that the sheet it generated means the circuit, as a step that "Built project files" allows after `schgen.generate_schematic`.
+- The guard MUST compute `sch_netlist.own_netlist(generated.sheet, project=name)` and compare it with the expected netlist of the design: each net of the circuit under `netnames.stored_name` of its name, with each member whose component has a symbol (a key of `generated.paths`) named by its component's reference and its pad number (the pin number mapped through `pin_pad_map`), and each entry of `generated.pad_nets` as a net of one node under its name. Every other pin of the sheet MUST only be required to be a net of one node. A component without a symbol, such as a footprint a rebuild keeps from the board, is not compared.
+- Two nets of the circuit with members on the sheet and one stored name MUST be a difference: KiCad reads them as one net.
+- A member or a `pad_nets` entry that the sheet has on another net or not at all, a pin of the sheet that shares its net against the circuit, or a grammar issue, MUST give one `build.schematic-netlist-differs` issue of severity `error`, naming the first net and `REF-PIN` in sorted order, and the build MUST return no file (exit 5).
+- The code SHALL join the closed build issue set of "Build issue codes".
+- With `schematic="skip"` the guard MUST NOT run.
+- The guard MUST NOT compare `pintype`, net classes or component values: it is about connectivity.
+
+#### Scenario: Examples pass the guard
+- **WHEN** `uv run pytest tests/unit/lens/test_build_netlist_guard.py -k examples` builds the blink and the units design for targets 9 and 10
+- **THEN** no `build.schematic-netlist-differs` is reported, and `files` holds the schematic
+
+#### Scenario: Generator defect caught
+- **GIVEN** a `generate_schematic` patched in the test to exchange the labels of the two pins of `R1`
+- **WHEN** `build_design` runs for the blink
+- **THEN** `files` is empty, and `issues` holds one `build.schematic-netlist-differs` error naming `LED_A` or `LED_DRV` and `R1-1` or `R1-2`
+
+#### Scenario: Two labels on one pin
+- **GIVEN** a `generate_schematic` patched in the test to put the label of `R1` pin `2` on pin `1`, beside the label of that pin
+- **WHEN** `build_design` runs for the blink
+- **THEN** `files` is empty, and the one `build.schematic-netlist-differs` error names the grammar reason `two-names`
+
+#### Scenario: A kept footprint without a symbol
+- **GIVEN** a rebuild over a board that holds a footprint the script does not, with a pad on a net of the circuit
+- **WHEN** `uv run pytest tests/unit/lens/test_net_alias.py -k board_only` rebuilds the project
+- **THEN** the build succeeds: the guard compares only the components that have a symbol
+
+#### Scenario: Skipped schematic, no guard
+- **WHEN** the blink is built with `schematic="skip"` and the same patch
+- **THEN** the build returns its files and no `build.schematic-netlist-differs`
+
+#### Scenario: Hermetic
+- **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** the blink is built with a schematic
+- **THEN** the build succeeds
+

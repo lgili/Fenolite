@@ -71,7 +71,7 @@
 
 ## 8. Closing
 
-- [ ] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0062-erc-oracle --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing.
+- [x] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0062-erc-oracle --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing. Done on 2026-10-06: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37395886697 on dev 2e826017 passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing on both majors), and the full `make check` passed locally on that tree (10878 passed, 60 skipped).
 
   Note (8.1): open. `make check-fast`, the residue scan and `openspec validate --strict` pass in the worktree; the full `make check` is the coordinator's, once, at the merge, and `gh pr checks` needs the pull request.
 - [x] 8.2 Update the evidence labels: each of the seven hypotheses becomes `KICAD-VERIFIED` for the majors that proved it, or is refuted with a successor and the fallback applied; `H-K-ERC-REPEAT` and `H-K-ERC-RT2` name the projects that were not judged; `H-K-CHECK-COPYSET` records its second proof. Raise `erc.EVIDENCE` only if `H-K-ERC-JSON`, `H-K-ERC-POS` and `H-K-ERC-COPYSET` hold on both majors. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py`.

@@ -76,7 +76,7 @@
 
 ## 8. Closing
 
-- [ ] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `make check` passes; `openspec validate c0066-cli-inspection-commands --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
+- [x] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `uv run python tools/gen_schemas.py --check` exits 0; `make check` passes; `openspec validate c0066-cli-inspection-commands --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing. Done on 2026-10-06: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37395886697 on dev 2e826017 passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing on both majors), and the full `make check` passed locally on that tree (10878 passed, 60 skipped).
   - Open (2026-10-05): this run ran `make check-fast` and the focused suites only. `make check` is the coordinator's, once, at the merge; `gh pr checks` needs the pull request (the `kicad-9` job also settles task 2.4c).
 - [x] 8.2 Update the evidence labels: `H-K-FMT-IDEMPOTENT` becomes `CORPUS-VERIFIED` with the row counts, or records the rows that fail and why. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
   - Done (2026-10-05): `CORPUS-VERIFIED` on two origins (133 KiCad demo rows, 3 third-party), counts in the row; `fmt` reports that level.

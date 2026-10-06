@@ -65,7 +65,7 @@
 
 ## 8. Closing
 
-- [ ] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0063-netlist-compare --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing.
+- [x] 8.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run pytest -q` exit 0; `uv run python tools/residue/scan.py` exits 0; `make check` passes; `openspec validate c0063-netlist-compare --strict --no-interactive` passes; `gh pr checks` shows `kicad-9` and `kicad-10` passing. Done on 2026-10-06: every job of ci run https://github.com/lgili/Fenolite/actions/runs/37395886697 on dev 2e826017 passed (unit on the five platforms, wheel, dco, kicad-9, kicad-10, routing on both majors), and the full `make check` passed locally on that tree (10878 passed, 60 skipped).
 
   Note (2026-10-05): Left open. The rules of this implementation run leave the full suite (make check, uv run pytest -q) to the coordinator at the merge, and nothing is pushed, so gh pr checks has no run to show. Done here instead: make check-fast, the residue scan, openspec validate --strict, and the oracle tests of this change on 10.0.6 and in the pinned 9.0.9 image (tasks 2.1, 5.3, 7.2).
 - [x] 8.2 Update the evidence labels: `H-K-NETLIST-SHAPE` and `H-K-NETLIST-OWN` become `KICAD-VERIFIED (9.0.x, 10.0.x)` or are refuted with a successor and the fallback applied. Raise `netlist.EVIDENCE` and `sch_netlist.EVIDENCE` only for a hypothesis that holds on both majors. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/test_format_facts.py`.
