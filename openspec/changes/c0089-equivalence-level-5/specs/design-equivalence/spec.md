@@ -31,7 +31,7 @@
 - `equiv.route-vias` (error): for equal pad sets, the via counts per span pair differ.
 - `equiv.route-length` (error): for equal pad sets, a length per copper span differs by more than `max(length_nm, length × length_ppm / 1_000_000)`.
 - `equiv.route-stub` (warning): the pieces without a pad differ in number or in total length beyond the tolerance.
-- `equiv.route-unjudged` (info): a net whose pads are joined only through an unfilled zone on either side; such a net gives no other difference.
+- `equiv.route-unjudged` (info): a net whose pads are joined only through an unfilled zone on either side; such a net gives no other difference. Its issue MUST carry a `hint` that names the unfilled zone as the cause, says that an open connection may be hidden, and says to fill the zones and compare again.
 - `pairing` MUST hold the pairs of net ids whose `REF-PIN` blocks are equal at level 2 and the elements both sides hold; a net that level 2 reported is not compared again, and the summary counts the nets of each side that no pair holds. Pads outside those elements give no element at this level.
 - The four error kinds MUST be judged in the order above; `route-missing` and `route-connectivity` end the judgement of a net. `route-stub` and `route-unjudged` are notices (`LevelResult.notices`): they are reported and located, and they never make two designs unequal.
 - A net is unjudged when a side holds an unfilled zone on it and more than one piece of it.

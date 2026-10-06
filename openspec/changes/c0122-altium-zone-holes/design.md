@@ -73,6 +73,7 @@ Counts only; the document is the public row `altium-third-party-pcbdoc-03` (S-01
 | pairs judged | 1 339 | 1 936 |
 
 - The 267 shorts were tracks and vias of other nets that lie in holes of the pour.
+- **The 266 clearance findings are an artefact of the default clearance, not findings of the file**, until the import reads a polygon's own clearance and the clearance rules that scope polygons; that is a prerequisite task of c0088, measured by this count.
 - The clearance findings that replace them are all against 0.5 mm with the source `zone`: the clearance the model gives a zone that names none. The import reads no clearance for a polygon. The gaps found are 0.127 mm to 0.493 mm, which is what the document's pour keeps. They are true gaps measured against a default the document never had; reading a polygon's clearance from its rules is outside this change (an open point for c0088, which runs the copper check on Altium input).
 - `fenolite check` on the document runs no copper stage for an Altium input today (its stages are `model.validate`, `erc.lite`, `netlist.assignment_compare` and `roundtrip.rta0` to `rta2`), so the command's findings are the same before and after: exit 5 for 12 errors of `model.validate` that have nothing to do with copper; `roundtrip.rta0` and `rta1` are `ok`.
 

@@ -300,7 +300,9 @@ Measured with `kicad-cli` 10.0.6 (macOS, local, 2026-10-06), Fenolite's read aga
   the tracks and vias of other nets inside holes of the pour. The clearance findings that take their
   place are measured against 0.5 mm, the clearance the model gives a zone that names none: the import
   reads no clearance for a polygon, and the gaps the document's pour keeps start at 0.127 mm. That the
-  import gives a zone the model's default clearance is an open point outside change c0122.
+  import gives a zone the model's default clearance is an open point outside change c0122: until the
+  import reads a polygon's clearance (a task of change c0088), these 266 findings are an artefact of
+  that default and say nothing about the document.
 
 ### Labels at level 5
 

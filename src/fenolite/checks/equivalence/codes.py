@@ -41,6 +41,13 @@ def _shown(value: str) -> str:
     return repr(value) if value else "nothing"
 
 
+HINTS = {
+    "route-unjudged": "a side has a zone without a fill on this net and its pads are not joined without "
+    "it, so an open connection may be hidden: fill the zones (fenolite fill) and compare again",
+}
+"""The hint of a kind whose message alone does not say what to do."""
+
+
 def _message(difference: Difference) -> str:
     return (
         f"{difference.where}: {difference.field} is {_shown(difference.a)} on side a "
@@ -65,7 +72,8 @@ def difference_issues(report: EquivalenceReport) -> tuple[Issue, ...]:
         else:
             found.append(issue(f"equiv.{difference.kind}", _message(difference), where=difference.where))
     for notice in report.notices:
-        found.append(issue(f"equiv.{notice.kind}", _message(notice), where=notice.where))
+        hint = HINTS.get(notice.kind, "")
+        found.append(issue(f"equiv.{notice.kind}", _message(notice), where=notice.where, hint=hint))
     counts = Counter(excluded.rule_id for excluded in report.excluded)
     reasons = {excluded.rule_id: excluded.reason for excluded in report.excluded}
     for rule_id, count in sorted(counts.items()):

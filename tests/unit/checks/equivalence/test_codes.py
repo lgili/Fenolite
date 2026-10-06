@@ -123,3 +123,14 @@ def test_docs_list_every_code() -> None:
         assert f"`{code}`" in section, code
     for exit_code in ("| 0 |", "| 2 |", "| 3 |", "| 5 |", "| 6 |"):
         assert exit_code in section, exit_code
+
+
+def test_an_unjudged_net_says_what_to_do() -> None:
+    """The hint is what an agent reads first: the cause, what it may hide and the remedy."""
+    notice = Difference(5, "route-unjudged", "GND", "zones", "pieces=2", "")
+    stub = Difference(5, "route-stub", "GND", "stubs", "pieces=1,length=5", "pieces=0,length=0")
+    unjudged, other = difference_issues(EquivalenceReport((LevelResult(5, 0, notices=(notice, stub)),)))
+    assert unjudged.code == "equiv.route-unjudged" and unjudged.where == "GND"
+    for words in ("zone without a fill", "open connection may be hidden", "fenolite fill", "compare again"):
+        assert words in unjudged.hint
+    assert other.code == "equiv.route-stub" and other.hint == ""
