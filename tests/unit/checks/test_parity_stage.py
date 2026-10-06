@@ -13,8 +13,10 @@ import _parityedit as edits
 import fakes
 import pytest
 from _buildhelp import blink, build
+from _schbuild import built_nested, write_files
 
 from fenolite.backends.base import DrcItem, DrcViolation, ParityInputs, ProjectSet
+from fenolite.backends.kicad import sch_netlist
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.projectset import project_set
@@ -105,7 +107,18 @@ def test_without_kicad(tmp_path: Path) -> None:
     assert result.summary["parity.net-conflict"] == 1 and result.summary["nets_split"] == 1
     assert result.summary["differences"] == 0
     assert result.evidence.level is Level.INFERRED
-    assert set(result.evidence.hypotheses) == {"H-K-PARITY-OWN", "H-K-NETLIST-OWN"}
+    assert set(result.evidence.hypotheses) == {"H-K-PARITY-OWN", *sch_netlist.EVIDENCE.hypotheses}
+
+
+def test_hierarchical_project(tmp_path: Path) -> None:
+    """A design with module sheets: the own netlist covers the tree, so no tool is needed (c0070)."""
+    root = write_files(built_nested(), tmp_path / "nested")
+    board = root / "nested.kicad_pcb"
+    result = stage(checked(project_set(board), "parity"))
+    assert result.status == "ok" and result.issues == () and result.summary["netlist"] == "own"
+    board.write_text(edits.renet(board.read_text(encoding="utf-8"), "C1", "2", "VIN"), encoding="utf-8")
+    result = stage(checked(project_set(board), "parity"))
+    assert result.status == "errors" and codes(result) == [("parity.net-conflict", "C1-2")]
 
 
 def test_agreeing_project(tmp_path: Path) -> None:

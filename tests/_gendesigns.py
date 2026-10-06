@@ -8,6 +8,10 @@ Every design is made here by a seeded generator over the authored CC0 mini libra
 pin-pad map, their pins joined to nets at random, marked as not connected, or left open, with or without
 a power interface, and with net names that hold a slash. Nothing is read from a file and nothing comes
 from another project. Two calls with equal arguments give equal designs.
+
+With ``modules=True`` (change c0070, "Hierarchical schematics pass the oracles") a module may lie inside
+another, and each 32-pin IC gets one or two resistors of its own on dedicated nets, in the module of the
+IC: the parts a readable sheet draws beside the IC pins. The designs of ``modules=False`` are unchanged.
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ from dataclasses import dataclass
 from fenolite.dsl import Design, Module, Net, Part, Power, connect, mm, no_connect, to_model
 
 SEED = 20261004
+MODULE_SEED = 20261005
+"""The seed of the acceptance set with nested modules and satellites (``modules=True``)."""
 COUNT = 25
 MAX_PARTS = 12
 MAX_ICS = 2
@@ -31,6 +37,10 @@ SUPPLIES: tuple[tuple[str, str], ...] = (("VCC", "GND"), ("+3V3", "GND"), ("VIN"
 SCOPES: tuple[str, ...] = ("mod", "bus", "a/b")
 """Prefixes of the net names that hold a slash."""
 MODULES: tuple[str, ...] = ("mod", "io")
+SUB = "sub"
+"""The name of a module inside a module, with ``modules=True``."""
+SNAP_PINS: tuple[str, ...] = ("3", "6", "14", "19", "22", "27", "30")
+"""The IC pins that may get a resistor of their own with ``modules=True``: none is a supply pin."""
 
 
 @dataclass(frozen=True)
@@ -86,18 +96,33 @@ def _part_count(rng: random.Random, index: int) -> int:
     return {0: 1, 1: MAX_PARTS}.get(index, rng.randint(1, MAX_PARTS))
 
 
-def design(seed: int, index: int) -> Design:
-    """Design ``index`` of the sequence of ``seed``, named ``gen<index>``."""
+def _holder(found: dict[str, Module], path: str) -> Module:
+    """The module at ``path``, made with the modules above it when it is new."""
+    if path not in found:
+        found[path] = Module(path.rpartition("/")[2])
+        above = path.rpartition("/")[0]
+        if above:
+            _holder(found, above).add(found[path])
+    return found[path]
+
+
+def design(seed: int, index: int, modules: bool = False) -> Design:
+    """Design ``index`` of the sequence of ``seed``, named ``gen<index>``; ``modules`` adds nested modules
+    and resistors on IC pins (the extra draws come from a generator of their own)."""
     rng = random.Random(f"{seed}:{index}")
     kinds = _kinds(rng, _part_count(rng, index))
-    columns = min(COLUMNS, len(kinds))
-    rows = -(-len(kinds) // columns)
+    extra = random.Random(f"{seed}:{index}:modules")
+    beside = [extra.randint(1, 2) if modules and kind is IC else 0 for kind in kinds]
+    slots = len(kinds) + sum(beside)
+    columns = min(COLUMNS, slots)
+    rows = -(-slots // columns)
     made = Design(f"gen{index:02d}")
     made.board(mm(CELL_MM * columns + 4), mm(CELL_MM * rows + 4))
 
     counters: dict[str, int] = {}
     parts: list[tuple[Part, Kind]] = []
-    modules: dict[str, Module] = {}
+    found: dict[str, Module] = {}
+    holders: list[Module | None] = []
     for slot, kind in enumerate(kinds):
         counters[kind.prefix] = counters.get(kind.prefix, 0) + 1
         mapped = kind.mappable and rng.random() < 0.35
@@ -112,13 +137,30 @@ def design(seed: int, index: int) -> Design:
         parts.append((part, kind))
         if rng.random() < 0.3:
             name = rng.choice(MODULES)
-            if name not in modules:
-                modules[name] = Module(name)
-            modules[name].add(part)
+            if modules and extra.random() < 0.5:
+                name = f"{name}/{SUB}"
+            _holder(found, name).add(part)
+            holders.append(found[name])
         else:
             made.add(part)
-    for name in sorted(modules):
-        made.add(modules[name])
+            holders.append(None)
+    # with ``modules``: resistors on pins of each IC, in the IC's own module, each on a net of its own
+    reserved: dict[tuple[int, str], Net] = {}
+    satellites: list[Part] = []
+    slot = len(kinds)
+    for (part, _), holder, count in zip(list(parts), holders, beside, strict=True):
+        for pin in extra.sample(SNAP_PINS, count):
+            counters["R"] = counters.get("R", 0) + 1
+            resistor = Part(f"R{counters['R']}", KINDS[0].symbol, footprint=KINDS[0].footprint, value="10k")
+            resistor.place(mm(CELL_MM * (slot % columns) + 9), mm(CELL_MM * (slot // columns) + 9))
+            slot += 1
+            (holder if holder is not None else made).add(resistor)
+            reserved[(id(part), pin)] = Net(f"S{len(reserved) + 1}")
+            connect(reserved[(id(part), pin)], part[pin], resistor["1"])
+            satellites.append(resistor)
+    for name in sorted(found):
+        if "/" not in name:
+            made.add(found[name])
 
     total = sum(len(kind.pins) for _, kind in parts)
     signals: list[Net] = []
@@ -133,6 +175,8 @@ def design(seed: int, index: int) -> Design:
     for part, kind in parts:
         often = 0.8 if len(kind.pins) == 2 else 0.5
         for pin in kind.pins:
+            if (id(part), pin) in reserved:
+                continue
             draw = rng.random()
             rail = None
             if kind.supply is not None and pin in kind.supply and high is not None and low is not None:
@@ -157,12 +201,15 @@ def design(seed: int, index: int) -> Design:
                 used.add(id(rail))
         if id(high) in used and id(low) in used:
             made.add(Power(high, low))
+    for resistor in satellites:
+        # the far pin of a resistor on an IC pin: on a signal, so no supply net is left with one pin
+        connect(extra.choice(signals), resistor["2"])
     return made
 
 
-def designs(seed: int = SEED, count: int = COUNT) -> list[Design]:
+def designs(seed: int = SEED, count: int = COUNT, modules: bool = False) -> list[Design]:
     """``count`` designs of the sequence of ``seed``, in order; equal for equal arguments."""
-    return [design(seed, index) for index in range(count)]
+    return [design(seed, index, modules) for index in range(count)]
 
 
 def features(found: Sequence[Design]) -> dict[str, int]:
@@ -188,4 +235,4 @@ def _kinds_of(made: Design) -> list[Kind]:
     return [by_symbol[part.lib_id] for part in made.parts.values()]
 
 
-__all__ = ["COUNT", "KINDS", "SEED", "design", "designs", "features"]
+__all__ = ["COUNT", "KINDS", "MODULE_SEED", "SEED", "design", "designs", "features"]

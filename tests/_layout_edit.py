@@ -11,8 +11,9 @@ form the board already uses: numbers with a table up to 9.0, names from board ve
 
 from __future__ import annotations
 
+import posixpath
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from fractions import Fraction
 
 from fenolite.backends.kicad.netnames import stored_name
@@ -241,15 +242,55 @@ def _symbols(schematic_text: str) -> tuple[str, dict[str, tuple[int, str, dict[s
     return project, found
 
 
-def update_from_schematic(board_text: str, schematic_text: str) -> str:
+def _sheet_boxes(text: str) -> list[tuple[str, str, str]]:
+    """The uuid, ``Sheetname`` and ``Sheetfile`` of each sheet reference of a schematic text."""
+    found: list[tuple[str, str, str]] = []
+    for box in parse(text).nodes("sheet"):
+        fields = {p.atoms()[0].value: p.atoms()[1].value for p in box.nodes("property")}
+        found.append((node_uuid(box), fields.get("Sheetname", ""), fields.get("Sheetfile", "")))
+    return found
+
+
+def _placed_symbols(
+    texts: Mapping[str, str],
+) -> tuple[str, dict[str, tuple[str, str, str, dict[str, str]]]]:
+    """Per reference the footprint path, sheet name, sheet file and field texts of its symbol, over the
+    root (the first text) and the child sheets it names, each keyed by its path from the root's folder."""
+    (root_key, root_text), *_ = texts.items()
+    found: dict[str, tuple[str, str, str, dict[str, str]]] = {}
+    project = ""
+    todo: list[tuple[str, str, str, str]] = [(root_key, "", "/", "")]
+    while todo:
+        key, prefix, sheetname, sheetfile = todo.pop(0)
+        name, symbols = _symbols(texts[key])
+        project = project or name
+        shown = sheetfile or f"{project}.kicad_sch"
+        for ref, (_, uuid, fields) in symbols.items():
+            found.setdefault(ref, (f"{prefix}/{uuid}", sheetname, shown, fields))
+        for uuid, box_name, file in _sheet_boxes(texts[key]):
+            child = posixpath.normpath(posixpath.join(posixpath.dirname(key), file))
+            if child in texts:
+                todo.append((child, f"{prefix}/{uuid}", box_name, file))
+    return project, found
+
+
+def update_from_schematic(board_text: str, schematic_text: str | Mapping[str, str]) -> str:
     """The stand-in for KiCad's "Update PCB from Schematic" (c0061 Decision 18; ``H-K-SCH-UPDATE``).
 
     Each footprint whose reference a symbol of the schematic has gets ``(sheetname "/")`` and
     ``(sheetfile "<project>.kicad_sch")``, its ``path`` set to ``/<symbol uuid>`` (the symbol's lowest
     unit), and each of its properties that the symbol also has rewritten with the symbol's text. Nothing
     else changes. What the real update writes is the maintainer's report, not this function.
+
+    ``schematic_text`` is the text of a flat schematic, or the texts of a hierarchy keyed by their path
+    from the root's folder, the root first (c0070). A footprint whose symbol is in a child sheet gets the
+    path ``/<uuids of the sheet references from the top down>/<symbol uuid>``, the ``Sheetname`` of the
+    reference to that sheet as ``sheetname`` and the ``Sheetfile`` text that names its file as
+    ``sheetfile``: what ``kicad-cli``'s netlist lists for the component. What the real update writes
+    there was not measured (``H-K-SCH-HIER-PATH``).
     """
-    project, symbols = _symbols(schematic_text)
+    texts = {"": schematic_text} if isinstance(schematic_text, str) else dict(schematic_text)
+    _, symbols = _placed_symbols(texts)
     root = parse(board_text)
     out: list[Node | Atom] = []
     for child in root.children:
@@ -257,9 +298,12 @@ def update_from_schematic(board_text: str, schematic_text: str) -> str:
         if not isinstance(child, Node) or ref is None or ref not in symbols:
             out.append(child)
             continue
-        _, uuid, fields = symbols[ref]
-        sheet = [parse('(sheetname "/")'), parse(f'(sheetfile "{project}.kicad_sch")')]
-        path = parse(f'(path "/{uuid}")')
+        symbol_path, sheetname, sheetfile, fields = symbols[ref]
+        sheet = [
+            Node(Atom.symbol("sheetname"), (Atom.string(sheetname),)),
+            Node(Atom.symbol("sheetfile"), (Atom.string(sheetfile),)),
+        ]
+        path = Node(Atom.symbol("path"), (Atom.string(symbol_path),))
         kids: list[Node | Atom] = []
         placed = False
         for kid in child.children:

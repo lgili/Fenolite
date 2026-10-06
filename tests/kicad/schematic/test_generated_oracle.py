@@ -127,8 +127,11 @@ def test_erc_controls() -> None:
     def is_label(text: str) -> Callable[[Node], bool]:
         return lambda item: item.name == "global_label" and item.atoms()[0].value == text
 
-    unlabelled = erc_types(edited("blink", sheet, lambda root: without(root, is_label("LED_DRV"))))
+    # LED_A has a label on each of its two pins; LED_DRV is the one label of a wired pair (c0070)
+    unlabelled = erc_types(edited("blink", sheet, lambda root: without(root, is_label("LED_A"))))
     assert unlabelled["pin_not_connected"] == 1, unlabelled
+    unwired = erc_types(edited("blink", sheet, lambda root: without(root, lambda item: item.name == "wire")))
+    assert unwired["pin_not_connected"] == 1, unwired
 
     def no_flag(root: Node) -> Node:
         flags = [s for s in root.nodes("symbol") if fields(s).get("Reference", "").startswith("#FLG")]

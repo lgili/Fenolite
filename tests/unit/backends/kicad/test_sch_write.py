@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Writing a created schematic sheet for a target (capability kicad-schematic, "Schematic writing per
-target"; change c0061)."""
+target"; changes c0061 and c0070)."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.backends.kicad.sym import read_symbol_library, resolve_extends
 from fenolite.backends.kicad.symembed import embed_symbol
 from fenolite.backends.kicad.versions import LossyWriteError
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.model.presentation import TitleBlock
 from fenolite.model.schematic import (
@@ -26,8 +26,11 @@ from fenolite.model.schematic import (
     NoConnectFlag,
     SchematicSheet,
     SheetPage,
+    SheetRef,
+    SheetUse,
     SymbolInstance,
     SymbolUse,
+    Wire,
 )
 
 MM = 1_000_000
@@ -214,3 +217,82 @@ def test_mirror_rotation_and_dnp_are_written(tmp_path: Path) -> None:
     text = sch.write_schematic(dataclasses.replace(sheet, symbols=(turned,)), target=10).text
     (symbol,) = sch.read_schematic(text).symbols
     assert (symbol.rotation, symbol.mirror, symbol.dnp, symbol.in_bom) == (90_000_000, "y", True, False)
+
+
+# -- wires and sheet references (c0070)
+
+
+def child(target: int = 10) -> SchematicSheet:
+    """The created sheet as a child of a hierarchy: one wire, one sheet reference and no page."""
+    sheet = created(target)
+    top = f"/{kicad_uuid(sheet)}"
+    wire = Wire(
+        Point(50_800_000, 46_990_000),
+        Point(50_800_000, 41_910_000),
+        id=derived_id("wir", "fenolite", "one:wire:R1"),
+    )
+    ref = SheetRef(
+        "ldo",
+        "power.ldo.kicad_sch",
+        Point(76_200_000, 50_800_000),
+        Size(25_400_000, 12_700_000),
+        (SheetUse("one", top, "3"),),
+        id=derived_id("shr", "fenolite", "one:sheet:power/ldo"),
+    )
+    return dataclasses.replace(sheet, wires=(wire,), sheets=(ref,), pages=())
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_child_sheet_form(target: int) -> None:
+    sheet = child(target)
+    text = sch.write_schematic(sheet, target=target).text
+    root = parse(text)
+    heads = [c.name for c in root.nodes()]
+    body = [h for h in heads if h not in ("version", "generator", "generator_version", "embedded_fonts")]
+    assert body == [
+        "uuid", "paper", "title_block", "lib_symbols", "no_connect", "wire", "global_label", "symbol",
+        "sheet",
+    ]  # fmt: skip
+    assert root.find("sheet_instances") is None
+    (wire,) = root.nodes("wire")
+    points = [tuple(a.value for a in xy.atoms()) for xy in wire.find("pts").nodes("xy")]  # type: ignore[union-attr]
+    assert points == [("50.8", "46.99"), ("50.8", "41.91")]
+    assert first(wire.find("stroke"), "type") == "default" and first(wire, "uuid")  # type: ignore[arg-type]
+    (box,) = root.nodes("sheet")
+    assert [c.name for c in box.nodes()] == [
+        "at", "size", "exclude_from_sim", "in_bom", "on_board", "dnp", "stroke", "fill", "uuid", "property",
+        "property", "instances",
+    ]  # fmt: skip
+    fields = properties(box)
+    assert list(fields) == ["Sheetname", "Sheetfile"]
+    assert [p.atoms()[1].value for p in fields.values()] == ["ldo", "power.ldo.kicad_sch"]
+    path = box.find("instances").find("project").find("path")  # type: ignore[union-attr]
+    assert path.atoms()[0].value == f"/{first(root, 'uuid')}" and first(path, "page") == "3"  # type: ignore[union-attr]
+    assert (fields["Sheetname"].find("show_name") is not None) == (target == 10)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_child_sheet_reads_back(target: int) -> None:
+    sheet = child(target)
+    text = sch.write_schematic(sheet, target=target).text
+    back = sch.read_schematic(text, file="one.kicad_sch")
+    (ref,), (wanted,) = back.sheets, sheet.sheets
+    assert (ref.name, ref.file, ref.position, ref.size, ref.uses) == (
+        "ldo",
+        "power.ldo.kicad_sch",
+        wanted.position,
+        wanted.size,
+        wanted.uses,
+    )
+    assert ref.native_ids["kicad"] == kicad_uuid(wanted)
+    assert back.pages == () and back.wires == ()
+    assert sch.opaque_heads(back)["wire"] == 1
+    assert sch.roundtrip_schematic(text).passed
+    assert text == sch.write_schematic(sheet, target=target).text
+
+
+def test_sheet_without_wire_or_reference_keeps_its_form() -> None:
+    """A sheet without a wire and without a sheet reference is written as c0061 wrote it."""
+    root = parse(sch.write_schematic(created(10), target=10).text)
+    assert root.find("wire") is None and root.find("sheet") is None
+    assert root.find("sheet_instances") is not None

@@ -14,7 +14,7 @@ These rules MUST hold:
 - Every entity and value object MUST be immutable. Positions MUST be `Point` in integer nm and rotations integer µdeg; no field MAY be a float.
 - `SymbolInstance.rotation` MUST be 0, 90 000 000, 180 000 000 or 270 000 000.
 - `NetLabel.kind` MUST have no default, so the canonical form always writes it.
-- A `Wire` MUST be horizontal or vertical, with `start != end`. Only generated sheets hold wires: the KiCad reader leaves `wires` empty and keeps a file's wires as opaque slots (`kicad-schematic`, "Modelled schematic content").
+- A `Wire` MUST be horizontal or vertical, with `start != end`; any other pair raises `ValueError`. Only created sheets hold wires: the KiCad reader leaves `wires` empty and keeps a file's wires as opaque slots (`kicad-schematic`, "Modelled schematic content").
 - `lib_symbols`, `symbols`, `labels`, `no_connects`, `wires`, `sheets`, `pages` and `uses` MUST be marked ordered, so the canonical form keeps file order. `properties` MUST be sorted by key in the canonical form.
 - A `SchematicSheet` MUST NOT be part of `Design` or of the `.fenolite/` layer files: a generated sheet is derived from the circuit, and a sheet read from a file is checked and compared, not imported.
 - `fenolite.model.schematic` MUST import only `core` and `model`.

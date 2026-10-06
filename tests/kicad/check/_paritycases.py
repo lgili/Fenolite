@@ -72,6 +72,19 @@ def blink_project(folder: Path) -> tuple[Path, Path]:
     return folder / cases.BOARD, folder / cases.SHEET
 
 
+NESTED = Target("R1", "C1", "2")
+"""The nested design of c0070: ``R1`` is on the sheet of the module ``power``, ``C1`` one sheet below."""
+
+
+def nested_project(folder: Path) -> tuple[Path, Path]:
+    """The design with module sheets (``_schbuild.nested_design``) built for the running major under
+    ``folder``, with the default layout: a root and three child sheets under ``sheets/``."""
+    from _schbuild import built_nested, write_files
+
+    write_files(built_nested(cases.major()), folder)
+    return folder / "nested.kicad_pcb", folder / "nested.kicad_sch"
+
+
 def pic_project(folder: Path) -> tuple[Path, Path] | None:
     """The ``pic_programmer`` demo of the running major's tag under ``folder``, or ``None`` when the
     corpus cache does not hold it."""
@@ -176,6 +189,24 @@ def blink_agreement() -> tuple[str, ...]:
             for own_netlist in (False, True):
                 found = compare(board, schematic, own_netlist=own_netlist)
                 differing += differences(f"blink/{edit}/{'own' if own_netlist else 'export'}", found)
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+    return tuple(differing)
+
+
+@cache
+def nested_agreement() -> tuple[str, ...]:
+    """``blink_agreement`` for the design with module sheets (c0070): the own netlist reads the tree."""
+    differing: list[str] = []
+    for edit in ("none", *PROBED):
+        folder = cases.workdir("parity-nested")
+        try:
+            board, schematic = nested_project(folder)
+            if edit != "none":
+                with_edit(board, edit, NESTED)
+            for own_netlist in (False, True):
+                found = compare(board, schematic, own_netlist=own_netlist)
+                differing += differences(f"nested/{edit}/{'own' if own_netlist else 'export'}", found)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
     return tuple(differing)

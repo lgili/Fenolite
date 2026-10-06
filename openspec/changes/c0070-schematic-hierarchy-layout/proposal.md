@@ -26,10 +26,13 @@ Size: 13 design-days; cut order in the design.
 None.
 
 ### Modified Capabilities
-- `kicad-schematic`: MODIFIED "Schematic writing per target", "Generated sheet content", "Deterministic sheet layout", "Own netlist of a generated sheet", "Netlist grammar check", "Generated schematics are documented"; ADDED "Readable sheet layout", "Hierarchical sheets of a design".
+- `kicad-schematic`: MODIFIED "Modelled schematic content", "Schematic writing per target", "Generated sheet content", "Deterministic sheet layout", "Generated schematic issue codes", "Own netlist of a generated sheet", "Netlist grammar check", "Generated schematics are documented"; ADDED "Readable sheet layout", "Hierarchical sheets of a design".
 - `design-model`: MODIFIED "Schematic sheet definitions", "Identifiers of schematic entities".
 - `design-dsl`: MODIFIED "Board follows the schematic", "Schematic netlist guard in a build"; ADDED "Hierarchical sheets in a build".
 - `kicad-oracle`: ADDED "Hierarchy and wire facts are probed", "Hierarchical schematics pass the oracles".
+- `cli-contract`: MODIFIED "Netlist command" (the source `fenolite` reads the child sheets).
+
+The requirements of c0063 ("Own netlist of a generated sheet", "Netlist grammar check", "Schematic netlist guard in a build", "Netlist command") are modified from c0063's own delta: this change archives after it (`design.md`, "Corrections on 2026-10-06").
 
 ## Non-goals
 

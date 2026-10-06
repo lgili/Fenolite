@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 
 import pytest
+from _schbuild import built_nested, write_files
 
 from fenolite.backends.base import ParityInputs, SchematicSide
 from fenolite.backends.kicad import parity_inputs, sch_netlist
@@ -54,9 +55,31 @@ def test_sheets_and_grammar() -> None:
     assert "wire" in reasons
     with pytest.raises(sch_netlist.NetlistUnsupportedError):
         parity_inputs.schematic_side(FLAT)
-    # a tree of several sheets is outside the own netlist even when each sheet is inside
+    # a sheet that no reference of the root names is outside the grammar (c0070)
     with pytest.raises(sch_netlist.NetlistUnsupportedError):
         parity_inputs.own_netlist({**sheets, "other.kicad_sch": sheets["blink.kicad_sch"]}, project="blink")
+
+
+def test_tree_of_generated_sheets(tmp_path: Path) -> None:
+    """A design with modules, as ``build`` writes it: the own netlist covers the tree (c0070)."""
+    root = write_files(built_nested(), tmp_path / "nested")
+    sheets = parity_inputs.read_sheets(root / "nested.kicad_sch")
+    assert list(sheets) == [
+        "nested.kicad_sch",
+        "sheets/io.kicad_sch",
+        "sheets/power.kicad_sch",
+        "sheets/power.ldo.kicad_sch",
+    ]
+    assert parity_inputs.grammar_issues(sheets) == ()
+    side = parity_inputs.schematic_side(root / "nested.kicad_sch")
+    assert sorted(side.components) == ["C1", "R1", "R2", "U1"], "the components of every sheet"
+    # one net that crosses three sheets: the root, power and power/ldo
+    assert side.nodes[("U1", "2")] == side.nodes[("R1", "2")] == side.nodes[("C1", "1")] == "power{slash}FB"
+    assert side.nodes[("R2", "2")] == side.nodes[("U1", "10")] == "GND"
+    (root / "sheets" / "io.kicad_sch").unlink()
+    missing = parity_inputs.read_sheets(root / "nested.kicad_sch")
+    reasons = [i.message.split(":", 1)[0] for i in parity_inputs.grammar_issues(missing)]
+    assert reasons == ["sheet"], "a missing child file is no key, and the grammar reports its reference"
 
 
 def test_nodes_from_an_export() -> None:
@@ -97,9 +120,8 @@ def test_backend_gives_the_side(tmp_path: Path) -> None:
     assert isinstance(backend, ParityInputs)
     outcome = backend.schematic_side(project_set(root / "blink.kicad_pcb"))
     assert outcome.side == parity_inputs.schematic_side(root / "blink.kicad_sch")
-    assert outcome.evidence.level is Level.KICAD_VERIFIED and outcome.evidence.hypotheses == (
-        "H-K-NETLIST-OWN",
-    )
+    assert outcome.evidence.level is Level.KICAD_VERIFIED
+    assert outcome.evidence.hypotheses == sch_netlist.EVIDENCE.hypotheses
     # a schematic outside the grammar: no side without an oracle's nodes, and a side with them
     shutil.copyfile(FLAT, root / "blink.kicad_sch")
     project = project_set(root / "blink.kicad_pcb")

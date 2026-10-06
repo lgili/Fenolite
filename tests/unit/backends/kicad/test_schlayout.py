@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Pin connection points and the layout of a generated sheet (capability kicad-schematic, "Pin connection
-points" and "Deterministic sheet layout"; change c0061)."""
+points" and "Deterministic sheet layout"; changes c0061 and c0070)."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from fenolite.backends.kicad.schlayout import (
     PAGE_MARGIN,
     PAPERS,
     TITLE_BAND,
+    RefBox,
     SymbolPlacement,
     UnitBox,
     UnitPin,
@@ -220,3 +221,36 @@ def test_the_layout_uses_no_float() -> None:
     tree = ast.parse(source)
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, float)]
     assert not [n for n in ast.walk(tree) if isinstance(n, ast.Div)]
+
+
+# -- sheet references (c0070)
+
+
+def test_sheet_references_take_a_row() -> None:
+    refs = [RefBox("power", "power", "sheets/power.kicad_sch"), RefBox("io", "io", "sheets/io.kicad_sch")]
+    flag = UnitBox("#flag:GND", (UnitPin("1", Point(0, 0), 90, 3),), (0, 0, 2_540_000, 2_540_000), "f:F")
+    found = layout_units([box("U1", "Mini:Mini_QFP32_IC")], refs=refs, flags=[flag], sheet="root")
+    check(found)
+    io, power = (found.origins[schlayout.ref_key(path)] for path in ("io", "power"))
+    assert io.y == power.y and io.x < power.x, "one row, in the natural order of the module paths"
+    assert io.y >= found.cells["U1"][3], "below the cell of U1"
+    assert found.origins["#flag:GND"].y > io.y + schlayout.REF_HEIGHT, "the flags take the last row"
+    cell = found.cells[schlayout.ref_key("io")]
+    assert cell[0] <= io.x - schlayout.CELL_MARGIN and cell[1] <= io.y - schlayout.CELL_MARGIN
+    assert cell[2] >= io.x + schlayout.sheet_ref_size("io") + schlayout.CELL_MARGIN
+
+
+def test_sheet_reference_size() -> None:
+    assert schlayout.sheet_ref_size("io") == schlayout.REF_MIN_WIDTH == 25_400_000
+    wide = schlayout.sheet_ref_size("x" * 30)
+    assert wide == 50_800_000 and wide % schlayout.ORIGIN_STEP == 0  # 32 characters of 1.524 mm, rounded up
+    x0, y0, x1, y1 = schlayout.ref_extent(RefBox("m", "m", "sheets/" + "m" * 40 + ".kicad_sch"))
+    assert x1 > schlayout.REF_MIN_WIDTH + schlayout.CELL_MARGIN, "a long file text widens the cell"
+    assert (x0, y0) == (-schlayout.CELL_MARGIN, -(schlayout.CELL_MARGIN + schlayout.REF_TEXT))
+    assert all(value % schlayout.ORIGIN_STEP == 0 for value in (x0, y0, x1, y1))
+
+
+def test_too_large_names_the_sheet() -> None:
+    found = layout_units([box(f"U{n}", "Mini:Mini_QFP32_IC") for n in range(1, 400)], sheet="power")
+    (issue,) = [i for i in found.issues if i.code == "build.schematic-too-large"]
+    assert issue.severity == "error" and "sheet power" in issue.message and "399 units" in issue.message

@@ -350,3 +350,62 @@ numbers settle `H-K-ERC-RT2-2` and `H-K-ERC-REPEAT-2`, the successors of `H-K-ER
 | kicad-demo-9-0-9-1-sch-014 | other | 1 | 0 / 1 | not run | 19, holds, yes |
 | kicad-demo-9-0-9-1-sch-015 | acceptance | 1 | 1 / 0 | not run | 8, holds, yes |
 | kicad-demo-9-0-9-1-sch-016 | acceptance | 1 | 1 / 0 | not run | 106, holds, yes |
+
+## Hierarchy and wires (change c0070)
+
+Measured on 2026-10-06 with `kicad-cli` 10.0.6 (macOS) and 9.0.9 (the pinned image). The probe outcomes
+are committed in `docs/evidence/kicad/probes/10.0.6.json` and `9.0.9.json`; the tests are
+`tests/kicad/schematic/test_hierarchy_probes.py` and `test_hierarchy_oracle.py`.
+
+### Facts (hand-written sheets)
+
+A root with one resistor names `sheets/a.kicad_sch`, which names its own child; each sheet has one
+resistor with the global labels `VCC` and `SIG`, and no sheet symbol has a pin. The wire sheet has two
+resistors whose pins 1 are joined by one wire with the label `MID` at one end. A hand-written sheet has
+no symbol table, so ERC reports `lib_symbol_issues` for it; that type is not counted.
+
+| probe | 9.0.9 | 10.0.6 | what it says |
+|---|---|---|---|
+| `sch-hier-file-parent` | `present` | `present` | a child named `b.kicad_sch` from `sheets/a.kicad_sch` is loaded, at the sheet path `/a/b/` |
+| `sch-hier-file-project` | `absent` | `absent` | the same child named `sheets/b.kicad_sch` from there is dropped: no symbol in the netlist, no ERC finding, exit 0 of both commands |
+| `sch-hier-global` | `equal` | `equal` | `VCC` and `SIG` hold the pins of the three sheets; the `tstamps` of the sheet paths are `/<uuid of a>/` and `/<uuid of a>/<uuid of b>/` |
+| `sch-wire-ends` | `equal` | `equal` | the two wired pins are the net `MID`, without an ERC finding |
+| `sch-wire-middle` | `absent` | `absent` | a pin that ends in the middle of the wire is on `unconnected-(R3-Pad1)`, with `pin_not_connected` |
+
+### Built projects
+
+Each project is built for the running major and judged on copies: ERC, the parity test, the netlist
+export against `sch_netlist.own_netlist` of the sheet tree, and the footprint paths against the netlist.
+
+| set | designs | child sheets | satellites | ERC | parity | netlist differences | paths |
+|---|---|---|---|---|---|---|---|
+| nested design (`U1`; `power` with `ldo` inside; `io`), every open pin marked | 1 | 3 | 0 | 0 violations | 0 | 0 | equal |
+| lens acceptance design (`sch-hier-oracle-acceptance` = `equal`) | 1 | 2 | 0 | as the flat form | 0 | 0 | equal |
+| 25 generated designs, seed 20261005, `modules=True` (`sch-hier-oracle-generated` = `equal`) | 25 | 50 | 29 | no type counted more often than on the flat form | 0 | 0 | equal |
+
+- **ERC by comparison.** The acceptance design and the generated designs leave pins open, which ERC
+  reports on any sheet. They are compared with the same design built with `--schematic-layout grid`:
+  no violation type is counted more often. On 10.0.6 the counts are equal for all 26 designs. On 9.0.9
+  one generated design (index 3) has 24 `pin_not_connected` on its readable sheets and 25 on the flat
+  sheet: `U4` pin 27, which is on no net in the script and alone on `unconnected-(…)` in both exports,
+  is reported on the flat sheet only. Looked at for an hour on 2026-10-06, in the pinned image:
+  - it repeats (five runs), and does not depend on the order of the symbols in the file or on the
+    uuid of `U4`; nothing else lies on the pin's point (no pin, label, flag, wire or sheet symbol);
+  - it is not the wires or the sheet symbol: the root without every wire, or without its sheet
+    symbol, still lacks the finding;
+  - 9.0.9 always reports 24 of the 25 open pins of this project, and which one it leaves out changes
+    with content that has nothing to do with the pin: with one or two lone global labels added far
+    away it reports pin 27 and leaves out pin 16 of `U4` instead; with three or four it leaves out
+    pin 27 again. Taking away one unrelated resistor, power flag or label has the same effect;
+  - no other finding lies at the position of the one left out, on any sheet.
+  So one `pin_not_connected` is lost inside 9.0.9's ERC report, not in the schematic: the export lists
+  both pins on their own `unconnected-(…)` nets. Why 9.0.9 loses it was not found (no KiCad source was
+  read). The oracle therefore asks that the sheets add no finding, and judges connectivity by the
+  netlist, which is equal.
+- **Paths.** For a part of several units the netlist lists one `tstamps` per unit, in KiCad's order;
+  the footprint path is the sheet path joined with one of them (Fenolite writes the lowest unit's).
+- **Controls.** With the `Sheetfile` of one child edited to a missing file, ERC reports only
+  `isolated_pin_label` for the label that lost its other pin (nothing about the sheet), and the netlist
+  misses the parts of that sheet. With one snap wire removed, ERC reports `pin_not_connected`.
+- **Not measured.** What "Update PCB from Schematic" writes for a part of a module (no headless
+  update; `H-K-SCH-HIER-PATH`, the update half).

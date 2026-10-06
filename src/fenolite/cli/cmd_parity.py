@@ -91,7 +91,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise ProjectNotFoundError(f"{board.name} has no schematic {schematic.name} next to it")
     sheets = parity_inputs.read_sheets(schematic)
     refused = parity_inputs.grammar_issues(sheets)
-    inside = not refused and len(sheets) == 1
+    inside = not refused
     if args.netlist == "own" and not inside:
         raise sch_netlist.NetlistUnsupportedError(refused)
     if args.netlist == "kicad" or not inside:

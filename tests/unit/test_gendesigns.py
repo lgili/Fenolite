@@ -67,7 +67,8 @@ def test_every_design_builds_and_passes_the_guard(index: int) -> None:
     name = f"gen{index:02d}"
     assert f"{name}.kicad_sch" in output.files and f"{name}.kicad_pcb" in output.files
     assert "build.schematic-netlist-differs" not in codes(output)
-    assert output.schematic is not None and grammar_issues(output.schematic.sheet) == ()
+    made = output.schematic
+    assert made is not None and grammar_issues(made.sheet, children=made.children) == ()
 
 
 @pytest.mark.parametrize("index", [0, 1, 5, 12, 24])
@@ -76,6 +77,60 @@ def test_both_targets_mean_the_same_netlist(index: int) -> None:
     nine, ten = built(index, 9).schematic, built(index, 10).schematic
     assert nine is not None and ten is not None
     name = f"gen{index:02d}"
-    first, second = own_netlist(nine.sheet, project=name), own_netlist(ten.sheet, project=name)
+    first = own_netlist(nine.sheet, project=name, children=nine.children)
+    second = own_netlist(ten.sheet, project=name, children=ten.children)
     assert [c.ref for c in first.components] == [c.ref for c in second.components]
     assert differences(first, second) == ()
+
+
+# -- nested modules and resistors on IC pins (c0070)
+
+
+def test_the_first_set_is_unchanged() -> None:
+    """``modules`` defaults to false, and the set that ``H-K-NETLIST-OWN`` was measured on is as it was:
+    162 components over its 25 designs."""
+    assert sum(len(d.parts) for d in gen.designs()) == 162
+    assert [to_model(d) for d in gen.designs()] == [to_model(d) for d in gen.designs(modules=False)]
+
+
+def test_module_set_is_deterministic_and_nested() -> None:
+    first = gen.designs(gen.MODULE_SEED, 25, modules=True)
+    second = gen.designs(gen.MODULE_SEED, 25, modules=True)
+    assert gen.MODULE_SEED == 20261005
+    assert [to_model(d) for d in first] == [to_model(d) for d in second]
+    assert [placements(d) for d in first] == [placements(d) for d in second]
+    paths = [path for d in first for path in d.parts]
+    assert sum(1 for path in paths if path.count("/") == 2) >= 5, "parts of a module inside a module"
+    assert sum(1 for path in paths if path.count("/") == 1) >= 5
+    for made in first:
+        errors = [issue for issue in to_model(made).validate() if issue.severity == "error"]
+        assert errors == [], (made.name, errors)
+
+
+def test_module_set_puts_resistors_on_ic_pins() -> None:
+    found = 0
+    for made in gen.designs(gen.MODULE_SEED, 25, modules=True):
+        model = to_model(made)
+        by_id = {c.id: c for c in model.circuit.components}
+        paths = {c.id: c.properties["fenolite.path"] for c in model.circuit.components}
+        for net in model.circuit.nets:
+            if not (net.name.startswith("S") and net.name[1:].isdigit()):
+                continue
+            (ic,) = [m for m in net.members if by_id[m.component_id].lib_symbol_ref == "Mini:Mini_QFP32_IC"]
+            (resistor,) = [m for m in net.members if m is not ic]
+            assert by_id[resistor.component_id].lib_symbol_ref == "Mini:Mini_R" and resistor.pin == "1"
+            assert ic.pin in gen.SNAP_PINS
+            module = paths[ic.component_id].rpartition("/")[0]
+            assert paths[resistor.component_id].rpartition("/")[0] == module, "on the sheet of its IC"
+            found += 1
+    assert found >= 10, found
+
+
+@pytest.mark.parametrize("index", range(gen.COUNT))
+def test_every_module_design_builds_and_passes_the_guard(index: int) -> None:
+    output = build(gen.design(gen.MODULE_SEED, index, modules=True))
+    errors = [issue for issue in output.issues if issue.severity == "error"]
+    assert errors == [], errors
+    made = output.schematic
+    assert made is not None and grammar_issues(made.sheet, children=made.children) == ()
+    assert made.satellites == sum(len(sheet.wires) for sheet in (made.sheet, *made.children.values()))

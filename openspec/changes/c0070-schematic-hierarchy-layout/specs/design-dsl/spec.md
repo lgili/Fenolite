@@ -4,11 +4,11 @@
 `fenolite build` SHALL write every child sheet that `generate_schematic` returns, as "Built project files" allows for added keyword arguments and steps of `build_design`, and as "Build command" allows for added options.
 - **Option.** `--schematic-layout readable|grid` (default `readable`) MUST be passed to `build_design` as the keyword-only argument `schematic_layout`, and from there to `generate_schematic` as `layout`; any other value of the argument MUST raise `ValueError`. With `--schematic skip` the option has no effect; with `--target altium` it MUST be a usage error (exit 2, `FEN-2001`).
 - **Files.** After `<name>.kicad_sch`, `build_design` MUST add one file per entry of `generated.children`, at its path under the output folder, from `sch.write_schematic(child, target=target, allow_lossy=allow_lossy)`. `.fenolite/build.json` MUST record the SHA-256 of each.
-- **Replaced sheet.** A child file whose bytes are neither the planned bytes nor those whose SHA-256 the last build record holds MUST give `build.schematic-replaced`, as the root does; the build MUST NOT read it.
-- **Stale sheet.** A `.kicad_sch` file under `sheets/` that the last build record lists and this build does not plan MUST give `build.sheet-stale` (warning) naming it, and MUST be left in place: the build deletes nothing.
-- **Result.** `result.schematic` MUST also hold `sheets` (the number of sheets, root included), `wires` and `satellites` (the number of snapped satellites).
-- **Stand-in update.** `tests/_layout_edit.py::update_from_schematic(board_text, schematic_texts)` MUST take the root and child texts keyed by path. For a footprint whose symbol is in a child sheet, `sheetname` MUST be the `Sheetname` of the reference to that sheet and `sheetfile` the `Sheetfile` text that names its file: the values that `kicad-cli`'s netlist export lists as the component's `Sheetname` and `Sheetfile` properties on both majors. Footprints of root symbols keep the form of "Boards updated from the schematic keep their layout".
-- The codes `build.sheet-file-collision` and `build.sheet-stale` join the build's closed set ("Build issue codes").
+- **Replaced sheet.** A child file whose bytes are neither the planned bytes nor those whose SHA-256 the last build record holds MUST give `build.schematic-replaced`, as the root does, and MUST NOT give `build.layout-exists`; the build MUST NOT read it.
+- **Stale sheet.** A `.kicad_sch` file under `sheets/` that the last build record lists and this build does not plan MUST give `build.sheet-stale` (warning) naming it, from `build_design`, and MUST be left in place: the build deletes nothing. The warning is given once, because the next record no longer lists the file.
+- **Result.** `result.schematic` MUST also hold `sheets` (the number of sheets, root included), `files` (the child sheet files, in page order), `wires` and `satellites` (the number of snapped satellites); `symbols`, `labels` and `no_connects` MUST count every sheet, and `paper` stays the root's.
+- **Stand-in update.** `tests/_layout_edit.py::update_from_schematic(board_text, schematic_texts)` MUST also take the root and child texts keyed by path, the root first. For a footprint whose symbol is in a child sheet, `path` MUST be `/<uuids of the sheet references from the top down>/<symbol uuid>`, `sheetname` the `Sheetname` of the reference to that sheet and `sheetfile` the `Sheetfile` text that names its file: the values that `kicad-cli`'s netlist export lists as the component's `Sheetname` and `Sheetfile` properties on both majors. What the real update writes there was not measured (`H-K-SCH-HIER-PATH`, the update half). Footprints of root symbols keep the form of "Boards updated from the schematic keep their layout".
+- The codes `build.sheet-file-collision` and `build.sheet-stale` join the build's closed set ("Build issue codes") through `schgen.ISSUE_CODES`.
 
 #### Scenario: Module sheets written
 - **GIVEN** the lens acceptance design of c0069 (`tests/data/lens/acceptance/design.py`)
@@ -24,10 +24,15 @@
 - **WHEN** the build runs again with `--confirm`
 - **THEN** `issues` hold one `build.sheet-stale` naming `sheets/io.kicad_sch`, the file is still there, and the root no longer names it
 
+#### Scenario: Edited child sheet replaced
+- **GIVEN** a confirmed build of that design, after which a byte is appended to `sheets/io.kicad_sch`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, `issues` hold one `build.schematic-replaced` naming that file, and the file has the bytes of the first build
+
 #### Scenario: Board survives the first readable build
 - **GIVEN** a confirmed v0.2a-form build of that design, made with `--schematic-layout grid`, whose board was then edited by moving two footprints by token edit
 - **WHEN** it is built again with the default layout
-- **THEN** the two footprints keep their edited positions, every footprint `path` takes the hierarchical form, and `issues` hold no `layout.orphan` and no `layout.net-removed`
+- **THEN** the two footprints keep their edited positions, every footprint `path` of a part in a module takes the hierarchical form, and `issues` hold no `layout.orphan` and no `layout.net-removed`
 
 ## MODIFIED Requirements
 
@@ -57,14 +62,15 @@
 - **THEN** the pads and the labels hold `mod{slash}LED_A`, `.fenolite/circuit.json` holds `mod/LED_A`, and a second build is byte-identical
 
 #### Scenario: Path of a symbol in a child sheet
-- **GIVEN** the design of "Two modules, one nested" built for target 10
+- **GIVEN** the design of "Two modules, one nested" (`kicad-schematic`, "Hierarchical sheets of a design") built for target 10
 - **WHEN** the board text is parsed
 - **THEN** the footprint of `C1` holds a `path` child whose text is `/`, the uuid of the sheet reference `power`, `/`, the uuid of the sheet reference `ldo`, `/` and the uuid of the symbol `C1`
 
 ### Requirement: Schematic netlist guard in a build
-A build that writes a schematic SHALL prove, before it returns any file and without any tool, that the sheet it generated means the circuit, as a step that "Built project files" allows after `schgen.generate_schematic`.
-- The guard MUST compute `sch_netlist.own_netlist(generated.sheet, project=name, children=generated.children)` and compare it with the expected netlist of the design: each net of the circuit under `netnames.stored_name` of its name, with each member named by its component's reference and its pad number (the pin number mapped through `pin_pad_map`), and each entry of `generated.pad_nets` as a net of one node under its name. A pin on no net whose name is not in `pad_nets` MUST only be required to be a net of one node.
-- A net or a node on one side only, or a grammar issue, MUST give one `build.schematic-netlist-differs` issue of severity `error`, naming the first net and `REF-PIN` in sorted order, and the build MUST return no file (exit 5).
+A build that writes a schematic SHALL prove, before it returns any file and without any tool, that the sheets it generated mean the circuit, as a step that "Built project files" allows after `schgen.generate_schematic`.
+- The guard MUST compute `sch_netlist.own_netlist(generated.sheet, project=name, children=generated.children)` and compare it with the expected netlist of the design: each net of the circuit under `netnames.stored_name` of its name, with each member whose component has a symbol (a key of `generated.paths`) named by its component's reference and its pad number (the pin number mapped through `pin_pad_map`), and each entry of `generated.pad_nets` as a net of one node under its name. Every other pin of the sheet MUST only be required to be a net of one node. A component without a symbol, such as a footprint a rebuild keeps from the board, is not compared.
+- Two nets of the circuit with members on the sheet and one stored name MUST be a difference: KiCad reads them as one net.
+- A member or a `pad_nets` entry that the sheet has on another net or not at all, a pin of the sheet that shares its net against the circuit, or a grammar issue (a child sheet that no reference reaches is one), MUST give one `build.schematic-netlist-differs` issue of severity `error`, naming the first net and `REF-PIN` in sorted order, and the build MUST return no file (exit 5).
 - The code SHALL join the closed build issue set of "Build issue codes".
 - With `schematic="skip"` the guard MUST NOT run.
 - The guard MUST NOT compare `pintype`, net classes or component values: it is about connectivity.
@@ -74,9 +80,19 @@ A build that writes a schematic SHALL prove, before it returns any file and with
 - **THEN** no `build.schematic-netlist-differs` is reported, and `files` holds the schematic
 
 #### Scenario: Generator defect caught
-- **GIVEN** a `generate_schematic` patched in the test to put the label of `R1` pin `2` on pin `1`
+- **GIVEN** a `generate_schematic` patched in the test to exchange the labels of the two pins of `R1`
 - **WHEN** `build_design` runs for the blink
 - **THEN** `files` is empty, and `issues` holds one `build.schematic-netlist-differs` error naming `LED_A` or `LED_DRV` and `R1-1` or `R1-2`
+
+#### Scenario: Two labels on one pin
+- **GIVEN** a `generate_schematic` patched in the test to put the label of `R1` pin `2` on pin `1`, beside the label of that pin
+- **WHEN** `build_design` runs for the blink
+- **THEN** `files` is empty, and the one `build.schematic-netlist-differs` error names the grammar reason `two-names`
+
+#### Scenario: A kept footprint without a symbol
+- **GIVEN** a rebuild over a board that holds a footprint the script does not, with a pad on a net of the circuit
+- **WHEN** `uv run pytest tests/unit/lens/test_net_alias.py -k board_only` rebuilds the project
+- **THEN** the build succeeds: the guard compares only the components that have a symbol
 
 #### Scenario: Skipped schematic, no guard
 - **WHEN** the blink is built with `schematic="skip"` and the same patch

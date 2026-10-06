@@ -145,7 +145,7 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 
 `fenolite.model.schematic` (change c0060) holds what one schematic file says:
 
-- `SchematicSheet(name, paper, title_block, lib_symbols, symbols, labels, no_connects, sheets, pages)`: a
+- `SchematicSheet(name, paper, title_block, lib_symbols, symbols, labels, no_connects, wires, sheets, pages)`: a
   definition outside `Design`, like a `DrawingSheet`, with prefix `sch` and its own schema
   `schematic.json`. A generated sheet is derived from the circuit, and a sheet read from a file is checked
   and compared, so a sheet is never written to the six layer files.
@@ -159,8 +159,10 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
   `SheetUse(project, path, page)` each. `SheetPage(path, page)` lists the pages the root sheet names.
 - `lib_symbols` holds the `SymbolDef` copies embedded in the file.
 - Collections keep file order; `properties` is sorted by key. Uses and pages carry no ids.
-- Wires, junctions and buses are not modelled: a backend keeps them as opaque slots of the sheet, and
-  Fenolite derives no net from a schematic it did not write.
+- `Wire` (prefix `wir`, change c0070): `start` and `end`, horizontal or vertical and never a point. Only a
+  sheet that Fenolite creates holds wires: the straight segments its generator draws from pin end to pin
+  end. A backend keeps the wires of a file it reads as opaque slots, and `wires` stays empty.
+- Junctions and buses are not modelled: a backend keeps them as opaque slots of the sheet.
 - **Ids.** An entity read from a file has `derived_id(<prefix>, <backend>, <native id>)`. An entity that
   Fenolite creates for a design has `derived_id("sch", "fenolite", "<design name>")` for the sheet and
   `derived_id(<prefix>, "fenolite", "<design name>:<key>")` for the others, so two builds of one design

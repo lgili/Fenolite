@@ -111,8 +111,17 @@ def _from_kicad(schematic: Path, args: argparse.Namespace) -> tuple[KicadNetlist
 
 
 def _own(schematic: Path) -> tuple[KicadNetlist, Evidence]:
+    """Fenolite's own netlist of the root sheet and of the child sheets it names (c0070). Each sheet file
+    is read once and keyed by its path from the root's folder; a file that is missing or outside that
+    folder is not read, so the grammar check reports the reference that names it."""
     sheet = sch.read_schematic(schematic.read_text(encoding="utf-8"), file=schematic.name)
-    return sch_netlist.own_netlist(sheet, project=schematic.stem), sch_netlist.EVIDENCE
+    folder = schematic.parent
+    children = {
+        name: sch.read_schematic((folder / name).read_text(encoding="utf-8"), file=name)
+        for name in sch.sheet_files(schematic).files[1:]
+        if not name.startswith("../") and (folder / name).is_file()
+    }
+    return sch_netlist.own_netlist(sheet, project=schematic.stem, children=children), sch_netlist.EVIDENCE
 
 
 def is_unconnected(name: str, pins: int) -> bool:

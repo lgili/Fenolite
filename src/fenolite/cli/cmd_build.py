@@ -14,7 +14,9 @@ tables (``docs/dsl.md``, "Vendored libraries").
 A KiCad build also writes the schematic of the design, ``<name>.kicad_sch``, with its symbol libraries and
 ``sym-lib-table`` (change c0061; ``docs/schematic.md``): ``--schematic skip`` leaves them out. The sheet is
 a view of the script, so an edited schematic is replaced, with a warning and a backup; symbol positions are
-fixed in ``schematic-placements.toml`` beside the script.
+fixed in ``schematic-placements.toml`` beside the script. ``--schematic-layout readable`` (the default,
+change c0070) gives each module a sheet of its own under ``sheets/`` and puts 2-pin parts beside the IC
+pins they connect to; ``grid`` keeps the one flat sheet of v0.2a.
 
 Before a KiCad build plans its writes, the copper guard judges the triad it is about to write with
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
@@ -56,6 +58,8 @@ from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.replace import footprint_ref
+from fenolite.backends.kicad.schgen import LAYOUTS as SCHEMATIC_LAYOUTS
+from fenolite.backends.kicad.schgen import SHEETS_DIR
 from fenolite.catalog import (
     ENTRIES as CATALOG_ENTRIES,
 )
@@ -210,6 +214,15 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="write (default): also write DIR/<name>.kicad_sch, its symbol libraries under DIR/lib/ and "
         "sym-lib-table, and name the pads of unconnected pins as KiCad does; skip: write the board without "
         f"a schematic; a usage error with --target {ALTIUM_TARGET}",
+    )
+    parser.add_argument(
+        "--schematic-layout",
+        dest="schematic_layout",
+        choices=SCHEMATIC_LAYOUTS,
+        default=None,
+        help="readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC "
+        "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
+        f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
     )
 
 
@@ -454,6 +467,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--schematic",
             hint=f"drop --schematic: --target {ALTIUM_TARGET} always writes its own schematic",
         )
+    if args.schematic_layout is not None and args.target == ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--schematic-layout is an option of the KiCad target; the target is {args.target}",
+            where="--schematic-layout",
+            hint=f"drop --schematic-layout: --altium-sheets chooses the sheets of --target {ALTIUM_TARGET}",
+        )
     board_path: Path | None = None
     if args.copper_from is not None:
         if args.target != ALTIUM_TARGET:
@@ -562,6 +582,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         drawing_sheet=frame_sheet,
         schematic=schematic,
         symbol_placements=symbol_placements,
+        schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):
@@ -582,11 +603,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
     if files:
-        sheet = f"{design.name}.kicad_sch"
+        # the root sheet and the child sheets under sheets/: views of the script, replaced when edited
+        sheets = [f"{design.name}.kicad_sch", *sorted(rel for rel in files if _child_sheet(rel))]
         merged = {f"{design.name}{suffix}" for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru")}
-        guarded = {rel: data for rel, data in files.items() if rel not in merged and rel != sheet}
+        guarded = {rel: data for rel, data in files.items() if rel not in merged and rel not in sheets}
         check_existing(out_dir, guarded, record=record, discard_layout=bool(args.discard_layout))
-        symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
+        for sheet in sheets:
+            symbol_issues += _replaced_sheet(out_dir, out, sheet, files.get(sheet), record)
     writes = tuple(
         PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel)) for rel, data in sorted(files.items())
     )
@@ -632,12 +655,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     )
 
 
+def _child_sheet(rel: str) -> bool:
+    """Whether ``rel`` is the file of a child sheet of the generated schematic."""
+    return rel.startswith(f"{SHEETS_DIR}/") and rel.endswith(".kicad_sch")
+
+
 def _replaced_sheet(
     out_dir: Path, out: Path, sheet: str, planned: bytes | None, record: Mapping[str, str] | None
 ) -> list[Issue]:
-    """One ``build.schematic-replaced`` warning when the schematic in ``out_dir`` holds neither the planned
-    bytes nor those of the last build: the sheet is regenerated, and the mutation protocol keeps a backup.
-    The file is hashed and never parsed."""
+    """One ``build.schematic-replaced`` warning when the schematic file ``sheet`` in ``out_dir``, the root
+    or a child sheet, holds neither the planned bytes nor those of the last build: the sheet is
+    regenerated, and the mutation protocol keeps a backup. The file is hashed and never parsed."""
     path = out_dir / sheet
     if planned is None or not path.is_file():
         return []

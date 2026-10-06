@@ -171,3 +171,19 @@ def test_check_stage_without_the_tool(monkeypatch: pytest.MonkeyPatch, tmp_path:
     # the same finding as the command gives
     code, env, _, _ = run(monkeypatch, tmp_path, "parity", str(root))
     assert code == 5 and codes(env) == ["parity.net-conflict"]
+
+
+def test_hierarchical_build_without_the_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A project with one sheet per module is inside the own netlist: no tool runs (c0070)."""
+    from _schbuild import built_nested, write_files
+
+    root = write_files(built_nested(), tmp_path / "nested")
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a subprocess was started")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    code, env, err, _ = run(monkeypatch, tmp_path, "parity", str(root))
+    assert code == 0, err
+    assert env["result"]["netlist"] == "own" and env["result"]["findings"] == [] and env["issues"] == []

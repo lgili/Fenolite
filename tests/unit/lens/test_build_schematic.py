@@ -16,11 +16,19 @@ import pytest
 from _buildhelp import blink, build, resolver
 from _layout_edit import EDIT_UUIDS, edit_blink, update_from_schematic
 from _preserve_help import rebuild
-from _schbuild import SLASH_NET, blink_slash, blink_unmarked, built_units, global_build, sheet_of
+from _schbuild import (
+    SLASH_NET,
+    blink_slash,
+    blink_unmarked,
+    built_nested,
+    built_units,
+    global_build,
+    sheet_of,
+)
 
 from fenolite.backends.kicad import schgen
 from fenolite.backends.kicad.libs import read_lib_table
-from fenolite.backends.kicad.pcb import read_board
+from fenolite.backends.kicad.pcb import kicad_uuid, read_board
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
 from fenolite.dsl import Net, Symbol, connect, mm, placements, to_model
@@ -78,9 +86,13 @@ def test_libraries_of_the_blink() -> None:
     assert summary == {
         "file": "blink.kicad_sch",
         "paper": "A4",
+        "sheets": 1,
+        "files": [],
         "symbols": 5,
-        "labels": 9,
+        "labels": 8,
         "no_connects": 29,
+        "wires": 1,
+        "satellites": 1,
         "power_flags": 2,
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
@@ -373,3 +385,25 @@ def test_rebuild_after_the_stand_in(target: int) -> None:
     design = read_board(board)
     assert len([n for n in design.circuit.nets if n.name.startswith(UNCONNECTED)]) == 29
     assert rebuild(blink(), board, target).files["blink.kicad_pcb"] == again.files["blink.kicad_pcb"]
+
+
+# -- a symbol in a child sheet (c0070)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_path_of_a_symbol_in_a_child_sheet(target: int) -> None:
+    output = built_nested(target)
+    generated = output.schematic
+    assert generated is not None
+    (power,) = [box for box in generated.sheet.sheets if box.name == "power"]
+    (ldo,) = generated.children["sheets/power.kicad_sch"].sheets
+    (c1,) = generated.children["sheets/power.ldo.kicad_sch"].symbols
+    item = footprint(output, "C1", "nested.kicad_pcb")
+    assert item.find("path").atoms()[0].value == (  # type: ignore[union-attr]
+        f"/{kicad_uuid(power)}/{kicad_uuid(ldo)}/{kicad_uuid(c1)}"
+    )
+    u1 = footprint(output, "U1", "nested.kicad_pcb")
+    (symbol,) = [s for s in generated.sheet.symbols if s.ref == "U1"]
+    assert u1.find("path").atoms()[0].value == f"/{kicad_uuid(symbol)}"  # type: ignore[union-attr]
+    lowered = lower_for_schematic(output.design, generated)
+    assert lower_for_schematic(lowered, generated) == lowered

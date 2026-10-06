@@ -222,7 +222,8 @@ def bom_output(name: str, target: int) -> BuildOutput:
 
 
 def schematic_name(name: str) -> str:
-    return next(rel for rel in bom_output(name, major()).files if rel.endswith(".kicad_sch"))
+    files = bom_output(name, major()).files
+    return next(rel for rel in files if rel.endswith(".kicad_sch") and "/" not in rel)  # the root sheet
 
 
 def off_bill(text: str, ref: str) -> str:

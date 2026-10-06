@@ -149,14 +149,16 @@ def test_rebuild_is_the_identity(name: str, tmp_path: Path) -> None:
     assert not changed("--schematic", "skip"), "without a schematic the build plans new bytes"
     stem = Path(_board).stem
     added = {f"{stem}.kicad_sch", "sym-lib-table", "Mini.kicad_sym", "fenolite.kicad_sym"}
-    assert set(changed()) == added | {f"{stem}.kicad_pcb"}
+    # one sheet per module (c0070): the 40-part board has the modules bank1 and bank2, the blink has none
+    sheets = {"bank1.kicad_sch", "bank2.kicad_sch"} if stem == "board_40parts" else set()
+    assert set(changed()) == added | sheets | {f"{stem}.kicad_pcb"}
     code, envelope, error = _build(folder, example, target, "--confirm")
     assert code == 0, error
     assert "zone.fill-stale" not in [issue["code"] for issue in envelope["issues"]]
     first = _files(folder)
     assert {rel for rel in first if first[rel] != recorded.get(rel)} == {
         f"{stem}.kicad_pcb", f"{stem}.kicad_sch", "sym-lib-table", "lib/Mini.kicad_sym",
-        "lib/fenolite.kicad_sym",
+        "lib/fenolite.kicad_sym", *(f"sheets/{sheet}" for sheet in sheets),
     }  # fmt: skip
     assert _top_level(first[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")) == _top_level(
         recorded[f"{stem}.kicad_pcb"].decode("utf-8"), ("segment", "via")

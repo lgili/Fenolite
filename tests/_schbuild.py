@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Designs and helpers of the generated-schematic tests (change c0061): the blink without its no-connect
-marks, an authored design with a three-unit part, a pin-pad map and a net with a slash, and the built
-files written to a folder for the oracle tests."""
+"""Designs and helpers of the generated-schematic tests (changes c0061 and c0070): the blink without its
+no-connect marks, an authored design with a three-unit part, a pin-pad map and a net with a slash, an
+authored design with two modules of which one holds a third, and the built files written to a folder for
+the oracle tests."""
 
 from __future__ import annotations
 
@@ -18,6 +19,7 @@ from fenolite.lens.build import BuildOutput
 from fenolite.model.schematic import SchematicSheet
 
 UNITS = "units"
+NESTED = "nested"
 SLASH_NET = "mod/LED_A"
 
 
@@ -68,10 +70,86 @@ def units_design() -> Design:
     return design
 
 
+def nested_design(marks: bool = True) -> Design:
+    """``U1`` at the top, the module ``power`` with ``R1`` and the module ``ldo`` inside it with ``C1``, and
+    the module ``io`` with ``R2`` (kicad-schematic, "Two modules, one nested"). ``C1`` is drawn with the
+    resistor symbol: the mini library has no capacitor. The unused pins of ``U1`` are marked unless
+    ``marks`` is false."""
+    design = Design(NESTED)
+    design.board(mm(60), mm(40))
+    u1 = Part("U1", "Mini:Mini_QFP32_IC", value="MCU")
+    r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="10k")
+    c1 = Part("C1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="100n")
+    r2 = Part("R2", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")
+    power, ldo, io = Module("power"), Module("ldo"), Module("io")
+    power.add(r1)
+    ldo.add(c1)
+    power.add(ldo)
+    io.add(r2)
+    design.add(u1, power, io)
+    vin, gnd, drv = Net("VIN"), Net("GND"), Net("DRV")
+    feedback = Net("power/FB")
+    connect(vin, u1[9], r1[1])
+    connect(gnd, u1[10], c1[2], r2[2])
+    connect(feedback, r1[2], c1[1], u1[2])
+    connect(drv, u1[1], r2[1])
+    if marks:
+        no_connect(*(u1[pin] for pin in range(1, 33) if pin not in (1, 2, 9, 10)))
+    design.add(Power(vin, gnd))
+    u1.place(mm(30), mm(25))
+    r1.place(mm(10), mm(8))
+    c1.place(mm(18), mm(8))
+    r2.place(mm(45), mm(8))
+    return design
+
+
+def snap_design(*, second: bool = False, adjacent: bool = False) -> Design:
+    """``U1`` and ``R1``, whose pin 1 is on the net ``SIG`` of pin 1 of ``U1`` and whose pin 2 is on
+    ``GND`` (kicad-schematic, "Resistor on an IC pin"); the pins beside pin 1 of ``U1`` are on no net.
+    ``second`` adds ``R2`` on ``SIG`` and ``VIN``; ``adjacent`` adds ``R2`` on the next pin of ``U1``."""
+    design = Design("snap")
+    design.board(mm(60), mm(40))
+    u1 = Part("U1", "Mini:Mini_QFP32_IC", value="MCU")
+    r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")
+    design.add(u1, r1)
+    sig, gnd, vin = Net("SIG"), Net("GND"), Net("VIN")
+    connect(sig, u1[1], r1[1])
+    connect(gnd, u1[10], r1[2])
+    connect(vin, u1[9])
+    u1.place(mm(30), mm(25))
+    r1.place(mm(10), mm(8))
+    if second or adjacent:
+        r2 = Part("R2", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="1k")
+        design.add(r2)
+        r2.place(mm(18), mm(8))
+        if second:
+            connect(sig, r2[1])
+            connect(vin, r2[2])
+        else:
+            connect(Net("SIG2"), u1[2], r2[1])
+            connect(gnd, r2[2])
+    design.add(Power(vin, gnd))
+    return design
+
+
+def root_name(output: BuildOutput) -> str:
+    """The root schematic file of a build: the one beside the board, not under ``sheets/``."""
+    return next(path for path in output.files if path.endswith(".kicad_sch") and "/" not in path)
+
+
 def sheet_of(output: BuildOutput) -> SchematicSheet:
-    """The sheet read back from the schematic a build wrote."""
-    name = next(path for path in output.files if path.endswith(".kicad_sch"))
+    """The root sheet read back from the schematic a build wrote."""
+    name = root_name(output)
     return sch.read_schematic(output.files[name].decode("utf-8"), file=name)
+
+
+def children_of(output: BuildOutput) -> dict[str, SchematicSheet]:
+    """The child sheets read back from the files a build wrote, by their path from the root's folder."""
+    return {
+        path: sch.read_schematic(data.decode("utf-8"), file=path)
+        for path, data in output.files.items()
+        if path.endswith(".kicad_sch") and "/" in path and not path.startswith(".fenolite/")
+    }
 
 
 def write_files(output: BuildOutput, folder: Path) -> Path:
@@ -108,15 +186,25 @@ def built_units(target: int = 10, **kwargs: object) -> BuildOutput:
     return build(units_design(), target, **kwargs)
 
 
+def built_nested(target: int = 10, **kwargs: object) -> BuildOutput:
+    return build(nested_design(), target, **kwargs)
+
+
 __all__ = [
+    "NESTED",
     "SLASH_NET",
     "UNITS",
     "blink_slash",
     "blink_unmarked",
-    "design_of",
+    "built_nested",
     "built_units",
+    "children_of",
+    "design_of",
     "global_build",
+    "nested_design",
+    "root_name",
     "sheet_of",
+    "snap_design",
     "units_design",
     "write_files",
 ]

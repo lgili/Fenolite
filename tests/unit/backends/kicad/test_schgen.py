@@ -31,16 +31,17 @@ def generated(output: BuildOutput) -> GeneratedSchematic:
 
 def pin_points(output: BuildOutput, ref: str) -> dict[str, object]:
     """Pin number → connection point of the placed symbol(s) of ``ref``."""
-    sheet = generated(output).sheet
-    definitions = {f"{d.library}:{d.name}": d for d in sheet.lib_symbols}
+    made = generated(output)
     found: dict[str, object] = {}
-    for symbol in sheet.symbols:
-        if symbol.ref != ref:
-            continue
-        for pin in definitions[symbol.lib_ref].pins_of(symbol.unit, 1):
-            found[pin.number] = schlayout.pin_point(
-                symbol.position, pin.position, symbol.rotation // 1_000_000, symbol.mirror
-            )
+    for sheet in (made.sheet, *made.children.values()):
+        definitions = {f"{d.library}:{d.name}": d for d in sheet.lib_symbols}
+        for symbol in sheet.symbols:
+            if symbol.ref != ref:
+                continue
+            for pin in definitions[symbol.lib_ref].pins_of(symbol.unit, 1):
+                found[pin.number] = schlayout.pin_point(
+                    symbol.position, pin.position, symbol.rotation // 1_000_000, symbol.mirror
+                )
     return found
 
 
@@ -49,7 +50,9 @@ def test_blink() -> None:
     made = generated(output)
     sheet = made.sheet
     assert [s.ref for s in sheet.symbols] == ["D1", "R1", "U1", "#FLG01", "#FLG02"]
-    assert Counter(label.name for label in sheet.labels) == {"GND": 3, "VIN": 2, "LED_DRV": 2, "LED_A": 2}
+    # R1 lies beside pin 1 of U1, joined to it by a wire: that pair has one LED_DRV label (c0070)
+    assert Counter(label.name for label in sheet.labels) == {"GND": 3, "VIN": 2, "LED_DRV": 1, "LED_A": 2}
+    assert len(sheet.wires) == 1 and made.satellites == 1 and made.children == {}
     assert {(label.kind, label.shape) for label in sheet.labels} == {("global", "passive")}
     points = pin_points(output, "U1")
     marked = sorted(set(points) - {"1", "9", "10"}, key=int)
@@ -70,8 +73,10 @@ def test_labels_sit_on_the_pins_of_their_nets() -> None:
     sheet = generated(output).sheet
     at = {(label.name, label.position) for label in sheet.labels}
     u1, r1, d1 = (pin_points(output, ref) for ref in ("U1", "R1", "D1"))
-    assert {("VIN", u1["9"]), ("GND", u1["10"]), ("LED_DRV", u1["1"])} <= at
+    assert {("VIN", u1["9"]), ("GND", u1["10"])} <= at
     assert {("LED_DRV", r1["1"]), ("LED_A", r1["2"]), ("GND", d1["1"]), ("LED_A", d1["2"])} <= at
+    (wire,) = sheet.wires
+    assert (wire.start, wire.end) == (u1["1"], r1["1"]) and ("LED_DRV", u1["1"]) not in at
     flags = {s.value: s for s in sheet.symbols if s.ref.startswith("#FLG")}
     assert set(flags) == {"PWR_FLAG"} and {s.lib_ref for s in sheet.symbols if s.ref.startswith("#")} == {
         "fenolite:PWR_FLAG"
@@ -107,16 +112,17 @@ def test_every_unit_is_placed() -> None:
 def test_pin_pad_map_and_slash_net() -> None:
     output = built_units()
     made = generated(output)
-    led = next(s for s in made.sheet.symbols if s.ref == "D1")
+    (mod,) = made.children.values()  # D1 and R1 are parts of the module ``mod``, which has its own sheet
+    led = next(s for s in mod.symbols if s.ref == "D1")
     assert led.lib_ref == f"Mini:{symembed.variant_name('Mini_LED', (('1', '2'), ('2', '1')))}"
-    definition = next(d for d in made.sheet.lib_symbols if f"{d.library}:{d.name}" == led.lib_ref)
+    definition = next(d for d in mod.lib_symbols if f"{d.library}:{d.name}" == led.lib_ref)
     assert {p.name: p.number for p in definition.pins} == {"K": "2", "A": "1"}
-    names = {label.name for label in made.sheet.labels}
+    names = {label.name for label in mod.labels}
     assert "mod{slash}LED_A" in names and SLASH_NET not in names
     assert [n.name for n in output.design.circuit.nets if "LED_A" in n.name] == [SLASH_NET]
     # the labels of D1 sit on the pins that carry the mapped numbers
     points = pin_points(output, "D1")
-    at = {(label.name, label.position) for label in made.sheet.labels}
+    at = {(label.name, label.position) for label in mod.labels}
     assert ("GND", points["2"]) in at and ("mod{slash}LED_A", points["1"]) in at
 
 
@@ -227,6 +233,8 @@ def test_codes_are_a_closed_set() -> None:
         "build.symbol-placement-invalid": "error",
         "build.reserved-library": "error",
         "build.schematic-replaced": "warning",
+        "build.sheet-file-collision": "error",
+        "build.sheet-stale": "warning",
     }
     assert dict(sch.WRITE_ISSUE_CODES) == {"kicad.sch.dropped-too-new": "warning"}
     known = set(schgen.ISSUE_CODES) | set(sch.WRITE_ISSUE_CODES)

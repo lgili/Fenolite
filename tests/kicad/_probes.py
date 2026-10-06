@@ -40,6 +40,7 @@ import _followcases
 import _fpwrite
 import _framecases
 import _gencases
+import _hiercases
 import _kindcases
 import _lenscases
 import _libtables
@@ -269,6 +270,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _erccases.erc_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _paritycases.parity_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _hiercases.hier_probes().items():
         probes[pid] = Probe(function, majors)
     return probes
 

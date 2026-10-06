@@ -40,7 +40,7 @@ marks an operation that may change its output, its options or its issue codes in
 | kicad | `kicad_mod` | INFERRED | INFERRED | INFERRED | — | — | `H-K-DSL-FOOTPRINT`, `H-K-LIB-READ`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_pcb` | INFERRED | INFERRED | INFERRED | INFERRED | INFERRED | `H-K-PCB-READ`, `H-K-PCB-WRITE`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_pro` | — | INFERRED | INFERRED | INFERRED | — | `H-K-PRO-PATTERNS` |
-| kicad | `kicad_sch` | INFERRED | CORPUS-VERIFIED | KICAD-VERIFIED | CORPUS-VERIFIED | — | `H-K-SCH-COMPONENTS-2`, `H-K-SCH-LIBTABLE`, `H-K-SCH-MINIMAL`, `H-K-SCH-PARITY`, `H-K-SCH-PINFRAME`, `H-K-SCH-POWER`, `H-K-SCH-READ`, `H-K-SCH-SLASH`, `H-K-SCH-UNCONNECTED`, `H-K-TOK-CONSTANTS` |
+| kicad | `kicad_sch` | INFERRED | CORPUS-VERIFIED | KICAD-VERIFIED | CORPUS-VERIFIED | — | `H-K-SCH-COMPONENTS-2`, `H-K-SCH-HIER-FILE`, `H-K-SCH-HIER-PATH`, `H-K-SCH-LIBTABLE`, `H-K-SCH-MINIMAL`, `H-K-SCH-PARITY`, `H-K-SCH-PINFRAME`, `H-K-SCH-POWER`, `H-K-SCH-READ`, `H-K-SCH-SLASH`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-WIRE-END`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_sym` | INFERRED | INFERRED | UNVERIFIED (experimental) | — | — | `H-K-LIB-READ`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_wks` | INFERRED | INFERRED | INFERRED | INFERRED | — | `H-K-TOK-CONSTANTS`, `H-K-WKS-CORNER` |
 | specctra | `specctra_dsn` | — | — | INFERRED | — | — | `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
@@ -183,6 +183,8 @@ the settling test and the result of an id are in its register row.
 | `H-K-PCB-WRITE` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-PRO-PATTERNS` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-COMPONENTS-2` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-HIER-FILE` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-HIER-PATH` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-LIBTABLE` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-MINIMAL` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-PARITY` | KICAD-VERIFIED (9.0.x, 10.0.x) |
@@ -191,6 +193,7 @@ the settling test and the result of an id are in its register row.
 | `H-K-SCH-READ` | CORPUS-VERIFIED |
 | `H-K-SCH-SLASH` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-SCH-UNCONNECTED` | KICAD-VERIFIED (9.0.x, 10.0.x) |
+| `H-K-SCH-WIRE-END` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-TOK-CONSTANTS` | INFERRED |
 | `H-K-WKS-CORNER` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 
@@ -317,8 +320,8 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `roundtrip` | see `pcb` |
 | `rulemap` | see `dru`, `lowering` |
 | `sch` | `EVIDENCE` CORPUS-VERIFIED: `H-K-SCH-READ`, `H-K-SCH-COMPONENTS-2`<br>`WRITE_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL` |
-| `sch_netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-OWN` |
-| `schgen` | `EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL`, `H-K-SCH-PINFRAME`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-PARITY`, `H-K-SCH-POWER`, `H-K-SCH-LIBTABLE` |
+| `sch_netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-OWN`, `H-K-SCH-HIER-FILE`, `H-K-SCH-WIRE-END` |
+| `schgen` | `EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL`, `H-K-SCH-PINFRAME`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-SLASH`, `H-K-SCH-PARITY`, `H-K-SCH-POWER`, `H-K-SCH-LIBTABLE`, `H-K-SCH-HIER-FILE`, `H-K-SCH-HIER-PATH`, `H-K-SCH-WIRE-END` |
 | `schlayout` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |

@@ -26,6 +26,16 @@ def test_blink_and_its_edits() -> None:
     assert run("parity-own-agreement") == "equal"
 
 
+def test_module_sheets_and_their_edits(tmp_path: Path) -> None:
+    """A project with one sheet per module (c0070): the counts agree with the nodes from the export and
+    from the own netlist of the sheet tree, unedited and after each edit."""
+    differing = cases.nested_agreement()
+    assert not differing, "\n".join(differing)
+    board, schematic = cases.nested_project(tmp_path)
+    found = cases.compare(board, schematic, own_netlist=True)
+    assert found.agree and not found.findings and not found.others
+
+
 def test_blink_in_agreement_has_no_finding(tmp_path: Path) -> None:
     board, schematic = cases.blink_project(tmp_path)
     found = cases.compare(board, schematic, own_netlist=True)

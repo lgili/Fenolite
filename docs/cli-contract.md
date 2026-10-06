@@ -187,6 +187,7 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
+[--schematic-layout readable|grid]
 [--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
@@ -293,9 +294,19 @@ part's symbol, a global label of the net at each connected pin, a no-connect fla
 `no_connect`, and a power flag on each net of a `Power` interface that no power output drives. The board
 follows the sheet: the pad of each unconnected pin is on a net named as KiCad names it
 (`unconnected-(U1-PA1-Pad2)`), a `/` in a net name is stored as `{slash}`, and each footprint carries the
-path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`,
-`symbols`, `labels`, `no_connects`, `power_flags`, `libraries` (the symbol library files) and
-`unconnected_pads`, and is `null` with `skip`. `schematic-placements.toml` beside the script fixes symbol
+path of its symbol; the `.fenolite/` model holds none of this. `result.schematic` holds `file`, `paper`
+(the root's), `sheets` (their number, the root included), `files` (the child sheet files), `symbols`,
+`labels`, `no_connects` and `wires` (counted over every sheet), `satellites`, `power_flags`, `libraries`
+(the symbol library files) and `unconnected_pads`, and is `null` with `skip`.
+
+`--schematic-layout readable` (the default) gives each module that holds a part a sheet of its own,
+`DIR/sheets/<module path with "." for "/">.kicad_sch`, named by a box on the sheet above it, and puts a
+2-pin part beside the IC pin it connects to, joined by one wire. Nets cross sheets by their global
+labels, so net names stay those of the script; a footprint of a part in a module carries the path
+`/<sheet uuids>/<symbol uuid>`. `--schematic-layout grid` writes the one flat sheet of v0.2a, without
+wires. The option is a usage error with `--target altium`. An edited child sheet is replaced like the
+root; a child sheet of the last build that the design no longer has is left in place, with
+`build.sheet-stale`. `schematic-placements.toml` beside the script fixes symbol
 positions. The schematic is a view of the script: a schematic changed since the last build is replaced,
 with `build.schematic-replaced` and a `.bak` copy, while an edited `sym-lib-table` or symbol library is
 refused like any vendored file. With `--vendor project`, a symbol of a row that is not a project row is
@@ -305,14 +316,16 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 
 | code | severity | when |
 |---|---|---|
-| `build.schematic-too-large` | error | the units do not fit one A0 page |
+| `build.schematic-too-large` | error | the units of one sheet do not fit an A0 page |
+| `build.sheet-file-collision` | error | two modules give one child sheet file |
 | `build.schematic-netlist-differs` | error | the nets read back from the generated sheet are not those of the circuit; nothing is written |
 | `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
 | `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
 | `build.reserved-library` | error | the design names or authors a symbol library `fenolite` |
 | `build.symbol-overlap` | warning | the cell of a placed symbol overlaps another cell |
 | `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
-| `build.schematic-replaced` | warning | a schematic changed since the last build is replaced |
+| `build.schematic-replaced` | warning | a schematic file, the root or a child sheet, changed since the last build is replaced |
+| `build.sheet-stale` | warning | a child sheet of the last build is no sheet of the design any more; the file is left in place |
 | `kicad.sch.unconnected-name-unproven` | warning | the net name of an unconnected pin is not written, so its pad stays on no net |
 | `kicad.sch.dropped-too-new` | warning | `--allow-lossy` removed a token of an embedded symbol that the target does not read |
 | `kicad.sch.pin-off-grid` | info | a library pin is not on the 1.27 mm grid |

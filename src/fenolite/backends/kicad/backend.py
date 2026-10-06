@@ -230,8 +230,8 @@ class KicadBackend:
             found = parity_inputs.assignment_nodes(nodes, references)
             return SideOutcome(parity_inputs.side_of(root, sheets, found))
         refused = parity_inputs.grammar_issues(sheets)
-        if refused or len(sheets) != 1:
-            why = "; ".join(i.message.split(":", 1)[0] for i in refused) or "more than one sheet"
+        if refused:
+            why = "; ".join(i.message.split(":", 1)[0] for i in refused)
             return SideOutcome(None, message=why)
         own = parity_inputs.own_netlist(sheets, project=root.stem)
         return SideOutcome(

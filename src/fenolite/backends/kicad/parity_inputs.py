@@ -7,8 +7,9 @@ Components come from the schematic reader: one per reference of the hierarchy, w
 footprint of its lowest unit (``sch.hierarchy_components``), symbols that are not on the board left out.
 The pins of a component are those of the symbol definitions that its sheets embed, for every unit in body
 style 1, together with the pins the netlist lists. The nodes come from a netlist: Fenolite's own
-(``sch_netlist.own_netlist``) for a schematic of one flat sheet inside its grammar, which needs no tool,
-or the netlist that ``kicad-cli`` exported. Nothing here runs a tool or writes a file.
+(``sch_netlist.own_netlist``) for a schematic inside its grammar, one sheet or the tree of sheets that
+``build`` writes (change c0070), which needs no tool, or the netlist that ``kicad-cli`` exported. Nothing
+here runs a tool or writes a file.
 """
 
 # evidence: see sch, sch_netlist, netlist
@@ -46,17 +47,17 @@ def read_sheets(root_file: Path) -> dict[str, SchematicSheet]:
 
 def grammar_issues(sheets: Mapping[str, SchematicSheet]) -> tuple[Issue, ...]:
     """Why Fenolite's own netlist does not cover ``sheets`` (``read_sheets``): the issues of
-    ``sch_netlist.grammar_issues`` for each sheet, the root first; ``()`` when it covers them."""
-    return tuple(issue for sheet in sheets.values() for issue in sch_netlist.grammar_issues(sheet))
+    ``sch_netlist.grammar_issues`` for the root and the child sheets it names; ``()`` when it covers
+    them. The keys of ``read_sheets`` are the keys of ``children``: file names relative to the root's
+    folder. A file that a sheet reference names and that is missing is no key, so the grammar reports it."""
+    (_, root), *rest = sheets.items()
+    return sch_netlist.grammar_issues(root, children=dict(rest))
 
 
 def own_netlist(sheets: Mapping[str, SchematicSheet], *, project: str) -> KicadNetlist:
     """Fenolite's own netlist of ``sheets``; ``NetlistUnsupportedError`` outside the grammar."""
-    issues = grammar_issues(sheets)
-    if issues or len(sheets) != 1:
-        raise sch_netlist.NetlistUnsupportedError(issues)
-    (sheet,) = sheets.values()
-    return sch_netlist.own_netlist(sheet, project=project)
+    (_, root), *rest = sheets.items()
+    return sch_netlist.own_netlist(root, project=project, children=dict(rest))
 
 
 def _pins(sheets: Mapping[str, SchematicSheet], project: str) -> dict[str, set[str]]:

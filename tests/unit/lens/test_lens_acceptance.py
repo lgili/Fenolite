@@ -90,7 +90,10 @@ def sheet_children(text: str, ref: str) -> list[str]:
 
 def updated(p: Project) -> list[str]:
     """Pass the board of ``p`` through the stand-in update, and give the references it reached."""
-    schematic = (p.out / f"{NAME}.kicad_sch").read_text(encoding="utf-8")
+    root = f"{NAME}.kicad_sch"
+    children = sorted(path.relative_to(p.out).as_posix() for path in (p.out / "sheets").glob("*.kicad_sch"))
+    assert children == ["sheets/io.kicad_sch", "sheets/power.kicad_sch"], "one sheet per module (c0070)"
+    schematic = {name: (p.out / name).read_text(encoding="utf-8") for name in (root, *children)}
     before = p.board.read_text(encoding="utf-8")
     p.board.write_text(update_from_schematic(before, schematic), encoding="utf-8")
     after = p.board.read_text(encoding="utf-8")
@@ -139,7 +142,11 @@ def test_rename_keeps_everything(
     assert group_members(edited_text, GROUP) == [footprint_uuid(PATHS[ref]) for ref in GROUPED]
     # the footprints the update reached keep their sheetname and sheetfile children
     for ref in reached:
-        assert sheet_children(text, ref) == ["/", f"{NAME}.kicad_sch"], ref
+        assert sheet_children(text, ref) == sheet_children(edited_text, ref) != [], ref
+    if reached:  # a part of a module is on the sheet of its module (c0070); the update named that sheet
+        assert sheet_children(edited_text, "U1") == ["/", f"{NAME}.kicad_sch"]
+        assert sheet_children(edited_text, "R1") == ["power", "sheets/power.kicad_sch"]
+        assert sheet_children(edited_text, "R4") == ["io", "sheets/io.kicad_sch"]
     # the new part is staged, and nothing was lost
     assert [i["where"] for i in env["issues"] if i["code"] == "layout.unplaced"] == ["io/R9"]  # type: ignore[union-attr,index]
     assert not LOST & set(codes(env)), codes(env)

@@ -864,8 +864,18 @@ fix = "Change the script, or fix symbol positions in schematic-placements.toml b
 see = "build"
 
 ["build.schematic-too-large"]
-meaning = "The symbols of the design do not fit one A0 page. A generated schematic is one flat sheet."
-fix = "Build with --schematic skip, or split the design; one sheet per module is planned for a later release."
+meaning = "The symbols of one sheet of the design do not fit an A0 page. The message names the sheet: the root holds the parts outside every module, and each module has a sheet of its own."
+fix = "Put parts of that sheet into modules, so each gets its own sheet, or build with --schematic skip."
+see = "build"
+
+["build.sheet-file-collision"]
+meaning = "Two modules would be written to one sheet file. A module's sheet is sheets/<module path with '.' for '/'>.kicad_sch, so a top-level module a.b and a module b inside a module a collide, and so do names that differ only in letter case."
+fix = "Rename one of the two modules, or build with --schematic-layout grid for one flat sheet."
+see = "build"
+
+["build.sheet-stale"]
+meaning = "A sheet file under sheets/ was written by the last build and is no sheet of this design: its module was removed or renamed. No sheet names the file any more, so KiCad does not load it. The build deletes nothing and leaves it in place."
+fix = "Delete the file when you no longer need it. The warning is given once."
 see = "build"
 
 ["build.symbol-overlap"]

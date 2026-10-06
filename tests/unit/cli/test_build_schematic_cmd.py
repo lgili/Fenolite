@@ -59,9 +59,13 @@ def test_the_blink_gets_a_schematic(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert env["result"]["schematic"] == {  # type: ignore[index]
         "file": "blink.kicad_sch",
         "paper": "A4",
+        "sheets": 1,
+        "files": [],
         "symbols": 5,
-        "labels": 9,
+        "labels": 8,
         "no_connects": 29,
+        "wires": 1,
+        "satellites": 1,
         "power_flags": 2,
         "libraries": ["lib/Mini.kicad_sym", "lib/fenolite.kicad_sym"],
         "unconnected_pads": 29,
@@ -215,3 +219,32 @@ def test_altium_takes_copper_from_a_board_built_beside_a_schematic(
     code, env, _ = run(monkeypatch, *args, "--copper-from", str(wrong))
     found = [i for i in env["issues"] if i["code"] == "altium.copper-board-mismatch"]  # type: ignore[union-attr]
     assert code == 5 and [i["where"] for i in found] == ["U1.2"]
+
+
+# -- the layout option (c0070)
+
+
+def test_help_names_the_layout_option(capsys: pytest.CaptureFixture[str]) -> None:
+    try:
+        cli_main.main(["build", "--help"])
+    except SystemExit:
+        pass
+    text = " ".join(capsys.readouterr().out.split())
+    assert "--schematic-layout {readable,grid}" in text and "one sheet per module" in text
+
+
+def test_altium_target_refuses_the_layout_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    args = (str(BLINK), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run")
+    code, _, err = run(monkeypatch, *args, "--schematic-layout", "grid")
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001"
+
+
+def test_grid_layout_of_the_blink_has_a_label_on_every_pin(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(BLINK), "--out", str(out), "--schematic-layout", "grid", "--confirm")
+    assert code == 0
+    summary = env["result"]["schematic"]  # type: ignore[index]
+    assert (summary["labels"], summary["wires"], summary["satellites"], summary["sheets"]) == (9, 0, 0, 1)
+    assert "(wire" not in (out / "blink.kicad_sch").read_text(encoding="utf-8")

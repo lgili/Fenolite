@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Schematic sheets (capability design-model, "Schematic sheet definitions", "Identifiers of schematic
-entities" and "Schematic sheet schema"; change c0060)."""
+entities" and "Schematic sheet schema"; changes c0060 and c0070)."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ from fenolite.model.schematic import (
     SheetUse,
     SymbolInstance,
     SymbolUse,
+    Wire,
 )
 
 MM = 1_000_000
@@ -47,8 +48,17 @@ def _sheet() -> SchematicSheet:
         NetLabel("hierarchical", "IN", Point(2 * MM, 0), id=_id("lbl", "m")),
     )
     flags = (NoConnectFlag(Point(3 * MM, MM), id=_id("ncf", "1")),)
+    wires = (
+        Wire(Point(5 * MM, 0), Point(9 * MM, 0), id=_id("wir", "b")),
+        Wire(Point(0, 4 * MM), Point(0, MM), id=_id("wir", "a")),
+    )
     return SchematicSheet(
-        id=derived_id("sch", "fenolite", "t"), name="t", symbols=symbols, labels=labels, no_connects=flags
+        id=derived_id("sch", "fenolite", "t"),
+        name="t",
+        symbols=symbols,
+        labels=labels,
+        no_connects=flags,
+        wires=wires,
     )
 
 
@@ -59,7 +69,15 @@ def test_canonical_round_trip_keeps_order() -> None:
     assert loaded == sheet
     assert [s.lib_ref for s in loaded.symbols] == ["Mini:Mini_R", "Mini:Mini_LED"]
     assert [label.name for label in loaded.labels] == ["N1", "VCC", "IN"]
+    assert [wire.start for wire in loaded.wires] == [Point(5 * MM, 0), Point(0, 4 * MM)]
     assert canonical.dumps(loaded) == text
+    assert _schema.validate(json.loads(text), _schema.load("fenolite.model.v0/schematic.json")) == []
+
+
+@pytest.mark.parametrize("end", [Point(1_270_000, 1_270_000), Point(0, 0)], ids=["slanted", "no length"])
+def test_wire_is_straight_and_has_a_length(end: Point) -> None:
+    with pytest.raises(ValueError, match="wire"):
+        Wire(Point(0, 0), end, id=_id("wir", "w"))
 
 
 def test_full_sheet_round_trips_and_validates() -> None:
@@ -134,7 +152,7 @@ def test_sheets_are_not_layer_content(tmp_path: Path) -> None:
         assert "lib_symbols" not in data and "no_connects" not in data
 
 
-@pytest.mark.parametrize("prefix", ["sch", "sci", "lbl", "ncf", "shr"])
+@pytest.mark.parametrize("prefix", ["sch", "sci", "lbl", "ncf", "shr", "wir"])
 def test_prefixes_accepted(prefix: str) -> None:
     assert new_id(prefix, random.Random(1)).startswith(prefix + "_")
 

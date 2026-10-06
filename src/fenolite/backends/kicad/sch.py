@@ -7,6 +7,9 @@ change c0060). Symbols, labels, no-connect flags, sheet references, embedded sym
 title block are read into the model; every other child (wires, junctions, buses, graphics, pins,
 properties, instances) stays an opaque slot at its position, so an unchanged sheet is rebuilt
 tree-equal. The reader never derives nets, and nothing here writes a file or runs a tool.
+
+``write_schematic`` writes a created sheet for a target (c0061), with the wires and the sheet references
+of a hierarchy (c0070): a wire as two points, a sheet reference as a box without pins.
 """
 
 from __future__ import annotations
@@ -76,6 +79,7 @@ from fenolite.model.schematic import (
     SheetUse,
     SymbolInstance,
     SymbolUse,
+    Wire,
 )
 
 EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-K-SCH-READ", "H-K-SCH-COMPONENTS-2"))
@@ -99,6 +103,10 @@ DROPPED_CODE = "kicad.sch.dropped-too-new"
 WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({DROPPED_CODE: "warning"})
 """The codes of ``write_schematic`` and of the symbol embedding (``symembed``)."""
 TEXT_SIZE = 1_270_000
+SHEET_TEXT_GAP = 1_270_000
+"""The properties of a created sheet reference lie this far above and below its box."""
+SHEET_FILL = "(fill (color 0 0 0 0.0))"
+"""A created sheet reference has no fill colour: KiCad draws it in the colour of its theme."""
 """The height and width of every text a created sheet writes (KiCad's default, 50 mil)."""
 FIRST_PROPERTIES: tuple[str, ...] = ("Reference", "Value", "Footprint", "Datasheet", "Description")
 VISIBLE_PROPERTIES: frozenset[str] = frozenset({"Reference", "Value"})
@@ -925,6 +933,31 @@ def opaque_heads(sheet: SchematicSheet) -> Counter[str]:
     return heads
 
 
+def opaque_wires(sheet: SchematicSheet) -> tuple[tuple[Point, ...], ...]:
+    """The points of each ``wire`` child that the reader kept as an opaque slot of the sheet root, in file
+    order; ``()`` for a sheet that was not read from a file. A wire whose points are not whole nanometres
+    gives an empty tuple, so no caller takes it for a segment."""
+    bag = sheet.ext.get("kicad")
+    found: list[tuple[Point, ...]] = []
+    for slot in slotlib.from_ext(bag, ".") if bag is not None else ():
+        if not isinstance(slot, Opaque):
+            continue
+        match = _HEAD.match(slot.fragment)
+        if match is None or match.group(1) != "wire":
+            continue
+        points = parse(slot.fragment).find("pts")
+        try:
+            found.append(
+                tuple(
+                    Point(xy.atoms()[0].to_nm(), xy.atoms()[1].to_nm())
+                    for xy in (points.nodes("xy") if points is not None else ())
+                )
+            )
+        except (ValueError, IndexError):
+            found.append(())
+    return tuple(found)
+
+
 def opaque_digests(sheet: SchematicSheet) -> Counter[str]:
     """The SHA-256 hex digests of the opaque fragments, as a multiset."""
     return Counter(hashlib.sha256(f.encode("utf-8")).hexdigest() for f in _opaque_fragments(sheet))
@@ -1103,6 +1136,44 @@ def _created_label(label: NetLabel, ten: bool) -> Node:
     return node(head, *children)
 
 
+def _created_wire(wire: Wire) -> Node:
+    """A wire of a created sheet: its two points, the default stroke and a uuid."""
+    return node(
+        "wire",
+        node("pts", point_node("xy", wire.start), point_node("xy", wire.end)),
+        node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("default"))),
+        node("uuid", Atom.string(kicad_uuid(wire))),
+    )
+
+
+def _created_sheet_ref(ref: SheetRef, ten: bool) -> Node:
+    """A sheet reference of a created sheet: a box without pins, its name above and its file below, and
+    one ``path`` with its page per use (``H-K-SCH-HIER-FILE``)."""
+    items, _ = _emit_sheet_ref(ref)
+    above = Point(ref.position.x, ref.position.y - SHEET_TEXT_GAP)
+    below = Point(ref.position.x, ref.position.y + ref.size.h + SHEET_TEXT_GAP)
+    projects: dict[str, list[Node]] = {}
+    for use in ref.uses:
+        projects.setdefault(use.project, []).append(
+            node("path", Atom.string(use.path), node("page", Atom.string(use.page)))
+        )
+    return node(
+        "sheet",
+        *items["position"],
+        *items["size"],
+        _yes_no("exclude_from_sim", False),
+        _yes_no("in_bom", True),
+        _yes_no("on_board", True),
+        _yes_no("dnp", False),
+        node("stroke", node("width", Atom.from_nm(0)), node("type", Atom.symbol("solid"))),
+        parse(SHEET_FILL),
+        node("uuid", Atom.string(kicad_uuid(ref))),
+        _property("Sheetname", ref.name, above, ten=ten, hidden=False, justify="left"),
+        _property("Sheetfile", ref.file, below, ten=ten, hidden=False, justify="left"),
+        node("instances", *(node("project", Atom.string(p), *paths) for p, paths in projects.items())),
+    )
+
+
 def _created_def(symbol: SymbolDef, target: int) -> Node:
     """The node of an embedded symbol of a created sheet, from the slots its reader kept."""
     bag = symbol.ext.get("kicad")
@@ -1127,8 +1198,11 @@ def write_schematic(
     """The text of a ``.kicad_sch`` file for KiCad ``target``.0 from a created sheet; no file is written.
 
     The root holds the header, the sheet's uuid, paper and title block, the embedded symbols, then the
-    no-connect flags, the labels and the symbol instances, each kind in the order of its collection, and
-    the page list. Target 10 writes what KiCad 10 keeps on a re-save (``body_style``, ``in_pos_files``,
+    no-connect flags, the wires, the labels, the symbol instances and the sheet references, each kind in
+    the order of its collection, and the page list when the sheet has pages: a child sheet of a hierarchy
+    has none, and gets no ``sheet_instances``.
+
+    Target 10 writes what KiCad 10 keeps on a re-save (``body_style``, ``in_pos_files``,
     ``show_name``, ``do_not_autoplace``, ``hide`` as a child of a property, ``Intersheetrefs``); target 9
     writes what 9.0.9 loads (``hide`` inside ``effects``, no ``body_style``, ``embedded_fonts``). A sheet
     read from a file is refused: ``rebuild_schematic`` writes it at its own version.
@@ -1139,8 +1213,6 @@ def write_schematic(
         raise ValueError(
             f"{sheet.id} was read from a KiCad file; rebuild_schematic writes it at its own format version"
         )
-    if sheet.sheets:
-        raise ValueError(f"{sheet.id}: sheet references of a created sheet are not written yet")
     ten = target >= 10
     definitions = {_embedded_name(d): d for d in sheet.lib_symbols}
     children: list[Node | Atom] = [
@@ -1157,11 +1229,14 @@ def write_schematic(
         children.append(
             node("no_connect", _at(flag.position, None), node("uuid", Atom.string(kicad_uuid(flag))))
         )
+    children += [_created_wire(wire) for wire in sheet.wires]
     children += [_created_label(label, ten) for label in sheet.labels]
     for symbol in sheet.symbols:
         definition = definitions.get(symbol.lib_name or symbol.lib_ref)
         children.append(_created_symbol(symbol, definition, ten))
-    children.append(_pages_node(sheet.pages))
+    children += [_created_sheet_ref(ref, ten) for ref in sheet.sheets]
+    if sheet.pages:
+        children.append(_pages_node(sheet.pages))
     if not ten:
         children.append(_yes_no("embedded_fonts", False))
     issues: list[Issue] = []
@@ -1342,6 +1417,7 @@ __all__ = [
     "opaque_count",
     "opaque_digests",
     "opaque_heads",
+    "opaque_wires",
     "read_schematic",
     "rebuild_schematic",
     "roundtrip_schematic",

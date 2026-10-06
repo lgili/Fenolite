@@ -71,6 +71,7 @@ from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.schematic import SchematicSheet
 
 RECORD_FILE = ".fenolite/build.json"
 SHEET_SUFFIX = ".kicad_wks"
@@ -558,6 +559,7 @@ def build_design(
     drawing_sheet: DrawingSheet | None = None,
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
+    schematic_layout: Literal["readable", "grid"] = "readable",
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -579,11 +581,17 @@ def build_design(
     ``schematic`` is ``"write"`` (the project gets ``<name>.kicad_sch``, its symbol libraries and
     ``sym-lib-table``, and the board follows the sheet: ``docs/schematic.md``) or ``"skip"``;
     ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
+    ``schematic_layout`` is ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts beside
+    the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
     if schematic not in SCHEMATIC_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown schematic mode {schematic!r}; use one of: {', '.join(SCHEMATIC_MODES)}")
+    if schematic_layout not in schgen.LAYOUTS:
+        raise ValueError(
+            f"unknown schematic layout {schematic_layout!r}; use one of: {', '.join(schgen.LAYOUTS)}"
+        )
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
     parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
     plan = _vendor_plan(parts, vendor, issues)
@@ -752,6 +760,7 @@ def build_design(
             placements=symbol_placements,
             vendor=vendor,
             allow_lossy=allow_lossy,
+            layout=schematic_layout,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
@@ -820,6 +829,11 @@ def build_design(
         written = sch.write_schematic(generated.sheet, target=target, allow_lossy=allow_lossy)
         issues += written.issues
         files[f"{name}.kicad_sch"] = written.text.encode("utf-8")
+        for path, child in generated.children.items():
+            written = sch.write_schematic(child, target=target, allow_lossy=allow_lossy)
+            issues += [found for found in written.issues if found not in issues]
+            files[path] = written.text.encode("utf-8")
+        issues += stale_sheets(record, files)
         for nickname, found in sorted(symbol_files.items()):
             path = f"lib/{nickname}.kicad_sym"
             files[path] = symembed.write_symbol_library(found, target=target).encode("utf-8")
@@ -915,9 +929,13 @@ def build_design(
         else {
             "file": f"{name}.kicad_sch",
             "paper": generated.sheet.paper.paper,
-            "symbols": len(generated.sheet.symbols),
-            "labels": len(generated.sheet.labels),
-            "no_connects": len(generated.sheet.no_connects),
+            "sheets": 1 + len(generated.children),
+            "files": list(generated.children),
+            "symbols": sum(len(sheet.symbols) for sheet in _sheets(generated)),
+            "labels": sum(len(sheet.labels) for sheet in _sheets(generated)),
+            "no_connects": sum(len(sheet.no_connects) for sheet in _sheets(generated)),
+            "wires": sum(len(sheet.wires) for sheet in _sheets(generated)),
+            "satellites": generated.satellites,
             "power_flags": generated.power_flags,
             "libraries": [f"lib/{nick}.kicad_sym" for nick in sorted(symbol_files)],
             "unconnected_pads": len(generated.pad_nets),
@@ -932,6 +950,31 @@ def build_design(
         layout,
         generated,
     )
+
+
+def _sheets(generated: GeneratedSchematic) -> tuple[SchematicSheet, ...]:
+    """The root sheet and the child sheets of a generated schematic, in page order."""
+    return (generated.sheet, *generated.children.values())
+
+
+def stale_sheets(record: Mapping[str, str] | None, files: Mapping[str, bytes]) -> list[Issue]:
+    """One ``build.sheet-stale`` warning per child sheet that the last build recorded and this build does
+    not plan (capability design-dsl, "Hierarchical sheets in a build"; change c0070). The file is left
+    where it is: a build deletes nothing. No file is read; the next record no longer lists it."""
+    prefix = f"{schgen.SHEETS_DIR}/"
+    found: list[Issue] = []
+    for path in sorted(record or ()):
+        if path.startswith(prefix) and path.endswith(".kicad_sch") and path not in files:
+            found.append(
+                issue(
+                    "build.sheet-stale",
+                    f"{path} was a sheet of the last build and is none of this design: no sheet names it "
+                    "any more, and the file is left in place",
+                    path,
+                    "delete the file when you no longer need it",
+                )
+            )
+    return found
 
 
 def _keep_pad_zones(
@@ -1107,7 +1150,7 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
     are not compared. The issue names the first difference by net and element, in sorted order.
     """
     try:
-        own = sch_netlist.own_netlist(generated.sheet, project=name)
+        own = sch_netlist.own_netlist(generated.sheet, project=name, children=generated.children)
     except sch_netlist.NetlistUnsupportedError as error:
         reasons = "; ".join(found.message for found in error.issues)
         return issue(
@@ -1170,7 +1213,9 @@ def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design
     "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
 
     Each pad of an unconnected pin gets a net of the name KiCad derives for that pin, and each component
-    gets the path of its symbol. Nothing else changes; the stored layout and the model never hold these
+    gets the path of its symbol: ``/<symbol uuid>`` on the root sheet, and the uuids of the sheet
+    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). Nothing else
+    changes; the stored layout and the model never hold these
     nets. Applying the function twice gives the result of applying it once.
     """
     board = design.board
@@ -1403,5 +1448,6 @@ __all__ = [
     "check_existing",
     "lower_for_schematic",
     "schematic_netlist_issue",
+    "stale_sheets",
     "read_record",
 ]

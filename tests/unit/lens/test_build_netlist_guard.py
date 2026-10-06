@@ -11,7 +11,7 @@ from dataclasses import replace
 
 import pytest
 from _buildhelp import blink, build, codes
-from _schbuild import blink_unmarked, built_units, units_design
+from _schbuild import blink_unmarked, built_nested, built_units, units_design
 
 from fenolite.backends.kicad import schgen, schlayout
 from fenolite.backends.kicad.schgen import GeneratedSchematic
@@ -29,7 +29,9 @@ def pin_points(sheet: SchematicSheet, ref: str) -> dict[str, Point]:
     instance = next(s for s in sheet.symbols if s.ref == ref)
     definition = next(d for d in sheet.lib_symbols if d.lib_id == instance.lib_ref)
     return {
-        pin.number: schlayout.pin_point(instance.position, pin.position)
+        pin.number: schlayout.pin_point(
+            instance.position, pin.position, instance.rotation // 1_000_000, instance.mirror
+        )
         for pin in definition.pins_of(instance.unit, instance.body_style)
     }
 
@@ -147,10 +149,11 @@ def test_agreement_gives_no_issue() -> None:
 def test_wrong_variant_is_caught() -> None:
     """The mapped LED embedded without its pin-pad map: the label of pin 1 names pad 1, not pad 2."""
     output, generated = generated_of("units")
-    plain = next(d for d in generated.sheet.lib_symbols if d.name.startswith("Mini_LED"))
+    ((path, mod),) = generated.children.items()  # the LED is a part of the module ``mod``
+    plain = next(d for d in mod.lib_symbols if d.name.startswith("Mini_LED"))
     pins = tuple(replace(pin, number={"1": "2", "2": "1"}[pin.number]) for pin in plain.pins)
-    definitions = tuple(replace(d, pins=pins) if d is plain else d for d in generated.sheet.lib_symbols)
-    defective = replace(generated, sheet=replace(generated.sheet, lib_symbols=definitions))
+    definitions = tuple(replace(d, pins=pins) if d is plain else d for d in mod.lib_symbols)
+    defective = replace(generated, children={path: replace(mod, lib_symbols=definitions)})
     found = schematic_netlist_issue(output.design, defective, "units")
     assert found is not None and "D1-" in found.message
 
@@ -179,3 +182,79 @@ def test_pad_net_under_another_name_is_caught() -> None:
     defective = replace(generated, pad_nets={**generated.pad_nets, key: "unconnected-(U1-OTHER-Pad2)"})
     found = schematic_netlist_issue(output.design, defective, "blink")
     assert found is not None and "U1-2" in found.message
+
+
+# -- module sheets (c0070)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_modules_pass_the_guard(target: int) -> None:
+    output = built_nested(target)
+    assert CODE not in codes(output)
+    sheets = [path for path in output.files if path.endswith(".kicad_sch")]
+    assert sheets == [
+        "nested.kicad_sch",
+        "sheets/io.kicad_sch",
+        "sheets/power.kicad_sch",
+        "sheets/power.ldo.kicad_sch",
+    ]
+
+
+def test_modules_child_that_is_not_reached_is_caught() -> None:
+    """A child sheet that the root does not name: KiCad would drop it in silence, the guard does not."""
+    output = built_nested()
+    generated = output.schematic
+    assert generated is not None
+    root = replace(generated.sheet, sheets=generated.sheet.sheets[1:])
+    found = schematic_netlist_issue(output.design, replace(generated, sheet=root), "nested")
+    assert found is not None and "sheets/io.kicad_sch" in found.message
+
+
+def test_modules_label_moved_in_a_child_is_caught() -> None:
+    output = built_nested()
+    generated = output.schematic
+    assert generated is not None
+    path = "sheets/io.kicad_sch"
+    children = {**generated.children, path: swapped_labels_of(generated.children[path], "R2")}
+    found = schematic_netlist_issue(output.design, replace(generated, children=children), "nested")
+    assert found is not None and "R2-" in found.message
+
+
+def swapped_labels_of(sheet: SchematicSheet, ref: str) -> SchematicSheet:
+    points = pin_points(sheet, ref)
+    other = {points["1"]: points["2"], points["2"]: points["1"]}
+    labels = tuple(
+        replace(label, position=other.get(label.position, label.position)) for label in sheet.labels
+    )
+    assert labels != sheet.labels
+    return replace(sheet, labels=labels)
+
+
+# -- snap wires (c0070)
+
+
+def without_wire(sheet: SchematicSheet) -> SchematicSheet:
+    assert sheet.wires, "the blink has R1 beside pin 1 of U1"
+    return replace(sheet, wires=())
+
+
+def without_pair_label(sheet: SchematicSheet) -> SchematicSheet:
+    near = sheet.wires[0].end
+    return replace(sheet, labels=tuple(label for label in sheet.labels if label.position != near))
+
+
+def test_missing_snap_wire_caught(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without its wire, pin 1 of ``U1`` is on no net: the guard names it."""
+    patched(monkeypatch, without_wire)
+    output = build(blink())
+    assert output.files == {}
+    (found,) = [issue for issue in output.issues if issue.code == CODE]
+    assert "U1-1" in found.message and "LED_DRV" in found.message
+
+
+def test_snap_wire_without_its_label_caught(monkeypatch: pytest.MonkeyPatch) -> None:
+    patched(monkeypatch, without_pair_label)
+    output = build(blink())
+    assert output.files == {}
+    (found,) = [issue for issue in output.issues if issue.code == CODE]
+    assert "wire-unlabelled" in found.message

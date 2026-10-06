@@ -75,7 +75,9 @@ def workdir(prefix: str) -> Path:
 
 
 def _built(text: str, target: int) -> dict[str, bytes]:
-    output = build(design_of(text), target)
+    # one flat sheet with a label on every connected pin (the form of v0.2a): the cases below remove
+    # single labels, and with the readable layout R1 is wired to pin 1 of U1 under one label (c0070)
+    output = build(design_of(text), target, schematic_layout="grid")
     assert output.files, [i.message for i in output.issues if i.severity == "error"]
     return {rel: data for rel, data in output.files.items() if not rel.startswith(".fenolite/")}
 

@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Schematic sheets: what one schematic file holds (normative text: openspec capability ``design-model``,
-"Schematic sheet definitions", change c0060).
+"Schematic sheet definitions", changes c0060 and c0070).
 
 A ``SchematicSheet`` is a definition outside ``Design``, like a ``DrawingSheet``: a generated sheet is
 derived from the circuit, and a sheet read from a file is checked and compared, so it is never stored
-in the ``.fenolite/`` layer files. Wires, junctions and buses are not modelled: a backend keeps them as
-opaque slots of the sheet, and Fenolite derives no net from a schematic it did not write.
+in the ``.fenolite/`` layer files. A generated sheet holds ``Wire`` entities, the straight segments its
+generator draws from pin end to pin end. Junctions and buses are not modelled, and a backend keeps the
+wires of a file it reads as opaque slots of the sheet.
 """
 
 from __future__ import annotations
@@ -101,6 +102,21 @@ class NoConnectFlag(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class Wire(Entity):
+    """A straight wire of a created sheet, from ``start`` to ``end``: horizontal or vertical, never a
+    point."""
+
+    start: Point
+    end: Point
+
+    def __post_init__(self) -> None:
+        if self.start == self.end:
+            raise ValueError(f"a wire needs two different ends, not {self.start} twice")
+        if self.start.x != self.end.x and self.start.y != self.end.y:
+            raise ValueError(f"a wire is horizontal or vertical: {self.start} to {self.end} is neither")
+
+
+@dataclass(frozen=True, slots=True)
 class SheetRef(Entity):
     """A reference to a sub-sheet: its name, the file as written, its box and its uses."""
 
@@ -113,7 +129,8 @@ class SheetRef(Entity):
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SchematicSheet(Entity):
-    """One schematic file: embedded symbols, placed symbols, labels, flags and sub-sheet references."""
+    """One schematic file: embedded symbols, placed symbols, labels, flags, the wires of a created sheet
+    and sub-sheet references."""
 
     name: str
     paper: SheetFrameRef = SheetFrameRef("A4")
@@ -122,6 +139,7 @@ class SchematicSheet(Entity):
     symbols: tuple[SymbolInstance, ...] = field(default=(), metadata=ORDERED)
     labels: tuple[NetLabel, ...] = field(default=(), metadata=ORDERED)
     no_connects: tuple[NoConnectFlag, ...] = field(default=(), metadata=ORDERED)
+    wires: tuple[Wire, ...] = field(default=(), metadata=ORDERED)
     sheets: tuple[SheetRef, ...] = field(default=(), metadata=ORDERED)
     pages: tuple[SheetPage, ...] = field(default=(), metadata=ORDERED)
 
@@ -139,4 +157,5 @@ __all__ = [
     "SymbolInstance",
     "SymbolMirror",
     "SymbolUse",
+    "Wire",
 ]

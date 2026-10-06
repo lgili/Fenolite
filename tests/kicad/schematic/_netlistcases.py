@@ -22,7 +22,7 @@ import _erc
 import _gencases as gen
 import _gendesigns
 from _buildhelp import ROOT, blink, build
-from _schbuild import built_units, sheet_of
+from _schbuild import built_units, children_of, sheet_of
 
 from fenolite.backends.kicad.cli import NETLIST, KicadCli
 from fenolite.backends.kicad.netlist import differences, read_netlist
@@ -172,10 +172,10 @@ def own_differences(output: BuildOutput) -> tuple[str, ...]:
     name = schematic_of(output)
     project = name.removesuffix(".kicad_sch")
     theirs = read_netlist(export_of(project_files(output), name), file=name)
-    ours = own_netlist(output.schematic.sheet, project=project)
+    ours = own_netlist(output.schematic.sheet, project=project, children=output.schematic.children)
     found = differences(ours, theirs, pintypes=pintype_outcome() == "equal")
-    if own_netlist(sheet_of(output), project=project) != ours:
-        found = (*found, "the sheet read back from the file gives another own netlist")
+    if own_netlist(sheet_of(output), project=project, children=children_of(output)) != ours:
+        found = (*found, "the sheets read back from the files give another own netlist")
     return found
 
 

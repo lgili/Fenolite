@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.schematic.v0",
   "title": "SchematicSheet",
-  "description": "One schematic file: embedded symbols, placed symbols, labels, flags and sub-sheet references.",
+  "description": "One schematic file: embedded symbols, placed symbols, labels, flags, the wires of a created sheet",
   "type": "object",
   "properties": {
     "id": {
@@ -69,6 +69,12 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/NoConnectFlag"
+      }
+    },
+    "wires": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Wire"
       }
     },
     "sheets": {
@@ -897,6 +903,50 @@
         }
       },
       "additionalProperties": false
+    },
+    "Wire": {
+      "description": "A straight wire of a created sheet, from ``start`` to ``end``: horizontal or vertical, never a",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "start",
+        "end"
+      ]
     }
   }
 }

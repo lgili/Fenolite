@@ -16,7 +16,7 @@ from _buildhelp import blink, build
 from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
 from _projects import authored_project, tree_snapshot
-from _schbuild import write_files
+from _schbuild import built_nested, write_files
 
 from fenolite.backends.kicad import netlist as netlistmod
 from fenolite.backends.kicad import oracle as oraclemod
@@ -268,3 +268,30 @@ def test_command_registration() -> None:
     assert COMMAND.name == "netlist" and COMMAND.mutates is False
     assert COMMAND.example_args == (EXAMPLE_SCHEMATIC,) and COMMAND.example_tools == ("kicad-cli",)
     assert Path(EXAMPLE_SCHEMATIC) == FLAT and FLAT.is_file()
+
+
+# -- module sheets (c0070)
+
+
+def test_own_reading_of_module_sheets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root = write_files(built_nested(), tmp_path / "nested")
+    before = tree_snapshot(root)
+    _no_subprocess(monkeypatch)
+    code, env, _, _ = run(monkeypatch, tmp_path, "netlist", str(root), "--source", "fenolite")
+    assert code == 0, env
+    result = env["result"]
+    assert [c["ref"] for c in result["components"]] == ["C1", "R1", "R2", "U1"]
+    assert [(p["ref"], p["pin"]) for p in _net(result, "GND")["pins"]] == [  # type: ignore[union-attr]
+        ("C1", "2"),
+        ("R2", "2"),
+        ("U1", "10"),
+    ]
+    assert tree_snapshot(root) == before
+
+
+def test_own_reading_refuses_a_missing_child(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root = write_files(built_nested(), tmp_path / "nested")
+    (root / "sheets" / "io.kicad_sch").unlink()
+    code, env, err, _ = run(monkeypatch, tmp_path, "netlist", str(root), "--source", "fenolite")
+    assert code == 7 and err["code"] == "FEN-7001"
+    assert any("sheets/io.kicad_sch" in issue["message"] for issue in env["issues"])

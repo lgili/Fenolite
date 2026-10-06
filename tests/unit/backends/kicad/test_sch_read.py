@@ -133,7 +133,9 @@ def test_wire_and_junction_stay_opaque() -> None:
             "embedded_fonts",
         ):
             assert isinstance(slot, Opaque) and slot.fragment.startswith(f"({child.name} ")
-    assert not {"wires", "junctions"} & {f for f in SchematicSheet.__dataclass_fields__}
+    # only a created sheet holds Wire entities (c0070): a read file keeps its wires as slots
+    assert sheet.wires == ()
+    assert "junctions" not in SchematicSheet.__dataclass_fields__
 
 
 def test_unknown_root_child_survives_in_place() -> None:

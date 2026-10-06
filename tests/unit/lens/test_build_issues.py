@@ -41,6 +41,8 @@ def test_closed_set() -> None:
         "build.symbol-placement-invalid": "error", "build.reserved-library": "error",
         "build.schematic-replaced": "warning",
         "build.schematic-netlist-differs": "error",  # c0063: the netlist guard
+        "build.sheet-file-collision": "error",  # c0070: module sheets
+        "build.sheet-stale": "warning",
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
