@@ -1,9 +1,8 @@
 # Roadmap to 1.0
 
-Status on 2026-10-06. Released: `0.0.1.dev0` (2026-09-30, pre-alpha) and `v0.1.0` (2026-10-05).
-Next release: `v0.2.0`, one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074). Both are
-implemented and archived; the release waits for the maintainer's verdict
-(`docs/release/v0.2.md`, change c0093).
+Status on 2026-10-06. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
+`v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
+maintainer's verdict in `docs/release/v0.2.md` (change c0093).
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.
@@ -41,8 +40,8 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 |---|---|---|---|---|
 | 1. Foundations | — (`0.0.1.dev0` was cut after c0004) | c0001–c0005 | repository, CLI contract, IP hygiene, neutral model, geometry kernel | done |
 | 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
-| 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); ships in `0.2.0`, whose verdict is pending |
-| 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; ships in `0.2.0`, whose verdict is pending |
+| 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
+| 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | c0039–c0047 | read, equivalence levels 1–4, analyses | every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for the milestone (`docs/release/v0.2.md`, “Also in this package”) |
 | 4. Second backend | v0.4 | c0032–c0038 pulled forward; the rest not allocated | write, equivalence level 5, verification kit | c0032–c0038, c0055 and c0056 done; remainder estimate |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
@@ -453,8 +452,8 @@ integration and the maintainer's decisions, which are the limits here as they ar
 
 - v0.1 was released on 2026-10-05, with its release change c0025.
 - v0.2a (80.5 design-days) and v0.2b (65) were proposed on 2026-10-04 and 2026-10-05 and implemented by
-  2026-10-06: about two calendar days for 145.5 design-days. Left: the maintainer's verdict in the
-  release record of change c0093.
+  2026-10-06: about two calendar days for 145.5 design-days. v0.2.0 was released on 2026-10-06, with its
+  release change c0093.
 - The limits are not size:
   - CI time per change (`kicad-9` and `kicad-10`);
   - integration of proposals written in parallel (requirements modified in chains);
