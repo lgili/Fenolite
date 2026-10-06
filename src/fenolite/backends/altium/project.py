@@ -34,7 +34,7 @@ from fenolite.backends.altium.layout import (
 from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.prjpcb import write_prjpcb
-from fenolite.backends.altium.schdoc import write_schdoc
+from fenolite.backends.altium.schdoc import Frame, write_schdoc
 from fenolite.backends.altium.schlib import storage_name, write_schlib
 from fenolite.backends.altium.symbols import generic_symbol
 from fenolite.core.errors import Issue
@@ -381,6 +381,8 @@ def write_project(
     footprints: Sequence[LibFootprint] = (),
     pcb: PcbDocSpec | None = None,
     sheets: SheetMode = DEFAULT_SHEETS,
+    outjob: bytes | None = None,
+    frames: Mapping[str, Frame] | None = None,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -391,7 +393,9 @@ def write_project(
     c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
     sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
     libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
-    directives on every sheet and the ``[PrjClassGen]`` section in the project file."""
+    directives on every sheet and the ``[PrjClassGen]`` section in the project file. ``outjob`` (change
+    c0087) are the bytes of ``<name>.OutJob``, which the project file then lists; ``frames`` maps a sheet
+    file to the drawing sheet drawn on it. Without both, every file keeps its bytes."""
     from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
@@ -424,9 +428,14 @@ def write_project(
             sheets=tuple(sheet.file for sheet in planned.modules),
             harnesses=tuple(harness_files),
             net_classes=bool(design.circuit.netclasses),
+            outjob=f"{name}.OutJob" if outjob is not None else None,
         )
     for sheet in planned.sheets:
-        files[sheet.file] = write_schdoc_binary(sheet.plan) if form == "binary" else write_schdoc(sheet.plan)
+        frame = (frames or {}).get(sheet.file)
+        if form == "binary":
+            files[sheet.file] = write_schdoc_binary(sheet.plan, frame)
+        else:
+            files[sheet.file] = write_schdoc(sheet.plan, frame)
     for harness, types in harness_files.items():
         files[harness] = write_harness(types)
     for library, found in libraries.items():
@@ -446,6 +455,8 @@ def write_project(
             files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbDoc", error) from error
+    if outjob is not None:
+        files[f"{name}.OutJob"] = outjob
     return files
 
 

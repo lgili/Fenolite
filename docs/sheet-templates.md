@@ -84,6 +84,65 @@ and the key path of the first problem, and the envelope's `issues` hold one `tem
 | `template.bitmap-not-png` | a `[bitmap]` file without the PNG signature |
 | `template.too-wide` (warning) | a title block wider or taller than the margin box of a listed size |
 
+## Building an Altium sheet template
+
+Change c0087 writes the same specification as a sheet template of the second backend:
+
+```
+fenolite template build SPEC --target altium --out FILE.SchDot [--size NAME] [--altium-format binary|ascii]
+                             [--dry-run | --confirm] [--allow-lossy]
+```
+
+A `.kicad_wks` serves every page size, because its items hang on the corners of the page. An Altium template
+is a schematic sheet of one size, so the command writes the sheet as it is drawn on one of the sizes the
+specification lists: the first, or the one `--size` names. In Python,
+`fenolite.backends.altium.schdot.write_template(sheet, width=…, height=…, paper=…)` takes any neutral
+`DrawingSheet` and a page.
+
+The template is a custom sheet of exactly the paper's size with Altium's built-in border and title block
+off. The frame, the reference zones and the title block are lines and texts at the places `layout` predicts,
+each repeat written as its copies. A token becomes Altium's special string (`{title}` is `=Title`; the table
+is the inverse of the import's, above), a user parameter `{param:NAME}` becomes `=NAME` together with a
+sheet parameter of that name, and `{paper}`, which Altium has no string for, becomes the paper's name.
+
+**The written scope.** A template keeps this much of a drawing sheet, and
+`schdot.written_scope(sheet, width=…, height=…, paper=…)` returns it:
+
+- the position on the page of every line and of every text anchor of the first page, to the micrometre;
+- the neutral text of every text, with `{paper}` read as the paper's name;
+- the justification, the quarter turns, bold and italic of every text;
+- the height of a text as the nearest whole number of points (at least 1), where a point is 25.4 mm / 72;
+- the width of a line as the nearest of 4, 10, 20 and 40 mil.
+
+Outside the scope, and not kept: the exact line widths and text heights, the text width and the text line
+width, colours and the font, the repeat as a repeat, the page scopes (an item for the pages after the first
+is not written), item names and comments, and the setup's margins as numbers (they are the positions of the
+items). `import_sheet` of a written template gives a drawing sheet with the same scope as the sheet written;
+the `.kicad_wks` and the `.SchDot` of one specification have equal scopes on that page. This is Fenolite
+reading its own file (`H-A-SCHDOT-READBACK`): it says nothing about what Altium draws, which is Part W of
+`docs/evidence/altium-schematic.md` and not reported yet.
+
+**Losses.** These parts cannot be carried. Each gives a warning with a code of the import's table, the write
+is refused with `FEN-7001` (exit 7), and `--allow-lossy` writes the rest:
+
+| part | code | with `--allow-lossy` |
+|---|---|---|
+| a logo (`[bitmap]`) | `altium.sheet.image-not-kept` | left out |
+| a text that mixes a token with other text, or holds two tokens | `altium.sheet.not-representable` | left out |
+| a text outside printable 7-bit ASCII, with a vertical bar, or with a space at an end | `altium.sheet.not-representable` | left out |
+| a text that starts with `=` and is not a token; a parameter with the name of a special string | `altium.sheet.not-representable` | left out |
+| a rotation that is not a quarter turn | `altium.sheet.style-dropped` | the nearest quarter turn |
+| `max_len` or `max_height` of a text (from a `.kicad_wks`) | `altium.sheet.style-dropped` | written without the limit |
+| a line or a text anchor that reaches past the page | `altium.sheet.outside` | left out |
+
+A line width or a text height that is replaced by the nearest one is counted in the info
+`altium.sheet.rounded`. The two shipped examples are written without a warning.
+
+**What differs from the KiCad sheet**, as far as the files say: KiCad's text size is the height of its
+stroke font and Altium's is the size of a font in points, so the same number gives glyphs of another height;
+the 0.35 mm and 0.7 mm lines of `iso5457_generic` become 0.254 mm and 0.508 mm; and the texts are in the
+schematic's one font.
+
 ## Importing an Altium sheet template
 
 Change c0046 reads a sheet template of the second backend. It does not build from a `*.sheet.toml`: an

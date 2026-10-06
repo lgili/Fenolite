@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite template build SPEC --target kicad --out OUT`` and ``fenolite template import SRC --target kicad
---out OUT`` (capability ``sheet-templates``, "Template build command" and "Template import command"; user
-guide ``docs/sheet-templates.md``).
+"""``fenolite template build SPEC --target kicad|altium --out OUT`` and ``fenolite template import SRC
+--target kicad --out OUT`` (capability ``sheet-templates``, "Template build command", "Template build for
+Altium" and "Template import command"; user guide ``docs/sheet-templates.md``).
 
 ``build`` turns a ``*.sheet.toml`` specification into a drawing sheet. ``import`` reads an Altium sheet
 template (``.SchDot``, or the template graphics of a ``.SchDoc``, change c0046) into the neutral drawing
-sheet; a loss is refused without ``--allow-lossy``. Both write one ``.kicad_wks``.
+sheet; a loss is refused without ``--allow-lossy``. Both write one ``.kicad_wks``; ``build --target altium``
+(change c0087) writes one ``.SchDot`` for one of the specification's sizes instead.
 
 The action is a positional argument with two choices, not a nested sub-parser: the dispatcher adds the
 global options, ``--dry-run`` and ``--confirm`` to this command's own parser, so they parse after
@@ -19,8 +20,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+from fenolite.backends.altium import schdot
 from fenolite.backends.altium.read.sheet import import_sheet
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.backends.kicad.wks import WRITE_EVIDENCE, write_drawing_sheet
@@ -29,13 +31,30 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.presentation import DrawingSheet, SheetText, SheetToken, TitleBlock, split_tokens
-from fenolite.templates import build_sheet, example_path, layout, load_spec, page_size, resolve_text
+from fenolite.model.presentation import (
+    DrawingSheet,
+    PaperSize,
+    SheetText,
+    SheetToken,
+    TitleBlock,
+    split_tokens,
+)
+from fenolite.templates import (
+    SheetSpec,
+    build_sheet,
+    example_path,
+    layout,
+    load_spec,
+    page_size,
+    resolve_text,
+)
 
 HELP = (
     "build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT)"
 )
-TARGETS = ("kicad",)
+TARGETS = ("kicad", "altium")
+ALTIUM_TARGET = "altium"
+"""``build`` writes an Altium sheet template (``.SchDot``) for this target (change c0087)."""
 ACTIONS = ("build", "import")
 ISO_PAPERS = ("A0", "A1", "A2", "A3", "A4", "A5")
 """The paper names KiCad shows as they are; any other page shows ``User``."""
@@ -53,6 +72,20 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--target", required=True, choices=TARGETS, help="the backend to write for")
     parser.add_argument("-o", "--out", required=True, metavar="OUT", help="the drawing-sheet file to write")
+    parser.add_argument(
+        "--size",
+        metavar="NAME",
+        default=None,
+        help=f"build --target {ALTIUM_TARGET}: the size of the template, one of the sizes the specification "
+        "lists (default: the first); a usage error otherwise",
+    )
+    parser.add_argument(
+        "--altium-format",
+        choices=schdot.FORMS,
+        default=None,
+        help=f"build --target {ALTIUM_TARGET}: the form of the template, binary (default) or ascii; a usage "
+        "error otherwise",
+    )
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -63,11 +96,29 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     except OSError as exc:
         message = f"cannot read {args.spec}: {exc.strerror or exc}"
         raise CliError("FEN-3001", message, where=str(args.spec)) from None
+    to_altium = args.target == ALTIUM_TARGET
+    if args.action == "import" and to_altium:
+        raise CliError(
+            "FEN-2001",
+            f"import writes a .kicad_wks; --target {ALTIUM_TARGET} is a target of build",
+            where="--target",
+            hint="use --target kicad",
+        )
+    for option, value in (("--size", args.size), ("--altium-format", args.altium_format)):
+        if value is not None and not (to_altium and args.action == "build"):
+            raise CliError(
+                "FEN-2001",
+                f"{option} is an option of build --target {ALTIUM_TARGET}",
+                where=option,
+                hint=f"drop {option}, or build with --target {ALTIUM_TARGET}",
+            )
     if args.action == "import":
         return _import(args, ctx, data)
     issues: list[Issue] = []
     spec = load_spec(data.decode("utf-8"), file=str(args.spec))
     sheet = build_sheet(spec, base_dir=path.parent, issues=issues)
+    if to_altium:
+        return _build_altium(args, ctx, spec, sheet, issues, data)
     written = write_drawing_sheet(sheet, target=ctx.kicad_target, allow_lossy=ctx.allow_lossy)
     issues += written.issues
     empty = TitleBlock()
@@ -98,6 +149,66 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None,
         ),
         writes=(PlannedWrite(path=str(args.out), data=written.text.encode("utf-8"), kind="kicad_wks"),),
+    )
+
+
+def _build_altium(
+    args: argparse.Namespace,
+    ctx: Context,
+    spec: SheetSpec,
+    sheet: DrawingSheet,
+    issues: list[Issue],
+    data: bytes,
+) -> Result:
+    """The target ``altium`` of ``build`` (change c0087, "Template build for Altium"): the sheet drawn on
+    one of the specification's sizes and written as a ``.SchDot`` in the binary or the ASCII form."""
+    size = cast(PaperSize, args.size or spec.sizes[0])
+    if size not in spec.sizes:
+        raise CliError(
+            "FEN-2001",
+            f"--size {size}: the specification lists {', '.join(spec.sizes)}",
+            where="--size",
+            hint="name one of the listed sizes, or add the size to sheet.sizes",
+        )
+    width, height = page_size(spec, size)
+    paper = size if size in ISO_PAPERS else "User"
+    form = cast(schdot.TemplateForm, args.altium_format or schdot.FORMS[0])
+    written = schdot.write_template(
+        sheet, width=width, height=height, paper=paper, form=form, allow_lossy=ctx.allow_lossy
+    )
+    made = written.result
+    result: dict[str, Any] = {
+        "sheet": {
+            "name": sheet.name,
+            "sizes": list(spec.sizes),
+            "items": len(sheet.items),
+            "tokens": _sheet_tokens(sheet),
+        },
+        "target": args.target,
+        "drawn": {size: _drawn(sheet, size, width, height, TitleBlock())},
+        "altium": {
+            "format": form,
+            "size": size,
+            "width": width,
+            "height": height,
+            "lines": made.lines,
+            "texts": made.texts,
+            "parameters": list(made.parameters),
+            "strings": list(made.strings),
+        },
+        "output": str(args.out),
+    }
+    return Result(
+        result=result,
+        issues=(*issues, *written.issues),
+        evidence=schdot.EVIDENCE,
+        input=InputRef(
+            path=str(args.spec),
+            sha256=hashlib.sha256(data).hexdigest(),
+            kind="sheet-toml",
+            format_version=None,
+        ),
+        writes=(PlannedWrite(path=str(args.out), data=written.data, kind=schdot.SCHDOT_KIND),),
     )
 
 

@@ -78,6 +78,10 @@ def _preset(given: str | None, cwd: Path) -> tuple[presets.Preset | None, dict[s
     return preset, {"file": str(given), "sha256": hashlib.sha256(data).hexdigest()}
 
 
+preset_file = _preset
+"""The same reading for ``build --altium-outjob-preset`` (change c0087)."""
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [kind for kind in KINDS if args.all or getattr(args, kind)]
     if not kinds:

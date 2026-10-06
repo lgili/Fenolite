@@ -359,6 +359,11 @@ meaning = "Part of the design stays in the model only and is not written to the 
 fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand."
 see = "Build target"
 
+["altium.outjob-not-listed"]
+meaning = "The existing project file was kept and does not list the output job the build wrote."
+fix = "Add the .OutJob file to the project in Altium, or remove the project file from --out and build again."
+see = "Build target"
+
 ["altium.pcb-not-in-project"]
 meaning = "The existing project file was kept, so the PCB files are not listed in it."
 fix = "Add the files to the project in Altium, or remove the project file from --out and build again."
@@ -582,6 +587,11 @@ see = "Build target"
 ["altium.sheet-name-collision"]
 meaning = "Two top-level module names differ only in letter case, so their sheet files would collide."
 fix = "Rename one of the modules."
+see = "Build target"
+
+["altium.sheet-paper"]
+meaning = "The layout of a schematic document does not fit the paper of sheet(), so the drawing sheet was drawn on a larger page."
+fix = "Name a larger paper in sheet(), or split the design into module sheets with --altium-sheets modules."
 see = "Build target"
 
 ["altium.sheet.appearance"]

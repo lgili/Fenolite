@@ -138,6 +138,29 @@ harness types drawn). The hierarchy has five issue codes of its own: the errors
 `altium.harness-power-net` (exit 5, in both modes), and the info `altium.sheets-not-in-project` (a kept
 project file does not list the module sheets and harness files).
 
+`--altium-outjob {on,off}` (change c0087) writes `<name>.OutJob`, an Altium output job, beside the PCB
+document of an Altium build: `on` is the default, `off` writes none, and a build without a PCB document
+writes none either. The job holds the containers `fab` (a folder) and `doc` (a PDF) and six outputs: Gerber,
+NC drill, pick and place and bill of materials for `fab`, a schematic print and a PCB print for `doc`. Its
+write kind is `altium_outjob`, and a new project file lists it after the PCB document. Fenolite runs no
+output: the job is run in Altium. `--altium-outjob-preset FILE` names the export preset the job is made for
+(the TOML file of `export --preset`). The writer maps no option of a preset to a key of the job yet, so every
+output keeps Altium's defaults and `result.outjob.defaults` lists the options the preset sets, as sorted
+`table.key` texts, for you to set in Altium. Either option with `--target kicad`, and the preset with
+`--altium-outjob off`, is a usage error (`FEN-2001`, exit 2); a preset that cannot be read or is malformed
+fails as it does for `export`. `result.outjob` is `null` without a job and otherwise holds `file`, `preset`
+(`null`, or `file` and `sha256`), `media` (`name` and `type` per container), `outputs` (`kind`, `type`,
+`name`, `category`, `document`, `enabled` and `medium` per output) and `defaults`. A kept project file that
+does not list the job gives the info `altium.outjob-not-listed`.
+
+A script that names a drawing sheet with `design.sheet(drawing_sheet=…)` gets it on every schematic document
+of an Altium build (change c0087), with the fields and variables of `design.title_block(…)` as sheet
+parameters. `result.drawing_sheet` is `null` without one and otherwise holds `source` (the path as written in
+the script), `items` and `pages` (`file`, `paper`, `width` and `height` in nm per schematic document). A
+layout that does not fit the paper of `sheet()` gives the warning `altium.sheet-paper` and a larger page. A
+part of the sheet that the Altium form cannot carry is a loss with an `altium.sheet.*` code: without
+`--allow-lossy` the build exits 7 with `FEN-7001` and writes nothing (`docs/altium.md`, "Drawing sheet").
+
 `--copper-from BOARD.kicad_pcb` (with `--target altium` only; a usage error `FEN-2001` otherwise, and for
 a path that is not a file) copies the tracks, arcs, vias and zones of a routed KiCad board of the same
 design into `<name>.PcbDoc`, after checking that the board matches the design; the board's placements
@@ -189,7 +212,8 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
 [--schematic-layout readable|grid]
 [--target kicad|altium]
-[--altium-format binary|ascii] [--altium-sheets flat|modules] [--copper-check refuse|warn]` runs the design script
+[--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-outjob on|off]
+[--altium-outjob-preset FILE] [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -1022,10 +1046,11 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 
 ## template
 
-`fenolite template build SPEC --target kicad -o OUT` builds a drawing sheet (`.kicad_wks`) from a
+`fenolite template build SPEC --target kicad|altium -o OUT [--size NAME] [--altium-format binary|ascii]`
+builds a drawing sheet (`.kicad_wks`, or a `.SchDot` for the target `altium`, below) from a
 `*.sheet.toml` specification and runs no tool. The actions are `build` and `import` ("template import"
 below); `--target` and `-o`/`--out`
-are required, and `kicad` is the only target. It is a mutating command: without `--confirm` it exits 4
+are required, and the targets are `kicad` and, for `build`, `altium`. It is a mutating command: without `--confirm` it exits 4
 with `FEN-4001` and writes nothing, `--dry-run` shows the plan and exits 0, and `--confirm` writes `OUT`
 and returns the `receipt`. The plan holds one write of kind `kicad_wks`. The format of the specification
 and the shipped examples are in `docs/sheet-templates.md`.
@@ -1048,7 +1073,7 @@ and the shipped examples are in `docs/sheet-templates.md`.
 | exit | error | when |
 |---|---|---|
 | 0 | none | a dry run, or a confirmed write |
-| 2 | `FEN-2001` | a missing `--target` or `-o`, or a target other than `kicad` |
+| 2 | `FEN-2001` | a missing `--target` or `-o`, a target other than `kicad` and `altium`, `--size` or `--altium-format` without `build --target altium`, or a size the specification does not list |
 | 3 | `FEN-3001` | the specification is missing or unreadable |
 | 3 | `FEN-3004` | the specification is malformed; `where` is `<file>:<key path>` of the first problem |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
@@ -1068,6 +1093,19 @@ A malformed specification reports every problem at once, as one issue each:
 | `template.zone-letters` | error | more than 8 letter rows on a listed size |
 | `template.bitmap-not-png` | error | a `[bitmap]` file without the PNG signature |
 | `template.too-wide` | warning | a title block wider or taller than the margin box of a listed size |
+
+With `--target altium` (change c0087) `build` writes an Altium sheet template (`.SchDot`) instead: one
+write of kind `altium_schdot`, a schematic document without components that holds the frame, the zones and
+the title block as drawn lines and texts on a custom sheet of the paper's size. A template has one size:
+`--size NAME` picks it among the sizes the specification lists (default: the first; another name is a usage
+error), and `--altium-format {binary,ascii}` picks the form (default `binary`). Both options are usage
+errors with `--target kicad` and with the action `import`. `result` holds `sheet`, `target`, `drawn` (for
+the one size) and `output` as above, no `kicad_version`, and `altium`: `format`, `size`, `width` and
+`height` (nm), `lines`, `texts`, `parameters` (the names of the sheet parameter records) and `strings` (the
+special strings written). The evidence is `INFERRED` (`H-A-SCHDOT-READBACK`, `H-A-SCHDOT-OPEN`,
+`H-A-SCHDOT-STRINGS`): Fenolite's own import reads the template back, and Altium has not opened it. What the
+template keeps of the sheet, and what is a loss that needs `--allow-lossy` (`FEN-7001`, exit 7), is in
+`docs/sheet-templates.md`, "Building an Altium sheet template".
 
 ### template import
 

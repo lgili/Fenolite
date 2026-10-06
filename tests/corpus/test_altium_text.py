@@ -122,6 +122,15 @@ def _outjob(item: CorpusItem, data: bytes) -> dict[str, Any]:
             assert all(section.get(f"{key}{output.index}") is not None for key in OUTPUT_KEYS), item.id
             for medium in group.media:
                 assert section.get(f"OutputEnabled{output.index}_OutputMedium{medium.index}") is not None
+        # c0087: per container, the values that are not 0 are the positions 1 to n, each once.
+        for medium in group.media:
+            keys = [f"OutputEnabled{output.index}_OutputMedium{medium.index}" for output in group.outputs]
+            sent = sorted(int(value) for key in keys if (value := section.get(key) or "0") != "0")
+            assert sent == list(range(1, len(sent) + 1)), f"{item.id}: container {medium.index}"
+    # c0087: every section, the last one included, is followed by one empty line.
+    texts = job.ini.form.texts()
+    starts = [section.line - 1 for section in job.ini.sections]
+    assert all(texts[start - 1] == "" for start in starts[1:]) and texts[-1] == "", item.id
     return {
         "encoding": job.ini.form.encoding,
         "sections": len(job.ini.sections),

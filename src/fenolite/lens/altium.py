@@ -22,12 +22,14 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, hierarchy, pcbdoc, pcblib, pcbrecords, project, schlib
+from fenolite.backends.altium import binary, hierarchy, pcbdoc, pcblib, pcbrecords, project, schdot, schlib
+from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
+from fenolite.backends.altium.read.outjob import OutputGroup
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
 from fenolite.backends.kicad.embed import footprint_extent
@@ -55,6 +57,7 @@ from fenolite.model.base import Opaque
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetFrameRef, TitleBlock
 
 TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
@@ -88,6 +91,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.footprint-unresolved": "warning",
         "altium.footprint-unsupported": "warning",
         "altium.footprint-name-collision": "warning",
+        "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
@@ -101,6 +105,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
+        "altium.outjob-not-listed": "info",
         **altium_copper.COPPER_ISSUE_CODES,
     }
 )
@@ -1072,6 +1077,171 @@ def _not_lowered(
     return found
 
 
+SHEET_PARAMETERS: tuple[tuple[str, str], ...] = (
+    ("title", "Title"),
+    ("revision", "Revision"),
+    ("date", "Date"),
+    ("organization", "Organization"),
+    ("doc_id", "DocumentNumber"),
+    ("responsible", "DrawnBy"),
+    ("approver", "ApprovedBy"),
+)
+"""Title-block field → the sheet parameter that holds it (change c0087): the special strings of
+``schdot.SPECIAL_STRINGS``."""
+SHEET_NUMBER, SHEET_TOTAL = "SheetNumber", "SheetTotal"
+GROWN_PAPERS: tuple[str, ...] = ("A4", "A3", "A2", "A1", "A0")
+"""The papers a drawing sheet grows to when the layout does not fit the paper of ``sheet()``."""
+SHOWN_PAPERS = frozenset({"A0", "A1", "A2", "A3", "A4", "A5"})
+"""The paper names shown as they are; any other page shows ``User``, as KiCad does."""
+NM_PER_MIL = 25_400
+
+
+def sheet_page(ref: SheetFrameRef | None, area: tuple[int, int]) -> tuple[str, int, int, bool]:
+    """The page of a schematic document whose layout takes ``area`` (width, height in nm): its shown paper
+    name, its width and height, and whether it is another page than ``ref`` asks for. The page is the
+    paper of ``sheet()`` (A4 landscape without one) when the layout fits it, otherwise the smallest of
+    ``GROWN_PAPERS`` in that orientation that holds the layout, otherwise the layout's own area."""
+    ref = ref or SheetFrameRef()
+
+    def oriented(paper: str) -> tuple[int, int]:
+        short, long = PAPER_SIZES[paper]
+        return (short, long) if ref.portrait else (long, short)
+
+    def fits(size: tuple[int, int]) -> bool:
+        return area[0] <= size[0] and area[1] <= size[1]
+
+    if ref.paper == "custom" and ref.width is not None and ref.height is not None:
+        wanted, shown = (ref.width, ref.height), "User"
+    else:
+        wanted = oriented(ref.paper if ref.paper in PAPER_SIZES else "A4")
+        shown = ref.paper if ref.paper in SHOWN_PAPERS else "User"
+    if fits(wanted):
+        return shown, wanted[0], wanted[1], False
+    for paper in GROWN_PAPERS:
+        if fits(oriented(paper)):
+            return paper, *oriented(paper), True
+    return "User", area[0], area[1], True
+
+
+def sheet_parameters(
+    block: TitleBlock | None, number: int, total: int, issues: list[Issue]
+) -> list[tuple[str, str]]:
+    """The sheet parameters of schematic document ``number`` of ``total`` (change c0087): the fields of the
+    title block that are not empty, the sheet number and count, and the variables in code-point order. A
+    value a record cannot hold, and a variable with the name of a written parameter, give
+    ``altium.text-unwritable``."""
+    block = block or TitleBlock()
+    found = [(name, getattr(block, field)) for field, name in SHEET_PARAMETERS if getattr(block, field)]
+    found += [(SHEET_NUMBER, str(number)), (SHEET_TOTAL, str(total))]
+    taken = {name.casefold() for _field, name in SHEET_PARAMETERS} | {
+        SHEET_NUMBER.casefold(),
+        SHEET_TOTAL.casefold(),
+    }
+    for name, value in sorted(block.params.items()):
+        if name.casefold() in taken:
+            issues.append(
+                issue(
+                    "altium.text-unwritable",
+                    f"the title-block variable {name} has the name of a sheet parameter the build writes",
+                    "title_block",
+                    "rename the variable",
+                )
+            )
+        elif value:
+            found.append((name, value))
+        taken.add(name.casefold())
+    for name, value in found:
+        problem = text_problem(value, parameter=True)
+        if problem is not None:
+            issues.append(
+                issue(
+                    "altium.text-unwritable",
+                    f"the sheet parameter {name} {value!r} {problem}",
+                    "title_block",
+                )
+            )
+    return found
+
+
+def sheet_frames(
+    design: Design,
+    planned: ProjectSheets,
+    drawing_sheet: DrawingSheet,
+    issues: list[Issue],
+    *,
+    allow_lossy: bool = False,
+) -> tuple[dict[str, schdot.SheetFrame], dict[str, object]]:
+    """The drawing sheet of every planned schematic document (change c0087, "Drawing sheet in an Altium
+    build"): sheet file → its ``schdot.SheetFrame``, and ``summary["drawing_sheet"]``. The issues of the
+    sheet writer are reported once, for the first document; ``schdot`` raises ``SheetLossError`` for a
+    loss without ``allow_lossy``. With an error among ``issues`` no frame is returned."""
+    board = design.board
+    ref = board.sheet if board is not None else None
+    block = board.title_block if board is not None else None
+    wanted = sheet_page(ref, (0, 0))
+    frames: dict[str, schdot.SheetFrame] = {}
+    pages: list[dict[str, object]] = []
+    total = len(planned.sheets)
+    before = len(issues)
+    for number, sheet in enumerate(planned.sheets, start=1):
+        size = sheet.plan.size
+        shown, width, height, other = sheet_page(ref, (size.width * NM_PER_MIL, size.height * NM_PER_MIL))
+        if other:
+            issues.append(
+                issue(
+                    "altium.sheet-paper",
+                    f"the layout of {sheet.file} ({size.width} x {size.height} mil) does not fit the "
+                    f"{wanted[0]} page of sheet() ({wanted[1]} x {wanted[2]} nm); the drawing sheet is "
+                    f"drawn on a {shown} page of {width} x {height} nm",
+                    sheet.file,
+                    "name a larger paper in sheet(), or split the design into module sheets",
+                )
+            )
+        parameters = sheet_parameters(block, number, total, issues if number == 1 else [])
+        if any(found.severity == "error" for found in issues[before:]):
+            return {}, {}
+        made = schdot.sheet_frame(
+            drawing_sheet,
+            width=width,
+            height=height,
+            paper=shown,
+            parameters=parameters,
+            allow_lossy=allow_lossy,
+        )
+        if number == 1:
+            for found in made.issues:
+                where = f"drawing_sheet.{found.where}" if found.where else "drawing_sheet"
+                issues.append(dataclasses.replace(found, where=where))
+        frames[sheet.file] = made.frame
+        pages.append({"file": sheet.file, "paper": shown, "width": width, "height": height})
+    return frames, {"items": len(drawing_sheet.items), "pages": pages}
+
+
+def outjob_summary(name: str, groups: Sequence[OutputGroup], defaults: Sequence[str]) -> dict[str, object]:
+    """``summary["outjob"]`` (change c0087): the job's file, its containers, its outputs and the options
+    of the preset that it does not carry."""
+    media = [medium for group in groups for medium in group.media]
+    names = {medium.index: medium.name for medium in media}
+    return {
+        "file": f"{name}.OutJob",
+        "media": [{"name": medium.name, "type": medium.type} for medium in media],
+        "outputs": [
+            {
+                "kind": job_writer.kind_of(output),
+                "type": output.type,
+                "name": output.name,
+                "category": output.category,
+                "document": output.document_path,
+                "enabled": output.enabled,
+                "medium": names[output.enabled_media[0]] if output.enabled_media else None,
+            }
+            for group in groups
+            for output in group.outputs
+        ],
+        "defaults": list(defaults),
+    }
+
+
 def _summary(
     design: Design,
     kept: Sequence[str],
@@ -1084,6 +1254,8 @@ def _summary(
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: Mapping[str, object] | None = None,
     pcb: Mapping[str, object] | None = None,
+    outjob: Mapping[str, object] | None = None,
+    drawing_sheet: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
     entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
@@ -1112,6 +1284,8 @@ def _summary(
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
         "copper": copper,
         "pcb": pcb,
+        "outjob": outjob,
+        "drawing_sheet": drawing_sheet,
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -1149,6 +1323,11 @@ def build_altium(
     planes: Mapping[str, str] | None = None,
     copper_source: altium_copper.CopperSource | None = None,
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
+    outjob: bool = False,
+    outjob_preset: job_writer.PresetOptions | None = None,
+    outjob_listed: bool = False,
+    drawing_sheet: DrawingSheet | None = None,
+    allow_lossy: bool = False,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1164,6 +1343,11 @@ def build_altium(
     copper that cannot be written exactly gives an error and no file. ``copper_source`` gives the copper
     and the placements from outside the model (the script's resolved copper, or a routed KiCad board); a
     build takes one source, so a source given with copper in ``design.board`` raises ``ValueError``.
+    With ``outjob`` (change c0087) a build that writes a PCB document also writes ``<name>.OutJob``, the
+    job of ``outjob.from_preset(outjob_preset, name=name)``, and lists it in the project file;
+    ``outjob_listed`` tells that a kept project file already lists it. ``drawing_sheet`` is drawn on
+    every schematic document, with the title block of ``design.board`` as sheet parameters; a part of
+    it that the Altium form cannot carry raises ``read.sheet.SheetLossError`` unless ``allow_lossy``.
     """
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
@@ -1264,6 +1448,30 @@ def build_altium(
                 f"{name}.PrjPcb",
             )
         )
+    job: tuple[OutputGroup, ...] | None = None
+    job_info: dict[str, object] | None = None
+    if outjob and spec is not None:
+        job = job_writer.from_preset(outjob_preset, name=name)
+        job_info = outjob_summary(name, job, job_writer.unmapped(outjob_preset))
+        evidence = Evidence.combine(evidence, job_writer.EVIDENCE)
+        if project_exists and not outjob_listed:
+            issues.append(
+                issue(
+                    "altium.outjob-not-listed",
+                    f"the kept {name}.PrjPcb does not list {name}.OutJob; add it in Altium "
+                    "(Project » Add Existing to Project)",
+                    f"{name}.PrjPcb",
+                )
+            )
+    frames: dict[str, schdot.SheetFrame] = {}
+    sheet_info: dict[str, object] | None = None
+    if drawing_sheet is not None:
+        evidence = Evidence.combine(evidence, schdot.EVIDENCE)
+        frames, sheet_info = sheet_frames(model, planned, drawing_sheet, issues, allow_lossy=allow_lossy)
+        if not frames:
+            return BuildOutput(
+                model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+            )
     count = sum(1 for c in model.circuit.components if symbol_source(c.lib_symbol_ref) == "altium")
     if count:
         issues.append(
@@ -1286,6 +1494,8 @@ def build_altium(
             footprints=written,
             pcb=spec,
             sheets=sheets,
+            outjob=job_writer.write_outjob(job) if job is not None else None,
+            frames=frames,
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -1348,6 +1558,8 @@ def build_altium(
         sheets=sheets,
         copper=copper_info,
         pcb=pcb_account if spec is not None else None,
+        outjob=job_info,
+        drawing_sheet=sheet_info,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 
@@ -1371,9 +1583,13 @@ __all__ = [
     "kicad_pins",
     "library_symbols",
     "match_source",
+    "outjob_summary",
     "pad_extras",
     "refused_altium",
     "resolve_footprints",
     "resolve_symbols",
+    "sheet_frames",
+    "sheet_page",
+    "sheet_parameters",
     "symbol_source",
 ]

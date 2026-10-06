@@ -63,6 +63,7 @@ def write_prjpcb(
     sheets: Sequence[str] = (),
     harnesses: Sequence[str] = (),
     net_classes: bool = False,
+    outjob: str | None = None,
 ) -> bytes:
     """``[Design]``, ``Version=1.0``, an empty line, ``[Document1]`` and ``DocumentPath=<schematic>``; then,
     each after an empty line as ``[Document<i>]`` and ``DocumentPath=<file>``, numbered from 2: each module
@@ -77,7 +78,10 @@ def write_prjpcb(
     document, the single or top sheet and each module sheet, holds the three lines of ``SHEET_CLASS_KEYS``
     after ``DocumentPath``; with ``net_classes`` true the file ends with an empty line, ``[PrjClassGen]``
     and the seven lines of ``CLASS_GENERATION``. Without module sheets, PCB document and net class the
-    bytes do not change."""
+    bytes do not change.
+
+    Change c0087: the output job ``outjob`` is listed after the PCB document and before the libraries,
+    with ``DocumentPath`` alone; without one the bytes do not change."""
     with_keys = bool(sheets) or pcb is not None
     sheet_keys = [f"{key}={value}" for key, value in SHEET_CLASS_KEYS] if with_keys else []
     lines = [
@@ -90,6 +94,8 @@ def write_prjpcb(
     ]
     schematics = [_file_name(sheet, "sheet") for sheet in sheets]
     documents = [_file_name(pcb, "PCB document")] if pcb is not None else []
+    if outjob is not None:
+        documents.append(_file_name(outjob, "output job"))
     documents += [_file_name(library, "library") for library in sorted(libraries, key=name_key)]
     documents += [_file_name(harness, "harness") for harness in sorted(harnesses, key=name_key)]
     for index, document in enumerate([*schematics, *documents], start=2):

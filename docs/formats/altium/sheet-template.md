@@ -147,3 +147,54 @@ These are rules of the importer, not format facts.
   parameter name becomes `{param:NAME}`. A string whose value a tool computes is kept as a parameter
   and reported.
 - **Images.** Only an embedded PNG is kept. Nothing is converted and no linked path is opened.
+
+## Writing a template (change c0087)
+
+`fenolite.backends.altium.schdot` writes a neutral drawing sheet as a template, and the schematic writers
+draw the same records on a built sheet. It uses the rows above in the other direction; the rows below
+state what the writer sets. Nothing here is confirmed by Altium until Part W of
+`docs/evidence/altium-schematic.md` is reported.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A custom sheet is `USECUSTOMSHEET=T` with `CUSTOMX` and `CUSTOMY` in units of 10 mil, each with an optional `_FRAC` key in 1/100 000 of a unit; two saved templates hold the `_FRAC` keys | S-0130, S-0264 | INFERRED | H-A-SCHDOT-OPEN |
+| `BORDERON`, `TITLEBLOCKON` and `REFERENCEZONESON` are Booleans written as `T`; a key that is absent reads as false, so a sheet record without them has no built-in border, title block or reference zones | S-0130 | INFERRED | H-A-SCHDOT-OPEN |
+| The drawn lines of the three saved templates are polylines (`RECORD=6`) and their texts are labels (`RECORD=4`), all root records with `OWNERPARTID=-1` | S-0264, S-0265 | INFERRED | H-A-SCHDOT-OPEN |
+| A record 41 without an owner is a parameter of the sheet, with `NAME` and `TEXT`, `ISHIDDEN=T`, `FONTID` and `COLOR`; three of the 28 sheet parameters of one saved template hold no `TEXT` key | S-0130, S-0265 | INFERRED | H-A-SCHDOT-STRINGS |
+| A label whose text is `=<ParameterName>` shows the value of that parameter of the document; the predefined names of the table "Special strings" need no record in the template | S-0130, S-0261, S-0263 | INFERRED | H-A-SCHDOT-STRINGS |
+| A length of whole micrometres is not a whole number of 1/100 000 unit (one step is 2.54 nm): written to the nearest step it is at most 1.27 nm off, and a reader that rounds to the micrometre gets it back | S-0130, S-0131 | INFERRED | H-A-SCHDOT-READBACK |
+
+### The writer's choices
+
+- **One page.** A template has one sheet size, so the writer takes the page (width and height) and draws
+  the neutral sheet as `templates.layout` predicts it on the first page: repeats are written as copies and
+  an item of the scope `not_first` is left out.
+- **Custom sheet of the paper's size.** The sheet record is a custom sheet of exactly the page, without
+  `SHEETSTYLE` and without `WORKSPACEORIENTATION`: the drawing area of a standard style is smaller than
+  its paper and no source says where it lies, and how the orientation key combines with a custom sheet is
+  not stated. The size is written as oriented.
+- **No built-in border.** `BORDERON`, `TITLEBLOCKON` and `REFERENCEZONESON` are not written. The frame,
+  the reference zones and the title block are drawn records, because the built-in border has equal
+  divisions and a specification has a zone pitch. The margins of the neutral sheet become the positions
+  of the records on the page.
+- **Records.** A line is a polyline of two points and a rectangle a closed polyline of five, with
+  `OWNERPARTID=-1`, `LINEWIDTH` (left out for the 4 mil width) and `LOCATIONCOUNT`, `X<n>`, `Y<n>` and
+  their `_FRAC` keys. A text is a label with `LOCATION`, `TEXT`, `FONTID`, and `JUSTIFICATION` and
+  `ORIENTATION` when they are not 0. No colour key is written, so every record is black, and no
+  `UNIQUEID` or `INDEXINSHEET`.
+- **Fonts.** Font 1 is the system font of the schematic writer; the fonts of the texts follow it, one per
+  distinct size, bold and italic, in order of first use, all with the writer's one font name. A text of
+  height `h` gets the size `round(h × 72 / 25.4 mm)` points, at least 1: the inverse of the import's rule.
+- **Line widths.** The nearest of 4, 10, 20 and 40 mil; a width that is replaced is counted in the info
+  `altium.sheet.rounded`, as is a text height that is not a whole number of points.
+- **Special strings.** A text that is one token is written as `=<Name>` with the name of the import's
+  table (`SPECIAL_STRINGS` is its inverse); one parameter token `{param:NAME}` as `=NAME`, with a sheet
+  parameter record of that name and no `TEXT`, so that the name exists in a document made from the
+  template. `{paper}` has no special string and is written as the paper's name. A text that mixes a token
+  with other text is not written: no source gives a form for it.
+- **Not written.** A bitmap (`altium.sheet.image-not-kept`): the embedded-file record is known, but the
+  size an image gets is not kept by the import either, so the logo was cut from this change. A text
+  outside printable 7-bit ASCII, or with a vertical bar: the writers of this package write no other text.
+- **On a built sheet.** The same records follow every other record of the document, then the sheet
+  parameters with their values. The sheet record keeps its grids and its first font and becomes the
+  custom sheet of the page; the layout's origin stays the bottom-left corner.

@@ -13,6 +13,8 @@ This module states no level: every cell is an evidence constant of a module of t
   ``detect`` and ``read``: the backend names a file by its suffix, and no register row is about that alone.
 - ``write`` is the constant of the writer modules behind each write kind of the two experimental features
   of ``build --target altium``. Every ``write`` is experimental.
+- The output job and the sheet template (change c0087) have a ``write`` cell only: the backend reads
+  neither as a design, and their own readers are not a second opinion.
 - No round-trip cell is set: no Altium file is read and written back.
 """
 
@@ -22,10 +24,12 @@ from fenolite.backends.altium import (
     binary,
     hierarchy,
     import_evidence,
+    outjob,
     pcbdoc,
     pcblib,
     pcbrecords,
     project,
+    schdot,
     schlib,
 )
 from fenolite.backends.altium.read import pcb as read_pcb
@@ -42,6 +46,7 @@ WRITE = ("write",)
 
 MATRIX: tuple[MatrixRow, ...] = (
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
+    MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
         NAME,
         project.PCBDOC_KIND,
@@ -66,6 +71,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         write=project.EVIDENCE,
         experimental=WRITE,
     ),
+    MatrixRow(NAME, schdot.SCHDOT_KIND, write=schdot.EVIDENCE, experimental=WRITE),
     MatrixRow(
         NAME,
         "altium_schdoc_ascii",

@@ -22,6 +22,9 @@ and the values marked as choices are Fenolite's.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Protocol
+
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
 from fenolite.backends.altium.layout import (
     COMMENT_DROP,
@@ -79,6 +82,16 @@ CLASS_PARAMETER = "ClassName"
 """The parameter of a directive that puts its net in a net class."""
 
 Record = list[Field]
+
+
+class Frame(Protocol):
+    """The drawing sheet of a built schematic (change c0087; ``schdot.SheetFrame``): what it makes of
+    the sheet record, and its root records."""
+
+    @property
+    def records(self) -> Sequence[Sequence[Field]]: ...
+
+    def sheet_record(self, base: Sequence[Field]) -> list[Field]: ...
 
 
 def sheet_record(plan: SheetPlan) -> Record:
@@ -384,10 +397,12 @@ class _Writer:
         )
 
 
-def schdoc_records(plan: SheetPlan) -> list[Record]:
-    """Every record after the header, in file order."""
+def schdoc_records(plan: SheetPlan, frame: Frame | None = None) -> list[Record]:
+    """Every record after the header, in file order. With ``frame`` (change c0087) the sheet record is the
+    frame's custom sheet and the frame's root records come last, so no owner index changes; without one
+    the records are those of the changes before."""
     writer = _Writer(plan)
-    writer.add(sheet_record(plan))
+    writer.add(sheet_record(plan) if frame is None else frame.sheet_record(sheet_record(plan)))
     for symbol in plan.symbols:
         writer.sheet_symbol(symbol)
     for placed in plan.parts:
@@ -404,6 +419,8 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
         writer.no_connect(mark)
     for item in plan.class_marks:
         writer.class_mark(item)
+    for record in frame.records if frame is not None else ():
+        writer.add(list(record))
     return writer.records
 
 
@@ -489,19 +506,21 @@ def additional_records(plan: SheetPlan) -> list[Record]:
     return found
 
 
-def write_schdoc(plan: SheetPlan) -> bytes:
-    """The bytes of the ASCII schematic of ``plan``. A plan with a harness block is refused: the place of
-    harness records in the ASCII form is not documented (``hierarchy.plan_sheets`` makes none for it)."""
+def write_schdoc(plan: SheetPlan, frame: Frame | None = None) -> bytes:
+    """The bytes of the ASCII schematic of ``plan``, with the drawing sheet ``frame`` (change c0087). A plan
+    with a harness block is refused: the place of harness records in the ASCII form is not documented
+    (``hierarchy.plan_sheets`` makes none for it)."""
     if plan.lines:
         raise ValueError("the ASCII form cannot carry a signal harness line: harness records are binary only")
     if plan.harnesses:
         names = ", ".join(sorted({block.name for block in plan.harnesses}))
         raise ValueError(f"the ASCII form cannot carry the harness {names}: harness records are binary only")
-    return encode_records(schdoc_records(plan))
+    return encode_records(schdoc_records(plan, frame))
 
 
 __all__ = [
     "FONT_NAME",
+    "Frame",
     "additional_records",
     "block_records",
     "line_record",

@@ -176,3 +176,14 @@ from the schematic.
   (`H-A-ECO-PRJ-KEYS`).
 - No key of the comparator or of the change-order options is written: the saved files number those options
   without naming them, so their meaning is in no permitted source.
+
+## Output job in the project (change c0087)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A saved project lists its output job as a document: a section `[Document<n>]` whose `DocumentPath` is the job's file name, among the sections of the other documents | S-0187, S-0188 | INFERRED | H-A-OUTJOB-OPEN |
+
+- The written project file lists `<name>.OutJob`, when the build writes one, in the section after the PCB
+  document and before the libraries, with `DocumentPath` alone. A project without a job keeps its bytes.
+- A project file that exists is kept (the rule above): when it does not list the job, the build reports
+  `altium.outjob-not-listed` and the user adds the job in Altium.

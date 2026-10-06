@@ -1383,3 +1383,9 @@ path = "tests/data/altium/board6/board6.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/outjob/blink.OutJob"
+origin = "authored"
+corpus_id = ""
+notes = "output job written by backends.altium.outjob for the project blink with the default export preset (c0087 sample; a test keeps it equal to a fresh write)"

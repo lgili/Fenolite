@@ -27,6 +27,7 @@ from _altium import (
     hier,
     sample,
 )
+from _altium_job import grown_paper_issues, kept_project_issues
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -35,7 +36,9 @@ from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, no_connect, p
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
 from fenolite.model.design import Design as ModelDesign
 
-PASS_THROUGH = ("model.", "build.layout-exists")
+PASS_THROUGH = ("model.", "build.layout-exists", "altium.sheet.")
+"""Codes of other tables that a build reports as they are; ``altium.sheet.*`` are the sheet template
+codes of ``read.sheet.ISSUE_CODES``, which a drawing sheet gives (change c0087)."""
 
 
 def _lib_id(d: Design) -> None:
@@ -557,6 +560,12 @@ def test_unique_id_collision() -> None:
     assert sum("the port LED_DRV of led" in i.message for i in found) == 1
 
 
+def run_c0087_cases() -> list[Issue]:
+    """The two codes of change c0087: a kept project file that does not list the job, and a drawing
+    sheet whose paper the layout does not fit (``tests/_altium_job.py`` holds the cases)."""
+    return [*kept_project_issues(), *grown_paper_issues()]
+
+
 def test_closed_set() -> None:
     produced: dict[str, set[str]] = {}
     for name in CASES:
@@ -582,6 +591,8 @@ def test_closed_set() -> None:
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
     ):
+        produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_c0087_cases():
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -615,6 +626,7 @@ def test_the_table() -> None:
         "altium.footprint-unresolved": "warning",
         "altium.footprint-unsupported": "warning",
         "altium.footprint-name-collision": "warning",
+        "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
         "altium.symbol-simplified": "info",
@@ -628,6 +640,7 @@ def test_the_table() -> None:
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
+        "altium.outjob-not-listed": "info",
         "altium.copper-stack": "error",
         "altium.copper-layer": "error",
         "altium.via-unsupported": "warning",

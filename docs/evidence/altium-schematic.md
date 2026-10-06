@@ -351,6 +351,83 @@ the repository; a variant that uses it is described here by what it holds.
 | m | Fenolite's minimal file with `HierarchyMode=0` under `[Design]` | whether that key alone is what the minimal file lacks |
 | n | the saved project file with every `[Document<n>]` section cut down to `DocumentPath` | whether the per-document keys of the saved file matter |
 
+## Part O: the output job in Altium Designer
+
+Change c0087 writes `<name>.OutJob` beside the PCB document of an Altium build. The file holds only the keys
+of `docs/formats/altium/output-job.md`, "The writer's choices": the outputs, their source documents and
+their containers, and no output setting. The part is named O because Part V is the Viewer's.
+
+The files are built outside the repository by `fenolite build examples/blink_routed/design.py --target altium
+--out DIR --confirm` and handed over; none is committed except the sample of the job's form,
+`tests/data/altium/outjob/blink.OutJob`, which a unit test keeps equal to a fresh write.
+
+| file of the build of 2026-10-06 | SHA-256 |
+|---|---|
+| `blink_routed.OutJob` | `9c6ff39690ef35813b3c57d9f3e3b4d7937e89c6385189749733e3e3ea722095` |
+| `blink_routed.PrjPcb` | `99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d` |
+| `blink_routed.PcbDoc` | `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a` |
+| `blink_routed.PcbLib` | `640bbcdb207a1dd724d310963f135101f6fb7525b5b59d22516a23ecaa4955ce` |
+| `blink_routed.SchDoc` | `f0ec3f334298227ed6c5e62fae6c563d67ab30a4ddfb31153c39568c4872161e` |
+| `blink_routed.SchLib` | `25ed4483c51cfc9321b83e81bded9abc645bbd3331d36cdd100cf38beef7b767` |
+
+The table sent with the files (what steps O1 and O2 are read against):
+
+| output | type | source document | container |
+|---|---|---|---|
+| Gerber Files | `Gerber` | `blink_routed.PcbDoc` | `fab` (folder structure) |
+| NC Drill Files | `NC Drill` | `blink_routed.PcbDoc` | `fab` |
+| Pick and Place | `Pick Place` | `blink_routed.PcbDoc` | `fab` |
+| Bill of Materials | `BOM_PartType` | the project | `fab` |
+| Schematic Prints | `Schematic Print` | the project | `doc` (PDF) |
+| PCB Prints | `PCB Print` | `blink_routed.PcbDoc` | `doc` |
+
+1. O1: open `blink_routed.PrjPcb`; the Projects panel lists `blink_routed.OutJob`. Open it. Expected: no
+   message. Settles `H-A-OUTJOB-OPEN`.
+2. O2: read the outputs, their source documents and which container each is enabled for. Expected: the
+   table above. Settles `H-A-OUTJOB-OPEN`.
+3. O3: generate the container `fab`, then the container `doc`. Expected: no error; report the kinds of
+   files produced, not the files. Settles `H-A-OUTJOB-RUN`.
+4. O4: open the setup of the Gerber and of the NC drill output and read units, format and plotted layers.
+   Expected: Altium's defaults, since the job holds no setting; report them in one sentence each. Settles the
+   first half of `H-A-OUTJOB-OPTIONS`.
+
+No report yet: the four rows are `INFERRED`, "pending (author report)".
+
+## Part W: the sheet template and the drawing sheet in Altium Designer
+
+Change c0087 writes a sheet template (`.SchDot`) from a `*.sheet.toml` specification, and draws the same
+sheet on the schematic documents of a build whose script names a drawing sheet. The files are built outside
+the repository and handed over: the template by `fenolite template build
+src/fenolite/templates/examples/iso5457_generic.sheet.toml --target altium --out iso5457_generic.SchDot
+--confirm`, and a one-sheet project by an Altium build of the blink example with the lines
+`design.sheet("A4", drawing_sheet="frames/generic.sheet.toml")` and `design.title_block(title="Blink",
+revision="B", date="2026-10-06", organization="Fenolite")` after its `board()` line, the specification
+copied to `frames/generic.sheet.toml`. The reference is the PDF that `kicad-cli sch export pdf` (10.0.6)
+gives for the KiCad build of the same script; it is a visual reference only and settles nothing.
+
+| file of 2026-10-06 | SHA-256 |
+|---|---|
+| `iso5457_generic.SchDot` (the bytes pinned in `tests/unit/backends/altium/test_schdot_write.py`; no template file is committed) | `0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1` |
+| `blink.SchDoc` | `9e2f1c503d1b2e33ba9cc5d0e73641246a31589c3d83e58ff46d46fa9bb8ae11` |
+| `blink.PrjPcb` | `2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c` |
+| `blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
+| `blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
+| `blink.SchLib` | `4f3accb1f9634c7cedd305240493e6d6e9a2cfde3d3e0ff0aee0a75e6387517e` |
+| `blink.OutJob` | `e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e` |
+
+1. W1: open `iso5457_generic.SchDot`. Expected: no message; an A4 landscape sheet with a frame, reference
+   zones and a title block, and no second border around it. Settles `H-A-SCHDOT-OPEN`.
+2. W2: in a new schematic, set the template to that file (Design » Sheet Templates). Expected: the frame
+   appears. Settles `H-A-SCHDOT-OPEN`.
+3. W3: open `blink.PrjPcb` and print `blink.SchDoc` to PDF; compare it with the reference PDF: frame, zones,
+   title-block lines and labels. Report each difference in one sentence (known from the files: the text
+   heights and the line widths differ, see `docs/sheet-templates.md`). Settles `H-A-SCHDOT-OPEN`.
+4. W4: read the title block of `blink.SchDoc`: title, revision, date and legal owner, and the sheet number.
+   Expected: `Blink`, `B`, `2026-10-06`, `Fenolite` and `1`. Then change the title in the document options
+   and read it again. Expected: the new value. Settles `H-A-SCHDOT-STRINGS`.
+
+No report yet: the two rows are `INFERRED`, "pending (author report)".
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

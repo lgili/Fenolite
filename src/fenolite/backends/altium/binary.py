@@ -21,7 +21,7 @@ from collections.abc import Sequence
 from fenolite.backends.altium.ascii import Field, format_record
 from fenolite.backends.altium.cfb import write_compound
 from fenolite.backends.altium.layout import SheetPlan
-from fenolite.backends.altium.schdoc import additional_records, schdoc_records
+from fenolite.backends.altium.schdoc import Frame, additional_records, schdoc_records
 from fenolite.core.evidence import Evidence, Level
 
 HEADER_TEXT = "Protel for Windows - Schematic Capture Binary File Version 5.0"
@@ -80,12 +80,13 @@ def additional_stream(records: Sequence[Sequence[Field]]) -> bytes:
     return file_header_stream(records)
 
 
-def write_schdoc_binary(plan: SheetPlan) -> bytes:
+def write_schdoc_binary(plan: SheetPlan, frame: Frame | None = None) -> bytes:
     """The bytes of the binary schematic of ``plan``; ``cfb.CompoundTooLarge`` past the size limit. The
     stream ``Additional`` is written only when the plan holds harness records, so a sheet without a harness
-    keeps the two streams and the bytes of change c0033."""
+    keeps the two streams and the bytes of change c0033. ``frame`` is the drawing sheet of the sheet
+    (change c0087, ``schdoc.schdoc_records``)."""
     streams = [
-        (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan))),
+        (FILE_HEADER_STREAM, file_header_stream(schdoc_records(plan, frame))),
         (STORAGE_STREAM, storage_stream()),
     ]
     additional = additional_records(plan)

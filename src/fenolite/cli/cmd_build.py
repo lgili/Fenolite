@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
+from fenolite.backends.altium.outjob import OUTJOB_KIND
 from fenolite.backends.altium.project import (
     DEFAULT_FORM,
     DEFAULT_SHEETS,
@@ -48,6 +49,7 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
 )
+from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad import copper as kicad_copper
 from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
@@ -72,6 +74,7 @@ from fenolite.catalog import (
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
@@ -149,7 +152,10 @@ _KINDS = {
     ".PcbLib": PCBLIB_KIND,
     ".PcbDoc": PCBDOC_KIND,
     ".Harness": HARNESS_KIND,
+    ".OutJob": OUTJOB_KIND,
 }
+OUTJOB_MODES = ("on", "off")
+"""``--altium-outjob``: write ``<name>.OutJob`` beside a PCB document (the default), or not."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -183,6 +189,22 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help=f"the sheets of the Altium schematic with --target altium: flat (default, one sheet) or modules "
         f"(a top sheet with sheet symbols and one sheet per top-level module, with ports, sheet entries and "
         f"signal harnesses); a usage error with --target kicad (default: {DEFAULT_SHEETS})",
+    )
+    parser.add_argument(
+        "--altium-outjob",
+        choices=OUTJOB_MODES,
+        default=None,
+        help=f"with --target {ALTIUM_TARGET}: on (default) writes <name>.OutJob, an output job with Gerber, "
+        "NC drill, pick-and-place, bill-of-materials, schematic-print and PCB-print outputs, when the build "
+        "writes a PCB document; off writes none; a usage error with --target kicad",
+    )
+    parser.add_argument(
+        "--altium-outjob-preset",
+        metavar="FILE",
+        default=None,
+        help="the export preset (the TOML file of export --preset) the output job is made for: its options "
+        "are listed in result.outjob.defaults, to be set in Altium; a usage error with --target kicad or "
+        "with --altium-outjob off",
     )
     parser.add_argument(
         "--copper-from",
@@ -453,6 +475,24 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
+    for option, value in (
+        ("--altium-outjob", args.altium_outjob),
+        ("--altium-outjob-preset", args.altium_outjob_preset),
+    ):
+        if value is not None and args.target != ALTIUM_TARGET:
+            raise CliError(
+                "FEN-2001",
+                f"{option} needs --target {ALTIUM_TARGET}; the target is {args.target}",
+                where=option,
+                hint=f"add --target {ALTIUM_TARGET}, or drop {option}",
+            )
+    if args.altium_outjob_preset is not None and args.altium_outjob == "off":
+        raise CliError(
+            "FEN-2001",
+            "--altium-outjob-preset names the preset of an output job, and --altium-outjob off writes none",
+            where="--altium-outjob-preset",
+            hint="drop one of the two options",
+        )
     if args.copper_check is not None and args.target == ALTIUM_TARGET:
         raise CliError(
             "FEN-2001",
@@ -524,10 +564,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             out_dir,
             board_path,
             intents,
+            frame_sheet,
+            sheet_result,
         )
         return dataclasses.replace(
             made,
-            issues=(*source_issues, *from_file.issues, *made.issues),
+            issues=(*source_issues, *sheet_issues, *from_file.issues, *made.issues),
             writes=() if refused else made.writes,
         )
     resolver = LibraryResolver(
@@ -687,6 +729,30 @@ def _replaced_sheet(
     ]
 
 
+def _outjob_result(summary: object, out: Path, preset: Mapping[str, str] | None) -> dict[str, object] | None:
+    """``result.outjob`` (change c0087): the lens summary with the file under ``--out`` and the preset as
+    given with its SHA-256; ``None`` without a job."""
+    if not isinstance(summary, Mapping):
+        return None
+    found = dict(cast(Mapping[str, object], summary))
+    return {**found, "file": str(out / str(found["file"])), "preset": dict(preset) if preset else None}
+
+
+def _sheet_result(
+    summary: object, out: Path, source: Mapping[str, object] | None
+) -> dict[str, object] | None:
+    """``result.drawing_sheet`` (change c0087): the sheet as written in the script, its item count and the
+    page of every schematic document; ``None`` without a drawing sheet or without a written sheet."""
+    if not isinstance(summary, Mapping) or source is None:
+        return None
+    found = cast(Mapping[str, object], summary)
+    pages = [
+        {**page, "file": str(out / str(page["file"]))}
+        for page in cast(Sequence[Mapping[str, object]], found["pages"])
+    ]
+    return {"source": source["source"], "items": found["items"], "pages": pages}
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -699,6 +765,8 @@ def _run_altium(
     out_dir: Path,
     board_path: Path | None = None,
     intents: Sequence[CopperIntentLike] = (),
+    drawing_sheet: DrawingSheet | None = None,
+    sheet_result: Mapping[str, object] | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -716,7 +784,12 @@ def _run_altium(
     none of its files is planned. Its model is the ``CopperSource`` of origin ``script``, and the script's
     zones travel with it. An error of that build refuses this one; its ``SCRIPT_COPPER_CODES`` issues pass.
     With ``--copper-from`` the board wins: the intents are not resolved, and one ``altium.not-lowered``
-    info names them."""
+    info names them.
+
+    Change c0087: unless ``--altium-outjob off``, the build writes ``<name>.OutJob`` beside a PCB
+    document, for the preset of ``--altium-outjob-preset``; a kept project file is read to see whether it
+    lists the job. ``drawing_sheet`` (the sheet that ``sheet(drawing_sheet=…)`` names, with its
+    ``sheet_result``) is drawn on every schematic document; a loss needs ``--allow-lossy``."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
@@ -756,6 +829,20 @@ def _run_altium(
     script_issues: list[Issue] = []
     refused = False
     project_exists = (out_dir / f"{name}.PrjPcb").is_file()
+    with_job = args.altium_outjob != "off"
+    preset, preset_result = preset_file(args.altium_outjob_preset, ctx.cwd)
+    job_listed = False
+    if project_exists and with_job:
+        # a kept project file is never rewritten; it is read only to see whether it lists the job, and one
+        # that cannot be read lists nothing
+        try:
+            kept_project = read_project((out_dir / f"{name}.PrjPcb").read_bytes(), file=f"{name}.PrjPcb")
+        except (FormatError, OSError):
+            kept_project = None
+        job_name = f"{name}.OutJob".casefold()
+        job_listed = kept_project is not None and any(
+            document.path.casefold() == job_name for document in kept_project.documents
+        )
     if intents and source is None:
         assert resolver is not None
         resolved = build_design(
@@ -798,6 +885,11 @@ def _run_altium(
             planes=plane_nets,
             copper_source=source,
             authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
+            outjob=with_job,
+            outjob_preset=preset,
+            outjob_listed=job_listed,
+            drawing_sheet=drawing_sheet,
+            allow_lossy=ctx.allow_lossy,
         )
     files = dict(built.files)
     if files:
@@ -825,6 +917,8 @@ def _run_altium(
         "footprints": summary["footprints"],
         "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
         "copper": summary["copper"],
+        "outjob": _outjob_result(summary["outjob"], out, preset_result),
+        "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

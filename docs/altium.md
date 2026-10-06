@@ -494,6 +494,79 @@ the last build, for example one saved by Altium in any form, is refused with `FE
 `build.layout-exists` issue. `--discard-layout` replaces it and keeps a `.bak` unless `--no-backup`.
 Work done on the schematic in Altium is lost by such a rebuild: change the design script instead.
 
+## Output job
+
+Change c0087. A build that writes a PCB document also writes `<name>.OutJob`, an output job that you run in
+Altium (Fenolite runs no output and produces none of Altium's files). `--altium-outjob off` leaves it out.
+
+| output | Altium type | source document | container |
+|---|---|---|---|
+| Gerber | `Gerber` | `<name>.PcbDoc` | `fab` (folder) |
+| NC drill | `NC Drill` | `<name>.PcbDoc` | `fab` |
+| pick and place | `Pick Place` | `<name>.PcbDoc` | `fab` |
+| bill of materials | `BOM_PartType` | the project | `fab` |
+| schematic print | `Schematic Print` | the project | `doc` (PDF) |
+| PCB print | `PCB Print` | `<name>.PcbDoc` | `doc` |
+
+- **Every output has Altium's default settings.** The job holds the outputs, their source documents and
+  their containers, and nothing else: no unit, format, layer list or drill origin. Open the setup of each
+  output in Altium and set what your fabricator needs. `--altium-outjob-preset FILE` takes the preset you
+  use with `fenolite export --preset`; `result.outjob.defaults` then lists the options it sets
+  (`drill.units`, `gerbers.precision`, …), which are the ones to carry over by hand. Fenolite writes no
+  setting because the public files show a settings record only as a whole, and a record with some of its
+  fields would be a guess about the others (`docs/formats/altium/output-job.md`).
+- **There is no assembly drawing.** No public file gives its output type, so the sixth output is a PCB
+  print of the board. The job has no STEP and no ODB++ output either: it holds the kinds that
+  `fenolite export` has, a bill of materials and the two prints.
+- **The containers have no path.** They are named `fab` and `doc`; where Altium writes them is its default
+  until you set the output path of each container.
+- A new project file lists the job after the PCB document. A project file that exists is kept as always:
+  when it does not list the job, the build says so with `altium.outjob-not-listed`, and you add the file in
+  Altium (Project » Add Existing to Project).
+- An output job that you changed in Altium is an edited output: the next build refuses it unless
+  `--discard-layout` is given.
+- `backends.altium.outjob.write_outjob(groups)` writes any groups, containers and outputs that the reader
+  `read_outjob` returns, and `from_preset` gives the job above. What is confirmed is own readback only
+  (`H-A-OUTJOB-READBACK`): whether Altium opens the job, lists the outputs and generates them is Part O of
+  `docs/evidence/altium-schematic.md`, not reported yet.
+
+## Drawing sheet
+
+Change c0087. When the script names a drawing sheet, `design.sheet("A4", drawing_sheet="frames/x.sheet.toml")`
+(a `*.sheet.toml` specification or a `.kicad_wks` file beside the script, as for KiCad), the build draws it
+on every schematic document, and the fields of `design.title_block(…)` become sheet parameters, so the
+title block shows them.
+
+- **The sheet is a custom sheet of the paper's exact size**, A4 landscape being 297 mm by 210 mm, with the
+  built-in border and title block off. The frame, the reference zones and the title block are drawn lines
+  and texts, the same that the KiCad drawing sheet of the specification has. No template file is linked: the
+  project needs no path to one.
+- **Sheet parameters.** `Title`, `Revision`, `Date`, `Organization`, `DocumentNumber`, `DrawnBy` and
+  `ApprovedBy` for the fields that are not empty, `SheetNumber` and `SheetTotal` (the position of the
+  document among the schematic documents and their count), and each variable under its own name. The texts
+  of the title block are special strings (`=Title`, …) that Altium fills from them. A variable with the name
+  of one of these parameters, or a value outside printable 7-bit ASCII, is the error `altium.text-unwritable`.
+- **The paper.** The page is the paper and the orientation of `sheet()` when the layout of the document
+  fits it. When it does not, the page is the smallest of A4 to A0 that holds the layout (or the layout's own
+  area past A0) and the build warns with `altium.sheet-paper`. `result.drawing_sheet.pages` names the page
+  of every document.
+- **The layout does not know the title block.** Components are laid out from the top-left corner as
+  before; on a sheet that is nearly full they can lie under a title block in the bottom-right corner. Name
+  a larger paper, or use `--altium-sheets modules`.
+- **Losses.** A logo (a bitmap of the sheet), a text that mixes a token with other text, a text outside
+  printable 7-bit ASCII, a rotation that is not a quarter turn and a length limit of a text cannot be
+  carried: each gives an `altium.sheet.*` warning and the build is refused with `FEN-7001` unless
+  `--allow-lossy` is given, which leaves the item out or writes it without the style. Line widths become the
+  nearest of 4, 10, 20 and 40 mil and text heights whole points (the info `altium.sheet.rounded`); texts
+  are black, in the schematic's one font.
+- A script without a drawing sheet gives the schematic it gave before, byte for byte; `sheet()` and
+  `title_block()` alone change nothing in an Altium build.
+- `fenolite template build SPEC --target altium --out FILE.SchDot` writes the same sheet as a standalone
+  template (`docs/sheet-templates.md`, "Building an Altium sheet template").
+- Confirmed is own readback only (`H-A-SCHDOT-READBACK`): `import_sheet` reads the frame of a built
+  schematic back to the lines and texts of the specification. That Altium draws it as KiCad does and fills
+  the strings is Part W of `docs/evidence/altium-schematic.md`, not reported yet.
+
 ## Change order
 
 "Design » Update PCB Document" compares the compiled schematic with the PCB document. Besides components
@@ -585,8 +658,10 @@ An author report never raises the build's evidence level.
 | `altium.zones-unpoured` | info | polygons are written without poured copper |
 | `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
+| `altium.outjob-not-listed` | info | the project file is kept and does not list the output job |
+| `altium.sheet-paper` | warning | the layout of a schematic document does not fit the paper of `sheet()`, so the drawing sheet is drawn on a larger page |
 
-Model findings (`model.*`) pass through. A build with an error exits 5 and writes nothing. A KiCad lib id
+Model findings (`model.*`) pass through, and so do the `altium.sheet.*` codes of a drawing sheet ("Drawing sheet"). A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
 
 ## In Altium Designer
@@ -992,7 +1067,7 @@ the built model stores that value, so that the model is what the documents read 
 
 One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
 no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
-no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
+no nested harnesses); no buses or variants; an output job without output settings, and a drawing sheet without a logo; the PCB document has unpoured polygons, no
 split planes, no micro vias, no component bodies and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
