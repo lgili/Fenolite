@@ -38,6 +38,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.harness-nested": "warning",
     "altium.import.pcb-only-component": "warning",
     "altium.import.document-skipped": "warning",
+    "altium.import.zone-hole-outside": "warning",
     "altium.import.inexact": "info",
     "altium.import.multi-class": "info",
     "altium.import.zone-arc": "info",

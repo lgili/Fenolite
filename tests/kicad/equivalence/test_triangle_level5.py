@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Level 5 over the triangle (capability design-equivalence, "Level 5 over the triangle"; change c0089;
-``H-G-EQ-L5-TRIANGLE``; S-0020, S-0166).
+``H-G-EQ-L5-TRIANGLE``; S-0020, S-0166). Change c0122 (``H-A-IMP-ZONE-HOLES``) took the stub notice of one
+public row away: the Altium import now keeps the holes of a poured region.
 
 Two sets of boards:
 
@@ -14,8 +15,9 @@ Two sets of boards:
 
 No level-5 difference may remain within the tolerances of the importer's profile. What level 5 does not
 judge is asserted by count: the nets that depend on a zone without a fill (KiCad's importer leaves the
-zones of a document unfilled) and one stub notice whose cause is Fenolite's own reader. The counts are
-recorded in ``docs/evidence/equivalence-triangle.md``, "Level 5". The test writes counts only.
+zones of a document unfilled). The row whose pour has holes with copper in them is asserted piece by
+piece. The counts are recorded in ``docs/evidence/equivalence-triangle.md``, "Level 5". The test writes
+counts only.
 """
 
 from __future__ import annotations
@@ -41,17 +43,16 @@ reference of pads that belong to no component, and the designator ``*``."""
 NOTICES: dict[str, dict[str, int]] = {
     "altium-third-party-pcbdoc-01": {"route-unjudged": 8},
     "altium-third-party-pcbdoc-02": {"route-unjudged": 4},
-    "altium-third-party-pcbdoc-03": {"route-stub": 1},
 }
 """Row id → the notices of level 5 by kind (every other row has none).
 
 ``route-unjudged``: the net holds a zone that KiCad's conversion leaves without a fill, while the document
-holds its poured copper, so the two reads cannot be compared on it.
-
-``route-stub`` on one row: Fenolite's Altium adapter reads a poured region by its outline and drops its
-holes, so five islands of copper that lie in holes of a pour are joined to the pour in Fenolite's read and
-are five pieces without a pad in KiCad's. The cause is Fenolite's, so it gets no rule; it is recorded as
-an open fault of the adapter."""
+holds its poured copper, so the two reads cannot be compared on it."""
+POUR_WITH_HOLES = "altium-third-party-pcbdoc-03"
+"""The row whose main pour is one region with 268 holes, with five more regions of the same polygon inside
+holes of it. Until change c0122 Fenolite's read joined the five to the pour (one ``route-stub`` notice
+here); both reads now hold them as five pieces of copper that reach no pad."""
+ISLANDS = 5
 MEASURED_NM = 20
 MEASURED_PPM = 18
 """The largest difference of a routed length on one copper span over the public documents, in nanometres
@@ -174,6 +175,26 @@ def test_corpus(row: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert fifth.summary["vias"]["a"] == fifth.summary["vias"]["b"] > 0
     assert _kinds(fifth) == NOTICES.get(row, {})
     assert fifth.summary["unjudged"] == NOTICES.get(row, {}).get("route-unjudged", 0)
+
+
+@pytest.mark.needs_corpus
+def test_corpus_islands_in_the_holes_of_a_pour() -> None:
+    """``H-A-IMP-ZONE-HOLES``: the holes of a poured region are free of its copper. Both reads of the row
+    hold the same pieces, the islands among them, and the fills of Fenolite's read hold every hole."""
+    if POUR_WITH_HOLES not in IDS:
+        pytest.skip("the row is not in the triangle list")
+    found = _sides(POUR_WITH_HOLES)
+    loose: dict[str, int] = {}
+    total: dict[str, int] = {}
+    for side, design in (("a", found.a), ("b", found.b)):
+        held = [piece for pieces in routing.pieces(design).values() for piece in pieces if piece.copper]
+        loose[side], total[side] = sum(1 for piece in held if not piece.pads), len(held)
+    assert loose == {"a": ISLANDS, "b": ISLANDS} and total["a"] == total["b"]
+    assert found.a.board is not None
+    fills = [fill for zone in found.a.board.zones for fill in zone.fills]
+    assert len(fills) == ISLANDS + 1
+    # an outline alone is a few dozen points; the main fill holds its 268 holes
+    assert max(len(fill.polygon) for fill in fills) > 268 * 5
 
 
 @pytest.mark.needs_corpus

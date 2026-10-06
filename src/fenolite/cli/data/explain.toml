@@ -339,6 +339,11 @@ meaning = "Count of zones whose outline holds an arc vertex; their model outline
 fix = "Nothing to do for a read; draw the zone outline again if you need it in the model."
 see = "Altium import"
 
+["altium.import.zone-hole-outside"]
+meaning = "Count of holes of poured regions that lie outside their region's outline; they are dropped, so the fill is solid where the document meant a hole."
+fix = "Repour the polygon in the tool that wrote the document and import again; the count says how many holes were left out."
+see = "Altium import"
+
 ["altium.lib-id-form"]
 meaning = "A lib_id is not of the form library:name with both parts."
 fix = "Write the symbol reference as library:name."

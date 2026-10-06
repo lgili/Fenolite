@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Free primitives of a PCB document (capability altium-import, "Tracks, arcs and vias", "Zones from
-polygons" and "Outline, graphics and texts"; change c0043)."""
+polygons" and "Outline, graphics and texts"; changes c0043 and c0122)."""
 
 from __future__ import annotations
 
@@ -15,8 +15,12 @@ from _altium_copper import routed_model
 from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.adapter.copper import layer_of_text
 from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import RegionRecord, RegionVertex
+from fenolite.checks.copper import check_copper
+from fenolite.checks.equivalence import routing
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
+from fenolite.geometry import FillRule, Location, Thick, area2, point_in_ring, thick_touch
 from fenolite.geometry.shapes import Arc as GeometryArc
 from fenolite.model.board import Board
 from fenolite.model.design import Design
@@ -275,6 +279,117 @@ def test_regions_of_a_polygon_are_its_fills() -> None:
     assert zone.fills[0].polygon[0] == Point(2_540_000, -2_540_000) and len(zone.fills[0].polygon) == 4
     message = next(i.message for i in issues if i.code == "altium.import.unmapped")
     assert "region-holes 2" in message and "pour-primitives 1" in message
+
+
+def mil_box(x0: int, y0: int, x1: int, y1: int) -> list[tuple[float, float]]:
+    return [(x0 * MIL, y0 * MIL), (x1 * MIL, y0 * MIL), (x1 * MIL, y1 * MIL), (x0 * MIL, y1 * MIL)]
+
+
+def holed(points: list[tuple[float, float]], *holes: list[tuple[float, float]], **owner: int) -> RegionRecord:
+    """A region with the given holes."""
+    found = tuple(tuple(RegionVertex(float(x), float(y)) for x, y in hole) for hole in holes)
+    return dataclasses.replace(rec.region(points, **owner), hole_count=len(found), holes=found)
+
+
+def pour_with_an_island(issues: list[Issue], *, keep_holes: bool = True) -> Design:
+    """A pour of ``GND`` that is a square with a square hole, a second region of it inside the hole, and a
+    track of ``SIG`` in the hole between the two."""
+    hole = mil_box(200, 200, 400, 400)
+    main = holed(mil_box(100, 100, 500, 500), hole, polygon=0, net=0)
+    if not keep_holes:
+        main = rec.region(mil_box(100, 100, 500, 500), polygon=0, net=0)
+    document = rec.document(
+        rec.board((1, 32)),
+        nets=["GND", "SIG"],
+        polygons=[rec.polygon(net_index=0)],
+        regions=[main, rec.region(mil_box(250, 250, 350, 350), polygon=0, net=0)],
+        tracks=[rec.track((210 * MIL, 220 * MIL), (240 * MIL, 220 * MIL), net=1)],
+    )
+    return import_board(document, file="a.PcbDoc", sha256=rec.SHA, issues=issues)
+
+
+def test_a_fill_keeps_the_hole_of_its_region() -> None:
+    issues: list[Issue] = []
+    design = pour_with_an_island(issues)
+    assert design.board is not None
+    (zone,) = design.board.zones
+    main, island = zone.fills
+    anchor, corner = Point(2_540_000, -10_160_000), Point(5_080_000, -10_160_000)
+    # the outline as before, then the bridge to the hole's leftmost vertex, the hole, and the bridge back
+    assert main.polygon[:4] == (
+        Point(2_540_000, -2_540_000),
+        Point(12_700_000, -2_540_000),
+        Point(12_700_000, -12_700_000),
+        Point(2_540_000, -12_700_000),
+    )
+    assert main.polygon[4:6] == (anchor, corner) and main.polygon[-2:] == (corner, anchor)
+    assert len(main.polygon) == 11 and len(island.polygon) == 4
+    side, gap = 10_160_000, 5_080_000
+    assert abs(area2(main.polygon)) == 2 * (side * side - gap * gap)
+    in_hole = Point(5_588_000, -7_620_000)  # (220 mil, 300 mil): in the hole, outside the island
+    for rule in (FillRule.NONZERO, FillRule.EVENODD):
+        assert point_in_ring(in_hole, main.polygon, rule) == Location.OUTSIDE
+        assert point_in_ring(Point(3_810_000, -3_810_000), main.polygon, rule) == Location.INSIDE
+    assert not thick_touch(Thick(main.polygon, 0, filled=True), Thick(island.polygon, 0, filled=True))
+    assert not [i for i in issues if i.code in ("altium.import.unmapped", "altium.import.zone-hole-outside")]
+
+
+def test_copper_in_a_hole_of_a_pour_is_apart_from_the_pour() -> None:
+    """What the hole changes for the readers of a fill: the copper check finds no short with the track in
+    the hole, and the island is a piece of its own. With the outline alone both were joined to the pour."""
+    counts: dict[bool, tuple[int, int]] = {}
+    for keep_holes in (True, False):
+        design = pour_with_an_island([], keep_holes=keep_holes)
+        gnd = next(net.id for net in design.circuit.nets if net.name == "GND")
+        report = check_copper(design, pads=None)
+        shorts = sum(1 for found in report.findings if found.code == "copper.short")
+        pieces = sum(1 for piece in routing.pieces(design)[gnd] if piece.copper)
+        counts[keep_holes] = (shorts, pieces)
+    assert counts == {True: (0, 2), False: (1, 1)}
+
+
+def test_a_region_without_a_hole_gives_its_outline_unchanged() -> None:
+    plain = pour_with_an_island([], keep_holes=False)
+    assert plain.board is not None
+    (zone,) = plain.board.zones
+    assert zone.fills[0].polygon == (
+        Point(2_540_000, -2_540_000),
+        Point(12_700_000, -2_540_000),
+        Point(12_700_000, -12_700_000),
+        Point(2_540_000, -12_700_000),
+    )
+
+
+def test_holes_outside_their_outline_are_dropped_and_reported_once() -> None:
+    issues: list[Issue] = []
+    far = mil_box(700, 700, 720, 720)
+    board = board_of(
+        issues,
+        polygons=[rec.polygon()],
+        regions=[
+            holed(mil_box(100, 100, 200, 200), far, polygon=0),
+            holed(mil_box(300, 100, 400, 200), far, mil_box(320, 120, 380, 180), polygon=0),
+            holed(mil_box(500, 100, 600, 200), [(510 * MIL, 110 * MIL)] * 3, polygon=0),
+        ],
+    )
+    (zone,) = board.zones
+    first, second, third = zone.fills
+    assert len(first.polygon) == 4 and len(second.polygon) == 11 and len(third.polygon) == 4
+    (found,) = [i for i in issues if i.code == "altium.import.zone-hole-outside"]
+    assert found.severity == "warning" and found.where == "Regions6/Data"
+    assert found.message.startswith("2 hole(s) of 2 poured region(s)")
+    # two holes outside and one without area are not in the model; the fourth is
+    assert "region-holes 3" in next(i.message for i in issues if i.code == "altium.import.unmapped")
+
+
+def test_holes_of_a_free_region_are_counted_and_its_graphic_is_the_outline() -> None:
+    issues: list[Issue] = []
+    board = board_of(
+        issues, nets=["GND"], regions=[holed(mil_box(100, 100, 500, 500), mil_box(200, 200, 400, 400), net=0)]
+    )
+    (graphic,) = free(board)
+    assert len(graphic.points) == 4 and board.zones == ()  # type: ignore[attr-defined]
+    assert "region-holes 1" in next(i.message for i in issues if i.code == "altium.import.unmapped")
 
 
 # --- outline, graphics, texts ---------------------------------------------------------------------------

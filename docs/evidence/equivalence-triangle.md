@@ -191,7 +191,8 @@ two sets of boards, with `tests/kicad/equivalence/test_triangle_level5.py`:
   corners: Fenolite's read of the document and the read of KiCad's conversion.
 
 `uv run pytest tests/kicad/equivalence/test_triangle_level5.py -s` with `kicad-cli` 10.0.6 (macOS, local,
-2026-10-06): 20 passed. `pcb import` does not exist in 9.0, so nothing of this section runs there; the probe
+2026-10-06): 20 passed; 21 passed after change c0122, which adds one test ("The pour with holes"
+below). `pcb import` does not exist in 9.0, so nothing of this section runs there; the probe
 is registered for major 10 only and `docs/evidence/kicad/probes/9.0.9.json` does not hold it.
 
 ### Tolerances
@@ -245,7 +246,7 @@ level-5 cell: nets compared / differences / excluded.
 |---|---|---|---|---|---|---|
 | altium-third-party-pcbdoc-01 | 153 / 0 / 0 | `route-unjudged` 8 | 419, 419 | 646, 646 | 0, 8 | 74, 0 |
 | altium-third-party-pcbdoc-02 | 34 / 0 / 0 | `route-unjudged` 4 | 44, 44 | 242, 242 | 1, 6 | 43, 1 |
-| altium-third-party-pcbdoc-03 | 54 / 0 / 0 | `route-stub` 1 | 54, 59 | 47, 47 | 0, 0 | 6, 0 |
+| altium-third-party-pcbdoc-03 | 54 / 0 / 0 | none | 59, 59 | 47, 47 | 0, 0 | 6, 0 |
 | altium-third-party-pcbdoc-04 | 10 / 0 / 0 | none | 10, 10 | 67, 67 | 0, 0 | 0, 0 |
 | altium-third-party-pcbdoc-05 | 30 / 0 / 0 | none | 30, 30 | 59, 59 | 0, 0 | 0, 0 |
 | altium-third-party-pcbdoc-06 | 18 / 0 / 0 | none | 19, 19 | 42, 42 | 0, 0 | 0, 0 |
@@ -262,14 +263,44 @@ What level 5 did not judge, and why:
   compared. This is the non-goal "no judgement of unfilled zones".
 - **Copper on no net** (74, 43 and 6 items in Fenolite's read of the first three rows, 1 in KiCad's of
   the second). Level 5 compares nets; these items are counted and not compared.
-- **One stub notice, caused by Fenolite** (`route-stub` on one net of the third row; a warning, which
-  fails nothing). The pour of that row is one region with 268 holes and five more regions, each of which
-  starts inside one of those holes. Fenolite's Altium adapter makes a zone fill from a region's outline
-  and drops its holes (`fenolite.backends.altium.adapter.copper.zones`), so in Fenolite's read the five
-  regions touch the main one and are part of its piece; in KiCad's read, which keeps the holes, they are
-  five pieces that reach no pad. The pads joined, the vias and the lengths of that net agree. The cause is
-  Fenolite's, so it gets no rule ("Importer exclusion list per version"); it is an open fault of the
-  adapter, outside this change, and the test pins the notice by count so that a fix shows.
+- **No stub notice.** The table above holds the third row as measured after change c0122. Before it
+  the row gave `route-stub` 1 with 54 and 59 pieces; "The pour with holes" below says why.
+
+### The pour with holes (change c0122)
+
+The pour of `altium-third-party-pcbdoc-03` is one region with 268 holes and five more regions of the same
+polygon, each of which lies inside one of those holes. Until change c0122 Fenolite's Altium adapter made a
+zone fill from a region's outline and dropped its holes, so the five regions touched the main one in
+Fenolite's read; KiCad's import keeps the holes. The adapter now builds each fill as one ring that holds
+the outline and the holes (`geometry.keyhole_ring`; capability altium-import, "Zones from polygons").
+Measured with `kicad-cli` 10.0.6 (macOS, local, 2026-10-06), Fenolite's read against KiCad's import:
+
+| | before c0122 | after c0122 |
+|---|---|---|
+| pieces of copper, Fenolite's read, KiCad's import | 54, 59 | 59, 59 |
+| pieces of copper that reach no pad, Fenolite's read, KiCad's import | 0, 5 | 5, 5 |
+| level-5 differences | 0 | 0 |
+| `route-stub` notices | 1 | 0 |
+| fills of the zone, Fenolite's read, KiCad's import | 6, 6 | 6, 6 |
+| points of those fills, Fenolite's read, KiCad's import | 180, 7 582 | 7 515, 7 582 |
+| holes of poured regions in the fills, holes dropped (outside their outline or without area) | 0, all | 271 (268 of the main region, 3 of one other), 0 |
+
+- The five islands are pieces of their own in both reads, so the notice is gone; nothing was loosened and
+  no rule was added. `test_corpus_islands_in_the_holes_of_a_pour` asserts the pieces on both sides, and
+  `NOTICES` of `tests/kicad/equivalence/test_triangle_level5.py` no longer holds the row.
+- The two reads do not hold the same points: KiCad cuts its bridges elsewhere. Level 5 compares what the
+  copper joins, not the ring.
+- The other six rows are unchanged at every level (the numbers of the tables above are those of the run
+  after the change).
+- Over the seven rows the poured regions hold 607 holes (136, 58, 271, 27, 45, 30 and 40); every one is
+  in a fill now and none was dropped, so `altium.import.zone-hole-outside` is given on no row.
+- **The copper check on Fenolite's read of that row** (`checks.copper.check_copper`, without pads: the
+  Altium backend has no board frame): `copper.short` 267 before and 0 after; `copper.clearance` 6 before
+  and 266 after, of which 221 are a fill against a track and 45 a fill against a via. The 267 shorts were
+  the tracks and vias of other nets inside holes of the pour. The clearance findings that take their
+  place are measured against 0.5 mm, the clearance the model gives a zone that names none: the import
+  reads no clearance for a polygon, and the gaps the document's pour keeps start at 0.127 mm. That the
+  import gives a zone the model's default clearance is an open point outside change c0122.
 
 ### Labels at level 5
 
@@ -279,8 +310,7 @@ By the rule of "Labels per level" (no `undecided` rule at that level or below):
 |---|---|
 | routed sample, three pairs | ORACLE-VERIFIED(kicad-cli) (10.0.6), for the three nets that are judged; `GND` is not judged |
 | altium-third-party-pcbdoc-01, -02 | INFERRED (an `undecided` rule matched at a lower level; 8 and 4 nets are not judged) |
-| altium-third-party-pcbdoc-03 | INFERRED (the stub notice above is an open fault of Fenolite's adapter) |
-| altium-third-party-pcbdoc-04 to -07 | ORACLE-VERIFIED(kicad-cli) (10.0.6) |
+| altium-third-party-pcbdoc-03 to -07 | ORACLE-VERIFIED(kicad-cli) (10.0.6); the third row since change c0122, which took its stub notice away |
 
 `H-G-EQ-L5-TRIANGLE` is about the first row of this table. The Linux run of the `kicad-10` job is open: it
 is the maintainer's, and it will compare six of the seven public rows, as at levels 1 to 4.

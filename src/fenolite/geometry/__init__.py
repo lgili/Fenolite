@@ -14,6 +14,7 @@ from fenolite.geometry.boolean import BACKEND_ORDER, BooleanBackend, available_b
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.polygon import (
+    Keyhole,
     Path,
     Piece,
     Polygon,
@@ -22,6 +23,7 @@ from fenolite.geometry.polygon import (
     assemble_rings,
     clip_convex,
     convex_hull,
+    keyhole_ring,
     normalize_polygons,
     polygons_intersect,
 )
@@ -65,6 +67,7 @@ __all__ = [
     "Circle",
     "FillRule",
     "GeometryError",
+    "Keyhole",
     "Location",
     "Path",
     "Piece",
@@ -93,6 +96,7 @@ __all__ = [
     "dot",
     "floor_sqrt",
     "intersection_point",
+    "keyhole_ring",
     "neg",
     "norm2",
     "normalize_polygons",

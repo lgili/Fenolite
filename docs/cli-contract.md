@@ -508,6 +508,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.harness-nested` | warning | a harness entry carries a harness of its own; it is not resolved |
 | `altium.import.pcb-only-component` | warning | a component of the PCB document links to no schematic component; it is added to the circuit |
 | `altium.import.document-skipped` | warning | a document of a project is outside the project folder, missing or unreadable; the design is built from the rest |
+| `altium.import.zone-hole-outside` | warning | count of holes of poured regions that lie outside their region's outline; they are dropped and the fill is solid there |
 | `altium.import.inexact` | info | counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags |
 | `altium.import.multi-class` | info | count of nets in more than one net class; the first class by name is kept |
 | `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; their model outline is empty |

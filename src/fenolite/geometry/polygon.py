@@ -10,6 +10,10 @@ ring starting at its lexicographically smallest vertex, collinear vertices remov
 their vertex tuples. ``normalize_polygons`` is the canonical form of a polygon set: rings are first
 split at repeated vertices so that every ring is simple, then each polygon is normalised and the set
 is sorted by ``(bbox, outer ring, holes)``.
+
+``keyhole_ring`` is the other way to hold a polygon with holes: one ring in which each hole is reached by
+a bridge of zero width that is walked once in each direction. Both fill rules read it as the outline
+without its holes.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 
+from fenolite.core.units import round_half_even_div
 from fenolite.geometry.errors import BRANCHING_CONTOUR, DEGENERATE, OPEN_CONTOUR, GeometryError, format_point
 from fenolite.geometry.index import SpatialIndex
 from fenolite.geometry.predicates import (
@@ -378,6 +383,135 @@ def normalize_polygons(polys: Iterable[Polygon]) -> tuple[Polygon, ...]:
     return tuple(sorted(parts, key=_sort_key))
 
 
+# --- one ring for a polygon with holes ----------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Keyhole:
+    """What ``keyhole_ring`` returns: the ring, the number of holes it holds and the number of holes that
+    were dropped because they lie outside the outline."""
+
+    ring: Ring
+    merged: int
+    outside: int
+
+
+def _distinct(ring: Sequence[Point]) -> list[Point]:
+    """``ring`` without equal neighbours and without a closing copy of its first point."""
+    out: list[Point] = []
+    for point in ring:
+        if not out or out[-1] != point:
+            out.append(point)
+    while len(out) > 1 and out[0] == out[-1]:
+        out.pop()
+    return out
+
+
+def _anchor(ring: Sequence[Point], hx: int, hy: int) -> tuple[int, Point | None] | None:
+    """Where the ray from ``(hx, hy)`` towards smaller ``x`` first meets ``ring``: ``(index, None)`` for
+    the vertex ``ring[index]``, ``(index, point)`` for a point to insert after ``ring[index]``, ``None``
+    when the ray meets nothing. Among equal crossings the first in ring order is kept."""
+    best: tuple[int, Point | None] | None = None
+    num, den = 0, 1  # the x of the best crossing is num / den, den above 0
+    count = len(ring)
+    for i in range(count):
+        a = ring[i]
+        b = ring[i + 1 - count]
+        ay, by = a.y, b.y
+        if (ay < hy and by < hy) or (ay > hy and by > hy):
+            continue
+        ax, bx = a.x, b.x
+        found: tuple[int, Point | None]
+        if ay == by:  # the edge lies on the line of the ray
+            low, high = (ax, bx) if ax <= bx else (bx, ax)
+            if low > hx:
+                continue
+            if high >= hx:  # the start of the ray is on the edge
+                n, d = hx, 1
+                at_a, at_b = ax == hx, bx == hx
+            else:
+                n, d = high, 1
+                at_a, at_b = ax == high, bx == high
+            found = (i, None) if at_a else ((i + 1) % count, None) if at_b else (i, Point(hx, hy))
+        elif ay == hy:
+            if ax > hx:
+                continue
+            n, d, found = ax, 1, (i, None)
+        elif by == hy:
+            if bx > hx:
+                continue
+            n, d, found = bx, 1, ((i + 1) % count, None)
+        else:
+            d = by - ay
+            n = ax * d + (hy - ay) * (bx - ax)
+            if d < 0:
+                n, d = -n, -d
+            if n > hx * d:
+                continue
+            found = (i, Point(round_half_even_div(n, d), hy))
+        if best is None or n * den > num * d:
+            best, num, den = found, n, d
+    return best
+
+
+def _keyhole(outer: Sequence[Point], holes: Iterable[Sequence[Point]]) -> tuple[Keyhole, int]:
+    """``keyhole_ring`` and the number of edges its anchor searches tested."""
+    ring = list(_coerce_ring(outer, "outer"))
+    sign = _sign(area2(ring))
+    usable: list[tuple[Point, Ring]] = []
+    for i, given in enumerate(holes):
+        hole = _distinct(_coerce_ring(given, f"holes[{i}]"))
+        turn = _sign(area2(hole))
+        if len(hole) < 3 or turn == 0:
+            continue
+        if turn == sign:
+            hole.reverse()
+        start = hole.index(min(hole))
+        usable.append((hole[start], tuple(hole[start:] + hole[:start])))
+    if sign == 0 or len(ring) < 3:
+        return Keyhole(tuple(ring), 0, len(usable)), 0
+    first = tuple(ring)
+    merged = outside = tested = 0
+    for left, hole in sorted(usable):
+        if point_in_ring(left, first) == Location.OUTSIDE:
+            outside += 1
+            continue
+        tested += len(ring)
+        found = _anchor(ring, left.x, left.y)
+        if found is None:  # not reachable for a vertex that is not outside; kept as a guard
+            outside += 1
+            continue
+        index, inserted = found
+        anchor = ring[index] if inserted is None else inserted
+        spliced = ring[: index + 1]
+        for point in (*(() if inserted is None else (inserted,)), *hole, left, anchor):
+            if spliced[-1] != point:
+                spliced.append(point)
+        rest = ring[index + 1 :]
+        if rest and rest[0] == spliced[-1]:
+            rest = rest[1:]
+        ring = spliced + rest
+        while len(ring) > 1 and ring[0] == ring[-1]:
+            ring.pop()
+        merged += 1
+    return Keyhole(tuple(ring), merged, outside), tested
+
+
+def keyhole_ring(outer: Sequence[Point], holes: Iterable[Sequence[Point]]) -> Keyhole:
+    """One ring that bounds ``outer`` without ``holes``: each hole is joined to the ring around it by a
+    bridge of zero width that is walked once in each direction.
+
+    ``outer`` is kept as given, neither reversed nor rotated, and every hole runs against it, so a point
+    inside a hole is ``OUTSIDE`` of the ring under the non-zero and the even-odd rule and a point on a
+    bridge is ``BOUNDARY``. Holes are merged by ascending leftmost vertex: a ray towards smaller ``x``
+    from that vertex meets the ring built so far at the anchor, a vertex of the ring or a point put into
+    an edge with its ``x`` rounded half to even. A hole with fewer than three distinct points or without
+    area is dropped; a hole whose leftmost vertex is outside ``outer`` is dropped and counted in
+    ``outside``. The result does not depend on the order of ``holes``.
+    """
+    return _keyhole(outer, holes)[0]
+
+
 Piece = Segment | Arc
 
 
@@ -508,6 +642,7 @@ def assemble_rings(pieces: Iterable[Piece]) -> tuple[Path, ...]:
 
 
 __all__ = [
+    "Keyhole",
     "Path",
     "Piece",
     "Polygon",
@@ -516,6 +651,7 @@ __all__ = [
     "assemble_rings",
     "clip_convex",
     "convex_hull",
+    "keyhole_ring",
     "normalize_polygons",
     "polygons_intersect",
 ]

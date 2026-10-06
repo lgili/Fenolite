@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Free primitives of a PCB document as board objects (capability altium-import, "Tracks, arcs and vias",
-"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; change c0043).
+"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; changes c0043
+and c0122).
 
 A free primitive carries no component index. On a copper layer of the chain a track is a ``Track``, an arc
-an ``Arc`` and a via a ``Via``; a polygon is a ``Zone`` whose regions are its fills. Everything else that is
-drawn becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in the census.
+an ``Arc`` and a via a ``Via``; a polygon is a ``Zone`` whose regions are its fills, each one ring that
+holds the region's outline and its holes (``geometry.keyhole_ring``). Everything else that is drawn
+becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in the census.
 """
 
 # evidence: see import_evidence
@@ -33,6 +35,7 @@ from fenolite.backends.altium.read.pcbprims import (
 )
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
 from fenolite.core.coords import Point, Size
+from fenolite.geometry.polygon import keyhole_ring
 from fenolite.geometry.transform import FULL_TURN, QUARTER_TURN, rotate_point
 from fenolite.model.board import Arc, Graphic, GraphicKind, Text, Track, Via, ViaType, Zone, ZoneFill
 
@@ -427,7 +430,9 @@ def _bad_vertex_text(record: PolygonRecord) -> bool:
 
 def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
     """One ``Zone`` per polygon of type ``Polygon`` on a copper layer of the chain, with the regions that
-    carry its index as fills; also the indexes of the polygons that became zones."""
+    carry its index as fills; also the indexes of the polygons that became zones. A fill is the keyhole
+    ring of its region: the outline without the holes. A hole that the ring does not hold is counted as
+    ``region-holes``, and the holes outside their outline are reported once."""
     mapped: dict[int, tuple[PolygonRecord, str, int]] = {}
     for index, record in enumerate(doc.polygons):
         locator = f"Polygons6/Data#{index}"
@@ -448,6 +453,7 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
     highest = max((record.pour_index or 0 for record, _, _ in mapped.values()), default=0)
     found: list[Zone] = []
     arcs_seen = 0
+    holes_outside = regions_outside = 0
     for index, (record, locator, layer_id) in mapped.items():
         exact = Exact(ctx.census)
         layer = ctx.layers.name(layer_id)
@@ -461,8 +467,15 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
             if not ctx.layers.is_copper(region.prefix.layer):
                 continue
             points = region_points(region.outline)
-            if len(points) >= 3:
-                fills.append(ZoneFill(ctx.layers.name(region.prefix.layer), points))
+            if len(points) < 3:
+                ctx.census.note("region-holes", len(region.holes))
+                continue
+            merged = keyhole_ring(points, [region_points(hole) for hole in region.holes])
+            fills.append(ZoneFill(ctx.layers.name(region.prefix.layer), merged.ring))
+            ctx.census.note("region-holes", len(region.holes) - merged.merged)
+            if merged.outside:
+                holes_outside += merged.outside
+                regions_outside += 1
         pairs = exact.pairs()
         if record.pour_index is not None:
             pairs.append(("pour_index", str(record.pour_index)))
@@ -502,6 +515,15 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
                 "Polygons6/Data",
             )
         )
+    if holes_outside:
+        ctx.issues.append(
+            issue(
+                "altium.import.zone-hole-outside",
+                f"{holes_outside} hole(s) of {regions_outside} poured region(s) lie outside the region's "
+                "outline; they are dropped and the fill is solid there",
+                "Regions6/Data",
+            )
+        )
     return found, set(mapped)
 
 
@@ -534,7 +556,8 @@ def _fill_points(item: FillRecord, exact: Exact) -> tuple[GraphicKind, tuple[Poi
 def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graphic]:
     """The free fills and regions as filled graphics; one on a copper layer carries its net name in the
     pair ``net`` and is counted by ``altium.import.copper-shape``. ``fill_regions`` are the polygon indexes
-    that became zones: their regions are fills, not graphics."""
+    that became zones: their regions are fills, not graphics. The holes of a region that is a graphic are
+    not in the model and are counted as ``region-holes``."""
     found: list[Graphic] = []
     copper_shapes = 0
     for index, item in enumerate(doc.fills):
@@ -559,12 +582,12 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
         if isinstance(item, RawPrimitive):
             ctx.census.skip("regions", "raw-primitives")
             continue
-        if item.holes:
-            ctx.census.note("region-holes", len(item.holes))
+        polygon = item.prefix.polygon
+        if not (polygon in fill_regions and ctx.layers.is_copper(item.prefix.layer)):
+            ctx.census.note("region-holes", len(item.holes))  # the holes of a fill are counted by ``zones``
         if not _free(item, len(doc.components)):
             ctx.census.skip("regions", "footprint-graphics")
             continue
-        polygon = item.prefix.polygon
         if polygon is not None:
             if polygon in fill_regions and ctx.layers.is_copper(item.prefix.layer):
                 ctx.census.map("regions")
