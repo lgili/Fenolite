@@ -467,9 +467,11 @@ class Sheet:
         extra: str = "",
         parameters: Mapping[str, str] | None = None,
         pin_fields: Mapping[str, str] | None = None,
+        pin_map: Mapping[str, Sequence[str]] | None = None,
     ) -> int:
         """A component record with its designator, comment, parameters, pins ``(designator, x, y)`` and
-        footprint model; returns the record index."""
+        footprint model, whose map list holds one map record per pin of ``pin_map`` (pin designator to pad
+        names); returns the record index."""
         index = self.add(
             f"|RECORD=1|LIBREFERENCE={libref}|PARTCOUNT={parts + 1}|DISPLAYMODECOUNT=1|OWNERPARTID=-1"
             f"|LOCATION.X=0|LOCATION.Y=0|CURRENTPARTID={part}|SOURCELIBRARYNAME={library}"
@@ -497,11 +499,16 @@ class Sheet:
             self.add(f"|RECORD=2|OWNERINDEX={index}|OWNERPARTID={owner}{fields}")
         if footprint:
             models = self.add(f"|RECORD=44|OWNERINDEX={index}")
-            self.add(
+            model = self.add(
                 f"|RECORD=45|OWNERINDEX={models}|MODELNAME={footprint}|MODELTYPE=PCBLIB|ISCURRENT=T"
                 "|DATAFILECOUNT=1|MODELDATAFILEENTITY0=" + footprint + "|MODELDATAFILEKIND0=PCBLib"
                 "|MODELDATAFILE0=Lib\\Parts.PcbLib"
             )
+            if pin_map is not None:
+                listed = self.add(f"|RECORD=46|OWNERINDEX={model}")
+                for pin, pads in pin_map.items():
+                    names = "".join(f"|DESIMP{n}={pad}" for n, pad in enumerate(pads))
+                    self.add(f"|RECORD=47|OWNERINDEX={listed}|DESINTF={pin}|DESIMPCOUNT={len(pads)}{names}")
         return index
 
     def _points(self, points: Sequence[tuple[int, int]]) -> str:

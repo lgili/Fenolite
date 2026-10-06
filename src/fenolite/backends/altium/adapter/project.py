@@ -95,10 +95,15 @@ def _retarget(board: Board, components: dict[str, str], nets: dict[str, str]) ->
 
 
 def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: BoardImport,
-         issues: list[Issue]) -> tuple[Circuit, Board]:  # fmt: skip
+         issues: list[Issue], unlinkable: dict[str, str] | None = None) -> tuple[Circuit, Board]:  # fmt: skip
     """Merge the board ``parts`` into ``circuit``: link footprints to components and PCB nets to nets; add
-    what does not link."""
+    what does not link. ``unlinkable`` holds the components of ``Repeat`` channels with the designator of
+    their sheet: no form of their unique-id path is recorded, so a board component links to one only when
+    its own designator is the channel's and its source designator the sheet's."""
     components = {component.id: component for component in circuit.components}
+    channel_refs = unlinkable or {}
+    linked_channels: set[str] = set()
+    renamed: list[tuple[str, str]] = []
     by_ref: dict[str, list[str]] = {}
     for component in circuit.components:
         by_ref.setdefault(component.ref, []).append(component.id)
@@ -115,8 +120,18 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
         target = by_path.get(record.source_unique_id or "")
         if target is None:
             candidates = by_ref.get(record.source_designator or "", []) if record.source_designator else []
+            if len(candidates) == 1 and candidates[0] not in channel_refs:
+                target = candidates[0]
+                by_designator += 1
+        if target is None and own.ref and record.source_designator:
+            candidates = [
+                found
+                for found in by_ref.get(own.ref, [])
+                if channel_refs.get(found) == record.source_designator and found not in linked_channels
+            ]
             if len(candidates) == 1:
                 target = candidates[0]
+                linked_channels.add(target)
                 by_designator += 1
         if target is None:
             added.append(own)
@@ -136,6 +151,8 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
         if target in repeated and own.ref:
             linked = components[target]
             if linked.ref != own.ref:
+                if "@" not in linked.ref and linked.ref != (record.source_designator or ""):
+                    renamed.append((linked.ref, own.ref))  # the format named it otherwise
                 path = "/".join((*linked.path.split("/")[:-1], own.ref))
                 components[target] = dataclasses.replace(linked, ref=own.ref, path=path)
     if by_designator:
@@ -144,6 +161,28 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
                 "altium.import.linked-by-designator",
                 f"{by_designator} component(s) of the PCB document are linked by designator, not by their "
                 "unique-id path",
+                parts.board.provenance.file if parts.board.provenance else "",
+            )
+        )
+
+    if renamed:
+        issues.append(
+            issue(
+                "altium.import.channel-naming",
+                f"{len(renamed)} channel component(s) are named otherwise by the PCB document than by the "
+                f"designator format (the first: {renamed[0][1]} against {renamed[0][0]}); the designators "
+                "of the PCB document are taken",
+                parts.board.provenance.file if parts.board.provenance else "",
+            )
+        )
+    if len(channel_refs) > len(linked_channels):
+        issues.append(
+            issue(
+                "altium.import.channel-naming",
+                f"{len(channel_refs) - len(linked_channels)} component(s) of Repeat channels are linked to "
+                "no component of the PCB document: the form of their unique-id path is not recorded, and "
+                "no board component has their channel designator; they keep the designators of the "
+                "designator format",
                 parts.board.provenance.file if parts.board.provenance else "",
             )
         )
@@ -157,6 +196,9 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
     merged: dict[str, Net] = {net.id: net for net in circuit.nets}
     extra_nets: list[Net] = []
     pins_of = {cid: {pin.number for pin in component.pins} for cid, component in components.items()}
+    pin_of_pad = {
+        cid: {pad: pin for pin, pad in component.pin_pad_map} for cid, component in components.items()
+    }
     for net in parts.nets:
         match = exact.get(net.name)
         if match is None and len(folded.get(net.name.casefold(), [])) == 1:
@@ -173,9 +215,10 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
         members: list[PinRef] = []
         for member in net.members:
             target = component_map.get(member.component_id, member.component_id)
-            if target in pins_of and member.pin not in pins_of[target]:
+            pin = pin_of_pad.get(target, {}).get(member.pin, member.pin)  # a pad stands for its pin
+            if target in pins_of and pin not in pins_of[target]:
                 continue  # the sheets do not hold this pin; the pad keeps its net on the board
-            ref = PinRef(target, member.pin)
+            ref = PinRef(target, pin)
             if ref not in members:
                 members.append(ref)
         extra_nets.append(dataclasses.replace(net, members=tuple(members)))
@@ -245,7 +288,7 @@ def import_project(project: ProjectInput, *, issues: list[Issue] | None = None) 
     parts = read_board(board.document, file=board.file, sha256=board.sha256, ids=ids)
     found.extend(parts.issues)
     found.extend(parts.census.issues(board.file))
-    circuit, linked = link(built.circuit, built.by_path, built.repeated, parts, found)
+    circuit, linked = link(built.circuit, built.by_path, built.repeated, parts, found, built.unlinkable)
     rules = (*parts.rules.rules, *_extra_rules(project.rules, ids, found))
     return Design(
         header=head, circuit=circuit, board=linked, rules=dataclasses.replace(parts.rules, rules=rules)

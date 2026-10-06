@@ -529,6 +529,53 @@ The maintainer reports one outcome per step (`as expected`, or what differed in 
 row it names: Y2, Y3 and Y9 `H-A-SCHX-GRAPHICS`; Y1 and Y4 `H-A-SCHX-TREE`; Y5 `H-A-SCHX-DIR`; Y6
 `H-A-SCHX-BUS`; Y7 `H-A-SCHX-TEXT`; Y8 `H-A-SCHX-ECO`.
 
+## Part R: channels of a `Repeat` statement (change c0083)
+
+The import instantiates a `Repeat` statement from Altium's documentation alone: no public file of the
+corpus holds one. **Nothing of this part has been opened in Altium.** It settles `H-A-IMP-RPT-COUNT`,
+`H-A-IMP-RPT-NETS` and `H-A-IMP-RPT-FORMAT`; the hypothesis of the annotation file is not registered
+(its reader is not written), and step R4 is what would let it be.
+
+**Files.** The authored two-channel project `tests/data/altium/channels/two/`, copied to the
+maintainer's folder `~/fenolite-altium-checks/c0083-part-r/` on 2026-10-06. Its sheets are authored record
+by record for the reader's tests (`tests/_altium_channels.py`), not built by the schematic writer, which
+writes no `Repeat` statement: they hold no symbol graphics, and pins of length 0. Whether Altium opens
+them is itself unknown. If step R1 fails on opening, draw the same project by hand and go on: a top
+sheet with a sheet symbol whose designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries
+`VCC` and `Repeat(OUT)`; the entry `Repeat(OUT)` on a bus labelled `OUT[1..2]` whose members `OUT1` and
+`OUT2` go to two pins of a component; on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`,
+`R1` pin 2 and `C12` pin 1 on a wire labelled `MID`, `C12` pin 2 on the port `OUT`.
+
+| file | SHA-256 |
+|---|---|
+| `two.PrjPcb` | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
+| `two.SchDoc` | `53c540c9af491840b9c2a1f48f3b31910d22c9b838c9eac6473c5f72221d3ed2` |
+| `two_ch.SchDoc` | `437e5357a673b9c0930d519538157ba2f5f0223f60877bb29218552810fb52d3` |
+
+1. R1: open `two.PrjPcb` in Altium Designer and compile it. Expected: no error; the Navigator shows two
+   channels of the child sheet, `CH1` and `CH2`. Settles `H-A-IMP-RPT-COUNT`.
+2. R2: for each designator format offered in Project Options » Multi-Channel, select it, compile, and
+   write down the designator of the component `R1` in both channels; then, with `$Component_$RoomName`,
+   the same for each of the five room naming styles. Expected, for the formats in the order of the list:
+   `R1_CH1`, `CH1_R1`, `R1A`, `R1_CHA`, `R1_1`, `R1_CH1`, `R_1_1`, `R_CH1_1` in the first channel (style
+   "Flat Numeric With Names"), and for the styles `R1_CH1`, `R1_CHA`, `R1_CH1`, `R1_CHA` and, for the
+   mixed style, whatever Altium shows (the import does not name it). Settles `H-A-IMP-RPT-FORMAT`.
+3. R3: with the format `$Component_$RoomName` and the first style, run Design » Update PCB Document on an
+   empty board, and write down the designators of the four channel components, the names of the nets of
+   `C12` pin 2 in both channels and of `R1` pin 2 in both channels, and the form of the unique-id path
+   of one channel component as its properties show it (only the form: where the channel index stands
+   and what separates it from the unique ids, not the ids). Expected: `R1_CH1`,
+   `R1_CH2`, `C12_CH1`, `C12_CH2`; `OUT1` and `OUT2`; `MID_CH1` and `MID_CH2`. Settles
+   `H-A-IMP-RPT-NETS`, and gives the path form that the board link of a `Repeat` channel waits for.
+4. R4: run Tools » Annotation » Annotate Compiled Sheets, rename one channel's `R1`, save, and send only
+   the names of the keys of the `.Annotation` file that changed and the two designators.
+
+The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence),
+the tool as `AD <major>.<minor>` and the date. No file that Altium wrote is committed. A step that fails
+refutes the row it names.
+
+No report yet: the three rows are `INFERRED`, "pending (author report)".
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

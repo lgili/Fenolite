@@ -1045,7 +1045,8 @@ side is corrected by the other: a pad keeps the net the PCB document gives it. A
 only the PCB document holds is added to the circuit and reported. A document outside the folder, a missing
 one or an unreadable one is skipped with `altium.import.document-skipped`.
 
-**Channels.** A sheet that several sheet symbols name is read once per symbol; each instance is a
+**Channels.** A sheet that several sheet symbols name is read once per symbol, and the sheet of a sheet
+symbol whose designator is `Repeat(NAME, first, last)` once per index; each instance is a
 channel with its own components and nets (`altium.import.channels`, info). Its components are named, in
 this order: by the PCB document of the project, whose components link to them by their unique-id path
 and hold the designators the project was annotated to; else by the project's designator format
@@ -1054,20 +1055,41 @@ channel `3` under `$Component_$RoomName`. A format the import does not resolve g
 `<designator>@<channel>` and `altium.import.channel-naming`. Sheets read without their project file keep
 the designators of the sheet. The facts are in `docs/formats/altium/connectivity.md`, "Channels".
 
+- **`Repeat` statements.** The channel `i` of `Repeat(CH, 1, 2)` is the module `CH[i]`; its components are
+  named by the format, where `$ChannelIndex` is `i`, `$ChannelAlpha` its letter (`A` for 1 to `Z` for 26),
+  `$ChannelPrefix` is `CH` and the room is `CH1` or `CHA` by the style. No public file holds such a
+  statement: this part rests on Altium's documentation and on authored sheets (`INFERRED`).
+- **Nets of a channel.** A net that the sheet does not export is one net per channel: a net label is renamed
+  by the designator format (`MID_CH1`), and a net without an identifier takes the system name of the
+  channel's designator (`NetD9_11_A`). A sheet entry `Repeat(NAME)` gives channel `i` the member `i` of the
+  parent's bus `NAME`; any other sheet entry is one net for all channels.
+- **The board of a `Repeat` project.** The unique-id path of a board component of a `Repeat` channel has no
+  recorded form, so such a component links by designator only (the board's designator equal to the
+  channel's); what does not link is counted by `altium.import.channel-naming`.
+- **Not instantiated.** A statement of another form, with its first index above its last, or that would
+  bring the project above 256 sheet instances gives one instance and `altium.import.repeated-sheet`.
+
+**Pin-to-pad map.** A component whose footprint model maps a pin to a pad of another name carries the pair
+in `pin_pad_map`, and `netlist.assignment_compare` and level 2 of `fenolite equivalent` name the pin by
+that pad (`JP6-VBUS`, not `JP6-1`); the nets of the circuit stay keyed by pin number. The model gives a pin
+one pad: a pin whose map lists several pads keeps its own designator when the map lists it, else takes the
+first pad, and a pin mapped to no pad keeps its designator; each such record is kept in the component's
+`altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
+
 **What is not imported.** Nothing is dropped silently: `altium.import.unmapped` counts every record that
 gave no model entity.
 
 - Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
-  pairs, `Repeat` statements (one instance is read, `altium.import.repeated-sheet`) and the annotation
-  file of a project.
+  pairs and the annotation file of a project (the form of a non-empty one is not known from a public
+  source).
 - Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
   and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
 - Rules of other kinds, disabled rules, and rules whose scope is outside the mapper's grammar:
   `altium.import.rule-unmapped` counts them per kind. No rule is approximated.
 - A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
   shape with a net.
-- The pin-to-pad map of a footprint model is not applied: a pin whose pads have other names than its
-  designator is linked by name only.
+- The further pads of a pin that its footprint model maps to several pads: the comparison names the pin
+  by one pad, and the others show as covered by the PCB document only.
 
 The issue codes `altium.import.*` are listed in `docs/cli-contract.md`, "Altium import". An error issue
 never stops an import.

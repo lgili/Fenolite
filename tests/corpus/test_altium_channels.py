@@ -1,17 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Channels of repeated sheets on the public project sets (capability altium-import, "Channel
-designators"; ``H-A-IMP-RPT-BOARD``, ``H-A-IMP-RPT-FORMAT``; change c0083). Only counts and designators
+designators", "Channel nets", "Pin-to-pad map of a footprint model"; ``H-A-IMP-RPT-BOARD``,
+``H-A-IMP-RPT-FORMAT``, ``H-A-IMP-RPT-NETS``, ``H-A-IMP-PINMAP``; change c0083). Only counts and designators
 of the sets are printed; no content of a corpus file is kept."""
 
 from __future__ import annotations
 
+import dataclasses
 import tomllib
 from collections import Counter
 from pathlib import PureWindowsPath
+from types import SimpleNamespace
 
 import pytest
-from _corpus import MANIFEST, CorpusItem, manifest_items, require
+from _corpus import MANIFEST, CorpusItem, heavy_enabled, manifest_items, require
 
 from fenolite.backends.altium.adapter.board import read_board
 from fenolite.backends.altium.adapter.circuit import CircuitImport, build_circuit
@@ -22,6 +25,8 @@ from fenolite.backends.altium.adapter.project import BoardInput, ProjectInput, i
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
 from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.altium.read.sch import read_schematic
+from fenolite.backends.base import PadAssignment, PadNetList
+from fenolite.checks.assignment_compare import NO_NET, compare, model_netlist
 from fenolite.core.errors import Issue
 
 pytestmark = pytest.mark.needs_corpus
@@ -119,3 +124,74 @@ def test_sets_without_channels_are_unchanged(name: str) -> None:
     built, issues = _circuit(options, sheets)
     assert built.repeated == set() and built.channel_sources == {}
     assert not [i for i in issues if i.code in ("altium.import.channels", "altium.import.channel-naming")]
+
+
+def _elements(
+    built: CircuitImport, document: PcbDocument, *, mapped: bool = True
+) -> tuple[PadNetList, PadNetList]:
+    """The schematic's elements, with or without the pin-to-pad maps of its components, and the board's."""
+    circuit = built.circuit
+    if not mapped:
+        plain = tuple(dataclasses.replace(component, pin_pad_map=()) for component in circuit.components)
+        circuit = dataclasses.replace(circuit, components=plain)
+    parts = read_board(document, file="board", sha256=SHA, ids=Ids("altium_pcbdoc", EVIDENCE))
+    refs = {component.id: component.ref for component in parts.components}
+    pads = tuple(
+        PadAssignment(f"{refs[footprint.component_id]}-{pad.number}", pad.net_id or NO_NET)
+        for footprint in parts.board.footprints
+        for pad in footprint.pads
+        if pad.number
+    )
+    return model_netlist(SimpleNamespace(circuit=circuit)), PadNetList("pcb", pads)  # type: ignore[arg-type]
+
+
+def test_nets_of_the_channels_agree_with_the_board() -> None:
+    """``H-A-IMP-RPT-NETS`` for channels of several sheet symbols: no pin of the repeated sheet is covered
+    by the schematic only, and none is on another net than its pad."""
+    options, sheets, document = _load(_sets()[CHANNEL_SET])
+    built, _ = _circuit(options, sheets)
+    pair = compare(*_elements(built, document))
+    channel_refs = {c.ref for c in built.circuit.components if c.id in built.repeated}
+    assert len(channel_refs) == len(built.repeated) == 84
+
+    def of_channel(element: str) -> bool:
+        return element.rpartition("-")[0] in channel_refs
+
+    only_schematic = [u.element for u in pair.only_a if of_channel(u.element)]
+    differing = [d.element for d in pair.differences if of_channel(d.element)]
+    pads_only = sum(of_channel(u.element) for u in pair.only_b)
+    print(
+        f"{CHANNEL_SET}: channel pins only in the schematic {len(only_schematic)}, on another net "
+        f"{len(differing)}; pads of channel components without a pin {pads_only}"
+    )
+    assert only_schematic == [] and differing == []
+
+
+@pytest.mark.parametrize("name", list(_sets()))
+def test_pin_map_never_uncovers_an_element(name: str) -> None:
+    """``H-A-IMP-PINMAP``: with the maps applied, no set has more elements on one side only, and no more
+    differences."""
+    items = _sets()[name]
+    if any(item.heavy for item in items) and not heavy_enabled():
+        pytest.skip(f"{name} holds a heavy corpus item: set FENOLITE_HEAVY=1 to include it")
+    options, sheets, document = _load(items)
+    built, issues = _circuit(options, sheets)
+    plain = compare(*_elements(built, document, mapped=False))
+    mapped = compare(*_elements(built, document))
+    pairs = sum(len(component.pin_pad_map) for component in built.circuit.components)
+    partial = sum(
+        key == "pin_pads"
+        for component in built.circuit.components
+        for key, _value in (component.ext["altium"].payload if component.ext else ())
+    )
+    print(
+        f"{name}: map pairs {pairs}, records kept in the bag {partial}; one side only "
+        f"{len(plain.only_a) + len(plain.only_b)} -> {len(mapped.only_a) + len(mapped.only_b)}, common "
+        f"{plain.common} -> {mapped.common}, differences {len(plain.differences)} -> "
+        f"{len(mapped.differences)}"
+    )
+    assert len(mapped.only_a) + len(mapped.only_b) <= len(plain.only_a) + len(plain.only_b)
+    assert len(mapped.differences) <= len(plain.differences) and mapped.common >= plain.common
+    assert bool(partial) == any(i.code == "altium.import.pin-map" for i in issues)
+    if name == CHANNEL_SET:
+        assert (mapped.common - plain.common, pairs, partial) == (6, 6, 2)

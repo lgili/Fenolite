@@ -246,13 +246,14 @@ written with its symbol's name as the comment, and the built model now stores th
 
 `fenolite check` on each public project set (c0043's "Altium project sets"), laid out as its project
 folder under pytest's temporary directory. The pair is (`schematic`, `pcb`) of
-`netlist.assignment_compare`; c0043's own comparison, which applies the pin-to-pad map of the sheets,
-judges the sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test.
+`netlist.assignment_compare`; c0043's own comparison, which gives a pin every pad of its map, judges the
+sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test. Since change c0083 the imported
+components carry the pin-to-pad map of their footprint model, one pad per pin, and this stage applies it.
 
 | set | documents | listed and missing | common | only schematic | only PCB | differences | floating pins | undriven power nets | No ERC marks | exit |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 |
-| `altium-set:02` | 15 | 2 | 688 | 13 | 37 | 2 | 20 | 12 | 5 | 5 |
+| `altium-set:02` | 15 | 2 | 694 | 7 | 31 | 2 | 20 | 12 | 5 | 5 |
 | `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 5 |
 | `altium-set:04` | 3 | 2 | 139 | 0 | 4 | 0 | 0 | 6 | 0 | 5 |
 | `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 5 |
@@ -262,16 +263,35 @@ judges the sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test
   `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
   reference is counted twelve times, which is a finding about the validation rule, not about channels; it waits for the follow-up that gives a component without a reference a finding of its own), which the check passes on unchanged. The container stages pass on every set: no
   `check.rta0-failed` and no `check.rta1-failed`.
-- `altium-set:02` shows 2 differing elements, 13 elements that only the schematic covers and 37 that
-  only the PCB document covers (measured on 2026-10-06, change c0083). Until then the row read 508
-  common, 26, 217 and 4: one sheet of the set is named by twelve sheet symbols, and the schematic
-  reading gave its 84 components the designators of the sheet, twelve times each, where the board
-  has one designator per channel. The schematic reading now names a channel's components with the
-  project's designator format, as the board does (`H-A-IMP-RPT-FORMAT`), which accounts for 180 of
-  the 217. What remains is the pin-to-pad map (below), two components whose designators the board
-  changed by hand, and the components of the PCB document that have no schematic component. It is the set that c0043 lists as a known difference
-  (`altium-import:known-diff`); this stage compares pin numbers with pad names without the pin-to-pad
-  map of the sheets, so its count is not c0043's. Its row was measured again on 2026-10-05 after the
+- `altium-set:02` shows 694 common elements, 2 differing, 7 that only the schematic covers and 31
+  that only the PCB document covers (measured again on 2026-10-06, change c0083, with the channels
+  named and the pin-to-pad map applied). The row read 508, 4, 26 and 217 before the change, and 688,
+  2, 13 and 37 after its first part: one sheet of the set is named by twelve sheet symbols, and the
+  schematic reading gave its 84 components the designators of the sheet, twelve times each, where
+  the board has one designator per channel. The schematic reading now names a channel's components
+  with the project's designator format, as the board does (`H-A-IMP-RPT-FORMAT`), which accounts for
+  180 of the 217. The pin-to-pad map (`H-A-IMP-PINMAP`) accounts for 6 more on each side: six pins of
+  one connector whose pads have names of their own. What remains, by cause:
+  - **7 only in the schematic and 7 only in the PCB document:** two components (2 and 5 pins) that
+    the board shows under another designator than their sheet; the comparison is by designator. The
+    project import links them by their unique-id path.
+  - **18 only in the PCB document:** pads that no pin of the sheets stands for (mounting and
+    thermal pads, and further pads of one pin whose map names none of them), the count c0043's
+    comparison reports as "pads without a pin".
+  - **4 only in the PCB document:** the further pads of two pins whose map lists several pads (two
+    and four). The model's map gives a pin one pad, so one pad of each is compared;
+    `altium.import.pin-map` counts the two records.
+  - **2 only in the PCB document:** the pads of the twelve components that the board holds without
+    a designator, which fall onto two elements.
+  - **2 differing:** two pins that are unwired on their sheet and carry a net in the PCB document,
+    the known difference of c0043.
+  None of these is a pin of the repeated sheet: of the pins of its 84 channel components none is on
+  one side only and none differs (`H-A-IMP-RPT-NETS`,
+  `tests/corpus/test_altium_channels.py::test_nets_of_the_channels_agree_with_the_board`). The other
+  four rows did not change with the map, set 01 included (measured with `FENOLITE_HEAVY=1`): their
+  sheets hold no map record that names another pad (set 01 holds 55 records with an empty pin,
+  which are left out). It is the set that c0043 lists as a known difference
+  (`altium-import:known-diff`); c0043's count is in groups of pads, not in elements. Its row was measured again on 2026-10-05 after the
   rebase onto c0045, which gives a board component the designator text the board shows: before that
   change the row read 528 common, 6, 30 and 17 differences. The other four rows did not change.
 - **`H-A-VER-ERC`** holds on the five sets: no `erc.lite.floating-pin` warning names a pin that

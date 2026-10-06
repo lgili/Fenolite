@@ -15,7 +15,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from fenolite.backends.altium.adapter.channels import channel_designator, fallback
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import Ids, bag
@@ -27,7 +26,7 @@ from fenolite.backends.altium.adapter.netlist import (
     natural,
     resolve,
 )
-from fenolite.backends.altium.adapter.parts import locator
+from fenolite.backends.altium.adapter.parts import PartGroup, locator
 from fenolite.backends.altium.adapter.pins import pin_etype
 from fenolite.core.errors import Issue
 from fenolite.model.circuit import Bus, BusMember, Circuit, Component, Interface, Module, Net, Pin, PinRef
@@ -48,6 +47,43 @@ class CircuitImport:
     channel_sources: dict[str, int] = field(default_factory=lambda: {})
     """How many channel components took their designator from each source: ``format`` (the project's
     designator format) or ``unresolved`` (``<designator>@<channel>``); ``project.link`` adds ``board``."""
+    unlinkable: dict[str, str] = field(default_factory=lambda: {})
+    """Per component of a ``Repeat`` channel, its id and the designator of its sheet: no unique-id path
+    is recorded for such a component, so a board links to it by designator only."""
+
+
+def pin_pad_map(group: PartGroup) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...], int]:
+    """The pin-to-pad map of a component as the model holds it, one pad per pin, with what it cannot hold.
+
+    A map record names the pads of one pin (``docs/formats/altium/connectivity.md``, "Component link").
+    The model's map gives a pin one pad and a pad one pin, so: a pin whose pads include its own designator
+    keeps it; another pin takes the first pad listed; a pin whose pad another pin already stands for, and
+    a pin mapped to no pad, keep their own designator. Returns the pairs, every record that the pairs do
+    not say in full as ``(pin, pads joined by a comma)``, and the count of those records."""
+    pins = [pin.designator for pin in group.pins]
+    wanted: dict[str, str] = {}
+    kept: list[tuple[str, str]] = []
+    for pin, pads in group.pin_pads:
+        if pin not in pins:
+            continue
+        if len(pads) != 1:
+            kept.append((pin, ",".join(pads)))
+        if pads and pin not in pads:
+            wanted[pin] = pads[0]
+    taken = {pin for pin in pins if pin not in wanted}
+    pairs: list[tuple[str, str]] = []
+    for pin in pins:
+        pad = wanted.get(pin)
+        if pad is None:
+            continue
+        if pad in taken:
+            taken.add(pin)
+            if (pin, pad) not in kept:
+                kept.append((pin, pad))
+            continue
+        taken.add(pad)
+        pairs.append((pin, pad))
+    return tuple(pairs), tuple(kept), len(kept)
 
 
 def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitImport:
@@ -60,9 +96,12 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
     by_native: dict[str, str] = {}
     by_path: dict[str, str] = {}
     repeated: set[str] = set()
+    unlinkable: dict[str, str] = {}
     of_instance: dict[int, list[Component]] = {}
     options = resolved.options
-    sources: dict[str, int] = {}
+    sources = dict(resolved.channel_sources)
+    maps: dict[tuple[int, int], tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...], int]] = {}
+    partial = 0
     for instance in instances:
         sheet = sheets[instance.sheet]
         file, sha256 = sheet.input.file, sheet.input.sha256
@@ -70,23 +109,21 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
             native = resolved.component_ids[(instance.index, number)]
             ident, native_ids = ids.native("cmp", native)
             by_native.setdefault(native, ident)
-            prefix = "".join(f"\\{uid}" for uid in instance.uids)
-            for unique in group.unique_ids:
-                by_path.setdefault(f"{prefix}\\{unique}", ident)
-            ref = group.ref
+            if instance.repeated:
+                # the unique-id path of a component of a Repeat channel has no recorded form
+                unlinkable[ident] = group.ref
+            else:
+                prefix = "".join(f"\\{uid}" for uid in instance.uids)
+                for unique in group.unique_ids:
+                    by_path.setdefault(f"{prefix}\\{unique}", ident)
+            ref = resolved.refs.get((instance.index, number), group.ref)
             if counts[instance.sheet] > 1:
                 repeated.add(ident)
-                # a channel: the component is named by the project's designator format
-                named = channel_designator(
-                    options.channel_format, group.ref, instance.names,
-                    style=options.room_style, separator=options.room_separator,
-                )  # fmt: skip
-                if named is not None:
-                    ref = named
-                    sources["format"] = sources.get("format", 0) + 1
-                elif group.ref and (options.channel_format or options.room_style is not None):
-                    ref = fallback(group.ref, instance.names)
-                    sources["unresolved"] = sources.get("unresolved", 0) + 1
+            key = (instance.sheet, number)
+            if key not in maps:
+                maps[key] = pin_pad_map(group)
+            pad_map, kept, count = maps[key]
+            partial += count
             if not group.has_designator:
                 issues.append(
                     issue(
@@ -115,6 +152,7 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
                 extra.append(("component_kind", str(group.first.component_kind)))
             if len(group.unique_ids) > 1:
                 extra.append(("part_ids", ",".join(group.unique_ids)))
+            extra += [("pin_pads", f"{pin}={pads}") for pin, pads in kept]
             component = Component(
                 id=ident,
                 native_ids=native_ids,
@@ -127,6 +165,7 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
                 properties=dict(group.properties),
                 path="/".join((*instance.names, ref)),
                 pins=tuple(pins),
+                pin_pad_map=pad_map,
             )
             components.append(component)
             of_instance.setdefault(instance.index, []).append(component)
@@ -158,11 +197,17 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
         ident, native_ids = ids.native("mod", native)
         module_ids[instance.index] = ident
         owned = sorted(of_instance.get(instance.index, []), key=lambda c: (natural(c.ref), c.id))
+        channel: list[tuple[str, str]] = []
+        if instance.indexes[-1] is not None:
+            index = instance.indexes[-1]
+            symbol = instance.uids[-1].removesuffix(f"[{index}]")
+            channel = [("sheet_symbol", symbol), ("channel_index", str(index))]
         modules.append(
             Module(
                 id=ident,
                 native_ids=native_ids,
                 provenance=ids.provenance(sheet.input.file, sheet.input.sha256, "FileHeader#0"),
+                ext=bag(channel),
                 path="/".join(instance.names),
                 parent=module_ids.get(instance.parent),
                 component_ids=tuple(component.id for component in owned),
@@ -215,7 +260,17 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
                 sheets[instances[0].sheet].input.file if instances else "",
             )
         )
-    return CircuitImport(circuit, resolved, by_path, repeated, sources)
+    if partial:
+        issues.append(
+            issue(
+                "altium.import.pin-map",
+                f"{partial} pin map record(s) name several pads, no pad, or a pad that another pin holds: "
+                "the model gives a pin one pad, so the comparison takes one pad for such a pin; the record "
+                "is kept in the component's altium bag (pin_pads)",
+                sheets[instances[0].sheet].input.file if instances else "",
+            )
+        )
+    return CircuitImport(circuit, resolved, by_path, repeated, sources, unlinkable)
 
 
 def import_circuit(
@@ -232,4 +287,4 @@ def import_circuit(
     return build_circuit(resolved, Ids(KIND, EVIDENCE), found).circuit
 
 
-__all__ = ["KIND", "CircuitImport", "build_circuit", "import_circuit"]
+__all__ = ["KIND", "CircuitImport", "build_circuit", "import_circuit", "pin_pad_map"]

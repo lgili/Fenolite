@@ -19,6 +19,7 @@ from pathlib import PureWindowsPath
 from typing import Literal
 
 from fenolite.backends.altium.adapter import connectivity as geo
+from fenolite.backends.altium.adapter.channels import channel_designator, fallback
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.connectivity import Ident, LocalNet, Union, bus_range
 from fenolite.backends.altium.adapter.parts import PartGroup, locator, part_groups
@@ -38,7 +39,43 @@ Scope = Literal["automatic", "flat", "hierarchical", "strict_hierarchical", "glo
 SCOPES: tuple[Scope, ...] = ("automatic", "flat", "hierarchical", "strict_hierarchical", "global")
 HIERARCHICAL: tuple[str, ...] = ("hierarchical", "strict_hierarchical")
 REPEAT = "repeat("
+MAX_CHANNELS = 256
+"""The most sheet instances a project may reach through ``Repeat`` statements; a statement that would pass
+it is read as one instance (``altium.import.repeated-sheet``)."""
 _DIGITS = re.compile(r"(\d+)")
+_REPEAT = re.compile(r"\s*repeat\s*\(\s*([^,()]*?)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*", re.IGNORECASE)
+_REPEAT_ENTRY = re.compile(r"\s*repeat\s*\(\s*([^,()]*?)\s*\)\s*", re.IGNORECASE)
+
+
+@dataclass(frozen=True, slots=True)
+class Repeat:
+    """A ``Repeat(NAME, first, last)`` statement of a sheet symbol's designator: the channel identifier
+    and the first and the last channel index."""
+
+    name: str
+    first: int
+    last: int
+
+    @property
+    def count(self) -> int:
+        """The number of channels; zero or less for reversed bounds."""
+        return self.last - self.first + 1
+
+
+def parse_repeat(text: str) -> Repeat | None:
+    """The statement of a sheet symbol designator of the form ``Repeat(NAME, a, b)`` (the keyword in any
+    letter case, ``a`` and ``b`` unsigned integers, ``NAME`` not empty); ``None`` for any other text. The
+    bounds are not judged here: ``Repeat(CH, 2, 1)`` parses, and the import reads it as one instance."""
+    match = _REPEAT.fullmatch(text)
+    if match is None or not match.group(1):
+        return None
+    return Repeat(match.group(1), int(match.group(2)), int(match.group(3)))
+
+
+def repeat_entry(text: str) -> str | None:
+    """``NAME`` of a sheet entry named ``Repeat(NAME)``; ``None`` for any other text."""
+    match = _REPEAT_ENTRY.fullmatch(text)
+    return match.group(1) if match is not None and match.group(1) else None
 
 
 def natural(text: str) -> tuple[tuple[int, int | str], ...]:
@@ -171,6 +208,8 @@ class SymbolInfo:
     name: str
     files: tuple[str, ...]
     repeat: bool
+    statement: Repeat | None = None
+    """The parsed ``Repeat`` statement of the designator; ``None`` without one or when it does not parse."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,6 +256,9 @@ class SheetData:
     harness_entries: tuple[tuple[int, str, str, int, str], ...] = ()
     """Record index, name, harness type, owner symbol index and locator of each such sheet entry."""
     nested: tuple[str, ...] = ()
+    repeat_entries: tuple[tuple[int, str, str, int], ...] = ()
+    """Per sheet entry named ``Repeat(NAME)``: the record index of its sheet symbol, ``NAME``, its locator
+    and the group of the bus line it lies on (``-1`` on none)."""
     harness_labels: tuple[tuple[tuple[str, int], str], ...] = ()
     """Per name that a harness of this sheet goes by (the net label on its line, the name of its port or
     of its sheet entry): the harness node (without the instance) and the name."""
@@ -231,7 +273,12 @@ class SheetData:
 class Instance:
     """One instance of a sheet in the hierarchy: ``uids`` are the unique ids of the sheet symbols from the
     top, ``names`` their designators (the module path), ``symbol`` the record index of its sheet symbol in
-    the parent's sheet."""
+    the parent's sheet.
+
+    A channel of a ``Repeat`` statement has the channel identifier in ``prefixes`` and its channel index in
+    ``indexes`` (``None`` at the levels of plain sheet symbols); its name is ``<identifier>[<index>]`` and
+    its entry of ``uids`` is ``<unique id>[<index>]``, a form of this import (the statement has one unique
+    id for all its channels). ``position`` counts its channel from 0 among those of its statement."""
 
     index: int
     sheet: int
@@ -239,10 +286,27 @@ class Instance:
     symbol: int
     uids: tuple[str, ...]
     names: tuple[str, ...]
+    prefixes: tuple[str, ...] = ()
+    indexes: tuple[int | None, ...] = ()
+    position: int | None = None
 
     @property
     def depth(self) -> int:
         return len(self.names)
+
+    @property
+    def repeated(self) -> bool:
+        """Whether a ``Repeat`` statement lies on the path of this instance."""
+        return any(index is not None for index in self.indexes)
+
+    @property
+    def labels(self) -> tuple[str, ...]:
+        """The channel names from the top: the sheet symbol's designator, or the channel identifier
+        followed by the index (``CH1``)."""
+        return tuple(
+            prefix if index is None else f"{prefix}{index}"
+            for prefix, index in zip(self.prefixes, self.indexes, strict=True)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,6 +332,11 @@ class Resolved:
     """(instance index, component index in the sheet) → component native id."""
     options: NetOptions = DEFAULT_OPTIONS
     """The options the netlist was computed under; the circuit names channels with them."""
+    refs: dict[tuple[int, int], str] = field(default_factory=lambda: {})
+    """(instance index, component index in the sheet) → the component's reference: the designator of the
+    sheet, or the channel designator on a sheet instantiated more than once."""
+    channel_sources: dict[str, int] = field(default_factory=lambda: {})
+    """How many channel components are named by the ``format`` and how many are ``unresolved``."""
 
 
 def _symbols(document: SchDocument) -> tuple[SymbolInfo, ...]:
@@ -278,7 +347,7 @@ def _symbols(document: SchDocument) -> tuple[SymbolInfo, ...]:
         files = [k.text for k in kids if isinstance(k, SheetFileName)]
         listed = tuple(part.strip() for part in (files[0] if files else "").split(";") if part.strip())
         name = names[0] if names and names[0] else (PureWindowsPath(listed[0]).stem if listed else "")
-        found.append(SymbolInfo(record, name, listed, REPEAT in name.casefold()))
+        found.append(SymbolInfo(record, name, listed, REPEAT in name.casefold(), parse_repeat(name)))
     return tuple(found)
 
 
@@ -305,6 +374,21 @@ def _bus_idents(document: SchDocument) -> tuple[BusIdent, ...]:
         owner = document.owner_of(entry)
         if point is not None and owner is not None:
             add("entry", entry.name, entry.ref.index, locator(entry), [point], owner.ref.index)
+    return tuple(found)
+
+
+def _repeat_entries(document: SchDocument) -> tuple[tuple[int, str, str, int], ...]:
+    buses = geo.bus_lines(document)
+    groups = buses.groups()
+    found: list[tuple[int, str, str, int]] = []
+    for entry in document.of_type(SheetEntry):
+        name = repeat_entry(entry.name)
+        owner = document.owner_of(entry)
+        if name is None or owner is None:
+            continue
+        point = geo.entry_point(document, entry)
+        lines = buses.at(point) if point is not None else []
+        found.append((owner.ref.index, name, locator(entry), groups[lines[0]] if lines else -1))
     return tuple(found)
 
 
@@ -392,6 +476,7 @@ def sheet_data(sheet: SheetInput) -> SheetData:
             if ident.kind == "label":
                 data.labels.setdefault(ident.text.casefold(), number)
     data.bus_idents = _bus_idents(document)
+    data.repeat_entries = _repeat_entries(document)
     _harness(document, data)
     return data
 
@@ -429,25 +514,59 @@ def _instances(sheets: Sequence[SheetData], issues: list[Issue]) -> tuple[list[I
                 )
             )
     instances: list[Instance] = []
+    said: set[tuple[int, int]] = set()
 
-    def descend(sheet: int, parent: int | None, symbol: int, uids: tuple[str, ...], names: tuple[str, ...],
-                chain: tuple[int, ...]) -> None:  # fmt: skip
-        me = len(instances)
-        instances.append(Instance(me, sheet, parent, symbol, uids, names))
-        seen: dict[str, int] = {}
-        for info in sheets[sheet].symbols:
-            where = f"{sheets[sheet].input.file}:{locator(info.record)}"
-            if info.repeat:
+    def channels(info: SymbolInfo, sheet: int, where: str) -> list[tuple[str, str, int | None, int | None]]:
+        """The instances a sheet symbol stands for, each as (name suffix, unique-id suffix, channel index,
+        position): one without a ``Repeat`` statement, and one for a statement that is not instantiated."""
+        if not info.repeat:
+            return [("", "", None, None)]
+        statement = info.statement
+        key = (sheet, info.record.ref.index)
+        if statement is None:
+            reason = "it has not the form Repeat(NAME, first, last)"
+        elif statement.count < 1:
+            reason = f"its first index {statement.first} is above its last index {statement.last}"
+        elif len(instances) + statement.count > MAX_CHANNELS:
+            reason = f"its {statement.count} channels would bring the project above {MAX_CHANNELS} instances"
+        else:
+            if key not in said:
+                said.add(key)
                 issues.append(
                     issue(
-                        "altium.import.repeated-sheet",
-                        "the sheet symbol's designator holds a Repeat statement: one instance is read",
+                        "altium.import.channels",
+                        f"the sheet symbol {statement.name} holds a Repeat statement: its sheet is "
+                        f"instantiated {statement.count} times, once per channel "
+                        f"{statement.first} to {statement.last}",
                         where,
                     )
                 )
-            count = seen.get(info.name, 0) + 1
-            seen[info.name] = count
-            name = info.name
+            return [
+                (f"[{index}]", f"[{index}]", index, position)
+                for position, index in enumerate(range(statement.first, statement.last + 1))
+            ]
+        if key not in said:
+            said.add(key)
+            issues.append(
+                issue(
+                    "altium.import.repeated-sheet",
+                    f"the Repeat statement of the sheet symbol {statement.name if statement else info.name} "
+                    f"is not instantiated: {reason}; one instance is read",
+                    where,
+                )
+            )
+        return [("", "", None, None)]
+
+    def descend(me: int, chain: tuple[int, ...]) -> None:
+        mine = instances[me]
+        sheet = mine.sheet
+        seen: dict[str, int] = {}
+        for info in sheets[sheet].symbols:
+            where = f"{sheets[sheet].input.file}:{locator(info.record)}"
+            base = info.statement.name if info.statement is not None else info.name
+            count = seen.get(base, 0) + 1
+            seen[base] = count
+            name = base
             if count > 1:
                 issues.append(
                     issue(
@@ -456,7 +575,8 @@ def _instances(sheets: Sequence[SheetData], issues: list[Issue]) -> tuple[list[I
                         where,
                     )
                 )
-                name = f"{info.name}#{count}"
+                name = f"{base}#{count}"
+            listed = channels(info, sheet, where)
             for file in info.files:
                 child = by_name.get(PureWindowsPath(file).name.casefold())
                 if child is None:
@@ -478,14 +598,59 @@ def _instances(sheets: Sequence[SheetData], issues: list[Issue]) -> tuple[list[I
                         )
                     )
                     continue
-                descend(
-                    child, me, info.record.ref.index, (*uids, info.record.unique_id), (*names, name),
-                    (*chain, sheet),
-                )  # fmt: skip
+                for suffix, uid_suffix, index, position in listed:
+                    made = len(instances)
+                    instances.append(
+                        Instance(
+                            made, child, me, info.record.ref.index,
+                            (*mine.uids, info.record.unique_id + uid_suffix),
+                            (*mine.names, name + suffix),
+                            (*mine.prefixes, name),
+                            (*mine.indexes, index),
+                            position,
+                        )
+                    )  # fmt: skip
+                    descend(made, (*chain, sheet))
 
     for top in tops:
-        descend(top, None, -1, (), (), ())
+        instances.append(Instance(len(instances), top, None, -1, (), ()))
+        descend(len(instances) - 1, ())
     return instances, tops
+
+
+def channel_name(text: str, instance: Instance, options: NetOptions) -> str | None:
+    """``text`` (a designator or a net name) as the channel ``instance`` names it under the project's
+    designator format; ``None`` when the format cannot be applied (``channels.channel_designator``)."""
+    return channel_designator(
+        options.channel_format, text, instance.prefixes, indexes=instance.indexes,
+        style=options.room_style, separator=options.room_separator,
+    )  # fmt: skip
+
+
+def _references(
+    sheets: Sequence[SheetData], instances: Sequence[Instance], options: NetOptions
+) -> tuple[dict[tuple[int, int], str], dict[str, int], set[int]]:
+    """The reference of every component, the count of channel components per designator source, and the
+    instances that are channels (their sheet is instantiated more than once)."""
+    counts: dict[int, int] = {}
+    for instance in instances:
+        counts[instance.sheet] = counts.get(instance.sheet, 0) + 1
+    refs: dict[tuple[int, int], str] = {}
+    sources: dict[str, int] = {}
+    channels = {instance.index for instance in instances if counts[instance.sheet] > 1}
+    for instance in instances:
+        for number, group in enumerate(sheets[instance.sheet].groups):
+            ref = group.ref
+            if instance.index in channels:
+                named = channel_name(group.ref, instance, options)
+                if named is not None:
+                    ref = named
+                    sources["format"] = sources.get("format", 0) + 1
+                elif group.ref and (options.channel_format or options.room_style is not None):
+                    ref = fallback(group.ref, instance.labels)
+                    sources["unresolved"] = sources.get("unresolved", 0) + 1
+            refs[(instance.index, number)] = ref
+    return refs, sources, channels
 
 
 # --- the netlist ----------------------------------------------------------------------------------------
@@ -503,8 +668,10 @@ def _candidates(
             continue
         if ident.kind == "port" and not options.allow_port_names:
             continue
-        if ident.kind == "entry" and not options.allow_sheet_entry_names:
-            continue
+        if ident.kind == "entry" and (
+            not options.allow_sheet_entry_names or repeat_entry(ident.text) is not None
+        ):
+            continue  # ``Repeat(NAME)`` is a statement, never a net name
         rank = _KIND_RANK[ident.kind]
         if options.power_port_names_first and ident.kind in ("label", "power"):
             rank = 1 - rank
@@ -590,6 +757,9 @@ def resolve(
     # --- buses ---
     bus_union = Union()
     width_warned: set[tuple[int, int]] = set()
+    short: dict[tuple[int, str], tuple[str, BusIdent | None, int]] = {}
+    """Per repeated sheet entry (parent instance, locator) that its parent cannot serve: the name, the bus
+    found and the count of channels left without a member."""
 
     def join_members(a: tuple[int, BusIdent], b: tuple[int, BusIdent]) -> None:
         (ia, first), (ib, second) = a, b
@@ -634,12 +804,48 @@ def resolve(
                         and entry.text.casefold() == port.text.casefold()
                     ):
                         join_members((instance.index, port), (instance.parent, entry))
+            if instance.position is not None:
+                for owner, name, entry_where, group in above.repeat_entries:
+                    if owner != instance.symbol:
+                        continue
+                    offered = [
+                        ident
+                        for ident in above.bus_idents
+                        if ident.kind == "label" and ident.name.casefold() == name.casefold()
+                    ]
+                    offered.sort(key=lambda ident: (ident.group != group, ident.index))
+                    bus = offered[0] if offered else None
+                    if bus is None or instance.position >= len(bus.indexes):
+                        short.setdefault((instance.parent, entry_where), (name, bus, 0))
+                        short[(instance.parent, entry_where)] = (
+                            name, bus, short[(instance.parent, entry_where)][2] + 1
+                        )  # fmt: skip
+                        continue
+                    member = ("bm", instance.parent, bus.kind, bus.index, instance.position)
+                    for number, net in enumerate(sheet.nets):
+                        if any(port.text.casefold() == name.casefold() for port in net.of("port")):
+                            union.join(("n", instance.index, number), member)
         elif not hierarchical:
             for port in ports:
                 key = ("busport", port.text.casefold())
                 for k in range(len(port.indexes)):
                     union.join(("bm", instance.index, "port", port.index, k), (*key, k))
                 bus_union.join(("bg", instance.index, port.group), key)
+
+    for (parent_index, entry_where), (name, bus, count) in sorted(short.items(), key=lambda item: item[0]):
+        offers = (
+            f"the bus {bus.text} offers {len(bus.indexes)} member(s)"
+            if bus is not None
+            else f"the parent sheet holds no bus named {name}"
+        )
+        found.append(
+            issue(
+                "altium.import.channel-naming",
+                f"the sheet entry Repeat({name}): {offers}; {count} channel(s) get no net of the parent "
+                "through it",
+                f"{data[instances[parent_index].sheet].input.file}:{entry_where}",
+            )
+        )
 
     # --- harnesses ---
     harness = Union()
@@ -730,9 +936,11 @@ def resolve(
             components[(instance.index, number)] = "cmp:" + "".join(
                 f"\\{uid}" for uid in (*instance.uids, tail)
             )
+    references, channel_sources, channel_instances = _references(data, instances, options)
     pins: dict[Hashable, set[PinKey]] = {}
     idents: dict[Hashable, list[tuple[Ident, int]]] = {}
     firsts: dict[Hashable, list[tuple[int, int, str]]] = {}
+    owners: dict[Hashable, set[int]] = {}
     refs: dict[PinKey, str] = {}
     open_pins: list[PinKey] = []
     for instance in instances:
@@ -740,12 +948,14 @@ def resolve(
         for number, net in enumerate(sheet.nets):
             keys = [PinKey(components[(instance.index, pin.group)], pin.designator) for pin in net.pins]
             for key, pin in zip(keys, net.pins, strict=True):
-                refs[key] = sheet.groups[pin.group].ref
+                refs[key] = references[(instance.index, pin.group)]
             if net.no_connect:
                 open_pins += keys
                 continue
             root = union.find(("n", instance.index, number))
             pins.setdefault(root, set()).update(keys)
+            if net.pins or net.idents:
+                owners.setdefault(root, set()).add(instance.index)
             idents.setdefault(root, []).extend((ident, instance.depth) for ident in net.idents)
             firsts.setdefault(root, []).extend(
                 (instance.index, k, where) for k, where in enumerate(net.locators)
@@ -761,6 +971,15 @@ def resolve(
         net_pins = tuple(sorted(pins[root]))
         if candidates:
             name = candidates[0][1]
+            held = owners.get(root, set())
+            if len(held) == 1 and held <= channel_instances:
+                # a net that its channel does not export: the designator format names it, as it names
+                # the channel's components (only a net label is renamed)
+                (only,) = held
+                labelled = any(i.kind == "label" and i.text == name for i, _depth in idents.get(root, []))
+                renamed = channel_name(name, instances[only], options) if labelled else None
+                if renamed is not None:
+                    name = renamed
         elif root in fallbacks and net_pins:
             name = fallbacks[root]
         elif len(net_pins) > 1:
@@ -888,7 +1107,7 @@ def resolve(
         buses=tuple(sorted(buses, key=lambda bus: (bus.name, bus.label, bus.file, bus.locator))),
         harnesses=tuple(sorted(harnesses, key=lambda h: (h.type, h.file, h.locator))),
     )
-    return Resolved(result, data, instances, resolved, components, options)
+    return Resolved(result, data, instances, resolved, components, options, references, channel_sources)
 
 
 def netlist(
@@ -901,6 +1120,7 @@ def netlist(
 
 
 __all__ = [
+    "MAX_CHANNELS",
     "BusGroup",
     "HarnessGroup",
     "Instance",
@@ -908,6 +1128,7 @@ __all__ = [
     "NetOptions",
     "Netlist",
     "PinKey",
+    "Repeat",
     "Resolved",
     "ResolvedNet",
     "Scope",
@@ -915,6 +1136,8 @@ __all__ = [
     "choose_scope",
     "natural",
     "netlist",
+    "parse_repeat",
+    "repeat_entry",
     "resolve",
     "sheet_data",
 ]

@@ -95,10 +95,13 @@ and from the net identifier scope of the project.
 |---|---|---|---|
 | A PCB component's `SOURCEUNIQUEID` is `\<sheet symbol id>…\<component id>`: the unique ids of the sheet symbols from the top sheet, then the unique id of one part of the schematic component. All 879 components of the five sets link by that path, none by designator, through one and two levels and through a sheet instantiated twelve times | S-0164, sets of S-0187, S-0188, S-0174, S-0176, S-0175 (files kept outside the repository) | CORPUS-VERIFIED (5 sets of 5 repositories; 2026-10-05) | H-A-IMP-LINK |
 | A footprint model maps a pin to its pads (records 46 and 47): 111 map records of two sets name a pad other than the pin's designator or several pads. The comparison of the sets applies the map; the model's components do not carry it yet | S-0130, S-0187, S-0188 | INFERRED | H-A-IMP-LINK |
+| The map of the current footprint model of a component is carried by the imported component (change c0083): a record whose `DESINTF` is the designator of a pin and whose one `DESIMP` names another pad gives the pair (pin, pad) of `Component.pin_pad_map`, and the comparisons name the pin by that pad. In the one set with such records, 5 records of one component name one other pad each and the board's pads carry those names; a sixth pin of it lists four pads | S-0130, set of S-0188 (files kept outside the repository) | INFERRED | H-A-IMP-PINMAP |
+| A record that lists several pads, no pad, or a pad that another pin already stands for cannot be said by a map of one pad per pin: the pin keeps its own designator when the record lists it, else it takes the first pad listed, and the whole record is kept in the component's bag (`pin_pads`); `altium.import.pin-map` counts them (2 in the set of S-0188: pins that list two and four pads). A record whose `DESINTF` names no pin of the component is left out: 55 records of the set of S-0187 have an empty `DESINTF` and one `DESIMP` of the text `null` | S-0130, sets of S-0187, S-0188 | INFERRED | H-A-IMP-PINMAP |
 
 ## Channels
 
-A sheet that several sheet symbols name is one channel per symbol (change c0083).
+A sheet that several sheet symbols name is one channel per symbol, and a sheet symbol whose designator
+is a `Repeat` statement is one channel per index (change c0083).
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
@@ -106,18 +109,43 @@ A sheet that several sheet symbols name is one channel per symbol (change c0083)
 | The project file's `[Design]` holds `ChannelDesignatorFormatString`, `ChannelRoomNamingStyle` and `ChannelRoomLevelSeperator` (spelled so). With `$Component_$RoomName`, style `0` and separator `_`, the 84 channel components of the set are named `<designator>_<designator of the channel's sheet symbol>`, as its board names them | S-0452, set of S-0188 | CORPUS-VERIFIED (1 set; 2026-10-06) | H-A-IMP-RPT-FORMAT |
 | A designator format is text with the keywords `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$RoomName`, `$ChannelPrefix`, `$ChannelIndex` and `$ChannelAlpha`; eight formats are predefined. Two room naming styles are flat (the room is named by the channel alone) and three join the sheet symbols of the path with the level separator | S-0452 | INFERRED | H-A-IMP-RPT-FORMAT |
 | The numbers `0` and `1` of `ChannelRoomNamingStyle` are the two flat styles and `2` to `4` the three path styles, in the order the documentation lists them | S-0452 (order of the page), set of S-0188 (style `0` only) | INFERRED | H-A-IMP-RPT-FORMAT |
+| A sheet symbol whose designator is `Repeat(<channel identifier>, <first index>, <last index>)` stands for one channel of its sheet per index from the first to the last; the last index is above the first, no index is negative, and the first may be any number, 0 included. No public file of the corpus holds such a statement: the import reads it from the designator text of the sheet symbol (record 32), where a sheet symbol's designator is | S-0520 | INFERRED | H-A-IMP-RPT-COUNT |
+| A sheet entry named `Repeat(<NAME>)` connects each channel to one member of the bus `<NAME>` of the parent sheet: the first channel to the first member, the second to the second, and so on; a sheet entry of any other name is one net for all channels | S-0520 | INFERRED | H-A-IMP-RPT-NETS |
+| `$ChannelPrefix` is the designator of the sheet symbol, for a `Repeat` statement its channel identifier; `$ChannelIndex` is the channel index; `$ChannelAlpha` is the channel index "expressed as a character"; a channel of a `Repeat` statement is named by the identifier followed by the index (`CIN1`). The page reads the character as `A` for 1 to `Z` for 26, a choice of this page; no source gives a character to another index | S-0520 | INFERRED | H-A-IMP-RPT-FORMAT |
+| The five room naming styles are, in the order of the documentation, flat numeric with names, flat alpha with names, numeric name path, alpha name path and mixed name path; a path style joins the channel names of every sheet symbol of the path (identifier and index). The page takes "numeric" as the index written as a number and "alpha" as the character of `$ChannelAlpha`; what the mixed style writes for a `Repeat` channel is `UNKNOWN` | S-0452, S-0520 | INFERRED | H-A-IMP-RPT-FORMAT |
+| A net without an identifier that lies inside one channel takes its system name from the channel's designator, `Net<channel designator>_<pin>`: the board of the set names its 24 such nets so (`NetD9_11_A`) | S-0185, set of S-0188 (files kept outside the repository) | CORPUS-VERIFIED (1 set; 2026-10-06) | H-A-IMP-RPT-NETS |
+| The designator format also names the nets inside a channel. That a net label local to a channel is renamed by the format as a designator is (`MID_CH1`) is the reading of this page: no file of the corpus holds such a label | S-0520 | INFERRED | H-A-IMP-RPT-NETS |
+| The documentation writes the unique-id path of a board component as `\SheetSymbolUID\SchComponentUID` for several sheet symbols and as `\ChannelIndex+SheetSymbolUID\SchComponentUID` for a `Repeat` statement, without an example. How the index and the unique id are joined is `UNKNOWN`: no public file shows such a path | S-0520 | UNKNOWN | H-A-IMP-RPT-COUNT |
 
 - **What the import resolves.** `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$ChannelPrefix` (the
-  designator of the channel's sheet symbol) and `$RoomName`. `$ChannelIndex` and `$ChannelAlpha` need the
-  index of a `Repeat` statement, which a plain sheet symbol does not have: a format with one of them, a
-  `$` that starts no keyword, and a style outside `0` to `4` are not guessed
-  (`altium.import.channel-naming`, names `<designator>@<channel>`).
+  designator of the channel's sheet symbol, the channel identifier of a `Repeat` statement) and
+  `$RoomName`; for a channel of a `Repeat` statement also `$ChannelIndex` and `$ChannelAlpha` (indexes 1
+  to 26). A plain sheet symbol has no index: there a format with one of the two, like a `$` that starts no
+  keyword and a style outside `0` to `4`, is not guessed (`altium.import.channel-naming`, names
+  `<designator>@<channel>`). Neither is, for a `Repeat` channel: the mixed style, a flat style under a
+  `Repeat` statement higher up (two rooms would get one name), and a format without `$RoomName`,
+  `$ChannelIndex` and `$ChannelAlpha` (two channels would get one designator).
+- **Ids of a `Repeat` channel.** A `Repeat` statement has one unique id for all its channels. The import
+  names channel `i` of the sheet symbol `<uid>` by `<uid>[<i>]` in its native ids
+  (`cmp:\<uid>[<i>]\<component uid>`, `module:\<uid>[<i>]`), a form of this import and not Altium's; the
+  module is named `<identifier>[<i>]` and its bag holds `sheet_symbol` and `channel_index`.
+- **Board link of a `Repeat` channel.** No path is tried: the form is `UNKNOWN` (row above). A board
+  component links to a component of a `Repeat` channel only when its own designator is the channel
+  designator of the format and its `SOURCEDESIGNATOR` the designator of the sheet
+  (`altium.import.linked-by-designator`); the components left without a board component are counted by
+  `altium.import.channel-naming`.
+- **Nets of a `Repeat` channel.** A sheet entry `Repeat(NAME)` joins the port `NAME` of channel `k`
+  (counted from 0) to member `k`, in identifier order, of the bus identifier `NAME[a..b]` of the parent
+  sheet: the one on the bus line the entry lies on, else another net label of that bus name. A missing bus
+  and a bus with fewer members than channels give `altium.import.channel-naming`. The statement never
+  names a net.
 - **Order of sources.** The board first (`project.link`), then the format. The annotation file of a
   project is not read: the one annotation file that a corpus project lists (set of S-0188) is empty at
   the registered commit (0 bytes, measured on 2026-10-06), so the form of such a file is `UNKNOWN`. An
   absent or empty one changes nothing.
-- **Not instantiated.** A `Repeat(…)` statement in a sheet symbol's designator still gives one instance
-  (`altium.import.repeated-sheet`).
+- **Not instantiated.** A `Repeat(…)` statement that has not the form above, whose first index is above
+  its last, or whose channels would bring the project above 256 sheet instances (`MAX_CHANNELS`, a bound of
+  this import) gives one instance (`altium.import.repeated-sheet`).
 
 ## Result per project set
 
@@ -129,7 +157,7 @@ its pads through the pin-to-pad map of its footprint model.
 | set | project row | sheets (instances) | scope | nets (PCB document) | linked by path | by designator | equal by members | also by name | differing groups | pads without a pin | result |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `altium-set:01` | `altium-third-party-prjpcb-01` (S-0187) | 18 (18) | hierarchical | 447 (427) | 540 | 0 | 427 | 425 | 0 | 40 | agrees |
-| `altium-set:02` | `altium-third-party-prjpcb-02` (S-0188) | 13 (24) | hierarchical | 163 (158) | 248 | 0 | 156 | 92 | 6 | 18 | known difference |
+| `altium-set:02` | `altium-third-party-prjpcb-02` (S-0188) | 13 (24) | hierarchical | 163 (158) | 248 | 0 | 156 | 116 | 6 | 18 | known difference |
 | `altium-set:03` | `altium-third-party-prjpcb-04` (S-0174) | 1 (1) | global | 30 (30) | 23 | 0 | 30 | 30 | 0 | 0 | agrees |
 | `altium-set:04` | `altium-third-party-prjpcb-05` (S-0176) | 1 (1) | global | 34 (34) | 41 | 0 | 34 | 34 | 0 | 4 | agrees |
 | `altium-set:05` | `altium-third-party-prjpcb-06` (S-0175) | 4 (4) | flat | 18 (18) | 27 | 0 | 18 | 18 | 0 | 0 | agrees |
@@ -145,7 +173,9 @@ its pads through the pin-to-pad map of its footprint model.
 - **Names.** In the four sets that agree, 507 of 509 nets of the PCB document have the name the import
   gives them, the system names `Net<ref>_<pin>` included (124 nets of those sheets carry one); `H-A-IMP-NAME-TIE` and
   `H-A-IMP-NAME-AUTO` stay `INFERRED` by this change's evidence table (names are supporting data). In set
-  02 the names of the repeated sheet's nets differ: the import does not annotate repeated sheets.
+  02, 116 nets have the board's name since 2026-10-06 (92 before): the 24 nets without an identifier inside
+  one channel are now named after the channel's designator (change c0083), and `altium.import.duplicate-net-name`
+  is given 23 times instead of 45. The other nets of the repeated sheet still differ by name.
 - **Census of the rules exercised**, summed over the five sets: junctions 735; wire ends inside another wire
   320; crossings without a junction 292; labels that repeat a name 406; ports wired at the far end 80 and at
   the location 14; nets with a port and a power port 66; harness connectors 95, harnesses 43; dotted harness

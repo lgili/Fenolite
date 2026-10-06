@@ -45,6 +45,7 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.copper-shape": "info",
     "altium.import.scope": "info",
     "altium.import.option-ignored": "info",
+    "altium.import.pin-map": "info",
     "altium.import.bus-member": "info",
     "altium.import.harness-entry": "info",
     "altium.import.extra-board": "info",

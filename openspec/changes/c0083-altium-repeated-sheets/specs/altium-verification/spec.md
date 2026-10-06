@@ -7,4 +7,4 @@ The corpus run of `fenolite check` on Altium project sets SHALL be measured agai
 
 #### Scenario: Page states the causes
 - **WHEN** `uv run pytest tests/unit/test_provenance.py -k roundtrip` reads the page
-- **THEN** the row of `altium-set:02` holds no `model.duplicate-ref`, and a note under the table lists the remaining differences by cause
+- **THEN** a note under the table lists the remaining differences of `altium-set:02` by cause, and says that its remaining `model.duplicate-ref` comes from components without a designator, not from channels

@@ -139,6 +139,8 @@ def test_the_board_wins_over_the_format() -> None:
     design = import_project(project, issues=issues)
     refs = sorted(c.ref for c in design.circuit.components)
     assert refs == ["C12_CH1", "C12_CH2", "R1A", "R1B"]
+    (said,) = [i for i in issues if i.code == "altium.import.channel-naming"]
+    assert "2 channel component(s)" in said.message and "R1A against R1_CH1" in said.message
     assert [i for i in design.validate() if i.code == "model.duplicate-ref"] == []
 
 

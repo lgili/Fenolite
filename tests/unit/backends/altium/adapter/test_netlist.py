@@ -211,7 +211,8 @@ def test_sheet_symbol_with_a_repeat_statement_and_several_files() -> None:
     resolved = resolve(
         [top.input(), module("a.SchDoc", "R1").input(), module("b.SchDoc", "R2").input()], issues=issues
     )
-    assert codes(issues) == ["repeated-sheet", "scope"] and len(resolved.instances) == 3
+    assert codes(issues) == ["channels", "scope"] and len(resolved.instances) == 9
+    assert [i.names for i in resolved.instances[1:3]] == [("CH[1]",), ("CH[2]",)]
 
 
 def test_sheet_loop_is_an_error_without_descent() -> None:

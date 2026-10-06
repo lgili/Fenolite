@@ -498,9 +498,9 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.via-span` | warning | a via's start or end layer is outside the copper chain; it is read as a through via |
 | `altium.import.no-designator` | warning | a schematic component has no designator record; its reference is empty |
 | `altium.import.sheet-missing` | warning | a sheet symbol names a sheet that is not among the inputs; its entries stay named points |
-| `altium.import.repeated-sheet` | warning | a sheet symbol's designator holds a `Repeat(` statement: one instance is read |
-| `altium.import.channels` | info | a sheet is named by more than one sheet symbol: one channel per symbol, named by the board or by the project's designator format |
-| `altium.import.channel-naming` | warning | channel components that the designator format could not name; they are `<designator>@<channel>` |
+| `altium.import.repeated-sheet` | warning | a `Repeat(` statement that is not instantiated (it does not parse, its bounds are reversed, or it would pass 256 instances): one instance is read |
+| `altium.import.channels` | info | a sheet is named by more than one sheet symbol, or by a sheet symbol with a `Repeat` statement: one channel per symbol or per index, named by the board or by the project's designator format |
+| `altium.import.channel-naming` | warning | channel components that the designator format could not name (they are `<designator>@<channel>`); a sheet entry `Repeat(NAME)` whose parent bus is missing or too short; components of `Repeat` channels that no board component links to; channel components that the PCB document names otherwise than the format |
 | `altium.import.scope-unknown` | warning | the project's hierarchy mode has no known meaning; the automatic scope is used |
 | `altium.import.duplicate-net-name` | warning | two nets end with one name; the later one is renamed `<name>#<k>` |
 | `altium.import.duplicate-sheet-name` | warning | two sheet symbols of one sheet have one designator; the second module path gets `#2` |
@@ -515,6 +515,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.copper-shape` | info | count of fills and regions on copper, imported as graphics with their net in the bag |
 | `altium.import.scope` | info | the net identifier scope that was used |
 | `altium.import.option-ignored` | info | a project option that the import does not apply (`AppendSheetNumberToLocalNets`) |
+| `altium.import.pin-map` | info | count of pin map records that name several pads, no pad, or a pad another pin holds: one pad per pin is compared, the record is kept in the component's bag |
 | `altium.import.bus-member` | info | count of bus members without a net |
 | `altium.import.harness-entry` | info | count of harness entries without a net |
 | `altium.import.extra-board` | info | a project lists more than one PCB document; only the first is read |
