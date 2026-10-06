@@ -31,6 +31,7 @@ EXT_KEYS: tuple[str, ...] = (
     "layer_id",
     "altium_name",
     "plane_net",
+    "plane_cuts",
     "origin",
     "stack_mode",
     "corner_percent",

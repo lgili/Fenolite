@@ -33,6 +33,7 @@ HYPOTHESES = (
     "H-A-IMP-PADSTACK",
     "H-A-IMP-ZONE",
     "H-A-IMP-ZONE-HOLES",
+    "H-A-IMP-PLANE-CUT",
     "H-A-IMP-BODY",
     "H-A-IMP-SYMFRAME",
 )
@@ -48,6 +49,7 @@ LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
     "H-A-IMP-LAYERS": Level.ORACLE_VERIFIED,
     "H-A-IMP-ZONE": Level.ORACLE_VERIFIED,
     "H-A-IMP-ZONE-HOLES": Level.ORACLE_VERIFIED,
+    "H-A-IMP-PLANE-CUT": Level.ORACLE_VERIFIED,
 }
 """The level of each row, as the register states it (``test_package.py`` keeps both equal)."""
 READER_LEVELS = (Level.INFERRED, Level.CORPUS_VERIFIED, Level.CORPUS_VERIFIED)

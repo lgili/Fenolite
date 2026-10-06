@@ -244,8 +244,8 @@ level-5 cell: nets compared / differences / excluded.
 
 | row id | level 5 | notices | pieces a, b | vias a, b | zones without a fill a, b | copper on no net a, b |
 |---|---|---|---|---|---|---|
-| altium-third-party-pcbdoc-01 | 153 / 0 / 0 | `route-unjudged` 8 | 419, 419 | 646, 646 | 0, 8 | 74, 0 |
-| altium-third-party-pcbdoc-02 | 34 / 0 / 0 | `route-unjudged` 4 | 44, 44 | 242, 242 | 1, 6 | 43, 1 |
+| altium-third-party-pcbdoc-01 | 153 / 0 / 0 | `route-unjudged` 8 | 419, 419 | 646, 646 | 0, 8 | 0, 0 |
+| altium-third-party-pcbdoc-02 | 34 / 0 / 0 | `route-unjudged` 4 | 44, 44 | 242, 242 | 1, 6 | 0, 1 |
 | altium-third-party-pcbdoc-03 | 54 / 0 / 0 | none | 59, 59 | 47, 47 | 0, 0 | 6, 0 |
 | altium-third-party-pcbdoc-04 | 10 / 0 / 0 | none | 10, 10 | 67, 67 | 0, 0 | 0, 0 |
 | altium-third-party-pcbdoc-05 | 30 / 0 / 0 | none | 30, 30 | 59, 59 | 0, 0 | 0, 0 |
@@ -261,8 +261,9 @@ What level 5 did not judge, and why:
   document holds the poured copper of its polygons and Fenolite reads it as zone fills; KiCad's conversion
   holds the same zones without a fill. Such a net has several pieces in KiCad's read and cannot be
   compared. This is the non-goal "no judgement of unfilled zones".
-- **Copper on no net** (74, 43 and 6 items in Fenolite's read of the first three rows, 1 in KiCad's of
-  the second). Level 5 compares nets; these items are counted and not compared.
+- **Copper on no net** (6 items in Fenolite's read of the third row, 1 in KiCad's of the second). Level 5
+  compares nets; these items are counted and not compared. Until change c0124 Fenolite's read of the
+  first two rows held 74 and 43 more; "Lines on internal planes" below says what they were.
 - **No stub notice.** The table above holds the third row as measured after change c0122. Before it
   the row gave `route-stub` 1 with 54 and 59 pieces; "The pour with holes" below says why.
 
@@ -303,6 +304,34 @@ Measured with `kicad-cli` 10.0.6 (macOS, local, 2026-10-06), Fenolite's read aga
   import gives a zone the model's default clearance is an open point outside change c0122: until the
   import reads a polygon's clearance (a task of change c0088), these 266 findings are an artefact of
   that default and say nothing about the document.
+
+### Lines on internal planes (change c0124)
+
+The first two rows hold two internal planes each. A plane layer is stored in negative: what is drawn on it
+is a place without copper. Each document holds free tracks without a net on those layers, the lines that
+cut its planes: 74 and 43. Until change c0124 Fenolite's Altium adapter read them as tracks, which level 5
+counted as copper on no net. The adapter now makes no entity of a free primitive on a plane layer
+(capability altium-import, "Objects on an internal plane"). Measured with `kicad-cli` 10.0.6 (macOS,
+local, 2026-10-06), Fenolite's read against KiCad's import:
+
+| | row 01 before | row 01 after | row 02 before | row 02 after |
+|---|---|---|---|---|
+| tracks, Fenolite's read, KiCad's import | 1 420, 1 346 | 1 346, 1 346 | 234, 191 | 191, 191 |
+| tracks and arcs on a plane layer, Fenolite's read, KiCad's import | 74, 0 | 0, 0 | 43, 0 | 0, 0 |
+| copper on no net at level 5, Fenolite's read, KiCad's import | 74, 0 | 0, 0 | 43, 1 | 0, 1 |
+| pieces of copper, both reads | 419, 419 | 419, 419 | 44, 44 | 44, 44 |
+| level-5 differences, `route-unjudged` notices | 0, 8 | 0, 8 | 0, 4 | 0, 4 |
+
+- KiCad's import makes no track of those lines: its boards held exactly 74 and 43 tracks fewer than
+  Fenolite's read, and the two reads now hold the same number. `H-A-IMP-PLANE-CUT` is settled by this
+  (`test_corpus_plane_cuts_are_no_tracks`), and `COPPER_NO_NET` of the test pins the last column of the
+  table of the public documents.
+- The two reads do not hold the planes in the same form, and neither holds their copper. KiCad's boards
+  hold rule areas on the plane layers (136 and 93 on the two rows) and one zone without a fill per split
+  plane (8 and 5); Fenolite's read holds the layer with the plane's net and the count of what cuts it
+  (`plane_cuts`), and no zone. Level 5 compares neither rule areas nor unfilled zones, so nothing differs
+  and nothing was loosened: no rule of the profile was added, and no probe outcome moved.
+- Levels 1 to 4 and every other row are unchanged.
 
 ### Labels at level 5
 

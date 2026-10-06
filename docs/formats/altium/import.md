@@ -33,6 +33,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | Layer 74 (Multi-Layer) is no model layer: an object on it lies on every copper layer of the chain | S-0161 | INFERRED | H-A-IMP-LAYERS |
 | A copper id outside the chain, or an id outside this table, goes to the layer `Altium.<id>` | S-0161 | INFERRED | H-A-IMP-LAYERS |
 | A plane stays a copper layer with its net in the bag (`PLANE<k>NETNAME`); no zone is made for it | S-0161 | INFERRED | H-A-IMP-LAYERS |
+| An internal plane (a layer of the chain with an id from 39 to 54, on a net or not) is stored in negative: any object on its layer is a place without copper, a line that splits a plane is placed on that layer and set to no net, and the rest of the layer is copper that the document does not store. A free track, arc, fill, region or text on such a layer is therefore no copper and no drawing of the board: the import makes no entity of it, with or without a net, counts it as `plane-cuts` and holds the count of each layer in its bag (`plane_cuts`). The two public documents with planes hold 74 and 43 such tracks and no other free primitive there, and KiCad's import of each holds exactly that many tracks fewer than a read that keeps them, and none on a plane layer | S-0531, S-0550, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06; test_triangle_level5.py) | H-A-IMP-PLANE-CUT |
 | The stack-up comes from the physical list (`V9_STACK_LAYER<i>_…`) when the record holds one, else from the numbered layers of the chain with one dielectric between neighbours | S-0160, S-0161 | INFERRED | H-A-IMP-LAYERS |
 
 ## Pads and padstacks
@@ -98,6 +99,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `layer_id` | layer | the Altium layer id |
 | `altium_name` | layer | the name the board record gives the layer |
 | `plane_net` | layer | the net of an internal plane |
+| `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
 | `origin` | board | `ORIGINX,ORIGINY` as written |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
@@ -146,7 +148,7 @@ of the parity comparison (`adapter/parity.py`). No record is read that the impor
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A polygon holds no clearance of its own: the gap its pour keeps comes from the Clearance rule that applies to it. The model's default zone clearance (0.5 mm) is therefore no value of the document, and the copper check judges a fill with the clearance rules alone (the zone's own clearance is 0, "none") | S-0530 | INFERRED | H-A-DRC-SAME |
-| An internal plane is drawn in negative: a line or an arc on its layer is a void, and the rest of the layer is copper that the document does not store. The lines and arcs without a net on the layer of a plane are no copper, and the plane's own copper is not judged | S-0531 | INFERRED | H-A-DRC-SAME |
+| An internal plane is drawn in negative: a line or an arc on its layer is a void, and the rest of the layer is copper that the document does not store. The objects on the layer of a plane are no copper, and the plane's own copper is not judged. Since change c0124 the import leaves those objects out ("Layers"), so the check takes nothing out of the board; it names the planes as copper it did not judge | S-0531 | INFERRED | H-A-DRC-SAME |
 | The document counts in units of 2.54 nm and the model in whole nanometres, so copper that is exactly a clearance apart in the document reads up to 4 nm closer. Measured on the seven public PCB documents: with the rule values as written, 1 088 clearance findings are short by 1 to 4 nm and by nothing else (626, 118, 232 and 112 on the four documents that hold a mapped Clearance rule); the clearance rules are lowered by 5 nm for the check | S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-SAME |
 | A Clearance record that is enabled and that the rule table does not map (an object matrix, a layer scope, a key outside the table) may govern any pair: the check counts such records and says that its rules are incomplete | S-0286, S-0462 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 
@@ -174,7 +176,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | free pads | KiCad makes a footprint without a reference of a pad that belongs to no component, as the import does | counted, not paired (20 pads of four rows) |
 | pads without a number | KiCad returns an unplated hole without its pad number and does not return a pad on a paste layer (`pcb-read.md`, "What KiCad does not import") | the numbered pads on copper are compared; the others are left out |
 | pad size and drill | KiCad's pad of another stack mode or of a custom shape is not a plain pad | size and round drill are compared for simple pads of a plain shape only |
-| copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net | counted, not compared (123 tracks of three rows) |
+| copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net, except on the layer of an internal plane, where it makes no track either ("Layers", change c0124) | counted, not compared (6 tracks of one row; until change c0124 also the 74 and 43 lines on the planes of two rows) |
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
 | zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |

@@ -33,7 +33,6 @@ from _corpus import CorpusItem, heavy_enabled, manifest_items, require
 from fenolite.backends.altium.backend import (
     UNIT_SLACK_NM,
     AltiumBackend,
-    _without_plane_lines,  # pyright: ignore[reportPrivateUsage]
     _without_zone_clearance,  # pyright: ignore[reportPrivateUsage]
 )
 from fenolite.backends.base import PadNetList
@@ -49,6 +48,22 @@ pytestmark = pytest.mark.needs_corpus
 BOARDS = manifest_items("altium-pcbdoc")
 SETS = project_sets()
 COUNTS = ("pairs", "judged", "shorts", "clearance", "zone_overlaps", "unset_pairs", "approximated")
+
+
+PLANE_CUTS = {"altium-third-party-pcbdoc-01": 74, "altium-third-party-pcbdoc-02": 43}
+"""Row id → the free primitives on its internal planes, which the import leaves out (every other row
+has no plane layer). They are tracks without a net on both rows."""
+
+
+def _planes(design: Design) -> dict[str, int]:
+    """Layer name → ``plane_cuts`` (0 without the pair), for the internal planes of an imported board."""
+    assert design.board is not None
+    found: dict[str, int] = {}
+    for layer in design.board.layers:
+        pairs = dict(layer.ext["altium"].payload) if "altium" in layer.ext else {}
+        if 39 <= int(pairs.get("layer_id", 0)) <= 54:
+            found[layer.name] = int(pairs.get("plane_cuts", 0))
+    return found
 
 
 def test_boards_exist() -> None:
@@ -74,6 +89,18 @@ def test_copper(item: CorpusItem) -> None:
     rules = backend.design_rules(design, project)
     report = check_copper(rules.design, pads=backend.board_pads(rules.design))
 
+    # the import makes no copper of what is drawn on an internal plane (change c0124): the board that
+    # is checked is the board that was read, with every track and arc, and none of them lies on a plane
+    assert design.board is not None and rules.design.board is not None
+    assert rules.design.board.tracks == design.board.tracks, item.id
+    assert rules.design.board.arcs == design.board.arcs, item.id
+    plane_layers = {name: cuts for name, cuts in _planes(design).items()}
+    on_planes = [t for t in (*design.board.tracks, *design.board.arcs) if t.layer in plane_layers]
+    assert not on_planes, item.id
+    plane_cuts = sum(plane_layers.values())
+    assert plane_cuts == PLANE_CUTS.get(item.id, 0), item.id
+    assert [count for kind, count, _ in rules.left_out] == ([len(plane_layers)] if plane_layers else [])
+
     # never against a value the document does not hold: a zone has no clearance of its own
     assert not [f for f in report.findings if f.source == ZONE_SOURCE], item.id
     held = [r for r in (rules.design.rules.rules if rules.design.rules else ()) if r.kind == "clearance"]
@@ -88,7 +115,7 @@ def test_copper(item: CorpusItem) -> None:
     # copper at exactly its clearance in the document's unit is no finding: with the values as the
     # document writes them, the findings that the slack of the unit takes away are short by that slack
     # at most, and nothing else changes
-    exact, _ = _without_plane_lines(_without_zone_clearance(design))
+    exact = _without_zone_clearance(design)
     unslacked = check_copper(exact, pads=backend.board_pads(exact))
     kept = {frozenset(entry.entity_id for entry in f.items) for f in report.findings}
     rounding = [f for f in unslacked.findings if frozenset(e.entity_id for e in f.items) not in kept]
@@ -108,6 +135,7 @@ def test_copper(item: CorpusItem) -> None:
         "unpoured": summary["unpoured"],
         "zones_unjudged": summary["zones_unjudged"],
         "planes": sum(count for kind, count, _ in rules.left_out if kind == "plane"),
+        "plane_cuts": plane_cuts,
         "clearance_rules": len(held),
         "opaque_clearance_rules": opaque,
         "level": stage.evidence.level.value,

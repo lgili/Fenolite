@@ -74,8 +74,12 @@ CAPABILITIES = CapabilityReport(
 )
 """What the backend offers: ``detect`` and ``read``, at the evidence of the import (``INFERRED``)."""
 BACKEND = "altium"
-PLANE_KEY = "plane_net"
-"""The pair of a layer's ``altium`` bag that marks an internal plane (``adapter.layers``)."""
+LAYER_ID_KEY = "layer_id"
+"""The pair of a layer's ``altium`` bag that holds its Altium id (``adapter.layers``)."""
+PLANE_CUTS_KEY = "plane_cuts"
+"""The pair of a plane layer's bag that counts the objects the import left out on it (change c0124)."""
+PLANE_IDS = range(39, 55)
+"""The Altium ids of the internal planes (``docs/formats/altium/pcb-records.md``, "Layers")."""
 CLEARANCE_KIND = "Clearance"
 """The ``RULEKIND`` of the rule records the copper check reads."""
 NOT_APPLYING = "disabled"
@@ -346,10 +350,11 @@ class AltiumBackend:
         lowered by ``UNIT_SLACK_NM``, so that copper at exactly its clearance in the document's unit is no
         finding in nanometres; and ``opaque_clearance_rules`` counts the enabled ``Clearance`` records
         that the rule table does not map, read from ``Rules6/Data`` alone. A governing rule replaces class
-        values, and there is no board minimum. An internal plane is drawn in negative: the lines and arcs
-        without a net on its layer cut the plane and are no copper, so they are taken out, and ``left_out``
-        names the planes, whose own copper the document does not hold. A document that cannot be read is
-        named in ``unread``; nothing is raised for it."""
+        values, and there is no board minimum. An internal plane is drawn in negative: the objects on its
+        layer cut the plane and are no copper, and the import makes no entity of them (change c0124), so
+        nothing is taken out here; ``left_out`` names the planes, whose own copper the document does not
+        hold, with the number of objects the import left out. A document that cannot be read is named in
+        ``unread``; nothing is raised for it."""
         del issues  # the import reported the rule records already
         try:
             data = (project.root / project.board).read_bytes()
@@ -366,7 +371,7 @@ class AltiumBackend:
         from fenolite.backends.altium.read.pcb import read_rule_fields
         from fenolite.backends.altium.read.rules import map_rules
 
-        checked, left_out = _without_plane_lines(_with_unit_slack(_without_zone_clearance(design)))
+        checked = _with_unit_slack(_without_zone_clearance(design))
         opaque = 0
         failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
         try:
@@ -386,7 +391,7 @@ class AltiumBackend:
             opaque_clearance_rules=opaque,
             unread=failed,
             evidence=Evidence.combine(EVIDENCE, frame.EVIDENCE),
-            left_out=left_out,
+            left_out=_planes_left_out(design),
         )
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
@@ -513,28 +518,31 @@ def _without_zone_clearance(design: Design) -> Design:
     return dataclasses.replace(design, board=dataclasses.replace(board, zones=zones))
 
 
-def _without_plane_lines(design: Design) -> tuple[Design, tuple[tuple[str, int, str], ...]]:
-    """``design`` without the tracks and arcs that have no net and lie on the layer of an internal plane
-    (a layer whose ``altium`` bag holds ``plane_net``), and the ``left_out`` entry of the planes."""
+def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:
+    """The ``left_out`` entry of the internal planes of an imported board: their number (the copper layers
+    whose ``altium`` bag holds a ``layer_id`` of ``PLANE_IDS``) and, in the reason, the number of objects
+    that the import left out on them (the sum of ``plane_cuts``). Empty for a board without a plane."""
     board = design.board
     if board is None:
-        return design, ()
-    planes = {
-        layer.name
-        for layer in board.layers
-        if BACKEND in layer.ext and any(key == PLANE_KEY for key, _ in layer.ext[BACKEND].payload)
-    }
+        return ()
+    planes = cuts = 0
+    for layer in board.layers:
+        if layer.kind != "copper" or BACKEND not in layer.ext:
+            continue
+        pairs = dict(layer.ext[BACKEND].payload)
+        ident = pairs.get(LAYER_ID_KEY, "")
+        if not (ident.isdecimal() and int(ident) in PLANE_IDS):
+            continue
+        planes += 1
+        count = pairs.get(PLANE_CUTS_KEY, "")
+        cuts += int(count) if count.isdecimal() else 0
     if not planes:
-        return design, ()
-    tracks = tuple(t for t in board.tracks if t.net_id is not None or t.layer not in planes)
-    arcs = tuple(a for a in board.arcs if a.net_id is not None or a.layer not in planes)
-    cut = len(board.tracks) - len(tracks) + len(board.arcs) - len(arcs)
+        return ()
     reason = (
-        "an internal plane is drawn in negative, so its copper is not in the document; the "
-        f"{cut} line(s) and arc(s) without a net on such a layer cut the plane and are no copper"
+        "an internal plane is drawn in negative, so its copper is not in the document; the import left "
+        f"the {cuts} object(s) drawn on such a layer out of the board: they cut the plane and are no copper"
     )
-    checked = dataclasses.replace(design, board=dataclasses.replace(board, tracks=tracks, arcs=arcs))
-    return checked, (("plane", len(planes), reason),)
+    return (("plane", planes, reason),)
 
 
 def _with_unit_slack(design: Design) -> Design:

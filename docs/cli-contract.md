@@ -858,8 +858,8 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
   - an **unpoured polygon** is no copper: `unpoured` counts them, with one `copper.item-unsupported`
     (a build writes its polygons unpoured, so a built board with zones says this until Altium repours);
-  - an **internal plane** is drawn in negative: the lines and arcs without a net on its layer are no
-    copper and are taken out, and one `copper.item-unsupported` (`where` is `plane`) counts the planes;
+  - an **internal plane** is drawn in negative: what is drawn on its layer is no copper, and the import
+    makes no track of it; one `copper.item-unsupported` (`where` is `plane`) counts the planes;
   - a **Clearance rule outside the rule table** (an object matrix, a layer scope) may govern any pair:
     `rules.opaque_clearance_rules` counts them, with one `copper.rules-incomplete`;
   - a **filled zone that no clearance applies to** is judged for shorts only: `zones_unjudged` counts

@@ -1,17 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Layers and stack-up of an imported board (capability altium-import, "Layers and stack-up";
-``docs/formats/altium/import.md``, "Layers"; change c0043).
+``docs/formats/altium/import.md``, "Layers"; changes c0043 and c0124).
 
 Copper layers are named by their position in the chain of the board record: ``F.Cu``, ``In<j>.Cu``,
 ``B.Cu``, whatever their Altium id. The other layers follow the closed table ``LAYERS``. Multi-Layer (74)
-is no model layer.
+is no model layer. An internal plane (39 to 54) is a copper layer of the chain that is stored in negative: the
+objects on it cut the plane and are no copper, so the import leaves them out and counts them per layer.
 """
 
 # evidence: see import_evidence
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Mapping
 from types import MappingProxyType
 
@@ -24,7 +26,7 @@ from fenolite.core.provenance import Provenance
 from fenolite.model.board import Layer, LayerKind, StackLayer, Stackup
 
 TOP, BOTTOM, MULTI = 1, 32, 74
-FIRST_PLANE = 39
+FIRST_PLANE, LAST_PLANE = 39, 54
 EDGE = "Edge.Cuts"
 EDGE_ORDINAL = 100
 ORDINAL_OFFSET = 100
@@ -81,6 +83,8 @@ class LayerMap:
             layer: copper_name(position, len(chain)) for position, layer in enumerate(chain)
         }
         self.used: set[int] = set()
+        self.cuts: Counter[int] = Counter()
+        """Plane layer id → the free primitives on it that the import left out (``cut``)."""
         self._warned: set[int] = set()
 
     @classmethod
@@ -99,6 +103,15 @@ class LayerMap:
 
     def is_copper(self, layer_id: int) -> bool:
         return layer_id in self.copper
+
+    def is_plane(self, layer_id: int) -> bool:
+        """Whether ``layer_id`` is an internal plane of the chain, on a net or not. Such a layer is stored in
+        negative: an object on it is a place without copper (``import.md``, "Layers")."""
+        return FIRST_PLANE <= layer_id <= LAST_PLANE and layer_id in self.copper
+
+    def cut(self, layer_id: int) -> None:
+        """Count one free primitive on the plane ``layer_id`` that gives no entity."""
+        self.cuts[layer_id] += 1
 
     def peek(self, layer_id: int) -> str:
         """The neutral name of ``layer_id`` without marking it used: ``Altium.<id>`` outside the tables."""
@@ -139,7 +152,8 @@ class LayerMap:
 
     def entities(self, ids: Ids, provenance: Provenance | None) -> tuple[Layer, ...]:
         """The ``Layer`` entities: every copper layer of the chain, ``Edge.Cuts``, and every other layer
-        that ``name`` was asked for, in ordinal order."""
+        that ``name`` was asked for, in ordinal order. It is called after the primitives were read: the
+        layer of a plane holds the count of what was left out on it (``plane_cuts``)."""
         out: list[Layer] = []
 
         def make(name: str, kind: LayerKind, ordinal: int, pairs: list[tuple[str, str]]) -> None:
@@ -162,6 +176,8 @@ class LayerMap:
             net = planes.get(layer - FIRST_PLANE + 1) if layer >= FIRST_PLANE else None
             if net:
                 pairs.append(("plane_net", net))
+            if self.cuts[layer]:
+                pairs.append(("plane_cuts", str(self.cuts[layer])))
             make(self.copper[layer], "copper", position, pairs)
         make(EDGE, "edge", EDGE_ORDINAL, [])
         for layer in sorted(self.used - set(self.copper) - {MULTI}):

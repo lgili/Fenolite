@@ -1088,6 +1088,14 @@ gave no model entity.
   `altium.import.rule-unmapped` counts them per kind. No rule is approximated.
 - A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
   shape with a net.
+- What is drawn on an internal plane. A plane layer (Internal Plane 1 to 16) is stored in negative: the
+  layer is copper, and a line, an arc, a fill, a region or a text on it is a place without copper (the
+  line that splits a plane, a blow-out). Such an object is no track and no drawing of the imported board,
+  with or without a net: the census counts it as `plane-cuts`, and the layer of the plane holds the count
+  in its `altium` bag (`plane_cuts`). The plane's own copper is not in the model either: the layer is a
+  copper layer with its net in the bag (`plane_net`), and no zone is made for it. An imported board with
+  planes therefore shows less copper than the fabricated board has, and the copper check says so
+  (`copper.item-unsupported` at `plane`).
 - The further pads of a pin that its footprint model maps to several pads: the comparison names the pin
   by one pad, and the others show as covered by the PCB document only.
 
@@ -1238,8 +1246,8 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component (`pin_pad_map`, bag key `pin_pads`) |
 
 Keys of `unwritten` that start with `record:` count what the import maps to no model entity, by the
-category of its census: `footprint-graphics`, `pour-primitives`, `shape-based-regions`, `polygons`,
-`classes`, `raw-primitives`, `region-holes`, and one for each storage that the import keeps as bytes (a
+category of its census: `footprint-graphics`, `pour-primitives`, `plane-cuts`, `shape-based-regions`,
+`polygons`, `classes`, `raw-primitives`, `region-holes`, and one for each storage that the import keeps as bytes (a
 rewrite holds Fenolite's own content in such a storage, not the document's). **A rewrite is therefore
 not a copy.** It holds the placement, the pads, the routing and the polygon outlines of the board;
 `unwritten` lists what it does not hold, and the counts measured on the public corpus are in
@@ -1289,7 +1297,7 @@ It is not Altium's design rule check. What it does not judge, it says, and the s
 | not judged | why | how the stage says it |
 |---|---|---|
 | unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured | `summary.unpoured`, one `copper.item-unsupported` |
-| internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper | one `copper.item-unsupported` at `plane` |
+| internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper, and the import makes no track of those lines | one `copper.item-unsupported` at `plane`, with the number of planes and of the objects left out |
 | Clearance rules with an object matrix, a layer scope or another key outside the rule table | the model has no rule of that form | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
 | the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
 | board-edge clearance, component clearance, silkscreen, hole and width rules | outside the copper check | nothing: these are not stages |

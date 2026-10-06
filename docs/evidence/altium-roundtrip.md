@@ -275,8 +275,8 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 
 | document | inside the scope | footprints | pads | tracks | arcs | vias | zones | model items not written | records without a model entity | storages kept as bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1420 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | footprint-graphics 3469; shape-based-regions 90; pour-primitives 40; polygons 8; classes 38 | 15 |
-| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 194 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; track 43; via 48; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; pour-primitives 35; polygons 6; classes 14 | 17 |
+| `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1346 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | footprint-graphics 3469; shape-based-regions 90; plane-cuts 74; pour-primitives 40; polygons 8; classes 38 | 15 |
+| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 194 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; via 48; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
 | `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; graphic 1; pad 8; zone-fill 1 | footprint-graphics 846; shape-based-regions 23; classes 20 | 18 |
 | `altium-third-party-pcbdoc-04` | equal | 17 | 53 | 149 | 0 | 67 | 9 | body 33; copper-shape 2; graphic 12; outline 4; zone-fill 9 | footprint-graphics 315; shape-based-regions 27; classes 16; bad-geometry 1 | 19 |
 | `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
@@ -304,10 +304,19 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
   with a per-layer pad stack, 10 on a layer that is no outer copper layer, 4 without a number, 2 with a
   custom shape), and with them 8 free pads; 48 vias whose drill is not below their diameter, which
   the via writer refuses (decision of 2026-10-06: change c0128 relaxes this for the rewrite of a
-  document that was read; a build from a script keeps refusing); 43 tracks on internal planes, which hold no primitive in the written stack;
+  document that was read; a build from a script keeps refusing);
   6 zones whose outline has an arc (the model holds no outline for them); 41 poured fills (a polygon
   is written unpoured); 22 arcs of board outlines, written as two straight edges, and one board without
   a closed outline; 2 planes without a net of the document, written as signal layers; 1 rule.
+- **Lines on internal planes are no model items** (change c0124, measured again on 2026-10-06 with
+  the heavy rows, 15 tests passed). The two documents with planes hold 74 and 43 free tracks without a
+  net on their plane layers: the lines that cut the planes. The import read them as tracks until change
+  c0124. On `-01`, whose planes are written as signal layers (`plane 2`), a rewrite then held those 74
+  lines as copper tracks on two signal layers, which is the opposite of the board that was read; on
+  `-02` the 43 were refused by the writer (`track 43`). Both rows now count them as records without a
+  model entity (`plane-cuts`), `-01` writes 1 346 tracks instead of 1 420, and `-02` writes the same
+  191. No other count of the table moved, both rows stay equal inside the scope, and RT-A0 and RT-A1
+  are untouched: they compare the records, which the readers keep.
 - **Footprint graphics are the largest count**: the lines, arcs and texts of the footprints are records
   that the import maps to no model entity, because a footprint instance of the model holds pads only.
   A rewritten board has its pads and no silkscreen of its footprints. Decision of 2026-10-06: change
@@ -444,7 +453,13 @@ asserts what the stage promises, not that a board is clean.
   these pairs may be governed by it.
 - **Internal planes.** Before the lines of a plane were taken out, `-01` gave 66 shorts and 48 clearance
   findings and `-02` gave 5 shorts, every one between a line without a net on a plane layer and a via or a
-  pad. Those lines cut the plane: they are no copper.
+  pad. Those lines cut the plane: they are no copper. Change c0088 took them out of the view of the check;
+  since change c0124 the import makes no track of them (74 on `-01`, 43 on `-02`, counted as `plane-cuts`
+  and on the layer of each plane), and the check filters nothing. Measured again on 2026-10-06 (13 passed,
+  one heavy set skipped): every number of the table above is the same, the 71 shorts and the 48 clearance
+  findings stay gone, and the test asserts that the board that is checked holds every track and arc of the
+  board that was read and none on a plane layer. The column `planes` still counts the plane layers, whose
+  own copper no reading holds: one `copper.item-unsupported` at `plane`, level `UNVERIFIED`.
 - **The unit's slack.** With the rule values as the documents write them, 1 088 more clearance findings
   appear, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
 - **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,

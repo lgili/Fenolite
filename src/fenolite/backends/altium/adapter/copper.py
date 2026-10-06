@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Free primitives of a PCB document as board objects (capability altium-import, "Tracks, arcs and vias",
-"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; changes c0043
-and c0122).
+"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; changes c0043,
+c0122 and c0124).
 
 A free primitive carries no component index. On a copper layer of the chain a track is a ``Track``, an arc
 an ``Arc`` and a via a ``Via``; a polygon is a ``Zone`` whose regions are its fills, each one ring that
 holds the region's outline and its holes (``geometry.keyhole_ring``). Everything else that is drawn
 becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in the census.
+
+An internal plane is the exception among the copper layers of the chain: it is stored in negative, so a free
+primitive on it cuts the plane and is no copper. It gives no entity and is counted as ``plane-cuts``
+(``_plane_cut``; capability altium-import, "Objects on an internal plane").
 """
 
 # evidence: see import_evidence
@@ -75,6 +79,16 @@ def _poured(item: TrackRecord | ArcRecord) -> bool:
     return item.prefix.polygon is not None
 
 
+def _plane_cut(ctx: Context, kind: str, layer_id: int) -> bool:
+    """Whether a free primitive of record kind ``kind`` on ``layer_id`` lies on an internal plane; it is
+    then counted, in the census and on its layer, and the caller makes no entity of it."""
+    if not ctx.layers.is_plane(layer_id):
+        return False
+    ctx.layers.cut(layer_id)
+    ctx.census.skip(kind, "plane-cuts")
+    return True
+
+
 def _graphic(
     ctx: Context,
     kind: GraphicKind,
@@ -113,7 +127,8 @@ def _net_pair(ctx: Context, index: int | None) -> list[tuple[str, str]]:
 
 
 def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
-    """The free tracks: ``Track`` on a copper layer of the chain, a ``line`` graphic elsewhere."""
+    """The free tracks: ``Track`` on a copper layer of the chain, a ``line`` graphic elsewhere, nothing
+    on an internal plane."""
     found: list[Track] = []
     graphics: list[Graphic] = []
     for index, item in enumerate(doc.tracks):
@@ -126,6 +141,8 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
             continue
         if _poured(item):
             ctx.census.skip("tracks", "pour-primitives")
+            continue
+        if _plane_cut(ctx, "tracks", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         start = exact.point("start", item.x1, item.y1)
@@ -170,7 +187,7 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
 
 def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
     """The free arcs: ``Arc`` on a copper layer of the chain (a full circle is a ``circle`` graphic with
-    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere."""
+    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere, nothing on an internal plane."""
     found: list[Arc] = []
     graphics: list[Graphic] = []
     for index, item in enumerate(doc.arcs):
@@ -183,6 +200,8 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
             continue
         if _poured(item):
             ctx.census.skip("arcs", "pour-primitives")
+            continue
+        if _plane_cut(ctx, "arcs", item.prefix.layer):
             continue
         if item.radius <= 0:
             _bad(ctx, "arcs", "an arc needs a radius above 0", locator)
@@ -557,7 +576,8 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
     """The free fills and regions as filled graphics; one on a copper layer carries its net name in the
     pair ``net`` and is counted by ``altium.import.copper-shape``. ``fill_regions`` are the polygon indexes
     that became zones: their regions are fills, not graphics. The holes of a region that is a graphic are
-    not in the model and are counted as ``region-holes``."""
+    not in the model and are counted as ``region-holes``. A free fill or region on an internal plane is no
+    shape of copper: it gives nothing."""
     found: list[Graphic] = []
     copper_shapes = 0
     for index, item in enumerate(doc.fills):
@@ -567,6 +587,8 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
             continue
         if not _free(item, len(doc.components)):
             ctx.census.skip("fills", "footprint-graphics")
+            continue
+        if _plane_cut(ctx, "fills", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         kind, points = _fill_points(item, exact)
@@ -596,6 +618,8 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
                     "regions", "pour-primitives" if polygon != SPLIT_PLANE_POLYGON else "polygons"
                 )
             continue
+        if _plane_cut(ctx, "regions", item.prefix.layer):
+            continue
         points = region_points(item.outline)
         if len(points) < 3:
             _bad(ctx, "regions", "a region needs at least three vertices", locator)
@@ -623,7 +647,8 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
 
 
 def texts(doc: PcbDocument, ctx: Context) -> list[Text]:
-    """The free texts; the text is the wide string when the record names one (the reader resolved it)."""
+    """The free texts; the text is the wide string when the record names one (the reader resolved it).
+    A free text on an internal plane gives nothing."""
     found: list[Text] = []
     for index, item in enumerate(doc.texts):
         locator = f"Texts6/Data#{index}"
@@ -632,6 +657,8 @@ def texts(doc: PcbDocument, ctx: Context) -> list[Text]:
             continue
         if not _free(item, len(doc.components)):
             ctx.census.skip("texts", "footprint-graphics")
+            continue
+        if _plane_cut(ctx, "texts", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         position = exact.point("position", item.x, item.y)

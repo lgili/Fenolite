@@ -12,13 +12,13 @@ from pathlib import Path
 import pytest
 
 from fenolite.backends.altium import frame
-from fenolite.backends.altium.backend import PLANE_KEY, UNIT_SLACK_NM, AltiumBackend
+from fenolite.backends.altium.backend import UNIT_SLACK_NM, AltiumBackend
 from fenolite.backends.altium.frame import corner_radius, shape_entries
 from fenolite.backends.base import BoardFrame, DesignRulesSource, DocumentParity, ProjectSet
 from fenolite.core.coords import Point, Size
 from fenolite.core.evidence import Level
 from fenolite.model.base import ExtBag
-from fenolite.model.board import Board, FootprintInstance, Layer, Pad, Padstack, PadstackLayer, Track
+from fenolite.model.board import Board, FootprintInstance, Layer, Pad, Padstack, PadstackLayer
 from fenolite.model.circuit import Circuit, Component, Net
 from fenolite.model.design import Design
 
@@ -33,16 +33,9 @@ def sample(name: str) -> tuple[Design, ProjectSet]:
     return design, ProjectSet(path.parent, path.name, {path.name: path})
 
 
-def layers(*names: str, plane: str = "") -> tuple[Layer, ...]:
+def layers(*names: str) -> tuple[Layer, ...]:
     return tuple(
-        Layer(
-            id=f"lyr_{index}",
-            name=name,
-            kind="copper",
-            ordinal=index,
-            ext={"altium": ExtBag(payload=((PLANE_KEY, "GND"),))} if name == plane else {},
-        )
-        for index, name in enumerate(names)
+        Layer(id=f"lyr_{index}", name=name, kind="copper", ordinal=index) for index, name in enumerate(names)
     )
 
 
@@ -292,22 +285,73 @@ def test_rules_source_counts_opaque_and_skips_disabled(monkeypatch: pytest.Monke
     assert rules.opaque_clearance_rules == 2
 
 
-def test_rules_source_takes_the_lines_of_a_plane_out() -> None:
-    def line(ident: str, layer: str, net: str | None) -> Track:
-        return Track(id=ident, start=Point(0, 0), end=Point(MM, 0), width=200_000, layer=layer, net_id=net)
+def _imported(chain: tuple[int, ...], tracks: list[object], **extra: str) -> Design:
+    import _altium_records as rec
+
+    from fenolite.backends.altium.adapter import import_board
+
+    document = rec.document(rec.board(chain, extra=extra), nets=["GND"], tracks=tracks)  # type: ignore[arg-type]
+    return import_board(document, file="x.PcbDoc", sha256=rec.SHA)
+
+
+def test_rules_source_names_the_planes_and_takes_nothing_out() -> None:
+    """Scenario "Planes of an imported board" (change c0124): the import made no copper of the lines on
+    the plane, so the rules source holds every track it was given and says what the plane hides."""
+    import _altium_records as rec
+
+    line = ((0, 0), (500 * rec.MIL, 0))
+    tracks = [rec.track(*line, layer=39), rec.track(*line, layer=39), rec.track(*line, layer=1, net=0)]
+    design = _imported((1, 39, 32), tracks, PLANE1NETNAME="GND")
+    assert design.board is not None and [t.layer for t in design.board.tracks] == ["F.Cu"]
+    rules = AltiumBackend().rules_from_bytes(design, None, file="x.PcbDoc", unread="not given")
+    assert rules.design.board is not None and rules.design.board.tracks == design.board.tracks
+    ((kind, count, reason),) = rules.left_out
+    assert (kind, count) == ("plane", 1) and "the 2 object(s)" in reason and "negative" in reason
+    assert rules.unread == (("x.PcbDoc", "not given"),)
+    # a plane on no net is a plane, and one that nothing cuts is named too
+    bare = _imported((1, 39, 40, 32), tracks[2:])
+    ((kind, count, reason),) = AltiumBackend().rules_from_bytes(bare, None, file="x", unread="-").left_out
+    assert (kind, count) == ("plane", 2) and "the 0 object(s)" in reason
+    # a mid layer is no plane: without a plane nothing is left out
+    signal = _imported((1, 2, 3, 32), [rec.track(*line, layer=2)])
+    assert AltiumBackend().rules_from_bytes(signal, None, file="x", unread="-").left_out == ()
+
+
+def test_rules_source_does_not_filter_a_model_it_is_given() -> None:
+    """The view is no second importer: a track without a net on an inner layer of a model that did not
+    come from the import stays, and a layer without the import's bag is no plane."""
+    from fenolite.model.board import Track
 
     design = one_pad(pad())
     assert design.board is not None
-    tracks = (line("trk_1", "In1.Cu", None), line("trk_2", "In1.Cu", "net_a"), line("trk_3", "F.Cu", None))
-    board = dataclasses.replace(
-        design.board, layers=layers("F.Cu", "In1.Cu", "B.Cu", plane="In1.Cu"), tracks=tracks
+    track = Track(id="trk_1", start=Point(0, 0), end=Point(MM, 0), width=200_000, layer="In1.Cu", net_id=None)
+    given = dataclasses.replace(design, board=dataclasses.replace(design.board, tracks=(track,)))
+    rules = AltiumBackend().rules_from_bytes(given, None, file="x", unread="-")
+    assert rules.design.board is not None and rules.design.board.tracks == (track,)
+    assert rules.left_out == ()
+
+
+def test_plane_of_a_stage_is_reported_as_copper_not_judged() -> None:
+    """The copper stage of a document check on an imported board with a plane: one
+    ``copper.item-unsupported`` (``where`` = ``plane``), no short from the lines that cut the plane, and
+    the level ``UNVERIFIED`` (capability altium-verification, "Copper check on Altium boards")."""
+    import _altium_records as rec
+
+    from fenolite.checks.copper import check_copper, rules_issues
+
+    # a via of GND stands on the line that cuts the plane: copper against a void is no short
+    line = ((0, 0), (500 * rec.MIL, 0))
+    document = rec.document(
+        rec.board((1, 39, 32), extra={"PLANE1NETNAME": "GND"}),
+        nets=["GND"],
+        tracks=[rec.track(*line, layer=39)],
+        vias=[rec.via((250 * rec.MIL, 0), net=0)],
     )
-    planes = dataclasses.replace(design, board=board)
-    rules = AltiumBackend().rules_from_bytes(planes, None, file="x.PcbDoc", unread="not given")
-    assert rules.design.board is not None
-    assert [t.id for t in rules.design.board.tracks] == ["trk_2", "trk_3"]
-    ((kind, count, reason),) = rules.left_out
-    assert (kind, count) == ("plane", 1) and "1 line(s) and arc(s)" in reason and "negative" in reason
-    assert rules.unread == (("x.PcbDoc", "not given"),)
-    # without a plane nothing is left out
-    assert AltiumBackend().rules_from_bytes(design, None, file="x", unread="-").left_out == ()
+    from fenolite.backends.altium.adapter import import_board
+
+    design = import_board(document, file="x.PcbDoc", sha256=rec.SHA)
+    rules = AltiumBackend().rules_from_bytes(design, None, file="x.PcbDoc", unread="not given")
+    report = check_copper(rules.design, pads=AltiumBackend().board_pads(rules.design))
+    assert not [f for f in report.findings if f.code == "copper.short"]
+    (left,) = [i for i in rules_issues(rules) if i.code == "copper.item-unsupported"]
+    assert left.where == "plane" and left.severity == "warning" and left.message.startswith("1 plane item(s)")

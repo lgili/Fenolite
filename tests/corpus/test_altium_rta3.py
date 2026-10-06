@@ -47,6 +47,13 @@ NOT_EQUAL: dict[str, tuple[str, str]] = {
 """Row id → the one kind that differs and the cause, for a document whose two models differ inside the
 scope for a reason that is listed in ``docs/evidence/altium-roundtrip.md``. Such a row must differ in
 that kind only. The one row is the heavy one, which runs with ``FENOLITE_HEAVY=1``."""
+PLANE_CUTS: dict[str, tuple[int, int]] = {
+    "altium-third-party-pcbdoc-01": (74, 1346),
+    "altium-third-party-pcbdoc-02": (43, 191),
+}
+"""Row id → the free primitives on its internal planes and the tracks its rewrite holds (change c0124).
+The import makes no track of a line that cuts a plane, so a rewrite holds none: the lines are counted as
+records without a model entity, never as a track that was written or refused."""
 UNCOVERED = ("netlist.uncovered", "info")
 UNJUDGED_SETS: dict[str, str] = {
     "altium-set:01": "a comment starts with '=', which Altium reads as a reference to another parameter",
@@ -105,6 +112,9 @@ def test_document_holds_rta3(item: CorpusItem, capsys: pytest.CaptureFixture[str
         print("\n" + _line(item.id, entry))
     assert trip.judged, f"{item.id}: not judged ({trip.reason})"
     assert trip.written["footprint"] > 0 and trip.written["pad"] > 0, item.id
+    cuts, tracks = PLANE_CUTS.get(item.id, (0, trip.written["track"]))
+    assert trip.unwritten.get("record:plane-cuts", 0) == cuts, item.id
+    assert trip.written["track"] == tracks and (not cuts or "track" not in trip.unwritten), item.id
     if item.id in NOT_EQUAL:
         kind, _cause = NOT_EQUAL[item.id]
         assert not trip.equal, f"{item.id} is equal now: remove it from NOT_EQUAL and from the page"

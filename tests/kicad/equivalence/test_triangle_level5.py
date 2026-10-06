@@ -2,7 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """Level 5 over the triangle (capability design-equivalence, "Level 5 over the triangle"; change c0089;
 ``H-G-EQ-L5-TRIANGLE``; S-0020, S-0166). Change c0122 (``H-A-IMP-ZONE-HOLES``) took the stub notice of one
-public row away: the Altium import now keeps the holes of a poured region.
+public row away: the Altium import now keeps the holes of a poured region. Change c0124
+(``H-A-IMP-PLANE-CUT``) took the copper on no net of two rows away: the import makes no track of a line on
+an internal plane, as KiCad's import makes none.
 
 Two sets of boards:
 
@@ -53,6 +55,19 @@ POUR_WITH_HOLES = "altium-third-party-pcbdoc-03"
 holes of it. Until change c0122 Fenolite's read joined the five to the pour (one ``route-stub`` notice
 here); both reads now hold them as five pieces of copper that reach no pad."""
 ISLANDS = 5
+COPPER_NO_NET: dict[str, dict[str, int]] = {
+    "altium-third-party-pcbdoc-02": {"a": 0, "b": 1},
+    "altium-third-party-pcbdoc-03": {"a": 6, "b": 0},
+}
+"""Row id → the copper items on no net of Fenolite's read (a) and of KiCad's import (b); every other row
+has none on either side. Until change c0124 the first two rows held 74 and 43 on side a: the lines that
+cut their internal planes, read as tracks."""
+PLANE_ROWS: dict[str, tuple[int, int]] = {
+    "altium-third-party-pcbdoc-01": (1346, 74),
+    "altium-third-party-pcbdoc-02": (191, 43),
+}
+"""Row id → the tracks of each read and the free primitives on the internal planes of the document, for
+the rows whose chain holds a plane (``H-A-IMP-PLANE-CUT``)."""
 MEASURED_NM = 20
 MEASURED_PPM = 18
 """The largest difference of a routed length on one copper span over the public documents, in nanometres
@@ -175,6 +190,31 @@ def test_corpus(row: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert fifth.summary["vias"]["a"] == fifth.summary["vias"]["b"] > 0
     assert _kinds(fifth) == NOTICES.get(row, {})
     assert fifth.summary["unjudged"] == NOTICES.get(row, {}).get("route-unjudged", 0)
+    assert fifth.summary["copper_no_net"] == COPPER_NO_NET.get(row, {"a": 0, "b": 0})
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("row", [row for row in IDS if row in PLANE_ROWS])
+def test_corpus_plane_cuts_are_no_tracks(row: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """``H-A-IMP-PLANE-CUT``: a free primitive on an internal plane is a void, not copper. Both reads of
+    a row with planes hold the same number of tracks, neither holds a track or an arc on a plane layer,
+    and Fenolite's read counts what it left out on the layers of the planes."""
+    found = _sides(row)
+    tracks, cuts = PLANE_ROWS[row]
+    assert found.a.board is not None and found.b.board is not None
+    planes: dict[str, int] = {}
+    for layer in found.a.board.layers:
+        pairs = dict(layer.ext["altium"].payload) if "altium" in layer.ext else {}
+        if 39 <= int(pairs.get("layer_id", 0)) <= 54:
+            planes[layer.name] = int(pairs.get("plane_cuts", 0))
+    held: dict[str, tuple[int, int]] = {}
+    for side, board in (("a", found.a.board), ("b", found.b.board)):
+        on_planes = sum(1 for item in (*board.tracks, *board.arcs) if item.layer in planes)
+        held[side] = (len(board.tracks), on_planes)
+    with capsys.disabled():
+        print(f"\n{row} planes {len(planes)}, cuts {sum(planes.values())}, tracks and on planes {held}")
+    assert len(planes) == 2 and sum(planes.values()) == cuts
+    assert held == {"a": (tracks, 0), "b": (tracks, 0)}
 
 
 @pytest.mark.needs_corpus
