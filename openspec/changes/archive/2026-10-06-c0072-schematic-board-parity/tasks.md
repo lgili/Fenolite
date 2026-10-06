@@ -36,8 +36,10 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run python tools/residue/scan.py` exit 0; `make check` passes; `openspec validate c0072-schematic-board-parity --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
+- [x] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue` and `uv run python tools/residue/scan.py` exit 0; `make check` passes; `openspec validate c0072-schematic-board-parity --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
+  - 2026-10-06: the coordinator ran the full `make check` on `dev` 2e826017 (10878 passed, 60 skipped, KiCad 10.0.6), and every job of the CI run on that commit passed, `unit`, `kicad-9` and `kicad-10` among them (https://github.com/lgili/Fenolite/actions/runs/37395886697). The first run with this change, 37369162366 on 949d1f0c, failed on one test: the two files of `tests/data/kicad/parity/agree/` were not declared in `tests/data/MANIFEST.toml`; 527cfd7f declares them.
 - [x] 6.2 Update the evidence: both rows become `KICAD-VERIFIED (9.0.x, 10.0.x)` with the runs, or record what failed. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py`.
   - 2026-10-06: both rows are `KICAD-VERIFIED (9.0.x, 10.0.x)` from the local runs of both majors; the CI run is to be cited when the jobs pass.
+  - 2026-10-06: the `kicad-9` and `kicad-10` jobs passed on `dev` 2e826017 (https://github.com/lgili/Fenolite/actions/runs/37395886697); the run is cited in both rows.
 - [x] 6.3 Add to `CHANGELOG.md` under Unreleased: "New command `parity` and `check` stage `parity`: schematic against board and symbol pins against footprint pads, without KiCad for generated projects, cross-checked with KiCad's parity test when it runs". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
   - 2026-10-06: done.
