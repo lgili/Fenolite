@@ -122,11 +122,28 @@ RULE_KIND_MAP: dict[str, KindMap] = {
             Condition("MAXPERCENT"),
         ),
     ),
+    "BoardOutlineClearance": KindMap(
+        (NeutralLimits("edge_clearance", "GAP", None, None),),
+        "DifferentNets",
+        (
+            Condition("OBJECTCLEARANCES", ("",)),
+            Condition("GENERICCLEARANCE", same_as="GAP"),
+            Condition("IGNOREPADTOPADCLEARANCEINFOOTPRINT", ("FALSE",)),
+        ),
+    ),
+    "HoleToHoleClearance": KindMap(
+        (NeutralLimits("hole_to_hole", "GAP", None, None),),
+        "AnyNet",
+        (Condition("ALLOWSTACKEDMICROVIAS", ("FALSE",), required=True),),
+    ),
+    "MinimumAnnularRing": KindMap((NeutralLimits("annular_width", "MINIMUMRING", None, None),), "AnyNet"),
 }
 """The closed table of the kinds that map (``rule-file.md``, "Rule kinds that map";
-``H-A-RD-PRJ-RULE-MAP``)."""
-PENDING_KINDS: dict[str, RuleKind] = {"BoardOutlineClearance": "edge_clearance"}
-"""Kinds with a neutral counterpart but no permitted source for their keys: reported apart."""
+``H-A-RD-PRJ-RULE-MAP``; the last three kinds are those of change c0084, ``H-A-RULE-KINDS``). It holds
+every Altium kind of an ``exact`` row of ``rulemap.TABLE``."""
+PENDING_KINDS: dict[str, RuleKind] = {}
+"""Kinds with a neutral counterpart but no permitted source for their keys: reported apart. Empty since
+change c0084, which found the keys of ``BoardOutlineClearance`` in the public corpus."""
 
 UnmappedReason = Literal[
     "summary-form",
@@ -260,8 +277,8 @@ def _limits(
             values.append(length)
         if any(value is not None for value in values):
             groups.append((limits, tuple(values)))
-    if kind == "Clearance" and not _has(fields, "GAP"):
-        raise _Refusal("value", "the Clearance has no GAP")
+    if kind in ("Clearance", "BoardOutlineClearance") and not _has(fields, "GAP"):
+        raise _Refusal("value", f"the {kind} has no GAP")
     if not groups:
         raise _Refusal("value", f"the {kind} gives no limit")
     return groups

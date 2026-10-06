@@ -32,7 +32,7 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords
+from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.project import component_path
@@ -591,10 +591,11 @@ def account(
     board = design.board
     copper = (source or design).board
     rules = len(design.rules.rules) if design.rules is not None else 0
+    lowered = sum(len(record.rules) for record in spec.design_rules)  # change c0084
     counts: dict[str, tuple[int, int]] = {
         "footprint": (len(spec.components), 0),
         "pad": (sum(len(component.footprint.defn.pads) for component in spec.components), 0),
-        "rule": (0, rules),
+        "rule": (lowered, rules - lowered),
         **plan.counts,
     }
     totals = {
@@ -618,6 +619,52 @@ def account(
         "written": {kind: counts.get(kind, (0, 0))[0] for kind in KINDS},
         "not_lowered": {kind: counts[kind][1] for kind in KINDS if counts.get(kind, (0, 0))[1]},
     }
+
+
+NO_DOCUMENT = "no-document"
+"""Why no rule is written when the build plans no PCB document: a reason of the build, beside the reasons
+of ``rulemap.NOT_LOWERED_REASONS``."""
+
+
+def lowered_rules(design: Design) -> rulemap.Lowered:
+    """The rules of ``design`` as rule records, and those that are not written (change c0084)."""
+    return rulemap.lower(design.rules.rules if design.rules is not None else ())
+
+
+def rules_report(design: Design, *, document: str | None) -> tuple[dict[str, object], list[Issue]]:
+    """The ``rules`` object of the build's summary and one ``altium.not-lowered`` warning per rule of
+    ``design`` that is not written, with ``where`` ``design-rules/<kind>`` (capability altium-build, "Rules
+    in an Altium build"). ``document`` is the PCB document's name, or ``None`` when none is planned: then no
+    rule is written and each one is reported with the reason ``no-document``."""
+    lowered = lowered_rules(design)
+    written = [
+        {"kind": rule.kind, "selector": rulemap.rule_selector(rule), "rule": record.name}
+        for record in (lowered.records if document is not None else ())
+        for rule in record.rules
+    ]
+    refused: list[tuple[str, str, str, str, str]] = [
+        (item.rule.name, item.kind, item.selector, item.reason, item.detail) for item in lowered.not_lowered
+    ]
+    if document is None:
+        refused += [
+            (rule.name, rule.kind, rulemap.rule_selector(rule), NO_DOCUMENT, "no PCB document is written")
+            for rule in lowered.written
+        ]
+    issues = [
+        Issue(
+            "altium.not-lowered",
+            "warning",
+            f"the {kind} rule {name!r} ({selector}) is not written into the PCB document "
+            f"({reason}): {detail}",
+            where=f"design-rules/{kind}",
+        )
+        for name, kind, selector, reason, detail in refused
+    ]
+    not_lowered = [
+        {"kind": kind, "selector": selector, "reason": reason}
+        for _name, kind, selector, reason, _detail in refused
+    ]
+    return {"written": written, "not_lowered": not_lowered}, issues
 
 
 def outline_corner(board: Board | None) -> Point:

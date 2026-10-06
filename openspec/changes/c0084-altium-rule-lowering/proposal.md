@@ -7,9 +7,9 @@ The read side has the same gap: `read/rules.py` maps three kinds and holds `Boar
 ## What Changes
 
 - **A closed lowering table**: each neutral rule kind → the Altium rule kind that carries it, the scope it is written with, and the reason when it has no counterpart. `altium.not-lowered` names the kind and the reason, never the whole group.
-- **Rule records in the PCB document** for the kinds of the table, with scopes: all nets, a net class, a net, a layer, and pairs of those.
+- **Rule records in the PCB document** for the kinds of the table, with scopes: all nets, a net class, a net, their conjunction, and a second scope for clearance. Layer scopes are not written (design, "Found on 2026-10-06").
 - **Reading the same kinds** back onto the neutral rules (`read/rules.py`), so that what Fenolite writes it also reads, and an Altium board keeps these rules through an import.
-- **A rule file**: `fenolite export --kinds altium-rul` writes the rules as an Altium rule file, which the PCB Rules editor imports; it is the same text form that c0042 reads.
+- **A rule file**: `fenolite export --altium-rul` writes the rules as an Altium rule file, which the PCB Rules editor imports; it is the same text form that c0042 reads.
 - **An oracle without Altium**: the rules of a built PcbDoc are read back and compared with the design's (own readback), and with what KiCad's importer makes of them where it imports a kind.
 
 Size: 7 design-days (a size, not time); cut order in the design.
@@ -20,15 +20,16 @@ Size: 7 design-days (a size, not time); cut order in the design.
 None.
 
 ### Modified Capabilities
-- `altium-pcb-writer`: ADDED "Rule lowering table", "Scoped rule records"; these supersede the three-kind limit of "Design rule records".
-- `altium-build`: ADDED "Rules in an Altium build"; supersedes "Rule minimums in an Altium build".
-- `altium-project-reader`: ADDED "More rule kinds onto the neutral model", "Rule file written".
+- `altium-pcb-writer`: ADDED "Rule lowering table", "Scoped rule records"; MODIFIED "Design rule records" (more kinds, the design's rules before the class rules).
+- `altium-build`: ADDED "Rules in an Altium build"; MODIFIED "Rule minimums in an Altium build" (written or reported per rule).
+- `altium-project-reader`: ADDED "More rule kinds onto the neutral model", "Rule file written"; MODIFIED "Rules onto the neutral model" (three more kinds, no pending kind).
 - `manufacturing-exports`: ADDED "Altium rule file export".
+- `cli-contract`: MODIFIED "Export command" (the flag `--altium-rul`, which needs no tool).
 
 ## Non-goals
 
 - No rule kind that the neutral model lacks (high-speed, signal-integrity, placement rooms, manufacturing testpoints): they stay opaque on read and are counted.
-- No query language beyond the closed scope grammar of c0042 (`All`, `InNet`, `InNetClass`, `OnLayer`, and `and` of those).
+- No query language beyond the closed scope grammar of c0042. Of that grammar the writer uses `All`, `InNet`, `InNetClass` and `And`; the grammar has no layer function, so no layer scope is written.
 - No Altium DRC run by Fenolite: Altium is not an oracle that runs in CI. c0088 adds Fenolite's own check; the maintainer's report confirms that Altium uses the written rules.
 - No code or constant from any private project or organisation; test data is authored for Fenolite or fetched from the public rows of the corpus manifest.
 - No format fact from a decompiled tool or a transcribed parser: every fact gets a row in `docs/formats/altium/*.md` with a public source of `docs/evidence/sources.md` and a label.
@@ -41,7 +42,7 @@ None.
 
 ## Impact
 
-- Changed: `backends/altium/pcbrecords.py`, `pcbdoc.py`, `read/rules.py`, `read/rul.py`, `lens/altium_copper.py`, `lens/altium.py`, `exports/`; new `backends/altium/rulemap.py` (the table, shared by writer and reader).
+- Changed: `backends/altium/pcbdoc.py`, `read/rules.py`, `read/rul.py` (constants), `claims.py`, `lens/altium_copper.py`, `lens/altium.py`, `cli/cmd_build.py`, `cli/cmd_export.py`; new `backends/altium/rulemap.py` (the table, `lower`, `lift` and `write_rule_file`, shared by writer and reader) and `exports/altium_rul.py`.
 - Pages: `docs/altium.md` ("Rules"), `docs/formats/altium/{rule-file,pcb-copper}.md`, `docs/evidence/altium-pcb.md`.
-- `altium.not-lowered` at `design-rules` is replaced by one issue per kind that is not lowered.
+- `altium.not-lowered` at `design-rules` is replaced by one warning per rule that is not lowered, with `where` `design-rules/<kind>`; `result.rules` of an Altium build is new.
 - Depends on: c0038 (rule records), c0042 (rule files read), c0071 (rule kinds); nothing else of v0.4.

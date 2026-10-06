@@ -5,7 +5,8 @@
 The export form of the PCB rules editor holds one rule record per line, ended by a pilcrow sign; the
 summary form written beside Gerber outputs holds a header line and short records without units
 (``docs/formats/altium/rule-file.md``). ``read_rule_file`` interprets no value: ``rules.map_rules``
-maps the records.
+maps the records. ``rulemap.write_rule_file`` (change c0084) writes the export form from neutral
+rules, with the constants of this module.
 """
 
 # evidence: see read.project
@@ -81,4 +82,24 @@ def read_rule_file(data: bytes, *, file: str = "") -> RuleFile:
     return RuleFile(form, "export", "", tuple(records), tuple(issues))
 
 
-__all__ = ["END_MARKS", "RuleFile", "RuleFileKind", "read_rule_file"]
+RULE_FILE_COMMON: tuple[tuple[str, str], ...] = (
+    ("SELECTION", "FALSE"),
+    ("LAYER", "TOP"),
+    ("LOCKED", "FALSE"),
+    ("POLYGONOUTLINE", "FALSE"),
+    ("USERROUTED", "TRUE"),
+    ("UNIONINDEX", "0"),
+)
+"""The six keys that open a record of the export form (``rule-file.md``, "Writing a rule file")."""
+WRITTEN_END = END_MARKS[1] + b"\n"
+"""How a written record ends: the single byte of the pilcrow sign, then LF, as in the public file."""
+
+
+__all__ = [
+    "END_MARKS",
+    "RULE_FILE_COMMON",
+    "WRITTEN_END",
+    "RuleFile",
+    "RuleFileKind",
+    "read_rule_file",
+]

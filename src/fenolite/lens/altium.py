@@ -22,7 +22,17 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import binary, hierarchy, pcbdoc, pcblib, pcbrecords, project, schdot, schlib
+from fenolite.backends.altium import (
+    binary,
+    hierarchy,
+    pcbdoc,
+    pcblib,
+    pcbrecords,
+    project,
+    rulemap,
+    schdot,
+    schlib,
+)
 from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
@@ -149,12 +159,14 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
     pcbrecords.EVIDENCE,
     hierarchy.EVIDENCE,
     pcbdoc.EVIDENCE,
+    rulemap.EVIDENCE,
 )
 """``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
 the kicad-cli oracle checks only what KiCad's importer reads. It names the rows of both schematic forms
 (``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows) and of the libraries (every ``H-A-SCHLIB-*`` row,
 ``schlib.EVIDENCE`` holding those of the library file) and of the hierarchy and harnesses
-(``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037)."""
+(``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037), and the rule
+rows ``H-A-RULE-*`` of the PCB document (``rulemap.EVIDENCE``, change c0084)."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -167,8 +179,9 @@ EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
 PCB_WRITE_KINDS: tuple[str, ...] = (project.PCBDOC_KIND, project.PCBLIB_KIND)
 """The write kinds of the PCB writers (change c0035), listed by their own ``capabilities`` entry."""
 AUTHORED_FOOTPRINT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-DSL-FOOTPRINT",))
-PCB_BUILD_EVIDENCE = Evidence.combine(pcbrecords.EVIDENCE, pcblib.EVIDENCE, pcbdoc.EVIDENCE)
-"""``INFERRED``: every ``H-A-PCB-*`` row; the kicad-cli oracles check only what KiCad reads."""
+PCB_BUILD_EVIDENCE = Evidence.combine(pcbrecords.EVIDENCE, pcblib.EVIDENCE, pcbdoc.EVIDENCE, rulemap.EVIDENCE)
+"""``INFERRED``: every ``H-A-PCB-*`` row and the rule rows ``H-A-RULE-*`` (change c0084); the kicad-cli
+oracles check only what KiCad reads."""
 PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-pcb-writer",
@@ -671,6 +684,8 @@ def pcb_document(
     issues += plan.issues
     if plan.failed:
         return None, issues
+    lowered = altium_copper.lowered_rules(design)  # change c0084; build_altium reports the others
+    spec = dataclasses.replace(spec, design_rules=lowered.records)
     spec = altium_copper.with_copper(spec, plan)
     if account is not None:
         source = copper_source.design if copper_source is not None else None
@@ -1044,13 +1059,6 @@ def _not_lowered(
             "schematic declares their nets"
         )
         found.append(issue("altium.not-lowered", message, "rules"))
-    rules = sorted(r.name for r in design.rules.rules) if design.rules is not None else []
-    if rules:  # change c0054: never filtered, the PCB document does not hold them either
-        message = (
-            f"the design rules {', '.join(rules)} are kept in the model only; the rules of the PCB "
-            "document come from the net classes"
-        )
-        found.append(issue("altium.not-lowered", message, "design-rules"))
     found += altium_copper.board_not_lowered(design.board)
     kept = sorted((i.name, i.kind) for i in design.circuit.interfaces if i.kind in MODEL_ONLY_INTERFACES)
     if kept:
@@ -1256,6 +1264,7 @@ def _summary(
     pcb: Mapping[str, object] | None = None,
     outjob: Mapping[str, object] | None = None,
     drawing_sheet: Mapping[str, object] | None = None,
+    rules: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
     entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
@@ -1286,6 +1295,7 @@ def _summary(
         "pcb": pcb,
         "outjob": outjob,
         "drawing_sheet": drawing_sheet,
+        "rules": rules,
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -1403,6 +1413,10 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
+    rules_info, rule_issues = altium_copper.rules_report(
+        model, document=f"{name}.PcbDoc" if spec is not None else None
+    )
+    issues += rule_issues
     copper_info = None
     if spec is not None:
         if copper_source is not None:
@@ -1560,6 +1574,7 @@ def build_altium(
         pcb=pcb_account if spec is not None else None,
         outjob=job_info,
         drawing_sheet=sheet_info,
+        rules=rules_info,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 

@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 
 import fenolite.backends.altium.pcbrecords as rec
+import fenolite.backends.altium.rulemap as rulemap
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.cfb import Entry, Storage, write_compound
 from fenolite.backends.altium.docboard import (
@@ -277,6 +278,9 @@ class PcbDocSpec:
     """The free items of the board (change c0085), model entities in the frame of the placements, as
     ``lens.altium_copper.lower_items`` checked them: texts and graphics on layers of
     ``pcbrecords.BOARD_LAYER_MAP``, keep-outs on copper layers of the board, round holes."""
+    design_rules: tuple[rulemap.LoweredRule, ...] = ()
+    """The lowered rules of the design (``rulemap.lower``, change c0084), written before the rules of the
+    net classes."""
 
 
 def _u32(value: int) -> bytes:
@@ -1014,17 +1018,26 @@ def _mil(nm: int) -> str:
 
 
 def _rule(
-    kind: int, kind_name: str, name: str, scope: str, priority: int, keys: Sequence[Field], filename: str
+    kind: int,
+    kind_name: str,
+    name: str,
+    scope: str,
+    priority: int,
+    keys: Sequence[Field],
+    filename: str,
+    *,
+    second: str = ALL_SCOPE,
+    net_scope: str = "",
 ) -> bytes:
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     fields: list[Field] = [
         *common_fields("TOP"),
         ("RULEKIND", kind_name),
-        ("NETSCOPE", "DifferentNets" if kind == RULE_CLEARANCE else "AnyNet"),
+        ("NETSCOPE", net_scope or ("DifferentNets" if kind == RULE_CLEARANCE else "AnyNet")),
         ("LAYERKIND", "SameLayer"),
         ("SCOPE1EXPRESSION", scope),
-        ("SCOPE2EXPRESSION", ALL_SCOPE),
+        ("SCOPE2EXPRESSION", second),
         ("NAME", name),
         ("ENABLED", "TRUE"),
         ("PRIORITY", str(priority)),
@@ -1036,16 +1049,13 @@ def _rule(
     return struct.pack("<H", kind) + rec.property_block(fields)
 
 
-def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
-    """The ``Rules6`` records (``pcb-copper.md``, "Rules"): Clearance, Width and Routing Via Style, in that
-    order. Per kind, one rule ``<Kind>_<class>`` scoped ``InNetClass('<class>')`` for each net class that
-    holds the kind's value, in class-name order with priorities from 1, then one rule named after the kind
-    with the scope ``All`` and Fenolite's default. The limits of a width or via rule span its preferred
-    value and the written copper of its scope, so the document's own copper never breaks them. No rule is
-    written for a spec without copper and net classes, or with ``rules`` off."""
-    has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
-    if not spec.rules or not has_copper:
-        return []
+_Planned = tuple[int, str, str, str, str, str, Sequence[Field]]
+"""A rule before its priority: kind number, kind text, name, the two scopes, ``NETSCOPE`` and the keys."""
+
+
+def _class_rules(spec: PcbDocSpec) -> list[_Planned]:
+    """The rules of the net classes and Fenolite's ``All`` defaults (change c0038): per kind, one rule per
+    class that holds the value, in class-name order, then the ``All`` rule."""
     classes = sorted(spec.net_classes, key=lambda c: c.name)
     widths = [(item.net_id, item.width) for item in (*spec.tracks, *spec.arcs)]
     vias = [(via.net_id, via.diameter, via.drill) for via in spec.vias]
@@ -1059,9 +1069,9 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
     def inside(net: str | None, item: NetClassSpec | None) -> bool:
         return item is None or net in item.nets
 
-    out: list[bytes] = []
+    out: list[_Planned] = []
     clearances = [(c, c.clearance) for c in classes if c.clearance is not None]
-    for priority, (item, gap) in enumerate([*clearances, (None, DEFAULT_CLEARANCE)], start=1):
+    for item, gap in [*clearances, (None, DEFAULT_CLEARANCE)]:
         keys: list[Field] = [
             ("GAP", _mil(gap)),
             ("GENERICCLEARANCE", _mil(gap)),
@@ -1069,24 +1079,22 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             ("OBJECTCLEARANCES", ""),
         ]
         name = named("Clearance", item)
-        out.append(_rule(RULE_CLEARANCE, "Clearance", name, scoped(item), priority, keys, filename))
+        out.append((RULE_CLEARANCE, "Clearance", name, scoped(item), ALL_SCOPE, "DifferentNets", keys))
     preferred = [(c, c.track_width) for c in classes if c.track_width is not None]
-    for priority, (item, width) in enumerate([*preferred, (None, DEFAULT_TRACK_WIDTH)], start=1):
+    for item, width in [*preferred, (None, DEFAULT_TRACK_WIDTH)]:
         found = [width, *(w for net, w in widths if inside(net, item))]
         keys = [
             ("MAXLIMIT", _mil(max(found))),
             ("MINLIMIT", _mil(min(found))),
             ("PREFEREDWIDTH", _mil(width)),
         ]
-        out.append(_rule(RULE_WIDTH, "Width", named("Width", item), scoped(item), priority, keys, filename))
+        out.append((RULE_WIDTH, "Width", named("Width", item), scoped(item), ALL_SCOPE, "AnyNet", keys))
     styles = [
         (c, c.via_diameter, c.via_drill)
         for c in classes
         if c.via_diameter is not None and c.via_drill is not None
     ]
-    for priority, (item, diameter, drill) in enumerate(
-        [*styles, (None, DEFAULT_VIA_DIAMETER, DEFAULT_VIA_DRILL)], start=1
-    ):
+    for item, diameter, drill in [*styles, (None, DEFAULT_VIA_DIAMETER, DEFAULT_VIA_DRILL)]:
         diameters = [diameter, *(d for net, d, _h in vias if inside(net, item))]
         holes = [drill, *(h for net, _d, h in vias if inside(net, item))]
         keys = [
@@ -1099,7 +1107,42 @@ def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
             ("MAXWIDTH", _mil(max(diameters))),
         ]
         name = named("RoutingVias", item)
-        out.append(_rule(RULE_VIAS, "RoutingVias", name, scoped(item), priority, keys, filename))
+        out.append((RULE_VIAS, "RoutingVias", name, scoped(item), ALL_SCOPE, "AnyNet", keys))
+    return out
+
+
+def rule_records(spec: PcbDocSpec, filename: str) -> list[bytes]:
+    """The ``Rules6`` records (``pcb-copper.md``, "Rules" and "Rule kinds lowered"), by kind in the order of
+    ``rulemap.KIND_ORDER``. Per kind, first the lowered rules of the design (``spec.design_rules``) in
+    their order, then the rules of change c0038: one rule ``<Kind>_<class>`` scoped
+    ``InNetClass('<class>')`` for each net class that holds the kind's value, in class-name order, and one
+    rule named after the kind with the scope ``All`` and Fenolite's default. A rule of c0038 whose two
+    scopes are those of a rule of the design is left out: the design's rule replaces it. Priorities count
+    from 1 within a kind. The limits of a width or via rule of c0038 span its preferred value and the
+    written copper of its scope. The rules of c0038 are written only for a spec with copper or net
+    classes; no rule is written with ``rules`` off."""
+    if not spec.rules:
+        return []
+    has_copper = bool(spec.tracks or spec.arcs or spec.vias or spec.zones or spec.net_classes)
+    planned: list[_Planned] = []
+    planned.extend(
+        (r.number, r.kind, r.name, r.scope1, r.scope2, r.net_scope, r.keys) for r in spec.design_rules
+    )
+    taken = {(kind, first, second) for _n, kind, _name, first, second, _net, _keys in planned}
+    names = {name for _n, _kind, name, _first, _second, _net, _keys in planned}
+    for rule in _class_rules(spec) if has_copper else []:
+        if (rule[1], rule[3], rule[4]) in taken:
+            continue
+        name = f"{rule[2]}_class" if rule[2] in names else rule[2]  # a net named like a class rule
+        planned.append((rule[0], rule[1], name, *rule[3:]))
+    order = {kind: position for position, kind in enumerate(rulemap.KIND_ORDER)}
+    out: list[bytes] = []
+    for kind in sorted({rule[1] for rule in planned}, key=lambda k: order[k]):
+        of_kind = [rule for rule in planned if rule[1] == kind]
+        for priority, (number, _kind, name, first, second, net_scope, keys) in enumerate(of_kind, start=1):
+            out.append(
+                _rule(number, kind, name, first, priority, keys, filename, second=second, net_scope=net_scope)
+            )
     return out
 
 

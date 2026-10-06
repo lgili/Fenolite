@@ -123,6 +123,55 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
 | A class rule has `SCOPE1EXPRESSION=InNetClass('<name>')` and a higher priority (a lower number) than the `All` rule of its kind; a rule for everything has `SCOPE1EXPRESSION=All` and `SCOPE2EXPRESSION=All` | S-0161, S-0174 (files kept outside the repository) | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-CU-RULES |
 | Altium saves 39 to 41 rules of many kinds. The document of c0035 writes none and opens; Altium Designer 26.5 accepts three kinds without the rest: it shows them and its design rule check runs (author report of 2026-10-03) | S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-CU-RULES |
 
+## Rule kinds lowered
+
+Change c0084 writes more rule kinds and scopes. The constraint of each kind is what Altium's public
+documentation says (S-0460, S-0461, S-0462; Altium Designer 26, read 2026-10-06, facts only). The keys of
+each record are those of rule records in public PCB documents and in one public rule file, read with
+Fenolite's own readers (corpus rows `altium-third-party-pcbdoc-01` to `-08` and
+`altium-third-party-rules-01`; census of 2026-10-06, files in the corpus cache, never committed). A corpus
+row shows which keys Altium writes; what Altium means by them stays `INFERRED` until the author report,
+Part U of `docs/evidence/altium-pcb.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Board Outline Clearance is the minimum clearance from fabricated design objects to the edges of the board (outline, cavity, cutout and split-line edges); it holds one minimum clearance or a matrix per object and edge kind | S-0460 | INFERRED | H-A-RULE-KINDS |
+| A Board Outline Clearance record has the kind number 63, `RULEKIND=BoardOutlineClearance`, `NETSCOPE=DifferentNets` and the keys of Clearance in this order: `GAP`, `GENERICCLEARANCE` (equal to `GAP`), `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`, `OBJECTCLEARANCES` (empty for one value; a list of `ClearanceObj_…` pairs for a matrix). Eight records in five documents; its first scope is `All`, `InNet('…')` or a query, its second `All` | S-0174, S-0175, S-0187, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
+| Hole Size is the minimum and the maximum hole diameter of pads and vias, as absolute values or as percentages of the pad size | S-0460 | INFERRED | H-A-RULE-KINDS |
+| A Hole Size record has the kind number 42, `RULEKIND=HoleSize`, `NETSCOPE=AnyNet` and the keys `ABSOLUTEVALUES`, `MAXLIMIT`, `MINLIMIT`, `MAXPERCENT`, `MINPERCENT` in this order; every record read holds `ABSOLUTEVALUES=TRUE`, `MAXPERCENT=80.000` and `MINPERCENT=20.000`, and both limits (ten records) | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
+| Hole To Hole Clearance is the minimum clearance between the holes of pads and vias, with the option "Allow Stacked Micro Vias" | S-0460 | INFERRED | H-A-RULE-KINDS |
+| A Hole To Hole Clearance record has the kind number 52, `RULEKIND=HoleToHoleClearance`, `NETSCOPE=AnyNet` and the keys `GAP` and `ALLOWSTACKEDMICROVIAS` (`TRUE` or `FALSE`) in this order; both scopes are `All` in the nine records read | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
+| Minimum Annular Ring is the minimum ring of a pad or via, measured radially from the edge of the hole to the edge of the pad or via | S-0460 | INFERRED | H-A-RULE-KINDS |
+| A Minimum Annular Ring record has the kind number 19, `RULEKIND=MinimumAnnularRing`, `NETSCOPE=AnyNet` and the one key `MINIMUMRING`; four records in three documents, scoped `All`, `IsVia` or `NOT IsVia` | S-0174, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
+| A Width record holds `MAXLIMIT`, `MINLIMIT` and `PREFEREDWIDTH` in every record read, a Routing Via Style record its seven keys, a Hole Size record both limits: no record read leaves a limit out | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
+| Silk To Solder Mask Clearance is the clearance between a silkscreen primitive and a solder mask opening or the copper exposed through it, by a checking mode; Silk To Silk Clearance is the clearance between silkscreen text and other silkscreen objects. Their records hold `MINSILKSCREENTOMASKGAP` with `CLEARANCETOEXPOSEDCOPPER`, and `SILKTOSILKCLEARANCE`. Neither is the neutral silkscreen clearance, which is one value for both | S-0460, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
+| Component Clearance is the minimum distance between components, measured between their 3D bodies or, without them, their selection areas, with a horizontal and a vertical clearance and a check mode. Its record holds `GAP`, `COLLISIONCHECKMODE`, `VERTICALGAP` and `SHOWDISTANCES`; no permitted source says what the mode number means. It is not a clearance between courtyards | S-0461, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200, S-0297 | INFERRED | H-A-RULE-KINDS |
+| Creepage Distance is a rule of the Electrical category between a first and a second scoped object, whose distance is checked in three dimensions, with the options "Ignore Internal Layers" and "Apply to Polygon Pour". No public file read holds such a rule, so its record is not known | S-0462 | INFERRED | H-A-RULE-KINDS |
+| The clearance of a hole is a row of the object matrix of Clearance (`ClearanceObj_Hole` in `OBJECTCLEARANCES`); the numbers of that text carry no unit and no permitted source explains them. There is no rule kind for the clearance between a hole and copper alone | S-0462, S-0176 | INFERRED | H-A-RULE-KINDS |
+| Scopes seen in the records of the lowered kinds: `All`, `InNet('<net>')` and `InNetClass('<class>')` as the first scope with `All` as the second; a Clearance record also holds a query as its second scope (layer and polygon queries in the records read, never a net). The rule that applies is the first one, by priority, whose scopes match | S-0286, S-0296, S-0172, S-0174, S-0175, S-0176, S-0187, S-0200 | INFERRED | H-A-RULE-SCOPE |
+| Priorities count from 1 within one rule kind: in the eight documents and the rule file every kind has its own run 1, 2, … without a gap | S-0286, S-0297, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 | INFERRED | H-A-RULE-PRIORITY |
+
+### The lowering table
+
+`rulemap.TABLE`, one row per neutral rule kind. An `exact` row is written and read back; every other row
+names why the kind is not written. A dash is a limit the kind does not hold; a rule must give exactly the
+limits of its row.
+
+| neutral kind | Altium kind | number | min | opt | max | status |
+|---|---|---|---|---|---|---|
+| `clearance` | `Clearance` | 0 | `GAP` | — | — | exact |
+| `track_width` | `Width` | 2 | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | exact |
+| `via_diameter` | `RoutingVias` | 11 | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | exact |
+| `via_drill` | `RoutingVias` | 11 | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | exact |
+| `hole_size` | `HoleSize` | 42 | `MINLIMIT` | — | `MAXLIMIT` | exact |
+| `edge_clearance` | `BoardOutlineClearance` | 63 | `GAP` | — | — | exact |
+| `hole_to_hole` | `HoleToHoleClearance` | 52 | `GAP` | — | — | exact |
+| `hole_clearance` | — | — | — | — | — | no-counterpart |
+| `annular_width` | `MinimumAnnularRing` | 19 | `MINIMUMRING` | — | — | exact |
+| `courtyard_clearance` | — | — | — | — | — | no-counterpart |
+| `silk_clearance` | — | — | — | — | — | no-counterpart |
+| `creepage` | — | — | — | — | — | no-counterpart |
+
 ## Oracle
 
 | fact | source | label | hypothesis |
@@ -148,7 +197,8 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
 - Rooms (the Room Definition rule) and "Supply Nets" rules: no permitted source holds their records. The
   project file turns the rooms off (`project.md`, "Class generation"); the "Supply Nets" rules stay a
   difference that the change order may propose, and they only add rules (`H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`).
-- Every rule kind but Clearance, Width and Routing Via Style; tear-drops; differential pairs.
+- Every rule kind outside the lowering table ("Rule kinds lowered"), layer scopes and queries of rules;
+  tear-drops; differential pairs.
 
 ## Fenolite's choices
 
@@ -210,6 +260,19 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
   priorities from 1 in class-name order, then one rule named after the kind with the scope `All`.
   Defaults of the `All` rules: clearance 0.2 mm, width 0.25 mm, via 0.6 mm with a 0.3 mm hole. Width and
   via limits span the preferred value and the written copper of the rule's scope.
+- **Rules of the design (c0084).** `rulemap.lower` writes a neutral rule only when its row is `exact`,
+  its severity is `error`, it gives exactly the limits of its row, and its selectors are all objects, a
+  net, a net class or a conjunction of those (a second selector for `clearance` only). Nothing is
+  approximated: a `track_width` rule without `opt` and `max`, a `hole_size` rule without `max`, a glob, a
+  layer and a `ref` or `item_kind` selector are reported, not written. A `via_diameter` and a `via_drill`
+  rule of one selector share one Routing Via Style record; one of them alone is not written. Fixed
+  values: `ALLOWSTACKEDMICROVIAS=FALSE` (the neutral rule exempts no hole; the reader maps only that
+  value), `ABSOLUTEVALUES=TRUE` with the percentages every record read holds, `OBJECTCLEARANCES` empty.
+  Names are `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, with `_and_` for a conjunction and `_to_`
+  before a second scope; a repeated name gets `_2`. Within a kind the rules of the design come first, from
+  the most governing to the least (priority 1, 2, … then 0; ties by falling name), then the rules of the
+  net classes and the `All` default; a class or default rule whose scopes a rule of the design holds is
+  left out. So a board-wide rule of the script governs the classes, as it does in a KiCad build.
 - **Refusals.** Copper on a layer outside the stack or on a plane, a via that does not span two
   different copper layers and a zone without an outline give an error and no file. A micro via is left
   out with a warning (change c0085).

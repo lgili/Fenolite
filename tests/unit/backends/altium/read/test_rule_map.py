@@ -150,7 +150,7 @@ def test_every_other_kind_is_reported_reasons() -> None:
     assert [(u.index, u.kind, u.reason) for u in mapping.unmapped] == [
         (0, "ShortCircuit", "no-counterpart"),
         (1, "PlaneConnect", "no-counterpart"),
-        (2, "BoardOutlineClearance", "no-verified-keys"),
+        (2, "BoardOutlineClearance", "net-scope"),  # mapped since c0084; DifferentNets is needed
         (3, "Width", "disabled"),
         (4, "Clearance", "keys"),
     ]
@@ -158,6 +158,48 @@ def test_every_other_kind_is_reported_reasons() -> None:
         ("altium.rule.unmapped", "info", f"x.RUL#{index}") for index in range(5)
     ]
     assert "ShortCircuit" in mapping.issues[0].message and "no-counterpart" in mapping.issues[0].message
+
+
+def test_kinds_of_c0084() -> None:
+    """Scenario "Board outline clearance" and the two other kinds of change c0084 (capability
+    altium-project-reader, "More rule kinds onto the neutral model")."""
+    edge = record(
+        "BoardOutlineClearance",
+        ("GAP", "11.811mil"),
+        ("GENERICCLEARANCE", "11.811mil"),
+        ("IGNOREPADTOPADCLEARANCEINFOOTPRINT", "FALSE"),
+        ("OBJECTCLEARANCES", ""),
+        NETSCOPE="DifferentNets",
+        SCOPE1EXPRESSION="InNet('VBUS')",
+    )
+    holes = record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "FALSE"))
+    ring = record("MinimumAnnularRing", ("MINIMUMRING", "6mil"), SCOPE1EXPRESSION="IsVia")
+    rules = map_rules([edge, holes, ring], origin="b").ruleset.rules
+    assert [(r.kind, r.min, r.opt, r.max, r.selector_b) for r in rules] == [
+        ("edge_clearance", 299_999, None, None, None),
+        ("hole_to_hole", 254_000, None, None, None),
+        ("annular_width", 152_400, None, None, None),
+    ]
+    assert rules[0].selector_a == Selector("net", "VBUS")
+    assert rules[2].selector_a == Selector("item_kind", "via")
+    matrix = record(
+        "BoardOutlineClearance",
+        ("GAP", "10mil"),
+        ("OBJECTCLEARANCES", "ClearanceObj_Poly-ClearanceObj_OutlineEdge:196850"),
+        NETSCOPE="DifferentNets",
+    )
+    assert reasons(
+        [
+            matrix,
+            record("HoleToHoleClearance", ("GAP", "10mil"), ("ALLOWSTACKEDMICROVIAS", "TRUE")),
+            record("HoleToHoleClearance", ("GAP", "10mil")),
+            record("MinimumAnnularRing"),
+            record("BoardOutlineClearance", NETSCOPE="DifferentNets"),
+            record(
+                "BoardOutlineClearance", ("GAP", "5mil"), NETSCOPE="DifferentNets", SCOPE2EXPRESSION="IsPad"
+            ),
+        ]
+    ) == ["keys", "keys", "keys", "value", "value", "scope"]
 
 
 def test_reasons_in_their_order() -> None:
@@ -169,7 +211,7 @@ def test_reasons_in_their_order() -> None:
     assert reasons([record("Width", width, PRIORITY="0")]) == ["malformed"]
     assert reasons([record("Width", width, PRIORITY="high")]) == ["malformed"]
     assert reasons([record("Height", width, ENABLED="FALSE")]) == ["no-counterpart"]
-    assert reasons([record("BoardOutlineClearance", ENABLED="FALSE")]) == ["no-verified-keys"]
+    assert reasons([record("BoardOutlineClearance", ENABLED="FALSE")]) == ["disabled"]
     assert reasons([record("Width", width, ENABLED="FALSE", NETSCOPE="DifferentNets")]) == ["disabled"]
     assert reasons([record("Width", width, NETSCOPE="DifferentNets", LAYERKIND="AdjacentLayers")]) == [
         "net-scope"

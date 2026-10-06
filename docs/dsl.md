@@ -637,9 +637,11 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
 - **Beyond minimums.** `minimum()` covers six kinds on the board or on a class. Everything else is a
   `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. Custom expressions,
   differential-pair and length rules are not modelled.
-- **Altium.** `--target altium` does not write the minimums: the rules of the PCB document come from the
-  net classes. The build reports them with one `altium.not-lowered` info (`where` = `design-rules`), and
-  they stay in `.fenolite/rules.json`.
+- **Altium.** `--target altium` writes a minimum into the PCB document when Altium's rule holds that
+  one limit: `clearance` and `edge_clearance`. A `track_width`, `via_diameter`, `via_drill` or `hole_size`
+  minimum is reported with one `altium.not-lowered` warning (`where` = `design-rules/<kind>`), because
+  Altium's record also holds a maximum (and a preferred value): declare it with `rule()` and all its
+  limits (`docs/altium.md`, "Rules"). Every rule stays in `.fenolite/rules.json`.
 
 ### Rules with selectors
 
@@ -682,7 +684,8 @@ design.rules.rule(
   for it; `--allow-lossy` leaves the rule out with `rules.dropped-for-target`.
 - **Model.** One `Rule` per call, after the minimums, with the id `derived_id("rul", "dsl",
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
-- **Altium.** As for minimums: reported with `altium.not-lowered`, kept in `.fenolite/rules.json`.
+- **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
+  not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
 
 ## Copper guard
 

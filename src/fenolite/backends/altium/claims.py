@@ -29,6 +29,7 @@ from fenolite.backends.altium import (
     pcblib,
     pcbrecords,
     project,
+    rulemap,
     schdot,
     schlib,
 )
@@ -52,7 +53,8 @@ MATRIX: tuple[MatrixRow, ...] = (
         project.PCBDOC_KIND,
         detect=IMPORT,
         read=Evidence.combine(read_pcb.EVIDENCE, IMPORT),
-        write=Evidence.combine(pcbrecords.EVIDENCE, pcbdoc.EVIDENCE),
+        # the rules of the design are written by kind and scope (change c0084, the H-A-RULE-* rows)
+        write=Evidence.combine(pcbrecords.EVIDENCE, pcbdoc.EVIDENCE, rulemap.EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(

@@ -173,6 +173,13 @@ with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
 is written) and `placements_from_board`. `result.pcb` (change c0085) is `null` without a PCB document; with one it holds `written`, the number of model items the document holds per kind (`footprint`, `pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`), and `not_lowered`, the kinds with items it does not hold and their number. With `--copper-from`, `result.copper_input` holds the board's
 `path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
 
+`result.rules` (change c0084) is `null` when the build is refused, else `written` and `not_lowered`:
+the script's rules that the PCB document holds (`kind`, `selector`, `rule`: the name of the Altium rule)
+and those it does not (`kind`, `selector`, `reason`: `no-counterpart`, `scope-unsupported`,
+`value-unsupported`, `unit-loss`, or `no-document` when no PCB document is planned). Each rule of
+`not_lowered` gives one `altium.not-lowered` **warning** with `where` `design-rules/<kind>`; no issue
+has the `where` `design-rules` alone (`docs/altium.md`, "Rules").
+
 `source` is `script` when the script declares copper intents (`Design.track`, `Design.via`,
 `Design.stitch`) and `--copper-from` is absent: the intents are resolved by the KiCad build of the
 script, run in memory (no KiCad file is planned), and the script's zones travel with them. An error of
@@ -816,7 +823,7 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
 
 ## export
 
-`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest]
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--altium-rul] [--manifest]
 [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
 copy of the board `PATH` names (resolved as for `check`). Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
@@ -832,6 +839,16 @@ that selects none exits 2. `--timeout` defaults to 300 s and applies to each run
 | `--ipcd356` | `pcb export ipcd356` | `netlist/<stem>.d356` |
 
 `--check-zones` and `--board-plot-params` are never passed, so the files show the board as it is.
+
+`--altium-rul` (change c0084) writes `DIR/<stem>.RUL`: the rules of the project's rules file
+(`<stem>.kicad_dru`) as an Altium rule file, which Altium's PCB Rules editor imports. It runs no tool, so
+alone it needs no `kicad-cli` (`tool_version` is `null` and the evidence has no oracle), and `--all`
+does not select it. A rule is written exactly or not at all (`docs/altium.md`, "Rules"):
+`result.rules` holds `written` (`kind`, `selector`, `rule`) and `not_lowered` (`kind`, `selector`,
+`reason`). When the rules file is missing or no rule has an exact Altium form, `export.failed` with
+`where` `altium-rul` is reported and nothing is planned. The artefact's kind is `altium-rul`; its
+manifest entry names `fenolite <version>` as its tool and the level of the rule map (`INFERRED`), and
+an envelope that holds it is `INFERRED`.
 `--preset FILE` applies your fabrication options from a TOML file (`docs/exports.md`, "Presets"): it
 is read before any run, and each of its keys replaces one option of the table above. A preset that is
 not TOML, has another `schema`, or holds an unknown table, key or value exits 3 with `FEN-3004`,
@@ -849,7 +866,7 @@ folder never holds a partial set.
 
 | code | severity | when |
 |---|---|---|
-| `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind |
+| `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind. For `altium-rul`: the rules file cannot be read, or no rule has an exact Altium form |
 | `export.kind-unavailable` | error | the running `kicad-cli` major cannot export the kind; no tool run |
 
 Exit codes: 0 when the files are planned or written, 4 without `--dry-run` or `--confirm`, 5 with an

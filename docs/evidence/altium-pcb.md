@@ -332,6 +332,93 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
 A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
 author report never moves an operation out of `experimental`.
 
+## Part U: rules (change c0084)
+
+Change c0084 writes the rules of the design by kind and scope (`docs/altium.md`, "Rules";
+`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"). No step of this part has been run: every row
+it names is `INFERRED`, and nothing here is `ALTIUM-VERIFIED`.
+
+**Files.** The routed sample of Part C with one rule of every `exact` kind, the class `PWR` (`GND`,
+`VIN`) and two planted violations, plus the same rules as a rule file. They are built outside the
+repository and none is committed. On the maintainer's machine they lie in
+`~/fenolite-altium-checks/c0084-part-u/` (the folder `rules` and the script `build_part_u.py`); build
+them again with `uv run python ~/fenolite-altium-checks/c0084-part-u/build_part_u.py <folder>`, run from
+the repository, which uses `tests/_altium_copper.py` and `rulemap.write_rule_file`. Built on 2026-10-06:
+
+| file | SHA-256 |
+|---|---|
+| `rules/routed.PcbDoc` | `abe6d0b13c6f336577f5ead4e7054d513793c3eee8c37bbb3901c38d5b6d51a7` |
+| `rules/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
+| `rules/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
+| `rules/routed.RUL` | `aac210fee08abeaafd56351109bba5116f4bc09b0c20d672a5c9ad6baae7d4d5` |
+| `rules/routed.SchDoc` | `7fe119a7d4aeaac4e839efb62edaedcea16f0122cebd65a6529761a719f474be` |
+| `rules/routed.SchLib` | `d5c422088de0150389ebee25d625dbeeba298d7099973b8588bc70593680a0fe` |
+
+The library, the project file and the schematic are the committed files of Part C; only the PCB document
+differs, and only in `Rules6`.
+
+**The rules written**, as Fenolite reads them back from `rules/routed.PcbDoc`. Every row but
+`Clearance_PWR` is a rule of the design; `Clearance_PWR` is the rule of the net class, which the board-wide
+rule `Clearance` now precedes. `routed.RUL` holds the ten records of the design's rules, not
+`Clearance_PWR`.
+
+| Altium rule kind | name | priority | first scope | second scope | values |
+|---|---|---|---|---|---|
+| Clearance | `Clearance_net_LED_DRV_to_net_LED_A` | 1 | `InNet('LED_DRV')` | `InNet('LED_A')` | 59.0551 mil (1.5 mm) |
+| Clearance | `Clearance` | 2 | `All` | `All` | 5.9055 mil (0.15 mm) |
+| Clearance | `Clearance_PWR` | 3 | `InNetClass('PWR')` | `All` | 7.874 mil (0.2 mm) |
+| Width | `Width_PWR` | 1 | `InNetClass('PWR')` | `All` | minimum and preferred 23.622 mil (0.6 mm), maximum 78.7402 mil (2 mm) |
+| Width | `Width` | 2 | `All` | `All` | minimum 5.9055 mil (0.15 mm), preferred 9.8425 mil (0.25 mm), maximum 78.7402 mil (2 mm) |
+| Routing Via Style | `RoutingVias` | 1 | `All` | `All` | diameter 19.685 / 23.622 / 31.4961 mil (0.5 / 0.6 / 0.8 mm); hole 9.8425 / 11.811 / 15.748 mil (0.25 / 0.3 / 0.4 mm) |
+| Hole Size | `HoleSize` | 1 | `All` | `All` | minimum 11.811 mil (0.3 mm), maximum 236.2205 mil (6 mm), absolute |
+| Board Outline Clearance | `BoardOutlineClearance` | 1 | `All` | `All` | 19.685 mil (0.5 mm) |
+| Hole To Hole Clearance | `HoleToHoleClearance` | 1 | `All` | `All` | 9.8425 mil (0.25 mm), stacked microvias not allowed |
+| Minimum Annular Ring | `MinimumAnnularRing` | 1 | `All` | `All` | 4.9213 mil (0.125 mm) |
+
+**Planted violations.** (1) The two `VIN` tracks are 0.5 mm wide, below the 0.6 mm minimum of `Width_PWR`.
+(2) The two pads of `R1` carry `LED_DRV` and `LED_A` and lie closer than the 1.5 mm of
+`Clearance_net_LED_DRV_to_net_LED_A`; the end of the `LED_DRV` track and the `LED_A` via at those pads are
+inside that distance too, so the rule can be named by more than one violation. How many violations Altium
+counts for each is not known: the steps ask which rules are named.
+
+Each step needs a licence the maintainer may use for Fenolite (licence rule above). Work on copies.
+
+- **U1** (`rules/routed.PrjPcb`, `rules/routed.PcbDoc`): open the project and the PCB document; open
+  "Design » Rules". Expected: no repair prompt; one entry per row of the table above, under the kind of its
+  row. Settles `H-A-RULE-KINDS` with U2 and U3.
+- **U2** (same file): for each entry, compare the values with the table. Expected: equal.
+- **U3** (same file): confirm that no kind of the table shows only Altium's default rule in place of
+  the written one, and that Altium added no second rule of a written kind.
+- **U4** (same file): read each entry's scope text. Run "Tools » Polygon Pours » Repour All", then "Tools »
+  Design Rule Check" with the default report. Expected: the scopes of the table as written; among the
+  kinds of the table, only `Width_PWR` and `Clearance_net_LED_DRV_to_net_LED_A` are named by violations.
+  Report the number of violations per rule, and any other rule of the table that is named. Settles
+  `H-A-RULE-SCOPE`.
+- **U5** (same file): select one of the two `VIN` tracks and read which Width rule its violation names.
+  Expected: `Width_PWR`, not `Width`. Settles `H-A-RULE-PRIORITY`.
+- **U6** (a copy of `rules/routed.PcbDoc`, and `rules/routed.RUL`): in the rules editor delete the rules
+  of one kind (for example Width), import `routed.RUL` (right-click in the rules tree, "Import Rules…",
+  choose that kind), and compare the list with U1. Expected: the import gives no message and the rules of
+  the kind are those of U1. Settles `H-A-RULE-FILE`.
+
+The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence), the
+tool as `AD <major>.<minor>` and the date. No file that Altium wrote is committed. A step that fails
+refutes the row it names: the row keeps its id and gets a registered successor.
+
+### Rules against KiCad's importer
+
+`tests/kicad/altium/test_rules_oracle.py` builds the routed sample with one rule of every `exact` kind and
+imports its PCB document with `kicad-cli pcb import --format altium` (10.0.6, macOS, 2026-10-06, 3 passed).
+`pcb import` writes the board file only, and KiCad keeps design-rule minimums and net classes in the
+project file, so the oracle is narrow:
+
+| Altium rule kind | what the import shows |
+|---|---|
+| Clearance | read: each zone of the imported board gets the clearance of the first Clearance rule (0.17 mm with the design's rule, Fenolite's 0.2 mm default without it) |
+| Width, Routing Via Style, Hole Size, Board Outline Clearance, Hole To Hole Clearance, Minimum Annular Ring | loaded without an error or a warning; no value of them is in the imported board, so the import says nothing about them |
+
+A pass shows that KiCad's importer accepts the records; it settles no Altium row and raises no level.
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D

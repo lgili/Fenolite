@@ -89,6 +89,13 @@ def test_altium_target_reports_the_minimums(tmp_path: Path, monkeypatch: pytest.
         "--confirm",
     )
     assert code == 0, err
-    found = [i for i in env["issues"] if i.get("where") == "design-rules"]  # type: ignore[union-attr]
-    assert [i["code"] for i in found] == ["altium.not-lowered"]
-    assert "min_clearance" in found[0]["message"] and "min_track_width_PWR" in found[0]["message"]
+    issues = env["issues"]
+    assert not [i for i in issues if i.get("where") == "design-rules"]  # type: ignore[union-attr]
+    found = [i for i in issues if str(i.get("where")).startswith("design-rules/")]  # type: ignore[union-attr]
+    assert {i["code"] for i in found} == {"altium.not-lowered"} and found
+    rules = env["result"]["rules"]  # type: ignore[index]
+    assert [i["where"] for i in found] == [f"design-rules/{r['kind']}" for r in rules["not_lowered"]]
+    assert {r["kind"] for r in rules["written"]} | {r["kind"] for r in rules["not_lowered"]} == {
+        "clearance",
+        "track_width",
+    }

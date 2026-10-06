@@ -465,8 +465,70 @@ texts, graphics and holes of the board are not copied (`altium.not-lowered`).
 **Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
 variant with `kicad-cli pcb import` and compares the copper and the layer types;
 `test_copper_from_oracle.py` proves that copper copied with `--copper-from` equals the source board after
-the way back. KiCad reads a plane of the stack as a `power` layer; it does not import the plane's net,
-net classes or rules.
+the way back. KiCad reads a plane of the stack as a `power` layer; it does not import the plane's net
+or the net classes, and of the rules it shows only the clearance of the zones ("Rules").
+
+## Rules (change c0084)
+
+A build writes the rules of the script into `<name>.PcbDoc`, each as the Altium rule kind that carries
+it, and names every rule it cannot write. A rule is written exactly or not at all: a rule that Altium
+would read with another value or scope is worse than a missing one, because Altium's check would pass
+a board that the script forbids.
+
+| neutral kind | Altium rule | limits the rule must give | written |
+|---|---|---|---|
+| `clearance` | Clearance | `min` | yes |
+| `track_width` | Width | `min`, `opt` and `max` | yes |
+| `via_diameter` | Routing Via Style | `min`, `opt` and `max`, with a `via_drill` rule of the same selector | yes |
+| `via_drill` | Routing Via Style | `min`, `opt` and `max`, with a `via_diameter` rule of the same selector | yes |
+| `hole_size` | Hole Size | `min` and `max` | yes |
+| `edge_clearance` | Board Outline Clearance | `min` | yes |
+| `hole_to_hole` | Hole To Hole Clearance | `min` | yes |
+| `annular_width` | Minimum Annular Ring | `min` | yes |
+| `hole_clearance` | none | | no (`no-counterpart`) |
+| `courtyard_clearance` | none (Component Clearance measures bodies, with a vertical clearance) | | no (`no-counterpart`) |
+| `silk_clearance` | none (Altium splits it into two narrower rules) | | no (`no-counterpart`) |
+| `creepage` | none (the record of Altium's Creepage Distance is in no public file) | | no (`no-counterpart`) |
+
+- **Limits.** Altium's Width, Routing Via Style and Hole Size records hold every limit, so a rule must
+  give them all: `design.rules.minimum(track_width=…)`, which gives a minimum only, is reported
+  (`value-unsupported`); write `design.rules.rule("w", "track_width", min=…, opt=…, max=…)` to get a
+  Width rule. A severity other than `error` is `value-unsupported` too: a rule record is enabled or not.
+- **Scopes.** All objects, a net (`InNet('<net>')`), a net class (`InNetClass('<class>')`) and the
+  conjunction of those (`… And …`); a `clearance` rule takes a second scope from `between`. A glob, a
+  `ref`, `item_kind`, `or` or `not` selector and a rule with `layers` are `scope-unsupported`: that
+  rule is reported and the others of its kind are written.
+- **Order.** Within one Altium kind the rules of the script come first, from the most governing to the
+  least (priority 1, 2, … and then 0), with Altium priorities from 1. After them come the rules the
+  build always wrote: one per net class that holds the value and Fenolite's `All` default ("Copper").
+  A class rule or default whose scope a rule of the script holds is left out. So a board-wide rule of
+  the script governs the classes, as it does in a KiCad build (`kicad.project.class-shadowed`).
+- **Names.** `<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, with `_and_` for a conjunction and `_to_`
+  before a second scope, so two builds give equal names and unique ids.
+- **What is reported.** One `altium.not-lowered` warning per rule that is not written, with `where`
+  `design-rules/<kind>` and a message that holds the rule's name, its selector and the reason
+  (`no-counterpart`, `scope-unsupported`, `value-unsupported`, or `no-document` when the build plans no
+  PCB document). `result.rules` holds `written` (`kind`, `selector`, `rule`: the Altium rule's name)
+  and `not_lowered` (`kind`, `selector`, `reason`). The rules stay in `.fenolite/rules.json`, and
+  `result.pcb` counts them under `rule`: those the document holds and those it does not ("Copper").
+- **Stacks.** A rule record holds no layer and no layer count: the same records are written for every
+  stack of "Copper" (2 to 32 layers, planes, blind and buried vias). A Routing Via Style rule is written
+  with `VIASTYLE=Through Hole`, the value of every such record read, also in public documents whose rules
+  select drill pairs. A rule for one layer or one drill pair is not written (`scope-unsupported`).
+- **Script copper.** A script with copper intents is resolved through the KiCad build in memory
+  ("Copper"), which judges the script's rules by KiCad's grammar: a `via_drill` rule with `opt`, which
+  Routing Via Style needs, refuses that build. Such a script cannot hold a via style rule yet; a design
+  without copper intents, or one built with `--copper-from`, can.
+- **A rule file.** `fenolite export <KiCad project> --out DIR --altium-rul` writes the same rules as
+  `<stem>.RUL` (`docs/exports.md`), which the PCB Rules editor imports into a board you keep.
+- **Reading.** The same kinds are read from a PCB document and a rule file ("Reading Altium files");
+  what Fenolite writes it reads back equal within 2 nm (`H-A-RULE-READBACK`,
+  `tests/unit/lens/test_altium_rules.py`).
+- **Evidence.** The constraints come from Altium's public documentation and the keys from public PCB
+  documents (`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"); that Altium lists and applies
+  the written rules is `INFERRED` until the author report, Part U of `docs/evidence/altium-pcb.md`.
+  `kicad-cli pcb import` loads a document with all seven kinds and takes the zone clearance from the
+  Clearance rule; it shows no other kind (`tests/kicad/altium/test_rules_oracle.py`).
 
 ## Project file and outputs
 
@@ -630,7 +692,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); as a **warning**, one per rule of the script that is not written into the PCB document (`where` = `design-rules/<kind>`, with the selector and the reason: "Rules"); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -1068,7 +1130,7 @@ the built model stores that value, so that the model is what the documents read 
 One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
 no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
 no nested harnesses); no buses or variants; an output job without output settings, and a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, no component bodies and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
+split planes, no micro vias, no component bodies and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.

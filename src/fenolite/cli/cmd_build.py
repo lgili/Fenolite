@@ -919,6 +919,7 @@ def _run_altium(
         "copper": summary["copper"],
         "outjob": _outjob_result(summary["outjob"], out, preset_result),
         "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),
+        "rules": summary["rules"],
         "experimental": summary["experimental"],
         "script_output": run.output,
     }

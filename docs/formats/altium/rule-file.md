@@ -25,7 +25,7 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | Width has a minimum, a preferred and a maximum width; the minimum and the maximum are checked | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | Routing Via Style has a via diameter and a via hole, each with a minimum, a preferred and a maximum | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | Hole Size holds a minimum and a maximum, either as absolute values or as percentages | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
-| Board Outline Clearance exists as a rule kind; no permitted source gives the keys of its record | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
+| Board Outline Clearance exists as a rule kind. Its record holds the keys of Clearance; the records of Hole To Hole Clearance and Minimum Annular Ring hold `GAP` with `ALLOWSTACKEDMICROVIAS`, and `MINIMUMRING` (`pcb-copper.md`, "Rule kinds lowered", from public PCB documents; change c0084) | S-0295, S-0460, S-0174, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
 | The rule keys used by the mapping: `GAP`, `GENERICCLEARANCE`, `OBJECTCLEARANCES` and `IGNOREPADTOPADCLEARANCEINFOOTPRINT` of Clearance; `MINLIMIT`, `PREFEREDWIDTH` and `MAXLIMIT` of Width; `WIDTH`, `MINWIDTH`, `MAXWIDTH`, `HOLEWIDTH`, `MINHOLEWIDTH`, `MAXHOLEWIDTH` and `VIASTYLE` of Routing Via Style; `ABSOLUTEVALUES`, `MINLIMIT`, `MAXLIMIT`, `MINPERCENT` and `MAXPERCENT` of Hole Size | S-0160, S-0161, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A length in a rule record is a decimal number followed by `mil` (or `mm`), such as `6mil` | S-0163, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A scope is a query: membership functions (`InNet`, `InNetClass`, `InComponent`, …), object-type checks (`IsTrack`, `IsVia`, `IsPad`, …), layer checks (`OnLayer`, …) and the logical operators `And`, `Or`, `Not`. The documentation does not state the precedence of the operators | S-0296 | INFERRED | H-A-RD-PRJ-SCOPE |
@@ -51,25 +51,33 @@ give.
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
+| `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` |
+| `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 
-`rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys.
-They are reported apart, so that the gap is visible.
+`rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys,
+reported apart with the reason `no-verified-keys`. The table is empty since change c0084, which found the
+keys of `BoardOutlineClearance` in public PCB documents; the reason stays for a later kind.
 
-| pending RULEKIND | neutral kind | reason |
-|---|---|---|
-| `BoardOutlineClearance` | `edge_clearance` | `no-verified-keys` |
+The last three kinds of the table are those of change c0084: the table holds every Altium kind of an
+`exact` row of `rulemap.TABLE` (`pcb-copper.md`, "The lowering table"), so what Fenolite writes it reads.
+A Hole To Hole Clearance with `ALLOWSTACKEDMICROVIAS=TRUE` exempts the holes of stacked microvias, which
+the neutral rule does not, so it is reported with the reason `keys`.
 
 ## Rule kinds seen
 
 Every rule kind that the rule files of the corpus hold (`docs/evidence/altium-project-read.md`), with the
 number of records in the export form and the number of summary-form files that list it. A kind that
 maps is in `RULE_KIND_MAP`; every other kind is reported as `no-counterpart`. The summary form maps
-nothing (`summary-form`). `BoardOutlineClearance` (`PENDING_KINDS`) is in no corpus file.
+nothing (`summary-form`). `BoardOutlineClearance` and `MinimumAnnularRing` are in no rule file of the
+corpus: their rows count the rule records of the corpus PCB documents (`pcb-copper.md`, "Rule kinds
+lowered").
 
 | RULEKIND seen | records | source | maps |
 |---|---|---|---|
 | `AssemblyTestpoint` | export (1) | S-0297 | no |
 | `AssemblyTestPointUsage` | export (2) | S-0297 | no |
+| `BoardOutlineClearance` | PCB documents (8 in 5 documents) | S-0174, S-0175, S-0187, S-0199, S-0200 | yes: `edge_clearance` |
 | `Clearance` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `clearance` |
 | `ComponentClearance` | export (1) | S-0297 | no |
 | `DiffPairsRouting` | export (1) | S-0297 | no |
@@ -78,9 +86,10 @@ nothing (`summary-form`). `BoardOutlineClearance` (`PENDING_KINDS`) is in no cor
 | `FanoutControl` | export (5) | S-0297 | no |
 | `Height` | export (1) | S-0297 | no |
 | `HoleSize` | export (1) | S-0297 | yes: `hole_size` |
-| `HoleToHoleClearance` | export (1) | S-0297 | no |
+| `HoleToHoleClearance` | export (1) | S-0297 | yes: `hole_to_hole` |
 | `LayerPairs` | export (1) | S-0297 | no |
 | `MatchedLengths` | export (1) | S-0297 | no |
+| `MinimumAnnularRing` | PCB documents (4 in 3 documents) | S-0174, S-0199, S-0200 | yes: `annular_width` |
 | `MinimumSolderMaskSliver` | export (4) | S-0297 | no |
 | `NetAntennae` | export (1) | S-0297 | no |
 | `PasteMaskExpansion` | export (1) | S-0297 | no |
@@ -111,7 +120,7 @@ checked in this order.
 | `summary-form` | the records come from a summary-form file: its values carry no unit |
 | `malformed` | no `RULEKIND`, no `NAME`, or `PRIORITY` is not a positive integer |
 | `no-counterpart` | the kind is neither in `RULE_KIND_MAP` nor in `PENDING_KINDS` |
-| `no-verified-keys` | the kind is in `PENDING_KINDS` |
+| `no-verified-keys` | the kind is in `PENDING_KINDS` (empty since c0084) |
 | `disabled` | `ENABLED` is not `TRUE` |
 | `net-scope` | `NETSCOPE` differs from the table |
 | `layer-kind` | `LAYERKIND` is not `SameLayer` |
@@ -162,3 +171,18 @@ other text is refused with a reason and the rule is reported with the reason `sc
   refused.
 - The values of a summary-form file have no unit, so its rules are never mapped (reason
   `summary-form`); no unit is assumed.
+
+## Writing a rule file
+
+`rulemap.write_rule_file` (change c0084) writes the export form from the records of `rulemap.lower`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A record of the public export file starts with the six keys `SELECTION=FALSE`, `LAYER=TOP`, `LOCKED=FALSE`, `POLYGONOUTLINE=FALSE`, `USERROUTED=TRUE`, `UNIONINDEX=0`, then the header keys from `RULEKIND` to `DEFINEDBYLOGICALDOCUMENT`, then the keys of the kind; `UNIQUEID` is eight capital letters; priorities count from 1 within each kind | S-0297 | INFERRED | H-A-RULE-FILE |
+| The PCB rules editor imports rules of chosen kinds from a `.RUL` file into the open board | S-0294 | INFERRED | H-A-RULE-FILE |
+
+Fenolite's choices: each record is one line ended by the single byte `B6` and LF, and the text is 7-bit
+ASCII apart from that byte, as in the public file. The six common keys are written as that file holds
+them. `UNIQUEID` is `project.unique_id("rul:<name>:rule:<rule name>")`, so two exports of one design
+are equal. `COMMENT` is empty. A design that lowers no rule gives a file without a record, which
+`read_rule_file` refuses: the export writes no file then and says so.

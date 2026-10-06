@@ -355,8 +355,8 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up."
-fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up. With where design-rules/<kind> (a warning) it is one rule of the script that the PCB document does not hold, with its selector and the reason."
+fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. For a rule: give every limit Altium's rule holds (min, opt and max for a width or a via; min and max for a hole size), and select all objects, a net or a net class."
 see = "Build target"
 
 ["altium.outjob-not-listed"]
