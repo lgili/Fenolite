@@ -112,6 +112,7 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0131 | `altium-unit-slack-rule` | v0.4 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
+| c0121 | `altium-component-bodies` | v0.4 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
 | c0124 | `altium-plane-lines` | correction of v0.4: the Altium import makes no track of a line on an internal plane | c0043, c0088 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
