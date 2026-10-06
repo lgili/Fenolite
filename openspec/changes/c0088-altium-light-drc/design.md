@@ -41,9 +41,10 @@ corrections; the spec, this design and the tasks follow them.
    protocol `DocumentParity.parity_side(schematic, board)` serves it; `parity_stage` is KiCad's wrapper (it
    names `.kicad_sch`) and is not used, `checks.parity.compare` is.
 8. **Two spellings differ in every project.** The schematic names a footprint's library by the model's
-   file, the PCB document by where the part was placed from: all 332 placed footprints of the four sets
-   differ in the library alone. And the import does not give every net the name the PCB document holds: 189
-   pads of the hierarchical set are on a net of another name with the same pads. The side is given in the
+   file, the PCB document by where the part was placed from: 503 placed footprints of the five sets
+   differ in the library alone. And the import does not give every net the name the PCB document holds: 139
+   pads of the two hierarchical sets are on a net of another name with the same pads (measured again after
+   c0083's channel names and pin-to-pad map; 332 of four sets and 189 before). The side is given in the
    board's spelling where the content agrees (`adapter/parity.py`); a split, joined or open net stays a
    finding, and every remaining net conflict of the sets is one that `netlist.assignment_compare` flags too.
 9. **The guard cannot live in `lens`.** `lens` may not import `checks`; the KiCad guard is in

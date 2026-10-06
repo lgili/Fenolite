@@ -460,8 +460,9 @@ components carry the pin-to-pad map of their footprint model, one pad per pin, a
 
 The stage `copper.clearance` on each public PCB document, and the parity comparison on each public project
 set (change c0088, with the Clearance forms of change c0125; `tests/corpus/test_altium_copper.py`, run on
-2026-10-06 on macOS without any tool, without `FENOLITE_HEAVY`; 13 passed, `altium-set:01` skipped as
-heavy). Counts only. A third-party board may hold real findings: the test
+2026-10-06 on macOS without any tool, with `FENOLITE_HEAVY=1` so that `altium-set:01` and the heavy
+document are included). The parity table was measured again on the tree that holds the channel net names
+and the pin-to-pad map of c0083. Counts only. A third-party board may hold real findings: the test
 asserts what the stage promises, not that a board is clean.
 
 | document | fills, pads, tracks, arcs, vias | pairs judged | shorts | clearance | mapped and opaque Clearance rules | unpoured | zones without a clearance | planes | findings the unit's slack removes | level |
@@ -553,16 +554,24 @@ asserts what the stage promises, not that a board is clean.
 
 | set | components, footprints | missing, extra | value or footprint name | net conflicts (all implied by the pad-net comparison) | pins without a pad, pads without a pin | footprints that differ in the library alone | pads that differ in the net name alone |
 |---|---|---|---|---|---|---|---|
-| `altium-set:02` | 248, 260 | 2, 2 | 10 | 26 | 6, 4 | 241 | 189 |
+| `altium-set:01` | 540, 544 | 0, 0 | 27 | 8 | 6, 22 | 171 | 10 |
+| `altium-set:02` | 248, 260 | 2, 2 | 10 | 21 | 0, 3 | 241 | 129 |
 | `altium-set:03` | 23, 27 | 0, 0 | 0 | 0 | 0, 0 | 23 | 0 |
 | `altium-set:04` | 41, 41 | 0, 0 | 0 | 2 | 0, 2 | 41 | 0 |
 | `altium-set:05` | 27, 27 | 0, 0 | 0 | 0 | 0, 0 | 27 | 0 |
 
 - The last two columns are why two spellings are read as one (`docs/formats/altium/import.md`, "Schematic
-  side of the parity comparison"): without that, every placed component and 189 pads of the hierarchical set
-  would be findings of spelling.
-- Every net conflict names a pad that `netlist.assignment_compare` flags too. The two of `altium-set:04`
-  are pads of one pin that the footprint model maps to several pads: the import of a schematic component
-  holds no pin-to-pad map yet (the rest of c0083), and the side uses `Component.pin_pad_map` once it does.
-- The component findings of `altium-set:02` come from its repeated sheets and from components without a
-  designator; they are recorded here and not compared with `equivalent` level 1.
+  side of the parity comparison"): without that, 503 placed footprints of the five sets and 139 pads (129
+  on `altium-set:02`, 10 on `altium-set:01`) would be findings of spelling. `tests/corpus/test_altium_copper.py`
+  holds every count of the table (`PARITY`), so a change of the import that moves one fails there.
+- Every net conflict names a pad that `netlist.assignment_compare` flags too, and every one is a pad
+  that the board puts on a net and that no pin of the schematic component names (the schematic gives it
+  no net). The import holds a pin-to-pad map for one component of the five sets (on `altium-set:02`);
+  the component of the two conflicts of `altium-set:04` holds none in its sheet, so the map does not
+  explain them.
+- Before the channel net names and the pin-to-pad map of c0083, `altium-set:02` gave 26 net conflicts,
+  6 pins without a pad, 4 pads without a pin and 189 pads that differed in the net name alone; the other
+  cells of the four sets measured then are unchanged.
+- The 27 value differences of `altium-set:01` and the component findings of `altium-set:02` (2 missing
+  and 2 extra footprints, 5 values, 5 footprint names; its PCB document holds 12 components without a
+  designator) are recorded here and not compared with `equivalent` level 1.

@@ -87,6 +87,19 @@ def _planes(design: Design) -> dict[str, int]:
     return found
 
 
+PARITY = {
+    "altium-set:01": (540, 544, 0, 0, 27, 8, 6, 22, 171, 10),
+    "altium-set:02": (248, 260, 2, 2, 10, 21, 0, 3, 241, 129),
+    "altium-set:03": (23, 27, 0, 0, 0, 0, 0, 0, 23, 0),
+    "altium-set:04": (41, 41, 0, 0, 0, 2, 0, 2, 41, 0),
+    "altium-set:05": (27, 27, 0, 0, 0, 0, 0, 0, 27, 0),
+}
+"""Per set, the counts of the parity table of ``docs/evidence/altium-roundtrip.md`` ("Light DRC over the
+corpus"), measured on 2026-10-06 after the channel net names and the pin-to-pad map of c0083: components,
+footprints, missing and extra footprints, value or footprint-name differences, net conflicts, pins without
+a pad, pads without a pin, and the footprints and the pads that differ in spelling alone. Counts only."""
+
+
 def test_boards_exist() -> None:
     assert len(BOARDS) >= 5
 
@@ -228,6 +241,19 @@ def test_parity(name: str, tmp_path: Path) -> None:
     }
     print(name, counts)
     census("altium-parity", name, counts)
+    pinned = (
+        counts["components"],
+        counts["footprints"],
+        counts["missing-footprint"],
+        counts["extra-footprint"],
+        counts["footprint-mismatch"],
+        counts["net-conflict"],
+        counts["pin-without-pad"],
+        counts["pad-without-pin"],
+        counts["spelling_only"]["footprint"],  # type: ignore[index]
+        counts["spelling_only"]["net"],  # type: ignore[index]
+    )
+    assert pinned == PARITY[name], f"{name}: update PARITY and the table of docs/evidence/altium-roundtrip.md"
 
 
 def test_known_false_findings_of_padless_vias_c0132() -> None:
