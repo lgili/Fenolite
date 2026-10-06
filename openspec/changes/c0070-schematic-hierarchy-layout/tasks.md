@@ -39,9 +39,10 @@
 ## 6. Documentation
 
 - [x] 6.1 Update `docs/schematic.md` ("Generated schematics are documented") and `docs/cli-contract.md` (the option, the codes, the result keys). Proof: `uv run pytest tests/consistency tests/unit/test_repo_layout.py tests/residue`.
-- [ ] 6.2 Render the acceptance design's sheets with `kicad-cli sch export svg` into the pull request description, for a person to judge the readability. Proof: the pull request shows the root and two child sheets.
+- [x] 6.2 Render the acceptance design's sheets with `kicad-cli sch export svg` into the pull request description, for a person to judge the readability. Proof: the pull request shows the root and two child sheets.
   - 2026-10-06, open: this session opens no pull request (it does not push). The sheets were rendered with `kicad-cli sch export svg` and `pdf` on 10.0.6 for the acceptance design (root, `io`, `power`), the blink and one generated design; the files are in the session's scratch folder (`c0070/render/`), and `c0070/render.py` there makes them again. The maintainer attaches them when the pull request is opened.
   - 2026-10-06, judged: the maintainer read those renders and asked for one fix before the archive. On the blink, the Reference `R1` of the resistor beside pin 1 of `U1` lay on the label `LED_A`, and its texts crowded `LED_DRV`. Fixed by the **Texts** rule of "Readable sheet layout" (`design.md`, correction 18), measured by `tests/unit/backends/kicad/test_schgen_text_overlap.py`. The new renders (10.0.6, same three designs, SVG and PDF) are in the session's scratch folder `render12/render/` (`blink/blink.pdf`, `lensfix/lensfix.pdf`, `gen12/gen12.pdf`), made by `render12/render.py`; `render12/render_extra/` holds three more generated designs with satellites on both sides of an IC, and `render12/render9/` the blink and one generated design exported by 9.0.9. The box stays open until the pull request shows the sheets.
+  - 2026-10-06, accepted: the maintainer read the renders made after the fix (blink and one generated design with modules, exported with `kicad-cli sch export pdf` on 10.0.6) and accepted them: "R1 is good now". No pull request carries them, because the change landed through the integration branch; the default layout stays `readable` by his decision of the same day.
 
 ## 7. Closing
 
