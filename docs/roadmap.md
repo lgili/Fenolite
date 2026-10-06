@@ -2,7 +2,7 @@
 
 Status on 2026-10-06. Released: `0.0.1.dev0` (2026-09-30, pre-alpha) and `v0.1.0` (2026-10-05).
 Next release: `v0.2.0`, one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074). Both are
-implemented; the release waits for c0070's archive and the maintainer's verdict
+implemented and archived; the release waits for the maintainer's verdict
 (`docs/release/v0.2.md`, change c0093).
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
@@ -42,7 +42,7 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | 1. Foundations | — (`0.0.1.dev0` was cut after c0004) | c0001–c0005 | repository, CLI contract, IP hygiene, neutral model, geometry kernel | done |
 | 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); ships in `0.2.0`, whose verdict is pending |
-| 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | c0069 and c0071–c0074 archived; c0070 implemented and not archived; ships in `0.2.0`, whose verdict is pending |
+| 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; ships in `0.2.0`, whose verdict is pending |
 | 4. Second backend | v0.3 | c0039–c0047 | read, equivalence levels 1–4, analyses | every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for the milestone (`docs/release/v0.2.md`, “Also in this package”) |
 | 4. Second backend | v0.4 | c0032–c0038 pulled forward; the rest not allocated | write, equivalence level 5, verification kit | c0032–c0038, c0055 and c0056 done; remainder estimate |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
@@ -222,13 +222,12 @@ buses (v0.3), symbols placed in several sheet instances (v0.5b).
 like a person drew it, the rule model holds every kind of the project plan, parity and buses are
 checked, and a project carries its user's frame and fab options.
 
-**v0.2b, c0069–c0074.** All six were proposed on 2026-10-05. Five are archived; c0070 is implemented and
-not archived.
+**v0.2b, c0069–c0074.** All six were proposed on 2026-10-05. All six are archived.
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
 | c0069 | `layout-lens-complete` | module and net aliases, alias matches kept under the new identity, `lens/extract.py`, `placements.toml` and `fenolite sync --to-source [--check]`, the project plan's lens acceptance fixture | done (archived on 2026-10-05, with its schematic half after c0061) | c0060, c0061 for the schematic half | 12.5 |
-| c0070 | `schematic-hierarchy-layout` | one pinless sheet per module under `sheets/`, 2-pin parts snapped to IC pins with one straight wire, hierarchical footprint paths, the own netlist over the sheet tree | implemented on 2026-10-06, not archived: a fix for a text overlap in the sheet of the blink example is in progress, and the maintainer judges the rendered sheets by eye (its task 6.2) | c0060, c0061, c0063 | 13 |
+| c0070 | `schematic-hierarchy-layout` | one pinless sheet per module under `sheets/`, 2-pin parts snapped to IC pins with one straight wire, hierarchical footprint paths, the own netlist over the sheet tree | done; archived on 2026-10-06, after a fix for a text overlap in the blink sheet and the maintainer's reading of the rendered sheets (task 6.2) | c0060, c0061, c0063 | 13 |
 | c0071 | `rules-complete` | hole-to-hole, hole clearance, annular width, courtyard, silkscreen and creepage rules, per-kind selectors and per-major support, `design.rules.rule()` and `fenolite.dsl.select` | done (archived on 2026-10-06, after the green run 37311079171) | — | 10 |
 | c0072 | `schematic-board-parity` | a backend-free comparison of schematic and board and of pins and pads, `parity` command and `check` stage, agreement with KiCad's parity test on the public demos | done; archived on 2026-10-06: the counts of the own comparison equal KiCad's parity test on the public demos of 9.0.9 and 10.0.6 | c0060, c0062, c0063 | 10 |
 | c0073 | `interfaces-quantities` | exact `Quantity` values, typed `I2C`, `SPI`, `UART` and `USB2` interfaces with `attach` by role, checks for pair names and pull-ups | done (archived on 2026-10-06, after the green run 37311079171) | — | 8 |
@@ -454,8 +453,8 @@ integration and the maintainer's decisions, which are the limits here as they ar
 
 - v0.1 was released on 2026-10-05, with its release change c0025.
 - v0.2a (80.5 design-days) and v0.2b (65) were proposed on 2026-10-04 and 2026-10-05 and implemented by
-  2026-10-06: about two calendar days for 145.5 design-days. Left: the archive of c0070 and the
-  release change c0093.
+  2026-10-06: about two calendar days for 145.5 design-days. Left: the maintainer's verdict in the
+  release record of change c0093.
 - The limits are not size:
   - CI time per change (`kicad-9` and `kicad-10`);
   - integration of proposals written in parallel (requirements modified in chains);
@@ -506,7 +505,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 14 | follow-ups not taken by c0068: export presets, outline snapping, per-command result schemas, `inspect` of project and rules files | design of c0068, Decision 13 | proposed in c0074 for export presets, outline snapping and stitching; result schemas with the v1.0 freeze; `inspect` of project and rules files unscheduled |
 | 15 | v0.2b: the id block c0069–c0074 | this page; `openspec/README.md` | pending. Recommended: keep the block |
 | 16 | v0.2b: a footprint matched through `moved()` keeps its board node under the new identity (uuids, `fenolite.path`, group members), and `placements.toml` is written only by `sync --to-source` and survives `--discard-layout` | design of c0069 | pending. Recommended: as proposed |
-| 17 | v0.2b: the schematic layout defaults to `readable` (module sheets and snapped 2-pin parts), so projects built in v0.2a change once; `--schematic-layout grid` keeps the v0.2a form | design of c0070 | pending. Recommended: as proposed |
+| 17 | v0.2b: the schematic layout defaults to `readable` (module sheets and snapped 2-pin parts), so projects built in v0.2a change once; `--schematic-layout grid` keeps the v0.2a form | design of c0070 | decided on 2026-10-06: `readable` is the default |
 | 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | pending. Recommended: as proposed |
 | 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | pending. Recommended: as proposed |
 | 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | pending. Recommended: as proposed |

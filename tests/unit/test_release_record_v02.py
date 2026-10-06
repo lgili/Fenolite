@@ -326,10 +326,10 @@ def test_fixed_limits_are_stated() -> None:
 
 def test_pending_row_needs_its_entry_and_blocks_the_verdict() -> None:
     """Scenarios "Open row without a reason" and "Verdict over a pending row"."""
-    text = record()
-    assert "| pending |" in text, "the record holds a pending row while c0070 is open"
-    without = text.replace("- **v0.2b item c0070.**", "- **The sheets.**")
-    assert any("Open rows" in p for p in check(without))
+    without = with_result(record(), "| c0070 | One schematic sheet", "pending")
+    assert any("Open rows" in p for p in check(without)), "a pending row without its entry is refused"
+    text = without.replace("## Open rows\n", "## Open rows\n\n- **v0.2b item c0070.** Open.\n", 1)
+    assert not any("Open rows" in p and "c0070" in p for p in check(text))
     decided = re.sub(r"## Verdict\n\n.*\Z", "## Verdict\n\nReleased as v0.2.0.\n", text, flags=re.DOTALL)
     assert any(p.startswith("verdict: written while v0.2b item c0070") for p in check(decided))
     closed = with_result(decided, "| c0070 | One schematic sheet", "met")
