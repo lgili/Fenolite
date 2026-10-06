@@ -6,10 +6,13 @@ from Python code or a JSON-speaking command line, without a GUI. KiCad is the fi
 files, with `kicad-cli` as the verification oracle); a second backend for another major commercial
 format family follows.
 
-> **Status: version 0.1.** The loop below works on two-layer boards, for KiCad 9.0 and 10.0: a design
-> script becomes a KiCad project that is placed, routed by an external router, filled, checked by
-> KiCad's own design-rule check and exported to fabrication files. What was proved for this version, and
-> its limits, are in `docs/release/v0.1.md`. The Altium target is experimental.
+> **Status: version 0.2.** A design script becomes a KiCad project with a board and a schematic, for
+> KiCad 9.0 and 10.0. The loop below works on two-layer boards: the board is placed, routed by an
+> external router, filled, checked by KiCad's own design-rule check and exported to fabrication files.
+> The schematic is judged by KiCad's own electrical rules check, by its netlist and by its schematic
+> parity test. What was proved for this version, and its limits, are in `docs/release/v0.2.md`
+> (`docs/release/v0.1.md` for the version before). Reading Altium files is new, and most of its evidence
+> is `INFERRED`; the Altium target of `build` is experimental.
 
 *Fenolite* is the Portuguese word for phenolic board material — the laminate many of us etched our
 first circuit boards on.
@@ -30,11 +33,29 @@ first circuit boards on.
   Fenolite ships no organisation's templates, rules or libraries.
 
 The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
-`fenolite build` also writes the schematic of the design, which KiCad's ERC and parity test accept:
-`docs/schematic.md`. Fabrication
-files and review renders (`fenolite export`, `fenolite render`) are described in `docs/exports.md`.
-The bill of materials and the placement table (`fenolite bom`, `fenolite pnp`), rendered through a column
-template that you write, are described in `docs/assembly.md`.
+
+## What version 0.2 does
+
+- **The schematic.** `fenolite build` writes the schematic of the design beside the board, one sheet
+  per module, which KiCad's ERC and parity test accept on 9.0 and 10.0 (`docs/schematic.md`).
+- **Checks.** `fenolite check` runs KiCad's ERC and DRC, compares the netlist of the schematic with the
+  model and the board, and compares schematic and board without a tool (`fenolite netlist`,
+  `fenolite parity`).
+- **Tables and files.** The bill of materials and the placement table (`fenolite bom`, `fenolite pnp`)
+  are rendered through a column template that you write (`docs/assembly.md`). Fabrication files and
+  review renders (`fenolite export`, `fenolite render`) are described in `docs/exports.md`, and
+  `fenolite manifest` lists every design file and artefact with its SHA-256 and a state.
+- **Small questions.** `diff`, `roundtrip`, `fmt`, `explain`, `restore`, `net`, `region`, `neighbors`
+  and `pads` answer one thing each, with paging and a concise form.
+- **The layout is kept.** A board edited in KiCad survives a rebuild, also when a module or a net is
+  renamed, and `fenolite sync --to-source` writes the placements into the source tree (`docs/lens.md`).
+- **The design script.** Six more rule kinds (hole to hole, hole clearance, annular width, courtyard,
+  silkscreen, creepage), exact quantities, typed interfaces, and your own drawing sheet and title block
+  (`docs/dsl.md`, `docs/sheet-templates.md`).
+- **Altium files are read.** `inspect`, `check`, `diff` and `equivalent` take Altium documents,
+  libraries and projects, read-only and without a tool (`docs/altium.md`, `docs/equivalence.md`), and
+  `fenolite analyze` measures current capacity, clearance and creepage on a board
+  (`docs/analyses.md`). What is proved of this, and one known defect, are in the release record.
 
 ## Evidence labels
 

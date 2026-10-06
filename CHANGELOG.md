@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Release record of v0.2 (`docs/release/v0.2.md`): one row per acceptance item of v0.2a and v0.2b with the test that proves it, its CI job and its result, the recorded limits, what else is in the package, and the maintainer's steps; a guard test holds it to what exists. The README describes version 0.2, and the roadmap says which changes are archived (c0093).
 - `examples/blink_official` connects the analog supply pins of its microcontroller and marks its unused pins: KiCad's ERC reports nothing on it (it reported 29 errors and one warning).
 - Archived the completed spec of the schematic and board parity (c0072) after its CI run, and cited the run in its two hypothesis rows.
 - Archived the completed specs of the ERC stage (c0062), the netlist compare (c0063), the artifact manifest (c0065) and the inspection commands (c0066) after their CI run: the nine changes of v0.2a are archived.

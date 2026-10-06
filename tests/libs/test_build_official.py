@@ -76,3 +76,17 @@ def test_official_variant_passes_the_library_check(tmp_path: Path, monkeypatch: 
     print(f"official blink: lib_footprint_issues {types.count('lib_footprint_issues')}, "
           f"lib_footprint_mismatch {types.count('lib_footprint_mismatch')}")  # fmt: skip
     assert "lib_footprint_issues" not in types and "lib_footprint_mismatch" not in types
+
+
+@pytest.mark.needs_kicad
+def test_official_variant_passes_kicad_erc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """KiCad's ERC reports nothing on the schematic of the example (release-gate, "Release record of v0.2",
+    the examples; change c0093): its supply pins are connected and its unused pins are marked."""
+    _build(tmp_path, monkeypatch)
+    out = io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    code = cli_main.main(["check", str(tmp_path / "O"), "--stages", "erc.kicad", "--json"])
+    envelope = json.loads(out.getvalue())
+    stages = {stage["name"]: stage for stage in envelope["result"]["stages"]}
+    found = [(issue["code"], issue.get("where")) for issue in envelope["issues"]]
+    assert code == 0 and stages["erc.kicad"]["status"] == "ok" and found == [], found

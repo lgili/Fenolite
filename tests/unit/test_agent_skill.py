@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The agent guide and the README stay true to the command line (capability release-gate, "Agent guide
-is executable" and "README describes v0.1"; change c0025)."""
+is executable" and "README describes the released version"; changes c0025 and c0093)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ from fenolite.cli.main import build_parser
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "agent" / "SKILL.md"
 README = ROOT / "README.md"
+RELEASE = "0.2"
+"""The version the README describes: the newest release record under ``docs/release/``."""
 BLOCK = re.compile(r"^```fenolite-loop\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 TARGETS = ("examples/blink_2layer/design.py", "build/blink")
 
@@ -50,22 +52,25 @@ def block_problems(lines: list[str]) -> list[str]:
 
 
 def readme_problems(text: str) -> list[str]:
-    """Why a README does not describe v0.1."""
+    """Why a README does not describe the released version."""
     problems = [
         f"holds the words {words!r}" for words in ("pre-alpha", "being bootstrapped") if words in text
     ]
-    status = next((line for line in text.splitlines() if "Status:" in line), "")
-    if "0.1" not in status:
-        problems.append("the status line does not name the version 0.1")
-    if "docs/release/v0.1.md" not in text:
-        problems.append("no link to docs/release/v0.1.md")
+    paragraph = re.search(r"^> \*\*Status:.*?(?=^[^>]|\Z)", text, re.MULTILINE | re.DOTALL)
+    status = paragraph.group(0) if paragraph else ""
+    if f"**Status: version {RELEASE}.**" not in status:
+        problems.append(f"the status line does not name the version {RELEASE}")
+    if f"docs/release/v{RELEASE}.md" not in status:
+        problems.append(f"no link to docs/release/v{RELEASE}.md")
+    if "experimental" not in status:
+        problems.append("the status paragraph does not say what is experimental")
     install = re.search(r"^## Install\n(.*?)(?=^## )", text, re.MULTILINE | re.DOTALL)
     if install is None or "pip install fenolite" not in install.group(1):
         problems.append("no 'pip install fenolite' under '## Install'")
     elif "no other package" not in install.group(1):
         problems.append("'## Install' does not say that no other package is installed")
     if re.search(r"byte[- ]identical", text, re.IGNORECASE):
-        problems.append("claims byte identity; v0.1 claims tree identity only (H-K-FMT-INDENT)")
+        problems.append("claims byte identity; only tree identity is claimed (H-K-FMT-INDENT)")
     return problems
 
 
@@ -109,7 +114,7 @@ def test_guide_names_no_private_place() -> None:
     assert not re.search(r"/(Users|home)/|[A-Za-z]:\\\\Users", text)
 
 
-def test_readme_describes_v0_1() -> None:
+def test_readme_describes_the_release() -> None:
     """Scenario "Status and install present"."""
     assert readme_problems(README.read_text(encoding="utf-8")) == []
 
@@ -117,9 +122,11 @@ def test_readme_describes_v0_1() -> None:
 @pytest.mark.parametrize(
     ("old", "new", "named"),
     [
-        ("**Status: version 0.1.**", "**Status: pre-alpha.**", "pre-alpha"),
+        ("**Status: version 0.2.**", "**Status: pre-alpha.**", "pre-alpha"),
+        ("**Status: version 0.2.**", "**Status: version 0.1.**", "version 0.2"),
+        ("experimental", "new", "what is experimental"),
         ("pip install fenolite\n", "uv sync\n", "pip install fenolite"),
-        ("`docs/release/v0.1.md`", "the release notes", "docs/release/v0.1.md"),
+        ("`docs/release/v0.2.md`", "the release notes", "docs/release/v0.2.md"),
         ("It installs no other package.", "It is byte-identical to KiCad's own files.", "byte identity"),
     ],
 )

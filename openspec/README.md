@@ -18,6 +18,8 @@ CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A 
 until its change is proposed. The nine v0.2a changes were allocated together as c0060–c0068 on
 2026-10-04, while c0058 was being written, so c0057 stays unused.
 The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
+c0093 was taken for the release of v0.2 on 2026-10-06: the numbers from c0083 to c0092 are reserved on another
+branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed milestone on another branch.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -91,5 +93,6 @@ The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
 | c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 
 | c0082 | `kicad-worksheet-oracle-isolation` | CI correction: isolated worksheet boundary oracle | — |
+| c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
