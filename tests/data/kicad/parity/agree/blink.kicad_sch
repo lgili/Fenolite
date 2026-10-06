@@ -1034,124 +1034,134 @@
 		)
 	)
 	(no_connect
-		(at 86.36 36.83)
+		(at 43.18 36.83)
 		(uuid "144f3c50-1693-561e-bad5-6dcbd8482f5c")
 	)
 	(no_connect
-		(at 86.36 39.37)
+		(at 43.18 39.37)
 		(uuid "7bfb336a-cc5e-5f03-8cb4-cae5da9c22cf")
 	)
 	(no_connect
-		(at 86.36 41.91)
+		(at 43.18 41.91)
 		(uuid "7e86371a-8198-52af-909f-05386a483da3")
 	)
 	(no_connect
-		(at 86.36 44.45)
+		(at 43.18 44.45)
 		(uuid "b350fa92-3226-5390-b2cb-5659516d0a98")
 	)
 	(no_connect
-		(at 86.36 46.99)
+		(at 43.18 46.99)
 		(uuid "f4efd739-d135-595e-8f25-08379bcc3155")
 	)
 	(no_connect
-		(at 86.36 49.53)
+		(at 43.18 49.53)
 		(uuid "ec991a08-6de2-59ee-81a2-8647bfb6bfb7")
 	)
 	(no_connect
-		(at 86.36 52.07)
+		(at 43.18 52.07)
 		(uuid "5ebe5748-1188-52f8-81f6-6bc48e8d5789")
 	)
 	(no_connect
-		(at 86.36 59.69)
+		(at 43.18 59.69)
 		(uuid "ffdd4b01-45c5-5598-8f25-ff646b75f0f9")
 	)
 	(no_connect
-		(at 86.36 62.23)
+		(at 43.18 62.23)
 		(uuid "24b88cc4-a7f7-5974-a6c5-bb2a4d8e6c2e")
 	)
 	(no_connect
-		(at 86.36 64.77)
+		(at 43.18 64.77)
 		(uuid "8070d15c-194e-562b-bcdb-91cb9bb09382")
 	)
 	(no_connect
-		(at 86.36 67.31)
+		(at 43.18 67.31)
 		(uuid "5fc30dc4-b69c-5aed-8aee-f5a14052ea4a")
 	)
 	(no_connect
-		(at 86.36 69.85)
+		(at 43.18 69.85)
 		(uuid "7ef6688b-82d2-5510-a1ff-1fc83492db99")
 	)
 	(no_connect
-		(at 86.36 72.39)
+		(at 43.18 72.39)
 		(uuid "ee2df2fb-1079-5409-a1cd-699ea152faab")
 	)
 	(no_connect
-		(at 111.76 34.29)
+		(at 68.58 34.29)
 		(uuid "71d28fdf-3b8a-5a84-800f-552d7d36d708")
 	)
 	(no_connect
-		(at 111.76 36.83)
+		(at 68.58 36.83)
 		(uuid "953ebc41-eee7-51b3-833f-ca1cb4bb4e94")
 	)
 	(no_connect
-		(at 111.76 39.37)
+		(at 68.58 39.37)
 		(uuid "f878a446-fcfc-5b21-9370-7aca622d1dc0")
 	)
 	(no_connect
-		(at 111.76 41.91)
+		(at 68.58 41.91)
 		(uuid "56182e80-3e0d-5959-8dae-8828f45cb191")
 	)
 	(no_connect
-		(at 111.76 44.45)
+		(at 68.58 44.45)
 		(uuid "d1380e13-c8a7-5f90-a7da-af35bff8029e")
 	)
 	(no_connect
-		(at 111.76 46.99)
+		(at 68.58 46.99)
 		(uuid "66b08759-50ca-5d19-94c0-e5c77a9aac9e")
 	)
 	(no_connect
-		(at 111.76 49.53)
+		(at 68.58 49.53)
 		(uuid "43456d99-23a4-5c4a-9663-378dbe72a446")
 	)
 	(no_connect
-		(at 111.76 52.07)
+		(at 68.58 52.07)
 		(uuid "0d6b34e9-d79d-5cf2-b5f7-f30a280ec882")
 	)
 	(no_connect
-		(at 111.76 54.61)
+		(at 68.58 54.61)
 		(uuid "5f346422-0fa6-51a2-b3ff-a6cc8e2ad81f")
 	)
 	(no_connect
-		(at 111.76 57.15)
+		(at 68.58 57.15)
 		(uuid "b324f8d7-771f-5149-ba77-a92caa5bf133")
 	)
 	(no_connect
-		(at 111.76 59.69)
+		(at 68.58 59.69)
 		(uuid "8f00280a-e293-5b4c-a67a-01c3dc8b2c8e")
 	)
 	(no_connect
-		(at 111.76 62.23)
+		(at 68.58 62.23)
 		(uuid "43874275-9462-5dee-a18a-bbacbbd25c9d")
 	)
 	(no_connect
-		(at 111.76 64.77)
+		(at 68.58 64.77)
 		(uuid "d441a483-17d8-5757-a905-416e44d42faa")
 	)
 	(no_connect
-		(at 111.76 67.31)
+		(at 68.58 67.31)
 		(uuid "5b096967-6398-564b-a11d-032435882833")
 	)
 	(no_connect
-		(at 111.76 69.85)
+		(at 68.58 69.85)
 		(uuid "032e224e-09dc-5c13-8925-e82f4d543b52")
 	)
 	(no_connect
-		(at 111.76 72.39)
+		(at 68.58 72.39)
 		(uuid "996ca71b-b17d-5752-8714-debd935208e4")
 	)
 	(wire
 		(pts
-			(xy 86.36 34.29) (xy 81.28 34.29)
+			(xy 43.18 57.15) (xy 38.1 57.15)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c36b7e22-634c-532e-ba2a-47797088a9c3")
+	)
+	(wire
+		(pts
+			(xy 43.18 34.29) (xy 38.1 34.29)
 		)
 		(stroke
 			(width 0)
@@ -1161,7 +1171,7 @@
 	)
 	(global_label "GND"
 		(shape passive)
-		(at 29.21 27.94 180)
+		(at 38.1 57.15 270)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1170,7 +1180,7 @@
 		)
 		(uuid "96e0d5ea-1b16-5fae-a63b-57c880e51e03")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 29.21 27.94 0)
+			(at 38.1 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1184,16 +1194,16 @@
 	)
 	(global_label "LED_A"
 		(shape passive)
-		(at 36.83 27.94 0)
+		(at 30.48 57.15 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
 		(uuid "ee063f42-ed44-5649-a027-e5851dafdf45")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 36.83 27.94 0)
+			(at 30.48 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1201,13 +1211,13 @@
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 			)
 		)
 	)
 	(global_label "LED_DRV"
 		(shape passive)
-		(at 81.28 34.29 90)
+		(at 38.1 34.29 90)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1216,7 +1226,7 @@
 		)
 		(uuid "77e8f9b9-218f-55fe-9a96-c3654261c73b")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 81.28 34.29 0)
+			(at 38.1 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1230,7 +1240,7 @@
 	)
 	(global_label "LED_A"
 		(shape passive)
-		(at 73.66 34.29 180)
+		(at 30.48 34.29 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1239,7 +1249,7 @@
 		)
 		(uuid "fe9a7dd4-0e90-5b7f-9210-ec5dc5f48f5a")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 73.66 34.29 0)
+			(at 30.48 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1253,7 +1263,7 @@
 	)
 	(global_label "VIN"
 		(shape passive)
-		(at 86.36 54.61 180)
+		(at 43.18 54.61 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -1262,30 +1272,7 @@
 		)
 		(uuid "3f3d09ba-1eaa-5af7-8471-1878e071dc94")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 86.36 54.61 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(hide yes)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-	)
-	(global_label "GND"
-		(shape passive)
-		(at 86.36 57.15 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "66a7656b-ff91-5bf7-be8f-da520ba4811c")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 86.36 57.15 0)
+			(at 43.18 54.61 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1345,7 +1332,7 @@
 	)
 	(symbol
 		(lib_id "Mini:Mini_LED")
-		(at 33.02 27.94 0)
+		(at 34.29 57.15 180)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -1355,29 +1342,27 @@
 		(dnp no)
 		(uuid "c434e6df-e886-5bdb-b49b-7f48f7588a8b")
 		(property "Reference" "D1"
-			(at 29.21 22.86 0)
+			(at 33.274 59.69 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Value" "LED"
-			(at 29.21 25.4 0)
+			(at 33.274 62.23 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Footprint" "Mini:Mini_LED_THT_3mm"
-			(at 33.02 27.94 0)
+			(at 34.29 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1388,7 +1373,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 33.02 27.94 0)
+			(at 34.29 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1399,7 +1384,7 @@
 			)
 		)
 		(property "Description" "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern"
-			(at 33.02 27.94 0)
+			(at 34.29 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1410,7 +1395,7 @@
 			)
 		)
 		(property "fenolite.path" "D1"
-			(at 33.02 27.94 0)
+			(at 34.29 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1437,7 +1422,7 @@
 	)
 	(symbol
 		(lib_id "Mini:Mini_R")
-		(at 77.47 34.29 270)
+		(at 34.29 34.29 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -1447,29 +1432,27 @@
 		(dnp no)
 		(uuid "5204534c-2f46-5663-9df6-34a9e4c05dd4")
 		(property "Reference" "R1"
-			(at 73.66 29.464 0)
+			(at 33.274 29.21 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Value" "330"
-			(at 73.66 32.004 0)
+			(at 33.274 31.75 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Footprint" "Mini:Mini_R_0603"
-			(at 77.47 34.29 0)
+			(at 34.29 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1480,7 +1463,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 77.47 34.29 0)
+			(at 34.29 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1491,7 +1474,7 @@
 			)
 		)
 		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
-			(at 77.47 34.29 0)
+			(at 34.29 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1502,7 +1485,7 @@
 			)
 		)
 		(property "fenolite.path" "R1"
-			(at 77.47 34.29 0)
+			(at 34.29 34.29 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1529,7 +1512,7 @@
 	)
 	(symbol
 		(lib_id "Mini:Mini_QFP32_IC")
-		(at 99.06 53.34 0)
+		(at 55.88 53.34 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -1539,7 +1522,7 @@
 		(dnp no)
 		(uuid "c2e1b529-ce9d-5201-9c9f-17200fb9f723")
 		(property "Reference" "U1"
-			(at 86.36 27.94 0)
+			(at 43.18 27.94 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1550,7 +1533,7 @@
 			)
 		)
 		(property "Value" "MCU"
-			(at 86.36 30.48 0)
+			(at 43.18 30.48 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -1561,7 +1544,7 @@
 			)
 		)
 		(property "Footprint" "Mini:Mini_QFP-32_7x7mm_P0.8mm"
-			(at 99.06 53.34 0)
+			(at 55.88 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1572,7 +1555,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 99.06 53.34 0)
+			(at 55.88 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1583,7 +1566,7 @@
 			)
 		)
 		(property "Description" "Mini QFP, 32 pins, 7 x 7 mm body, 0.8 mm pitch. Synthetic geometry for Fenolite tests, not a validated land pattern"
-			(at 99.06 53.34 0)
+			(at 55.88 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)
@@ -1594,7 +1577,7 @@
 			)
 		)
 		(property "fenolite.path" "U1"
-			(at 99.06 53.34 0)
+			(at 55.88 53.34 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(hide yes)

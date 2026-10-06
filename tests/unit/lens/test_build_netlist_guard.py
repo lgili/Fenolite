@@ -234,7 +234,7 @@ def swapped_labels_of(sheet: SchematicSheet, ref: str) -> SchematicSheet:
 
 
 def without_wire(sheet: SchematicSheet) -> SchematicSheet:
-    assert sheet.wires, "the blink has R1 beside pin 1 of U1"
+    assert len(sheet.wires) == 2, "the blink has R1 beside pin 1 of U1 and D1 beside pin 10"
     return replace(sheet, wires=())
 
 
@@ -244,12 +244,13 @@ def without_pair_label(sheet: SchematicSheet) -> SchematicSheet:
 
 
 def test_missing_snap_wire_caught(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without its wire, pin 1 of ``U1`` is on no net: the guard names it."""
+    """Without their wires, pins 1 and 10 of ``U1`` are on no net: the guard names the first net that
+    differs and counts the other."""
     patched(monkeypatch, without_wire)
     output = build(blink())
     assert output.files == {}
     (found,) = [issue for issue in output.issues if issue.code == CODE]
-    assert "U1-1" in found.message and "LED_DRV" in found.message
+    assert "U1-10" in found.message and "GND" in found.message and "1 more" in found.message
 
 
 def test_snap_wire_without_its_label_caught(monkeypatch: pytest.MonkeyPatch) -> None:

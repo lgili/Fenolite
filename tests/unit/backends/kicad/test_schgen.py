@@ -50,9 +50,10 @@ def test_blink() -> None:
     made = generated(output)
     sheet = made.sheet
     assert [s.ref for s in sheet.symbols] == ["D1", "R1", "U1", "#FLG01", "#FLG02"]
-    # R1 lies beside pin 1 of U1, joined to it by a wire: that pair has one LED_DRV label (c0070)
-    assert Counter(label.name for label in sheet.labels) == {"GND": 3, "VIN": 2, "LED_DRV": 1, "LED_A": 2}
-    assert len(sheet.wires) == 1 and made.satellites == 1 and made.children == {}
+    # R1 lies beside pin 1 of U1 and D1 beside pin 10, each joined to it by a wire: each pair has one
+    # label, LED_DRV and GND (c0070)
+    assert Counter(label.name for label in sheet.labels) == {"GND": 2, "VIN": 2, "LED_DRV": 1, "LED_A": 2}
+    assert len(sheet.wires) == 2 and made.satellites == 2 and made.children == {}
     assert {(label.kind, label.shape) for label in sheet.labels} == {("global", "passive")}
     points = pin_points(output, "U1")
     marked = sorted(set(points) - {"1", "9", "10"}, key=int)
@@ -73,10 +74,10 @@ def test_labels_sit_on_the_pins_of_their_nets() -> None:
     sheet = generated(output).sheet
     at = {(label.name, label.position) for label in sheet.labels}
     u1, r1, d1 = (pin_points(output, ref) for ref in ("U1", "R1", "D1"))
-    assert {("VIN", u1["9"]), ("GND", u1["10"])} <= at
+    assert ("VIN", u1["9"]) in at
     assert {("LED_DRV", r1["1"]), ("LED_A", r1["2"]), ("GND", d1["1"]), ("LED_A", d1["2"])} <= at
-    (wire,) = sheet.wires
-    assert (wire.start, wire.end) == (u1["1"], r1["1"]) and ("LED_DRV", u1["1"]) not in at
+    assert {(wire.start, wire.end) for wire in sheet.wires} == {(u1["1"], r1["1"]), (u1["10"], d1["1"])}
+    assert ("LED_DRV", u1["1"]) not in at and ("GND", u1["10"]) not in at
     flags = {s.value: s for s in sheet.symbols if s.ref.startswith("#FLG")}
     assert set(flags) == {"PWR_FLAG"} and {s.lib_ref for s in sheet.symbols if s.ref.startswith("#")} == {
         "fenolite:PWR_FLAG"

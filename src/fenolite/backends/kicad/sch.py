@@ -1030,12 +1030,14 @@ def _font(*extra: Node) -> Node:
     return node("effects", node("font", size), *extra)
 
 
-def _property(key: str, text: str, at: Point, *, ten: bool, hidden: bool, justify: str = "") -> Node:
+def _property(
+    key: str, text: str, at: Point, *, ten: bool, hidden: bool, justify: str = "", angle: int = 0
+) -> Node:
     """One ``property`` of a created item: ``hide`` is a child of the property for target 10 and a child
     of ``effects`` for target 9, and target 10 also gets ``show_name`` and ``do_not_autoplace``."""
     hide = [_yes_no("hide", True)] if hidden else []
     side = [node("justify", Atom.symbol(justify))] if justify else []
-    children: list[Node | Atom] = [Atom.string(key), Atom.string(text), _at(at, 0)]
+    children: list[Node | Atom] = [Atom.string(key), Atom.string(text), _at(at, angle)]
     if ten:
         children += [_yes_no("show_name", False), _yes_no("do_not_autoplace", False), *hide, _font(*side)]
     else:
@@ -1043,31 +1045,68 @@ def _property(key: str, text: str, at: Point, *, ten: bool, hidden: bool, justif
     return node("property", *children)
 
 
-def _text_anchor(symbol: SymbolInstance, definition: SymbolDef | None) -> tuple[Point, Point]:
+@dataclass(frozen=True, slots=True)
+class _TextAnchor:
+    """Where the Reference and the Value of a created instance are written, the angle of the two fields
+    in µdeg and their justification (``""`` centres a text on its point)."""
+
+    reference: Point
+    value: Point
+    angle: int = 0
+    justify: str = "left"
+
+
+def _text_anchor(
+    symbol: SymbolInstance, definition: SymbolDef | None, labels: Mapping[Point, int] | None = None
+) -> _TextAnchor:
     """Where the Reference and the Value of a created instance are written: above the unit, or to its
-    right when a pin of the unit leaves it upwards. A cosmetic choice; nothing connects to a text."""
+    right when a pin of the unit leaves it upwards. A cosmetic choice; nothing connects to a text.
+
+    KiCad turns a field with its symbol and may flip the side of a justified text. The two texts of a
+    turned or mirrored instance are therefore written centred in the room of
+    ``schlayout.turned_text_room``, at the angle that draws them level; ``labels`` maps the point of each
+    label of the sheet to its angle in degrees, so that the room is clear of a label that crosses the
+    axis of the instance at one of its pins."""
     origin = symbol.position
     if definition is None:
-        return Point(origin.x, origin.y - 2 * TEXT_SIZE), Point(origin.x, origin.y + 2 * TEXT_SIZE)
+        return _TextAnchor(
+            Point(origin.x, origin.y - 2 * TEXT_SIZE), Point(origin.x, origin.y + 2 * TEXT_SIZE)
+        )
     rotation = symbol.rotation // 1_000_000
     pins = definition.pins_of(symbol.unit, symbol.body_style)
-    points = [schlayout.pin_point(origin, pin.position, rotation, symbol.mirror) for pin in pins]
+    ends = [schlayout.pin_point(origin, pin.position, rotation, symbol.mirror) for pin in pins]
+    points = list(ends)
     for graphic in definition.graphics:
         points += [schlayout.pin_point(origin, p, rotation, symbol.mirror) for p in graphic.points]
     if not points:
         points = [origin]
     left, right = min(p.x for p in points), max(p.x for p in points)
-    top = min(p.y for p in points)
+    top, bottom = min(p.y for p in points), max(p.y for p in points)
     upwards = any(
         schlayout.label_angle(pin.rotation // 1_000_000, rotation, symbol.mirror) == 90 for pin in pins
     )
+    if rotation or symbol.mirror:
+        found = labels or {}
+        across = next(((end, found[end]) for end in ends if found.get(end) in (90, 270)), None)
+        length = max(len(symbol.ref), len(symbol.value)) * schlayout.CHAR_ROOM
+        x0, y0, x1, _ = schlayout.turned_text_room(
+            (left, top, right, bottom), ends, origin, upwards, length, across
+        )
+        x = (x0 + x1) // 2
+        angle = 90_000_000 if rotation % 180 else 0
+        return _TextAnchor(Point(x, y0 + TEXT_SIZE), Point(x, y0 + 3 * TEXT_SIZE), angle, "")
     if upwards:
         x = right + 2 * TEXT_SIZE
-        return Point(x, origin.y - TEXT_SIZE), Point(x, origin.y + TEXT_SIZE)
-    return Point(left, top - 3 * TEXT_SIZE), Point(left, top - TEXT_SIZE)
+        return _TextAnchor(Point(x, origin.y - TEXT_SIZE), Point(x, origin.y + TEXT_SIZE))
+    return _TextAnchor(Point(left, top - 3 * TEXT_SIZE), Point(left, top - TEXT_SIZE))
 
 
-def _created_symbol(symbol: SymbolInstance, definition: SymbolDef | None, ten: bool) -> Node:
+def _created_symbol(
+    symbol: SymbolInstance,
+    definition: SymbolDef | None,
+    ten: bool,
+    labels: Mapping[Point, int] | None = None,
+) -> Node:
     items, _ = _emit_symbol(symbol)
     children: list[Node | Atom] = []
     if symbol.lib_name:
@@ -1079,11 +1118,11 @@ def _created_symbol(symbol: SymbolInstance, definition: SymbolDef | None, ten: b
     if ten:
         children.append(_yes_no("in_pos_files", symbol.on_board))
     children += [*items["dnp"], node("uuid", Atom.string(kicad_uuid(symbol)))]
-    reference, value = _text_anchor(symbol, definition)
+    anchor = _text_anchor(symbol, definition, labels)
     names = [k for k in FIRST_PROPERTIES if k in symbol.properties]
     names += sorted(k for k in symbol.properties if k not in FIRST_PROPERTIES)
     for key in names:
-        at = {"Reference": reference, "Value": value}.get(key, symbol.position)
+        at = {"Reference": anchor.reference, "Value": anchor.value}.get(key, symbol.position)
         visible = key in VISIBLE_PROPERTIES
         children.append(
             _property(
@@ -1092,7 +1131,8 @@ def _created_symbol(symbol: SymbolInstance, definition: SymbolDef | None, ten: b
                 at,
                 ten=ten,
                 hidden=not visible,
-                justify="left" if visible else "",
+                justify=anchor.justify if visible else "",
+                angle=anchor.angle if visible else 0,
             )
         )
     if definition is not None:
@@ -1231,9 +1271,10 @@ def write_schematic(
         )
     children += [_created_wire(wire) for wire in sheet.wires]
     children += [_created_label(label, ten) for label in sheet.labels]
+    label_angles = {label.position: label.rotation // 1_000_000 for label in sheet.labels}
     for symbol in sheet.symbols:
         definition = definitions.get(symbol.lib_name or symbol.lib_ref)
-        children.append(_created_symbol(symbol, definition, ten))
+        children.append(_created_symbol(symbol, definition, ten, label_angles))
     children += [_created_sheet_ref(ref, ten) for ref in sheet.sheets]
     if sheet.pages:
         children.append(_pages_node(sheet.pages))

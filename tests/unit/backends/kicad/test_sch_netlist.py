@@ -312,9 +312,10 @@ def without_definition() -> SchematicSheet:
 
 def with_label_off_pin() -> SchematicSheet:
     sheet = blink_sheet()
-    first = sheet.labels[0]
+    ends = {point for wire in sheet.wires for point in (wire.start, wire.end)}
+    first = next(label for label in sheet.labels if label.position not in ends)  # not the label of a pair
     moved = replace(first, position=Point(first.position.x + schlayout.GRID, first.position.y))
-    return replace(sheet, labels=(moved, *sheet.labels[1:]))
+    return replace(sheet, labels=tuple(moved if label is first else label for label in sheet.labels))
 
 
 def with_two_names() -> SchematicSheet:
@@ -414,14 +415,14 @@ def test_stacked_pins_under_one_label_are_one_net() -> None:
         if definition.name == "Mini_QFP32_IC":
             by_number = {p.number: p for p in definition.pins}
             pins = tuple(
-                replace(p, position=by_number["10"].position) if p.number == "2" else p
+                replace(p, position=by_number["9"].position) if p.number == "2" else p
                 for p in definition.pins
             )
             definition = replace(definition, pins=pins)
         definitions.append(definition)
     stacked = replace(sheet, lib_symbols=tuple(definitions))
     assert grammar_issues(stacked) == ()
-    assert elements(own_netlist(stacked, project="blink"), "GND") == ["D1-1", "U1-2", "U1-10"]
+    assert elements(own_netlist(stacked, project="blink"), "VIN") == ["U1-2", "U1-9"]
 
 
 # -- sch.opaque_heads

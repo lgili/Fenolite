@@ -323,15 +323,60 @@ def unit_bounds(unit: UnitBox, rotation: int = 0, mirror: str = "") -> Box:
     return _bounds([Point(x0, y0), Point(x1, y1), *ends])
 
 
-def text_box(unit: UnitBox, rotation: int = 0, mirror: str = "") -> Box | None:
-    """The room of the Reference and the Value of ``unit`` where the writer puts them: above the unit, or
-    to its right when one of its pins leaves it upwards. ``None`` for a unit without a text length."""
+def turned_text_room(
+    bounds: Box,
+    ends: Sequence[Point],
+    origin: Point,
+    upwards: bool,
+    length: int,
+    across: tuple[Point, int] | None = None,
+) -> Box:
+    """The room of the Reference and the Value of a turned or mirrored unit: two lines of ``ORIGIN_STEP``,
+    ``length`` long. The writer centres the Reference in its upper half and the Value in its lower half.
+
+    ``bounds`` is the box of the unit's body and pin ends and ``ends`` its pin connection points, in the
+    frame of ``origin``. With a pin that leaves the unit upwards the room lies to the right of the unit,
+    around the height of ``origin``. Otherwise it lies above the unit, from its left edge, clear of the
+    labels that continue its pins. ``across`` is a label at one of the pins that points up (90) or down
+    (270), across the unit's axis: the room then lies on the label's side of the unit, ``ORIGIN_STEP``
+    from the label's axis, and extends towards the other pins.
+    """
+    left, top, right, bottom = bounds
+    if upwards:
+        x0 = right + ORIGIN_STEP
+        return (x0, origin.y - ORIGIN_STEP, x0 + length, origin.y + ORIGIN_STEP)
+    ys = [point.y for point in ends] or [top, bottom]
+    x0 = left
+    below = False
+    if across is not None and across[1] in (90, 270):
+        at, angle = across
+        below = angle == 270
+        beyond = all(point.x >= at.x for point in ends)  # the other pins lie to the right of the label
+        x0 = at.x + ORIGIN_STEP if beyond else at.x - ORIGIN_STEP - length
+    if below:
+        base = max(bottom, max(ys) + GRID)
+        return (x0, base, x0 + length, base + 2 * ORIGIN_STEP)
+    base = min(top, min(ys) - GRID)
+    return (x0, base - 2 * ORIGIN_STEP, x0 + length, base)
+
+
+def text_box(
+    unit: UnitBox, rotation: int = 0, mirror: str = "", across: tuple[Point, int] | None = None
+) -> Box | None:
+    """The room of the Reference and the Value of ``unit`` where the writer puts them, relative to the
+    unit's origin: above the unit, or to its right when one of its pins leaves it upwards. For a turned
+    or mirrored unit whose pins leave it sideways the room is that of ``turned_text_room``, where
+    ``across`` is the label at one of its pins that points across its axis. ``None`` for a unit without
+    a text length."""
     if not unit.text:
         return None
-    left, top, right, _ = unit_bounds(unit, rotation, mirror)
+    left, top, right, _ = bounds = unit_bounds(unit, rotation, mirror)
     length = unit.text * CHAR_ROOM
     if any(label_angle(pin.angle, rotation, mirror) == 90 for pin in unit.pins):
         return (right, -ORIGIN_STEP, right + ORIGIN_STEP + length, ORIGIN_STEP)
+    if rotation or mirror:
+        ends = [pin_point(Point(0, 0), pin.at, rotation, mirror) for pin in unit.pins]
+        return turned_text_room(bounds, ends, Point(0, 0), False, length, across)
     return (left, top - 2 * ORIGIN_STEP, left + length, top)
 
 
@@ -451,19 +496,20 @@ def _try(
     far_point = pin_point(origin, far.at, rotation, "")
     body = _shift(body_box(satellite, rotation, ""), origin.x, origin.y)
     new: list[Box] = [_shift(unit_bounds(satellite, rotation, ""), origin.x, origin.y)]
-    text = text_box(satellite, rotation, "")
-    if text is not None:
-        text = _shift(text, origin.x, origin.y)
-        new.append(text)
-    far_net = nets.get((satellite.key, far.number))
-    if far_net is not None:
-        new.append(label_room(far_point, label_angle(far.angle, rotation, ""), len(far_net)))
     # the label of the pair points away from the centre line of the anchor's body, across the wire
     x0, y0, x1, y1 = around.obstacles[0]
     if dy == 0:
         angle = 90 if 2 * start.y <= y0 + y1 else 270
     else:
         angle = 180 if 2 * start.x <= x0 + x1 else 0
+    # the Reference and the Value of a satellite turned on its side lie beside that label, on its side
+    text = text_box(satellite, rotation, "", (offset, angle))
+    if text is not None:
+        text = _shift(text, origin.x, origin.y)
+        new.append(text)
+    far_net = nets.get((satellite.key, far.number))
+    if far_net is not None:
+        new.append(label_room(far_point, label_angle(far.angle, rotation, ""), len(far_net)))
     pair = label_room(end, angle, len(nets[(anchor.key, pin.number)]))
     if _overlap(pair, body) or (text is not None and _overlap(pair, text)):
         return False
@@ -787,6 +833,7 @@ __all__ = [
     "pin_point",
     "snap_satellites",
     "text_box",
+    "turned_text_room",
     "unit_bounds",
     "ref_extent",
     "ref_key",

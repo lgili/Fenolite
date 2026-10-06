@@ -55,7 +55,9 @@ the generated sheets").
 On each sheet, a part with exactly two pins (a resistor, a capacitor, an LED) that is on a net of an IC
 pin of the same sheet is moved beside that pin: turned along the pin, 5.08 mm away, and joined to it by
 one straight wire. The wired pair carries one label, at the part's pin and turned across the wire; the
-part's other pin keeps its own label.
+part's other pin keeps its own label. The Reference and the Value of a part turned on its side are
+written level, beside that label and on its side of the part, so that no text lies on a label, on
+another text, on a symbol or on a wire end.
 
 - An **IC** here is any unit with three pins or more. Each of its pins takes at most one part; a second
   part on the same net looks for another free pin of one of its nets, or stays where the grid puts it.
