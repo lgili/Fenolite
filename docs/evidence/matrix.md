@@ -255,6 +255,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `adapter.library` | see `import_evidence` |
 | `adapter.netlist` | see `import_evidence` |
 | `adapter.pads` | see `import_evidence` |
+| `adapter.parity` | see `import_evidence` |
 | `adapter.parts` | see `import_evidence` |
 | `adapter.pins` | see `import_evidence` |
 | `adapter.project` | see `import_evidence` |
@@ -267,6 +268,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` |
 | `docboard` | see `pcbdoc` |
 | `docset` | see `import_evidence` |
+| `frame` | `EVIDENCE` INFERRED: `H-A-IMP-FRAME`, `H-A-IMP-PADSTACK` |
 | `hierarchy` | `EVIDENCE` INFERRED: `H-A-SCH-HARN-FILE`, `H-A-SCH-HARN-NETS`, `H-A-SCH-HARN-OPEN`, `H-A-SCH-HARN-UNUSED`, `H-A-SCH-HIER-COMPILE`, `H-A-SCH-HIER-ECO`, `H-A-SCH-HIER-NAMES`, `H-A-SCH-HIER-OPEN`, `H-A-SCH-HIER-ORDER`, `H-A-SCH-HIER-PRJ` |
 | `import_evidence` | `EVIDENCE` INFERRED: `H-A-IMP-NETLIST`, `H-A-IMP-WIRE`, `H-A-IMP-PIN-MID`, `H-A-IMP-PORT-ENDS`, `H-A-IMP-RPT-BOARD`, `H-A-IMP-RPT-FORMAT`, `H-A-IMP-RPT-COUNT`, `H-A-IMP-RPT-NETS`, `H-A-IMP-PINMAP`, `H-A-IMP-SCOPE`, `H-A-IMP-POWER-LOCAL`, `H-A-IMP-OFFSHEET`, `H-A-IMP-DUP-NAME`, `H-A-IMP-NAME-TIE`, `H-A-IMP-NAME-AUTO`, `H-A-IMP-HIDDEN-PIN`, `H-A-IMP-BUS`, `H-A-IMP-HARN-NAME`, `H-A-IMP-LINK`, `H-A-IMP-FRAME`, `H-A-IMP-LAYERS`, `H-A-IMP-PADSTACK`, `H-A-IMP-ZONE`, `H-A-IMP-ZONE-HOLES`, `H-A-IMP-BODY`, `H-A-IMP-SYMFRAME` |
 | `layout` | see `project` |

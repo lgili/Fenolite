@@ -731,7 +731,9 @@ class DesignRules:
     judged against, whether a governing custom clearance rule replaces the class clearances and whether
     the board minimum also raises a rule's value. ``opaque_clearance_rules`` counts the clearance rules
     that could not be lifted into the model, and ``unread`` names each file that failed to read, with the
-    error's message, in file-name order.
+    error's message, in file-name order. ``left_out`` names the copper that the project's files hold in a
+    form the model does not carry as copper, as (kind, count, reason) in kind order: ``design`` is then
+    without the items that stand for it, and the copper check reports each entry.
     """
 
     design: Design
@@ -741,6 +743,7 @@ class DesignRules:
     opaque_clearance_rules: int = 0
     unread: tuple[tuple[str, str], ...] = ()
     evidence: Evidence = Evidence()
+    left_out: tuple[tuple[str, int, str], ...] = ()
 
 
 @runtime_checkable
@@ -926,6 +929,16 @@ class DocumentValidator(Protocol):
     def stage_evidence(self) -> Mapping[str, Evidence]: ...
 
 
+@runtime_checkable
+class DocumentParity(Protocol):
+    """A document backend that builds the schematic side of the parity comparison (``checks.parity``) from
+    the two readings of a set that ``DocumentValidator.read_documents`` gave: ``schematic`` is the design
+    of the schematic documents and ``board`` the design of the PCB document. It reads no file and runs no
+    tool; ``side`` is ``None`` when the schematic reading gives no side (``message`` says why)."""
+
+    def parity_side(self, schematic: Design, board: Design) -> SideOutcome: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -958,6 +971,7 @@ __all__ = [
     "DesignRulesSource",
     "DiffReport",
     "Document",
+    "DocumentParity",
     "DocumentRole",
     "DocumentSet",
     "DocumentValidator",

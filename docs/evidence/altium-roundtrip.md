@@ -297,3 +297,55 @@ components carry the pin-to-pad map of their footprint model, one pad per pin, a
 - **`H-A-VER-ERC`** holds on the five sets: no `erc.lite.floating-pin` warning names a pin that
   carries a No ERC mark or that a net lists.
 - The envelope level of every set is `INFERRED`.
+
+## Light DRC over the corpus
+
+The stage `copper.clearance` on each public PCB document, and the parity comparison on each public project
+set (change c0088; `tests/corpus/test_altium_copper.py`, run on 2026-10-06 on macOS without any tool; 13
+passed, `altium-set:01` skipped as heavy). Counts only. A third-party board may hold real findings: the test
+asserts what the stage promises, not that a board is clean.
+
+| document | fills, pads, tracks, arcs, vias | pairs judged | shorts | clearance | mapped and opaque Clearance rules | unpoured | zones without a clearance | planes | findings the unit's slack removes | level |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `altium-third-party-pcbdoc-01` | 40, 735, 1 346, 0, 646 | 10 482 | 0 | 2 | 1, 0 | 0 | 0 | 2 | 626 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-02` | 11, 143, 191, 0, 242 | 553 | 0 | 0 | 0, 1 | 1 | 11 | 2 | 0 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-03` | 6, 383, 604, 0, 47 | 1 087 | 0 | 0 | 0, 3 | 0 | 1 | 0 | 0 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-04` | 11, 53, 149, 0, 67 | 990 | 0 | 8 | 1, 1 | 0 | 0 | 0 | 118 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-05` | 5, 96, 194, 0, 59 | 1 156 | 0 | 0 | 1, 0 | 0 | 0 | 0 | 232 | `INFERRED` |
+| `altium-third-party-pcbdoc-06` | 11, 106, 111, 3, 42 | 250 | 0 | 0 | 0, 2 | 0 | 10 | 0 | 0 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-07` | 16, 112, 475, 20, 60 | 2 528 | 0 | 0 | 2, 1 | 0 | 0 | 0 | 112 | `UNVERIFIED` |
+
+- **No pour is judged against a default.** c0122 measured 266 clearance findings on
+  `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone:
+  the document's three Clearance records (two scoped by layer, one with a matrix key) are outside the rule
+  table, so no clearance is in force. The stage reports `copper.rules-incomplete` for the three records and
+  for the one pour, judges 954 pairs for shorts only (`copper.clearance-unset`), and carries `UNVERIFIED`.
+- **The 10 findings that remain.** On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm
+  rule. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
+  document holds one more Clearance rule whose scope is outside the grammar, which the stage reports, so
+  these pairs may be governed by it.
+- **Internal planes.** Before the lines of a plane were taken out, `-01` gave 66 shorts and 48 clearance
+  findings and `-02` gave 5 shorts, every one between a line without a net on a plane layer and a via or a
+  pad. Those lines cut the plane: they are no copper.
+- **The unit's slack.** With the rule values as the documents write them, 1 088 more clearance findings
+  appear, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
+- **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,
+  so the clearance findings of the two readings cannot be compared; `H-A-DRC-SAME` rests on the samples
+  built for both targets (`tests/kicad/altium/test_copper_same.py`: equal findings on the routed blink as
+  built, with a planted short, with a planted clearance fault and with both).
+
+| set | components, footprints | missing, extra | value or footprint name | net conflicts (all implied by the pad-net comparison) | pins without a pad, pads without a pin | footprints that differ in the library alone | pads that differ in the net name alone |
+|---|---|---|---|---|---|---|---|
+| `altium-set:02` | 248, 260 | 2, 2 | 10 | 26 | 6, 4 | 241 | 189 |
+| `altium-set:03` | 23, 27 | 0, 0 | 0 | 0 | 0, 0 | 23 | 0 |
+| `altium-set:04` | 41, 41 | 0, 0 | 0 | 2 | 0, 2 | 41 | 0 |
+| `altium-set:05` | 27, 27 | 0, 0 | 0 | 0 | 0, 0 | 27 | 0 |
+
+- The last two columns are why two spellings are read as one (`docs/formats/altium/import.md`, "Schematic
+  side of the parity comparison"): without that, every placed component and 189 pads of the hierarchical set
+  would be findings of spelling.
+- Every net conflict names a pad that `netlist.assignment_compare` flags too. The two of `altium-set:04`
+  are pads of one pin that the footprint model maps to several pads: the import of a schematic component
+  holds no pin-to-pad map yet (the rest of c0083), and the side uses `Component.pin_pad_map` once it does.
+- The component findings of `altium-set:02` come from its repeated sheets and from components without a
+  designator; they are recorded here and not compared with `equivalent` level 1.

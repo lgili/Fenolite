@@ -8,7 +8,8 @@ backend as ``Validator`` and ``kicad-cli`` as ``Oracle``. Nothing is written: ``
 
 Document input (change c0044) is looked for first: a file or a project folder of a backend whose project is
 a set of documents (an Altium document, library, project file or project folder). It is checked by
-``checks.documents.run_document_checks`` without any external tool.
+``checks.documents.run_document_checks`` without any external tool; since change c0088 its stages include
+``copper.clearance`` and ``parity``.
 """
 
 from __future__ import annotations
@@ -38,7 +39,8 @@ from fenolite.model.design import Design
 
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
-    "project or document (model, ERC lite, pad nets, round trips RT-A0 to RT-A2), read-only"
+    "project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round "
+    "trips RT-A0 to RT-A2), read-only"
 )
 NO_TOOL_HINT = (
     "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli, or run "

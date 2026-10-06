@@ -22,6 +22,10 @@ Before a KiCad build plans its writes, the copper guard judges the triad it is a
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
 short or a clearance error refuses the build unless ``--copper-check warn`` is given.
 
+An Altium build has the same guard on the PCB document it is about to write (change c0088; capability
+altium-build, "Copper guard in an Altium build"): ``altium_copper_guard`` reads the planned bytes back
+with the Altium backend and refuses a short; a clearance finding is reported and does not refuse.
+
 The placement guard then judges the same planned board with ``placement.legality.check`` (change c0022;
 capability design-dsl, "Placement legality in a build"): courtyard overlaps and parts outside the outline
 are reported as warnings and never refuse a build.
@@ -38,6 +42,7 @@ from typing import Any, Literal, cast
 
 import fenolite.dsl
 from fenolite.backends.altium.altsym import DEFAULT_BODIES, SymbolBodies
+from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.outjob import OUTJOB_KIND
 from fenolite.backends.altium.project import (
     DEFAULT_FORM,
@@ -241,8 +246,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=COPPER_CHECK_MODES,
         default=None,
         help="what a short or a clearance error in the copper of the board about to be written does: "
-        f"refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); a usage "
-        f"error with --target {ALTIUM_TARGET}",
+        f"refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); with "
+        f"--target {ALTIUM_TARGET} only a short refuses, and a clearance error is reported as a warning",
     )
     parser.add_argument(
         "--vendor",
@@ -341,6 +346,67 @@ def copper_guard(
         "ran": True,
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
+        "rules": rules_summary(rules),
+        "evidence": _evidence_json(evidence),
+    }
+    return tuple(found), summary
+
+
+CLEARANCE_NOTE = " (reported, not refused: the Altium copper guard refuses shorts)"
+
+
+def altium_copper_guard(
+    files: Mapping[str, bytes], *, name: str, mode: str
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The copper issues of the PCB document ``<name>.PcbDoc`` of ``files`` that an Altium build is about
+    to write, and ``result.copper_check`` (capability altium-build, "Copper guard in an Altium build").
+
+    The planned bytes are read back with the Altium backend's own reader and adapter, the rules are those
+    the document holds (``AltiumBackend.rules_from_bytes`` on the planned bytes), the pads come from the
+    Altium board frame, and ``check_copper`` judges the result. A ``copper.short`` keeps its severity, so the
+    build refuses; every other error is reported as a warning with ``CLEARANCE_NOTE``. With
+    ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing is read from disk and
+    nothing is written; a build without a PCB document is not judged (``ran`` false)."""
+    if mode not in COPPER_CHECK_MODES:
+        raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
+    document = f"{name}.PcbDoc"
+    data = files.get(document)
+    if data is None:
+        return (), {"mode": mode, "ran": False}
+    backend = AltiumBackend()
+    read = backend.board_from_bytes(data, file=document)
+    design = read.design
+    rules = backend.rules_from_bytes(design, data, file=document)
+    report = check_copper(
+        rules.design,
+        pads=backend.board_pads(rules.design),
+        min_clearance=rules.min_clearance,
+        rules_over_classes=rules.rules_over_classes,
+        floor_over_rules=rules.floor_over_rules,
+        inputs=(read.evidence, rules.evidence),
+    )
+    unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
+    found: list[Issue] = []
+    for issue in (*report.issues, *rules_issues(rules)):
+        if issue.severity != "error":
+            found.append(issue)
+        elif issue.code != "copper.short":
+            found.append(
+                dataclasses.replace(issue, severity="warning", message=issue.message + CLEARANCE_NOTE)
+            )
+        elif mode == "warn":
+            found.append(dataclasses.replace(issue, severity="warning", message=issue.message + WARN_NOTE))
+        else:
+            found.append(issue)
+    evidence = Evidence.combine(report.evidence, read.evidence, rules.evidence)
+    if unpoured or any(issue.code in LOWERING_CODES for issue in found):
+        evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
+    summary: dict[str, object] = {
+        "mode": mode,
+        "ran": True,
+        "shorts": report.summary["shorts"],
+        "clearance": report.summary["clearance"],
+        "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
     }
@@ -528,13 +594,6 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             f"--altium-directions needs --target {ALTIUM_TARGET}; the target is {args.target}",
             where="--altium-directions",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-directions",
-        )
-    if args.copper_check is not None and args.target == ALTIUM_TARGET:
-        raise CliError(
-            "FEN-2001",
-            f"--copper-check judges the KiCad board of a build; the target is {args.target}",
-            where="--copper-check",
-            hint=f"drop --copper-check, or drop --target {ALTIUM_TARGET}",
         )
     if args.schematic is not None and args.target == ALTIUM_TARGET:
         raise CliError(
@@ -938,6 +997,13 @@ def _run_altium(
             authored_symbols=authored_symbols,
         )
     files = dict(built.files)
+    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    copper_issues: tuple[Issue, ...] = ()
+    copper_check: dict[str, object] = {"mode": mode, "ran": False}
+    if files:
+        copper_issues, copper_check = altium_copper_guard(files, name=name, mode=mode)
+        if any(found.severity == "error" for found in copper_issues):
+            files = {}  # refused: a build with an error issue plans no write
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
@@ -964,6 +1030,7 @@ def _run_altium(
         "footprints": summary["footprints"],
         "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
         "copper": summary["copper"],
+        "copper_check": copper_check,
         "outjob": _outjob_result(summary["outjob"], out, preset_result),
         "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),
         "rules": summary["rules"],
@@ -980,7 +1047,7 @@ def _run_altium(
         evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues),
+        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),

@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The Altium backend as seen through ``fenolite.backends.base``: detection and reading (change c0043,
-capability altium-import, "Altium backend").
+capability altium-import, "Altium backend"), and what the checks of a document set ask of it (change
+c0088): the board frame, the clearance rules of the PCB document and the schematic side of the parity
+comparison.
 
 It reads ``.PrjPcb``, ``.SchDoc`` (binary or ASCII), ``.SchLib``, ``.PcbDoc`` and ``.PcbLib`` into the
 neutral model and writes nothing: the Altium writers stay experimental features of ``build``. This module
@@ -12,6 +14,7 @@ imports no reader and no adapter until ``read`` is called, so registering the ba
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import re
 from collections.abc import Mapping
@@ -20,17 +23,26 @@ from pathlib import Path
 from fenolite.backends.altium.import_evidence import EVIDENCE
 from fenolite.backends.base import (
     Backend,
+    BoardFrame,
+    BoardPad,
     CapabilityReport,
     ContainerLevel,
     ContainerRoundTrip,
+    DesignRules,
+    DesignRulesSource,
+    DocumentParity,
     DocumentSet,
     DocumentValidator,
     ModelScope,
+    PlacedExtent,
     ProjectRead,
+    ProjectSet,
     ReadResult,
+    SideOutcome,
 )
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.design import Design
 
 READ_KINDS = (
     "altium_pcbdoc",
@@ -52,6 +64,19 @@ CAPABILITIES = CapabilityReport(
     evidence=EVIDENCE,
 )
 """What the backend offers: ``detect`` and ``read``, at the evidence of the import (``INFERRED``)."""
+BACKEND = "altium"
+PLANE_KEY = "plane_net"
+"""The pair of a layer's ``altium`` bag that marks an internal plane (``adapter.layers``)."""
+CLEARANCE_KIND = "Clearance"
+"""The ``RULEKIND`` of the rule records the copper check reads."""
+NOT_APPLYING = "disabled"
+"""The reason of an unmapped rule record that takes no part: Altium skips a disabled rule."""
+UNIT_SLACK_NM = 5
+"""What the import can take from a gap that is exactly a clearance in the document: the document counts in
+units of 2.54 nm and the model in whole nanometres, so each of the two items moves by up to 0.71 nm, a pad
+by up to 1.41 nm more through the frame of its footprint, and a width by 0.5 nm. The clearance rules of the
+copper check are lowered by this much (``docs/formats/altium/import.md``, "Clearance of the copper
+check"; measured on the public PCB documents: 1 to 4 nm on every pour that keeps its rule)."""
 _PROJECT_SKIPS = ("altium.project.document-outside", "altium.project.document-missing")
 _DOCUMENT_INDEX = re.compile(r"\bdocument (\d+)\b")
 
@@ -96,13 +121,21 @@ class AltiumBackend:
         return result
 
     def _board(self, path: Path, found: list[Issue]) -> ReadResult:
+        return self.board_from_bytes(path.read_bytes(), file=path.name, issues=found)
+
+    def board_from_bytes(self, data: bytes, *, file: str, issues: list[Issue] | None = None) -> ReadResult:
+        """The design of the PCB document whose bytes are ``data``, as ``read`` gives it for a file:
+        a build judges the bytes it is about to write with it. The readers' and the adapter's issues are
+        added to ``issues``; the reader's ``FormatError`` is raised unchanged."""
         from fenolite.backends.altium.adapter import import_board
         from fenolite.backends.altium.read.pcb import read_pcbdoc
 
-        data = path.read_bytes()
-        document = read_pcbdoc(data, file=path.name)
+        found: list[Issue] = []
+        document = read_pcbdoc(data, file=file)
         found.extend(document.issues)
-        design = import_board(document, file=path.name, sha256=_digest(data), issues=found)
+        design = import_board(document, file=file, sha256=_digest(data), issues=found)
+        if issues is not None:
+            issues.extend(found)
         return ReadResult(design, (*found, *design.validate()), EVIDENCE)
 
     def _sheet(self, path: Path, found: list[Issue]) -> ReadResult:
@@ -218,6 +251,86 @@ class AltiumBackend:
 
         return STAGE_EVIDENCE
 
+    def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]:
+        """Every pad of an imported board in the board frame (``frame.board_pads``; ``BoardFrame``)."""
+        from fenolite.backends.altium import frame
+
+        return frame.board_pads(design, issues=issues)
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        """The hull of every footprint's pads in the board frame (``frame.placed_extents``)."""
+        from fenolite.backends.altium import frame
+
+        return frame.placed_extents(design, issues=issues)
+
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules:
+        """The clearance rules of the PCB document ``project.board``, applied to ``design``, the import
+        of that document (``DesignRulesSource``; ``docs/formats/altium/import.md``, "Clearance of the
+        copper check").
+
+        The import already holds the rules that map. What this adds is what the copper check must know
+        beyond them: a polygon has no clearance of its own, so the clearance of every zone is 0 (the value
+        ``checks.clearance`` reads as "none") and the clearance rules alone decide; every clearance rule is
+        lowered by ``UNIT_SLACK_NM``, so that copper at exactly its clearance in the document's unit is no
+        finding in nanometres; and ``opaque_clearance_rules`` counts the enabled ``Clearance`` records
+        that the rule table does not map, read from ``Rules6/Data`` alone. A governing rule replaces class
+        values, and there is no board minimum. An internal plane is drawn in negative: the lines and arcs
+        without a net on its layer cut the plane and are no copper, so they are taken out, and ``left_out``
+        names the planes, whose own copper the document does not hold. A document that cannot be read is
+        named in ``unread``; nothing is raised for it."""
+        del issues  # the import reported the rule records already
+        try:
+            data = (project.root / project.board).read_bytes()
+        except OSError as error:
+            return self.rules_from_bytes(design, None, file=project.board, unread=type(error).__name__)
+        return self.rules_from_bytes(design, data, file=project.board)
+
+    def rules_from_bytes(
+        self, design: Design, data: bytes | None, *, file: str, unread: str = ""
+    ) -> DesignRules:
+        """``design_rules`` for a PCB document given as bytes (``None`` with ``unread``, the reason it
+        could not be read): a build judges the bytes it is about to write with it."""
+        from fenolite.backends.altium import frame
+        from fenolite.backends.altium.read.pcb import read_rule_fields
+        from fenolite.backends.altium.read.rules import map_rules
+
+        checked, left_out = _without_plane_lines(_with_unit_slack(_without_zone_clearance(design)))
+        opaque = 0
+        failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
+        try:
+            mapping = map_rules(read_rule_fields(data or b"", file=file), origin=file) if data else None
+            opaque = sum(
+                1
+                for record in (mapping.unmapped if mapping is not None else ())
+                if record.kind == CLEARANCE_KIND and record.reason != NOT_APPLYING
+            )
+        except FormatError as error:
+            failed = ((file, error.message or type(error).__name__),)
+        return DesignRules(
+            checked,
+            min_clearance=None,
+            rules_over_classes=True,
+            floor_over_rules=False,
+            opaque_clearance_rules=opaque,
+            unread=failed,
+            evidence=Evidence.combine(EVIDENCE, frame.EVIDENCE),
+            left_out=left_out,
+        )
+
+    def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
+        """The schematic side of the parity comparison (``DocumentParity``) from the two readings of a
+        set: ``adapter.parity.side_of(schematic, board)``, at the evidence of the import. ``side`` is
+        ``None`` for a schematic reading without a component."""
+        from fenolite.backends.altium.adapter.parity import side_of
+
+        if not schematic.circuit.components:
+            return SideOutcome(None, message="the schematic documents hold no component")
+        return SideOutcome(side_of(schematic, board), EVIDENCE)
+
     def _schematic_side(self, documents: DocumentSet, errors: dict[str, FormatError]) -> ReadResult | None:
         from fenolite.backends.altium.adapter import import_circuit
         from fenolite.backends.altium.adapter.board import header
@@ -319,8 +432,65 @@ class AltiumBackend:
         return ReadResult(content, tuple(found), EVIDENCE)
 
 
+def _without_zone_clearance(design: Design) -> Design:
+    """``design`` with the clearance of every zone at 0: an Altium polygon holds none, and the default
+    of the model is no value of the document."""
+    board = design.board
+    if board is None or all(zone.settings.clearance == 0 for zone in board.zones):
+        return design
+    zones = tuple(
+        dataclasses.replace(zone, settings=dataclasses.replace(zone.settings, clearance=0))
+        for zone in board.zones
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(board, zones=zones))
+
+
+def _without_plane_lines(design: Design) -> tuple[Design, tuple[tuple[str, int, str], ...]]:
+    """``design`` without the tracks and arcs that have no net and lie on the layer of an internal plane
+    (a layer whose ``altium`` bag holds ``plane_net``), and the ``left_out`` entry of the planes."""
+    board = design.board
+    if board is None:
+        return design, ()
+    planes = {
+        layer.name
+        for layer in board.layers
+        if BACKEND in layer.ext and any(key == PLANE_KEY for key, _ in layer.ext[BACKEND].payload)
+    }
+    if not planes:
+        return design, ()
+    tracks = tuple(t for t in board.tracks if t.net_id is not None or t.layer not in planes)
+    arcs = tuple(a for a in board.arcs if a.net_id is not None or a.layer not in planes)
+    cut = len(board.tracks) - len(tracks) + len(board.arcs) - len(arcs)
+    reason = (
+        "an internal plane is drawn in negative, so its copper is not in the document; the "
+        f"{cut} line(s) and arc(s) without a net on such a layer cut the plane and are no copper"
+    )
+    checked = dataclasses.replace(design, board=dataclasses.replace(board, tracks=tracks, arcs=arcs))
+    return checked, (("plane", len(planes), reason),)
+
+
+def _with_unit_slack(design: Design) -> Design:
+    """``design`` with every clearance rule lowered by ``UNIT_SLACK_NM`` (a value at or below it is kept)."""
+    held = design.rules
+    if held is None or not any(rule.kind == "clearance" for rule in held.rules):
+        return design
+    rules = tuple(
+        dataclasses.replace(rule, min=rule.min - UNIT_SLACK_NM)
+        if rule.kind == "clearance" and rule.min is not None and rule.min > UNIT_SLACK_NM
+        else rule
+        for rule in held.rules
+    )
+    return dataclasses.replace(design, rules=dataclasses.replace(held, rules=rules))
+
+
 _BACKEND: Backend = AltiumBackend()
 """The Altium backend satisfies ``Backend`` (checked by pyright)."""
+_FRAME: BoardFrame = AltiumBackend()
+"""The Altium backend satisfies ``BoardFrame`` (checked by pyright)."""
+_RULES_SOURCE: DesignRulesSource = AltiumBackend()
+"""The Altium backend satisfies ``DesignRulesSource`` (checked by pyright)."""
+_PARITY: DocumentParity = AltiumBackend()
+"""The Altium backend satisfies ``DocumentParity`` (checked by pyright)."""
 
 
 def document_validator() -> DocumentValidator:

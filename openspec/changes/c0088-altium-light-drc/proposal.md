@@ -6,10 +6,10 @@ Both work on the neutral model, and an Altium board is a neutral model since c00
 
 ## What Changes
 
-- **`copper.clearance` on Altium boards**: shorts, clearance, board-edge clearance and zone overlaps on the imported board, with the rules read from the PCB document; built and native input alike.
+- **`copper.clearance` on Altium boards**: shorts, clearance and zone overlaps on the imported board, with the Clearance rules read from the PCB document; built and native input alike. (The copper check judges no board-edge clearance on any backend: corrected on 2026-10-06, see the design.)
 - **`parity` on Altium projects**: the board against the schematic documents, with the same findings and counts as for KiCad; the schematic side comes from the import, so no tool is needed.
-- **What is not judged is said**: unpoured polygons, rule kinds without a counterpart and items the import kept opaque are counted in the stage summary, and the stage evidence falls to `UNVERIFIED` when the copper or the rules were only partly judged, as on KiCad.
-- **A build guard**: `build --target altium` runs the copper check on what it writes, as the KiCad build does, and refuses a board with a short.
+- **What is not judged is said**: unpoured polygons, internal planes, Clearance rules outside the rule table and pours that no clearance applies to are counted in the stage summary, and the stage evidence falls to `UNVERIFIED` when the copper or the rules were only partly judged, as on KiCad. A pour is never judged against a clearance the document does not hold.
+- **A build guard**: `build --target altium` runs the copper check on the PCB document it is about to write, as the KiCad build does on its board, and refuses a board with a short; `--copper-check warn` writes it.
 
 Size: 5 design-days (a size, not time); cut order in the design.
 
@@ -19,8 +19,11 @@ Size: 5 design-days (a size, not time); cut order in the design.
 None.
 
 ### Modified Capabilities
-- `altium-verification`: ADDED "Copper check on Altium boards", "Parity on Altium projects", "Document stage order"; these supersede the stage list of "Check on Altium inputs".
+- `altium-verification`: ADDED "Document stage order", "Copper check on Altium boards", "Board frame of an imported board", "Clearance rules of a PCB document", "Parity on Altium projects"; MODIFIED "Check on Altium inputs" and "Altium check stage evidence".
 - `altium-build`: ADDED "Copper guard in an Altium build".
+- `verification-loop`: MODIFIED "Document check pipeline" (the stage tuple and the two stages).
+- `backend-protocol`: MODIFIED "Design rules source" (`left_out`); ADDED "Document parity protocol".
+- `design-dsl`: MODIFIED "Copper guard before writing" (`--copper-check` with the Altium target).
 
 ## Non-goals
 
@@ -38,6 +41,6 @@ None.
 
 ## Impact
 
-- Changed: `checks/documents.py` (stages), `backends/altium/backend.py` (`DesignRulesSource`, `BoardFrame`, `ParityInputs`), `lens/altium.py` (guard), `cli/cmd_check.py` and `cli/cmd_parity.py` (Altium input).
+- Changed: `checks/documents.py` (stages), `checks/copper.py` (`rules_issues` reports `left_out`), `backends/base.py` (`DocumentParity`, `DesignRules.left_out`), `backends/altium/backend.py` (`DesignRulesSource`, `BoardFrame`, `DocumentParity`), `backends/altium/read/pcb.py` (`read_rule_fields`), `cli/cmd_build.py` (guard) and `cli/cmd_parity.py` (Altium input). New: `backends/altium/frame.py`, `backends/altium/adapter/parity.py`.
 - Pages: `docs/cli-contract.md` ("check on Altium input", "parity"), `docs/altium.md` ("Checks"), `docs/evidence/altium-roundtrip.md`.
 - Depends on: c0029 and c0068 (copper check), c0072 (parity), c0043 and c0044 (import and document check), c0084 (rules read from the PCB document; without it the check runs with three rule kinds and says so).

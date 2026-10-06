@@ -7,35 +7,48 @@ A backend whose project is a set of documents (``DocumentValidator``) gives two 
 schematic side and the PCB side, and a container round trip per file. No oracle takes part: every stage
 runs on what Fenolite reads. ``STAGE_ORDER`` and ``run_checks`` are not touched; the result types and the
 stage helpers are shared with them.
+
+Change c0088 adds the two stages that need no tool on any backend: ``copper.clearance`` (``checks.copper``
+on the PCB reading, with the rules and the pads of the backend) and ``parity`` (``checks.parity`` on the two
+readings, with the schematic side the backend builds from them). Neither holds check logic of its own: they
+say what the reading left unjudged (``unjudged_copper``).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from fenolite.backends.base import (
+    BoardFrame,
     ContainerLevel,
     ContainerRoundTrip,
+    DesignRules,
+    DesignRulesSource,
+    DocumentParity,
     DocumentRole,
     DocumentSet,
     DocumentValidator,
     PadNetList,
     ProjectRead,
+    ProjectSet,
     ReadResult,
 )
 from fenolite.checks import assignment_compare, erc_lite
+from fenolite.checks.clearance import ClearanceResolver
 from fenolite.checks.codes import issue
 from fenolite.checks.containers import container_stage
 from fenolite.checks.stages import CheckReport, StageResult, ran, skipped
 from fenolite.checks.validate import BUILT_EVIDENCE
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
 DOCUMENT_STAGES: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
+    "copper.clearance",
+    "parity",
     "netlist.assignment_compare",
     "roundtrip.rta0",
     "roundtrip.rta1",
@@ -43,7 +56,16 @@ DOCUMENT_STAGES: tuple[str, ...] = (
 )
 """The stages of a document check, in the order they run."""
 CONTAINER_LEVELS: Mapping[str, ContainerLevel] = {"roundtrip.rta0": "RT-A0", "roundtrip.rta1": "RT-A1"}
-_READING_STAGES = frozenset({"model.validate", "erc.lite", "netlist.assignment_compare", "roundtrip.rta2"})
+_READING_STAGES = frozenset(
+    {
+        "model.validate",
+        "erc.lite",
+        "copper.clearance",
+        "parity",
+        "netlist.assignment_compare",
+        "roundtrip.rta2",
+    }
+)
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
 
@@ -71,6 +93,105 @@ def _named(listed: PadNetList, source: str) -> PadNetList:
     return PadNetList(source, listed.assignments, listed.uncovered)
 
 
+def project_of(documents: DocumentSet) -> ProjectSet | None:
+    """The documents of a set as the project set that a rules source reads from: every document under its
+    name, the PCB document as the board; ``None`` for a set without a PCB document."""
+    if documents.board is None:
+        return None
+    files = {document.name: documents.root / document.name for document in documents.documents}
+    return ProjectSet(documents.root, documents.board, files)
+
+
+@dataclass(frozen=True, slots=True)
+class _Given:
+    """A rules source that returns the rules it was given, so that they are asked for once."""
+
+    rules: DesignRules
+
+    def design_rules(
+        self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
+    ) -> DesignRules:
+        return self.rules
+
+
+def unjudged_copper(design: Design, rules: DesignRules | None) -> tuple[int, int]:
+    """``(unpoured, zones_unjudged)`` of the board of ``design`` as the copper check sees it.
+
+    ``unpoured`` counts the zones without a fill: their copper is not in the documents, so nothing of it is
+    judged. ``zones_unjudged`` counts the filled zones without a clearance of their own for which no
+    clearance is in force whatever the other item is (no rule, class or board minimum applies to copper of
+    their net on a layer of theirs): they are judged for shorts, and for clearance only where a rule names
+    the other item. ``rules`` is the answer of the rules source (``None``: the design's own rules)."""
+    board = (rules.design if rules is not None else design).board
+    if board is None:
+        return 0, 0
+    resolver = ClearanceResolver(
+        rules.design if rules is not None else design,
+        min_clearance=rules.min_clearance if rules is not None else None,
+        rules_over_classes=rules.rules_over_classes if rules is not None else True,
+        floor_over_rules=rules.floor_over_rules if rules is not None else False,
+    )
+    unpoured = unjudged = 0
+    for zone in board.zones:
+        if not zone.fills:
+            unpoured += 1
+            continue
+        if zone.settings.clearance > 0:
+            continue
+        for layer in dict.fromkeys(fill.layer for fill in zone.fills):
+            subject = resolver.subject("fill", zone.net_id, ref=None, layer=layer)
+            if resolver.resolve(subject, subject).unset:
+                unjudged += 1
+                break
+    return unpoured, unjudged
+
+
+def document_copper(
+    design: Design, *, project: ProjectSet, validator: DocumentValidator, evidence: Evidence
+) -> StageResult:
+    """The ``copper.clearance`` stage of a document check: ``checks.copper.copper_stage`` on the PCB
+    reading ``design``, with the rules of ``validator`` when it is a ``DesignRulesSource`` and its pads when
+    it is a ``BoardFrame``. Two counts join the summary, ``unpoured`` and ``zones_unjudged``
+    (``unjudged_copper``); a count above 0 gives one warning (``copper.item-unsupported`` for the unpoured
+    zones, ``copper.rules-incomplete`` for the zones without a clearance) and lowers the stage to
+    ``UNVERIFIED``."""
+    from fenolite.checks.copper import copper_stage
+
+    rules = validator.design_rules(design, project) if isinstance(validator, DesignRulesSource) else None
+    stage = copper_stage(
+        design,
+        project=project,
+        rules_source=None if rules is None else _Given(rules),
+        frame=validator if isinstance(validator, BoardFrame) else None,
+        evidence=evidence,
+    )
+    unpoured, unjudged = unjudged_copper(design, rules)
+    added: list[Issue] = []
+    if unpoured:
+        added.append(
+            issue(
+                "copper.item-unsupported",
+                f"{unpoured} unpoured zone(s) left out of the copper check: the document holds no poured "
+                "copper for them, and the fabricated board will",
+                where="unpoured",
+            )
+        )
+    if unjudged:
+        added.append(
+            issue(
+                "copper.rules-incomplete",
+                f"{unjudged} filled zone(s) judged for shorts only: no clearance that was read applies to "
+                "them",
+                where="zone",
+            )
+        )
+    level = stage.evidence
+    if added:
+        level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
+    summary = {**stage.summary, "unpoured": unpoured, "zones_unjudged": unjudged}
+    return ran(stage.name, [*stage.issues, *added], level, summary)
+
+
 def run_document_checks(
     *,
     documents: DocumentSet,
@@ -83,6 +204,7 @@ def run_document_checks(
     """Run the selected stages in ``DOCUMENT_STAGES`` order on ``documents`` (``model`` is the ``.fenolite/``
     model of a built project). ``validator.read_documents`` runs at most once, and
     ``validator.container_roundtrip`` at most once per document and level."""
+    from fenolite.checks import parity as parity_check
     from fenolite.checks.rta2 import rta2_stage
 
     selected = [name for name in DOCUMENT_STAGES if name in stages]
@@ -129,6 +251,39 @@ def run_document_checks(
             return skipped(name, "read-refused" if any_refused("schematic") else "no-schematic")
         stage = erc_lite.erc_stage(schematic.design)
         return replace(stage, evidence=with_added(name, erc_lite.EVIDENCE, schematic.evidence))
+
+    def copper() -> StageResult:
+        name = "copper.clearance"
+        project = project_of(documents)
+        if project is None:
+            return skipped(name, "single-source")
+        if pcb is None:
+            return skipped(name, "read-refused")
+        stage = document_copper(pcb.design, project=project, validator=validator, evidence=pcb.evidence)
+        return replace(stage, evidence=with_added(name, stage.evidence))
+
+    def parity() -> StageResult:
+        name = "parity"
+        if not documents.of_role("schematic"):
+            return skipped(name, "no-schematic")
+        if documents.board is None:
+            return skipped(name, "single-source")
+        if schematic is None or pcb is None:
+            return skipped(name, "read-refused")
+        if not isinstance(validator, DocumentParity):
+            return skipped(name, "netlist-unavailable")
+        outcome = validator.parity_side(schematic.design, pcb.design)
+        if outcome.side is None:
+            return skipped(name, "netlist-unavailable")
+        report = parity_check.compare(outcome.side, pcb.design)
+        evidence = with_added(name, parity_check.EVIDENCE, outcome.evidence, schematic.evidence, pcb.evidence)
+        summary: dict[str, object] = {
+            "netlist": "own",
+            "compared": False,
+            "differences": 0,
+            **report.summary,
+        }
+        return ran(name, [parity_check.finding_issue(f) for f in report.findings], evidence, summary)
 
     def assignment() -> StageResult:
         name = "netlist.assignment_compare"
@@ -194,6 +349,8 @@ def run_document_checks(
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
         "erc.lite": erc,
+        "copper.clearance": copper,
+        "parity": parity,
         "netlist.assignment_compare": assignment,
         "roundtrip.rta0": container("roundtrip.rta0"),
         "roundtrip.rta1": container("roundtrip.rta1"),
@@ -220,4 +377,12 @@ def run_document_checks(
     return CheckReport(results, issues, evidence, read_error)
 
 
-__all__ = ["CONTAINER_LEVELS", "DOCUMENT_STAGES", "refused", "run_document_checks"]
+__all__ = [
+    "CONTAINER_LEVELS",
+    "DOCUMENT_STAGES",
+    "document_copper",
+    "project_of",
+    "refused",
+    "run_document_checks",
+    "unjudged_copper",
+]

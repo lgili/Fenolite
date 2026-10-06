@@ -36,9 +36,10 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
-READING_MODULES = {"backend.py", "docset.py", "roundtrip.py"}
-"""The modules of the reading side (changes c0043 and c0044): the registered backend, the document sets and
-the round-trip levels. ``test_backend.py``, ``test_docset.py`` and ``test_roundtrip.py`` hold their rules."""
+READING_MODULES = {"backend.py", "docset.py", "frame.py", "roundtrip.py"}
+"""The modules of the reading side (changes c0043, c0044 and c0088): the registered backend, the document
+sets, the board frame of an import and the round-trip levels. ``test_backend.py``, ``test_docset.py``,
+``test_frame.py`` and ``test_roundtrip.py`` hold their rules."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 

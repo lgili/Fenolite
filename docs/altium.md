@@ -1200,6 +1200,32 @@ Fields of these kinds that the scope leaves out, and why:
 A component whose value is empty in the script is written with its symbol's name as the comment, and
 the built model stores that value, so that the model is what the documents read back to.
 
+## Checks
+
+`fenolite check` on an Altium project, folder or document runs eight stages without any tool
+(`docs/cli-contract.md`, "check on Altium input"). Two of them are the light DRC of change c0088:
+
+- **`copper.clearance`** finds shorts and clearance violations in the copper of the PCB document: tracks,
+  arcs, vias, pads and the poured regions of polygons. The clearance in force comes from the Clearance
+  rules of the document that map onto the model (rules scoped by `All`, a net or a net class).
+- **`parity`** compares the PCB document with the schematic documents: a component on one side only,
+  two footprints of one designator, another value or footprint name, a pad on another net, a pin
+  without a pad. `fenolite parity` gives the same comparison alone.
+
+It is not Altium's design rule check. What it does not judge, it says, and the stage then carries
+`UNVERIFIED`:
+
+| not judged | why | how the stage says it |
+|---|---|---|
+| unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured | `summary.unpoured`, one `copper.item-unsupported` |
+| internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper | one `copper.item-unsupported` at `plane` |
+| Clearance rules with an object matrix, a layer scope or another key outside the rule table | the model has no rule of that form | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
+| the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
+| board-edge clearance, component clearance, silkscreen, hole and width rules | outside the copper check | nothing: these are not stages |
+
+`fenolite build --target altium` runs the copper check on the PCB document before it writes and refuses
+a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build").
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a

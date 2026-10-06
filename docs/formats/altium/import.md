@@ -126,6 +126,38 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `scope2` | rule | `SCOPE2EXPRESSION` |
 | `rule_kind` | rule | `RULEKIND` |
 
+## The copper check and the parity comparison
+
+What `fenolite check` needs of the import beyond the model (change c0088): the board frame of the pads
+(`backends/altium/frame.py`), the clearance in force (`AltiumBackend.design_rules`) and the schematic side
+of the parity comparison (`adapter/parity.py`). No record is read that the import does not read already.
+
+### Board frame of the pads
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad lies at the footprint's position plus its own position turned by the footprint's angle, with no further mirror on the bottom side, and is turned by the sum of the two angles: the inverse of how the import stores it ("Pads and padstacks"). The copper of a layer of a stack lies at the pad's position plus that layer's offset | S-0160, S-0302 | INFERRED | H-A-IMP-FRAME |
+| The corner radius of a rounded rectangle is its corner percentage of half the shorter side (100 is fully round), the inverse of what the writer stores for KiCad's corner ratio (`pcbrecords.corner_percent`) | S-0160, S-0150 | INFERRED | H-A-IMP-PADSTACK |
+| A shape the import does not resolve (an octagon, a rounded rectangle without its percentage, a rounded rectangle of a per-layer stack, whose percentage is not in the model) is checked as the rectangle of its size, which contains it; the copper check then says `approximated` | S-0160 | INFERRED | H-A-IMP-PADSTACK |
+| The import reads no courtyard: the extent of a footprint is the hull of its pads' copper | S-0160 | INFERRED | H-A-IMP-FRAME |
+
+### Clearance of the copper check
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A polygon holds no clearance of its own: the gap its pour keeps comes from the Clearance rule that applies to it. The model's default zone clearance (0.5 mm) is therefore no value of the document, and the copper check judges a fill with the clearance rules alone (the zone's own clearance is 0, "none") | S-0530 | INFERRED | H-A-DRC-SAME |
+| An internal plane is drawn in negative: a line or an arc on its layer is a void, and the rest of the layer is copper that the document does not store. The lines and arcs without a net on the layer of a plane are no copper, and the plane's own copper is not judged | S-0531 | INFERRED | H-A-DRC-SAME |
+| The document counts in units of 2.54 nm and the model in whole nanometres, so copper that is exactly a clearance apart in the document reads up to 4 nm closer. Measured on the seven public PCB documents: with the rule values as written, 1 088 clearance findings are short by 1 to 4 nm and by nothing else (626, 118, 232 and 112 on the four documents that hold a mapped Clearance rule); the clearance rules are lowered by 5 nm for the check | S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-SAME |
+| A Clearance record that is enabled and that the rule table does not map (an object matrix, a layer scope, a key outside the table) may govern any pair: the check counts such records and says that its rules are incomplete | S-0286, S-0462 | INFERRED | H-A-RD-PRJ-RULE-MAP |
+
+### Schematic side of the parity comparison
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The schematic names a footprint by the file of its footprint model and the model's name, and the PCB document by the library the component was placed from and the pattern: only the name is common. On the four public project sets without a heavy row every one of the 332 placed footprints differs in the library alone | S-0174, S-0175, S-0176, S-0188 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-PARITY |
+| The name the import gives a net is not always the name the PCB document holds for it (a net of a repeated sheet, a net named by precedence): on the hierarchical set 189 pads are on a net of another name whose pads are the same. A schematic net and a board net are one net when, over the pads both hold on a net, every pad of the one is on the other | S-0188 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-PARITY |
+| A pin names the pad of its own designator unless the component holds a pin-to-pad map, which then decides | S-0130, S-0131 | INFERRED | H-A-IMP-NETLIST |
+
 ## Differences from KiCad's importer
 
 `tests/kicad/altium/test_import_oracle.py` compares the import with `kicad-cli pcb import --format altium`

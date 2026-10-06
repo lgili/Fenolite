@@ -340,7 +340,13 @@ def test_scope_holds_the_required_fields() -> None:
     assert RT_A2_SCOPE.length_tolerance == 2
     for kind, fields in MINIMUM.items():
         assert set(fields) <= set(RT_A2_SCOPE.fields[kind]), kind
-    assert set(STAGE_EVIDENCE) == {"erc.lite", "netlist.assignment_compare", "roundtrip.rta2"}
+    assert set(STAGE_EVIDENCE) == {
+        "erc.lite",
+        "copper.clearance",  # c0088
+        "parity",  # c0088
+        "netlist.assignment_compare",
+        "roundtrip.rta2",
+    }
     assert EVIDENCE_RT_A2.level is Level.INFERRED and STAGE_EVIDENCE["roundtrip.rta2"] is EVIDENCE_RT_A2
     register = {row.id: row for row in load_register(ROOT / "docs" / "hypotheses.md")}
     for evidence in STAGE_EVIDENCE.values():

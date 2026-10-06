@@ -287,7 +287,8 @@ reports those errors as warnings, with ` (copper guard in warn mode)` at the end
 writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
 the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`) and `evidence`. The guard runs on `--dry-run` too, reads and writes
-no file, and runs no tool. `--copper-check` with `--target altium` is a usage error. A Python caller of
+no file, and runs no tool. With `--target altium` the guard judges the PCB document instead (below,
+"Copper guard of an Altium build"). A Python caller of
 `build_design` is not guarded (`docs/dsl.md`, "Copper guard").
 
 **Placement guard.** The same planned board is then judged by the placement legality check
@@ -813,14 +814,17 @@ name of the KiCad list such as `drc.kicad` is a usage error whose hint lists the
 |---|---|---|
 | `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
+| `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
+| `parity` | the PCB reading against the schematic reading, as `parity` below: references, values, footprint names, nets, pins and pads | `INFERRED` (`H-K-PARITY-OWN`, `H-A-DRC-PARITY`) |
 | `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
 | `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips") | `INFERRED` (`H-A-VER-RTA2-2`) |
 
 A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
-Fenolite build wrote), `no-schematic` (`erc.lite` without a schematic document), `single-source`
-(`netlist.assignment_compare` without two sources), `not-judged` (no document of the set can be judged
+Fenolite build wrote), `no-schematic` (`erc.lite` and `parity` without a schematic document),
+`single-source` (`netlist.assignment_compare` without two sources; `copper.clearance` and `parity`
+without a PCB document), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.
@@ -835,11 +839,44 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   adds `records`, `bytes_equal` and `opaque_count`. The summary of `roundtrip.rta2` holds `level`, `holds`,
   `differences`, `compared` (the entity kinds compared per side) and `not_in_model` (per side, the count
   of each board kind that only the reading holds, which is not compared).
+- **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
+  `copper.rules-incomplete`, `copper.item-unsupported`); board-edge clearance is not part of the copper
+  check on any backend. The summary is that of the KiCad stage plus `unpoured` and `zones_unjudged`.
+  What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
+  - an **unpoured polygon** is no copper: `unpoured` counts them, with one `copper.item-unsupported`
+    (a build writes its polygons unpoured, so a built board with zones says this until Altium repours);
+  - an **internal plane** is drawn in negative: the lines and arcs without a net on its layer are no
+    copper and are taken out, and one `copper.item-unsupported` (`where` is `plane`) counts the planes;
+  - a **Clearance rule outside the rule table** (an object matrix, a layer scope) may govern any pair:
+    `rules.opaque_clearance_rules` counts them, with one `copper.rules-incomplete`;
+  - a **filled zone that no clearance applies to** is judged for shorts only: `zones_unjudged` counts
+    them, with one `copper.rules-incomplete` (`where` is `zone`). A polygon holds no clearance of its
+    own, so a pour is never judged against the model's default of 0.5 mm.
+  A clearance of the document is judged 5 nm lower than written: the document counts in units of
+  2.54 nm, and copper that is exactly its clearance apart reads up to 4 nm closer in nanometres.
+- **`parity` on a project.** The summary is that of the KiCad stage with `netlist` = `own`,
+  `compared` = `false` and `differences` = 0: no tool judges parity here. Two spellings are read as
+  one, because they differ between the two documents of every project: the library of a footprint
+  (only its name is compared), and the name of a net whose pads are the pads of one net of the board.
 - A document that cannot be read gives one `check.read-refused` error whose `where` starts with its
   name. When it is the only document, the command exits 3 with the error's FEN code, as for a KiCad
   board; inside a project the other documents are still checked and the exit code is 5.
 - Exit codes: 0 without an error issue, 5 with one, 2 for a usage error, 3 for a missing path or an
   unreadable single document, and never 6.
+
+### Copper guard of an Altium build
+
+`fenolite build --target altium` judges the copper of the PCB document it is about to write (change
+c0088), on `--dry-run` and `--confirm` alike: the planned bytes are read back with the Altium reader,
+the rules are those the document holds, and the copper check of `check` runs on the result. A
+`copper.short` refuses the build (exit 5, nothing written). Every other copper error is reported as a
+warning whose message ends with ` (reported, not refused: the Altium copper guard refuses shorts)`,
+and the files are written. `--copper-check warn` reports the short as a warning too, with
+` (copper guard in warn mode)`, and writes; there is no way to switch the guard off.
+`result.copper_check` holds `mode`, `ran` (false without a PCB document), `shorts`, `clearance`,
+`unpoured`, `rules` and `evidence`; the evidence is `UNVERIFIED` when the document holds unpoured
+polygons, which the guard cannot judge. No file is read from disk and no tool runs.
 
 ## export
 
@@ -1571,6 +1608,13 @@ its grammar. The evidence is that of the source: the export reader's and the ora
 board of a KiCad project with its schematic, and the pins of each symbol with the pads of its footprint
 (`fenolite.checks.parity`). It writes nothing. `PATH` is a board, a project file or a project folder
 resolved as for `check`; the schematic is `<stem>.kicad_sch` beside the board, with every sheet it names.
+
+`PATH` may also be an Altium project file, a project folder, or a PCB document beside the one project
+file that lists it (change c0088). The board is then the project's PCB document and the schematic side
+comes from its schematic documents, read by Fenolite: no tool runs, `netlist` is `own`, `--netlist
+kicad` exits 2, and `schematic` names the first schematic document. The library of a footprint and the
+name of a net whose pads agree are not compared ("check on Altium input"). A project without a PCB
+document or without a schematic document exits 3 (`FEN-3001`).
 
 - **Matching.** Components and footprints are matched by reference only. A symbol that is not on the
   board and a reference that starts with `#` are no components. A footprint marked as not in the

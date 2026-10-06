@@ -259,7 +259,7 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     stages = _stages(env)
     assert code == 0, env["issues"]
     assert env["result"]["project"]["built"] is True
-    assert [stage["status"] for stage in stages.values()] == ["ok"] * 6
+    assert [stage["status"] for stage in stages.values()] == ["ok"] * 8
     pairs = stages["netlist.assignment_compare"]["summary"]["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [
         ("model", "schematic", 0),

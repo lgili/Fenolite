@@ -90,6 +90,8 @@ STAGE_EVIDENCE: Mapping[str, Evidence] = MappingProxyType(
             import_evidence.LEVELS["H-A-IMP-NETLIST"], hypotheses=("H-A-IMP-NETLIST",)
         ),
         "roundtrip.rta2": EVIDENCE_RT_A2,
+        "copper.clearance": Evidence(Level.INFERRED, hypotheses=("H-A-DRC-SAME",)),
+        "parity": Evidence(Level.INFERRED, hypotheses=("H-A-DRC-PARITY",)),
     }
 )
 """What the Altium backend adds to the evidence of a check stage: the hypotheses its readings rest on for
