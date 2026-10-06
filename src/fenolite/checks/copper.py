@@ -23,7 +23,13 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRulesSource, ProjectSet
-from fenolite.checks.clearance import ZONE_SOURCE, Clearance, ClearanceResolver, CopperKind
+from fenolite.checks.clearance import (
+    ZONE_SOURCE,
+    Clearance,
+    ClearanceExplanation,
+    ClearanceResolver,
+    CopperKind,
+)
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
 from fenolite.core.coords import Point
@@ -69,6 +75,8 @@ class CopperRef:
     where: str
     entity_id: str
     net: str
+    footprint_id: str = ""
+    net_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +93,14 @@ class CopperFinding:
     clearance: Nm | None
     source: str
     message: str
+    explanation: ClearanceExplanation | None = None
+
+    @property
+    def relation(self) -> str:
+        first, second = self.items
+        if first.footprint_id and second.footprint_id:
+            return "intrinsic" if first.footprint_id == second.footprint_id else "inter_component"
+        return "routed_or_free"
 
     @property
     def where(self) -> str:
@@ -103,6 +119,24 @@ class CopperReport:
     issues: tuple[Issue, ...]
     summary: Mapping[str, object] = field(default_factory=lambda: {})
     evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
+class CopperReviewGroup:
+    relation: str
+    source: str
+    findings: tuple[CopperFinding, ...]
+
+
+def group_findings(report: CopperReport) -> tuple[CopperReviewGroup, ...]:
+    """Group for review without dropping, rewriting or exempting any original finding."""
+    groups: dict[tuple[str, str], list[CopperFinding]] = {}
+    for finding in report.findings:
+        groups.setdefault((finding.relation, finding.source), []).append(finding)
+    return tuple(
+        CopperReviewGroup(relation, source, tuple(findings))
+        for (relation, source), findings in sorted(groups.items())
+    )
 
 
 # --- copper items ---------------------------------------------------------------------------------
@@ -210,7 +244,7 @@ class _Items:
         self.kinds[item.ref.kind] += 1
 
     def _ref(self, kind: CopperKind, entity: Entity, net_id: str | None) -> CopperRef:
-        return CopperRef(kind, _where(entity), entity.id, self.net_name(net_id))
+        return CopperRef(kind, _where(entity), entity.id, self.net_name(net_id), net_id=net_id)
 
     def _tracks(self, board: Board) -> None:
         for track in board.tracks:
@@ -277,7 +311,9 @@ class _Items:
             self.approximated += sum(1 for _, _, exact in shapes if not exact)
             holder = record.ref or record.footprint_id
             where = f"{holder}-{record.number}" if record.number else holder
-            ref = CopperRef("pad", where, record.pad_id, self.net_name(record.net_id))
+            ref = CopperRef(
+                "pad", where, record.pad_id, self.net_name(record.net_id), record.footprint_id, record.net_id
+            )
             item = _Item(ref, record.net_id, record.ref or None)
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
 
@@ -293,7 +329,7 @@ class _Items:
                 shapes.append((fill.layer, shape, shape, True))
             if shapes:
                 item = _Item(
-                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id)),
+                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id), net_id=zone.net_id),
                     zone.net_id,
                     zone_clearance=zone.settings.clearance,
                 )
@@ -326,7 +362,10 @@ def _zone_overlaps(board: Board, items: _Items) -> list[CopperFinding]:
             if not shared or not polygons_intersect(outline_a, outline_b):
                 continue
             refs = sorted(
-                (CopperRef("zone", _where(z), z.id, items.net_name(z.net_id)) for z in (first, second)),
+                (
+                    CopperRef("zone", _where(z), z.id, items.net_name(z.net_id), net_id=z.net_id)
+                    for z in (first, second)
+                ),
                 key=lambda ref: (ref.kind, ref.where),
             )
             at = thick_witness(Thick(outline_a.outer, 0, filled=True), Thick(outline_b.outer, 0, filled=True))
@@ -457,7 +496,20 @@ class _Judge:
                     f"copper of {refs[0].net} and {refs[1].net} touches on {layer} at {_point(at)}{note}"
                 )
                 return CopperFinding(
-                    "copper.short", "error", layer, at, refs, 0, found.value, found.source, message
+                    "copper.short",
+                    "error",
+                    layer,
+                    at,
+                    refs,
+                    0,
+                    found.value,
+                    found.source,
+                    message,
+                    self.resolver.explain(
+                        self._subject(a, layer),
+                        self._subject(b, layer),
+                        zone_clearance=self._zone_clearance(a, b),
+                    ),
                 )
         unset = False
         for rank in dict.fromkeys(entry[0] for entry in ordered):
@@ -493,6 +545,11 @@ class _Judge:
                     found.value,
                     found.source,
                     message,
+                    self.resolver.explain(
+                        self._subject(a, layer),
+                        self._subject(b, layer),
+                        zone_clearance=None if found is base else self._zone_clearance(a, b),
+                    ),
                 )
         self.unset += unset
         return None
@@ -702,6 +759,8 @@ __all__ = [
     "CopperKind",
     "CopperRef",
     "CopperReport",
+    "CopperReviewGroup",
+    "group_findings",
     "check_copper",
     "copper_layers",
     "copper_stage",
