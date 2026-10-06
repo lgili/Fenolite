@@ -161,6 +161,23 @@ layout that does not fit the paper of `sheet()` gives the warning `altium.sheet-
 part of the sheet that the Altium form cannot carry is a loss with an `altium.sheet.*` code: without
 `--allow-lossy` the build exits 7 with `FEN-7001` and writes nothing (`docs/altium.md`, "Drawing sheet").
 
+
+Since change c0086 `modules` gives every module at any depth a sheet of its own: a module's sheet holds
+its own parts and one sheet symbol per module directly below it, and its file is
+`<name>_<module path with "." for "/">.SchDoc` (`<name>_io.leds.SchDoc` for the module `io/leds`).
+`--altium-symbols {graphics,generic}` (default `graphics`; a usage error `FEN-2001` without
+`--target altium`) picks how a resolved symbol is drawn: from its own graphics, or as one rectangle per
+part. The default changed the files of an Altium build; `generic` gives the files of earlier versions,
+byte for byte.
+`--altium-directions {on,off}` (default `on`; a usage error `FEN-2001` without `--target altium`) picks
+the I/O type of ports and sheet entries: `on` writes output, input or bidirectional where the pin types
+on the net say so (`docs/altium.md`, "Port directions"), `off` leaves every one unspecified.
+`result.schematic` holds `sheets`, `symbols` (`graphics` or `generic`), `symbols_drawn` (library symbols drawn from their own graphics),
+`symbols_simplified` (those drawn as a rectangle), `buses` (bus blocks drawn), `parameters` (hidden
+component parameters written), `directions` (`on` or `off`) and `directed` (ports and sheet entries that
+carry a direction); it is `null` for a refused build. The info `altium.bus-flattened` names a bus of the
+design that is drawn as its nets.
+
 `--copper-from BOARD.kicad_pcb` (with `--target altium` only; a usage error `FEN-2001` otherwise, and for
 a path that is not a file) copies the tracks, arcs, vias and zones of a routed KiCad board of the same
 design into `<name>.PcbDoc`, after checking that the board matches the design; the board's placements
@@ -220,7 +237,8 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 [--schematic-layout readable|grid]
 [--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-outjob on|off]
-[--altium-outjob-preset FILE] [--copper-check refuse|warn]` runs the design script
+[--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
+[--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies

@@ -47,6 +47,13 @@ None.
 - **Alternative.** Write assembly variants (fitted / not fitted per variant) into the project file in v0.4.
 - **To switch.** Add one requirement "Variants in the project file" to this change's `altium-schematic-writer` delta with a task and a Part Y step; the model already carries `dnp`, so only per-variant `dnp` would be new, which makes it a model change that needs its own design note.
 
+## Decision of the maintainer (2026-10-06): graphics is the default
+
+- `--altium-symbols generic|graphics` selects how a resolved symbol is drawn, and **`graphics` is the default**. So the default output of an Altium build changes with this change: `--altium-symbols generic` gives the former output, byte for byte.
+- The committed samples `blink`, `kicad_example`, `no_connect` and `routed` are regenerated in the graphics form. The maintainer's author reports of 2026-10-02 and 2026-10-03 covered their rectangle form: those bytes are kept under `tests/data/altium/generic/<sample>/`, and a test builds each with `generic` and compares.
+- The graphics form of those samples is not `ALTIUM-VERIFIED`: no existing row is raised, and Part Y has a step that opens the four regenerated samples.
+- `--altium-sheets flat` stays the default.
+
 ## Impact
 
 - Changed: `backends/altium/{altsym,symbols,schdoc,schlib,hierarchy,layout,ascii,binary,project}.py`, `lens/altium.py`.

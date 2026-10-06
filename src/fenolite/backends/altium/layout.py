@@ -16,6 +16,7 @@ one per part. The sheet sizes and the connection rules are facts of
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -117,6 +118,9 @@ class PartSpec:
     nets: Mapping[str, PinNet]
     part_ids: tuple[str, ...] = ()
     no_connects: frozenset[str] = frozenset()
+    parameters: tuple[tuple[str, str, str], ...] = ()
+    """The hidden parameters of the component (change c0086, "Component parameters"): name, value and
+    unique id, in name order."""
 
     def part_id(self, part: int) -> str:
         """The unique id of part ``part`` (1-based)."""
@@ -211,11 +215,18 @@ class Crossing:
     ``name`` is the net name or the harness type name: the name of the port on the module's sheet and of
     the sheet entry on its sheet symbol. ``port_id`` is the port's unique id. ``entries`` is ``None`` for a
     net; for a harness it holds every entry of the type in code-point order, each with the name of its net
-    when that net crosses the module and ``None`` when it does not."""
+    when that net crosses the module and ``None`` when it does not.
+
+    Change c0086: ``io`` is the direction of the port and of the sheet entry (a key of ``schdoc.IO_TYPES``;
+    a harness and a bus stay ``unspecified``); ``bus`` holds the member net names of a bus crossing in
+    member order, whose ``name`` is the bus identifier ``<stem>[<first>..<last>]``, and is ``None``
+    otherwise."""
 
     name: str
     port_id: str = ""
     entries: tuple[tuple[str, str | None], ...] | None = None
+    io: str = "unspecified"
+    bus: tuple[str, ...] | None = None
 
     @property
     def harness(self) -> bool:
@@ -263,12 +274,36 @@ class HarnessBlock:
         return self.x + self.width, self.y + ENTRY_PITCH * k
 
 
+BUS_RUN = 200
+"""The horizontal run of a bus block, from its start to the vertical bus line."""
+BUS_ENTRY = 100
+"""A bus entry goes this far right and this far down, from the bus line to its member's wire."""
+
+
+@dataclass(frozen=True)
+class BusBlock:
+    """A bus drawn from ``point`` (change c0086, "Bus records"): the bus ``line`` runs ``BUS_RUN`` to the
+    right and then down, one ``ENTRY_PITCH`` per member; ``label`` is the bus identifier
+    ``<stem>[<first>..<last>]``, whose net label sits at ``point``, on the line; member ``k`` (1-based)
+    has the bus entry ``entries[k - 1]`` (from the line to the start of its wire) and the labelled wire
+    ``stubs[k - 1]``. ``point`` is the right end of a bus port, the connection point of a bus sheet entry,
+    or the corner of the block's own cell on a sheet that only holds pins of the members."""
+
+    label: str
+    members: tuple[str, ...]
+    point: tuple[int, int]
+    line: tuple[tuple[int, int], ...]
+    entries: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+    stubs: tuple[Stub, ...]
+    cell: tuple[int, int, int, int] | None = None
+
+
 @dataclass(frozen=True)
 class PlacedEntry:
     """A sheet entry on the ``side`` of its symbol: ``slot`` is its ``DISTANCEFROMTOP`` and ``point`` its
-    connection point; a net entry has a labelled ``stub``, a harness entry a ``block``, and a harness entry
-    joined to another sheet symbol by a signal harness line has neither. An entry on the left side is the
-    end of such a line."""
+    connection point; a net entry has a labelled ``stub``, a harness entry a ``block``, a bus entry a
+    ``bus`` block, and a harness entry joined to another sheet symbol by a signal harness line has none of
+    them. An entry on the left side is the end of such a line."""
 
     crossing: Crossing
     slot: int
@@ -276,6 +311,7 @@ class PlacedEntry:
     stub: Stub | None = None
     block: HarnessBlock | None = None
     side: Literal["left", "right"] = "right"
+    bus: BusBlock | None = None
 
 
 @dataclass(frozen=True)
@@ -303,10 +339,11 @@ class PlacedPort:
     cell: tuple[int, int, int, int]
     stub: Stub | None = None
     block: HarnessBlock | None = None
+    bus: BusBlock | None = None
 
     @property
     def end(self) -> tuple[int, int]:
-        """The port's right end, where its wire or harness line starts."""
+        """The port's right end, where its wire, harness line or bus line starts."""
         return self.x + self.width, self.y
 
 
@@ -329,17 +366,32 @@ class SheetPlan:
     of a sheet symbol to the entry of the same name on the left side of the next one."""
     class_marks: tuple[ClassMark, ...] = ()
     """The net class directives of the sheet, in code-point order of their nets (change c0048)."""
+    buses: tuple[BusBlock, ...] = ()
+    """The bus blocks in cells of their own (change c0086): the buses with a pin on this sheet that no
+    port and no sheet entry of the sheet carries. The blocks of ports and sheet entries are theirs."""
+
+    @property
+    def bus_blocks(self) -> tuple[BusBlock, ...]:
+        """Every bus block of the sheet in write order: per sheet symbol and entry, per port, then
+        ``buses``."""
+        items = (*(entry for symbol in self.symbols for entry in symbol.entries), *self.ports)
+        return (*(item.bus for item in items if item.bus is not None), *self.buses)
 
     @property
     def links(self) -> tuple[Stub, ...]:
         """The labelled wires of the sheet entries and ports, in write order: per sheet symbol and per
-        entry, then per port; a harness contributes the wires of its wired entries."""
+        entry, then per port; a harness contributes the wires of its wired entries and a bus those of its
+        members; the wires of the bus blocks of ``buses`` come last."""
         found: list[Stub] = []
         for item in (*(entry for symbol in self.symbols for entry in symbol.entries), *self.ports):
             if item.stub is not None:
                 found.append(item.stub)
             if item.block is not None:
                 found.extend(item.block.stubs)
+            if item.bus is not None:
+                found.extend(item.bus.stubs)
+        for block in self.buses:
+            found.extend(block.stubs)
         return tuple(found)
 
 
@@ -494,16 +546,51 @@ def harness_block(crossing: Crossing, point: tuple[int, int]) -> HarnessBlock:
     return HarnessBlock(crossing.name, entries, x, y, width, ENTRY_PITCH * (count + 1), position, line, stubs)
 
 
-def _attach(crossing: Crossing, point: tuple[int, int]) -> tuple[Stub | None, HarnessBlock | None]:
+def bus_block(label: str, members: Sequence[str], point: tuple[int, int]) -> BusBlock:
+    """The block of the bus ``label`` with the member nets ``members``, drawn from ``point`` (change
+    c0086): the line runs ``BUS_RUN`` right and ``ENTRY_PITCH`` down per member; member ``k`` has its bus
+    entry from the line, ``k - 1`` pitches down, to the point ``BUS_ENTRY`` right and one pitch lower,
+    where its labelled wire starts."""
+    if not members:
+        raise ValueError(f"the bus {label} has no member")
+    px, py = point
+    bx = px + BUS_RUN
+    line = (point, (bx, py), (bx, py + ENTRY_PITCH * len(members)))
+    entries: list[tuple[tuple[int, int], tuple[int, int]]] = []
+    stubs: list[Stub] = []
+    for k, member in enumerate(members, start=1):
+        start = (bx + BUS_ENTRY, py + ENTRY_PITCH * k)
+        entries.append(((bx, py + ENTRY_PITCH * (k - 1)), start))
+        stubs.append(_link(start, member, member))
+    return BusBlock(label, tuple(members), point, line, tuple(entries), tuple(stubs))
+
+
+def place_bus(label: str, members: Sequence[str], x: int, y: int) -> BusBlock:
+    """A bus block in a cell of its own, drawn from (``x``, ``y``)."""
+    block = bus_block(label, members, (x, y))
+    right, top, bottom = _reach(None, None, (x, y), block)
+    return dataclasses.replace(block, cell=_cell(x, top, right, bottom))
+
+
+def _attach(
+    crossing: Crossing, point: tuple[int, int]
+) -> tuple[Stub | None, HarnessBlock | None, BusBlock | None]:
     if crossing.harness:
-        return None, harness_block(crossing, point)
-    return _link(point, crossing.name, crossing.name), None
+        return None, harness_block(crossing, point), None
+    if crossing.bus is not None:
+        return None, None, bus_block(crossing.name, crossing.bus, point)
+    return _link(point, crossing.name, crossing.name), None, None
 
 
-def _reach(stub: Stub | None, block: HarnessBlock | None, point: tuple[int, int]) -> tuple[int, int, int]:
+def _reach(
+    stub: Stub | None, block: HarnessBlock | None, point: tuple[int, int], bus: BusBlock | None = None
+) -> tuple[int, int, int]:
     """How far the drawing of a link reaches: its right end, its top and its bottom. An entry at ``point``
     with neither a stub nor a block starts a signal harness line, which needs ``HARNESS_GAP`` to its
     right."""
+    if bus is not None:
+        right = max(point[0] + text_width(bus.label), *(s.end[0] for s in bus.stubs))
+        return right, point[1] - TEXT_HEIGHT, bus.line[-1][1]
     if block is not None:
         right = max((s.end[0] for s in block.stubs), default=block.x + block.width)
         return right, block.y - TEXT_HEIGHT, block.y + block.height
@@ -548,11 +635,14 @@ def place_symbol(spec: SymbolSpec, x: int, y: int, slots: Mapping[str, int] | No
         count = len(crossing.entries) if crossing.entries is not None and not direct else 0
         k = slot + (count + 1) // 2 if crossing.harness and not direct else slot
         point = (x + width, y + ENTRY_PITCH * k)
-        stub, block = (None, None) if direct else _attach(crossing, point)
-        entries.append(PlacedEntry(crossing, k, point, stub, block))
-        right, top, bottom = _reach(stub, block, point)
+        stub, block, bus = (None, None, None) if direct else _attach(crossing, point)
+        entries.append(PlacedEntry(crossing, k, point, stub, block, bus=bus))
+        right, top, bottom = _reach(stub, block, point, bus)
         x1, y0, y1 = max(x1, right), min(y0, top), max(y1, bottom)
-        slot += count + 2 if crossing.harness and not direct else 1
+        if bus is not None:
+            slot += len(bus.members) + 2  # the entry, one wire per member below it, and a free slot
+        else:
+            slot += count + 2 if crossing.harness and not direct else 1
     height = ENTRY_PITCH * max(slot, lowest + 1)
     cell = _cell(x, y0, x1, max(y1, y + height))
     return PlacedSymbol(spec, x, y, width, height, cell, tuple(entries))
@@ -581,11 +671,11 @@ def place_port(crossing: Crossing, x: int, y: int) -> PlacedPort:
     """The port of ``crossing`` with its left end at (``x``, ``y``), with its stub and label or its harness
     block to its right."""
     width = port_width(crossing.name)
-    stub, block = _attach(crossing, (x + width, y))
-    right, top, bottom = _reach(stub, block, (x + width, y))
+    stub, block, bus = _attach(crossing, (x + width, y))
+    right, top, bottom = _reach(stub, block, (x + width, y), bus)
     half = PORT_HEIGHT // 2
     cell = _cell(x, min(top, y - half), right, max(bottom, y + half))
-    return PlacedPort(crossing, x, y, width, cell, stub, block)
+    return PlacedPort(crossing, x, y, width, cell, stub, block, bus)
 
 
 class SplitLine(ValueError):
@@ -616,13 +706,16 @@ def layout_sheet(
     symbols: Sequence[SymbolSpec] = (),
     ports: Sequence[Crossing] = (),
     sizes: Sequence[SheetSize] = SHEET_SIZES,
+    buses: Sequence[tuple[str, Sequence[str]]] = (),
 ) -> SheetPlan:
     """Place ``parts`` in component-path order, each part of a symbol in its own consecutive cell, on the
     first of ``sizes`` that holds them, else on a custom sheet as wide as A0 (or as the widest cell plus
     the margins) and as high as needed. The sheet symbols of a top sheet (``symbols``) and the ports of a
     module sheet (``ports``) are cells of the same packing, before the component cells, in the order given
     (change c0037, "Hierarchical sheet layout"). A harness line of ``SymbolSpec.line_to`` whose two sheet
-    symbols do not land side by side in one row raises ``SplitLine``."""
+    symbols do not land side by side in one row raises ``SplitLine``. ``buses`` (change c0086) are the
+    buses drawn in cells of their own, each a bus identifier and its member nets: their cells follow the
+    port cells and precede the component cells, in the order given."""
     ordered = sorted(parts, key=lambda p: p.key)
     keys = [p.key for p in ordered]
     if len(set(keys)) != len(keys):
@@ -635,6 +728,7 @@ def layout_sheet(
     extents = [
         *(place_symbol(spec, 0, 0, mine).cell for spec, mine in zip(symbols, slots, strict=True)),
         *(place_port(crossing, 0, 0).cell for crossing in ports),
+        *(_bus_cell(label, members) for label, members in buses),
         *(_extent(spec, part) for spec, part in units),
     ]
     cells = [(x1 - x0, y1 - y0) for x0, y0, x1, y1 in extents]
@@ -649,7 +743,12 @@ def layout_sheet(
         (MARGIN + ox - x0, MARGIN + oy - y0)
         for (x0, y0, _, _), (ox, oy) in zip(extents, offsets, strict=True)
     ]
-    first = len(symbols) + len(ports)
+    bus_first = len(symbols) + len(ports)
+    first = bus_first + len(buses)
+    placed_buses = [
+        place_bus(label, members, *at)
+        for (label, members), at in zip(buses, origins[bus_first:first], strict=True)
+    ]
     placed_symbols = [
         place_symbol(spec, *at, mine) for spec, at, mine in zip(symbols, origins, slots, strict=False)
     ]
@@ -663,7 +762,8 @@ def layout_sheet(
                     raise SplitLine(entry.crossing.name, symbol.spec.module, after.spec.module)
                 lines.append((entry.point, end))
     placed_ports = [
-        place_port(crossing, *at) for crossing, at in zip(ports, origins[len(symbols) : first], strict=True)
+        place_port(crossing, *at)
+        for crossing, at in zip(ports, origins[len(symbols) : bus_first], strict=True)
     ]
     placed: list[PlacedPart] = []
     stubs: list[Stub] = []
@@ -687,10 +787,22 @@ def layout_sheet(
         tuple(placed_ports),
         tuple(blocks),
         tuple(lines),
+        buses=tuple(placed_buses),
     )
 
 
+def _bus_cell(label: str, members: Sequence[str]) -> tuple[int, int, int, int]:
+    cell = place_bus(label, members, 0, 0).cell
+    assert cell is not None
+    return cell
+
+
 __all__ = [
+    "BUS_ENTRY",
+    "BUS_RUN",
+    "BusBlock",
+    "bus_block",
+    "place_bus",
     "CELL_MARGIN",
     "CLASS_MARK_FAR",
     "CLASS_MARK_LONG",

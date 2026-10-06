@@ -18,7 +18,7 @@ from __future__ import annotations
 import struct
 from collections.abc import Sequence
 
-from fenolite.backends.altium.ascii import Field, format_record
+from fenolite.backends.altium.ascii import Field, record_bytes
 from fenolite.backends.altium.cfb import write_compound
 from fenolite.backends.altium.layout import SheetPlan
 from fenolite.backends.altium.schdoc import Frame, additional_records, schdoc_records
@@ -57,8 +57,10 @@ def header_record(count: int) -> tuple[Field, ...]:
 
 
 def frame_record(fields: Sequence[Field]) -> bytes:
-    """One property-list record: the length word with type 0, the record's text and its NUL."""
-    payload = format_record(fields).encode("ascii") + b"\0"
+    """One property-list record: the length word with type 0, the record's text and its NUL. A value
+    outside 7-bit ASCII is written in the code page with its ``%UTF8%`` twin (``ascii.record_bytes``,
+    change c0086); a record of 7-bit values keeps the bytes of ``ascii.format_record``."""
+    payload = record_bytes(fields) + b"\0"
     if len(payload) > MAX_PAYLOAD:
         raise ValueError(f"a record payload of {len(payload)} bytes is over {MAX_PAYLOAD} bytes")
     return struct.pack("<I", PROPERTY_LIST << 24 | len(payload)) + payload

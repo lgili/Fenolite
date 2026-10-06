@@ -28,6 +28,7 @@ from _altium import (
     sample,
 )
 from _altium_job import grown_paper_issues, kept_project_issues
+from _altium_tree import with_bus
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -50,7 +51,8 @@ def _footprint_form(d: Design) -> None:
 
 
 def _text(d: Design) -> None:
-    d.parts["power/C1"].value = "10µF"
+    # outside Windows-1252, so no form carries it; "10µF" is written by the binary form since c0086
+    d.parts["power/C1"].value = "1 kΩ"
 
 
 def _comment_reference(d: Design) -> None:
@@ -590,6 +592,7 @@ def test_closed_set() -> None:
         *run_too_large_case(),
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
+        *run_bus_case(),
     ):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_c0087_cases():
@@ -600,6 +603,17 @@ def test_closed_set() -> None:
         assert code in ALTIUM_ISSUE_CODES, code
         assert severities == {ALTIUM_ISSUE_CODES[code]}, (code, severities)
     assert set(ALTIUM_ISSUE_CODES) <= set(produced), set(ALTIUM_ISSUE_CODES) - set(produced)
+
+
+def run_bus_case() -> tuple[Issue, ...]:
+    """Change c0086: a bus whose nets are not one stem with consecutive integers is drawn as its nets."""
+    model = with_bus(to_model(sample()), "CTRL", ("EN", "LED_DRV"))
+    return build_altium(model, name="altium_sample").issues
+
+
+def test_bus_flattened_names_the_bus() -> None:
+    (found,) = [i for i in run_bus_case() if i.code == "altium.bus-flattened"]
+    assert found.severity == "info" and found.where == "CTRL" and "consecutive integers" in found.message
 
 
 def test_the_table() -> None:
@@ -629,6 +643,7 @@ def test_the_table() -> None:
         "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
+        "altium.bus-flattened": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
         "altium.schlib-generic": "info",

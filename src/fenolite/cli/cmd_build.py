@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
+from fenolite.backends.altium.altsym import DEFAULT_BODIES, SymbolBodies
 from fenolite.backends.altium.outjob import OUTJOB_KIND
 from fenolite.backends.altium.project import (
     DEFAULT_FORM,
@@ -131,6 +132,11 @@ HELP = (
 TARGETS = ("kicad", ALTIUM_TARGET)
 ALTIUM_FORMATS: tuple[SchematicForm, ...] = ("binary", "ascii")
 ALTIUM_SHEETS: tuple[SheetMode, ...] = ("flat", "modules")
+ALTIUM_SYMBOLS: tuple[SymbolBodies, ...] = ("generic", "graphics")
+"""The values of ``--altium-symbols`` (change c0086)."""
+ALTIUM_DIRECTIONS: tuple[str, ...] = ("on", "off")
+"""The values of ``--altium-directions`` (change c0086)."""
+DEFAULT_DIRECTIONS = "on"
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -205,6 +211,22 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="the export preset (the TOML file of export --preset) the output job is made for: its options "
         "are listed in result.outjob.defaults, to be set in Altium; a usage error with --target kicad or "
         "with --altium-outjob off",
+    )
+    parser.add_argument(
+        "--altium-symbols",
+        choices=ALTIUM_SYMBOLS,
+        default=None,
+        help=f"with --target altium: graphics (default) draws each resolved symbol from its own graphics, "
+        f"generic draws one rectangle per part (the output before v0.4); a usage error with --target kicad "
+        f"(default: {DEFAULT_BODIES})",
+    )
+    parser.add_argument(
+        "--altium-directions",
+        choices=ALTIUM_DIRECTIONS,
+        default=None,
+        help=f"with --target altium: on (default) gives each port and sheet entry the I/O type that follows "
+        f"from the pin types on its net, off leaves them all unspecified; a usage error with --target kicad "
+        f"(default: {DEFAULT_DIRECTIONS})",
     )
     parser.add_argument(
         "--copper-from",
@@ -492,6 +514,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "--altium-outjob-preset names the preset of an output job, and --altium-outjob off writes none",
             where="--altium-outjob-preset",
             hint="drop one of the two options",
+        )
+    if args.altium_symbols is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-symbols needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-symbols",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-symbols",
+        )
+    if args.altium_directions is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-directions needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-directions",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-directions",
         )
     if args.copper_check is not None and args.target == ALTIUM_TARGET:
         raise CliError(
@@ -793,6 +829,13 @@ def _run_altium(
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
+    # change c0086: the symbols and footprints the script authored or took from the catalog are written
+    # like resolved ones, as in a KiCad build, so their graphics reach the libraries
+    authored_footprints, authored_symbols, _builtin = _catalog_definitions(
+        model,
+        {key: fp.definition for key, fp in run.design.footprints.items()},
+        {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
+    )
     resolver = None
     if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:
         resolver = LibraryResolver(
@@ -884,12 +927,15 @@ def _run_altium(
             copper=run.design.copper,
             planes=plane_nets,
             copper_source=source,
-            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
             outjob=with_job,
             outjob_preset=preset,
             outjob_listed=job_listed,
             drawing_sheet=drawing_sheet,
             allow_lossy=ctx.allow_lossy,
+            authored_footprints=authored_footprints,
+            directions=(args.altium_directions or DEFAULT_DIRECTIONS) == "on",
+            symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
+            authored_symbols=authored_symbols,
         )
     files = dict(built.files)
     if files:
@@ -912,6 +958,7 @@ def _run_altium(
         "kept": [str(out / rel) for rel in kept],
         "schematic_format": form,
         **{key: summary[key] for key in ("sheet_mode", "sheets", "ports", "sheet_entries", "harnesses")},
+        "schematic": summary["schematic"],
         "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],
         "symbols": summary["symbols"],
         "footprints": summary["footprints"],

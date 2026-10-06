@@ -38,9 +38,15 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   `altium_schdoc_binary` or `altium_schdoc_ascii` (by form, since both forms are `.SchDoc` files),
   `altium_schlib`, `altium_harness` and `fenolite`.
 - `--altium-sheets {flat,modules}` picks one schematic sheet (`flat`, the default) or one sheet per
-  top-level module (see "Sheets and harnesses"). `result` then also holds `sheet_mode`, `sheets` (the
+  module (see "Sheets and harnesses"). `result` then also holds `sheet_mode`, `sheets` (the
   schematic files, the top sheet first), `ports`, `sheet_entries` and `harnesses` (the harness types
   drawn). Any other value, or the option with `--target kicad`, is a usage error (`FEN-2001`, exit 2).
+- `--altium-symbols {graphics,generic}` (change c0086) picks how a resolved symbol is drawn: `graphics`
+  (the default) from its own graphics, `generic` as one rectangle per part. **The default output of an
+  Altium build changed with this option**: `generic` gives the files that earlier versions wrote, byte
+  for byte. `--altium-directions {on,off}` (default `on`) picks the I/O types of ports and sheet
+  entries. Both are usage errors without `--target altium`. `result.schematic` holds `sheets`,
+  `symbols`, `symbols_drawn`, `symbols_simplified`, `buses`, `parameters`, `directions` and `directed`.
 - `--altium-format {binary,ascii}` picks the schematic form; without it the form is `binary`. Any other
   value, or the option with `--target kicad` (given or by default), is a usage error (`FEN-2001`,
   exit 2), and nothing is written.
@@ -82,11 +88,28 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
     name on any part of that lib id, in natural order (`1`, `2`, `10`, `A1`, `B`): the first half on
     the left edge, the rest on the right, 200 mil long and 100 mil apart. Parts sharing a lib id share
     one body.
-  - **KiCad symbols**: every pin of body style 1 and the common style at its place, length and
-    direction, with its electrical type, edge shape and visibility, and one synthesised rectangle per
-    unit around its pins (the symbol's own graphics are not read). A symbol of several units is placed
-    once per unit (parts A, B, …, in consecutive cells); common pins are drawn on every part and wired
-    on part A only.
+  - **KiCad, catalog and authored symbols**: every pin of body style 1 and the common style at its
+    place, length and direction, with its electrical type, edge shape and visibility. The body is the
+    symbol's own graphics (change c0086, the default `--altium-symbols graphics`): its lines,
+    rectangles, polygons and circles at their own coordinates, filled where the symbol fills them, in
+    Altium's default colours. Three kinds of symbol keep one synthesised rectangle per unit around
+    their pins, each with one `altium.symbol-simplified` info: a symbol of several units or body
+    styles (the model does not say which unit draws a graphic), a symbol without graphics, and a KiCad
+    symbol with an arc, a Bezier curve or a text (the model does not hold those). `--altium-symbols
+    generic` draws every symbol as that rectangle, the output of earlier versions. A symbol of several
+    units is placed once per unit (parts A, B, …, in consecutive cells); common pins are drawn on
+    every part and wired on part A only.
+  - **Parameters** (change c0086): each property of a part (`Part(..., properties={"MPN": "X-1"})`)
+    is a hidden parameter of its component, in name order. `Comment`, `Designator`, `Footprint`,
+    `Reference` and `Value` are not parameters, nor is a property without a value. A property that no
+    parameter can hold (a name outside 7-bit ASCII, a value the form cannot carry, a name that repeats
+    another in a different letter case) stays in the model, and one `altium.not-lowered` info names it.
+  - **Text outside ASCII** (change c0086): in the binary form the comment of a part and the value of
+    a parameter may hold any printable character of Windows-1252 (`Indutância 10 µH`); it is written
+    in that code page with a UTF-8 copy beside it. Every other text, and every text of the ASCII
+    form, is printable 7-bit ASCII; `altium.text-unwritable` names the first character refused and
+    says whether the binary form carries it. The PCB document holds 7-bit text: there such a comment
+    is replaced by the symbol name, with one `altium.not-lowered` info.
   - The designator is drawn above the body and the comment below it; the comment is the value, or the
     symbol name when the value is empty.
 - **Connections.** Every pin gets a short wire stub, outwards from its end: horizontal for left and right
@@ -115,17 +138,46 @@ writes the single sheet described above, byte for byte as before.
 fenolite build design.py --out build/myboard --target altium --altium-sheets modules --confirm
 ```
 
-- **One sheet per top-level module.** `<name>.SchDoc` becomes the top sheet and each top-level module gets
-  `<name>_<module>.SchDoc` beside it. Parts outside any module stay on the top sheet. Nested modules are
-  flattened: a part of `power/ldo` is drawn on the sheet of `power`. The hierarchy has one level and no
-  sheet is repeated.
-- **Sheet symbols.** The top sheet holds one sheet symbol per module, in module-name order, named after
-  the module, with the module sheet's file name.
-- **Ports and sheet entries.** A net with pins on a module's sheet and on another sheet gets a port on
-  the module's sheet and a sheet entry of the same name on its sheet symbol. Each has a short wire with a
-  net label, like a pin; no wire is routed between sheet symbols, the labels of the top sheet join them.
-  The port, the sheet entry and every label carry the net's name, so the nets keep the names of the flat
-  build.
+- **One sheet per module, at any depth** (change c0086). `<name>.SchDoc` becomes the top sheet and each
+  module gets a sheet of its own beside it: `<name>_<module>.SchDoc` for a top-level module, and
+  `<name>_<module path with "." for "/">.SchDoc` below it, so the module `power/ldo` is
+  `<name>_power.ldo.SchDoc`. Parts outside any module stay on the top sheet; a part is drawn on the
+  sheet of its own module. No sheet is repeated. The tree, its order (a module before its sub-modules,
+  siblings in natural order) and the sheet names are those of the KiCad schematic (`docs/schematic.md`);
+  the files stay beside the project, with the design name in front, as Altium opened them in Part H.
+- **Sheet symbols.** A sheet holds one sheet symbol per module directly below it, in that order, named
+  after the last segment of the module path, with the module sheet's file name.
+- **Ports and sheet entries.** A net with pins on a module's sheet or below it, and on any other sheet,
+  gets a port on the module's sheet and a sheet entry of the same name on its sheet symbol. A net that
+  crosses two levels is passed through the sheet between, which holds its port and the sheet entry of
+  the module below. Each has a short wire with a net label, like a pin; no wire is routed between sheet
+  symbols, the labels of a sheet join them. The port, the sheet entry and every label carry the net's
+  name, so the nets keep the names of the flat build.
+- **Port directions** (change c0086). A port and its sheet entry carry the same I/O type, from the pin
+  types of the net on the two sides of the sheet boundary: the pins on the module's sheet and below it
+  ("inside"), and all the others ("outside"). A side is *bidirectional* when it holds a bidirectional
+  pin, else a *driver* when it holds an output, tri-state, open-collector, open-emitter or power-output
+  pin, else an *input* when it holds an input or power-input pin, else *passive*.
+
+  | inside | outside | I/O type |
+  |---|---|---|
+  | bidirectional | any | bidirectional |
+  | any | bidirectional | bidirectional |
+  | driver | driver | bidirectional |
+  | driver | input or passive | output |
+  | input | driver, input or passive | input |
+  | passive | driver, input or passive | unspecified |
+
+  An unspecified type is left out of the record, as Altium leaves it out. A harness and a bus carry no
+  type. `--altium-directions off` leaves every port and sheet entry unspecified.
+- **Buses** (change c0086). A bus of the model whose nets are one stem followed by consecutive integers
+  (`D0` to `D3`) is drawn as a bus: a bus line with the net label `D[0..3]`, and per member a bus entry
+  and a wire with the member's net label, so the nets keep their names. Where the bus leaves a module
+  it is one port and one sheet entry named `D[0..3]` instead of one per net; a sheet that only passes
+  it through draws it twice, at its port and at the sheet entry below. A bus with other net names, or
+  with a power net, a harness net or a net of another bus, is drawn as its nets
+  (`altium.bus-flattened`). The DSL has no bus yet: a bus reaches a build from a design that was read
+  from a schematic.
 - **Power nets are global.** Nets of a `Power(hv, lv)` interface keep their power ports on every sheet,
   which Altium joins across the project, and get neither a port nor a sheet entry.
 - **Harnesses.** `Harness(name, members)` (`docs/dsl.md`) groups nets with different names, such as
@@ -152,14 +204,18 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   info and stays in `.fenolite/`.
 - **Names.** A harness type name or entry name may not hold `=`, `,` or `;`, two names may not differ
   only in letter case, a type name may not equal a net name, a net belongs to at most one harness entry,
-  and a power net belongs to no harness. Two top-level modules may not differ only in letter case. These
-  are errors in both modes, so a design is refused before its mode is switched.
+  and a power net belongs to no harness. Two modules may not give one sheet file name, or names that
+  differ only in letter case. These are errors in both modes, so a design is refused before its mode is
+  switched. A harness is drawn where it leaves a top-level module; below the first level its nets cross
+  as ports.
 - **Unique ids and the PCB link.** Components keep their unique ids in both modes. A sheet symbol gets
   an id derived from its module name and a port one from its module and name. In the PCB document a part
   on a module sheet links as `\<sheet symbol id>\<component id>` with the hierarchical path
-  `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`. Its channel
-  offset counts the parts of its own sheet from 0. Every module gets its sheet symbol on the top sheet,
-  also when none of its nets leaves it.
+  `<name>\<module>`, the form Altium saves; a part on the top sheet keeps `\<component id>`. A part two
+  levels down links through both sheet symbols, `\<id>\<id>\<component id>`, with the path
+  `<name>\<module>\<module>` (the ids as saved designs hold them; the path form below the first level is
+  inferred, step Y8). Its channel offset counts the parts of its own sheet from 0. Every module gets
+  its sheet symbol on the sheet above, also when none of its nets leaves it.
 - **Project file order.** A new project file lists the schematic documents first and together: the
   top sheet, then the module sheets in module-name order, then the PCB document, the libraries and the
   harness files. With the PCB document and the libraries between the top sheet and the module sheets,
@@ -184,6 +240,15 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   remove the board's net class, which the schematic does not declare yet. The compile messages, the
   net list and the change order of the rebuilt hierarchy sample (steps H3 to H5) are not reported.
   The sample is `examples/altium_hier/design.py`, with its built files under `tests/data/altium/hier/`.
+- **Evidence of change c0086.** Symbol graphics, sheets below the first level, I/O types, bus records,
+  text with a UTF-8 copy and parameters read back with Fenolite's own reader (`H-A-SCHX-READBACK`),
+  and KiCad's importer reads the library graphics as the model holds them. Nothing of it has been
+  opened in Altium: the six rows `H-A-SCHX-GRAPHICS`, `-TREE`, `-DIR`, `-BUS`, `-TEXT` and `-ECO` wait
+  for the report of Part Y of `docs/evidence/altium-schematic.md`. The sample is
+  `tests/data/altium/tree/design.py` with its built files beside it. The author reports of 2026-10-02
+  and 2026-10-03 covered the samples `blink`, `kicad_example`, `no_connect` and `routed` with rectangle
+  bodies; those bytes are kept under `tests/data/altium/generic/` and `--altium-symbols generic` still
+  gives them.
 
 ## No-connect marks
 
@@ -264,7 +329,9 @@ every component (change c0034). Facts: `docs/formats/altium/schematic-library.md
   component per distinct symbol the design uses, in a compound file with one storage per component.
 - **Symbols.** A KiCad symbol keeps its pins (numbers, names with `~{…}` overbars rewritten as Altium's
   `A\B\`, electrical types, positions, lengths, directions, shapes, hidden pins), its units as parts and
-  its common pins as Part Zero; its body is a synthesised rectangle per part (`altium.symbol-simplified`).
+  its common pins as Part Zero; its body is its own graphics, or a synthesised rectangle per part where
+  "The schematic" says so (`altium.symbol-simplified`). Symbols the script authored or took from the
+  catalog are written the same way, and no library is read for them (change c0086).
   Other body styles and pin alternates are dropped. Pins off the 10-mil grid are refused
   (`altium.symbol-off-grid`; KiCad's 50-mil grid is on it). Types and shapes with no Altium equivalent
   are mapped with the warning `altium.pin-lossy`. The designator prefix is the `Reference` property, the
@@ -675,7 +742,7 @@ An author report never raises the build's evidence level.
 |---|---|---|
 | `altium.lib-id-form` | error | a `lib_id` is not `<library>:<name>` with both parts |
 | `altium.footprint-form` | error | a footprint is not `<library>:<name>` with both parts |
-| `altium.text-unwritable` | error | a written text is not printable 7-bit ASCII, holds `\|`, is empty, has a leading or trailing space, or is a value that starts with `=` |
+| `altium.text-unwritable` | error | a written text is not printable 7-bit ASCII (a comment of a binary schematic may also hold Windows-1252 characters), holds `\|`, is empty, has a leading or trailing space, or is a value that starts with `=` |
 | `altium.name-case-collision` | error | two net names, or two refs, differ only in letter case |
 | `altium.unique-id-collision` | error | two components, sheet symbols or ports get the same unique id |
 | `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
@@ -688,7 +755,8 @@ An author report never raises the build's evidence level.
 | `altium.sheet-custom` | warning | the layout does not fit A0, so a custom sheet is written |
 | `altium.pin-lossy` | warning | a pin's electrical type or shape has no Altium equivalent and is mapped |
 | `altium.generic-symbols` | info | components of Altium links got generic bodies |
-| `altium.symbol-simplified` | info | a resolved symbol's graphics became rectangles, or other body styles or alternates were dropped |
+| `altium.symbol-simplified` | info | a resolved symbol is drawn as rectangles (`--altium-symbols generic`, no graphics, a graphic without a record, several units or body styles), or other body styles or alternates were dropped |
+| `altium.bus-flattened` | info | a bus of the design is drawn as its nets; the message says why |
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
@@ -1127,10 +1195,11 @@ the built model stores that value, so that the model is what the documents read 
 
 ## Limits
 
-One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
-no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
-no nested harnesses); no buses or variants; an output job without output settings, and a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, no component bodies and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
+One flat sheet by default, or one sheet per module at any depth with `--altium-sheets modules` (no
+repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
+the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
+DSL, no variants; an output job without output settings, and a drawing sheet without a logo; the PCB document has unpoured polygons, no
+split planes, no micro vias, no component bodies and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
+ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.

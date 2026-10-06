@@ -219,7 +219,9 @@ EVIDENCE = Evidence(
 class PlacedComponent:
     """One component on the board: its schematic link, its footprint and its placement (KiCad frame).
     ``sheet`` (change c0037) is ``(sheet symbol unique id, module name)`` for a component on a module sheet
-    of a hierarchical project, and ``None`` for a component on the top sheet or on a single sheet."""
+    of a hierarchical project, and ``None`` for a component on the top sheet or on a single sheet. For a
+    module below the first level (change c0086) both items hold one entry per level from the top sheet
+    down, joined by a backslash: the unique ids of the sheet symbols, and their names."""
 
     ref: str
     unique_id: str
@@ -982,7 +984,8 @@ def component_class_records(components: Sequence[PlacedComponent], filename: str
     top = filename.rsplit(".", 1)[0]
     members: dict[str, set[str]] = {}
     for component in components:
-        sheet = top if component.sheet is None else component.sheet[1]
+        # a sheet below the first level is named by its own sheet symbol, the last one (change c0086)
+        sheet = top if component.sheet is None else component.sheet[1].rsplit("\\", 1)[-1]
         members.setdefault(sheet, set()).add(component.ref)
     out: list[bytes] = []
     for module in sorted(members):

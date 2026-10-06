@@ -89,6 +89,11 @@ meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not wri
 fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
 see = "KiCad output"
 
+["altium.bus-flattened"]
+meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
+fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
+see = "Build target"
+
 ["altium.copper-board-mismatch"]
 meaning = "The board given with --copper-from does not match the design: a component, a footprint, a pad net or the outline differs."
 fix = "Build the KiCad board from the same script first, or correct the script, so both describe one design."
@@ -670,13 +675,13 @@ fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
 see = "Build target"
 
 ["altium.symbol-simplified"]
-meaning = "A symbol's graphics became rectangles, or its other body styles or alternates were dropped."
+meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or several units or body styles), or its other body styles or alternates were dropped."
 fix = "Nothing to do; redraw the symbol in Altium if its look matters."
 see = "Build target"
 
 ["altium.text-unwritable"]
-meaning = "A text cannot be written: it is not printable 7-bit ASCII, holds '|', is empty, has a blank at an end, or is a value that starts with '='."
-fix = "Change the text that 'where' names."
+meaning = "A text cannot be written: it is not printable 7-bit ASCII (a comment of a binary schematic may also hold Windows-1252 characters), holds '|', is empty, has a blank at an end, or is a value that starts with '='."
+fix = "Change the text that 'where' names; the message names the first character refused and says whether the binary form carries it."
 see = "Build target"
 
 ["altium.unique-id-collision"]

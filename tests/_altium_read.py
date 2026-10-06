@@ -322,7 +322,8 @@ def _payloads(stream: bytes, where: str) -> list[str]:
         payload = stream[offset + 4 : offset + 4 + length]
         if kind != 0 or len(payload) != length or not payload.endswith(b"\0") or b"\0" in payload[:-1]:
             raise ReadError(f"{where}: the record at byte {offset} is not a text record with one final NUL")
-        texts.append(payload[:-1].decode("ascii"))
+        # one character per byte: a value outside 7-bit ASCII (change c0086) stays comparable byte for byte
+        texts.append(payload[:-1].decode("latin-1"))
         offset += 4 + length
     return texts
 

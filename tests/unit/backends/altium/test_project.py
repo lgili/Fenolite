@@ -107,6 +107,14 @@ def test_evidence_and_kinds() -> None:
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
         "H-A-ECO-SUPPLY",
+        # change c0086: the writer's own rows of the complete schematic
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE",
     }
     assert {h for h in EVIDENCE.hypotheses if h.startswith("H-A-ECO-")} == {
         "H-A-ECO-NETCLASS",
@@ -211,7 +219,7 @@ def test_member_pin_the_component_does_not_hold() -> None:
     ("ref", "change"),
     [
         ("R2", {"value": "=Value"}),
-        ("R2", {"value": "10µF"}),
+        ("R2", {"value": "1 kΩ"}),  # outside the code page; "10µF" is carried since change c0086
         ("R2", {"lib_symbol_ref": "RES"}),
         ("R2", {"lib_footprint_ref": "FenoliteSample.PcbLib:"}),
         ("R2", {"ref": "R 2 "}),

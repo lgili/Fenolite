@@ -1389,3 +1389,107 @@ path = "tests/data/altium/outjob/blink.OutJob"
 origin = "authored"
 corpus_id = ""
 notes = "output job written by backends.altium.outjob for the project blink with the default export preset (c0087 sample; a test keeps it equal to a fresh write)"
+
+[[file]]
+
+[[file]]
+path = "tests/data/altium/tree/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "tree sample design script (thin DSL, c0086): modules power, io and io/leds, catalog symbols, nets D0 to D3 for the bus that tests/_altium_tree.py adds, an accented value and two properties"
+
+[[file]]
+path = "tests/data/altium/tree/tree.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the tree sample listing its four sheets in tree order, then its library (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary top sheet of the tree sample: symbols drawn from their graphics, two sheet symbols, entries with I/O types and a bus sheet entry (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_io.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module io of the tree sample: ports with I/O types, a bus port, and the sheet symbol of io/leds (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_io.leds.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module io/leds of the tree sample, two levels down: four LEDs, a bus port and a port without direction (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_power.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module power of the tree sample: a comment with a %UTF8% twin and two hidden parameters (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/nets_before_c0086.json"
+origin = "authored"
+corpus_id = ""
+notes = "the designators and nets that Fenolite's importer read from the seven committed Altium sample projects at commit 6cdf0aea, before c0086 regenerated four of them (c0086, scenario Nets unchanged)"
+
+[[file]]
+path = "tests/data/altium/generic/blink/blink.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "blink.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic, the form the author reports of 2026-10-03 covered"
+
+[[file]]
+path = "tests/data/altium/generic/blink/blink.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/kicad_example/altium_kicad.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "altium_kicad.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/kicad_example/altium_kicad.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/altium_no_connect.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/ascii/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "the ASCII altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/routed/routed.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "routed.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/routed/routed.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"

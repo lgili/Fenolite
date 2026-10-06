@@ -68,8 +68,8 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
-        "libraries", "symbols", "footprints", "pcb_document", "copper", "outjob", "drawing_sheet", "rules",
-        "experimental", "script_output", "plan",
+        "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "outjob",
+        "drawing_sheet", "rules", "experimental", "script_output", "plan",
     ]  # fmt: skip
 
 
@@ -477,3 +477,54 @@ def test_plane_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert isinstance(result, dict) and result["copper"]["planes"] == {"In1.Cu": "GND"}
     issues = env["issues"]
     assert isinstance(issues, list) and "build.plane-not-lowered" not in [i["code"] for i in issues]
+
+
+# --- change c0086: symbol bodies, directions and result.schematic -------------------------------------
+
+KICAD_EXAMPLE = ROOT / "examples" / "altium_kicad" / "design.py"
+DATA = ROOT / "tests" / "data" / "altium"
+
+
+def test_symbols_option_picks_the_bodies(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``--altium-symbols``: ``graphics`` is the default; ``generic`` gives the bytes of earlier releases."""
+    args = ("--target", "altium", "--confirm")
+    code, env, _ = run(monkeypatch, str(KICAD_EXAMPLE), "--out", str(tmp_path / "A"), *args)
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    assert result["schematic"]["symbols"] == "graphics" and result["schematic"]["symbols_drawn"] > 0
+    assert (tmp_path / "A" / "altium_kicad.SchLib").read_bytes() == (
+        DATA / "kicad_example" / "altium_kicad.SchLib"
+    ).read_bytes()
+    out = tmp_path / "B"
+    code, env, _ = run(
+        monkeypatch, str(KICAD_EXAMPLE), "--out", str(out), *args, "--altium-symbols", "generic"
+    )
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    assert result["schematic"]["symbols"] == "generic" and result["schematic"]["symbols_drawn"] == 0
+    for name in ("altium_kicad.SchLib", "altium_kicad.SchDoc"):
+        assert (out / name).read_bytes() == (DATA / "generic" / "kicad_example" / name).read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("option", "value"), [("--altium-symbols", "generic"), ("--altium-directions", "off")]
+)
+def test_new_options_need_the_altium_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, option: str, value: str
+) -> None:
+    out = tmp_path / "B"
+    code, _, err = run(monkeypatch, str(SAMPLE), "--out", str(out), option, value, "--dry-run")
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == option and not out.exists()
+    code, _, err = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", option, "maybe")
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001"
+
+
+def test_directions_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for value, expected in (("on", "on"), ("off", "off")):
+        args = ("--target", "altium", "--altium-sheets", "modules", "--altium-directions", value, "--dry-run")
+        code, env, _ = run(monkeypatch, str(HIER), "--out", str(tmp_path / value), *args)
+        result = env["result"]
+        assert code == 0 and isinstance(result, dict)
+        assert result["schematic"]["directions"] == expected and result["schematic"]["sheets"] == 3
+        assert result["schematic"]["directed"] == 0  # generic pins are passive: nothing to say

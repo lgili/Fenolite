@@ -51,6 +51,18 @@ WRITE = os.environ.get("FENOLITE_GOLDEN_WRITE") == "1"
 HANDOVER = os.environ.get("FENOLITE_ALTIUM_BOARD6")
 SAMPLES = ("sample", "blink", "routed", "hier", "no_connect", "kicad_example", "read")
 """The folders under ``tests/data/altium/`` that earlier changes committed."""
+REGENERATED = (
+    "blink/blink.SchDoc",
+    "blink/blink.SchLib",
+    "kicad_example/altium_kicad.SchDoc",
+    "kicad_example/altium_kicad.SchLib",
+    "no_connect/altium_no_connect.SchDoc",
+    "no_connect/altium_no_connect.SchLib",
+    "no_connect/ascii/altium_no_connect.SchDoc",
+    "routed/routed.SchDoc",
+    "routed/routed.SchLib",
+)
+"""The sample files that change c0086 regenerated (symbols drawn from their graphics, the default since)."""
 
 
 @cache
@@ -411,14 +423,26 @@ def test_no_document_keeps_the_infos_per_kind(tmp_path: Path) -> None:
 
 def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     """Scenario "Old samples unchanged": the committed samples of earlier changes are untouched, and the
-    routed sample still builds to its committed bytes."""
+    routed sample still builds to its committed bytes.
+
+    Change c0086 regenerated nine schematic files of four samples with the symbols' own graphics
+    (``REGENERATED``); their bytes at the base are kept under ``tests/data/altium/generic/``, and those
+    copies are compared with the base instead."""
     paths = [f"tests/data/altium/{name}/" for name in SAMPLES]
+    exclude = [f":(exclude)tests/data/altium/{name}" for name in REGENERATED]
     proc = subprocess.run(
-        ["git", "diff", "--exit-code", "--quiet", "6cdf0aea", "--", *paths],
+        ["git", "diff", "--exit-code", "--quiet", "6cdf0aea", "--", *paths, *exclude],
         cwd=ROOT, capture_output=True, check=False,
     )  # fmt: skip
     if proc.returncode in (0, 1):
         assert proc.returncode == 0, "a sample of an earlier change differs from the base of change c0085"
+    for name in REGENERATED:
+        base = subprocess.run(
+            ["git", "show", f"6cdf0aea:tests/data/altium/{name}"], cwd=ROOT, capture_output=True, check=False
+        )
+        if base.returncode == 0:
+            kept = ROOT / "tests" / "data" / "altium" / "generic" / name
+            assert kept.read_bytes() == base.stdout, f"generic/{name} differs from the base"
     with tempfile.TemporaryDirectory() as folder:
         output = routed_build(Path(folder))
     for name, data in project_files(output).items():

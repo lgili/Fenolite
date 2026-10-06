@@ -301,3 +301,15 @@ this form is known, so every row stays `INFERRED` (`H-A-RD-SCH-ASCII`); the reco
 The reader's own choices for this form: an empty line is kept as an unknown item and is not counted by the
 owner index; a section whose header text is neither a schematic header nor `Icon storage` is kept as lines;
 `encode_stream(document, "ascii")` gives back the file's bytes.
+
+## Text the ASCII form carries (change c0086)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Which bytes an ASCII schematic may hold past 7-bit ASCII depends on the version that reads it: Altium Designer 17 and later read and save UTF-8, older versions the system code page. No source says how one file serves both, so the set of characters that is the same for every reader is printable 7-bit ASCII | S-0133, S-0130 | INFERRED | H-A-SCHX-TEXT |
+
+Fenolite's choice: the ASCII form stays printable 7-bit ASCII. `ascii.text_problem(text, form="ascii")`
+refuses any other character, names it, and says whether the binary form carries it (a character of
+Windows-1252 in a comment or a parameter value: `schematic-records.md`, "Directions, buses, parameters and
+text"). The records of change c0086 that are not text (graphics with `_FRAC` keys, `IOTYPE`, records 26 and
+37, hidden parameters) are the same lines in both forms.

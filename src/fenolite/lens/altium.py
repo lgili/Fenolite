@@ -34,7 +34,7 @@ from fenolite.backends.altium import (
     schlib,
 )
 from fenolite.backends.altium import outjob as job_writer
-from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
+from fenolite.backends.altium.altsym import DEFAULT_BODIES, AltiumSymbol, SymbolBodies, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.hierarchy import ProjectSheets
@@ -104,6 +104,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
+        "altium.bus-flattened": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
         "altium.schlib-generic": "info",
@@ -142,6 +143,13 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
             "H-A-SCH-RELINK",
             "H-A-SCH-UID",
             "H-A-SCH-UPDATE",
+            "H-A-SCHX-BUS",
+            "H-A-SCHX-DIR",
+            "H-A-SCHX-ECO",
+            "H-A-SCHX-GRAPHICS",
+            "H-A-SCHX-READBACK",
+            "H-A-SCHX-TEXT",
+            "H-A-SCHX-TREE",
         ),
     ),
     binary.EVIDENCE,
@@ -240,15 +248,21 @@ def kicad_lib_ids(design: Design) -> tuple[str, ...]:
     return tuple(sorted(i for i in ids if split_link(i) is not None and symbol_source(i) == "kicad"))
 
 
-def resolve_symbols(design: Design, resolver: LibraryResolver | None) -> dict[str, SymbolDef]:
+def resolve_symbols(
+    design: Design,
+    resolver: LibraryResolver | None,
+    authored: Mapping[str, SymbolDef] = MappingProxyType({}),
+) -> dict[str, SymbolDef]:
     """Lib id → resolved ``SymbolDef`` of every KiCad lib id; ``UnresolvedLibrariesError`` (FEN-3001)
-    with one ``kicad.lib.*`` issue per lib id that does not resolve."""
+    with one ``kicad.lib.*`` issue per lib id that does not resolve. A lib id of ``authored`` (a symbol
+    the script authored or took from the catalog, change c0086) is that symbol and is not resolved."""
     wanted = kicad_lib_ids(design)
+    found: dict[str, SymbolDef] = {lib_id: authored[lib_id] for lib_id in wanted if lib_id in authored}
+    wanted = tuple(lib_id for lib_id in wanted if lib_id not in found)
     if not wanted:
-        return {}
+        return found
     if resolver is None:
         raise ValueError(f"the KiCad lib ids {', '.join(wanted)} need a library resolver")
-    found: dict[str, SymbolDef] = {}
     errors: list[LibraryError] = []
     for lib_id in wanted:
         try:
@@ -637,6 +651,7 @@ def pcb_document(
     cursor = max(p.x for p in outline) + STAGING_OFFSET
     top = min(p.y for p in outline)
     staged: list[str] = []
+    wide: list[str] = []
     placed: list[pcbdoc.PlacedComponent] = []
     for component in with_links:
         footprint = footprints[component.lib_footprint_ref]
@@ -651,11 +666,22 @@ def pcb_document(
         link = split_link(component.lib_symbol_ref)
         assert link is not None
         module = hierarchy.sheet_of(component) if sheets == "modules" else None
+        sheet: tuple[str, str] | None = None
+        if module is not None:
+            # one sheet symbol per level, from the top sheet down (change c0086, "Sheets of a module tree")
+            segments = module.split(hierarchy.PATH_SEPARATOR)
+            chain = [hierarchy.PATH_SEPARATOR.join(segments[: k + 1]) for k in range(len(segments))]
+            sheet = ("\\".join(unique_id(hierarchy.symbol_key(m)) for m in chain), "\\".join(segments))
+        comment = _comment(component)
+        if text_problem(comment) is not None:
+            # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
+            comment = link[1]
+            wide.append(component.ref)
         placed.append(
             pcbdoc.PlacedComponent(
                 ref=component.ref,
                 unique_id=unique_id(component.id),
-                comment=_comment(component),
+                comment=comment,
                 footprint=footprint,
                 footprint_library=project.pcblib_name(component.lib_footprint_ref, design=name),
                 lib_reference=link[1],
@@ -665,7 +691,16 @@ def pcb_document(
                 side=side,  # type: ignore[arg-type]
                 locked=locked,
                 pad_nets=nets.get(component.id, {}),
-                sheet=(unique_id(hierarchy.symbol_key(module)), module) if module is not None else None,
+                sheet=sheet,
+            )
+        )
+    if wide:
+        issues.append(
+            issue(
+                "altium.not-lowered",
+                f"the comments of {', '.join(wide)} hold characters outside 7-bit ASCII and are kept in the "
+                f"schematic only; {name}.PcbDoc holds the symbol name as their comment",
+                "pcb-comments",
             )
         )
     if staged:
@@ -693,16 +728,41 @@ def pcb_document(
     return spec, issues
 
 
-def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
-    """Lib id → the Altium symbol of every resolved KiCad symbol; an off-grid pin gives
-    ``altium.symbol-off-grid`` and no symbol."""
+UNMODELLED_GRAPHICS: tuple[str, ...] = ("arc", "bezier", "text", "text_box")
+"""The graphic nodes of a KiCad library symbol that ``SymbolGraphic`` does not hold (change c0086)."""
+
+
+def unmodelled_graphics(symbol: SymbolDef) -> tuple[str, ...]:
+    """The kinds of ``UNMODELLED_GRAPHICS`` that the library text of ``symbol`` holds, sorted: the model
+    keeps a sub-symbol's text beside its ``graphics``, so a symbol with an arc is known to be drawn
+    incompletely by them. A symbol that was not read from a KiCad library holds none."""
+    found: set[str] = set()
+    for node in _opaque_nodes(symbol):
+        if node.name == "symbol":
+            found |= {child.name for child in node.nodes() if child.name in UNMODELLED_GRAPHICS}
+    return tuple(sorted(found))
+
+
+def library_symbols(
+    symbols: Mapping[str, SymbolDef], issues: list[Issue], bodies: SymbolBodies = DEFAULT_BODIES
+) -> dict[str, AltiumSymbol]:
+    """Lib id → the Altium symbol of every resolved KiCad symbol, drawn from its own graphics where
+    ``altsym.from_symbol_def`` can (change c0086); an off-grid pin gives ``altium.symbol-off-grid`` and no
+    symbol."""
     mapped: dict[str, AltiumSymbol] = {}
     for lib_id, symbol in sorted(symbols.items()):
         link = split_link(lib_id)
         assert link is not None
         footprint = split_link(symbol.footprint) if symbol.footprint else None
         try:
-            mapped[lib_id] = from_symbol_def(symbol, lib_ref=link[1], footprint=footprint, issues=issues)
+            mapped[lib_id] = from_symbol_def(
+                symbol,
+                lib_ref=link[1],
+                footprint=footprint,
+                issues=issues,
+                unmodelled=unmodelled_graphics(symbol),
+                bodies=bodies,
+            )
         except ValueError as error:
             issues.append(
                 issue(
@@ -831,15 +891,27 @@ def _case_collision_of_files(issues: list[Issue], names: Sequence[str]) -> None:
         seen.setdefault(library.lower(), library)
 
 
-def _unwritable(issues: list[Issue], text: str, what: str, where: str, *, parameter: bool = False) -> None:
-    problem = text_problem(text, parameter=parameter)
+def _unwritable(
+    issues: list[Issue],
+    text: str,
+    what: str,
+    where: str,
+    *,
+    parameter: bool = False,
+    form: project.SchematicForm = "ascii",
+) -> None:
+    """``altium.text-unwritable`` when ``text`` cannot be written. ``form`` is ``"binary"`` only for a
+    text that the binary form carries with its ``%UTF8%`` twin, a comment or a parameter value of a build
+    in that form (change c0086, "Text outside ASCII"); every other text is 7-bit."""
+    problem = text_problem(text, form=form, parameter=parameter)
     if problem is not None:
+        allowed = "Windows-1252 text" if form == "binary" else "printable 7-bit ASCII"
         issues.append(
             issue(
                 "altium.text-unwritable",
                 f"{what} {text!r} {problem}",
                 where,
-                "use printable 7-bit ASCII without '|', without surrounding spaces"
+                f"use {allowed} without '|', without surrounding spaces"
                 + (" and not starting with '='" if parameter else ""),
             )
         )
@@ -873,6 +945,7 @@ def _check(
     _unwritable(issues, name, "design name", name)
     components = sorted(design.circuit.components, key=component_path)
     by_id = {c.id: c for c in components}
+    skipped: list[str] = []
     for component in components:
         path, ref = component_path(component), component.ref
         _unwritable(issues, ref, "ref", path)
@@ -889,7 +962,9 @@ def _check(
         else:
             _unwritable(issues, link[0], f"{ref} symbol library", path)
             _unwritable(issues, link[1], f"{ref} symbol name", path)
-            _unwritable(issues, component.value or link[1], f"{ref} comment", path, parameter=True)
+            comment = component.value or link[1]
+            _unwritable(issues, comment, f"{ref} comment", path, parameter=True, form=form)
+        skipped += [f"{ref} {key!r} ({why})" for key, why in project.parameters_of(component, form=form)[1]]
         footprint = component.lib_footprint_ref
         if not footprint:
             issues.append(
@@ -928,6 +1003,15 @@ def _check(
         _unwritable(issues, item.name, "net class name", item.name, parameter=True)
     _case_collisions(issues, "net", [n.name for n in design.circuit.nets])
     _case_collisions(issues, "ref", [c.ref for c in components])
+    if skipped:
+        message = (
+            f"the properties {'; '.join(skipped)} are kept in the model only: no parameter can hold them"
+        )
+        issues.append(issue("altium.not-lowered", message, "parameters"))
+    for bus, reason in project.lowered_buses(design)[1]:
+        message = f"the bus {bus} is drawn as its nets: {reason}"
+        hint = "name its nets <stem><n> with consecutive integers to draw it as a bus"
+        issues.append(issue("altium.bus-flattened", message, bus, hint))
     issues += _hierarchy_checks(design)
     ids: dict[str, str] = {}
     keyed = [(c.id, c.ref, component_path(c)) for c in components]
@@ -954,15 +1038,15 @@ def _hierarchy_checks(design: Design) -> list[Issue]:
     refused before its mode is switched: module names whose sheet files would collide, harness names a
     definition file cannot hold, a net in two harnesses, and a power net in a harness."""
     found: list[Issue] = []
-    modules = sorted({m for c in design.circuit.components if (m := hierarchy.sheet_of(c)) is not None})
     seen: dict[str, str] = {}
-    for module in modules:
+    for module in hierarchy.sheet_tree(design):
         _unwritable(found, module, "module name", module)
-        other = seen.setdefault(module.lower(), module)
+        # the sheet file is named by the module path with "." between its segments (change c0086)
+        other = seen.setdefault(hierarchy.sheet_stem(module).lower(), module)
         if other != module:
             message = (
-                f"the modules {other!r} and {module!r} differ only in letter case, so their sheet files "
-                "would collide"
+                f"the modules {other!r} and {module!r} give one sheet file name, or names that differ only "
+                "in letter case, so their sheet files would collide"
             )
             found.append(issue("altium.sheet-name-collision", message, module, "rename one of the modules"))
     names = {net.id: net.name for net in design.circuit.nets}
@@ -1265,13 +1349,38 @@ def _summary(
     outjob: Mapping[str, object] | None = None,
     drawing_sheet: Mapping[str, object] | None = None,
     rules: Mapping[str, object] | None = None,
+    directions: bool = True,
+    symbol_bodies: SymbolBodies = DEFAULT_BODIES,
 ) -> dict[str, object]:
     """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
     entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
-    types drawn) are 0 on a single sheet (change c0037)."""
+    types drawn) are 0 on a single sheet (change c0037). ``schematic`` (change c0086) counts the sheets,
+    the library symbols drawn from their own graphics and those drawn as rectangles, the bus blocks, the
+    hidden parameters and the ports and sheet entries that carry a direction; it is ``None`` for a refused
+    build."""
     plans = [sheet.plan for sheet in planned.sheets] if planned is not None else []
     labels = sum(1 for plan in plans for s in (*plan.links, *plan.stubs) if s.net.kind == "label")
     ports = sum(1 for plan in plans for s in plan.stubs if s.net.kind == "port")
+    members = [symbol for symbols in (libraries or {}).values() for symbol in symbols]
+    crossed = [
+        item.crossing
+        for plan in plans
+        for item in (*(e for symbol in plan.symbols for e in symbol.entries), *plan.ports)
+    ]
+    schematic: dict[str, object] | None = None
+    if planned is not None:
+        schematic = {
+            "sheets": len(plans),
+            "symbols": symbol_bodies,
+            "symbols_drawn": sum(1 for symbol in members if symbol.drawn),
+            "symbols_simplified": sum(1 for symbol in members if not symbol.drawn),
+            "buses": sum(len(plan.bus_blocks) for plan in plans),
+            "parameters": sum(
+                len(part.spec.parameters) for plan in plans for part in plan.parts if part.part == 1
+            ),
+            "directions": "on" if directions else "off",
+            "directed": sum(1 for crossing in crossed if crossing.io != "unspecified"),
+        }
     found = list(libraries or {})
     if footprints:
         found = sorted([*found, pcb_library], key=name_key)
@@ -1291,6 +1400,7 @@ def _summary(
         "ports": sum(len(plan.ports) for plan in plans),
         "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
+        "schematic": schematic,
         "copper": copper,
         "pcb": pcb,
         "outjob": outjob,
@@ -1338,8 +1448,17 @@ def build_altium(
     outjob_listed: bool = False,
     drawing_sheet: DrawingSheet | None = None,
     allow_lossy: bool = False,
+    directions: bool = True,
+    authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
+    symbol_bodies: SymbolBodies = DEFAULT_BODIES,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
+
+    ``directions`` (change c0086, ``--altium-directions``) false writes every port and sheet entry
+    without an I/O type. ``authored_symbols`` (change c0086) maps a lib id to a symbol the script authored
+    or took from the catalog: it is written like a resolved KiCad symbol, and no library is read for it.
+    ``symbol_bodies`` (change c0086, ``--altium-symbols``) is ``graphics`` (the default: a resolved symbol
+    is drawn from its own graphics) or ``generic`` (one rectangle per part, the bytes of earlier changes).
 
     ``placed`` are the component paths the script placed; ``project_exists`` tells that
     ``<name>.PrjPcb`` already exists in the output folder, so it is kept and not planned; ``form`` is the
@@ -1370,7 +1489,7 @@ def build_altium(
     if authored_footprints:
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
-    resolved = resolve_symbols(design, resolver)
+    resolved = resolve_symbols(design, resolver, authored_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
     if project_exists:
@@ -1384,7 +1503,7 @@ def build_altium(
         )
     model, pin_issues = kicad_pins(design, resolved)
     issues += pin_issues
-    symbols = library_symbols(resolved, issues)
+    symbols = library_symbols(resolved, issues, symbol_bodies)
     model = with_written_values(generic_pins(model))
     issues += list(model.validate())
     if not any(i.severity == "error" for i in issues):
@@ -1451,7 +1570,9 @@ def build_altium(
                 f"{name}.PrjPcb",
             )
         )
-    planned = hierarchy.plan_sheets(model, name=name, sheets=sheets, form=form, symbols=symbols)
+    planned = hierarchy.plan_sheets(
+        model, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions
+    )
     unlisted = [*(sheet.file for sheet in planned.modules), *sorted(planned.harness_files, key=name_key)]
     if project_exists and unlisted:
         issues.append(
@@ -1510,6 +1631,7 @@ def build_altium(
             sheets=sheets,
             outjob=job_writer.write_outjob(job) if job is not None else None,
             frames=frames,
+            directions=directions,
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -1575,6 +1697,8 @@ def build_altium(
         outjob=job_info,
         drawing_sheet=sheet_info,
         rules=rules_info,
+        directions=directions,
+        symbol_bodies=symbol_bodies,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 

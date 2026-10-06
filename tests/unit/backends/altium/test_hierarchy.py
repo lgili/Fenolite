@@ -65,18 +65,22 @@ def test_sheets_keep_the_component_records_of_the_flat_build() -> None:
     assert stubs == sorted((s.key, s.designator, s.net) for s in plan_sheet(model, name="altium_hier").stubs)
 
 
-def test_nested_module_is_flattened() -> None:
+def test_nested_module_has_its_own_sheet() -> None:
+    """Change c0086, "Sheets of a module tree": a nested module is no longer flattened into the sheet of
+    its top-level module. ``C1`` has only power pins, so its sheet needs no port."""
     model = hier_model(*NESTED)
     c1 = next(c for c in model.circuit.components if c.ref == "C1")
-    assert component_path(c1) == "mcu/decoupling/C1" and sheet_of(c1) == "mcu"
+    assert component_path(c1) == "mcu/decoupling/C1" and sheet_of(c1) == "mcu/decoupling"
     project = plan_sheets(model, name="altium_hier", sheets="modules", form="binary")
     assert [s.file for s in project.sheets] == [
         "altium_hier.SchDoc",
         "altium_hier_flash.SchDoc",
         "altium_hier_mcu.SchDoc",
+        "altium_hier_mcu.decoupling.SchDoc",
     ]
-    assert _refs(project.sheets[2].plan) == ["U1", "C1"]
-    assert not any("decoupling" in s.file for s in project.sheets)
+    assert _refs(project.sheets[2].plan) == ["U1"] and _refs(project.sheets[3].plan) == ["C1"]
+    assert [s.spec.module for s in project.sheets[2].plan.symbols] == ["decoupling"]
+    assert project.sheets[3].plan.ports == () and project.sheets[3].module == "mcu/decoupling"
 
 
 def test_harness_members_cross_as_nets_in_the_ascii_form() -> None:

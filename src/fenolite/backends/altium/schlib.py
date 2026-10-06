@@ -6,8 +6,9 @@ altium-schematic-writer, "Schematic library file", "Library component records" a
 Written from ``docs/formats/altium/schematic-library.md``. A library is a compound file (``cfb``): the
 streams ``FileHeader`` (one header record listing the components), ``Storage`` (the empty icon storage),
 ``SectionKeys`` only when a lib ref needs a section key, then one storage per symbol, in the MS-CFB order
-of the storage names, holding one stream ``Data``: the component, its binary pins, one rectangle per
-part, the designator, the comment and the footprint chain. No record carries ``OWNERINDEX``: every record
+of the storage names, holding one stream ``Data``: the component, its binary pins, the symbol's own
+graphics or else one rectangle per part (change c0086), the designator, the comment and the footprint
+chain. No record carries ``OWNERINDEX``: every record
 after the component belongs to it. The bytes depend only on the symbols and the library name.
 """
 
@@ -20,6 +21,7 @@ from fenolite.backends.altium.altsym import AltiumPin, AltiumSymbol
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.binary import frame_record, storage_stream
 from fenolite.backends.altium.cfb import FORBIDDEN, MAX_NAME, Entry, Storage, name_key, write_compound
+from fenolite.backends.altium.schdoc import graphic_fields
 from fenolite.core.evidence import Evidence, Level
 
 HEADER_TEXT = "Protel for Windows - Schematic Library Editor Binary File Version 5.0"
@@ -50,6 +52,8 @@ EVIDENCE = Evidence(
         "H-A-SCHLIB-PARTS",
         "H-A-SCHLIB-PIN",
         "H-A-SCHLIB-SECTIONKEY",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
     ),
 )
 """The library is inferred from public sources; the kicad-cli oracle checks only what KiCad reads."""
@@ -186,7 +190,11 @@ def data_records(symbol: AltiumSymbol, *, library: str) -> list[bytes]:
         raise ValueError(f"{symbol.lib_ref}: one rectangle per part 1 … {symbol.parts} is needed")
     records = [frame_record(component_record(symbol, library=library))]
     records += [pin_record(pin) for pin in symbol.pins]
-    for rect in symbol.rectangles:
+
+    for graphic in symbol.graphics:
+        # change c0086: the symbol's own graphics, in the symbol's frame, and then no rectangle
+        records.append(frame_record(graphic_fields(graphic, lambda x, y: (x, y))))
+    for rect in () if symbol.drawn else symbol.rectangles:
         fields: list[Field] = [
             ("RECORD", "14"),
             ("OWNERPARTID", str(rect.part)),

@@ -9,21 +9,23 @@ Part Zero, and the mapping from a KiCad symbol). Lengths are in mils, relative t
 rightwards and Y upwards, as in a library file; every value written lies on the 10-mil grid.
 
 ``from_generic`` turns c0032's generic body into a symbol of one part whose origin is the body's top-left
-corner. ``from_symbol_def`` maps a resolved KiCad ``SymbolDef``: its pins exactly, and one synthesised
-rectangle per part, because the model holds no symbol graphics.
+corner. ``from_symbol_def`` maps a resolved ``SymbolDef``: its pins exactly, and its own graphics
+(``SymbolGraphic``, change c0086) when the model can say which part draws them; otherwise one synthesised
+rectangle per part.
 """
 
 # evidence: see project, schlib
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from fenolite.backends.altium.symbols import PIN_LENGTH, PIN_PITCH, GenericSymbol, natural_key
 from fenolite.core.errors import Issue, Severity
 from fenolite.model.circuit import PinType
-from fenolite.model.library import PinShape, SymbolDef, SymbolPin
+from fenolite.model.library import PinShape, SymbolDef, SymbolGraphic, SymbolPin
 
 NM_PER_MIL = 25_400
 GRID = 10
@@ -124,10 +126,59 @@ class AltiumRect:
     y1: int
 
 
+GRAPHIC_KINDS: tuple[str, ...] = ("circle", "line", "polygon", "rect")
+"""The kinds of ``SymbolGraphic`` that have a record: an ellipse of equal radii (record 8), a line (13),
+a polygon (7) and a rectangle (14). A symbol with a graphic of another kind keeps its rectangles."""
+GraphicKind = Literal["ellipse", "line", "polygon", "rectangle"]
+SymbolBodies = Literal["generic", "graphics"]
+"""How a resolved symbol is drawn: ``generic`` is one synthesised rectangle per part, ``graphics`` the
+symbol's own graphics where the model can give them to a part (change c0086, ``--altium-symbols``)."""
+DEFAULT_BODIES: SymbolBodies = "graphics"
+"""The default since change c0086 (decision of the maintainer, 2026-10-06). The author reports before
+that date covered the ``generic`` form, whose bytes ``tests/data/altium/generic/`` keeps; the graphics
+form is unconfirmed in Altium until the report of Part Y (``docs/evidence/altium-schematic.md``)."""
+FRAC_PER_UNIT = 100_000
+"""A ``_FRAC`` key counts 1/100 000 of a file unit of 10 mil: one step is 2.54 nm."""
+NM_PER_UNIT = 10 * NM_PER_MIL
+
+
+def frac_units(nm: int) -> int:
+    """A length in nanometres as a count of 1/100 000 file unit, rounded half up: exact for a multiple
+    of 127 nm, and within 1.27 nm otherwise."""
+    return (2 * nm * FRAC_PER_UNIT + NM_PER_UNIT) // (2 * NM_PER_UNIT)
+
+
+def unit_and_frac(nm: int) -> tuple[int, int]:
+    """The integer of a length key and of its ``_FRAC`` key for ``nm`` nanometres. The two keep their own
+    signs: the length is ``unit × 100 000 + frac`` (``schematic-records.md``, "Units")."""
+    total = frac_units(nm)
+    unit = abs(total) // FRAC_PER_UNIT * (1 if total >= 0 else -1)
+    return unit, total - unit * FRAC_PER_UNIT
+
+
+@dataclass(frozen=True)
+class AltiumGraphic:
+    """One graphic of part ``part``, in nanometres, in the symbol's frame (X rightwards, Y upwards): a
+    ``line`` from ``points[0]`` to ``points[1]``, a ``rectangle`` from its bottom-left to its top-right
+    corner, a closed ``polygon`` through ``points``, or an ``ellipse`` of both radii ``radius`` around
+    ``points[0]``. Unlike pins, graphics need no grid: the writers give each coordinate its ``_FRAC`` key.
+    ``filled`` keeps the fill as a flag, never as a colour."""
+
+    kind: GraphicKind
+    part: int
+    points: tuple[tuple[int, int], ...]
+    filled: bool = False
+    radius: int = 0
+
+
 @dataclass(frozen=True)
 class AltiumSymbol:
     """A library component: ``parts`` parts, pins ordered by part and then by natural designator, one
-    rectangle per part, the designator prefix, the comment, the description and the footprint link."""
+    rectangle per part, the designator prefix, the comment, the description and the footprint link.
+
+    ``graphics`` (change c0086) are the symbol's own graphics. When it is not empty the writers draw them
+    and no rectangle: ``rectangles`` then only bound what each part draws, for the layout and the texts.
+    When it is empty the writers draw the rectangles."""
 
     lib_ref: str
     parts: int
@@ -137,6 +188,16 @@ class AltiumSymbol:
     comment: str
     description: str = ""
     footprint: tuple[str, str] | None = None
+    graphics: tuple[AltiumGraphic, ...] = ()
+
+    @property
+    def drawn(self) -> bool:
+        """Whether the symbol is drawn from its own graphics instead of its rectangles."""
+        return bool(self.graphics)
+
+    def graphics_of(self, part: int) -> tuple[AltiumGraphic, ...]:
+        """The graphics of part ``part``, in order."""
+        return tuple(g for g in self.graphics if g.part == part)
 
     def pins_of(self, part: int) -> tuple[AltiumPin, ...]:
         """The pins drawn on part ``part`` of a placed component: its own and, on part 1, Part Zero's."""
@@ -271,17 +332,74 @@ def body_rectangle(part: int, pins: tuple[AltiumPin, ...]) -> AltiumRect:
     return AltiumRect(part, x0, y0, x1, y1)
 
 
+def map_graphic(graphic: SymbolGraphic, part: int = 1) -> AltiumGraphic:
+    """One model graphic as an Altium graphic of ``part``, its coordinates unchanged. A circle becomes an
+    ellipse of two equal radii: the distance from its centre to the point beside it on its rim.
+    ``ValueError`` for a kind outside ``GRAPHIC_KINDS`` or a graphic with too few points."""
+    points = [(point.x, point.y) for point in graphic.points]
+    need = 3 if graphic.kind == "polygon" else 2
+    if graphic.kind not in GRAPHIC_KINDS or len(points) < need:
+        raise ValueError(
+            f"a symbol graphic of kind {graphic.kind!r} with {len(points)} point(s) has no record"
+        )
+    if graphic.kind == "line":
+        return AltiumGraphic("line", part, (points[0], points[1]))
+    if graphic.kind == "rect":
+        (ax, ay), (bx, by) = points[0], points[1]
+        corners = ((min(ax, bx), min(ay, by)), (max(ax, bx), max(ay, by)))
+        return AltiumGraphic("rectangle", part, corners, graphic.filled)
+    if graphic.kind == "circle":
+        (cx, cy), (rx, ry) = points[0], points[1]
+        # the model puts the rim point beside the centre, on one axis, so this is the radius
+        return AltiumGraphic("ellipse", part, (points[0],), graphic.filled, abs(rx - cx) + abs(ry - cy))
+    return AltiumGraphic("polygon", part, tuple(points), graphic.filled)
+
+
+def graphic_box(graphic: AltiumGraphic) -> tuple[int, int, int, int]:
+    """The box ``(x0, y0, x1, y1)`` of what ``graphic`` draws, in nanometres."""
+    xs = [x for x, _ in graphic.points]
+    ys = [y for _, y in graphic.points]
+    reach = graphic.radius
+    return min(xs) - reach, min(ys) - reach, max(xs) + reach, max(ys) + reach
+
+
+def drawn_rectangle(part: int, pins: Sequence[AltiumPin], graphics: Sequence[AltiumGraphic]) -> AltiumRect:
+    """The box of the graphics of a part and of the body ends of its pins, in mils, rounded outwards to
+    the 10-mil grid: what a drawn part covers, for the layout and for the place of its texts."""
+    boxes = [graphic_box(g) for g in graphics]
+    low = [(min(b[k] for b in boxes) // NM_GRID) * GRID for k in (0, 1)]
+    high = [-(-max(b[k] for b in boxes) // NM_GRID) * GRID for k in (2, 3)]
+    return AltiumRect(
+        part,
+        min([low[0], *(p.x for p in pins)]),
+        min([low[1], *(p.y for p in pins)]),
+        max([high[0], *(p.x for p in pins)]),
+        max([high[1], *(p.y for p in pins)]),
+    )
+
+
 def from_symbol_def(
     symbol: SymbolDef,
     *,
     lib_ref: str,
     footprint: tuple[str, str] | None,
     issues: list[Issue] | None = None,
+    unmodelled: Sequence[str] = (),
+    bodies: SymbolBodies = DEFAULT_BODIES,
 ) -> AltiumSymbol:
-    """A resolved KiCad symbol as an Altium symbol (design Decisions 6 and 7 of change c0034).
+    """A resolved symbol as an Altium symbol (design Decisions 6 and 7 of change c0034, Decision 1 of
+    change c0086).
 
-    Body style 1 and common pins are kept; other body styles and pin alternates are dropped with one
-    ``altium.symbol-simplified`` info, which also says that the body is a synthesised rectangle.
+    Body style 1 and common pins are kept; other body styles and pin alternates are dropped. With
+    ``bodies="generic"`` (the bytes of changes c0034 to c0083) every part is one synthesised
+    rectangle, and the info says so. With ``bodies="graphics"`` (the default) the symbol's
+    graphics are drawn when it has one unit and one body style, holds at least one graphic, every graphic
+    is of a kind of ``GRAPHIC_KINDS`` and ``unmodelled`` is empty: ``SymbolGraphic`` names neither a unit
+    nor a body style, so the graphics of a symbol of several cannot be given to a part. ``unmodelled``
+    names the graphic kinds of the library symbol that the model does not hold (an arc, a Bezier curve, a
+    text), which the caller knows. Any other symbol gets one synthesised rectangle per part. Graphics keep
+    their coordinates: only pins need the 10-mil grid. One ``altium.symbol-simplified`` info per symbol
+    says what was dropped or simplified; a symbol drawn from its graphics with every pin kept gives none.
     ``ValueError`` for an off-grid pin, naming it.
     """
     kept = [p for p in symbol.pins if p.body_style in (0, 1)]
@@ -289,17 +407,36 @@ def from_symbol_def(
     alternates = sum(1 for p in kept if p.alternates)
     pins = pin_order([map_pin(symbol, p, issues) for p in kept])
     parts = symbol.unit_count
-    rectangles = tuple(
-        body_rectangle(k, tuple(p for p in pins if p.part in (0, k))) for k in range(1, parts + 1)
-    )
-    if issues is not None:
-        parts_note = ["its graphics became one rectangle per part"]
-        if dropped:
-            parts_note.append(f"{dropped} pin(s) of other body styles were dropped")
-        if alternates:
-            parts_note.append(f"the alternates of {alternates} pin(s) were dropped")
+    notes: list[str] = []
+    graphics: tuple[AltiumGraphic, ...] = ()
+    other = sorted({g.kind for g in symbol.graphics if g.kind not in GRAPHIC_KINDS} | set(unmodelled))
+    if bodies not in ("generic", "graphics"):
+        raise ValueError(f"unknown symbol bodies {bodies!r}")
+    if bodies == "generic":
+        notes.append("its graphics became one rectangle per part")
+    elif other:
+        notes.append(f"its graphics of kind {', '.join(other)} have no record, so each part is a rectangle")
+    elif not symbol.graphics:
+        notes.append("it holds no graphics, so each part is a rectangle")
+    elif parts > 1 or symbol.body_style_count > 1:
+        notes.append(
+            "the model does not say which unit or body style draws a graphic, so each part is a rectangle"
+        )
+    else:
+        graphics = tuple(map_graphic(graphic) for graphic in symbol.graphics)
+    if graphics:
+        rectangles: tuple[AltiumRect, ...] = (drawn_rectangle(1, pins, graphics),)
+    else:
+        rectangles = tuple(
+            body_rectangle(k, tuple(p for p in pins if p.part in (0, k))) for k in range(1, parts + 1)
+        )
+    if dropped:
+        notes.append(f"{dropped} pin(s) of other body styles were dropped")
+    if alternates:
+        notes.append(f"the alternates of {alternates} pin(s) were dropped")
+    if issues is not None and notes:
         issues.append(
-            _issue("altium.symbol-simplified", "info", f"{symbol.lib_id}: {'; '.join(parts_note)}", lib_ref)
+            _issue("altium.symbol-simplified", "info", f"{symbol.lib_id}: {'; '.join(notes)}", lib_ref)
         )
     prefix = symbol.reference or DEFAULT_PREFIX
     return AltiumSymbol(
@@ -311,20 +448,30 @@ def from_symbol_def(
         comment=symbol.value or symbol.name,
         description=symbol.description,
         footprint=footprint,
+        graphics=graphics,
     )
 
 
 __all__ = [
     "EDGE_CODES",
     "ELECTRICAL",
+    "DEFAULT_BODIES",
+    "GRAPHIC_KINDS",
+    "SymbolBodies",
     "LOSSY_SHAPES",
     "LOSSY_TYPES",
+    "AltiumGraphic",
     "AltiumPin",
     "AltiumRect",
     "AltiumSymbol",
     "body_rectangle",
+    "drawn_rectangle",
+    "frac_units",
     "from_generic",
     "from_symbol_def",
+    "graphic_box",
+    "unit_and_frac",
+    "map_graphic",
     "map_pin",
     "overbar",
     "pin_order",

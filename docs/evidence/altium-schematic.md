@@ -151,8 +151,8 @@ that fresh builds give these bytes and that this table names them.
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
-| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `10c95992c6cab223fa2125493d07772a79855014bcc64553d4c757dbd88ed34a` |
-| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `ccdfe416efa57324236b30f0e7e73c0c9a3bbd229babf9aae150427feb7ed6b4` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `3c3a2984ca36047f84d3e02ce808e051f97ec8be3fbe718e289b8b3a5fe0a98e` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `32bf028d3570f5ea14696cd0dd5281eb295b7288aa8751ae513cd70df0191e6f` |
 
 - `FenoliteSample.SchLib` holds the six generic symbols of the sample (`CAP`, `DRV4`, `HDR2`, `LDO3`,
   `LED`, `RES`), each of one part with the passive pins its components use, the designator `<prefix>?`
@@ -207,9 +207,9 @@ gives these bytes and that this table names them.
 | project, library or schematic file | SHA-256 |
 |---|---|
 | `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
-| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `7cac02697be2a7b37dccaa0e2436786fb5dc55c550c0c03fa428197fe2aaaf4f` |
-| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `7ac872c78cebb8977eaaff78c29135024c4e5617991190644131c0290d990cdb` |
-| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `dd04eacceb2201fb3d8b168165bde92fb6a2cf1aae581609557b09d49d69b5c3` |
+| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `2d70ec1374d7c44841b16bb31ec244350f715954cbca4f27048406862b570151` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `cdc38a49b0ac8b7d36e1d0c2a28f50f0feea28ddef6c8c412e49eda22cc4cf1e` |
+| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `f1082472746dd3e57e4ea5fd80dbb243f8fb4c7806e2f12a0a8d86435f7e8462` |
 
 - The design holds `J1` (`CONN2`), `R1` (`R_V`) and `U1` (`MCU8`) on the nets `VIN` (J1 1, R1 1, U1 1,
   U1 6), `GND` (J1 2, U1 7) and `OE_N` (R1 2, U1 5).
@@ -427,6 +427,107 @@ gives for the KiCad build of the same script; it is a visual reference only and 
    and read it again. Expected: the new value. Settles `H-A-SCHDOT-STRINGS`.
 
 No report yet: the two rows are `INFERRED`, "pending (author report)".
+
+
+## Part Y: the complete schematic (change c0086)
+
+Change c0086 draws each symbol from its own graphics, gives every module a sheet at any depth, writes
+port and sheet-entry I/O types, buses, hidden parameters and, in the binary form, comments and parameter
+values with Windows-1252 characters. **Nothing of this part has been opened in Altium.** Its seven rows
+are `H-A-SCHX-*`: `H-A-SCHX-READBACK` is settled by Fenolite's own reader (`INFERRED`); the other six stay
+`INFERRED` with `pending (author report)` until the steps below are reported.
+
+**What the earlier reports covered.** The reports of 2026-10-02 and 2026-10-03 below were made on files
+whose resolved symbols were drawn as rectangles. Since change c0086 the default build draws the symbols'
+graphics (`--altium-symbols graphics`, decision of the maintainer of 2026-10-06), and the committed
+schematics and schematic libraries of the samples `blink`, `kicad_example`, `no_connect` and `routed`
+were regenerated in that form. The files those reports covered are kept, byte for byte, under
+`tests/data/altium/generic/<sample>/` (the bytes of commit 6cdf0aea), and
+`tests/unit/lens/test_altium_schematic_complete.py -k generic` checks that `--altium-symbols generic`
+still builds them. The tables of Part L, Part N and of `docs/evidence/altium-pcb.md` name the SHA-256 of
+the regenerated files, because their golden tests compare the default build; no earlier report says
+anything about those bytes, and no row was raised because of them. The samples `sample` and `hier` use
+Altium links, are drawn as rectangles in both forms, and did not change.
+
+The nets and designators of every sample are the ones it had: `test_nets_unchanged` reads each committed
+project and compares it with `tests/data/altium/nets_before_c0086.json`, recorded from the files of commit
+6cdf0aea.
+
+**Files.** They are built outside the repository, into the maintainer's folder
+`~/fenolite-altium-checks/c0086-part-y/` (rebuilt on 2026-10-06 after the rebase onto c0084, c0085, c0087
+and c0089, with the same bytes as before it), by a script of the change's scratch area: the tree sample
+through `tests/_altium_tree.py`, the four samples through their own example builds, each with the lens
+defaults (no output job, no drawing sheet). None is committed beyond `tests/data/altium/tree/` (the folder
+`tree/binary` below, checked by `-k tree`) and the four regenerated samples. The handover files of Parts O
+and W above were built before this change, with rectangle bodies; a rebuild of them now draws the symbols'
+graphics unless `--altium-symbols generic` is given.
+
+| file | SHA-256 |
+|---|---|
+| `tree/binary/tree.PrjPcb` | `5f82374c7c3c16dac370815a2bc520bb026e0e30ccd55cd6b528353ec0f0ebb0` |
+| `tree/binary/tree.SchDoc` | `f7732013309e2f792ea1b45cd3873f194fa7f1c098f495e185b0afd9c91e1ceb` |
+| `tree/binary/tree.SchLib` | `c106ddd3f633a1ccf1ac82ac365993a2241e790f6324adf33e7fe21686a5d6c4` |
+| `tree/binary/tree_io.SchDoc` | `f8435228001cc5680a408aa54e095207efa10e9cf0e4721d42c2b24e99343c7a` |
+| `tree/binary/tree_io.leds.SchDoc` | `8f197da032e893e509e0c3c88a63b33e0b3da965507dbcd00d3d0790aabe04ca` |
+| `tree/binary/tree_power.SchDoc` | `d9df839a4e07403f690ac1b19779fceccee240a316f11eba01f05398f193e686` |
+| `tree/ascii/tree.SchDoc` | `d7f025e9828e736733409eb01bcd71d93581133bcd3115979c00ba86588f77ed` |
+| `tree/ascii/tree_io.SchDoc` | `30d58eafff81b1e1599de335ffabd23fefeb952777cec51d08309fbee8d7a66b` |
+| `tree/ascii/tree_io.leds.SchDoc` | `8e876d076c92dde71b6a9a2b019ceaafe58324db9fe5fdb4060fda59c735d74f` |
+| `tree/ascii/tree_power.SchDoc` | `c7eb090263f035499639b5d32e49049399075d6fb69191448f858ce23e59fbbd` |
+| `tree-bad/binary/tree_io.SchDoc` | `98895f88f1087ab0d5478a621b126fbec2e9c60b872d0d79651d9f4c00923f0d` |
+| `samples/kicad_example/altium_kicad.SchDoc` | `3c3a2984ca36047f84d3e02ce808e051f97ec8be3fbe718e289b8b3a5fe0a98e` |
+| `samples/kicad_example/altium_kicad.SchLib` | `32bf028d3570f5ea14696cd0dd5281eb295b7288aa8751ae513cd70df0191e6f` |
+| `samples/no_connect/altium_no_connect.SchDoc` | `2d70ec1374d7c44841b16bb31ec244350f715954cbca4f27048406862b570151` |
+| `samples/no_connect/altium_no_connect.SchLib` | `cdc38a49b0ac8b7d36e1d0c2a28f50f0feea28ddef6c8c412e49eda22cc4cf1e` |
+| `samples/blink/blink.SchDoc` | `d52160144438ee1fa2026cf704e37881c2f9b98d8389ace45ac73f01e56dcf43` |
+| `samples/blink/blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
+| `samples/routed/routed.SchDoc` | `5c7ce5f3352ce91e6970dd49753f03d9f0b39c539f56b8a79b59d5c5679e7557` |
+| `samples/routed/routed.SchLib` | `db7d0c5b55210c9f7a113120595fa48427c43263cff13c76452ed44312dd0e07` |
+
+- The ASCII tree project shares `tree.PrjPcb` and `tree.SchLib` with the binary one; its two texts with
+  accented characters are replaced (`Inductor 10 uH`, `tolerance 10 %`), because the ASCII form refuses
+  them. `tree-bad` is the binary tree project with one sheet changed: the port `SENSE` of `io` says
+  input while its sheet entry on the top sheet says output. The four `samples` folders also hold their
+  project files and, for `blink` and `routed`, the PCB library and document, which did not change.
+- The tree design (`tests/data/altium/tree/design.py`): `J1`, `J2` and `U1` on the top sheet; `U2`, `L1`
+  and `C1` in `power`; `U3` and `Q1` in `io`; `D1` to `D4` in `io/leds`; 13 nets; the bus `D` of `D0` to
+  `D3` from `J2` to the LEDs.
+- Reference for the four symbols of steps Y2 and Y3, in words, since the change builds no picture:
+  `Resistor` is a zigzag of eight lines between its two pins; `LED` is a filled triangle with a bar at
+  its tip and two small arrows above it; `Comparator` is an open triangle pointing right with a short
+  line inside, inputs `+` and `-` on the left, the output on the right, supply pins above and below;
+  `Connector_4` is a filled rectangle with four small open squares on its left side, one per pin.
+
+Steps:
+
+1. **Y1** (`tree/binary`): open the project. Expected: no repair prompt, no message; four schematic
+   documents and one library in the Projects panel.
+2. **Y2**: open `tree.SchLib` and look at `Resistor`, `LED`, `Comparator` and `Connector_4`. Expected: the
+   shapes described above, with the pin ends on the graphics. No symbol of this library holds a circle;
+   an open circle (an ellipse record without `ISSOLID`, as `Pushbutton_NO` of the catalog would give) is
+   not covered by this part.
+3. **Y3**: open `tree.SchDoc` and `tree_power.SchDoc`. Expected: the same graphics on the sheets, the
+   designator above and the comment below each part.
+4. **Y4**: "Project » Validate PCB Project", then the Navigator. Expected: no error; the tree `tree` →
+   `io` → `leds`, and `tree` → `power`.
+5. **Y5**: read the Messages panel for port and sheet-entry messages; then validate `tree-bad/binary`.
+   Expected: none for `tree`; at least one message that names `SENSE` for `tree-bad`.
+6. **Y6**: in the Navigator, list the nets of the bus `D[0..3]`. Expected: `D0` to `D3`, each with one pin
+   of `J2` and one LED anode.
+7. **Y7**: read the comment of `L1` (`Indutância 10 µH`) and the hidden parameter `Note` of `C1`
+   (`tolerância ±10 %`, with its parameter `MPN` = `X-1`). Expected: as written. Then open `tree/ascii`
+   and report whether it opens and what the comment of `L1` reads (`Inductor 10 uH`).
+8. **Y8**: "Design » Update PCB Document" into a new, empty PCB document added to `tree/binary`. Report
+   the number of components, nets, component classes and rooms the change order lists. Expected: 13
+   components, 13 nets, the component classes `tree`, `io`, `leds` and `power`, no room.
+9. **Y9**: open each of the four projects under `samples/` (the regenerated samples). Expected: each
+   opens without a prompt, and its three symbols of one unit show their own graphics, with the pins where
+   the rectangle form had them; `DUAL_OPAMP` of `kicad_example` has two units and stays two rectangles.
+
+The maintainer reports one outcome per step (`as expected`, or what differed in one sentence), the tool as
+`AD <major>.<minor>` and the date; no file that Altium wrote is committed. A step that fails refutes the
+row it names: Y2, Y3 and Y9 `H-A-SCHX-GRAPHICS`; Y1 and Y4 `H-A-SCHX-TREE`; Y5 `H-A-SCHX-DIR`; Y6
+`H-A-SCHX-BUS`; Y7 `H-A-SCHX-TEXT`; Y8 `H-A-SCHX-ECO`.
 
 ## Recording a report
 

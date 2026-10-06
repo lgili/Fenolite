@@ -182,6 +182,7 @@ changes no pin. Bytes after a binary pin's last known field are kept in its `tai
 | kicad-cli 10.0.6 writes a space of a pin name as `_` (one pin of `altium-third-party-schlib-09`) | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
 | kicad-cli 10.0.6 holds schematic positions in steps of 100 nm: the hot ends of the five pins that `PinFrac` moves off the 10-mil grid come out rounded to 100 nm, and equal Fenolite's exact nanometres rounded half to even | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
 | No corpus library holds a component of more than one part or more than one display mode, so the unit and body-style counts compared are all 1 | S-0277, S-0278, S-0279 | INFERRED | H-A-RD-SCH-PARTS |
+| Fenolite's oracle for symbol graphics (`tests/kicad/altium/test_schematic_complete_oracle.py`, kicad-cli 10.0.6, 2026-10-06): a library of 47 catalog symbols written with their own graphics (records 7, 8, 13 and 14, coordinates with `_FRAC` keys) converts, and each symbol's lines, rectangles, polygons and circles come out with the model's points, within the 1 µm of KiCad's library text. Two things differ and are not compared: KiCad gives some filled shapes the fill type `color` with the record's area colour instead of `background`, and it reads every circle as filled, an ellipse record without `ISSOLID` and a full arc (record 12) alike | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-SCHX-GRAPHICS |
 
 ## Facts awaiting a permitted source
 
@@ -293,6 +294,14 @@ The reverse of the importer's mapping (rows above):
 | `pin_names_hidden`, empty name, name `~` | name not shown (0x08 clear) |
 | `pin_numbers_hidden` | number not shown (0x10 clear) |
 | hidden pin | 0x04 |
+
+With `--altium-symbols graphics` (the default since change c0086) a symbol of one unit and one body
+style whose graphics are all lines, rectangles, polygons and circles is drawn from them, each graphic as
+the record of `schematic-records.md` ("Graphics the writer draws"), with its own coordinates. A symbol of
+several units or body styles (`SymbolGraphic` names neither), a symbol without graphics, and a KiCad symbol
+whose library text holds an arc, a Bezier curve or a text (which the model does not hold) are drawn as
+below, with one `altium.symbol-simplified` info. With `--altium-symbols generic` every symbol is drawn as
+below.
 
 Each part gets one rectangle: the bounding box of the body ends of its pins and of the Part Zero pins,
 grown to at least 200 mil per side around its centre and rounded outwards to 10 mil; a part without

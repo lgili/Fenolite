@@ -379,7 +379,8 @@ def deframe(stream: bytes) -> list[list[tuple[str, str]]]:
             raise CfbError(f"record at {offset}: the payload is cut")
         if not payload.endswith(b"\0") or b"\0" in payload[:-1]:
             raise CfbError(f"record at {offset}: the payload does not end with its one NUL")
-        text = payload[:-1].decode("ascii")
+        # one character per byte: a value outside 7-bit ASCII (change c0086) stays comparable byte for byte
+        text = payload[:-1].decode("latin-1")
         if not text.startswith("|"):
             raise CfbError(f"record at {offset}: the text does not start with '|'")
         fields: list[tuple[str, str]] = []
