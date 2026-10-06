@@ -113,7 +113,9 @@ A sheet that several sheet symbols name is one channel per symbol (change c0083)
   `$` that starts no keyword, and a style outside `0` to `4` are not guessed
   (`altium.import.channel-naming`, names `<designator>@<channel>`).
 - **Order of sources.** The board first (`project.link`), then the format. The annotation file of a
-  project is not read yet: no public file of that kind is in the corpus.
+  project is not read: the one annotation file that a corpus project lists (set of S-0188) is empty at
+  the registered commit (0 bytes, measured on 2026-10-06), so the form of such a file is `UNKNOWN`. An
+  absent or empty one changes nothing.
 - **Not instantiated.** A `Repeat(…)` statement in a sheet symbol's designator still gives one instance
   (`altium.import.repeated-sheet`).
 

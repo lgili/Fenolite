@@ -39,7 +39,7 @@ None.
 - The naming format without a board and without an annotation file is `INFERRED` (`H-A-IMP-RPT-FORMAT`) until the maintainer reports Part R.
 - `adapter.IMPORT_EVIDENCE` keeps its level; the new rows are added to its hypotheses.
 
-## Open decision for the maintainer
+## Decision of the maintainer (2026-10-06): inside v0.4, as written below
 
 - **Question.** Does this change ship inside v0.4, or earlier as a v0.3 follow-up, since it repairs a read defect?
 - **Default written here.** Inside v0.4, as its first change, with no dependency on any other v0.4 change, so it can be implemented and released before the rest.

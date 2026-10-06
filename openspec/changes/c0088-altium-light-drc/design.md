@@ -89,7 +89,7 @@ Total: 5. This is a size, not a calendar estimate.
 
 ## Migration Plan
 
-- `fenolite check` on Altium input runs two more stages by default and can exit 5 where it exited 0. The changelog says so; `--stages` selects the old set.
+- `fenolite check` on Altium input runs two more stages by default and can exit 5 where it exited 0. The changelog says so, as a change of behaviour; `--stages` selects the old set. Confirmed by the maintainer on 2026-10-06: on by default.
 - Rollback: remove the two names from `DOCUMENT_STAGES`.
 
 ## Open Questions

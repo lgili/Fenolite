@@ -34,7 +34,7 @@ None.
 - The level's code is `INFERRED` under `H-G-EQ-L5`; it is general, with no format fact.
 - Over the triangle (a KiCad board, the Altium document written from it, and KiCad's import of that document) the level holds on the samples and on the corpus boards of c0045's list: `ORACLE-VERIFIED(kicad-cli 10.0.x)` for `H-G-EQ-L5-TRIANGLE` on those boards.
 
-## Open decision for the maintainer
+## Decision of the maintainer (2026-10-06): connectivity, as written below
 
 - **Question.** How strict is level 5: the same connectivity per net with length within a tolerance, or the same segments within a tolerance?
 - **Default written here.** Connectivity per net, via counts per layer pair, and length per layer within a tolerance. Exact geometry stays level 7.

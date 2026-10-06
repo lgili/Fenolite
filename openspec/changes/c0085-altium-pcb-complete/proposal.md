@@ -39,7 +39,7 @@ None.
 - KiCad's importer on the written document, for the kinds it reads: `ORACLE-VERIFIED(kicad-cli 10.0.x)` for those kinds only, as c0038 did for copper.
 - That Altium opens the document without a repair prompt and shows each item: `INFERRED` until Part X is reported; then `ALTIUM-VERIFIED(author-report; …)`. The kit of c0091 repeats it.
 
-## Open decision for the maintainer
+## Decision of the maintainer (2026-10-06): unpoured, as written below
 
 - **Question.** Polygons: written unpoured with a repour step in Altium, or written with Fenolite's own fills?
 - **Default written here.** Unpoured, always; the build reports `altium.zones-unpoured` and the kit has a "Repour all" step.

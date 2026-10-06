@@ -353,10 +353,10 @@ written, and the kit is named and not defined.
 | c0088 | `altium-light-drc` | `copper.clearance` and `parity` on Altium documents, an Altium parity adapter, a copper guard in the Altium build | proposed | c0029, c0072, c0044, c0084 | 5 |
 | c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | proposed | c0045, c0029 | 4.25 |
 | c0090 | `altium-roundtrip-write` | a model with a board written as Altium documents; RT-A2 on footprints and copper; the level RT-A3 over the corpus; the first round-trip notes in the claims | proposed | c0083–c0086, c0089 | 7 |
-| c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | proposed | c0084–c0090 | 6.25 |
+| c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium by checklist and by the kit's own script, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | proposed | c0084–c0090 | 7.25 |
 | c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.4 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
 
-- **Total:** 64.75 design-days (sizes, not time).
+- **Total:** 65.75 design-days (sizes, not time).
 - **Order:** c0083 first; it depends on nothing of v0.4 and repairs a read defect, so it can ship
   before the rest. Then c0084, c0085, c0086, c0087 and c0089 in parallel. c0088 after c0084. c0090
   after c0084, c0085, c0086 and c0089. c0091 can be written at any time; its first real run needs
@@ -371,6 +371,7 @@ written, and the kit is named and not defined.
   (channel naming formats) and for c0088; and the kit run of c0091 on his machine, which c0092 records.
 
 **v0.4 acceptance (a proposal; the project plan's text for this milestone is not in these pages).**
+Approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes.
 
 1. A project built for both targets is the same design: `equivalent` at level 5 between the KiCad
    board and the Altium documents, and between the KiCad board and KiCad's import of those documents
@@ -553,13 +554,17 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | pending. Recommended: as proposed |
 | 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | pending. Recommended: as proposed |
 | 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | pending. Recommended: as proposed |
-| 21 | v0.4: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 are free | this page; `openspec/README.md` | pending. Recommended: keep the block and the ten changes; the alternative is eight, with c0087 folded into c0085 and c0086, and c0092 into c0091 |
-| 22 | v0.4: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`; no script runs inside Altium | proposal and design of c0091 | pending. Recommended: as proposed; an authored script can be added as one requirement |
-| 23 | v0.4: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | pending. Recommended: as proposed |
-| 24 | v0.4: c0083 (repeated sheets in the import) is inside v0.4, first and independent, or a v0.3 follow-up released earlier | proposal of c0083 | pending. Recommended: inside v0.4; moving it is an edit of two table rows |
-| 25 | v0.4: level 5 of `equivalent` compares connectivity, vias and length per net; exact geometry stays level 7 | proposal of c0089 | pending. Recommended: as proposed; a strict mode can be added as one requirement |
-| 26 | v0.4: variants stay in v0.5b | proposal of c0086 | pending. Recommended: as the roadmap has them |
-| 27 | v0.4: the acceptance block above is a proposal derived from the roadmap's bullets | this page; design of c0092 | pending |
+| 21 | v0.4: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 are free | this page; `openspec/README.md` | ten, by the start of implementation on 2026-10-06 |
+| 22 | v0.4: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`, and may hold a script that runs inside Altium | proposal and design of c0091 | decided by the maintainer on 2026-10-06: checklist plus script. The script is authored for Fenolite from Altium's public scripting documentation, the user starts it from inside Altium, and the checklist works alone |
+| 23 | v0.4: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | decided by the maintainer on 2026-10-06: as proposed |
+| 24 | v0.4: c0083 (repeated sheets in the import) is inside v0.4, first and independent, or a v0.3 follow-up released earlier | proposal of c0083 | decided by the maintainer on 2026-10-06: inside v0.4 |
+| 25 | v0.4: level 5 of `equivalent` compares connectivity, vias and length per net; exact geometry stays level 7 | proposal of c0089 | decided by the maintainer on 2026-10-06: as proposed |
+| 26 | v0.4: variants stay in v0.5b | proposal of c0086 | decided by the maintainer on 2026-10-06: v0.5b |
+| 27 | v0.4: the acceptance block above is a proposal derived from the roadmap's bullets | this page; design of c0092 | approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes (a task of c0092) |
+| 28 | v0.4: `fenolite check` on Altium input runs `copper.clearance` and `parity` by default, so it can exit 5 where it exited 0 | design of c0088 | decided by the maintainer on 2026-10-06: on by default; the changelog states it as a change of behaviour |
+| 29 | v0.4: one kit run on one Altium version is enough for a write kind to leave `experimental`, the version named wherever the level is shown | design of c0092 | decided by the maintainer on 2026-10-06: yes |
+| 30 | v0.4: the archive of a kit run is published as a release asset; the repository holds only its digest and size | design of c0091 | decided by the maintainer on 2026-10-06: yes |
+| 31 | v0.4: an Altium build draws each symbol from its own graphics by default (`--altium-symbols graphics`); `generic` keeps the rectangles. The four samples his author reports covered are regenerated, their rectangle form is kept as golden copies, and the graphics form is not Altium-verified until Part Y | proposal and design of c0086 | decided by the maintainer on 2026-10-06: `graphics` is the default; the changelog states it as a change of the default output |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).

@@ -40,7 +40,7 @@ None.
 - KiCad's importer on the written sheets and libraries, for what it reads (graphics, hierarchy, buses): `ORACLE-VERIFIED(kicad-cli 10.0.x)` for those facts.
 - That Altium opens, compiles and runs the change order without a message: `INFERRED` until Part Y is reported.
 
-## Open decision for the maintainer
+## Decision of the maintainer (2026-10-06): v0.5b, as written below
 
 - **Question.** Variants: in v0.4 with the schematic writer, or in v0.5b as the roadmap has them?
 - **Default written here.** v0.5b. This change writes no variant and the project file lists none.

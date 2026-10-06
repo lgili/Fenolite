@@ -260,7 +260,7 @@ judges the sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test
 - Every set exits 5: `model.validate` reports `model.*` error findings of the PCB reading on each of
   them (`model.body-height` on the four sets without a heavy row, and `model.duplicate-ref` on
   `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
-  reference is counted twelve times, which is a finding about the validation rule, not about channels), which the check passes on unchanged. The container stages pass on every set: no
+  reference is counted twelve times, which is a finding about the validation rule, not about channels; it waits for the follow-up that gives a component without a reference a finding of its own), which the check passes on unchanged. The container stages pass on every set: no
   `check.rta0-failed` and no `check.rta1-failed`.
 - `altium-set:02` shows 2 differing elements, 13 elements that only the schematic covers and 37 that
   only the PCB document covers (measured on 2026-10-06, change c0083). Until then the row read 508

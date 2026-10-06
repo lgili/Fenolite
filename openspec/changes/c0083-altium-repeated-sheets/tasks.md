@@ -14,6 +14,7 @@
 
 - [ ] 2.1 Write `read/annotation.py` and return the file from `load_project` (scenario "Authored annotation file"). Proof: `uv run pytest tests/unit/backends/altium/read/test_annotation.py tests/unit/backends/altium/read`.
   - 2026-10-06: waits. No public annotation file is in the corpus, and no public source describes its form well enough to write a reader clean-room. Needed from the maintainer: consent to add one corpus row for the annotation file that the project of `altium-set:02` lists (same repository and commit as S-0188), so that its form can be recorded from a public file.
+  - 2026-10-06, later: the maintainer consented and the coordinator fetched it. The file is empty upstream: HTTP 200, 0 bytes, SHA-256 `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` (the digest of no bytes), at `https://raw.githubusercontent.com/raphaelchang/battman-hardware/db5ae48d09e9ec9523387e2190fd14671a0646ca/BMS/Battman.Annotation`. It shows nothing of the form, so no corpus row is added. The task stays open: the form of a non-empty annotation file is `UNKNOWN` until a public file or the maintainer's Part R (step R4) shows one. What holds meanwhile: an absent or empty annotation file changes nothing in the import.
 
 ## 3. Channels
 

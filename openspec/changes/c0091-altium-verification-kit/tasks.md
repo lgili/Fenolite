@@ -10,6 +10,7 @@
 
 - [ ] 2.1 Author the five sample scripts under `examples/kit/` and write `manifest.py` (scenarios of "Verification kit contents"). Proof: `uv run pytest tests/unit/verify/kit/test_manifest.py tests/residue`; `uv run pyright src`.
 - [ ] 2.2 Write `steps.py` with the groups K1 to K9 and the generated `STEPS.md` (scenario "Steps and register agree"); set the settling test of `H-A-WRITE-*` and `H-A-PH-*` to their steps. Proof: `uv run pytest tests/unit/verify/kit/test_steps.py tests/unit/test_hypotheses_register.py`.
+- [ ] 2.3 Register the pages of Altium's public scripting documentation that the script relies on (one source row per page, read for facts), list every call with its source in `SCRIPT_CALLS` and in `docs/altium-kit.md`, then write `script.py` and mark the steps it performs `scripted` (scenarios of "Kit script"). A call without a public page is not used and its step stays manual; say which under this task. Proof: `uv run pytest tests/unit/verify/kit/test_script.py tests/unit/verify/kit/test_steps.py tests/unit/test_provenance.py`.
 
 ## 3. Kit verify
 

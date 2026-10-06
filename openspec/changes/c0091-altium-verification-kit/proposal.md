@@ -7,13 +7,14 @@ So today no Altium write can ever leave `experimental`, whatever the maintainer 
 ## What Changes
 
 - **The kit**: a folder that `fenolite kit build` writes, with sample projects built from committed scripts, a manifest of every file's SHA-256, a numbered checklist, and a result form. It is the same for everyone and reproducible byte for byte.
-- **The run**: the user performs the steps in Altium. Each step either ends in a file that Altium writes into `results/` (a document saved under a given name, an exported report) or in a value typed into the form.
+- **The script**: one file of the kit that the user opens and runs from inside Altium. It performs the steps that need no judgement (open, compile, save under the result names, export the reports, repour, generate the output job) and writes the same result files that the checklist asks for, plus a log. It is written from Altium's public scripting documentation; nothing is copied.
+- **The run**: the user performs the steps in Altium, by hand or by starting the script; steps the script cannot do stay in the checklist. Each step either ends in a file that Altium writes into `results/` (a document saved under a given name, an exported report) or in a value typed into the form.
 - **Machine checks**: `fenolite kit verify DIR` reads the results. The documents that Altium re-saved are read with Fenolite's readers and compared with the model each sample was built from (`equivalent` levels 1 to 5 and the parity and copper checks); the form is checked for completeness; the kit's own files are checked against the manifest.
 - **The record**: `fenolite kit record DIR` writes a small result record into the repository (`docs/evidence/altium-kit/<run>.json`: tool version, date, kit digest, outcome per step, verdict per hypothesis, digests of the archived files) and prints the register rows to update. The archive of `results/` is kept outside the repository and named by its digest.
 - **The label rule**: when a row becomes `ALTIUM-VERIFIED(kit; …)`, and what a run can and cannot prove.
 - **The eight waiting rows** (`H-A-WRITE-*`, `H-A-PH-*`) get kit steps, so the reserved families can be closed.
 
-Size: 6.25 design-days (a size, not time); cut order in the design.
+Size: 7.25 design-days (a size, not time); cut order in the design.
 
 ## Capabilities
 
@@ -21,13 +22,14 @@ Size: 6.25 design-days (a size, not time); cut order in the design.
 None.
 
 ### Modified Capabilities
-- `altium-verification`: ADDED "Verification kit contents", "Kit steps settle hypotheses", "Kit result verification", "Kit run record".
+- `altium-verification`: ADDED "Verification kit contents", "Kit steps settle hypotheses", "Kit script", "Kit result verification", "Kit run record".
 - `verification-evidence`: ADDED "Kit label rows"; "Reserved id families" loses the two Altium families once their rows are settled.
 - `cli-contract`: ADDED "Kit command".
 
 ## Non-goals
 
-- No script, extension or automation that runs inside Altium, and no driving of Altium's user interface (see the open decision).
+- Nothing starts or drives Altium from outside: no automation from Fenolite's process, no CI job, no extension that Altium loads by itself. The script runs only when the user starts it from Altium's own script menu.
+- No script code taken from any example project, forum or vendor sample: only the names and signatures that the public scripting documentation gives.
 - No Altium file of any third party in the kit: every sample is built by Fenolite from a script in this repository.
 - No check of what a person saw without a file: a typed value is recorded as typed and can settle only the rows whose criterion is a typed value; such rows are marked `form` in the record.
 - No upload: Fenolite writes local files; where the archive is published is the maintainer's choice.
@@ -40,12 +42,11 @@ None.
 - A register row becomes `ALTIUM-VERIFIED(kit; AD <version>; <date>; <run id>)` only through a recorded run whose steps for that row passed and whose machine checks passed.
 - A run proves the samples on one Altium version on one machine. The label carries the version; c0092 decides what that is enough for.
 
-## Open decision for the maintainer
+## Decision of the maintainer (2026-10-06)
 
-- **Question.** May the kit contain a script that runs inside Altium (to open, compile, export and save without clicks), or is it a checklist plus exported files only?
-- **Default written here.** Checklist plus exported files only. The user clicks; Altium writes the result files with its own menus.
-- **Alternative.** An authored script (written for Fenolite from Altium's public scripting documentation, nothing copied) that performs the same steps and writes the same result files.
-- **To switch.** Add the requirement "Kit script" to this change's `altium-verification` delta (the script is one more kit file with its digest in the manifest; the steps it automates are marked `scripted` in the record; the result files and `kit verify` do not change) and one task with its own source rows. The label rule does not change, because the evidence is the result files either way.
+- **Question.** May the kit contain a script that runs inside Altium, or is it a checklist plus exported files only?
+- **Decided.** Checklist plus script. The kit holds a script, authored for Fenolite, that the user starts from inside Altium and that opens, compiles, exports and saves without clicks. The checklist stays complete and works alone, because the script depends on the Altium version.
+- **What that changes here.** The requirement "Kit script", one task, one source row per page of Altium's public scripting documentation that the script relies on, and the mark `scripted` in the run record. The result files, `kit verify` and the label rule do not change: the evidence is the files either way.
 
 ## Impact
 

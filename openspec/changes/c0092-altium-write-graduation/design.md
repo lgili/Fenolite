@@ -77,5 +77,5 @@ Total: 3.25. This is a size, not a calendar estimate.
 
 ## Open Questions
 
-- **Is one kit run on one Altium version enough to graduate a kind?** Default: yes, with the version named everywhere the level is shown.
+- **Is one kit run on one Altium version enough to graduate a kind?** Decided by the maintainer on 2026-10-06: yes, with the version named everywhere the level is shown.
 - **Should the release notes of v0.4 call the Altium target stable?** Default: no: "write kinds verified with AD <version>; see the written scope".

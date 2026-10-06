@@ -34,10 +34,10 @@ The proposal said that the import reads a repeated sheet once. That is true only
 
 Consequences for this change:
 
-- **Decision 2, source 3 comes before source 2 in the code**, because the corpus holds a project file with a format and no annotation file. The set's project lists an annotation file that is not a row of the corpus manifest: reading it needs a new corpus row, which needs the maintainer's consent to a download. Task 2.1 waits for that.
+- **Decision 2, source 3 comes before source 2 in the code**, because the corpus holds a project file with a format and no annotation file. The set's project lists an annotation file that is not a row of the corpus manifest: reading it needs a new corpus row, which needs the maintainer's consent to a download. Task 2.1 waits for that. (Later on 2026-10-06: with the maintainer's consent the file was fetched; it is empty at that commit, 0 bytes, so it teaches nothing and gets no corpus row. The form of a non-empty annotation file stays `UNKNOWN`; Part R, step R4, is now the only planned source.)
 - **`altium.import.channels` (info)** is reported for a sheet named by several symbols; **`altium.import.repeated-sheet`** stays for `Repeat(…)`, which is still read as one instance until task 3.1.
 - **No corpus project uses `Repeat(…)`**, so tasks 3.1 and 3.3 rest on authored sheets and on S-0452 only; they stay `INFERRED` until Part R.
-- **`model.duplicate-ref` on the set does not come from channels**: its PCB document holds twelve components without a designator, and `model.validate` counts the empty reference twelve times. The scenario "Designators from the board" therefore asks that no non-empty reference is held twice. Whether an empty reference should count as a duplicate is a question for the model's validation, outside this change.
+- **`model.duplicate-ref` on the set does not come from channels**: its PCB document holds twelve components without a designator, and `model.validate` counts the empty reference twelve times. The scenario "Designators from the board" therefore asks that no non-empty reference is held twice. Whether an empty reference should count as a duplicate is a question for the model's validation, outside this change. Decided by the maintainer on 2026-10-06: a component without a reference gets a finding of its own (a warning, one per component) and no longer counts as `model.duplicate-ref`; that is the follow-up change c0095 on `dev` after the 0.2.0 release. Until it lands, `altium-set:02` keeps one `model.duplicate-ref`.
 
 ## Files and public API
 

@@ -26,12 +26,14 @@
 6. **What a file proves, and what a form proves.** A hypothesis whose steps all end in files that passed is `kit`. One with a typed step is `kit` too, but its record line says `form`, and the row's result text says which fact was typed. Rejected: making typed steps author reports, because then no row about what Altium displays could ever be release-verified; the form is part of an archived run with the files that corroborate it.
 7. **The record.** `fenolite kit record DIR --confirm` (a mutating command, dry run first) writes `docs/evidence/altium-kit/<run id>.json` with schema `fenolite.altium-kit-run.v0`: run id (`<date>-<first 8 hex of the archive digest>`), kit digest, Fenolite version, Altium version, operating system family, per step `pass`/`fail`/`skipped` and `file` or `form`, per hypothesis the verdict, and the SHA-256 and size of every file of `results/` and of the archive `results.zip` it writes beside `DIR`. No path, no user name. It prints the register rows whose label may change.
 8. **Label rule.** A row may be set to `ALTIUM-VERIFIED(kit; AD <major>.<minor>; <date>; <run id>)` when a committed run record holds a passing verdict for it, the kit digest of that run is the digest of the kit that the current tree builds for the samples that the row's steps use, and the record's archive digest is published in the row's result text. A row keeps `kit` only while that holds: a change to a writer that changes a sample's bytes makes the run stale for the rows of that sample, and `tests/unit/test_hypotheses_register.py` fails until a new run is recorded or the row goes back to `INFERRED`.
-9. **Cut order.** First the privacy scan's heuristics beyond home folders, then group K9, never build, verify, record and the label rule.
+9. **Kit script (decided by the maintainer on 2026-10-06).** The kit holds one script file with its digest in `kit.json`. The user opens the kit's script project in Altium and runs one procedure; for each sample it opens the project, compiles it, saves each document under its result name, exports the messages and the reports, repours the polygons of `routed`, and generates the output job's containers, writing `results/script.log` with one line per step (`K<group>.<n> done` or the error text). Rules: (a) every step the script does is also a checklist step with a manual instruction, and a run without the script is complete; (b) the script writes nothing outside `results/`; (c) each call it makes is listed in `docs/altium-kit.md` with the page of Altium's public scripting documentation that documents it, and task 2.3 registers those pages as sources before the script is written; (d) the language is the one that documentation describes for scripts run from the editor (DelphiScript unless task 2.3 finds that another is the documented default); (e) steps that need a person (reading a dialog, comparing a picture) are never scripted; (f) a step done by the script is marked `scripted` in the run record, with the script's digest. A call that the documentation does not cover is not used, and its step stays manual.
+10. **Cut order.** First the privacy scan's heuristics beyond home folders, then group K9, then the script's export of reports (the saves stay), never build, verify, record and the label rule.
 
 ## Files and public API
 
 - `src/fenolite/verify/kit/manifest.py`: `KIT_SCHEMA`, `Kit`, `build_kit(out, *, seed, timestamp) -> Kit`, `kit_digest`.
-- `src/fenolite/verify/kit/steps.py`: `Step`, `STEPS` (the closed list), `steps_markdown()`.
+- `src/fenolite/verify/kit/steps.py`: `Step` (with `scripted: bool`), `STEPS` (the closed list), `steps_markdown()`.
+- `src/fenolite/verify/kit/script.py`: `script_text(steps) -> str` (the kit script, generated from the steps so that the two cannot differ), `SCRIPT_CALLS` (each call with its source id).
 - `src/fenolite/verify/kit/results.py`: `verify_results(folder) -> KitVerdict`, `privacy_scan`.
 - `src/fenolite/verify/kit/record.py`: `RUN_SCHEMA`, `run_record(verdict, …)`, `stale_rows(register, records, kit)`.
 - `src/fenolite/cli/cmd_kit.py`: `kit build`, `kit verify`, `kit record`, `kit status`.
@@ -41,6 +43,7 @@
 
 - Altium's public documentation of the menus the steps name (saving a document, compiling a project, the Messages panel, Update PCB Document, the PCB Rules editor and the rule check report, the Layer Stack Manager, the Polygon Manager, output jobs, sheet templates, Update From Libraries): the rows that c0032 to c0038 registered (S-0134 to S-0141, S-0164, S-0165, S-0195 to S-0198) and those of c0084 to c0087.
 - No file format fact is added.
+- New, for the script: the pages of Altium's public scripting documentation (the scripting system, running a script from the editor, and the reference pages of each interface the script calls), registered by task 2.3.
 
 Each new source gets the next free `S-` number in `docs/evidence/sources.md` when its task runs (numbers are not reserved here, because changes that run in parallel would collide), with its licence and what was read. Sources under a copyleft or an all-rights-reserved licence are read for facts only; nothing is transcribed.
 
@@ -52,6 +55,7 @@ Each new source gets the next free `S-` number in `docs/evidence/sources.md` whe
 | H-A-KIT-COMPILE | Each sample project compiles in Altium without an error message, and the change order into an empty board lists the components and nets of the model | kit groups K2 and K3 | `messages.txt` holds no error line; the re-saved board after the change order equals the sample's model at levels 1 and 2 |
 | H-A-KIT-REPOUR | After "Repour All" and a save, the board's polygons hold poured regions and Fenolite's copper check reports no short and no clearance violation on them | kit group K6 | every polygon of the re-saved `routed` board is poured; `copper.clearance` reports nothing |
 | H-A-KIT-DRC | Altium's rule check on the sample with two planted violations reports those two and no other of the kinds Fenolite judges | kit group K4 | the archived report lists two violations; the form's two counts are 1 and 1 |
+| H-A-KIT-SCRIPT | The kit script, run from Altium's script menu on the kit's samples, performs every step marked `scripted` and writes the result files that the manual steps would leave | a kit run with the script, checked by `kit verify` | `script.log` holds `done` for every scripted step, and `kit verify` passes on the files the script wrote |
 | H-A-KIT-STABLE | Two builds of the kit on two machines give the same `kit.json` digest | `tests/unit/verify/kit/test_manifest.py::test_deterministic` and CI on three operating systems | equal digests in the `unit` jobs of Linux, macOS and Windows |
 
 All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06).
@@ -63,12 +67,13 @@ All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another activ
 | entry, registers, kit page skeleton | 0.5 |
 | kit build: samples, manifest, steps | 1.5 |
 | kit verify: files, form, re-saved documents, privacy scan | 1.75 |
+| kit script: sources, generated script, its tests | 1 |
 | kit record and the stale-row guard | 1 |
 | label rule in the register tests | 0.5 |
 | command, docs, simulated run | 0.75 |
 | closing | 0.25 |
 
-Total: 6.25. This is a size, not a calendar estimate.
+Total: 7.25. This is a size, not a calendar estimate.
 
 ## Spec deltas and archive order
 
@@ -80,6 +85,8 @@ Total: 6.25. This is a size, not a calendar estimate.
 
 - [A re-saved document differs from the model in fields Altium normalises] → the kit profile lists each such field with its cause, as the triangle's exclusion list does; a field without a cause fails the step.
 - [Altium versions differ] → the record names the version; the label carries it; a second version is a second run.
+- [The script fails on another Altium version] → the checklist is complete without it; `script.log` names the failing step, and that step is then done by hand in the same run.
+- [A scripting call is not publicly documented] → not used; the step stays manual, and `docs/altium-kit.md` says so.
 - [Personal data in saved files] → the privacy scan, the record without paths, and the archive kept out of the repository; `docs/altium-kit.md` tells the user what a saved file may contain.
 - [A run goes stale quickly while writers change] → the guard names the stale rows; the kit is run at the end of the milestone (c0092), not after every change.
 
@@ -90,6 +97,6 @@ Total: 6.25. This is a size, not a calendar estimate.
 
 ## Open Questions
 
-- **Where is the archive published?** Default: as an asset of the GitHub release that the run supports, named `altium-kit-<run id>.zip`; the record holds only its digest and size.
+- **Where is the archive published?** Decided by the maintainer on 2026-10-06: as an asset of the GitHub release that the run supports, named `altium-kit-<run id>.zip`; the record holds only its digest and size.
 - **May someone other than the maintainer contribute a run?** Default: yes, by a pull request that adds a run record and names where the archive is; the label rule is the same.
 - **Should the kit include the ASCII schematic form for every sample?** Default: only for `flat`.
