@@ -1251,7 +1251,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | `netclass` | one class per name with its nets | `name` | `netclass`: a name that no record holds |
 | `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written. The lines and arcs of a footprint are no part of the model: `record:footprint-graphics` |
 | `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers | `number`, `net_id`, `position`, `size` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
-| `track`, `arc` | on a signal layer of the stack, with its net | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width, three points on a line |
+| `track`, `arc` | on a signal layer of the stack, with its net; an arc that was read from an Altium document with the centre, radius and angles of its record (c0127) | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width; an arc of three points on a line that holds no record of its own |
 | `via` | through, blind and buried, with its net | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter |
 | `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
 | text, graphic, keep-out, hole | as `fenolite build` writes them (c0085) | not compared | `text`, `graphic`, `keep-out`, `hole`: a layer without a layer in the document, an item that the record cannot hold |
@@ -1288,9 +1288,18 @@ they write the model as it is. Run `fenolite check` on the written documents.
 - A rewritten board has no silkscreen of its footprints, and a build does not go through this write:
   a footprint of the model holds no graphics, no corner ratio and no library. Change c0126 puts them
   into the model.
-- The 2 nm of the scope do not hold for the points of an arc: an arc record holds a centre, a radius
-  and two angles, and the model three points. Change c0127 keeps the record's own values for an arc
-  that was read.
+- RT-A3 holds on the eight public PCB documents since change c0127, and `H-A-VER-RTA3` is
+  `CORPUS-VERIFIED`. That level means: Fenolite reads its own rewrite of a public Altium PCB document
+  back to an equal model inside the written scope, and KiCad's importer reads the rewrite as Fenolite
+  does at the levels 1 to 5 of `equivalent`. It says nothing about Altium opening a written file,
+  which stays `INFERRED` until the kit run (c0091, c0092); the write stays experimental. The scope
+  leaves out the graphics of footprints (until c0126), component bodies (until c0121) and the items
+  that `unwritten` counts per kind (`docs/evidence/altium-roundtrip.md`, "RT-A3").
+- Closed by change c0127: the 2 nm of the scope did not hold for the points of an arc, because an arc
+  record holds a centre, a radius and two angles, and the model three points. An arc that was read
+  now keeps the record's own values in its `altium` bag (the pair `arc`), and the write uses them
+  while they still give the arc's three points within 2 nm. An arc that was moved in the model, and
+  an arc of a script or of a KiCad board, is derived from its three points as before.
 - A via whose drill equals its diameter is not written. Change c0128 relaxes that for the rewrite of
   a document that was read; a build from a script keeps refusing such a via.
 - The schematic of a rewrite is written only when the build's schematic writer takes the circuit. A

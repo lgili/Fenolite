@@ -94,6 +94,29 @@ def test_arc_on_copper_keeps_three_points() -> None:
     assert GeometryArc(arc.start, arc.mid, arc.end).radius2 is not None
 
 
+def test_arc_record_is_kept_in_the_bag() -> None:
+    """Scenario "Arc record kept" (change c0127): an ``Arc`` and an ``arc`` graphic hold the record's own
+    centre, radius and angles; a full circle holds none, and the pair enters no id."""
+    centre = (1_000_000, 2_000_000)
+    kept = "1000000,2000000,100,0x1.e000000000000p+4,0x1.1800000000000p+5"
+    board = board_of(
+        nets=["A"],
+        arcs=[
+            rec.arc(centre, 100, 30.0, 35.0, net=0),
+            rec.arc(centre, 100, 30.0, 35.0, layer=57),
+            rec.arc(centre, 100, 0.0, 360.0, layer=57),
+        ],
+    )
+    (arc,) = board.arcs
+    drawn, circle = free(board)
+    assert pairs(arc)["arc"] == kept and pairs(drawn)["arc"] == kept
+    assert (drawn.kind, circle.kind) == ("arc", "circle")  # type: ignore[attr-defined]
+    assert "arc" not in pairs(circle)
+    assert [key for key, _ in arc.ext["altium"].payload] == ["arc"]
+    other = board_of(nets=["A"], arcs=[rec.arc(centre, 100, 30.0, 35.0, net=0)])
+    assert other.arcs[0].id == arc.id
+
+
 def test_full_circle_on_copper_is_a_circle_graphic_with_its_net() -> None:
     board = board_of(nets=["A"], arcs=[rec.arc((0, 0), 100 * MIL, 0.0, 360.0, net=0)])
     assert board.arcs == ()
@@ -459,7 +482,9 @@ def test_free_graphics_off_copper() -> None:
     assert found[3].points == (Point(0, 0), Point(2_540_000, -1_270_000))  # type: ignore[attr-defined]
     turned = found[4].points  # type: ignore[attr-defined]
     assert {abs(turned[0].x - turned[1].x), abs(turned[0].y - turned[1].y)} == {1_270_000, 2_540_000}
-    assert len(found[5].points) == 4 and all(not pairs(g) for g in found)  # type: ignore[attr-defined]
+    assert len(found[5].points) == 4  # type: ignore[attr-defined]
+    # Only the arc holds a pair: the record it was read from (change c0127).
+    assert [sorted(pairs(g)) for g in found] == [[], ["arc"], [], [], [], [], []]
 
 
 def test_copper_region_with_a_net() -> None:

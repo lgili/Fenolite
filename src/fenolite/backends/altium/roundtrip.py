@@ -95,9 +95,12 @@ proves consistency, not that Altium reads the files."""
 RT_A3_SCOPE = RT_A2_SCOPE
 """The scope of RT-A3 is the written scope of the writers (``AltiumBackend.written_scope()``): what a
 write carries of a model is compared, whatever the model was read from."""
-EVIDENCE_RT_A3 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA3",))
-"""The evidence of an RT-A3 verdict: Fenolite reads what Fenolite wrote, so the level says that the write
-and the import agree on the model, not that Altium reads the documents."""
+EVIDENCE_RT_A3 = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-A-VER-RTA3",))
+"""The evidence of an RT-A3 verdict, at the level of its row: since change c0127 every listed public PCB
+document is equal inside the written scope. Fenolite reads what Fenolite wrote, so the level says that
+the write and the import agree on the model of a public document, not that Altium reads the documents.
+``rta3.rt_a3`` combines it with the import's evidence, which is ``INFERRED``, so a verdict and a stage
+stay ``INFERRED``."""
 RECORD_PREFIX = "record:"
 """In ``ModelRoundTrip.unwritten`` of RT-A3, a key with this prefix counts records of the first reading
 that gave no model entity (the import's census, by its category); a key without it counts model items."""

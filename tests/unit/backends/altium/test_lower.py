@@ -9,17 +9,21 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
+import _altium_records as rec
 import pytest
 from _altium_built import EXAMPLES, build_altium_example
 
-from fenolite.backends.altium import lower
+from fenolite.backends.altium import lower, pcbdoc, pcbrecords
+from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import ArcRecord
 from fenolite.backends.altium.roundtrip import RT_A2_SCOPE
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.checks.diff import diff_designs
 from fenolite.checks.equivalence import compare_designs
 from fenolite.checks.equivalence.model import Tolerances
+from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.lens import altium_copper
 from fenolite.lens.altium import corner_ratios, write_model
@@ -237,3 +241,175 @@ def test_circuit_items_of_repeated_sheets_are_counted() -> None:
     found = {i.where: i.severity for i in issues if i.where in ("pin-pad-map", "module")}
     assert found == {"pin-pad-map": "info", "module": "info"}
     assert not {"pin-pad-map", "module", "channel"} & lower.LOSS_KINDS
+
+
+# --- arcs keep their record (change c0127) ---------------------------------------------------------------
+
+CENTRE = (1_000_000, 2_000_000)
+"""Authored arcs of 100 units radius (0.254 µm): from 30 to 35 degrees the three points give a record
+with another centre and a radius of 93 units, and from 0 to 1 degree they lie on one line."""
+
+
+def _with_arcs() -> Design:
+    """The reading of the routed sample with three authored arc records read into it: two on copper and
+    one on the bottom overlay."""
+    records = [
+        rec.arc(CENTRE, 100, 30.0, 35.0),
+        rec.arc(CENTRE, 100, 0.0, 1.0),
+        rec.arc(CENTRE, 100, 30.0, 35.0, layer=34),
+    ]
+    authored = import_board(rec.document(rec.board((1, 32)), arcs=records), file="a.PcbDoc", sha256=rec.SHA)
+    assert authored.board is not None
+    (drawn,) = [g for g in authored.board.graphics if g.kind == "arc"]
+    first = _read(SAMPLES / "routed" / "routed.PcbDoc")
+    assert first.board is not None
+    board = dataclasses.replace(
+        first.board, arcs=authored.board.arcs, graphics=(*first.board.graphics, drawn)
+    )
+    return dataclasses.replace(first, board=board)
+
+
+def _arc_records(data: bytes) -> list[tuple[int, int, int, float, float]]:
+    """The free arc records of a PCB document (those of no component), sorted."""
+    arcs = [a for a in read_pcbdoc(data, file="routed.PcbDoc").arcs if isinstance(a, ArcRecord)]
+    free = [a for a in arcs if a.prefix.component is None]
+    return sorted((a.cx, a.cy, a.radius, a.start_angle, a.end_angle) for a in free)
+
+
+def test_kept_arc_is_written_from_its_record(tmp_path: Path) -> None:
+    """Scenario "Arc written from its record": an arc that was read is written with the centre, radius
+    and angles of its record, also when its three points lie on one line, and the second reading holds
+    the points of the first. Derived from the points, the first arc would get another centre."""
+    first = _with_arcs()
+    board = first.board
+    assert board is not None and len(board.arcs) == 2
+    bent, flat = board.arcs
+    (drawn,) = [g for g in board.graphics if g.kind == "arc"]
+    derived = rec_geometry(bent.start, bent.mid, bent.end)
+    assert (derived.cx, derived.cy, derived.radius) == (1_000_163, 2_000_103, 93)
+    with pytest.raises(ValueError, match="collinear"):
+        rec_geometry(flat.start, flat.mid, flat.end)
+    written = AltiumBackend().write(first)
+    spec = written.inputs.pcb
+    assert spec is not None and set(spec.arc_records) == {bent.id, flat.id, drawn.id}
+    assert written.inputs.written["arc"] == 2 and "arc" not in written.inputs.not_lowered
+    assert _arc_records(written.files["routed.PcbDoc"]) == [
+        (*CENTRE, 100, 0.0, 1.0),
+        (*CENTRE, 100, 30.0, 35.0),
+        (*CENTRE, 100, 30.0, 35.0),
+    ]
+    second = _reading_of(written, tmp_path)
+    assert second.board is not None
+    assert {(a.start, a.mid, a.end) for a in second.board.arcs} == {
+        (a.start, a.mid, a.end) for a in board.arcs
+    }
+    assert diff_designs(first, second, scope=RT_A2_SCOPE).changes == ()
+    assert [g.points for g in second.board.graphics if g.kind == "arc"] == [drawn.points]
+
+
+def rec_geometry(start: Point, mid: Point, end: Point) -> pcbrecords.ArcGeometry:
+    """The record that the writer derives from three points of a board read from a document."""
+    frame = pcbdoc.Frame.document()
+    return pcbrecords.arc_from_points(frame(start), frame(mid), frame(end))
+
+
+def test_stale_arc_record_is_ignored() -> None:
+    """Scenario "Stale record ignored": an arc that was moved in the model keeps its bag, which no longer
+    says its points; it is written from its points, without an issue. Within the tolerance of the written
+    scope the record is still used."""
+    first = _with_arcs()
+    board = first.board
+    assert board is not None
+    bent, flat = board.arcs
+
+    def shifted(by: int) -> Design:
+        moved = dataclasses.replace(
+            bent,
+            start=Point(bent.start.x + by, bent.start.y),
+            mid=Point(bent.mid.x + by, bent.mid.y),
+            end=Point(bent.end.x + by, bent.end.y),
+        )
+        return dataclasses.replace(first, board=dataclasses.replace(board, arcs=(moved, flat)))
+
+    issues: list[Issue] = []
+    inputs = lower.from_design(shifted(1_000), issues=issues)
+    assert inputs.pcb is not None and bent.id not in inputs.pcb.arc_records
+    assert flat.id in inputs.pcb.arc_records and inputs.written["arc"] == 2
+    assert not [i for i in issues if i.where == "arc"]
+    data = pcbdoc.write_pcbdoc(inputs.pcb, filename="routed.PcbDoc")
+    want = rec_geometry(Point(bent.start.x + 1_000, bent.start.y), Point(bent.mid.x + 1_000, bent.mid.y),
+                        Point(bent.end.x + 1_000, bent.end.y))  # fmt: skip
+    assert (want.cx, want.cy, want.radius, want.start, want.end) in _arc_records(data)
+    assert _arc_records(data).count((*CENTRE, 100, 30.0, 35.0)) == 1  # the graphic, which was not moved
+    near = lower.from_design(shifted(lower.ARC_TOLERANCE), issues=[])
+    far = lower.from_design(shifted(lower.ARC_TOLERANCE + 1), issues=[])
+    assert near.pcb is not None and far.pcb is not None
+    assert bent.id in near.pcb.arc_records and bent.id not in far.pcb.arc_records
+    assert lower.ARC_TOLERANCE == RT_A2_SCOPE.length_tolerance
+
+
+@pytest.mark.parametrize(
+    "pair",
+    [
+        None,
+        "",
+        "1000000,2000000,100,0x1.e000000000000p+4",
+        "1000000,2000000,100,30,35,0",
+        "1000000,2000000,1e2,0x1.e000000000000p+4,0x1.1800000000000p+5",
+        "1000000,2000000,100,thirty,0x1.1800000000000p+5",
+        "1000000,2000000,0,0x1.e000000000000p+4,0x1.1800000000000p+5",
+        "1000000,2000000,-100,0x1.e000000000000p+4,0x1.1800000000000p+5",
+        "4294967296,2000000,100,0x1.e000000000000p+4,0x1.1800000000000p+5",
+        "1000000,2000000,100,nan,0x1.1800000000000p+5",
+        "1000000,2000000,100,0x1.e000000000000p+4,inf",
+        "1000000,2000000,100,0x1.e000000000000p+4,0x1.e000000000000p+4",
+        "1000000,2000000,100,0x1.1800000000000p+5,0x1.e000000000000p+4",
+        "1000000,2000000,110,0x1.e000000000000p+4,0x1.1800000000000p+5",
+        "1000000,2000100,100,0x1.e000000000000p+4,0x1.1800000000000p+5",
+    ],
+)
+def test_kept_arc_refuses_a_pair_that_does_not_say_the_points(pair: str | None) -> None:
+    """``kept_arc`` gives ``None`` for a missing pair, a pair that does not parse, a radius that is not
+    positive, a value outside 32 bits, an angle that is not finite, a full turn, the other part of the
+    circle, another radius and another centre; and for a board that is written in another frame."""
+    first = _with_arcs()
+    assert first.board is not None
+    bent = first.board.arcs[0]
+    points = (bent.start, bent.mid, bent.end)
+    frame = pcbdoc.Frame.document()
+    kept = lower.kept_arc(bent, points, frame)
+    assert kept == pcbrecords.ArcGeometry(*CENTRE, 100, 30.0, 35.0)
+    assert lower.kept_arc(bent, points, pcbdoc.Frame(0, 0)) is None  # the frame of a build: moved by 1000 mil
+    assert lower.kept_arc(bent, points[:2], frame) is None
+    bag = bent.ext["altium"]
+    payload = tuple(p for p in bag.payload if p[0] != lower.ARC_KEY)
+    if pair is not None:
+        payload += ((lower.ARC_KEY, pair),)
+    changed = dataclasses.replace(
+        bent, ext={"altium": dataclasses.replace(bag, payload=payload)} if payload else {}
+    )
+    assert lower.kept_arc(changed, points, frame) is None
+
+
+def test_a_design_without_the_bag_is_written_as_before() -> None:
+    """An arc with its pair is written with the record of the document it was read from, to the last bit
+    of its angles; with every bag taken away the same arc is derived from its three points, as before
+    change c0127, and its angles are then other doubles. A KiCad board holds no ``altium`` bag at all."""
+    source = SAMPLES / "routed" / "routed.PcbDoc"
+    first = _read(source)
+    assert first.board is not None and first.board.arcs
+    assert all(lower.ARC_KEY in lower.pairs_of(arc) for arc in first.board.arcs)
+    arcs = tuple(dataclasses.replace(arc, ext={}) for arc in first.board.arcs)
+    bare = dataclasses.replace(first, board=dataclasses.replace(first.board, arcs=arcs))
+    with_bag, without = lower.from_design(first, issues=[]), lower.from_design(bare, issues=[])
+    assert with_bag.pcb is not None and without.pcb is not None
+    assert set(with_bag.pcb.arc_records) == {arc.id for arc in first.board.arcs}
+    assert without.pcb.arc_records == {}
+    original = _arc_records(source.read_bytes())
+    kept = _arc_records(pcbdoc.write_pcbdoc(with_bag.pcb))
+    derived = _arc_records(pcbdoc.write_pcbdoc(without.pcb))
+    assert kept == original and derived != original
+    assert [record[:3] for record in derived] == [record[:3] for record in original]
+    kicad = KicadBackend().read(KICAD_ROUTED).design
+    assert kicad.board is not None
+    assert not any("altium" in entity.ext for entity in (*kicad.board.arcs, *kicad.board.graphics))

@@ -40,6 +40,7 @@ EXT_KEYS: tuple[str, ...] = (
     "mask",
     "plated",
     "via_layers",
+    "arc",
     "net",
     "pour_index",
     "hatch_style",

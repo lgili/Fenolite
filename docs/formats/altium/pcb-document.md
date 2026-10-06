@@ -187,6 +187,12 @@ is which values the records get.
   no graphics of a footprint, so none is written. `UNIQUEID` is the unique id that the import kept for
   the footprint, and `SOURCEUNIQUEID` the one it kept for the component, when one component alone
   holds it. A component without a designator or without a comment gets no text record for it.
+- **Arcs** (change c0127). An arc that was read from an arc record is written with the centre, the
+  radius and the two angles of that record, which the import keeps in the pair `arc` of the entity's
+  bag (`import.md`, "Extension-bag keys"), when they still give the entity's three points within
+  2 nm. The record is the one of "Tracks and arcs" in `pcb-copper.md`; only its values differ from
+  the ones a build derives from three points. An arc without the pair, and an arc that was moved in
+  the model, is derived from its points.
 - **Free pads.** A pad that belongs to no component is a pad record whose component index is the
   "none" value, like the pad that a hole is written as ("Free pads as holes"), here with its name, its
   copper and its net.

@@ -100,6 +100,14 @@ LOSS_KINDS: frozenset[str] = frozenset(
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
+ARC_KEY = "arc"
+"""The bag key under which the import keeps the record of an arc (``adapter.copper.arc_pair``)."""
+ARC_TOLERANCE = 2
+"""How far, in nanometres per axis, a point of a kept arc record may lie from the point of the model and
+the record still be written (change c0127): the length tolerance of the written scope
+(``roundtrip.RT_A2_SCOPE``). An untouched arc gives its points exactly."""
+_INT32 = range(-(2**31), 2**31)
+_FINITE = (float("-inf"), float("inf"))
 _FP_NATIVE = re.compile(r"fp:([A-Z]{8})")
 _SIDE = re.compile(r"^([FB])(\.|&)")
 
@@ -175,6 +183,45 @@ def pairs_of(entity: object) -> dict[str, str]:
     """The pairs of the ``altium`` bag of a model entity (the last value of a repeated key)."""
     bag = getattr(entity, "ext", {}).get(BACKEND)
     return dict(bag.payload) if bag is not None else {}
+
+
+def kept_arc(entity: object, points: Sequence[Point], frame: pcbdoc.Frame) -> rec.ArcGeometry | None:
+    """The arc record that ``entity`` was read from, when it still says the entity's three ``points``
+    (start, middle and end in the model's frame); ``None`` otherwise (change c0127).
+
+    The import keeps the record's centre, radius and angles in the pair ``arc`` of the entity's bag, because
+    the model's three points do not give them back in every case. A bag is not updated when the model is
+    edited, so the pair is used only when it converts, as the import converts it
+    (``adapter.units.arc_points``), to points that lie within ``ARC_TOLERANCE`` per axis of ``points`` in
+    ``frame``, the frame of the written document. A pair that is missing, that does not parse into three
+    32-bit integers and two finite doubles, whose radius is not positive, whose angles make a full turn, or
+    whose points lie further away (the arc was moved or reshaped, or the board is written in another frame
+    than the document's) gives ``None``: the arc is then written from its points."""
+    text = pairs_of(entity).get(ARC_KEY)
+    if text is None or len(points) != 3:
+        return None
+    parts = text.split(",")
+    if len(parts) != 5:
+        return None
+    try:
+        cx, cy, radius = (int(part) for part in parts[:3])
+        start, end = (float.fromhex(part) for part in parts[3:])
+    except (ValueError, OverflowError):
+        return None
+    if radius <= 0 or any(value not in _INT32 for value in (cx, cy, radius)):
+        return None
+    if not all(_FINITE[0] < value < _FINITE[1] for value in (start, end)):  # also false for a NaN
+        return None
+    from fenolite.backends.altium.adapter import units
+
+    first, last = units.angle(start)[0], units.angle(end)[0]
+    if units.sweep(first, last) == FULL_TURN:
+        return None
+    for read, mine in zip(units.arc_points(cx, cy, radius, first, last), points, strict=True):
+        at = frame(mine)  # the written document's frame is Y up; the import gives (x, -y)
+        if abs(at.x - read.x) > ARC_TOLERANCE or abs(at.y + read.y) > ARC_TOLERANCE:
+            return None
+    return rec.ArcGeometry(cx, cy, radius, start, end)
 
 
 def _field_ok(text: str) -> bool:
@@ -483,8 +530,9 @@ def _copper(
     net_names: Mapping[str, str],
     frame: pcbdoc.Frame,
     account: _Account,
-) -> tuple[list[Track], list[Arc], list[Via], list[Zone]]:
+) -> tuple[list[Track], list[Arc], list[Via], list[Zone], dict[str, rec.ArcGeometry]]:
     signal = [name for name in layers if name not in planes]
+    records: dict[str, rec.ArcGeometry] = {}
 
     def named(net_id: str | None) -> str | None:
         return net_names.get(net_id or "")
@@ -511,10 +559,14 @@ def _copper(
         if problem is None and arc.width <= 0:
             problem = "an arc needs a positive width"
         if problem is None:
-            try:
-                rec.arc_from_points(*(frame(p) for p in (arc.start, arc.mid, arc.end)))
-            except ValueError as error:
-                problem = str(error)
+            kept = kept_arc(arc, (arc.start, arc.mid, arc.end), frame)
+            if kept is not None:
+                records[arc.id] = kept
+            else:
+                try:
+                    rec.arc_from_points(*(frame(p) for p in (arc.start, arc.mid, arc.end)))
+                except ValueError as error:
+                    problem = str(error)
         if problem is not None:
             account.skip("arc", arc.id, problem)
         else:
@@ -558,11 +610,15 @@ def _copper(
     account.wrote("arc", len(arcs))
     account.wrote("via", len(vias))
     account.wrote("zone", len(zones))
-    return tracks, arcs, vias, zones
+    return tracks, arcs, vias, zones, records
 
 
 def _items(
-    board: Board, layers: Sequence[str], account: _Account
+    board: Board,
+    layers: Sequence[str],
+    frame: pcbdoc.Frame,
+    records: dict[str, rec.ArcGeometry],
+    account: _Account,
 ) -> tuple[list[Text], list[Graphic], list[Keepout], list[Hole]]:
     texts: list[Text] = []
     for text in board.texts:
@@ -582,11 +638,14 @@ def _items(
         if graphic.layer.endswith(".Cu"):
             account.skip("copper-shape", graphic.id, "a shape on a copper layer has no record written")
             continue
-        problem = pcbdoc.graphic_problem(graphic)
+        kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
+        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None)
         if problem is None and graphic.layer not in rec.BOARD_LAYER_MAP:
             problem = f"the layer {graphic.layer} has no layer in the document"
         if problem is None:
             graphics.append(graphic)
+            if kept is not None:
+                records[graphic.id] = kept
         else:
             account.skip("graphic", graphic.id, problem)
     keepouts: list[Keepout] = []
@@ -803,8 +862,8 @@ def _document(
             if found[0] is not None and found[1] is not None:
                 origin = Point(found[0][0], found[1][0])
     components, free_pads = _footprints(design, board, net_names, ratios, account)
-    tracks, arcs, vias, zones = _copper(board, layers, planes, net_names, frame, account)
-    texts_, graphics, keepouts, holes = _items(board, layers, account)
+    tracks, arcs, vias, zones, arc_records = _copper(board, layers, planes, net_names, frame, account)
+    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
     for item in lowered.not_lowered:
@@ -828,6 +887,7 @@ def _document(
         frame=frame,
         origin=origin,
         free_pads=tuple(free_pads),
+        arc_records=MappingProxyType(arc_records),
     )
 
 
@@ -1016,6 +1076,8 @@ def _is_hole(footprint: FootprintInstance) -> bool:
 
 
 __all__ = [
+    "ARC_KEY",
+    "ARC_TOLERANCE",
     "EVIDENCE",
     "KINDS",
     "LOSS_KINDS",
@@ -1028,6 +1090,7 @@ __all__ = [
     "dielectric_kinds",
     "from_design",
     "in_frame_of",
+    "kept_arc",
     "moved",
     "pairs_of",
     "schematic_design",

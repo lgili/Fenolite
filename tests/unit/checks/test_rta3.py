@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+import fenolite.backends.altium.import_evidence as import_evidence
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.rta3 as rta3_module
 import fenolite.cli.main as cli_main
@@ -51,10 +52,12 @@ def _check(monkeypatch: pytest.MonkeyPatch, *args: str) -> tuple[int, dict[str, 
 
 
 def test_scope_and_evidence() -> None:
-    """The scope of RT-A3 is the written scope of the writers, and the level never rises above
-    ``INFERRED``: Fenolite reads what Fenolite wrote."""
+    """The scope of RT-A3 is the written scope of the writers. The constant carries the level of its row,
+    ``CORPUS-VERIFIED`` since change c0127 (the eight public PCB documents are equal); combined with the
+    import's evidence a verdict stays ``INFERRED``, which the tests below assert on a trip and a stage."""
     assert RT_A3_SCOPE is RT_A2_SCOPE is AltiumBackend().written_scope()
-    assert EVIDENCE_RT_A3 == Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA3",))
+    assert EVIDENCE_RT_A3 == Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-A-VER-RTA3",))
+    assert Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE).level is Level.INFERRED
     assert AltiumBackend().stage_evidence()["roundtrip.rta3"] is EVIDENCE_RT_A3
     assert isinstance(AltiumBackend(), ModelWriter)
     assert OPT_IN_DOCUMENT_STAGES == ("roundtrip.rta3",) and "roundtrip.rta3" not in DOCUMENT_STAGES

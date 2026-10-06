@@ -185,9 +185,23 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
     return found, graphics
 
 
+ARC_KEY = "arc"
+"""The bag key of an arc that an arc record gave (change c0127): the record's own centre, radius and
+angles, which the three points of the model do not give back in every case."""
+
+
+def arc_pair(item: ArcRecord) -> str:
+    """The value of the pair ``arc``: ``<centre x>,<centre y>,<radius>,<start angle>,<end angle>``, the
+    three integers of the record in units of 1/10 000 mil in the document's frame and its two angles as
+    ``float.hex()`` of the stored doubles."""
+    angles = f"{float(item.start_angle).hex()},{float(item.end_angle).hex()}"
+    return f"{item.cx},{item.cy},{item.radius},{angles}"
+
+
 def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
     """The free arcs: ``Arc`` on a copper layer of the chain (a full circle is a ``circle`` graphic with
-    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere, nothing on an internal plane."""
+    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere, nothing on an internal plane. An
+    ``Arc`` and an ``arc`` graphic keep their record in the pair ``arc`` (``arc_pair``)."""
     found: list[Arc] = []
     graphics: list[Graphic] = []
     for index, item in enumerate(doc.arcs):
@@ -239,6 +253,7 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
             )
         else:
             start, mid, end = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
+            pairs.append((ARC_KEY, arc_pair(item)))
             if copper:
                 net_id = ctx.net(item.prefix.net)
                 found.append(

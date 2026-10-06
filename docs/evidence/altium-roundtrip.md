@@ -49,7 +49,7 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
 | RT-A0 | 65 | 57 | 57 | 8 (`too-large` 2, `not-a-container` 6, `writer-refused` 0) | `INFERRED` | `H-A-VER-RTA0` pending: the judged PCB libraries come from two repositories |
 | RT-A1 | 65 | 65 | 65 | 0 | `INFERRED` | `H-A-VER-RTA1` pending, for the same reason |
 | RT-A2 | 21 builds | 21 | 21 | 0 | `INFERRED` | `H-A-VER-RTA2-3` (run of 2026-10-06, section "RT-A2") |
-| RT-A3 | 8 PCB documents, 5 project sets | 8 documents, 2 sets | 7 documents, 2 sets | 3 sets (`no-document`) | `INFERRED` | `H-A-VER-RTA3` pending: one heavy document differs in 7 arcs; `H-A-VER-RTA3-PRJ` pending: three sets are not judged (run of 2026-10-06, section "RT-A3") |
+| RT-A3 | 8 PCB documents, 5 project sets | 8 documents, 2 sets | 8 documents, 2 sets | 3 sets (`no-document`) | `INFERRED` (the stage) | `H-A-VER-RTA3` confirmed, `CORPUS-VERIFIED` since change c0127: the eight documents are equal; `H-A-VER-RTA3-PRJ` pending: three sets are not judged (run of 2026-10-06, section "RT-A3") |
 
 - **Repositories per compound kind** (judged rows of RT-A0): PCB documents 5, PCB libraries
   2, schematic documents 5, schematic libraries 3. The criterion of
@@ -249,7 +249,8 @@ footprint (position, rotation, side), pad (number, net, position, size), track, 
 the eleven builds with a PCB document. `H-A-VER-RTA2`, which claimed this when no built model held a
 footprint, and `H-A-VER-RTA2-2`, which bounded the claim to what the built model held, are refuted rows;
 `H-A-VER-RTA2-3` is their successor. What it does not prove: anything about a field outside the scope,
-about arcs beyond the examples (section "RT-A3": the end points of an arc can move by more than 2 nm),
+about arcs beyond the examples (section "RT-A3": the points of an arc that is derived from three points,
+as a build derives it, can come back more than 2 nm away),
 and nothing about Altium Designer, which reads none of these files here. The first probe found one difference
 inside the scope, which was fixed in the build: a component whose value is empty in the script was
 written with its symbol's name as the comment, and the built model now stores that value.
@@ -267,6 +268,9 @@ run: 2026-10-06, the commit of change c0090 on `0e1a6f4e` (run again after the r
 the heavy rows (`FENOLITE_HEAVY=1`):
 `FENOLITE_REQUIRE=corpus FENOLITE_CENSUS_OUT=… uv run pytest tests/corpus/test_altium_rta3.py`, 15 tests
 passed.
+Run again on 2026-10-06 with change c0127 (arcs keep their record), with the heavy rows:
+`FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -q`, 15 tests passed; the table holds
+that run.
 
 **PCB documents** (every row with the use `rta` that is a PCB document, read alone). `written` counts
 model items; the last three columns are what the rewrite does not hold: model items by kind, records
@@ -282,21 +286,35 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 | `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
 | `altium-third-party-pcbdoc-06` | equal | 27 | 102 | 111 | 3 | 42 | 10 | body 27; copper-shape 20; graphic 23; outline 1; pad 4; text 2; zone-fill 10 | footprint-graphics 1074; shape-based-regions 42; classes 18 | 18 |
 | `altium-third-party-pcbdoc-07` | equal | 14 | 97 | 475 | 20 | 60 | 5 | body 24; copper-shape 6; graphic 12; outline 2; pad 19; zone 4; zone-fill 5 | footprint-graphics 307; shape-based-regions 31; classes 16; bad-geometry 1 | 20 |
-| `altium-third-party-pcbdoc-08` | differs: first `/arc/0` (arc 14 changes) | 544 | 2115 | 8355 | 517 | 1770 | 27 | arc 12; body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; text 311; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
+| `altium-third-party-pcbdoc-08` | equal | 544 | 2115 | 8355 | 529 | 1770 | 27 | body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; text 311; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
 
-- **7 of 8 documents are equal** inside the scope, and they come from six repositories; the
-  criterion of `H-A-VER-RTA3` asks for three. The row stays `INFERRED` and pending, because one
-  document differs.
-- **The one document that differs** is the heavy row `altium-third-party-pcbdoc-08`: 7 of its 517 written
-  arcs come back with a point moved by 3 nm or more (14 changes: each arc once per side), and nothing
-  else differs (2115 pads, 8355 tracks, 1770 vias and 27 zones are equal). The cause is the form of an
-  arc: its record holds a centre, a radius and two angles, and the model holds three points. The
-  writer derives the centre and the radius from the points and rounds each to a unit of 2.54 nm, so a
-  point of the arc that is read back can lie a little more than 3 nm from the model's, above the
-  2 nm of the scope; arcs with a radius near 100 nm are among them. It is a limit of the model's form
-  of an arc, not a lost item, and it also bounds RT-A2 for a script with arcs. Until it is closed the
-  2 nm of the scope exclude the points of an arc. The maintainer's decision of 2026-10-06: change c0127
-  keeps the record's own centre, radius and angles for an arc that was read, which closes it.
+- **The 8 documents are equal** inside the scope since change c0127; the seven that are not heavy come
+  from six repositories, and the criterion of `H-A-VER-RTA3` asks for three. The row is confirmed and
+  `CORPUS-VERIFIED` (decision of the maintainer, 2026-10-07); the eighth document is heavy and runs only
+  with `FENOLITE_HEAVY=1`.
+- **What `CORPUS-VERIFIED` means here, and what it does not.** It means: Fenolite reads its own rewrite
+  of a public Altium PCB document back to an equal model inside the written scope, on every listed
+  document; and KiCad's importer reads the rewrite as Fenolite does at the levels 1 to 5 of `equivalent`
+  (`H-A-VER-RTA3-KICAD`, below, on the seven documents that are not heavy). It says **nothing about
+  Altium opening a written file**: that stays `INFERRED` until the kit run (changes c0091 and c0092).
+  The scope leaves out the graphics of footprints (until c0126), component bodies (until c0121) and
+  the model items that are not written, which the table above counts per kind. No `roundtrip_exact`
+  cell is set and no write kind leaves `experimental` by this level. The stage `roundtrip.rta3`, a
+  verdict and an envelope stay `INFERRED`: the constant `roundtrip.EVIDENCE_RT_A3` carries the row's
+  level, and it is combined with the import's evidence, which is `INFERRED`.
+- **Arcs** (change c0127). Before it, the heavy row `altium-third-party-pcbdoc-08` differed: 7 of its
+  517 written arcs came back with a point moved by 3 nm or more (14 changes: each arc once per side),
+  12 more arcs were not written because their three points lie on one line, and nothing else differed.
+  The cause is the form of an arc: its record holds a centre, a radius and two angles, and the model
+  holds three points. A record that is derived from the points has a centre and a radius that are each
+  rounded to a unit of 2.54 nm, and for a short arc (a radius near 100 nm is among them) it is another
+  circle. An arc that was read now keeps the centre, the radius and the angles of its record in its
+  `altium` bag, and the write gives that record back while it still says the arc's three points within
+  2 nm. Measured after: the 529 copper arcs of the document are written, all from their record, and
+  each point comes back at 0 nm; the same holds for the 23 copper arcs and the 8 written arc graphics
+  of the two other documents with arcs (2 nm and 1 nm at most before). An arc that was moved in the
+  model, and an arc of a script, is still derived from its three points, so this limit still bounds
+  RT-A2 for a script with short arcs.
 - **What is not written, and why** (the seven documents that are not heavy, counted by reason): 446
   component bodies (no body record is written); 93 shapes on copper (fills and regions, which the
   model holds as graphics); 88 graphics and 2 texts on layers without a layer in the written document

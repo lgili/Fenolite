@@ -309,6 +309,11 @@ class PcbDocSpec:
     of a build, at 1000 mil)."""
     free_pads: tuple[FreePad, ...] = ()
     """The pads without a component (change c0090), written after the holes."""
+    arc_records: Mapping[str, rec.ArcGeometry] = field(default_factory=lambda: {})
+    """Entity id → the centre, radius and angles that an arc of ``arcs`` or a graphic of kind ``arc`` is
+    written with instead of the ones derived from its three points (change c0127): the record that an
+    imported arc was read from, when the caller found that it still says the entity's points. Empty: every
+    arc is derived from its points, as a build writes it."""
 
 
 def _u32(value: int) -> bytes:
@@ -666,9 +671,13 @@ def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
     return out
 
 
-def routed_arcs(arcs: Sequence[Arc], copper: _Copper) -> list[bytes]:
+def routed_arcs(
+    arcs: Sequence[Arc], copper: _Copper, records: Mapping[str, rec.ArcGeometry] | None = None
+) -> list[bytes]:
     """The free 47-byte arcs of the board, sorted like the tracks (start, then end); ``ValueError`` as for
-    a track, and for collinear points."""
+    a track, and for collinear points. An arc whose id ``records`` names (``PcbDocSpec.arc_records``,
+    change c0127) is written with that geometry, and its points are not looked at."""
+    known = records or {}
     out: list[bytes] = []
     ordered = sorted(
         arcs,
@@ -679,10 +688,12 @@ def routed_arcs(arcs: Sequence[Arc], copper: _Copper) -> list[bytes]:
         if arc.width <= 0:
             raise ValueError(f"{arc.id}: an arc needs a positive width, not {arc.width} nm")
         net = copper.net(arc.id, arc.net_id)
-        try:
-            geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
-        except ValueError as error:
-            raise ValueError(f"{arc.id}: {error}") from error
+        geometry = known.get(arc.id)
+        if geometry is None:
+            try:
+                geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
+            except ValueError as error:
+                raise ValueError(f"{arc.id}: {error}") from error
         out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net))
     return out
 
@@ -761,9 +772,11 @@ def _ring(points: Sequence[Point]) -> list[Point]:
     return ring
 
 
-def graphic_problem(graphic: Graphic) -> str | None:
+def graphic_problem(graphic: Graphic, *, arc_known: bool = False) -> str | None:
     """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP``, a point
-    count that does not fit its kind, collinear arc points, or a drawn outline without a positive width."""
+    count that does not fit its kind, collinear arc points, or a drawn outline without a positive width.
+    ``arc_known`` says that the arc is written from a record of its own (``PcbDocSpec.arc_records``, change
+    c0127), so its three points need not give a circle."""
     if graphic.layer not in rec.BOARD_LAYER_MAP:
         return f"the layer {graphic.layer} has no layer in the document for a graphic"
     wanted = {"line": 2, "rect": 2, "circle": 2, "arc": 3}.get(graphic.kind)
@@ -776,7 +789,7 @@ def graphic_problem(graphic: Graphic) -> str | None:
         graphic.points[0].x == graphic.points[1].x or graphic.points[0].y == graphic.points[1].y
     ):
         return "the rect has no area"
-    if graphic.kind == "arc":
+    if graphic.kind == "arc" and not arc_known:
         try:
             rec.arc_from_points(*graphic.points)
         except ValueError:
@@ -833,7 +846,8 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     for graphic in sorted(
         spec.graphics, key=lambda g: (rec.BOARD_LAYER_MAP.get(g.layer, 0), [_xy(p) for p in g.points], g.id)
     ):
-        problem = graphic_problem(graphic)
+        kept = spec.arc_records.get(graphic.id) if graphic.kind == "arc" else None
+        problem = graphic_problem(graphic, arc_known=kept is not None)
         if problem is not None:
             raise ValueError(f"{graphic.id}: {problem}")
         layer = rec.BOARD_LAYER_MAP[graphic.layer]
@@ -863,7 +877,7 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
             out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width))
         else:
             start, mid, end = (frame(point) for point in graphic.points)
-            out.arcs.append(rec.arc_record(layer, rec.arc_from_points(start, mid, end), width))
+            out.arcs.append(rec.arc_record(layer, kept or rec.arc_from_points(start, mid, end), width))
     names = list(copper.layers)
     for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
         problem = keepout_problem(keepout, names)
@@ -1330,7 +1344,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
             )
             wide.append(_wide_entry(number, text))
     tracks += routed_tracks(spec.tracks, copper)
-    arcs += routed_arcs(spec.arcs, copper)
+    arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(spec.vias, copper)
     pairs = drill_pairs(spec.vias, copper)

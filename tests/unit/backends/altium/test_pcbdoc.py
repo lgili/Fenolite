@@ -15,6 +15,7 @@ import pytest
 from _altium import blink_pcbdoc_spec
 from _altium_pcb_read import PcbDoc, read_pcbdoc
 
+from fenolite.backends.altium import pcbrecords
 from fenolite.backends.altium.docboard import StackSpec, angle_text
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcbdoc import (
@@ -478,6 +479,45 @@ def test_routed_arc_refusals() -> None:
     ):
         with pytest.raises(ValueError, match=message):
             write_pcbdoc(copper_spec(arcs=(dataclasses.replace(bent, **changes),)))  # type: ignore[arg-type]
+
+
+def test_arc_written_from_a_record_of_its_own() -> None:
+    """Change c0127, "Writer options for a model that was read": an arc whose id ``arc_records`` names is
+    written with that centre, radius and pair of angles on its own layer, net and width, and is not refused
+    for points on one line; without the entry the same arc is derived from its points."""
+    bent = Arc(
+        id="arc_a", start=at(1, 1), mid=at(2, 2), end=at(3, 1), width=200_000, layer="F.Cu", net_id="GND"
+    )
+    flat = Arc(id="arc_b", start=at(5, 1), mid=at(6, 1), end=at(7, 1), width=150_000, layer="B.Cu")
+    records = {
+        "arc_a": pcbrecords.ArcGeometry(1_000_000, 2_000_000, 100, 30.0, 35.0),
+        "arc_b": pcbrecords.ArcGeometry(3_000_000, 4_000_000, 100, 0.0, 1.0),
+    }
+    doc, _ = copper_doc(arcs=(bent, flat), arc_records=records)
+    names = [n["NAME"] for n in doc.nets]
+    first, second = doc.free_arcs
+    assert (first.cx, first.cy, first.radius, first.start, first.end) == (
+        1_000_000,
+        2_000_000,
+        100,
+        30.0,
+        35.0,
+    )
+    assert (first.prefix.layer, names[first.prefix.net], first.width) == (1, "GND", 78740)
+    assert (second.cx, second.cy, second.radius, second.start, second.end) == (
+        3_000_000,
+        4_000_000,
+        100,
+        0.0,
+        1.0,
+    )
+    assert (second.prefix.layer, second.prefix.net, second.width) == (32, 0xFFFF, 59055)
+    derived, _ = copper_doc(arcs=(bent,))
+    (plain,) = derived.free_arcs
+    assert (plain.cx, plain.cy, plain.radius) != (first.cx, first.cy, first.radius)
+    with pytest.raises(ValueError, match="arc_b: the arc points .* are collinear"):
+        write_pcbdoc(copper_spec(arcs=(flat,), arc_records={"arc_a": records["arc_a"]}))
+    assert copper_spec().arc_records == {}
 
 
 def through(ident: str, x: float, y: float, net: str | None = "GND", **changes: object) -> Via:

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """RT-A3 on the public PCB documents and project sets (capability altium-verification, "Round-trip level
-RT-A3"; change c0090; ``H-A-VER-RTA3``, ``H-A-VER-RTA3-PRJ``).
+RT-A3"; changes c0090 and c0127; ``H-A-VER-RTA3``, ``H-A-VER-RTA3-PRJ``).
 
 Every PCB document with the use ``rta`` is read, its model is written as new Altium documents under
 pytest's temporary directory, and those are read again; the two models must be equal inside the written
@@ -36,17 +36,12 @@ pytestmark = pytest.mark.needs_corpus
 ROWS = [item for item in manifest_items("rta") if "-pcbdoc-" in item.id]
 MINIMUM_REPOSITORIES = 3
 """``H-A-VER-RTA3`` asks for equal documents from at least three repositories, as ``H-A-VER-RTA0`` does."""
-NOT_EQUAL: dict[str, tuple[str, str]] = {
-    "altium-third-party-pcbdoc-08": (
-        "arc",
-        "7 of its 517 written arcs come back with a point moved by 3 nm or more: an arc record holds a "
-        "centre, a radius and two angles, the model holds three points, and the centre and the radius "
-        "that the writer derives from the points are each rounded to a unit of 2.54 nm",
-    ),
-}
+NOT_EQUAL: dict[str, tuple[str, str]] = {}
 """Row id → the one kind that differs and the cause, for a document whose two models differ inside the
 scope for a reason that is listed in ``docs/evidence/altium-roundtrip.md``. Such a row must differ in
-that kind only. The one row is the heavy one, which runs with ``FENOLITE_HEAVY=1``."""
+that kind only. Empty since change c0127: the heavy row ``altium-third-party-pcbdoc-08``, which runs with
+``FENOLITE_HEAVY=1``, differed in 7 of its 517 written arcs until an arc that was read kept the centre,
+the radius and the angles of its record."""
 PLANE_CUTS: dict[str, tuple[int, int]] = {
     "altium-third-party-pcbdoc-01": (74, 1346),
     "altium-third-party-pcbdoc-02": (43, 191),

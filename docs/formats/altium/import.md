@@ -108,6 +108,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `mask` | pad | `<mode>,<expansion in units>` |
 | `plated` | pad | `0` for a hole that is not plated |
 | `via_layers` | via | `<start id>,<end id>` when they are not the outer layers of the chain |
+| `arc` | arc, graphic of kind `arc` | `<centre x>,<centre y>,<radius>,<start angle>,<end angle>` of the arc record it was read from: three integers in units of 1/10 000 mil in the document's frame, and the two angles as `float.hex()` of the stored doubles (change c0127). The three points of the model do not give the record back in every case; a write of the model uses the pair when it still says the points |
 | `net` | graphic | the net name of a copper shape |
 | `pour_index` | zone | `POURINDEX` |
 | `hatch_style` | zone | `HATCHSTYLE` |

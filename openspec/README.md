@@ -105,6 +105,7 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0090 | `altium-roundtrip-write` | v0.4 | c0044 |
 | c0091 | `altium-verification-kit` | v0.4 | — |
 | c0092 | `altium-write-graduation` | v0.4 | c0091 |
+| c0127 | `altium-arc-record-values` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
 | c0125 | `altium-clearance-scopes` | v0.4 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
 | c0130 | `altium-clearance-matrix-cells` | v0.4 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
 | c0131 | `altium-unit-slack-rule` | v0.4 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |

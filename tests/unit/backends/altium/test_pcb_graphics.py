@@ -203,3 +203,26 @@ def test_the_outline_stays_as_written_before() -> None:
     assert plain.board.outline == more.board.outline and plain.regions == () and len(more.regions) == 1
     for name in ("pads", "tracks", "arcs", "vias", "texts", "polygons", "nets", "components"):
         assert [r.raw for r in getattr(plain, name)] == [r.raw for r in getattr(more, name)], name
+
+
+def test_arc_graphic_written_from_a_record_of_its_own() -> None:
+    """Change c0127: an ``arc`` graphic whose id ``PcbDocSpec.arc_records`` names is written with that
+    geometry, and ``graphic_problem(…, arc_known=True)`` does not refuse it for points on one line; the
+    other refusals stay."""
+    flat = graphic("d", "arc", "F.Fab", (at(1, 1), at(2, 2), at(3, 3)))
+    assert "lie on one line" in (graphic_problem(flat) or "")
+    assert graphic_problem(flat, arc_known=True) is None
+    thin = dataclasses.replace(flat, width=0)
+    assert "needs a positive width" in (graphic_problem(thin, arc_known=True) or "")
+    kept = pcbrecords.ArcGeometry(1_000_000, 2_000_000, 100, 30.0, 35.0)
+    document, _ = read_back(bare_spec(graphics=(flat,), arc_records={flat.id: kept}))
+    (arc,) = document.arcs
+    assert (arc.cx, arc.cy, arc.radius, arc.start_angle, arc.end_angle) == (
+        1_000_000,
+        2_000_000,
+        100,
+        30.0,
+        35.0,
+    )
+    with pytest.raises(ValueError, match=f"{flat.id}: "):
+        write_pcbdoc(bare_spec(graphics=(flat,)))
