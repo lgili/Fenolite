@@ -511,17 +511,18 @@ def test_via_on_four_layers_spans_the_outer_layers() -> None:
     assert [(v.start_layer, v.end_layer) for v in doc.vias] == [(1, 32)]
 
 
-def test_blind_via_refused() -> None:
-    """Scenario "Blind via refused"."""
+def test_blind_via_written() -> None:
+    """A blind via is written with its span since change c0085 ("Blind and buried via records"); the
+    scenario "Blind via refused" of c0038 is superseded."""
     blind = through("via_blind", 10, 10, via_type="blind", layers=("F.Cu", "In1.Cu"))
-    with pytest.raises(ValueError, match="via_blind: a blind via is not written"):
-        write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(blind,)))
+    doc, _ = copper_doc(copper_layers=FOUR, vias=(blind,))
+    assert [(v.start_layer, v.end_layer) for v in doc.vias] == [(1, 2)]
 
 
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        ({"layers": ("F.Cu", "In1.Cu")}, "via_bad: the via spans F.Cu, In1.Cu, not F.Cu to B.Cu"),
+        ({"layers": ("F.Cu", "F.Cu")}, "via_bad: the via spans F.Cu, F.Cu, not two copper layers"),
         ({"layers": ()}, "via_bad: the via spans no layer"),
         ({"drill": 600_000}, "via_bad: the drill of 600000 nm is not below the diameter of 600000 nm"),
         ({"drill": 0}, "via_bad: the drill of 0 nm"),
@@ -535,7 +536,7 @@ def test_via_refusals(changes: dict[str, object], message: str) -> None:
 
 
 def test_copper_layers_must_be_a_known_stack() -> None:
-    with pytest.raises(ValueError, match="In1.Cu"):
+    with pytest.raises(ValueError, match="3 copper layers"):
         write_pcbdoc(copper_spec(copper_layers=("F.Cu", "In1.Cu", "B.Cu")))
 
 

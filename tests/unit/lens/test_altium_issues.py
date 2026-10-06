@@ -358,9 +358,9 @@ def _copper_board(model: ModelDesign, **changes: object) -> ModelDesign:
 def _via_blind(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
     assert model.board is not None
     first, *rest = model.board.vias
-    blind = dataclasses.replace(first, via_type="blind", layers=("F.Cu", "In1.Cu"))
-    spans = dataclasses.replace(rest[0], layers=("F.Cu", "In2.Cu"))
-    return _copper_board(model, vias=(blind, spans, *rest[1:])), {}
+    micro = dataclasses.replace(first, via_type="micro", layers=("F.Cu", "In1.Cu"))
+    spans = dataclasses.replace(rest[0], layers=("F.Cu", "F.Cu"))
+    return _copper_board(model, vias=(micro, spans, *rest[1:])), {}
 
 
 def _copper_invalid(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
@@ -411,8 +411,8 @@ COPPER_CASES: dict[
     "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
     "plane": (_plane_copper, {"altium.plane-copper": 3}),
     "plane-net": (_plane_unknown, {"altium.copper-stack": 2}),
-    "stack": (_copper_stack, {"altium.copper-stack": 1}),
-    "via": (_via_blind, {"altium.via-unsupported": 2}),
+    "stack": (_copper_stack, {"altium.copper-layer": 3}),  # c0085: an odd count gives the default stack
+    "via": (_via_blind, {"altium.via-unsupported": 1, "altium.copper-invalid": 1}),  # c0085: a micro via
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
 }
 """Routed-sample variants (change c0038, "Copper issue codes"): the copper codes and their counts."""
@@ -509,7 +509,7 @@ def test_copper_case(name: str) -> None:
     counts: dict[str, int] = {}
     for found in issues:
         counts[found.code] = counts.get(found.code, 0) + 1
-        assert found.severity == "error" and found.where
+        assert found.severity == ALTIUM_ISSUE_CODES[found.code] and found.where
     assert counts == COPPER_CASES[name][1], [(i.code, i.where, i.message) for i in issues]
 
 
@@ -630,7 +630,7 @@ def test_the_table() -> None:
         "altium.sheets-not-in-project": "info",
         "altium.copper-stack": "error",
         "altium.copper-layer": "error",
-        "altium.via-unsupported": "error",
+        "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
         "altium.plane-copper": "error",

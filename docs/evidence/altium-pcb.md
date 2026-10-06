@@ -262,6 +262,76 @@ When E3 still lists rooms, note whether "Generate Rooms" was unticked in E2.
 Fenolite writes no room and no "Supply Nets" rule: no permitted source holds their records
 (`pcb-copper.md`, "Not written"). They are additions; executing them removes nothing.
 
+## Part X: complete board (change c0085)
+
+Not yet reported. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
+copper layers with one item of every kind that change c0085 writes. The five files are the committed
+golden files; `FENOLITE_ALTIUM_BOARD6=<folder outside the repository> uv run pytest
+tests/unit/lens/test_altium_pcb_complete.py -k golden` writes the same bytes into a folder to open in
+Altium Designer. No file that Altium wrote is committed.
+
+| file | SHA-256 |
+|---|---|
+| `tests/data/altium/board6/board6.PcbDoc` | `9da3b8c4bd6f1c832251bccfc3eb02e93e714cb179f55af16c08a0ec21b83e8a` |
+| `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
+| `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
+| `tests/data/altium/board6/board6.SchDoc` | `7b5a19f0decab17ec29c33b42c913201db35d399738af3c6fb0e92b3b3ccb0c2` |
+| `tests/data/altium/board6/board6.SchLib` | `c88e8978ada89f2168ce32a551b852386d7cb6912ac2345694af479df6325cb0` |
+
+Values to compare (millimetres from the outline's upper-left corner, Y down, as the sample states them):
+
+| item | value |
+|---|---|
+| copper layers, top to bottom | Top Layer (signal), Mid-Layer 1 (signal), Internal Plane 1 (plane, net `GND`), Mid-Layer 3 (signal), Mid-Layer 4 (signal), Bottom Layer (signal) |
+| copper thickness | 0.035 mm outer, 0.0175 mm inner |
+| dielectrics, top to bottom | 0.11 mm `FR-4 prepreg` 4.2; 0.2 mm `FR-4 core` 4.5; 0.8 mm `FR-4 prepreg` 4.2; 0.2 mm `FR-4 core` 4.5; 0.11 mm `FR-4 prepreg` 4.2 |
+| via 1 | (11.2, 18.75), net `VIN`, Top Layer to Bottom Layer, 0.6 mm with a 0.3 mm hole |
+| via 2 | (32.8, 9), net `LED_A`, Top Layer to Mid-Layer 1 (blind) |
+| via 3 | (20, 24), net `GND`, Mid-Layer 1 to Internal Plane 1 (buried) |
+| text 1 | `Tensão 5 V`, Top Overlay, at (22, 4), height 1 mm, stroke 0.15 mm, 0 degrees |
+| text 2 | `BOARD6 REV A`, Bottom Overlay, at (30, 27), height 1.2 mm, stroke 0.18 mm, mirrored |
+| text 3 | `ASSEMBLY TOP`, Mechanical 13, at (3, 28), height 0.8 mm, stroke 0.12 mm |
+| text 4 | `BOTTOM`, Mechanical 14, at (47, 12), height 1 mm, 90 degrees, mirrored |
+| keep-out | rectangle (22, 12) to (30, 17) on the Keep-Out layer; restrictions: vias and tracks (value 3, in the keys `KEEPOUTRESTRICTIONS` and `KEEPOUTRESTRIC`) |
+| hole | (4, 25), 3.2 mm, not plated, no copper |
+| polygons | `GND` on Top Layer and `GND` on Bottom Layer, each 1 mm inside the outline, unpoured |
+| graphics | a line on Mechanical 13, an arc, a circle and a filled triangle on Top Overlay, a rectangle on Mechanical 14 |
+
+Steps; report one generic outcome per step (`as expected`, or what differed in one sentence), the tool as
+`AD <major>.<minor>` and the date.
+
+1. **X1** Open `board6.PrjPcb` and `board6.PcbDoc`. Expected: no repair prompt and no message in the
+   Messages panel (`H-A-PCB-DOC-OPEN`).
+2. **X2** Open Design » Layer Stack Manager. Expected: six copper layers in the order and with the kinds of
+   the table (`H-A-PCBX-STACK`).
+3. **X3** Read the thickness and the material of each dielectric. Expected: the table's values
+   (`H-A-PCBX-STACK`).
+4. **X4** Select each of the three vias and read its start and end layer; open the drill pairs of the
+   stack. Expected: through, blind (top to mid 1), buried (mid 1 to the plane), and three drill pairs
+   (`H-A-PCBX-VIASPAN`).
+5. **X5** Read the four texts, their layers, heights and rotations, and where each stands relative to the
+   table's position (the table gives the record's position; say which corner of the text lies there).
+   Expected: the table (`H-A-PCBX-TEXT`).
+6. **X6** Select the keep-out and read its restrictions. Expected: vias and tracks on, the three others off
+   (`H-A-PCBX-KEEPOUT`).
+7. **X7** Select the hole; read plated and the hole size. Expected: not plated, 3.2 mm (`H-A-PCBX-HOLE`).
+   The sample holds no slot: the model's board hole is round.
+8. **X8** Not run: component bodies were cut from change c0085 and are not written.
+9. **X9** Open Tools » Polygon Pours » Polygon Manager; note the state of the two polygons; run Repour All;
+   note the state and any message. Expected: unpoured, then poured, no message (`H-A-PCBX-REPOUR`).
+10. **X10** Save the document under another name and report only its size and whether Altium asked
+    anything on save.
+11. **X11** (added on 2026-10-06 with the second keep-out key) The keep-out's record holds two keys with
+    the restrictions: `KEEPOUTRESTRICTIONS`, which Altium saves, and `KEEPOUTRESTRIC`, which is written for
+    KiCad's importer and which Altium does not write itself. Confirm that the board loaded without a
+    message about the keep-out (step X1) and that its restrictions are vias and tracks only (step X6)
+    although the record holds the second key; then save the document, reopen it and read the restrictions
+    again. Expected: no message, the same two restrictions before and after the save
+    (`H-A-PCBX-KEEPOUT`).
+
+A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
+author report never moves an operation out of `experimental`.
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D

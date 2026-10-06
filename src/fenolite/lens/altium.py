@@ -547,6 +547,7 @@ def pcb_document(
     copper: int = 2,
     planes: Mapping[str, str] | None = None,
     copper_source: altium_copper.CopperSource | None = None,
+    account: dict[str, dict[str, int]] | None = None,
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
@@ -556,7 +557,9 @@ def pcb_document(
     script's copper layer count and ``planes`` its internal planes (layer name → net name); the board's
     copper is lowered by ``altium_copper`` (change c0038), and copper that cannot be written gives its
     errors and ``None``. With ``copper_source`` the copper and the placements come from that source, after
-    ``altium_copper.match_source`` checked it against the design; none is staged."""
+    ``altium_copper.match_source`` checked it against the design; none is staged. ``account`` (change
+    c0085), when given, receives ``written`` and ``not_lowered`` of ``altium_copper.account`` for a
+    document that is planned."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -663,7 +666,11 @@ def pcb_document(
     issues += plan.issues
     if plan.failed:
         return None, issues
-    return altium_copper.with_copper(spec, plan), issues
+    spec = altium_copper.with_copper(spec, plan)
+    if account is not None:
+        source = copper_source.design if copper_source is not None else None
+        account.update(altium_copper.account(design, spec, plan, source))
+    return spec, issues
 
 
 def library_symbols(symbols: Mapping[str, SymbolDef], issues: list[Issue]) -> dict[str, AltiumSymbol]:
@@ -1076,6 +1083,7 @@ def _summary(
     pcb_library: str = "",
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     copper: Mapping[str, object] | None = None,
+    pcb: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """The lens summary. ``labels`` and ``power_ports`` count what every sheet holds, the labels of sheet
     entries, ports and harness entries included; ``ports``, ``sheet_entries`` and ``harnesses`` (the harness
@@ -1103,6 +1111,7 @@ def _summary(
         "sheet_entries": sum(len(symbol.entries) for plan in plans for symbol in plan.symbols),
         "harnesses": len({block.name for plan in plans for block in plan.harnesses}),
         "copper": copper,
+        "pcb": pcb,
         "kept": list(kept),
         "schematic_format": form,
         "experimental": True,
@@ -1193,6 +1202,7 @@ def build_altium(
     footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
+    pcb_account: dict[str, dict[str, int]] = {}
     spec, document_issues = pcb_document(
         model,
         name=name,
@@ -1202,6 +1212,7 @@ def build_altium(
         planes=planes,
         copper_source=copper_source,
         sheets=sheets,
+        account=pcb_account,
     )
     issues += document_issues
     if any(i.severity == "error" for i in issues):
@@ -1225,7 +1236,10 @@ def build_altium(
         issues = [
             i
             for i in issues
-            if not (i.code == "altium.not-lowered" and i.where in ("board", "placements", "rules"))
+            if not (
+                i.code == "altium.not-lowered"
+                and i.where in ("board", "placements", "rules", *altium_copper.BOARD_WHERES)
+            )
         ]
     pcb_files = [
         f for f, wanted in ((f"{name}.PcbDoc", spec is not None), (f"{name}.PcbLib", bool(written))) if wanted
@@ -1333,6 +1347,7 @@ def build_altium(
         pcb_document=f"{name}.PcbDoc" if spec is not None else None,
         sheets=sheets,
         copper=copper_info,
+        pcb=pcb_account if spec is not None else None,
     )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
 

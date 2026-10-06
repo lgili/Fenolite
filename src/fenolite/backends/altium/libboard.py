@@ -154,11 +154,33 @@ class StackSpec:
     thicknesses: tuple[int, ...]
     dielectrics: tuple[Dielectric, ...]
     plane_nets: tuple[str, ...] = ()
+    drill_pairs: tuple[tuple[int, int], ...] = ()
+    """The drill pairs besides the pair of the outer layers (change c0085): the two copper ids of each
+    span of a blind or buried via, the upper layer first, in stack order and without repeats."""
 
     def __post_init__(self) -> None:
-        if self.copper not in STACKS:
-            known = "; ".join(", ".join(str(i) for i in stack) for stack in STACKS)
-            raise ValueError(f"the copper layers {self.copper!r} are not a stack that is written ({known})")
+        if not valid_stack(self.copper):
+            raise ValueError(
+                f"the copper layers {self.copper!r} are not a stack that is written: the top layer 1, "
+                "then each inner layer as Mid-Layer k (k + 1) at position k or as the next internal plane "
+                "from 39, then the bottom layer 32, an even count with at most 16 signal layers"
+            )
+        for low, high in self.drill_pairs:
+            if (
+                low not in self.copper
+                or high not in self.copper
+                or not (self.copper.index(low) < self.copper.index(high))
+            ):
+                raise ValueError(f"the drill pair {low}, {high} is not two layers of the stack in order")
+        if (
+            len(set(self.drill_pairs)) != len(self.drill_pairs)
+            or (
+                self.copper[0],
+                self.copper[-1],
+            )
+            in self.drill_pairs
+        ):
+            raise ValueError("the drill pairs repeat a pair or hold the pair of the outer layers")
         if len(self.thicknesses) != len(self.copper) or any(t <= 0 for t in self.thicknesses):
             raise ValueError(
                 f"a stack of {len(self.copper)} copper layers needs as many positive thicknesses"
@@ -188,18 +210,33 @@ class StackSpec:
     def default(cls, copper: tuple[int, ...], plane_nets: tuple[str, ...] = ()) -> StackSpec:
         """Fenolite's default values: 1.4 mil copper; for two layers the dielectric of c0035 (12.6 mil,
         ``4.800``, ``FR-4``, kind ``unspecified``); for four layers a prepreg of 0.2 mm, a core of 1.0 mm
-        and a prepreg of 0.2 mm."""
+        and a prepreg of 0.2 mm; for more layers (change c0085) prepregs of 0.2 mm and cores in turn,
+        the outermost a prepreg, the cores sharing 1.0 mm."""
         if len(copper) == 2:
             dielectrics: tuple[Dielectric, ...] = (Dielectric("unspecified", 320_040),)
         else:
-            dielectrics = (
-                Dielectric("prepreg", 200_000),
-                Dielectric("core", 1_000_000),
-                Dielectric("prepreg", 200_000),
+            cores = (len(copper) - 1) // 2
+            dielectrics = tuple(
+                Dielectric("core", 1_000_000 // cores) if index % 2 else Dielectric("prepreg", 200_000)
+                for index in range(len(copper) - 1)
             )
-        return cls(
-            tuple(copper), (COPPER_THICKNESS,) * len(copper), dielectrics[: len(copper) - 1], plane_nets
-        )
+        return cls(tuple(copper), (COPPER_THICKNESS,) * len(copper), dielectrics, plane_nets)
+
+
+def valid_stack(copper: tuple[int, ...]) -> bool:
+    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32."""
+    if len(copper) < 2 or copper[0] != rec.TOP_LAYER or copper[-1] != rec.BOTTOM_LAYER:
+        return False
+    planes = [layer for layer in copper[1:-1] if layer >= rec.FIRST_PLANE]
+    if rec.stack_problem(len(copper), len(planes)) is not None:
+        return False
+    plane = rec.FIRST_PLANE
+    for position, layer in enumerate(copper[1:-1], start=1):
+        if layer == plane:
+            plane += 1
+        elif layer != position + 1:
+            return False
+    return True
 
 
 STACKS: tuple[tuple[int, ...], ...] = (
@@ -209,7 +246,8 @@ STACKS: tuple[tuple[int, ...], ...] = (
     rec.copper_stack(rec.COPPER_STACKS[1], ("In2.Cu",)),
     rec.copper_stack(rec.COPPER_STACKS[1], ("In1.Cu", "In2.Cu")),
 )
-"""Every copper stack that is written, as Altium ids."""
+"""The copper stacks of two and of four layers, as Altium ids (``valid_stack`` tells every stack that is
+written)."""
 _TWO_LAYERS = StackSpec.default(STACKS[0])
 
 

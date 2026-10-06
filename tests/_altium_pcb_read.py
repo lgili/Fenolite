@@ -375,6 +375,25 @@ def _pad(subs: list[bytes], where: str) -> PadRecord:
     return pad
 
 
+REGION = 11
+REGION_STORAGES = ("Regions6", "ShapeBasedRegions6")
+
+
+def count_regions(data: bytes, where: str) -> int:
+    """The number of region records of a stream: each the type byte 11, a 32-bit length and that many
+    bytes; the records are framed and not decoded."""
+    count = at = 0
+    while at < len(data):
+        if data[at] != REGION or at + 5 > len(data):
+            raise PcbReadError(f"{where}: byte {at} does not open a region record")
+        (length,) = struct.unpack_from("<I", data, at + 1)
+        at += 5 + length
+        if at > len(data):
+            raise PcbReadError(f"{where}: a region record runs past the end")
+        count += 1
+    return count
+
+
 def _text(subs: list[bytes], where: str) -> TextRecord:
     body, text = subs
     if len(body) < TEXT_MIN:
@@ -387,7 +406,7 @@ def _text(subs: list[bytes], where: str) -> TextRecord:
     mirrored = body[35]
     (width,) = struct.unpack_from("<i", body, 36)
     record = TextRecord(
-        _prefix(body), x, y, height, font, rotation, mirrored, width, len(body), text[1:].decode("ascii")
+        _prefix(body), x, y, height, font, rotation, mirrored, width, len(body), text[1:].decode("iso-8859-1")
     )
     if len(body) >= TEXT_LONG:
         record.is_comment, record.is_designator = body[40], body[41]
@@ -857,6 +876,11 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     counts["Polygons6"] = len(polygons)
     counts["Classes6"] = len(classes)
     counts["Rules6"] = len(rules)
+    for kind in REGION_STORAGES:  # change c0085: filled graphics and keep-outs
+        if storages.get(kind, (0, b""))[1]:
+            counts[kind] = count_regions(storages[kind][1], f"{kind}/Data")
+    if counts.get(REGION_STORAGES[0], 0) != counts.get(REGION_STORAGES[1], 0):
+        raise PcbReadError("Regions6 and ShapeBasedRegions6 hold different numbers of records")
     unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
     if UNIQUE_STORAGE in storages:
         counts[UNIQUE_STORAGE] = len(unique_ids)

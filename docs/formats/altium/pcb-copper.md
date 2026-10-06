@@ -20,6 +20,8 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
   `H-A-PCB-CU-ROUNDTRIP`; they carry `ORACLE-VERIFIED(kicad-cli)` once their oracle
   (`tests/kicad/altium/test_pcbdoc_copper_oracle.py`, `test_copper_from_oracle.py`) passed on 10.0.6, and
   that label says nothing about Altium.
+- Change c0085 adds the rows of `H-A-PCBX-*`: stacks of more than four layers, via spans and drill
+  pairs; its sources are those above, S-0470 and S-0188.
 - `tests/unit/test_format_facts.py` checks the tables.
 
 ## Tracks and arcs
@@ -44,6 +46,8 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | Flags of a via: `0x0C` unlocked and untented; bit 5 tents the top, bit 6 the bottom. The net index is at 3; polygon and component are `0xFFFF` for a free via | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Vias are not listed in `UniqueIDPrimitiveInformation`; only pads are | S-0174, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind, buried or micro via needs a via type and a drill pair in the layer stack. The documents read hold one pair only (`LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`) | S-0197, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
+| A blind or buried via is the via record with the ids of the two copper layers it spans at 29 and 30, the upper layer first, and the other bytes of a through via; an end on an internal plane holds the plane's id (39 to 54). No saved document read holds such a via: every one of their 1 103 vias spans 1 to 32 | S-0160, S-0197, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-VIASPAN |
+| The board record lists its drill pairs as `LAYERPAIR<i>LOW`, `LAYERPAIR<i>HIGH`, `LAYERPAIR<i>DRILLGUIDE`, `LAYERPAIR<i>DRILLDRAWING` and `LAYERPAIR<i>SUBSTACK_0` (the sub-stack's GUID) from i = 0. The seven saved documents hold the one pair `TOP` to `BOTTOM`, with `FALSE` in the two drill keys. A further pair in the same keys, its layers named `TOP`, `BOTTOM`, `MID<n>` or `PLANE<n>` as a polygon's `LAYER` is, is composed from that form; no saved document with a second pair was read, and KiCad reads no `LAYERPAIR` key | S-0197, S-0470, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-VIASPAN |
 | KiCad reads a 321-byte via with start 1 and end 32 as a through via between `F.Cu` and `B.Cu` with its net, position, diameter and drill; start 1 and end 2 reads as a blind via, start 2 and end 3 as a buried one | S-0160, S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
 
 ## Polygon pour
@@ -81,6 +85,8 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | What a saved plane holds besides: one `Polygons6` record with `POLYGONTYPE=Split Plane` on `PLANE<k>` (ten keys, the vertices and `NET`) and pull-back tracks and arcs on the plane's layer, without a net and with the polygon index `0xFFFE`. It has no region. All of it derives from the outline, the pull-back distance and the net. Whether Altium rebuilds it when it is missing is not known | S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
 | Altium treats a plane as a negative layer with its own connect and clearance rules (Plane Connect, Plane Clearance); a pour on a signal layer is a polygon | S-0198, S-0196 | INFERRED | H-A-PCB-CU-PLANE |
 | A stack that mixes one signal mid layer and one plane (1 → 39 → 3 → 32 or 1 → 2 → 39 → 32) is composed from the two entry forms above. No saved document with such a stack was read | S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-PLANE |
+| A stack of more than four copper layers is composed from the entry forms above: the chain of the numbered keys links every copper id in order, the physical lists grow by one dielectric and one copper entry per inner layer, and the cache list ends with the further dielectrics. The saved documents read hold two and four copper layers only | S-0198, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-STACK |
+| KiCad reads a chain of six layers with one plane (1 → 2 → 39 → 4 → 5 → 32) as `F.Cu`, `In1.Cu` … `In4.Cu`, `B.Cu`, the plane's position of type `power`, and warns once per internal plane outside the stack | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
 | The bottom layer of the saved four-layer boards carries `COPPERORIENTATION=1` (and the lower plane of one board). The document of c0035 does not write the key and opens | S-0176, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCB-CU-STACK |
 
 ## Net classes
@@ -133,8 +139,8 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
   open in Altium Designer 26.5 (`H-A-PCB-CU-TRACK`).
 - `Regions6` and `ShapeBasedRegions6`: polygons are written unpoured, and a zone's fills are not copied
   (`H-A-PCB-CU-REPOUR`). Hatched pours, shelved polygons and polygon cutouts.
-- Blind, buried and micro vias, via types and a second drill pair; tented vias; the two 16-byte ids of a
-  via (zero); the polygon-connect entry of the 351-byte form.
+- Micro vias and via types; tented vias; the two 16-byte ids of a via (zero); the polygon-connect
+  entry of the 351-byte form. (Blind and buried vias and their drill pairs are written since c0085.)
 - The `Split Plane` polygon record and the pull-back tracks of a plane, split planes, and the Plane
   Connect and Plane Clearance rules (`H-A-PCB-CU-PLANE`): Altium's defaults apply.
 - `COPPERORIENTATION`, `DIELLOSSTANGENT`, the hole-shape pairs (`HOLESHAPEHASHSIZE=0`).
@@ -150,13 +156,21 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
   `In2.Cu` Mid-Layer 2 (id 3, `MID2`), `B.Cu` layer 32 (`BOTTOM`). A signal inner layer keeps its id
   whatever the other inner layer is. Planes are numbered from the top: the first inner layer that is a
   plane is Internal Plane 1 (id 39), the second Internal Plane 2 (id 40). No primitive is written on a
-  plane. Only stacks of two and of four copper layers are written.
+  plane. Since change c0085 the map is by position, for any stack: the first copper layer of the
+  model is the top layer (1), the last the bottom layer (32), and the k-th inner copper layer is Mid-Layer k
+  (id k + 1) as a signal layer, whatever its name and whatever the other inner layers are; the planes are
+  Internal Plane 1, 2, … (39, 40, …) from the top. Two model layers never share an Altium layer. A stack is
+  written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
+  any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
+  `stackup`.
 - **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width
   and entity id. Points are converted like placed points (`pcb-document.md`, frame).
 - **Vias.** The 321-byte form with the values of the "Via" table and zero in every other byte, the two
-  ids included; flags `0C 00` (not tented); start 1 and end 32; sorted by net name, position, diameter and
-  entity id. Through vias only.
+  ids included; flags `0C 00` (not tented); start 1 and end 32 for a through via, the ids of the two
+  layers of its span, the upper one first, for a blind or buried via (change c0085); sorted by net name,
+  position, diameter and entity id. The board record gets one drill pair per distinct span besides
+  `TOP` to `BOTTOM`, in stack order of the upper and then of the lower layer. A micro via is not written.
 - **Polygons.** One record per zone layer, solid, in the key order of the first row of "Polygon pour"
   without `OBEYPOLYGONCUTOUT`: `POUROVER=TRUE`, `REMOVEDEAD=TRUE`, `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`,
   `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`, line vertices, `SHELVED=FALSE`,
@@ -165,16 +179,22 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
   `POUROVERSTYLE=1`, `IGNOREVIOLATIONS=FALSE`, `OPTIMALVOIDROTATION=TRUE`. The name is the zone's name, or
   `<net name>_L<layer position from 01>_P<pour index, three digits>` in upper case with `AUTONAME=TRUE`
   (`NONET` without a net). `POURINDEX` counts from 0 in the order of falling zone priority, then net name,
-  first outline point, zone id and stack position. No region is written.
+  first outline point, zone id and stack position. No region is written: a polygon is unpoured by
+  contract (change c0085), and Fenolite never writes poured copper it did not compute for Altium's rules.
+  A zone whose islands are never removed has `REMOVEDEAD=FALSE`. Clearance and thermal reliefs are not in
+  the record: Altium takes them from its rules.
 - **Stack.** The numbered keys link the copper ids in order. Each linked layer but the bottom carries the
   dielectric below it. The physical lists (`V9_STACK_LAYER<i>` and the head of `LAYER_V8_<i>`) hold 13
   entries with the overlays, as the nine-entry list of c0035 has them; the cache list keeps the order of
   a two-layer document and ends with `Dielectric 2` and `Dielectric 3`, the form of 2023. Dielectrics are `Dielectric 1` to `3` with the long ids 17039361 to 17039363 from the
   top. A signal mid layer has `COMPONENTPLACEMENT=1`; a plane `PULLBACKDISTANCE=20mil`, and
-  `PLANE<k>NETNAME` names its net. The default values are Fenolite's: 1.4 mil copper; for two layers the
+  `PLANE<k>NETNAME` names its net. A stack of more layers follows the same rules: `Dielectric n` with the
+  long id 17039360 + n from the top (change c0085). The default values are Fenolite's: 1.4 mil copper; for two layers the
   dielectric of c0035 (`DIELTYPE=0`, 12.6 mil, `4.800`, `FR-4`), so the bytes of a two-layer document do
   not change; for four layers a prepreg of 0.2 mm, a core of 1.0 mm and a prepreg of 0.2 mm, each `4.800`
-  and `FR-4`. `TOGGLELAYERS` stays 82 ones.
+  and `FR-4`; for more layers prepregs of 0.2 mm and cores in turn, the outermost a prepreg, the cores
+  sharing 1.0 mm. The model's stack-up names a material and no kind, so the dielectrics of a stack-up get
+  the same kinds in turn (one dielectric alone is a core). `TOGGLELAYERS` stays 82 ones.
 - **Classes.** One `KIND=0`, `SUPERCLASS=FALSE` record per net class in name order, members in name
   order, `UNIQUEID` = `project.unique_id("pcbdoc:<file name>:class:<name>")`.
 - **Component classes (change c0048).** After the net classes, one `KIND=1`, `SUPERCLASS=FALSE` record per
@@ -190,5 +210,6 @@ Change c0048 adds the component classes that "Design » Update PCB Document" der
   priorities from 1 in class-name order, then one rule named after the kind with the scope `All`.
   Defaults of the `All` rules: clearance 0.2 mm, width 0.25 mm, via 0.6 mm with a 0.3 mm hole. Width and
   via limits span the preferred value and the written copper of the rule's scope.
-- **Refusals.** A blind, buried or micro via, copper on a layer outside the stack or on a plane, a zone
-  without an outline and a stack of another layer count give an error and no file.
+- **Refusals.** Copper on a layer outside the stack or on a plane, a via that does not span two
+  different copper layers and a zone without an outline give an error and no file. A micro via is left
+  out with a warning (change c0085).

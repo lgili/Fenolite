@@ -471,8 +471,8 @@ def test_copper_bytes_do_not_depend_on_entity_ids(tmp_path: Path) -> None:
     assert routed_build(tmp_path, renamed).files["routed.PcbDoc"] == first
 
 
-def test_via_blind_refused(tmp_path: Path) -> None:
-    """Scenario "Blind via refused" of "Copper issue codes"."""
+def test_via_blind_written_and_micro_left_out(tmp_path: Path) -> None:
+    """A blind via is written and a micro via left out (change c0085, "Copper issue codes" as modified)."""
     import dataclasses
 
     from _altium_copper import at, routed_build, routed_model
@@ -491,10 +491,16 @@ def test_via_blind_refused(tmp_path: Path) -> None:
     )
     board = dataclasses.replace(model.board, vias=(*model.board.vias, blind))
     output = routed_build(tmp_path, dataclasses.replace(model, board=board))
-    assert output.files == {} and output.summary["copper"] is None
+    # change c0085: a blind via is written; a micro via is left out with a warning
+    assert not [i for i in output.issues if i.code == "altium.via-unsupported"] and output.files
+    assert output.summary["copper"]["vias"] == len(board.vias)  # type: ignore[index]
+    micro = dataclasses.replace(blind, via_type="micro")
+    board = dataclasses.replace(model.board, vias=(*model.board.vias, micro))
+    output = routed_build(tmp_path / "micro", dataclasses.replace(model, board=board))
     (found,) = [i for i in output.issues if i.code == "altium.via-unsupported"]
-    assert found.where == blind.id and found.severity == "error"
-    assert "blind" in found.message and "(20, 20) mm" in found.message
+    assert found.where == f"via/{micro.id}" and found.severity == "warning" and output.files
+    assert "micro" in found.message and "(20, 20) mm" in found.message
+    assert output.summary["pcb"]["not_lowered"] == {"via": 1}  # type: ignore[index]
 
 
 def test_copper_stack_of_three_layers_refused(tmp_path: Path) -> None:
@@ -852,10 +858,16 @@ def test_board_items_the_document_does_not_write(tmp_path: Path) -> None:
         holes=(Hole(id="hol_00000000-0000-4000-8000-000000000001", position=at(3, 3), drill=3_000_000),),
     )
     output = routed_build(tmp_path, dataclasses.replace(model, board=board))
+    # change c0085: the items are written; one that has no record is reported with its id
     found = {i.where: i for i in output.issues if i.code == "altium.not-lowered"}
-    assert sorted(found) == ["graphics", "holes", "keepouts", "texts"]
-    assert found["keepouts"].message == "1 keep-outs of the board are kept in the model only"
+    assert sorted(found) == [
+        "graphic/gfx_00000000-0000-4000-8000-000000000001",  # a line without a width
+        "keepout/kpo_00000000-0000-4000-8000-000000000001",  # a keep-out without a restriction
+    ]
     assert all(i.severity == "info" for i in found.values()) and "routed.PcbDoc" in output.files
+    pcb = output.summary["pcb"]
+    assert pcb["not_lowered"] == {"graphic": 1, "keep-out": 1}  # type: ignore[index]
+    assert (pcb["written"]["text"], pcb["written"]["hole"]) == (1, 1)  # type: ignore[index]
 
 
 # --- design rules (change c0038, task 9) -------------------------------------------------------------

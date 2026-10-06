@@ -9,7 +9,7 @@ The readers of c0041 and the import of c0043 already carry all of these from Alt
 - **Stack.** Any even number of copper layers from 2 to 16 with the dielectrics, thicknesses and materials of the model's stack-up; signal and plane layers; the layer map extended to match.
 - **Vias.** Blind and buried vias with their layer pairs, and the drill pairs the document needs for them; micro vias stay refused with a reason.
 - **Board items.** Texts on any layer (with the string forms the reader knows), graphics (lines, arcs, fills, regions) on non-copper layers, keep-outs (regions with their restrictions), non-plated holes and slots.
-- **Footprint extras.** Footprint texts besides the designator and comment, and component bodies with standoff and overall height (no 3D model file is embedded).
+- **Footprint extras.** Footprint texts besides the designator and comment, and component bodies with standoff and overall height (no 3D model file is embedded). *Corrected on 2026-10-06: neither is written; bodies were cut by the cut order and are reported one by one, and footprint texts have no requirement in this change (design, "Found on 2026-10-06").*
 - **Polygons.** Written unpoured, with every pour property of the zone; the build says that the board must be repoured in Altium. Fenolite never writes poured copper it did not compute for Altium's rules.
 - **Closed accounting.** `result.pcb.written` and `result.pcb.not_lowered` count every model item by kind, so nothing is absent without a line.
 
@@ -21,8 +21,8 @@ Size: 10 design-days (a size, not time); cut order in the design.
 None.
 
 ### Modified Capabilities
-- `altium-pcb-writer`: ADDED "Layer stacks of any even count", "Blind and buried via records", "Board text records", "Board graphics and keep-out records", "Non-plated holes and slots", "Component body records written", "Unpoured polygons are a contract", "Written items are accounted"; these supersede the limits of "Four-layer stack", "Via records" and "Polygon pour records".
-- `altium-build`: ADDED "Complete board in an Altium build"; supersedes the limits listed in "Copper issue codes" and "PCB issue codes".
+- `altium-pcb-writer`: ADDED "Layer stacks of any even count", "Blind and buried via records", "Board text records", "Board graphics and keep-out records", "Non-plated holes and slots", "Component bodies are reported", "Unpoured polygons are a contract", "Written items are accounted"; MODIFIED "Four-layer stack", "Via records", "Polygon pour records" and "Copper layer map", whose limits these supersede.
+- `altium-build`: ADDED "Complete board in an Altium build"; MODIFIED "Copper issue codes" ("PCB issue codes" names no code of an item that is now written and is not changed).
 
 ## Non-goals
 

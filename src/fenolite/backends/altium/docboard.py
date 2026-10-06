@@ -218,17 +218,20 @@ def polygon_fields(
     pour_index: int,
     net: int | None = None,
     auto_name: bool = False,
+    remove_dead: bool = True,
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
     text (``TOP``, ``MID1`` …); ``vertices`` are in binary units in the Altium frame, without the closing
     vertex; ``net`` is the net's index (``None``: no ``NET`` key); ``auto_name`` adds ``AUTONAME=TRUE``.
+    ``remove_dead`` off writes ``REMOVEDEAD=FALSE``: the pour keeps its islands (change c0085).
     ``ValueError`` for fewer than three vertices."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
+    head = [(key, "FALSE" if key == "REMOVEDEAD" and not remove_dead else value) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
-        *_POUR_HEAD,
+        *head,
         *_outline(vertices),
         *_POUR_TAIL,
         ("NAME", name_codes(name)),
@@ -324,6 +327,14 @@ def board_records(
         ("LAYERPAIR0DRILLDRAWING", "FALSE"),
         ("LAYERPAIR0SUBSTACK_0", substack),
     ]
+    for number, (low, high) in enumerate(stack.drill_pairs if stack is not None else (), start=1):
+        later[-1] += [  # change c0085, "Blind and buried via records"
+            (f"LAYERPAIR{number}LOW", rec.layer_text(low)),
+            (f"LAYERPAIR{number}HIGH", rec.layer_text(high)),
+            (f"LAYERPAIR{number}DRILLGUIDE", "FALSE"),
+            (f"LAYERPAIR{number}DRILLDRAWING", "FALSE"),
+            (f"LAYERPAIR{number}SUBSTACK_0", substack),
+        ]
     low_x = min(x for x, _ in vertices) - VIEW_MARGIN
     high_x = max(x for x, _ in vertices) + VIEW_MARGIN
     low_y = min(y for _, y in vertices) - VIEW_MARGIN

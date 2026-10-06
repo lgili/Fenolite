@@ -1353,3 +1353,33 @@ path = "tests/data/kicad/parity/agree/blink.kicad_sch"
 origin = "authored"
 corpus_id = ""
 notes = "schematic of the same build (c0072), beside its board"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of the six-layer sample (tests/_altium_board6.py): six copper layers with one plane, a through, a blind and a buried via, four texts, five graphics, a keep-out, a non-plated hole and two unpoured polygons (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of the six-layer sample with the three mini footprints (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the six-layer sample listing its schematic, libraries and PCB document (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of the six-layer sample, the blink design named board6 (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file)"

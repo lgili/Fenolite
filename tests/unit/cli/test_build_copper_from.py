@@ -218,9 +218,7 @@ def _extra_net(design: Design) -> Design:
 def _blind_via(design: Design) -> Design:
     assert design.board is not None
     first, *vias = design.board.vias
-    return board_of(
-        design, vias=(dataclasses.replace(first, via_type="blind", layers=("F.Cu", "In1.Cu")), *vias)
-    )
+    return board_of(design, vias=(dataclasses.replace(first, layers=("F.Cu", "F.Cu")), *vias))
 
 
 MISMATCHES: dict[str, tuple[Callable[[Design], Design], str, str]] = {
@@ -228,7 +226,7 @@ MISMATCHES: dict[str, tuple[Callable[[Design], Design], str, str]] = {
     "footprint": (_other_footprint, "altium.copper-board-mismatch", "R1"),
     "pad-net": (_pad_on_gnd, "altium.copper-board-mismatch", "R1.2"),
     "net": (_extra_net, "altium.copper-net-missing", "EXTRA"),
-    "via": (_blind_via, "altium.via-unsupported", ""),
+    "via": (_blind_via, "altium.copper-invalid", ""),
 }
 
 

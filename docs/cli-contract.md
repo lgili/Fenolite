@@ -147,7 +147,7 @@ with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
 `result.copper` is present whenever the PCB document is planned (`null` otherwise): `source` (`none`,
 `model`, `script` or `board`), `from` (the path given to `--copper-from`, else `null`), `layers`,
 `planes` (layer name to net name), `tracks`, `arcs`, `vias`, `zones`, `net_classes` (counts of what
-is written) and `placements_from_board`. With `--copper-from`, `result.copper_input` holds the board's
+is written) and `placements_from_board`. `result.pcb` (change c0085) is `null` without a PCB document; with one it holds `written`, the number of model items the document holds per kind (`footprint`, `pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`), and `not_lowered`, the kinds with items it does not hold and their number. With `--copper-from`, `result.copper_input` holds the board's
 `path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
 
 `source` is `script` when the script declares copper intents (`Design.track`, `Design.via`,

@@ -347,7 +347,7 @@ written, and the kit is named and not defined.
 |---|---|---|---|---|---|
 | c0083 | `altium-repeated-sheets` | the import instantiates repeated sheets: channels, their designators and nets; the annotation file; the pin-to-pad map | proposed | c0043, c0044 | 5.5 |
 | c0084 | `altium-rule-lowering` | a closed table from the neutral rule kinds to Altium rule kinds, scoped rule records, the same kinds read back, a rule file export | proposed | c0038, c0042, c0071 | 7 |
-| c0085 | `altium-pcb-complete` | stacks up to 16 signal layers, blind and buried vias, board texts, graphics, keep-outs, non-plated holes, bodies; polygons unpoured by contract; every item accounted | proposed | c0035, c0038, c0041, c0043 | 10 |
+| c0085 | `altium-pcb-complete` | stacks up to 16 signal layers, blind and buried vias, board texts, graphics, keep-outs, non-plated holes; polygons unpoured by contract; every item accounted (bodies cut and reported; the model has no slots) | implemented on 2026-10-06 but for bodies; Part X (Altium) open | c0035, c0038, c0041, c0043 | 10 |
 | c0086 | `altium-schematic-complete` | symbol graphics, the module tree at any depth, port directions, buses, text outside ASCII, parameters | proposed | c0032–c0037, c0040, c0070 | 9.5 |
 | c0087 | `altium-outjob-sheet` | an output job from the export preset; a `.SchDot` and the sheet on schematics from the sheet specification | proposed | c0032, c0042, c0046, c0074 | 7 |
 | c0088 | `altium-light-drc` | `copper.clearance` and `parity` on Altium documents, an Altium parity adapter, a copper guard in the Altium build | proposed | c0029, c0072, c0044, c0084 | 5 |

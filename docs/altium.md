@@ -329,8 +329,8 @@ The frame: Y up, the board's lower-left corner and the origin at (1000 mil, 1000
 are mirrored as KiCad places them and their layers swapped. Each component carries
 `SOURCEUNIQUEID=\<id>`, the unique id of the same component in `<name>.SchDoc`, so "Design » Update PCB
 Document" should match every component (`H-A-PCB-DOC-LINK`). When the document is written, the board and
-the placements and the net classes are no longer reported by `altium.not-lowered`; a board's keep-outs,
-texts, graphics and holes are. A document edited in Altium is refused on
+the placements and the net classes are no longer reported by `altium.not-lowered`, and a board's keep-outs,
+texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
 **Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
@@ -353,13 +353,39 @@ maintainer reports Part C of `docs/evidence/altium-pcb.md`.
 **What is written.**
 
 - Tracks and arcs as free primitives with their net, in the short forms Altium Designer 26.5 accepts.
-- Through vias in the 321-byte form Altium saves.
+- Through, blind and buried vias in the 321-byte form Altium saves, with one drill pair per span.
 - Each zone as one polygon pour per layer **without poured copper**: the outline, the net, a name and a
   pour index. Altium fills them on a repour: run "Tools » Polygon Pours » Repour All" once after opening
   the document. The build says so with `altium.zones-unpoured`. A zone's fills are never copied.
-- A stack of 2 or 4 copper layers, from `design.board(..., copper=…)`. The stack values come from the
+- A stack of 2 or 4 copper layers, from `design.board(..., copper=…)`, or the copper layers that the
+  model's board names (any even count, see "Complete board"). The stack values come from the
   model's stack-up when it fits, else from Fenolite's defaults (1.4 mil copper; for four layers a 0.2 mm
   prepreg, a 1.0 mm core and a 0.2 mm prepreg).
+
+**Complete board (change c0085).** A model can hold more than a script declares: a design that was
+imported, or one built in Python from the model's classes, as the sample `tests/_altium_board6.py` is.
+The build writes these items too, and `result.pcb` counts them: `written` maps each kind (`footprint`,
+`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`) to the number
+of model items the document holds, and `not_lowered` the kinds with items it does not hold. Every item is
+in one of the two; an item that is not written has an issue whose `where` is `<kind>/<id>`.
+
+| item | written as | not written |
+|---|---|---|
+| copper layers | any even count from 2 to 32 with at most 16 signal layers and 16 internal planes; the k-th inner layer is Mid-Layer k, a plane declared with `planes` is the next Internal Plane; dielectrics with thickness, material and constant from the stack-up | an odd count or a larger stack: the stack of the two outer layers and `altium.not-lowered` (`where` = `stackup`) |
+| vias | through, blind and buried, with the two layers of their span; one drill pair per distinct span | a micro via: `altium.via-unsupported` (warning), the build goes on |
+| board texts | stroke texts with string (any character, through the wide string), layer, position, height, stroke width and rotation; mirrored on a bottom-side layer | no justification and no TrueType or barcode text (the model holds none); a text on a copper or user layer, an empty or multi-line text |
+| graphics | lines, arcs, circles and drawn rectangles and polygons as tracks and arcs without a net; filled rectangles and polygons as regions; on the silkscreen, paste, solder-mask, fabrication and courtyard layers | a graphic on copper or on a user layer, a filled circle, a drawn shape of width 0 (a graphic on `Edge.Cuts` is the outline) |
+| keep-outs | one keep-out region with its restrictions for vias, tracks, pads and copper (in the key Altium saves and, for KiCad's importer, in `KEEPOUTRESTRIC` too), on the Keep-Out layer when it names every copper layer, else one per layer | `no_footprints` (reported, the keep-out is written with the others); a keep-out with no other restriction |
+| holes | a free pad without copper, plated or not | a slot (the model's board hole is round) |
+| component bodies | — | every body: `altium.not-lowered` (`where` = `body/<id>`) |
+| zones | one **unpoured** polygon per layer, as above; a zone whose islands are never removed keeps them | poured copper, always: **repour the board in Altium** ("Tools » Polygon Pours » Repour All") |
+
+Fenolite never writes poured copper: a pour is the result of Altium's rules and Altium's algorithm, and a
+fill computed elsewhere would be shown as poured while disagreeing with what a repour gives. Clearance and
+thermal reliefs of a polygon come from Altium's rules, not from the polygon. What KiCad's importer reads
+of these items is checked by `tests/kicad/altium/test_pcb_complete_oracle.py` (`H-A-PCBX-KICAD`); that
+Altium shows them is Part X of `docs/evidence/altium-pcb.md`, not yet reported, so every row is
+`INFERRED`.
 - One net class per `design.rules.netclass(...)`, with its nets.
 - Clearance, Width and Routing Via Style rules: one per class value, and one `All` rule per kind with
   Fenolite's defaults (0.2 mm, 0.25 mm, a 0.6 mm via with a 0.3 mm hole). Width and via limits span the
@@ -531,7 +557,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes; a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); the script's rule minimums (`where` = `design-rules`, with or without a PCB document: its rules come from the net classes); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -967,7 +993,7 @@ the built model stores that value, so that the model is what the documents read 
 One flat sheet by default, or one level of hierarchy with `--altium-sheets modules` (no repeated sheets,
 no deeper levels, no routed wires between sheet symbols, no port directions, no harness in the ASCII form,
 no nested harnesses); no buses, variants or output jobs; the PCB document has unpoured polygons, no
-split planes, no blind, buried or micro vias and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
+split planes, no micro vias, no component bodies and only three kinds of rules, and the PCB library holds only the footprint content listed above; schematic libraries hold synthesised rectangles, not the symbols' graphics, and no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII only. The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.

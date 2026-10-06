@@ -297,8 +297,8 @@ def test_copper_stack_planes_numbered_from_the_top() -> None:
 @pytest.mark.parametrize(
     ("names", "planes", "named"),
     [
-        (("F.Cu", "In1.Cu", "B.Cu"), (), "In1.Cu"),
-        (("F.Cu", "In2.Cu", "In1.Cu", "B.Cu"), (), "In2.Cu"),
+        (("F.Cu", "In1.Cu", "B.Cu"), (), "3 copper layers"),  # change c0085: an odd count
+        (("F.Cu", "In1.Cu", "In1.Cu", "B.Cu"), (), "repeat a layer"),
         (FOUR, ("F.Cu",), "F.Cu"),
         (("F.Cu", "B.Cu"), ("In1.Cu",), "In1.Cu"),
         (FOUR, ("In1.Cu", "In1.Cu"), "In1.Cu"),

@@ -18,6 +18,10 @@ as free primitives with their net, through vias in the 321-byte form Altium save
 unpoured polygon pour per layer, which Altium fills on a repour; one ``KIND=0`` class per net class; and
 Clearance, Width and Routing Via Style rules from the net classes and Fenolite's defaults.
 
+Change c0085 completes the board: copper stacks of any even count up to 32 layers, blind and buried
+vias with one drill pair per span, the free texts, graphics, keep-outs and holes of the board
+(``pcb-records.md``, "Regions and keep-outs" and "Free pads as holes"). Polygons stay unpoured.
+
 Change c0048 adds one ``KIND=1`` class per schematic sheet with the refs of its components, the component
 class that Altium's change order derives from the sheet (``H-A-ECO-COMPCLASS``): named after the module
 for a module sheet, and after the sheet for the top sheet or the single sheet of a flat build.
@@ -25,9 +29,11 @@ for a module sheet, and after the sheet for the top sheet or the single sheet of
 
 from __future__ import annotations
 
+import dataclasses
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from types import MappingProxyType
 
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field, text_problem
@@ -51,7 +57,7 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Arc, Side, Track, Via, Zone
+from fenolite.model.board import Arc, Graphic, Hole, Keepout, Side, Text, Track, Via, Zone
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -193,6 +199,14 @@ EVIDENCE = Evidence(
         "H-A-PCB-DOC-OPEN",
         "H-A-PCB-DOC-VIEWER",
         "H-A-PCB-KICAD-DOC",
+        "H-A-PCBX-HOLE",
+        "H-A-PCBX-KEEPOUT",
+        "H-A-PCBX-KICAD",
+        "H-A-PCBX-READBACK",
+        "H-A-PCBX-REPOUR",
+        "H-A-PCBX-STACK",
+        "H-A-PCBX-TEXT",
+        "H-A-PCBX-VIASPAN",
     ),
 )
 """The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
@@ -256,6 +270,13 @@ class PcbDocSpec:
     net_classes: tuple[NetClassSpec, ...] = ()
     rules: bool = True
     """``False`` leaves ``Rules6`` empty (the bisection variants without rules)."""
+    texts: tuple[Text, ...] = ()
+    graphics: tuple[Graphic, ...] = ()
+    keepouts: tuple[Keepout, ...] = ()
+    holes: tuple[Hole, ...] = ()
+    """The free items of the board (change c0085), model entities in the frame of the placements, as
+    ``lens.altium_copper.lower_items`` checked them: texts and graphics on layers of
+    ``pcbrecords.BOARD_LAYER_MAP``, keep-outs on copper layers of the board, round holes."""
 
 
 def _u32(value: int) -> bytes:
@@ -417,23 +438,55 @@ def text_record(
     designator: bool,
     wide_index: int,
     mirrored: bool = False,
+    free: bool = False,
+    height: int = DESIGNATOR_HEIGHT,
+    stroke: int = DESIGNATOR_STROKE,
+    rotation: int = 0,
 ) -> bytes:
-    """A text (type 5) in the 123-byte long form, ``at`` in nanometres in the Altium frame."""
+    """A stroke text (type 5) in the 137-byte long form, ``at`` in nanometres in the Altium frame. A
+    component's text is its designator or its comment; a ``free`` text (change c0085, ``component`` is
+    ``pcbrecords.NO_INDEX``) is neither, has its own ``height`` and ``stroke`` (nanometres) and ``rotation``
+    (microdegrees), and its 8-bit string is ``short_text(text)``: the text itself is the wide string at
+    ``wide_index``."""
     body = rec.prefix(layer, component=component)
     body += struct.pack(
         "<3iHdBi",
         rec.to_units(at.x),
         rec.to_units(at.y),
-        rec.to_units(DESIGNATOR_HEIGHT),
+        rec.to_units(height),
         1,
-        0.0,
+        rec.degrees_of(rotation % 360_000_000),
         1 if mirrored else 0,
-        rec.to_units(DESIGNATOR_STROKE),
+        rec.to_units(stroke),
     )
-    body += bytes((0 if designator else 1, 1 if designator else 0, 0, 0, 0, 0))
+    flags = (0, 0) if free else (0 if designator else 1, 1 if designator else 0)
+    body += bytes((*flags, 0, 0, 0, 0))
     body += bytes(64) + b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
     assert len(body) == TEXT_SIZE
-    return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(rec.short_string(text))
+    string = short_text(text) if free else rec.short_string(text)
+    return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
+
+
+def short_text(text: str) -> bytes:
+    """The 8-bit string of a free text: one length byte and at most 255 characters in ISO-8859-1, a
+    character outside it written ``?`` (``pcb-records.md``, "Text": a reader that knows the wide string
+    takes that one)."""
+    data = text.encode("iso-8859-1", errors="replace")[:255]
+    return bytes((len(data),)) + data
+
+
+def text_problem_of(text: Text) -> str | None:
+    """Why a free text cannot be written, or ``None``: an empty string, a control character or a line
+    break, or a height or stroke width that is not positive."""
+    if not text.text:
+        return "the text is empty"
+    if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in text.text):
+        return "the text holds a control character or a line break"
+    if text.size.h <= 0:
+        return f"a height of {text.size.h} nm is not positive"
+    if text.thickness <= 0:
+        return f"a stroke width of {text.thickness} nm is not positive"
+    return None
 
 
 def _wide_entry(index: int, text: str) -> bytes:
@@ -583,28 +636,238 @@ def routed_arcs(arcs: Sequence[Arc], copper: _Copper) -> list[bytes]:
     return out
 
 
-def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
-    """The through vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and
-    entity id. ``ValueError`` names the id of a via that is not a through via from the top to the bottom
-    copper layer, whose drill is not below its diameter, or on an unknown net."""
+def via_span(via: Via, layers: Sequence[str]) -> tuple[str, str]:
+    """The two copper layers a via spans, the upper one first; ``ValueError`` names the id of a micro via
+    or of a via whose ``layers`` are not two different copper layers of ``layers`` (top to bottom)."""
+    if via.via_type == "micro":
+        raise ValueError(f"{via.id}: a micro via is not written")
+    names = list(layers)
+    if len(via.layers) != 2 or via.layers[0] == via.layers[1] or any(n not in names for n in via.layers):
+        spans = ", ".join(via.layers) or "no layer"
+        raise ValueError(f"{via.id}: the via spans {spans}, not two copper layers of {', '.join(names)}")
+    upper, lower = sorted(via.layers, key=names.index)
+    return upper, lower
+
+
+def drill_pairs(vias: Sequence[Via], copper: _Copper) -> tuple[tuple[int, int], ...]:
+    """The drill pairs of the board besides the pair of its outer layers: one per distinct span of a blind
+    or buried via, as Altium ids, in stack order of the upper and then of the lower layer."""
     names = list(copper.layers)
-    ends = {names[0], names[-1]}
+    spans = {via_span(via, names) for via in vias} - {(names[0], names[-1])}
+    ordered = sorted(spans, key=lambda span: (names.index(span[0]), names.index(span[1])))
+    return tuple((copper.layers[upper], copper.layers[lower]) for upper, lower in ordered)
+
+
+def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
+    """The vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and entity
+    id: a through via with the start layer 1 and the end layer 32, a blind or buried via (change c0085)
+    with the ids of the two layers it spans. ``ValueError`` names the id of a via that ``via_span``
+    refuses, whose drill is not below its diameter, or on an unknown net."""
+    names = list(copper.layers)
     out: list[bytes] = []
     ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
     for via in ordered:
-        if via.via_type != "through":
-            raise ValueError(f"{via.id}: a {via.via_type} via is not written; only through vias are")
-        if len(via.layers) != 2 or set(via.layers) != ends:
-            spans = ", ".join(via.layers) or "no layer"
-            raise ValueError(f"{via.id}: the via spans {spans}, not {names[0]} to {names[-1]}")
+        upper, lower = via_span(via, names)
         if not 0 < via.drill < via.diameter:
             raise ValueError(
                 f"{via.id}: the drill of {via.drill} nm is not below the diameter of {via.diameter} nm"
             )
         net = copper.net(via.id, via.net_id)
         x, y = _units(copper.frame(via.position))
-        out.append(rec.via_record(x, y, rec.to_units(via.diameter), rec.to_units(via.drill), net=net))
+        out.append(
+            rec.via_record(
+                x,
+                y,
+                rec.to_units(via.diameter),
+                rec.to_units(via.drill),
+                net=net,
+                start=copper.layers[upper],
+                end=copper.layers[lower],
+            )
+        )
     return out
+
+
+# --- free items of the board (change c0085) ---------------------------------------------------------------
+
+KEEPOUT_BITS: Mapping[str, int] = MappingProxyType(
+    {"no_vias": 0x01, "no_tracks": 0x02, "no_copper_pour": 0x04, "no_pads": 0x18}
+)
+"""Restriction of a model keep-out → its bits of the keep-out restrictions value (``pcb-records.md``,
+"Regions and keep-outs"): vias, tracks, copper, and pads as surface-mount and through-hole pads. The
+restriction ``no_footprints`` has no bit."""
+
+
+def keepout_restrictions(keepout: Keepout) -> int:
+    """The restrictions value of ``keepout``: the bits of ``KEEPOUT_BITS`` of the restrictions it sets."""
+    return sum(bits for name, bits in KEEPOUT_BITS.items() if getattr(keepout, name))
+
+
+def _ring(points: Sequence[Point]) -> list[Point]:
+    ring = list(points)
+    if len(ring) > 1 and ring[0] == ring[-1]:
+        ring.pop()
+    return ring
+
+
+def graphic_problem(graphic: Graphic) -> str | None:
+    """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP``, a point
+    count that does not fit its kind, collinear arc points, or a drawn outline without a positive width."""
+    if graphic.layer not in rec.BOARD_LAYER_MAP:
+        return f"the layer {graphic.layer} has no layer in the document for a graphic"
+    wanted = {"line": 2, "rect": 2, "circle": 2, "arc": 3}.get(graphic.kind)
+    count = len(_ring(graphic.points)) if graphic.kind == "polygon" else len(graphic.points)
+    if (wanted is not None and count != wanted) or (wanted is None and count < 3):
+        return f"a {graphic.kind} of {count} points is not written"
+    if graphic.kind in ("line", "circle") and graphic.points[0] == graphic.points[1]:
+        return f"the {graphic.kind} has no extent"
+    if graphic.kind == "rect" and (
+        graphic.points[0].x == graphic.points[1].x or graphic.points[0].y == graphic.points[1].y
+    ):
+        return "the rect has no area"
+    if graphic.kind == "arc":
+        try:
+            rec.arc_from_points(*graphic.points)
+        except ValueError:
+            return "the three points of the arc lie on one line"
+    drawn = graphic.kind in ("line", "arc") or not graphic.filled
+    if drawn and graphic.width <= 0:
+        return f"a drawn {graphic.kind} needs a positive width, not {graphic.width} nm"
+    if graphic.filled and graphic.kind == "circle":
+        return "a filled circle has no record: a region holds straight edges only"
+    return None
+
+
+def keepout_problem(keepout: Keepout, layers: Sequence[str]) -> str | None:
+    """Why a keep-out cannot be written, or ``None``: fewer than three outline points, no layer, a layer
+    that is not a copper layer of the board, or no restriction that the record carries."""
+    if len(_ring(keepout.outline)) < 3:
+        return "the keep-out has an outline of fewer than three points"
+    if not keepout.layers:
+        return "the keep-out names no layer"
+    outside = [layer for layer in keepout.layers if layer not in layers]
+    if outside:
+        return f"the layer {outside[0]} is not a copper layer of the board"
+    if not keepout_restrictions(keepout):
+        return "the keep-out sets no restriction that the record carries (tracks, vias, pads, copper)"
+    return None
+
+
+@dataclass
+class _Free:
+    """The records of the free items, per storage."""
+
+    tracks: list[bytes] = field(default_factory=lambda: [])
+    arcs: list[bytes] = field(default_factory=lambda: [])
+    regions: list[bytes] = field(default_factory=lambda: [])
+    shapes: list[bytes] = field(default_factory=lambda: [])
+    pads: list[bytes] = field(default_factory=lambda: [])
+
+    def region(self, layer: int, ring: Sequence[Point], frame: Frame, keepout: int | None = None) -> None:
+        vertices = [_units(frame(point)) for point in ring]
+        self.regions.append(rec.region_record(layer, vertices, keepout=keepout))
+        self.shapes.append(rec.region_record(layer, vertices, keepout=keepout, shape_based=True))
+
+
+def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
+    """The records of the graphics, keep-outs and holes of ``spec`` (``pcb-records.md``, "Regions and
+    keep-outs" and "Free pads as holes"), each kind sorted by layer id, points and entity id. A drawn
+    graphic is tracks and arcs without a net; a filled rectangle or polygon is one region, written in
+    ``Regions6`` and in ``ShapeBasedRegions6``. A keep-out that names every copper layer of the board is one
+    keep-out region on the Keep-Out layer; otherwise it is one keep-out region per layer it names. A hole
+    is a free pad. ``ValueError`` names the id of an item that ``graphic_problem`` or ``keepout_problem``
+    refuses, or of a hole without a positive drill."""
+    out = _Free()
+    frame = copper.frame
+    for graphic in sorted(
+        spec.graphics, key=lambda g: (rec.BOARD_LAYER_MAP.get(g.layer, 0), [_xy(p) for p in g.points], g.id)
+    ):
+        problem = graphic_problem(graphic)
+        if problem is not None:
+            raise ValueError(f"{graphic.id}: {problem}")
+        layer = rec.BOARD_LAYER_MAP[graphic.layer]
+        if graphic.filled and graphic.kind in ("rect", "polygon"):
+            if graphic.kind == "rect":
+                s, e = graphic.points
+                ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
+            else:
+                ring = _ring(graphic.points)
+            out.region(layer, ring, frame)
+            continue
+        width = rec.to_units(graphic.width)
+        if graphic.kind in ("polygon", "rect"):
+            if graphic.kind == "rect":
+                s, e = graphic.points
+                ring = [s, Point(e.x, s.y), e, Point(s.x, e.y)]
+            else:
+                ring = _ring(graphic.points)
+            for index, point in enumerate(ring):
+                a, b = _units(frame(point)), _units(frame(ring[(index + 1) % len(ring)]))
+                out.tracks.append(rec.track_record(layer, a, b, width))
+        elif graphic.kind == "line":
+            a, b = (_units(frame(point)) for point in graphic.points)
+            out.tracks.append(rec.track_record(layer, a, b, width))
+        elif graphic.kind == "circle":
+            centre, edge = (frame(point) for point in graphic.points)
+            out.arcs.append(rec.arc_record(layer, rec.circle_geometry(centre, edge), width))
+        else:
+            start, mid, end = (frame(point) for point in graphic.points)
+            out.arcs.append(rec.arc_record(layer, rec.arc_from_points(start, mid, end), width))
+    names = list(copper.layers)
+    for keepout in sorted(spec.keepouts, key=lambda k: ([_xy(p) for p in k.outline], k.layers, k.id)):
+        problem = keepout_problem(keepout, names)
+        if problem is not None:
+            raise ValueError(f"{keepout.id}: {problem}")
+        value = keepout_restrictions(keepout)
+        ring = _ring(keepout.outline)
+        if set(keepout.layers) == set(names):
+            out.region(rec.KEEPOUT_LAYER, ring, frame, value)
+        else:
+            for name in sorted(set(keepout.layers), key=names.index):
+                out.region(copper.layers[name], ring, frame, value)
+    for hole in sorted(spec.holes, key=lambda h: (_xy(h.position), h.drill, h.id)):
+        if hole.drill <= 0:
+            raise ValueError(f"{hole.id}: a hole needs a positive drill, not {hole.drill} nm")
+        x, y = _units(frame(hole.position))
+        out.pads.append(rec.hole_record(x, y, rec.to_units(hole.drill), plated=hole.plated))
+    return out
+
+
+def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes], list[bytes]]:
+    """The free stroke texts of ``spec`` and their wide strings, numbered from ``first``, sorted by layer
+    id, position, string and entity id (``pcb-records.md``, "Text"). A text on a bottom-side layer is
+    mirrored. ``ValueError`` names the id of a text on a layer outside ``BOARD_LAYER_MAP`` or one that
+    ``text_problem_of`` refuses."""
+    texts: list[bytes] = []
+    wide: list[bytes] = []
+    ordered = sorted(
+        spec.texts, key=lambda t: (rec.BOARD_LAYER_MAP.get(t.layer, 0), _xy(t.position), t.text, t.id)
+    )
+    for text in ordered:
+        if text.layer not in rec.BOARD_LAYER_MAP:
+            raise ValueError(f"{text.id}: the layer {text.layer} has no layer in the document for a text")
+        problem = text_problem_of(text)
+        if problem is not None:
+            raise ValueError(f"{text.id}: {problem}")
+        layer = rec.BOARD_LAYER_MAP[text.layer]
+        number = first + len(texts)
+        texts.append(
+            text_record(
+                text.text,
+                layer=layer,
+                at=frame(text.position),
+                component=rec.NO_INDEX,
+                designator=False,
+                wide_index=number,
+                mirrored=layer in rec.BOTTOM_SIDE,
+                free=True,
+                height=text.size.h,
+                stroke=text.thickness,
+                rotation=text.rotation,
+            )
+        )
+        wide.append(_wide_entry(number, text.text))
+    return texts, wide
 
 
 NO_NET_NAME = "NONET"
@@ -653,12 +916,13 @@ def polygon_records(zones: Sequence[Zone], copper: _Copper) -> list[bytes]:
         generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
         net = copper.net(zone.id, zone.net_id)
         fields = polygon_fields(
-            rec.COPPER_LAYER_TEXT[layer],
+            rec.layer_text(copper.layers[layer]),
             [_units(copper.frame(point)) for point in outline],
             name=zone.name or generated,
             pour_index=index,
             net=None if net == rec.NO_INDEX else net,
             auto_name=not zone.name,
+            remove_dead=zone.settings.island_removal != "never",
         )
         out.append(rec.property_block(fields))
     return out
@@ -851,7 +1115,7 @@ def document_stack(spec: PcbDocSpec) -> StackSpec:
     planes = [
         name
         for name, layer in zip(spec.copper_layers, stack.copper, strict=False)
-        if layer >= rec.FIRST_PLANE
+        if layer >= rec.FIRST_PLANE and name not in (spec.copper_layers[0], spec.copper_layers[-1])
     ]
     if len(stack.copper) != len(signal) or rec.copper_stack(spec.copper_layers, planes) != stack.copper:
         raise ValueError(
@@ -972,6 +1236,18 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     arcs += routed_arcs(spec.arcs, copper)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
     filled["Vias6"] = via_records(spec.vias, copper)
+    pairs = drill_pairs(spec.vias, copper)
+    if pairs:
+        stack = dataclasses.replace(stack, drill_pairs=pairs)
+    free = free_records(spec, copper)
+    tracks += free.tracks
+    arcs += free.arcs
+    pads += free.pads
+    filled["Regions6"] = free.regions
+    filled["ShapeBasedRegions6"] = free.shapes
+    more_texts, more_wide = free_texts(spec, frame, len(texts))
+    texts += more_texts
+    wide += more_wide
     filled["Polygons6"] = polygon_records(spec.zones, copper)
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
@@ -980,7 +1256,8 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     filled["Rules6"] = rule_records(spec, filename)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
-        {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"])} | poured
+        {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *free.regions)}
+        | poured
     )
     unique = [
         rec.property_block(
@@ -1034,8 +1311,18 @@ __all__ = [
     "channel_offsets",
     "class_records",
     "component_class_records",
+    "KEEPOUT_BITS",
     "degrees_text",
     "document_stack",
+    "drill_pairs",
+    "free_records",
+    "free_texts",
+    "graphic_problem",
+    "keepout_problem",
+    "keepout_restrictions",
+    "short_text",
+    "text_problem_of",
+    "via_span",
     "file_header",
     "file_header_six",
     "place_component",

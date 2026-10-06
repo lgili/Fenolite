@@ -1,6 +1,13 @@
 {
   "version": "10.0.6",
   "probes": {
+    "altium-pcbx-graphics": "equal",
+    "altium-pcbx-holes": "equal",
+    "altium-pcbx-keepouts": "equal",
+    "altium-pcbx-stack": "equal",
+    "altium-pcbx-texts": "equal",
+    "altium-pcbx-vias": "equal",
+    "altium-pcbx-zones": "equal",
     "analysis-creepage-edge": "different",
     "analysis-creepage-slot": "equal",
     "bom-csv-dnp": "equal",

@@ -115,8 +115,8 @@ fix = "Meet the conditions of the PCB document (see altium.pcbdoc-not-written) o
 see = "Build target"
 
 ["altium.copper-stack"]
-meaning = "The copper layers are not the two-layer or four-layer stack Fenolite writes for Altium, their count differs from board(copper=...), or a plane names a wrong layer or net."
-fix = "Use F.Cu and B.Cu, or F.Cu, In1.Cu, In2.Cu and B.Cu, and put planes on inner layers with nets of the design."
+meaning = "The number of copper layers of the board differs from the count the build asks for, a copper layer is named twice, or a plane names a wrong layer or net."
+fix = "Build with the copper count of the board, and put planes on inner layers with nets of the design."
 see = "Build target"
 
 ["altium.footprint-extras-dropped"]
@@ -355,7 +355,7 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up."
 fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand."
 see = "Build target"
 
@@ -680,8 +680,8 @@ fix = "Correct the pin in the script; the symbol's pins are listed by 'fenolite 
 see = "Build target"
 
 ["altium.via-unsupported"]
-meaning = "A via is blind, buried or micro, or does not span the top and the bottom layer."
-fix = "Use through vias, or leave the via out of the Altium build."
+meaning = "A micro via is not written to the Altium PCB document; through, blind and buried vias are."
+fix = "Use a blind via of the same span, or place the via in Altium."
 see = "Build target"
 
 ["altium.zone-unsupported"]
