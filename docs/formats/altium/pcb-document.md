@@ -172,3 +172,24 @@ starting with `\|RECORD=Board`.
   difference from the saved files while looking for another fault, and it was corrected. On the
   rebuilt example the change order of Altium Designer 26.5 lists no component, pin or net change
   (third report of Part H, 2026-10-03).
+
+### A model that was read (change c0090)
+
+`fenolite.backends.altium.lower` writes a model that holds a board without a script. It adds no record
+and no field: every byte is one of the records above and of `pcb-records.md`. What differs from a build
+is which values the records get.
+
+- **Frame.** A board that was read from a PCB document is written in the document's own frame: the
+  import maps a point (x, y) of the document to (x, −y) of the model, and the write maps it back, so
+  every coordinate keeps its units. `ORIGINX` and `ORIGINY` get the values that the import kept. Any
+  other board is written like a build, with the outline's lower-left corner at (1000 mil, 1000 mil).
+- **Components.** A footprint of the model is one component record with its own pads; the model holds
+  no graphics of a footprint, so none is written. `UNIQUEID` is the unique id that the import kept for
+  the footprint, and `SOURCEUNIQUEID` the one it kept for the component, when one component alone
+  holds it. A component without a designator or without a comment gets no text record for it.
+- **Free pads.** A pad that belongs to no component is a pad record whose component index is the
+  "none" value, like the pad that a hole is written as ("Free pads as holes"), here with its name, its
+  copper and its net.
+- **Texts outside 7-bit ASCII.** A designator or a comment that the 8-bit string cannot hold is written
+  as a free text is: the 8-bit string with `?` for each character outside ISO-8859-1, and the text
+  itself as the wide string.

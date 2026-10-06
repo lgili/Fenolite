@@ -36,10 +36,10 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
-READING_MODULES = {"backend.py", "docset.py", "frame.py", "roundtrip.py"}
-"""The modules of the reading side (changes c0043, c0044 and c0088): the registered backend, the document
-sets, the board frame of an import and the round-trip levels. ``test_backend.py``, ``test_docset.py``,
-``test_frame.py`` and ``test_roundtrip.py`` hold their rules."""
+READING_MODULES = {"backend.py", "docset.py", "frame.py", "roundtrip.py", "rta3.py"}
+"""The modules of the reading side (changes c0043, c0044, c0088 and c0090): the registered backend, the
+document sets, the board frame of an import and the round-trip levels. ``test_backend.py``,
+``test_docset.py``, ``test_frame.py``, ``test_roundtrip.py`` and ``test_rta3.py`` hold their rules."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
@@ -59,10 +59,12 @@ def test_files_of_the_sample() -> None:
 
 def test_the_writers_are_not_part_of_the_registered_backend() -> None:
     """Since change c0043 the package holds the registered backend ``altium``, which reads: it offers no
-    write kind, so the writers stay experimental features of ``build``."""
+    write kind, so the writers stay experimental. Since change c0090 the backend has ``write`` for a model
+    with a board ("Altium write of a model"), and its capabilities still name no write kind."""
     assert "fenolite.backends.altium.project" in sys.modules
     (altium,) = [b for b in registry.all_backends() if b.name == "altium"]
-    assert altium.capabilities().write_kinds == () and not hasattr(altium, "write")
+    assert altium.capabilities().write_kinds == () and "write" not in altium.capabilities().operations
+    assert callable(getattr(altium, "write", None))
 
 
 def test_imports_only_core_and_model() -> None:

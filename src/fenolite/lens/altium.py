@@ -25,6 +25,7 @@ from typing import Literal
 from fenolite.backends.altium import (
     binary,
     hierarchy,
+    lower,
     pcbdoc,
     pcblib,
     pcbrecords,
@@ -1670,7 +1671,11 @@ def build_altium(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
-    for file_name, text in canonical.dump_texts(model).items():
+    stored = model
+    if spec is not None and model.board is not None:
+        # the stored model holds the board that was written (change c0090, "RT-A2 on a written model")
+        stored = dataclasses.replace(model, board=lower.stored_board(model, spec))
+    for file_name, text in canonical.dump_texts(stored).items():
         files[f"{CACHE_DIR}/{file_name}"] = text.encode("utf-8")
     files[RECORD_FILE] = (
         json.dumps(
@@ -1700,7 +1705,31 @@ def build_altium(
         directions=directions,
         symbol_bodies=symbol_bodies,
     )
-    return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary)
+    return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
+
+
+def corner_ratios(design: Design) -> dict[str, Decimal]:
+    """Pad id → the corner ratio of every rounded-rectangle pad of the board's footprints that was read
+    from a KiCad board (change c0090): the model holds no ratio, and KiCad's backend keeps the pad's
+    ``roundrect_rratio`` in its own bag, which only this lens reads (layering)."""
+    found: dict[str, Decimal] = {}
+    for footprint in design.board.footprints if design.board is not None else ():
+        for pad in footprint.pads:
+            if pad.shape != "roundrect":
+                continue
+            for node in _opaque_nodes(pad):
+                ratio = _decimal_atom(node) if node.name == "roundrect_rratio" else None
+                if ratio is not None:
+                    found[pad.id] = ratio
+    return found
+
+
+def write_model(design: Design, *, allow_lossy: bool = False) -> lower.ProjectWrite:
+    """The Altium project of ``design``, written from the model alone (``backends.altium.lower.write_design``,
+    change c0090), with the corner ratios of ``corner_ratios``: the write of a design that was read from
+    a KiCad board. ``AltiumBackend.write`` is the same write without them, for a design that carries its
+    ratios (one read from an Altium document) or holds no rounded rectangle."""
+    return lower.write_design(design, allow_lossy=allow_lossy, corner_ratios=corner_ratios(design))
 
 
 __all__ = [
@@ -1713,6 +1742,7 @@ __all__ = [
     "PCB_WRITE_KINDS",
     "TARGET",
     "build_altium",
+    "corner_ratios",
     "footprint_source",
     "footprint_texts",
     "generic_pins",
@@ -1731,4 +1761,5 @@ __all__ = [
     "sheet_page",
     "sheet_parameters",
     "symbol_source",
+    "write_model",
 ]

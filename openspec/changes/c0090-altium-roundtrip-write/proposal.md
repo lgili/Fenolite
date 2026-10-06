@@ -20,9 +20,12 @@ Size: 7 design-days (a size, not time); cut order in the design.
 None.
 
 ### Modified Capabilities
-- `altium-verification`: ADDED "Round-trip level RT-A3", "RT-A2 on a written model", "Round-trip claims of the Altium kinds"; these supersede the last two bullets of "Round-trip level RT-A2".
-- `backend-protocol`: ADDED "Altium write of a model".
-- `altium-pcb-writer`: ADDED "Imported boards are written from the model".
+- `altium-verification`: ADDED "Round-trip level RT-A3", "RT-A2 on a written model", "Round-trip claims of the Altium kinds"; MODIFIED "Round-trip level RT-A2", "Check on Altium inputs", "Altium check stage evidence".
+- `backend-protocol`: ADDED "Altium write of a model", "Model writers".
+- `altium-pcb-writer`: ADDED "Imported boards are written from the model", "Writer options for a model that was read".
+- `altium-build`: ADDED "Stored board of an Altium build"; MODIFIED "Altium build outputs".
+- `altium-import`: MODIFIED "Altium backend" (the backend offers `write`).
+- `verification-loop`: MODIFIED "Document check pipeline" (`roundtrip.rta2` compares every kind; the opt-in `roundtrip.rta3`).
 
 ## Non-goals
 
@@ -41,6 +44,6 @@ None.
 
 ## Impact
 
-- Changed: `backends/altium/backend.py` (`write`), `roundtrip.py` (`rt_a3`, scopes), `claims.py`, `checks/rta2.py`, `checks/documents.py`, `cli/cmd_roundtrip.py`; new `backends/altium/lower.py` (model → writer inputs).
+- Changed: `backends/altium/backend.py` (`write`, `in_model_frame`, `model_roundtrip`), `roundtrip.py` (scopes), `pcbdoc.py` and `project.py` (options with defaults that keep every build's bytes), `claims.py`, `backends/base.py`, `lens/altium.py`, `checks/rta2.py`, `checks/documents.py`, `cli/cmd_roundtrip.py`, `cli/cmd_check.py`; new `backends/altium/lower.py` (model → writer inputs), `backends/altium/rta3.py`, `checks/rta3.py`. The design's "Found on 2026-10-06" says where the proposal was corrected.
 - Pages: `docs/altium.md` ("Round trips", "Written scope"), `docs/evidence/altium-roundtrip.md`, `docs/evidence/matrix.md` (generated).
 - Depends on: c0084, c0085, c0086 (the writers must carry what a model holds), c0089 (level 5 for the KiCad oracle), c0083 (so that the corpus project with repeated sheets has a correct circuit); c0043 and c0044.

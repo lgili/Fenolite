@@ -19,6 +19,7 @@ import hashlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fenolite.backends.altium.import_evidence import EVIDENCE
 from fenolite.backends.base import (
@@ -33,7 +34,10 @@ from fenolite.backends.base import (
     DocumentParity,
     DocumentSet,
     DocumentValidator,
+    ModelCompare,
+    ModelRoundTrip,
     ModelScope,
+    ModelWriter,
     PlacedExtent,
     ProjectRead,
     ProjectSet,
@@ -43,6 +47,11 @@ from fenolite.backends.base import (
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.lower import ProjectWrite
+
+Compare = ModelCompare
 
 READ_KINDS = (
     "altium_pcbdoc",
@@ -244,6 +253,65 @@ class AltiumBackend:
         from fenolite.backends.altium.roundtrip import RT_A2_SCOPE
 
         return RT_A2_SCOPE
+
+    def write(self, design: Design, *, target: int | None = None, allow_lossy: bool = False) -> ProjectWrite:
+        """The files of an Altium project written from ``design`` alone (change c0090,
+        ``lower.write_design``): the PCB document of its board, and the schematic, its libraries and the
+        project file of its circuit. No script, library or other file is read. ``target`` must be
+        ``None``: the Altium writers have one form. ``lower.LossyWriteError`` (``FEN-7001``) when the
+        documents would not hold an item of the board's copper, footprints or nets and ``allow_lossy`` is
+        false. The write is experimental: ``capabilities()`` names no write kind until the writers leave
+        that state."""
+        from fenolite.backends.altium.lower import write_design
+
+        if target is not None:
+            raise ValueError(f"the Altium writers have one form; target {target!r} is not one")
+        return write_design(design, allow_lossy=allow_lossy)
+
+    def in_model_frame(self, model: Design, reading: Design) -> Design:
+        """``reading`` in the frame of ``model``, the design it was written from (``lower.in_frame_of``)."""
+        from fenolite.backends.altium.lower import in_frame_of
+
+        return in_frame_of(model, reading)
+
+    def model_roundtrip(self, path: Path, *, compare: Compare) -> ModelRoundTrip:
+        """RT-A3 of the document at ``path`` (a PCB document, a schematic document or a project file):
+        read it, write its model with ``lower.write_design(..., allow_lossy=True)`` into a temporary
+        folder of its own, read the written document of the same kind, and let ``rta3.rt_a3`` judge the
+        two models; ``compare`` is ``checks.diff.diff_designs`` under a scope. Nothing is written beside
+        the input, and the folder is removed. The reader's ``FormatError`` on the input is raised."""
+        import tempfile
+
+        from fenolite.backends.altium.lower import write_design
+        from fenolite.backends.altium.rta3 import rt_a3
+
+        first = self.read(path).design
+        written = write_design(first, allow_lossy=True)
+        suffix = path.suffix.lower()
+        board: Path | None = path if suffix == ".pcbdoc" else None
+        if suffix == ".prjpcb":
+            listed = self.documents(path).board
+            board = path.parent / listed if listed is not None else None
+        census = self._census(board) if board is not None else {}
+        wanted = next((name for name in written.files if name.lower().endswith(suffix)), None)
+        second: Design | None = None
+        if wanted is not None:
+            with tempfile.TemporaryDirectory(prefix="fenolite-rta3-") as folder:
+                for name, data in written.files.items():
+                    (Path(folder) / name).write_bytes(data)
+                second = self.read(Path(folder) / wanted).design
+        return rt_a3(first, written, second, compare=compare, census=census, from_board=suffix == ".pcbdoc")
+
+    @staticmethod
+    def _census(path: Path) -> dict[str, int]:
+        """The records of the PCB document at ``path`` that the import maps to no model entity, by the
+        category of ``adapter.codes.Census``."""
+        from fenolite.backends.altium.adapter.board import KIND, read_board
+        from fenolite.backends.altium.adapter.ids import Ids
+        from fenolite.backends.altium.read.pcb import read_pcbdoc
+
+        document = read_pcbdoc(path.read_bytes(), file=path.name)
+        return read_board(document, file=path.name, sha256="", ids=Ids(KIND, EVIDENCE)).census.categories()
 
     def stage_evidence(self) -> Mapping[str, Evidence]:
         """The evidence this backend adds to a check stage, by stage name (``roundtrip.STAGE_EVIDENCE``)."""
@@ -491,6 +559,10 @@ _RULES_SOURCE: DesignRulesSource = AltiumBackend()
 """The Altium backend satisfies ``DesignRulesSource`` (checked by pyright)."""
 _PARITY: DocumentParity = AltiumBackend()
 """The Altium backend satisfies ``DocumentParity`` (checked by pyright)."""
+
+
+_WRITER: ModelWriter = AltiumBackend()
+"""The Altium backend satisfies ``ModelWriter`` (checked by pyright)."""
 
 
 def document_validator() -> DocumentValidator:

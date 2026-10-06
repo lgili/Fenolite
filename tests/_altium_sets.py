@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The public Altium project sets as folders (the rows of one use ``altium-set:<nn>`` of the corpus
-manifest), for the corpus tests that check a whole project (change c0088).
-
-``tests/corpus/test_altium_documents.py`` (change c0044) holds the same two functions for its own use;
-they are repeated here so that a second corpus test can share them without importing a test module."""
+manifest), for the corpus tests that check a whole project (changes c0088 and c0090):
+``test_altium_documents.py``, ``test_altium_copper.py`` and ``test_altium_rta3.py`` share them without
+importing a test module. ``SETS`` is ``project_sets()``, made once."""
 
 from __future__ import annotations
 
@@ -23,6 +22,9 @@ def project_sets() -> dict[str, list[CorpusItem]]:
         (name,) = [use for use in item.uses if use.startswith("altium-set:")]
         found.setdefault(name, []).append(item)
     return dict(sorted(found.items()))
+
+
+SETS = project_sets()
 
 
 def _in_repository() -> dict[str, PurePosixPath]:
@@ -53,4 +55,4 @@ def lay_out(items: list[CorpusItem], folder: Path) -> Path:
     return folder
 
 
-__all__ = ["lay_out", "project_sets"]
+__all__ = ["SETS", "lay_out", "project_sets"]

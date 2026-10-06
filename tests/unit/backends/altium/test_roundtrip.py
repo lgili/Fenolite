@@ -346,6 +346,7 @@ def test_scope_holds_the_required_fields() -> None:
         "parity",  # c0088
         "netlist.assignment_compare",
         "roundtrip.rta2",
+        "roundtrip.rta3",
     }
     assert EVIDENCE_RT_A2.level is Level.INFERRED and STAGE_EVIDENCE["roundtrip.rta2"] is EVIDENCE_RT_A2
     register = {row.id: row for row in load_register(ROOT / "docs" / "hypotheses.md")}

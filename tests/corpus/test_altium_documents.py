@@ -13,16 +13,14 @@ from __future__ import annotations
 
 import io
 import json
-import shutil
 import sys
-import tomllib
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
 
 import pytest
+from _altium_sets import SETS, lay_out
 from _boards import census
-from _corpus import MANIFEST, CorpusItem, heavy_enabled, manifest_items, require
+from _corpus import heavy_enabled
 from _projects import tree_snapshot
 
 import fenolite.cli.main as cli_main
@@ -30,45 +28,6 @@ from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.checks.documents import DOCUMENT_STAGES
 
 pytestmark = pytest.mark.needs_corpus
-
-
-def _sets() -> dict[str, list[CorpusItem]]:
-    found: dict[str, list[CorpusItem]] = {}
-    for item in manifest_items("altium-import"):
-        (name,) = [use for use in item.uses if use.startswith("altium-set:")]
-        found.setdefault(name, []).append(item)
-    return dict(sorted(found.items()))
-
-
-SETS = _sets()
-
-
-def _in_repository() -> dict[str, PurePosixPath]:
-    """Row id → the file's path inside its repository (the part of the URL after the pinned commit)."""
-    rows = tomllib.loads(MANIFEST.read_text(encoding="utf-8")).get("file", [])
-    out: dict[str, PurePosixPath] = {}
-    for row in rows:
-        path = unquote(urlparse(row["url"]).path)
-        if f"/{row['ref']}/" in path:
-            out[row["id"]] = PurePosixPath(path.split(f"/{row['ref']}/", 1)[1])
-    return out
-
-
-def lay_out(items: list[CorpusItem], folder: Path) -> Path:
-    """Copy the files of one set under ``folder`` as they lie around their project file; returns the
-    project's folder. A file outside the project file's folder is left out, as the project reader does."""
-    places = _in_repository()
-    (project,) = [item for item in items if "-prjpcb-" in item.id]
-    base = places[project.id].parent
-    for item in items:
-        source = require(item)
-        place = places[item.id]
-        if base not in (place.parent, *place.parents):
-            continue
-        target = folder / place.relative_to(base)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source, target)
-    return folder
 
 
 def check(folder: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[int, dict[str, Any]]:

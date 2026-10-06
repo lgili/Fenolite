@@ -75,6 +75,8 @@ StageSkip = Literal[
     "single-source",
     "not-judged",
     "netlist-unavailable",
+    "model-predates-board",
+    "no-document",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 

@@ -939,6 +939,46 @@ class DocumentParity(Protocol):
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ModelRoundTrip:
+    """The verdict of a model round trip of a set of documents (change c0090; for Altium, RT-A3): the
+    documents are read, the model is written as new documents, and those are read again.
+
+    ``judged`` is false, with a ``reason``, when the trip could not run. ``equal`` tells that the two
+    readings are equal inside ``scope``; ``differences`` are the located differences. ``unwritten`` counts,
+    per kind, what the first reading holds and the written documents do not; it never changes ``equal``.
+    ``written`` counts the model items that were written, per kind, and ``files`` names the written
+    files. Nothing of the trip stays on disk."""
+
+    judged: bool
+    equal: bool
+    differences: tuple[Change, ...] = ()
+    unwritten: Mapping[str, int] = field(default_factory=lambda: {})
+    written: Mapping[str, int] = field(default_factory=lambda: {})
+    files: tuple[str, ...] = ()
+    reason: str = ""
+    evidence: Evidence = Evidence()
+
+
+class ModelCompare(Protocol):
+    """How two designs are compared under a scope (``checks.diff.diff_designs``): a backend imports no
+    check, so the caller hands the comparison in."""
+
+    def __call__(self, a: Design, b: Design, scope: ModelScope, /) -> DiffReport: ...
+
+
+@runtime_checkable
+class ModelWriter(Protocol):
+    """A document backend that writes a model as documents (change c0090). ``in_model_frame`` gives a
+    reading of documents that were written from ``model`` in the frame of ``model``: a writer may place
+    the board elsewhere in its document. ``model_roundtrip`` reads the document at ``path``, writes the
+    model and reads the result."""
+
+    def in_model_frame(self, model: Design, reading: Design) -> Design: ...
+
+    def model_roundtrip(self, path: Path, *, compare: ModelCompare) -> ModelRoundTrip: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -990,6 +1030,9 @@ __all__ = [
     "FillOutcome",
     "MATRIX_OPERATIONS",
     "MatrixRow",
+    "ModelCompare",
+    "ModelRoundTrip",
+    "ModelWriter",
     "ModelScope",
     "NetlistOracle",
     "NetlistOutcome",

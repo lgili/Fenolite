@@ -1112,7 +1112,8 @@ The backend's report and every read stay `INFERRED` while any `H-A-IMP-*` row of
 
 ## Round trips
 
-Three levels say how far a reading or a build of Altium files can be trusted (change c0044). They are
+Four levels say how far a reading, a build or a rewrite of Altium files can be trusted (changes c0044
+and c0090). They are
 Fenolite's own measures: no level says that Altium Designer opens a file. Results on the public corpus
 and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 
@@ -1120,7 +1121,8 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 |---|---|---|---|
 | RT-A0 | a compound file is read, written again by Fenolite's compound writer and read again | no storage and no stream is lost or changed by a copy, byte for byte | nothing about the meaning of a stream; the sector layout, CLSIDs and times are not compared |
 | RT-A1 | every stream the reader types is encoded from its records and read again | the records of every stream survive a decode and an encode: key spelling, key order, raw values and kept bytes | that the records mean what Fenolite reads into the model |
-| RT-A2 | the model a build stored in `.fenolite/` is compared with the reading of the documents the build wrote | the writers and the import agree on what the built model holds, within 2 nm | that Altium reads the files (one tool writes and reads), and anything the built model does not hold |
+| RT-A2 | the model a build stored in `.fenolite/` is compared with the reading of the documents the build wrote | the writers and the import agree on the circuit and on the board that was written (footprints, pads, tracks, arcs, vias, zones, net classes), within 2 nm | that Altium reads the files (one tool writes and reads), and any field outside the scope below |
+| RT-A3 | a document is read, its model is written as new documents, and those are read again | the write of a model and the import agree on everything the write carries of a document that Altium saved, within 2 nm; what the write leaves out is counted per kind | that Altium opens the rewrite, and anything in the counts: a rewrite is not a copy of the document |
 
 **A level that is not judged** is neither a pass nor a failure. The reasons:
 
@@ -1129,11 +1131,19 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
   still judges its records.
 - `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
   not write).
-- `native-input` (RT-A2): the files were not written by a Fenolite build. Writing an imported model is
-  not available before v0.4, so RT-A2 is judged on Fenolite's own builds only.
+- `native-input` (RT-A2): the files were not written by a Fenolite build. RT-A2 compares a stored model
+  with its documents, so it is judged on Fenolite's own builds only; the level of any other file is
+  RT-A3.
+- `model-predates-board` (RT-A2): the project was built before change c0090, so its stored model holds
+  no footprint while its PCB document holds some. Build it again.
+- `no-document` (RT-A3): the write gave no document of the kind that was read. This happens for a
+  project whose circuit the schematic writer refuses (one pin on two nets, a text that no record
+  holds); the PCB document is still written, and the stage's `written` and `unwritten` count it.
 
 **Commands.** `fenolite check PATH` reports the levels as the stages `roundtrip.rta0`, `roundtrip.rta1`
-and `roundtrip.rta2` (`docs/cli-contract.md`, "check"); `fenolite inspect FILE` gives the counts of RT-A1
+and `roundtrip.rta2` (`docs/cli-contract.md`, "check"), and `roundtrip.rta3` when `--stages` names it;
+`fenolite roundtrip PATH --level rta0|rta1|rta2|rta3` runs one of them and says whether it holds;
+`fenolite inspect FILE` gives the counts of RT-A1
 for one file (`opaque_count`, `streams`); `fenolite diff A B --view records` lists the records that
 differ between two Altium files of one kind.
 
@@ -1157,14 +1167,15 @@ reading of the schematic documents, and every other kind with the reading of the
 | `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
 
-**What the built model does not hold is counted, not compared.** The model that an Altium build stores
-is the model of the script: its board holds the outline and no footprint, pad, track or via. The build
-writes those from inputs outside the model (the script's placements, the footprints of the libraries,
-the copper source). A board kind of which the built model holds no entity is therefore listed in
-`summary.not_in_model` with the count the PCB document reads, and RT-A2 says nothing about it. On
-today's builds this is the case for `footprint`, `pad`, `track`, `arc`, `via` and `zone`: RT-A2 judges
-the circuit and the net classes. A build that stores its written board (as the KiCad build does) would
-make these kinds compared without a change to the scope.
+**The built model holds the board that was written** (change c0090). A build that writes a PCB document
+stores, in `.fenolite/board.json`, one footprint per placed component with the pads that the document
+holds, and the tracks, arcs, vias and zones of the document (a zone on two layers is two zones, one per
+written polygon). So every kind of the scope is compared and none is only counted: a track that only
+the document holds is a difference. The document lies in its own frame (the outline's lower-left corner
+at 1000 mil, 1000 mil), and the stage moves its reading back into the frame of the script by the corner
+of the outline, which is exact. Rules are not in the scope: the document also holds the rules that the
+writer derives from the net classes and from its defaults, which are no rule of the model. A project
+that was built before this change is skipped with `model-predates-board`.
 
 Fields of these kinds that the scope leaves out, and why:
 
@@ -1199,6 +1210,66 @@ Fields of these kinds that the scope leaves out, and why:
 
 A component whose value is empty in the script is written with its symbol's name as the comment, and
 the built model stores that value, so that the model is what the documents read back to.
+
+### Written scope
+
+`fenolite.backends.altium.lower` writes a model that holds a board as Altium documents without a
+script (`AltiumBackend().write(design)`, change c0090): the PCB document from the board, and a schematic
+that is generated from the circuit, with its library and the project file. The scope of RT-A3 is the
+scope of RT-A2 above (`RT_A3_SCOPE` is `RT_A2_SCOPE`). The table says what a write carries of each kind
+of a model, what RT-A3 compares of it, and what is left out and counted in `unwritten`.
+
+| kind | written | compared by RT-A3 | left out, with its key in `unwritten` |
+|---|---|---|---|
+| `component` | reference and comment as the component's texts, the symbol link | `ref`, `value` | nothing; a component without a reference is a free pad |
+| `net` | one net record per name | `name`, `members` | `net`: a name that no record holds, or a second net of one name |
+| `netclass` | one class per name with its nets | `name` | `netclass`: a name that no record holds |
+| `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written. The lines and arcs of a footprint are no part of the model: `record:footprint-graphics` |
+| `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers | `number`, `net_id`, `position`, `size` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
+| `track`, `arc` | on a signal layer of the stack, with its net | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width, three points on a line |
+| `via` | through, blind and buried, with its net | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter |
+| `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
+| text, graphic, keep-out, hole | as `fenolite build` writes them (c0085) | not compared | `text`, `graphic`, `keep-out`, `hole`: a layer without a layer in the document, an item that the record cannot hold |
+| shape on copper | not written | not compared | `copper-shape`: a fill or a region on a copper layer, which the model holds as a graphic with its net in the bag |
+| body | not written | not compared | `body` |
+| rule | the rules that `rulemap.lower` writes exactly (c0084) | not compared | `rule` |
+| stack | the copper layers in order, planes with their net, the stack-up values when they fit | not compared | `plane`: a plane without a net of the document is written as a signal layer; `stackup`: default values are written |
+| outline | `Board.outline`, else the ring of the `Edge.Cuts` graphics | not compared | `outline`: an arc of the outline is two straight edges; a cut-out; no closed ring |
+| schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component (`pin_pad_map`, bag key `pin_pads`) |
+
+Keys of `unwritten` that start with `record:` count what the import maps to no model entity, by the
+category of its census: `footprint-graphics`, `pour-primitives`, `shape-based-regions`, `polygons`,
+`classes`, `raw-primitives`, `region-holes`, and one for each storage that the import keeps as bytes (a
+rewrite holds Fenolite's own content in such a storage, not the document's). **A rewrite is therefore
+not a copy.** It holds the placement, the pads, the routing and the polygon outlines of the board;
+`unwritten` lists what it does not hold, and the counts measured on the public corpus are in
+`docs/evidence/altium-roundtrip.md`.
+
+A loss of a footprint, a pad, a track, an arc, a via, a zone, a net, a net class, a shape on copper or
+a plane makes the write refuse (`FEN-7001`) unless `allow_lossy` is given; every loss is one
+`altium.not-lowered` per kind. The model holds no corner ratio of a rounded rectangle: a pad read from
+an Altium document carries it, and for a design read from a KiCad board `fenolite.lens.altium.write_model`
+reads it from KiCad's own data. A board read from an Altium document is written in the document's frame
+with its origin, and its components keep their unique ids; any other board is written like a build, with
+the outline's lower-left corner at (1000 mil, 1000 mil). The write is experimental: the backend's
+capability report names no write kind.
+
+**The write runs no check.** `fenolite build --target altium` runs the copper check before it writes
+and refuses a board with a short (section "Checks"); `AltiumBackend().write` and `write_model` do not:
+they write the model as it is. Run `fenolite check` on the written documents.
+
+**Limits that later changes close** (decisions of the maintainer, 2026-10-06):
+
+- A rewritten board has no silkscreen of its footprints, and a build does not go through this write:
+  a footprint of the model holds no graphics, no corner ratio and no library. Change c0126 puts them
+  into the model.
+- The 2 nm of the scope do not hold for the points of an arc: an arc record holds a centre, a radius
+  and two angles, and the model three points. Change c0127 keeps the record's own values for an arc
+  that was read.
+- A via whose drill equals its diameter is not written. Change c0128 relaxes that for the rewrite of
+  a document that was read; a build from a script keeps refusing such a via.
+- The schematic of a rewrite is written only when the build's schematic writer takes the circuit. A
+  tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
 
 ## Checks
 

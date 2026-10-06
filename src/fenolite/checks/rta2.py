@@ -4,15 +4,13 @@
 the model that a build stored against the readings of the documents the build wrote.
 
 The built model is the reference. Its circuit kinds are compared with the schematic reading and its other
-kinds with the PCB reading, through ``checks.diff.diff_designs`` under the backend's written scope. A board
-kind of which the built model holds no entity is not compared: the build then wrote that content from
-inputs outside the model (placements, library footprints, a copper source), and the reading's entities are
-counted in ``summary.not_in_model``.
+kinds with the PCB reading, through ``checks.diff.diff_designs`` under the backend's written scope. Since
+change c0090 the built model holds the board that was written (footprints, pads, copper), so every kind of
+the scope is compared and none is only counted; a model that a build stored before that change holds no
+footprint, and ``predates_board`` tells so.
 """
 
 from __future__ import annotations
-
-from collections.abc import Mapping
 
 from fenolite.backends.base import ModelScope, ProjectRead
 from fenolite.checks.codes import issue
@@ -29,7 +27,7 @@ BOARD_KINDS = (
     "layer", "footprint", "pad", "track", "arc", "via", "zone", "keepout", "text", "graphic", "hole",
     "stack_layer",
 )  # fmt: skip
-"""The kinds a board holds: compared only when the built model's board holds at least one entity of them."""
+"""The kinds a board holds (``held`` counts them)."""
 MAX_ISSUES = 50
 """The issues reported per side; ``summary.differences`` holds the full count."""
 _SHOWN = 80
@@ -56,6 +54,12 @@ def held(design: Design) -> dict[str, int]:
     }
 
 
+def predates_board(model: Design, reading: Design) -> bool:
+    """Whether ``model`` was stored by a build older than change c0090: its board holds no footprint and
+    the PCB document that the build wrote holds one."""
+    return held(model)["footprint"] == 0 and held(reading)["footprint"] > 0
+
+
 def _short(text: str) -> str:
     return text if len(text) <= _SHOWN else text[: _SHOWN - 1] + "…"
 
@@ -72,14 +76,12 @@ def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResu
     """RT-A2 of a built project: ``model`` is the model the build stored, ``read`` the two readings of the
     documents it wrote, ``scope`` what the writers write. Each difference is one ``check.rta2-failed`` error
     whose ``where`` is the change's path behind ``schematic:`` or ``pcb:``, at most ``MAX_ISSUES`` per side.
-    The summary holds ``level``, ``holds``, ``differences``, ``compared`` (per side, the kinds compared)
-    and ``not_in_model`` (per side, the count of each board kind that only the reading holds). The caller
-    sets the evidence."""
+    The summary holds ``level``, ``holds``, ``differences`` and ``compared`` (per side, the kinds
+    compared: every kind of the scope). The caller sets the evidence and moves the PCB reading into the
+    frame of the model."""
     issues: list[Issue] = []
     compared: dict[str, list[str]] = {}
-    outside: dict[str, dict[str, int]] = {}
     total = 0
-    mine = held(model)
     sides: tuple[tuple[str, Design | None, tuple[str, ...]], ...] = (
         ("schematic", None if read.schematic is None else read.schematic.design,
          tuple(kind for kind in scope.fields if kind in CIRCUIT_KINDS)),
@@ -89,16 +91,9 @@ def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResu
     for side, reading, kinds in sides:
         if reading is None:
             continue
-        theirs = held(reading)
-        wanted = [kind for kind in kinds if kind not in mine or mine[kind] > 0]
-        skipped: Mapping[str, int] = {
-            kind: theirs[kind] for kind in kinds if kind not in wanted and theirs.get(kind, 0) > 0
-        }
-        if skipped:
-            outside[side] = dict(skipped)
-        fields = {kind: scope.fields[kind] for kind in wanted}
+        fields = {kind: scope.fields[kind] for kind in kinds}
         report = diff_designs(model, reading, scope=ModelScope(fields, scope.length_tolerance))
-        compared[side] = sorted(wanted)
+        compared[side] = sorted(kinds)
         total += len(report.changes)
         issues += [
             issue("check.rta2-failed", _message(change), where=f"{side}:{change.path}")
@@ -109,9 +104,8 @@ def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResu
         "holds": total == 0,
         "differences": total,
         "compared": compared,
-        "not_in_model": outside,
     }
     return ran("roundtrip.rta2", issues, Evidence(), summary)
 
 
-__all__ = ["BOARD_KINDS", "CIRCUIT_KINDS", "MAX_ISSUES", "held", "rta2_stage"]
+__all__ = ["BOARD_KINDS", "CIRCUIT_KINDS", "MAX_ISSUES", "held", "predates_board", "rta2_stage"]

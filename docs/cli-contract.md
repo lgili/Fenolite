@@ -787,6 +787,8 @@ repeat.
 | `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
 | `check.rta1-normalised` | info | document input: streams whose records are equal and whose encoded bytes differ |
 | `check.rta2-failed` | error | document input: the built model and a reading of the written documents differ inside the written scope |
+| `check.rta3-failed` | error | document input, `roundtrip.rta3`: the reading of a document and the reading of its rewrite differ inside the written scope; `where` is the path of the difference |
+| `check.rta3-unwritten` | info | document input, `roundtrip.rta3`: the counts, per kind, of what the rewritten documents do not hold; never part of the verdict |
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
@@ -808,7 +810,9 @@ project file is ambiguous, and a folder with Altium files and without exactly on
 refused (both `FEN-2001`, exit 2, the hint naming the candidates).
 
 The stages are `DOCUMENT_STAGES`, in this order; `--stages` selects a subset (all by default), and a
-name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them.
+name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them. One more stage,
+`roundtrip.rta3`, is opt-in (`OPT_IN_DOCUMENT_STAGES`, change c0090): it runs only when `--stages` names
+it, because it writes a whole project into a temporary folder and reads it again.
 
 | stage | what it does | evidence |
 |---|---|---|
@@ -819,10 +823,14 @@ name of the KiCad list such as `drc.kicad` is a usage error whose hint lists the
 | `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
-| `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips") | `INFERRED` (`H-A-VER-RTA2-2`) |
+| `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips"); footprints, pads and copper are compared, and no kind is only counted | `INFERRED` (`H-A-VER-RTA2-3`) |
+| `roundtrip.rta3` | opt-in. RT-A3: the project file (else the PCB document, else the first schematic) is read, its model is written as new Altium documents in a temporary folder, and those are read again; the two models are compared inside the written scope | `INFERRED` (`H-A-VER-RTA3`); `UNVERIFIED` when a difference is reported |
 
 A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
-Fenolite build wrote), `no-schematic` (`erc.lite` and `parity` without a schematic document),
+Fenolite build wrote), `model-predates-board` (`roundtrip.rta2` on a project built before change c0090,
+whose stored model holds no footprint: build it again), `no-document` (`roundtrip.rta3` when the write
+gives no document of the kind that was read: the schematic writer refuses the circuit),
+`no-schematic` (`erc.lite` and `parity` without a schematic document),
 `single-source` (`netlist.assignment_compare` without two sources; `copper.clearance` and `parity`
 without a PCB document), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
@@ -837,8 +845,12 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
 - The summary of a container stage holds `level`, `documents` (judged), `streams`, `failed` and
   `unjudged` (a count per reason: `too-large`, `writer-refused`, `not-a-container`, `read-refused`); RT-A1
   adds `records`, `bytes_equal` and `opaque_count`. The summary of `roundtrip.rta2` holds `level`, `holds`,
-  `differences`, `compared` (the entity kinds compared per side) and `not_in_model` (per side, the count
-  of each board kind that only the reading holds, which is not compared).
+  `differences` and `compared` (the entity kinds compared per side: every kind of the written scope).
+  The summary of `roundtrip.rta3` holds `level`, `holds`, `differences`, `written` (model items written,
+  per kind), `unwritten` (per kind, what the rewritten documents do not hold: model items, and under
+  keys that start with `record:` the records and storages of the input that the import maps to no model
+  entity), `files` (the names of the written files, none of which stays on disk) and `presentation`
+  (`regenerated`: the schematic is generated from the circuit).
 - **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
   (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
   `copper.rules-incomplete`, `copper.item-unsupported`); board-edge clearance is not part of the copper
@@ -1373,7 +1385,7 @@ evidence is the lowest of the two readings; a built model counts as `INFERRED`.
 
 ## roundtrip
 
-`fenolite roundtrip PATH [--level rt0|rt1|rt2] [--kicad-cli PATH] [--timeout SECONDS]` says up to which
+`fenolite roundtrip PATH [--level rt0|rt1|rt2|rta0|rta1|rta2|rta3] [--kicad-cli PATH] [--timeout SECONDS]` says up to which
 level Fenolite reads a KiCad file and writes it back without loss. Run it before editing a file that
 Fenolite did not write. It writes nothing; RT2 runs `kicad-cli` on copies.
 
@@ -1394,6 +1406,17 @@ and nothing fails.
 | `roundtrip.failed` | error | a level does not hold; `where` is the first difference |
 
 `check.oracle-failed` and `check.rt2-unstable` of the RT2 stage pass through.
+
+**Altium input** (change c0090). `fenolite roundtrip PATH --level rta0|rta1|rta2|rta3` takes an Altium
+document, project file or project folder and runs the stage `roundtrip.<level>` of the document check
+(section "check"); the levels are not a ladder, each is asked for by name, and without `--level` the
+input is judged at `rta1`. `result` holds `kind` (`altium`), `level` (the level when it holds, else
+`none`), and `<level>`: the stage's `status`, `reason` and summary. For `rta3`, `result.unwritten`
+repeats the counts of what the rewritten documents do not hold. The issues are those of the stage
+(`check.rta0-failed` to `check.rta3-failed`, `check.rta3-unwritten`, `check.roundtrip-unjudged`), the exit
+code is 5 with an error, and nothing is written under the input: RT-A3 writes into a temporary folder
+that it removes. A KiCad level on Altium input, and an Altium level on another input, is a usage error
+(`FEN-2001`).
 
 For a project with a schematic, `result.rt2.schematic` holds `passed`, `difference`, `judged`,
 `exact`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped, and

@@ -26,7 +26,7 @@ from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.oracle import KicadOracle
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
-from fenolite.checks.documents import DOCUMENT_STAGES, run_document_checks
+from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES, run_document_checks
 from fenolite.checks.stages import CheckReport, relative_file
 from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
@@ -105,13 +105,13 @@ def _document_stages(text: str | None) -> tuple[str, ...]:
     if text is None:
         return DOCUMENT_STAGES
     names = [name.strip() for name in text.split(",")]
-    bad = [name for name in names if name not in DOCUMENT_STAGES]
+    bad = [name for name in names if name not in ALL_DOCUMENT_STAGES]
     if not names or bad:
         shown = ", ".join(repr(n) for n in bad) if any(bad) else "an empty stage name"
         raise CliError(
             "FEN-2001",
             f"unknown stage {shown} for document input",
-            hint=f"stages: {','.join(DOCUMENT_STAGES)}",
+            hint=f"stages: {','.join(ALL_DOCUMENT_STAGES)}",
         )
     return tuple(names)
 

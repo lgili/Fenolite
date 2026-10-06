@@ -8,6 +8,7 @@
     "altium-pcbx-texts": "equal",
     "altium-pcbx-vias": "equal",
     "altium-pcbx-zones": "equal",
+    "altium-rta3-kicad": "equal",
     "analysis-creepage-edge": "different",
     "analysis-creepage-slot": "equal",
     "bom-csv-dnp": "equal",

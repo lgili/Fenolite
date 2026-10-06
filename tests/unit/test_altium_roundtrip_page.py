@@ -98,11 +98,12 @@ def test_page_labels_follow_the_register() -> None:
     lowest = min((evidence.level for evidence in EVIDENCE_RT_A1.values()), key=strength)
     assert summary["RT-A1"][5] == f"`{lowest.value}`"
     assert summary["RT-A2"][5] == f"`{EVIDENCE_RT_A2.level.value}`" == "`INFERRED`"
-    for level, row in (("RT-A0", "H-A-VER-RTA0"), ("RT-A1", "H-A-VER-RTA1"), ("RT-A2", "H-A-VER-RTA2-2")):
+    for level, row in (("RT-A0", "H-A-VER-RTA0"), ("RT-A1", "H-A-VER-RTA1"), ("RT-A2", "H-A-VER-RTA2-3")):
         assert row in summary[level][6]
         confirmed = register[row].result.startswith("confirmed")
         assert ("pending" in summary[level][6]) is (not confirmed) or level == "RT-A2"
     assert register["H-A-VER-RTA2"].result.startswith("refuted; superseded by H-A-VER-RTA2-2")
-    assert register["H-A-VER-RTA2-2"].level is Level.INFERRED
+    assert register["H-A-VER-RTA2-2"].result.startswith("refuted; superseded by H-A-VER-RTA2-3")
+    assert register["H-A-VER-RTA2-3"].level is Level.INFERRED
     for label in ("ORACLE-VERIFIED", "ALTIUM-VERIFIED", "KICAD-VERIFIED"):
         assert label not in PAGE.read_text(encoding="utf-8")

@@ -55,6 +55,7 @@ import _placecases
 import _procases
 import _renamecases
 import _routetriangle
+import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
@@ -227,6 +228,8 @@ def _probes() -> dict[str, Probe]:
     probes.update(fp_write_probes())
     # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
+    # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
+    probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))
     for pid, (function, majors) in {
         **_rulecases.dru_probes(),
         **_procases.pro_probes(),

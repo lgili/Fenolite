@@ -1018,6 +1018,16 @@ meaning = "The model that the build stored in `.fenolite/` and the reading of th
 fix = "Rebuild the project with `fenolite build --confirm`; if the difference stays, a writer or the import has a defect: report the path."
 see = "check"
 
+["check.rta3-failed"]
+meaning = "A document was read, its model was written as new Altium documents, and the reading of those differs from the first reading inside the written scope; `where` is the path of the difference."
+fix = "Nothing to change in the input: a writer or the import has a defect. Report the path with the document's kind."
+see = "check"
+
+["check.rta3-unwritten"]
+meaning = "The round trip RT-A3 left out what the message counts per kind: model items that the writers do not carry, and (keys that start with `record:`) records of the input that the import maps to no model entity. The count is not part of the verdict."
+fix = "Nothing to do. Read the counts before you rely on a rewritten document: what is listed is not in it."
+see = "check"
+
 ["check.symbol-unresolved"]
 meaning = "A built component has no symbol reference."
 fix = "Give the part a symbol in the script and build again."

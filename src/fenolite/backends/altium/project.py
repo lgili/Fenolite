@@ -183,6 +183,17 @@ def unique_id(key: str) -> str:
     return "".join(letters)
 
 
+_NATIVE_UNIQUE_ID = re.compile(r"cmp:(?:.*\\)?([A-Z]{8})")
+
+
+def native_unique_id(component: Component) -> str | None:
+    """The unique id that a component read from an Altium document keeps as its native id (change c0090):
+    the last part of ``cmp:<source unique id>``, eight capital letters, or ``None``. A component of a
+    script has no such native id."""
+    match = _NATIVE_UNIQUE_ID.fullmatch(component.native_ids.get("altium", ""))
+    return match.group(1) if match is not None else None
+
+
 def power_styles(design: Design) -> dict[str, PowerStyle]:
     """Net id → port style of every net of a ``power`` interface: ``ground`` for a net that is only ever
     the ``lv`` member, ``bar`` otherwise."""
@@ -390,7 +401,7 @@ def part_specs(
                 library=library,
                 symbol=symbol,
                 footprint=footprint,
-                unique_id=unique_id(component.id),
+                unique_id=native_unique_id(component) or unique_id(component.id),
                 body=body,
                 nets=joins[component.id],
                 part_ids=tuple(unique_id(f"{component.id}#{k}") for k in range(2, body.parts + 1)),
@@ -615,6 +626,7 @@ __all__ = [
     "component_path",
     "generic_symbols",
     "library_symbols",
+    "native_unique_id",
     "net_class_names",
     "is_altium_footprint",
     "is_altium_link",

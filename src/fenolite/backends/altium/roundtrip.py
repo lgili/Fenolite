@@ -8,6 +8,9 @@
 - ``RT_A2_SCOPE``: what the writers write of the model, the scope of RT-A2.
 - ``diff_records``: the records that differ between two files of one kind, stream by stream.
 
+- ``RT_A3_SCOPE``: the scope of RT-A3 (change c0090), which ``rta3.rt_a3`` judges: a document is read
+  into the model, the model is written as new documents, and those are read again.
+
 This module parses nothing itself. It holds one ``StreamCodec`` per read kind, built from the public
 surface of the readers (``read.sch``, ``read.schlib``, ``read.pcb``, ``read.pcblib``, ``read.project``), and
 it writes nothing: copies exist in memory only.
@@ -28,7 +31,13 @@ from fenolite.backends.altium import cfb as compound_writer
 from fenolite.backends.altium import import_evidence
 from fenolite.backends.altium.read import cfb, pcb, pcblib, project, sch, schlib
 from fenolite.backends.altium.read.pcbprims import RawPrimitive
-from fenolite.backends.base import Change, ContainerLevel, ContainerRoundTrip, DiffReport, ModelScope
+from fenolite.backends.base import (
+    Change,
+    ContainerLevel,
+    ContainerRoundTrip,
+    DiffReport,
+    ModelScope,
+)
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 
@@ -80,9 +89,18 @@ RT_A2_SCOPE = ModelScope(
 "Round trips", lists every field left out with its reason). A length is written in units of 2.54 nm, so
 the written value is at most 1.27 nm from the model's and its reading is rounded to a whole nanometre: two
 lengths within 2 nm are equal. Angles are written with six decimals of a degree and are compared exactly."""
-EVIDENCE_RT_A2 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-2",))
+EVIDENCE_RT_A2 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3",))
 """RT-A2 never rises above ``INFERRED``: Fenolite's writers are read by Fenolite's readers, so the level
 proves consistency, not that Altium reads the files."""
+RT_A3_SCOPE = RT_A2_SCOPE
+"""The scope of RT-A3 is the written scope of the writers (``AltiumBackend.written_scope()``): what a
+write carries of a model is compared, whatever the model was read from."""
+EVIDENCE_RT_A3 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA3",))
+"""The evidence of an RT-A3 verdict: Fenolite reads what Fenolite wrote, so the level says that the write
+and the import agree on the model, not that Altium reads the documents."""
+RECORD_PREFIX = "record:"
+"""In ``ModelRoundTrip.unwritten`` of RT-A3, a key with this prefix counts records of the first reading
+that gave no model entity (the import's census, by its category); a key without it counts model items."""
 STAGE_EVIDENCE: Mapping[str, Evidence] = MappingProxyType(
     {
         "erc.lite": Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-A-VER-ERC",)),
@@ -92,6 +110,7 @@ STAGE_EVIDENCE: Mapping[str, Evidence] = MappingProxyType(
         "roundtrip.rta2": EVIDENCE_RT_A2,
         "copper.clearance": Evidence(Level.INFERRED, hypotheses=("H-A-DRC-SAME",)),
         "parity": Evidence(Level.INFERRED, hypotheses=("H-A-DRC-PARITY",)),
+        "roundtrip.rta3": EVIDENCE_RT_A3,
     }
 )
 """What the Altium backend adds to the evidence of a check stage: the hypotheses its readings rest on for
@@ -730,6 +749,9 @@ __all__ = [
     "EVIDENCE_RT_A0",
     "EVIDENCE_RT_A1",
     "EVIDENCE_RT_A2",
+    "EVIDENCE_RT_A3",
+    "RECORD_PREFIX",
+    "RT_A3_SCOPE",
     "PROJECT_READ_EVIDENCE",
     "RT_A2_SCOPE",
     "STAGE_EVIDENCE",

@@ -17,23 +17,29 @@ from types import MappingProxyType
 from typing import Any
 
 from fenolite.backends import registry
-from fenolite.backends.base import Validator
+from fenolite.backends.base import DocumentSet, DocumentValidator, Validator
 from fenolite.backends.kicad import sch, versions
 from fenolite.backends.kicad.oracle import KicadOracle, schematic_name
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.sexpr import dumps, first_difference, parse, tree_equal
 from fenolite.checks.codes import issue as check_issue
+from fenolite.checks.documents import run_document_checks
 from fenolite.checks.rt2 import erc_rt2, rt2_stage
+from fenolite.cli._documents import built_cache, find_documents, input_ref, project_result
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.cmd_check import ReadRefusedError
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import Issue, Severity
+from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 
 HELP = "say up to which level (rt0, rt1, rt2) a KiCad file survives a read and a write"
 LEVELS = ("rt0", "rt1", "rt2")
+ALTIUM_LEVELS = ("rta0", "rta1", "rta2", "rta3")
+"""The levels of Altium input (change c0090): each is the stage ``roundtrip.<level>`` of a document check
+(``docs/altium.md``, "Round trips"). They are not a ladder: each one is asked for by name."""
 KINDS = frozenset(
     {
         versions.FileKind.BOARD,
@@ -54,7 +60,12 @@ READS = "roundtrip reads .kicad_pcb, .kicad_mod, .kicad_sch, .kicad_sym and .kic
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'roundtrip'."
     parser.add_argument("path", metavar="PATH", help="a KiCad S-expression file, or a project for rt2")
-    parser.add_argument("--level", choices=LEVELS, default="rt1", help="the level to reach (default rt1)")
+    parser.add_argument(
+        "--level",
+        choices=(*LEVELS, *ALTIUM_LEVELS),
+        default=None,
+        help="the level to reach (default rt1); for Altium input the one level to judge (default rta1)",
+    )
     parser.add_argument("--kicad-cli", dest="kicad_cli", metavar="PATH", help="the kicad-cli of rt2")
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS", help="kicad-cli timeout (300)"
@@ -94,7 +105,62 @@ def _failed(level: str, name: str, difference: str) -> Issue:
     )
 
 
+def _run_documents(
+    args: argparse.Namespace, path: Path, backend: DocumentValidator, documents: DocumentSet
+) -> Result:
+    """One Altium level on document input (capability altium-verification, "Round-trip level RT-A3"): the
+    stage ``roundtrip.<level>`` of the document check, with its summary as ``result.<level>``. No
+    subprocess runs, and nothing is written under the input; RT-A3 writes into a temporary folder."""
+    level = args.level or "rta1"
+    if level not in ALTIUM_LEVELS:
+        raise CliError(
+            "FEN-2001",
+            f"{level} is a level of KiCad files, and {path.name} is Altium input",
+            hint=f"levels of Altium input: {', '.join(ALTIUM_LEVELS)}",
+            where=path.name,
+        )
+    name = f"roundtrip.{level}"
+    built, model, cache_error = built_cache(documents.root)
+    report = run_document_checks(
+        documents=documents,
+        stages=(name,),
+        model=model,
+        built=built,
+        validator=backend,
+        cache_error=cache_error,
+    )
+    if isinstance(report.read_error, FormatError):
+        raise ReadRefusedError(report.read_error, report.issues, file=documents.documents[0].name)
+    (stage,) = report.stages
+    verdict: dict[str, Any] = {"status": stage.status, "reason": stage.reason, **stage.summary}
+    failed = any(found.severity == "error" for found in stage.issues)
+    holds = stage.status == "ok" and not failed and bool(stage.summary.get("holds", True))
+    result: dict[str, Any] = {
+        "kind": project_result(backend, documents, built=built)["backend"],
+        "level": level if holds else "none",
+        level: verdict,
+    }
+    if level == "rta3":
+        result["unwritten"] = stage.summary.get("unwritten", {})
+    return Result(
+        result=result, issues=report.issues, evidence=report.evidence, input=input_ref(path, documents)
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    given = Path(args.path)
+    given = given if given.is_absolute() else ctx.cwd / given
+    found_documents = find_documents(given) if given.exists() else None
+    if found_documents is not None:
+        return _run_documents(args, given, *found_documents)
+    if args.level in ALTIUM_LEVELS:
+        raise CliError(
+            "FEN-2001",
+            f"{args.level} is a level of Altium documents, and {given.name} is not one",
+            hint=f"levels of KiCad files: {', '.join(LEVELS)}",
+            where=given.name,
+        )
+    args.level = args.level or "rt1"
     path = _target(args.path, ctx)
     kind = versions.kind_for_suffix(path.name)
     assert kind is not None

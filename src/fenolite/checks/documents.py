@@ -29,6 +29,7 @@ from fenolite.backends.base import (
     DocumentRole,
     DocumentSet,
     DocumentValidator,
+    ModelWriter,
     PadNetList,
     ProjectRead,
     ProjectSet,
@@ -54,7 +55,11 @@ DOCUMENT_STAGES: tuple[str, ...] = (
     "roundtrip.rta1",
     "roundtrip.rta2",
 )
-"""The stages of a document check, in the order they run."""
+"""The stages of a document check that run by default, in the order they run."""
+OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3",)
+"""The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
+into a temporary folder and reads it again."""
+ALL_DOCUMENT_STAGES: tuple[str, ...] = (*DOCUMENT_STAGES, *OPT_IN_DOCUMENT_STAGES)
 CONTAINER_LEVELS: Mapping[str, ContainerLevel] = {"roundtrip.rta0": "RT-A0", "roundtrip.rta1": "RT-A1"}
 _READING_STAGES = frozenset(
     {
@@ -205,9 +210,10 @@ def run_document_checks(
     model of a built project). ``validator.read_documents`` runs at most once, and
     ``validator.container_roundtrip`` at most once per document and level."""
     from fenolite.checks import parity as parity_check
-    from fenolite.checks.rta2 import rta2_stage
+    from fenolite.checks.rta2 import predates_board, rta2_stage
+    from fenolite.checks.rta3 import compare, rta3_stage
 
-    selected = [name for name in DOCUMENT_STAGES if name in stages]
+    selected = [name for name in ALL_DOCUMENT_STAGES if name in stages]
     errors: dict[str, FormatError] = {}
     usable = None if cache_error else model
     read: ProjectRead | None = None
@@ -340,11 +346,30 @@ def run_document_checks(
             return skipped(name, "cache-unreadable")
         if schematic is None and pcb is None:
             return skipped(name, "read-refused" if errors else "not-judged")
-        stage = rta2_stage(
-            usable, read if read is not None else ProjectRead(None, None), validator.written_scope()
-        )
+        board = pcb
+        if board is not None:
+            if predates_board(usable, board.design):
+                return skipped(name, "model-predates-board")
+            if isinstance(validator, ModelWriter):
+                board = replace(board, content=validator.in_model_frame(usable, board.design))
+        stage = rta2_stage(usable, ProjectRead(schematic, board), validator.written_scope())
         readings = [reading.evidence for reading in (schematic, pcb) if reading is not None]
         return replace(stage, evidence=with_added(name, BUILT_EVIDENCE, *readings))
+
+    def rta3() -> StageResult:
+        name = "roundtrip.rta3"
+        target = documents.project or documents.board
+        if target is None:
+            sheets = documents.of_role("schematic")
+            target = sheets[0].name if sheets else None
+        if target is None or not isinstance(validator, ModelWriter):
+            return skipped(name, "not-judged")
+        try:
+            trip = validator.model_roundtrip(documents.root / target, compare=compare)
+        except FormatError as error:
+            errors.setdefault(target, error)
+            return skipped(name, "read-refused")
+        return rta3_stage(trip)
 
     runners: dict[str, Callable[[], StageResult]] = {
         "model.validate": model_stage,
@@ -355,6 +380,7 @@ def run_document_checks(
         "roundtrip.rta0": container("roundtrip.rta0"),
         "roundtrip.rta1": container("roundtrip.rta1"),
         "roundtrip.rta2": rta2,
+        "roundtrip.rta3": rta3,
     }
     results = tuple(runners[name]() for name in selected)
     input_issues = [refused(name, error) for name, error in errors.items()]
@@ -378,8 +404,10 @@ def run_document_checks(
 
 
 __all__ = [
+    "ALL_DOCUMENT_STAGES",
     "CONTAINER_LEVELS",
     "DOCUMENT_STAGES",
+    "OPT_IN_DOCUMENT_STAGES",
     "document_copper",
     "project_of",
     "refused",

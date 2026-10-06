@@ -253,3 +253,54 @@ def test_rt2_schematic_without_an_erc_report(monkeypatch: pytest.MonkeyPatch, tm
     assert code == 5 and env["result"]["level"] == "rt1"
     assert [i["where"] for i in env["issues"] if i["code"] == "check.oracle-failed"] == ["blink.kicad_sch"]
     assert env["result"]["rt2"]["schematic"]["judged"] is False
+
+
+# --- Altium input (change c0090, capability altium-verification, "Round-trip level RT-A3") ----------------
+
+ALTIUM = DATA / "altium"
+
+
+def test_roundtrip_altium_own_sample_holds_rta3(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Own sample": RT-A3 of a committed project holds, the unwritten kinds are counted, and no
+    file is written under the sample folder or the working directory."""
+    hide_kicad(monkeypatch, tmp_path)
+    before = tree_snapshot(ALTIUM / "board6")
+    code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", str(ALTIUM / "board6"), "--level", "rta3")
+    result = env["result"]
+    assert code == 0 and env["ok"] is True
+    assert (result["kind"], result["level"]) == ("altium", "rta3")
+    assert result["rta3"]["holds"] is True and result["rta3"]["differences"] == 0
+    assert result["rta3"]["presentation"] == "regenerated"
+    # the board holds two texts and six graphics on a mechanical layer, which no record of the writer
+    # carries, and the lines of its library footprints are records without a model entity
+    assert result["unwritten"] == result["rta3"]["unwritten"]
+    assert (result["unwritten"]["text"], result["unwritten"]["graphic"]) == (2, 6)
+    assert result["unwritten"]["record:footprint-graphics"] == 33
+    assert [i["code"] for i in env["issues"]] == ["check.rta3-unwritten"]
+    assert env["evidence"]["level"] == "INFERRED" and "H-A-VER-RTA3" in env["evidence"]["hypotheses"]
+    assert tree_snapshot(ALTIUM / "board6") == before
+    assert not [p for p in tmp_path.rglob("*") if p.suffix.lower() in (".pcbdoc", ".schdoc", ".prjpcb")]
+
+
+def test_roundtrip_altium_levels_by_name(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Each Altium level is the stage of that name; without ``--level`` an Altium input is judged at RT-A1,
+    and RT-A2 of a file that no build wrote is not judged."""
+    document = str(ALTIUM / "routed" / "routed.PcbDoc")
+    for level in ("rta0", "rta1"):
+        code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", document, "--level", level)
+        assert code == 0 and env["result"]["level"] == level and env["result"][level]["status"] == "ok"
+    code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", document)
+    assert code == 0 and env["result"]["level"] == "rta1" and env["input"]["kind"] == "altium_pcbdoc"
+    code, env, _, _ = run(monkeypatch, tmp_path, "roundtrip", document, "--level", "rta2")
+    assert code == 0 and env["result"]["level"] == "none"
+    assert (env["result"]["rta2"]["status"], env["result"]["rta2"]["reason"]) == ("skipped", "native-input")
+
+
+def test_roundtrip_altium_and_kicad_levels_do_not_mix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    document = str(ALTIUM / "routed" / "routed.PcbDoc")
+    code, _, error, _ = run(monkeypatch, tmp_path, "roundtrip", document, "--level", "rt1")
+    assert code == 2 and error["code"] == "FEN-2001" and "rta0, rta1, rta2, rta3" in error["hint"]
+    code, _, error, _ = run(monkeypatch, tmp_path, "roundtrip", str(TWO_LAYER), "--level", "rta3")
+    assert code == 2 and error["code"] == "FEN-2001" and "rt0, rt1, rt2" in error["hint"]

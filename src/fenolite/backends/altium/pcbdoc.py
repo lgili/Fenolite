@@ -58,7 +58,7 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Arc, Graphic, Hole, Keepout, Side, Text, Track, Via, Zone
+from fenolite.model.board import Arc, Graphic, Hole, Keepout, Pad, Side, Text, Track, Via, Zone
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -236,6 +236,12 @@ class PlacedComponent:
     locked: bool = False
     pad_nets: Mapping[str, str] = field(default_factory=lambda: {})
     sheet: tuple[str, str] | None = None
+    record_unique_id: str | None = None
+    """The unique id of the component record itself (change c0090): the id that an imported model keeps
+    as the footprint's native id. ``None``: derived from the file name and ``unique_id``."""
+    nets_by_pad: Mapping[str, str] | None = None
+    """Pad id → net name (change c0090), for a footprint that comes from a model: two pads of one number
+    may then lie on different nets. ``None``: ``pad_nets`` decides, by pad number."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +255,17 @@ class NetClassSpec:
     track_width: int | None = None
     via_diameter: int | None = None
     via_drill: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class FreePad:
+    """A pad that belongs to no component (change c0090): ``pad`` is a model pad whose ``position`` and
+    ``rotation`` are those on the board (KiCad frame) and whose layers are the layers it lies on;
+    ``net`` is its net's name."""
+
+    pad: Pad
+    extras: PadExtras = PadExtras()
+    net: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +300,15 @@ class PcbDocSpec:
     design_rules: tuple[rulemap.LoweredRule, ...] = ()
     """The lowered rules of the design (``rulemap.lower``, change c0084), written before the rules of the
     net classes."""
+    frame: Frame | None = None
+    """Where the board lies in the document (change c0090). ``None``: ``Frame.of(outline)``, the frame of
+    a build. A model that was read from a PCB document is written with ``Frame.document()``, so every
+    coordinate keeps its value."""
+    origin: Point | None = None
+    """The document's origin in the Altium frame, nanometres (``None``: the outline's lower-left corner
+    of a build, at 1000 mil)."""
+    free_pads: tuple[FreePad, ...] = ()
+    """The pads without a component (change c0090), written after the holes."""
 
 
 def _u32(value: int) -> bytes:
@@ -306,6 +332,7 @@ class Frame:
 
     min_x: int
     max_y: int
+    offset: int = _OFFSET_NM
 
     @classmethod
     def of(cls, outline: Sequence[Point]) -> Frame:
@@ -313,8 +340,14 @@ class Frame:
             raise ValueError("a board outline needs at least three points")
         return cls(min(p.x for p in outline), max(p.y for p in outline))
 
+    @classmethod
+    def document(cls) -> Frame:
+        """The frame of a model that was read from a PCB document (change c0090): Y negated and nothing
+        moved, the inverse of the import's ``Point(x, -y)``."""
+        return cls(0, 0, 0)
+
     def __call__(self, point: Point) -> Point:
-        return Point(point.x - self.min_x + _OFFSET_NM, self.max_y - point.y + _OFFSET_NM)
+        return Point(point.x - self.min_x + self.offset, self.max_y - point.y + self.offset)
 
 
 def file_header() -> bytes:
@@ -343,13 +376,18 @@ def board_record(
     filename: str = DEFAULT_FILENAME,
     used_layers: Sequence[int] = (),
     stack: StackSpec | None = None,
+    frame: Frame | None = None,
+    origin: Point | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
-    lower-left corner, the layers that primitives lie on."""
+    lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
+    the frame of a build and its origin."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
-    frame = Frame.of(outline)
-    origin = rec.to_units(_OFFSET_NM)
+    frame = frame if frame is not None else Frame.of(outline)
+    at = (rec.to_units(_OFFSET_NM), rec.to_units(_OFFSET_NM))
+    if origin is not None:
+        at = (rec.to_units(origin.x), rec.to_units(origin.y))
     vertices: list[tuple[int, int]] = []
     for point in outline:
         placed = frame(point)
@@ -357,7 +395,7 @@ def board_record(
     text = board_text(
         filename,
         vertices,
-        (origin, origin),
+        at,
         unique_id=unique_id(f"pcbdoc:{filename}:board"),
         used_layers=used_layers,
         stack=stack,
@@ -429,7 +467,10 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("SOURCEFOOTPRINTLIBRARY", component.footprint_library),
         ("SOURCECOMPONENTLIBRARY", component.component_library),
         ("SOURCELIBREFERENCE", component.lib_reference),
-        ("UNIQUEID", unique_id(f"pcbdoc:{filename}:component:{component.unique_id}")),
+        (
+            "UNIQUEID",
+            component.record_unique_id or unique_id(f"pcbdoc:{filename}:component:{component.unique_id}"),
+        ),
         ("JUMPERSVISIBLE", "TRUE"),
     ]
     return rec.property_block(fields)
@@ -469,7 +510,8 @@ def text_record(
     body += bytes((*flags, 0, 0, 0, 0))
     body += bytes(64) + b"\0" + struct.pack("<iI", 0, wide_index) + bytes(TEXT_SIZE - 119)
     assert len(body) == TEXT_SIZE
-    string = short_text(text) if free else rec.short_string(text)
+    # a component text outside 7-bit ASCII (change c0090, a model that was read) is written like a free one
+    string = short_text(text) if free or text_problem(text) is not None else rec.short_string(text)
     return bytes((rec.TEXT,)) + rec.subrecord(body) + rec.subrecord(string)
 
 
@@ -530,7 +572,10 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
     pads: list[bytes] = []
     for pad in check.pads:
         at = to_frame(pad.position)
-        net = nets.get(component.pad_nets.get(pad.number, ""), rec.NO_INDEX)
+        if component.nets_by_pad is not None:
+            net = nets.get(component.nets_by_pad.get(pad.id, ""), rec.NO_INDEX)
+        else:
+            net = nets.get(component.pad_nets.get(pad.number, ""), rec.NO_INDEX)
         pads.append(
             pad_bytes(
                 pad,
@@ -836,6 +881,10 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
             raise ValueError(f"{hole.id}: a hole needs a positive drill, not {hole.drill} nm")
         x, y = _units(frame(hole.position))
         out.pads.append(rec.hole_record(x, y, rec.to_units(hole.drill), plated=hole.plated))
+    for free in spec.free_pads:
+        net = rec.NO_INDEX if free.net is None else copper.net(free.pad.id, free.net)
+        at = frame(free.pad.position)
+        out.pads.append(pad_bytes(free.pad, free.extras, at=at, rotation_udeg=free.pad.rotation, net=net))
     return out
 
 
@@ -1239,7 +1288,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     is named); ``cfb.CompoundTooLarge`` past the size limit."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
-    frame = Frame.of(spec.outline)
+    frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
     net_names = sorted(spec.nets)
     nets = {name: index for index, name in enumerate(net_names)}
     stack = document_stack(spec)
@@ -1265,6 +1314,8 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
             (component.ref, True, Point(middle, y1 + DESIGNATOR_RISE)),
             (component.comment, False, Point(middle, y0 - COMMENT_DROP)),
         ):
+            if not text:  # a component of a model that was read may have no designator or comment
+                continue
             number = len(texts)
             texts.append(
                 text_record(
@@ -1320,7 +1371,16 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
         ("FileHeaderSix", file_header_six(",".join(c.unique_id for c in spec.components))),
         _storage(
             "Board6",
-            [board_record(spec.outline, filename=filename, used_layers=used, stack=stack)],
+            [
+                board_record(
+                    spec.outline,
+                    filename=filename,
+                    used_layers=used,
+                    stack=stack,
+                    frame=spec.frame,
+                    origin=spec.origin,
+                )
+            ],
         ),
         _storage("Nets6", [_net_record(name, filename) for name in net_names]),
         _storage("Components6", components),
@@ -1349,6 +1409,7 @@ __all__ = [
     "FILE_HEADER_SIX_TEXT",
     "FILE_HEADER_TEXT",
     "Frame",
+    "FreePad",
     "NetClassSpec",
     "OPTION_STORAGES",
     "PcbDocSpec",
