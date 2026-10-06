@@ -22,7 +22,7 @@ from typing import Literal
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
-from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
+from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
 CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
@@ -63,6 +63,31 @@ class Clearance:
 
 
 UNSET = Clearance(None, None)
+
+
+@dataclass(frozen=True, slots=True)
+class ClearanceCandidate:
+    """An immutable value candidate; rule identity never depends on its display name."""
+
+    source: str
+    value: Nm | None
+    severity: RuleSeverity | None
+    rule_id: str | None = None
+    priority: int | None = None
+    layers: tuple[str, ...] = ()
+    selector_a: Selector | None = None
+    selector_b: Selector | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ClearanceExplanation:
+    """Matched subjects and candidate values, without entities or design advice."""
+
+    subjects: tuple[RuleSubject, RuleSubject]
+    candidates: tuple[ClearanceCandidate, ...]
+    rules_over_classes: bool
+    floor_over_rules: bool
+    governing: Clearance
 
 
 def rule_precedence(rules: Sequence[Rule]) -> tuple[Rule, ...]:
@@ -212,13 +237,16 @@ class ClearanceResolver:
             diff_pair=self._bases.get(name) if name is not None else None,
         )
 
+    def _class_candidates(self, a: RuleSubject, b: RuleSubject) -> tuple[tuple[Nm, str], ...]:
+        return tuple(
+            (self._class_values[name], name)
+            for name in sorted({n for n in (a.netclass, b.netclass) if n is not None})
+            if name in self._class_values
+        )
+
     def _class_value(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
         """The larger clearance of the two subjects' classes that set one, and the name of that class."""
-        found = [
-            (self._class_values[name], name)
-            for name in {a.netclass, b.netclass}
-            if name is not None and name in self._class_values
-        ]
+        found = self._class_candidates(a, b)
         if not found:
             return None
         value = max(v for v, _ in found)
@@ -286,6 +314,41 @@ class ClearanceResolver:
             found = Clearance(floor, "error", "floor")
         return found
 
+    def explain(
+        self, a: RuleSubject, b: RuleSubject, *, zone_clearance: Nm | None = None
+    ) -> ClearanceExplanation:
+        """Explain the same resolution, including overshadowed matching rules and class values."""
+        folded_a, folded_b = _fold_subject(a), _fold_subject(b)
+        rows = [
+            ClearanceCandidate(
+                source=f"rule:{c.rule.name}",
+                value=c.rule.min,
+                severity=c.rule.severity,
+                rule_id=c.rule.id,
+                priority=c.rule.priority,
+                layers=c.rule.layers,
+                selector_a=c.rule.selector_a,
+                selector_b=c.rule.selector_b,
+            )
+            for c in reversed(self._candidates)
+            if c.matches(folded_a, folded_b)
+        ]
+        rows.extend(
+            ClearanceCandidate(f"class:{name}", value, "error")
+            for value, name in self._class_candidates(a, b)
+        )
+        if self._floor is not None:
+            rows.append(ClearanceCandidate("floor", self._floor, "error"))
+        if zone_clearance is not None and zone_clearance > 0:
+            rows.append(ClearanceCandidate(ZONE_SOURCE, zone_clearance, "error"))
+        return ClearanceExplanation(
+            (a, b),
+            tuple(rows),
+            self._rules_over_classes,
+            self._floor_over_rules,
+            self.resolve(a, b, zone_clearance=zone_clearance),
+        )
+
 
 __all__ = [
     "DEFAULT_CLASS",
@@ -294,6 +357,8 @@ __all__ = [
     "UNSET",
     "ZONE_SOURCE",
     "Clearance",
+    "ClearanceCandidate",
+    "ClearanceExplanation",
     "ClearanceResolver",
     "CopperKind",
     "rule_precedence",
