@@ -20,7 +20,7 @@ from typing import Literal, get_args
 import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.read.rul import RULE_FILE_COMMON, WRITTEN_END
-from fenolite.backends.altium.read.rules import RULE_KIND_MAP, map_rules
+from fenolite.backends.altium.read.rules import RULE_KIND_MAP, CopperLayers, map_rules
 from fenolite.backends.altium.read.rules import Field as ReadField
 from fenolite.backends.altium.read.scope import GLOB_CHARACTERS, parse_scope
 from fenolite.core.evidence import Evidence, Level
@@ -29,6 +29,7 @@ from fenolite.model.rules import Rule, RuleKind, Selector
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-RULE-CLEARANCE-FORMS",
         "H-A-RULE-FILE",
         "H-A-RULE-KINDS",
         "H-A-RULE-PRIORITY",
@@ -361,7 +362,8 @@ def _draft(rule: Rule, row: RuleRow) -> _Draft:
     if rule.layers:
         raise _Refused(
             "scope-unsupported",
-            f"the layers {', '.join(rule.layers)}: layer scopes are outside the closed scope grammar",
+            f"the layers {', '.join(rule.layers)}: a layer condition is read from a PCB document "
+            "with its board's layers and is not written",
         )
     scope1, name1 = scope_of(rule.selector_a, row)
     scope2, name2 = ALL_SCOPE, ""
@@ -459,14 +461,20 @@ def lower(rules: Sequence[Rule]) -> Lowered:
 
 
 def lift(
-    records: Sequence[LoweredRule | Sequence[ReadField]], *, origin: str = "rules"
+    records: Sequence[LoweredRule | Sequence[ReadField]],
+    *,
+    origin: str = "rules",
+    layers: CopperLayers | None = None,
 ) -> tuple[tuple[Rule, ...], dict[str, int]]:
     """The neutral rules of ``records`` (lowered rules or field lists) that an ``exact`` row describes, in
     record order, and the number of the other records by Altium kind. The reading is
-    ``read.rules.map_rules``: a record of a kind of the table that it refuses (a matrix, a scope outside
-    the grammar) is counted too."""
+    ``read.rules.map_rules``: a record of a kind of the table that it refuses (a matrix of differing
+    clearances, a scope outside the grammar) is counted too. ``layers`` are the copper layers of the board
+    the records belong to; without them a layer condition is refused. The forms of change c0125 (a uniform
+    matrix, the keys of a matrix cell, a layer condition) are read and never written: ``lower`` writes one
+    form per rule."""
     lists = [record.fields() if isinstance(record, LoweredRule) else tuple(record) for record in records]
-    mapping = map_rules(lists, origin=origin)
+    mapping = map_rules(lists, origin=origin, layers=layers)
     opaque = Counter(unmapped.kind or "(none)" for unmapped in mapping.unmapped)
     return mapping.ruleset.rules, dict(sorted(opaque.items()))
 

@@ -29,6 +29,13 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | The rule keys used by the mapping: `GAP`, `GENERICCLEARANCE`, `OBJECTCLEARANCES` and `IGNOREPADTOPADCLEARANCEINFOOTPRINT` of Clearance; `MINLIMIT`, `PREFEREDWIDTH` and `MAXLIMIT` of Width; `WIDTH`, `MINWIDTH`, `MAXWIDTH`, `HOLEWIDTH`, `MINHOLEWIDTH`, `MAXHOLEWIDTH` and `VIASTYLE` of Routing Via Style; `ABSOLUTEVALUES`, `MINLIMIT`, `MAXLIMIT`, `MINPERCENT` and `MAXPERCENT` of Hole Size | S-0160, S-0161, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A length in a rule record is a decimal number followed by `mil` (or `mm`), such as `6mil` | S-0163, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A scope is a query: membership functions (`InNet`, `InNetClass`, `InComponent`, …), object-type checks (`IsTrack`, `IsVia`, `IsPad`, …), layer checks (`OnLayer`, …) and the logical operators `And`, `Or`, `Not`. The documentation does not state the precedence of the operators | S-0296 | INFERRED | H-A-RD-PRJ-SCOPE |
+| The layer checks of the query language test an object: `OnMid` is true for an object on an internal signal layer; `OnOutside` for an object on the top or the bottom layer, and an object on Multi-Layer is not returned by it; `OnPlane` for an object on an internal plane layer. The entry of `OnMid` does not say whether an object on Multi-Layer is returned | S-0555 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| `ExistsOnLayer('<name>')` is true for an object that exists on the named layer, and it is the function to use for an object on Multi-Layer that has a shape on the layer; the name is the layer's name as the layer list of the board shows it | S-0556, S-0555 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| The Constraint Manager holds the clearances as a matrix between net classes, with one entry from all net classes to all net classes by default; the value of a cell is given for all layers, for the outer layers, for the inner layers or for one layer, and the more specific one applies. Each pair of classes with a value is shown as a rule of its own | S-0557 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| In the Clearance rule one value is copied to every cell of the matrix of object kinds; an option leaves the clearances between the pads of one footprint unchecked | S-0558 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| A PCB document with a clearance matrix holds one Clearance record with `ISMATRIX=TRUE` for all objects, and one record per layer set of a cell: these hold `SOURCERULE` (the zero-based position of the `ISMATRIX` record among the rule records), `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`, and `INNERLAYERS=TRUE` with both scopes `OnMid`, or `OUTERLAYERS=TRUE` with both scopes an `Or` of `ExistsOnLayer` of the top and of the bottom layer's name. The cell records have the higher priorities. All three hold `OBJECTCLEARANCES` of one space | S-0172 (three records of one document) | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
+| An entry of `OBJECTCLEARANCES` is `ClearanceObj_<kind>-ClearanceObj_<kind>:<count>`, entries joined by `;`. In the four Clearance matrices of the public documents (27, 8, 8 and 1 entries) no entry holds the count of its record's `GAP` read as 0.0001 mil, and the eight distinct counts above zero are round lengths in that unit (0.1, 0.25, 0.4 and 0.55 mm; 3.5, 6, 10 and 15 mil) | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
+| A count of `OBJECTCLEARANCES` is 0.0001 mil (2.54 nm, the unit of the document's coordinates), and a cell that the text leaves out holds the generic value; so a text whose every entry holds the length of `GAP` says one clearance | S-0558, S-0175, S-0176, S-0187 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
 
 ## Header keys
 
@@ -46,7 +53,7 @@ give.
 
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
-| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank or uniform; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
 | `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | — |
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
@@ -126,7 +133,8 @@ checked in this order.
 | `layer-kind` | `LAYERKIND` is not `SameLayer` |
 | `keys` | a key outside the header keys, the keys before `RULEKIND` and the keys of the kind, or a further condition fails |
 | `value` | a limit the table needs is missing (`GAP`; at least one limit otherwise) or is not a length |
-| `scope` | a scope is outside the closed grammar, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
+| `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
+| `no-layer` | the two scopes are a layer condition for a kind of layer the board does not hold: the rule applies to no object ("Layer scopes of Clearance") |
 
 ## Closed scope grammar
 
@@ -147,6 +155,52 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `Not x` | `not(x)` |
 | `(x)` | `x` |
 
+## Clearance forms that map
+
+Change c0125. A Clearance record maps in these forms beyond the plain one, and only where a neutral
+`clearance` rule says exactly what the record says. They are read and never written: `rulemap.lower`
+writes the plain form. `rules.matrix_problem` decides a matrix; the keys of a cell are conditions of the
+table marked `read_only`.
+
+| form | condition | neutral rule |
+|---|---|---|
+| blank matrix | `OBJECTCLEARANCES` holds white space only | as with an empty value: `min` = `GAP` |
+| uniform matrix | every entry of `OBJECTCLEARANCES` holds the length of `GAP`, to the nanometre (a count is `rules.MATRIX_UNIT`, 0.0001 mil) | `min` = `GAP` |
+| matrix cell | `ISMATRIX=TRUE`; `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`; `INNERLAYERS=TRUE`; `OUTERLAYERS=TRUE`; `SOURCERULE` with any value | the keys add nothing: the scopes, `GAP` and `PRIORITY` of the record decide |
+
+A matrix with an entry of another length stays unmapped (`keys`): a neutral rule holds one value, and
+the kinds of the matrix (arc, track, surface pad, through-hole pad, via, fill, polygon, region, text,
+hole) are finer than the item kinds of the copper check. A record with
+`IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` stays unmapped (`keys`): no selector says "two pads of one
+component". Any other value of a cell key stays unmapped (`keys`): a cell for a named class is in no
+public file, so its scope text is not known.
+
+### Layer scopes of Clearance
+
+`scope.parse_layer_scope` reads a scope that is, as a whole, one layer condition: `OnMid`,
+`ExistsOnLayer('<name>')`, or `ExistsOnLayer` terms joined by `Or` (or `||`), with at most one pair of
+enclosing parentheses. `parse_scope` still refuses every layer function. `map_rules` considers a layer
+condition only for Clearance, only with the copper layers of the record's board (`rules.CopperLayers`,
+which the import of a PCB document gives; a rule file has none), and only when both scopes hold the
+same one.
+
+The neutral layer condition is the layer a pair of objects is judged on (`checks.clearance`: a rule
+with `layers` is in force for a pair on one of them). Altium's functions test an object. The two say the
+same for an object on one layer and differ for a via or a through-hole pad, which the check judges on
+every layer it spans. So a condition maps in two cases only:
+
+| both scopes | the board | result |
+|---|---|---|
+| `ExistsOnLayer` of every copper layer | any | a rule for all objects with `layers` = the board's copper layers: there is no other layer on which a pair could be judged |
+| `ExistsOnLayer` of some copper layers | has others | unmapped (`scope`): two vias that exist on a named layer are governed by the record on the other layers too, where the neutral rule is not in force |
+| `ExistsOnLayer` of a name that no copper layer, or more than one, holds | any | unmapped (`scope`) |
+| `OnMid` | no internal signal layer | unmapped with `no-layer`: no object is on such a layer, so the rule applies to nothing. The record is no unread rule (`rules.NOT_APPLYING`) |
+| `OnMid` | an internal signal layer | unmapped (`scope`): no permitted source says whether a via or a through-hole pad is "on" an internal signal layer |
+
+A layer name is compared letter for letter with the name the board record gives the layer. An internal
+signal layer is a copper layer whose id lies between the top layer's and the bottom layer's
+(`pcb-records.md`, "Layers"); an internal plane is none.
+
 ## Fenolite's choices
 
 - `RuleFile.to_bytes()` gives the input back. The form is told from the content: a first line that
@@ -157,8 +211,8 @@ other text is refused with a reason and the rule is reported with the reason `sc
   out of the last value. Values are kept as written; `read_rule_file` interprets none of them.
 - Mapping is exact or absent. A disabled rule is not mapped: in Altium the next rule applies, and a
   neutral rule of severity `ignore` would silence it. A key that the table does not know blocks the
-  mapping, so a Clearance with an object matrix or a Width with per-layer values is reported, not
-  flattened.
+  mapping, so a Clearance with a matrix of differing clearances or a Width with per-layer values is
+  reported, not flattened.
 - Lengths are converted as fractions and rounded half to even to the nanometre
   (`core.units.round_half_even_div`). Altium prints its 2.54 nm unit with a few decimals, so the error
   of that rounding is below 1 nm and raises no issue.
@@ -166,9 +220,10 @@ other text is refused with a reason and the rule is reported with the reason `sc
   kind in Altium and rules of different kinds never compete. The preferred value becomes `opt`.
 - Scopes: one parenthesis level holds one kind of operator, because no permitted source states the
   precedence. A value holding `'`, `*`, `?`, `[` or `]` is refused, because a neutral leaf value is a
-  glob. `OnLayer` and the other layer functions are refused: they need the board's layer names mapped
-  to neutral names, which only the import (c0043) can do. `IsPolygon` and every other function are
-  refused.
+  glob. `OnLayer` and the other layer functions are refused by the grammar: they need the board's layer
+  names mapped to neutral names, which only the import (c0043) can do. Since change c0125 the import
+  gives those layers and two layer conditions of a Clearance record map ("Layer scopes of Clearance").
+  `IsPolygon` and every other function are refused.
 - The values of a summary-form file have no unit, so its rules are never mapped (reason
   `summary-form`); no unit is assumed.
 

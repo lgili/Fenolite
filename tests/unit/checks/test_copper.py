@@ -670,3 +670,25 @@ def test_pure_and_repeatable(monkeypatch: pytest.MonkeyPatch) -> None:
     second = check_copper(design, pads=None)
     monkeypatch.undo()
     assert first == second and first.summary["items"]
+
+
+def test_a_rule_of_some_layers_governs_only_there() -> None:
+    """A clearance rule with layers is in force for the pairs judged on those layers and for no other
+    (capability copper-check, "Clearance in force"; what the layer conditions of change c0125 rely on)."""
+    made = Copper()
+    made.net("A")
+    made.net("B")
+    made.rule("everywhere", mm(0.1))
+    made.rule("back", mm(0.3), layers=("B.Cu",), priority=1)
+    for layer in ("F.Cu", "B.Cu"):
+        made.track("A", Point(0, 0), Point(mm(10), 0), layer=layer)
+        made.track("B", Point(0, mm(0.45)), Point(mm(10), mm(0.45)), layer=layer)  # edges 0.2 mm apart
+    report = check_copper(made.build(), pads=None)
+    (found,) = report.findings
+    assert (found.code, found.layer, found.clearance, found.source) == (
+        "copper.clearance",
+        "B.Cu",
+        mm(0.3),
+        "rule:back",
+    )
+    assert report.summary["pairs"] == 2 and report.summary["unset_pairs"] == 0

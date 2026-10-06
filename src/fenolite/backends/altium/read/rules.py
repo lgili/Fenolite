@@ -9,22 +9,27 @@ keys (``docs/formats/altium/rule-file.md``). A record maps only when its kind, h
 scopes are inside the closed tables of this module; every other record is listed as ``Unmapped`` with a
 reason. No record is dropped and no value is approximated. Fenolite ships no rule value: every limit
 comes from a record.
+
+Change c0125 reads more forms of a Clearance record (``rule-file.md``, "Clearance forms that map"): a
+blank or uniform ``OBJECTCLEARANCES``, the keys of a cell of the clearance matrix between net classes, and,
+when the caller gives the copper layers of the record's board (``CopperLayers``), two layer conditions.
 """
 
 # evidence: see import_evidence, read.project
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
 from fenolite.backends.altium.read.proptext import parse_length
-from fenolite.backends.altium.read.scope import parse_scope
+from fenolite.backends.altium.read.scope import LayerScope, parse_layer_scope, parse_scope
 from fenolite.backends.altium.read.textfile import text_issue
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
-from fenolite.core.units import Nm
+from fenolite.core.units import Nm, round_half_even_div
 from fenolite.model.base import ExtBag
 from fenolite.model.rules import Rule, RuleKind, RuleSet, Selector
 
@@ -67,12 +72,16 @@ class NeutralLimits:
 class Condition:
     """A further key of a kind. Absent: allowed unless ``required``. Present: its value must be one of
     ``values`` (``None``: any value is allowed and unused), or equal, as a length, to the value of the
-    key ``same_as``."""
+    key ``same_as``. With ``uniform_with`` the value is an object matrix that must be blank or hold, in
+    every entry, the length of the key ``uniform_with`` (``matrix_problem``). ``read_only`` marks a key
+    that is read and that the writer of ``rulemap`` never writes."""
 
     key: str
     values: tuple[str, ...] | None = None
     required: bool = False
     same_as: str = ""
+    uniform_with: str = ""
+    read_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,14 +102,49 @@ class KindMap:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class CopperLayer:
+    """One copper layer of a board: the name the document gives it, its neutral name, and whether it is an
+    internal signal layer (neither the top, nor the bottom, nor an internal plane)."""
+
+    document_name: str
+    name: str
+    inner_signal: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CopperLayers:
+    """The copper layers of the board whose rule records are mapped, from top to bottom. Without them a
+    layer condition is refused: a layer name is the board's own."""
+
+    layers: tuple[CopperLayer, ...]
+
+    def named(self, document_name: str) -> tuple[CopperLayer, ...]:
+        """The layers the document names ``document_name``, letter for letter."""
+        return tuple(layer for layer in self.layers if layer.document_name == document_name)
+
+
+MATRIX_UNIT = (254, 100)
+"""One count of an entry of ``OBJECTCLEARANCES`` in nanometres, as a fraction: 0.0001 mil, the unit of
+the document's coordinates (``rule-file.md``, "Clearance forms that map"; ``H-A-RULE-CLEARANCE-FORMS``)."""
+_MATRIX_ENTRY = re.compile(r"ClearanceObj_[A-Za-z]+-ClearanceObj_[A-Za-z]+:(\d+)")
+
 RULE_KIND_MAP: dict[str, KindMap] = {
     "Clearance": KindMap(
         (NeutralLimits("clearance", "GAP", None, None),),
         "DifferentNets",
         (
-            Condition("OBJECTCLEARANCES", ("",)),
+            Condition("OBJECTCLEARANCES", uniform_with="GAP"),
             Condition("GENERICCLEARANCE", same_as="GAP"),
             Condition("IGNOREPADTOPADCLEARANCEINFOOTPRINT", ("FALSE",)),
+            Condition("ISMATRIX", ("TRUE",), read_only=True),
+            Condition("SOURCERULE", read_only=True),
+            Condition("CELLROWNAME", ("All",), read_only=True),
+            Condition("CELLROWTYPE", ("0",), read_only=True),
+            Condition("CELLCOLNAME", ("All",), read_only=True),
+            Condition("CELLCOLTYPE", ("0",), read_only=True),
+            Condition("INNERLAYERS", ("TRUE",), read_only=True),
+            Condition("OUTERLAYERS", ("TRUE",), read_only=True),
         ),
         binary=True,
     ),
@@ -140,7 +184,9 @@ RULE_KIND_MAP: dict[str, KindMap] = {
 }
 """The closed table of the kinds that map (``rule-file.md``, "Rule kinds that map";
 ``H-A-RD-PRJ-RULE-MAP``; the last three kinds are those of change c0084, ``H-A-RULE-KINDS``). It holds
-every Altium kind of an ``exact`` row of ``rulemap.TABLE``."""
+every Altium kind of an ``exact`` row of ``rulemap.TABLE``. The keys of Clearance after
+``IGNOREPADTOPADCLEARANCEINFOOTPRINT`` and its uniform matrix are those of change c0125
+(``H-A-RULE-CLEARANCE-FORMS``); the writer writes none of them."""
 PENDING_KINDS: dict[str, RuleKind] = {}
 """Kinds with a neutral counterpart but no permitted source for their keys: reported apart. Empty since
 change c0084, which found the keys of ``BoardOutlineClearance`` in the public corpus."""
@@ -156,6 +202,7 @@ UnmappedReason = Literal[
     "keys",
     "value",
     "scope",
+    "no-layer",
 ]
 UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "summary-form",
@@ -168,8 +215,13 @@ UNMAPPED_REASONS: tuple[UnmappedReason, ...] = (
     "keys",
     "value",
     "scope",
+    "no-layer",
 )
 """The reasons in the order they are checked: the first one that holds is reported."""
+NOT_APPLYING: frozenset[UnmappedReason] = frozenset({"disabled", "no-layer"})
+"""The reasons of a record that takes no part in a check: Altium skips a disabled rule, and a rule whose
+scope names a kind of layer the board does not hold applies to no object. Every other reason leaves a rule
+of the document unread."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,6 +291,31 @@ def _header(fields: Sequence[Field]) -> tuple[str, str, int]:
     return kind, name, int(priority)
 
 
+def matrix_problem(text: str, gap: str | None) -> str:
+    """Why the object matrix ``text`` (the value of ``OBJECTCLEARANCES``) is not one clearance equal to
+    the length ``gap``, or ``""`` when it is: a blank text holds no entry, and a text whose every entry
+    holds the length of ``gap`` says nothing more than ``gap``. Entries are ``ClearanceObj_<kind>-
+    ClearanceObj_<kind>:<count>`` joined by ``;``; a count is ``MATRIX_UNIT`` long."""
+    if not text.strip():
+        return ""
+    counts: list[int] = []
+    for entry in text.strip().split(";"):
+        match = _MATRIX_ENTRY.fullmatch(entry.strip())
+        if match is None:
+            return "OBJECTCLEARANCES holds text that is no entry of an object matrix"
+        counts.append(int(match.group(1)))
+    length = parse_length(gap or "")
+    differing = sum(
+        1 for count in counts if round_half_even_div(count * MATRIX_UNIT[0], MATRIX_UNIT[1]) != length
+    )
+    if differing:
+        return (
+            f"OBJECTCLEARANCES is a matrix of differing clearances: {differing} of its {len(counts)} "
+            "entries differ from GAP, and a neutral clearance holds one value"
+        )
+    return ""
+
+
 def _check_keys(fields: Sequence[Field], kind: str, table: KindMap) -> None:
     first = next(position for position, (key, _value) in enumerate(fields) if key == "RULEKIND")
     allowed = {key for key, _value in fields[:first]} | set(HEADER_KEYS) | table.keys
@@ -251,7 +328,11 @@ def _check_keys(fields: Sequence[Field], kind: str, table: KindMap) -> None:
             if condition.required:
                 raise _Refusal("keys", f"{condition.key} is required for {kind}")
             continue
-        if condition.same_as:
+        if condition.uniform_with:
+            problem = matrix_problem(value or "", _get(fields, condition.uniform_with))
+            if problem:
+                raise _Refusal("keys", problem)
+        elif condition.same_as:
             other = _get(fields, condition.same_as)
             mine = parse_length(value or "")
             if mine is None or other is None or mine != parse_length(other):
@@ -284,29 +365,76 @@ def _limits(
     return groups
 
 
-def _scopes(fields: Sequence[Field], table: KindMap) -> tuple[Selector, Selector | None]:
+def _layer_scope(first: LayerScope, second: LayerScope | None, layers: CopperLayers) -> tuple[str, ...]:
+    """The neutral layers of a binary rule whose two scopes are the layer condition ``first``
+    (``rule-file.md``, "Layer scopes of Clearance"). The neutral layer condition is the layer a pair of
+    objects is judged on, and a via or a through-hole pad is judged on every layer it spans, so a
+    condition maps only where the two say the same for every pair; any other is refused."""
+    if second != first:
+        raise _Refusal(
+            "scope",
+            "a layer condition maps only when the two scopes hold the same one: the neutral layer "
+            "condition holds for both objects of a pair",
+        )
+    if first.inner:
+        if any(layer.inner_signal for layer in layers.layers):
+            raise _Refusal(
+                "scope",
+                "OnMid on a board with internal signal layers: no permitted source says whether a via "
+                "or a through-hole pad is on them, so the pairs of the rule are not known",
+            )
+        raise _Refusal(
+            "no-layer", "OnMid on a board without an internal signal layer: the rule applies to no object"
+        )
+    named: list[str] = []
+    for name in first.names:
+        found = layers.named(name)
+        if len(found) != 1:
+            raise _Refusal(
+                "scope",
+                f"ExistsOnLayer names {name!r}, which {len(found)} copper layers of the board are called",
+            )
+        named.append(found[0].name)
+    missing = [layer.name for layer in layers.layers if layer.name not in named]
+    if missing:
+        raise _Refusal(
+            "scope",
+            f"ExistsOnLayer names {len(set(named))} of the board's {len(layers.layers)} copper layers: a "
+            f"via or a through-hole pad that exists on them is also judged on {', '.join(missing)}, where "
+            "the neutral layer condition does not hold",
+        )
+    return tuple(layer.name for layer in layers.layers)
+
+
+def _scopes(
+    fields: Sequence[Field], table: KindMap, layers: CopperLayers | None = None
+) -> tuple[Selector, Selector | None, tuple[str, ...]]:
     first = _get(fields, "SCOPE1EXPRESSION")
     second = _get(fields, "SCOPE2EXPRESSION")
     if first is None:
         raise _Refusal("scope", "the record has no SCOPE1EXPRESSION")
+    if layers is not None and table.binary and second is not None:
+        layered = parse_layer_scope(first)
+        if layered is not None:
+            return Selector("all"), None, _layer_scope(layered, parse_layer_scope(second), layers)
     selector_a = parse_scope(first)
     if isinstance(selector_a, str):
         raise _Refusal("scope", f"SCOPE1EXPRESSION: {selector_a}")
     if not table.binary:
         if second is None or second.strip() != ALL:
             raise _Refusal("scope", "SCOPE2EXPRESSION is not All for a unary rule")
-        return selector_a, None
+        return selector_a, None, ()
     if second is None:
         raise _Refusal("scope", "the record has no SCOPE2EXPRESSION")
     if second.strip() == ALL:
-        return selector_a, None
+        return selector_a, None, ()
     selector_b = parse_scope(second)
     if isinstance(selector_b, str):
         raise _Refusal("scope", f"SCOPE2EXPRESSION: {selector_b}")
-    return selector_a, selector_b
+    return selector_a, selector_b, ()
 
 
-def _map_one(fields: Sequence[Field], index: int, origin: str) -> list[Rule]:
+def _map_one(fields: Sequence[Field], index: int, origin: str, layers: CopperLayers | None) -> list[Rule]:
     kind, name, priority = _header(fields)
     table = RULE_KIND_MAP.get(kind)
     if table is None:
@@ -327,7 +455,7 @@ def _map_one(fields: Sequence[Field], index: int, origin: str) -> list[Rule]:
         raise _Refusal("layer-kind", f"LAYERKIND={layer_kind}; the table needs {SAME_LAYER}")
     _check_keys(fields, kind, table)
     groups = _limits(fields, kind, table)
-    selector_a, selector_b = _scopes(fields, table)
+    selector_a, selector_b, on_layers = _scopes(fields, table, layers)
     unique_id = _get(fields, "UNIQUEID")
     native = {BACKEND: unique_id} if unique_id else {}
     bag = ExtBag(payload=(("record", record_text(fields)),))
@@ -342,7 +470,7 @@ def _map_one(fields: Sequence[Field], index: int, origin: str) -> list[Rule]:
                 kind=limits.kind,
                 selector_a=selector_a,
                 selector_b=selector_b,
-                layers=(),
+                layers=on_layers,
                 min=low,
                 opt=preferred,
                 max=high,
@@ -353,12 +481,20 @@ def _map_one(fields: Sequence[Field], index: int, origin: str) -> list[Rule]:
     return rules
 
 
-def map_rules(records: Sequence[Sequence[Field]], *, origin: str, summary: bool = False) -> RuleMapping:
+def map_rules(
+    records: Sequence[Sequence[Field]],
+    *,
+    origin: str,
+    summary: bool = False,
+    layers: CopperLayers | None = None,
+) -> RuleMapping:
     """Map the field lists ``records`` onto neutral rules. Every record is either the source of one or
     two rules (``RuleMapping.sources``) or one ``Unmapped`` with the first reason of ``UNMAPPED_REASONS``
     that holds. ``origin`` names the source in ids and issue locations (``<origin>#<index>``). With
     ``summary`` (the records of a summary-form file) no record maps and one info
-    ``altium.rule.summary-form`` comes first."""
+    ``altium.rule.summary-form`` comes first. ``layers`` are the copper layers of the board the records
+    belong to (the records of a PCB document); without them, as for a rule file, a layer condition is
+    refused."""
     issues: list[Issue] = []
     rules: list[Rule] = []
     rule_records: list[int] = []
@@ -378,7 +514,7 @@ def map_rules(records: Sequence[Sequence[Field]], *, origin: str, summary: bool 
         try:
             if summary:
                 raise _Refusal("summary-form", "the value has no unit")
-            mapped = _map_one(fields, index, origin)
+            mapped = _map_one(fields, index, origin, layers)
         except _Refusal as refusal:
             unmapped.append(Unmapped(index, kind, name, refusal.reason, refusal.detail))
             issues.append(
@@ -398,10 +534,14 @@ def map_rules(records: Sequence[Sequence[Field]], *, origin: str, summary: bool 
 
 __all__ = [
     "HEADER_KEYS",
+    "MATRIX_UNIT",
+    "NOT_APPLYING",
     "PENDING_KINDS",
     "RULE_KIND_MAP",
     "UNMAPPED_REASONS",
     "Condition",
+    "CopperLayer",
+    "CopperLayers",
     "Field",
     "KindMap",
     "NeutralLimits",
@@ -409,5 +549,6 @@ __all__ = [
     "Unmapped",
     "UnmappedReason",
     "map_rules",
+    "matrix_problem",
     "record_text",
 ]

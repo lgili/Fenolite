@@ -565,6 +565,15 @@ a board that the script forbids.
   conjunction of those (`… And …`); a `clearance` rule takes a second scope from `between`. A glob, a
   `ref`, `item_kind`, `or` or `not` selector and a rule with `layers` are `scope-unsupported`: that
   rule is reported and the others of its kind are written.
+- **What is read and not written (change c0125).** The import of a PCB document also maps a Clearance
+  record whose object matrix is blank or holds one value, a record of a clearance matrix between net
+  classes (the entry for all classes and its cells), and two layer conditions: `ExistsOnLayer` of
+  every copper layer of the board on both scopes gives a clearance rule with `layers`, and `OnMid` on
+  a board without an internal signal layer applies to nothing (reason `no-layer`, no unread rule). A
+  matrix of differing clearances, the option that ignores the pads of one footprint, a layer condition
+  for some of the copper layers and every other scope function stay unmapped, each with its reason
+  (`docs/formats/altium/rule-file.md`, "Clearance forms that map"). A build writes none of these
+  forms: a rule with `layers` stays `scope-unsupported`.
 - **Order.** Within one Altium kind the rules of the script come first, from the most governing to the
   least (priority 1, 2, … and then 0), with Altium priorities from 1. After them come the rules the
   build always wrote: one per net class that holds the value and Fenolite's `All` default ("Copper").
@@ -1084,8 +1093,9 @@ gave no model entity.
   source).
 - Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
   and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
-- Rules of other kinds, disabled rules, and rules whose scope is outside the mapper's grammar:
-  `altium.import.rule-unmapped` counts them per kind. No rule is approximated.
+- Rules of other kinds, disabled rules, Clearance rules with a matrix of differing clearances, and rules
+  whose scope is outside the mapper's grammar or names a kind of layer the board lacks (`no-layer`):
+  `altium.import.rule-unmapped` counts them per kind and reason. No rule is approximated.
 - A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
   shape with a net.
 - What is drawn on an internal plane. A plane layer (Internal Plane 1 to 16) is stored in negative: the
@@ -1298,7 +1308,7 @@ It is not Altium's design rule check. What it does not judge, it says, and the s
 |---|---|---|
 | unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured | `summary.unpoured`, one `copper.item-unsupported` |
 | internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper, and the import makes no track of those lines | one `copper.item-unsupported` at `plane`, with the number of planes and of the objects left out |
-| Clearance rules with an object matrix, a layer scope or another key outside the rule table | the model has no rule of that form | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
+| Clearance rules with a matrix of differing clearances, the option that ignores the pads of one footprint, a layer condition for some of the board's copper layers, a scope function outside the grammar or another key outside the rule table | the model has no rule of that form; a blank or uniform matrix, a clearance matrix between all net classes and a layer condition for every copper layer are read ("Rules") | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
 | the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
 | board-edge clearance, component clearance, silkscreen, hole and width rules | outside the copper check | nothing: these are not stages |
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from fenolite.backends.altium.read.scope import parse_scope
+from fenolite.backends.altium.read.scope import LayerScope, parse_layer_scope, parse_scope
 from fenolite.model.rules import Selector
 
 NET_A = Selector("net", "A")
@@ -101,3 +101,47 @@ def test_layer_and_wildcard_refused() -> None:
 def test_refused(text: str, words: str) -> None:
     reason = parse_scope(text)
     assert isinstance(reason, str) and words in reason, reason
+
+
+@pytest.mark.parametrize(
+    ("text", "found"),
+    [
+        ("OnMid", LayerScope(inner=True)),
+        (" ( OnMid ) ", LayerScope(inner=True)),
+        ("ExistsOnLayer('Top Layer')", LayerScope(names=("Top Layer",))),
+        (
+            "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))",
+            LayerScope(names=("Top Layer", "Bottom Layer")),
+        ),
+        ("ExistsOnLayer('A') || ExistsOnLayer('B') Or ExistsOnLayer('C')", LayerScope(names=("A", "B", "C"))),
+    ],
+)
+def test_layer_conditions(text: str, found: LayerScope) -> None:
+    """The two layer conditions of change c0125 ("Layer scopes of Clearance")."""
+    assert parse_layer_scope(text) == found
+    assert isinstance(parse_scope(text), str)  # the closed grammar itself holds no layer function
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "All",
+        "()",
+        "OnMid Or OnMid",
+        "Not OnMid",
+        "OnOutside",
+        "OnLayer('Top Layer')",
+        "ExistsOnLayer('')",
+        "ExistsOnLayer(Top)",
+        "ExistsOnLayer('A') And ExistsOnLayer('B')",
+        "ExistsOnLayer('A') Or",
+        "ExistsOnLayer('A') Or IsTrack",
+        "ExistsOnLayer('A') ExistsOnLayer('B')",
+        "((ExistsOnLayer('A')))",
+        "(ExistsOnLayer('A')) Or (ExistsOnLayer('B'))",
+        "InNet('A')",
+    ],
+)
+def test_no_layer_condition(text: str) -> None:
+    assert parse_layer_scope(text) is None

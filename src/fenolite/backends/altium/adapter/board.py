@@ -404,7 +404,14 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             )
         )
 
-    rules = import_rules([r.fields for r in doc.rules], ids, file=file, sha256=sha256, issues=ctx.issues)
+    rules = import_rules(
+        [r.fields for r in doc.rules],
+        ids,
+        file=file,
+        sha256=sha256,
+        issues=ctx.issues,
+        layers=layers.copper_layers(),
+    )
     for name, streams in sorted(doc.storages.items()):
         if name and name not in DECODED_STORAGES and any(streams.get(s) for s in streams if s != "Header"):
             ctx.census.note(name)

@@ -15,9 +15,13 @@ from fenolite.backends.altium.read.proptext import parse_fields
 from fenolite.backends.altium.read.rul import read_rule_file
 from fenolite.backends.altium.read.rules import (
     HEADER_KEYS,
+    NOT_APPLYING,
     UNMAPPED_REASONS,
+    CopperLayer,
+    CopperLayers,
     Field,
     map_rules,
+    matrix_problem,
     record_text,
 )
 from fenolite.core.ids import derived_id
@@ -204,7 +208,7 @@ def test_kinds_of_c0084() -> None:
 
 def test_reasons_in_their_order() -> None:
     """Each reason of the table, and the first one wins when several hold."""
-    assert UNMAPPED_REASONS[0] == "summary-form" and UNMAPPED_REASONS[-1] == "scope"
+    assert UNMAPPED_REASONS[0] == "summary-form" and UNMAPPED_REASONS[-2:] == ("scope", "no-layer")
     width = ("MINLIMIT", "10mil")
     assert reasons([[("NAME", "x"), ("PRIORITY", "1")]]) == ["malformed"]
     assert reasons([record("Width", width, NAME="")]) == ["malformed"]
@@ -380,3 +384,201 @@ def test_property_text_records() -> None:
     fields = parse_fields(text).fields
     (rule,) = map_rules([fields], origin="doc").ruleset.rules
     assert rule.min == 200_000 and rule.priority == 2 and rule.native_ids == {}
+
+
+# --- More forms of a Clearance record (change c0125) ---------------------------------------------------
+
+TWO = CopperLayers((CopperLayer("Top Layer", "F.Cu"), CopperLayer("Bottom Layer", "B.Cu")))
+FOUR = CopperLayers(
+    (
+        CopperLayer("Top Layer", "F.Cu"),
+        CopperLayer("Signal 1", "In1.Cu", inner_signal=True),
+        CopperLayer("Ground", "In2.Cu"),
+        CopperLayer("Bottom Layer", "B.Cu"),
+    )
+)
+PLANES = CopperLayers((*FOUR.layers[:1], CopperLayer("Power", "In1.Cu"), *FOUR.layers[2:]))
+OUTER = "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))"
+CELL = (
+    ("SOURCERULE", "2"),
+    ("CELLROWNAME", "All"),
+    ("CELLROWTYPE", "0"),
+    ("CELLCOLNAME", "All"),
+    ("CELLCOLTYPE", "0"),
+)
+
+
+def clearance(gap: str, *keys: tuple[str, str], **header: str) -> list[Field]:
+    """A Clearance record of ``gap`` with the keys every saved record holds, then ``keys``."""
+    common = (
+        ("GAP", gap),
+        ("GENERICCLEARANCE", gap),
+        ("IGNOREPADTOPADCLEARANCEINFOOTPRINT", "FALSE"),
+    )
+    return record("Clearance", *common, *keys, **header)
+
+
+def details(records: Sequence[Sequence[Field]], layers: CopperLayers | None = None) -> list[tuple[str, str]]:
+    return [(u.reason, u.detail) for u in map_rules(records, origin="b", layers=layers).unmapped]
+
+
+def test_blank_matrix_and_matrix_source() -> None:
+    """Scenario "The entry of the clearance matrix": a blank ``OBJECTCLEARANCES`` holds no entry, and
+    ``ISMATRIX=TRUE`` marks the record without changing what it says."""
+    fields = clearance("10mil", ("OBJECTCLEARANCES", " "), ("ISMATRIX", "TRUE"), PRIORITY="3")
+    (rule,) = map_rules([fields], origin="b").ruleset.rules
+    assert (rule.kind, rule.min, rule.priority, rule.layers) == ("clearance", 254_000, 3, ())
+    assert rule.selector_a == Selector("all") and rule.selector_b is None
+    assert reasons([clearance("10mil", ("OBJECTCLEARANCES", ""), ("ISMATRIX", "FALSE"))]) == ["keys"]
+    # the keys of Board Outline Clearance are as they were
+    edge = record(
+        "BoardOutlineClearance", ("GAP", "10mil"), ("OBJECTCLEARANCES", " "), NETSCOPE="DifferentNets"
+    )
+    assert reasons([edge]) == ["keys"]
+
+
+def test_uniform_matrix_is_one_clearance() -> None:
+    """Scenario "A uniform matrix": every entry holds the length of ``GAP``."""
+    uniform = (
+        "ClearanceObj_Arc-ClearanceObj_Arc:100000;ClearanceObj_Track-ClearanceObj_THPad:100000;"
+        "ClearanceObj_Poly-ClearanceObj_Region:100000"
+    )
+    for gap in ("10mil", "0.254mm"):
+        (rule,) = map_rules([clearance(gap, ("OBJECTCLEARANCES", uniform))], origin="b").ruleset.rules
+        assert rule.min == 254_000
+    assert matrix_problem(uniform, "10mil") == "" and matrix_problem(" ", None) == ""
+    # 59055 counts are 0.15 mm, 5.9055 mil: a count is 0.0001 mil
+    assert matrix_problem("ClearanceObj_Via-ClearanceObj_Via:59055", "5.9055mil") == ""
+    assert matrix_problem("ClearanceObj_Via-ClearanceObj_Via:59055", "0.15mm") == ""
+
+
+def test_matrix_of_differing_clearances_stays_unmapped() -> None:
+    """Scenario "A matrix of differing clearances": the reason names the matrix and counts its entries."""
+    differing = "ClearanceObj_Track-ClearanceObj_Track:60000;ClearanceObj_Track-ClearanceObj_Hole:0"
+    one = "ClearanceObj_Track-ClearanceObj_Track:100000;ClearanceObj_Via-ClearanceObj_Via:100001"
+    assert details([clearance("6mil", ("OBJECTCLEARANCES", differing))]) == [
+        (
+            "keys",
+            "OBJECTCLEARANCES is a matrix of differing clearances: 1 of its 2 entries differ from GAP, and "
+            "a neutral clearance holds one value",
+        )
+    ]
+    assert reasons([clearance("10mil", ("OBJECTCLEARANCES", one))]) == ["keys"]
+    for text in ("x:1", "ClearanceObj_Track-ClearanceObj_Track:6mil", "ClearanceObj_Track:60000", ";"):
+        assert details([clearance("6mil", ("OBJECTCLEARANCES", text))]) == [
+            ("keys", "OBJECTCLEARANCES holds text that is no entry of an object matrix")
+        ], text
+    # with the flag that leaves out the pads of one footprint the record stays unmapped, as before
+    ignoring = [(k, "TRUE" if k == "IGNOREPADTOPADCLEARANCEINFOOTPRINT" else v) for k, v in clearance("6mil")]
+    assert reasons([ignoring]) == ["keys"]
+
+
+def test_outer_layers_of_a_two_layer_board() -> None:
+    """Scenario "Every copper layer of the board": the rule holds the board's copper layers."""
+    fields = clearance(
+        "5mil",
+        ("OBJECTCLEARANCES", " "),
+        *CELL,
+        ("OUTERLAYERS", "TRUE"),
+        SCOPE1EXPRESSION=OUTER,
+        SCOPE2EXPRESSION=OUTER,
+        NAME="Clearance_2",
+        PRIORITY="2",
+    )
+    mapping = map_rules([fields], origin="b", layers=TWO)
+    (rule,) = mapping.ruleset.rules
+    assert mapping.unmapped == () and mapping.issues == ()
+    assert (rule.name, rule.kind, rule.min, rule.priority) == ("Clearance_2", "clearance", 127_000, 2)
+    assert rule.layers == ("F.Cu", "B.Cu") and rule.selector_a == Selector("all") and rule.selector_b is None
+    # the order of the terms, the parentheses and the spelling of Or do not matter
+    swapped = "ExistsOnLayer('Bottom Layer') || ExistsOnLayer('Top Layer')"
+    other = clearance("5mil", SCOPE1EXPRESSION=swapped, SCOPE2EXPRESSION=swapped)
+    assert map_rules([other], origin="b", layers=TWO).ruleset.rules[0].layers == ("F.Cu", "B.Cu")
+
+
+def test_layer_conditions_that_stay_unmapped() -> None:
+    """Scenario "Some of the copper layers" and the other refusals of a layer condition."""
+    outer = clearance("5mil", SCOPE1EXPRESSION=OUTER, SCOPE2EXPRESSION=OUTER)
+    assert reasons([outer]) == ["scope"]  # a rule file has no board
+    ((reason, detail),) = details([outer], FOUR)
+    assert reason == "scope" and "2 of the board's 4 copper layers" in detail and "In1.Cu, In2.Cu" in detail
+    one_side = clearance("5mil", SCOPE1EXPRESSION=OUTER)
+    ((reason, detail),) = details([one_side], TWO)
+    assert reason == "scope" and "the two scopes hold the same one" in detail
+    assert reasons([clearance("5mil", SCOPE2EXPRESSION=OUTER)], layers=TWO) == ["scope"]
+    unknown = "ExistsOnLayer('Top')"
+    ((reason, detail),) = details(
+        [clearance("5mil", SCOPE1EXPRESSION=unknown, SCOPE2EXPRESSION=unknown)], TWO
+    )
+    assert reason == "scope" and "'Top', which 0 copper layers" in detail
+    twice = CopperLayers((CopperLayer("L", "F.Cu"), CopperLayer("L", "B.Cu")))
+    same = "ExistsOnLayer('L')"
+    ((reason, detail),) = details([clearance("5mil", SCOPE1EXPRESSION=same, SCOPE2EXPRESSION=same)], twice)
+    assert reason == "scope" and "which 2 copper layers" in detail
+    for scope in (
+        "OnLayer('Top Layer')",
+        "OnOutside",
+        f"{OUTER} And IsTrack",
+        "ExistsOnLayer('Top Layer') And IsVia",
+    ):
+        assert reasons([clearance("5mil", SCOPE1EXPRESSION=scope, SCOPE2EXPRESSION=scope)], layers=TWO) == [
+            "scope"
+        ], scope
+    # a unary kind takes no layer condition
+    width = record("Width", ("MINLIMIT", "10mil"), SCOPE1EXPRESSION=OUTER)
+    assert reasons([width], layers=TWO) == ["scope"]
+
+
+def test_inner_layers() -> None:
+    """Scenario "No internal signal layer": the rule applies to no object and is no unread rule; with an
+    internal signal layer it stays unmapped."""
+    inner = clearance(
+        "5mil", *CELL, ("INNERLAYERS", "TRUE"), SCOPE1EXPRESSION="OnMid", SCOPE2EXPRESSION="OnMid"
+    )
+    assert details([inner], TWO) == [
+        ("no-layer", "OnMid on a board without an internal signal layer: the rule applies to no object")
+    ]
+    assert reasons([inner], layers=PLANES) == ["no-layer"]  # an internal plane is no signal layer
+    ((reason, detail),) = details([inner], FOUR)
+    assert reason == "scope" and "internal signal layers" in detail
+    assert reasons([inner]) == ["scope"]
+    assert "no-layer" in NOT_APPLYING and "disabled" in NOT_APPLYING and "scope" not in NOT_APPLYING
+
+
+def test_cell_keys_are_a_closed_set() -> None:
+    cell = dict(CELL)
+    for key, value in (("CELLROWNAME", "PWR"), ("CELLCOLTYPE", "1"), ("CELLROWTYPE", "")):
+        keys = tuple((cell | {key: value}).items())
+        assert reasons([clearance("5mil", *keys)]) == ["keys"], key
+    assert reasons([clearance("5mil", *CELL, ("INNERLAYERS", "FALSE"))]) == ["keys"]
+    assert reasons([clearance("5mil", *CELL, ("OUTERLAYERS", "FALSE"))]) == ["keys"]
+    assert reasons([clearance("5mil", *CELL, ("LAYERNAME", "Top Layer"))]) == ["keys"]
+    assert reasons([clearance("5mil", *CELL)]) == []
+    assert reasons([record("Width", ("MINLIMIT", "10mil"), ("ISMATRIX", "TRUE"))]) == ["keys"]
+
+
+def test_the_three_records_of_a_matrix_on_two_layers() -> None:
+    """Scenario "A clearance matrix on a two-layer board": the entry for the inner layers applies to
+    nothing, the entry for the outer layers holds both copper layers, and the matrix's own record is the
+    clearance of everything else."""
+    records = [
+        clearance(
+            "5mil", ("OBJECTCLEARANCES", " "), *CELL, ("INNERLAYERS", "TRUE"),
+            SCOPE1EXPRESSION="OnMid", SCOPE2EXPRESSION="OnMid", NAME="Clearance_1", PRIORITY="1",
+        ),
+        clearance(
+            "5mil", ("OBJECTCLEARANCES", " "), *CELL, ("OUTERLAYERS", "TRUE"),
+            SCOPE1EXPRESSION=OUTER, SCOPE2EXPRESSION=OUTER, NAME="Clearance_2", PRIORITY="2",
+        ),
+        clearance("10mil", ("OBJECTCLEARANCES", " "), ("ISMATRIX", "TRUE"), PRIORITY="3"),
+    ]  # fmt: skip
+    mapping = map_rules(records, origin="b", layers=TWO)
+    assert [(r.name, r.min, r.priority, r.layers) for r in mapping.ruleset.rules] == [
+        ("Clearance_2", 127_000, 2, ("F.Cu", "B.Cu")),
+        ("Clearance", 254_000, 3, ()),
+    ]
+    assert [(u.index, u.reason) for u in mapping.unmapped] == [(0, "no-layer")]
+    assert mapping.rule_records == (1, 2)
+    without = map_rules(records, origin="b")
+    assert [r.name for r in without.ruleset.rules] == ["Clearance"]
+    assert [(u.index, u.reason) for u in without.unmapped] == [(0, "scope"), (1, "scope")]

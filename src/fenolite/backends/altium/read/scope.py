@@ -6,6 +6,10 @@
 closed grammar (``docs/formats/altium/rule-file.md``, "Closed scope grammar"); any other query gives a
 string that says why, so that no scope is approximated. One parenthesis level holds one kind of
 operator, because no permitted source states the precedence (S-0296).
+
+``parse_layer_scope`` reads the two layer conditions of change c0125 (``rule-file.md``, "Layer scopes of
+Clearance"): they name layers of a board, so they give no selector; ``read.rules`` maps them with the
+copper layers of the board a record belongs to.
 """
 
 # evidence: see import_evidence, read.project
@@ -26,6 +30,11 @@ AND_OPERATORS = ("And", "&&")
 OR_OPERATORS = ("Or", "||")
 NOT_OPERATOR = "Not"
 GLOB_CHARACTERS = ("*", "?", "[", "]")
+INNER_SIGNAL = "OnMid"
+"""The layer check that is true for an object on an internal signal layer (S-0555)."""
+EXISTS_ON_LAYER = "ExistsOnLayer"
+"""The membership check that is true for an object that exists on the named layer, an object on
+Multi-Layer included (S-0556)."""
 
 _TOKEN = re.compile(
     r"\s*(?:(?P<string>'[^']*')|(?P<op>&&|\|\|)|(?P<open>\()|(?P<close>\))"
@@ -169,6 +178,42 @@ class _Parser:
         return text
 
 
+@dataclass(frozen=True, slots=True)
+class LayerScope:
+    """A scope that is one layer condition: ``inner`` for ``OnMid``, else the layer names of
+    ``ExistsOnLayer('…')`` or of a disjunction of such terms, as written and in written order."""
+
+    inner: bool = False
+    names: tuple[str, ...] = ()
+
+
+def parse_layer_scope(text: str) -> LayerScope | None:
+    """The layer condition that is the whole scope ``text``, or ``None`` for any other scope: ``OnMid``,
+    ``ExistsOnLayer('<name>')``, or such terms joined by ``Or``; one pair of parentheses may enclose the
+    whole. Nothing else is read here: a layer condition joined with another function stays outside the
+    grammar (``parse_scope`` says why)."""
+    tokens = _tokens(text)
+    if len(tokens) >= 2 and tokens[0].kind == "open" and tokens[-1].kind == "close":
+        tokens = tokens[1:-1]
+    if [(token.kind, token.text) for token in tokens] == [("name", INNER_SIGNAL)]:
+        return LayerScope(inner=True)
+    names: list[str] = []
+    position = 0
+    while True:
+        term = tokens[position : position + 4]
+        if [token.kind for token in term] != ["name", "open", "string", "close"]:
+            return None
+        if term[0].text != EXISTS_ON_LAYER or len(term[2].text) < 3:
+            return None
+        names.append(term[2].text[1:-1])
+        position += 4
+        if position == len(tokens):
+            return LayerScope(names=tuple(names))
+        if tokens[position].text not in OR_OPERATORS:
+            return None
+        position += 1
+
+
 def parse_scope(text: str) -> Selector | str:
     """The neutral selector of the scope query ``text``, or a string that says why ``text`` is outside the
     closed grammar of ``rule-file.md``. ``All`` is accepted only as the whole query."""
@@ -189,10 +234,14 @@ def parse_scope(text: str) -> Selector | str:
 
 __all__ = [
     "AND_OPERATORS",
+    "EXISTS_ON_LAYER",
     "GLOB_CHARACTERS",
+    "INNER_SIGNAL",
     "ITEM_KINDS",
     "LEAF_FUNCTIONS",
     "NOT_OPERATOR",
     "OR_OPERATORS",
+    "LayerScope",
+    "parse_layer_scope",
     "parse_scope",
 ]

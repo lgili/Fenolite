@@ -14,18 +14,20 @@ objects on it cut the plane and are no copper, so the import leaves them out and
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 
 from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
 from fenolite.backends.altium.read.pcbstack import LAYER_NAMES, BoardRecord
+from fenolite.backends.altium.read.rules import CopperLayer, CopperLayers
 from fenolite.core.errors import Issue
 from fenolite.core.provenance import Provenance
 from fenolite.model.board import Layer, LayerKind, StackLayer, Stackup
 
 TOP, BOTTOM, MULTI = 1, 32, 74
+BACKEND = "altium"
 FIRST_PLANE, LAST_PLANE = 39, 54
 EDGE = "Edge.Cuts"
 EDGE_ORDINAL = 100
@@ -113,6 +115,16 @@ class LayerMap:
         """Count one free primitive on the plane ``layer_id`` that gives no entity."""
         self.cuts[layer_id] += 1
 
+    def copper_layers(self) -> CopperLayers:
+        """The copper layers as the rule mapper takes them: the name the document gives each, its
+        neutral name, and whether it is an internal signal layer (an id between top and bottom)."""
+        return CopperLayers(
+            tuple(
+                CopperLayer(self.altium_name(layer), self.copper[layer], TOP < layer < BOTTOM)
+                for layer in self.chain
+            )
+        )
+
     def peek(self, layer_id: int) -> str:
         """The neutral name of ``layer_id`` without marking it used: ``Altium.<id>`` outside the tables."""
         if layer_id in self.copper:
@@ -184,6 +196,20 @@ class LayerMap:
             pairs = [("layer_id", str(layer)), ("altium_name", self.altium_name(layer))]
             make(self.peek(layer), self.kind(layer), layer + ORDINAL_OFFSET, pairs)
         return tuple(out)
+
+
+def copper_layers_of(layers: Iterable[Layer]) -> CopperLayers | None:
+    """``LayerMap.copper_layers`` read back from the layers of an imported board (the ``layer_id`` and
+    ``altium_name`` pairs of their ``altium`` bags), in ordinal order; ``None`` when a copper layer holds
+    no such pairs (a board that is no import), so that no layer condition maps for it."""
+    found: list[CopperLayer] = []
+    for layer in sorted((entry for entry in layers if entry.kind == "copper"), key=lambda e: e.ordinal):
+        pairs = dict(layer.ext[BACKEND].payload) if BACKEND in layer.ext else {}
+        ident = pairs.get("layer_id", "")
+        if "altium_name" not in pairs or not (ident.isascii() and ident.isdigit()):
+            return None
+        found.append(CopperLayer(pairs["altium_name"], layer.name, TOP < int(ident) < BOTTOM))
+    return CopperLayers(tuple(found))
 
 
 def _thickness(text: str | None, where: str, issues: list[Issue]) -> int | None:

@@ -277,7 +277,7 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1346 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | footprint-graphics 3469; shape-based-regions 90; plane-cuts 74; pour-primitives 40; polygons 8; classes 38 | 15 |
 | `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 194 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; via 48; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
-| `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; graphic 1; pad 8; zone-fill 1 | footprint-graphics 846; shape-based-regions 23; classes 20 | 18 |
+| `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; graphic 1; pad 8; rule 1; zone-fill 1 | footprint-graphics 846; shape-based-regions 23; classes 20 | 18 |
 | `altium-third-party-pcbdoc-04` | equal | 17 | 53 | 149 | 0 | 67 | 9 | body 33; copper-shape 2; graphic 12; outline 4; zone-fill 9 | footprint-graphics 315; shape-based-regions 27; classes 16; bad-geometry 1 | 19 |
 | `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
 | `altium-third-party-pcbdoc-06` | equal | 27 | 102 | 111 | 3 | 42 | 10 | body 27; copper-shape 20; graphic 23; outline 1; pad 4; text 2; zone-fill 10 | footprint-graphics 1074; shape-based-regions 42; classes 18 | 18 |
@@ -307,7 +307,10 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
   document that was read; a build from a script keeps refusing);
   6 zones whose outline has an arc (the model holds no outline for them); 41 poured fills (a polygon
   is written unpoured); 22 arcs of board outlines, written as two straight edges, and one board without
-  a closed outline; 2 planes without a net of the document, written as signal layers; 1 rule.
+  a closed outline; 2 planes without a net of the document, written as signal layers; 2 rules (one of
+  them since change c0125: the clearance rule with layers that the import now reads on
+  `altium-third-party-pcbdoc-03`, which no rule record is written for; that row was run again on
+  2026-10-06 and is still equal).
 - **Lines on internal planes are no model items** (change c0124, measured again on 2026-10-06 with
   the heavy rows, 15 tests passed). The two documents with planes hold 74 and 43 free tracks without a
   net on their plane layers: the lines that cut the planes. The import read them as tracks until change
@@ -428,27 +431,47 @@ components carry the pin-to-pad map of their footprint model, one pad per pin, a
 ## Light DRC over the corpus
 
 The stage `copper.clearance` on each public PCB document, and the parity comparison on each public project
-set (change c0088; `tests/corpus/test_altium_copper.py`, run on 2026-10-06 on macOS without any tool; 13
-passed, `altium-set:01` skipped as heavy). Counts only. A third-party board may hold real findings: the test
+set (change c0088, with the Clearance forms of change c0125; `tests/corpus/test_altium_copper.py`, run on
+2026-10-06 on macOS without any tool, without `FENOLITE_HEAVY`; 13 passed, `altium-set:01` skipped as
+heavy). Counts only. A third-party board may hold real findings: the test
 asserts what the stage promises, not that a board is clean.
 
 | document | fills, pads, tracks, arcs, vias | pairs judged | shorts | clearance | mapped and opaque Clearance rules | unpoured | zones without a clearance | planes | findings the unit's slack removes | level |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-third-party-pcbdoc-01` | 40, 735, 1 346, 0, 646 | 10 482 | 0 | 2 | 1, 0 | 0 | 0 | 2 | 626 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-02` | 11, 143, 191, 0, 242 | 553 | 0 | 0 | 0, 1 | 1 | 11 | 2 | 0 | `UNVERIFIED` |
-| `altium-third-party-pcbdoc-03` | 6, 383, 604, 0, 47 | 1 087 | 0 | 0 | 0, 3 | 0 | 1 | 0 | 0 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-03` | 6, 383, 604, 0, 47 | 3 204 | 0 | 7 | 2, 0 | 0 | 0 | 0 | 359 | `INFERRED` |
 | `altium-third-party-pcbdoc-04` | 11, 53, 149, 0, 67 | 990 | 0 | 8 | 1, 1 | 0 | 0 | 0 | 118 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-05` | 5, 96, 194, 0, 59 | 1 156 | 0 | 0 | 1, 0 | 0 | 0 | 0 | 232 | `INFERRED` |
 | `altium-third-party-pcbdoc-06` | 11, 106, 111, 3, 42 | 250 | 0 | 0 | 0, 2 | 0 | 10 | 0 | 0 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-07` | 16, 112, 475, 20, 60 | 2 528 | 0 | 0 | 2, 1 | 0 | 0 | 0 | 112 | `UNVERIFIED` |
 
 - **No pour is judged against a default.** c0122 measured 266 clearance findings on
-  `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone:
-  the document's three Clearance records (two scoped by layer, one with a matrix key) are outside the rule
-  table, so no clearance is in force. The stage reports `copper.rules-incomplete` for the three records and
-  for the one pour, judges 954 pairs for shorts only (`copper.clearance-unset`), and carries `UNVERIFIED`.
-- **The 10 findings that remain.** On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm
-  rule. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
+  `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone.
+  With the rule table of c0084 the document's three Clearance records were outside the table (two scoped
+  by layer, one with a matrix key), so no clearance was in force: the stage judged 954 pairs for shorts
+  only and carried `UNVERIFIED`.
+- **The clearance matrix of `-03` is read (change c0125).** The three records are a clearance matrix
+  between all net classes: 5 mil on the inner layers, 5 mil on the outer layers, 10 mil elsewhere. The
+  board has two copper layers, so the outer-layer record governs every copper pair (a rule with both
+  layers), the inner-layer record applies to nothing and is no unread rule, and the 10 mil record is
+  mapped and governs no copper pair. Mapped, applying to nothing, unread: 2, 1, 0 (before: 0, 0, 3). No
+  pair is judged for shorts only, the pour is judged, and the stage carries `INFERRED`.
+- **Counted plainly.** Of the seven documents, five hold a clearance in force (`-01`, `-03`, `-04`, `-05`,
+  `-07`; four before c0125), three have no unread Clearance record (`-01`, `-03`, `-05`), and two carry
+  `INFERRED` (`-03`, `-05`; one before). c0125 lifts one of the three documents that had no clearance in
+  force, not three.
+- **What still has no clearance in force.** `-02` holds one Clearance record, a matrix of differing
+  clearances (27 entries of 5 values) with the option that ignores the pads of one footprint. `-06` holds
+  two: one for a net with a matrix of differing clearances, and one for all objects with that option.
+  A neutral rule holds one value and no selector says "two pads of one component", so these stay unread
+  and reported (`docs/formats/altium/rule-file.md`, "Clearance forms that map").
+- **The 17 findings that remain.** On `-03`, seven pad-to-track pairs on the bottom layer, each 8 to 9 nm
+  short of the 0.127 mm rule: square through-hole pads 637 795 units wide, whose edge lies on half a unit
+  of the document, with a track edge about 49 996.5 units away where the rule asks for 50 000. They are
+  short by the document's own numbers, beyond what the unit's rounding explains (below); whether Altium's
+  check tolerates them is not known. On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm
+  rule, the same class. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
   document holds one more Clearance rule whose scope is outside the grammar, which the stage reports, so
   these pairs may be governed by it.
 - **Internal planes.** Before the lines of a plane were taken out, `-01` gave 66 shorts and 48 clearance
@@ -460,8 +483,8 @@ asserts what the stage promises, not that a board is clean.
   findings stay gone, and the test asserts that the board that is checked holds every track and arc of the
   board that was read and none on a plane layer. The column `planes` still counts the plane layers, whose
   own copper no reading holds: one `copper.item-unsupported` at `plane`, level `UNVERIFIED`.
-- **The unit's slack.** With the rule values as the documents write them, 1 088 more clearance findings
-  appear, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
+- **The unit's slack.** With the rule values as the documents write them, 1 447 more clearance findings
+  appear (1 088 before `-03` had a clearance in force), every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
 - **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,
   so the clearance findings of the two readings cannot be compared; `H-A-DRC-SAME` rests on the samples
   built for both targets (`tests/kicad/altium/test_copper_same.py`: equal findings on the routed blink as

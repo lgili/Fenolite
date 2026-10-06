@@ -18,7 +18,7 @@ from collections.abc import Sequence
 
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
-from fenolite.backends.altium.read.rules import Field, RuleMapping, map_rules
+from fenolite.backends.altium.read.rules import CopperLayers, Field, RuleMapping, map_rules
 from fenolite.core.errors import Issue
 from fenolite.model.rules import Rule, RuleSet
 
@@ -86,10 +86,12 @@ def import_rules(
     sha256: str,
     issues: list[Issue],
     storage: str = STORAGE,
+    layers: CopperLayers | None = None,
 ) -> RuleSet:
     """The rule set of the rule records ``records`` (each a record's whole pair list, ``RuleRecord.fields``
-    of c0041): ``map_rules(records, origin=file)`` with the import's ids, provenance and bags."""
-    mapping = map_rules(records, origin=file)
+    of c0041): ``map_rules(records, origin=file)`` with the import's ids, provenance and bags. ``layers``
+    are the copper layers of the board the records belong to (a PCB document); a rule file has none."""
+    mapping = map_rules(records, origin=file, layers=layers)
     rules = adopt(mapping, records, ids, file=file, sha256=sha256, issues=issues, storage=storage)
     ident, native = ids.native("rst", ids.kind)
     return RuleSet(id=ident, native_ids=native, provenance=ids.provenance(file, sha256, storage), rules=rules)

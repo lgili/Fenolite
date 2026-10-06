@@ -82,8 +82,6 @@ PLANE_IDS = range(39, 55)
 """The Altium ids of the internal planes (``docs/formats/altium/pcb-records.md``, "Layers")."""
 CLEARANCE_KIND = "Clearance"
 """The ``RULEKIND`` of the rule records the copper check reads."""
-NOT_APPLYING = "disabled"
-"""The reason of an unmapped rule record that takes no part: Altium skips a disabled rule."""
 UNIT_SLACK_NM = 5
 """What the import can take from a gap that is exactly a clearance in the document: the document counts in
 units of 2.54 nm and the model in whole nanometres, so each of the two items moves by up to 0.71 nm, a pad
@@ -348,8 +346,10 @@ class AltiumBackend:
         beyond them: a polygon has no clearance of its own, so the clearance of every zone is 0 (the value
         ``checks.clearance`` reads as "none") and the clearance rules alone decide; every clearance rule is
         lowered by ``UNIT_SLACK_NM``, so that copper at exactly its clearance in the document's unit is no
-        finding in nanometres; and ``opaque_clearance_rules`` counts the enabled ``Clearance`` records
-        that the rule table does not map, read from ``Rules6/Data`` alone. A governing rule replaces class
+        finding in nanometres; and ``opaque_clearance_rules`` counts the ``Clearance`` records that the
+        rule table does not map and that apply to something (not disabled, and not scoped to a kind of
+        layer the board lacks: ``read.rules.NOT_APPLYING``), read from ``Rules6/Data`` alone and mapped
+        with the copper layers of ``design``, as the import maps them. A governing rule replaces class
         values, and there is no board minimum. An internal plane is drawn in negative: the objects on its
         layer cut the plane and are no copper, and the import makes no entity of them (change c0124), so
         nothing is taken out here; ``left_out`` names the planes, whose own copper the document does not
@@ -368,18 +368,20 @@ class AltiumBackend:
         """``design_rules`` for a PCB document given as bytes (``None`` with ``unread``, the reason it
         could not be read): a build judges the bytes it is about to write with it."""
         from fenolite.backends.altium import frame
+        from fenolite.backends.altium.adapter.layers import copper_layers_of
         from fenolite.backends.altium.read.pcb import read_rule_fields
-        from fenolite.backends.altium.read.rules import map_rules
+        from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
 
         checked = _with_unit_slack(_without_zone_clearance(design))
         opaque = 0
         failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
         try:
-            mapping = map_rules(read_rule_fields(data or b"", file=file), origin=file) if data else None
+            layers = copper_layers_of(design.board.layers) if design.board is not None else None
+            fields = read_rule_fields(data, file=file) if data else ()
             opaque = sum(
                 1
-                for record in (mapping.unmapped if mapping is not None else ())
-                if record.kind == CLEARANCE_KIND and record.reason != NOT_APPLYING
+                for record in map_rules(fields, origin=file, layers=layers).unmapped
+                if record.kind == CLEARANCE_KIND and record.reason not in NOT_APPLYING
             )
         except FormatError as error:
             failed = ((file, error.message or type(error).__name__),)

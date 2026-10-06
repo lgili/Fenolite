@@ -103,7 +103,9 @@ def test_complete_exact_rows_are_cited_and_read() -> None:
         assert ("pair" in row.scopes) == entry.binary
         limits = next(limits for limits in entry.rules if limits.kind == row.neutral)
         assert set(limits.keys) <= set(row.fields)
-        assert all(key in row.fields for key in (c.key for c in entry.conditions))
+        # the keys of change c0125 (a matrix cell) are read and never written
+        assert all(c.key in row.fields for c in entry.conditions if not c.read_only)
+        assert not any(c.key in row.fields for c in entry.conditions if c.read_only)
         if row.number not in (0, 2, 11):  # the three kinds of c0038 are cited under "Rules"
             cited = [line for line in facts.splitlines() if f"`RULEKIND={row.altium}`" in line]
             assert cited and re.search(r"\| S-\d{4}", cited[0]) and f"number {row.number}" in cited[0]

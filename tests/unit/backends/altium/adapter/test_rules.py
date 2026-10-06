@@ -9,11 +9,14 @@ import hashlib
 from pathlib import Path
 
 import _altium_records as rec
+import pytest
 
 from fenolite.backends.altium.adapter import import_board
+from fenolite.backends.altium.adapter.layers import LayerMap, copper_layers_of
 from fenolite.backends.altium.adapter.rules import import_rules
+from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.read.pcb import read_pcbdoc
-from fenolite.backends.altium.read.rules import map_rules
+from fenolite.backends.altium.read.rules import CopperLayer, map_rules
 from fenolite.core.errors import Issue
 from fenolite.model.rules import RuleSet
 
@@ -115,3 +118,98 @@ def test_import_rules_holds_no_table_of_its_own() -> None:
     issues: list[Issue] = []
     found = import_rules([], Ids("altium_pcbdoc", EVIDENCE), file="a.PcbDoc", sha256=rec.SHA, issues=issues)
     assert found.rules == () and issues == []
+
+
+# --- More forms of a Clearance record (change c0125) ---------------------------------------------------
+
+OUTER = "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))"
+NAMES = {"LAYER1NAME": "Top Layer", "LAYER32NAME": "Bottom Layer"}
+CELL = {"SOURCERULE": "2", "CELLROWNAME": "All", "CELLROWTYPE": "0", "CELLCOLNAME": "All", "CELLCOLTYPE": "0"}
+
+
+def matrix_records() -> list[object]:
+    """The three Clearance records of a clearance matrix with one value for the inner layers, one for the
+    outer layers and one for everything else."""
+    common = {"IGNOREPADTOPADCLEARANCEINFOOTPRINT": "FALSE", "OBJECTCLEARANCES": " "}
+    return [
+        rec.rule(
+            "Clearance", "Clearance_1", GAP="5mil", GENERICCLEARANCE="5mil", **common, **CELL,
+            INNERLAYERS="TRUE", SCOPE1EXPRESSION="OnMid", SCOPE2EXPRESSION="OnMid",
+        ),
+        rec.rule(
+            "Clearance", "Clearance_2", GAP="5mil", GENERICCLEARANCE="5mil", **common, **CELL,
+            OUTERLAYERS="TRUE", SCOPE1EXPRESSION=OUTER, SCOPE2EXPRESSION=OUTER, PRIORITY="2",
+        ),
+        rec.rule(
+            "Clearance", "Clearance", GAP="10mil", GENERICCLEARANCE="10mil", **common, ISMATRIX="TRUE",
+            PRIORITY="3",
+        ),
+    ]  # fmt: skip
+
+
+def test_layer_conditions_take_the_layers_of_the_board() -> None:
+    """Scenario "A clearance matrix on a two-layer board" through the import: the rule of the outer
+    layers holds the neutral names of the board's two copper layers."""
+    issues: list[Issue] = []
+    board = rec.board(extra=NAMES)
+    document = rec.document(board, rules=matrix_records())  # type: ignore[arg-type]
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA, issues=issues)
+    assert design.rules is not None and design.board is not None
+    assert [(r.name, r.min, r.priority, r.layers) for r in design.rules.rules] == [
+        ("Clearance_2", 127_000, 2, ("F.Cu", "B.Cu")),
+        ("Clearance", 254_000, 3, ()),
+    ]
+    assert dict(design.rules.rules[0].ext["altium"].payload)["scope1"] == OUTER
+    assert [i.message for i in issues if i.code == "altium.import.rule-unmapped"] == [
+        "1 rule(s) of kind Clearance are not mapped (no-layer 1)"
+    ]
+    layers = LayerMap.from_board(board).copper_layers()
+    assert layers.layers == (CopperLayer("Top Layer", "F.Cu"), CopperLayer("Bottom Layer", "B.Cu"))
+    assert copper_layers_of(design.board.layers) == layers
+
+
+def test_layer_conditions_on_four_layers_stay_unmapped() -> None:
+    """Scenario "Some of the copper layers" through the import: mid layer 1 is an internal signal layer
+    and plane 1 is not; neither layer condition maps."""
+    issues: list[Issue] = []
+    board = rec.board((1, 2, 39, 32), extra=NAMES)
+    document = rec.document(board, rules=matrix_records())  # type: ignore[arg-type]
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA, issues=issues)
+    assert design.rules is not None and design.board is not None
+    assert [r.name for r in design.rules.rules] == ["Clearance"]
+    assert [i.message for i in issues if i.code == "altium.import.rule-unmapped"] == [
+        "2 rule(s) of kind Clearance are not mapped (scope 2)"
+    ]
+    layers = copper_layers_of(design.board.layers)
+    assert layers == LayerMap.from_board(board).copper_layers()
+    assert layers is not None
+    assert [(layer.name, layer.inner_signal) for layer in layers.layers] == [
+        ("F.Cu", False),
+        ("In1.Cu", True),
+        ("In2.Cu", False),
+        ("B.Cu", False),
+    ]
+
+
+def test_layers_of_a_board_that_is_no_import() -> None:
+    from fenolite.model.board import Layer
+
+    assert copper_layers_of([Layer(id="lay_1", name="F.Cu", kind="copper", ordinal=0)]) is None
+    assert copper_layers_of([]) is not None
+
+
+@pytest.mark.parametrize(("chain", "opaque"), [((1, 32), 0), ((1, 2, 39, 32), 2)])
+def test_the_copper_check_counts_what_stays_unread(
+    chain: tuple[int, ...], opaque: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The rules source of the copper check maps the records with the board's layers, as the import does:
+    a record that applies to nothing is no unread rule, a layer condition that stays unmapped is one."""
+    from fenolite.backends.altium.read import pcb
+
+    document = rec.document(rec.board(chain, extra=NAMES), rules=matrix_records())  # type: ignore[arg-type]
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    rules = AltiumBackend().rules_from_bytes(design, b"document", file="a.PcbDoc")
+    assert rules.opaque_clearance_rules == opaque and rules.unread == ()
+    held = [r.name for r in (rules.design.rules.rules if rules.design.rules else ())]
+    assert held == (["Clearance_2", "Clearance"] if not opaque else ["Clearance"])

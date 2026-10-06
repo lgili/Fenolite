@@ -48,6 +48,18 @@ pytestmark = pytest.mark.needs_corpus
 BOARDS = manifest_items("altium-pcbdoc")
 SETS = project_sets()
 COUNTS = ("pairs", "judged", "shorts", "clearance", "zone_overlaps", "unset_pairs", "approximated")
+CLEARANCE_RULES = {
+    "altium-third-party-pcbdoc-01": (1, 0),
+    "altium-third-party-pcbdoc-02": (0, 1),
+    "altium-third-party-pcbdoc-03": (2, 0),
+    "altium-third-party-pcbdoc-04": (1, 1),
+    "altium-third-party-pcbdoc-05": (1, 0),
+    "altium-third-party-pcbdoc-06": (0, 2),
+    "altium-third-party-pcbdoc-07": (2, 1),
+}
+"""Row → the clearance rules the check judges with and the Clearance records it could not read: facts
+of the documents' rule records, not findings (census of 2026-10-06; change c0125 moved the third row
+from ``(0, 3)``)."""
 
 
 PLANE_CUTS = {"altium-third-party-pcbdoc-01": 74, "altium-third-party-pcbdoc-02": 43}
@@ -108,6 +120,7 @@ def test_copper(item: CorpusItem) -> None:
         assert summary["clearance"] == 0, item.id
     codes = Counter(found.code for found in stage.issues)
     opaque = rules.opaque_clearance_rules
+    assert (len(held), opaque) == CLEARANCE_RULES[item.id], item.id
     unjudged = bool(summary["unpoured"] or summary["zones_unjudged"] or opaque or rules.left_out)
     if unjudged or summary["unsupported"]:
         assert stage.evidence.level is Level.UNVERIFIED, item.id
