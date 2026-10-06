@@ -26,6 +26,9 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "place.keepout-no-courtyard": "warning",
         "place.no-extent": "info",
         "place.no-outline": "info",
+        "place.constraint": "error",
+        "place.incomplete": "warning",
+        "place.objective": "warning",
     }
 )
 """Every code that ``placement``, ``backends.kicad.replace`` and the ``place`` command emit."""

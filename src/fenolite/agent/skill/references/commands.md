@@ -362,19 +362,22 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## place
 
-`fenolite place [--dry-run] [--confirm] [--plan ID] [--strategy {grid,manual}] [--move REF=X,Y[,ROT[,SIDE]]] [--only REF,REF] [--pitch L] [--gap L] [--margin L] [--force] [-o FILE] PATH`
+`fenolite place [--dry-run] [--confirm] [--plan ID] [--strategy {constrained,grid,manual}] [--move REF=X,Y[,ROT[,SIDE]]] [--only REF,REF] [--pitch L] [--gap L] [--margin L] [--force] [--constraints FILE] [--max-candidates MAX_CANDIDATES] [--preview-dir DIR] [-o FILE] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
 - `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
-- `--strategy` (string, one of `grid`, `manual`): grid (default): place every part that is off the board; manual: only the --move parts
+- `--strategy` (string, one of `constrained`, `grid`, `manual`): grid (default): place every part that is off the board; manual: only the --move parts
 - `--move` (string, repeatable): move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left corner of the outline, Y down; ROT in degrees; SIDE top or bottom
 - `--only` (string): grid: place only these parts
 - `--pitch` (string): grid step (default 0.5mm)
 - `--gap` (string): space kept around a part (default 0.5mm)
 - `--margin` (string): distance kept from the outline's box (default 1mm)
 - `--force` (boolean): write an illegal placement, and move parts that are locked on the board
+- `--constraints` (string): constrained: integer JSON request
+- `--max-candidates` (integer): constrained: bounded candidates per part
+- `--preview-dir` (string): constrained: write both copper SVG views
 - `-o`, `--out` (string): write the board here (default: PATH)
 
 ## pnp

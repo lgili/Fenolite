@@ -71,6 +71,7 @@ _BUILD_CALLS = "the build calls it; a script never does"
 _CONSTANT = "a constant that a script has no use for"
 _RETURNED = "a record that a call of the script returns; a script never names it"
 _ERROR = "the error a wrong call raises; the build reports it, a script does not catch it"
+_INTENT = "mechanical intent of a locked anchor (c0096); constrained placement is not taught by the guide yet"
 DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
     {
         "to_model": _BUILD_CALLS,
@@ -110,6 +111,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "MeanderIntent": _RETURNED,
         "Trace": _RETURNED,
         "DslError": _ERROR,
+        "MechanicalIntent": _INTENT,
     }
 )
 """The names of ``fenolite.dsl.__all__`` that no design block of the guide uses, each with the reason.

@@ -56,6 +56,7 @@ All notable changes to Fenolite are documented here. The format follows
 - **Retained unknown bodies:** malformed heights (stored as 0), reversed extents, unsupported model types and mismatched projection sides are retained with projection_unknown and a warning, without model.body-height or an unmapped census entry (c0099).
 - **Body document compatibility:** v0.2.0 body documents retain defaults, bytes and legacy validation until reimport; the readers of releases 0.2.x and 0.3.0 reject documents with new body keys (c0099).
 - The height of a part (`fenolite.model.board.outward_height`, c0140) now takes the `z_max` of a body with signed bounds and skips a body of unknown projection, so the height limits of `check`, `place` and `build` judge an imported Altium body by its signed bounds (c0099).
+- Add mechanical intent metadata (`MechanicalIntent`, `Part.place(..., locked=True, anchor=...)`), group-bounded constrained placement with injected checkers (`fenolite place --strategy constrained --constraints FILE`, schema `fenolite.placement-request.v0`), explicit incomplete assessment and confirmed readback copper previews for both faces. Holes and keep-outs of a script stay `design.hole()` and `design.rule_area()`: the hole and keep-out calls of the c0096 branch are not part of this integration (the maintainer's decision of 2026-10-07). `Hole.intent`, `Keepout.intent` and `FootprintInstance.anchor` are model fields that builds do not persist (c0096). Releases 0.2.x and 0.3.0 cannot read a `board.json` that carries `intent` or `anchor`.
 
 ### Changed
 

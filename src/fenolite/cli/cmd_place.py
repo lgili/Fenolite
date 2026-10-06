@@ -18,11 +18,12 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import json
 from collections import Counter
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad import pcb as kicad_pcb
@@ -40,23 +41,29 @@ from fenolite.cli._kicadtool import board_format
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.cli.placement_checks import check_placement_constraints
 from fenolite.core.coords import Point
-from fenolite.core.errors import FenoliteError, Issue
-from fenolite.core.evidence import Evidence
+from fenolite.core.errors import FenoliteError, FormatError, Issue
+from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.geometry import BBox
 from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Side
+from fenolite.model.board import FootprintInstance, Outline, Side
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 from fenolite.placement import EVIDENCE, KEEPOUT_EVIDENCE, Box, check
 from fenolite.placement import place as grid_place
 from fenolite.placement.codes import issue
+from fenolite.placement.constrained import EVIDENCE as CONSTRAINED_EVIDENCE
+from fenolite.placement.constrained import PlacementProposal, propose_placement
+from fenolite.placement.constraints import PlacementConstraints, PlacementRequest
 from fenolite.placement.grid import DEFAULT_GAP, DEFAULT_MARGIN, DEFAULT_PITCH
 from fenolite.placement.legality import forbids_footprints
+from fenolite.placement.preview import placement_preview
 
 HELP = "place staged parts on the board in a grid, or move named parts (edits the board)"
-STRATEGIES = ("grid", "manual")
+STRATEGIES = ("grid", "manual", "constrained")
 SIDES: tuple[Side, ...] = ("top", "bottom")
 CACHE_DIR = ".fenolite"
 MOVE_HINT = "write --move REF=X,Y[,ROT[,SIDE]] with units, for example --move R1=12mm,8mm,90,top"
@@ -133,6 +140,15 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--force",
         action="store_true",
         help="write an illegal placement, and move parts that are locked on the board",
+    )
+    parser.add_argument(
+        "--constraints", default=None, metavar="FILE", help="constrained: integer JSON request"
+    )
+    parser.add_argument(
+        "--max-candidates", type=int, default=None, help="constrained: bounded candidates per part"
+    )
+    parser.add_argument(
+        "--preview-dir", default=None, metavar="DIR", help="constrained: write both copper SVG views"
     )
     parser.add_argument(
         "-o", "--out", default=None, metavar="FILE", help="write the board here (default: PATH)"
@@ -234,13 +250,101 @@ class _Definitions:
             pass  # ``move_footprint`` reports place.no-definition
 
 
+def _constraints(
+    args: argparse.Namespace, ctx: Context, pitch: int, gap: int, margin: int
+) -> PlacementRequest:
+    request = PlacementRequest(constraints=PlacementConstraints(pitch=pitch, gap=gap, edge_clearance=margin))
+    if args.constraints is not None:
+        path = Path(args.constraints)
+        path = path if path.is_absolute() else ctx.cwd / path
+        try:
+            raw = path.read_bytes()
+            data = json.loads(raw)
+            if (
+                not isinstance(data, dict)
+                or cast(dict[str, Any], data).get("schema") != "fenolite.placement-request.v0"
+            ):
+                raise ValueError("constraints need explicit schema fenolite.placement-request.v0")
+            request = canonical.loads(raw.decode("utf-8"), PlacementRequest, file=path.name)
+        except (OSError, UnicodeError, ValueError, FormatError) as error:
+            raise CliError("FEN-3004", f"{path.name}: {error}", where=path.name) from None
+        request = replace(
+            request,
+            constraints=replace(
+                request.constraints,
+                source_hashes=(
+                    *request.constraints.source_hashes,
+                    (path.name, hashlib.sha256(raw).hexdigest()),
+                ),
+            ),
+        )
+    changes = {}
+    if args.max_candidates is not None:
+        changes["max_candidates"] = args.max_candidates
+    for name, given, value in (
+        ("pitch", args.pitch, pitch),
+        ("gap", args.gap, gap),
+        ("edge_clearance", args.margin, margin),
+    ):
+        if given is not None:
+            changes[name] = value
+    try:
+        return replace(request, constraints=replace(request.constraints, **changes))
+    except ValueError as error:
+        raise CliError("FEN-2001", str(error)) from None
+
+
+def _proposal_json(proposal: PlacementProposal) -> dict[str, Any]:
+    return {
+        "source_sha256": proposal.source_sha256,
+        "request_sha256": proposal.request_sha256,
+        "constraints": canonical.to_data(proposal.constraints),
+        "selected": list(proposal.selected),
+        "candidate_counts": dict(proposal.candidate_counts),
+        "positions": canonical.to_data(proposal.positions),
+        "unplaced": canonical.to_data(proposal.unplaced),
+        "objectives": canonical.to_data(proposal.objectives),
+        "hard_findings": list(proposal.legality.hard),
+        "missing_inputs": list(proposal.legality.missing_inputs),
+        "intrinsic": canonical.to_data(proposal.intrinsic),
+        "assessment": canonical.to_data(proposal.assessment),
+        "objective_metric": "pad-centre Euclidean distance rounded up in nm; routing not run",
+    }
+
+
+def _query_outline(design: Design) -> Design:
+    """Lift the exact queried edge rings for analysis only; never add duplicate source edge records."""
+    rings = board_outline(design).rings
+    if design.board is None or not rings:
+        return design
+    return replace(
+        design,
+        board=replace(
+            design.board,
+            outline=Outline(
+                id=derived_id("out", "placement", "queried-outline"),
+                points=rings[0],
+                cutouts=tuple(rings[1:]),
+            ),
+        ),
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     moves = [parse_move(text) for text in args.move]
     strategy = args.strategy or ("manual" if moves else "grid")
     if moves and strategy != "manual":
         raise CliError("FEN-2001", "--move needs --strategy manual", where="--move", hint="drop --strategy")
-    if args.only is not None and strategy != "grid":
+    if args.only is not None and strategy not in ("grid", "constrained"):
         raise CliError("FEN-2001", "--only narrows the grid strategy", where="--only", hint="drop --only")
+    if strategy == "constrained" and args.force:
+        raise CliError("FEN-2001", "constrained placement cannot use --force", where="--force")
+    if strategy != "constrained" and any(
+        value is not None for value in (args.constraints, args.max_candidates, args.preview_dir)
+    ):
+        raise CliError(
+            "FEN-2001", "--constraints, --max-candidates and --preview-dir need --strategy constrained"
+        )
     pitch = DEFAULT_PITCH if args.pitch is None else _length(args.pitch, "--pitch")
     gap = DEFAULT_GAP if args.gap is None else _length(args.gap, "--gap")
     margin = DEFAULT_MARGIN if args.margin is None else _length(args.margin, "--margin")
@@ -264,6 +368,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     issues: list[Issue] = [found for found in reader_issues if found.severity != "info"]
     definitions = _Definitions(board_path.parent, major)
     moved_ids: list[str] = []
+    proposal: PlacementProposal | None = None
 
     def off_board(fp: FootprintInstance) -> bool:
         return region is not None and not region.contains_point(fp.position)
@@ -290,7 +395,63 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             design = changed
             moved_ids.append(fp.id)
 
-    if strategy == "manual":
+    if strategy == "constrained":
+        request = _constraints(args, ctx, pitch, gap, margin)
+        locked_paths = _script_locked(_cache(board_path.parent))
+        design = replace(
+            design,
+            board=replace(
+                design.board,
+                footprints=tuple(
+                    replace(fp, locked=True) if paths[fp.id] in locked_paths else fp
+                    for fp in design.board.footprints
+                ),
+            ),
+        )
+        rule_source = backend.design_rules(design, project_set(board_path))
+        # File rules/class assignments supplement the board without changing the user's topology.
+        design = replace(design, circuit=rule_source.design.circuit, rules=rule_source.design.rules)
+        assert design.board is not None
+        if args.only is None:
+            chosen = {fp.id for fp in design.board.footprints if off_board(fp)}
+        else:
+            wanted = {ref.strip() for ref in args.only.split(",") if ref.strip()}
+            for ref in sorted(wanted - set(before)):
+                issues.append(issue("place.unknown-ref", f"the board has no part {ref}", ref))
+            chosen = {before[ref].id for ref in wanted if ref in before}
+        try:
+            proposal = propose_placement(
+                _query_outline(design),
+                backend,
+                sorted(chosen),
+                constraints=request.constraints,
+                objectives=request.objectives,
+                rules=rule_source,
+                checker=check_placement_constraints,
+            )
+        except ValueError as error:
+            raise CliError("FEN-3004", f"placement request: {error}", where="--constraints") from None
+        for identity, at in proposal.positions:
+            fp = next(fp for fp in design.board.footprints if fp.id == identity)
+            move(fp, at, None, None)
+        issues += [issue("place.constraint", reason, "board") for reason in proposal.legality.hard]
+        issues += [f.to_issue() for f in proposal.intrinsic]
+        issues += [issue("place.incomplete", reason, "board") for reason in proposal.legality.missing_inputs]
+        for unplaced in proposal.unplaced:
+            ref = footprint_ref(
+                design, next(fp for fp in design.board.footprints if fp.id == unplaced.footprint_id)
+            )
+            issues.append(issue("place.no-room", "; ".join(unplaced.reasons), ref))
+        for objective in proposal.objectives:
+            if objective.status != "met":
+                issues.append(
+                    issue(
+                        "place.objective",
+                        f"{objective.key}: {objective.status} {objective.reason}",
+                        objective.key,
+                    )
+                )
+    elif strategy == "manual":
         for request in moves:
             fp = before.get(request.ref)
             if fp is None:
@@ -419,6 +580,27 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             except ValueError:
                 target = str(board_path)
         writes = (PlannedWrite(path=target, data=text.encode("utf-8"), kind="kicad_pcb"),)
+    if proposal is not None and args.preview_dir is not None and not refused:
+        if writes:
+            written = _query_outline(
+                kicad_pcb.read_board(writes[0].data.decode("utf-8"), file=board_path.name)
+            )
+            preview_sha = hashlib.sha256(writes[0].data).hexdigest()
+        else:
+            written = _query_outline(kicad_pcb.read_board(board_path))
+            preview_sha = hashlib.sha256(data).hexdigest()
+        writes += tuple(
+            PlannedWrite(
+                path=str(Path(args.preview_dir) / f"placement-{face}.svg"),
+                data=placement_preview(written, backend, face=face).encode(),
+                kind="svg",
+            )
+            for face in SIDES
+        )
+        # A preview comes from the serialized board readback, not from the candidate envelope.
+        preview_manifest = {"source_sha256": preview_sha, "source": "written/readback", "faces": list(SIDES)}
+    else:
+        preview_manifest = None
     rows = [
         {"ref": ref, "path": paths[fp.id], "from": _placement(before[ref]), "to": _placement(fp)}
         for ref, fp in sorted(after.items())
@@ -434,12 +616,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "rules": families,
         "measures": {**measures.to_json(), "change": change},
     }
+    if proposal is not None:
+        result["placement"] = _proposal_json(proposal)
+        result["preview"] = preview_manifest
     issues.sort(key=lambda found: (found.code, found.where))
     evidence = [EVIDENCE]
     if forbidding:
         evidence.append(KEEPOUT_EVIDENCE)
     if rules_judged:
         evidence.append(placement_rules.EVIDENCE)
+    if proposal is not None:
+        evidence += [CONSTRAINED_EVIDENCE, Evidence(Level.INFERRED, hypotheses=("H-G-PLACEMENT-PREVIEW",))]
     return Result(
         result=result,
         issues=tuple(issues),

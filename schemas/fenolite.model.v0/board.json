@@ -677,6 +677,16 @@
               "type": "string"
             }
           }
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -788,6 +798,16 @@
         },
         "plated": {
           "type": "boolean"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -856,6 +876,16 @@
         },
         "name": {
           "type": "string"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -920,6 +950,40 @@
         "name",
         "kind",
         "ordinal"
+      ]
+    },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
       ]
     },
     "Outline": {

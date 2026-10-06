@@ -34,6 +34,9 @@ EXPECTED = {
     "place.keepout-no-courtyard": "warning",
     "place.no-extent": "info",
     "place.no-outline": "info",
+    "place.constraint": "error",
+    "place.incomplete": "warning",
+    "place.objective": "warning",
 }
 BOTH_MAJORS = "KICAD-VERIFIED (9.0.x, 10.0.x)"
 

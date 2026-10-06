@@ -2867,3 +2867,19 @@ meaning = "KiCad's refill produces copper for a zone, but the saved board has no
 fix = "Run 'fenolite fill' on the board."
 see = "check"
 
+["place.constraint"]
+meaning = "A hard placement constraint is violated."
+fix = "Review the named outline, keepout, drill, copper or volume condition."
+see = "place"
+
+
+["place.incomplete"]
+meaning = "Placement review has missing or conservative inputs."
+fix = "Supply the named geometry, electrical or assembly inputs; retain the incomplete state."
+see = "place"
+
+
+["place.objective"]
+meaning = "A supplied pad-distance objective is unmet or unknown."
+fix = "Review the named pad identities and distance target; routing remains a separate stage."
+see = "place"

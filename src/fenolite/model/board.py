@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point, Size
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
@@ -66,6 +67,28 @@ DimensionKind = Literal["aligned", "orthogonal"]
 DimensionDirection = Literal["horizontal", "vertical"]
 DimensionUnits = Literal["mm", "in"]
 ORDERED = {"ordered": True}
+
+
+@dataclass(frozen=True, slots=True)
+class MechanicalIntent:
+    """Declared mechanical provenance; a measured coordinate is still not a qualified fit."""
+
+    key: str
+    frame: Literal["board"] = "board"
+    tolerance: Nm = 0
+    source: str = ""
+    status: Literal["measured", "estimated", "proposed"] = "proposed"
+    evidence: Evidence = Evidence(Level.UNKNOWN)
+
+    def __post_init__(self) -> None:
+        if not self.key or not self.key.isprintable() or self.key != self.key.strip():
+            raise ValueError("mechanical key must be nonempty printable text without surrounding spaces")
+        if self.frame != "board":
+            raise ValueError("only the board-relative mechanical frame is supported")
+        if type(self.tolerance) is not int or self.tolerance < 0:
+            raise ValueError("mechanical tolerance must be nonnegative integer nm")
+        if self.status not in ("measured", "estimated", "proposed"):
+            raise ValueError("mechanical status must be measured, estimated or proposed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +306,7 @@ class FootprintInstance(Entity):
     net_ties: tuple[tuple[str, ...], ...] = field(default=(), metadata=ORDERED)
     """The net-tie groups of the footprint (change c0114): each group lists the numbers of pads of
     different nets that the footprint joins on purpose, in the order its source lists them."""
+    anchor: MechanicalIntent | None = None
 
 
 def outward_height(footprint: FootprintInstance) -> Nm | None:
@@ -452,6 +476,7 @@ class Keepout(Entity):
     no_copper_pour: bool = False
     no_footprints: bool = False
     name: str = ""
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -504,6 +529,7 @@ class Hole(Entity):
     position: Point
     drill: Nm
     plated: bool = False
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -555,6 +581,7 @@ __all__ = [
     "PPM_PER_PERCENT",
     "Layer",
     "LayerKind",
+    "MechanicalIntent",
     "Outline",
     "OutlineArc",
     "Pad",

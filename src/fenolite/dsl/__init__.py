@@ -55,6 +55,7 @@ from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement
 from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
+from fenolite.model.board import MechanicalIntent
 
 __all__ = [
     "BOARD_ORIGIN",
@@ -74,6 +75,7 @@ __all__ = [
     "Interface",
     "Length",
     "Module",
+    "MechanicalIntent",
     "Net",
     "PadEnd",
     "PadRef",

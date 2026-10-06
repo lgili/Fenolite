@@ -62,7 +62,17 @@ def _targets() -> list[Target]:
         Target(sid, ref, f"{SCHEMA_DIR}/{name}", False)
         for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA)
     ]
-    return [*wire, *model, *definitions]
+    return [
+        *wire,
+        *model,
+        *definitions,
+        Target(
+            "fenolite.placement-request.v0",
+            "fenolite.placement.constraints:PlacementRequest",
+            "schemas/fenolite.placement-request.v0.json",
+            False,
+        ),
+    ]
 
 
 TARGETS: list[Target] = _targets()

@@ -549,7 +549,7 @@ def placements(design: Design) -> Mapping[str, Placement]:
         if request is None:
             continue
         at = Point(BOARD_ORIGIN.x + request.x, BOARD_ORIGIN.y + request.y)
-        out[path] = Placement(at, request.rotation, request.side, request.locked)
+        out[path] = Placement(at, request.rotation, request.side, request.locked, request.anchor)
     return MappingProxyType(out)
 
 

@@ -641,3 +641,16 @@ documents it wrote before, byte for byte.
   design-rule tool (`<oracle>.drc.<suffix>`) to `error`, `warning` or `ignore`, written with its keys
   sorted. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table. 0.2.x and
   0.3.0 cannot read a `rules.json` that carries `severities`.
+### Optional mechanical intent (c0096)
+
+`Hole.intent`, `Keepout.intent` and `FootprintInstance.anchor` optionally hold `MechanicalIntent`:
+a stable key, board-relative frame, integer nm tolerance, supplied source/evidence and `measured`,
+`estimated` or `proposed` status. Conversion adds the board origin once; absent fields remain omitted
+canonically. An anchor requires a locked DSL placement. Metadata records an input, not assembly fit.
+No script call fills `Hole.intent` or `Keepout.intent`: holes and keep-outs of a script come from
+`hole()` (c0102) and `rule_area()` (c0103), the calls the maintainer kept on 2026-10-07.
+Planner reservations reference existing physical drill pads and never add a hole or change a net.
+
+The DSL's intent metadata is conversion-only: `Placement.anchor` in `placements`. Builds and rebuilds do not persist these fields in a native
+project or its `.fenolite/` cache. `FootprintInstance.anchor` is available to callers that explicitly
+construct a neutral model; the build does not synthesize it from a placement request.

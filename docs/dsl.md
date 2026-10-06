@@ -1580,3 +1580,16 @@ design.rules.severity("kicad.drc.via-dangling", "error")
 - `kicad.drc.clearance` cannot be ignored, because `check` needs clearance entries to prove that the
   rules were loaded.
 - `--target altium` writes no severity and says so (`docs/altium.md`).
+
+## Mechanical requests
+
+A fixed interface is a locked placement with a mechanical intent:
+`part.place(..., locked=True, anchor=MechanicalIntent(key, tolerance=..., source=..., status=...))`
+(change c0096). `MechanicalIntent` holds a stable key, the frame `board`, an integer tolerance in nm, a
+source, a status (`measured`, `estimated`, `proposed`) and evidence; an anchor without `locked=True` is
+refused. Intent metadata does not qualify assembly fit. A script declares holes with `design.hole()`
+("Holes") and keep-outs with `design.rule_area()` ("Rule areas"): the maintainer decided on 2026-10-07
+that these calls stand, so c0096 offers no hole or keep-out call of its own. `Hole.intent` and
+`Keepout.intent` remain in the model for model callers and readers; no script call fills them.
+The anchor's metadata is in `placements` output; a build and rebuild do not retain it in native files
+or the regenerable `.fenolite/` cache, and the physical locked position remains enforced.
