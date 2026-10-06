@@ -814,12 +814,21 @@ side is corrected by the other: a pad keeps the net the PCB document gives it. A
 only the PCB document holds is added to the circuit and reported. A document outside the folder, a missing
 one or an unreadable one is skipped with `altium.import.document-skipped`.
 
+**Channels.** A sheet that several sheet symbols name is read once per symbol; each instance is a
+channel with its own components and nets (`altium.import.channels`, info). Its components are named, in
+this order: by the PCB document of the project, whose components link to them by their unique-id path
+and hold the designators the project was annotated to; else by the project's designator format
+(`ChannelDesignatorFormatString` with `ChannelRoomNamingStyle`), for example `D9_3` for `D9` in the
+channel `3` under `$Component_$RoomName`. A format the import does not resolve gives
+`<designator>@<channel>` and `altium.import.channel-naming`. Sheets read without their project file keep
+the designators of the sheet. The facts are in `docs/formats/altium/connectivity.md`, "Channels".
+
 **What is not imported.** Nothing is dropped silently: `altium.import.unmapped` counts every record that
 gave no model entity.
 
 - Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
-  pairs, `Repeat` statements and the annotation of repeated sheets (a repeated sheet is read once per sheet
-  symbol, with the designators the sheet holds; a project read takes them from the PCB document).
+  pairs, `Repeat` statements (one instance is read, `altium.import.repeated-sheet`) and the annotation
+  file of a project.
 - Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
   and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
 - Rules of other kinds, disabled rules, and rules whose scope is outside the mapper's grammar:

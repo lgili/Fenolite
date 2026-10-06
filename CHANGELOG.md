@@ -6,6 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 - Proposed the ten v0.4 OpenSpec changes c0083–c0092 for the write side of the second backend: repeated sheets in the import, rule lowering, the complete PCB document and schematic, the output job and the sheet template, a copper and parity check on Altium input, equivalence level 5, the round trip of a written model, the verification kit, and the rule by which a write leaves `experimental`.
+- The Altium import names the components of a sheet that several sheet symbols name per channel: by the project's PCB document, else by the project's designator format (`D9_1` … `D9_12` instead of `D9` twelve times). On the public project with such a sheet, the schematic and the board now share 688 pad assignments instead of 508. `Repeat` statements, the annotation file and the pin-to-pad map are still open (c0083, in progress).
 
 ## [0.2.0] - 2026-10-06
 

@@ -163,7 +163,8 @@ def test_repeated_sheet_takes_its_references_from_the_board() -> None:
         ("R1_CH1", "CH1/R1_CH1"),
         ("R1_CH2", "CH2/R1_CH2"),
     ]
-    assert "repeated-sheet" in codes(issues) and "linked-by-designator" not in codes(issues)
+    assert "channels" in codes(issues) and "linked-by-designator" not in codes(issues)
+    assert "repeated-sheet" not in codes(issues)
     assert [i for i in design.validate() if i.code == "model.duplicate-ref"] == []
 
 

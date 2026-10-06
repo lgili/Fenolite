@@ -130,10 +130,14 @@ def link(circuit: Circuit, by_path: dict[str, str], repeated: set[str], parts: B
             )
             continue
         component_map[footprint.component_id] = target
-        if target in repeated and record.source_designator:
+        # a component of a repeated sheet takes the designator its board gives it: the board is what the
+        # project was annotated to (``source_designator`` is the sheet's own designator, the same for
+        # every channel)
+        if target in repeated and own.ref:
             linked = components[target]
-            path = "/".join((*linked.path.split("/")[:-1], record.source_designator))
-            components[target] = dataclasses.replace(linked, ref=record.source_designator, path=path)
+            if linked.ref != own.ref:
+                path = "/".join((*linked.path.split("/")[:-1], own.ref))
+                components[target] = dataclasses.replace(linked, ref=own.ref, path=path)
     if by_designator:
         issues.append(
             issue(

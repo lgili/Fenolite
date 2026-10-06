@@ -96,6 +96,27 @@ and from the net identifier scope of the project.
 | A PCB component's `SOURCEUNIQUEID` is `\<sheet symbol id>…\<component id>`: the unique ids of the sheet symbols from the top sheet, then the unique id of one part of the schematic component. All 879 components of the five sets link by that path, none by designator, through one and two levels and through a sheet instantiated twelve times | S-0164, sets of S-0187, S-0188, S-0174, S-0176, S-0175 (files kept outside the repository) | CORPUS-VERIFIED (5 sets of 5 repositories; 2026-10-05) | H-A-IMP-LINK |
 | A footprint model maps a pin to its pads (records 46 and 47): 111 map records of two sets name a pad other than the pin's designator or several pads. The comparison of the sets applies the map; the model's components do not carry it yet | S-0130, S-0187, S-0188 | INFERRED | H-A-IMP-LINK |
 
+## Channels
+
+A sheet that several sheet symbols name is one channel per symbol (change c0083).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A board component of a channel links to its sheet component by the unique-id path through the channel's sheet symbol; its `SOURCEDESIGNATOR` is the sheet's designator, equal for all channels, and the designator shown on the board is the channel's | S-0164, set of S-0188 (files kept outside the repository) | CORPUS-VERIFIED (1 set; 2026-10-06) | H-A-IMP-RPT-BOARD |
+| The project file's `[Design]` holds `ChannelDesignatorFormatString`, `ChannelRoomNamingStyle` and `ChannelRoomLevelSeperator` (spelled so). With `$Component_$RoomName`, style `0` and separator `_`, the 84 channel components of the set are named `<designator>_<designator of the channel's sheet symbol>`, as its board names them | S-0452, set of S-0188 | CORPUS-VERIFIED (1 set; 2026-10-06) | H-A-IMP-RPT-FORMAT |
+| A designator format is text with the keywords `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$RoomName`, `$ChannelPrefix`, `$ChannelIndex` and `$ChannelAlpha`; eight formats are predefined. Two room naming styles are flat (the room is named by the channel alone) and three join the sheet symbols of the path with the level separator | S-0452 | INFERRED | H-A-IMP-RPT-FORMAT |
+| The numbers `0` and `1` of `ChannelRoomNamingStyle` are the two flat styles and `2` to `4` the three path styles, in the order the documentation lists them | S-0452 (order of the page), set of S-0188 (style `0` only) | INFERRED | H-A-IMP-RPT-FORMAT |
+
+- **What the import resolves.** `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$ChannelPrefix` (the
+  designator of the channel's sheet symbol) and `$RoomName`. `$ChannelIndex` and `$ChannelAlpha` need the
+  index of a `Repeat` statement, which a plain sheet symbol does not have: a format with one of them, a
+  `$` that starts no keyword, and a style outside `0` to `4` are not guessed
+  (`altium.import.channel-naming`, names `<designator>@<channel>`).
+- **Order of sources.** The board first (`project.link`), then the format. The annotation file of a
+  project is not read yet: no public file of that kind is in the corpus.
+- **Not instantiated.** A `Repeat(…)` statement in a sheet symbol's designator still gives one instance
+  (`altium.import.repeated-sheet`).
+
 ## Result per project set
 
 `tests/corpus/test_altium_import.py -k project_sets` (2026-10-05, macOS, local corpus cache, with

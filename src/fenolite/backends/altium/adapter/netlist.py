@@ -67,6 +67,11 @@ class NetOptions:
     higher_level_names_first: bool = False
     append_sheet_numbers: bool = False
     scope_unknown: bool = False
+    channel_format: str = ""
+    """The designator format of repeated sheets (``channels.channel_designator``); ``""`` when the
+    project states none: the components of a repeated sheet then keep the designators of the sheet."""
+    room_style: int | None = None
+    room_separator: str = "_"
 
     @classmethod
     def from_project(cls, project: object) -> NetOptions:
@@ -91,6 +96,9 @@ class NetOptions:
             higher_level_names_first=default.higher_level_names_first,
             append_sheet_numbers=flag("append_sheet_number_to_local_nets", default.append_sheet_numbers),
             scope_unknown=(scope is None and mode is not None) or chosen not in SCOPES,
+            channel_format=getattr(options, "channel_designator_format", None) or "",
+            room_style=getattr(options, "channel_room_naming_style", None),
+            room_separator=getattr(options, "channel_room_level_separator", None) or "_",
         )
 
 
@@ -258,6 +266,8 @@ class Resolved:
     nets: list[ResolvedNet]
     component_ids: dict[tuple[int, int], str]
     """(instance index, component index in the sheet) → component native id."""
+    options: NetOptions = DEFAULT_OPTIONS
+    """The options the netlist was computed under; the circuit names channels with them."""
 
 
 def _symbols(document: SchDocument) -> tuple[SymbolInfo, ...]:
@@ -412,9 +422,9 @@ def _instances(sheets: Sequence[SheetData], issues: list[Issue]) -> tuple[list[I
         if count > 1:
             issues.append(
                 issue(
-                    "altium.import.repeated-sheet",
+                    "altium.import.channels",
                     f"the sheet is named by {count} sheet symbols: it is instantiated once per symbol, and "
-                    "its designators are not annotated",
+                    "each instance is a channel",
                     sheets[child].input.file,
                 )
             )
@@ -878,7 +888,7 @@ def resolve(
         buses=tuple(sorted(buses, key=lambda bus: (bus.name, bus.label, bus.file, bus.locator))),
         harnesses=tuple(sorted(harnesses, key=lambda h: (h.type, h.file, h.locator))),
     )
-    return Resolved(result, data, instances, resolved, components)
+    return Resolved(result, data, instances, resolved, components, options)
 
 
 def netlist(

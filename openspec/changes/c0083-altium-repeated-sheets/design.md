@@ -25,6 +25,20 @@
 6. **Pin-to-pad map.** When a component's footprint model on the sheet carries a pin map, the element of a pin in `netlist.assignment_compare` and in level 2 of `equivalent` is the pad it maps to. Without a map the pin number is the pad name, as today.
 7. **Cut order.** First the pin-to-pad map (it is independent and can move to a follow-up), then the naming format without board and annotation (source 3), never the instantiation and source 1.
 
+## Found on 2026-10-06 (task 0.1), and what changed
+
+The proposal said that the import reads a repeated sheet once. That is true only of a `Repeat(…)` statement. A sheet that several sheet symbols name was already instantiated once per symbol (c0043), and the board already linked to each instance by its unique-id path. The defect on `altium-set:02` had two other causes:
+
+- `project.link` gave a linked channel component the board's `SOURCEDESIGNATOR`, which is the designator of the sheet (`D9` for all twelve channels), not the designator the board shows (`D9_12`). It now takes the board component's own designator.
+- The schematic reading alone, which `netlist.assignment_compare` uses, had no channel names at all. It now applies the project's designator format (`adapter/channels.py`): on the set, all 84 channel components get the board's designators from the format alone.
+
+Consequences for this change:
+
+- **Decision 2, source 3 comes before source 2 in the code**, because the corpus holds a project file with a format and no annotation file. The set's project lists an annotation file that is not a row of the corpus manifest: reading it needs a new corpus row, which needs the maintainer's consent to a download. Task 2.1 waits for that.
+- **`altium.import.channels` (info)** is reported for a sheet named by several symbols; **`altium.import.repeated-sheet`** stays for `Repeat(…)`, which is still read as one instance until task 3.1.
+- **No corpus project uses `Repeat(…)`**, so tasks 3.1 and 3.3 rest on authored sheets and on S-0452 only; they stay `INFERRED` until Part R.
+- **`model.duplicate-ref` on the set does not come from channels**: its PCB document holds twelve components without a designator, and `model.validate` counts the empty reference twelve times. The scenario "Designators from the board" therefore asks that no non-empty reference is held twice. Whether an empty reference should count as a duplicate is a question for the model's validation, outside this change.
+
 ## Files and public API
 
 - `src/fenolite/backends/altium/read/annotation.py`: `read_annotation(data, *, file) -> AnnotationFile` (entries by unique-id path; the text kept byte for byte).

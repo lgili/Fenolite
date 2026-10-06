@@ -29,6 +29,8 @@ IMPORT_ISSUE_CODES: dict[str, Severity] = {
     "altium.import.no-designator": "warning",
     "altium.import.sheet-missing": "warning",
     "altium.import.repeated-sheet": "warning",
+    "altium.import.channels": "info",
+    "altium.import.channel-naming": "warning",
     "altium.import.scope-unknown": "warning",
     "altium.import.duplicate-net-name": "warning",
     "altium.import.duplicate-sheet-name": "warning",

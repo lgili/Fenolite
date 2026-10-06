@@ -449,7 +449,9 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.via-span` | warning | a via's start or end layer is outside the copper chain; it is read as a through via |
 | `altium.import.no-designator` | warning | a schematic component has no designator record; its reference is empty |
 | `altium.import.sheet-missing` | warning | a sheet symbol names a sheet that is not among the inputs; its entries stay named points |
-| `altium.import.repeated-sheet` | warning | a sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated |
+| `altium.import.repeated-sheet` | warning | a sheet symbol's designator holds a `Repeat(` statement: one instance is read |
+| `altium.import.channels` | info | a sheet is named by more than one sheet symbol: one channel per symbol, named by the board or by the project's designator format |
+| `altium.import.channel-naming` | warning | channel components that the designator format could not name; they are `<designator>@<channel>` |
 | `altium.import.scope-unknown` | warning | the project's hierarchy mode has no known meaning; the automatic scope is used |
 | `altium.import.duplicate-net-name` | warning | two nets end with one name; the later one is renamed `<name>#<k>` |
 | `altium.import.duplicate-sheet-name` | warning | two sheet symbols of one sheet have one designator; the second module path gets `#2` |

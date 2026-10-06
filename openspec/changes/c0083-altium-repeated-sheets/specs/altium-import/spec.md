@@ -23,15 +23,15 @@ The import SHALL instantiate the child sheet of a sheet symbol once per channel.
 - **THEN** the canonical model of each equals the one recorded before this change
 
 ### Requirement: Channel designators
-Each component of a channel SHALL get the designator its project gives it, from the first of these sources that knows it: (1) the component of the project's PCB document whose unique-id path names the channel's sheet symbol and the sheet component; (2) the entry of the project's annotation file for that unique-id path; (3) `adapter.project.channel_designator(format, designator, channel)` with the naming format of the project file.
-- `NAMING_FORMATS` MUST hold exactly the formats recorded in `docs/formats/altium/connectivity.md`, each with its facts labelled; a format outside it MUST give `altium.import.channel-naming` (warning) and the designator `<designator>@<channel name>`.
+Each component of a channel SHALL get the designator its project gives it, from the first of these sources that knows it: (1) the component of the project's PCB document whose unique-id path names the channel's sheet symbol and the sheet component, whose own designator is taken (its source designator is the sheet's); (2) the entry of the project's annotation file for that unique-id path; (3) `adapter.channels.channel_designator(format, designator, names, style=…, separator=…)` with the designator format, the room naming style and the level separator of the project file.
+- The keywords `KEYWORDS` and the styles `FLAT_STYLES` and `PATH_STYLES` MUST be those recorded in `docs/formats/altium/connectivity.md`, each fact labelled. A format with a keyword that needs the index of a `Repeat` statement on a plain channel, a `$` that starts no keyword, or a room name under a style outside the recorded ones MUST NOT be guessed: the components get `<designator>@<channel path>` and one `altium.import.channel-naming` (warning) gives their count. Sheets read without a project file MUST keep the designators of the sheet.
 - The import result MUST report, per source, how many components took their designator from it.
 - No two components of the imported circuit MAY share a reference because of a repeat; when two sources disagree for one component, source 1 wins and `altium.import.channel-naming` names both values.
 
 #### Scenario: Designators from the board
 - **GIVEN** the corpus project `altium-set:02`
 - **WHEN** it is imported and `fenolite check` runs on it
-- **THEN** `model.validate` reports no `model.duplicate-ref`, and every component of a repeated sheet has the designator of its board component
+- **THEN** no non-empty reference is held twice in the circuit, and every component of a repeated sheet has the designator of its board component
 
 #### Scenario: Designators from the naming format
 - **GIVEN** `tests/data/altium/channels/two/` without a PCB document and without an annotation file
@@ -41,7 +41,7 @@ Each component of a channel SHALL get the designator its project gives it, from 
 #### Scenario: Unknown format
 - **GIVEN** the same project with a naming format that `NAMING_FORMATS` lacks
 - **WHEN** the import runs
-- **THEN** `altium.import.channel-naming` is reported once, and the references are `R1@CH1`, `R1@CH2`, `C1@CH1` and `C1@CH2`
+- **THEN** `altium.import.channel-naming` is reported once, and the references are `R1@CH1`, `R1@CH2`, `C12@CH1` and `C12@CH2`
 
 ### Requirement: Channel nets
 The nets of a repeated sheet SHALL be resolved per channel.

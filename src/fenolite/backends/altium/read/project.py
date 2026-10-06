@@ -137,6 +137,11 @@ class ProjectOptions:
     allow_sheet_entry_net_names: bool | None = None
     append_sheet_number_to_local_nets: bool | None = None
     power_port_names_take_priority: bool | None = None
+    channel_designator_format: str | None = None
+    """``ChannelDesignatorFormatString``: how the components of a repeated sheet are named."""
+    channel_room_naming_style: int | None = None
+    channel_room_level_separator: str | None = None
+    """``ChannelRoomLevelSeperator``, the key as the project file spells it."""
     raw: tuple[tuple[str, str], ...] = ()
 
 
@@ -155,6 +160,10 @@ class ProjectFile:
 
     def to_bytes(self) -> bytes:
         return self.ini.to_bytes()
+
+
+def _number(text: str | None) -> int | None:
+    return int(text) if text is not None and text.isascii() and text.isdigit() else None
 
 
 def _flag(section: IniSection, key: str) -> bool | None:
@@ -196,6 +205,9 @@ def _options(design: IniSection, file: str, issues: list[Issue]) -> ProjectOptio
         allow_sheet_entry_net_names=allow_entry,
         append_sheet_number_to_local_nets=append_number,
         power_port_names_take_priority=power_first,
+        channel_designator_format=design.get("ChannelDesignatorFormatString"),
+        channel_room_naming_style=_number(design.get("ChannelRoomNamingStyle")),
+        channel_room_level_separator=design.get("ChannelRoomLevelSeperator"),
         raw=tuple((entry.key, entry.value) for entry in design.entries),
     )
 

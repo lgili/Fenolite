@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from fenolite.backends.altium.adapter.channels import channel_designator, fallback
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import Ids, bag
@@ -44,6 +45,9 @@ class CircuitImport:
     by_path: dict[str, str] = field(default_factory=lambda: {})
     repeated: set[str] = field(default_factory=lambda: set())
     """The ids of the components that lie on a sheet instantiated more than once."""
+    channel_sources: dict[str, int] = field(default_factory=lambda: {})
+    """How many channel components took their designator from each source: ``format`` (the project's
+    designator format) or ``unresolved`` (``<designator>@<channel>``); ``project.link`` adds ``board``."""
 
 
 def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitImport:
@@ -57,6 +61,8 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
     by_path: dict[str, str] = {}
     repeated: set[str] = set()
     of_instance: dict[int, list[Component]] = {}
+    options = resolved.options
+    sources: dict[str, int] = {}
     for instance in instances:
         sheet = sheets[instance.sheet]
         file, sha256 = sheet.input.file, sheet.input.sha256
@@ -67,8 +73,20 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
             prefix = "".join(f"\\{uid}" for uid in instance.uids)
             for unique in group.unique_ids:
                 by_path.setdefault(f"{prefix}\\{unique}", ident)
+            ref = group.ref
             if counts[instance.sheet] > 1:
                 repeated.add(ident)
+                # a channel: the component is named by the project's designator format
+                named = channel_designator(
+                    options.channel_format, group.ref, instance.names,
+                    style=options.room_style, separator=options.room_separator,
+                )  # fmt: skip
+                if named is not None:
+                    ref = named
+                    sources["format"] = sources.get("format", 0) + 1
+                elif group.ref and (options.channel_format or options.room_style is not None):
+                    ref = fallback(group.ref, instance.names)
+                    sources["unresolved"] = sources.get("unresolved", 0) + 1
             if not group.has_designator:
                 issues.append(
                     issue(
@@ -102,12 +120,12 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
                 native_ids=native_ids,
                 provenance=ids.provenance(file, sha256, group.locator),
                 ext=bag(extra),
-                ref=group.ref,
+                ref=ref,
                 value=group.value,
                 lib_symbol_ref=group.lib_symbol_ref,
                 lib_footprint_ref=group.lib_footprint_ref,
                 properties=dict(group.properties),
-                path="/".join((*instance.names, group.ref)),
+                path="/".join((*instance.names, ref)),
                 pins=tuple(pins),
             )
             components.append(component)
@@ -187,7 +205,17 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
         buses=tuple(buses),
         no_connects=marks,
     )
-    return CircuitImport(circuit, resolved, by_path, repeated)
+    if sources.get("unresolved"):
+        issues.append(
+            issue(
+                "altium.import.channel-naming",
+                f"{sources['unresolved']} component(s) of repeated sheets: the designator format "
+                f"{options.channel_format!r} with the room naming style {options.room_style} is not one this "
+                "import resolves; they are named <designator>@<channel>",
+                sheets[instances[0].sheet].input.file if instances else "",
+            )
+        )
+    return CircuitImport(circuit, resolved, by_path, repeated, sources)
 
 
 def import_circuit(

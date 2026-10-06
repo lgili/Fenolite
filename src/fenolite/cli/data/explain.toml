@@ -189,6 +189,16 @@ meaning = "Two bus identifiers that join have different widths; the common prefi
 fix = "Make the two bus identifiers the same width in Altium, then check the joined members."
 see = "Altium import"
 
+["altium.import.channel-naming"]
+meaning = "Components of a sheet that several sheet symbols name could not be named by the project's designator format: the format or the room naming style is not one the import resolves. They are named <designator>@<channel>, a form Altium never produces."
+fix = "Import the project together with its PCB document, which holds the designators, or set one of the predefined designator formats in the project options."
+see = "Altium import"
+
+["altium.import.channels"]
+meaning = "A sheet is named by more than one sheet symbol. It is read once per symbol; each instance is a channel with its own components and nets, named by the board or by the project's designator format."
+fix = "Nothing."
+see = "Altium import"
+
 ["altium.import.copper-shape"]
 meaning = "Count of fills and regions on copper, imported as graphics with their net in the bag."
 fix = "Nothing to do; the shapes are graphics with their net in the bag."
@@ -275,8 +285,8 @@ fix = "Update the board from the schematic in Altium, or accept the nets as they
 see = "Altium import"
 
 ["altium.import.repeated-sheet"]
-meaning = "A sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated."
-fix = "Annotate the references by hand after the import, or flatten the repeated sheet in Altium first."
+meaning = "A sheet symbol's designator holds a `Repeat(` statement; one instance of its sheet is read, so the other channels are missing from the circuit."
+fix = "Until the import instantiates Repeat statements, replace the statement in Altium by one sheet symbol per channel, or import with the project's PCB document and check the board-only components."
 see = "Altium import"
 
 ["altium.import.rule-unmapped"]

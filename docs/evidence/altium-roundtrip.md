@@ -252,17 +252,24 @@ judges the sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test
 | set | documents | listed and missing | common | only schematic | only PCB | differences | floating pins | undriven power nets | No ERC marks | exit |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 |
-| `altium-set:02` | 15 | 2 | 508 | 26 | 217 | 4 | 20 | 12 | 5 | 5 |
+| `altium-set:02` | 15 | 2 | 688 | 13 | 37 | 2 | 20 | 12 | 5 | 5 |
 | `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 5 |
 | `altium-set:04` | 3 | 2 | 139 | 0 | 4 | 0 | 0 | 6 | 0 | 5 |
 | `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 5 |
 
 - Every set exits 5: `model.validate` reports `model.*` error findings of the PCB reading on each of
   them (`model.body-height` on the four sets without a heavy row, and `model.duplicate-ref` on
-  `altium-set:02`), which the check passes on unchanged. The container stages pass on every set: no
+  `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
+  reference is counted twelve times, which is a finding about the validation rule, not about channels), which the check passes on unchanged. The container stages pass on every set: no
   `check.rta0-failed` and no `check.rta1-failed`.
-- `altium-set:02` shows 4 differing elements, 26 elements that only the schematic covers and 217 that
-  only the PCB document covers. It is the set that c0043 lists as a known difference
+- `altium-set:02` shows 2 differing elements, 13 elements that only the schematic covers and 37 that
+  only the PCB document covers (measured on 2026-10-06, change c0083). Until then the row read 508
+  common, 26, 217 and 4: one sheet of the set is named by twelve sheet symbols, and the schematic
+  reading gave its 84 components the designators of the sheet, twelve times each, where the board
+  has one designator per channel. The schematic reading now names a channel's components with the
+  project's designator format, as the board does (`H-A-IMP-RPT-FORMAT`), which accounts for 180 of
+  the 217. What remains is the pin-to-pad map (below), two components whose designators the board
+  changed by hand, and the components of the PCB document that have no schematic component. It is the set that c0043 lists as a known difference
   (`altium-import:known-diff`); this stage compares pin numbers with pad names without the pin-to-pad
   map of the sheets, so its count is not c0043's. Its row was measured again on 2026-10-05 after the
   rebase onto c0045, which gives a board component the designator text the board shows: before that
