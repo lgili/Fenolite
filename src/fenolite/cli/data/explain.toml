@@ -175,13 +175,18 @@ fix = "Read the issue's location and correct the object in Altium (a size of 0 o
 see = "Altium import"
 
 ["altium.import.bad-length"]
-meaning = "A length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped."
+meaning = "A length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped. Component bodies are retained with unknown projection."
 fix = "Read the issue's location, open the record in Altium and save the document again; report the text if Altium shows it as valid."
 see = "Altium import"
 
 ["altium.import.bad-stack"]
 meaning = "The copper chain of the board record holds fewer than two layers; the board is read with `F.Cu` and `B.Cu`."
 fix = "Check the board file in Altium: its layer stack holds fewer than two copper layers, or the board record is damaged."
+see = "Altium import"
+
+["altium.import.body-unknown"]
+meaning = "A retained component body has an unproved projection or extent."
+fix = "Review the source body side, model type and heights; supply evidenced geometry before mechanical analysis."
 see = "Altium import"
 
 ["altium.import.bus-member"]
@@ -2266,3 +2271,4 @@ see = "fill"
 meaning = "KiCad's refill produces copper for a zone, but the saved board has none for it."
 fix = "Run 'fenolite fill' on the board."
 see = "check"
+

@@ -230,6 +230,18 @@ class Design:
                     )
         if self.board is not None:
             for body in (b for fp in self.board.footprints for b in fp.bodies):
+                if body.z_min is not None or body.z_max is not None:
+                    if type(body.z_min) is not int or type(body.z_max) is not int or body.z_min > body.z_max:
+                        add(
+                            "model.body-volume",
+                            "error",
+                            "signed body bounds must both be integer nm and ordered",
+                            body.id,
+                            "supply both z_min and z_max, with z_min <= z_max",
+                        )
+                    continue
+                if body.projection_unknown:
+                    continue  # Preserved source heights make no claim about an extrusion.
                 if body.standoff < 0 or body.height < body.standoff:
                     message = (
                         f"height {body.height} nm and standoff {body.standoff} nm do not describe a body"

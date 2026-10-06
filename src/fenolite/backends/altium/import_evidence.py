@@ -35,6 +35,7 @@ HYPOTHESES = (
     "H-A-IMP-ZONE-HOLES",
     "H-A-IMP-PLANE-CUT",
     "H-A-IMP-BODY",
+    "H-A-IMP-BODY-Z",
     "H-A-IMP-SYMFRAME",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""

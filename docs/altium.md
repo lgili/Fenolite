@@ -1360,3 +1360,12 @@ split planes, no micro vias, no component bodies and only the rule kinds and sco
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.
+
+## Retained body projections (c0099)
+
+Native import retains each component body admitted by the existing component-owner adapter.
+Unknown projection, unsupported model type and unordered heights produce body-unknown and set
+projection_unknown; malformed heights additionally produce bad-length. Model references and
+source locators remain present. Source bytes stay with the native reader record rather than an
+unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
+and projection_unknown are analysis metadata; the existing native writer does not write bodies.

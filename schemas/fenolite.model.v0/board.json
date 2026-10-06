@@ -258,6 +258,29 @@
         },
         "name": {
           "type": "string"
+        },
+        "z_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_unknown": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

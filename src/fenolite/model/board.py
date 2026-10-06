@@ -161,7 +161,9 @@ class ComponentBody(Entity):
     ``height`` is the distance from the board surface to the top of the body and ``standoff`` the distance
     to its underside. ``outline`` is the body's footprint as a polygon in the footprint frame (empty when
     the source gives none), ``layer`` the layer it is drawn on, and ``model`` the name of a 3D model for
-    the kind ``model``. No model data is carried."""
+    the kind ``model``. Optional signed ``z_min``/``z_max`` bound the extrusion away from the mounted
+    face. ``projection_unknown`` retains source information without claiming volume geometry.
+    No model data is carried."""
 
     kind: BodyKind
     height: Nm
@@ -170,6 +172,9 @@ class ComponentBody(Entity):
     layer: str = ""
     model: str = ""
     name: str = ""
+    z_min: Nm | None = None
+    z_max: Nm | None = None
+    projection_unknown: bool = False
 
 
 @dataclass(frozen=True, slots=True)

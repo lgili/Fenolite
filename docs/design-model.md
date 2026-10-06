@@ -223,10 +223,21 @@ written before them still load.
   board surface to the top of the body), `standoff` (from the board surface to its underside, 0 by
   default), `outline` (a polygon in the footprint frame, empty when the source gives none), `layer`,
   `model` (the name of a 3D model for the kind `model`) and `name`.
-- A body states a volume above the side the footprint is placed on and carries no model data. The height
-  of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- A legacy body states a volume above its mounted side and carries no model data. Outward height
+  is the largest known z_max (or legacy height); without known extents it is unknown.
 - `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
-  whose `height` is below its `standoff` or whose `standoff` is negative.
+  without signed bounds and without unknown projection whose `height` is below its `standoff`
+  or whose `standoff` is negative.
+- Signed body intervals use integer-nm `z_min` and `z_max`, both present and ordered, in the
+  mounted-face frame with positive Z outwards. They take precedence over source height/standoff;
+  `model.body-volume` reports a half-specified or reversed interval at the body id.
+- `projection_unknown` defaults to false. Unknown projections are retained but have no qualified
+  extrusion; malformed source heights use 0, reversed heights, unsupported model types and mismatched
+  projection sides produce warnings and bypass `model.body-height`. Explicit intervals still validate.
+- Known imports serialize both bounds equal to source standoff/height, including negative standoff.
+  Old v0.2.0 body documents retain default fields and identical bytes; legacy validation applies until
+  source reimport. The v0.2.x canonical reader refuses documents containing new body keys.
+
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
 ## Zone settings
@@ -329,3 +340,4 @@ atoms, and respelled fields written from changed model values).
 For a design authored in Fenolite, the exported tool project is the source of truth for layout;
 `.fenolite/` is a regenerable, git-ignored cache; imported third-party files are kept immutable by
 SHA-256 under `native/`.
+

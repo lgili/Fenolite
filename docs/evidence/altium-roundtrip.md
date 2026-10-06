@@ -410,17 +410,17 @@ components carry the pin-to-pad map of their footprint model, one pad per pin, a
 
 | set | documents | listed and missing | common | only schematic | only PCB | differences | floating pins | undriven power nets | No ERC marks | exit |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 |
+| `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | not run (heavy) |
 | `altium-set:02` | 15 | 2 | 694 | 7 | 31 | 2 | 20 | 12 | 5 | 5 |
-| `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 5 |
+| `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 0 |
 | `altium-set:04` | 3 | 2 | 139 | 0 | 4 | 0 | 0 | 6 | 0 | 5 |
-| `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 5 |
+| `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
 
-- Every set exits 5: `model.validate` reports `model.*` error findings of the PCB reading on each of
-  them (`model.body-height` on the four sets without a heavy row, and `model.duplicate-ref` on
-  `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
-  reference is counted twelve times, which is a finding about the validation rule, not about channels; it waits for the follow-up that gives a component without a reference a finding of its own), which the check passes on unchanged. The container stages pass on every set: no
-  `check.rta0-failed` and no `check.rta1-failed`.
+- Measured on 2026-10-07 for c0099 without heavy rows: sets 02 and 04 exit 5;
+  sets 03 and 05 exit 0 (previously 5). Set 01 was not rerun; its other counts above
+  remain the earlier measurement. Signed intervals remove 52 `model.body-height` errors
+  across sets 02–05 (32, 7, 9 and 4 before; zero after). Other findings, including
+  `model.duplicate-ref` on set 02, remain. The container stages pass on the measured sets.
 - `altium-set:02` shows 694 common elements, 2 differing, 7 that only the schematic covers and 31
   that only the PCB document covers (measured again on 2026-10-06, change c0083, with the channels
   named and the pin-to-pad map applied). The row read 508, 4, 26 and 217 before the change, and 688,

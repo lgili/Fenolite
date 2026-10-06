@@ -277,13 +277,15 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         made_bodies: list[ComponentBody] = []
         for body_index, body in bodies.get(index, []):
             found = component_body(
-                body, frame, ctx, locator=f"{BODY_STORAGE}/Data#{body_index}", section="bodies"
+                body,
+                frame,
+                ctx,
+                locator=f"{BODY_STORAGE}/Data#{body_index}",
+                section="bodies",
+                mounted_side=side,
             )
-            if found is None:
-                ctx.census.skip("bodies", "bodies")
-            else:
-                made_bodies.append(found)
-                ctx.census.map("bodies")
+            made_bodies.append(found)
+            ctx.census.map("bodies")
         designator, comment = texts.get(index, ("", ""))
         # The reference is the designator the board shows. The source designator names the schematic
         # component: the instances of a repeated sheet share it, and a designator changed on the board

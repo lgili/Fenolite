@@ -216,3 +216,12 @@ fenolite analyze board.kicad_pcb --kinds clearance --within 0.5mm
 
 The command is read-only: it runs no tool and writes no file. An error finding gives exit code 5. The
 options and the result keys are in `docs/cli-contract.md`.
+
+## Component body volumes (c0099)
+
+`analysis.body_volumes.body_volume` maps mounted-face signed bounds into board coordinates.
+`check_body_volumes` compares extrusions across faces, board material and explicit obstacles,
+with user-supplied permitted penetration volumes. Bottom Z needs thickness; model-reference
+envelopes and non-cardinal XY transforms are conservative. Missing or unknown geometry prevents
+qualified_clear. Bodies are retained even when a native projection is unknown. This checks supplied
+geometry only; it makes no manufacturing or qualification claim.

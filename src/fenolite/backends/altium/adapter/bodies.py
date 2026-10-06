@@ -14,24 +14,44 @@ from fenolite.backends.altium.adapter.copper import region_points
 from fenolite.backends.altium.adapter.ids import Exact, bag
 from fenolite.backends.altium.read.bodies import BodyRecord
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import ComponentBody
+from fenolite.model.board import ComponentBody, Side
 
 
 def component_body(
-    record: BodyRecord, frame: Transform | None, ctx: Context, *, locator: str, section: str
-) -> ComponentBody | None:
+    record: BodyRecord,
+    frame: Transform | None,
+    ctx: Context,
+    *,
+    locator: str,
+    section: str,
+    mounted_side: Side = "top",
+) -> ComponentBody:
     """The model body of ``record`` with its outline in the footprint frame (``frame`` is the inverse of
-    the footprint's placement; ``None`` in a library). ``None`` with ``altium.import.bad-length`` when a
-    height is not a length."""
+    the footprint's placement; ``None`` in a library). Every input body is kept; unproved heights or
+    projection are marked unknown (c0099). Reader records retain native bytes, without an ext copy."""
     overall, standoff = record.overall_height, record.standoff_height
+    reasons: list[str] = []
     if overall is None or standoff is None:
         ctx.issues.append(
             issue("altium.import.bad-length", "a height of the component body is not a length", locator)
         )
-        return None
+        reasons.append("invalid source height")
+    # S-0605 supports this ordinal interpretation, but does not prove file encoding.
+    projection = record.body_projection
+    projected_side = "top" if projection == 0 else "bottom" if projection == 1 else None
+    if projected_side != mounted_side:
+        reasons.append("unproved or different projection side")
+    if overall is not None and standoff is not None and overall < standoff:
+        reasons.append("overall height below standoff")
+    if record.properties.text("MODEL.MODELTYPE") not in ("", "0", "1"):
+        reasons.append("unsupported model type")
+    if reasons:
+        ctx.issues.append(
+            issue("altium.import.body-unknown", "; ".join(reasons) + "; body retained", locator)
+        )
     exact = Exact(ctx.census)
-    height, height_exact = units.units_length(overall)
-    stand, stand_exact = units.units_length(standoff)
+    height, height_exact = (0, True) if overall is None else units.units_length(overall)
+    stand, stand_exact = (0, True) if standoff is None else units.units_length(standoff)
     if not height_exact:
         exact.inexact("height", str(overall))
     if not stand_exact:
@@ -56,6 +76,9 @@ def component_body(
         layer=layer,
         model=model,
         name=name,
+        z_min=None if reasons else stand,
+        z_max=None if reasons else height,
+        projection_unknown=bool(reasons),
     )
 
 

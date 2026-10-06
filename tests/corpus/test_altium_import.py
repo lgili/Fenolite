@@ -22,6 +22,7 @@ import pytest
 from _corpus import MANIFEST, CorpusItem, corpus_items, heavy_enabled, manifest_items, require
 
 from fenolite.backends.altium.adapter import connectivity as geo
+from fenolite.backends.altium.adapter import import_board, import_footprints
 from fenolite.backends.altium.adapter.netlist import NetOptions, Resolved, SheetInput, resolve
 from fenolite.backends.altium.read.bodies import encode, read_bodies
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
@@ -349,3 +350,40 @@ def test_bodies_identity(capsys: pytest.CaptureFixture[str]) -> None:
     with capsys.disabled():
         print("\n" + "\n".join(lines))
     assert total > 0
+
+
+@pytest.mark.needs_corpus
+def test_component_bodies_retained(capsys: pytest.CaptureFixture[str]) -> None:
+    """c0099: all component-owned reader bodies remain model bodies, including unknown projections."""
+    total = 0
+    for item in corpus_items("altium-pcbdoc"):
+        document = read_pcbdoc(require(item).read_bytes(), file=item.id)
+        data = document.storages.get("ComponentBodies6", {}).get("Data", b"")
+        records = read_bodies(data)
+        owned = sum(r.component is not None and r.component < len(document.components) for r in records)
+        design = import_board(document, file=item.id, sha256=SHA)
+        assert design.board is not None
+        bodies = [b for fp in design.board.footprints for b in fp.bodies]
+        assert len(bodies) == owned == len(records), item.id
+        assert all(not b.projection_unknown for b in bodies)
+        assert all((b.z_min, b.z_max) == (b.standoff, b.height) for b in bodies)
+        assert not any(i.code == "model.body-height" for i in design.validate())
+        assert all("raw" not in v for b in bodies for e in b.ext.values() for _, v in e.payload)
+        assert all(b.provenance and b.provenance.locator for b in bodies)
+        total += len(bodies)
+    assert total > 0
+    with capsys.disabled():
+        print(f"\nc0099 retained document bodies: {total}")
+    for item in corpus_items("altium-pcblib"):
+        library = read_pcblib(require(item).read_bytes(), file=item.id)
+        expected = sum(
+            len(read_bodies(p.raw, storage=fp.storage))
+            for fp in library.footprints
+            for p in fp.primitives
+            if isinstance(p, RawPrimitive) and p.type == BODY
+        )
+        mapped = import_footprints(library, name="corpus", file=item.id, sha256=SHA)
+        actual = sum(len(fp.bodies) for fp in mapped.footprints)
+        assert actual == expected, item.id
+        with capsys.disabled():
+            print(f"c0099 retained library bodies: {actual}")

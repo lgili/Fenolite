@@ -35,7 +35,7 @@ keeps these bytes untyped (`pcb-read.md`); this module decodes them and parses n
 | `MODEL.NAME` is the file name of the body's 3D model; it is empty for an extruded body | S-0160, S-0161, S-0303 | INFERRED | H-A-IMP-BODY |
 | `MODELID` is the id of the model, a GUID in braces that names an entry of the `Models` storage | S-0160, S-0161 | INFERRED | H-A-IMP-BODY |
 | `MODEL.EMBED` is `TRUE` when the model's data is embedded in the file | S-0160, S-0303 | INFERRED | H-A-IMP-BODY |
-| In the files read, a body with `MODEL.MODELTYPE=1` names a model and is embedded (391), and a body with `MODEL.MODELTYPE=0` names none and holds the keys `MODEL.EXTRUDED.MINZ` and `MODEL.EXTRUDED.MAXZ` (55). The key is not typed: the adapter takes the kind from the model name | files kept outside the repository, S-0303 | INFERRED | H-A-IMP-BODY |
+| In the files read, a body with `MODEL.MODELTYPE=1` names a model and is embedded (391), and a body with `MODEL.MODELTYPE=0` names none and holds the keys `MODEL.EXTRUDED.MINZ` and `MODEL.EXTRUDED.MAXZ` (55). The reader leaves the key in properties; the adapter reads it to screen supported model types and takes the kind from the model name | files kept outside the repository, S-0303 | INFERRED | H-A-IMP-BODY |
 
 Keys that are not typed stay in `properties`: `V7_LAYER`, `NAME`, `KIND`, `SUBPOLYINDEX`, `UNIONINDEX`,
 `ARCRESOLUTION`, `ISSHAPEBASED`, `CAVITYHEIGHT`, `BODYCOLOR3D`, `BODYOPACITY3D`, `BODYOVERRIDECOLOR`, the
@@ -48,3 +48,26 @@ Keys that are not typed stay in `properties`: `V7_LAYER`, `NAME`, `KIND`, `SUBPO
 |---|---|---|---|
 | A body with a component index becomes a `ComponentBody` of that component's footprint: `kind` `model` when `MODEL.NAME` is not empty and `extruded` otherwise; `height` the overall height; `standoff` the standoff height; `outline` the vertices in the footprint frame; `layer` the neutral name of the layer byte; `name` the identifier | S-0303, S-0161 | INFERRED | H-A-IMP-BODY |
 | Cylinder and sphere bodies are not told apart: they import as `extruded` with their heights. Model data of the `Models` storage is not imported | S-0303 | INFERRED | H-A-IMP-BODY |
+
+## Signed and unknown projections (c0099)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Standoff can be negative; its sign and the overall height describe surface-relative extrusion bounds | S-0570 | INFERRED | H-A-IMP-BODY-Z |
+| BodyProjection has type TBoardSide, whose enumeration orders Top before Bottom; interpreting serialized 0/1 by this ordering is inferred | S-0605, S-0160 | INFERRED | H-A-IMP-BODY-Z |
+| A component flip changes the projection and paired mechanical layer; a body's projection can differ from its component face | S-0570 | INFERRED | H-A-IMP-BODY-Z |
+
+The adapter keeps every component body it receives. Unproved sides, model types, reversed bounds
+and malformed lengths set projection_unknown and produce located findings. Source reader bytes
+and resources remain immutable; no raw-record hex JSON is duplicated into extensions.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Matching mounted and projection sides give z_min equal to source standoff and z_max equal to source overall height, in integer nm | S-0570, S-0605; authored import tests | INFERRED | H-A-IMP-BODY-Z |
+| A nonnumeric overall or standoff length is retained as 0 with projection_unknown and bad-length/body-unknown warnings | S-0570; authored import tests | INFERRED | H-A-IMP-BODY-Z |
+| Overall height below standoff is retained without a claimed interval | S-0570; authored import tests | INFERRED | H-A-IMP-BODY-Z |
+| Projection outside inferred 0/1, or different from the component side, gives unknown geometry | S-0605, S-0570; authored import tests | INFERRED | H-A-IMP-BODY-Z |
+| MODEL.MODELTYPE outside 0/1 gives unknown geometry; an absent key preserves the legacy extruded-record convention | S-0303; authored import tests | INFERRED | H-A-IMP-BODY-Z |
+
+A body without a component stays unmapped. Bounded MODELID and MODEL.CHECKSUM metadata are
+compatible with this contract; unbounded raw-record copies in ext are prohibited.
