@@ -444,7 +444,7 @@
     "pro-patterns-t9": "present",
     "pro-prl-drc": "absent",
     "pro-prl-export": "absent",
-    "route-fanout-t9": "inconclusive",
+    "route-fanout-t9": "equal",
     "sch-components-flat": "equal",
     "sch-components-hier": "equal",
     "sch-components-on-board": "absent",
