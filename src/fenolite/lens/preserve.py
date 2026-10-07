@@ -25,7 +25,7 @@ from typing import Literal, Protocol, cast
 from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import dru, pcb, pro, slots
 from fenolite.backends.kicad import zones as zones_mod
-from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
+from fenolite.backends.kicad.embed import MANDATORY_FIELDS, PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
 from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
@@ -572,6 +572,30 @@ def _apply_user_properties(
     return dataclasses.replace(kept, fields=tuple(fields), ext={**kept.ext, BAG: bag}), written
 
 
+def _apply_mandatory_fields(kept: FootprintInstance, built: FootprintInstance) -> FootprintInstance:
+    """``kept`` with the ``Reference`` or ``Value`` field that its board node lacks (c0077).
+
+    A board written before Fenolite generated the two fields for catalog and authored footprints holds
+    footprints without them. A missing one is the built copy's field, with its id, uuid and placement,
+    before the node's first field, ``Reference`` before ``Value``. A field or a property node of that name
+    that the board holds is left as it is.
+    """
+    held = {f.name for f in kept.fields} | {n for n in map(_property_name, _slots(kept)) if n is not None}
+    # The writer puts read fields in file order and created ones after them. An added field takes the
+    # provenance of the node's first field, so it sorts with that field and, being listed first, is
+    # written before it.
+    first = kept.fields[0].provenance if kept.fields else None
+    added = [
+        dataclasses.replace(field, provenance=first)
+        for name in MANDATORY_FIELDS
+        for field in built.fields
+        if field.name == name and name not in held
+    ]
+    if not added:
+        return kept
+    return dataclasses.replace(kept, fields=(*added, *kept.fields))
+
+
 def _net_names(design: Design) -> dict[str, str]:
     return {n.id: n.name for n in design.circuit.nets}
 
@@ -749,6 +773,7 @@ def merge_layout(
                         )
                     )
                 node, written = _apply_user_properties(kept_fp, copy, found.path)
+                node = _apply_mandatory_fields(node, copy)
                 pad_nets = {p.number: p.net_id for p in copy.pads}
                 kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
                 placed.append(dataclasses.replace(node, component_id=component.id, pads=kept_pads))

@@ -276,6 +276,11 @@ keep their library's licence. `--vendor project` copies only those of project ta
 footprint gives the info `build.global-library`. `result.vendored` lists the copied files and
 `result.libraries` the row origin of each lib id.
 
+Every placed footprint holds a `Reference` and a `Value` field. A footprint of the built-in catalog or
+of `dsl.Footprint` carries both in the project library and on the board (`docs/dsl.md`, "Authored
+footprints"). A footprint read from a library file that lacks one gets it on the board at the same
+default placement, and the build gives one `build.field-added` info per such lib id, naming the fields.
+
 A pin marked with `no_connect` that a net also lists, once designators are resolved to pin numbers, is
 refused: `build.no-connect-on-net` (error) with `--target kicad`, `model.no-connect-on-net` (error) with
 `--target altium`; the exit code is 5 and nothing is written. The marks are kept in

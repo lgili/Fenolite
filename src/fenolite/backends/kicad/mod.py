@@ -15,7 +15,7 @@ import dataclasses
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 
-from fenolite.backends.kicad import _pcbwrite
+from fenolite.backends.kicad import _pcbwrite, embed
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import (
     DEF_FIELDS,
@@ -265,10 +265,23 @@ def _slots(entity: FootprintDef | Pad | Graphic) -> list[Slot]:
 
 
 def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
-    """Give a slotless DSL definition the deterministic child order of a newly-authored file."""
+    """Give a slotless definition (authored with the DSL, or of the built-in catalog) the deterministic
+    child order of a newly-authored file, with the ``Reference`` and ``Value`` properties of a conventional
+    KiCad footprint after ``kind`` (``embed.default_fields``; ``H-K-FP-FIELDS``).
+
+    A ``properties`` entry the definition holds under either name is the property's text. A definition
+    that has a slot list is returned unchanged.
+    """
     if _slots(defn):
         return defn
     root: list[Slot] = [Modeled("name"), Modeled("description"), Modeled("kind")]
+    properties = dict(defn.properties)
+    for default in embed.default_fields(defn):
+        text = properties.setdefault(default.name, default.text)
+        prop = embed.field_property(
+            default, text=text, uuid_text=embed.library_field_uuid(defn.lib_id, default.name)
+        )
+        root.append(Opaque(dumps(prop, style="compact"), None))
     root.extend(Modeled("pads") for _ in defn.pads)
     root.extend(Modeled("graphics") for _ in defn.graphics)
     root.extend(Modeled("models") for _ in defn.models)
@@ -312,7 +325,11 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
         for graphic in defn.graphics
     )
     return dataclasses.replace(
-        defn, pads=pads, graphics=graphics, ext={**defn.ext, "kicad": slotlib.to_ext(root)}
+        defn,
+        pads=pads,
+        graphics=graphics,
+        properties=properties,
+        ext={**defn.ext, "kicad": slotlib.to_ext(root)},
     )
 
 

@@ -40,6 +40,7 @@ from fenolite.backends.kicad import (
 )
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
+    MANDATORY_FIELDS,
     PATH_PROPERTY,
     footprint_extent,
     place_footprint,
@@ -109,6 +110,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
+        "build.field-added": "info",
         "build.interface-not-lowered": "info",
         "build.plane-not-lowered": "info",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
@@ -621,7 +623,21 @@ def build_design(
         else set[str]()
     )
     identities: dict[str, Mapping[str, str]] = {}
+    lacking: set[str] = set()
     for part in parts:
+        missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
+        if missing and part.footprint.lib_id not in lacking:
+            # a library footprint of another origin: ``place_footprint`` adds the fields (c0077)
+            lacking.add(part.footprint.lib_id)
+            issues.append(
+                issue(
+                    "build.field-added",
+                    f"{part.footprint.lib_id} has no {' and no '.join(missing)} field: each footprint "
+                    "placed from it gets one at the default placement",
+                    part.footprint.lib_id,
+                    "add the property to the library footprint, or move the field with Part.field",
+                )
+            )
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
         user_locators: list[str] = []
         for prop_name, prop_value in _user_properties(part, issues):

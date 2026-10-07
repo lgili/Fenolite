@@ -153,6 +153,14 @@ from the script. It is a two-way merge without a stored base, as for footprints.
   request applied.
 - User properties follow "User properties on kept footprints": their values are the script's and their
   placement the board's. Requests never name them.
+- **A missing `Reference` or `Value`** (c0077). A board built before Fenolite generated the two fields
+  for catalog and authored footprints holds footprints without them. A kept footprint whose node lacks
+  one gains the built copy's field, with its id, uuid and placement and with the script's reference or
+  value as its text, before the node's first field, `Reference` before `Value`
+  (`lens.preserve._apply_mandatory_fields`). The built copy has the script's requests applied, so a
+  request reaches an added field. A field the node has is never touched by this rule, and everything
+  else of the node stays. No issue is raised; `build --dry-run` lists the board as changed, and the
+  build after that changes nothing.
 
 No issue is raised. `result.preserved.fields` holds three sorted lists of `"<component path>:<field>"`:
 

@@ -794,6 +794,11 @@ meaning = "The two nets of a diff_pair or usb2 interface do not form a different
 fix = "Rename the nets as the hint proposes (a common base name with the suffixes KiCad pairs)."
 see = "build"
 
+["build.field-added"]
+meaning = "A footprint read from a library file has no Reference or no Value property. Each footprint placed from it got the missing field at the default placement: Reference on the silkscreen above the footprint, Value on the fabrication layer below it."
+fix = "Nothing to do. Add the property to the library footprint to place it there, or move or hide the field with Part.field in the script."
+see = "build"
+
 ["build.global-library"]
 meaning = "A part's footprint comes from a library outside the project, so it was copied into the project's libraries."
 fix = "Nothing to do; result.vendored lists the copied files."
