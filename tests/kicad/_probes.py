@@ -45,6 +45,7 @@ import _hiercases
 import _kindcases
 import _lenscases
 import _libtables
+import _limitsbench
 import _mincases
 import _netcases
 import _netlistcases
@@ -284,6 +285,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _limitsbench.limit_probes().items():  # change c0141
         probes[pid] = Probe(function, majors)
     return probes
 

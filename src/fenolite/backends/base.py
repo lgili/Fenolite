@@ -13,6 +13,7 @@ import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
@@ -390,6 +391,39 @@ class Oracle(Protocol):
     def version(self) -> str: ...
 
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
+
+
+UNCONNECTED_ITEMS = "unconnected_items"
+"""The key of ``DrcLimits`` that stands for the list of unconnected items of a ``DrcReport``."""
+
+
+@dataclass(frozen=True, slots=True)
+class DrcLimits:
+    """Where a DRC tool stops writing its report: the largest number of entries it writes for each named
+    type (``per_type``), and for every other type (``others``). ``unconnected_items`` stands for the list
+    of unconnected items; every other key is a violation ``type`` in the tool's own spelling. A count that
+    reaches its limit is a lower bound."""
+
+    per_type: Mapping[str, int]
+    others: int
+
+    def __post_init__(self) -> None:
+        for name, value in (("others", self.others), *self.per_type.items()):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"the report limit of {name!r} is not a positive int: {value!r}")
+        object.__setattr__(self, "per_type", MappingProxyType(dict(self.per_type)))
+
+    def limit(self, type: str) -> int:  # noqa: A002 (the report's own key)
+        """The limit of ``type``: its own, or ``others``."""
+        return self.per_type.get(type, self.others)
+
+
+@runtime_checkable
+class LimitedOracle(Protocol):
+    """An oracle that says where its DRC report stops. It stands beside ``Oracle``: an oracle that does not
+    satisfy it says nothing about limits."""
+
+    def report_limits(self) -> DrcLimits: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1033,6 +1067,7 @@ __all__ = [
     "DocumentValidator",
     "Downgrade",
     "DrcItem",
+    "DrcLimits",
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
@@ -1044,6 +1079,7 @@ __all__ = [
     "ErcViolation",
     "FillOracle",
     "FillOutcome",
+    "LimitedOracle",
     "MATRIX_OPERATIONS",
     "MatrixRow",
     "ModelCompare",
@@ -1073,6 +1109,7 @@ __all__ = [
     "Rt2Outcome",
     "SkipReason",
     "SkippedFile",
+    "UNCONNECTED_ITEMS",
     "Uncovered",
     "Validation",
     "Validator",

@@ -85,6 +85,51 @@ both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary 
 | `pcb drc` stops reporting `clearance` violations near 499 per run: 10.0.6 reports exactly 499 on a board with more, 9.0.9 between 499 and 508; the canary's violation then competes for a place and can be missing although the rules were loaded (4 of 110 canary runs on `kicad-demo-10-0-6-pcb-01` and `-13`); below 499 it was never missing | S-0020 (measured; no statement found in S-0010, S-0022, S-0038) | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMIT |
 | Two DRC runs of one unchanged project differ at most in the report order and in entries of the types `clearance`, `hole_clearance` and `unconnected_items` (six of the 21 demo boards); every other type, the return code and the written files repeat | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-DRC-REPEAT |
 
+## Report limits
+
+`kicad-cli pcb drc` stops writing entries of one type at a fixed count, and the report does not say so. The
+limits are measured with an authored bench (`tests/kicad/check/_limitsbench.py`, change c0141): a board of
+400 mm × 400 mm with a `{}` project and a rules file, holding N copies of one small construct per type, each
+giving one entry of its type and none of another. No public statement of the limits was found; KiCad's
+source was not read. `fenolite.backends.kicad.drc.REPORT_LIMITS` holds them per major (499 for `clearance`
+and `unconnected_items`, 199 for every other type), `KicadOracle.report_limits()` returns them, and the
+canary's `CLEARANCE_REPORT_LIMIT` is the table's `clearance` value. A type that no probe measured is taken
+to stop at 199. `check` marks every count that reached its limit as a lower bound (`summary.limits`,
+`check.report-limit`; `docs/cli-contract.md`). The 9.0.9 rows are the measurement of 2026-10-05 and stay
+`INFERRED` until the `kicad-9` job records the probes of this bench; the counts are in
+`docs/evidence/kicad-check.md`, "DRC report limits per type".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 10.0.6 writes at most 499 entries of violations of type `clearance` per run: 700 copies of the bench construct give 499 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 499 entries of the list `unconnected_items` per run: 700 copies of the bench construct give 499 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `track_dangling` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `via_dangling` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `copper_edge_clearance` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `track_width` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `hole_to_hole` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `hole_clearance` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `annular_width` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `silk_overlap` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `courtyards_overlap` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `lib_footprint_issues` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `shorting_items` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 stops writing violations of type `clearance` at 499 or a few more per run (500 on the board of nine benches; 499 to 508 on the bench of `H-K-DRC-LIMIT`) | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 499 entries of the list `unconnected_items` per run: 700 copies give 499 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `track_dangling` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `via_dangling` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `copper_edge_clearance` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `track_width` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `hole_to_hole` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `silk_overlap` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `courtyards_overlap` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `lib_footprint_issues` per run: 700 copies give 199 | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| On 9.0.9 the limits of `hole_clearance`, `annular_width` and `shorting_items` are taken to be the 199 of the other types; no run measured them there | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| A type under its limit is written in full: 150 copies of `track_dangling`, of `silk_overlap` and of the unconnected construct give 150 entries each (10.0.6) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| `--all-track-errors` does not lift the limit: 700 dangling tracks give 199 `track_dangling` entries with and without it (10.0.6) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| The limits are per type and independent: one board that holds 700 copies of each of the thirteen constructs gives each type its own limit (10.0.6) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| No key of the report says that a type was cut: its top-level keys are `$schema`, `coordinate_units`, `date`, `ignored_checks`, `included_severities`, `kicad_version`, `schematic_parity`, `source`, `unconnected_items` and `violations` (10.0.6) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+
 ## Findings
 
 `fenolite check` turns every violation and unconnected item of the counted report into one issue

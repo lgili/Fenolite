@@ -15,16 +15,72 @@ says whether the comparison was made: when it was asked for and not made, the st
 
 from __future__ import annotations
 
+import dataclasses
 from collections import Counter
 from pathlib import PurePosixPath
 
-from fenolite.backends.base import DrcOutcome, Oracle, ProjectSet
+from fenolite.backends.base import (
+    UNCONNECTED_ITEMS,
+    DrcLimits,
+    DrcOutcome,
+    LimitedOracle,
+    Oracle,
+    ProjectSet,
+)
 from fenolite.checks.codes import issue, oracle_code
-from fenolite.checks.drc_json import finding_issues, finding_types
+from fenolite.checks.drc_json import finding_issues, finding_types, type_code
 from fenolite.checks.stages import StageResult, ran
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
+
+
+def _stated_limits(oracle: Oracle) -> DrcLimits | None:
+    """The limits ``oracle`` states for its report; ``None`` when it states none (it does not satisfy
+    ``LimitedOracle``, or its tool is a version nobody measured)."""
+    if not isinstance(oracle, LimitedOracle):
+        return None
+    try:
+        return oracle.report_limits()
+    except ValueError:
+        return None
+
+
+def _limits(outcome: DrcOutcome, oracle: Oracle) -> list[dict[str, object]] | None:
+    """``summary.limits`` ("DRC report limits in check"): one ``{type, reported, limit}``, sorted by type,
+    for each violation type and for the unconnected items whose count in the counted report reached the
+    limit the oracle states. ``[]`` says every count is complete, ``None`` that nothing is known."""
+    report = outcome.report
+    if report is None:
+        return None
+    limits = _stated_limits(oracle)
+    if limits is None:
+        return None
+    counts = dict(Counter(v.type for v in report.violations))
+    counts.pop(UNCONNECTED_ITEMS, None)  # the key stands for the report's own list of unconnected items
+    if report.unconnected_items:
+        counts[UNCONNECTED_ITEMS] = len(report.unconnected_items)
+    return [
+        {"type": type_, "reported": count, "limit": limits.limit(type_)}
+        for type_, count in sorted(counts.items())
+        if count >= limits.limit(type_)
+    ]
+
+
+def _limit_issues(limits: list[dict[str, object]] | None, oracle: str) -> list[Issue]:
+    """One ``check.report-limit`` warning per entry of ``summary.limits``, sorted by ``where``."""
+    found = [
+        issue(
+            "check.report-limit",
+            f"the DRC report of {oracle} holds {entry['reported']} entries of {entry['type']} and the tool"
+            f" stops writing them at {entry['limit']}: the board holds at least {entry['reported']}",
+            where=type_code(oracle, str(entry["type"])),
+            hint="the other findings of this type are not in the report; repair the reported ones and"
+            " check again to see the next ones",
+        )
+        for entry in limits or ()
+    ]
+    return sorted(found, key=lambda i: (i.where, i.message))
 
 
 def _summary(outcome: DrcOutcome, oracle: str) -> dict[str, object]:
@@ -91,7 +147,10 @@ def drc_stage(
     if outcome.report is not None:
         issues += finding_issues(outcome.report, oracle=oracle.name, design=design)
     evidence = outcome.evidence if outcome.report is not None and not rules_issue else Evidence()
-    return ran("drc.kicad", issues, evidence, _summary(outcome, oracle.name))
+    limits = _limits(outcome, oracle)
+    result = ran("drc.kicad", issues, evidence, {**_summary(outcome, oracle.name), "limits": limits})
+    # the marks describe the report, not the board: they follow the findings and decide no status
+    return dataclasses.replace(result, issues=result.issues + tuple(_limit_issues(limits, oracle.name)))
 
 
 __all__ = ["drc_stage"]
