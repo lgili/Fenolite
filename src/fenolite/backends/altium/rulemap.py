@@ -29,6 +29,7 @@ from fenolite.model.rules import Rule, RuleKind, Selector
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-RULE-CLEARANCE-CELLS",
         "H-A-RULE-CLEARANCE-FORMS",
         "H-A-RULE-FILE",
         "H-A-RULE-KINDS",
@@ -471,8 +472,8 @@ def lift(
     ``read.rules.map_rules``: a record of a kind of the table that it refuses (a matrix of differing
     clearances, a scope outside the grammar) is counted too. ``layers`` are the copper layers of the board
     the records belong to; without them a layer condition is refused. The forms of change c0125 (a uniform
-    matrix, the keys of a matrix cell, a layer condition) are read and never written: ``lower`` writes one
-    form per rule."""
+    matrix, the keys of a matrix cell, a layer condition) and the cell rules of change c0130 are read and
+    never written: ``lower`` writes one form per rule and an empty matrix."""
     lists = [record.fields() if isinstance(record, LoweredRule) else tuple(record) for record in records]
     mapping = map_rules(lists, origin=origin, layers=layers)
     opaque = Counter(unmapped.kind or "(none)" for unmapped in mapping.unmapped)

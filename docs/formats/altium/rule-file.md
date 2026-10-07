@@ -36,6 +36,9 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | A PCB document with a clearance matrix holds one Clearance record with `ISMATRIX=TRUE` for all objects, and one record per layer set of a cell: these hold `SOURCERULE` (the zero-based position of the `ISMATRIX` record among the rule records), `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`, and `INNERLAYERS=TRUE` with both scopes `OnMid`, or `OUTERLAYERS=TRUE` with both scopes an `Or` of `ExistsOnLayer` of the top and of the bottom layer's name. The cell records have the higher priorities. All three hold `OBJECTCLEARANCES` of one space | S-0172 (three records of one document) | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
 | An entry of `OBJECTCLEARANCES` is `ClearanceObj_<kind>-ClearanceObj_<kind>:<count>`, entries joined by `;`. In the four Clearance matrices of the public documents (27, 8, 8 and 1 entries) no entry holds the count of its record's `GAP` read as 0.0001 mil, and the eight distinct counts above zero are round lengths in that unit (0.1, 0.25, 0.4 and 0.55 mm; 3.5, 6, 10 and 15 mil) | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
 | A count of `OBJECTCLEARANCES` is 0.0001 mil (2.54 nm, the unit of the document's coordinates), and a cell that the text leaves out holds the generic value; so a text whose every entry holds the length of `GAP` says one clearance | S-0558, S-0175, S-0176, S-0187 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| The matrix of the Clearance rule has a row and a column per object kind (track, arc, surface pad, through-hole pad, via, fill, polygon, region, hole); a simple view shows arc with track as one entry, and fill, polygon and region as one | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
+| The object kinds named by the entries of the public Clearance matrices are `Arc`, `Track`, `SMDPad`, `THPad`, `Via`, `Fill`, `Poly`, `Region`, `Text` and `Hole`, and no other. Two of the four matrices give different values to object kinds of one item kind of the copper check (a through-hole pad and a surface pad; an arc and a track); the two others do not | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-07; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-CELLS |
+| `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill`, `Region`, `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 
 ## Header keys
 
@@ -53,7 +56,7 @@ give.
 
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
-| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank or uniform; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
+| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank, uniform or a matrix of exact cells (each one more rule); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
 | `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | — |
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
@@ -168,12 +171,39 @@ table marked `read_only`.
 | uniform matrix | every entry of `OBJECTCLEARANCES` holds the length of `GAP`, to the nanometre (a count is `rules.MATRIX_UNIT`, 0.0001 mil) | `min` = `GAP` |
 | matrix cell | `ISMATRIX=TRUE`; `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`; `INNERLAYERS=TRUE`; `OUTERLAYERS=TRUE`; `SOURCERULE` with any value | the keys add nothing: the scopes, `GAP` and `PRIORITY` of the record decide |
 
-A matrix with an entry of another length stays unmapped (`keys`): a neutral rule holds one value, and
-the kinds of the matrix (arc, track, surface pad, through-hole pad, via, fill, polygon, region, text,
-hole) are finer than the item kinds of the copper check. A record with
+A matrix with an entry of another length is read cell by cell ("Cells of an object matrix", change
+c0130); it stays unmapped (`keys`) when it tells apart object kinds that are one item kind of the
+copper check. A record with
 `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` stays unmapped (`keys`): no selector says "two pads of one
 component". Any other value of a cell key stays unmapped (`keys`): a cell for a named class is in no
 public file, so its scope text is not known.
+
+### Cells of an object matrix
+
+Change c0130. `rules.read_matrix` reads a matrix of differing clearances in the item kinds of the copper
+check (`rules.MATRIX_KINDS`). The value of a pair of object kinds is its entry, or `GAP` without one.
+
+| object kind | item kind of the check |
+|---|---|
+| `Arc`, `Track` | `track` |
+| `SMDPad`, `THPad` | `pad` |
+| `Via` | `via` |
+| `Poly` | `zone` |
+| `Fill`, `Region`, `Text`, `Hole` | none |
+
+- A pair of item kinds is exact when every pair of object kinds in it holds one value. A value that
+  differs from `GAP` is a cell and gives one more `clearance` rule: name `<NAME>/<kind>-<kind>`, the
+  record's priority, `item_kind` on both sides (joined with `and` to the record's scope on its side). It
+  governs above the rule of `GAP` of its record: among rules of one priority the later name governs. A
+  record with two different scopes gets a second rule with the kinds exchanged for a cell of two kinds.
+- When the object kinds of one item kind disagree, no neutral rule says the pair and the whole record
+  stays unmapped (`keys`); the detail names the pairs, for example `track to pad`. Part of a record is
+  never mapped: the rest of it would be judged with a value it does not hold.
+- An entry with an object kind that has no item changes no rule; the rule of `GAP` keeps such entries
+  as written in its bag (`cells_not_lifted`).
+- `RuleMapping.matrix_cells` counts, per enabled Clearance record with entries, those a rule holds and
+  those none holds; the copper stage of a document check reports the sums as `summary.clearance_cells`.
+- A cell of 0 is a rule of 0: no clearance is asked of the pair, and a short is still a short.
 
 ### Layer scopes of Clearance
 

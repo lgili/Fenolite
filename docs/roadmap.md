@@ -359,6 +359,7 @@ written, and the kit is named and not defined.
 | c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.4 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
 | c0124 | `altium-plane-lines` | the Altium import makes no copper of what is drawn on an internal plane: such a line cuts the plane; counted in the census and on the plane's layer, and the copper view of c0088 loses its filter | implemented on its branch on 2026-10-06: 74 and 43 tracks fewer on the two public documents with planes, as in KiCad's import; ids of the other items unchanged | c0043, c0088 | 1.25 |
 | c0125 | `altium-clearance-scopes` | follow-up of c0084 and c0088 (decided 2026-10-06): the rule table reads a blank or uniform object matrix, the records of a clearance matrix between all net classes, and two layer conditions where they are exact; read only | implemented on its branch on 2026-10-06: ONE of the three public documents without a clearance in force gets one (`INFERRED`); the two others hold a matrix of differing clearances (→ c0130) or the option that ignores the pads of a footprint (not in v0.4), which one neutral rule cannot say; optional Altium step open | c0084, c0088 | 1.25 |
+| c0130 | `altium-clearance-matrix-cells` | follow-up of c0125 (decided 2026-10-06): a Clearance matrix of differing clearances read as one neutral rule per cell of item kinds, where exact; the cells counted in the stage summary; read only | implemented on its branch on 2026-10-07: ONE of the four public records lifts (the heavy document, which stays `UNVERIFIED`); the matrices of the two other documents are not exact in item kinds and carry the option that is not in v0.4 | c0125 | 1 |
 
 - **Total:** 65.75 design-days (sizes, not time).
 - **Order:** c0083 first; it depends on nothing of v0.4 and repairs a read defect, so it can ship
@@ -384,7 +385,13 @@ Approved as the working target on 2026-10-06, to be reviewed by the maintainer b
    the written scope, and what the write leaves out is counted per record kind (RT-A3, c0090), on
    documents of at least three public repositories, the one with repeated sheets among them (c0083).
 3. `fenolite check` on an Altium project finds a short, a clearance violation and a board that
-   disagrees with its schematic, with no tool (c0088).
+   disagrees with its schematic, with no tool (c0088). Measured on the public corpus (c0125, c0130):
+   five of the seven non-heavy public documents have a clearance in force. The two that do not are
+   `altium-third-party-pcbdoc-02` and `-06`: their Clearance records carry the option that ignores
+   the pads of one footprint (form D of c0125, not in v0.4) and hold matrix cells that the item kinds
+   of the check cannot tell apart (a through-hole pad from a surface pad, an arc from a track), so
+   they are judged for shorts only and carry `UNVERIFIED`. The maintainer reviews this count before
+   c0092 closes.
 4. Every rule of a script reaches the Altium board exactly or is named with its reason (c0084).
 5. One recorded kit run in Altium passes on the acceptance tree, and at least the PCB document and
    the schematic document writes leave `experimental` by the rule of c0092 (c0091, c0092).

@@ -574,6 +574,13 @@ a board that the script forbids.
   for some of the copper layers and every other scope function stay unmapped, each with its reason
   (`docs/formats/altium/rule-file.md`, "Clearance forms that map"). A build writes none of these
   forms: a rule with `layers` stays `scope-unsupported`.
+- **Cells of a clearance matrix (change c0130).** A Clearance record whose matrix holds differing
+  clearances gives its generic rule and one more clearance rule per cell, named
+  `<rule>/<kind>-<kind>` with `item_kind` selectors (`track`, `pad`, `via`, `zone`), when the matrix is
+  exact in those kinds. A matrix that tells an arc from a track or a through-hole pad from a surface
+  pad stays unmapped, and its reason names the pairs. Cells for fills, regions, text and holes are
+  kept in the rule's `altium` bag (`cells_not_lifted`). `fenolite check` reports
+  `summary.clearance_cells` (`judged`, `unjudged`). Read only: a build writes no matrix.
 - **Order.** Within one Altium kind the rules of the script come first, from the most governing to the
   least (priority 1, 2, … and then 0), with Altium priorities from 1. After them come the rules the
   build always wrote: one per net class that holds the value and Fenolite's `All` default ("Copper").
@@ -1308,7 +1315,7 @@ It is not Altium's design rule check. What it does not judge, it says, and the s
 |---|---|---|
 | unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured | `summary.unpoured`, one `copper.item-unsupported` |
 | internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper, and the import makes no track of those lines | one `copper.item-unsupported` at `plane`, with the number of planes and of the objects left out |
-| Clearance rules with a matrix of differing clearances, the option that ignores the pads of one footprint, a layer condition for some of the board's copper layers, a scope function outside the grammar or another key outside the rule table | the model has no rule of that form; a blank or uniform matrix, a clearance matrix between all net classes and a layer condition for every copper layer are read ("Rules") | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
+| Clearance rules with a matrix that tells an arc from a track or a through-hole pad from a surface pad, the option that ignores the pads of one footprint, a layer condition for some of the board's copper layers, a scope function outside the grammar or another key outside the rule table | the model has no rule of that form; a blank or uniform matrix, a clearance matrix between all net classes and a layer condition for every copper layer are read ("Rules") | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
 | the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
 | board-edge clearance, component clearance, silkscreen, hole and width rules | outside the copper check | nothing: these are not stages |
 

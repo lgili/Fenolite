@@ -157,9 +157,11 @@ def document_copper(
     """The ``copper.clearance`` stage of a document check: ``checks.copper.copper_stage`` on the PCB
     reading ``design``, with the rules of ``validator`` when it is a ``DesignRulesSource`` and its pads when
     it is a ``BoardFrame``. Two counts join the summary, ``unpoured`` and ``zones_unjudged``
-    (``unjudged_copper``); a count above 0 gives one warning (``copper.item-unsupported`` for the unpoured
-    zones, ``copper.rules-incomplete`` for the zones without a clearance) and lowers the stage to
-    ``UNVERIFIED``."""
+    (``unjudged_copper``), and ``clearance_cells``, the cells of the document's clearance matrices that
+    the rules hold (``judged``) and do not hold (``unjudged``; ``DesignRules.clearance_cells``). An
+    ``unpoured`` or ``zones_unjudged`` count above 0 gives one warning (``copper.item-unsupported`` for
+    the unpoured zones, ``copper.rules-incomplete`` for the zones without a clearance) and lowers the
+    stage to ``UNVERIFIED``."""
     from fenolite.checks.copper import copper_stage
 
     rules = validator.design_rules(design, project) if isinstance(validator, DesignRulesSource) else None
@@ -193,7 +195,13 @@ def document_copper(
     level = stage.evidence
     if added:
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    summary = {**stage.summary, "unpoured": unpoured, "zones_unjudged": unjudged}
+    judged_cells, other_cells = rules.clearance_cells if rules is not None else (0, 0)
+    summary = {
+        **stage.summary,
+        "unpoured": unpoured,
+        "zones_unjudged": unjudged,
+        "clearance_cells": {"judged": judged_cells, "unjudged": other_cells},
+    }
     return ran(stage.name, [*stage.issues, *added], level, summary)
 
 

@@ -244,6 +244,16 @@ def test_what_the_source_left_out_is_reported() -> None:
     assert plane.where == "plane" and plane.message.startswith("1 plane item(s) left out")
     assert stage.summary["rules"]["opaque_clearance_rules"] == 2
     assert stage.evidence.level is Level.UNVERIFIED
+    assert stage.summary["clearance_cells"] == {"judged": 0, "unjudged": 0}
+
+
+def test_cells_of_the_clearance_matrices_are_counted() -> None:
+    """The cells that the rules hold and do not hold join the summary; a cell that no rule holds lowers
+    nothing by itself (the record that keeps it unread is an opaque rule, which does)."""
+    design = board(tracks=(track("trk_a", "net_a", 0),), rules=(clearance(200_000),))
+    stage = run(design, RulesFake(rules=DesignRules(design, clearance_cells=(7, 1), evidence=RULES_EVIDENCE)))
+    assert stage.summary["clearance_cells"] == {"judged": 7, "unjudged": 1}
+    assert codes(stage) == [] and stage.evidence.level is not Level.UNVERIFIED
 
 
 def test_without_a_rules_source_and_a_frame() -> None:

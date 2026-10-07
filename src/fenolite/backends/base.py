@@ -733,7 +733,9 @@ class DesignRules:
     that could not be lifted into the model, and ``unread`` names each file that failed to read, with the
     error's message, in file-name order. ``left_out`` names the copper that the project's files hold in a
     form the model does not carry as copper, as (kind, count, reason) in kind order: ``design`` is then
-    without the items that stand for it, and the copper check reports each entry.
+    without the items that stand for it, and the copper check reports each entry. ``clearance_cells`` counts
+    the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
+    rule of ``design`` holds, and those that none holds.
     """
 
     design: Design
@@ -744,6 +746,7 @@ class DesignRules:
     unread: tuple[tuple[str, str], ...] = ()
     evidence: Evidence = Evidence()
     left_out: tuple[tuple[str, int, str], ...] = ()
+    clearance_cells: tuple[int, int] = (0, 0)
 
 
 @runtime_checkable

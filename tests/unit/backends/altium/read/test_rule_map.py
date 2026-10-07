@@ -20,8 +20,10 @@ from fenolite.backends.altium.read.rules import (
     CopperLayer,
     CopperLayers,
     Field,
+    Matrix,
     map_rules,
     matrix_problem,
+    read_matrix,
     record_text,
 )
 from fenolite.core.ids import derived_id
@@ -452,25 +454,149 @@ def test_uniform_matrix_is_one_clearance() -> None:
     assert matrix_problem("ClearanceObj_Via-ClearanceObj_Via:59055", "0.15mm") == ""
 
 
-def test_matrix_of_differing_clearances_stays_unmapped() -> None:
-    """Scenario "A matrix of differing clearances": the reason names the matrix and counts its entries."""
-    differing = "ClearanceObj_Track-ClearanceObj_Track:60000;ClearanceObj_Track-ClearanceObj_Hole:0"
-    one = "ClearanceObj_Track-ClearanceObj_Track:100000;ClearanceObj_Via-ClearanceObj_Via:100001"
-    assert details([clearance("6mil", ("OBJECTCLEARANCES", differing))]) == [
-        (
-            "keys",
-            "OBJECTCLEARANCES is a matrix of differing clearances: 1 of its 2 entries differ from GAP, and "
-            "a neutral clearance holds one value",
-        )
-    ]
-    assert reasons([clearance("10mil", ("OBJECTCLEARANCES", one))]) == ["keys"]
+def test_matrix_that_is_no_matrix_stays_unmapped() -> None:
     for text in ("x:1", "ClearanceObj_Track-ClearanceObj_Track:6mil", "ClearanceObj_Track:60000", ";"):
         assert details([clearance("6mil", ("OBJECTCLEARANCES", text))]) == [
             ("keys", "OBJECTCLEARANCES holds text that is no entry of an object matrix")
         ], text
+    edge = "ClearanceObj_Poly-ClearanceObj_OutlineEdge:196850"
+    ((reason, detail),) = details([clearance("6mil", ("OBJECTCLEARANCES", edge))])
+    assert reason == "keys" and "the object kind OutlineEdge" in detail
+    twice = "ClearanceObj_Via-ClearanceObj_Track:60000;ClearanceObj_Track-ClearanceObj_Via:70000"
+    ((reason, detail),) = details([clearance("6mil", ("OBJECTCLEARANCES", twice))])
+    assert reason == "keys" and "two entries for Track and Via" in detail
     # with the flag that leaves out the pads of one footprint the record stays unmapped, as before
     ignoring = [(k, "TRUE" if k == "IGNOREPADTOPADCLEARANCEINFOOTPRINT" else v) for k, v in clearance("6mil")]
     assert reasons([ignoring]) == ["keys"]
+
+
+# --- Cells of an object matrix (change c0130) ----------------------------------------------------------
+
+VIA = Selector("item_kind", "via")
+ZONE = Selector("item_kind", "zone")
+POURS = (
+    "ClearanceObj_Arc-ClearanceObj_Poly:150000;ClearanceObj_Track-ClearanceObj_Poly:150000;"
+    "ClearanceObj_SMDPad-ClearanceObj_Poly:150000;ClearanceObj_THPad-ClearanceObj_Poly:150000;"
+    "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Via-ClearanceObj_Poly:150000;"
+    "ClearanceObj_Fill-ClearanceObj_Poly:150000;ClearanceObj_Poly-ClearanceObj_Poly:150000"
+)
+
+
+def test_one_cell_gives_one_rule_beside_the_generic_one() -> None:
+    """Scenario "One cell": vias 3.5 mil apart in a rule of 4 mil."""
+    fields = clearance("4mil", ("OBJECTCLEARANCES", "ClearanceObj_Via-ClearanceObj_Via:35000"), PRIORITY="4")
+    mapping = map_rules([fields], origin="b")
+    generic, cell = mapping.ruleset.rules
+    assert (generic.name, generic.min, generic.selector_a, generic.selector_b) == (
+        "Clearance",
+        101_600,
+        Selector("all"),
+        None,
+    )
+    assert (cell.name, cell.min, cell.selector_a, cell.selector_b) == ("Clearance/via-via", 88_900, VIA, VIA)
+    assert cell.kind == "clearance" and cell.priority == generic.priority == 4 and cell.id != generic.id
+    assert cell.native_ids == generic.native_ids and cell.severity == "error" and cell.layers == ()
+    assert dict(cell.ext["altium"].payload)["cell"] == "via-via"
+    assert "cells_not_lifted" not in dict(generic.ext["altium"].payload)
+    assert mapping.rule_records == (0, 0) and mapping.unmapped == () and mapping.matrix_cells == ((0, 1, 0),)
+
+
+def test_cells_by_item_kind() -> None:
+    """Scenario "Cells of the poured polygons": the object kinds of one item kind agree, so each pair of
+    item kinds is one rule; the entry for a fill is named and held by no rule."""
+    mapping = map_rules([clearance("4mil", ("OBJECTCLEARANCES", POURS))], origin="b")
+    generic, *cells = mapping.ruleset.rules
+    assert [(r.name.split("/")[1], r.min) for r in cells] == [
+        ("track-zone", 381_000),
+        ("pad-zone", 381_000),
+        ("via-via", 88_900),
+        ("via-zone", 381_000),
+        ("zone-zone", 381_000),
+    ]
+    assert cells[0].selector_a == Selector("item_kind", "track") and cells[0].selector_b == ZONE
+    assert dict(generic.ext["altium"].payload)["cells_not_lifted"] == (
+        "ClearanceObj_Fill-ClearanceObj_Poly:150000"
+    )
+    assert mapping.matrix_cells == ((0, 7, 1),)
+    read = read_matrix(POURS, "4mil")
+    assert isinstance(read, Matrix) and (read.judged, len(read.unjudged), len(read.cells)) == (7, 1, 5)
+
+
+def test_a_cell_that_equals_the_generic_value_and_a_cell_of_zero() -> None:
+    same = "ClearanceObj_Track-ClearanceObj_Track:60000;ClearanceObj_Track-ClearanceObj_Hole:0"
+    mapping = map_rules([clearance("6mil", ("OBJECTCLEARANCES", same))], origin="b")
+    (rule,) = mapping.ruleset.rules
+    assert rule.min == 152_400 and mapping.matrix_cells == ((0, 1, 1),)
+    assert dict(rule.ext["altium"].payload)["cells_not_lifted"] == "ClearanceObj_Track-ClearanceObj_Hole:0"
+    zero = map_rules(
+        [clearance("6mil", ("OBJECTCLEARANCES", "ClearanceObj_Via-ClearanceObj_Poly:0"))], origin="b"
+    )
+    assert [(r.name, r.min) for r in zero.ruleset.rules] == [
+        ("Clearance", 152_400),
+        ("Clearance/via-zone", 0),
+    ]
+
+
+def test_object_kinds_of_one_item_kind_that_disagree() -> None:
+    """Scenario "A cell without a counterpart": the reason names the pairs of item kinds."""
+    for text, named in (
+        ("ClearanceObj_Track-ClearanceObj_THPad:157480", "track to pad"),
+        ("ClearanceObj_Arc-ClearanceObj_Poly:0;ClearanceObj_Track-ClearanceObj_Poly:98425", "track to zone"),
+        ("ClearanceObj_Track-ClearanceObj_Track:70000", "track to track"),
+        (
+            "ClearanceObj_THPad-ClearanceObj_THPad:216535;ClearanceObj_Via-ClearanceObj_Via:100000",
+            "pad to pad",
+        ),
+    ):
+        fields = clearance("6mil", ("OBJECTCLEARANCES", text))
+        mapping = map_rules([fields], origin="b")
+        ((reason, detail),) = [(u.reason, u.detail) for u in mapping.unmapped]
+        assert reason == "keys" and f"cells for {named} hold more than one value" in detail, text
+        assert "via to via" not in detail
+        assert mapping.matrix_cells == ((0, 0, len(text.split(";"))),)
+    whole = (
+        "ClearanceObj_Arc-ClearanceObj_Arc:70000;ClearanceObj_Arc-ClearanceObj_Track:70000;"
+        "ClearanceObj_Track-ClearanceObj_Track:70000"
+    )
+    rules = map_rules([clearance("6mil", ("OBJECTCLEARANCES", whole))], origin="b").ruleset.rules
+    assert [(r.name, r.min) for r in rules] == [("Clearance", 152_400), ("Clearance/track-track", 177_800)]
+
+
+def test_cells_of_a_scoped_record() -> None:
+    """Scenario "Cells of a scoped record": with two different scopes either object may be of either
+    kind, so a cell of two item kinds is two rules."""
+    text = "ClearanceObj_Via-ClearanceObj_Poly:150000;ClearanceObj_Via-ClearanceObj_Via:35000"
+    fields = clearance("4mil", ("OBJECTCLEARANCES", text), SCOPE1EXPRESSION="InNet('A')")
+    net = Selector("net", "A")
+    rules = map_rules([fields], origin="b").ruleset.rules
+    assert [(r.name, r.selector_a, r.selector_b) for r in rules] == [
+        ("Clearance", net, None),
+        ("Clearance/via-via", Selector("and", items=(net, VIA)), VIA),
+        ("Clearance/via-zone", Selector("and", items=(net, VIA)), ZONE),
+        ("Clearance/zone-via", Selector("and", items=(net, ZONE)), VIA),
+    ]
+    assert len({rule.id for rule in rules}) == 4
+    both = clearance(
+        "4mil", ("OBJECTCLEARANCES", text), SCOPE1EXPRESSION="InNet('A')", SCOPE2EXPRESSION="InNet('A')"
+    )
+    assert [r.name for r in map_rules([both], origin="b").ruleset.rules] == [
+        "Clearance",
+        "Clearance/via-via",
+        "Clearance/via-zone",
+    ]
+
+
+def test_cells_of_records_that_stay_unmapped_are_counted() -> None:
+    one = "ClearanceObj_Via-ClearanceObj_Via:35000"
+    records = [
+        clearance("4mil", ("OBJECTCLEARANCES", POURS), SCOPE1EXPRESSION="InPolygon"),
+        clearance("4mil", ("OBJECTCLEARANCES", one), ENABLED="FALSE"),
+        clearance("4mil", ("OBJECTCLEARANCES", " ")),
+        clearance("4mil", ("OBJECTCLEARANCES", one)),
+    ]
+    mapping = map_rules(records, origin="b")
+    assert [(u.index, u.reason) for u in mapping.unmapped] == [(0, "scope"), (1, "disabled")]
+    assert mapping.matrix_cells == ((0, 0, 8), (3, 1, 0))
 
 
 def test_outer_layers_of_a_two_layer_board() -> None:

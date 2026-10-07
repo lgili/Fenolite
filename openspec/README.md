@@ -106,6 +106,7 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0091 | `altium-verification-kit` | v0.4 | — |
 | c0092 | `altium-write-graduation` | v0.4 | c0091 |
 | c0125 | `altium-clearance-scopes` | v0.4 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
+| c0130 | `altium-clearance-matrix-cells` | v0.4 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
 | c0124 | `altium-plane-lines` | correction of v0.4: the Altium import makes no track of a line on an internal plane | c0043, c0088 |

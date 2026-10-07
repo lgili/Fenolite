@@ -374,14 +374,20 @@ class AltiumBackend:
 
         checked = _with_unit_slack(_without_zone_clearance(design))
         opaque = 0
+        cells = (0, 0)
         failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
         try:
             layers = copper_layers_of(design.board.layers) if design.board is not None else None
             fields = read_rule_fields(data, file=file) if data else ()
+            mapping = map_rules(fields, origin=file, layers=layers)
             opaque = sum(
                 1
-                for record in map_rules(fields, origin=file, layers=layers).unmapped
+                for record in mapping.unmapped
                 if record.kind == CLEARANCE_KIND and record.reason not in NOT_APPLYING
+            )
+            cells = (
+                sum(judged for _, judged, _ in mapping.matrix_cells),
+                sum(other for _, _, other in mapping.matrix_cells),
             )
         except FormatError as error:
             failed = ((file, error.message or type(error).__name__),)
@@ -394,6 +400,7 @@ class AltiumBackend:
             unread=failed,
             evidence=Evidence.combine(EVIDENCE, frame.EVIDENCE),
             left_out=_planes_left_out(design),
+            clearance_cells=cells,
         )
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:

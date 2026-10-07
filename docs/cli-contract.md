@@ -854,7 +854,9 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
 - **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
   (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
   `copper.rules-incomplete`, `copper.item-unsupported`); board-edge clearance is not part of the copper
-  check on any backend. The summary is that of the KiCad stage plus `unpoured` and `zones_unjudged`.
+  check on any backend. The summary is that of the KiCad stage plus `unpoured`, `zones_unjudged` and `clearance_cells`
+  (`{judged, unjudged}`: the cells of the document's clearance matrices that a rule holds and that none
+  holds).
   What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
   - an **unpoured polygon** is no copper: `unpoured` counts them, with one `copper.item-unsupported`
     (a build writes its polygons unpoured, so a built board with zones says this until Altium repours);

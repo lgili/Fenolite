@@ -45,7 +45,9 @@ from fenolite.model.design import Design
 
 pytestmark = pytest.mark.needs_corpus
 
-BOARDS = manifest_items("altium-pcbdoc")
+HEAVY_BOARD = "altium-third-party-pcbdoc-08"
+BOARDS = [*manifest_items("altium-pcbdoc"), *(i for i in manifest_items("rta") if i.id == HEAVY_BOARD)]
+"""The seven rows and the heavy PCB document, which ``FENOLITE_HEAVY=1`` includes."""
 SETS = project_sets()
 COUNTS = ("pairs", "judged", "shorts", "clearance", "zone_overlaps", "unset_pairs", "approximated")
 CLEARANCE_RULES = {
@@ -56,10 +58,17 @@ CLEARANCE_RULES = {
     "altium-third-party-pcbdoc-05": (1, 0),
     "altium-third-party-pcbdoc-06": (0, 2),
     "altium-third-party-pcbdoc-07": (2, 1),
+    "altium-third-party-pcbdoc-08": (2, 3),
 }
 """Row → the clearance rules the check judges with and the Clearance records it could not read: facts
 of the documents' rule records, not findings (census of 2026-10-06; change c0125 moved the third row
-from ``(0, 3)``)."""
+from ``(0, 3)``, and change c0130 the heavy row from ``(0, 4)``: one generic rule and one cell rule)."""
+CELLS = {HEAVY_BOARD: {"judged": 1, "unjudged": 8}}
+"""Row → the cells of its clearance matrices that the rules hold and do not hold, where it has any in an
+enabled record (the matrices of rows 02 and 06 are counted under them too)."""
+
+
+UNREAD_MATRICES = ("altium-third-party-pcbdoc-02", "altium-third-party-pcbdoc-06")
 
 
 PLANE_CUTS = {"altium-third-party-pcbdoc-01": 74, "altium-third-party-pcbdoc-02": 43}
@@ -121,6 +130,9 @@ def test_copper(item: CorpusItem) -> None:
     codes = Counter(found.code for found in stage.issues)
     opaque = rules.opaque_clearance_rules
     assert (len(held), opaque) == CLEARANCE_RULES[item.id], item.id
+    cells = summary["clearance_cells"]
+    assert cells == CELLS.get(item.id, {"judged": 0, "unjudged": cells["unjudged"]}), item.id  # type: ignore[index]
+    assert (cells["unjudged"] > 0) == (item.id in (*CELLS, *UNREAD_MATRICES)), item.id  # type: ignore[index]
     unjudged = bool(summary["unpoured"] or summary["zones_unjudged"] or opaque or rules.left_out)
     if unjudged or summary["unsupported"]:
         assert stage.evidence.level is Level.UNVERIFIED, item.id
@@ -151,6 +163,7 @@ def test_copper(item: CorpusItem) -> None:
         "plane_cuts": plane_cuts,
         "clearance_rules": len(held),
         "opaque_clearance_rules": opaque,
+        "clearance_cells": dict(cells),  # type: ignore[call-overload]
         "level": stage.evidence.level.value,
         "status": stage.status,
         "finding_pairs": dict(sorted(kinds.items())),
@@ -215,3 +228,59 @@ def test_parity(name: str, tmp_path: Path) -> None:
     }
     print(name, counts)
     census("altium-parity", name, counts)
+
+
+def test_known_false_findings_of_padless_vias_c0132() -> None:
+    """KNOWN FALSE FINDINGS, pinned so that they are not taken for real and so that their repair is seen:
+    the 28 shorts of the heavy document (and one clearance finding beside them) are a defect of the import,
+    not of the board. The follow-up change c0132 is to remove them; when it lands, this test must fail and
+    its counts go to zero.
+
+    The class: a via against the pour of another net on an inner layer, where the pour stands at the
+    generic clearance from the via's HOLE (its centre is the drill radius plus that clearance from the
+    pour's copper, within the rounding of the pour's points). The via has no pad on that layer; the import
+    gives it its one diameter on every layer, so the pad it invents meets the pour. Every such via has the
+    long form of the via record, and no fact Fenolite holds says what that form adds
+    (``docs/evidence/altium-roundtrip.md``, "Light DRC over the corpus")."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.checks.copper import _clean_ring  # pyright: ignore[reportPrivateUsage]
+    from fenolite.geometry import Thick, thick_gap_floor
+
+    (item,) = [row for row in BOARDS if row.id == HEAVY_BOARD]
+    path = require(item)
+    backend = AltiumBackend()
+    documents = backend.documents(path)
+    read = backend.read_documents(documents)
+    assert read.pcb is not None and isinstance(read.pcb.design, Design)
+    project = project_of(documents)
+    assert project is not None
+    rules = backend.design_rules(read.pcb.design, project)
+    board = rules.design.board
+    assert board is not None and rules.design.rules is not None
+    (generic,) = [r.min for r in rules.design.rules.rules if r.kind == "clearance" and "/" not in r.name]
+    assert generic is not None
+    records = read_pcbdoc(path.read_bytes(), file=path.name).vias
+    lengths = Counter(len(record.raw) for record in records)
+    vias = {via.id: via for via in board.vias}
+    zones = {zone.id: zone for zone in board.zones}
+    report = check_copper(rules.design, pads=backend.board_pads(rules.design))
+    shorts = [f for f in report.findings if f.code == "copper.short"]
+    assert len(shorts) == 28 and sorted(lengths) == [326, 335]
+    touched: set[str] = set()
+    for found in shorts:
+        assert sorted(entry.kind for entry in found.items) == ["fill", "via"], found.where
+        assert found.layer not in ("F.Cu", "B.Cu")
+        via = next(vias[e.entity_id] for e in found.items if e.entity_id in vias)
+        zone = next(zones[e.entity_id] for e in found.items if e.entity_id in zones)
+        assert via.provenance is not None
+        assert len(records[int(via.provenance.locator.split("#")[1])].raw) == 335
+        centre = Thick((via.position,), 2)
+        reach = min(
+            thick_gap_floor(centre, Thick(_clean_ring(fill.polygon), 0, filled=True))
+            for fill in zone.fills
+            if fill.layer == found.layer
+        )
+        # the generic rule of the check is lowered by the slack of the unit; the document's value is above
+        assert abs(reach + 1 - (via.drill // 2 + generic)) <= 12, (found.where, reach)
+        touched.add(via.id)
+    assert len(touched) == 7

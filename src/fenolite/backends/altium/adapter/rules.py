@@ -5,7 +5,9 @@ altium-import, "Rules where they map"; change c0043).
 
 The adapter holds no rule table: ``read.rules.map_rules`` decides what maps. The adapter keeps each mapped
 rule and replaces its header: the id and native id of the import's tables, the provenance, and a bag with
-``rule_kind``, ``scope1`` and ``scope2``. Unmapped rules are counted per rule kind.
+``rule_kind``, ``scope1`` and ``scope2``, and the pairs the mapper added beside the record text (the cell
+of a cell rule, the entries of a matrix that no rule holds; change c0130). Unmapped rules are counted per
+rule kind.
 """
 
 # evidence: see import_evidence
@@ -18,12 +20,25 @@ from collections.abc import Sequence
 
 from fenolite.backends.altium.adapter.codes import issue
 from fenolite.backends.altium.adapter.ids import Ids, bag
-from fenolite.backends.altium.read.rules import CopperLayers, Field, RuleMapping, map_rules
+from fenolite.backends.altium.read.rules import (
+    BACKEND,
+    CELL_PAIR,
+    CopperLayers,
+    Field,
+    RuleMapping,
+    map_rules,
+)
 from fenolite.core.errors import Issue
 from fenolite.model.rules import Rule, RuleSet
 
 MAPPER_PER_RULE = "altium.rule.unmapped"
+RECORD_PAIR = "record"
 STORAGE = "Rules6"
+
+
+def _mapper_pairs(rule: Rule) -> tuple[tuple[str, str], ...]:
+    held = rule.ext.get(BACKEND)
+    return tuple((key, str(value)) for key, value in held.payload) if held is not None else ()
 
 
 def _get(fields: Sequence[Field], key: str) -> str:
@@ -46,11 +61,14 @@ def adopt(
     for rule, index in zip(mapping.ruleset.rules, mapping.rule_records, strict=True):
         fields = records[index]
         kind, name = _get(fields, "RULEKIND"), _get(fields, "NAME")
-        ident, native = ids.native("rul", f"rule:{kind}:{name}:{rule.kind}")
+        more = [pair for pair in _mapper_pairs(rule) if pair[0] != RECORD_PAIR]
+        cell = "".join(f":{value}" for key, value in more if key == CELL_PAIR)
+        ident, native = ids.native("rul", f"rule:{kind}:{name}:{rule.kind}{cell}")
         pairs = [
             ("rule_kind", kind),
             ("scope1", _get(fields, "SCOPE1EXPRESSION")),
             ("scope2", _get(fields, "SCOPE2EXPRESSION")),
+            *more,
         ]
         rules.append(
             dataclasses.replace(

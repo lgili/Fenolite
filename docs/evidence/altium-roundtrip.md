@@ -445,6 +445,7 @@ asserts what the stage promises, not that a board is clean.
 | `altium-third-party-pcbdoc-05` | 5, 96, 194, 0, 59 | 1 156 | 0 | 0 | 1, 0 | 0 | 0 | 0 | 232 | `INFERRED` |
 | `altium-third-party-pcbdoc-06` | 11, 106, 111, 3, 42 | 250 | 0 | 0 | 0, 2 | 0 | 10 | 0 | 0 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-07` | 16, 112, 475, 20, 60 | 2 528 | 0 | 0 | 2, 1 | 0 | 0 | 0 | 112 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-08` (heavy) | 128, 2 126, 8 355, 529, 1 770 | 60 253 | 28 | 17 | 2, 3 | 0 | 0 | 0 | 4 628 | `UNVERIFIED` |
 
 - **No pour is judged against a default.** c0122 measured 266 clearance findings on
   `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone.
@@ -461,6 +462,26 @@ asserts what the stage promises, not that a board is clean.
   `-07`; four before c0125), three have no unread Clearance record (`-01`, `-03`, `-05`), and two carry
   `INFERRED` (`-03`, `-05`; one before). c0125 lifts one of the three documents that had no clearance in
   force, not three.
+- **Known false findings on `-08`.** `fenolite check` reports 29 FALSE findings on `altium-third-party-pcbdoc-08` (28 `copper.short` and 1 `copper.clearance`): seven vias have no pad on the four inner layers, the pours of other nets were made around their holes, and the import draws each via's one diameter on every layer of its span, so the pad it invents meets the pour. They are a defect of the import, not of the board; the follow-up change c0132 is to read the fact that makes a via padless on a layer. The row of `-08` above counts them (28 of its shorts, 1 of
+  its 17 clearance findings); no other row holds a finding of this class.
+- **The heavy document `-08` and the cells of a matrix (change c0130; measured on 2026-10-07 with
+  `FENOLITE_HEAVY=1`).** Its row is new: the document was in no copper test before. One of its four
+  Clearance records, for all objects with one cell (via to via, 3.5 mil in a rule of 4 mil), is read as a
+  rule and a cell rule; before, no clearance was in force (26 240 pairs judged, 22 413 of them for shorts
+  only, 33 pours without a clearance). Three records of a higher priority stay unread. `summary.clearance_cells`
+  is 1 judged and 8 unjudged. c0130 lifts this one record of the four matrices of differing clearances;
+  the matrices of `-02` and `-06` tell a through-hole pad from a surface pad, or an arc from a track,
+  which the check cannot, and carry the option that ignores the pads of one footprint: both documents
+  are as before (27 and 8 cells unjudged).
+- **The findings of `-08`.** 16 clearance findings are 8 to 13 nm short of the rule's value (6 track to
+  track, 8 track to via, 1 pad to track, 1 via to via against the cell): the class of `-03` and `-01`
+  below. **28 shorts and one clearance finding of 33.9 µm are a limit of the import, not of the board:** 7
+  vias meet the pour of another net on each of the four inner layers, and a track passes one such via.
+  The pour stands at the via's drill radius plus the generic clearance from its centre (to 4 nm), so it
+  was poured around the hole: the via has no pad there, and the import draws its one diameter on every
+  layer. All 7 have the long form of the via record (335 bytes, 123 of 1 770 vias), whose further bytes
+  no fact explains. Listed for the follow-up change c0132; pinned by
+  `test_known_false_findings_of_padless_vias_c0132`.
 - **What still has no clearance in force.** `-02` holds one Clearance record, a matrix of differing
   clearances (27 entries of 5 values) with the option that ignores the pads of one footprint. `-06` holds
   two: one for a net with a matrix of differing clearances, and one for all objects with that option.
@@ -484,7 +505,7 @@ asserts what the stage promises, not that a board is clean.
   board that was read and none on a plane layer. The column `planes` still counts the plane layers, whose
   own copper no reading holds: one `copper.item-unsupported` at `plane`, level `UNVERIFIED`.
 - **The unit's slack.** With the rule values as the documents write them, 1 447 more clearance findings
-  appear (1 088 before `-03` had a clearance in force), every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
+  appear on the seven documents (1 088 before `-03` had a clearance in force) and 4 628 on `-08`, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
 - **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,
   so the clearance findings of the two readings cannot be compared; `H-A-DRC-SAME` rests on the samples
   built for both targets (`tests/kicad/altium/test_copper_same.py`: equal findings on the routed blink as

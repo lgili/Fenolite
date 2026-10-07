@@ -24,6 +24,7 @@ from fenolite.backends.altium.read.rules import (
     RULE_KIND_MAP,
     map_rules,
     matrix_problem,
+    read_matrix,
 )
 from fenolite.backends.altium.read.scope import parse_layer_scope
 from fenolite.model.rules import Selector
@@ -103,11 +104,20 @@ CLEARANCE = {
     "altium-third-party-pcbdoc-05": (1, 0, {}),
     "altium-third-party-pcbdoc-06": (0, 0, {"keys": 2}),
     "altium-third-party-pcbdoc-07": (2, 0, {"scope": 1}),
-    "altium-third-party-pcbdoc-08": (0, 0, {"keys": 2, "scope": 2}),
+    "altium-third-party-pcbdoc-08": (1, 0, {"scope": 3}),
 }
 """Row → its Clearance records that map, that apply to nothing, and that stay unread by reason (census of
-2026-10-06; before change c0125 the third row had none mapped and three unread)."""
+2026-10-06; before change c0125 the third row had none mapped and three unread; before change c0130 the
+eighth had none mapped, with two matrices and two scopes unread)."""
 CELL = {"CELLROWNAME": "All", "CELLROWTYPE": "0", "CELLCOLNAME": "All", "CELLCOLTYPE": "0"}
+CELLS: dict[str, list[tuple[int, int, int] | None]] = {
+    "altium-third-party-pcbdoc-02": [None],
+    "altium-third-party-pcbdoc-06": [None],
+    "altium-third-party-pcbdoc-08": [(1, 1, 0), (5, 7, 1)],
+}
+"""Row → for each of its Clearance matrices in record order: ``None`` when object kinds of one item kind
+disagree, else the cell rules it gives, the entries a rule holds and the entries none holds (change
+c0130; census of 2026-10-07)."""
 
 
 @pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
@@ -143,13 +153,19 @@ def test_clearance_forms(item: CorpusItem) -> None:
         if matrix.strip():
             # every entry has the form of the page and none holds the generic value: the text lists the
             # cells that differ
-            problem = matrix_problem(matrix, fields["GAP"])
             entries = matrix.split(";")
-            assert f"{len(entries)} of its {len(entries)} entries differ" in problem, (
-                item.id,
-                index,
-                problem,
-            )
+            generic = dict(records[index])["GAP"] or ""
+            assert generic.endswith("mil") and not any(
+                int(entry.rsplit(":", 1)[1]) == round(float(generic[:-3]) * 10_000) for entry in entries
+            ), (item.id, index)
+            # change c0130: the matrix is read, or refused because object kinds of one item kind disagree
+            found = read_matrix(matrix, generic)
+            cells = CELLS[item.id].pop(0)
+            if isinstance(found, str):
+                assert cells is None and "hold more than one value" in found, (item.id, index, found)
+                assert matrix_problem(matrix, generic) == found
+            else:
+                assert cells == (len(found.cells), found.judged, len(found.unjudged)), (item.id, index)
             # the counts are lengths on a grid of 0.5 mil or of 0.05 mm when a count is 0.0001 mil
             for entry in entries:
                 count = int(entry.rsplit(":", 1)[1])

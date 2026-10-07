@@ -59,6 +59,8 @@ EXT_KEYS: tuple[str, ...] = (
     "scope1",
     "scope2",
     "rule_kind",
+    "cell",
+    "cells_not_lifted",
 )
 """The closed table of extension-bag keys, in bag order; each is a row of
 ``docs/formats/altium/import.md``, "Extension-bag keys"."""

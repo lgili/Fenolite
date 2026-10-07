@@ -213,3 +213,64 @@ def test_the_copper_check_counts_what_stays_unread(
     assert rules.opaque_clearance_rules == opaque and rules.unread == ()
     held = [r.name for r in (rules.design.rules.rules if rules.design.rules else ())]
     assert held == (["Clearance_2", "Clearance"] if not opaque else ["Clearance"])
+
+
+# --- Cells of an object matrix (change c0130) ----------------------------------------------------------
+
+
+def test_cell_rules_of_an_import_and_the_clearance_in_force() -> None:
+    """Scenario "Cell rules in the import": the cell rule has an id and a bag of its own and governs its
+    pair of item kinds above the generic rule of the same record."""
+    from fenolite.checks.clearance import ClearanceResolver
+
+    matrix = "ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Track-ClearanceObj_Text:100000"
+    record = rec.rule(
+        "Clearance", "Clearance", GAP="4mil", GENERICCLEARANCE="4mil", OBJECTCLEARANCES=matrix,
+        IGNOREPADTOPADCLEARANCEINFOOTPRINT="FALSE",
+    )  # fmt: skip
+    document = rec.document(nets=("A", "B"), rules=[record])
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    assert design.rules is not None
+    generic, cell = design.rules.rules
+    assert generic.id != cell.id and generic.native_ids != cell.native_ids
+    assert cell.native_ids == {"altium": "rule:Clearance:Clearance:clearance:via-via"}
+    assert dict(cell.ext["altium"].payload)["cell"] == "via-via"
+    assert dict(generic.ext["altium"].payload)["cells_not_lifted"] == (
+        "ClearanceObj_Track-ClearanceObj_Text:100000"
+    )
+    assert "record" not in dict(cell.ext["altium"].payload)
+    resolver = ClearanceResolver(design)
+    first, second = (net.id for net in design.circuit.nets[:2])
+
+    def between(one: str, other: str) -> tuple[int | None, str]:
+        found = resolver.resolve(
+            resolver.subject(one, first, ref=None, layer="F.Cu"),  # type: ignore[arg-type]
+            resolver.subject(other, second, ref=None, layer="F.Cu"),  # type: ignore[arg-type]
+        )
+        return found.value, found.source
+
+    assert between("via", "via") == (88_900, "rule:Clearance/via-via")
+    assert between("via", "track") == (101_600, "rule:Clearance")
+    assert between("arc", "pad") == (101_600, "rule:Clearance")
+
+
+def test_the_copper_check_counts_the_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    from fenolite.backends.altium.read import pcb
+
+    lifted = rec.rule(
+        "Clearance", "Clearance", GAP="4mil", GENERICCLEARANCE="4mil", PRIORITY="2",
+        OBJECTCLEARANCES="ClearanceObj_Via-ClearanceObj_Via:35000;ClearanceObj_Via-ClearanceObj_Hole:0",
+    )  # fmt: skip
+    mixed = rec.rule(
+        "Clearance", "Pads", GAP="4mil", GENERICCLEARANCE="4mil",
+        OBJECTCLEARANCES="ClearanceObj_Track-ClearanceObj_THPad:157480",
+    )  # fmt: skip
+    document = rec.document(rules=[mixed, lifted])
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    rules = AltiumBackend().rules_from_bytes(design, b"document", file="a.PcbDoc")
+    assert rules.clearance_cells == (1, 2) and rules.opaque_clearance_rules == 1
+    assert [r.name for r in (rules.design.rules.rules if rules.design.rules else ())] == [
+        "Clearance",
+        "Clearance/via-via",
+    ]

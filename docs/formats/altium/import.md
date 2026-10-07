@@ -127,6 +127,8 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `scope1` | rule | `SCOPE1EXPRESSION` |
 | `scope2` | rule | `SCOPE2EXPRESSION` |
 | `rule_kind` | rule | `RULEKIND` |
+| `cell` | rule | the pair of item kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130) |
+| `cells_not_lifted` | rule | on the rule of a Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (an object kind the copper check holds no item of; change c0130) |
 
 ## The copper check and the parity comparison
 
