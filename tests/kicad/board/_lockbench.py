@@ -171,9 +171,9 @@ def load_outcome() -> str:
 
 
 def lock_probes() -> Probes:
-    """The lock probes. ``pcb-lock-load`` is pinned for the major whose results file was written with it;
-    the test file runs it on every major."""
-    return {"pcb-lock-form": (form_outcome, (10,)), "pcb-lock-load": (load_outcome, (10,))}
+    """The lock probes. ``pcb-lock-form`` needs ``pcb upgrade``, which 9.0 lacks; ``pcb-lock-load`` writes
+    the bench for the running major and is pinned on both."""
+    return {"pcb-lock-form": (form_outcome, (10,)), "pcb-lock-load": (load_outcome, (9, 10))}
 
 
 __all__ = [

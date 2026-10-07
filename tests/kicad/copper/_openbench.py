@@ -294,9 +294,10 @@ def parity_outcome() -> str:
 
 
 def open_probes() -> Probes:
-    """The probes of the open connections. They are pinned for the major whose results file was written
-    with them; the test file runs both halves on every major."""
-    return {"copper-open-kicad": (kicad_outcome, (10,)), "copper-open-parity": (parity_outcome, (10,))}
+    """The probes of the open connections: the bench is written for the running major, and both are
+    pinned on both majors."""
+    both = (9, 10)
+    return {"copper-open-kicad": (kicad_outcome, both), "copper-open-parity": (parity_outcome, both)}
 
 
 __all__ = [
