@@ -125,6 +125,8 @@ REGISTERED_BY_C0038 = frozenset(
     }
 )
 """The author-report rows of the PCB copper (change c0038); its two oracle rows are in ``ORACLE_ROWS``."""
+REGISTERED_BY_C0108 = frozenset({"H-A-PCB-CU-LOCK"})
+"""The lock bit of a free track, arc and via (change c0108): an author-report row, pending."""
 REGISTERED_BY_C0048 = frozenset(
     {
         "H-A-ECO-NETCLASS",
@@ -284,7 +286,8 @@ def test_the_change_registered_its_rows() -> None:
     assert ORACLE_THEN_REPORT <= set(rows)
     assert all("test_pcbdoc_oracle.py" in rows[i].test for i in ORACLE_THEN_REPORT)
     copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
-    assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"}
+    assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"} | REGISTERED_BY_C0108
+    assert all(rows[i].test.startswith("kit request") for i in REGISTERED_BY_C0108)
     assert {i for i in rows if i.startswith("H-A-ECO-")} == REGISTERED_BY_C0048
     reader = {i for i in rows if i.startswith(READER_STEM)}
     assert REGISTERED_BY_C0041 <= reader

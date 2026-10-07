@@ -179,6 +179,21 @@ limits of its row.
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
 
+## Locked flag of a free primitive
+
+Change c0108 writes the lock of a free track, a free arc and a via. Each row below is the write-side
+fact of one record kind: `pcbrecords.LOCK_WRITTEN` holds a kind only while its row is here, and a test
+compares the two. The rows restate, per kind, what the read side already records from the same source
+(`pcb-records.md`, the row of the two flag bytes; `pcb-read.md`, the row `Prefix.locked`; the rows of the
+track and via flags above). Altium Designer's own view of a written lock is step X12 of
+`docs/evidence/altium-pcb.md`, which has not been run.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The locked flag of a free track: byte 1 of the record's 13-byte prefix (the first flag byte), bit 2. Set, the track is unlocked; clear, it is locked. A locked track is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
+| The locked flag of a free arc: the arc record starts with the same 13-byte prefix as a track, and bit 2 of its first flag byte has the same meaning. A locked arc is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
+| The locked flag of a via: the via's subrecord starts with the prefix on layer 74, and bit 2 of its first flag byte, clear, locks it; bits 5 and 6 of that byte (tenting) are not touched. A locked via is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
+
 ## Oracle
 
 | fact | source | label | hypothesis |
@@ -220,11 +235,13 @@ limits of its row.
   written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
   any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
   `stackup`.
-- **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, after the component
+- **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked
+  track or arc of the model (change c0108, "Locked flag of a free primitive"), after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width
   and entity id. Points are converted like placed points (`pcb-document.md`, frame).
 - **Vias.** The 321-byte form with the values of the "Via" table and zero in every other byte, the two
-  ids included; flags `0C 00` (not tented); start 1 and end 32 for a through via, the ids of the two
+  ids included; flags `0C 00` (not tented), or `08 00` for a locked via of the model (change c0108);
+  start 1 and end 32 for a through via, the ids of the two
   layers of its span, the upper one first, for a blind or buried via (change c0085); sorted by net name,
   position, diameter and entity id. The board record gets one drill pair per distinct span besides
   `TOP` to `BOTTOM`, in stack order of the upper and then of the lower layer. A micro via is not written.

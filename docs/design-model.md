@@ -178,6 +178,7 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 |---|---|
 | `FootprintInstance.attributes` | ordered footprint flags: `smd`, `through_hole`, `board_only`, `exclude_from_pos_files`, `exclude_from_bom`, `dnp`, `allow_missing_courtyard`, `allow_soldermask_bridges` |
 | `Via.via_type` | `through` (default), `blind`, `buried` or `micro` |
+| `Track.locked`, `Arc.locked`, `Via.locked` | the copper lock (change c0108): tools must not move or remove the item. `fenolite route --rip` keeps it, the KiCad backend reads and writes it as `(locked yes)`, and an Altium build writes it as the lock bit of the record. `False` by default, and the key is written only when true, so a design without locked copper serialises to the bytes it had. Releases 0.2.x and 0.3.x cannot read a model document that carries the key `locked` on a track, an arc or a via: their reader refuses an unknown key |
 | `ZoneFill.island` | the fill is an island; a zone may have several fills per layer, in file order |
 | `Zone.name` | the zone's name, `""` when it has none |
 | `Zone.settings` | how the zone is filled (section "Zone settings") |

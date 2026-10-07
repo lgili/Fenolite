@@ -126,6 +126,7 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
         "neighbors": ("neighbors", None),
         "net": ("nets|net.pads", None),
         "region": ("items", None),
+        "route": ("open", None),
     }
     assert {name for name, command in discover().items() if command.paged} == set(paged)
 

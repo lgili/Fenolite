@@ -77,9 +77,9 @@ RT_A2_SCOPE = ModelScope(
             "netclass": ("name",),
             "footprint": ("position", "rotation", "side"),
             "pad": ("number", "net_id", "position", "size"),
-            "track": ("start", "end", "width", "layer", "net_id"),
-            "arc": ("start", "mid", "end", "width", "layer", "net_id"),
-            "via": ("position", "diameter", "drill", "net_id"),
+            "track": ("start", "end", "width", "layer", "net_id", "locked"),
+            "arc": ("start", "mid", "end", "width", "layer", "net_id", "locked"),
+            "via": ("position", "diameter", "drill", "net_id", "locked"),
             "zone": ("outline", "layers", "net_id"),
         }
     ),

@@ -168,6 +168,28 @@ def test_track_length_of_a_net() -> None:
     assert view.netclass == "Power"
 
 
+def test_net_views_hold_the_open_connections() -> None:
+    """Change c0108, "Open connections in the net command": ``islands`` and ``open`` per row, and the
+    connections of one net. The pad of ``N`` lies 0.5 mm from the first track's end and touches nothing;
+    the ``B.Cu`` track is far from the via."""
+    from fenolite.analysis.connectivity import connectivity
+
+    design, _ = _net_design()
+    pads = _pad_records(design)
+    rows = {row.name: row for row in net_list(design, pads=pads)}
+    assert (rows["N"].islands, rows["N"].open) == (3, 2)
+    assert (rows["A"].islands, rows["A"].open) == (0, 0)
+    view = net_view(design, "N", pads=pads)
+    assert (view.islands, view.fill_islands, len(view.open)) == (3, 0, 2)
+    assert [link.length for link in view.open] == [500_000, 6_708_204]
+    assert {view.open[0].a.kind, view.open[0].b.kind} == {"pad", "track"}
+    report = connectivity(design, pads=pads)
+    assert net_view(design, "N", pads=pads, report=report) == view
+    assert net_list(design, report=report) == net_list(design, pads=pads)
+    # without pad records the pad takes no part: two islands of tracks
+    assert {row.name: row.islands for row in net_list(design)} == {"A": 0, "N": 2}
+
+
 def test_net_without_copper_and_unknown_net() -> None:
     design, _ = _net_design()
     empty = net_view(design, "A", pads=_pad_records(design))

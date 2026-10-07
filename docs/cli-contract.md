@@ -571,21 +571,29 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o FILE]` routes selected nets. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--rip` removes unlocked copper on selected nets. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
-`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `tracks`, `vias`, `ripped`, `fills_stale` and up to 20 sanitised `log` lines. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking.
+- **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
+- **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
+- **Verdict.** `routed` and `unrouted` are the selected nets without and with an open connection after the merge, whatever the router listed.
+- **Write.** The board is planned when the command added a track, an arc or a via, no issue is an error, and the text changed or `--out` is given. Copper of nets that stay open is written too.
+- **`--require-complete`.** A selected net still open adds `route.incomplete`, plans no write and exits 5.
+
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale` and up to 20 sanitised `log` lines. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 
 | code | severity | when |
 |---|---|---|
 | `route.bad-item` | error | a router returned malformed copper |
 | `route.copper-removed` | warning | the router dropped existing copper |
 | `route.fill-stale` | info | changed copper invalidated filled zones |
+| `route.incomplete` | error | with `--require-complete`, a selected net still has an open connection after the merge: the number of open nets and the first five; nothing is written |
 | `route.option-ignored` | warning | a `--router-option` the router does not support was ignored |
+| `route.partial` | info | the router returned copper for a net that stays open; the copper is kept and written, and the message gives the number of items |
 | `route.project-unread` | warning | the project file beside the board could not be read, so every net takes the default class values |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |
-| `route.unrouted` | warning | a selected net remains unrouted, or the router reports open connections: a net with copper is still listed under `unrouted` when the router says it left one of its connections open |
+| `route.unrouted` | warning | a selected net still has an open connection after the merge: the message gives the number of open connections and the shortest one, and says so when the router listed the net as routed |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes; the board needs a closed outline. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` (warning), `specctra.rounded`, `specctra.renamed` and `specctra.unknown-list` (info). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
@@ -1647,19 +1655,30 @@ result. `--format detailed` is the default and changes nothing.
 ## net
 
 `fenolite net PATH [NAME]` describes the nets of a board from the board model; `PATH` is a board, a
-project file or a project folder. It runs no tool. It says what a net holds, never whether it is
-connected: missing connections are KiCad's `unconnected_items` (`fenolite check`).
+project file or a project folder. It runs no tool. It says what a net holds and which of its connections
+are open.
 
 - Without `NAME`, `result.nets` holds one row per net, sorted by name: `name`, `class`, `pads`, `tracks`
-  (tracks and arcs), `vias`, `zones` and `length`, the summed centre-line length of its tracks and arcs.
+  (tracks and arcs), `vias`, `zones`, `length`, the summed centre-line length of its tracks and arcs,
+  `islands`, the number of its copper islands, and `open`, the number of its open connections.
 - With `NAME`, `result.net` holds `name`, `class`, `pads` (each `where` as `REF-PIN`, `layers`,
   `position`), `copper` (per layer: `tracks`, `arcs`, `length`), `vias` (`position`, `layers`,
-  `diameter`, `drill`), `zones` (`name`, `layers`, `filled`) and `box`, the bounding box of its pads and
-  copper (`{x0, y0, x1, y1}`, or `null`).
+  `diameter`, `drill`), `zones` (`name`, `layers`, `filled`), `box`, the bounding box of its pads and
+  copper (`{x0, y0, x1, y1}`, or `null`), `islands`, `fill_islands` (islands of zone fill alone, which
+  join nothing) and `open`, the list of its open connections: each with `a` and `b` (`kind`, `where`,
+  `position`, `layers`) and `length`.
+- **Open connections are computed from the board**, not by KiCad (`docs/analyses.md`, "Open
+  connections"): copper that touches on a layer is joined, and `open` is the shortest set of connections
+  between the islands that hold a pad, a track, an arc or a via. A net of one pad has `islands` 1 and
+  `open` 0. The limits of the query apply: a copper drawing that holds a net is not copper of that net in
+  the model, so such a net can read open where KiCad reads it closed; the two ends of a connection are
+  Fenolite's choice and may differ from the items KiCad names; fills are judged as stored. `fenolite
+  check` stays the gate, with KiCad's DRC.
 
 Every length is integer nanometres, in the frame of the board file. An unknown net exits 2 with
-`FEN-2001`, and the hint names the closest net names. The evidence is the lowest of the board reader
-and of the board frame.
+`FEN-2001`, and the hint names the closest net names. The evidence is the lowest of the board reader,
+of the board frame and of the open-connections query (`H-K-CONN-PARITY`); an item that the query could
+not shape gives `analysis.item-unsupported`.
 
 ## netlist
 

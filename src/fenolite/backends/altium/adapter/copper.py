@@ -166,6 +166,7 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
                     width=width,
                     layer=layer,
                     net_id=net_id,
+                    locked=item.prefix.locked,
                 )
             )
         else:
@@ -270,6 +271,7 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
                         width=width,
                         layer=layer,
                         net_id=net_id,
+                        locked=item.prefix.locked,
                     )
                 )
             else:
@@ -348,6 +350,7 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
                 layers=names,
                 net_id=net_id,
                 via_type=via_type,
+                locked=item.prefix.locked,
             )
         )
         ctx.census.map("vias")

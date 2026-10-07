@@ -2097,9 +2097,19 @@ meaning = "The new copper makes the filled zones out of date."
 fix = "Run 'fenolite fill' on the board."
 see = "route"
 
+["route.incomplete"]
+meaning = "With --require-complete, a selected net still has an open connection after the run, so nothing was written."
+fix = "Read result.open, then run route again without --require-complete to keep the partial copper, or free some space first."
+see = "route"
+
 ["route.option-ignored"]
 meaning = "A --router-option that this router does not support was ignored."
 fix = "Remove the option, or use the router that takes it."
+see = "route"
+
+["route.partial"]
+meaning = "The router returned copper for a net that stays open; the copper is kept and written."
+fix = "Run route again: the net is selected again and completed from this copper. Pass --rip with --nets to start that net again."
 see = "route"
 
 ["route.tool-failed"]

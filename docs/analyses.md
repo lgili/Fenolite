@@ -106,6 +106,46 @@ Worked examples, both authored for Fenolite:
   the edge. The path runs 1.75 mm to the edge, 1.6 mm down the wall and 1.75 mm back: 5.1 mm, which is
   also the clearance across the edge.
 
+## Open connections
+
+`fenolite.analysis.connectivity.connectivity(design, *, pads, nets=None)` says, per net, which copper
+islands it has and which connections are still open. `fenolite route` selects nets by it and takes its
+verdict from it, and `fenolite net` shows it (`islands`, `open`). It reads the board model and runs no
+tool; `pads` are the board-frame pad records of the backend, as for every analysis.
+
+- **Copper joins where it touches.** Two shapes of a net on one copper layer are joined when they share
+  a point: crossing tracks, a track that runs across a pad, two tracks side by side that overlap, an end
+  cap that overlaps another track. The shapes of one via, and of one pad, are one item across their
+  layers. The shapes are those of the copper check, and the test is exact on integers. Every stored fill
+  polygon is an item of its own, so two islands of one zone stay apart.
+- **What counts as an island.** An island counts when it holds a pad, a track, an arc or a via. A
+  floating track and a lone via are islands; an island of zone fill alone is not: it is counted in
+  `fill_islands` and joins nothing.
+- **Open connections.** A net with `n` counted islands has `n − 1` open connections: the shortest tree
+  that would join the islands, each connection between the nearest **anchors** of two islands. Anchors
+  are a pad's position, the two ends of a track or an arc, and a via's position; fills have none. Each
+  connection holds its two ends (`kind`, `where`, `position`, `layers`) and `length`, the straight
+  distance in nanometres. A missing via shows as two tracks 0 nm apart on two layers. The result does not
+  depend on the order of the board's items.
+- **A net of one pad** has one island and nothing open; so has each net `unconnected-(…)` that a built
+  board holds for a pin on no net.
+
+**Where it differs from KiCad.** The number of open connections per net is the number of
+`unconnected_items` that `kicad-cli pcb drc` reports for that net (`H-K-CONN-PARITY`): on 19 bench cases
+and on the readable corpus boards (`docs/evidence/routing.md`, "Open connections"). Three things differ:
+
+- A **copper drawing that holds a net** (a filled rectangle on a copper layer with a `net`) is copper of
+  that net for KiCad and not for the model, which keeps the drawing's net as an opaque child. Such a net
+  can read open here and closed in KiCad. One corpus board does.
+- **The two ends** of a connection are Fenolite's rule. KiCad may name other items for the same
+  connection, a zone among them.
+- An **arc** is a polyline within 1 µm, a pad that its backend approximates is a superset, and **fills**
+  are judged as stored: a board whose zones were not refilled is judged on the old fill.
+
+`fenolite check` stays the gate, with KiCad's DRC. KiCad's report stops at 499 unconnected items; this
+query has no cap. An item that cannot be shaped is counted per net in `unsupported`, gives one
+`analysis.item-unsupported` warning per kind, and lowers the reply to `UNVERIFIED`.
+
 ## Measures and judging
 
 A distance is an interval `low ≤ d ≤ high` in nanometres, with the layer, the points of the path and the

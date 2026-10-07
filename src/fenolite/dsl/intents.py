@@ -79,6 +79,7 @@ class TrackIntent:
     layer: str = "F.Cu"
     width: Nm | None = None
     net: str | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +93,7 @@ class ViaIntent:
     drill: Nm | None = None
     kind: str = "through"
     layers: tuple[str, str] | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +108,7 @@ class StitchIntent:
     drill: Nm | None = None
     clearance: Nm | None = None
     margin: Nm = 0
+    locked: bool = False
 
 
 CopperIntent = TrackIntent | ViaIntent | StitchIntent
@@ -124,6 +127,7 @@ class _Track:
     layer: str
     width: Nm | None
     net: Net | None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +139,7 @@ class _Via:
     drill: Nm | None
     kind: str = "through"
     layers: tuple[str, str] | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +154,7 @@ class _Stitch:
     drill: Nm | None
     clearance: Nm | None
     margin: Nm
+    locked: bool = False
 
 
 Recorded = _Track | _Via | _Stitch
@@ -248,8 +254,21 @@ def _same_place(a: _Recorded, b: _Recorded) -> bool:
     return _place(a) == _place(b)
 
 
+def _locked(value: object, what: str) -> bool:
+    """``locked`` of a copper intent: a ``bool``, nothing else."""
+    if not isinstance(value, bool):
+        raise DslError(f"{what}: locked must be True or False, not {value!r}")
+    return value
+
+
 def record_track(
-    design: Design, key: object, path: Sequence[object], layer: object, width: object, net: object
+    design: Design,
+    key: object,
+    path: Sequence[object],
+    layer: object,
+    width: object,
+    net: object,
+    locked: object = False,
 ) -> None:
     name = check_key(design, key)
     what = f"track {name}"
@@ -281,6 +300,7 @@ def record_track(
         _layer(layer, f"{what}: layer"),
         _size(width, f"{what}: width"),
         _net(net, what, required=False),
+        _locked(locked, what),
     )
 
 
@@ -310,6 +330,7 @@ def record_via(
     drill: object,
     kind: object = "through",
     layers: object = None,
+    locked: object = False,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
@@ -324,6 +345,7 @@ def record_via(
         _size(drill, f"{what}: drill"),
         via_kind,
         _via_layers(layers, via_kind, what),
+        _locked(locked, what),
     )
 
 
@@ -340,6 +362,7 @@ def record_stitch(
     drill: object,
     clearance: object,
     margin: object,
+    locked: object = False,
 ) -> None:
     name = check_key(design, key)
     what = f"stitch {name}"
@@ -373,6 +396,7 @@ def record_stitch(
         _size(drill, f"{what}: drill"),
         free,
         gap,
+        _locked(locked, what),
     )
 
 
@@ -400,10 +424,14 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
         if isinstance(item, _Track):
             net = None if item.net is None else _net_name(design, item.net, key)
             path = tuple(_end(design, element, key) for element in item.path)
-            found.append(TrackIntent(key, path, item.layer, item.width, net))
+            found.append(TrackIntent(key, path, item.layer, item.width, net, item.locked))
         elif isinstance(item, _Via):
             net_name = _net_name(design, item.net, key)
-            found.append(ViaIntent(key, item.at, net_name, item.diameter, item.drill, item.kind, item.layers))
+            found.append(
+                ViaIntent(
+                    key, item.at, net_name, item.diameter, item.drill, item.kind, item.layers, item.locked
+                )
+            )
         else:
             found.append(
                 StitchIntent(
@@ -417,6 +445,7 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
                     item.drill,
                     item.clearance,
                     item.margin,
+                    item.locked,
                 )
             )
     return tuple(found)

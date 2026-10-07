@@ -48,10 +48,12 @@ import _layertables
 import _lenscases
 import _libtables
 import _limitsbench
+import _lockbench
 import _mincases
 import _netcases
 import _netlistcases
 import _offsetbench
+import _openbench
 import _paircases
 import _paritycases
 import _pcbxcases
@@ -257,6 +259,8 @@ def _probes() -> dict[str, Probe]:
         **_arccases.arc_probes(),
         **_kindcases.kind_probes(),
         **_paircases.pair_probes(),
+        **_openbench.open_probes(),
+        **_lockbench.lock_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

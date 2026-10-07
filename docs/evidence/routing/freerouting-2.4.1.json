@@ -10,6 +10,14 @@
       "detail": "1 track(s)",
       "value": "present"
     },
+    "dsn-partial": {
+      "detail": "kicad-cli 10.0.6: 5 nets that hold copper, 6 open connection(s) before and 0 after by the query, 1 unconnected item(s) by KiCad on the whole bench (1 on the net TEE), earlier copper kept: True; fenolite route selected 6 net(s), 10 track(s), 0 via(s); jar 251101c3eeac",
+      "value": "equal"
+    },
+    "dsn-partial-tee": {
+      "detail": "a pad nearest to the middle of one protected track: 1 open connection(s) after the run by the query, listed in result.unrouted: True",
+      "value": "different"
+    },
     "dsn-protect": {
       "detail": "1 session wire(s) on the protected net, 0 item(s) that differ from the input",
       "value": "equal"

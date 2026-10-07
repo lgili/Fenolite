@@ -51,6 +51,7 @@ from fenolite.geometry.thick import (
     thick_touch,
     thick_witness,
 )
+from fenolite.geometry.touch import touch_groups
 from fenolite.geometry.transform import FULL_TURN, TRIG_BITS, Transform, cos_sin_fixed, rotate_point
 from fenolite.geometry.vector import Point, Size, Vec, add, cross, dot, neg, norm2, sub
 
@@ -113,4 +114,5 @@ __all__ = [
     "thick_gap_floor",
     "thick_touch",
     "thick_witness",
+    "touch_groups",
 ]

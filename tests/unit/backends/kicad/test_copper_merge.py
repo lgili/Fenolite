@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from _copper import arc, at, built_blink, end, routed_intents, track, via
+from _copper import arc, at, built_blink, end, routed_intents, stitch, track, via
 
 from fenolite.backends.kicad.copper import CopperMerge, copper_uuid, merge_copper, resolve_copper
 from fenolite.core.coords import Point
@@ -250,3 +250,72 @@ def test_created_items_follow_the_kept_ones_in_path_order() -> None:
         copper_uuid("two", "arc[2]"),
         copper_uuid("bend", "arc[1]"),
     ]
+
+
+# --- locks (change c0108; capability manual-copper, "Locked script copper") -------------------------
+
+
+def _locked(intent: object) -> object:
+    return dataclasses.replace(intent, locked=True)  # type: ignore[type-var]
+
+
+def test_locked_track_is_written_locked() -> None:
+    """Scenario "Locked track written": every item of a locked intent is locked, in the model and in the
+    text, after ``width``."""
+    from fenolite.backends.kicad.pcb import write_board
+
+    resolved, found = _resolve(built_blink(), _locked(A), B, _locked(via("v", at(20, 20))))
+    assert not [i for i in found if i.severity == "error"]
+    assert resolved.board is not None
+    by_key = {copper_uuid("a", "seg[0]"), copper_uuid("a", "seg[1]")}
+    for item in _tracks(resolved):
+        assert item.locked is (item.native_ids["kicad"] in by_key)
+    assert [v.locked for v in resolved.board.vias] == [True]
+    text = write_board(resolved, target=10).text
+    blocks = [part.split("\n\t)\n")[0] for part in text.split("\n\t(segment\n")[1:]]
+    assert sum("(locked yes)" in block for block in blocks) == 2
+    assert "(locked yes)" in text.split("\n\t(via\n")[1]
+    for native in by_key:
+        block = text[: text.index(native)].rsplit("(segment", 1)[1]
+        assert block.index("(width") < block.index("(locked yes)") < block.index("(layer")
+    # an intent without the attribute is read as unlocked
+    plain, _ = _resolve(built_blink(), A, B)
+    assert not any(item.locked for item in _tracks(plain))
+    plain_text = write_board(plain, target=10).text
+    assert not any("(locked" in part.split("\n\t)\n")[0] for part in plain_text.split("\n\t(segment\n")[1:])
+
+
+def test_locked_stitch_and_bend_are_locked() -> None:
+    resolved, _ = _resolve(built_blink(), _locked(BEND), _locked(stitch("st", along=(at(5, 5), at(15, 5)))))
+    assert resolved.board is not None
+    assert _arcs(resolved) and all(a.locked for a in _arcs(resolved))
+    assert resolved.board.vias and all(v.locked for v in resolved.board.vias)
+    assert all(t.locked for t in _tracks(resolved))
+
+
+def test_lock_changed_in_kicad_is_regenerated() -> None:
+    """Scenario "A lock changed in KiCad is regenerated"."""
+    resolved, _ = _resolve(built_blink(), A)
+    first, second = _tracks(resolved)
+    assert first.native_ids["kicad"] == copper_uuid("a", "seg[0]")
+    edited = _board(resolved, tracks=(dataclasses.replace(first, locked=True), second))
+    again, found = _resolve(edited, A)
+    assert again == resolved and not _tracks(again)[0].locked
+    (issue,) = found
+    assert (issue.code, issue.severity) == ("kicad.copper.regenerated", "info")
+    assert first.native_ids["kicad"] in issue.message
+    # the other way: a locked intent whose copper was unlocked in KiCad is locked again
+    locked, _ = _resolve(built_blink(), _locked(A))
+    one, two = _tracks(locked)
+    back, found = _resolve(_board(locked, tracks=(dataclasses.replace(one, locked=False), two)), _locked(A))
+    assert back == locked and [i.code for i in found] == ["kicad.copper.regenerated"]
+
+
+def test_locked_copy_is_a_duplicate() -> None:
+    """Scenario "A locked copy is a duplicate": the lock is not part of what makes two items the same."""
+    resolved, _ = _resolve(built_blink(), A)
+    script = _tracks(resolved)[0]
+    copy = _user(script, 1, locked=True)
+    again, found = _resolve(_board(resolved, tracks=(copy, *_tracks(resolved))), A)
+    assert [i.code for i in found] == ["kicad.copper.duplicate"]
+    assert again == resolved

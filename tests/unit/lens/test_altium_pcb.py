@@ -404,6 +404,7 @@ NO_COPPER = {
     "arcs": 0,
     "vias": 0,
     "zones": 0,
+    "locked": {"tracks": 0, "arcs": 0, "vias": 0},
     "net_classes": 1,
     "placements_from_board": 0,
 }
@@ -652,6 +653,7 @@ def test_zone_of_the_routed_model_becomes_two_unpoured_polygons(tmp_path: Path) 
         "arcs": 1,
         "vias": 3,
         "zones": 2,
+        "locked": {"tracks": 0, "arcs": 0, "vias": 0},
         "placements_from_board": 0,
     }
     (info,) = [i for i in output.issues if i.code == "altium.zones-unpoured"]

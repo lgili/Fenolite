@@ -359,3 +359,85 @@ def test_via_record_fixed_bytes() -> None:
 def test_via_without_a_net() -> None:
     body = pcbrecords.via_record(1, 2, 3, 1)[5:]
     assert struct.unpack_from("<H", body, 3) == (NO_INDEX,)
+
+
+# --- locked copper (change c0108; "PCB units and record framing", "Via records", "Locked copper records")
+
+LOCK_PAGE = ALTIUM.parents[3] / "docs" / "formats" / "altium" / "pcb-copper.md"
+LOCK_KINDS = ("track", "arc", "via")
+
+
+def _lock_rows() -> dict[str, list[str]]:
+    """Record kind → the cells of its row "The locked flag of a free <kind>" (a via: "of a via")."""
+    found: dict[str, list[str]] = {}
+    for line in LOCK_PAGE.read_text(encoding="utf-8").splitlines():
+        for kind in LOCK_KINDS:
+            if line.startswith((f"| The locked flag of a free {kind}:", f"| The locked flag of a {kind}:")):
+                found[kind] = [cell.strip() for cell in line.strip().strip("|").split("|")]
+    return found
+
+
+def _differing(a: bytes, b: bytes) -> list[int]:
+    assert len(a) == len(b)
+    return [index for index, (x, y) in enumerate(zip(a, b, strict=True)) if x != y]
+
+
+def test_flag_bytes_of_a_locked_track() -> None:
+    """Scenario "Flag bytes of a locked track": one byte differs, ``0C`` against ``08``."""
+    assert "track" in pcbrecords.LOCK_WRITTEN
+    free = track_record(1, (1, 2), (3, 4), 5, net=2)
+    assert track_record(1, (1, 2), (3, 4), 5, net=2, locked=False) == free
+    locked = track_record(1, (1, 2), (3, 4), 5, net=2, locked=True)
+    (index,) = _differing(free, locked)
+    assert index == 5 + 1 and (free[index], locked[index]) == (0x0C, 0x08)  # the first flag byte
+    assert prefix(1)[1:3] == b"\x0c\x00" and prefix(1, locked=True)[1:3] == b"\x08\x00"
+    assert pcbrecords.LOCKED_FLAGS == (0x08, 0x00)
+
+
+def test_flag_bytes_of_a_locked_arc() -> None:
+    arc = circle_geometry(Point(0, 0), Point(1_500_000, 0))
+    free, locked = arc_record(1, arc, 100, net=1), arc_record(1, arc, 100, net=1, locked=True)
+    (index,) = _differing(free, locked)
+    assert index == 5 + 1 and (free[index], locked[index]) == (0x0C, 0x08)
+
+
+def test_locked_via_bytes() -> None:
+    """Scenario "Locked via bytes"."""
+    free = pcbrecords.via_record(393701, 393701, 236220, 118110, net=2)
+    locked = pcbrecords.via_record(393701, 393701, 236220, 118110, net=2, locked=True)
+    assert locked[5:10] == bytes.fromhex("4A08000200") and free[5:10] == bytes.fromhex("4A0C000200")
+    assert _differing(free, locked) == [6]
+
+
+def test_locked_record_of_a_kind_outside_the_set_is_the_unlocked_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A kind without its fact row is written unlocked whatever ``locked`` is; the build reports it."""
+    arc = circle_geometry(Point(0, 0), Point(1_500_000, 0))
+    monkeypatch.setattr(pcbrecords, "LOCK_WRITTEN", frozenset({"track"}))
+    assert arc_record(1, arc, 100, locked=True) == arc_record(1, arc, 100)
+    assert pcbrecords.via_record(1, 2, 30, 10, locked=True) == pcbrecords.via_record(1, 2, 30, 10)
+    assert track_record(1, (1, 2), (3, 4), 5, locked=True) != track_record(1, (1, 2), (3, 4), 5)
+    monkeypatch.setattr(pcbrecords, "LOCK_WRITTEN", frozenset())
+    assert track_record(1, (1, 2), (3, 4), 5, locked=True) == track_record(1, (1, 2), (3, 4), 5)
+
+
+def test_lock_written_follows_the_page() -> None:
+    """Scenario "The set follows the page": a kind is in ``LOCK_WRITTEN`` only with its row, and the row
+    names a registered source, a label and the hypothesis."""
+    rows = _lock_rows()
+    assert pcbrecords.LOCK_WRITTEN <= frozenset(LOCK_KINDS)
+    assert set(rows) == set(pcbrecords.LOCK_WRITTEN)
+    sources = (ALTIUM.parents[3] / "docs" / "evidence" / "sources.md").read_text(encoding="utf-8")
+    for kind, cells in rows.items():
+        fact, source, label, hypothesis = cells
+        assert "bit 2" in fact and "`08 00`" in fact and "`0C 00`" in fact, kind
+        ids = [word.strip(",") for word in source.split() if word.startswith("S-")]
+        assert ids and all(f"| {ident} |" in sources for ident in ids), kind
+        assert label == "INFERRED" and hypothesis == "H-A-PCB-CU-LOCK", kind
+
+
+def test_pads_and_other_primitives_stay_unlocked() -> None:
+    """Component primitives, pads, fills, regions and texts keep the flag bytes ``0C 00``."""
+    assert pcbrecords.FLAGS == (0x0C, 0x00)
+    assert track_record(33, (1, 2), (3, 4), 5, component=0)[6:8] == b"\x0c\x00"

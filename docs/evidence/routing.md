@@ -96,3 +96,74 @@ The loop `build` → `place` → `route --router freerouting` → rebuild → `f
 
 The runs with the jar say nothing about the network: `-da` was passed. The run without a network
 (`H-G-DSN-OFFLINE`) is the container run recorded above.
+
+## Open connections (c0108)
+
+`fenolite route` selects the nets that still have open connections and takes its verdict from the board
+after the merge. The count per net comes from `analysis.connectivity`; this section records how it
+compares with KiCad's `unconnected_items` (`H-K-CONN-PARITY`).
+
+### The bench
+
+`tests/kicad/copper/_openbench.py`: 19 cases, one net each. Recorded on 2026-10-07 with the local
+`kicad-cli` 10.0.6 (macOS), through `tests/kicad/copper/test_open_parity.py`:
+
+| probe | 10.0.6 | 9.0.9 |
+|---|---|---|
+| `copper-open-kicad` (KiCad's count per case against the table of the bench) | `equal` | not run by the committed test (CI, pinned image) |
+| `copper-open-parity` (KiCad's count per case against the query's) | `equal` | not run by the committed test (CI, pinned image) |
+
+When the change was proposed (2026-10-05) the same 19 cases were measured on 9.0.9 under the pinned image
+with a script that is not committed, and gave the same counts.
+
+### The census
+
+`tests/corpus/test_open_census.py`, on the corpus manifest of the base of this change, local `kicad-cli`
+10.0.6, 2026-10-07. The 21 readable boards that are not heavy (the two heavy demo boards were left out;
+`FENOLITE_HEAVY=1` includes them):
+
+| boards | open connections (query) | unconnected items (KiCad 10.0.6) | nets that differ |
+|---|---|---|---|
+| `kicad-demo-10-0-6-pcb-09` | 148 | 148 | 0 |
+| `kicad-demo-10-0-6-pcb-16` | 1 | 1 | 0 |
+| `kicad-demo-10-0-6-pcb-11` | 2 | 0 | 1 |
+| the 18 others | 0 | 0 | 0 |
+
+- No board reached KiCad's cap of 499 unconnected items.
+- `kicad-demo-10-0-6-pcb-11` is the board whose copper drawings hold a net: two drawings on a copper
+  layer carry a `net` child, KiCad counts them as copper of that net, and the model keeps a drawing's
+  `net` as an opaque child. The query therefore reports 2 open connections that KiCad does not. Copper
+  drawings with a net are not modelled (`docs/analyses.md`, "Open connections").
+- `kicad-demo-10-0-6-pcb-14` holds four such drawings and gives equal counts.
+- The census under 9.0.9 was not run here: it needs the pinned image.
+
+### Routers on nets that hold copper
+
+`H-G-DSN-PARTIAL` (Freerouting) and `H-K-KRT-PARTIAL` (KiCadRoutingTools) say what a router does with a
+selected net that already holds copper. First record, 2026-10-05, with the Freerouting plugin called
+directly by a script that is not committed: 8 nets of 7 kinds (a stub; three pads, two joined; a fan-out of
+a track, a via and a `B.Cu` stub; a via beside the pad; a floating via of the net), all 8 closed by wires
+that join the existing copper, 0 unconnected items by `kicad-cli` 10.0.6 after the merge. No
+KiCadRoutingTools checkout was at hand.
+
+Recorded on 2026-10-07 through `fenolite route --router freerouting --confirm`
+(`tests/routing/test_open_nets.py -k freerouting`, results in
+`docs/evidence/routing/freerouting-2.4.1.json`), with the jar 2.4.1 of the digest above, Java 26.0.2 and
+the local `kicad-cli` 10.0.6:
+
+| outcome | value | what was seen |
+|---|---|---|
+| `dsn-partial` | `equal` | the five kinds of the bench (a stub; three pads, two joined, the third nearest to a pad; a fan-out of a track, a via and a `B.Cu` stub; a via beside the pad; a floating via): 6 open connections before, 0 after by the query, no unconnected item of those nets by KiCad, every earlier copper item still on the board with its uuid; 10 tracks added, no via |
+| `dsn-partial-tee` | `different` | a sixth net whose third pad lies below the middle of the track that joins the two others: the connection stays open. `result.unrouted` names the net, `result.open` gives the connection, and KiCad reports the same single unconnected item |
+| `krt-partial` | not run | no KiCadRoutingTools checkout on this machine; the `routing` job records it |
+
+What the limit is, from four more runs of that day on one net of three pads (not committed as a test):
+
+- the third pad below the middle of the single joining track: open, also on a second run of the same net;
+- the third pad nearest to a pad of the pair (left or right of it): closed;
+- the pads joined by two tracks that meet in the middle, the third pad below that point: closed;
+- the first case with `--rip --nets <net>`: closed (the joining track is removed and the net routed again).
+
+So Freerouting 2.4.1 joins new copper to a pad or to the end of a protected wire, and does not split a
+protected wire. `fenolite route` reports such a net under `unrouted` with its open connection;
+`docs/routing.md` says what to do.

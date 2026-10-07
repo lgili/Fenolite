@@ -309,6 +309,7 @@ included. It describes copper without approximating a curve by a polygon.
 | `thick_closer_than(a, b, limit)` | the gap is strictly below `limit` |
 | `thick_gap_floor(a, b)` | `⌊gap⌋` in nanometres for a positive gap, else 0 |
 | `thick_witness(a, b)` | the rounded midpoint of the first closest pair of core points; a common point when the cores meet |
+| `touch_groups(items)` | for items that each hold `(key, shape)` pairs, the group of every item as the smallest index of its group: two items join when a shape of each has the same key and `thick_touch` is true, directly or through other items. Pairs come from `SpatialIndex`; the result is that of testing every pair, whatever the order |
 
 - Every answer is exact. With doubled lengths the half-widths are integers, so each test compares
   `4·dist²`, an exact rational, with the square of an integer. No function forms a float.

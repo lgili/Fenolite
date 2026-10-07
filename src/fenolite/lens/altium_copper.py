@@ -725,6 +725,41 @@ def outline_corner(board: Board | None) -> Point:
     return Point(min(p.x for p in points), min(p.y for p in points))
 
 
+LOCK_WHERE = "copper/locked"
+"""``where`` of the warning about locked copper written unlocked (change c0108)."""
+LOCK_HINT = "lock the items in Altium Designer's editor after the import"
+
+
+def locked_counts(
+    tracks: Sequence[Track], arcs: Sequence[Arc], vias: Sequence[Via]
+) -> dict[str, tuple[int, int]]:
+    """Per record kind (``track``, ``arc``, ``via``): the locked items written locked and those written
+    unlocked, because the kind is not in ``pcbrecords.LOCK_WRITTEN``."""
+    out: dict[str, tuple[int, int]] = {}
+    for kind, items in (("track", tracks), ("arc", arcs), ("via", vias)):
+        count = sum(1 for item in items if item.locked)
+        out[kind] = (count, 0) if kind in pcbrecords.LOCK_WRITTEN else (0, count)
+    return out
+
+
+def lock_issues(
+    tracks: Sequence[Track], arcs: Sequence[Arc], vias: Sequence[Via], low: _Lowering | None = None
+) -> list[Issue]:
+    """One ``altium.not-lowered`` warning per record kind that holds a locked item and whose lock is not
+    written (capability altium-build, "Copper locks in an Altium build"): a lock is never dropped in
+    silence."""
+    found: list[Issue] = []
+    for kind, (_written, dropped) in locked_counts(tracks, arcs, vias).items():
+        if dropped:
+            message = (
+                f"{dropped} locked {kind}(s) are written unlocked: the locked flag of a free {kind} is "
+                "not recorded for the Altium document"
+            )
+            text = low.text(message) if low is not None else message
+            found.append(Issue("altium.not-lowered", "warning", text, where=LOCK_WHERE, hint=LOCK_HINT))
+    return found
+
+
 def lower_copper(
     design: Design,
     *,
@@ -759,6 +794,7 @@ def lower_copper(
     tracks = _tracks(board.tracks, low, issues)
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
+    issues += lock_issues(tracks, arcs, vias, low)
     merged: list[str] = []
     zones = _zones(board.zones, low, issues, merged)
     for name, items in sorted(low.missing.items()):
@@ -850,6 +886,10 @@ def copper_summary(
         "arcs": len(spec.arcs),
         "vias": len(spec.vias),
         "zones": sum(len(zone.layers) for zone in spec.zones),
+        "locked": {
+            f"{kind}s": written
+            for kind, (written, _dropped) in locked_counts(spec.tracks, spec.arcs, spec.vias).items()
+        },
         "net_classes": len(spec.net_classes),
         "placements_from_board": placed,
     }

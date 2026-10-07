@@ -154,7 +154,9 @@ def _segment(net: Atom | tuple[Atom, ...], uid: str, x: int, y: int) -> Node:
         "net": Node(Atom.symbol("net"), net_atoms),
         "uuid": Node(Atom.symbol("uuid"), (Atom.string(uid),)),
     }
-    return Node(Atom.symbol("segment"), tuple(children[name] for name in CANONICAL_ORDER["segment"]))
+    # a canary segment is unlocked: it holds no ``locked`` child
+    order = [name for name in CANONICAL_ORDER["segment"] if name in children]
+    return Node(Atom.symbol("segment"), tuple(children[name] for name in order))
 
 
 def insertions(data: bytes, *, file: str = "") -> list[tuple[int, bytes]]:

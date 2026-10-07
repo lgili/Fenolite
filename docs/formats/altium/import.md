@@ -58,6 +58,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | The holes of a poured region are free of its copper: the fill is the region's outline without its holes, and another region of the same polygon may lie inside a hole as an island. The model holds the fill as one ring with a bridge of zero width to each hole (`geometry.keyhole_ring`); a hole outside its outline is dropped and reported (`altium.import.zone-hole-outside`) | S-0160 (the holes of a region record), S-0020 (`kicad-cli pcb import` on the document of S-0172: the same pieces of copper per net in both reads, five islands among them) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06; test_triangle_level5.py) | H-A-IMP-ZONE-HOLES |
 | The board outline of the board record becomes graphics on `Edge.Cuts`, one per segment, a line or an arc | S-0161 | INFERRED | H-A-IMP-FRAME |
 | A free fill is a rectangle given by two corners and a rotation about its centre; a free region is a polygon | S-0160, S-0285 | INFERRED | H-A-IMP-FRAME |
+| A free track, a free arc and a via take `locked` from their record's prefix: `True` when bit 2 of the first flag byte is clear (`pcb-read.md`, row `Prefix.locked`), `False` otherwise. A component primitive, a pour primitive and a graphic take no lock from it (change c0108) | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
 
 ## Rules
 

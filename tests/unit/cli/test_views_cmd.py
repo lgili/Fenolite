@@ -28,10 +28,12 @@ def test_net_list_of_the_authored_board(monkeypatch: pytest.MonkeyPatch, tmp_pat
         (2, 2, 0, 0),
         (1, 1, 0, 0),
     ]
-    assert set(nets[0]) == {"name", "class", "pads", "tracks", "vias", "zones", "length"}
+    assert set(nets[0]) == {"name", "class", "pads", "tracks", "vias", "zones", "length", "islands", "open"}
+    # scenario "Rows of the authored board" (c0108): the open connections of each net
+    assert [(n["open"], n["islands"]) for n in nets] == [(0, 1), (1, 2), (0, 1)]
     assert nets[2]["length"] == 5_000_000 and all(isinstance(n["length"], int) for n in nets)
     assert env["evidence"]["level"] == "INFERRED"
-    assert env["evidence"]["hypotheses"] == [*FRAME, "H-K-PCB-READ"]
+    assert env["evidence"]["hypotheses"] == [*FRAME, "H-K-CONN-PARITY", "H-K-PCB-READ"]
     assert env["input"]["path"] == "two_layer.kicad_pcb"
     assert not [i for i in env["issues"] if i["code"].startswith("model.")]
 
@@ -39,7 +41,10 @@ def test_net_list_of_the_authored_board(monkeypatch: pytest.MonkeyPatch, tmp_pat
 def test_one_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "net", str(TWO_LAYER), "GND")
     net = env["result"]["net"]
-    assert code == 0 and set(net) == {"name", "class", "pads", "copper", "vias", "zones", "box"}
+    assert code == 0 and set(net) == {
+        "name", "class", "pads", "copper", "vias", "zones", "box", "islands", "fill_islands", "open",
+    }  # fmt: skip
+    assert (net["islands"], net["fill_islands"], net["open"]) == (1, 0, [])
     assert [p["where"] for p in net["pads"]] == ["D1-1"] and "F.Cu" in net["pads"][0]["layers"]
     assert net["pads"][0]["position"] == {"x": 35_000_000, "y": 15_000_000}
     assert net["copper"] == [{"layer": "B.Cu", "tracks": 1, "arcs": 0, "length": 7_071_068}]
@@ -49,6 +54,30 @@ def test_one_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, env, _, _ = run(monkeypatch, tmp_path, "net", str(TWO_LAYER), "LED_A")
     assert [c["layer"] for c in env["result"]["net"]["copper"]] == ["F.Cu"]
     assert env["result"]["net"]["copper"][0]["arcs"] == 1
+    # scenario "One open net" (c0108): D1-2 and an end of the arc
+    led = env["result"]["net"]
+    assert led["islands"] == 2 and len(led["open"]) == 1
+    (link,) = led["open"]
+    ends = {link["a"]["kind"]: link["a"], link["b"]["kind"]: link["b"]}
+    assert set(ends) == {"pad", "arc"} and ends["pad"]["where"] == "D1-2"
+    assert set(link["a"]) == {"kind", "where", "position", "layers"} and link["length"] == 3_012_203
+    assert env["evidence"]["hypotheses"] == [*FRAME, "H-K-CONN-PARITY", "H-K-PCB-READ"]
+
+
+def test_unconnected_pins_have_one_island_and_nothing_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Scenario "Pins on no net": the nets ``unconnected-(…)`` of a built board hold one pad each."""
+    design = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "build", str(design), "--out", str(tmp_path / "blink"), "--confirm"
+    )
+    assert code == 0, error
+    code, env, _, _ = run(monkeypatch, tmp_path, "net", str(tmp_path / "blink" / "blink.kicad_pcb"))
+    assert code == 0
+    lone = [row for row in env["result"]["nets"] if row["name"].startswith("unconnected-(")]
+    assert lone and all((row["pads"], row["islands"], row["open"]) == (1, 1, 0) for row in lone)
+    assert any(row["open"] for row in env["result"]["nets"]), "the built blink is not routed"
 
 
 def test_unknown_net(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

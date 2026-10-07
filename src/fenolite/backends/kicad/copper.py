@@ -18,7 +18,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Protocol, cast, runtime_checkable
+from typing import Protocol, TypeVar, cast, runtime_checkable
 
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.frame import board_pads
@@ -894,8 +894,16 @@ class CopperMerge:
     duplicates: int = 0
 
 
-def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
-    """The modelled fields of a copper item, with its net by name."""
+_Copper = TypeVar("_Copper", Track, Arc, Via)
+
+
+def _with_lock(items: Sequence[_Copper], locked: bool) -> list[_Copper]:
+    """The items of one intent with its lock (capability manual-copper, "Locked script copper")."""
+    return [dataclasses.replace(item, locked=True) for item in items] if locked else list(items)
+
+
+def _geometry(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
+    """The modelled fields of a copper item but its lock, with its net by name."""
     net = names.get(item.net_id) if item.net_id is not None else None
     if isinstance(item, Via):
         return ("via", item.position, item.diameter, item.drill, tuple(item.layers), item.via_type, net)
@@ -904,10 +912,15 @@ def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, 
     return ("track", item.start, item.end, item.width, item.layer, net)
 
 
+def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
+    """What a regenerated item is compared by: its geometry, its net and its lock."""
+    return (*_geometry(item, names), item.locked)
+
+
 def _shape_key(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
     """What makes two items the same copper: the ends of a track or an arc as an unordered pair (an arc
-    with the same mid point)."""
-    fields = _fields(item, names)
+    with the same mid point). The lock is not part of it: a locked copy is still a duplicate."""
+    fields = _geometry(item, names)
     if isinstance(item, Track):
         first, second = sorted((item.start, item.end))
         return ("track", first, second, *fields[3:])
@@ -1034,11 +1047,12 @@ def resolve_copper(
             if key in seen:
                 raise _Refused("kicad.copper.bad-intent", f"{key}: the key is used by an earlier intent", key)
             seen.add(key)
+            locked = getattr(intent, "locked", False) is True
             if hasattr(intent, "path"):
                 new_tracks, new_arcs, new_vias = _resolve_track(board, cast(TrackIntentLike, intent))
-                tracks += new_tracks
-                arcs += new_arcs
-                vias += new_vias
+                tracks += _with_lock(new_tracks, locked)
+                arcs += _with_lock(new_arcs, locked)
+                vias += _with_lock(new_vias, locked)
             elif hasattr(intent, "pitch"):
                 obstacles = _obstacles(
                     board,
@@ -1046,9 +1060,10 @@ def resolve_copper(
                     (*cast("list[Arc]", user[1]), *arcs),
                     (*cast("list[Via]", user[2]), *vias),
                 )
-                vias += _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found, barriers)
+                stitched = _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found, barriers)
+                vias += _with_lock(stitched, locked)
             else:
-                vias.append(_resolve_via(board, cast(ViaIntentLike, intent)))
+                vias += _with_lock([_resolve_via(board, cast(ViaIntentLike, intent))], locked)
         except _Refused as refused:
             found.append(refused.issue)
     built = dataclasses.replace(
