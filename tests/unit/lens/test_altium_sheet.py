@@ -94,6 +94,49 @@ def test_no_drawing_sheet_keeps_the_bytes() -> None:
     assert not sheet.has("SHEETSTYLE") and sheet.int("SNAPGRIDSIZE") == 10
 
 
+def fonts_and_ids(data: bytes) -> tuple[list[tuple[str, int, bool, bool]], set[int]]:
+    """The font table of a schematic document and every font number its records name."""
+    document = read_schematic(data)
+    sheet = document.sheet
+    assert sheet is not None and sheet.system_font == 1
+    named = {
+        value
+        for record in document.all_records()
+        for key in ("font_id", "text_font_id")
+        if (value := getattr(record, key, None)) is not None
+    }
+    return [(font.name, font.size, font.bold, font.italic) for font in sheet.fonts], named
+
+
+def test_distinct_fonts_without_a_drawing_sheet() -> None:
+    """Scenario "One sheet with labels in the default font" (capability altium-schematic-writer, "Distinct
+    fonts in the font table"; change c0146)."""
+    for form in ("binary", "ascii"):
+        fonts, named = fonts_and_ids(blink_output(form=form).files["blink.SchDoc"])
+        assert fonts == [("Times New Roman", 10, False, False)] and named == {1}
+
+
+def test_distinct_fonts_in_both_forms() -> None:
+    """Scenario "Binary and ASCII": with the shipped sheet, whose texts are of 10, 5 and 7 points, both
+    forms hold the same table of three distinct fonts, the system font first, and name only its entries.
+    Before change c0146 the table held 10 points twice."""
+    tables = []
+    for form in ("binary", "ascii"):
+        built = blink_output(framed=True, drawing_sheet=example_sheet(), form=form)
+        fonts, named = fonts_and_ids(built.files["blink.SchDoc"])
+        assert len(set(fonts)) == len(fonts) and named == {1, 2, 3}
+        tables.append(fonts)
+    assert (
+        tables[0]
+        == tables[1]
+        == [
+            ("Times New Roman", 10, False, False),
+            ("Times New Roman", 5, False, False),
+            ("Times New Roman", 7, False, False),
+        ]
+    )
+
+
 def test_page() -> None:
     """The page is the paper of ``sheet()`` when the layout fits it, else the next ISO paper that holds it,
     else the layout's own area."""

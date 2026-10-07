@@ -744,7 +744,9 @@ wrote is in this repository; the folders were read outside it, on 2026-10-07, wi
   writer, and their sheet record holds no area colour and their objects no colour; every sheet that the
   schematic writer writes, and every sheet Altium saved, holds an area colour. An absent colour most likely
   reads as black. The files of Part R are to be authored again with the writer's colours; until then Part R
-  has no outcome.
+  has no outcome. 2026-10-08, change c0146: they are authored again, through the schematic writer itself
+  (`docs/evidence/altium-schematic.md`, Part R, which also records what the saved schematic of the kit showed
+  of two equal fonts); nobody has opened them.
 
 **What it moves.** No level. The reply form was not filled, so no row that needs a value read from a dialog or
 a message panel has its value; the kit rows need a recorded run. Recorded in `docs/hypotheses.md` as

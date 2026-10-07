@@ -163,6 +163,8 @@ state what the writer sets. Nothing here is confirmed by Altium until Part W of
 | A record 41 without an owner is a parameter of the sheet, with `NAME` and `TEXT`, `ISHIDDEN=T`, `FONTID` and `COLOR`; three of the 28 sheet parameters of one saved template hold no `TEXT` key | S-0130, S-0265 | INFERRED | H-A-SCHDOT-STRINGS |
 | A label whose text is `=<ParameterName>` shows the value of that parameter of the document; the predefined names of the table "Special strings" need no record in the template | S-0130, S-0261, S-0263 | INFERRED | H-A-SCHDOT-STRINGS |
 | A length of whole micrometres is not a whole number of 1/100 000 unit (one step is 2.54 nm): written to the nearest step it is at most 1.27 nm off, and a reader that rounds to the micrometre gets it back | S-0130, S-0131 | INFERRED | H-A-SCHDOT-READBACK |
+| A font table may hold two equal entries (the same name, size, bold and italic) and a reader takes each by its number. One sheet written with the entries 10, 10, 5 and 7 points was saved by Altium Designer 26 with three entries, its labels naming the renumbered ones (one file, 2026-10-07; minor version not stated). Whether equal entries are an error for Altium is not known | S-0130, S-0610 | INFERRED | H-A-SCHDOT-FONT-MERGE |
+| A sheet record without `AREACOLOR` and records without `COLOR` were shown by Altium Designer 26 as a page that was all black (the first files of Part R, 2026-10-07). The believed cause is that an absent colour key reads as 0, black; it is not confirmed, and the files also had no bodies and pins of length 0 | S-0611, S-0130 | INFERRED | H-A-SCHDOT-AREACOLOR |
 
 ### The writer's choices
 
@@ -182,8 +184,10 @@ state what the writer sets. Nothing here is confirmed by Altium until Part W of
   their `_FRAC` keys. A text is a label with `LOCATION`, `TEXT`, `FONTID`, and `JUSTIFICATION` and
   `ORIENTATION` when they are not 0. No colour key is written, so every record is black, and no
   `UNIQUEID` or `INDEXINSHEET`.
-- **Fonts.** Font 1 is the system font of the schematic writer; the fonts of the texts follow it, one per
-  distinct size, bold and italic, in order of first use, all with the writer's one font name. A text of
+- **Fonts.** Font 1 is the system font of the schematic writer (10 points, not bold, not italic). A text
+  in that font names font 1; the other fonts of the texts follow it, one per distinct size, bold and
+  italic, in order of first use, all with the writer's one font name, so the table holds each distinct
+  font once (change c0146; before it a text of 10 points added a second entry equal to the first). A text of
   height `h` gets the size `round(h × 72 / 25.4 mm)` points, at least 1: the inverse of the import's rule.
 - **Line widths.** The nearest of 4, 10, 20 and 40 mil; a width that is replaced is counted in the info
   `altium.sheet.rounded`, as is a text height that is not a whole number of points.

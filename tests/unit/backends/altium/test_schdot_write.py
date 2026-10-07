@@ -264,6 +264,68 @@ def test_frame_on_a_sheet_record() -> None:
         SheetFrame(1, 1, (), (), first_font=3).sheet_record(base)
 
 
+def font_table(data: bytes) -> tuple[list[tuple[int, bool, bool]], dict[str, int]]:
+    """The fonts of a written document in table order, and the font number of each label by its text."""
+    document = read_schematic(data)
+    sheet = document.sheet
+    assert sheet is not None and sheet.system_font == 1
+    assert [font.index for font in sheet.fonts] == list(range(1, len(sheet.fonts) + 1))
+    assert {font.name for font in sheet.fonts} == {"Times New Roman"}
+    labels = {record.text: record.font_id for record in document.records if isinstance(record, Label)}
+    return [(font.size, font.bold, font.italic) for font in sheet.fonts], labels
+
+
+@pytest.mark.parametrize("form", schdot.FORMS)
+def test_distinct_fonts_of_a_sheet(form: schdot.TemplateForm) -> None:
+    """Scenario "A drawing sheet whose title block uses another size" (capability altium-schematic-writer,
+    "Distinct fonts in the font table"; change c0146): a text in the system font names font 1 and adds no
+    entry, in whatever order the fonts are first used."""
+    ten, five, title = (
+        SheetText("ten", SheetPoint("lt", 20 * MM, 20 * MM), size=(3_527_778, 3_527_778)),
+        SheetText("five", SheetPoint("lt", 20 * MM, 30 * MM), size=(1_763_889, 1_763_889)),
+        SheetText("big", SheetPoint("lt", 20 * MM, 40 * MM), size=(4_938_889, 4_938_889), bold=True),
+    )
+    setup = SheetSetup((2 * MM, 2 * MM), 150_000, 150_000, 10 * MM, 10 * MM, 10 * MM, 10 * MM)
+    for items in ((ten, five, title), (five, ten, title, ten)):
+        sheet = DrawingSheet(id=derived_id("wks", "test", "fonts"), name="fonts", setup=setup, items=items)
+        width, height, paper = page("A4")
+        written = write_template(sheet, width=width, height=height, paper=paper, form=form)
+        assert {found.code for found in written.issues} == {"altium.sheet.rounded"}
+        fonts, labels = font_table(written.data)
+        assert fonts == [(10, False, False), (5, False, False), (14, True, False)]
+        assert labels == {"ten": 1, "five": 2, "big": 3}
+        assert written.result.frame.fonts == ((5, False, False), (14, True, False))
+        assert_readback(sheet, width, height, paper, form)
+
+
+def test_distinct_fonts_of_the_shipped_examples() -> None:
+    """No written template holds a font twice, and every label names an entry of its table."""
+    for name, sizes in SIZES.items():
+        for size in sizes:
+            width, height, paper = page(size)
+            for form in schdot.FORMS:
+                data = write_template(
+                    example_sheet(name), width=width, height=height, paper=paper, form=form
+                ).data
+                fonts, labels = font_table(data)
+                assert len(set(fonts)) == len(fonts) == 3 and fonts[0] == schdot.SYSTEM_FONT
+                assert set(labels.values()) <= set(range(1, len(fonts) + 1))
+
+
+def test_distinct_fonts_guard_of_the_sheet_record() -> None:
+    """Scenario "A frame that repeats a font of the sheet record": the join refuses a font that the base
+    record holds and one that the frame names twice; another numbering keeps the frame's own fonts."""
+    base = sheet_record(layout_sheet([]))
+    with pytest.raises(ValueError, match="10 points would be in the font table twice"):
+        SheetFrame(1, 1, (schdot.SYSTEM_FONT,), ()).sheet_record(base)
+    with pytest.raises(ValueError, match="7 points bold italic would be in the font table twice"):
+        SheetFrame(1, 1, ((7, True, True), (5, False, False), (7, True, True)), ()).sheet_record(base)
+    assert dict(SheetFrame(1, 1, ((10, True, False),), ()).sheet_record(base))["FONTIDCOUNT"] == "2"
+    ten = SheetText("ten", SheetPoint("lt", 20 * MM, 20 * MM), size=(3_527_778, 3_527_778))
+    other = sheet_frame(authored(ten), width=A4[0], height=A4[1], paper="A4", first_font=3).frame
+    assert schdot.SYSTEM_FONT in other.fonts and other.first_font == 3
+
+
 def test_parameters_and_refusals() -> None:
     """Sheet parameters follow the graphics in the order given; a parameter token they name gets no second
     record; a page or a parameter that cannot be written is refused."""
@@ -312,8 +374,16 @@ def test_lengths() -> None:
 
 
 PINNED = (
-    ("iso5457_generic", "binary", "0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1"),
-    ("iso5457_generic", "ascii", "07422325444d75ad25d2ead92526ae136655179b92013cb2d91d718bcf428b98"),
+    # moved by change c0146 (2026-10-08), from
+    # 0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1:
+    # the 19 texts of 10 points name font 1, the system font, where they named a second entry equal to it;
+    # the table holds 10, 5 and 7 points where it held 10, 10, 5 and 7, and the 17 other labels are
+    # renumbered (3 → 2, 4 → 3)
+    ("iso5457_generic", "binary", "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb"),
+    # moved by change c0146 from 07422325444d75ad25d2ead92526ae136655179b92013cb2d91d718bcf428b98, for the
+    # same reason: both forms share their records
+    ("iso5457_generic", "ascii", "0dd0cd4c86eafba05d3220895ed1755a839d0d687971b8e40d83dd5927594217"),
+    # not moved by change c0146: the authored sheet holds texts of 6 and 14 points and none of 10
     ("authored", "binary", "ad86c76902302127b479afca2fecdad6ef0908fc6293bd15eb60307cb0c80dfa"),
 )
 """Sheet, form and the SHA-256 of its template for an A4 landscape page. No template file is committed: a

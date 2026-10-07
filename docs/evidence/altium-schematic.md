@@ -516,8 +516,8 @@ gives for the KiCad build of the same script; it is a visual reference only and 
 
 | file of 2026-10-06 | SHA-256 |
 |---|---|
-| `iso5457_generic.SchDot` (the bytes pinned in `tests/unit/backends/altium/test_schdot_write.py`; no template file is committed) | `0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1` |
-| `blink.SchDoc` | `b95b062ead2024b560dfbaa811fb72106db401fa01ebaae12a01caa7ec256a43` |
+| `iso5457_generic.SchDot` (the file of 2026-10-06, whose font table holds 10 points twice; since change c0146 the same command writes each distinct font once, three fonts where there were four, and the bytes pinned in `tests/unit/backends/altium/test_schdot_write.py` are `2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb`; no template file is committed, and the file of this row was not built again) | `0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1` |
+| `blink.SchDoc` (the file of 2026-10-06, with the same four fonts; a build since change c0146 writes three, and this file was not built again) | `b95b062ead2024b560dfbaa811fb72106db401fa01ebaae12a01caa7ec256a43` |
 | `blink.PrjPcb` | `2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c` |
 | `blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
 | `blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
@@ -666,24 +666,55 @@ corpus holds one. **Nothing of this part has been opened in Altium.** It settles
 `H-A-IMP-RPT-NETS` and `H-A-IMP-RPT-FORMAT`; the hypothesis of the annotation file is not registered
 (its reader is not written), and step R4 is what would let it be.
 
-**Files.** The authored two-channel project `tests/data/altium/channels/two/`, copied to the
-maintainer's folder `~/fenolite-altium-checks/c0083-part-r/` on 2026-10-06. Its sheets are authored record
-by record for the reader's tests (`tests/_altium_channels.py`), not built by the schematic writer, which
-writes no `Repeat` statement: they hold no symbol graphics, and pins of length 0. Whether Altium opens
-them is itself unknown. If step R1 fails on opening, draw the same project by hand and go on: a top
-sheet with a sheet symbol whose designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries
-`VCC` and `Repeat(OUT)`; the entry `Repeat(OUT)` on a bus labelled `OUT[1..2]` whose members `OUT1` and
-`OUT2` go to two pins of a component; on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`,
-`R1` pin 2 and `C12` pin 1 on a wire labelled `MID`, `C12` pin 2 on the port `OUT`.
+**Files.** The authored two-channel project `tests/data/altium/channels/two/`, in the maintainer's folder
+`~/fenolite-altium-checks/session-2/R-repeated-sheet/` since 2026-10-08, with a guide in Portuguese. If
+step R1 fails on opening, draw the same project by hand and go on: a top sheet with a sheet symbol whose
+designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries `VCC` and `Repeat(OUT)`; the entry
+`Repeat(OUT)` on a bus labelled `OUT[1..2]` whose members `OUT1` and `OUT2` go to two pins of a component;
+on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`, `R1` pin 2 and `C12` pin 1 on a wire
+labelled `MID`, `C12` pin 2 on the port `OUT`.
 
-| file | SHA-256 |
+| file (since change c0146, 2026-10-08) | SHA-256 |
 |---|---|
-| `two.PrjPcb` | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
-| `two.SchDoc` | `53c540c9af491840b9c2a1f48f3b31910d22c9b838c9eac6473c5f72221d3ed2` |
-| `two_ch.SchDoc` | `437e5357a673b9c0930d519538157ba2f5f0223f60877bb29218552810fb52d3` |
+| `two.PrjPcb` (unchanged) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
+| `two.SchDoc` | `e07048f42c930a5d1ac6d326aae2331c5b96f2da1e26d958ea09eea5a6d24112` |
+| `two_ch.SchDoc` | `3bd678fdf0ef16ee9a7bcba23ba6113353244a3a8533d982f093a42526892724` |
 
-1. R1: open `two.PrjPcb` in Altium Designer and compile it. Expected: no error; the Navigator shows two
-   channels of the child sheet, `CH1` and `CH2`. Settles `H-A-IMP-RPT-COUNT`.
+**The first files showed a black page.** The files of 2026-10-06 (`two.SchDoc`
+`53c540c9af491840b9c2a1f48f3b31910d22c9b838c9eac6473c5f72221d3ed2`, `two_ch.SchDoc`
+`437e5357a673b9c0930d519538157ba2f5f0223f60877bb29218552810fb52d3`; they stay in the older folder
+`~/fenolite-altium-checks/c0083-part-r/`) were authored record by record for the reader's tests. Their
+sheet record held five keys (the font table, `SYSTEMFONT` and `SHEETSTYLE`) and no `AREACOLOR`; no record
+held `COLOR`, `AREACOLOR` or `FONTID`; pins had length 0 and components no graphics. On 2026-10-07 the
+maintainer said that the sheet showed as a page that was all black, and reported no step. What is believed,
+and not confirmed: an absent area colour reads as 0, which is black, and the objects, without a colour, are
+black on it (`H-A-SCHDOT-AREACOLOR`; every sheet the schematic writer writes and every sheet Altium saved holds
+`AREACOLOR=16317695`).
+
+**How the files are made now (change c0146).** The two sheets are sheet plans handed to the schematic
+writer (`tests/_altium_channels.py`: `binary.write_schdoc_binary`; the top sheet placed by
+`layout.layout_sheet`, the child sheet by hand from the same pieces), so they hold
+what every written sheet holds: the writer's sheet record with its grids and area colour, a colour and a
+font on every record that has them in a written sheet, a filled rectangle per component, pins of 200 mil,
+designators and comments. No build writes a `Repeat` statement; in the sample it is the name given to the
+writer's sheet symbol, `Repeat(OUT)` is the name given to its second sheet entry, and the bus the writer
+draws beside that entry is labelled `OUT[1..2]`. Those records differ from a plain sheet symbol and a plain
+sheet entry in their text alone. Two things differ from the first files in the drawing: every pin of the
+top sheet joins its net by a labelled wire, as on every written sheet, and on the child sheet the ports
+`VCC` and `OUT` lie directly on the ends of `R1` pin 1 and `C12` pin 2, without a wire (the writer draws no
+wire without a net label, and a label on the net of a repeated port would name it in every channel). The
+import reads the same circuit from both generations: the same modules, component and pin ids, designators,
+nets and bus (`tests/unit/backends/altium/adapter/test_repeat.py`, not edited by the change); the
+components now have a comment (`10k`, `100n`, `DRV2`, `CONN1`) and a library reference, which the first
+files left empty. The components name no footprint, as before: step R3 is about the designators and the
+nets that the change order lists. **Nothing of the new files has been opened in Altium**, and whether a
+port that lies on a pin end connects in Altium as it does in the import is part of what step R1 shows (a
+compile message about a floating port would say that it does not).
+
+1. R1: open `two.PrjPcb` in Altium Designer, look at both sheets, and compile the project. Expected: both
+   sheets show a pale page with their objects visible (supports `H-A-SCHDOT-AREACOLOR`; the new files differ
+   from the first in more than the area colour, so this does not isolate it); no error; the Navigator
+   shows two channels of the child sheet, `CH1` and `CH2`. Settles `H-A-IMP-RPT-COUNT`.
 2. R2: for each designator format offered in Project Options » Multi-Channel, select it, compile, and
    write down the designator of the component `R1` in both channels; then, with `$Component_$RoomName`,
    the same for each of the five room naming styles. Expected, for the formats in the order of the list:
@@ -702,9 +733,11 @@ sheet with a sheet symbol whose designator is `Repeat(CH,1,2)` on a child sheet,
 
 The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence),
 the tool as `AD <major>.<minor>` and the date. No file that Altium wrote is committed. A step that fails
-refutes the row it names.
+refutes the row it names. The steps were written from Altium's documentation; a menu path or a dialog name
+may read differently in version 26.
 
-No report yet: the three rows are `INFERRED`, "pending (author report)".
+No report yet: the three rows are `INFERRED`, "pending (author report)". The one thing reported so far, the
+black page of the first files on 2026-10-07, is no step of this part and moves no row.
 
 ## Recording a report
 
@@ -1145,7 +1178,14 @@ wrote is in this repository; the folders were read outside it, on 2026-10-07, wi
   writer, and their sheet record holds no area colour and their objects no colour; every sheet that the
   schematic writer writes, and every sheet Altium saved, holds an area colour. An absent colour most likely
   reads as black. The files of Part R are to be authored again with the writer's colours; until then Part R
-  has no outcome.
+  has no outcome. 2026-10-08, change c0146: they are authored again, through the schematic writer itself, and
+  are in the folder of session 2 (Part R above, with the new SHA-256); nobody has opened them.
+- **Two equal fonts are saved as one.** The schematic document of the kit sample `flat` was written with a
+  font table of four entries, the first two both Times New Roman of size 10 (the system font, and the first
+  font of the drawing sheet, declared without looking at it); the copy that Altium saved holds three, and
+  the labels of the drawing sheet name the renumbered entries (S-0610; one file). Change c0146 makes the
+  writer hold each distinct font once: 10, 5 and 7 points for that sample. That is all the change claims;
+  whether a table with equal entries is an error for Altium is not known (`H-A-SCHDOT-FONT-MERGE`).
 
 **What it moves.** No level. The reply form was not filled, so no row that needs a value read from a dialog or
 a message panel has its value; the kit rows need a recorded run. Recorded in `docs/hypotheses.md` as

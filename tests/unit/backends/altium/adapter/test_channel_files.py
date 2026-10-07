@@ -11,7 +11,10 @@ from pathlib import Path
 
 import _altium_channels as two
 
+from fenolite.backends.altium import schdoc
 from fenolite.backends.altium.backend import AltiumBackend
+from fenolite.backends.altium.layout import layout_sheet
+from fenolite.backends.altium.read.sch import read_schematic
 
 FOLDER = Path(__file__).resolve().parents[4] / "data" / "altium" / "channels" / "two"
 
@@ -21,6 +24,54 @@ def test_files_equal_what_the_script_writes() -> None:
     assert sorted(written) == sorted(p.name for p in FOLDER.iterdir() if p.suffix != ".py")
     for name, data in written.items():
         assert (FOLDER / name).read_bytes() == data, name
+
+
+def fields(record: object) -> dict[str, str]:
+    props = record.props  # type: ignore[attr-defined]
+    return {key: props.get(key) for key in props.keys()}
+
+
+def test_sheets_are_written_as_the_schematic_writer_writes() -> None:
+    """Change c0146: the first files of this sample held a sheet record without an area colour, no colour
+    on any record, no body and pins of length 0, and Altium showed a black page. The sheets now come from
+    the schematic writer: its sheet record, a colour on every record that has one in a written sheet, a
+    filled body per component and pins of 200 mil. The repeated sheet symbol and the repeated sheet entry
+    differ from plain ones in their text alone."""
+    plain = schdoc.sheet_record(layout_sheet([]))
+    for name in (two.TOP, two.CHILD):
+        document = read_schematic((FOLDER / name).read_bytes(), file=name)
+        assert document.issues == () and document.additional == ()
+        sheet, *rest = (fields(record) for record in document.records)
+        assert list(sheet.items()) == plain and sheet["AREACOLOR"] == schdoc.SHEET_COLOR
+        kinds = {int(record["RECORD"]) for record in rest}
+        assert kinds <= {1, 2, 14, 15, 16, 18, 25, 26, 27, 32, 33, 34, 37, 41}
+        assert all("COLOR" in record for record in rest if record["RECORD"] != "2"), name
+        pins = [record for record in rest if record["RECORD"] == "2"]
+        assert pins and {record["PINLENGTH"] for record in pins} == {"20"}
+        components = [n for n, record in enumerate(rest, start=1) if record["RECORD"] == "1"]
+        bodies = [record for record in rest if record["RECORD"] == "14"]
+        assert sorted(int(body["OWNERINDEX"]) for body in bodies) == components
+        assert all(body["AREACOLOR"] == schdoc.COMPONENT_FILL and body["ISSOLID"] == "T" for body in bodies)
+        texts = [record for record in rest if "FONTID" in record or "TEXTFONTID" in record]
+        assert texts and {record.get("FONTID", record.get("TEXTFONTID")) for record in texts} == {"1"}
+    top = [fields(record) for record in read_schematic((FOLDER / two.TOP).read_bytes()).records]
+    (symbol,) = [record for record in top if record["RECORD"] == "15"]
+    assert (symbol["COLOR"], symbol["AREACOLOR"]) == (schdoc.SYMBOL_COLOR, schdoc.SYMBOL_FILL)
+    vcc, repeated = [record for record in top if record["RECORD"] == "16"]
+    assert (vcc["NAME"], repeated["NAME"]) == ("VCC", "Repeat(OUT)")
+    differ = {key for key in vcc if vcc[key] != repeated[key]}
+    assert differ == {"NAME", "DISTANCEFROMTOP"} and list(vcc) == list(repeated)
+    (title,) = [record for record in top if record["RECORD"] == "32"]
+    (file_name,) = [record for record in top if record["RECORD"] == "33"]
+    assert title["TEXT"] == two.STATEMENT and file_name["TEXT"] == two.CHILD
+    assert {key for key in title if title[key] != file_name[key]} == {"RECORD", "LOCATION.Y", "TEXT"}
+    (bus,) = [record for record in top if record["RECORD"] == "26"]
+    labels = [record["TEXT"] for record in top if record["RECORD"] == "25"]
+    assert bus["COLOR"] == schdoc.BUS_COLOR and labels.count("OUT[1..2]") == 1
+    child = [fields(record) for record in read_schematic((FOLDER / two.CHILD).read_bytes()).records]
+    assert [record["NAME"] for record in child if record["RECORD"] == "18"] == ["VCC", "OUT"]
+    # no net label names the nets of the two ports: a label would name them in every channel
+    assert [record["TEXT"] for record in child if record["RECORD"] == "25"] == ["MID", "MID"]
 
 
 def test_folder_reads_as_two_channels(tmp_path: Path) -> None:

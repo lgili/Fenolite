@@ -89,6 +89,9 @@ _FOLDED_SPECIAL = frozenset(name.casefold() for name in ALTIUM_SHEET_TOKENS)
 Record = tuple[Field, ...]
 Font = tuple[int, bool, bool]
 """Size in points, bold, italic."""
+SYSTEM_FONT: Font = (FONT_SIZE, False, False)
+"""Font 1 of the schematic writer's sheet record: a text of the drawing sheet in this font names font 1 and
+adds no entry, so the table holds each distinct font once (change c0146)."""
 
 
 def to_steps(length: Nm) -> int:
@@ -121,8 +124,9 @@ def width_code(width: Nm) -> int:
 
 @dataclass(frozen=True, slots=True)
 class SheetFrame:
-    """A drawing sheet drawn on one page: the page in file steps, the fonts of its texts (numbered from
-    ``first_font``), and the root records in drawing order, the sheet parameters last."""
+    """A drawing sheet drawn on one page: the page in file steps, the fonts of its texts that the sheet
+    record does not hold yet (numbered from ``first_font``), and the root records in drawing order, the
+    sheet parameters last."""
 
     width: int
     height: int
@@ -133,10 +137,24 @@ class SheetFrame:
     def sheet_record(self, base: Sequence[Field]) -> list[Field]:
         """``base`` (a sheet record with ``first_font - 1`` fonts) as the custom sheet of this page: the
         fonts appended to its table, the style, the orientation and the built-in border, title block and
-        zones removed, and the custom size at the end. ``ValueError`` when the font count differs."""
-        count = dict(base).get("FONTIDCOUNT")
+        zones removed, and the custom size at the end. ``ValueError`` when the font count differs, or when
+        a font of the frame is in the table twice: one that ``base`` holds already, or one the frame names
+        twice (change c0146)."""
+        keys = dict(base)
+        count = keys.get("FONTIDCOUNT")
         if count != str(self.first_font - 1):
             raise ValueError(f"the sheet record holds {count} font(s), not {self.first_font - 1}")
+        held: list[Font] = [
+            (int(keys.get(f"SIZE{n}", "0")), keys.get(f"BOLD{n}") == "T", keys.get(f"ITALIC{n}") == "T")
+            for n in range(1, self.first_font)
+            if keys.get(f"FONTNAME{n}") == FONT_NAME
+        ]
+        for font in self.fonts:
+            if font in held:
+                size, bold, italic = font
+                style = (" bold" if bold else "") + (" italic" if italic else "")
+                raise ValueError(f"the font of {size} points{style} would be in the font table twice")
+            held.append(font)
         table: list[Field] = []
         for number, (size, bold, italic) in enumerate(self.fonts, start=self.first_font):
             table += [(f"SIZE{number}", str(size)), (f"FONTNAME{number}", FONT_NAME)]
@@ -250,6 +268,10 @@ class _Frame:
         )
 
     def font(self, font: Font) -> int:
+        """The number of ``font`` in the table: 1 for the system font of the writer's sheet record, else
+        its place among the fonts of the frame, added on first use."""
+        if font == SYSTEM_FONT and self.first_font == 2:
+            return 1
         if font not in self.fonts:
             self.fonts.append(font)
         return self.first_font + self.fonts.index(font)
@@ -421,9 +443,10 @@ def sheet_frame(
     """``sheet`` drawn on the first page of a ``width`` by ``height`` page (nm) whose paper is shown as
     ``paper``: polylines and labels in drawing order, repeats written as copies, then one sheet parameter
     record per pair of ``parameters`` (name, value) in the order given and one without a value per
-    parameter token that ``parameters`` does not name. ``SheetLossError`` when a part cannot be carried and
-    ``allow_lossy`` is not set; ``ValueError`` for a page that is not positive, a parameter named twice or
-    one that a record cannot hold."""
+    parameter token that ``parameters`` does not name. With ``first_font`` 2 (the schematic writer's sheet
+    record) a text in ``SYSTEM_FONT`` names font 1 and the frame holds only the other fonts.
+    ``SheetLossError`` when a part cannot be carried and ``allow_lossy`` is not set; ``ValueError`` for a
+    page that is not positive, a parameter named twice or one that a record cannot hold."""
     if width <= 0 or height <= 0:
         raise ValueError(f"a page of {width} nm by {height} nm is not positive")
     names = [name for name, _value in parameters]
@@ -610,6 +633,7 @@ __all__ = [
     "FORMS",
     "SCHDOT_KIND",
     "SPECIAL_STRINGS",
+    "SYSTEM_FONT",
     "FrameResult",
     "ScopeLine",
     "ScopeText",
