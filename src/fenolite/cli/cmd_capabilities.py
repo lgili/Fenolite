@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import importlib.metadata
 import re
 import shutil
@@ -14,8 +15,11 @@ from functools import cache
 from typing import Any
 
 from fenolite import __version__
+from fenolite.agent import guide
 from fenolite.backends import registry
+from fenolite.cli import describe
 from fenolite.cli.api import Command, Context, Result, discover
+from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence
 from fenolite.routing.registry import routers as routing_routers
 
@@ -82,6 +86,17 @@ def detect_tools() -> dict[str, dict[str, str] | None]:
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-tools", action="store_true", help="skip external tool detection")
+    parser.add_argument(
+        "--brief",
+        action="store_true",
+        help="the small first reply: commands with a summary, targets, tools, routers, guide pages, starters",
+    )
+    parser.add_argument(
+        "--command",
+        dest="described",
+        metavar="NAME",
+        help="describe one command: its entry, its usage and its arguments as data",
+    )
 
 
 def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> list[dict[str, Any]]:
@@ -101,16 +116,81 @@ def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> 
     return sorted(entries, key=lambda e: str(e["name"]))
 
 
+def _entry(command: Command) -> dict[str, Any]:
+    """The entry of ``command`` in ``result.commands`` of the default view."""
+    return (
+        {"name": command.name, "mutates": command.mutates, "schema": command.schema, "hidden": command.hidden}
+        | ({"example_tools": list(command.example_tools)} if command.example_tools else {})
+        | ({"paged": command.paged, "default_limit": command.default_limit} if command.paged else {})
+    )
+
+
+def _brief(commands: Mapping[str, Command], *, no_tools: bool) -> dict[str, Any]:
+    """The brief view: what is installed here, what it can do and where to read more, in a reply whose
+    size grows with the number of commands only (``docs/cli-contract.md``, "Discovery")."""
+    target = next(a for a in describe.describe(commands["build"]).arguments if "--target" in a.flags)
+    kicad = registry.get("kicad").capabilities().to_json()
+    routers: list[dict[str, Any]] = []
+    for router in routing_routers().values():
+        status = None if no_tools else router.available()
+        routers.append(
+            {
+                "name": router.name,
+                "available": None if status is None else status.available,
+                "reason": None if status is None else (status.reason or None),
+            }
+        )
+    return {
+        "fenolite_version": __version__,
+        "commands": [
+            {"name": c.name, "summary": c.help or "", "mutates": c.mutates}
+            for c in sorted(commands.values(), key=lambda c: c.name)
+            if not c.hidden
+        ],
+        "targets": {
+            "build": sorted(target.choices or ()),
+            "kicad": list(kicad["targets"]),
+            "default": kicad["default_target"],
+        },
+        "tools": {} if no_tools else detect_tools(),
+        "routers": sorted(routers, key=lambda r: str(r["name"])),
+        "guide": [{"topic": p.topic, "title": p.title, "summary": p.summary} for p in guide.pages()],
+        "starters": [{"name": s.name, "summary": s.summary} for s in guide.starters()],
+        "sends_data_offsite": False,
+    }
+
+
+def _command_view(commands: Mapping[str, Command], name: str) -> dict[str, Any]:
+    """The view of one command: its entry of the default view with its description. Runs no tool."""
+    command = commands.get(name)
+    if command is None:
+        public = sorted(n for n, c in commands.items() if not c.hidden)
+        close = difflib.get_close_matches(name, public, n=3, cutoff=0.0)
+        raise CliError(
+            "FEN-2001",
+            f"unknown command {name!r}",
+            hint=f"the closest commands are: {', '.join(close)}",
+            where="--command",
+        )
+    described = describe.describe(command).to_json()
+    return {
+        "command": _entry(command) | {key: described[key] for key in ("summary", "usage", "arguments")},
+        "global_arguments": [argument.to_json() for argument in describe.global_arguments()],
+    }
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    if args.brief and args.described is not None:
+        raise CliError("FEN-2001", "--brief and --command are mutually exclusive", hint="use one of them")
+    if args.brief:
+        return Result(result=_brief(discover(), no_tools=bool(args.no_tools)))
+    if args.described is not None:
+        return Result(result=_command_view(discover(), str(args.described)))
+
     from fenolite.backends import matrix  # its rows import the claims of every backend package
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
-    commands = [
-        {"name": c.name, "mutates": c.mutates, "schema": c.schema, "hidden": c.hidden}
-        | ({"example_tools": list(c.example_tools)} if c.example_tools else {})
-        | ({"paged": c.paged, "default_limit": c.default_limit} if c.paged else {})
-        for c in sorted(discover().values(), key=lambda c: c.name)
-    ]
+    commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
     result: dict[str, Any] = {
         "fenolite_version": __version__,
         "commands": commands,

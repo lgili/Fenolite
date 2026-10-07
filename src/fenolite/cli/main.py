@@ -126,8 +126,9 @@ def _context(args: argparse.Namespace, mode: OutputMode) -> Context:
     )
 
 
-def _emit(envelope: Envelope, mode: OutputMode, out: TextIO) -> None:
-    out.write((render_json(envelope) if mode == "json" else render_text(envelope)) + "\n")
+def _emit(envelope: Envelope, mode: OutputMode, out: TextIO, text: str | None = None) -> None:
+    """Print the envelope. ``text`` (``Result.text``) is used by text mode only."""
+    out.write((render_json(envelope) if mode == "json" else render_text(envelope, text)) + "\n")
 
 
 def _envelope(command: Command, outcome: Result, result: dict[str, object], *, ok: bool,
@@ -338,6 +339,7 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         _envelope(command, outcome, result, ok=code is ExitCode.OK, receipt=receipt, started=started),
         ctx.mode,
         out,
+        outcome.text,
     )
     if error is not None:
         write_error(error, ctx.mode, err)

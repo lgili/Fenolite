@@ -368,6 +368,9 @@ WHEEL_STEPS = [
     ("install", "--no-index --find-links dist fenolite"),
     ("capabilities", "fenolite capabilities --json"),
     ("metadata", "all('extra ==' in x for x in r)"),
+    ("guide", "fenolite guide start --text"),
+    ("starter", "fenolite init blink --dry-run --json"),
+    ("starter plan", "== ['blink/design.py']"),
     ("wheel contents", 'n.startswith(("tests/", "private/", "examples/"))'),
 ]
 
@@ -432,6 +435,12 @@ def test_wheel_job() -> None:
     indexed = job.replace("--no-index --find-links dist fenolite", "fenolite")
     assert "wheel: step 'install' missing" in ordered_problems(indexed, "wheel", WHEEL_STEPS)
     assert ordered_problems("", "wheel", WHEEL_STEPS) == ["wheel: job missing"]
+    # the wheel carries the agent guide (capability agent-guide, scenario "Wheel carries the guide")
+    no_guide = job.replace("/tmp/wheel-venv/bin/fenolite guide start --text > /tmp/guide.txt\n", "")
+    assert "wheel: step 'guide' missing" in ordered_problems(no_guide, "wheel", WHEEL_STEPS)
+    no_starter = job.replace("fenolite init blink --dry-run --json", "fenolite init --help")
+    assert "wheel: step 'starter' missing" in ordered_problems(no_starter, "wheel", WHEEL_STEPS)
+    assert "cd /tmp/empty-project" in job and job.index("cd /tmp/empty-project") < job.index("guide start")
 
 
 def test_dco_job() -> None:

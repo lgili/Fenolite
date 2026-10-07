@@ -73,6 +73,9 @@ class Result:
     evidence: Evidence = Evidence()
     input: InputRef | None = None
     writes: tuple[PlannedWrite, ...] = ()
+    text: str | None = None
+    """A text the command wants printed as it is in text mode, after the status line (a page of the
+    guide). JSON mode ignores it: the envelope holds no key for it."""
 
 
 @dataclass(frozen=True, slots=True)

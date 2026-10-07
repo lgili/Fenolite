@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The v0.1 acceptance loop on both examples and both KiCad majors (capability release-gate, "Acceptance
-loop" and "Agent guide is executable"; change c0025).
+loop"; change c0025). The loop block of the agent guide runs in
+``tests/kicad/acceptance/test_skill_block.py`` since change c0079.
 
 The loop runs on the local ``kicad-cli`` with Freerouting. With ``FENOLITE_ACCEPTANCE_WRITE=1`` each
 finished project is written to ``tests/data/acceptance/<example>_t<major>/``; without it the test writes
@@ -10,13 +11,8 @@ nothing in the repository.
 
 from __future__ import annotations
 
-import json
 import os
-import re
-import shlex
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -109,30 +105,3 @@ def test_loop(example: str, target: int, tmp_path: Path) -> None:
         assert isinstance(evidence, dict) and evidence["level"], step
     if os.environ.get(WRITE) == "1":
         record(run, example, target)
-
-
-def test_skill_block(tmp_path: Path) -> None:
-    """Scenario "Ten commands close the loop": the lines of the agent guide run as written, in a folder
-    laid out as the repository, and each envelope carries an evidence level (acceptance item 7)."""
-    guide = (ROOT / "agent" / "SKILL.md").read_text(encoding="utf-8")
-    blocks = re.findall(r"^```fenolite-loop\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
-    assert len(blocks) == 1
-    lines = [line for line in blocks[0].splitlines() if line.strip()]
-    assert 1 <= len(lines) <= 10
-    shutil.copytree(ROOT / "examples" / "blink_2layer", tmp_path / "examples" / "blink_2layer")
-    shutil.copytree(ROOT / "tests" / "data" / "libs", tmp_path / "tests" / "data" / "libs")
-    for line in lines:
-        words = shlex.split(line)
-        assert words[0] == "fenolite"
-        process = subprocess.run(
-            [sys.executable, "-m", "fenolite", *words[1:]],
-            cwd=tmp_path,
-            env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
-            capture_output=True,
-            text=True,
-            timeout=900,
-            check=False,
-        )
-        assert process.returncode == 0, f"{line}\n{process.stderr or process.stdout}"
-        envelope = json.loads(process.stdout)
-        assert envelope["evidence"]["level"], line

@@ -137,3 +137,64 @@ def test_error_writer_modes() -> None:
     assert json.loads(js.getvalue()) == {"code": "FEN-2001", "message": "bad", "hint": "try --help",
                                          "retryable": False, "where": ""}  # fmt: skip
     assert tx.getvalue() == "error FEN-2001: bad (try --help)\n"
+
+
+# --- c0079: a command's own text (capability cli-contract, "Command text") ---------------------------
+
+
+def _echo(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, str]:
+    from fenolite.cli.main import main
+
+    code = main(["_echo", *args])
+    return code, capsys.readouterr().out
+
+
+def test_command_text_is_printed_after_the_status_line(capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "Text is printed after the status line"."""
+    code, out = _echo(capsys, "--text-body", "line one", "--text")
+    assert code == 0 and out == "fenolite _echo: ok\n\nline one\n"
+    code, out = _echo(capsys, "--text-body", "line one", "--json")
+    envelope = json.loads(out)
+    assert code == 0 and "line one" not in out and "text" not in envelope
+    code, plain = _echo(capsys, "--json")
+    assert sorted(envelope) == sorted(json.loads(plain))
+
+
+def test_command_text_is_followed_by_issues(capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "Issues follow the text"."""
+    code, out = _echo(capsys, "--text-body", "line one", "--issue", "warning", "--text")
+    lines = out.split("\n")
+    assert code == 0 and lines[:4] == ["fenolite _echo: ok", "", "line one", ""]
+    assert lines[4].startswith("warning: echo.warning:") and lines[5:] == [""]
+
+
+def test_command_text_keeps_its_own_newline_and_the_receipt(
+    capsys: pytest.CaptureFixture[str], tmp_path: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(str(tmp_path))
+    code, out = _echo(capsys, "--text-body", "a\n\nb\n", "--text")
+    assert code == 0 and out == "fenolite _echo: ok\n\na\n\nb\n"
+    code, out = _echo(capsys, "--text-body", "body", "--write", "x.txt", "--confirm", "--text")
+    lines = out.split("\n")
+    assert code == 0 and lines[:4] == ["fenolite _echo: ok", "", "body", ""]
+    assert lines[4].startswith("wrote: x.txt sha256=") and lines[5:] == [""]
+    assert "evidence:" not in out and "result:" not in out
+
+
+def test_command_text_with_concise_format(capsys: pytest.CaptureFixture[str]) -> None:
+    """``--format concise`` folds the issues and leaves the text alone."""
+    code, out = _echo(capsys, "--text-body", "line one", "--issues", "3", "--format", "concise", "--text")
+    lines = out.split("\n")
+    assert code == 0 and lines[:4] == ["fenolite _echo: ok", "", "line one", ""]
+    assert [line.split(":")[0] for line in lines[4:] if line] == ["warning"]
+
+
+def test_command_text_is_not_printed_for_a_failed_command(capsys: pytest.CaptureFixture[str]) -> None:
+    code, out = _echo(capsys, "--text-body", "line one", "--issue", "error", "--text")
+    assert code == 5 and out.startswith("fenolite _echo: FAILED\n") and "evidence:" in out
+
+
+def test_text_rendering_without_command_text_is_unchanged() -> None:
+    envelope = _envelope()
+    assert render_text(envelope) == render_text(envelope, None)
+    assert render_text(envelope, "x").split("\n") == ["fenolite demo: ok", "", "x"]

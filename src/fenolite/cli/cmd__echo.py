@@ -29,6 +29,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--defer", metavar="PATH", help="plan a deferred write of fixed bytes to PATH")
     parser.add_argument("--defer-bad", metavar="PATH", dest="defer_bad",
                         help="plan a deferred write whose source returns other bytes")  # fmt: skip
+    parser.add_argument("--text-body", metavar="TEXT", help="set Result.text, the command's own text")
 
 
 def _deferred(path: str, payload: bytes) -> PlannedWrite:
@@ -71,7 +72,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         writes += (_deferred(args.defer, DEFERRED),)
     if args.defer_bad:
         writes += (_deferred(args.defer_bad, DEFERRED[::-1]),)
-    return Result(result=result, issues=issues, writes=writes)
+    return Result(result=result, issues=issues, writes=writes, text=args.text_body)
 
 
 COMMAND = Command(
