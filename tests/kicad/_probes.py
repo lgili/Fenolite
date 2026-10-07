@@ -85,6 +85,7 @@ import _triad
 import _vendorcases
 import _viabench
 import _zonebench
+import _zonelayers
 import pytest
 from _boards import FIXTURE, created_board
 from _resources import kicad_cli
@@ -344,6 +345,8 @@ def _probes() -> dict[str, Probe]:
         **_pairbench.pair_rule_probes(),
         **_pairclasses.pair_class_probes(),
     }.items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _zonelayers.zone_layer_probes().items():  # change c0145
         probes[pid] = Probe(function, majors)
     return probes
 

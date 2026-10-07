@@ -140,6 +140,10 @@ never taken from KiCad's writer code.
 | DRC judges a board text against the board-setup text minimums: a silkscreen text 0.5 mm high with a 0.06 mm stroke gives `text_height` and `text_thickness` (probe `text-height`). A text on `F.Cu` over a track gives `shorting_items` (probe `text-copper-short`), while a `gr_line` on `F.Cu` across a track is named by no violation and gives the track neither `shorting_items` nor `clearance` (probe `graphic-copper-silent`); all recorded for 10.0.6 | S-0020, S-0029 | INFERRED | H-K-BOARD-TEXT |
 | A linear `dimension` holds, in the order of the demo boards of 9.0.9 and 10.0.6: `(type aligned\|orthogonal)`, `layer`, `uuid`, `(pts (xy …) (xy …))`, `(height H)`, `(orientation 0\|1)` for an orthogonal one (0 measures along x, 1 along y), `(format (prefix …) (suffix …) (units U) (units_format F) (precision P))`, `(style (thickness …) (arrow_length …) (text_position_mode …) (arrow_direction …) (extension_height …) (extension_offset …) (keep_text_aligned yes))` and a `gr_text` that carries the dimension's own uuid. `units 2` is millimetres and `units 0` inches; `units_format 1` prints the unit after the value | S-0058, S-0020 | INFERRED | H-K-DIM |
 | KiCad recomputes the text of a dimension, its position and its angle when it loads the board: the `Dwgs.User` plots of a board and of its copy with another cache text at another place are equal (probe `dim-recompute`), and `pcb upgrade --force` on 10.0.6 writes "20.0000 mm" and "25.50 mm" for a 20 mm dimension at precision 4 and a 25.5 mm one at precision 2 whose cache text was wrong (probe `dim-resave-text`); recorded for 10.0.6 | S-0020, S-0029 | INFERRED | H-K-DIM |
+| In the 25 cached corpus boards (22 hold zones; headers `20171130` to `20260206`) every zone and rule area on one layer holds it as `(layer "NAME")` (2 228 zones, 33 rule areas), and every one on several holds `(layers …)`: plain names (15 zones, 10 rule areas) or the mask `F&B.Cu` (1 zone and 4 rule areas, all of one demo board with the header `20241030`). None holds a wildcard, a mask or several names under `layer`, none holds `*.Cu` under either head, and none holds one name under `layers` | S-0058, S-0027, S-0028 | CORPUS-VERIFIED | H-K-ZONE-LAYER-HEAD |
+| `kicad-cli` 10.0.6 loads a zone and a rule area whose layers are `(layers "*.Cu")`, `(layers "F&B.Cu")` or `(layers "B.Cu")`, and `pcb upgrade --force` saves them, on a board with the copper rows `F.Cu` and `B.Cu`, as `(layers "F.Cu" "B.Cu")`, `(layers "F.Cu" "B.Cu")` and `(layer "B.Cu")`: explicit names, under `layer` for one and under `layers` for several (probes `pcb-zone-layers-load-plural-*` `load`, `pcb-zone-layers-save-*` `equal`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-LAYER-HEAD |
+| `kicad-cli` 10.0.6 does not load a board whose zone or rule area holds a wildcard, a mask or several names under the singular head, `(layer "*.Cu")`, `(layer "F&B.Cu")` or `(layer "F.Cu" "B.Cu")`: it reports items on undefined layers and exits 3 (probes `pcb-zone-layers-load-singular-*`, `reject`). Fenolite reads such a board and keeps the child as written. Not determined: whether 9.0.9 loads it, and whether any KiCad version or dialog writes it (no corpus board holds it) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-LAYER-HEAD |
+| A zone and a rule area whose layers Fenolite wrote after a change of the model, `(layers "F.Cu" "B.Cu")` where the file held one layer and `(layer "F.Cu")` where it held two, load on 10.0.6 and are saved again with the same child (probes `pcb-zone-layers-write-widened` and `pcb-zone-layers-write-narrowed`, `equal`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-LAYER-HEAD |
 
 ### Plane layers (c0107)
 
@@ -165,7 +169,7 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 | `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `locked` → `locked` (c0108), `layer`, `net`, `uuid` | — | unknown heads; a `locked` child that is not `(locked yes)` |
 | `via` | type atom, `at`, `size`, `drill`, `layers`, `locked` → `locked` (c0108), `net`, `uuid`, and the protection children `tenting`, `capping`, `covering`, `plugging`, `filling` → `protection` ("Via protection") | a protection child in a form that the board's major does not write ("Via protection") | `free`, `remove_unused_layers`, `padstack`, `teardrops`; a `locked` child that is not `(locked yes)` |
-| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `priority`, `locked`, `connect_pads`, `min_thickness` and `fill`. The `name` of a rule area is modelled (`Keepout.name`, c0103) |
+| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layer` or `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `priority`, `locked`, `connect_pads`, `min_thickness` and `fill`. The `name` of a rule area is modelled (`Keepout.name`, c0103) |
 | `filled_polygon` | `layer`, `island`, points-only `pts` | — | unknown heads |
 | `gr_*` | as `fp_*` in footprint libraries (`libraries.md`) | `stroke` (width) | hatch fills, `net`, `locked` |
 | `gr_text` | text atom, `at`, `layer` with one atom, `uuid` | `effects` (font size and thickness, and `justify` → `h_justify` and `v_justify`, c0103) | `render_cache`, `locked` |
@@ -222,7 +226,9 @@ These are decisions of the reader, not facts about KiCad.
   and user name stay in `Layer.ext["kicad"]`. Items keep canonical KiCad layer names.
 - **Wildcard expansion.** In pad layer lists, `*.Cu` becomes every copper row of the board's
   `layers`, and `*.X` and `F&B.X` become `F.X` and `B.X`. A `layers` child with a wildcard is a
-  projected slot, so the file keeps its spelling.
+  projected slot, so the file keeps its spelling. The layers of a zone or rule area are read from `layer`
+  or `layers` alike, with the same expansion and the same kept child under either head (c0145); KiCad
+  10.0.6 does not load a wildcard under `layer` (Facts).
 - **Pad frame.** `FootprintInstance.position` and `rotation` are the stored `at` values on both
   sides; a bottom rotation is not converted. `Pad.position` is the stored footprint-local position,
   so absolute = `instance.position + R(instance.rotation)·pad.position` (`H-G-BOTTOM-PLACE`); bottom
@@ -635,7 +641,11 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   written from the model when its value changed. Any other change of a projected value (other
   properties, `locked`, a `stroke` width, a text's font, a padstack, a `layers` list with wildcards, an
   offset drill) gives `kicad.board.projection-read-only`. A property present in the model and absent
-  from the footprint is a change; a property only in the footprint is kept.
+  from the footprint is a change; a property only in the footprint is kept. The `layer` and `layers`
+  children of a zone or rule area are one family in this comparison (c0145): the layers the kept child
+  names, wildcards expanded, are compared with the model whichever head the emitter would write, so an
+  unchanged child is kept under its own head and no second layer child is written; a changed layer set
+  over a wildcard is read-only under both heads.
 
 ### Placed footprints
 

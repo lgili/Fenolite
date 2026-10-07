@@ -231,6 +231,8 @@ ZONE_FIELDS: Mapping[str, str] = MappingProxyType(
         "fill": "fill_settings",
     }
 )
+ZONE_LAYER_HEADS = ("layer", "layers")
+"""The two heads that hold the layers of a zone or rule area; KiCad writes the first for one layer."""
 ZONE_SETTING_FIELDS: Mapping[str, str] = MappingProxyType(
     {head: ZONE_FIELDS[head] for head in zonelib.SETTING_HEADS}
 )
@@ -2321,6 +2323,13 @@ def _key(child: Node, copper: Sequence[str]) -> object:
     return (head, values, tuple(_key(c, copper) for c in child.nodes()))
 
 
+def _zone_layers_key(child: Node, copper: Sequence[str]) -> object:
+    """The layers that the ``layer`` or ``layers`` child of a zone or rule area names, as the reader takes
+    them: every name, a wildcard expanded, whichever of the two heads holds them."""
+    names = tuple(a.value for a in child.atoms())
+    return expand_layers(names, copper) if has_wildcard(names) else names
+
+
 def _spelling_only(child: Node, new: Node | None) -> bool:
     """Whether ``child`` holds nothing beyond what the emitter writes for its head, so it can be
     written from the model (Decision 10 of c0017)."""
@@ -2335,6 +2344,8 @@ def _spelling_only(child: Node, new: Node | None) -> bool:
     if head == "layers":
         names = [a.value for a in atoms]
         return all(a.kind != AtomKind.NUMBER for a in atoms) and not has_wildcard(names)
+    if head == "layer" and has_wildcard([a.value for a in atoms]):
+        return False
     if head == "attr":
         return all(a.kind == AtomKind.SYMBOL and a.value in FOOTPRINT_ATTRIBUTES for a in atoms)
     if head == "fill":
@@ -2844,11 +2855,14 @@ class _Writer:
                 field == "outline" and isinstance(entity, (Zone, Keepout)) and not entity.outline
             ):
                 continue
-            new = next(
-                (c for c in items.get(field, ()) if isinstance(c, Node) and c.name == child.name), None
-            )
-            if _key(child, self.copper) == (_key(new, self.copper) if new is not None else None):
-                kept.setdefault(field, []).append(child.name)
+            # The layers of a zone or rule area are one family: the emitter picks ``layer`` or ``layers``
+            # by the number of layers, whatever head the file used.
+            zone_layers = field == "layers" and isinstance(entity, (Zone, Keepout))
+            family = ZONE_LAYER_HEADS if zone_layers else (child.name,)
+            key = _zone_layers_key if zone_layers else _key
+            new = next((c for c in items.get(field, ()) if isinstance(c, Node) and c.name in family), None)
+            if key(child, self.copper) == (key(new, self.copper) if new is not None else None):
+                kept.setdefault(field, []).extend(family)
             elif _spelling_only(child, new):
                 slots[i] = Modeled(field)
             else:

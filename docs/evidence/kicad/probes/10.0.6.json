@@ -1,5 +1,4 @@
 {
-  "version": "10.0.6",
   "probes": {
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
@@ -635,6 +634,17 @@
     "pcb-write-triad-9": "load",
     "pcb-write-two-layer-10": "load",
     "pcb-write-two-layer-9": "load",
+    "pcb-zone-layers-load-plural-mask": "load",
+    "pcb-zone-layers-load-plural-one": "load",
+    "pcb-zone-layers-load-plural-wildcard": "load",
+    "pcb-zone-layers-load-singular-list": "reject",
+    "pcb-zone-layers-load-singular-mask": "reject",
+    "pcb-zone-layers-load-singular-wildcard": "reject",
+    "pcb-zone-layers-save-plural-mask": "equal",
+    "pcb-zone-layers-save-plural-one": "equal",
+    "pcb-zone-layers-save-plural-wildcard": "equal",
+    "pcb-zone-layers-write-narrowed": "equal",
+    "pcb-zone-layers-write-widened": "equal",
     "place-keepout-agree": "equal",
     "place-keepout-bot-back": "present",
     "place-keepout-bot-both": "present",
@@ -857,5 +867,6 @@
     "zone-clearance-drc": "present",
     "zone-defaults-t10": "equal",
     "zone-fat9": "equal"
-  }
+  },
+  "version": "10.0.6"
 }
