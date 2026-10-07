@@ -12,6 +12,18 @@ Every name is imported from `fenolite.dsl`. The methods of a class (`Design.boar
 `Design.track` and the others) are taught by the written pages; `docs/dsl.md` of the source
 repository is the full reference.
 
+## Anchor
+
+Class: `Anchor(component: 'str', number: 'str \| None', index: 'int \| None', offset: 'Point') -> None`
+
+An anchor as the build reads it: the component path, the pad number as text or `None` for the footprint's origin, the index, and the offset in the footprint's library frame (not shifted by `BOARD_ORIGIN`: it is not a board point until the build resolves it after placement).
+
+## AnchorRef
+
+Class: `AnchorRef(part: 'Part', number: 'str \| None', index: 'int \| None', offset: 'Point') -> None`
+
+A point in the frame of a part's footprint, as a script names it: `offset` (nanometres, X to the right, Y down, as the library draws the footprint) from the footprint's origin, or from the position of the pads `number` and `index` name.
+
 ## Design
 
 Class: `Design(name: 'str') -> 'None'`
@@ -106,7 +118,7 @@ A current in amperes: `amp("500m")`; may be negative.
 
 Function: `arc_to(mid: 'object', end: 'object') -> 'ArcStep'`
 
-An arc from the point of the path element before it through `mid` to `end`, both `(x, y)` pairs of lengths in the frame of `place()`; the path continues from `end`.
+An arc from the point of the path element before it through `mid` to `end`, each an `(x, y)` pair of lengths in the frame of `place()` or an anchor; the path continues from `end`.
 
 ## connect
 
@@ -266,9 +278,9 @@ A silkscreen, above the top mask or below the bottom one; it has no thickness.
 
 ## via_step
 
-Function: `via_step(x: 'object', y: 'object', *, to: 'str', diameter: 'object' = None, drill: 'object' = None, kind: 'str' = 'through', protection: 'object' = None) -> 'ViaStep'`
+Function: `via_step(x: 'object', y: 'object' = None, *, to: 'str', diameter: 'object' = None, drill: 'object' = None, kind: 'str' = 'through', protection: 'object' = None) -> 'ViaStep'`
 
-A via of `kind` (`through`, `blind`, `buried` or `micro`) at `(x, y)` in the frame of `place()`; the track continues on the layer `to`.
+A via of `kind` (`through`, `blind`, `buried` or `micro`) at `(x, y)` in the frame of `place()`, or at the one point given first: an `(x, y)` pair or an anchor (`part.at(…)`, `part.pad(…).at(…)`); the track continues on the layer `to`.
 
 ## volt
 

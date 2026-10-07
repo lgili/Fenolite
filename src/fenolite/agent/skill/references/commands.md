@@ -173,7 +173,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## export
 
-`fenolite export [--dry-run] [--confirm] -o DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite export [--dry-run] [--confirm] -o DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--fab-drawing] [--assembly-drawing] [--drawing-spec FILE] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
@@ -191,6 +191,9 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--sch-pdf` (boolean): schematic PDF, every sheet of the hierarchy
 - `--all` (boolean): the four fabrication kinds (Gerbers, drill, positions, netlist)
 - `--altium-rul` (boolean): the project's rules as an Altium rule file (no tool runs; not part of --all)
+- `--fab-drawing` (boolean): a fabrication drawing (PDF) with KiCad's drill maps and report (not part of --all)
+- `--assembly-drawing` (boolean): assembly drawings (PDF), top and bottom (not part of --all)
+- `--drawing-spec` (string): a TOML file of paper, sheet, tables, notes and assembly options for the drawing kinds
 - `--manifest` (boolean): also add the files to fenolite-artifacts.json in DIR
 - `--preset` (string): a TOML file of your fabrication options for the Gerber, drill and position exports
 - `--kicad-cli` (string): the kicad-cli to run
@@ -405,7 +408,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## route
 
-`fenolite route [--dry-run] [--confirm] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [-o FILE] PATH`
+`fenolite route [--dry-run] [--confirm] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [-o FILE] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
@@ -414,6 +417,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--nets` (string, repeatable): net-name pattern (repeatable)
 - `--rip` (boolean): remove the copper of the matching nets before routing; locked and script copper stay
 - `--include-zone-nets` (boolean): route nets that also have copper zones
+- `--no-plane-fanout` (boolean): do not join the SMD pads of plane nets to their planes with fan-out vias before routing
 - `--require-complete` (boolean): exit 5 and write nothing when a selected net still has an open connection
 - `--router-path` (string): KiCadRoutingTools checkout, or the Freerouting jar (docker:<image> runs a container)
 - `--router-python` (string): Python interpreter for the external router
