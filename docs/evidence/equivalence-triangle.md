@@ -303,7 +303,10 @@ Measured with `kicad-cli` 10.0.6 (macOS, local, 2026-10-06), Fenolite's read aga
   reads no clearance for a polygon, and the gaps the document's pour keeps start at 0.127 mm. That the
   import gives a zone the model's default clearance is an open point outside change c0122: until the
   import reads a polygon's clearance (a task of change c0088), these 266 findings are an artefact of
-  that default and say nothing about the document.
+  that default and say nothing about the document. Closed on 2026-10-07: since change c0088 the copper
+  check on Altium input judges no pour against a default, and since change c0125 that row has a
+  clearance in force from its own rule records; it reports 0 shorts and 7 clearance findings of another
+  class (`docs/evidence/altium-roundtrip.md`, "Light DRC over the corpus"). None of the 266 remains.
 
 ### Lines on internal planes (change c0124)
 

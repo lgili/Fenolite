@@ -132,3 +132,7 @@ Total: 5.5. This is a size, not a calendar estimate.
 
 - **Should the channel index be part of `Component.path` or only of the module name?** Default: of the module name, so the path stays a sequence of names.
 - **Should source 3 be allowed to run when a board exists but lacks a channel?** Default: yes, with `altium.import.channel-naming` naming the channel.
+
+## Delta regenerated on 2026-10-07
+
+Change c0122 was archived on 2026-10-07 and added `altium.import.zone-hole-outside` to the living requirement "Import issue codes". This change's MODIFIED delta of that requirement is the whole text, so it was regenerated from the living text with this change's three codes (`altium.import.channel-naming`, `altium.import.pin-map`, `altium.import.channels`) applied; without that, archiving this change would have dropped c0122's code from the requirement.
