@@ -343,9 +343,10 @@ def symbol_graph(name: str) -> tuple[tuple[SymbolPin, ...], tuple[SymbolGraphic,
     if name in ("SCR", "TRIAC"):
         return _thyristor(name == "TRIAC")
     if name == "Schottky_Diode":
+        # The pins of the catalog's Diode: on a shorter cathode pin the pin number lies on the hook.
         return (
-            _pin("1", "A", -3810, 0, 0),
-            _pin("2", "K", 3810, 0, 180),
+            _pin("1", "A", -5080, 0, 0, 3810),
+            _pin("2", "K", 5080, 0, 180, 3810),
         ), (
             _polygon((-1270, -1700), (1270, 0), (-1270, 1700)),
             *_path(((1905, 1050), (1905, 1700), (1270, 1700), (1270, -1700), (635, -1700), (635, -1050))),

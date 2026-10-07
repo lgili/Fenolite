@@ -151,8 +151,16 @@ that fresh builds give these bytes and that this table names them.
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
-| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `3c3a2984ca36047f84d3e02ce808e051f97ec8be3fbe718e289b8b3a5fe0a98e` |
-| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `32bf028d3570f5ea14696cd0dd5281eb295b7288aa8751ae513cd70df0191e6f` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `7d6276e4c63a89e4c567476cf9bc154664306217ef9a03d1ceff71854a19ac55` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `cbf419d33675f13d4de87fe063b9a11d802204ed6aafaecf59608317c0be517e` |
+
+2026-10-07 (change c0134): the two files of `kicad_example` above were built again, because the four
+symbols of the example library changed: `CONN2` no longer shows its pin names, which only repeated its pin
+numbers; `MCU8` and `DUAL_OPAMP` have larger bodies with their pins further out, so that their pin names
+do not lie on each other; the pins of `MCU8` are 5.08 mm long and 5.08 mm apart, so that its pin numbers
+stand clear of the inversion bubbles of pins 2 and 5; and the two pins of `R_V` are 2.54 mm long, so that
+its pin numbers stand clear of its body. The table names the new bytes; no report covers them, and no row
+changed.
 
 - `FenoliteSample.SchLib` holds the six generic symbols of the sample (`CAP`, `DRV4`, `HDR2`, `LDO3`,
   `LED`, `RES`), each of one part with the passive pins its components use, the designator `<prefix>?`
@@ -207,9 +215,15 @@ gives these bytes and that this table names them.
 | project, library or schematic file | SHA-256 |
 |---|---|
 | `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
-| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `2d70ec1374d7c44841b16bb31ec244350f715954cbca4f27048406862b570151` |
-| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `cdc38a49b0ac8b7d36e1d0c2a28f50f0feea28ddef6c8c412e49eda22cc4cf1e` |
-| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `f1082472746dd3e57e4ea5fd80dbb243f8fb4c7806e2f12a0a8d86435f7e8462` |
+| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `5b1b5bb8b1c29b2ae9833738c7f4de892ac5e18f9b3128d205223301299d2792` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `ca9aa9fb7b50cd131fc48b42139a2f5fd68ad815dc8f3675e0492d55b7423522` |
+| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `58d3e73d87ec017f426141a5718376ecd7f98264553570dfb5f72ffd7355c699` |
+
+2026-10-07 (change c0134): the library and the two schematics above were built again, because `CONN2`
+(`J1`) no longer shows its pin names, `MCU8` (`U1`) has a larger body with longer pins further out and
+further apart, and the two pins of `R_V` (`R1`) are 2.54 mm long. The
+nets, the three marked pins and the three directives are the same; the directives lie at the new ends of
+the pins. The table names the new bytes; no report covers them, and no row changed.
 
 - The design holds `J1` (`CONN2`), `R1` (`R_V`) and `U1` (`MCU8`) on the nets `VIN` (J1 1, R1 1, U1 1,
   U1 6), `GND` (J1 2, U1 7) and `OE_N` (R1 2, U1 5).
@@ -437,6 +451,12 @@ values with Windows-1252 characters. **Nothing of this part has been opened in A
 are `H-A-SCHX-*`: `H-A-SCHX-READBACK` is settled by Fenolite's own reader (`INFERRED`); the other six stay
 `INFERRED` with `pending (author report)` until the steps below are reported.
 
+2026-10-07 (change c0134): the author has since opened files of this part, built before change c0134, and
+named pin names that lie on each other on five small symbols ("Author report of 2026-10-07 (opening
+only)" below). Change c0134 changed the definitions of those symbols and of the others with the same
+defect. The report carried out no step below, and nobody has opened the files built since: the rows are
+where that section leaves them, `INFERRED`.
+
 **What the earlier reports covered.** The reports of 2026-10-02 and 2026-10-03 below were made on files
 whose resolved symbols were drawn as rectangles. Since change c0086 the default build draws the symbols'
 graphics (`--altium-symbols graphics`, decision of the maintainer of 2026-10-06), and the committed
@@ -448,6 +468,12 @@ still builds them. The tables of Part L, Part N and of `docs/evidence/altium-pcb
 the regenerated files, because their golden tests compare the default build; no earlier report says
 anything about those bytes, and no row was raised because of them. The samples `sample` and `hier` use
 Altium links, are drawn as rectangles in both forms, and did not change.
+
+2026-10-07 (change c0134): the four symbols of the example library `FenoliteDemo.kicad_sym` changed, so
+`kicad_example` and `no_connect` were built once more in the graphics form. Their copies under `generic/`
+keep the bytes of commit 6cdf0aea: `-k generic` builds them from the library of that commit, kept as
+`tests/data/altium/generic/library/FenoliteDemo.kicad_sym`. `--altium-symbols generic` on the example as
+it is now gives other bytes, which no report covers.
 
 The nets and designators of every sample are the ones it had: `test_nets_unchanged` reads each committed
 project and compares it with `tests/data/altium/nets_before_c0086.json`, recorded from the files of commit
@@ -462,23 +488,30 @@ defaults (no output job, no drawing sheet). None is committed beyond `tests/data
 and W above were built before this change, with rectangle bodies; a rebuild of them now draws the symbols'
 graphics unless `--altium-symbols generic` is given.
 
+2026-10-07 (change c0134): the table names the bytes that the same build gives since that change. The
+catalog symbols `BJT_NPN`, `Comparator`, `Operational_Amplifier` and `Linear_Regulator` of the tree sample
+and the four symbols of the example library changed, so 12 of the 19 files below differ from the build of
+2026-10-06; the other seven are the same bytes. The files the author opened on 2026-10-07 were built
+before this change ("Author report of 2026-10-07 (opening only)" below); the SHA-256 this table named
+until then are in the history of this page. No report covers the new bytes.
+
 | file | SHA-256 |
 |---|---|
 | `tree/binary/tree.PrjPcb` | `5f82374c7c3c16dac370815a2bc520bb026e0e30ccd55cd6b528353ec0f0ebb0` |
-| `tree/binary/tree.SchDoc` | `f7732013309e2f792ea1b45cd3873f194fa7f1c098f495e185b0afd9c91e1ceb` |
-| `tree/binary/tree.SchLib` | `c106ddd3f633a1ccf1ac82ac365993a2241e790f6324adf33e7fe21686a5d6c4` |
-| `tree/binary/tree_io.SchDoc` | `f8435228001cc5680a408aa54e095207efa10e9cf0e4721d42c2b24e99343c7a` |
+| `tree/binary/tree.SchDoc` | `3680dbc37c00689a9abeddd27d019eab39129c688f4614a0629b68076bbee6c1` |
+| `tree/binary/tree.SchLib` | `92b40a49dc04ec9bba0b91eb00f9070a6066469c6b6f2dbc54f90519308e77d8` |
+| `tree/binary/tree_io.SchDoc` | `d1c8c94aa624e99aa233cd687bdf48ac2338cf0d1be6008ba834cf8921cf05d5` |
 | `tree/binary/tree_io.leds.SchDoc` | `8f197da032e893e509e0c3c88a63b33e0b3da965507dbcd00d3d0790aabe04ca` |
-| `tree/binary/tree_power.SchDoc` | `d9df839a4e07403f690ac1b19779fceccee240a316f11eba01f05398f193e686` |
-| `tree/ascii/tree.SchDoc` | `d7f025e9828e736733409eb01bcd71d93581133bcd3115979c00ba86588f77ed` |
-| `tree/ascii/tree_io.SchDoc` | `30d58eafff81b1e1599de335ffabd23fefeb952777cec51d08309fbee8d7a66b` |
+| `tree/binary/tree_power.SchDoc` | `d0807006fc48f66067a414eeb70eeeaf7f7a499cb4f861cbca328dd7fe56c024` |
+| `tree/ascii/tree.SchDoc` | `c1223fb8609b1ea2e282dca90f0666ecd1d6a6ae827da10d8940289639dde7c5` |
+| `tree/ascii/tree_io.SchDoc` | `3f80bd2aa0a7abf83ec31f6551422fe18119d6f943f7b9d404290c8b224240b4` |
 | `tree/ascii/tree_io.leds.SchDoc` | `8e876d076c92dde71b6a9a2b019ceaafe58324db9fe5fdb4060fda59c735d74f` |
-| `tree/ascii/tree_power.SchDoc` | `c7eb090263f035499639b5d32e49049399075d6fb69191448f858ce23e59fbbd` |
-| `tree-bad/binary/tree_io.SchDoc` | `98895f88f1087ab0d5478a621b126fbec2e9c60b872d0d79651d9f4c00923f0d` |
-| `samples/kicad_example/altium_kicad.SchDoc` | `3c3a2984ca36047f84d3e02ce808e051f97ec8be3fbe718e289b8b3a5fe0a98e` |
-| `samples/kicad_example/altium_kicad.SchLib` | `32bf028d3570f5ea14696cd0dd5281eb295b7288aa8751ae513cd70df0191e6f` |
-| `samples/no_connect/altium_no_connect.SchDoc` | `2d70ec1374d7c44841b16bb31ec244350f715954cbca4f27048406862b570151` |
-| `samples/no_connect/altium_no_connect.SchLib` | `cdc38a49b0ac8b7d36e1d0c2a28f50f0feea28ddef6c8c412e49eda22cc4cf1e` |
+| `tree/ascii/tree_power.SchDoc` | `e2fe01ed1e7bf94e5dc8f1433a6d20860e1b1167ddc4a66d107f95f1919082fa` |
+| `tree-bad/binary/tree_io.SchDoc` | `d1f72dc31255989fa32ab114e15acfde98e62c41ac9c4c15c9f5e94dcfbb01cb` |
+| `samples/kicad_example/altium_kicad.SchDoc` | `7d6276e4c63a89e4c567476cf9bc154664306217ef9a03d1ceff71854a19ac55` |
+| `samples/kicad_example/altium_kicad.SchLib` | `cbf419d33675f13d4de87fe063b9a11d802204ed6aafaecf59608317c0be517e` |
+| `samples/no_connect/altium_no_connect.SchDoc` | `5b1b5bb8b1c29b2ae9833738c7f4de892ac5e18f9b3128d205223301299d2792` |
+| `samples/no_connect/altium_no_connect.SchLib` | `ca9aa9fb7b50cd131fc48b42139a2f5fd68ad815dc8f3675e0492d55b7423522` |
 | `samples/blink/blink.SchDoc` | `d52160144438ee1fa2026cf704e37881c2f9b98d8389ace45ac73f01e56dcf43` |
 | `samples/blink/blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
 | `samples/routed/routed.SchDoc` | `5c7ce5f3352ce91e6970dd49753f03d9f0b39c539f56b8a79b59d5c5679e7557` |
@@ -495,7 +528,8 @@ graphics unless `--altium-symbols generic` is given.
 - Reference for the four symbols of steps Y2 and Y3, in words, since the change builds no picture:
   `Resistor` is a zigzag of eight lines between its two pins; `LED` is a filled triangle with a bar at
   its tip and two small arrows above it; `Comparator` is an open triangle pointing right with a short
-  line inside, inputs `+` and `-` on the left, the output on the right, supply pins above and below;
+  line at its tip, a plus and a minus stroke inside at its two inputs on the left (since change c0134 it
+  shows no pin names), the output on the right, supply pins above and below;
   `Connector_4` is a filled rectangle with four small open squares on its left side, one per pin.
 
 Steps:
@@ -522,7 +556,8 @@ Steps:
    components, 13 nets, the component classes `tree`, `io`, `leds` and `power`, no room.
 9. **Y9**: open each of the four projects under `samples/` (the regenerated samples). Expected: each
    opens without a prompt, and its three symbols of one unit show their own graphics, with the pins where
-   the rectangle form had them; `DUAL_OPAMP` of `kicad_example` has two units and stays two rectangles.
+   the rectangle form of the same library has them; `DUAL_OPAMP` of `kicad_example` has two units and
+   stays two rectangles.
 
 The maintainer reports one outcome per step (`as expected`, or what differed in one sentence), the tool as
 `AD <major>.<minor>` and the date; no file that Altium wrote is committed. A step that fails refutes the
@@ -958,6 +993,10 @@ the names of pins overlap, and he does not know whether that is intended.
   writer honours a symbol's hidden pin names, so the likely cause is in the symbol definitions, which leave
   names visible on small discrete symbols; KiCad would then show the same. Change c0134 corrects the
   definitions; the samples it regenerates are new files that this report does not cover.
+  2026-10-07, with change c0134: 26 catalog symbols and the four of the example library changed, the
+  regenerated files are named with their SHA-256 in Parts L, N and Y above, and the five projects of the
+  kit get other schematic bytes on their next build. Nobody has looked at any of them in Altium, and the
+  width that the change assumes for Altium's pin text is not measured.
 - The steps of the Parts were written from Altium's documentation; a menu path or a dialog name may read
   differently in version 26.
 

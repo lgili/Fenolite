@@ -122,6 +122,7 @@ keep the names of their day.
 | c0131 | `altium-unit-slack-rule` | v0.3 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
 | c0132 | `altium-via-inner-pads` | correction of v0.3 (2026-10-07): a via whose record names layers without a pad shape is judged by its hole there | c0088, c0130, c0131 |
 | c0133 | `release-0-2-1` | patch release `0.2.1`: the rule for patch releases of the series, the record, the guard, the version | c0093, c0135 |
+| c0134 | `catalog-pin-text-legibility` | correction of v0.3: an authored symbol shows a pin name only where it can be read; a measured rule on every authored symbol, no writer changes | c0076, c0086 |
 | c0135 | `altium-pin-map-backport` | correction of 0.1.0 and 0.2.0: an Altium build applies `pad_map` to the PCB document and writes it into the schematic | c0056, c0035 |
 | c0136 | `milestone-renumbering` | names only: the write side of the second backend is v0.3 (released as `0.3.0`) and the proposals open on other branches form v0.4; no behaviour changes | — |
 | c0138 | `altium-outjob-gerber-settings` | correction of v0.3: the Gerber output of a written output job carries the complete settings record, with the plotted layers from the board; fact rows first | c0087 |

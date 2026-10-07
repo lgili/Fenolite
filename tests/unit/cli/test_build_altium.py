@@ -487,7 +487,10 @@ DATA = ROOT / "tests" / "data" / "altium"
 
 
 def test_symbols_option_picks_the_bodies(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """``--altium-symbols``: ``graphics`` is the default; ``generic`` gives the bytes of earlier releases."""
+    """``--altium-symbols``: ``graphics`` is the default; ``generic`` gives the bytes of earlier releases.
+
+    Change c0134 changed three symbols of the example library, so the generic build runs on a copy of the
+    example that holds the library of those releases (``tests/data/altium/generic/library/``)."""
     args = ("--target", "altium", "--confirm")
     code, env, _ = run(monkeypatch, str(KICAD_EXAMPLE), "--out", str(tmp_path / "A"), *args)
     result = env["result"]
@@ -496,9 +499,15 @@ def test_symbols_option_picks_the_bodies(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert (tmp_path / "A" / "altium_kicad.SchLib").read_bytes() == (
         DATA / "kicad_example" / "altium_kicad.SchLib"
     ).read_bytes()
+    earlier = tmp_path / "earlier"
+    earlier.mkdir()
+    for name in ("design.py", "sym-lib-table"):
+        (earlier / name).write_bytes((KICAD_EXAMPLE.parent / name).read_bytes())
+    library = DATA / "generic" / "library" / "FenoliteDemo.kicad_sym"
+    (earlier / library.name).write_bytes(library.read_bytes())
     out = tmp_path / "B"
     code, env, _ = run(
-        monkeypatch, str(KICAD_EXAMPLE), "--out", str(out), *args, "--altium-symbols", "generic"
+        monkeypatch, str(earlier / "design.py"), "--out", str(out), *args, "--altium-symbols", "generic"
     )
     result = env["result"]
     assert code == 0 and isinstance(result, dict)

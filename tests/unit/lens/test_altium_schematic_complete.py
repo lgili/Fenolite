@@ -10,7 +10,9 @@ build"; change c0086).
   this change (``tests/data/altium/nets_before_c0086.json``, read from the files of commit 6cdf0aea).
 - ``test_tree``: a fresh build equals the committed ``tests/data/altium/tree/``.
 - ``test_generic``: ``symbol_bodies="generic"`` still gives the bytes of the four samples as the
-  maintainer's author reports covered them (``tests/data/altium/generic/``).
+  maintainer's author reports covered them (``tests/data/altium/generic/``). Change c0134 changed three
+  symbols of the example library, so the two samples that use it are built for this test from the
+  library of commit 6cdf0aea, kept as ``tests/data/altium/generic/library/FenoliteDemo.kicad_sym``.
 
 ``FENOLITE_GOLDEN_WRITE=1`` rewrites the tree files instead of comparing them.
 """
@@ -25,6 +27,7 @@ from pathlib import Path
 
 import pytest
 from _altium import (
+    EXAMPLE_DIR,
     EXAMPLE_NETS,
     HIER_NETS,
     NO_CONNECT_NETS,
@@ -53,6 +56,7 @@ from _altium_tree import (
 
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.read.sch import Parameter
+from fenolite.backends.altium.read.schlib import read_schlib
 from fenolite.backends.altium.read.sheet import import_sheet
 from fenolite.backends.altium.schdot import written_scope
 from fenolite.dsl import placements, to_model
@@ -67,8 +71,24 @@ FORMS = ("binary", "ascii")
 BODIES = ("graphics", "generic")
 
 
-def build_example(which: str, folder: Path, **kwargs: object) -> BuildOutput:
-    """One of the example scripts built for the Altium target."""
+FROZEN_LIBRARY = GENERIC / "library" / "FenoliteDemo.kicad_sym"
+"""The example library as commit 6cdf0aea held it, before change c0134 hid the pin names of ``CONN2`` and
+gave ``MCU8`` and ``DUAL_OPAMP`` larger bodies. The generic copies of ``kicad_example`` and ``no_connect``
+are builds of this library, so ``test_generic`` builds them from it."""
+
+
+def frozen_project(folder: Path) -> Path:
+    """A project folder under ``folder`` with the example's own library table and ``FROZEN_LIBRARY``."""
+    project = folder / "project"
+    project.mkdir(parents=True)
+    (project / "sym-lib-table").write_bytes((EXAMPLE_DIR / "sym-lib-table").read_bytes())
+    (project / FROZEN_LIBRARY.name).write_bytes(FROZEN_LIBRARY.read_bytes())
+    return project
+
+
+def build_example(which: str, folder: Path, *, frozen: bool = False, **kwargs: object) -> BuildOutput:
+    """One of the example scripts built for the Altium target; ``frozen`` resolves the symbols of the
+    two samples of ``examples/altium_kicad`` from ``FROZEN_LIBRARY`` instead of the example's library."""
     if which == "sample":
         design = sample()
         return build_altium(to_model(design), name=design.name, **kwargs)  # type: ignore[arg-type]
@@ -77,7 +97,7 @@ def build_example(which: str, folder: Path, **kwargs: object) -> BuildOutput:
         return build_altium(to_model(design), name=design.name, **kwargs)  # type: ignore[arg-type]
     if which in ("kicad_example", "no_connect"):
         design = example() if which == "kicad_example" else no_connect_example()
-        resolver = example_resolver(folder)
+        resolver = example_resolver(folder, frozen_project(folder)) if frozen else example_resolver(folder)
         return build_altium(to_model(design), name=design.name, resolver=resolver, **kwargs)  # type: ignore[arg-type]
     if which == "blink":
         design = blink()
@@ -201,6 +221,27 @@ def test_tree() -> None:
     assert tree_build().files == output.files  # a second build gives the same bytes
 
 
+def test_tree_library_draws_pin_names_only_on_the_plain_box() -> None:
+    """Change c0134, on the committed library: the transistor and the two amplifiers, whose names lay on
+    each other, draw none and keep every name in the file; the regulator, a plain box of 600 mil sized
+    for its names, draws them; every pin number is drawn."""
+    library = read_schlib((TREE_DIR / "tree.SchLib").read_bytes(), file="tree.SchLib")
+    pins = {c.name: [(p.designator, p.name, p.name_shown) for p in c.pins] for c in library.components}
+    assert sorted(pins["BJT_NPN"]) == [("1", "B", False), ("2", "C", False), ("3", "E", False)]
+    amplifier = [
+        ("1", "", False),
+        ("2", "+", False),
+        ("3", "-", False),
+        ("4", "V+", False),
+        ("5", "V-", False),
+    ]
+    assert sorted(pins["Comparator"]) == sorted(pins["Operational_Amplifier"]) == amplifier
+    assert sorted(pins["Linear_Regulator"]) == [("1", "IN", True), ("2", "GND", True), ("3", "OUT", True)]
+    assert all(p.designator_shown for c in library.components for p in c.pins)
+    ends = {p.name: tuple(v.nm() // 25_400 for v in p.location) for p in library.get("Linear_Regulator").pins}
+    assert ends == {"IN": (-300, 200), "GND": (0, -300), "OUT": (300, 200)}  # body ends, in mil
+
+
 def test_tree_script_alone_builds_without_the_bus() -> None:
     """The DSL has no bus: the script as it is gives the same sheets with member ports instead."""
     model = tree_model()
@@ -223,9 +264,12 @@ same in both and is compared by the sample's own golden test."""
 @pytest.mark.parametrize("which", sorted(GENERIC_FILES))
 def test_generic(which: str) -> None:
     """``--altium-symbols generic`` gives the bytes of commit 6cdf0aea, the form that the maintainer's
-    author reports covered; the other files of the sample do not depend on the option."""
+    author reports covered; the other files of the sample do not depend on the option. The symbols of
+    ``kicad_example`` and ``no_connect`` come from the library of that commit (``FROZEN_LIBRARY``)."""
     with tempfile.TemporaryDirectory() as folder:
-        generic = project_files(build_example(which, Path(folder) / "a", symbol_bodies="generic"))
+        generic = project_files(
+            build_example(which, Path(folder) / "a", symbol_bodies="generic", frozen=True)
+        )
         graphics = project_files(build_example(which, Path(folder) / "b"))
     assert sorted(p.name for p in (GENERIC / which).iterdir() if p.is_file()) == sorted(GENERIC_FILES[which])
     for name in GENERIC_FILES[which]:
@@ -236,9 +280,23 @@ def test_generic(which: str) -> None:
 
 def test_generic_ascii_no_connect() -> None:
     with tempfile.TemporaryDirectory() as folder:
-        files = build_example("no_connect", Path(folder), symbol_bodies="generic", form="ascii").files
+        output = build_example("no_connect", Path(folder), symbol_bodies="generic", form="ascii", frozen=True)
     golden = GENERIC / "no_connect" / "ascii" / "altium_no_connect.SchDoc"
-    assert golden.read_bytes() == files["altium_no_connect.SchDoc"]
+    assert golden.read_bytes() == output.files["altium_no_connect.SchDoc"]
+
+
+def test_generic_form_of_the_example_library_as_it_is_now() -> None:
+    """The example library of today builds in the generic form as well, to the same nets; its bytes are
+    not those of the kept copies, because ``CONN2`` no longer shows names that repeat its pin numbers and
+    ``MCU8`` and ``DUAL_OPAMP`` hold their pins further out (change c0134)."""
+    with tempfile.TemporaryDirectory() as folder:
+        for which, nets in (("kicad_example", EXAMPLE_NETS), ("no_connect", NO_CONNECT_NETS)):
+            now = build_example(which, Path(folder) / which / "now", symbol_bodies="generic")
+            then = build_example(which, Path(folder) / which / "then", symbol_bodies="generic", frozen=True)
+            assert not [i for i in now.issues if i.severity == "error"]
+            assert nets_of(read_back(Path(folder) / which / "out", now)) == nets
+            changed = {name for name in project_files(now) if now.files[name] != then.files[name]}
+            assert changed == set(GENERIC_FILES[which]), which
 
 
 def test_flat_default_sheets_and_library_do_not_depend_on_the_sheet_mode() -> None:

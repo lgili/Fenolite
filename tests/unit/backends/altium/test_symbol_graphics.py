@@ -147,9 +147,10 @@ def test_rectangle_symbol_keeps_its_size() -> None:
     symbol = get_symbol("Fenolite:Linear_Regulator")
     regulator = mapped(symbol)
     (shape,) = library_shapes(regulator)
-    assert shape == ("rectangle", ((-150 * MIL, -150 * MIL), (150 * MIL, 150 * MIL)), True)
+    # 600 mil square since change c0134: room for IN, OUT and GND at the size Altium draws them
+    assert shape == ("rectangle", ((-300 * MIL, -300 * MIL), (300 * MIL, 300 * MIL)), True)
     assert regulator.rectangle(1) == dataclasses.replace(
-        regulator.rectangle(1), x0=-150, y0=-150, x1=150, y1=150
+        regulator.rectangle(1), x0=-300, y0=-300, x1=300, y1=300
     )
 
 

@@ -428,7 +428,9 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
 
     Change c0086 regenerated nine schematic files of four samples with the symbols' own graphics
     (``REGENERATED``); their bytes at the base are kept under ``tests/data/altium/generic/``, and those
-    copies are compared with the base instead."""
+    copies are compared with the base instead. Change c0134 changed three symbols of the example library
+    and regenerated the five files of ``kicad_example`` and ``no_connect`` again; the library those two
+    samples had at the base is kept beside the copies and compared with the base as well."""
     paths = [f"tests/data/altium/{name}/" for name in SAMPLES]
     exclude = [f":(exclude)tests/data/altium/{name}" for name in REGENERATED]
     proc = subprocess.run(
@@ -444,6 +446,13 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
         if base.returncode == 0:
             kept = ROOT / "tests" / "data" / "altium" / "generic" / name
             assert kept.read_bytes() == base.stdout, f"generic/{name} differs from the base"
+    library = subprocess.run(
+        ["git", "show", "6cdf0aea:examples/altium_kicad/FenoliteDemo.kicad_sym"],
+        cwd=ROOT, capture_output=True, check=False,
+    )  # fmt: skip
+    if library.returncode == 0:
+        kept = ROOT / "tests" / "data" / "altium" / "generic" / "library" / "FenoliteDemo.kicad_sym"
+        assert kept.read_bytes() == library.stdout, "generic/library differs from the base"
     with tempfile.TemporaryDirectory() as folder:
         output = routed_build(Path(folder))
     for name, data in project_files(output).items():

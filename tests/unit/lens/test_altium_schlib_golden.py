@@ -23,6 +23,7 @@ import pytest
 from _altium import EXAMPLE_NETS, example_files, sample
 from _altium_read import read_schlib
 
+from fenolite.backends.altium.read.schlib import read_schlib as product_read_schlib
 from fenolite.dsl import to_model
 from fenolite.lens.altium import build_altium
 
@@ -83,6 +84,20 @@ def test_example_golden_files() -> None:
         pytest.skip("example golden files rewritten (FENOLITE_GOLDEN_WRITE=1)")
     for name, data in files.items():
         assert (EXAMPLE_DIR / name).read_bytes() == data, f"kicad_example/{name} differs from a fresh build"
+
+
+def test_example_library_does_not_draw_names_that_repeat_the_numbers() -> None:
+    """Change c0134, on the committed library: ``CONN2`` keeps the names ``1`` and ``2`` and draws only
+    its pin numbers; the two symbols with named pins still draw their names."""
+    library = product_read_schlib(
+        (EXAMPLE_DIR / "altium_kicad.SchLib").read_bytes(), file="altium_kicad.SchLib"
+    )
+    connector = sorted(
+        (p.designator, p.name, p.name_shown, p.designator_shown) for p in library.get("CONN2").pins
+    )
+    assert connector == [("1", "1", False, True), ("2", "2", False, True)]
+    for name in ("MCU8", "DUAL_OPAMP"):
+        assert all(p.name_shown and p.designator_shown for p in library.get(name).pins if not p.hidden)
 
 
 def _part_l() -> list[str]:

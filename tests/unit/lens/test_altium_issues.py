@@ -185,14 +185,14 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     ),
     "off-grid": (
         ("", ""),
-        ("(at 0 3.81 270)", "(at 0.001 3.81 270)"),
+        ("(at 0 5.08 270)", "(at 0.001 5.08 270)"),
         {"altium.symbol-off-grid", "altium.symbol-simplified"},
     ),
     "lossy": (
         ("", ""),
         (
-            "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
-            "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
+            "(pin passive line\n\t\t\t\t(at 2.54 -15.24 90)",
+            "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -15.24 90)",
         ),
         {
             "altium.pin-lossy",

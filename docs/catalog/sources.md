@@ -140,6 +140,13 @@ come from KiCad library files or a private board. Connector and terminal symbols
 passive and protection pin names are hidden when their numbers and body marks suffice. The
 serialized KiCad symbol library now preserves that visibility setting.
 
+Change c0134 hides the pin names of every symbol that is a drawing and keeps them on the four plain
+blocks, which it enlarged. The strokes it added are Fenolite-authored and state no new fact: the plus
+and the minus at the amplifier inputs repeat the signs of the pin names (S-0341), the plus, the minus
+and the two waves of the bridge repeat its terminal names on the topology of S-0342, and the open
+arrowhead on the optocoupler's detector marks the emitter of the phototransistor of S-0325. No
+pin number, pin name or electrical type changed.
+
 The later c0076 visual revision keeps Toshiba's public LED-to-phototransistor functional example
 (S-0325) as the optocoupler's source while authoring a larger horizontal LED and two optical arrows
 within its generic block. The 2/3/4-circuit connector symbols now use independently drawn square

@@ -25,6 +25,10 @@ Designer 26 with no problem. That is not a kit run: no step was carried out, no 
 been received, nothing was recorded with `fenolite kit record`, and no `H-A-KIT-*` row moves. The same
 report is on `docs/evidence/altium-schematic.md` and `docs/evidence/altium-pcb.md`.
 
+2026-10-07 (change c0134): catalog symbols that the kit's five projects place changed (hidden pin names,
+larger blocks), so the kit that the tree builds is no longer the kit of `5adad054` byte for byte: the
+schematic and the schematic library of each project differ, the boards do not. Nobody has opened it.
+
 ## Returned kit folder of 2026-10-07
 
 The author returned the kit folder the same day with saved documents of three samples and an empty form.

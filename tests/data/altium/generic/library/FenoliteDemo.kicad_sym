@@ -3,9 +3,6 @@
 	(generator "fenolite-example")
 	(generator_version "10.0")
 	(symbol "CONN2"
-		(pin_names
-			(hide yes)
-		)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
@@ -124,7 +121,7 @@
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "U"
-			(at 0 11.43 0)
+			(at 0 6.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -134,7 +131,7 @@
 			)
 		)
 		(property "Value" "DUAL_OPAMP"
-			(at 0 -11.43 0)
+			(at 0 -6.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -178,7 +175,7 @@
 		)
 		(symbol "DUAL_OPAMP_0_1"
 			(pin power_in line
-				(at 0 12.7 270)
+				(at 0 7.62 270)
 				(length 2.54)
 				(name "VCC"
 					(effects
@@ -196,7 +193,7 @@
 				)
 			)
 			(pin power_in line
-				(at 0 -12.7 90)
+				(at 0 -7.62 90)
 				(length 2.54)
 				(name "VEE"
 					(effects
@@ -216,8 +213,8 @@
 		)
 		(symbol "DUAL_OPAMP_1_1"
 			(rectangle
-				(start -12.7 10.16)
-				(end 12.7 -10.16)
+				(start -5.08 5.08)
+				(end 5.08 -5.08)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -227,7 +224,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 0 180)
+				(at 7.62 0 180)
 				(length 2.54)
 				(name "OUTA"
 					(effects
@@ -245,7 +242,7 @@
 				)
 			)
 			(pin input line
-				(at -15.24 2.54 0)
+				(at -7.62 2.54 0)
 				(length 2.54)
 				(name "-INA"
 					(effects
@@ -263,7 +260,7 @@
 				)
 			)
 			(pin input line
-				(at -15.24 -2.54 0)
+				(at -7.62 -2.54 0)
 				(length 2.54)
 				(name "+INA"
 					(effects
@@ -283,8 +280,8 @@
 		)
 		(symbol "DUAL_OPAMP_2_1"
 			(rectangle
-				(start -12.7 10.16)
-				(end 12.7 -10.16)
+				(start -5.08 5.08)
+				(end 5.08 -5.08)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -294,7 +291,7 @@
 				)
 			)
 			(pin output line
-				(at 15.24 0 180)
+				(at 7.62 0 180)
 				(length 2.54)
 				(name "OUTB"
 					(effects
@@ -312,7 +309,7 @@
 				)
 			)
 			(pin input line
-				(at -15.24 2.54 0)
+				(at -7.62 2.54 0)
 				(length 2.54)
 				(name "-INB"
 					(effects
@@ -330,7 +327,7 @@
 				)
 			)
 			(pin input line
-				(at -15.24 -2.54 0)
+				(at -7.62 -2.54 0)
 				(length 2.54)
 				(name "+INB"
 					(effects
@@ -351,16 +348,13 @@
 		(embedded_fonts no)
 	)
 	(symbol "MCU8"
-		(pin_names
-			(offset 1.778)
-		)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(in_pos_files yes)
 		(duplicate_pin_numbers_are_jumpers no)
 		(property "Reference" "U"
-			(at 0 11.43 0)
+			(at 0 6.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -370,7 +364,7 @@
 			)
 		)
 		(property "Value" "MCU8"
-			(at 0 -11.43 0)
+			(at 0 -6.35 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -414,8 +408,8 @@
 		)
 		(symbol "MCU8_0_1"
 			(rectangle
-				(start -12.7 10.16)
-				(end 12.7 -10.16)
+				(start -5.08 5.08)
+				(end 5.08 -5.08)
 				(stroke
 					(width 0.254)
 					(type default)
@@ -427,8 +421,8 @@
 		)
 		(symbol "MCU8_1_1"
 			(pin power_in line
-				(at -17.78 5.08 0)
-				(length 5.08)
+				(at -7.62 2.54 0)
+				(length 2.54)
 				(name "VCC"
 					(effects
 						(font
@@ -445,8 +439,8 @@
 				)
 			)
 			(pin input inverted
-				(at -17.78 0 0)
-				(length 5.08)
+				(at -7.62 0 0)
+				(length 2.54)
 				(name "~{RST}"
 					(effects
 						(font
@@ -463,8 +457,8 @@
 				)
 			)
 			(pin input clock
-				(at -17.78 -5.08 0)
-				(length 5.08)
+				(at -7.62 -2.54 0)
+				(length 2.54)
 				(name "CLK"
 					(effects
 						(font
@@ -481,8 +475,8 @@
 				)
 			)
 			(pin output line
-				(at 17.78 0 180)
-				(length 5.08)
+				(at 7.62 0 180)
+				(length 2.54)
 				(name "OUT"
 					(effects
 						(font
@@ -499,8 +493,8 @@
 				)
 			)
 			(pin input inverted
-				(at 17.78 5.08 180)
-				(length 5.08)
+				(at 7.62 2.54 180)
+				(length 2.54)
 				(name "~{OE}"
 					(effects
 						(font
@@ -517,8 +511,8 @@
 				)
 			)
 			(pin power_in line
-				(at 0 15.24 270)
-				(length 5.08)
+				(at 0 7.62 270)
+				(length 2.54)
 				(name "VDD"
 					(effects
 						(font
@@ -535,8 +529,8 @@
 				)
 			)
 			(pin power_in line
-				(at 0 -15.24 90)
-				(length 5.08)
+				(at 0 -7.62 90)
+				(length 2.54)
 				(name "GND"
 					(effects
 						(font
@@ -553,8 +547,8 @@
 				)
 			)
 			(pin passive line
-				(at 2.54 -15.24 90)
-				(length 5.08)
+				(at 2.54 -7.62 90)
+				(length 2.54)
 				(hide yes)
 				(name "TP"
 					(effects
@@ -651,8 +645,8 @@
 		)
 		(symbol "R_V_1_1"
 			(pin passive line
-				(at 0 5.08 270)
-				(length 2.54)
+				(at 0 3.81 270)
+				(length 1.27)
 				(name "~"
 					(effects
 						(font
@@ -669,8 +663,8 @@
 				)
 			)
 			(pin passive line
-				(at 0 -5.08 90)
-				(length 2.54)
+				(at 0 -3.81 90)
+				(length 1.27)
 				(name "~"
 					(effects
 						(font

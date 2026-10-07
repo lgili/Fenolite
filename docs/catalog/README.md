@@ -18,8 +18,25 @@ CAD installation or network access.
 
 The schematic symbols use aligned wire connection points, inward-facing stems and 0.254 mm body
 strokes. Their outlines are Fenolite-authored interpretations of familiar electrical shapes.
-Passive pin names are hidden where the body or polarity mark conveys the role; functional IC pins
-retain names. Review sheets render the actual catalog geometry, including background fill and terminal roles.
+Review sheets render the actual catalog geometry, including background fill and terminal roles.
+
+Pin names follow one rule (change c0134): a symbol shows a pin name only where it can be read.
+
+- A symbol whose drawing tells its pins apart hides its pin names and shows the pin numbers alone:
+  the passives, diodes, transistors, thyristors, switches, the relay, the transformer, the
+  optocoupler, the bridge rectifier and the two amplifiers. Where the drawing alone would not say
+  which pin is which, strokes say it: a plus and a minus at the amplifier inputs; a plus, a minus
+  and two waves inside the bridge; an arrowhead on the optocoupler's emitter leg.
+- The four plain rectangles show their names and are sized for them: `Linear_Regulator`,
+  `Offline_Power_Controller`, `Microcontroller` and `Power_Module`.
+- A hidden name stays in the definition: `fenolite catalog show` and the role line of the review
+  sheets list every name, and a design may still name a pin by it.
+
+`tests/unit/catalog/test_pin_text_legibility.py` measures the rule on every catalog symbol at the text
+size of KiCad (1.27 mm) and at an estimate of Altium's 10-point pin text: no shown pin text overlaps
+another, a shown name has room inside the body, no shown name or number lies on a stroke of the body or
+on the mark of a pin shape, and no shown name only repeats its pin's number. The Altium size is an
+assumption, not a measurement in Altium.
 
 ## Symbol review
 

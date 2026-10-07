@@ -662,7 +662,7 @@ notes = "Altium target example from KiCad symbols (thin DSL, c0034); lib ids of 
 path = "examples/altium_kicad/FenoliteDemo.kicad_sym"
 origin = "authored"
 corpus_id = ""
-notes = "authored CC0 KiCad symbol library of the Altium example (c0034): vertical pins, four sides, hidden pin, inverted and clock shapes, overbars, two units with common power pins"
+notes = "authored CC0 KiCad symbol library of the Altium example (c0034): vertical pins, four sides, hidden pin, inverted and clock shapes, overbars, two units with common power pins; bodies with room for the shown pin names, and pins long enough for their numbers, since c0134"
 
 [[file]]
 path = "examples/altium_kicad/sym-lib-table"
@@ -1523,6 +1523,12 @@ path = "tests/data/altium/generic/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/library/FenoliteDemo.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "examples/altium_kicad/FenoliteDemo.kicad_sym as committed before c0134 (bytes of commit 6cdf0aea): the library that the generic copies of kicad_example and no_connect were built from, before CONN2 hid its pin names, MCU8 and DUAL_OPAMP got larger bodies and R_V longer pins"
 
 [[file]]
 path = "tests/data/altium/channels/two/author.py"
