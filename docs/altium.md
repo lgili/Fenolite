@@ -1418,6 +1418,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
+| `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
 | `via` | `layers` | the writer writes a fixed value: only through vias are written |
 | `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |

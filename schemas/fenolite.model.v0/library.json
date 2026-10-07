@@ -442,6 +442,25 @@
               "type": "null"
             }
           ]
+        },
+        "fab_property": {
+          "anyOf": [
+            {
+              "enum": [
+                "bga",
+                "fiducial_global",
+                "fiducial_local",
+                "test_point",
+                "heatsink",
+                "castellated",
+                "mechanical",
+                "press_fit"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

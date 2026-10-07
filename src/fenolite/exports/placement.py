@@ -64,6 +64,8 @@ class PlacementRow:
     dnp: bool = False
     mount: Mount = "other"
     properties: Mapping[str, str] = field(default_factory=lambda: {})
+    fiducial: bool = False
+    """True when a pad of the footprint carries a fiducial mark (``Pad.fab_property``)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +83,16 @@ class PlacedRow:
     dnp: bool = False
     mount: Mount = "other"
     properties: Mapping[str, str] = field(default_factory=lambda: {})
+    fiducial: bool = False
+
+
+FIDUCIAL_MARKS = ("fiducial_global", "fiducial_local")
+"""The pad marks that make a footprint a fiducial row."""
+
+
+def is_fiducial(footprint: FootprintInstance) -> bool:
+    """True when a pad of ``footprint`` carries a fiducial mark."""
+    return any(pad.fab_property in FIDUCIAL_MARKS for pad in footprint.pads)
 
 
 def _mount(footprint: FootprintInstance) -> Mount:
@@ -113,6 +125,7 @@ def rows_from_model(design: Design) -> tuple[PlacementRow, ...]:
                 dnp="dnp" in footprint.attributes or (component is not None and component.dnp),
                 mount=_mount(footprint),
                 properties={k: v for k, v in properties.items() if k not in RESERVED_PROPERTIES},
+                fiducial=is_fiducial(footprint),
             )
         )
     return tuple(sorted(rows, key=lambda row: (natural_key(row.ref), row.ref)))
@@ -138,6 +151,22 @@ def _origin(template: PlacementTemplate, outline: BoardOutline | None) -> Point 
     return Point(min(point.x for point in ring), max(ys) if template.y_axis == "up" else min(ys))
 
 
+origin_of = _origin
+"""The point a template subtracts from every position (``None`` when the outline is needed and missing):
+the test-point table shares the frame of the placement table."""
+
+
+def no_outline_issue(outline: BoardOutline | None) -> Issue:
+    """``pnp.no-outline``: ``origin = "outline"`` on a board without a closed outline."""
+    problem = "" if outline is None else outline.problem
+    return issue(
+        "pnp.no-outline",
+        'origin = "outline" needs a closed board outline' + (f" ({problem})" if problem else ""),
+        where="placement.origin",
+        hint='draw a closed outline on the edge layer, or use origin = "page"',
+    )
+
+
 def apply(
     rows: Iterable[PlacementRow],
     template: PlacementTemplate,
@@ -145,21 +174,15 @@ def apply(
     outline: BoardOutline | None = None,
     issues: list[Issue] | None = None,
 ) -> tuple[PlacedRow, ...]:
-    """``rows`` under ``template``, in this order: the DNP and ``smd_only`` filters, the origin, the Y axis
-    and the rotation rule. Lengths stay in nm and angles in µdeg; ``table`` prints them.
+    """``rows`` under ``template``, in this order: the DNP, ``smd_only`` and ``fiducials`` filters, the
+    origin, the Y axis and the rotation rule. Lengths stay in nm and angles in µdeg; ``table`` prints them.
 
     With ``origin = "outline"`` and no closed outline there is no row: the issue ``pnp.no-outline`` is
     appended to ``issues``, or raised as ``NoOutlineError`` when ``issues`` is ``None``.
     """
     origin = _origin(template, outline)
     if origin is None:
-        problem = "" if outline is None else outline.problem
-        found = issue(
-            "pnp.no-outline",
-            'origin = "outline" needs a closed board outline' + (f" ({problem})" if problem else ""),
-            where="placement.origin",
-            hint='draw a closed outline on the edge layer, or use origin = "page"',
-        )
+        found = no_outline_issue(outline)
         if issues is None:
             raise NoOutlineError(found)
         issues.append(found)
@@ -167,6 +190,8 @@ def apply(
     placed: list[PlacedRow] = []
     for row in rows:
         if (template.exclude_dnp and row.dnp) or (template.smd_only and row.mount != "smd"):
+            continue
+        if row.fiducial and not template.fiducials:
             continue
         y = row.position.y - origin.y
         placed.append(
@@ -181,6 +206,7 @@ def apply(
                 dnp=row.dnp,
                 mount=row.mount,
                 properties=row.properties,
+                fiducial=row.fiducial,
             )
         )
     return tuple(placed)
@@ -199,6 +225,8 @@ def cell(row: PlacedRow, field_name: str, template: PlacementTemplate) -> str:
         return template.sides.top if row.side == "top" else template.sides.bottom
     if field_name == "footprint_name":
         return footprint_name(row.footprint)
+    if field_name == "fiducial":
+        return "yes" if row.fiducial else ""
     if field_name in ("ref", "value", "footprint"):
         return str(getattr(row, field_name))
     raise ValueError(f"{field_name!r} is not a field of a placement row")
@@ -211,11 +239,15 @@ def table(rows: Iterable[PlacedRow], template: PlacementTemplate) -> tuple[tuple
 
 __all__ = [
     "EVIDENCE",
+    "FIDUCIAL_MARKS",
     "NoOutlineError",
     "PlacedRow",
     "PlacementRow",
     "apply",
     "cell",
+    "is_fiducial",
+    "no_outline_issue",
+    "origin_of",
     "rotate",
     "rows_from_model",
     "table",

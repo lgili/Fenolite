@@ -48,6 +48,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `skill` | yes | show the packaged agent skill, or install it into an agent's skill folder or point AGENTS.md at it |
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
+| `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
 
 ## analyze
 
@@ -481,3 +482,19 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `-o`, `--out` (string, required): the drawing-sheet file to write
 - `--size` (string): build --target altium: the size of the template, one of the sizes the specification lists (default: the first); a usage error otherwise
 - `--altium-format` (string, one of `ascii`, `binary`): build --target altium: the form of the template, binary (default) or ascii; a usage error otherwise
+
+## testpoints
+
+`fenolite testpoints [--dry-run] [--confirm] [--plan ID] [--side {both,bottom,top}] [--template FILE] [--min-coverage PERCENT] [--min-pitch LENGTH] [--min-fiducials N] [-o FILE] [--manifest] PATH`
+
+- `--dry-run` (boolean): show the plan; write nothing
+- `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
+- `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
+- `--side` (string, one of `both`, `bottom`, `top`, default `both`): the side a probe comes from (default both)
+- `--template` (string): the template whose [placement] frame the CSV file uses
+- `--min-coverage` (string): an error below this share of covered nets (0 to 100)
+- `--min-pitch` (string): an error for two test points closer than this (1.27mm)
+- `--min-fiducials` (string): an error for a side with parts and fewer global fiducials
+- `-o`, `--out` (string): also write the report as a CSV file
+- `--manifest` (boolean): also add FILE to fenolite-artifacts.json in its folder

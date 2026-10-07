@@ -5,17 +5,20 @@
 from __future__ import annotations
 
 import re
-from typing import cast
+from typing import cast, get_args
 
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.units import as_nm, as_udeg
-from fenolite.model.board import Graphic, Pad, Padstack
+from fenolite.model.board import Graphic, Pad, PadFabProperty, Padstack
 from fenolite.model.library import FootprintDef, FootprintKind
 
 _IDENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.+-]*$")
+_FAB_PROPERTIES: tuple[str, ...] = get_args(PadFabProperty)
+_THROUGH_ONLY = ("castellated", "mechanical")
+"""Marks that KiCad's DRC reports as ``padstack`` on a pad that is not ``thru_hole`` (``H-K-PAD-FABPROP``)."""
 
 
 class Footprint:
@@ -60,7 +63,12 @@ class Footprint:
         layers: tuple[str, ...] | None = None,
         rotation: object = 0,
         shared: bool = False,
+        fab_property: str | None = None,
     ) -> None:
+        """Declare one pad. ``fab_property`` is its fabrication mark (``Pad.fab_property``): ``bga``,
+        ``fiducial_global``, ``fiducial_local``, ``test_point``, ``heatsink``, ``castellated``,
+        ``mechanical`` or ``press_fit``. The two that KiCad expects on a plated hole (``castellated``,
+        ``mechanical``) are refused on a pad that is not ``thru_hole``."""
         pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
         if pad_kind not in ("smd", "thru_hole", "np_thru_hole"):
             raise DslError(f"unsupported authored pad kind {kind!r}")
@@ -80,6 +88,15 @@ class Footprint:
             raise DslError(f"footprint {self.lib_id}: shared pad {number!r} has no earlier pad")
         if shape not in ("circle", "rect", "oval", "roundrect"):
             raise DslError(f"unsupported authored pad shape {shape!r}")
+        if fab_property is not None and fab_property not in _FAB_PROPERTIES:
+            raise DslError(
+                f"unsupported fab_property {fab_property!r}; expected one of {', '.join(_FAB_PROPERTIES)}"
+            )
+        if fab_property in _THROUGH_ONLY and pad_kind != "thru_hole":
+            raise DslError(
+                f"fab_property {fab_property!r} needs a thru_hole pad, and pad {number!r} is {pad_kind}: "
+                "KiCad's DRC reports such a pad as a padstack problem"
+            )
         x, y = as_nm(at[0], name="pad x"), as_nm(at[1], name="pad y")
         w, h = as_nm(size[0], name="pad width"), as_nm(size[1], name="pad height")
         if w <= 0 or h <= 0:
@@ -131,6 +148,7 @@ class Footprint:
                     else None
                 ),
                 layers=layers or default_layers,
+                fab_property=cast("PadFabProperty | None", fab_property),
             )
         )
 

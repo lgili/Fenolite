@@ -43,6 +43,17 @@ ViaType = Literal["through", "blind", "buried", "micro"]
 ZoneConnection = Literal["solid", "thermal", "none", "thru_hole_only"]
 """How a zone connects to a pad of its net; ``thru_hole_only`` means thermal reliefs on through-hole pads
 and solid connections on the others."""
+PadFabProperty = Literal[
+    "bga",
+    "fiducial_global",
+    "fiducial_local",
+    "test_point",
+    "heatsink",
+    "castellated",
+    "mechanical",
+    "press_fit",
+]
+"""The fabrication mark of a pad: what KiCad calls the fabrication property of a pad."""
 HoleShape = Literal["round", "square", "slot"]
 BodyKind = Literal["extruded", "model"]
 ZoneFillMode = Literal["solid", "hatched"]
@@ -194,6 +205,9 @@ class Pad(Entity):
     """The corner radius of a ``roundrect`` pad in parts per million of the shorter side of ``size``, from 0
     to ``MAX_CORNER_RATIO`` (change c0126): 250 000 is a quarter of the shorter side. ``None`` when the model
     does not know it, and for every other shape."""
+    fab_property: PadFabProperty | None = None
+    """The fabrication mark of the pad (fiducial, test point, BGA ball and the like); ``None`` for no mark.
+    The model does not check it against the pad's kind or layers."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +534,7 @@ __all__ = [
     "Outline",
     "OutlineArc",
     "Pad",
+    "PadFabProperty",
     "PadKind",
     "PadShape",
     "Padstack",

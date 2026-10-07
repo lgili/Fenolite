@@ -12,7 +12,7 @@ from pathlib import Path
 
 import _schema
 import pytest
-from _asmcli import COLUMNS, FIXTURE, INVALID, ROTATED, built, isolate
+from _asmcli import COLUMNS, FEATURES, FIXTURE, INVALID, LAST_LINE, ROTATED, built, isolate
 from _boards import board, footprint
 from _checkcli import run, without_elapsed
 from _projects import tree_snapshot
@@ -215,3 +215,28 @@ def test_manifest_in_the_working_folder_and_refusals(monkeypatch: pytest.MonkeyP
     assert sorted(p.name for p in tmp_path.iterdir()) == ["fenolite-artifacts.json"]
     code, env, _, _ = run(monkeypatch, tmp_path, *args[:-1], "--confirm")  # without --manifest: as before
     assert code == 0 and [w["path"] for w in env["receipt"]["written"]] == ["pnp.csv"]
+
+
+def test_fiducial_rows_of_a_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Fiducials kept by default" and "A template drops them" (assembly-outputs, change c0118), on
+    a build whose fiducials are authored parts with a marked pad."""
+    folder = built(monkeypatch, tmp_path, (LAST_LINE, FEATURES))
+    code, env, _, _ = run(monkeypatch, tmp_path, "pnp", str(folder))
+    assert code == 0
+    assert [row["ref"] for row in env["result"]["rows"]] == ["D1", "FID1", "FID2", "R1", "TP1", "U1"]
+    marked = tmp_path / "marked.toml"
+    marked.write_text(
+        '[placement]\nfiducials = true\ncolumns = [{ name = "Ref", field = "ref" }, '
+        '{ name = "Fid", field = "fiducial" }]\n',
+        encoding="utf-8",
+    )
+    code, env, _, _ = run(monkeypatch, tmp_path, "pnp", str(folder), "--template", str(marked))
+    assert code == 0
+    assert {row["Ref"]: row["Fid"] for row in env["result"]["rows"]} == {
+        "D1": "", "FID1": "yes", "FID2": "yes", "R1": "", "TP1": "", "U1": "",
+    }  # fmt: skip
+    dropped = tmp_path / "dropped.toml"
+    dropped.write_text("[placement]\nfiducials = false\n", encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "pnp", str(folder), "--template", str(dropped))
+    assert code == 0
+    assert [row["ref"] for row in env["result"]["rows"]] == ["D1", "R1", "TP1", "U1"]

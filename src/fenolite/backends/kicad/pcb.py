@@ -46,9 +46,11 @@ from fenolite.backends.kicad._fpmap import (
     layers_node,
     net_tie_groups,
     node,
+    opaque_fab_properties,
     opaque_zone_connects,
     padstack_key,
     point_node,
+    projected_fab_property,
     projected_net_ties,
     projected_zone_connect,
     read_graphic,
@@ -2014,7 +2016,9 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
-        "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "zone_connect", "uuid"),
+        "pad": (
+            *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", "zone_connect", "uuid",
+        ),
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
         "via": (
@@ -3090,6 +3094,12 @@ class _Writer:
                 where = _child_locator(entity, slots, i, name, "zone_connection")
                 self.read_only("zone_connection", where, "the zone connection is written as read")
             return "zone_connection"
+        if isinstance(entity, Pad) and name == "property":
+            first = opaque_fab_properties(slots)[0][0]
+            if i == first and projected_fab_property(slots) != entity.fab_property:
+                where = _child_locator(entity, slots, i, name, "fab_property")
+                self.read_only("fab_property", where, "the pad property is written as read")
+            return "fab_property"
         if isinstance(entity, Pad) and name == "padstack":
             model = entity.padstack
             expected = (

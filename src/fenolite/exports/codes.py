@@ -38,6 +38,12 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "drawing.stackup-missing": "info",
         "drawing.side-empty": "info",
         "drawing.designators-added": "info",
+        "testpoint.covered": "warning",
+        "testpoint.no-net": "warning",
+        "testpoint.none": "info",
+        "testpoint.coverage-low": "error",
+        "testpoint.too-close": "error",
+        "fiducial.too-few": "error",
     }
 )
 """Code → severity. A code with two severities is a warning when ``fenolite manifest`` writes (the file is

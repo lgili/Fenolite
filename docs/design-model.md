@@ -185,6 +185,7 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 | `Zone.filled` | the board's own fill flag, kept apart from `Zone.fills`: a zone may be filled with an empty result |
 | `Zone.locked` | the zone is locked against edits in the board editor |
 | `Pad.zone_connection` | how zones connect to the pad: `solid`, `thermal`, `none` or `thru_hole_only`; `None` means that the pad follows its footprint and the zone |
+| `Pad.fab_property` | the fabrication mark of the pad (change c0118), what KiCad calls the fabrication property of a pad: `bga`, `fiducial_global`, `fiducial_local`, `test_point`, `heatsink`, `castellated`, `mechanical` or `press_fit`; `None` for no mark. Board pads and library pads carry it; the model does not check it against the pad's kind or layers. The key is written only when a mark is set, so a design without marks serialises to the bytes it had. Releases 0.2.x and 0.3.0 cannot read a model document that carries the key `fab_property`: their reader refuses an unknown key |
 
 - **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
@@ -476,6 +477,8 @@ c0031); KiCad facts in `docs/formats/kicad/board.md`, "Zone settings".
   empty. It does not enter `effective()`.
 - **Pads.** `Pad.zone_connection` overrides the zone for one pad. Board pads and library pads carry it
   alike, so a library footprint can make its exposed pad solid in a thermal pour.
+  `Pad.fab_property` (change c0118) is carried the same way: a library pad marked as a BGA ball, a
+  fiducial or a test point keeps its mark on every placed copy.
 - **Old documents.** The four fields have defaults, so a `board.json` written before them still loads.
 
 ## Placed copies

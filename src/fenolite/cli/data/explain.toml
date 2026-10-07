@@ -1423,6 +1423,11 @@ meaning = "The board holds no stack-up, so the Gerber job file that KiCad writes
 fix = "Declare the stack-up with design.stackup() in the script, or enter it in KiCad's Board Setup, when the fabricator reads the job file."
 see = "export"
 
+["fiducial.too-few"]
+meaning = "A side that the report covers holds surface-mount parts and fewer global fiducials than --min-fiducials asks; 'where' is the side. Fiducials are footprints with a pad that carries a fiducial mark."
+fix = "Add fiducials to that side with design.fiducial(), or lower --min-fiducials to what the assembler asks."
+see = "testpoints"
+
 ["fmt.would-change"]
 meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
@@ -2691,6 +2696,31 @@ see = "template"
 meaning = "A listed page size would need more than 8 letter rows for its zones."
 fix = "Use fewer rows, or drop that page size."
 see = "template"
+
+["testpoint.coverage-low"]
+meaning = "Fewer nets hold a reachable test point than --min-coverage asks. A net counts when it has two pads or more, and it is covered when a pad marked as a test point on it is open on the asked side."
+fix = "Add test points to the nets the hint names with design.test_point(), or lower --min-coverage."
+see = "testpoints"
+
+["testpoint.covered"]
+meaning = "A pad marked as a test point has no side where its copper layer and its mask layer are both present, so a probe does not reach it; 'where' is the pad."
+fix = "Give the pad the mask layer of its copper side: F.Mask with F.Cu, B.Mask with B.Cu."
+see = "testpoints"
+
+["testpoint.no-net"]
+meaning = "A pad marked as a test point is on no net, so it probes nothing; 'where' is the pad."
+fix = "Connect the test point to the net it is for, or remove it."
+see = "testpoints"
+
+["testpoint.none"]
+meaning = "No pad of the board carries the test-point mark, so the report lists no test point. KiCad's library test points carry no mark."
+fix = "Place test points with design.test_point(), or mark an authored pad with Footprint.pad(fab_property=\"test_point\")."
+see = "testpoints"
+
+["testpoint.too-close"]
+meaning = "Two test points that share an access side are closer, centre to centre, than --min-pitch asks; 'where' names both."
+fix = "Move one of the two, or lower --min-pitch to the pitch of the test fixture."
+see = "testpoints"
 
 ["zone.fill-mismatch"]
 meaning = "A zone exists in only one of the two boards, so the refilled board is not a refill of this one."

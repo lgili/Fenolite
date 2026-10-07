@@ -71,6 +71,22 @@ fenolite pnp blink/build --side top -o blink/build/fab/pnp.csv --manifest --conf
   it wants.
 - Check the rotation of polarised parts against the assembler's convention. No command can.
 
+## Test points and fiducials
+
+```fenolite-cmd
+fenolite testpoints blink/build --json
+fenolite testpoints blink/build --min-coverage 90 --min-fiducials 3 --json
+fenolite testpoints blink/build -o blink/build/fab/testpoints.csv --manifest --confirm --json
+```
+
+`testpoints` reads the board file and runs no tool. It lists the pads marked `test_point` with the side a
+probe reaches them from, the fiducials, the holes that are not plated, and which nets of two pads or more
+have a test point. It counts marks, never names: the test points and fiducials of KiCad's library carry no
+mark, and the info `testpoint.none` says so; mark a pad with `fab_property="test_point"` in
+`Footprint.pad`. Fenolite ships no target: `--min-coverage`, `--min-pitch` and `--min-fiducials` are the
+user's numbers, and a missed one is an error with exit code 5. `-o` writes the rows as CSV in the frame of
+the placement table.
+
 ## The manifest
 
 ```fenolite-cmd

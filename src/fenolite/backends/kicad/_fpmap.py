@@ -27,7 +27,15 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.ids import content_hash, content_id, derived_id
 from fenolite.core.units import format_angle
 from fenolite.model.base import Modeled, Opaque, Slot
-from fenolite.model.board import Graphic, GraphicKind, Pad, Padstack, PadstackLayer, ZoneConnection
+from fenolite.model.board import (
+    Graphic,
+    GraphicKind,
+    Pad,
+    PadFabProperty,
+    Padstack,
+    PadstackLayer,
+    ZoneConnection,
+)
 from fenolite.model.library import FootprintDef
 
 FP_GRAPHIC_HEADS: Mapping[str, GraphicKind] = MappingProxyType(
@@ -44,18 +52,38 @@ PAD_FIELDS: Mapping[str, str] = MappingProxyType(
         "uuid": "native_ids",
         "drill": "drill",
         "zone_connect": "zone_connection",
+        "property": "fab_property",
     }
 )
 PAD_POSITIONAL = ("number", "kind", "shape")
 PAD_CANONICAL: tuple[str, ...] = (
-    *PAD_POSITIONAL, "position", "size", "drill", "layers", "zone_connection", "native_ids",
+    *PAD_POSITIONAL, "position", "size", "drill", "fab_property", "layers", "zone_connection", "native_ids",
 )  # fmt: skip
-"""Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``."""
+"""Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``, and the
+fabrication ``property`` after ``drill`` (or ``size``) and before ``layers``."""
 ZONE_CONNECT = "zone_connect"
 NET_TIES = "net_tie_pad_groups"
 """The footprint child that lists the net-tie groups, one string per group (``libraries.md``, "Net-tie
 groups"; change c0114). It is no field of ``DEF_FIELDS``: a read child stays an opaque slot, projected into
 ``net_ties``, and only an authored definition writes it from the field."""
+FAB_PROPERTY = "property"
+FAB_PROPERTY_TOKENS: Mapping[PadFabProperty, str] = MappingProxyType(
+    {
+        "bga": "pad_prop_bga",
+        "fiducial_global": "pad_prop_fiducial_glob",
+        "fiducial_local": "pad_prop_fiducial_loc",
+        "test_point": "pad_prop_testpoint",
+        "heatsink": "pad_prop_heatsink",
+        "castellated": "pad_prop_castellated",
+        "mechanical": "pad_prop_mechanical",
+        "press_fit": "pad_prop_pressfit",
+    }
+)
+"""``Pad.fab_property`` to the token of a pad's ``(property <token>)`` child (``board.md``,
+``H-K-PAD-FABPROP``)."""
+_FAB_PROPERTIES: Mapping[str, PadFabProperty] = MappingProxyType(
+    {token: value for value, token in FAB_PROPERTY_TOKENS.items()}
+)
 DEF_FIELDS: Mapping[str, str] = MappingProxyType(
     {"descr": "description", "attr": "kind", "pad": "pads", **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics")}
 )
@@ -195,7 +223,9 @@ def read_pad(
     net_id: str | None = None
     zone_connection: ZoneConnection | None = None
     padstack_at: tuple[int, Node, str] | None = None
+    fab_property: PadFabProperty | None = None
     connects = len(node.nodes(ZONE_CONNECT))
+    marks = len(node.nodes(FAB_PROPERTY))
     for index, (child_loc, child) in enumerate(child_locators(loc, node)):
         if not isinstance(child, Node):
             continue
@@ -209,6 +239,15 @@ def read_pad(
                 slots[index] = ctx.opaque(child, chain)
                 why = "is repeated" if found is not None else "is not a code from 0 to 3"
                 ctx.kept_opaque(f"zone_connect {why}; kept as written", child_loc)
+        elif head == FAB_PROPERTY:
+            # one child with a known token is modelled; a repeated one is projected from the first
+            mark = read_fab_property(child)
+            if child_loc.endswith("[0]"):
+                fab_property = mark
+            if mark is None or marks > 1:
+                slots[index] = ctx.opaque(child, chain)
+                why = "is repeated" if mark is not None else "is not a known fabrication property"
+                ctx.kept_opaque(f"pad property {why}; kept as written", child_loc)
         elif head == "at":
             position = ctx.point(child, child_loc)
             values = child.atoms()
@@ -265,7 +304,21 @@ def read_pad(
         net_id=net_id,
         padstack=padstack,
         zone_connection=zone_connection,
+        fab_property=fab_property,
     )
+
+
+def read_fab_property(child: Node) -> PadFabProperty | None:
+    """The mark of a pad's ``(property <token>)`` child, or ``None`` for a token outside the table."""
+    atoms = child.atoms()
+    if len(atoms) != 1 or child.nodes():
+        return None
+    return _FAB_PROPERTIES.get(atoms[0].value)
+
+
+def fab_property_node(value: PadFabProperty) -> Node:
+    """``(property <token>)`` for a pad's mark."""
+    return node(FAB_PROPERTY, Atom.symbol(FAB_PROPERTY_TOKENS[value]))
 
 
 def read_drill(
@@ -435,6 +488,7 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
         "zone_connection": (
             [] if pad.zone_connection is None else [zonelib.pad_connect_node(pad.zone_connection)]
         ),
+        "fab_property": [] if pad.fab_property is None else [fab_property_node(pad.fab_property)],
     }
     if net is not None:
         items["net_id"] = [net]
@@ -571,13 +625,32 @@ def projected_zone_connect(slots: Sequence[Slot]) -> ZoneConnection | None:
     return zonelib.read_pad_connect(found[0][1]) if found else None
 
 
+def opaque_fab_properties(slots: Sequence[Slot]) -> list[tuple[int, Node]]:
+    """``(slot index, child)`` of each opaque ``property`` child of a pad's slot list."""
+    out: list[tuple[int, Node]] = []
+    for index, slot in enumerate(slots):
+        if isinstance(slot, Opaque) and slot.fragment.startswith(f"({FAB_PROPERTY}"):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == FAB_PROPERTY:
+                out.append((index, child))
+    return out
+
+
+def projected_fab_property(slots: Sequence[Slot]) -> PadFabProperty | None:
+    """The mark that the opaque ``property`` children of a pad stand for (the first one's)."""
+    found = opaque_fab_properties(slots)
+    return read_fab_property(found[0][1]) if found else None
+
+
 def _rebuild_pad(pad: Pad, opaque: Callable[[Opaque], Node | Atom]) -> Node:
-    """A library pad from its slots; a pad without a ``zone_connect`` child gains one when the model sets
-    ``zone_connection``."""
+    """A library pad from its slots; a pad without a ``zone_connect`` or a fabrication ``property`` child
+    gains one when the model sets ``zone_connection`` or ``fab_property``."""
     slots = _entity_slots(pad)
     wanted = _modelled(slots)
     if not opaque_zone_connects(slots):
         wanted = wanted | {"zone_connection"}
+    if not opaque_fab_properties(slots):
+        wanted = wanted | {"fab_property"}
     source = _Items(emit_pad(pad, None), wanted)
     return slotlib.rebuild(Atom.symbol("pad"), slots, source, canonical=PAD_CANONICAL, opaque=opaque)
 
@@ -606,6 +679,7 @@ __all__ = [
     "PAD_POSITIONAL",
     "PAD_SHAPES",
     "POINT_HEADS",
+    "FAB_PROPERTY_TOKENS",
     "IdSource",
     "Ids",
     "Items",
@@ -615,16 +689,20 @@ __all__ = [
     "emit_footprint",
     "emit_graphic",
     "emit_pad",
+    "fab_property_node",
     "layers_node",
     "net_tie_groups",
     "net_tie_node",
     "node",
+    "opaque_fab_properties",
     "opaque_zone_connects",
     "padstack_key",
     "point_node",
+    "projected_fab_property",
     "projected_net_ties",
     "projected_zone_connect",
     "read_drill",
+    "read_fab_property",
     "read_graphic",
     "read_pad",
     "read_padstack",

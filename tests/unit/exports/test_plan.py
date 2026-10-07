@@ -194,6 +194,12 @@ def test_issue_codes() -> None:
         "drawing.stackup-missing": "info",
         "drawing.side-empty": "info",
         "drawing.designators-added": "info",
+        "testpoint.covered": "warning",
+        "testpoint.no-net": "warning",
+        "testpoint.none": "info",
+        "testpoint.coverage-low": "error",
+        "testpoint.too-close": "error",
+        "fiducial.too-few": "error",
     }
     assert issue("manifest.missing", "m").severity == "warning"
     assert issue("manifest.missing", "m", severity="error").severity == "error"

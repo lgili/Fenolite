@@ -39,6 +39,7 @@ import _drccases
 import _erccases
 import _exclcases
 import _exportcases
+import _featurebench
 import _fieldbench
 import _fieldprobe
 import _fillcases
@@ -353,6 +354,8 @@ def _probes() -> dict[str, Probe]:
         **_lengthcases.length_probes(runner),
         **_lengthcases.meander_probes(runner),
     }.items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
         probes[pid] = Probe(function, majors)
     return probes
 
