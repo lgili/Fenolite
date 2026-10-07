@@ -105,6 +105,8 @@ def test_stacks_of_a_demo_project(row: _schcorpus.SchRow, tmp_path: Path) -> Non
     running = major()
     if row.id not in {r.id for r in _schprojects.roots(running)}:
         pytest.skip(f"no project at tag {_schprojects.MAJOR_TAGS[running]}")
+    if not _schprojects.readable(row, running):
+        pytest.skip("a sheet of the project is older than the format Fenolite reads (use sch-old)")
     require(next(i for i in manifest_items("sch") if i.id == row.id))
     if not _schprojects.loadable(row, running):
         pytest.skip(f"a sheet of the project is newer than KiCad {running} reads")
