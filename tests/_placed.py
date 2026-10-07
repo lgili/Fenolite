@@ -10,7 +10,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
-from typing import Literal
 
 from fenolite.backends.kicad.embed import PATH_PROPERTY, place_footprint
 from fenolite.backends.kicad.layers import created_layers
@@ -61,7 +60,7 @@ def _id(prefix: str, n: int) -> str:
 
 def design_of(
     *parts: Part,
-    copper: Literal[2, 4] = 2,
+    copper: int = 2,
     classes: Sequence[NetClass] = (),
     class_of: Mapping[str, str] | None = None,
     extra_nets: Sequence[str] = (),

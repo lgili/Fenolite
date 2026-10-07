@@ -31,8 +31,20 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
-INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
-"""The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
+COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
+"""The copper layer counts of ``board()`` (change c0100). The KiCad backend holds the same counts in
+``layers.CREATED_COPPER_COUNTS``; the DSL imports only the model, so a unit test keeps the two equal."""
+
+
+def _counts_text() -> str:
+    counts = [str(count) for count in COPPER_COUNTS]
+    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+
+
+def inner_layers(copper: int) -> tuple[str, ...]:
+    """The inner copper layers of a board of ``copper`` layers, top to bottom: ``In1.Cu`` …
+    ``In<copper − 2>.Cu``, the layers a plane can take. Empty for two layers."""
+    return tuple(f"In{k}.Cu" for k in range(1, copper - 1))
 
 
 @dataclass(frozen=True)
@@ -345,14 +357,14 @@ class Design(Container):
         copper: int = 2,
         planes: Mapping[str, Net | str] | None = None,
     ) -> None:
-        """A rectangular board of ``width`` × ``height`` with 2 or 4 copper layers. An inner layer is a
+        """A rectangular board of ``width`` × ``height`` with 2, 4, 6 or 8 copper layers. An inner layer is a
         signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an internal
         plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build parameter, as
         ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``)."""
         if self.size is not None:
             raise DslError("board() is called once")
-        if copper not in (2, 4):
-            raise DslError(f"copper must be 2 or 4, not {copper!r}")
+        if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
         w, h = as_nm(width, name="width"), as_nm(height, name="height")
         if w <= 0 or h <= 0:
             raise DslError("the board width and height must be positive")
@@ -360,6 +372,12 @@ class Design(Container):
         self.size = (w, h)
         self.copper = copper
         self.planes = declared
+
+    @property
+    def copper_layers(self) -> tuple[str, ...]:
+        """The copper layer names of the declared count, top to bottom: ``F.Cu``, the inner layers and
+        ``B.Cu``. ``("F.Cu", "B.Cu")`` before ``board()`` is called."""
+        return ("F.Cu", *inner_layers(self.copper), "B.Cu")
 
     def sheet(
         self,
@@ -449,20 +467,23 @@ class Design(Container):
             return {}
         if not isinstance(planes, Mapping):
             raise DslError(f"planes must map an inner layer name to a net, not {planes!r}")
+        inner = inner_layers(copper)
         found: dict[str, str] = {}
         for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
-            if copper != 4:
-                raise DslError(f"planes need copper=4: a board of {copper} copper layers has no inner layer")
-            if layer not in INNER_LAYERS:
-                names = " or ".join(INNER_LAYERS)
-                raise DslError(f"a plane lies on an inner layer ({names}), not on {layer!r}")
+            if not inner:
+                raise DslError(
+                    f"planes need copper={_counts_text().removeprefix('2, ')}: "
+                    f"a board of {copper} copper layers has no inner layer"
+                )
+            if layer not in inner:
+                raise DslError(f"a plane lies on an inner layer ({', '.join(inner)}), not on {layer!r}")
             if isinstance(net, Net):
                 found[layer] = net.name
             elif isinstance(net, str) and net and net == net.strip():
                 found[layer] = net
             else:
                 raise DslError(f"the plane on {layer} needs a Net or a net name, not {net!r}")
-        return {layer: found[layer] for layer in INNER_LAYERS if layer in found}
+        return {layer: found[layer] for layer in inner if layer in found}
 
     def zone(
         self,
@@ -552,7 +573,7 @@ class Design(Container):
         )
 
     def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
-        allowed = ("F.Cu", *(INNER_LAYERS if self.copper == 4 else ()), "B.Cu")
+        allowed = self.copper_layers
         if isinstance(layers, str) or not isinstance(layers, Sequence) or not layers:
             raise DslError(
                 f"{what}: layers must be a non-empty sequence of copper layer names, not {layers!r}"
@@ -723,12 +744,13 @@ class Design(Container):
 
 
 __all__ = [
+    "COPPER_COUNTS",
     "DESIGN_NAME",
-    "INNER_LAYERS",
     "MINIMUM_KINDS",
     "Design",
     "MinimumSpec",
     "NetClassSpec",
     "Rules",
     "ZoneSpec",
+    "inner_layers",
 ]

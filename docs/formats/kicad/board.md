@@ -128,6 +128,10 @@ never taken from KiCad's writer code.
 | The drawings of a board footprint are its `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` children and its `fp_text` children. Their points are in the footprint's own frame, the frame of its pads and of its properties: the place on the board is `at + R(θ)·local`, θ being the footprint angle, with no further mirror, so a footprint on the bottom side stores mirrored points and names the bottom layers. Fenolite's reader keeps each child as an opaque slot; `backends.kicad.fpitems` projects them on request (change c0126) with the mapping of a library footprint (`libraries.md`, "What the reader models"), in child order | S-0021; the rows of `H-K-FIELD-FRAME`, `H-G-FLIP` and `H-K-OUTLINE-FPEDGE` above, which measure the frame for properties, placed copies and edge items | INFERRED | H-K-PCB-FPGFX |
 | The `at` of an `fp_text` of a board footprint holds the angle of the text on the board, as the `at` of a property and of a pad does; the projection gives the angle relative to the footprint, `(stored − θ) mod 360°`. A text without a font `size` or `thickness`, a graphic whose stroke is not solid, a polygon with an arc, `fp_text_box`, `fp_curve`, `dimension` and a number that is no whole number of nanometres are not projected: they are counted by head and stay in their slots | S-0021; the rows of `H-G-PAD-ANGLE-ABS` and `H-K-FIELD-FRAME` above | INFERRED | H-K-PCB-FPGFX |
 | `roundrect_rratio` of a pad is a decimal of the pad's shorter side that gives the corner radius, from 0 to 0.5 (`frame.md`, the row of `H-G-FRAME-SHAPE`). The projection gives it as `Pad.corner_ratio` in parts per million of the shorter side, `r · 1 000 000`, rounded half to even to one ppm when the text has more than six decimals; a value outside 0 to 0.5 is not projected | S-0001 | INFERRED | H-K-PCB-FPGFX |
+| In KiCad's own boards the inner copper rows are `(2k + 2 "In<k>.Cu" signal)` after `F.Cu` and before `(2 "B.Cu" signal)`, without a user name: `In1.Cu` 4 to `In4.Cu` 10 in a six-layer demo (header `20250513`), and to `In6.Cu` 14 in an eight-layer demo (header `20241229`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-LAYERS |
+| A layer table of 2, 4, 6 or 8 copper layers with those inner rows loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| 10.0.6 refuses a table of three copper layers (`F.Cu`, `In1.Cu`, `B.Cu`) in both texts: no DRC report and no Gerber | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | INFERRED | H-K-PCB-LAYERS |
 
 ## What the reader models
 
@@ -344,8 +348,14 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `paper` from `Board.sheet` (`(paper "A4")` when it is `None`), `title_block` right after `paper` when
   one of the seven fields of `Board.title_block` is set (c0012), `layers`,
   `(setup (pad_to_mask_clearance 0))` and, for target 9, the net table.
-  `layers.created_layers(2)` is the two-copper table above; `created_layers(4)` adds `In1.Cu` (4) and
-  `In2.Cu` (6) after `F.Cu`. No `pcbplotparams` is written.
+  `layers.created_layers(2)` is the two-copper table above. For the counts of
+  `layers.CREATED_COPPER_COUNTS`, 2, 4, 6 and 8, `created_layers(n)` inserts the rows of
+  `layers.inner_rows(n)` right after `F.Cu`: one row `(2k + 2 "In<k>.Cu" signal)` without a user name
+  per inner layer k = 1 … n − 2, so `In1.Cu` is 4, `In2.Cu` 6, `In3.Cu` 8, `In4.Cu` 10, `In5.Cu` 12 and
+  `In6.Cu` 14. The rows are the same for targets 9 and 10, and are those of KiCad's own boards (the
+  layer facts above, `H-K-PCB-LAYERS`). Any other count, an odd one included, raises `ValueError`:
+  KiCad refuses a table of three copper layers. `layers.created_count(names)` gives the count whose
+  table has exactly these copper names. No `pcbplotparams` is written.
 - **Net forms.** For target 9 the root holds `(net 0 "")` and `(net i "NAME")` for the model's nets in
   code-point order of their names, i = 1 … n. Pads write `(net i "NAME")`; other items write `(net i)`;
   zones also write `(net_name "NAME")`. For target 10 every reference is `(net "NAME")`, with no table

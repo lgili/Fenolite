@@ -13,7 +13,6 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
-from typing import Literal
 
 from fenolite.core.ids import derived_id
 from fenolite.model.base import ExtBag
@@ -69,11 +68,9 @@ CREATED_ROWS: tuple[tuple[int, str, str, str | None], ...] = (
     (33, "B.Fab", "user", None),
 )
 """The two-copper layer table KiCad 10.0.6 writes (``board.md``): number, name, type, user name."""
-INNER_ROWS: tuple[tuple[int, str, str, str | None], ...] = (
-    (4, "In1.Cu", "signal", None),
-    (6, "In2.Cu", "signal", None),
-)
-"""Rows a four-copper table adds after ``F.Cu``."""
+CREATED_COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
+"""The copper layer counts of a created board (change c0100); ``fenolite.dsl.design.COPPER_COUNTS``
+holds the same counts, and a unit test keeps the two equal."""
 
 
 def _compile(pattern: str) -> re.Pattern[str]:
@@ -134,11 +131,38 @@ def flip_layer(name: str) -> str:
     return name
 
 
-def created_layers(copper: Literal[2, 4]) -> tuple[Layer, ...]:
-    """The layers of a created board, with the KiCad number, type and user name in ``ext["kicad"]``."""
-    if copper not in (2, 4):  # pyright: ignore[reportUnnecessaryContains]
-        raise ValueError(f"created boards have 2 or 4 copper layers, not {copper!r}")
-    rows = CREATED_ROWS[:1] + (INNER_ROWS if copper == 4 else ()) + CREATED_ROWS[1:]
+def _counts_text() -> str:
+    counts = [str(count) for count in CREATED_COPPER_COUNTS]
+    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+
+
+def _check_count(copper: object) -> int:
+    if isinstance(copper, bool) or not isinstance(copper, int) or copper not in CREATED_COPPER_COUNTS:
+        raise ValueError(f"created boards have {_counts_text()} copper layers, not {copper!r}")
+    return copper
+
+
+def inner_rows(copper: int) -> tuple[tuple[int, str, str, str | None], ...]:
+    """The rows a table of ``copper`` layers adds after ``F.Cu``: ``(2k + 2, "In<k>.Cu", "signal")``
+    without a user name for k = 1 … copper − 2 (``board.md``, "Created boards"; ``H-K-PCB-LAYERS``)."""
+    count = _check_count(copper)
+    return tuple((2 * k + 2, f"In{k}.Cu", "signal", None) for k in range(1, count - 1))
+
+
+def created_count(names: Sequence[str]) -> int | None:
+    """The count of ``CREATED_COPPER_COUNTS`` whose created table has exactly the copper layer names
+    ``names``, in table order; ``None`` when no count has them."""
+    given = tuple(names)
+    for count in CREATED_COPPER_COUNTS:
+        if given == ("F.Cu", *(row[1] for row in inner_rows(count)), "B.Cu"):
+            return count
+    return None
+
+
+def created_layers(copper: int) -> tuple[Layer, ...]:
+    """The layers of a created board, with the KiCad number, type and user name in ``ext["kicad"]``.
+    ``copper`` is a count of ``CREATED_COPPER_COUNTS``; any other value raises ``ValueError``."""
+    rows = CREATED_ROWS[:1] + inner_rows(copper) + CREATED_ROWS[1:]
     layers: list[Layer] = []
     for ordinal, (number, name, row_type, user_name) in enumerate(rows):
         pairs = [("number", str(number)), ("type", row_type)]
@@ -158,14 +182,16 @@ def created_layers(copper: Literal[2, 4]) -> tuple[Layer, ...]:
 
 __all__ = [
     "COPPER_ROW_TYPES",
+    "CREATED_COPPER_COUNTS",
     "CREATED_ROWS",
     "FLIP_SUFFIXES",
-    "INNER_ROWS",
     "LAYER_KINDS",
+    "created_count",
     "created_layers",
     "expand_layers",
     "flip_layer",
     "has_wildcard",
+    "inner_rows",
     "is_canonical",
     "layer_kind",
 ]

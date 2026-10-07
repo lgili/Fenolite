@@ -597,3 +597,35 @@ def test_bodies_option_needs_the_altium_target(monkeypatch: pytest.MonkeyPatch, 
         "--dry-run",
     )
     assert code == 2 and json.loads(err)["code"] == "FEN-2001" and not out.exists()
+
+
+# --- change c0100: script layer counts (altium-build, "Script layer counts in an Altium build") -------
+
+
+def test_six_layers_with_a_plane_and_a_zone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Six layers with a plane and a zone": the PCB document of a six-layer script is planned."""
+    from _altium import blink_tree
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = blink_tree(tmp_path / "tree") / "design.py"
+    lines = script.read_text(encoding="utf-8").splitlines()
+    nets = next(line for line in lines if line.startswith("vin, gnd, led_drv, led_a = "))
+    lines.remove(nets)
+    board = lines.index("design.board(mm(50), mm(30))")
+    lines[board] = nets + '\ndesign.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})'
+    lines.append('design.zone(vin, layers=("In3.Cu",))')
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    code, env, err = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    assert code == 0, err
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert "blink.PcbDoc" in [Path(p["path"]).name for p in result["plan"]]
+    copper = result["copper"]
+    assert copper["layers"] == 6 and copper["planes"] == {"In4.Cu": "GND"} and copper["zones"] == 1
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    assert "altium.copper-stack" not in [i["code"] for i in issues]
+    assert not [i for i in issues if i["code"] == "altium.not-lowered" and i.get("where") == "stackup"]
+    assert not [i for i in issues if i["severity"] == "error"]

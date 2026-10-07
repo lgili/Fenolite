@@ -292,6 +292,17 @@ script's rectangle, `layout.outline-kept` says so: a new size needs KiCad or `--
 board whose copper layers differ from `board(copper=…)` cannot be preserved (`layout.copper-mismatch`,
 error).
 
+**Layer count.** A board of 2, 4, 6 or 8 copper layers keeps its layout when its copper layer names are
+those of the script's count (`F.Cu`, `In1.Cu` … `B.Cu`), with the board's own layer rows unchanged.
+When they differ, the message names the board's layers, their count and the script's count, and
+nothing is written. If the board holds the table of an allowed count, the hint names both ways:
+`design.board(..., copper=<the board's count>)` keeps the board's layout, and `--discard-layout`
+creates the board on the script's count without it. A board that got two more layers in KiCad's
+board setup is the usual case: a four-layer board with `In3.Cu` and `In4.Cu` added is rebuilt, layout
+kept, once the script says `copper=6`. For a table that Fenolite does not create (ten layers, or an
+inner layer under another name) the hint names `--discard-layout` only. A change of the count never
+keeps the layout.
+
 The paper and the title block are the board's too, unless the script declares them with
 `design.sheet()` or `design.title_block()`: a declared one is written again from the script on every
 build (`docs/dsl.md`, "Drawing sheet and title block").
@@ -422,7 +433,7 @@ the next build would drop or overwrite:
 
 | code | severity | when |
 |---|---|---|
-| `layout.copper-mismatch` | error | the board's copper layers differ from `board(copper=…)` |
+| `layout.copper-mismatch` | error | the board's copper layers differ from `board(copper=…)`; the message names both counts, the hint `copper=<the board's count>` when it is 2, 4, 6 or 8, and `--discard-layout` |
 | `layout.source-invalid` | error | a table or key of `placements.toml` is invalid |
 | `layout.orphan` | warning | a footprint with `fenolite.path` matched no part and is removed |
 | `layout.alias-unused` | warning | a part alias, given or expanded from a module alias, matched nothing, or its part matched by uuid or path |

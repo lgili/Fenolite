@@ -891,7 +891,7 @@ see = "build"
 
 ["build.plane-not-lowered"]
 meaning = "A plane of the script is not written to the KiCad board; one issue per plane."
-fix = "Draw a zone for it with zone() in the script, or in KiCad."
+fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
 
 ["build.property-conflict"]
@@ -1864,7 +1864,7 @@ see = "build"
 
 ["layout.copper-mismatch"]
 meaning = "The existing board's copper layers differ from board(copper=...) of the script."
-fix = "Make the script's layer count equal to the board's, or change the stack-up in KiCad."
+fix = "Use design.board(..., copper=<the board's count>) to keep the layout, or rebuild with --discard-layout to create the board on the script's count."
 see = "build"
 
 ["layout.footprint-replaced"]

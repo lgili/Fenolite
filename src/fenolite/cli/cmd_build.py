@@ -754,7 +754,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         model,
         prepared.placements if prepared is not None else requested,
         name=design.name,
-        copper=design.copper,  # type: ignore[arg-type]
+        copper=design.copper,
         resolver=resolver,
         target=ctx.kicad_target,
         allow_lossy=ctx.allow_lossy,
@@ -1016,7 +1016,7 @@ def _run_altium(
             model,
             requested,
             name=name,
-            copper=run.design.copper,  # type: ignore[arg-type]
+            copper=run.design.copper,
             resolver=resolver,
             target=ctx.kicad_target,
             copper_intents=intents,

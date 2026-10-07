@@ -152,7 +152,7 @@ def test_planes_by_name_in_layer_order() -> None:
 def test_malformed_planes_fail_at_the_call() -> None:
     """Scenario "Malformed planes fail at the call"."""
     design, gnd = _with_gnd()
-    with pytest.raises(DslError, match="planes need copper=4"):
+    with pytest.raises(DslError, match="planes need copper=4, 6 or 8"):
         design.board(mm(50), mm(30), planes={"In1.Cu": gnd})
     with pytest.raises(DslError, match="F.Cu"):
         design.board(mm(50), mm(30), copper=4, planes={"F.Cu": gnd})

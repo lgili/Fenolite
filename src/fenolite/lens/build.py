@@ -147,13 +147,14 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
 
 def plane_issues(planes: Mapping[str, str]) -> list[Issue]:
     """One ``build.plane-not-lowered`` info per internal plane of the script (layer name → net name): the
-    KiCad target writes the layer as the signal layer it is, and no plane (change c0038)."""
+    KiCad target writes the layer as the signal layer it is, and no plane (change c0038). The hint names
+    the script call that draws that copper (change c0100)."""
     return [
         issue(
             "build.plane-not-lowered",
             f"the plane on {layer} (net {net}) is not written: {layer} stays a signal layer of the board",
             layer,
-            f"draw a zone on {layer} for the net {net} in KiCad",
+            f'draw that copper in the script: design.zone(<the net {net}>, layers=("{layer}",))',
         )
         for layer, net in planes.items()
     ]
@@ -546,7 +547,7 @@ def build_design(
     placements: Mapping[str, PlacementRequest],
     *,
     name: str,
-    copper: Literal[2, 4],
+    copper: int,
     resolver: LibraryResolver,
     target: int = versions.DEFAULT_TARGET,
     allow_lossy: bool = False,
