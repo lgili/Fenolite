@@ -318,6 +318,27 @@ def _via(body: bytes, raw: bytes) -> ViaRecord:
     )  # fmt: skip
 
 
+VIA_PAD_TABLE = (209, 32)
+"""Where a via subrecord of at least ``VIA_PAD_TABLE_FROM`` bytes holds one byte per layer id from 1: the
+offset and the number of bytes (``docs/formats/altium/pcb-copper.md``, "Via"; ``H-A-IMP-VIA-PADLESS``)."""
+VIA_PAD_TABLE_FROM = 321
+"""The shortest via subrecord in which the rows of the facts page place that table."""
+
+
+def via_pad_removed(record: ViaRecord) -> tuple[int, ...]:
+    """The layer ids on which the via record says that the via has no pad shape, in ascending order
+    (change c0132): the ids whose byte in the table of ``VIA_PAD_TABLE`` is not zero. Empty for a
+    subrecord shorter than ``VIA_PAD_TABLE_FROM`` bytes. The meaning is ``INFERRED``
+    (``H-A-IMP-VIA-PADLESS``): Altium's "Remove Unused Pad Shapes" takes the pad shape of a via off the
+    layers on which nothing touches it, and a polygon then keeps its clearance to the hole. Read from
+    ``record.tail``, the bytes of the subrecord from offset 31."""
+    offset, count = VIA_PAD_TABLE
+    tail = record.tail
+    if len(tail) + 31 < VIA_PAD_TABLE_FROM:
+        return ()
+    return tuple(index + 1 for index, value in enumerate(tail[offset - 31 : offset - 31 + count]) if value)
+
+
 def _fill(body: bytes, raw: bytes) -> FillRecord:
     x1, y1, x2, y2 = struct.unpack_from("<4i", body, 13)
     (rotation,) = struct.unpack_from("<d", body, 29)
@@ -675,6 +696,8 @@ __all__ = [
     "TEXT",
     "TRACK",
     "VIA",
+    "VIA_PAD_TABLE",
+    "VIA_PAD_TABLE_FROM",
     "ArcRecord",
     "FillRecord",
     "PadRecord",
@@ -694,4 +717,5 @@ __all__ = [
     "to_nm",
     "to_nm_exact",
     "typed_fields",
+    "via_pad_removed",
 ]

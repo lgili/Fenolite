@@ -36,6 +36,7 @@ from fenolite.backends.altium.read.pcbprims import (
     RegionRecord,
     RegionVertex,
     TrackRecord,
+    via_pad_removed,
 )
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
 from fenolite.core.coords import Point, Size
@@ -288,9 +289,16 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
     return found, graphics
 
 
+PAD_REMOVED_KEY = "pad_removed"
+"""The bag key of a via whose record names layers without a pad shape: their Altium layer ids, in
+ascending order, separated by commas (change c0132; ``read.pcbprims.via_pad_removed``)."""
+
+
 def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
     """Every via with its span: ``through`` between the outer layers, ``blind`` with one outer layer,
-    ``buried`` otherwise. A start or end layer outside the chain gives the outer layers and a warning."""
+    ``buried`` otherwise. A start or end layer outside the chain gives the outer layers and a warning.
+    A via whose record names layers without a pad shape holds them in the pair ``pad_removed``; its
+    diameter and its id are those of the record without them."""
     found: list[Via] = []
     chain = ctx.layers.chain
     outer = {chain[0], chain[-1]}
@@ -325,6 +333,9 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
             names = (ctx.layers.name(chain[0]), ctx.layers.name(chain[-1]))
             via_type = "through"
             pairs.append(("via_layers", f"{ends[0]},{ends[1]}"))
+        removed = via_pad_removed(item)
+        if removed:  # the model holds one diameter: the layers without a pad shape are said here alone
+            pairs.append((PAD_REMOVED_KEY, ",".join(str(layer) for layer in removed)))
         net_id = ctx.net(item.prefix.net)
         found.append(
             Via(

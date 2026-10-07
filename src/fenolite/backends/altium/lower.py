@@ -81,6 +81,7 @@ MORE_KINDS: tuple[str, ...] = (
     "netclass",
     "copper-shape",
     "zone-fill",
+    "via-pad-shape",
     "plane",
     "stackup",
     "outline",
@@ -91,7 +92,8 @@ MORE_KINDS: tuple[str, ...] = (
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
-polygon is written unpoured), an internal plane, the stack-up values, a part of the outline, and the
+polygon is written unpoured), the layers on which a via has no pad shape (the via is written with a pad on
+every layer; change c0132), an internal plane, the stack-up values, a part of the outline, and the
 schematic. Of the circuit (change c0083): the pin-to-pad map of a component (``Component.pin_pad_map``,
 with the bag key ``pin_pads``), a module (the generated schematic is one sheet), and the channel of a
 repeated sheet (the bag keys ``sheet_symbol`` and ``channel_index`` of a module)."""
@@ -100,6 +102,9 @@ LOSS_KINDS: frozenset[str] = frozenset(
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
+PAD_REMOVED_KEY = "pad_removed"
+"""The bag key under which the import keeps the layers on which a via has no pad shape
+(``adapter.copper.PAD_REMOVED_KEY``; change c0132)."""
 ARC_KEY = "arc"
 """The bag key under which the import keeps the record of an arc (``adapter.copper.arc_pair``)."""
 ARC_TOLERANCE = 2
@@ -587,6 +592,13 @@ def _copper(
             account.skip("via", via.id, problem)
         else:
             vias.append(dataclasses.replace(via, net_id=named(via.net_id)))
+            if PAD_REMOVED_KEY in pairs_of(via):
+                account.skip(
+                    "via-pad-shape",
+                    via.id,
+                    "the layers on which a via has no pad shape are not written: the written via has its "
+                    "pad on every layer of its span",
+                )
     zones: list[Zone] = []
     for zone in board.zones:
         outline = _open(zone.outline)

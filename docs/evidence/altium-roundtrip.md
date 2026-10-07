@@ -287,8 +287,13 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 | `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
 | `altium-third-party-pcbdoc-06` | equal | 27 | 102 | 111 | 3 | 42 | 10 | body 27; copper-shape 20; graphic 23; outline 1; pad 4; text 2; zone-fill 10 | footprint-graphics 1074; shape-based-regions 42; classes 18 | 18 |
 | `altium-third-party-pcbdoc-07` | equal | 14 | 97 | 475 | 20 | 60 | 5 | body 24; copper-shape 6; graphic 12; outline 2; pad 19; zone 4; zone-fill 5 | footprint-graphics 307; shape-based-regions 31; classes 16; bad-geometry 1 | 20 |
-| `altium-third-party-pcbdoc-08` | equal | 544 | 2115 | 8355 | 529 | 1770 | 27 | body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; text 311; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
+| `altium-third-party-pcbdoc-08` | equal | 544 | 2115 | 8355 | 529 | 1770 | 27 | body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; rule 1; text 311; via-pad-shape 123; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
 
+- **Vias without a pad on some layers (change c0132; run again on 2026-10-07 with the heavy rows, the
+  same command).** The 123 vias of `-08` whose records name layers without a pad shape are written, as
+  ordinary via records with a pad on every layer, and counted under `via-pad-shape`: the rewrite does
+  not hold that state. All 1 770 vias are written and the document stays equal inside the scope; no
+  other row holds such a via.
 - **The 8 documents are equal** inside the scope since change c0127; the seven that are not heavy come
   from six repositories, and the criterion of `H-A-VER-RTA3` asks for three. The row is confirmed and
   `CORPUS-VERIFIED` (decision of the maintainer, 2026-10-07); the eighth document is heavy and runs only
@@ -474,7 +479,7 @@ asserts what the stage promises, not that a board is clean.
 | `altium-third-party-pcbdoc-05` | 5, 96, 194, 0, 59 | 1 156 | 0 | 0 | 1, 0 | 0 | 0 | 0 | 232 | `INFERRED` |
 | `altium-third-party-pcbdoc-06` | 11, 106, 111, 3, 42 | 250 | 0 | 0 | 0, 2 | 0 | 10 | 0 | 0 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-07` | 16, 112, 475, 20, 60 | 2 528 | 0 | 0 | 2, 1 | 0 | 0 | 0 | 112 | `UNVERIFIED` |
-| `altium-third-party-pcbdoc-08` (heavy) | 128, 2 126, 8 355, 529, 1 770 | 60 253 | 28 | 17 | 2, 3 | 0 | 0 | 0 | 4 628 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-08` (heavy) | 128, 2 126, 8 355, 529, 1 770 | 59 571 | 0 | 16 | 2, 3 | 0 | 0 | 0 | 4 664 | `UNVERIFIED` |
 
 - **No pour is judged against a default.** c0122 measured 266 clearance findings on
   `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone.
@@ -491,8 +496,7 @@ asserts what the stage promises, not that a board is clean.
   `-07`; four before c0125), three have no unread Clearance record (`-01`, `-03`, `-05`), and two carry
   `INFERRED` (`-03`, `-05`; one before). c0125 lifts one of the three documents that had no clearance in
   force, not three.
-- **Known false findings on `-08`.** `fenolite check` reports 29 FALSE findings on `altium-third-party-pcbdoc-08` (28 `copper.short` and 1 `copper.clearance`): seven vias have no pad on the four inner layers, the pours of other nets were made around their holes, and the import draws each via's one diameter on every layer of its span, so the pad it invents meets the pour. They are a defect of the import, not of the board; the follow-up change c0132 is to read the fact that makes a via padless on a layer. The row of `-08` above counts them (28 of its shorts, 1 of
-  its 17 clearance findings); no other row holds a finding of this class.
+- **The false findings on `-08` are repaired (change c0132; measured on 2026-10-07 with `FENOLITE_HEAVY=1`).** Until that change `fenolite check` reported 29 FALSE findings on `altium-third-party-pcbdoc-08` (28 `copper.short` and 1 `copper.clearance`): seven vias have no pad on the four inner layers, the pours of other nets were made around their holes, and the import drew each via's one diameter on every layer of its span. The via record says it: a table of thirty-two bytes at offset 209, one per layer id, holds 1 for the layers without a pad shape (Altium's "Remove Unused Pad Shapes"; `docs/formats/altium/pcb-copper.md`, "Via"; `H-A-IMP-VIA-PADLESS`, `INFERRED`). 123 of the 1 770 vias of the document name such layers (the 330-byte form of the record; 51 name all four inner layers, 71 three and 1 two), and no via of the other seven documents does. The check now judges such a via by its hole on those layers: **0 shorts and 16 clearance findings** (28 and 17 before), every one of the 29 gone and no other finding changed. Nothing is left unjudged: copper inside the hole of such a via is still a short. The row of `-08` above holds the new counts; its via column counts the 1 770 vias, and `summary.items.via` of the stage counts 2 160, the parts in which the 123 are judged (one per run of layers that are alike). `test_vias_without_inner_pads` asserts both states.
 - **The heavy document `-08` and the cells of a matrix (change c0130; measured on 2026-10-07 with
   `FENOLITE_HEAVY=1`).** Its row is new: the document was in no copper test before. One of its four
   Clearance records, for all objects with one cell (via to via, 3.5 mil in a rule of 4 mil), is read as a
@@ -504,13 +508,10 @@ asserts what the stage promises, not that a board is clean.
   are as before (27 and 8 cells unjudged).
 - **The findings of `-08`.** 16 clearance findings are 8 to 13 nm short of the rule's value (6 track to
   track, 8 track to via, 1 pad to track, 1 via to via against the cell): the class of `-03` and `-01`
-  below. **28 shorts and one clearance finding of 33.9 µm are a limit of the import, not of the board:** 7
-  vias meet the pour of another net on each of the four inner layers, and a track passes one such via.
-  The pour stands at the via's drill radius plus the generic clearance from its centre (to 4 nm), so it
-  was poured around the hole: the via has no pad there, and the import draws its one diameter on every
-  layer. All 7 have the long form of the via record (335 bytes, 123 of 1 770 vias), whose further bytes
-  no fact explains. Listed for the follow-up change c0132; pinned by
-  `test_known_false_findings_of_padless_vias_c0132`.
+  below. The 28 shorts and the clearance finding of 33.9 µm that this entry listed until change c0132
+  (7 vias against the pour of another net on each of the four inner layers, and a track beside one
+  such via) were a limit of the import and are gone: the pour stands at the via's drill radius plus the
+  generic clearance from its centre (to 4 nm), and the via has no pad there (the entry above).
 - **What still has no clearance in force.** `-02` holds one Clearance record, a matrix of differing
   clearances (27 entries of 5 values) with the option that ignores the pads of one footprint. `-06` holds
   two: one for a net with a matrix of differing clearances, and one for all objects with that option.
@@ -536,12 +537,12 @@ asserts what the stage promises, not that a board is clean.
   board that was read and none on a plane layer. The column `planes` still counts the plane layers, whose
   own copper no reading holds: one `copper.item-unsupported` at `plane`, level `UNVERIFIED`.
 - **The unit's slack.** With the rule values as the documents write them, 1 447 more clearance findings
-  appear on the seven documents (1 088 before `-03` had a clearance in force) and 4 628 on `-08`, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
+  appear on the seven documents (1 088 before `-03` had a clearance in force) and 4 664 on `-08` (4 628 before change c0132: 28 more are a pour at the clearance from the hole of a via without a pad, 1 to 3 nm short, 9 more are pairs of two such vias counted per pair of parts, and 1 fewer is a track beside a pad that is not there), every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
 - **The rule of the slack (change c0131).** The 5 nm are now a stated rule, one file unit (2.54 nm) per
   item of the pair, 5.08 nm held as 5 whole nanometres: the same number, so every count of this section
   is unchanged. Measured again on the eight documents on 2026-10-07 (`FENOLITE_HEAVY=1`): the slack
   removes 6 075 findings (626, 0, 359, 118, 232, 0, 112 and 4 628; by shortfall 4 262 at 1 nm, 1 538 at
-  2 nm, 234 at 3 nm, 41 at 4 nm, none at 5 nm). **The 25 findings of the other class all stay errors**:
+  2 nm, 234 at 3 nm, 41 at 4 nm, none at 5 nm; since change c0132, which judges 123 vias of `-08` by their holes on the layers without a pad, 6 111: 4 664 on `-08`, and by shortfall 4 267, 1 549, 254 and 41). **The 25 findings of the other class all stay errors**:
   2 on `-01` (9 and 20 nm short), 7 on `-03` (8 and 9 nm) and 16 on `-08` (8 to 13 nm), that is 3.1 to
   7.9 file units for the pair where the rule gives 2. Nothing lies between 4 and 8 nm: the conversion
   explains the first group and not the second. The design of c0131 holds the bound per kind of item

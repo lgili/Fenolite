@@ -252,6 +252,121 @@ def test_rules_source_of_a_built_sample() -> None:
     assert rules.design.board.tracks == design.board.tracks
 
 
+def _via_and_track(layers: tuple[int, ...], edge_mil: int):  # noqa: ANN202
+    """A six-layer document with a Clearance of 0.5 mil, a through via of 16 mil with an 8 mil hole on the
+    net A whose record names ``layers`` as without a pad shape, and on layer 2 a track of the net B, 2 mil
+    wide, whose edge is ``edge_mil`` from the via's centre."""
+    import _altium_records as rec
+
+    mil = rec.MIL
+    rule = rec.rule("Clearance", "Clearance", GAP="0.5mil", GENERICCLEARANCE="0.5mil", OBJECTCLEARANCES="")
+    y = 400 * mil + (edge_mil + 1) * mil
+    return rec.document(
+        rec.board((1, 2, 3, 4, 5, 32)),
+        nets=("A", "B"),
+        rules=[rule],
+        vias=[rec.via_without_pads((500 * mil, 400 * mil), layers, net=0)],
+        tracks=[rec.track((400 * mil, y), (600 * mil, y), 2 * mil, layer=2, net=1)],
+    )
+
+
+@pytest.mark.parametrize(
+    ("layers", "edge_mil", "found"),
+    [
+        ((2, 4, 5), 5, []),
+        ((), 5, ["copper.short"]),
+        ((2, 4, 5), 3, ["copper.short"]),
+        ((4, 5), 5, ["copper.short"]),
+    ],
+)
+def test_pad_removed_via_is_judged_by_its_hole(
+    layers: tuple[int, ...], edge_mil: int, found: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "A via without a pad on an inner layer" (change c0132): a track of another net inside the
+    radius of a pad that is not there is no finding; the same track is a short of the via that has its
+    pad on that layer; and a track inside the HOLE of the padless via is a short too."""
+    import _altium_records as rec
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.read import pcb
+    from fenolite.checks.copper import check_copper
+
+    document = _via_and_track(layers, edge_mil)
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    rules = AltiumBackend().rules_from_bytes(design, b"document", file="a.PcbDoc")
+    assert design.board is not None and rules.design.board is not None
+    (via,) = design.board.vias
+    parts = rules.design.board.vias
+    report = check_copper(rules.design, pads=())
+    assert [f.code for f in report.findings] == found
+    if not layers:
+        assert len(parts) == 1 and parts[0] is via
+        return
+    assert {part.id for part in parts} == {via.id} and {part.provenance for part in parts} == {via.provenance}
+    assert {(p.position, p.drill, p.net_id) for p in parts} == {(via.position, via.drill, via.net_id)}
+    spans = [(part.layers, part.diameter) for part in parts]
+    if layers == (2, 4, 5):
+        assert spans == [
+            (("F.Cu", "F.Cu"), 406_400),
+            (("In1.Cu", "In1.Cu"), 203_200),
+            (("In2.Cu", "In2.Cu"), 406_400),
+            (("In3.Cu", "In4.Cu"), 203_200),
+            (("B.Cu", "B.Cu"), 406_400),
+        ]
+        assert report.summary["items"]["via"] == 5  # type: ignore[index]  # the parts are counted
+    else:
+        assert spans == [
+            (("F.Cu", "In2.Cu"), 406_400),
+            (("In3.Cu", "In4.Cu"), 203_200),
+            (("B.Cu", "B.Cu"), 406_400),
+        ]
+    for found_one in report.findings:
+        assert via.id in {entry.entity_id for entry in found_one.items} and found_one.layer == "In1.Cu"
+
+
+def test_pad_removed_pair_that_names_no_layer_of_the_span_changes_nothing() -> None:
+    """A layer id that is no copper layer of the via's span is ignored, a pair that does not parse leaves
+    the via as it is, and a design without such a pair is the same object."""
+    import _altium_records as rec
+
+    from fenolite.backends.altium.adapter import import_board
+    from fenolite.backends.altium.backend import _with_removed_pads  # pyright: ignore[reportPrivateUsage]
+
+    document = rec.document(
+        rec.board((1, 2, 3, 32)),
+        vias=[
+            rec.via_without_pads((0, 0), (7, 9)),
+            rec.via_without_pads((0, 0), ()),
+            rec.via_without_pads((0, 0), (1, 2, 3, 32)),
+        ],
+    )
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    assert design.board is not None
+    outside, plain, every = design.board.vias
+    viewed = _with_removed_pads(design).board
+    assert viewed is not None and viewed.vias[:2] == (outside, plain) and viewed.vias[0] is outside
+    assert [(v.layers, v.diameter) for v in viewed.vias[2:]] == [(("F.Cu", "B.Cu"), every.drill)]
+    broken = dataclasses.replace(
+        every, ext={"altium": ExtBag(min_version=None, payload=(("pad_removed", "2,x"),))}
+    )
+    blind = dataclasses.replace(
+        every,
+        layers=("F.Cu", "In1.Cu"),
+        via_type="blind",
+        ext={"altium": ExtBag(min_version=None, payload=(("pad_removed", "2,3"),))},
+    )
+    board = dataclasses.replace(design.board, vias=(broken, blind))
+    again = _with_removed_pads(dataclasses.replace(design, board=board)).board
+    assert again is not None and again.vias[0] is broken
+    assert [(v.layers, v.diameter) for v in again.vias[1:]] == [
+        (("F.Cu", "F.Cu"), every.diameter),
+        (("In1.Cu", "In1.Cu"), every.drill),
+    ]
+    none = dataclasses.replace(design, board=dataclasses.replace(design.board, vias=(plain,)))
+    assert _with_removed_pads(none) is none
+
+
 def test_rules_source_counts_the_clearance_rules_that_stay_opaque() -> None:
     from fenolite.backends.altium.read.pcb import read_rule_fields
     from fenolite.backends.altium.read.rules import map_rules

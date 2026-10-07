@@ -51,6 +51,7 @@ from fenolite.model.design import Design
 
 if TYPE_CHECKING:
     from fenolite.backends.altium.lower import ProjectWrite
+    from fenolite.model.board import Layer, Via
 
 Compare = ModelCompare
 
@@ -76,6 +77,9 @@ CAPABILITIES = CapabilityReport(
 """What the backend offers: ``detect`` and ``read``, at the evidence of the import (``INFERRED``)."""
 BACKEND = "altium"
 LAYER_ID_KEY = "layer_id"
+PAD_REMOVED_KEY = "pad_removed"
+"""The bag key of a via without a pad shape on some layers: their Altium layer ids
+(``adapter.copper.PAD_REMOVED_KEY``; change c0132)."""
 """The pair of a layer's ``altium`` bag that holds its Altium id (``adapter.layers``)."""
 PLANE_CUTS_KEY = "plane_cuts"
 """The pair of a plane layer's bag that counts the objects the import left out on it (change c0124)."""
@@ -379,8 +383,9 @@ class AltiumBackend:
         values, and there is no board minimum. An internal plane is drawn in negative: the objects on its
         layer cut the plane and are no copper, and the import makes no entity of them (change c0124), so
         nothing is taken out here; ``left_out`` names the planes, whose own copper the document does not
-        hold, with the number of objects the import left out. A document that cannot be read is named in
-        ``unread``; nothing is raised for it."""
+        hold, with the number of objects the import left out. A via without a pad shape on some layers is
+        given with its hole as its copper there (``_with_removed_pads``). A document that cannot be read
+        is named in ``unread``; nothing is raised for it."""
         del issues  # the import reported the rule records already
         try:
             data = (project.root / project.board).read_bytes()
@@ -398,7 +403,7 @@ class AltiumBackend:
         from fenolite.backends.altium.read.pcb import read_rule_fields
         from fenolite.backends.altium.read.rules import NOT_APPLYING, map_rules
 
-        checked = _with_unit_slack(_without_zone_clearance(design))
+        checked = _with_unit_slack(_without_zone_clearance(_with_removed_pads(design)))
         opaque = 0
         cells = (0, 0)
         failed: tuple[tuple[str, str], ...] = ((file, unread),) if data is None else ()
@@ -551,6 +556,64 @@ def _without_zone_clearance(design: Design) -> Design:
         for zone in board.zones
     )
     return dataclasses.replace(design, board=dataclasses.replace(board, zones=zones))
+
+
+def _with_removed_pads(design: Design) -> Design:
+    """``design`` with every via that has no pad shape on some layers given as the copper it has on each
+    layer (change c0132; ``docs/formats/altium/import.md``, "Clearance of the copper check").
+
+    The import keeps the Altium layer ids without a pad shape in the pair ``pad_removed`` of the via's bag;
+    the model's ``Via`` holds one diameter, and the copper check draws a via with that diameter on one
+    range of layers. Such a via is therefore given as one via per run of consecutive copper layers of its
+    span that are alike: its diameter where it has a pad, and its DRILL as diameter where it has none, the
+    hole through which it passes that layer (copper of another net inside the hole meets the barrel, and
+    a polygon keeps its clearance to the hole). A part spans exactly its run (``layers`` are its first and
+    last layer, the type ``buried`` so that the check takes that range) and keeps the via's id, provenance,
+    net, position and drill, so a finding names the via that was read. A layer id that is no copper layer
+    of the span is ignored; a pair that does not parse leaves the via as it is; a via without the pair is
+    the same object. Nothing is taken out of the check."""
+    board = design.board
+    if board is None or not any(PAD_REMOVED_KEY in _pairs(via) for via in board.vias):
+        return design
+    copper = [layer for layer in board.layers if layer.kind == "copper"]
+    names = [layer.name for layer in copper]
+    by_id = {_pairs(layer).get(LAYER_ID_KEY, ""): layer.name for layer in copper}
+    vias: list[Via] = []
+    for via in board.vias:
+        text = _pairs(via).get(PAD_REMOVED_KEY)
+        parts = text.split(",") if text else []
+        if not parts or not all(part.isdecimal() for part in parts):
+            vias.append(via)
+            continue
+        ends = via.layers
+        span = names
+        if via.via_type != "through" and len(ends) == 2 and ends[0] in names and ends[1] in names:
+            first, last = sorted((names.index(ends[0]), names.index(ends[1])))
+            span = names[first : last + 1]
+        bare = {by_id[part] for part in parts if part in by_id} & set(span)
+        if not bare:
+            vias.append(via)
+            continue
+        start = 0
+        for index in range(1, len(span) + 1):
+            if index < len(span) and (span[index] in bare) == (span[start] in bare):
+                continue
+            vias.append(
+                dataclasses.replace(
+                    via,
+                    layers=(span[start], span[index - 1]),
+                    via_type="buried",
+                    diameter=via.drill if span[start] in bare else via.diameter,
+                )
+            )
+            start = index
+    return dataclasses.replace(design, board=dataclasses.replace(board, vias=tuple(vias)))
+
+
+def _pairs(entity: Via | Layer) -> dict[str, str]:
+    """The pairs of the ``altium`` bag of ``entity`` (the last value of a repeated key)."""
+    held = entity.ext.get(BACKEND)
+    return dict(held.payload) if held is not None else {}
 
 
 def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:

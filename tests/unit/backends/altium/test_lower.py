@@ -508,3 +508,39 @@ def test_roundtrip_is_a_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
     AltiumBackend().write(_read(SAMPLES / "routed" / "routed.PcbDoc"))
     write_model(KicadBackend().read(KICAD_ROUTED).design)
     assert [options.get("rewrite", False) for options in seen] == [False, False]
+
+
+# --- a via without a pad shape on some layers is written with its pad and counted (change c0132) ---------
+
+
+def test_pad_shape_layers_are_counted_not_written(tmp_path: Path) -> None:
+    """Scenario "A via with removed pad shapes in a rewrite": the via is written as the ordinary record of
+    321 bytes with a table of zeros, and counted under ``via-pad-shape``, which is no loss kind."""
+    from fenolite.backends.altium.read.pcbprims import ViaRecord, via_pad_removed
+    from fenolite.model.base import ExtBag
+
+    first = _read(SAMPLES / "routed" / "routed.PcbDoc")
+    assert first.board is not None
+    bare, *others = first.board.vias
+    held = bare.ext["altium"].payload if "altium" in bare.ext else ()
+    assert not any("pad_removed" in lower.pairs_of(via) for via in first.board.vias)
+    marked = dataclasses.replace(
+        bare, ext={"altium": ExtBag(min_version=None, payload=(*held, ("pad_removed", "2,4,5")))}
+    )
+    design = dataclasses.replace(first, board=dataclasses.replace(first.board, vias=(marked, *others)))
+    assert "via-pad-shape" in lower.MORE_KINDS and "via-pad-shape" not in lower.LOSS_KINDS
+    issues: list[Issue] = []
+    inputs = lower.from_design(design, issues=issues)
+    assert inputs.not_lowered["via-pad-shape"] == (bare.id,) and "via" not in inputs.not_lowered
+    assert inputs.written["via"] == len(first.board.vias)
+    codes = [(i.code, i.severity, i.where) for i in issues if i.where == "via-pad-shape"]
+    assert codes == [("altium.not-lowered", "info", "via-pad-shape")]
+    written = lower.write_design(design)  # not refused: the via is written
+    records = read_pcbdoc(written.files["routed.PcbDoc"], file="routed.PcbDoc").vias
+    assert len(records) == len(first.board.vias)
+    for record in records:
+        assert isinstance(record, ViaRecord) and len(record.raw) == 326 and via_pad_removed(record) == ()
+    assert written.files == lower.write_design(first).files  # the bytes of the write without the pair
+    second = _reading_of(written, tmp_path)
+    assert second.board is not None and [v.id for v in second.board.vias] == [v.id for v in first.board.vias]
+    assert "via-pad-shape" not in lower.from_design(first, issues=[]).counts()

@@ -218,6 +218,21 @@ def via(
     return ViaRecord(b"", prefix(74, **owner), at[0], at[1], diameter, hole, start, end, False, False, b"")
 
 
+def via_without_pads(
+    at: tuple[int, int],
+    layers: Sequence[int],
+    diameter: int = 16 * MIL,
+    hole: int = 8 * MIL,
+    **owner: int | None,
+) -> ViaRecord:
+    """A through via whose record is of 321 bytes and holds 1 in the table at 209 for each layer id of
+    ``layers`` (change c0132): the tail is the bytes of the subrecord from offset 31."""
+    tail = bytearray(321 - 31)
+    for layer in layers:
+        tail[209 - 31 + layer - 1] = 1
+    return ViaRecord(b"", prefix(74, **owner), at[0], at[1], diameter, hole, 1, 32, False, False, bytes(tail))
+
+
 def fill(
     a: tuple[int, int], b: tuple[int, int], rotation: float = 0.0, layer: int = 33, **owner: int | None
 ) -> FillRecord:

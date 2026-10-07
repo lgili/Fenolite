@@ -33,12 +33,13 @@ from _corpus import CorpusItem, heavy_enabled, manifest_items, require
 from fenolite.backends.altium.backend import (
     UNIT_SLACK_NM,
     AltiumBackend,
+    _with_removed_pads,  # pyright: ignore[reportPrivateUsage]
     _without_zone_clearance,  # pyright: ignore[reportPrivateUsage]
 )
 from fenolite.backends.base import PadNetList
 from fenolite.checks import assignment_compare, parity
 from fenolite.checks.clearance import ZONE_SOURCE
-from fenolite.checks.copper import check_copper
+from fenolite.checks.copper import CopperFinding, check_copper
 from fenolite.checks.documents import document_copper, project_of
 from fenolite.core.evidence import Level
 from fenolite.model.design import Design
@@ -153,7 +154,8 @@ def test_copper(item: CorpusItem) -> None:
     # copper at exactly its clearance in the document's unit is no finding: with the values as the
     # document writes them, the findings that the slack of the unit takes away are short by that slack
     # at most, and nothing else changes
-    exact = _without_zone_clearance(design)
+    # (a via without a pad shape on a layer is judged by its hole there in both: change c0132)
+    exact = _without_zone_clearance(_with_removed_pads(design))
     unslacked = check_copper(exact, pads=backend.board_pads(exact))
     kept = {frozenset(entry.entity_id for entry in f.items) for f in report.findings}
     rounding = [f for f in unslacked.findings if frozenset(e.entity_id for e in f.items) not in kept]
@@ -256,50 +258,128 @@ def test_parity(name: str, tmp_path: Path) -> None:
     assert pinned == PARITY[name], f"{name}: update PARITY and the table of docs/evidence/altium-roundtrip.md"
 
 
-def test_known_false_findings_of_padless_vias_c0132() -> None:
-    """KNOWN FALSE FINDINGS, pinned so that they are not taken for real and so that their repair is seen:
-    the 28 shorts of the heavy document (and one clearance finding beside them) are a defect of the import,
-    not of the board. The follow-up change c0132 is to remove them; when it lands, this test must fail and
-    its counts go to zero.
+VIA_FORMS = {
+    "altium-third-party-pcbdoc-01": {299: 646},
+    "altium-third-party-pcbdoc-02": {321: 160, 351: 82},
+    "altium-third-party-pcbdoc-03": {321: 47},
+    "altium-third-party-pcbdoc-04": {321: 67},
+    "altium-third-party-pcbdoc-05": {321: 59},
+    "altium-third-party-pcbdoc-06": {321: 42},
+    "altium-third-party-pcbdoc-07": {321: 60},
+    "altium-third-party-pcbdoc-08": {321: 1647, 330: 123},
+}
+"""Row → length of the one subrecord of a via record → number of records (2 933 in all; census of
+2026-10-07, change c0132; ``docs/formats/altium/pcb-copper.md``, "Via")."""
+PAD_TABLES = {HEAVY_BOARD: {(2, 3, 4, 5): 51, (2, 4, 5): 70, (2, 3, 5): 1, (2, 5): 1}}
+"""Row → the layer ids a via record names as without a pad shape → number of records; no other row holds
+such a record."""
 
-    The class: a via against the pour of another net on an inner layer, where the pour stands at the
-    generic clearance from the via's HOLE (its centre is the drill radius plus that clearance from the
-    pour's copper, within the rounding of the pour's points). The via has no pad on that layer; the import
-    gives it its one diameter on every layer, so the pad it invents meets the pour. Every such via has the
-    long form of the via record, and no fact Fenolite holds says what that form adds
-    (``docs/evidence/altium-roundtrip.md``, "Light DRC over the corpus")."""
+
+@pytest.mark.parametrize("item", BOARDS, ids=[item.id for item in BOARDS])
+def test_via_record_forms(item: CorpusItem) -> None:
+    """Scenario "Public documents" of "Removed pad shapes of a via record" (change c0132): the lengths of
+    the via records, and which of them name a layer in the table at 209. Only the 330-byte form does."""
     from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.altium.read.pcbprims import ViaRecord, via_pad_removed
+
+    if item.heavy and not heavy_enabled():
+        pytest.skip(f"{item.id} is a heavy corpus item: set FENOLITE_HEAVY=1 to include it")
+    path = require(item)
+    records = read_pcbdoc(path.read_bytes(), file=path.name).vias
+    assert all(isinstance(record, ViaRecord) for record in records)
+    lengths = Counter(len(record.raw) - 5 for record in records)
+    tables = Counter(via_pad_removed(record) for record in records if isinstance(record, ViaRecord))
+    named = {layers: count for layers, count in tables.items() if layers}
+    census(
+        "altium-via-forms", item.id, {"forms": dict(sorted(lengths.items())), "named": sum(named.values())}
+    )
+    assert dict(lengths) == VIA_FORMS[item.id], f"{item.id}: update VIA_FORMS and the facts page"
+    assert named == PAD_TABLES.get(item.id, {}), item.id
+    for record in records:
+        assert isinstance(record, ViaRecord)
+        assert bool(via_pad_removed(record)) == (len(record.raw) - 5 == 330), item.id
+        # a via with a diameter per layer would be another reading of the class: none is in the corpus
+        assert (record.start_layer, record.end_layer) == (1, 32)
+        if len(record.raw) - 5 >= 203:
+            assert record.raw[5 + 74] == 0 and len(set(record.raw[5 + 75 : 5 + 203 : 4])) == 1
+
+
+def _key(found: CopperFinding) -> tuple[str, str, tuple[str, ...], int]:
+    return (found.code, found.layer, tuple(sorted(entry.entity_id for entry in found.items)), found.gap)
+
+
+def test_vias_without_inner_pads() -> None:
+    """The repaired state of the class that change c0130 pinned as known false findings (change c0132;
+    ``H-A-IMP-VIA-PADLESS``).
+
+    The heavy document holds 123 vias whose records name inner layers as without a pad shape. Drawn with
+    their one diameter on every layer, as before this change, seven of them meet the pour of another net
+    on each of the four inner layers (28 shorts) and one stands 33.9 um inside the clearance of a track:
+    every one of those 29 findings is on a layer the via's record names. Judged with the view of the
+    rules source (the drill as diameter on the named layers) none of the 29 remains, no finding names
+    such a via on a named layer, and the pour of each of the 28 places stands at the generic clearance
+    from the via's HOLE, to the rounding of the pour's points. What remains is the class of the evidence
+    page: clearance findings 8 to 13 nm short of the rule, none of them with a pour."""
+    from fenolite.backends.altium.backend import _with_unit_slack  # pyright: ignore[reportPrivateUsage]
     from fenolite.checks.copper import _clean_ring  # pyright: ignore[reportPrivateUsage]
     from fenolite.geometry import Thick, thick_gap_floor
 
     (item,) = [row for row in BOARDS if row.id == HEAVY_BOARD]
+    if not heavy_enabled():
+        pytest.skip(f"{item.id} is a heavy corpus item: set FENOLITE_HEAVY=1 to include it")
     path = require(item)
     backend = AltiumBackend()
     documents = backend.documents(path)
     read = backend.read_documents(documents)
     assert read.pcb is not None and isinstance(read.pcb.design, Design)
+    design = read.pcb.design
     project = project_of(documents)
-    assert project is not None
-    rules = backend.design_rules(read.pcb.design, project)
+    assert project is not None and design.board is not None
+    rules = backend.design_rules(design, project)
     board = rules.design.board
     assert board is not None and rules.design.rules is not None
+    assert rules.left_out == ()  # nothing is left unjudged for the class
     (generic,) = [r.min for r in rules.design.rules.rules if r.kind == "clearance" and "/" not in r.name]
     assert generic is not None
-    records = read_pcbdoc(path.read_bytes(), file=path.name).vias
-    lengths = Counter(len(record.raw) for record in records)
-    vias = {via.id: via for via in board.vias}
-    zones = {zone.id: zone for zone in board.zones}
-    report = check_copper(rules.design, pads=backend.board_pads(rules.design))
-    shorts = [f for f in report.findings if f.code == "copper.short"]
-    assert len(shorts) == 28 and sorted(lengths) == [326, 335]
+    layer_of = {
+        dict(layer.ext["altium"].payload)["layer_id"]: layer.name
+        for layer in design.board.layers
+        if layer.kind == "copper"
+    }
+    bare: dict[str, set[str]] = {}
+    for via in design.board.vias:
+        pairs = dict(via.ext["altium"].payload) if "altium" in via.ext else {}
+        if "pad_removed" in pairs:
+            bare[via.id] = {layer_of[ident] for ident in pairs["pad_removed"].split(",")}
+    assert len(bare) == 123 and all(2 <= len(layers) <= 4 for layers in bare.values())
+    assert set().union(*bare.values()) == {"In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu"}
+    # the view: the same vias, in parts; every other entity of the board is the one that was read
+    assert len(board.vias) == 2160 and {via.id for via in board.vias} == {via.id for via in design.board.vias}
+    assert board.vias != design.board.vias and board.tracks == design.board.tracks
+    assert _with_removed_pads(design).board.vias == board.vias  # type: ignore[union-attr]
+    pads = backend.board_pads(rules.design)
+
+    # before: the same rules, every via with its one diameter on every layer
+    plain = _with_unit_slack(_without_zone_clearance(design))
+    assert plain.board is not None and plain.board.vias == design.board.vias
+    before = check_copper(plain, pads=pads)
+    false = [
+        found
+        for found in before.findings
+        if any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
+    ]
+    assert Counter(found.code for found in false) == {"copper.short": 28, "copper.clearance": 1}
+    assert Counter(f.code for f in before.findings) == {"copper.short": 28, "copper.clearance": 17}
+    vias = {via.id: via for via in design.board.vias}
+    zones = {zone.id: zone for zone in design.board.zones}
     touched: set[str] = set()
-    for found in shorts:
+    for found in false:
+        if found.code != "copper.short":
+            assert sorted(entry.kind for entry in found.items) == ["track", "via"]
+            continue
         assert sorted(entry.kind for entry in found.items) == ["fill", "via"], found.where
-        assert found.layer not in ("F.Cu", "B.Cu")
         via = next(vias[e.entity_id] for e in found.items if e.entity_id in vias)
         zone = next(zones[e.entity_id] for e in found.items if e.entity_id in zones)
-        assert via.provenance is not None
-        assert len(records[int(via.provenance.locator.split("#")[1])].raw) == 335
         centre = Thick((via.position,), 2)
         reach = min(
             thick_gap_floor(centre, Thick(_clean_ring(fill.polygon), 0, filled=True))
@@ -309,4 +389,17 @@ def test_known_false_findings_of_padless_vias_c0132() -> None:
         # the generic rule of the check is lowered by the slack of the unit; the document's value is above
         assert abs(reach + 1 - (via.drill // 2 + generic)) <= 12, (found.where, reach)
         touched.add(via.id)
-    assert len(touched) == 7
+    assert len(touched) == 7 and all(len(bare[ident]) == 4 for ident in touched)
+
+    # after: the view of the rules source
+    after = check_copper(rules.design, pads=pads)
+    assert Counter(found.code for found in after.findings) == {"copper.clearance": 16}
+    gone = {_key(f) for f in before.findings} - {_key(f) for f in after.findings}
+    assert gone == {_key(f) for f in false}
+    assert {_key(f) for f in after.findings} <= {_key(f) for f in before.findings}
+    for found in after.findings:
+        assert not any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
+        assert "fill" not in {entry.kind for entry in found.items}
+        assert found.gap is not None and found.clearance is not None
+        assert 8 - UNIT_SLACK_NM <= found.clearance - found.gap <= 13 - UNIT_SLACK_NM, found.where
+    assert after.summary["items"]["via"] == 2160  # type: ignore[index]  # the parts are counted

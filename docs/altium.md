@@ -1252,7 +1252,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written. The lines and arcs of a footprint are no part of the model: `record:footprint-graphics` |
 | `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers | `number`, `net_id`, `position`, `size` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
 | `track`, `arc` | on a signal layer of the stack, with its net; an arc that was read from an Altium document with the centre, radius and angles of its record (c0127) | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width; an arc of three points on a line that holds no record of its own |
-| `via` | through, blind and buried, with its net; in the rewrite of a document that was read (`rewrite=True`, c0128) also a via whose drill equals its diameter | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter (in a rewrite: above the diameter) |
+| `via` | through, blind and buried, with its net; in the rewrite of a document that was read (`rewrite=True`, c0128) also a via whose drill equals its diameter | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter (in a rewrite: above the diameter); `via-pad-shape`: the layers on which a via that was read has no pad shape (the pair `pad_removed`, c0132): the via is written, with its pad on every layer |
 | `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
 | text, graphic, keep-out, hole | as `fenolite build` writes them (c0085) | not compared | `text`, `graphic`, `keep-out`, `hole`: a layer without a layer in the document, an item that the record cannot hold |
 | shape on copper | not written | not compared | `copper-shape`: a fill or a region on a copper layer, which the model holds as a graphic with its net in the bag |
@@ -1331,6 +1331,17 @@ It is not Altium's design rule check. What it does not judge, it says, and the s
 | Clearance rules with a matrix that tells an arc from a track or a through-hole pad from a surface pad, the option that ignores the pads of one footprint, a layer condition for some of the board's copper layers, a scope function outside the grammar or another key outside the rule table | the model has no rule of that form; a blank or uniform matrix, a clearance matrix between all net classes and a layer condition for every copper layer are read ("Rules") | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
 | the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
 | board-edge clearance, component clearance, silkscreen, hole and width rules | outside the copper check | nothing: these are not stages |
+
+**A via without a pad on some layers (change c0132).** Altium's "Remove Unused Pad Shapes" takes the pad
+of a via off the layers on which nothing touches it, and a pour then keeps its clearance to the hole.
+The via record names those layers; the import keeps their Altium layer ids in the via's bag (the pair
+`pad_removed`), because a via of the model holds one diameter. The copper check judges such a via with
+its diameter where it has a pad and with its drill as diameter where it has none, so a pour around the
+hole is no short and copper inside the hole still is one. Nothing is left unjudged. Three things to
+know: `summary.items.via` counts the parts in which such a via is judged (one per run of layers that
+are alike), not the vias; `analyze` and `equivalent` draw the via with its pad on every layer, as the
+model says it; and the meaning of the bytes is `INFERRED` from one public document and Altium's
+documentation (`docs/formats/altium/pcb-copper.md`, "Via"; `H-A-IMP-VIA-PADLESS`).
 
 `fenolite build --target altium` runs the copper check on the PCB document before it writes and refuses
 a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build").

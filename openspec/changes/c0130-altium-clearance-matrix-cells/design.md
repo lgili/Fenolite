@@ -85,6 +85,8 @@ The findings of `-08`, by class (the check lowers a rule by 5 nm, `UNIT_SLACK_NM
 
 `fenolite check` reports 29 FALSE findings on `altium-third-party-pcbdoc-08` (28 `copper.short` and 1 `copper.clearance`): seven vias have no pad on the four inner layers, the pours of other nets were made around their holes, and the import draws each via's one diameter on every layer of its span, so the pad it invents meets the pour. They are a defect of the import, not of the board; the follow-up change c0132 is to read the fact that makes a via padless on a layer. They were measured by this change and are older than it: a short does not depend on a clearance rule, and the heavy document was in no copper test before. `tests/corpus/test_altium_copper.py::test_known_false_findings_of_padless_vias_c0132` pins their number and their cause, and says in its name that they are false.
 
+**2026-10-07, change c0132.** Repaired. The via record names the layers on which a via has no pad shape (a table of thirty-two bytes at offset 209; `docs/formats/altium/pcb-copper.md`, "Via"), the import keeps them in the via's bag, and the copper check on Altium input judges such a via by its hole on those layers. `-08` now gives 0 shorts and 16 clearance findings; `tests/corpus/test_altium_copper.py::test_vias_without_inner_pads` replaces the pinned test and asserts the state before and after. The text above is kept as it was written.
+
 ## Out of scope, with what each would need
 
 - **Scoping the incompleteness to pairs** (decision 5): a field of `DesignRules` that `checks/copper.py` reads.

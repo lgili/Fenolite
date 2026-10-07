@@ -34,6 +34,7 @@ HYPOTHESES = (
     "H-A-IMP-ZONE",
     "H-A-IMP-ZONE-HOLES",
     "H-A-IMP-PLANE-CUT",
+    "H-A-IMP-VIA-PADLESS",
     "H-A-IMP-BODY",
     "H-A-IMP-SYMFRAME",
 )

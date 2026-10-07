@@ -120,7 +120,7 @@ keep the names of their day.
 | c0129 | reserved | v0.3 follow-up of c0121 and c0099: keep the model keys of a component body that was read | c0099, c0121 |
 | c0130 | `altium-clearance-matrix-cells` | v0.3 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
 | c0131 | `altium-unit-slack-rule` | v0.3 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
-| c0132 | reserved | correction of v0.3: a via without a pad on inner layers (the long via record) is not drawn at its full diameter there | c0088, c0130 |
+| c0132 | `altium-via-inner-pads` | correction of v0.3 (2026-10-07): a via whose record names layers without a pad shape is judged by its hole there | c0088, c0130, c0131 |
 | c0136 | `milestone-renumbering` | names only: the write side of the second backend is v0.3 (released as `0.3.0`) and the proposals open on other branches form v0.4; no behaviour changes | — |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

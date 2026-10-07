@@ -35,6 +35,7 @@ from fenolite.backends.altium.read.pcbprims import (
     TrackRecord,
     ViaRecord,
     decode_primitives,
+    via_pad_removed,
 )
 
 
@@ -168,6 +169,35 @@ def test_via_lengths_and_tenting() -> None:
     body[1] |= 0x20 | 0x40
     (via,), _, _ = decode_primitives(frame(3, bytes(body)), where="Vias6/Data")
     assert isinstance(via, ViaRecord) and via.tented_top and via.tented_bottom
+
+
+def test_via_pad_removed_reads_the_table_at_209() -> None:
+    """Scenario "Table of a long record" (change c0132): the layer ids whose byte in the thirty-two bytes
+    at 209 is not zero, in a subrecord of at least 321 bytes; the nine further bytes of the 330-byte form
+    come after the table and are not read."""
+    plain = pcbrecords.via_record(0, 0, 160000, 80000)
+    body = bytearray(subrecords_of(plain))
+    assert len(body) == 321
+    for offset in (210, 212, 213):
+        body[offset] = 1
+    body[254:254] = bytes.fromhex("040080010071020000")
+    data = frame(3, bytes(body))
+    (via,), _, issues = decode_primitives(data, where="Vias6/Data")
+    assert isinstance(via, ViaRecord) and issues == [] and via.raw == data and len(via.tail) == 330 - 31
+    assert via_pad_removed(via) == (2, 4, 5)
+    (same,), _, _ = decode_primitives(plain, where="Vias6/Data")
+    assert isinstance(same, ViaRecord) and via_pad_removed(same) == ()
+    # below 321 bytes no row of the facts page places the table: nothing is read, whatever the bytes are
+    for length in (209, 299, 320):
+        (cut,), _, _ = decode_primitives(frame(3, bytes(body[:length])), where="Vias6/Data")
+        assert isinstance(cut, ViaRecord) and via_pad_removed(cut) == ()
+    # every id of the table, and no byte beside it
+    wide = bytearray(321)
+    wide[0:31] = body[0:31]
+    wide[208] = wide[241] = 1
+    wide[209] = wide[240] = 7
+    (ends,), _, _ = decode_primitives(frame(3, bytes(wide)), where="Vias6/Data")
+    assert isinstance(ends, ViaRecord) and via_pad_removed(ends) == (1, 32)
 
 
 def test_via_short_is_raw() -> None:

@@ -141,6 +141,28 @@ def test_via_span_and_type() -> None:
     assert (board.vias[0].diameter, board.vias[0].drill) == (1_270_000, 711_200)
 
 
+def test_via_pad_removed_layers_are_kept_in_the_bag() -> None:
+    """Scenario "Layers without a pad shape kept" (change c0132): the layer ids of the record's table go
+    into the pair ``pad_removed``; the via, its one diameter and its id are those of the record without
+    the bytes."""
+    six = (1, 2, 3, 4, 5, 32)
+    board = board_of(
+        chain=six,
+        nets=("A",),
+        vias=[rec.via_without_pads((0, 0), (2, 4, 5), net=0), rec.via_without_pads((0, 0), (), net=0)],
+    )
+    bare, plain = board.vias
+    assert pairs(bare) == {"pad_removed": "2,4,5"} and pairs(plain) == {}
+    assert (bare.diameter, bare.drill) == (406_400, 203_200)
+    assert (bare.layers, bare.via_type) == (("F.Cu", "B.Cu"), "through")
+    assert dataclasses.replace(bare, id=plain.id, ext={}, provenance=plain.provenance) == plain
+    alone = board_of(chain=six, nets=("A",), vias=[rec.via_without_pads((0, 0), (), net=0)])
+    assert alone.vias[0].id == bare.id  # the pair enters no id: the first of two equal vias, as before
+    # a layer id outside the chain is kept as the record says it: the bag holds what the record holds
+    (odd,) = board_of(vias=[rec.via_without_pads((0, 0), (1, 7, 32))]).vias
+    assert pairs(odd) == {"pad_removed": "1,7,32"}
+
+
 def test_via_layer_outside_the_chain() -> None:
     issues: list[Issue] = []
     board = board_of(issues, vias=[rec.via((0, 0), start=1, end=5)])
