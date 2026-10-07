@@ -3,20 +3,18 @@
 """The distance through the laminate between copper on two layers (capability board-analyses,
 "Insulation between layers"; ``H-G-AN-INSUL``).
 
-The depths of the layers come from ``Stackup.depth`` of change c0101, which the model of this base does
-not have: ``layer_depths`` then returns ``None``. The tests give the depths through that one seam, as the
-stack-up of the scenarios states them. Every thickness and distance here is illustrative.
+The depths of the layers come from ``Stackup.depth`` (change c0101) of the stack-up that each test
+board holds: the stack-up of the scenarios. Every thickness and distance here is illustrative.
 """
 
 from __future__ import annotations
 
 import dataclasses
 
-import pytest
 from _analysis import MM, at
 from _coppercheck import Copper, ident
 
-from fenolite.analysis import analyze_distances, distance, load_requirements
+from fenolite.analysis import analyze_distances, load_requirements
 from fenolite.analysis.insulation import EVIDENCE, insulation_between, layer_depths
 from fenolite.analysis.report import DistanceRow
 from fenolite.analysis.requirements import SCHEMA
@@ -68,9 +66,8 @@ def row(report: object) -> DistanceRow:
     return found
 
 
-def test_overlap_copper_over_copper(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_overlap_copper_over_copper() -> None:
     """Scenario "Copper over copper"."""
-    monkeypatch.setattr(distance, "layer_depths", lambda board: DEPTHS)
     design = over("In1.Cu", "In2.Cu")
     report = analyze_distances(design, pads=None, boundary=None, pairs=PAIR, insulation=True)
     found = row(report)
@@ -89,9 +86,8 @@ def test_overlap_copper_over_copper(monkeypatch: pytest.MonkeyPatch) -> None:
     assert plain.insulation is None and plain.sheets is None
 
 
-def test_offset_in_plan_view(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_offset_in_plan_view() -> None:
     """Scenario "Offset in plan view": edges 0.3 mm apart, 0.2 mm of prepreg between."""
-    monkeypatch.setattr(distance, "layer_depths", lambda board: DEPTHS)
     found = row(
         analyze_distances(over("F.Cu", "In1.Cu", 1.3), pads=None, boundary=None, pairs=PAIR, insulation=True)
     )
@@ -117,31 +113,36 @@ def test_offset_in_plan_view(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not analyze_distances(over("F.Cu", "In1.Cu", 1.3), pads=None, boundary=None, within=400_000).rows
 
 
+def without(design: Design, *names: str) -> Design:
+    """``design`` without its stack-up, or with a stack-up that lacks the entries of ``names``."""
+    assert design.board is not None and design.board.stackup is not None
+    stack = design.board.stackup
+    kept = tuple(entry for entry in stack.layers if entry.name not in names)
+    stackup = dataclasses.replace(stack, layers=kept) if names else None
+    return dataclasses.replace(design, board=dataclasses.replace(design.board, stackup=stackup))
+
+
 def test_no_stack_up_gives_no_value() -> None:
-    """Scenario "No stack-up": on this base no layer has a depth, whatever the board holds."""
-    design = over("In1.Cu", "In2.Cu")
-    assert design.board is not None and layer_depths(design.board) is None
-    report = analyze_distances(design, pads=None, boundary=None, pairs=PAIR, insulation=True)
-    found = row(report)
-    assert found.insulation is None and found.sheets is None
-    (missing,) = report.issues
-    assert (missing.code, missing.where) == (
-        "analysis.input-missing",
-        "stack-up",
-    ) and "1 pair" in missing.message
-    assert report.evidence.level is Level.UNVERIFIED
+    """Scenario "No stack-up", and a copper layer without an entry in the stack-up."""
+    for design in (without(over("In1.Cu", "In2.Cu")), without(over("In1.Cu", "In2.Cu"), "In2.Cu")):
+        report = analyze_distances(design, pads=None, boundary=None, pairs=PAIR, insulation=True)
+        found = row(report)
+        assert found.insulation is None and found.sheets is None
+        (missing,) = report.issues
+        assert (missing.code, missing.where) == ("analysis.input-missing", "stack-up")
+        assert "1 pair" in missing.message and report.evidence.level is Level.UNVERIFIED
 
 
-def test_layer_depths_reads_the_method_of_the_stack_up() -> None:
-    class Stack:
-        def depth(self, name: str) -> tuple[int, int]:
-            return DEPTHS[name]
-
-    class Board:
-        stackup = Stack()
-        layers = over("F.Cu", "B.Cu").board.layers  # type: ignore[union-attr]
-
-    assert layer_depths(Board()) == DEPTHS  # type: ignore[arg-type]
+def test_layer_depths_are_those_of_the_stack_up() -> None:
+    design = over("F.Cu", "B.Cu")
+    assert design.board is not None and design.board.stackup is not None
+    assert layer_depths(design.board) == DEPTHS
+    assert design.board.stackup.depth("core") == (270_000, 1_270_000)
+    assert [entry.name for entry in design.board.stackup.between("In1.Cu", "In2.Cu")] == ["core"]
+    bare = without(design)
+    assert bare.board is not None and layer_depths(bare.board) is None
+    partial = without(design, "In1.Cu")
+    assert partial.board is not None and set(layer_depths(partial.board) or {}) == {"F.Cu", "In2.Cu", "B.Cu"}
     assert EVIDENCE.level is Level.INFERRED and EVIDENCE.hypotheses == ("H-G-AN-INSUL",)
 
 

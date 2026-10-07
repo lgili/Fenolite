@@ -6,6 +6,9 @@ network")."""
 from __future__ import annotations
 
 import dataclasses
+import math
+import random
+from fractions import Fraction
 
 from _analysis import MM, at, box
 from _coppercheck import Copper, disc_entry, ident
@@ -13,6 +16,8 @@ from _power import branch, strip, two_strips, via_array
 
 from fenolite.analysis.copper import net_copper
 from fenolite.analysis.network import PathNetwork, net_pieces, path_network
+from fenolite.analysis.views import arc_length
+from fenolite.core.coords import Point
 from fenolite.model.board import Graphic
 
 
@@ -186,3 +191,46 @@ def test_an_arc_is_one_piece_with_a_length_band() -> None:
     half_circle = 15_707_963  # π · 5 mm
     assert arc.length_nm <= half_circle <= arc.length_nm + arc.length_band
     assert arc.length_band < 200_000
+
+
+def test_arc_length_bound_on_a_sweep_and_on_generated_arcs() -> None:
+    """``H-G-AN-ARCLEN``: a chord ``c`` with sagitta ``s`` spans an arc of at most ``c + 4·s²/c``.
+
+    With ``u`` a quarter of the chord's angle and ``R`` the radius, ``c = 2R·sin 2u``, ``s = R·(1 − cos 2u)``
+    and the arc is ``4R·u``, so the claim is ``2u/sin 2u − 1 ≤ tan² u``, that is ``u ≤ tan u`` after
+    ``sin 2u·(1 + tan² u) = 2·tan u``. The sweep checks it up to a quarter turn with rational bounds: a
+    partial sum of the series of the tangent, all of whose terms are positive, is below the tangent."""
+    for step in range(1, 786):  # u = step / 1000, up to π/4
+        u = Fraction(step, 1000)
+        below_tan = u + u**3 / 3 + 2 * u**5 / 15 + 17 * u**7 / 315
+        assert u <= below_tan, step
+        value = step / 1000
+        assert 2 * value / math.sin(2 * value) - 1 <= math.tan(value) ** 2 * (1 + 1e-12), step
+    rng = random.Random(20261008)
+    checked = 0
+    while checked < 300:
+        radius = rng.randint(300_000, 40 * MM)
+        first, sweep = rng.uniform(0, 2 * math.pi), rng.uniform(0.05, 1.9 * math.pi)
+        points = [
+            Point(
+                round(radius * math.cos(first + part * sweep)), round(radius * math.sin(first + part * sweep))
+            )
+            for part in (0, 0.5, 1)
+        ]
+        made = Copper()
+        try:
+            arc = made.arc("P", points[0], points[1], points[2], width=250_000)
+        except Exception:
+            continue
+        made.pad("J1", "1", "P", disc_entry(points[0].x, points[0].y, 300_000))
+        made.pad("U1", "1", "P", disc_entry(points[2].x, points[2].y, 300_000))
+        network = path_network(made.build(), pads=tuple(made.pads), start=("J1-1",), end=("U1-1",))
+        parts = [element for element in network.elements if element.kind == "arc"]
+        if not parts:
+            continue
+        low = sum(element.length_nm or 0 for element in parts)
+        high = low + sum(element.length_band for element in parts)
+        exact = arc_length(arc)
+        assert low - 1 <= exact <= high + 1, (radius, sweep, low, exact, high)
+        assert high - low <= max(2_000, exact // 100), (radius, sweep, high - low)
+        checked += 1

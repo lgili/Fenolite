@@ -13,5 +13,5 @@ Fenolite's own geometry and take no figure from any source. No requirement value
 | a via's barrel cross-section `π · (finished hole + plating) · plating`, used with the outer constant | S-0270 | GPL-3.0-or-later; one fact, nothing transcribed or followed | 2026-10-03 | facts only |
 | the fit and `π` computed with `decimal`, identical on every platform | S-0012 | PSF License Version 2 | 2026-10-01 | facts only |
 | the requirements file parsed with `tomllib` | S-0273 | PSF License Version 2 | 2026-10-03 | facts only |
-| the bounds of the resistance of a fill region between two ports: length squared over area, and area over the squared separating length (extremal length with the metric 1) | S-0681 | CC-BY-SA-4.0; read for facts, nothing copied | 2026-10-05 | facts only |
-| a trial potential with the boundary values bounds the Dirichlet energy, hence the conductance, of a region | S-0682 | CC-BY-SA-4.0; read for facts, nothing copied | 2026-10-05 | facts only |
+| the extremal length of a family of curves and the lower bound that one metric gives, squared length over area; the two bounds of a fill region between two ports are Fenolite's own derivation from it | S-0681 | CC BY-SA 4.0; read as rendered for facts, nothing copied | 2026-10-08 | facts only |
+| the solution of the boundary problem minimises the Dirichlet energy among the functions with its boundary values; that a trial potential bounds a conductance is Fenolite's step | S-0682 | CC BY-SA 4.0; read as rendered for facts, nothing copied | 2026-10-08 | facts only |
