@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from _altium_built import built_blink
 from _checkcli import run, without_elapsed
+from _needles import absent
 
 from fenolite.backends.altium import cfb as compound_writer
 from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES
@@ -74,7 +75,7 @@ def test_own_project_is_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert stages["roundtrip.rta1"]["summary"]["documents"] == 5
     assert not [i for i in env["issues"] if i["severity"] == "error"]
     assert env["input"]["path"] == "blink.PrjPcb" and env["input"]["kind"] == "altium_prjpcb"
-    assert len(env["input"]["sha256"]) == 64 and str(ROOT) not in raw
+    assert len(env["input"]["sha256"]) == 64 and absent(str(ROOT), raw)
 
 
 def test_levels_on_the_own_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

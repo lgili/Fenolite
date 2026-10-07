@@ -15,6 +15,7 @@ from _boards import with_two_layer_node
 from _checkcli import hide_kicad, run
 from _fakecli import PDF, calls, fake_kicad_cli
 from _models import BOX, BOX_REL, official, with_models
+from _needles import absent
 from _projects import SCHEMATICS, authored_project, tree_snapshot
 
 from fenolite.backends.kicad.models import board_models
@@ -91,7 +92,7 @@ def test_manifest_matches_the_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert all("evidence" not in a for a in result.values())
     assert result["pos/board-pos.csv"]["sha256"] == result["pos/board-pos.csv"]["content_sha256"]
     for needle in (str(tmp_path), str(Path.home()), "fenolite-kicad-"):
-        assert needle not in text and needle not in json.dumps(env["result"])
+        assert absent(needle, text, json.dumps(env["result"])), needle
 
     code, _, _, _ = run(monkeypatch, work, *args, "--confirm", "--no-backup")
     assert code == 0 and (work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8") == text

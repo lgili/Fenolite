@@ -13,6 +13,7 @@ import pytest
 from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
 from _models import BOX, BOX_REL, MODELS, official, two_layer_with_models
+from _needles import absent
 from _projects import tree_snapshot
 
 from fenolite.backends.kicad import libs
@@ -62,7 +63,7 @@ def test_list_located_and_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert env["evidence"]["hypotheses"] == ["H-K-EXPORT-MODELS"]
     assert "plan" not in result and tree_snapshot(board.parent) == before
     for needle in (str(tmp_path), str(Path.home()), str(MODELS)):
-        assert needle not in out
+        assert absent(needle, out), needle
     # two runs on unchanged inputs give the same output
     _, _, _, again = run(monkeypatch, tmp_path, "models", str(board))
     assert without_elapsed(again) == without_elapsed(out)

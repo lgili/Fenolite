@@ -23,6 +23,7 @@ import pytest
 from _asmcli import built, isolate
 from _checkcli import hide_kicad, run
 from _fakecli import calls, fake_kicad_cli, report_with
+from _needles import absent
 from _projects import authored_project, tree_snapshot
 
 import fenolite
@@ -274,7 +275,7 @@ def test_states_from_a_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert data["generated"] == STAMP[1]
     text = (root / NAME).read_text(encoding="utf-8")
     for needle in (str(tmp_path), str(Path.home()), "fenolite-kicad-"):
-        assert needle not in text and needle not in json.dumps(env["result"])
+        assert absent(needle, text, json.dumps(env["result"])), needle
     code, _, _, _ = run(monkeypatch, root, *args, "--confirm", "--no-backup")
     assert code == 0 and (root / NAME).read_text(encoding="utf-8") == text  # byte-identical
 

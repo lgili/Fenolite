@@ -19,6 +19,7 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+from _needles import absent
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOL = ROOT / "tools" / "yardstick.py"
@@ -371,7 +372,7 @@ def test_failed_build(stage: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert code == 1 and record["verdict"] == "failed"
     build = _step(record, "build")
     assert build["exit"] == 3 and build["status"] == "failed" and "FEN-3004" in build["error"]
-    assert str(stage) not in json.dumps(record)  # the error text held the folder of the run
+    assert absent(str(stage), json.dumps(record))  # the error text held the folder of the run
     after = record["steps"][[step["name"] for step in record["steps"]].index("build") + 1 :]
     ran = [step["name"] for step in after if step["status"] != "skipped"]
     assert ran == ["build-install", *(step.name for step in yard.steps_for(1) if step.row)]
