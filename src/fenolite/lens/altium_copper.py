@@ -78,7 +78,10 @@ COPPER_COUNTS: Mapping[int, tuple[str, ...]] = MappingProxyType(
     {len(stack): stack for stack in pcbrecords.COPPER_STACKS}
 )
 """Copper layer count of the script → the board's copper layers, top to bottom."""
-STACK_HINT = "use design.board(..., copper=2) or copper=4, or give the board its copper layers"
+STACK_HINT = (
+    "make design.board(..., copper=…) equal to the board's copper layer count, "
+    "or give the board its copper layers"
+)
 KINDS: tuple[str, ...] = (
     "footprint",
     "pad",

@@ -88,7 +88,7 @@ the script can do anything the user can do. **Never run `build` on a script you 
 from fenolite.dsl import Design, Net, Part, Power, connect, mm
 
 design = Design("blink")  # the name becomes the KiCad file stem
-design.board(mm(50), mm(30))  # outline width and height; copper=2 (default) or 4
+design.board(mm(50), mm(30))  # outline width and height; copper=2 (default), 4, 6 or 8
 
 u1 = Part("U1", "Mini:Mini_QFP32_IC", value="MCU")
 r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")
@@ -117,11 +117,20 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
-- `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
-  `copper=4`) declares an inner layer as an internal plane on a net (a `Net` or a net name); a plane
-  holds one net. It is a build parameter, as `copper` is: the model does not change. The Altium target
-  writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the signal layer and reports
-  `build.plane-not-lowered`. `planes(design)` returns the mapping from layer name to net name.
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is 2, 4, 6 or 8
+  (`fenolite.dsl.design.COPPER_COUNTS`); any other value, a `bool` or a `float` included, is a
+  `DslError` that names the counts. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
+  `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`. `Design.copper_layers` gives those names for the
+  declared count, top to bottom (`("F.Cu", "B.Cu")` before `board()`), and
+  `fenolite.dsl.design.inner_layers(copper)` the inner ones. Both KiCad targets get the layer table that
+  KiCad itself writes for the count (`docs/formats/kicad/board.md`, "Created boards").
+  `planes={"In1.Cu": gnd}` declares an inner layer as an internal plane on a net (a `Net` or a net
+  name); it takes any inner layer of the count, so `planes={"In4.Cu": gnd}` is valid with `copper=6` and
+  `In5.Cu` is not. A plane holds one net. It is a build parameter, as `copper` is: the model does not
+  change. The Altium target writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the
+  signal layer and reports `build.plane-not-lowered`, whose hint names the script call that draws that
+  copper: `design.zone(<net>, layers=("<layer>",))`. `planes(design)` returns the mapping from layer name
+  to net name.
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
 - `Design.rules.rule(name, kind, *, where, between, layers, min, opt, max, severity, priority)` and
   `fenolite.dsl.select`: one design rule with selectors ("Rules with selectors").
@@ -156,7 +165,8 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
   duplicate paths, duplicate net, class or interface names, two `Net` objects with one name, a net in
-  two classes, a second `place()` or `board()`, `copper` other than 2 or 4, one designator on two nets,
+  two classes, a second `place()` or `board()`, a `copper` that is not 2, 4, 6 or 8, a plane or a zone
+  on a layer that the count does not have, one designator on two nets,
   an unknown `side`, an invalid name. Equal refs in different modules are reported by
   `Design.validate()` (`model.duplicate-ref`).
 
@@ -553,7 +563,7 @@ design.zone(
 | argument | meaning | default |
 |---|---|---|
 | `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
-| `layers` | the copper layers of the pour: `F.Cu`, `B.Cu`, and `In1.Cu`, `In2.Cu` with `copper=4` | required |
+| `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
 | `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
 | `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |

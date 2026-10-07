@@ -11,7 +11,7 @@ import os
 import random
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import opaque_count, opaque_digests, read_board, rebuild_board
@@ -220,7 +220,7 @@ def square(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
     return (mm(x0, y0), mm(x1, y0), mm(x1, y1), mm(x0, y1))
 
 
-def created_board(copper: Literal[2, 4] = 2) -> Design:
+def created_board(copper: int = 2) -> Design:
     """The created test board of the writer (c0017 Decision 19): ``created_layers(copper)``, a 50 × 30 mm
     outline, the nets GND, LED_A and VIN, one created entity of every ``CANONICAL_ORDER`` head (its
     footprint with a ``Reference`` field at (0, −1.5 mm) and a hidden ``Value`` field, c0030), an A4

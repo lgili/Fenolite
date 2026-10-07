@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Protocol
 
 from fenolite.backends.base import BoardPad, PadCopper
 from fenolite.backends.kicad.backend import KicadBackend
@@ -142,7 +142,7 @@ class Copper:
     through the model API on a created board of 2 or 4 copper layers. ``pads`` collects the board-frame
     records a frame would give."""
 
-    layers: Literal[2, 4] = 2
+    layers: int = 2
     nets: dict[str, Net] = field(default_factory=lambda: {})
     classes: dict[str, NetClass] = field(default_factory=lambda: {})
     rules: list[Rule] = field(default_factory=lambda: [])

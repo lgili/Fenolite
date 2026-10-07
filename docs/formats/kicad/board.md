@@ -125,6 +125,10 @@ never taken from KiCad's writer code.
 | A `20241229` zone without `(filled_areas_thickness no)` has its fill polygons read as outlines drawn with a pen of `min_thickness`: 9.0.9 plots and 10.0.6 re-saves the fill grown by `min_thickness / 2` on each side. With the flag the fill is kept as written. KiCad 9 always writes the flag (53 of 53 zones in 9.0-format demo files) | S-0020, S-0029, S-0058 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ZONE-FAT9 |
 | `kicad-cli` 9.0.9 loads every zone setting form listed here; it has no `--refill-zones`, so what a setting does to a fill is not observed on 9.0 | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-ZONE-LOAD9 |
 | DRC reports a board footprint whose library is in no active library table, or whose library lacks it ("Footprint not found in libraries"), and a board footprint that differs from its library copy ("Footprint doesn't match copy in library"), both as warnings; demo projects list their severity keys `lib_footprint_issues` and `lib_footprint_mismatch` at tags 9.0.9.1 and 10.0.6 | S-0038, S-0058 | INFERRED | H-K-LIB-DRC |
+| In KiCad's own boards the inner copper rows are `(2k + 2 "In<k>.Cu" signal)` after `F.Cu` and before `(2 "B.Cu" signal)`, without a user name: `In1.Cu` 4 to `In4.Cu` 10 in a six-layer demo (header `20250513`), and to `In6.Cu` 14 in an eight-layer demo (header `20241229`) | S-0058 | CORPUS-VERIFIED | H-K-PCB-LAYERS |
+| A layer table of 2, 4, 6 or 8 copper layers with those inner rows loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| 10.0.6 refuses a table of three copper layers (`F.Cu`, `In1.Cu`, `B.Cu`) in both texts: no DRC report and no Gerber | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
+| 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | INFERRED | H-K-PCB-LAYERS |
 
 ## What the reader models
 
@@ -341,8 +345,14 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   `paper` from `Board.sheet` (`(paper "A4")` when it is `None`), `title_block` right after `paper` when
   one of the seven fields of `Board.title_block` is set (c0012), `layers`,
   `(setup (pad_to_mask_clearance 0))` and, for target 9, the net table.
-  `layers.created_layers(2)` is the two-copper table above; `created_layers(4)` adds `In1.Cu` (4) and
-  `In2.Cu` (6) after `F.Cu`. No `pcbplotparams` is written.
+  `layers.created_layers(2)` is the two-copper table above. For the counts of
+  `layers.CREATED_COPPER_COUNTS`, 2, 4, 6 and 8, `created_layers(n)` inserts the rows of
+  `layers.inner_rows(n)` right after `F.Cu`: one row `(2k + 2 "In<k>.Cu" signal)` without a user name
+  per inner layer k = 1 … n − 2, so `In1.Cu` is 4, `In2.Cu` 6, `In3.Cu` 8, `In4.Cu` 10, `In5.Cu` 12 and
+  `In6.Cu` 14. The rows are the same for targets 9 and 10, and are those of KiCad's own boards (the
+  layer facts above, `H-K-PCB-LAYERS`). Any other count, an odd one included, raises `ValueError`:
+  KiCad refuses a table of three copper layers. `layers.created_count(names)` gives the count whose
+  table has exactly these copper names. No `pcbplotparams` is written.
 - **Net forms.** For target 9 the root holds `(net 0 "")` and `(net i "NAME")` for the model's nets in
   code-point order of their names, i = 1 … n. Pads write `(net i "NAME")`; other items write `(net i)`;
   zones also write `(net_name "NAME")`. For target 10 every reference is `(net "NAME")`, with no table

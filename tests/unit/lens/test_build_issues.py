@@ -97,5 +97,7 @@ def test_plane_issues() -> None:
     assert plane_issues({}) == []
     first, second = plane_issues({"In1.Cu": "GND", "In2.Cu": "VIN"})
     assert (first.code, first.severity, first.where) == ("build.plane-not-lowered", "info", "In1.Cu")
-    assert "In1.Cu" in first.message and "GND" in first.message and "zone on In1.Cu" in first.hint
+    assert "In1.Cu" in first.message and "GND" in first.message
+    assert "design.zone(" in first.hint and "GND" in first.hint and 'layers=("In1.Cu",)' in first.hint
+    assert "KiCad" not in first.hint and 'layers=("In2.Cu",)' in second.hint
     assert second.where == "In2.Cu" and "VIN" in second.message

@@ -511,8 +511,14 @@ Altium shows them is Part X of `docs/evidence/altium-pcb.md`, not yet reported, 
 | first inner layer declared as a plane | plane | Internal Plane 1 (39) |
 | second inner layer declared as a plane | plane | Internal Plane 2 (40) |
 
+A script of 6 or 8 copper layers (`design.board(..., copper=6)`) is written with the stack of
+"Complete board" below, which takes any even count: no count that `board()` accepts is refused, and no
+record is added for it. When the board names no copper layer, the document's copper layers are those of
+`Design.copper_layers`, `F.Cu`, `In1.Cu` … `In<copper − 2>.Cu`, `B.Cu`, so a plane, a zone or script
+copper on `In4.Cu` of the script lies on a layer of the document.
+
 `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})` makes `In1.Cu` an internal plane on
-`GND`. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
+`GND`; a plane takes any inner layer of the count. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
 rules decide how they join it. A zone of the plane's net on that layer is left to the plane
 (`altium.plane-zone-merged`). The KiCad target writes no plane; it reports `build.plane-not-lowered`.
 

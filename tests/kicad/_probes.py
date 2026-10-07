@@ -43,6 +43,8 @@ import _framecases
 import _gencases
 import _hiercases
 import _kindcases
+import _layercases
+import _layertables
 import _lenscases
 import _libtables
 import _limitsbench
@@ -288,6 +290,11 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _limitsbench.limit_probes().items():  # change c0141
         probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {  # change c0100
+        **_layertables.table_probes(),
+        **_layercases.layer_probes(),
+    }.items():
+        probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     return probes
 
 

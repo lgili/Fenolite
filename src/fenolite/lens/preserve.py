@@ -23,7 +23,7 @@ from types import MappingProxyType
 from typing import Literal, Protocol, cast
 
 from fenolite.backends.kicad import copper as copper_mod
-from fenolite.backends.kicad import dru, pcb, pro, slots
+from fenolite.backends.kicad import dru, layers, pcb, pro, slots
 from fenolite.backends.kicad import zones as zones_mod
 from fenolite.backends.kicad.embed import MANDATORY_FIELDS, PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
@@ -709,12 +709,21 @@ def merge_layout(
     copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
     wanted_copper = [layer.name for layer in built.board.layers if layer.kind == "copper"]
     if copper != wanted_copper:
+        discard = (
+            f"rebuild with --discard-layout to create the board on the script's {len(wanted_copper)} "
+            "copper layers without its layout"
+        )
+        board_count = layers.created_count(copper)
+        hint = discard
+        if board_count is not None:
+            hint = f"use design.board(..., copper={board_count}) to keep the board's layout, or {discard}"
         issues.append(
             issue(
                 "layout.copper-mismatch",
-                f"the board's copper layers {copper} differ from the design's {wanted_copper}",
+                f"the board has {len(copper)} copper layers ({', '.join(copper)}) and the script declares "
+                f"{len(wanted_copper)} ({', '.join(wanted_copper)})",
                 "board",
-                "rebuild with --discard-layout to create the board on the new stack-up",
+                hint,
             )
         )
         return Merged(built, tuple(issues), {})

@@ -1581,3 +1581,15 @@ path = "tests/data/altium/body2/body2.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"
+
+[[file]]
+path = "tests/data/kicad/layers/l6_t9_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the six-layer blink variant of tests/kicad/build/_layercases.py built for target 9 and filled by KiCad 10.0.6 (c0100, the 9.0.9 half of the build oracle)"
+
+[[file]]
+path = "tests/data/kicad/layers/l8_t9_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the eight-layer blink variant of tests/kicad/build/_layercases.py built for target 9 and filled by KiCad 10.0.6 (c0100, the 9.0.9 half of the build oracle)"
