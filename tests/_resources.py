@@ -131,11 +131,18 @@ def kicad_cli() -> str | None:
 
 @cache
 def _version_of(cli: str) -> tuple[int, int, int] | None:
+    """The version a ``kicad-cli`` prints; ``cli`` is a binary or the marker ``docker:<image>``, which runs
+    the tool in that local image (``fenolite.backends.kicad.cli.cli_for``)."""
+    from fenolite.backends.kicad.cli import DOCKER_PREFIX, KicadCliError, cli_for
+
     try:
-        out = subprocess.run(
-            [cli, "version"], capture_output=True, text=True, timeout=120, check=False
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired):
+        if cli.startswith(DOCKER_PREFIX):
+            out = cli_for(Path(cli)).version()
+        else:
+            out = subprocess.run(
+                [cli, "version"], capture_output=True, text=True, timeout=120, check=False
+            ).stdout
+    except (OSError, subprocess.TimeoutExpired, KicadCliError):
         return None
     match = re.search(r"(\d+)\.(\d+)\.(\d+)", out)
     return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None

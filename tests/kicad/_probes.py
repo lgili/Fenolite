@@ -77,7 +77,7 @@ from _boards import FIXTURE, created_board
 from _resources import kicad_cli
 
 from fenolite.backends.kicad import drc as drcmod
-from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli
+from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli, cli_for
 from fenolite.backends.kicad.embed import place_footprint
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.mod import read_footprint
@@ -102,9 +102,12 @@ class Probe:
 
 @cache
 def runner() -> KicadCli:
+    """The runner of the oracle: a binary, or ``kicad-cli`` inside a local image when
+    ``FENOLITE_KICAD_CLI`` is ``docker:<image>`` (``fenolite.backends.kicad.cli.cli_for``, the form of
+    ``--kicad-cli docker:<image>`` in ``docs/cli-contract.md``)."""
     path = kicad_cli()
     assert path is not None  # the needs_kicad marker skips before this is reached
-    return KicadCli(Path(path), timeout=600)
+    return cli_for(Path(path), timeout=600)
 
 
 @cache
