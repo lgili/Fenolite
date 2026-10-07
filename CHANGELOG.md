@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `fenolite check` marks every DRC type whose count reached the limit of KiCad's report (499 entries of `clearance` and `unconnected_items`, 199 of any other type): `summary.limits` of the stage `drc.kicad` and one `check.report-limit` warning per type; such a count is a lower bound. Status and exit code do not change (c0141). A reply of a board under every limit gains `"limits": []`; `null` says that nothing is known. The limits are measured on an authored bench with `kicad-cli` 10.0.6; the 9.0.9 counts of 2026-10-05 wait for their recorded probes.
+
 ## [0.3.0] - 2026-10-08
 
 ### Added

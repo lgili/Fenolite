@@ -15,7 +15,7 @@ from fractions import Fraction
 from types import MappingProxyType
 from typing import Any, NoReturn, cast
 
-from fenolite.backends.base import DrcItem, DrcReport, DrcViolation
+from fenolite.backends.base import DrcItem, DrcLimits, DrcReport, DrcViolation
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
@@ -33,6 +33,26 @@ REQUIRED_KEYS: tuple[str, ...] = (
 )
 LIB_FOOTPRINT_MISMATCH = "lib_footprint_mismatch"
 LIB_FOOTPRINT_ISSUES = "lib_footprint_issues"
+_MEASURED = DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199)
+REPORT_LIMITS: Mapping[int, DrcLimits] = MappingProxyType({9: _MEASURED, 10: _MEASURED})
+"""Per ``kicad-cli`` major, the number of entries at which ``pcb drc --format json`` stops writing a type
+(``H-K-DRC-LIMITS``): 499 for ``clearance`` and for the unconnected items, 199 for every other type. Each
+number is pinned to a probe ``drc-limit-<type>`` (``tests/kicad/check/test_drc_limits.py``); ``others`` is
+measured for eleven types and assumed for the rest. 9.0.9 can write a few more than 499 ``clearance``
+entries (``H-K-DRC-LIMIT``), so a count at or above its limit is a lower bound. A major without a row was
+not measured."""
+
+
+def report_limits(major: int) -> DrcLimits:
+    """``REPORT_LIMITS[major]``; ``ValueError`` for a major that no probe measured."""
+    limits = REPORT_LIMITS.get(major)
+    if limits is None:
+        raise ValueError(
+            f"unsupported KiCad {major}; DRC report limits are measured for: {tuple(REPORT_LIMITS)}"
+        )
+    return limits
+
+
 UNIT_NM: Mapping[str, int] = MappingProxyType({"mm": 1_000_000, "mils": 25_400, "in": 25_400_000})
 """Nanometres per unit of ``coordinate_units``."""
 
@@ -173,7 +193,9 @@ __all__ = [
     "EVIDENCE",
     "LIB_FOOTPRINT_ISSUES",
     "LIB_FOOTPRINT_MISMATCH",
+    "REPORT_LIMITS",
     "REQUIRED_KEYS",
     "UNIT_NM",
     "read_drc_report",
+    "report_limits",
 ]

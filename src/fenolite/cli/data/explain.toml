@@ -988,6 +988,11 @@ meaning = "Fenolite cannot read the board; the message starts with the FEN code 
 fix = "Run 'fenolite explain' on that FEN code and correct the file at the place 'where' names."
 see = "check"
 
+["check.report-limit"]
+meaning = "KiCad's DRC report stops at a fixed number of entries per type: 499 of clearance and of unconnected items, 199 of any other type. The count of the type named in where reached that limit, so the board holds at least that many findings of the type, and the report does not show the others."
+fix = "Read the count as a lower bound. Repair the reported findings of the type and run check again: the next ones then appear. summary.limits of the stage drc.kicad lists every such type."
+see = "check"
+
 ["check.roundtrip-unjudged"]
 meaning = "A round-trip level could not be judged for one document; the message names the reason (`too-large`: the file needs sectors the compound writer does not write; `writer-refused`: the writer refuses the tree)."
 fix = "Nothing to do: the level is neither passed nor failed for this document. `roundtrip.rta1` still judges its records."

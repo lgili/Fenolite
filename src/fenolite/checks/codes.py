@@ -42,6 +42,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.rt1-failed": ("error",),
         "check.oracle-failed": ("error",),
         "check.copy-skipped": ("info",),
+        "check.report-limit": ("warning",),
         f"{ORACLE}.drc.rules-not-loaded": ("error", "info"),
         f"{ORACLE}.drc.rules-unchecked": ("warning",),
         f"{ORACLE}.drc.parity-unchecked": ("warning",),

@@ -652,7 +652,7 @@ the stages that ran and of those skipped for `read-refused` or `cache-unreadable
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
 project folder. The `drc.kicad` summary holds `tool_version`, `canary`, `canary_reason`,
 `canary_removed`, `violations`, `by_type`, `by_severity`, `unconnected`, `excluded`, `tool_writes`,
-`violations_judged`, `parity`, `parity_judged` and `types`. Whenever a report exists, each violation,
+`violations_judged`, `parity`, `parity_judged`, `types` and `limits`. Whenever a report exists, each violation,
 unconnected item and parity entry is one issue and `violations_judged` is `true`; `types` maps each
 emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary holds `tool_version`,
 `sheets` (the sheets of the report), `violations`, `by_type`, `by_severity`, `excluded`,
@@ -763,6 +763,32 @@ or more `clearance` violations and no canary violation is therefore `inconclusiv
 `clearance-limit` (`kicad.drc.rules-unchecked`), never `absent`: on such a board `check` cannot tell
 whether the rules were loaded.
 
+**Report limits.** KiCad's DRC report stops at a fixed number of entries per type, and no key of the report
+says so. `summary.limits` of `drc.kicad` says which counts were cut:
+
+- a list, sorted by `type`, of `{type, reported, limit}`: one entry per violation type, and for
+  `unconnected_items`, whose count reached its limit. `reported` is the count that `by_type` or `unconnected`
+  gives; the board holds **at least** that many, so the count is a lower bound;
+- `[]`: every count is under its limit, so every count is complete;
+- `null`: nothing is known (no report was written, or the tool is a version whose limits nobody measured).
+
+Each entry also gives one `check.report-limit` warning after the findings of the stage; its `where` is the
+code of the type (`kicad.drc.track-dangling`, `kicad.drc.unconnected-items`). The mark changes nothing else:
+the status of the stage, its evidence, the canary state and the exit code are what they are without it. The
+other findings of a marked type are not in the report: repair the reported ones and check again to see the
+next ones. A count equal to its limit is marked too, because KiCad 9.0.9 can write a few more than 499
+`clearance` entries and an unmeasured type is taken to stop at 199. The code is not a `kicad.drc.*` code: it
+describes the report, not the board.
+
+| type | limit, KiCad 9.0 | limit, KiCad 10.0 | label |
+|---|---|---|---|
+| `clearance` | 499 (9.0.9 writes up to a few more) | 499 | `KICAD-VERIFIED (10.0.x)`; `INFERRED` on 9.0 |
+| `unconnected_items` | 499 | 499 | `KICAD-VERIFIED (10.0.x)`; `INFERRED` on 9.0 |
+| every other type | 199 | 199 | `KICAD-VERIFIED (10.0.x)` for the eleven types of the bench, `INFERRED` on 9.0 and for a type no probe measured |
+
+The limits are measured on an authored bench (`H-K-DRC-LIMITS`; `docs/formats/kicad/drc.md`, "Report limits").
+The 9.0 column was measured on 9.0.9 and is not yet recorded by the probes of that bench.
+
 **Repeatability.** Fenolite adds no difference of its own: two `check` runs on one project with one
 `kicad-cli` give the same output apart from `elapsed_ms` whenever KiCad repeats its reports. KiCad
 writes its DRC report in another order from run to run, which `check` sorts away. On boards with hundreds
@@ -772,7 +798,9 @@ of violations KiCad also does not repeat the report itself. Measured on the KiCa
 - the issues `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items` can
   name other items and positions, and their counts can change;
 - so can the `drc.kicad` summary values counted from them (`violations`, `unconnected`, `by_type`,
-  `by_severity`, `types`), and the stage status and the exit code when one of these issues decides them;
+  `by_severity`, `types`, and the entries of `limits` for those three types), the `check.report-limit`
+  warnings of those three types, and the stage status and the exit code when one of these issues decides
+  them;
 - on a board with 499 or more `clearance` violations, the canary state can be `fired` in one run and
   `inconclusive` (`clearance-limit`) in the next.
 
@@ -789,6 +817,7 @@ repeat.
 | `check.rt1-failed` | error | RT1 failed; `where` is the first difference |
 | `check.oracle-failed` | error | `kicad-cli` wrote no DRC report, ERC report or netlist export, or timed out (`retryable: true`) |
 | `check.copy-skipped` | info | a file or folder the project names was left out of the copy |
+| `check.report-limit` | warning | the count of one DRC type reached the limit of KiCad's report (499 or 199 entries), so it is a lower bound; `where` is the code of the type, and `summary.limits` of `drc.kicad` lists every such type |
 | `kicad.drc.rules-not-loaded` | error (built), info (native) | the canary is `absent`, or a rules file has no project file next to it |
 | `kicad.drc.rules-unchecked` | warning | the canary is `inconclusive`; the message names the reason |
 | `kicad.drc.parity-unchecked` | warning | the DRC run was asked to compare the board with its schematic and KiCad did not do it; the copper findings stand |

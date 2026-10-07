@@ -23,6 +23,7 @@ TABLE = {
     "check.rt1-failed": ("error",),
     "check.oracle-failed": ("error",),
     "check.copy-skipped": ("info",),
+    "check.report-limit": ("warning",),
     "<oracle>.drc.rules-not-loaded": ("error", "info"),
     "<oracle>.drc.rules-unchecked": ("warning",),
     "<oracle>.drc.parity-unchecked": ("warning",),

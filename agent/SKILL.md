@@ -88,7 +88,9 @@ script as they are. It reads the board and runs no tool.
 - **`check` exits 5.** Read `issues`. `kicad.drc.unconnected-items` means copper is missing between the
   two items of `where`: route again (`fenolite route … --rip` re-routes nets that already have copper), or
   add the copper in the script. `kicad.drc.*` codes carry KiCad's own message. `netlist.assignment-differs`
-  means a pad is on another net than the script says.
+  means a pad is on another net than the script says. A count that `summary.limits` of the stage `drc.kicad`
+  names (one `check.report-limit` warning per type) is a lower bound: KiCad's report stops at 499 or 199
+  entries per type, so repair the reported findings and check again to see the next ones.
 - **`route` lists nets under `unrouted`.** Give the router more room (move parts with `place --move`),
   or script the copper for those nets in the design file and build again.
 - **`build` exits 5 with `copper.short` or `copper.clearance`.** Copper on the board now collides with

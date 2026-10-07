@@ -32,6 +32,7 @@ SUMMARY_KEYS = {
     "parity",
     "parity_judged",
     "types",
+    "limits",
 }
 
 
