@@ -144,14 +144,34 @@ writes none either. The job holds the containers `fab` (a folder) and `doc` (a P
 NC drill, pick and place and bill of materials for `fab`, a schematic print and a PCB print for `doc`. Its
 write kind is `altium_outjob`, and a new project file lists it after the PCB document. Fenolite runs no
 output: the job is run in Altium. `--altium-outjob-preset FILE` names the export preset the job is made for
-(the TOML file of `export --preset`). The writer maps no option of a preset to a key of the job yet, so every
-output keeps Altium's defaults and `result.outjob.defaults` lists the options the preset sets, as sorted
+(the TOML file of `export --preset`). Since change c0138 the Gerber output of the job carries its complete
+settings record and every output the key `OutputDefault<i>=0`; the writer maps one option of a preset,
+`gerbers.precision`, to the decimals of that record (4 without it). No other output carries a setting, so
+those keep Altium's defaults, and `result.outjob.defaults` lists the other options the preset sets, as sorted
 `table.key` texts, for you to set in Altium. Either option with `--target kicad`, and the preset with
 `--altium-outjob off`, is a usage error (`FEN-2001`, exit 2); a preset that cannot be read or is malformed
-fails as it does for `export`. `result.outjob` is `null` without a job and otherwise holds `file`, `preset`
-(`null`, or `file` and `sha256`), `media` (`name` and `type` per container), `outputs` (`kind`, `type`,
-`name`, `category`, `document`, `enabled` and `medium` per output) and `defaults`. A kept project file that
-does not list the job gives the info `altium.outjob-not-listed`.
+fails as it does for `export`. `result.outjob` is `null` without a job and otherwise holds, in this order,
+`file`, `media` (`name` and `type` per container), `outputs` (`kind`, `type`, `name`, `category`,
+`document`, `enabled` and `medium` per output), `gerber`, `defaults` and `preset` (`null`, or `file` and
+`sha256`). `result.outjob.gerber` (change c0138) says what the Gerber record of the job holds, with the keys
+in this order: `unit` (`"Metric"`), `decimals` (an integer), `layers` (one object with `id`, the long layer
+id, and `name` per plotted layer, in the order of the record: only layers the board has) and `outline`, the
+object `{"plotted": false, "reason": "…"}`: **the Gerber set of the job holds no plot of the board outline**,
+and `reason` says why and what to do in Altium. An existing project file that does not list the job
+is written again with the job listed, and its old bytes are kept as `<name>.PrjPcb.bak`, when it is as a
+build wrote it (its SHA-256 is the one `.fenolite/build.json` records, as in a folder built by 0.2.x or with
+`--altium-outjob off`): it is then in `result.files` and not in `result.kept`. Any other existing project
+file is kept, and one that does not list the job gives the info `altium.outjob-not-listed`, whose hint says
+how to list it. The infos about a kept project file (`altium.pcb-not-in-project`,
+`altium.schlib-not-in-project`, `altium.sheets-not-in-project`, `altium.outjob-not-listed`) are given only
+for documents that the kept file, read with Fenolite's project reader, does not list; a kept file that
+cannot be read gets them for every document, with a hint that says so. `.fenolite/build.json` keeps the
+digest of a kept project file whose bytes are the ones it recorded before, and of no other kept file; a
+kept file is never in `result.files` or in the receipt. A job that an earlier build wrote into the folder and that differs from
+the one the build writes now (every job written before change c0138 does) is replaced, with the old bytes
+kept as `<name>.OutJob.bak`, when the folder's `.fenolite/build.json` records its digest; a job that was
+edited since, or whose record is gone, is refused like any edited output (exit 7, `FEN-7001`) unless
+`--discard-layout` is given.
 
 A script that names a drawing sheet with `design.sheet(drawing_sheet=…)` gets it on every schematic document
 of an Altium build (change c0087), with the fields and variables of `design.title_block(…)` as sheet

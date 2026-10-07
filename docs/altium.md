@@ -691,27 +691,84 @@ Altium (Fenolite runs no output and produces none of Altium's files). `--altium-
 | schematic print | `Schematic Print` | the project | `doc` (PDF) |
 | PCB print | `PCB Print` | `<name>.PcbDoc` | `doc` |
 
-- **Every output has Altium's default settings.** The job holds the outputs, their source documents and
-  their containers, and nothing else: no unit, format, layer list or drill origin. Open the setup of each
-  output in Altium and set what your fabricator needs. `--altium-outjob-preset FILE` takes the preset you
-  use with `fenolite export --preset`; `result.outjob.defaults` then lists the options it sets
-  (`drill.units`, `gerbers.precision`, …), which are the ones to carry over by hand. Fenolite writes no
-  setting because the public files show a settings record only as a whole, and a record with some of its
-  fields would be a guess about the others (`docs/formats/altium/output-job.md`).
+- **The Gerber output holds its settings (change c0138).** Run in Altium Designer 26, the job of change
+  c0087, which held no setting, produced every output but the Gerber files: a Gerber output without a
+  settings record plots no layer. The Gerber output now carries the complete record of 44 fields that the
+  public saved jobs hold (`docs/formats/altium/output-job.md`, "The Gerber settings record"), and every
+  output carries the key `OutputDefault<i>=0`, as every saved output does. The record is written whole or
+  the job is not written. **Altium has not opened such a job yet** (Part O, "Session 2", of
+  `docs/evidence/altium-schematic.md`).
+  - *Unit and decimals.* Millimetres. The decimals are `gerbers.precision` of the preset you give with
+    `--altium-outjob-preset FILE` (5 or 6), and 4 without one. Millimetres with 4 decimals is the one pair a
+    public job holds; whether Altium takes 5 or 6 beside millimetres is not known yet, so read the setup of
+    the output after a build with a preset. The KiCad export without the key uses KiCad's own default, so
+    the two targets can differ here.
+  - *What is plotted.* The layers of the board and no other, in this order: Top Overlay, Top Paste, Top
+    Solder; the copper layers from top to bottom, an internal plane at its place; Bottom Solder, Bottom
+    Paste, Bottom Overlay; Mechanical 13, 14, 15 and 16 (fabrication and courtyard drawings of both sides).
+    `result.outjob.gerber.layers` lists them by id and name. The KiCad export plots none of the four
+    mechanical layers; turn them off in the setup of the output if your fabricator does not want them. The
+    preset's `gerbers.layers` does not choose the plotted layers (it holds KiCad layer names) and stays in
+    `result.outjob.defaults`.
+  - **What is not plotted: the board outline.** The Gerber set of the written job holds no outline file.
+    The PCB document holds the outline as the board shape and on no layer, and no public file shows how a
+    saved job names the board shape among its plotted layers. `result.outjob.gerber.outline` says so
+    (`plotted: false` and the reason). Before you send the set to a fabricator, open the setup of the
+    Gerber output in Altium, turn on the board outline in its layer list, and save the job (the next build
+    then refuses the edited job unless `--discard-layout` is given).
+  - **Not plotted either:** a drill drawing, a drill guide and the pad master plots; the record asks for
+    none of them.
+- **Every other output has Altium's default settings.** NC drill, pick and place, the bill of materials
+  and the two prints hold no settings record: they ran with Altium's defaults in Altium Designer 26, and
+  their public records are larger and less regular than the Gerber record. Open the setup of each in Altium
+  and set what your fabricator needs. `result.outjob.defaults` lists the options your preset sets that the
+  job does not carry (`drill.units`, `gerbers.layers`, …), which are the ones to carry over by hand.
 - **There is no assembly drawing.** No public file gives its output type, so the sixth output is a PCB
   print of the board. The job has no STEP and no ODB++ output either: it holds the kinds that
   `fenolite export` has, a bill of materials and the two prints.
 - **The containers have no path.** They are named `fab` and `doc`; where Altium writes them is its default
   until you set the output path of each container.
-- A new project file lists the job after the PCB document. A project file that exists is kept as always:
-  when it does not list the job, the build says so with `altium.outjob-not-listed`, and you add the file in
-  Altium (Project » Add Existing to Project).
+- A new project file lists the job after the PCB document. A project file that exists and lists the job
+  is kept as always. **A project file that exists and does not list the job is written again with the job
+  listed when it is still as a build wrote it** (change c0138): its bytes are those that the folder's
+  `.fenolite/build.json` records. This is the folder that a build of 0.2.x leaves, or a build with
+  `--altium-outjob off`. The file is written as a build into an empty folder writes it, the old one is kept
+  as `<name>.PrjPcb.bak`, and `result.files` lists it in place of `result.kept`. A project file that was
+  changed since (Altium saves it when a document is added, or you edited it), or that the record does not
+  know, is kept, whatever `--discard-layout`: the build says so with `altium.outjob-not-listed`, and you add
+  the job in Altium (Project » Add Existing to Project) or delete the project file and build again.
+- **A kept project file that is still as a build wrote it stays in the record** (change c0138): a rebuild
+  that keeps it, because it lists everything or because the job is off, writes its digest into
+  `.fenolite/build.json` again, so a later build with the job still adds the job to it. A project file that
+  is kept because it was changed, or that had no record, is not recorded: the build never turns an edited
+  file into one "as built". One kind of folder stays outside this: a folder that a development build
+  before this change rebuilt once has a record without the project file, and nothing can tell that file
+  from an edited one; there the build keeps it and tells you how to list the job.
+- **The notes about a kept project file name only what it lacks** (change c0138). The build reads the kept
+  file with its own project reader: `altium.pcb-not-in-project`, `altium.schlib-not-in-project`,
+  `altium.sheets-not-in-project` and `altium.outjob-not-listed` are given only for documents the file does
+  not list, and a kept file that lists everything gets `altium.project-kept` alone. A kept file that
+  cannot be read gets the notes for every document, and their hint says so.
 - An output job that you changed in Altium is an edited output: the next build refuses it unless
   `--discard-layout` is given.
 - `backends.altium.outjob.write_outjob(groups)` writes any groups, containers and outputs that the reader
-  `read_outjob` returns, and `from_preset` gives the job above. What is confirmed is own readback only
-  (`H-A-OUTJOB-READBACK`): whether Altium opens the job, lists the outputs and generates them is Part O of
-  `docs/evidence/altium-schematic.md`, not reported yet.
+  `read_outjob` returns, and `from_preset(preset, name=…, copper=…)` gives the job above for a board with
+  the given copper stack. `write_outjob` refuses a Gerber output without the complete record and a setting
+  on any other output. `read_outjob` gives the settings of an output (`JobOutput.settings`) and
+  `record_fields` the fields of a record. What is confirmed is own readback only (`H-A-OUTJOB-READBACK`,
+  `H-A-OUTJOB-GERBER-READBACK`) and that the record has the form of two public jobs: whether Altium opens
+  the job, takes the record and generates the outputs is Part O of `docs/evidence/altium-schematic.md`,
+  not reported yet.
+- **Every written `.OutJob` differs from the one a build before change c0138 wrote.** No release wrote a
+  job (0.2.x writes none), so this is about folders built from the development branch. A rebuild into such
+  a folder **replaces the job and keeps the old one as `<name>.OutJob.bak`**, as for every other file the
+  build wrote: the folder's `.fenolite/build.json` records the digest of the job it wrote, so the build knows
+  the file as its own. The build refuses instead (exit 7, `FEN-7001`, nothing written) in two cases: the job
+  was edited since that build, or the folder's `.fenolite/` record is gone, so that the build cannot tell
+  its own old job from an edited one. The hint names both ways out: `--discard-layout` replaces the job
+  (the backup is kept), or build into another `--out` folder. A folder built by 0.2.x holds no job: the
+  build adds one and lists it in the project file, which it writes again (see above).
+  Measured with real builds on 2026-10-07 (change c0138, design, "Found on 2026-10-07").
 
 ## Drawing sheet
 
@@ -1410,7 +1467,7 @@ a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build")
 One flat sheet by default, or one sheet per module at any depth with `--altium-sheets modules` (no
 repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
 the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
-DSL, no variants; an output job without output settings, and a drawing sheet without a logo; the PCB document has unpoured polygons, no
+DSL, no variants; an output job whose Gerber output holds its settings and plots no board outline, no drill drawing and no pad master, and whose other outputs (NC drill, pick and place, bill of materials, prints) hold no settings; a drawing sheet without a logo; the PCB document has unpoured polygons, no
 split planes, no micro vias, component bodies only on request (extruded ones, experimental, never opened in Altium) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");

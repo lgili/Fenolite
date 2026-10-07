@@ -104,6 +104,7 @@ from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
     build_altium,
+    kept_documents,
     kicad_footprint_ids,
     kicad_lib_ids,
     refused_altium,
@@ -218,9 +219,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--altium-outjob-preset",
         metavar="FILE",
         default=None,
-        help="the export preset (the TOML file of export --preset) the output job is made for: its options "
-        "are listed in result.outjob.defaults, to be set in Altium; a usage error with --target kicad or "
-        "with --altium-outjob off",
+        help="the export preset (the TOML file of export --preset) the output job is made for: its "
+        "gerbers.precision is the decimals of the job's Gerber settings (result.outjob.gerber), and its "
+        "other options are listed in result.outjob.defaults, to be set in Altium; a usage error with "
+        "--target kicad or with --altium-outjob off",
     )
     parser.add_argument(
         "--altium-symbols",
@@ -845,8 +847,9 @@ def _replaced_sheet(
 
 
 def _outjob_result(summary: object, out: Path, preset: Mapping[str, str] | None) -> dict[str, object] | None:
-    """``result.outjob`` (change c0087): the lens summary with the file under ``--out`` and the preset as
-    given with its SHA-256; ``None`` without a job."""
+    """``result.outjob`` (changes c0087 and c0138): the lens summary (``file``, ``media``, ``outputs``,
+    ``gerber``, ``defaults``) with the file under ``--out``, and then the preset as given with its SHA-256;
+    ``None`` without a job."""
     if not isinstance(summary, Mapping):
         return None
     found = dict(cast(Mapping[str, object], summary))
@@ -954,17 +957,29 @@ def _run_altium(
     with_job = args.altium_outjob != "off"
     preset, preset_result = preset_file(args.altium_outjob_preset, ctx.cwd)
     job_listed = False
-    if project_exists and with_job:
-        # a kept project file is never rewritten; it is read only to see whether it lists the job, and one
-        # that cannot be read lists nothing
+    project_digest: str | None = None
+    project_listed: frozenset[str] | None = None
+    if project_exists:
+        # An existing project file is kept, with one exception (change c0138): a file with the bytes the
+        # folder's state records (it is as a build wrote it) is written again when it lacks the job. The
+        # lens decides, from the digest, which is None for a file changed since or without a record. The
+        # file is read only to see whether it lists the job; one that cannot be read lists nothing.
         try:
-            kept_project = read_project((out_dir / f"{name}.PrjPcb").read_bytes(), file=f"{name}.PrjPcb")
-        except (FormatError, OSError):
+            project_data = (out_dir / f"{name}.PrjPcb").read_bytes()
+        except OSError:
+            project_data = None
+        known = (read_record(out_dir) or {}).get(f"{name}.PrjPcb")
+        if project_data is not None and known == hashlib.sha256(project_data).hexdigest():
+            project_digest = known
+        # What the file lists is read with Fenolite's own project reader, so that the infos about a kept
+        # project file name only what it lacks; a file that cannot be read gets them for every document.
+        try:
+            kept_project = None if project_data is None else read_project(project_data, file=f"{name}.PrjPcb")
+        except FormatError:
             kept_project = None
-        job_name = f"{name}.OutJob".casefold()
-        job_listed = kept_project is not None and any(
-            document.path.casefold() == job_name for document in kept_project.documents
-        )
+        if kept_project is not None:
+            project_listed = kept_documents([document.path for document in kept_project.documents])
+            job_listed = f"{name}.OutJob".casefold() in project_listed
     if intents and source is None:
         assert resolver is not None
         resolved = build_design(
@@ -1009,6 +1024,9 @@ def _run_altium(
             outjob=with_job,
             outjob_preset=preset,
             outjob_listed=job_listed,
+            project_digest=project_digest,
+            project_listed=project_listed,
+            project_unreadable=project_exists and project_listed is None,
             drawing_sheet=drawing_sheet,
             allow_lossy=ctx.allow_lossy,
             authored_footprints=authored_footprints,

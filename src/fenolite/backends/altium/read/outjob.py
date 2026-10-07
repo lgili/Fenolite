@@ -2,8 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """The output job (``.OutJob``) read byte for byte (capability altium-project-reader, change c0042).
 
-``read_outjob`` lists the output groups, their containers (media) and their outputs. It runs no
-output. Facts: ``docs/formats/altium/output-job.md``.
+``read_outjob`` lists the output groups, their containers (media) and their outputs, each output with its
+settings (change c0138), and ``record_fields`` splits a settings record into its fields. It runs no output
+and judges no record. Facts: ``docs/formats/altium/output-job.md``.
 """
 
 # evidence: see read.project
@@ -29,6 +30,9 @@ OUTPUT_KEYS = (
 _OUTPUT_KEY = re.compile("(" + "|".join(OUTPUT_KEYS) + r")([1-9][0-9]*)")
 _MEDIUM_KEY = re.compile(r"OutputMedium([1-9][0-9]*)")
 _ENABLED_MEDIUM_KEY = re.compile(r"OutputEnabled([1-9][0-9]*)_OutputMedium([1-9][0-9]*)")
+_SETTING_KEY = re.compile(r"Configuration([1-9][0-9]*)_(Name|Item)([1-9][0-9]*)")
+FIELD_SEPARATOR = "|"
+"""What stands between the fields of a settings record (``output-job.md``)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,9 +45,20 @@ class OutputMedium:
 
 
 @dataclass(frozen=True, slots=True)
+class OutputSetting:
+    """Setting ``k`` of an output: ``Configuration<i>_Name<k>`` and ``Configuration<i>_Item<k>`` as they
+    stand in the file, ``""`` for an absent one. ``record_fields(item)`` gives the fields of a record."""
+
+    index: int
+    name: str
+    item: str
+
+
+@dataclass(frozen=True, slots=True)
 class JobOutput:
     """Output ``i`` of a group. ``enabled`` is true only for ``OutputEnabled<i>=1``; ``enabled_media``
-    holds each ``j`` whose ``OutputEnabled<i>_OutputMedium<j>`` is not ``0``, in ascending order."""
+    holds each ``j`` whose ``OutputEnabled<i>_OutputMedium<j>`` is not ``0``, in ascending order;
+    ``settings`` holds one entry per ``k`` of its ``Configuration<i>_…`` keys, in ascending ``k``."""
 
     index: int
     type: str
@@ -53,6 +68,7 @@ class JobOutput:
     variant_name: str
     enabled: bool
     enabled_media: tuple[int, ...]
+    settings: tuple[OutputSetting, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,10 +96,25 @@ class OutJobFile:
         return self.ini.to_bytes()
 
 
+def record_fields(item: str) -> tuple[tuple[str, str], ...]:
+    """The fields of the settings record ``item`` as ``(name, value)`` pairs in the order of the text: the
+    text split at each ``|``, each part at its first ``=``. A name that stands twice is given twice, a value
+    keeps its spaces, a part without ``=`` has the value ``""``, and an empty text gives ``()``. Nothing is
+    judged: which fields a record holds is the caller's question."""
+    if not item:
+        return ()
+    fields: list[tuple[str, str]] = []
+    for part in item.split(FIELD_SEPARATOR):
+        name, _equals, value = part.partition("=")
+        fields.append((name, value))
+    return tuple(fields)
+
+
 def _group(index: int, section: IniSection, file: str, issues: list[Issue]) -> OutputGroup:
     media: list[OutputMedium] = []
     outputs: set[int] = set()
     enabled_media: dict[int, set[int]] = {}
+    settings: dict[int, set[int]] = {}
     for entry in section.entries:
         medium = _MEDIUM_KEY.fullmatch(entry.key)
         if medium:
@@ -96,8 +127,13 @@ def _group(index: int, section: IniSection, file: str, issues: list[Issue]) -> O
             outputs.add(int(output.group(2)))
             continue
         pair = _ENABLED_MEDIUM_KEY.fullmatch(entry.key)
-        if pair and entry.value != "0":
-            enabled_media.setdefault(int(pair.group(1)), set()).add(int(pair.group(2)))
+        if pair:
+            if entry.value != "0":
+                enabled_media.setdefault(int(pair.group(1)), set()).add(int(pair.group(2)))
+            continue
+        setting = _SETTING_KEY.fullmatch(entry.key)
+        if setting:
+            settings.setdefault(int(setting.group(1)), set()).add(int(setting.group(3)))
     listed: list[JobOutput] = []
     for i in sorted(outputs):
         kind = section.get(f"OutputType{i}")
@@ -119,6 +155,14 @@ def _group(index: int, section: IniSection, file: str, issues: list[Issue]) -> O
                 variant_name=section.get(f"OutputVariantName{i}") or "",
                 enabled=section.get(f"OutputEnabled{i}") == "1",
                 enabled_media=tuple(sorted(enabled_media.get(i, set()))),
+                settings=tuple(
+                    OutputSetting(
+                        k,
+                        section.get(f"Configuration{i}_Name{k}") or "",
+                        section.get(f"Configuration{i}_Item{k}") or "",
+                    )
+                    for k in sorted(settings.get(i, set()))
+                ),
             )
         )
     return OutputGroup(
@@ -153,5 +197,7 @@ __all__ = [
     "OutJobFile",
     "OutputGroup",
     "OutputMedium",
+    "OutputSetting",
     "read_outjob",
+    "record_fields",
 ]

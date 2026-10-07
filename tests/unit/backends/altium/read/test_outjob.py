@@ -8,7 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from fenolite.backends.altium.read.outjob import JobOutput, OutputMedium, read_outjob
+from fenolite.backends.altium.read.outjob import (
+    JobOutput,
+    OutputMedium,
+    OutputSetting,
+    read_outjob,
+    record_fields,
+)
 from fenolite.core.errors import FormatError
 
 DATA = Path(__file__).resolve().parents[4] / "data" / "altium" / "read"
@@ -29,8 +35,59 @@ def test_outputs_of_one_group() -> None:
     assert group.media == (OutputMedium(1, "Print Job", "Printer"), OutputMedium(2, "PDF", "Publish"))
     assert group.outputs == (
         JobOutput(1, "SchematicPrint", "Schematic Print", "Documentation", "Top.SchDoc", "", True, (2,)),
-        JobOutput(2, "Gerber", "Gerber", "Fabrication", "Board.PcbDoc", "", False, ()),
+        JobOutput(
+            2,
+            "Gerber",
+            "Gerber",
+            "Fabrication",
+            "Board.PcbDoc",
+            "",
+            False,
+            (),
+            (OutputSetting(1, "OutputConfigurationParameter1", "Record=GerberView|Units=Imperial"),),
+        ),
     )
+
+
+def test_settings_of_an_output() -> None:
+    """Scenario "Settings of an output" (change c0138): typed, and still reachable through the INI view."""
+    job = read_outjob((DATA / "jobs.OutJob").read_bytes())
+    printed, gerber = job.groups[0].outputs
+    assert printed.settings == ()
+    assert gerber.settings == (
+        OutputSetting(1, "OutputConfigurationParameter1", "Record=GerberView|Units=Imperial"),
+    )
+    assert record_fields(gerber.settings[0].item) == (("Record", "GerberView"), ("Units", "Imperial"))
+    group = job.ini.section("OutputGroup1")
+    assert group is not None and group.get("Configuration2_Name1") == "OutputConfigurationParameter1"
+    assert group.get("OutputDefault1") == "0" and group.get("OutputDefault2") == "0"
+
+
+def test_a_field_written_twice() -> None:
+    """Scenario "A field written twice": doubles and spaces kept, a part without ``=``, the empty text."""
+    assert record_fields("A=1|A=1|B= |C") == (("A", "1"), ("A", "1"), ("B", " "), ("C", ""))
+    assert record_fields("") == ()
+    assert record_fields("A=b=c") == (("A", "b=c"),)
+    assert record_fields("A=1|") == (("A", "1"), ("", ""))
+
+
+def test_settings_in_ascending_order_and_absent_halves() -> None:
+    """One setting per ``k`` with a name or an item, in ascending ``k``; the absent half is empty, a value
+    keeps its spaces, and a setting of an index without an output key lists no output."""
+    data = (
+        b"[OutputJobFile]\nVersion=1.0\n\n[OutputGroup1]\nOutputType1=Gerber\n"
+        b"Configuration1_Item3=A= |B=2\nConfiguration1_Name1=first\nConfiguration1_Name3=third\n"
+        b"Configuration1_Item2=only an item\nConfiguration9_Name1=nobody\n"
+    )
+    job = read_outjob(data)
+    assert job.to_bytes() == data
+    (output,) = job.groups[0].outputs
+    assert output.settings == (
+        OutputSetting(1, "first", ""),
+        OutputSetting(2, "", "only an item"),
+        OutputSetting(3, "third", "A= |B=2"),
+    )
+    assert record_fields(output.settings[2].item) == (("A", " "), ("B", "2"))
 
 
 def test_other_sections_and_keys_stay_raw() -> None:

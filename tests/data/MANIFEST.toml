@@ -1418,9 +1418,7 @@ notes = "schematic library of the six-layer sample with the mini symbols (c0085 
 path = "tests/data/altium/outjob/blink.OutJob"
 origin = "authored"
 corpus_id = ""
-notes = "output job written by backends.altium.outjob for the project blink with the default export preset (c0087 sample; a test keeps it equal to a fresh write)"
-
-[[file]]
+notes = "output job written by backends.altium.outjob for the project blink with the default export preset (c0087 sample; a test keeps it equal to a fresh write). Rewritten by change c0138 on 2026-10-07: eight more lines, OutputDefault<i>=0 for each of its six outputs and the two configuration lines of the Gerber output with the complete settings record of a two-layer board; SHA-256 0a24a3b5d6eca281058a65aad86195bc159a7635756a409f8dae7954f894b436 (e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e before the rewrite)"
 
 [[file]]
 path = "tests/data/altium/tree/design.py"

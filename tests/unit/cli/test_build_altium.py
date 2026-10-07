@@ -393,7 +393,8 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
     assert code == 0 and (out / "altium_hier.SchDoc").read_bytes() == flat_top
     assert (out / "altium_hier_flash.SchDoc").read_bytes() == module_sheet, "left in place"
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
-    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.SchDoc"]
+    # the kept project file is still as the first build wrote it and stays in the record (change c0138)
+    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.PrjPcb", "altium_hier.SchDoc"]
 
 
 @pytest.mark.parametrize("name", ["altium_hier_mcu.SchDoc", "altium_hier_flash.Harness"])

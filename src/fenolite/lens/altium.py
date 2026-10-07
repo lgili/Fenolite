@@ -17,7 +17,7 @@ import dataclasses
 import hashlib
 import json
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import Literal
@@ -40,7 +40,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
-from fenolite.backends.altium.read.outjob import OutputGroup
+from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
 from fenolite.backends.kicad.embed import footprint_extent
@@ -206,6 +206,39 @@ PCB_EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     }
 )
 """The ``capabilities`` entry of the PCB writers, without its evidence (``PCB_BUILD_EVIDENCE``)."""
+
+
+KEPT_PROJECT_CODES = (
+    "altium.outjob-not-listed",
+    "altium.pcb-not-in-project",
+    "altium.project-kept",
+    "altium.schlib-not-in-project",
+    "altium.sheets-not-in-project",
+)
+"""The infos about a kept project file: that it is kept, and what it does not list. None of them is given
+for a project file that the build writes again (change c0138)."""
+
+
+UNREAD_PROJECT_HINT = (
+    "the kept project file could not be read, so every document of the build is named, whether the file "
+    "lists it or not"
+)
+"""The hint of an info about a kept project file that Fenolite's project reader could not read."""
+
+
+def not_listed(files: Sequence[str], listed: Collection[str] | None) -> list[str]:
+    """The files of ``files`` that a kept project file does not list. ``listed`` holds the document paths
+    of the file, case-folded (``kept_documents``); ``None`` stands for a file that was not read, and then
+    every file counts as not listed."""
+    if listed is None:
+        return list(files)
+    return [file for file in files if file.casefold() not in listed]
+
+
+def kept_documents(paths: Sequence[str]) -> frozenset[str]:
+    """The document paths of a kept project file as ``not_listed`` compares them: case-folded, with the
+    separators of a path written by Altium (a backslash) as forward slashes."""
+    return frozenset(path.replace("\\", "/").casefold() for path in paths)
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
@@ -832,6 +865,8 @@ def _library_checks(
     name: str,
     symbols: Mapping[str, AltiumSymbol],
     project_exists: bool,
+    listed: Collection[str] | None = None,
+    unread_hint: str = "",
 ) -> list[Issue]:
     """The checks of the planned libraries (change c0034): texts and lengths of KiCad symbols, storage
     and file name collisions, section keys, generic stand-in libraries and libraries a kept project file
@@ -915,13 +950,15 @@ def _library_checks(
                 "keep the real library elsewhere; Fenolite refuses to overwrite an edited library in --out",
             )
         )
-    if project_exists and libraries:
+    unlisted = not_listed(list(libraries), listed) if project_exists else []
+    if unlisted:
         found.append(
             issue(
                 "altium.schlib-not-in-project",
-                f"the kept {name}.PrjPcb does not list {', '.join(libraries)}; add them in Altium "
+                f"the kept {name}.PrjPcb does not list {', '.join(unlisted)}; add them in Altium "
                 "(Project » Add Existing to Project)",
                 f"{name}.PrjPcb",
+                unread_hint,
             )
         )
     return found
@@ -1363,9 +1400,27 @@ def sheet_frames(
     return frames, {"items": len(drawing_sheet.items), "pages": pages}
 
 
+def _gerber_summary(groups: Sequence[OutputGroup]) -> dict[str, object] | None:
+    """``summary["outjob"]["gerber"]`` (change c0138), read from the record the job holds: the unit, the
+    decimals, the plotted layers in the order of ``Plot.Set`` by long id and name, and ``outline``, which
+    says that the set holds no plot of the board outline and why. ``None`` for a job without a Gerber
+    record."""
+    setting = job_writer.gerber_setting(groups)
+    if setting is None:
+        return None
+    fields = dict(record_fields(setting.item))
+    plotted = job_writer.plotted_layers(setting.item)
+    return {
+        "unit": fields["GerberUnit"],
+        "decimals": int(fields["NumberOfDecimals"]),
+        "layers": [{"id": layer, "name": job_writer.layer_name(layer)} for layer in plotted],
+        "outline": {"plotted": False, "reason": job_writer.OUTLINE_REASON},
+    }
+
+
 def outjob_summary(name: str, groups: Sequence[OutputGroup], defaults: Sequence[str]) -> dict[str, object]:
-    """``summary["outjob"]`` (change c0087): the job's file, its containers, its outputs and the options
-    of the preset that it does not carry."""
+    """``summary["outjob"]`` (changes c0087 and c0138): the job's file, its containers, its outputs, what
+    its Gerber record holds (``gerber``) and the options of the preset that it does not carry."""
     media = [medium for group in groups for medium in group.media]
     names = {medium.index: medium.name for medium in media}
     return {
@@ -1384,6 +1439,7 @@ def outjob_summary(name: str, groups: Sequence[OutputGroup], defaults: Sequence[
             for group in groups
             for output in group.outputs
         ],
+        "gerber": _gerber_summary(groups),
         "defaults": list(defaults),
     }
 
@@ -1500,6 +1556,9 @@ def build_altium(
     outjob: bool = False,
     outjob_preset: job_writer.PresetOptions | None = None,
     outjob_listed: bool = False,
+    project_digest: str | None = None,
+    project_listed: Collection[str] | None = None,
+    project_unreadable: bool = False,
     drawing_sheet: DrawingSheet | None = None,
     allow_lossy: bool = False,
     directions: bool = True,
@@ -1537,8 +1596,21 @@ def build_altium(
     and the placements from outside the model (the script's resolved copper, or a routed KiCad board); a
     build takes one source, so a source given with copper in ``design.board`` raises ``ValueError``.
     With ``outjob`` (change c0087) a build that writes a PCB document also writes ``<name>.OutJob``, the
-    job of ``outjob.from_preset(outjob_preset, name=name)``, and lists it in the project file;
-    ``outjob_listed`` tells that a kept project file already lists it. ``drawing_sheet`` is drawn on
+    job of ``outjob.from_preset(outjob_preset, name=name, copper=<the document's stack>)`` (change
+    c0138: its Gerber output holds the settings record for the layers of that board), and lists it in the
+    project file;
+    ``outjob_listed`` tells that a kept project file already lists it. ``project_digest`` (change c0138)
+    is the SHA-256 of the existing project file when the state of the output folder records exactly it, so
+    that the file is as a build wrote it, and ``None`` for a file that was changed since or has no record:
+    a project file of the first kind that does not list the job is written again, as a build into an
+    empty folder writes it, and is then no kept file. A kept file whose ``project_digest`` is given stays
+    in the state the build writes, with that digest; a kept file that was changed or had no record is not
+    in it. ``project_listed`` are the document paths the existing project file lists (``kept_documents``
+    of what Fenolite's project reader read): the infos about a kept project file then name only the
+    documents it really lacks, and none when it lists them all. Without it (``None``) every document is
+    named, as before; ``project_unreadable`` says that the file was there and could not be read, which
+    the infos then say in their hint.
+    ``drawing_sheet`` is drawn on
     every schematic document, with the title block of ``design.board`` as sheet parameters; a part of
     it that the Altium form cannot carry raises ``read.sheet.SheetLossError`` unless ``allow_lossy``.
     """
@@ -1554,6 +1626,7 @@ def build_altium(
     if authored_footprints:
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
+    unread_hint = UNREAD_PROJECT_HINT if project_exists and project_unreadable else ""
     resolved = resolve_symbols(design, resolver, authored_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
@@ -1572,7 +1645,7 @@ def build_altium(
     model = with_written_values(generic_pins(model))
     issues += list(model.validate())
     if not any(i.severity == "error" for i in issues):
-        issues += _library_checks(model, name, symbols, project_exists)
+        issues += _library_checks(model, name, symbols, project_exists, project_listed, unread_hint)
     if any(i.severity == "error" for i in issues):
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
@@ -1633,34 +1706,41 @@ def build_altium(
     pcb_files = [
         f for f, wanted in ((f"{name}.PcbDoc", spec is not None), (f"{name}.PcbLib", bool(written))) if wanted
     ]
-    if project_exists and pcb_files:
+    pcb_unlisted = not_listed(pcb_files, project_listed) if project_exists else []
+    if pcb_unlisted:
         issues.append(
             issue(
                 "altium.pcb-not-in-project",
-                f"the kept {name}.PrjPcb does not list {', '.join(pcb_files)}; add them in Altium "
+                f"the kept {name}.PrjPcb does not list {', '.join(pcb_unlisted)}; add them in Altium "
                 "(Project » Add Existing to Project)",
                 f"{name}.PrjPcb",
+                unread_hint,
             )
         )
     planned = hierarchy.plan_sheets(
         model, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions
     )
     unlisted = [*(sheet.file for sheet in planned.modules), *sorted(planned.harness_files, key=name_key)]
-    if project_exists and unlisted:
+    unlisted = not_listed(unlisted, project_listed) if project_exists else []
+    if unlisted:
         issues.append(
             issue(
                 "altium.sheets-not-in-project",
                 f"the kept {name}.PrjPcb does not list {', '.join(unlisted)}; add them in Altium "
                 "(Project » Add Existing to Project)",
                 f"{name}.PrjPcb",
+                unread_hint,
             )
         )
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
+    relist = False
     if outjob and spec is not None:
-        job = job_writer.from_preset(outjob_preset, name=name)
+        job = job_writer.from_preset(outjob_preset, name=name, copper=pcbdoc.document_stack(spec).copper)
         job_info = outjob_summary(name, job, job_writer.unmapped(outjob_preset))
         evidence = Evidence.combine(evidence, job_writer.EVIDENCE)
+        if project_listed is not None and f"{name}.OutJob".casefold() in project_listed:
+            outjob_listed = True
         if project_exists and not outjob_listed:
             issues.append(
                 issue(
@@ -1668,8 +1748,12 @@ def build_altium(
                     f"the kept {name}.PrjPcb does not list {name}.OutJob; add it in Altium "
                     "(Project » Add Existing to Project)",
                     f"{name}.PrjPcb",
+                    f"or delete {name}.PrjPcb and build again: a new project file lists the job. The build "
+                    "adds the job itself only to a project file that is as a build wrote it",
                 )
             )
+        # change c0138: a project file that is as a build wrote it and lacks the job is written again
+        relist = project_exists and not outjob_listed and project_digest is not None
     frames: dict[str, schdot.SheetFrame] = {}
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
@@ -1694,7 +1778,7 @@ def build_altium(
         files = project.write_project(
             model,
             name=name,
-            project=not project_exists,
+            project=not project_exists or relist,
             issues=issues,
             form=form,
             symbols=symbols,
@@ -1741,7 +1825,20 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
+    if relist:
+        # the project file is written, so it is not kept and nothing is left for the user to add to it
+        kept = []
+        issues = [
+            found
+            for found in issues
+            if not (found.code in KEPT_PROJECT_CODES and found.where == f"{name}.PrjPcb")
+        ]
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
+    if kept and project_digest is not None:
+        # A kept project file that is still as a build wrote it stays in the state, so that a later build
+        # knows it as built (change c0138). ``project_digest`` is None for a file that was changed or had
+        # no record: recording such a file would turn an edited file into one "as built".
+        record = dict(sorted({**record, f"{name}.PrjPcb": project_digest}.items()))
     stored = model
     if spec is not None and model.board is not None:
         # the stored model holds the board that was written (change c0090, "RT-A2 on a written model")
@@ -1825,6 +1922,8 @@ __all__ = [
     "kicad_pins",
     "library_symbols",
     "match_source",
+    "kept_documents",
+    "not_listed",
     "outjob_summary",
     "pad_extras",
     "refused_altium",

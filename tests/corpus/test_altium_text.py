@@ -19,7 +19,8 @@ import pytest
 from _boards import census
 from _corpus import CorpusItem, manifest_items, require
 
-from fenolite.backends.altium.read.outjob import read_outjob
+from fenolite.backends.altium import outjob as job_writer
+from fenolite.backends.altium.read.outjob import OutJobFile, read_outjob, record_fields
 from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.altium.read.rul import read_rule_file
 from fenolite.backends.altium.read.rules import RULE_KIND_MAP, map_rules
@@ -202,3 +203,159 @@ def test_public_text_rows(item: CorpusItem) -> None:
     data = require(item).read_bytes()
     counts = READERS[_kind(item)](item, data)
     census("altium_text", item.id, counts)
+
+
+# --- the Gerber settings record (change c0138; output-job.md, "The Gerber settings record") --------------
+
+JOBS = [item for item in ITEMS if _kind(item) == "outjob"]
+GERBER_JOBS = ("altium-third-party-outjob-01", "altium-third-party-outjob-03")
+"""The two public jobs that hold a Gerber output."""
+OUTPUTS_PER_JOB = {
+    "altium-third-party-outjob-01": 12,
+    "altium-third-party-outjob-02": 3,
+    "altium-third-party-outjob-03": 9,
+}
+_CONTAINER_KEY = re.compile(r"OutputEnabled([1-9][0-9]*)_OutputMedium[1-9][0-9]*")
+
+
+def _jobs() -> dict[str, OutJobFile]:
+    return {item.id: read_outjob(require(item).read_bytes()) for item in JOBS}
+
+
+def _gerber_records(jobs: dict[str, OutJobFile]) -> dict[str, tuple[tuple[str, str], ...]]:
+    """The fields of the record of the Gerber output of each public job that has one."""
+    found: dict[str, tuple[tuple[str, str], ...]] = {}
+    for ident, job in jobs.items():
+        outputs = [o for g in job.groups for o in g.outputs if o.type == job_writer.GERBER_TYPE]
+        if not outputs:
+            continue
+        assert len(outputs) == 1, f"{ident}: {len(outputs)} Gerber outputs"
+        (output,) = outputs
+        assert len(output.settings) == 1, f"{ident}: {len(output.settings)} settings on the Gerber output"
+        (setting,) = output.settings
+        assert (setting.index, setting.name) == (1, job_writer.SETTING_NAME), ident
+        assert all(0x20 <= ord(ch) <= 0x7E for ch in setting.item), f"{ident}: the record is not ASCII"
+        found[ident] = record_fields(setting.item)
+    return found
+
+
+def test_output_default() -> None:
+    """Scenario "The key in the public jobs" (the ``CORPUS-VERIFIED`` row of ``OutputDefault<i>``): all 24
+    outputs of the three public jobs hold the key with the value ``0``, directly after the last
+    ``OutputEnabled<i>_OutputMedium<j>`` of the output; then ``PageOptions<i>`` or the first setting."""
+    jobs = _jobs()
+    assert sorted(jobs) == sorted(OUTPUTS_PER_JOB)
+    following: Counter[str] = Counter()
+    for ident, job in jobs.items():
+        outputs = 0
+        for index, section in job.ini.numbered("OutputGroup"):
+            group = next(g for g in job.groups if g.index == index)
+            keys = list(section.keys())
+            for output in group.outputs:
+                outputs += 1
+                i = output.index
+                where = f"{ident}: output {i}"
+                assert keys.count(f"OutputDefault{i}") == 1, where
+                assert section.get(f"OutputDefault{i}") == job_writer.OUTPUT_DEFAULT, where
+                at = keys.index(f"OutputDefault{i}")
+                last = max(
+                    n
+                    for n, key in enumerate(keys)
+                    if (match := _CONTAINER_KEY.fullmatch(key)) and int(match.group(1)) == i
+                )
+                assert at == last + 1, f"{where}: OutputDefault is not directly after the last container key"
+                following[re.sub(r"[0-9]+", "#", keys[at + 1]) if at + 1 < len(keys) else ""] += 1
+        assert outputs == OUTPUTS_PER_JOB[ident], f"{ident}: {outputs} outputs"
+    assert sum(OUTPUTS_PER_JOB.values()) == 24
+    assert dict(following) == {"PageOptions#": 14, "Configuration#_Name#": 10}
+
+
+def test_gerber_records() -> None:
+    """``H-A-OUTJOB-GERBER-RECORD``: the two public jobs with a Gerber output hold one setting whose first
+    44 fields have the names of ``GERBER_FIELDS`` in order; one job adds ``DocumentPath`` as a 45th field.
+    The record stands after ``OutputDefault<i>``, and the layer sets have the recorded form."""
+    jobs = _jobs()
+    records = _gerber_records(jobs)
+    assert tuple(sorted(records)) == GERBER_JOBS
+    wanted = [field.name for field in job_writer.GERBER_FIELDS]
+    assert len(wanted) == 44 and wanted == sorted(wanted)
+    extra: dict[str, list[str]] = {}
+    for ident, fields in records.items():
+        names = [name for name, _value in fields]
+        assert names[:44] == wanted, f"{ident}: the names of the first 44 fields differ from GERBER_FIELDS"
+        extra[ident] = names[44:]
+        values = dict(fields[:44])
+        for index, field in enumerate(job_writer.GERBER_FIELDS[:-1]):
+            if field.name == job_writer.GERBER_FIELDS[index + 1].name:
+                assert fields[index][1] == fields[index + 1][1], f"{ident}: the two {field.name} differ"
+        head = job_writer.LAYER_SET_HEAD
+        assert values["Mirror.Set"] == head and values["AddToAllPlots.Set"] == head, ident
+        entries = values["Plot.Set"].removeprefix(head)
+        assert values["Plot.Set"].startswith(head) and re.fullmatch(r"(,[0-9]+~1)+", entries), ident
+    assert extra == {GERBER_JOBS[0]: ["DocumentPath"], GERBER_JOBS[1]: []}
+    plots = {ident: job_writer.plotted_layers(fields_item(fields)) for ident, fields in records.items()}
+    assert [len(plots[ident]) for ident in GERBER_JOBS] == [22, 12]
+    # the first ten entries are equal in both and are those of a four-layer board without planes
+    ten = job_writer.plot_layers((1, 2, 3, 32))[:10]
+    assert plots[GERBER_JOBS[0]][:10] == plots[GERBER_JOBS[1]][:10] == ten
+    # Every entry is explained by the long-id rows of pcb-library.md (family, number): copper 0x0100,
+    # mechanical 0x0102, the other layers 0x0103 (6 to 11 overlay, paste and solder; 13 Keep-Out Layer; 24
+    # and 25 the pad masters). No internal plane (0x0101), and so no entry left for a board outline.
+    rest = {ident: [(layer >> 16, layer & 0xFFFF) for layer in plots[ident][10:]] for ident in GERBER_JOBS}
+    assert rest[GERBER_JOBS[0]] == [
+        *((0x0102, n) for n in (1, 3, 5, 6, 13, 14, 15, 31, 32)),
+        (0x0103, 13),
+        (0x0103, 24),
+        (0x0103, 25),
+    ]
+    assert rest[GERBER_JOBS[1]] == [(0x0102, 1), (0x0102, 2)]
+    assert not any(layer >> 16 == 0x0101 for found in plots.values() for layer in found)
+    for ident in GERBER_JOBS:
+        job = jobs[ident]
+        (index, section), *_rest = job.ini.numbered("OutputGroup")
+        output = next(o for g in job.groups for o in g.outputs if o.type == job_writer.GERBER_TYPE)
+        keys = list(section.keys())
+        at = keys.index(f"OutputDefault{output.index}")
+        assert keys[at + 1 : at + 3] == [
+            f"Configuration{output.index}_Name1",
+            f"Configuration{output.index}_Item1",
+        ], ident
+        assert output.document_path == "" and output.variant_name == "", ident
+        assert index >= 1
+
+
+def fields_item(fields: tuple[tuple[str, str], ...]) -> str:
+    return "|".join(f"{name}={value}" for name, value in fields)
+
+
+def test_gerber_constants() -> None:
+    """Scenario "Constant fields equal the public jobs" and ``H-A-OUTJOB-GERBER-READBACK``: every field
+    whose rule is ``constant`` holds in both public records the value Fenolite writes, at 31 positions; the
+    13 other positions differ between the two records, and every written ``choice`` and unit value is the
+    value of one of them. The written decimals without a preset are those of the metric record."""
+    records = _gerber_records(_jobs())
+    first, third = (records[ident][:44] for ident in GERBER_JOBS)
+    written = record_fields(job_writer.gerber_record(job_writer.plot_layers((1, 2, 3, 32)), decimals=4))
+    assert len(written) == 44
+    equal = [n for n in range(44) if first[n][1] == third[n][1]]
+    constant = [n for n, field in enumerate(job_writer.GERBER_FIELDS) if field.rule == "constant"]
+    assert len(equal) == 31 and equal == constant
+    for n in constant:
+        field = job_writer.GERBER_FIELDS[n]
+        assert first[n] == third[n] == written[n] == (field.name, field.value), f"position {n + 1}"
+    differing = sorted({first[n][0] for n in range(44) if n not in equal})
+    assert len(differing) == 9 and 44 - len(equal) == 13
+    for n, field in enumerate(job_writer.GERBER_FIELDS):
+        if field.rule in ("choice", "unit"):
+            assert written[n][1] in (first[n][1], third[n][1]), f"position {n + 1}: a value of no public job"
+    unit = {n: field for n, field in enumerate(job_writer.GERBER_FIELDS) if field.rule == "unit"}
+    decimals = [n for n, field in enumerate(job_writer.GERBER_FIELDS) if field.rule == "decimals"]
+    metric = first if first[next(iter(unit))][1] == job_writer.GERBER_UNIT else third
+    assert all(metric[n][1] == job_writer.GERBER_UNIT for n in unit)
+    assert all(metric[n][1] == str(job_writer.DEFAULT_DECIMALS) == written[n][1] for n in decimals)
+    # what the public jobs show of the decimals: 4 beside Metric and 5 beside Imperial; 6 in neither
+    seen = {(job[next(iter(unit))][1], job[decimals[0]][1]) for job in (first, third)}
+    assert seen == {("Metric", "4"), ("Imperial", "5")}
+    census(
+        "altium_text", "gerber-record", {"fields": 44, "equal": len(equal), "differing_names": len(differing)}
+    )

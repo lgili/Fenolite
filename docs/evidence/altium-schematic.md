@@ -369,7 +369,9 @@ the repository; a variant that uses it is described here by what it holds.
 
 Change c0087 writes `<name>.OutJob` beside the PCB document of an Altium build. The file holds only the keys
 of `docs/formats/altium/output-job.md`, "The writer's choices": the outputs, their source documents and
-their containers, and no output setting. The part is named O because Part V is the Viewer's.
+their containers, and no output setting. The part is named O because Part V is the Viewer's. Since change
+c0138 the job also holds `OutputDefault<i>=0` on every output and the settings record of its Gerber output;
+the files and the steps for that job are under "Session 2" below.
 
 The files are built outside the repository by `fenolite build examples/blink_routed/design.py --target altium
 --out DIR --confirm` and handed over; none is committed except the sample of the job's form,
@@ -407,6 +409,99 @@ The table sent with the files (what steps O1 and O2 are read against):
 
 No report yet: the four rows are `INFERRED`, "pending (author report)".
 
+**Since change c0138 (2026-10-07) the digest of the job in the table above is that of the files of session 1
+only.** A build of the same script now writes a job with eight more lines (`OutputDefault<i>=0` on each of
+its six outputs and the two configuration lines of the Gerber output), whose SHA-256 is in the table of
+"Session 2" below; the five other files of the build keep the digests of the table. The table is left as it
+is because it names the files that were opened and returned ("Returned folders of 2026-10-07").
+
+### Session 2 (change c0138, Altium Designer 26)
+
+The job of session 1 ran in Altium Designer 26 except for its Gerber output, which plotted no layer
+(`docs/evidence/altium-pcb.md`, "Returned folders of 2026-10-07"). Change c0138 writes the complete settings
+record on the Gerber output and `OutputDefault<i>=0` on every output
+(`docs/formats/altium/output-job.md`, "The Gerber settings record"). **Nothing of this section has been
+opened in Altium**: every row it names is `INFERRED`, "pending (author report)".
+
+Three projects, built on 2026-10-07 outside the repository into `~/fenolite-altium-checks/session-2/O-outjob/`
+(a `README.md` there repeats the steps): `blink_routed/` by `fenolite build examples/blink_routed/design.py
+--target altium --out DIR --confirm` (two copper layers, no preset); `blink_routed_p6/` by the same command
+with `--altium-outjob-preset precision6.toml`, a preset that holds `[gerbers]` `precision = 6`; `board6/`,
+the kit sample `examples/kit/board6` built as `fenolite kit build` builds it (six copper layers, the third
+an internal plane on `GND`; the `build` command gives that script two layers, so it is not used here).
+
+| file of the build of 2026-10-07 | SHA-256 |
+|---|---|
+| `blink_routed/blink_routed.OutJob` | `595be494ec0a3ce8edc084cd041d86b2fe4bab9cd94f05b5a7e557864f44f950` |
+| `board6/board6.OutJob` | `cffaa5da448480a99feba314a4e08a47a4f14dd27f016ad72ec5875c191a50e1` |
+| `blink_routed_p6/blink_routed.OutJob` | `bb3e5505a4bc91c07dd894c984e2a8710cd7d485be89de84ced996637236d5e5` |
+
+The five other files of `blink_routed/` and of `blink_routed_p6/` have the digests of the table of
+2026-10-06 above: only the job differs from the files of session 1. The record of each job reads back with
+`read_outjob` and `record_fields` to 44 fields; the unit is `Metric` in all three, the decimals are 4, 4 and 6.
+The three projects were built again later on 2026-10-07, after change c0134 changed the pin texts of the
+catalog symbols: the three jobs and every file of the two blink projects kept their bytes, and the
+schematic document and library of `board6/` changed (the `README.md` of the folder lists every digest).
+
+The layers each job asks Altium to plot, in the order of the record (what steps O3, O5 and O7 are read
+against). **No job asks for the board outline** (unknown U5 of the facts page):
+
+| # | `blink_routed` and `blink_routed_p6` (12) | `board6` (16) |
+|---|---|---|
+| 1 | Top Overlay | Top Overlay |
+| 2 | Top Paste | Top Paste |
+| 3 | Top Solder | Top Solder |
+| 4 | Top Layer | Top Layer |
+| 5 | Bottom Layer | Mid-Layer 1 |
+| 6 | Bottom Solder | Internal Plane 1 |
+| 7 | Bottom Paste | Mid-Layer 3 |
+| 8 | Bottom Overlay | Mid-Layer 4 |
+| 9 | Mechanical 13 | Bottom Layer |
+| 10 | Mechanical 14 | Bottom Solder |
+| 11 | Mechanical 15 | Bottom Paste |
+| 12 | Mechanical 16 | Bottom Overlay |
+| 13 | | Mechanical 13 |
+| 14 | | Mechanical 14 |
+| 15 | | Mechanical 15 |
+| 16 | | Mechanical 16 |
+
+The steps are written from Altium's documentation (S-0293, S-0605); a menu path or a dialog name may read
+differently in version 26. Steps O2 and O4 above are unchanged, still open, and not repeated.
+
+1. O1: open `blink_routed/blink_routed.PrjPcb` and then `blink_routed.OutJob`. Expected: no message. Settles
+   `H-A-OUTJOB-GERBER-ACCEPT` (with O5).
+2. O3: generate the container `fab`, then the container `doc`. All six output kinds are generated again,
+   because every output of the job now holds one more key than the job that ran in session 1. Expected: no
+   error; Gerber layer files beside the drill, pick-and-place and bill-of-materials files, and the PDF.
+   Report the extensions of the files that appear in the Gerber folder, as a list, and whether the report of
+   the Gerber output now names layers. Settles `H-A-OUTJOB-RUN-2` and `H-A-OUTJOB-GERBER-LAYERS`.
+3. O5: open the setup of the Gerber output (double-click it, or right-click and Configure) and read three
+   things: the units, the format or decimals, and which layers have their plot switch on. Expected:
+   millimetres, 4 decimals, and the twelve layers of the table. Settles `H-A-OUTJOB-GERBER-ACCEPT`,
+   `H-A-OUTJOB-OPTIONS-2` and, with O8, `H-A-OUTJOB-GERBER-DECIMALS`.
+4. O6: in the same setup, look at what Altium offers for the board shape: whether the layer list holds an
+   entry for the board outline (the documentation names one as the first entry), what it is called, and
+   whether its plot switch is on. Report that. Then turn it on if it exists, close with OK, save the job
+   under another name in the same folder and generate `fab` again; report whether an outline file is then
+   produced and its extension. Settles no row: it is the input for the outline proposal.
+5. O7: open `board6/board6.PrjPcb` and `board6.OutJob` and generate `fab`. Report the extensions, and whether
+   one file is the internal plane. Settles `H-A-OUTJOB-GERBER-PLANE`.
+6. O8: open `blink_routed_p6/blink_routed.PrjPcb` and its job, read units and decimals in the Gerber setup,
+   generate `fab`. Expected: millimetres and 6 decimals. Report what the setup shows (a value Altium replaced
+   is a result, not a failure) and whether files appear. Settles `H-A-OUTJOB-GERBER-DECIMALS`.
+
+To send back: the Altium version as `AD <major>.<minor>`, the date, one outcome per step (`as expected`, or
+what differed in one sentence), and the three lists of extensions. The job saved in O6 stays in the session
+folder; it is read outside the repository with `read_outjob`, and what its `Plot.Set` holds beside the written
+entries is recorded as an observation on the facts page. No file that Altium wrote is committed, and an
+author report never moves an operation out of `experimental`. Stating the outcome of the session of
+2026-10-07 with the minor version (the Gerber output of the old job plotted nothing) settles
+`H-A-OUTJOB-GERBER-EMPTY` without a new run.
+
+#### Reports
+
+None yet.
+
 ## Part W: the sheet template and the drawing sheet in Altium Designer
 
 Change c0087 writes a sheet template (`.SchDot`) from a `*.sheet.toml` specification, and draws the same
@@ -427,7 +522,7 @@ gives for the KiCad build of the same script; it is a visual reference only and 
 | `blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
 | `blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
-| `blink.OutJob` | `e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e` |
+| `blink.OutJob` (the file of 2026-10-06; since change c0138 the same build writes eight more lines, the key `OutputDefault<i>=0` per output and the Gerber record, and the job is `0a24a3b5d6eca281058a65aad86195bc159a7635756a409f8dae7954f894b436`, the committed sample `tests/data/altium/outjob/blink.OutJob`; no step of Part W reads the job) | `e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e` |
 
 1. W1: open `iso5457_generic.SchDot`. Expected: no message; an A4 landscape sheet with a frame, reference
    zones and a title block, and no second border around it. Settles `H-A-SCHDOT-OPEN`.

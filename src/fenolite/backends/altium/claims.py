@@ -14,7 +14,8 @@ This module states no level: every cell is an evidence constant of a module of t
 - ``write`` is the constant of the writer modules behind each write kind of the two experimental features
   of ``build --target altium``. Every ``write`` is experimental.
 - The output job and the sheet template (change c0087) have a ``write`` cell only: the backend reads
-  neither as a design, and their own readers are not a second opinion.
+  neither as a design, and their own readers are not a second opinion. Since change c0138 the output
+  job's cell names the rows of its Gerber settings record.
 - The PCB document's ``write`` also names ``lower.EVIDENCE``: a model that holds a board is written
   without a script (change c0090).
 - No round-trip cell is set. ``roundtrip_exact`` says that a file read and written back keeps its whole

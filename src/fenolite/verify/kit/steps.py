@@ -410,7 +410,7 @@ STEPS: tuple[Step, ...] = (
         "Generate the container `fab`, then the container `doc`. Write the names of the generated files, "
         "one per line and without their folders, into `results/routed/outputs.txt`.",
         "routed/outputs.txt",
-        ("H-A-OUTJOB-RUN",),
+        ("H-A-OUTJOB-RUN", "H-A-OUTJOB-RUN-2"),
         document="routed/routed.OutJob",
         checks=("listing",),
     ),

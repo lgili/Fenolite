@@ -375,12 +375,12 @@ fix = "Nothing to do if you do not need it in Altium; otherwise enter it there b
 see = "Build target"
 
 ["altium.outjob-not-listed"]
-meaning = "The existing project file was kept and does not list the output job the build wrote."
+meaning = "The existing project file was kept and does not list the output job the build wrote. It was kept because it was changed since a build wrote it, or the folder holds no record of it; a project file that is as a build wrote it gets the job added by the build."
 fix = "Add the .OutJob file to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
 ["altium.pcb-not-in-project"]
-meaning = "The existing project file was kept, so the PCB files are not listed in it."
+meaning = "The existing project file was kept and does not list the PCB document or the PCB library that the build wrote. The info names the files the kept file lacks; when the kept file cannot be read, it names every PCB file and its hint says so."
 fix = "Add the files to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
@@ -560,7 +560,7 @@ fix = "Nothing to do; replace the symbols in Altium if their drawing matters."
 see = "Build target"
 
 ["altium.schlib-not-in-project"]
-meaning = "The existing project file was kept, so the libraries are not listed in it."
+meaning = "The existing project file was kept and does not list a schematic library that the build wrote. The info names the libraries the kept file lacks; when the kept file cannot be read, it names every library and its hint says so."
 fix = "Add the libraries to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
@@ -670,7 +670,7 @@ fix = "Redraw the item in the sheet specification if it matters; the import stil
 see = "template"
 
 ["altium.sheets-not-in-project"]
-meaning = "The existing project file was kept, so the module sheets and harness files are not listed in it."
+meaning = "The existing project file was kept and does not list a module sheet or a harness file that the build wrote. The info names the files the kept file lacks; when the kept file cannot be read, it names every one and its hint says so."
 fix = "Add them to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 

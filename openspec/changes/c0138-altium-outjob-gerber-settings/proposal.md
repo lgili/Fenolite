@@ -36,7 +36,7 @@ None.
 
 ### Modified Capabilities
 - `altium-project-reader`: MODIFIED "Output job read" (the living requirement: `JobOutput.settings`) and "Output job written" (the delta of c0087: the Gerber record).
-- `altium-build`: MODIFIED "Output job in an Altium build" (the delta of c0087: the copper stack, `result.outjob.gerber`, the evidence).
+- `altium-build`: MODIFIED "Output job in an Altium build" (the delta of c0087: the copper stack, `result.outjob.gerber`, the evidence) and, decided on 2026-10-07 after the rebuild measurement, MODIFIED "Edited Altium outputs are not overwritten" (the living requirement: a project file that is as a build wrote it and does not list the job is written again with the job listed).
 
 "Output job written" and "Output job in an Altium build" are added by change c0087, which is implemented and not archived; the design says from which text each delta starts.
 
