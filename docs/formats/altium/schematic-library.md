@@ -263,7 +263,9 @@ These are choices of the writer, not format facts (design of change c0034):
   `COMPDESCR<i>` (only when not empty) and `PARTCOUNT<i>`; nothing follows the record;
 - `Data` holds the component, the binary pins ordered by part and then by number in natural order, one
   rectangle per part, the designator `<prefix>?`, the `Comment` parameter and, with a footprint, the
-  records 44, 45, 46 and 48; no record carries `OWNERINDEX`, and no coordinate carries `_FRAC`;
+  records 44, 45, 46 and 48, with one record 47 after record 46 for each pin that the parts of the design
+  map to another pad than its own (change c0135; `connectivity.md`, "Component link"); no record carries
+  `OWNERINDEX`, and no coordinate carries `_FRAC`;
 - the component carries `UNIQUEID=<project.unique_id("schlib:<library>:<lib ref>")>`, and neither
   `LIBRARYPATH`, `SOURCELIBRARYNAME` nor `TARGETFILENAME`;
 - binary pins carry all five short strings, `FORMALTYPE` 1, an empty description, swap group,

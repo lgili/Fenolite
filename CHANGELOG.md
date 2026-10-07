@@ -6,6 +6,18 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-07
+
+### Fixed
+
+- `build --target altium` applies `pad_map` (c0135). In the releases 0.1.0 and 0.2.0 an Altium build ignored a `pad_map` that renames pads: the PCB document carried each net on the pad of the pin's own number (for `pad_map={"1": "2", "2": "1"}`, the two nets exchanged), and the schematic said nothing of the map; the KiCad build of the same script was right. Now each net is on the mapped pad of the PCB document, the schematic and its library hold the map in the footprint model (one record for each pin whose pad is not the pad of its own number), and script copper and `--copper-from` are checked against the mapped pads. A `pad_map` that names a pin the symbol lacks or a pad the footprint lacks, or that leaves one pad to two pins (`pad_map={"1": "2"}` on a part that has a pin 2), is refused with the new error `altium.pin-pad-map-invalid` (exit 5, nothing written), as the KiCad build refuses it; 0.2.0 built such a script. A script without a `pad_map` builds the same files, byte for byte.
+  - **If you built a script with a `pad_map` for Altium with 0.1.0 or 0.2.0, build it again.** The PCB document, the schematic and its library change; the files they replace are kept beside them as `.bak`. A PCB document that was edited since it was built is not replaced: the build stops with exit 7, and `--discard-layout` replaces it (the edited file is kept as `.bak`), or build into another folder. A board that was laid out from the old PCB document has the nets of the mapped pads on the wrong pads: check it against the rebuilt one.
+  - `fenolite check` on such a project still reports `netlist.assignment-differs` and exits 5: this release compares the schematic by pin number and the board by pad number. The written files are right; the comparison learns the map in 0.3.0.
+
+### Changed
+
+- Development: the first patch release of the series. It is cut from the tag `v0.2.0`, not from `dev`, and holds this one fix; `docs/release/v0.2.md` records it under “Patch releases” (c0133). Archived the completed specs of c0133 and c0135.
+
 ## [0.2.0] - 2026-10-06
 
 ### Added
