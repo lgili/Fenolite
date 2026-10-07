@@ -105,15 +105,18 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0090 | `altium-roundtrip-write` | v0.4 | c0044 |
 | c0091 | `altium-verification-kit` | v0.4 | — |
 | c0092 | `altium-write-graduation` | v0.4 | c0091 |
-| c0127 | `altium-arc-record-values` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
-| c0128 | `altium-rewrite-via-drill` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
-| c0125 | `altium-clearance-scopes` | v0.4 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
-| c0130 | `altium-clearance-matrix-cells` | v0.4 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
-| c0131 | `altium-unit-slack-rule` | v0.4 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
-| c0126 | `footprint-instance-graphics` | v0.4: the graphics and texts of a footprint instance and the corner ratio of a pad in the model; closes task 2.2 of c0090 | c0090, c0123 |
 | c0121 | `altium-component-bodies` | v0.4 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
+| c0122 | `altium-zone-holes` | correction of v0.4: a zone fill keeps the holes of its poured region | c0043 |
 | c0124 | `altium-plane-lines` | correction of v0.4: the Altium import makes no track of a line on an internal plane | c0043, c0088 |
+| c0125 | `altium-clearance-scopes` | v0.4 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
+| c0126 | `footprint-instance-graphics` | v0.4: the graphics and texts of a footprint instance and the corner ratio of a pad in the model; closes task 2.2 of c0090 | c0090, c0123 |
+| c0127 | `altium-arc-record-values` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
+| c0128 | `altium-rewrite-via-drill` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
+| c0129 | reserved | v0.4 follow-up of c0121 and c0099: keep the model keys of a component body that was read | c0099, c0121 |
+| c0130 | `altium-clearance-matrix-cells` | v0.4 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
+| c0131 | `altium-unit-slack-rule` | v0.4 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
+| c0132 | reserved | correction of v0.4: a via without a pad on inner layers (the long via record) is not drawn at its full diameter there | c0088, c0130 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
