@@ -33,10 +33,11 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|PRJ|PCB|ECO|RD|IMP)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|ECO|RD|IMP)-[A-Z0-9-]+\b"
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
-or an import row ``H-A-IMP-*`` (c0043)."""
+an import row ``H-A-IMP-*`` (c0043), or a row of the complete schematic writer ``H-A-SCHX-*`` (the family
+of c0086 on the development line; c0135 brings its first two rows to this one)."""
 
 
 def _cells(line: str) -> list[str]:

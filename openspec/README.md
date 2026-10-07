@@ -95,5 +95,6 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0082 | `kicad-worksheet-oracle-isolation` | CI correction: isolated worksheet boundary oracle | — |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
+| c0135 | `altium-pin-map-backport` | correction of 0.1.0 and 0.2.0: an Altium build applies `pad_map` to the PCB document and writes it into the schematic | c0056, c0035 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

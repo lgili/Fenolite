@@ -520,6 +520,7 @@ An author report never raises the build's evidence level.
 | `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
 | `altium.library-too-large` | error | a schematic library needs more than 109 FAT sectors |
 | `altium.unknown-pin` | error | a net member names neither a pin number nor a pin name of a resolved symbol |
+| `altium.pin-pad-map-invalid` | error | a `pad_map` names a pin the symbol lacks, names a pad the resolved footprint lacks, or leaves one pad to two pins, one by the map and one by its own number (change c0135) |
 | `altium.symbol-off-grid` | error | a pin position or length of a resolved symbol is not a multiple of 10 mil |
 | `altium.pin-text-too-long` | error | a pin name or number is longer than 255 bytes |
 | `altium.symbol-name-collision` | error | two lib ids give one library and one storage name, or two library file names differ only in letter case |
@@ -827,7 +828,11 @@ gave no model entity.
 - A copper fill or region with a net is a graphic with the net's name in its bag: the model has no copper
   shape with a net.
 - The pin-to-pad map of a footprint model is not applied: a pin whose pads have other names than its
-  designator is linked by name only.
+  designator is linked by name only. This holds for Fenolite's own builds too: a project built from a
+  script with a renaming `pad_map` holds the map in its schematic and the nets on the mapped pads of its
+  PCB document (change c0135), and `fenolite check` on it reports `netlist.assignment-differs` (exit 5),
+  because the schematic is compared by pin number and the board by pad number. The files are right; the
+  comparison learns the map in 0.3.0.
 
 The issue codes `altium.import.*` are listed in `docs/cli-contract.md`, "Altium import". An error issue
 never stops an import.
@@ -914,7 +919,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
-| `component` | `pin_pad_map` | the writer does not write it |
+| `component` | `pin_pad_map` | the reader maps it elsewhere: the writer writes the map as map records of the footprint model (change c0135), and the import of a schematic reads those records without putting them into the model |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
