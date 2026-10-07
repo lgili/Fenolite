@@ -12,18 +12,6 @@ Every name is imported from `fenolite.dsl`. The methods of a class (`Design.boar
 `Design.track` and the others) are taught by the written pages; `docs/dsl.md` of the source
 repository is the full reference.
 
-## Anchor
-
-Class: `Anchor(component: 'str', number: 'str \| None', index: 'int \| None', offset: 'Point') -> None`
-
-An anchor as the build reads it: the component path, the pad number as text or `None` for the footprint's origin, the index, and the offset in the footprint's library frame (not shifted by `BOARD_ORIGIN`: it is not a board point until the build resolves it after placement).
-
-## AnchorRef
-
-Class: `AnchorRef(part: 'Part', number: 'str \| None', index: 'int \| None', offset: 'Point') -> None`
-
-A point in the frame of a part's footprint, as a script names it: `offset` (nanometres, X to the right, Y down, as the library draws the footprint) from the footprint's origin, or from the position of the pads `number` and `index` name.
-
 ## Design
 
 Class: `Design(name: 'str') -> 'None'`

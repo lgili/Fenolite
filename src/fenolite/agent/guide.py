@@ -97,6 +97,8 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "ArcStep": _RETURNED,
         "ViaStep": _RETURNED,
         "PadEnd": _RETURNED,
+        "Anchor": _RETURNED,
+        "AnchorRef": _RETURNED,
         "PadRef": _RETURNED,
         "Placement": _RETURNED,
         "Length": _RETURNED,

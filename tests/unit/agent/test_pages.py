@@ -506,12 +506,13 @@ def test_design_block_that_does_not_build_is_reported(tmp_path: Path, no_tools: 
     assert problems and "FEN-3004" in problems[-1]
 
 
-def test_design_power_with_catalog_parts_is_refused(tmp_path: Path, no_tools: None) -> None:
-    """The page ``design-script`` says that a KiCad build of catalog parts with a ``Power`` stops with
-    ``build.vendor-unsafe-name``. When this test fails because the build now passes, edit that page: the
-    design block of ``design-script`` can then hold ``Power`` itself."""
+def test_design_power_with_catalog_parts_builds(tmp_path: Path, no_tools: None) -> None:
+    """The page ``design-script`` says that a KiCad build of catalog parts with a ``Power`` builds: the
+    build exits 0 and reports no ``build.vendor-unsafe-name`` (it was refused with that code before the
+    change c0143)."""
     text = guide.page("design-script").text
-    assert "`build.vendor-unsafe-name`" in text and "leave `Power` out of such a script" in text
+    assert "`design.add(Power(vin, gnd))`" in text and "parts of the built-in catalog as well" in text
+    assert "build.vendor-unsafe-name" not in text and "leave `Power` out" not in text
     script = starter_script().replace(
         "import Design, Net, Part, connect, mm", "import Design, Net, Part, Power, connect, mm"
     )
@@ -522,7 +523,10 @@ def test_design_power_with_catalog_parts_is_refused(tmp_path: Path, no_tools: No
     (folder / "design.py").write_text(script, encoding="utf-8", newline="\n")
     with inside(folder):
         outcome = run("fenolite build design.py --out out --confirm --json")
-    assert outcome.code == 5 and "build.vendor-unsafe-name" in outcome.codes()
+    assert outcome.code == 0 and "build.vendor-unsafe-name" not in outcome.codes()
+    libraries = sorted(path.name for path in (folder / "out" / "lib").glob("*.kicad_sym"))
+    assert libraries == ["Fenolite.kicad_sym"]  # the names as the folder lists them: no ``fenolite``
+    assert '(symbol "PWR_FLAG"' in (folder / "out" / "lib" / libraries[0]).read_text(encoding="utf-8")
 
 
 def test_untested_block_is_refused() -> None:

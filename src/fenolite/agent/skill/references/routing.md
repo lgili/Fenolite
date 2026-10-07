@@ -83,7 +83,8 @@ r1.place(mm(15), mm(14))
 d1.place(mm(15), mm(6), rot=180)
 
 # A track joins pads through points and takes the net of its pads. Every intent has its own key.
-design.track("vin", j1.pad(1), (mm(10), mm(14)), r1.pad(1), width=mm(0.5))
+# The waypoint is an anchor: 4 mm to the left of pad 1 of R1, wherever R1 lies.
+design.track("vin", j1.pad(1), r1.pad(1).at(dx=mm(-4)), r1.pad(1), width=mm(0.5))
 # A via inside a path: the track goes on along the layer named by `to`.
 design.track(
     "led_a",
@@ -120,8 +121,16 @@ design.stitch(
 ```
 
 - **Ends and points.** A path holds pad ends (`part.pad(number)`), `(x, y)` points in the frame of
-  `place()`, `via_step(...)` and `arc_to(mid, end)`. The script says what to join; the build finds
-  where the pads are, also after a part moved. `fenolite pads` gives a pad's position (page `placement`).
+  `place()`, anchors, `via_step(...)` and `arc_to(mid, end)`. The script says what to join; the build
+  finds where the pads are, also after a part moved. `fenolite pads` gives a pad's position (page
+  `placement`).
+- **Anchors.** `part.pad(number).at(dx, dy)` is the point at that offset from the pad, and
+  `part.at(dx, dy)` the point at that offset from the origin of the part's footprint; a length left
+  out is 0. The offset is in the footprint's own frame, as its library draws it (X to the right, Y
+  down), so the point turns and moves with the part, and the build finds it again after the part
+  moved. An anchor stands wherever a point does: in a path, in `arc_to`, in `via_step(anchor, to=)`,
+  in `design.via(key, anchor, net=)` and in `along`, `region` and `origin` of a stitch. It is a point
+  and not a connection: `r1.pad(1)` joins the pad, `r1.pad(1).at()` is only where the pad is.
 - **Nets.** A track takes the net of its pads; `net=` is for a track without a pad end. A via and a
   stitch name their net.
 - **Sizes.** A `width`, a via `diameter` or `drill` that the call leaves out comes from the net's class
