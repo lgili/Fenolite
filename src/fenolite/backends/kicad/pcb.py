@@ -27,6 +27,7 @@ from fenolite import __version__
 from fenolite.backends.base import WriteResult
 from fenolite.backends.kicad import _pcbwrite, netnames
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
@@ -93,6 +94,7 @@ from fenolite.model.board import (
     Keepout,
     Layer,
     Pad,
+    Stackup,
     Text,
     Track,
     Via,
@@ -120,6 +122,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.net-name-collision": "info",
         KEPT_CODE: "info",
         "kicad.board.paper-unmodelled": "info",
+        **stacklib.READ_ISSUE_CODES,
     }
 )
 PIN_TYPES: Mapping[str, PinType] = MappingProxyType({t: t for t in get_args(PinType)})
@@ -1642,6 +1645,10 @@ class _Reader:
             except _Unmodelled as why:
                 self.keep_unmodelled(f"{why}; kept as written", slots, index, child, loc, ROOT)
         nets = self.circuit_nets(board_pads)
+        setup = root.find("setup")
+        stackup = stacklib.project_stackup(setup, layers, issues=ctx.issues) if setup is not None else None
+        if stackup is not None:
+            self.stack_thickness(root, stackup)
         board = Board(
             id=derived_id("brd", "kicad", "kicad_pcb"),
             provenance=ctx.provenance("/kicad_pcb"),
@@ -1657,6 +1664,7 @@ class _Reader:
             graphics=tuple(collections["graphics"]),  # type: ignore[arg-type]
             sheet=sheet,
             title_block=title_block,
+            stackup=stackup,
         )
         header_items = _emit_header(board)
         header_items["nets"] = [
@@ -1675,6 +1683,24 @@ class _Reader:
             fenolite_version=__version__,
         )
         return Design(header=header, circuit=Circuit(components=tuple(components), nets=nets), board=board)
+
+    def stack_thickness(self, root: Node, stackup: Stackup) -> None:
+        """``kicad.board.stackup-thickness`` when ``general`` states another thickness than the rows sum to
+        (``board.md``, "Stack-up": the job file states the first, the IPC-2581 export the second)."""
+        general = root.find("general")
+        node_ = general.find("thickness") if general is not None else None
+        atoms = node_.atoms() if node_ is not None else ()
+        if not atoms or atoms[0].kind != AtomKind.NUMBER:
+            return
+        stated, total = atoms[0].text, stackup.thickness()
+        if atoms[0].to_nm(exact=False) != total or Atom.from_nm(total).text != _plain(stated):
+            self.issue(
+                stacklib.THICKNESS,
+                f"the board thickness is stated as {stated} mm and the stack-up sums to "
+                f"{Atom.from_nm(total).text} mm; KiCad's job file states the first and its IPC-2581 export "
+                "the second, and the model keeps the sum",
+                "/kicad_pcb/general[0]/thickness[0]",
+            )
 
     def circuit_nets(self, board_pads: Sequence[tuple[Component, Pad]]) -> tuple[Net, ...]:
         members: dict[str, list[PinRef]] = {entry.id: [] for entry in self.nets.values()}
@@ -1723,6 +1749,11 @@ class _Reader:
         return name
 
 
+def _plain(text: str) -> str:
+    """A decimal text without trailing zeros and without a trailing point."""
+    return (text.rstrip("0").rstrip(".") or "0") if "." in text else text
+
+
 def read_board(source: Source, *, file: str = "", issues: list[Issue] | None = None) -> Design:
     """A board from a ``.kicad_pcb`` path, file text or a parsed node (see ``board.md``).
 
@@ -1748,6 +1779,7 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
         "kicad.board.flip-unsupported": "error",
+        **stacklib.WRITE_ISSUE_CODES,
     }
 )
 CREATED_ROOT_HEADS: tuple[str, ...] = (
@@ -1755,12 +1787,13 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 )  # fmt: skip
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
-    "arc", "attr", "center", "comment", "company", "copperpour", "date", "filled_polygon", "footprints",
-    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "hatch_border_algorithm", "hatch_gap",
-    "hatch_min_hole_area", "hatch_orientation", "hatch_smoothing_level", "hatch_smoothing_value",
-    "hatch_thickness", "hide", "island", "island_area_min", "island_removal_mode", "justify", "keepout",
-    "locked", "mid", "mode", "name", "pads", "path", "priority", "radius", "rev", "smoothing", "title",
-    "title_block", "tracks", "vias", "zone_connect",
+    "arc", "attr", "center", "color", "comment", "company", "copper_finish", "copperpour", "date",
+    "dielectric_constraints", "epsilon_r", "filled_polygon", "footprints", "gr_arc", "gr_circle", "gr_line",
+    "gr_poly", "gr_text", "hatch_border_algorithm", "hatch_gap", "hatch_min_hole_area", "hatch_orientation",
+    "hatch_smoothing_level", "hatch_smoothing_value", "hatch_thickness", "hide", "island", "island_area_min",
+    "island_removal_mode", "justify", "keepout", "locked", "loss_tangent", "material", "mid", "mode", "name",
+    "pads", "path", "priority", "radius", "rev", "smoothing", "stackup", "title", "title_block", "tracks",
+    "vias", "zone_connect",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0)."""
@@ -2114,9 +2147,34 @@ class _Writer:
         self.field_owner = {f.id: fp for fp in board.footprints for f in fp.fields}
         self.copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
         self.opaque_ids: set[int] = set()
+        self.notes: list[Issue] = []
+        self.stack_checked: bool | None = None
 
     def error(self, code: str, message: str, where: str) -> None:
         self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where))
+
+    def stack_writable(self) -> bool:
+        """True when ``Board.stackup`` can be written as a complete node; one
+        ``kicad.board.stackup-invalid`` otherwise (kicad-file-backend, "Stack-up written to boards")."""
+        stackup = self.board.stackup
+        if stackup is None:
+            return False
+        if self.stack_checked is None:
+            why = stacklib.invalid(stackup, self.board.layers)
+            self.stack_checked = why is None
+            if why is not None:
+                self.error(stacklib.INVALID, f"the stack-up cannot be written: {why}", _locator(stackup))
+        return self.stack_checked
+
+    def stack_changed(self, slots: Sequence[Slot]) -> bool:
+        """True when ``Board.stackup`` differs from the projection of the read ``setup`` child."""
+        for slot in slots:
+            if isinstance(slot, Opaque) and _fragment_head(slot) == "setup":
+                child = slotlib.opaque_child(slot)
+                assert isinstance(child, Node)
+                found = stacklib.project_stackup(child, self.board.layers)
+                return stacklib.values(found) != stacklib.values(self.board.stackup)
+        return False
 
     def read_only(self, field: str, where: str, detail: str) -> None:
         self.error(READ_ONLY_CODE, f"field {field!r} cannot be written from the model: {detail}", where)
@@ -2326,6 +2384,9 @@ class _Writer:
         if not slots:
             stack = board.stackup.layers if board.stackup is not None else ()
             thickness = sum(layer.thickness for layer in stack) or DEFAULT_THICKNESS
+            setup: list[Node | Atom] = [node("pad_to_mask_clearance", Atom.integer(0))]
+            if board.stackup is not None and self.stack_writable():
+                setup.insert(0, stacklib.stackup_node(board.stackup, board.layers))
             general = node(
                 "general",
                 node("thickness", Atom.from_nm(thickness)),
@@ -2335,9 +2396,11 @@ class _Writer:
             items["paper"] = [paper_node(board.sheet)]
             if has_title(board.title_block):
                 items["title_block"] = [title_block_node(_block_fields(board.title_block))]
-            items["setup"] = [node("setup", node("pad_to_mask_clearance", Atom.integer(0)))]
+            items["setup"] = [node("setup", *setup)]
         else:
             slots = _with_title_block(list(slots), board.title_block)
+            if board.stackup is not None and "setup" not in [_fragment_head(s) for s in slots]:
+                self.read_only("stackup", _locator(board), "the board has no setup node to hold it")
             rows = _sorted(n for n in self.design.circuit.nets if "number" in _ext_pairs(n))
             items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), stored_net_name(n)) for n in rows]
         items["footprints"] = [self.entity(fp, "footprint") for fp in _write_order(board.footprints)]
@@ -2546,6 +2609,34 @@ class _Writer:
     ) -> str | None:
         """Handle a child projected into a field that the emitters never write; return that field."""
         name = child.name
+        if isinstance(entity, Board) and name in ("general", "setup"):
+            slot = slots[i]
+            assert isinstance(slot, Opaque)
+            stackup = entity.stackup
+            if not self.stack_changed(slots) or (stackup is not None and not self.stack_writable()):
+                return name
+            if name == "setup":
+                rewritten, lost = stacklib.rewrite_setup(child, stackup, entity.layers)
+                slots[i] = Opaque(dumps(rewritten, style="compact"), slot.min_version)
+                if lost:
+                    message = (
+                        "the stack-up of the board was rewritten from the model; these children of the "
+                        f"replaced node are not in the model and were not written: {', '.join(lost)}"
+                    )
+                    self.notes.append(
+                        Issue(stacklib.REWRITTEN, WRITE_ISSUE_CODES[stacklib.REWRITTEN], message,
+                              where=stacklib.WHERE)
+                    )  # fmt: skip
+            elif stackup is not None:
+                total = node("thickness", Atom.from_nm(stacklib.complete(stackup, entity.layers).thickness()))
+                held = child.find("thickness")
+                children = (
+                    [total if c is held else c for c in child.children]
+                    if held is not None
+                    else [total, *child.children]
+                )
+                slots[i] = Opaque(dumps(child.with_children(children), style="compact"), slot.min_version)
+            return name
         if isinstance(entity, Board) and name in ("paper", "title_block"):
             slot = slots[i]
             assert isinstance(slot, Opaque)
@@ -2704,7 +2795,7 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     stored = [stored_net_name(n) for n in design.circuit.nets]
     forms = _pcbwrite.NetForms.of(target, writer.source_table(), stored)
     root = _pcbwrite.convert_nets(root, forms, writer.errors)
-    issues: list[Issue] = []
+    issues: list[Issue] = list(writer.notes)
     if target < 10:
         root = _pcbwrite.place_table(root, forms.table())
     else:

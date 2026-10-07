@@ -1605,3 +1605,15 @@ path = "tests/data/models/Fenolite.3dshapes/Box_2x1.step"
 origin = "authored"
 corpus_id = ""
 notes = "authored CC0 3D model for the STEP export tests of c0116: a box of 2 x 1 x 0.5 mm, written on 2026-10-07 by kicad-cli 10.0.6 from box_2x1.kicad_pcb with `kicad-cli pcb export step --board-only -o Box_2x1.step box_2x1.kicad_pcb`; no official library model is in the repository"
+
+[[file]]
+path = "tests/data/model/v0.2.1/blink_2layer.board.json"
+origin = "authored"
+corpus_id = ""
+notes = "the .fenolite/board.json that the code of release 0.2.1 (commit f36e08d9) wrote for examples/blink_2layer built for KiCad 10: a model document from before the stack-up keys of c0101, which must load and serialise to its own bytes (tests/unit/model/test_stackup.py)"
+
+[[file]]
+path = "tests/data/kicad/board/stackup_four.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 four-layer board (format 20241229) with a stack-up in setup: masks of 10 um (the top one Green), a prepreg, a core of two sheets (the second 0.3 mm of the material Laminate B) and a prepreg, finish ENIG, dielectric constraints, a board thickness equal to the sum of its rows (2.025 mm); written by Fenolite's own board writer from tests/_boards.py (bare_board(4, four_layer_stackup())) for change c0101"

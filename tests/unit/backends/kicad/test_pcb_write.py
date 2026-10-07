@@ -25,6 +25,7 @@ from fenolite.backends.kicad.pcb import (
     write_board,
 )
 from fenolite.backends.kicad.sexpr import Atom, Node, load, parse, walk
+from fenolite.backends.kicad.stackup import ROW_CHILDREN
 from fenolite.backends.kicad.versions import FileKind, LossyWriteError, load_inventory
 from fenolite.core.ids import FENOLITE_NS
 from fenolite.model.board import Board, Graphic, Hole, Outline, StackLayer, Stackup, Track
@@ -134,11 +135,14 @@ def test_thickness_from_the_stackup() -> None:
                 kind="dielectric",
                 thickness=1_000_000,
             ),
+            StackLayer(
+                id="sly_00000000-0000-4000-8000-000000000003", name="B.Cu", kind="copper", thickness=35_000
+            ),
         ),
     )
     root = parse(write_board(empty_design(stackup=stack), target=9).text)
     general = root.find("general")
-    assert general is not None and general.find("thickness") == parse("(thickness 1.035)")
+    assert general is not None and general.find("thickness") == parse("(thickness 1.07)")
 
 
 def test_four_copper_layers() -> None:
@@ -177,6 +181,8 @@ def test_created_tokens() -> None:
     }
     created |= {("kicad_pcb", head) for head in CREATED_ROOT_HEADS}
     created |= {("general", "thickness"), ("general", "legacy_teardrops"), ("setup", "pad_to_mask_clearance")}
+    created |= {("setup", "stackup"), ("stackup", "layer"), ("stackup", "copper_finish")}
+    created |= {("stackup", "dielectric_constraints"), *(("layer", child) for child in ROW_CHILDREN)}
     unknown = sorted(
         (head, child)
         for head, child in created

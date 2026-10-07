@@ -180,6 +180,13 @@ Read these before you rely on a value.
 - **Capacity** is that of one isolated conductor by one fit. It knows no neighbouring track, no pour, no
   ambient and no board material.
 
+**Thicknesses from a KiCad stack-up (c0101).** A KiCad board whose `setup` holds a stack-up that KiCad
+uses now gives the copper thickness per layer and the board thickness, as an Altium board already did;
+an option still wins. The reply says where the board thickness came from
+(`inputs.board_thickness_source`: `option`, `stackup` or `null`) and shows the stack-up it read
+(`inputs.stackup`). Fenolite still assumes no thickness: a board without a stack-up and without options
+gets `analysis.input-missing`.
+
 ## Oracles
 
 Which independent tool could check each analysis, and what was done instead:

@@ -1131,7 +1131,7 @@
       ]
     },
     "StackLayer": {
-      "description": "One physical layer of the stack-up. Dielectric constants are decimal strings, never floats.",
+      "description": "One entry of the stack-up. Dielectric constants are decimal strings, never floats.",
       "type": "object",
       "properties": {
         "id": {
@@ -1183,6 +1183,22 @@
         },
         "loss_tangent": {
           "type": "string"
+        },
+        "dielectric_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "core",
+                "prepreg"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -1194,7 +1210,7 @@
       ]
     },
     "Stackup": {
-      "description": "The stack-up, from top to bottom (order is semantic).",
+      "description": "The stack-up, from the top face to the bottom face (order is semantic).",
       "type": "object",
       "properties": {
         "id": {
@@ -1231,6 +1247,9 @@
         },
         "finish": {
           "type": "string"
+        },
+        "impedance_controlled": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

@@ -264,6 +264,40 @@ written before them still load.
   whose `height` is below its `standoff` or whose `standoff` is negative.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
+## Stack-up
+
+`Board.stackup` describes the board's build-up from its top face to its bottom face (change c0101);
+a board whose source states none has `stackup` `None`, and the model then holds no board thickness.
+
+- `Stackup.layers` lists every entry the source keeps, in order. A `copper` entry is named after its
+  copper layer in `Board.layers`. `soldermask`, `silkscreen` and `solderpaste` entries describe the outer
+  layers and lie above the first copper entry or below the last; silkscreen and paste entries have the
+  thickness 0. Every entry between two copper entries is a `dielectric`; a dielectric made of several
+  sheets is one entry per sheet, consecutive, the sheets sharing a name.
+- `StackLayer.dielectric_kind` is `core`, `prepreg` or `None` (not stated); `StackLayer.color` is the
+  colour as the source names it; `Stackup.impedance_controlled` is true when the dielectric values are
+  requirements for the fabricator. `epsilon_r` and `loss_tangent` are plain decimal texts or empty.
+- `Stackup.thickness()` is the sum of the entries: the board thickness of the model, and the only one.
+  `Stackup.depth(name)` gives the depths, below the top face, of the two faces of the first entry of that
+  name (`KeyError` for an unknown name). `Stackup.between(upper, lower)` gives the entries strictly
+  between two entries, top to bottom (`KeyError` for an unknown name, `ValueError` when `upper` does not
+  lie above `lower`).
+- `Design.validate()` reports, with `where` set to the stack-up's id and at most once each, naming the
+  first problem: `model.stackup-order` (error) for an outer entry between two copper entries, two entries
+  of one outer kind on one side, a dielectric outside the outer copper entries, two neighbouring copper
+  entries with nothing between them, the dielectrics of one gap with different kinds, or a
+  `dielectric_kind` on an entry that is not a dielectric; `model.stackup-copper` (error) for a stack-up
+  without a copper entry, or whose copper entries are not the board's copper layers in ordinal order;
+  `model.stackup-value` (error) for a negative thickness, a copper or dielectric entry of thickness 0, an
+  `epsilon_r` that is neither empty nor a plain decimal above 0, or a `loss_tangent` that is neither empty
+  nor a plain decimal (digits, an optional point and digits, no sign and no exponent; a loss tangent of 0
+  is what KiCad writes for a solder mask).
+- The three fields are additive: `canonical` omits the defaults, a `board.json` written before them loads
+  unchanged and serialises to its own bytes (`tests/data/model/v0.2.1/blink_2layer.board.json`), and
+  `schema_version` stays `"0"`. The other direction does not hold. Release 0.2.x cannot read a model
+  document that carries `dielectric_kind`, `color` or `impedance_controlled`: its reader refuses an
+  unknown key.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change

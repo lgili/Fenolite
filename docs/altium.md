@@ -1497,3 +1497,28 @@ split planes, no micro vias, component bodies only on request (extruded ones, ex
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.
+
+## Stack-ups with masks, sheets and kinds (c0101)
+
+Since change c0101 a KiCad board read with a stack-up, or a script with `design.stackup()`, holds a
+`Board.stackup` with solder mask, silkscreen and paste entries, dielectric sheets, a stated kind per
+dielectric, colours, a finish and an impedance-control flag. Both writers of the stack values
+(`lens.altium_copper.stack_from_stackup` for a build, `backends.altium.lower.stack_from_stackup` for the
+write of a model) follow the same rules:
+
+- Solder mask, silkscreen and paste entries are passed over: the stack of the document holds the copper
+  layers and the dielectrics between them.
+- A dielectric whose `dielectric_kind` is stated is written with that kind (`DIELTYPE` 1 for a core, 2 for
+  a prepreg; `docs/formats/altium/pcb-copper.md`, "Layer stack"). An entry without one keeps the kind of
+  the table by count, so a stack-up without the new fields gives the document it gave before, byte for
+  byte, and every committed sample keeps its bytes.
+- A gap that holds two or more dielectric entries (the sheets of one dielectric) does not fit the
+  document, which holds one dielectric per gap: the default stack values are written, and one
+  `altium.not-lowered` info with `where` `stackup` names the gap. Sheets are never merged, dropped or
+  averaged.
+- A solder mask thickness above 0, a colour, a finish and the impedance-control flag have no recorded key
+  in the document: one `altium.not-lowered` info with `where` `stackup` lists the kinds of value left out,
+  and the copper and dielectric values are written.
+- The Altium import does not fill `dielectric_kind`, `color` or `impedance_controlled`.
+
+No record, key, format fact or issue code is added, and the evidence of the build does not change.

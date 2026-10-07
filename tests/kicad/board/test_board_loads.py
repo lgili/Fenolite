@@ -27,9 +27,13 @@ def runner() -> KicadCli:
     return KicadCli(Path(path))
 
 
-def test_fixture_loads() -> None:
+@pytest.mark.parametrize(
+    "fixture", [FIXTURE, FIXTURE.with_name("stackup_four.kicad_pcb")], ids=lambda p: p.stem
+)
+def test_fixture_loads(fixture: Path) -> None:
+    """The authored boards load: the two-layer board and the four-layer board with a stack-up (c0101)."""
     version = supported_version()
-    run = runner().load_board_svg(FIXTURE)
+    run = runner().load_board_svg(fixture)
     assert run.ok and run.outputs["out.svg"].lstrip().startswith(b"<?xml"), version
 
 

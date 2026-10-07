@@ -274,7 +274,9 @@ def stack_from_stackup(
 ) -> StackSpec | None:
     """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
     board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
-    Solder mask, silkscreen and paste layers of the stack-up are passed over."""
+    Solder mask, silkscreen and paste layers of the stack-up are passed over. A dielectric whose
+    ``dielectric_kind`` is stated is written with that kind (``DIELTYPE``, ``pcb-copper.md``, "Layer
+    stack"); one without keeps the kind of ``dielectric_kinds`` by count (change c0101)."""
     physical = [layer for layer in stackup.layers if layer.kind in ("copper", "dielectric")]
     if len(physical) != 2 * len(layers) - 1:
         return None
@@ -285,12 +287,66 @@ def stack_from_stackup(
         return None
     try:
         dielectrics = tuple(
-            Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
+            Dielectric(
+                layer.dielectric_kind or kind,  # type: ignore[arg-type]
+                layer.thickness,
+                layer.epsilon_r or "4.800",
+                layer.material or "FR-4",
+            )
             for kind, layer in zip(dielectric_kinds(len(between)), between, strict=True)
         )
         return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
     except ValueError:
         return None
+
+
+def stack_gap(stackup: Stackup) -> str | None:
+    """The first gap between two copper entries that holds two or more dielectric entries (the sheets of one
+    dielectric), as ``"between <upper> and <lower> (<n> dielectric entries)"``, or ``None``. The document
+    holds one dielectric per gap, and sheets are never merged, dropped or averaged (change c0101)."""
+    upper: str | None = None
+    count = 0
+    for layer in stackup.layers:
+        if layer.kind == "copper":
+            if upper is not None and count > 1:
+                return f"between {upper} and {layer.name} ({count} dielectric entries)"
+            upper, count = layer.name, 0
+        elif layer.kind == "dielectric":
+            count += 1
+    return None
+
+
+def stack_unheld(stackup: Stackup) -> tuple[str, ...]:
+    """The kinds of value of ``stackup`` for which the document has no recorded key: a solder mask
+    thickness above 0, a colour, the finish and the impedance-control flag (change c0101)."""
+    found: list[str] = []
+    if any(layer.kind == "soldermask" and layer.thickness > 0 for layer in stackup.layers):
+        found.append("the solder mask thickness")
+    if any(layer.color for layer in stackup.layers):
+        found.append("the colours")
+    if stackup.finish:
+        found.append("the finish")
+    if stackup.impedance_controlled:
+        found.append("the impedance-control flag")
+    return tuple(found)
+
+
+def stack_unfit_reason(stackup: Stackup) -> str:
+    """Why ``stackup`` does not fit the document, naming a gap of several sheets when there is one."""
+    gap = stack_gap(stackup)
+    if gap is not None:
+        return (
+            f"the stack-up holds several dielectric sheets {gap} and the document holds one dielectric per "
+            "gap"
+        )
+    return (
+        "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
+        "between neighbours"
+    )
+
+
+def stack_unheld_reason(unheld: Sequence[str]) -> str:
+    return f"the document has no key for {', '.join(unheld)}; the copper and dielectric values are written"
 
 
 def _stack(
@@ -324,12 +380,10 @@ def _stack(
     if board.stackup is not None and problem is None:
         found = stack_from_stackup(board.stackup, names, ids, plane_nets)
         if found is None:
-            account.skip(
-                "stackup",
-                board.stackup.id,
-                "the stack-up does not hold one copper layer per copper layer of the board with one "
-                "dielectric between neighbours; the default stack values are written",
-            )
+            reason = f"{stack_unfit_reason(board.stackup)}; the default stack values are written"
+            account.skip("stackup", board.stackup.id, reason)
+        elif stack_unheld(board.stackup):
+            account.skip("stackup", board.stackup.id, stack_unheld_reason(stack_unheld(board.stackup)))
     return names, found or StackSpec.default(ids, plane_nets), frozenset(planes)
 
 
@@ -1204,6 +1258,10 @@ __all__ = [
     "pairs_of",
     "schematic_design",
     "stack_from_stackup",
+    "stack_gap",
+    "stack_unfit_reason",
+    "stack_unheld",
+    "stack_unheld_reason",
     "stored_board",
     "unique_links",
     "write_design",

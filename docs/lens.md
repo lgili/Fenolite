@@ -283,6 +283,29 @@ unlocked request differs from the setting of a board pad, which wins) and `force
 replaced the setting of a board pad). Both are empty on a first build and on a rebuild of an unedited
 board.
 
+## Stack-up across rebuilds
+
+`design.stackup()` declares the stack-up of the board (`docs/dsl.md`, "Stack-up"). When a build merges
+an existing board, `backends.kicad.stackup.merge_stackup` decides it, as for zones (change c0101). The
+script's stack-up is completed from the layer table (one entry of thickness 0 for each silkscreen, paste
+and mask layer it leaves out) and compared with the board's projected one, ids aside:
+
+| script | board | written | code |
+|---|---|---|---|
+| none | any | the board's, with its text | none |
+| declared | none, or a node KiCad ignores | the script's | none |
+| declared | equal | the board's, with its text | none |
+| declared, unlocked | different | the board's, with its text | `kicad.stackup.overridden` (info) |
+| declared, `locked=True` | different | the script's | `kicad.stackup.forced` (warning) |
+
+- For the `stackup` child of `setup` and the `thickness` of `general` this rule replaces "board content
+  outside the design is kept"; every other child of `setup` stays as the board has it.
+- KiCad has no lock for a stack-up: the lock lives in the script. An edit in KiCad's Board Setup therefore
+  survives a rebuild until the script locks its own.
+- `result.stackup.source` says whose stack-up the written board holds (`script` or `board`).
+- The codes are `kicad.*` codes: they pass through the closed layout and build tables unchanged. The
+  normal-form pass does not decide again, so a rebuild over the build's own output writes the same bytes.
+
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,

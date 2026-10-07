@@ -17,7 +17,7 @@ from fenolite import __version__
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import new_id
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Pad
+from fenolite.model.board import Board, Pad, Stackup
 from fenolite.model.circuit import Circuit, Component, Net, PinRef, pin_pad_map_problems
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
@@ -248,10 +248,87 @@ class Design:
                 if net_id is not None and net_id not in net_ids:
                     add("model.unknown-net", "error", f"refers to unknown net {net_id}", item.id)
             issues += presentation_issues(self.board.sheet, self.board.title_block, self.board.id)
+            if self.board.stackup is not None:
+                copper = [
+                    la for la in sorted(self.board.layers, key=lambda la: la.ordinal) if la.kind == "copper"
+                ]
+                issues += stackup_issues(self.board.stackup, tuple(la.name for la in copper))
         return tuple(issues)
 
 
 _DRIVE = re.compile(r"^[A-Za-z]:")
+PLAIN_DECIMAL = re.compile(r"\d+(?:\.\d+)?")
+"""A decimal text of the model: digits, an optional point and digits, no sign and no exponent."""
+_OUTER_KINDS = ("soldermask", "silkscreen", "solderpaste")
+
+
+def _order_problem(stackup: Stackup) -> str | None:
+    entries = stackup.layers
+    copper = [i for i, entry in enumerate(entries) if entry.kind == "copper"]
+    for entry in entries:
+        if entry.dielectric_kind is not None and entry.kind != "dielectric":
+            return (
+                f"{entry.name!r} is a {entry.kind} entry with the dielectric kind {entry.dielectric_kind!r}"
+            )
+    if not copper:
+        return None
+    first, last = copper[0], copper[-1]
+    for side, part in (("top", entries[:first]), ("bottom", entries[last + 1 :])):
+        seen: set[str] = set()
+        for entry in part:
+            if entry.kind == "dielectric":
+                where = "above the first" if side == "top" else "below the last"
+                return f"dielectric entry {entry.name!r} lies {where} copper entry"
+            if entry.kind in seen:
+                return f"two {entry.kind} entries on the {side} side"
+            seen.add(entry.kind)
+    for upper, lower in zip(copper, copper[1:], strict=False):
+        gap = entries[upper + 1 : lower]
+        names = f"{entries[upper].name!r} and {entries[lower].name!r}"
+        if not gap:
+            return f"no entry between the copper entries {names}"
+        for entry in gap:
+            if entry.kind in _OUTER_KINDS:
+                return f"{entry.kind} entry {entry.name!r} lies between the copper entries {names}"
+        if len({entry.dielectric_kind for entry in gap}) > 1:
+            return f"the dielectric entries between {names} are not of one kind"
+    return None
+
+
+def _value_problem(stackup: Stackup) -> str | None:
+    for entry in stackup.layers:
+        if entry.thickness < 0:
+            return f"{entry.name!r} has the negative thickness {entry.thickness} nm"
+        if entry.thickness == 0 and entry.kind in ("copper", "dielectric"):
+            return f"{entry.kind} entry {entry.name!r} has the thickness 0"
+        if entry.epsilon_r and (
+            not PLAIN_DECIMAL.fullmatch(entry.epsilon_r) or not entry.epsilon_r.strip("0.")
+        ):
+            return f"epsilon_r {entry.epsilon_r!r} of {entry.name!r} is not a plain decimal above 0"
+        if entry.loss_tangent and not PLAIN_DECIMAL.fullmatch(entry.loss_tangent):
+            return f"loss_tangent {entry.loss_tangent!r} of {entry.name!r} is not a plain decimal"
+    return None
+
+
+def stackup_issues(stackup: Stackup, copper_layers: tuple[str, ...]) -> list[Issue]:
+    """The ``model.stackup-order``, ``model.stackup-copper`` and ``model.stackup-value`` findings of a
+    stack-up (design-model, "Stack-up in the board model"), at most one of each, naming the first problem.
+    ``copper_layers`` are the names of the board's copper layers in ordinal order."""
+    found: list[tuple[str, str, str]] = []
+    order = _order_problem(stackup)
+    if order is not None:
+        found.append(("model.stackup-order", order, "list the entries from the top face to the bottom face"))
+    names = tuple(entry.name for entry in stackup.layers if entry.kind == "copper")
+    if not names:
+        found.append(("model.stackup-copper", "the stack-up holds no copper entry", ""))
+    elif copper_layers and names != copper_layers:
+        message = f"the copper entries {list(names)} are not the board's copper layers {list(copper_layers)}"
+        found.append(("model.stackup-copper", message, "name one copper entry per copper layer, in order"))
+    value = _value_problem(stackup)
+    if value is not None:
+        found.append(("model.stackup-value", value, ""))
+    return [Issue(code=code, severity="error", message=message, where=stackup.id, hint=hint)
+            for code, message, hint in found]  # fmt: skip
 
 
 def _sheet_path_problem(path: str) -> str | None:
@@ -301,4 +378,12 @@ def _sheet_size_problem(sheet: SheetFrameRef) -> str | None:
     return None
 
 
-__all__ = ["SCHEMA_VERSION", "Design", "DesignHeader", "iter_entities", "presentation_issues"]
+__all__ = [
+    "PLAIN_DECIMAL",
+    "SCHEMA_VERSION",
+    "Design",
+    "DesignHeader",
+    "iter_entities",
+    "presentation_issues",
+    "stackup_issues",
+]

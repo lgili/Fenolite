@@ -41,7 +41,7 @@ None.
 - `layout-lens`: ADDED "Stack-up across rebuilds".
 - `board-analyses`: ADDED "Stack-up thicknesses in analyze".
 - `manufacturing-exports`: ADDED "Stack-up note in exports".
-- `cli-contract`: ADDED "Stack-up in inspect".
+- `cli-contract`: ADDED "Stack-up in inspect"; MODIFIED "Export command" (an info does not stop the writes; on c0084's delta).
 - `altium-build`: ADDED "Stack-ups with masks, sheets and kinds in an Altium build".
 
 ## Non-goals

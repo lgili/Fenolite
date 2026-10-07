@@ -313,6 +313,70 @@ count and RT1 are unchanged; their content is projected into `Board.sheet` and `
   inserted in the order `title`, `date`, `rev`, `company`, `comment 1` … `comment 3`, emptied fields
   removed, every other child kept; a board read without one gains it right after `paper`.
 
+## Stack-up (c0101)
+
+The `stackup` child of `setup` holds the board's build-up. `fenolite.backends.kicad.stackup` projects it
+into `Board.stackup` (`project_stackup`), completes and writes it (`complete`, `stackup_node`,
+`rewrite_setup`) and decides it across rebuilds (`merge_stackup`); `setup` itself stays an opaque root
+slot. Measurements and the corpus census: `docs/evidence/kicad-stackup.md`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The `stackup` section of `setup` holds `layer` entries and then `copper_finish`, `dielectric_constraints`, `edge_connector`, `castellated_pads` and `edge_plating`; a `layer` entry holds its name (a canonical copper or technical layer name, or `dielectric <id>`) and the children `type`, `color`, `thickness`, `material`, `epsilon_r` and `loss_tangent`; `general` holds a `thickness` that the page calls the overall board thickness | S-0021 | INFERRED | H-K-PCB-READ |
+| KiCad-written boards hold one row per layer `F.SilkS`, `F.Paste`, `F.Mask`, `B.Mask`, `B.Paste`, `B.SilkS` with the types `Top Silk Screen`, `Top Solder Paste`, `Top Solder Mask`, `Bottom Solder Mask`, `Bottom Solder Paste`, `Bottom Silk Screen`, one row of type `copper` per copper layer, named after it, and rows named `dielectric <n>` of type `core` or `prepreg` between them; the children come in the order `type`, `color`, `thickness`, `material`, `epsilon_r`, `loss_tangent` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| A dielectric row with several sheets holds, after the first sheet's children, the atom `addsublayer` and then that sheet's `color`, `thickness`, `material`, `epsilon_r` and `loss_tangent` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| A solder mask row of a KiCad-written board may hold `(loss_tangent 0)`; a dielectric constant of 0 was not seen | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| For a complete node the Gerber job file states one entry per row and sheet with its thickness, material and colour; the dielectric constant and loss tangent only under `(dielectric_constraints yes)`, which also sets `ImpedanceControlled`; `copper_finish` as `Finish`; and the `thickness` of `general` as `BoardThickness`. A mask row with `(thickness 0)` is stated with the thickness 0 | S-0020, S-0029, S-0125 | INFERRED | H-K-STACKUP-JOB |
+| KiCad uses a node only when its rows named after layers are exactly the board's silkscreen, paste and mask layers and all its copper layers, each with its layer's type, the copper rows in table order, with exactly one dielectric row between neighbouring copper rows; otherwise the board loads and the job file states no thickness. The order of the outer rows of one side does not matter, and a table without paste layers takes a node without paste rows | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-STACKUP-COMPLETE |
+| Without a node the job file states 0.035 mm copper, 0.01 mm masks and n − 1 equal FR4 dielectrics of (T − 0.02 − 0.035 n) / (n − 1) mm for `general` thickness T, and the finish `None` | S-0020, S-0029 | INFERRED | H-K-STACKUP-DEFAULT |
+| A re-save by 10.0.6 gives a copper row without a thickness 0.035 mm, a mask row 0.01 mm, a dielectric row without a type the type `core`, a dielectric sheet without them the material `FR4`, 4.5 and 0.02, and a node without its tail `(copper_finish "None") (dielectric_constraints no)` | S-0020 | INFERRED | H-K-STACKUP-DEFAULT |
+| A re-save by 10.0.6 keeps a node in the form Fenolite writes, and keeps the `thickness` of `general` as written; `pcb export ipc2581` states the sum of the rows as `overallThickness`, also where `general` states another thickness | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-STACKUP-RESAVE |
+
+- **Reading.** A row whose name is a layer of the board's table is that layer's row; every other row is a
+  dielectric row, with `dielectric_kind` `core` or `prepreg` from its type (another type's text is kept as
+  the pair `type` of the entry's `kicad` bag). `thickness` is 0 for a silkscreen or paste row without one;
+  `material`, `epsilon_r`, `loss_tangent` and `color` are kept as written. Each sheet of a dielectric row
+  is one entry, the sheets sharing the row's name. The outer entries of a side are ordered silkscreen,
+  paste, mask from the outside in, whatever the row order. `Stackup.finish` is the `copper_finish` text
+  (`""` for `None`), and `impedance_controlled` is true for `(dielectric_constraints yes)`.
+  `edge_connector`, `castellated_pads`, `edge_plating` and unknown children stay in the fragment only.
+- **Complete nodes only.** A node that KiCad does not use gives no stack-up and
+  `kicad.board.stackup-unused`. A complete node whose values the model cannot hold exactly (a thickness
+  that is not a whole number of nanometres; a copper, dielectric or mask row without a thickness; an
+  `epsilon_r` that is not a plain decimal above 0 or a `loss_tangent` that is not a plain decimal; a
+  dielectric row outside the outer copper rows) gives no stack-up and `kicad.board.stackup-unmodelled`.
+- **Two thickness sources.** The model keeps the sum of the rows. A `general` thickness that differs from
+  it gives `kicad.board.stackup-thickness`: the job file states the first, the IPC-2581 export the second.
+- **Writing.** `complete` adds an entry of thickness 0 for each silkscreen, paste and mask layer of the
+  table that the stack-up lacks. `stackup_node` writes one row per entry in KiCad's order of children, the
+  consecutive dielectric entries of a gap as one row with `addsublayer`, a `(thickness T)` on every
+  copper, dielectric and mask row (also for 0: KiCad would count 0.01 mm for a mask row without one), then
+  `(copper_finish "<f>")` (`"None"` for an empty finish) and `(dielectric_constraints yes|no)`. Targets 9
+  and 10 get the same node. On a created board the node is the first child of `setup` and the `thickness`
+  of `general` is the sum; a board without a stack-up keeps `(general (thickness 1.6) …)` and
+  `(setup (pad_to_mask_clearance 0))`.
+- **Read boards.** The node of a read board is rewritten only when `Board.stackup` differs from the
+  projection of its `setup` (compared by `stackup.values`: without ids, provenance and every bag pair but
+  `type`). Every other child of `setup` stays at its place, `edge_connector`, `castellated_pads` and
+  `edge_plating` of the replaced node follow `dielectric_constraints`, and only the `thickness` of
+  `general` is rewritten. `kicad.board.stackup-rewritten` names the children of replaced rows that the
+  model does not hold (for example a `locked` thickness).
+- **What a script leaves out.** Fenolite writes no dielectric constant the script does not give. KiCad
+  adds `(epsilon_r 4.5) (loss_tangent 0.02)` to such a dielectric when it saves the board; a later build
+  then sees a board stack-up that differs from the script's and keeps it (`kicad.stackup.overridden`).
+- **Created names.** `stackup`, `color`, `material`, `epsilon_r`, `loss_tangent`, `copper_finish` and
+  `dielectric_constraints` are in `pcb.FLOOR_HEADS`: the format page documents each (S-0021), the boards
+  of the corpus hold each (S-0058), and the created test board writes each for both majors. `type`,
+  `layer` and `thickness` are in the skeleton already; `addsublayer` is an atom.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.board.stackup-unused` | warning | a `stackup` node that KiCad does not use (not complete) |
+| `kicad.board.stackup-unmodelled` | info | a complete node with a value the model cannot hold exactly |
+| `kicad.board.stackup-thickness` | warning | the `thickness` of `general` differs from the sum of the rows |
+| `kicad.board.stackup-invalid` | error | on write: a stack-up with a `model.stackup-*` finding, or whose copper entries are not the table's copper layers in order; `allow_lossy` does not drop it |
+| `kicad.board.stackup-rewritten` | info | on write: the replaced node of a read board held children that the model does not hold |
+
 ## Issue codes
 
 | code | severity | when |

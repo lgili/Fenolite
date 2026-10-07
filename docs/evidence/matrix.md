@@ -389,6 +389,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `schlayout` | see `schgen`, `sch` |
 | `sexpr` | `EVIDENCE` INFERRED: `H-K-SEXPR-ESCAPES`, `H-K-SEXPR-LEX-10`, `H-K-SEXPR-LEX-9`, `H-K-SEXPR-NUM-CORPUS`, `H-K-SEXPR-NUM-READ`, `H-K-SEXPR-NUM-WRITE-2`, `H-K-SEXPR-STRICT` |
 | `slots` | see `dru`, `mod`, `pcb`, `sch`, `sym`, `wks` |
+| `stackup` | `EVIDENCE` INFERRED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
 | `symembed` | see `schgen` |
 | `triad` | see `dru`, `pcb`, `pro` |

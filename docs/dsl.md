@@ -270,6 +270,8 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum) |
+| stack-up | `stk` | `stackup` |
+| stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
@@ -619,6 +621,62 @@ design.zone(
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
+
+## Stack-up
+
+`design.stackup(*entries, finish=None, impedance_controlled=False, locked=False)` declares the build-up of
+the board from its top face to its bottom face (change c0101). It is called after `board()`, and once.
+The entries come from `fenolite.dsl.stack`:
+
+```python
+from fenolite.dsl import Design, mm, stack
+
+design = Design("blink")
+design.board(mm(50), mm(30), copper=4)
+design.stackup(
+    stack.mask("10um", color="Green"),
+    stack.copper("35um"),
+    stack.prepreg("0.2mm", material="FR4", epsilon_r="4.5", loss_tangent="0.02"),
+    stack.copper("17.5um"),
+    stack.core("1.2mm", material="FR4", epsilon_r="4.5"),
+    stack.copper("17.5um"),
+    stack.prepreg("0.2mm"),
+    stack.copper("35um"),
+    stack.mask("10um"),
+    finish="ENIG",
+)
+```
+
+| entry | arguments |
+|---|---|
+| `stack.silkscreen(*, color="")` | no thickness |
+| `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness of at least 0 |
+| `stack.copper(thickness)` | a thickness above 0 |
+| `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness above 0 |
+| `stack.prepreg(…)` | the arguments of `core` |
+
+- A thickness is a length with a unit (`"35um"`, `mm("0.2")`). `epsilon_r` and `loss_tangent` are an
+  `int`, a `fractions.Fraction` or a decimal text, never a `float`; they are stored as the shortest plain
+  decimal (`"4.50"` gives `"4.5"`). `epsilon_r` is above 0; `loss_tangent` may be 0.
+- The order is: at most one silkscreen, then at most one mask; one `copper()` per copper layer of
+  `board(copper=…)`, with at least one `core()` or `prepreg()` between neighbours; then at most one mask
+  and at most one silkscreen. Several dielectrics in one gap are the sheets of one dielectric and are all
+  of one kind. Any other sequence raises `DslError` naming the position (from 0) of the first entry out of
+  place.
+- The copper entries take the names of the board's copper layers from the top (`F.Cu`, `In1.Cu`, …,
+  `B.Cu`), the dielectrics of the gap below the j-th copper layer the name `dielectric <j>`, masks and
+  silkscreens `F.Mask`, `B.Mask`, `F.SilkS` and `B.SilkS`: the names KiCad gives the same rows, so a
+  rebuild compares equal names.
+- Fenolite supplies no thickness, material, dielectric constant or finish. A mask the script leaves out is
+  written with the thickness 0 (KiCad would count 0.01 mm for a row without one), and the board thickness
+  is the sum of the entries.
+- `to_model` gives the board a `Stackup` (`docs/design-model.md`, "Stack-up"); a design without
+  `stackup()` has none and builds the files it built before. `stackup_locked(design)` returns `locked`.
+- On a rebuild the board's stack-up wins over an unlocked script stack-up that differs
+  (`kicad.stackup.overridden`), and `locked=True` makes the script's replace it (`kicad.stackup.forced`):
+  `docs/lens.md`, "Stack-up across rebuilds".
+- `stack.preset(name)` and `stack.PRESETS` are reserved for stack-ups taken from public fabricator pages;
+  no preset ships yet, so every name raises `DslError`.
 
 ## Design rules
 

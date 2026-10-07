@@ -66,6 +66,7 @@ import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
+import _stackbench
 import _triad
 import _vendorcases
 import _zonebench
@@ -301,6 +302,8 @@ def _probes() -> dict[str, Probe]:
         **_layercases.layer_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
+    for pid, (function, majors) in _stackbench.stackup_probes(runner).items():  # change c0101
+        probes[pid] = Probe(function, majors)
     return probes
 
 

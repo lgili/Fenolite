@@ -265,6 +265,25 @@ def _unread(plan: ModelPlan, output: str) -> list[Issue]:
     ]
 
 
+STACKUP_KINDS: frozenset[str] = frozenset({"gerbers"})
+"""The kinds whose output states the stack-up of the board: the Gerber job file (``H-K-STACKUP-JOB``)."""
+STACKUP_DEFAULT = (
+    "the board holds no stack-up, so KiCad states its default there: 0.035 mm copper, 0.01 mm masks, "
+    "equal FR4 dielectrics that fill the board thickness, and the finish None"
+)
+STACKUP_HINT = "declare the stack-up with design.stackup() or in KiCad's Board Setup"
+
+
+def stackup_note(kind: str, design: Design | None) -> Issue | None:
+    """``export.stackup-default`` for a kind that states the stack-up of a board that holds none
+    (manufacturing-exports, "Stack-up note in exports"; ``H-K-STACKUP-DEFAULT``)."""
+    if kind not in STACKUP_KINDS or design is None or design.board is None:
+        return None
+    if design.board.stackup is not None:
+        return None
+    return issue("export.stackup-default", STACKUP_DEFAULT, where=kind, hint=STACKUP_HINT)
+
+
 def run_kind(
     cli: KicadCli,
     kind: str,
@@ -347,6 +366,7 @@ __all__ = [
     "LAYER_KINDS",
     "MAJORS",
     "SHOWN_NAMES",
+    "STACKUP_KINDS",
     "VOLATILE_PREFIXES",
     "Artifact",
     "Kind",
@@ -358,4 +378,5 @@ __all__ = [
     "layer_suffixes",
     "pdf_layers",
     "run_kind",
+    "stackup_note",
 ]

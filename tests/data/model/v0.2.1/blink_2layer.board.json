@@ -1,0 +1,5248 @@
+{
+  "id": "brd_6f87f098-09bd-5e16-b0db-4a9acc65aea9",
+  "provenance": {
+    "backend": "kicad",
+    "file": "blink.kicad_pcb",
+    "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+    "locator": "/kicad_pcb",
+    "evidence": {
+      "level": "INFERRED",
+      "hypotheses": [
+        "H-K-PCB-READ"
+      ]
+    }
+  },
+  "ext": {
+    "kicad": {
+      "min_version": "20260206",
+      "payload": [
+        [
+          "version",
+          "20260206"
+        ],
+        [
+          "generator",
+          "fenolite"
+        ],
+        [
+          "generator_version",
+          "10.0"
+        ],
+        [
+          "net_form",
+          "named"
+        ],
+        [
+          "slot:.:modeled",
+          "version"
+        ],
+        [
+          "slot:.:modeled",
+          "generator"
+        ],
+        [
+          "slot:.:modeled",
+          "generator_version"
+        ],
+        [
+          "slot:.:opaque@20260206",
+          "(general (thickness 1.6) (legacy_teardrops no))"
+        ],
+        [
+          "slot:.:opaque@20260206",
+          "(paper \"A4\")"
+        ],
+        [
+          "slot:.:modeled",
+          "layers"
+        ],
+        [
+          "slot:.:opaque@20260206",
+          "(setup (pad_to_mask_clearance 0))"
+        ],
+        [
+          "slot:.:modeled",
+          "footprints"
+        ],
+        [
+          "slot:.:modeled",
+          "footprints"
+        ],
+        [
+          "slot:.:modeled",
+          "footprints"
+        ],
+        [
+          "slot:.:modeled",
+          "graphics.gr_line"
+        ],
+        [
+          "slot:.:modeled",
+          "graphics.gr_line"
+        ],
+        [
+          "slot:.:modeled",
+          "graphics.gr_line"
+        ],
+        [
+          "slot:.:modeled",
+          "graphics.gr_line"
+        ]
+      ]
+    }
+  },
+  "layers": [
+    {
+      "id": "lay_eee314dd-b566-5de0-928e-d5488fb3407a",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/0[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "0"
+            ],
+            [
+              "type",
+              "signal"
+            ]
+          ]
+        }
+      },
+      "name": "F.Cu",
+      "kind": "copper",
+      "ordinal": 0
+    },
+    {
+      "id": "lay_641699d4-93c8-5974-b327-72464c36ad32",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/2[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "2"
+            ],
+            [
+              "type",
+              "signal"
+            ]
+          ]
+        }
+      },
+      "name": "B.Cu",
+      "kind": "copper",
+      "ordinal": 1
+    },
+    {
+      "id": "lay_ae58223f-32e8-54a4-b3d2-19293f1d785f",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/9[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "9"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "F.Adhesive"
+            ]
+          ]
+        }
+      },
+      "name": "F.Adhes",
+      "kind": "mechanical",
+      "ordinal": 2
+    },
+    {
+      "id": "lay_6e2c70e6-b34a-5356-8ca0-71fb81e7df57",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/11[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "11"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "B.Adhesive"
+            ]
+          ]
+        }
+      },
+      "name": "B.Adhes",
+      "kind": "mechanical",
+      "ordinal": 3
+    },
+    {
+      "id": "lay_c4ba533b-55f1-5dd0-b1fe-5e9c2b990419",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/13[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "13"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "F.Paste",
+      "kind": "solderpaste",
+      "ordinal": 4
+    },
+    {
+      "id": "lay_8d56a8aa-ef5b-543d-a4b4-f8fc1736facb",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/15[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "15"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "B.Paste",
+      "kind": "solderpaste",
+      "ordinal": 5
+    },
+    {
+      "id": "lay_d1df3761-8b26-59fc-a390-21e3ffc10621",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/5[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "5"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "F.Silkscreen"
+            ]
+          ]
+        }
+      },
+      "name": "F.SilkS",
+      "kind": "silkscreen",
+      "ordinal": 6
+    },
+    {
+      "id": "lay_d7ae6ee2-58e8-5b15-8dc9-7b2c97079076",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/7[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "7"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "B.Silkscreen"
+            ]
+          ]
+        }
+      },
+      "name": "B.SilkS",
+      "kind": "silkscreen",
+      "ordinal": 7
+    },
+    {
+      "id": "lay_a27b7409-2237-5817-a681-e9ffaf73a2af",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/1[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "1"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "F.Mask",
+      "kind": "soldermask",
+      "ordinal": 8
+    },
+    {
+      "id": "lay_45081533-53b0-5698-adcf-4fe0b8d329fb",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/3[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "3"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "B.Mask",
+      "kind": "soldermask",
+      "ordinal": 9
+    },
+    {
+      "id": "lay_49c20fdf-2c56-5169-ae87-3824090cf4d4",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/17[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "17"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "User.Drawings"
+            ]
+          ]
+        }
+      },
+      "name": "Dwgs.User",
+      "kind": "user",
+      "ordinal": 10
+    },
+    {
+      "id": "lay_46fa697e-87ee-52a6-910f-27f4ab057d33",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/19[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "19"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "User.Comments"
+            ]
+          ]
+        }
+      },
+      "name": "Cmts.User",
+      "kind": "user",
+      "ordinal": 11
+    },
+    {
+      "id": "lay_42e0f2a7-a796-5533-b308-16cb7f5eb682",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/21[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "21"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "User.Eco1"
+            ]
+          ]
+        }
+      },
+      "name": "Eco1.User",
+      "kind": "user",
+      "ordinal": 12
+    },
+    {
+      "id": "lay_947c31f3-367c-5cd4-88f8-16ae222a9041",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/23[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "23"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "User.Eco2"
+            ]
+          ]
+        }
+      },
+      "name": "Eco2.User",
+      "kind": "user",
+      "ordinal": 13
+    },
+    {
+      "id": "lay_f5037f8c-3e9a-5b32-8a75-a504077c0c57",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/25[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "25"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "Edge.Cuts",
+      "kind": "edge",
+      "ordinal": 14
+    },
+    {
+      "id": "lay_9a940a9a-ca39-5d7f-b25a-5319196011d9",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/27[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "27"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "Margin",
+      "kind": "mechanical",
+      "ordinal": 15
+    },
+    {
+      "id": "lay_75e6f80b-00a8-535a-9ae8-35eff66dab46",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/31[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "31"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "F.Courtyard"
+            ]
+          ]
+        }
+      },
+      "name": "F.CrtYd",
+      "kind": "courtyard",
+      "ordinal": 16
+    },
+    {
+      "id": "lay_40c2496a-34e8-56a8-a106-b591de068c82",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/29[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "29"
+            ],
+            [
+              "type",
+              "user"
+            ],
+            [
+              "user_name",
+              "B.Courtyard"
+            ]
+          ]
+        }
+      },
+      "name": "B.CrtYd",
+      "kind": "courtyard",
+      "ordinal": 17
+    },
+    {
+      "id": "lay_10127455-2317-55e8-b99f-87672e0fd7e0",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/35[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "35"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "F.Fab",
+      "kind": "fabrication",
+      "ordinal": 18
+    },
+    {
+      "id": "lay_ae5b3d65-f0a0-5a61-bfe4-a81e6636a845",
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/layers[0]/33[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "payload": [
+            [
+              "number",
+              "33"
+            ],
+            [
+              "type",
+              "user"
+            ]
+          ]
+        }
+      },
+      "name": "B.Fab",
+      "kind": "fabrication",
+      "ordinal": 19
+    }
+  ],
+  "footprints": [
+    {
+      "id": "fp_6b88ed7d-4dc6-5c4a-aa46-ac644458edf4",
+      "native_ids": {
+        "kicad": "ac238246-aafd-5ac2-a567-03e58a8cb8b2"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/footprint[1]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "lib_ref"
+            ],
+            [
+              "slot:.:modeled",
+              "side"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ],
+            [
+              "slot:.:modeled",
+              "position"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(descr \"Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern\")"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(tags \"resistor mini\")"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "path"
+            ],
+            [
+              "slot:.:modeled",
+              "attributes"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start -0.25 -0.55) (end 0.25 -0.55) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\") (uuid \"6099e3f6-89ed-5151-b9b6-34d1250b4557\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start -0.25 0.55) (end 0.25 0.55) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\") (uuid \"90e8ac5b-d8c8-552f-8cc0-40628e1bddf9\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_rect (start -1.5 -0.75) (end 1.5 0.75) (stroke (width 0.05) (type solid)) (fill no) (layer \"F.CrtYd\") (uuid \"9d6e27c0-42a3-58c3-96b2-6f31f568ca75\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_rect (start -0.8 -0.4) (end 0.8 0.4) (stroke (width 0.1) (type solid)) (fill no) (layer \"F.Fab\") (uuid \"32fa6039-b79a-5444-991c-1037630d2590\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_text user \"${REFERENCE}\" (at 0 0 0) (layer \"F.Fab\") (uuid \"814ac2ef-8bf4-57bb-8547-199273b9de91\") (effects (font (size 0.4 0.4) (thickness 0.06))))"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:opaque@20240706",
+              "(embedded_fonts no)"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(model \"${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_R_0603.step\" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"
+            ]
+          ]
+        }
+      },
+      "component_id": "cmp_441d84bd-48ed-583c-88bf-70a3396f47ed",
+      "lib_ref": "Mini:Mini_R_0603",
+      "position": {
+        "x": 132000000,
+        "y": 109000000
+      },
+      "attributes": [
+        "smd"
+      ],
+      "pads": [
+        {
+          "id": "pad_60a2de69-03b1-5c49-a1b5-248783fec022",
+          "native_ids": {
+            "kicad": "ebbc35d3-efc4-5035-a5d6-b3ca0935579b"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/pad[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "roundrect",
+          "size": {
+            "w": 900000,
+            "h": 950000
+          },
+          "position": {
+            "x": -800000,
+            "y": 0
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+        },
+        {
+          "id": "pad_1ffce0f3-a609-50c9-90a9-8f6886d80074",
+          "native_ids": {
+            "kicad": "d65601c7-d77b-5d2a-b7a9-1e7b1dc58844"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/pad[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "roundrect",
+          "size": {
+            "w": 900000,
+            "h": 950000
+          },
+          "position": {
+            "x": 800000,
+            "y": 0
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+        }
+      ],
+      "fields": [
+        {
+          "id": "fld_dc9f1966-ba07-5525-ac83-108af9d52bdd",
+          "native_ids": {
+            "kicad": "86235245-4f37-5ac5-8254-99176467a1bd"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/property[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"R1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Reference",
+          "position": {
+            "x": 0,
+            "y": -1450000
+          },
+          "layer": "F.SilkS",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000
+        },
+        {
+          "id": "fld_136506c1-3c46-53e2-b914-3191d5e427c6",
+          "native_ids": {
+            "kicad": "a05a673d-39c0-514e-894e-d5075bf282e2"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/property[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"330\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Value",
+          "position": {
+            "x": 0,
+            "y": 1450000
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000
+        },
+        {
+          "id": "fld_63973048-1040-5b75-8e21-9a0759a7ffd7",
+          "native_ids": {
+            "kicad": "a67d4359-a52b-524a-a549-c1eace4f7464"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/property[2]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Datasheet",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        },
+        {
+          "id": "fld_4e0180e1-0e25-50e7-ac56-902f911ff4f0",
+          "native_ids": {
+            "kicad": "6678ff37-c122-5d18-b2cb-5a98febda65b"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/property[3]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Description",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        },
+        {
+          "id": "fld_04858974-459b-5017-b5bd-cda249c300fd",
+          "native_ids": {
+            "kicad": "9283bff7-bdcf-5181-92a2-70014c2d6a43"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[1]/property[4]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"R1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "fenolite.path",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        }
+      ]
+    },
+    {
+      "id": "fp_b7c59a93-ebf2-5291-9da9-e12527b31768",
+      "native_ids": {
+        "kicad": "00e2aa5b-a3d8-573a-8b13-20741d7f1f05"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/footprint[2]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "lib_ref"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(locked yes)"
+            ],
+            [
+              "slot:.:modeled",
+              "side"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ],
+            [
+              "slot:.:modeled",
+              "position"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(descr \"Mini QFP, 32 pins, 7 x 7 mm body, 0.8 mm pitch. Synthetic geometry for Fenolite tests, not a validated land pattern\")"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(tags \"qfp mini\")"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "path"
+            ],
+            [
+              "slot:.:modeled",
+              "attributes"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start -3.61 -3.61) (end -3.61 -3.3) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\") (uuid \"c52cf521-2ffd-566e-8a02-caa1a05c8775\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start 3.61 -3.61) (end 3.61 -3.3) (stroke (width 0.12) (type solid)) (layer \"F.SilkS\") (uuid \"e5a875e7-3984-5baa-a816-7ed2b2515933\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_poly (pts (xy -4.25 -3.6) (xy -4.5 -3.85) (xy -4 -3.85)) (stroke (width 0.12) (type solid)) (fill yes) (layer \"F.SilkS\") (uuid \"235588d4-f9d1-5302-ac14-d3f814ffe664\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start -5.25 -5.25) (end 5.25 -5.25) (stroke (width 0.05) (type solid)) (layer \"F.CrtYd\") (uuid \"a1d85d67-ef84-5c22-9cc5-590fee5f089f\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start -5.25 5.25) (end -5.25 -5.25) (stroke (width 0.05) (type solid)) (layer \"F.CrtYd\") (uuid \"0e0f8381-43f6-577b-8ae8-24ae6f37284a\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start 5.25 -5.25) (end 5.25 5.25) (stroke (width 0.05) (type solid)) (layer \"F.CrtYd\") (uuid \"c110bed9-11f6-53c3-8330-3c6092a31855\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_line (start 5.25 5.25) (end -5.25 5.25) (stroke (width 0.05) (type solid)) (layer \"F.CrtYd\") (uuid \"1b4bebbe-aec7-5605-8a12-f19ee6dfedc8\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_rect (start -3.5 -3.5) (end 3.5 3.5) (stroke (width 0.1) (type solid)) (fill no) (layer \"F.Fab\") (uuid \"518f609d-b541-5745-bdc8-2e2817b09825\"))"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:opaque@20240706",
+              "(embedded_fonts no)"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(model \"${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_QFP-32_7x7mm_P0.8mm.step\" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"
+            ]
+          ]
+        }
+      },
+      "component_id": "cmp_a52d7a61-7049-5450-a2cd-5d47241f03fa",
+      "lib_ref": "Mini:Mini_QFP-32_7x7mm_P0.8mm",
+      "position": {
+        "x": 114000000,
+        "y": 115000000
+      },
+      "locked": true,
+      "attributes": [
+        "smd"
+      ],
+      "pads": [
+        {
+          "id": "pad_8be172a2-c6aa-564e-a94c-ea94509e78a7",
+          "native_ids": {
+            "kicad": "2b4dc755-cb58-5617-ae70-8700ddf68506"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+        },
+        {
+          "id": "pad_6b788947-3d56-5601-a70e-ece7572396bc",
+          "native_ids": {
+            "kicad": "f110c7b7-28b6-5b58-8dc7-00a384eea1ce"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[9]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "10",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2000000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+        },
+        {
+          "id": "pad_86c094ca-1ccc-50be-aadf-9443e74bc931",
+          "native_ids": {
+            "kicad": "fd8d58ee-b42e-5c97-94fa-84fb9500bb72"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[10]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "11",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -1200000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_8d1a91a0-6da1-5b47-ab0f-60ecb57a2e76",
+          "native_ids": {
+            "kicad": "f5ef3986-bc52-5df1-bbb7-350dc9970276"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[11]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "12",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -400000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_7622f9de-a50c-5434-a24d-7c0faa6f2a96",
+          "native_ids": {
+            "kicad": "06f63d5e-f96c-5204-8fd5-488d17b5368c"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[12]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "13",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 400000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_54d09332-16ae-519a-99bd-c33f9612603c",
+          "native_ids": {
+            "kicad": "78a68c8b-b1ce-5740-995b-ae92d665dcc4"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[13]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "14",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 1200000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_9609315c-b1a5-5426-89b6-aa65ac3a00a5",
+          "native_ids": {
+            "kicad": "e6fb9373-8b75-5863-9c04-37250ae4c463"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[14]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "15",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2000000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_e29adbcf-b923-5046-9552-cb58469316e5",
+          "native_ids": {
+            "kicad": "37b7d2ab-8338-55f6-9e64-971f53080391"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[15]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "16",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2800000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_5aee1acc-e9e2-50c6-8e56-9f7bb4b3fd24",
+          "native_ids": {
+            "kicad": "e92dae8a-5164-5931-908b-55eaec97e5b4"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[16]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "17",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_1183c297-d4d6-5573-90b5-eceb4270891e",
+          "native_ids": {
+            "kicad": "d7af2e18-a827-5a27-824a-de7f201421c0"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[17]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "18",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_0682220e-a173-5428-af4f-e3c16f4dae03",
+          "native_ids": {
+            "kicad": "9e46baf2-2703-5128-a3ac-719732f394b4"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[18]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "19",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_2ebbf524-f4db-5de7-830d-d9545b42c86a",
+          "native_ids": {
+            "kicad": "b50dac96-b4a6-5eea-8cf8-57537c0ff57c"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_e719e71d-efa5-5948-9425-0460b82969ee",
+          "native_ids": {
+            "kicad": "ce47b8d7-0c45-5a88-96ac-57cb88020d85"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[19]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "20",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_5e0e9c6a-d445-5a2a-88c9-b757646039d0",
+          "native_ids": {
+            "kicad": "8ddba4a9-60e1-5092-9742-36202569ab76"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[20]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "21",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_3f6a4b34-41ea-56c4-af01-a9f0a54ebeb3",
+          "native_ids": {
+            "kicad": "8585df61-eb27-594a-8f3e-702879b0f990"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[21]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "22",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_df8c3583-1d46-57e3-81ea-9df41a42e14e",
+          "native_ids": {
+            "kicad": "31746a5c-d4f1-5a86-87e2-3c56d2a75bdb"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[22]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "23",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_a7172ca1-4fc4-579b-8f92-e61d0792b05f",
+          "native_ids": {
+            "kicad": "8b52d3e3-9bb2-5efd-800c-c764bb5dd5ea"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[23]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "24",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_6d8198ea-bdcf-5776-a311-a2b5027d59e0",
+          "native_ids": {
+            "kicad": "978bcc86-5fb7-560a-93ed-3e6c8dac9a7a"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[24]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "25",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2800000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_ea9a6a60-3893-57ad-93e5-f8c7863b1633",
+          "native_ids": {
+            "kicad": "04b2606c-6ba0-50d2-a21f-f7728f32bd6b"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[25]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "26",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2000000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_7dfbf5e3-7e09-57fe-b30d-6c1c85eb4288",
+          "native_ids": {
+            "kicad": "f2faeceb-beb0-51cd-92bc-d6d0b5c34d9a"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[26]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "27",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 1200000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_b8512a2c-bf13-5193-ac90-5c03fead5c87",
+          "native_ids": {
+            "kicad": "a27842cc-3429-5fae-bc9c-282b5988e6e8"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[27]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "28",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 400000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_dfa347c4-9485-5d2e-96ce-c6060ce59db7",
+          "native_ids": {
+            "kicad": "c8c9a88f-efc9-5f68-b521-6084ce331eac"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[28]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "29",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -400000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_8baf0391-27fc-5e06-8049-a68b265d25c3",
+          "native_ids": {
+            "kicad": "407c328c-6c60-5e30-8b33-8d9069781c15"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[2]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "3",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_99e0ac93-10a2-59b2-ab81-6a23af3ea63b",
+          "native_ids": {
+            "kicad": "c880a582-52e3-52ae-b8e1-26d62bef4ecb"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[29]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "30",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -1200000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_fa6c6255-2304-5531-ac38-18f64a0c4e91",
+          "native_ids": {
+            "kicad": "a56a5703-1bfb-58e2-8f62-f006ed8dd956"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[30]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "31",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2000000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_82218172-1e07-555f-92d7-f14ca7ac88ab",
+          "native_ids": {
+            "kicad": "73cc98d6-c4c3-531d-9a58-a54697354b03"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[31]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "32",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2800000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_3f731396-f3e3-511e-91bc-07fa35290536",
+          "native_ids": {
+            "kicad": "cf1c1ea5-82bd-58dd-a7ce-05a4011e1fca"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[3]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "4",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_82ba6ffb-76dc-511c-98e2-705ad4c969c8",
+          "native_ids": {
+            "kicad": "f91433d6-6ac4-5754-a874-d1dc6e61b87c"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[4]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "5",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_e4eeb5f0-6ac8-58ad-b22a-bdc019f46095",
+          "native_ids": {
+            "kicad": "b70f2abe-ca20-5a77-a9b5-162251e47a7e"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[5]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "6",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_1b492a93-b8d8-57c1-8ffb-ffb41b1798f9",
+          "native_ids": {
+            "kicad": "8306ac90-9e84-59e7-bfcf-a55bda6a2e30"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[6]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "7",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_772bc5ea-a2ea-5afc-b303-037155dd8515",
+          "native_ids": {
+            "kicad": "a2f6e1e7-0dc3-588b-bd38-a1612b8b25f1"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[7]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "8",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_19a0843b-9484-5ad2-bfb6-6f37b5469f01",
+          "native_ids": {
+            "kicad": "322bfa76-f59f-564a-a0f1-f44e8d45a161"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/pad[8]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "9",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2800000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_c2a60b21-fa5a-514f-9789-d699c7169bb6"
+        }
+      ],
+      "fields": [
+        {
+          "id": "fld_9d7a6f5e-0111-5230-a223-3476dd4c2a69",
+          "native_ids": {
+            "kicad": "6dc64adb-65e4-5954-935e-96712ec78c87"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/property[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"U1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Reference",
+          "position": {
+            "x": 0,
+            "y": -5900000
+          },
+          "layer": "F.SilkS",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000
+        },
+        {
+          "id": "fld_da299424-f9d8-5c55-b286-4904b2a8632d",
+          "native_ids": {
+            "kicad": "81583b90-06cc-5028-9de0-f72a4d2f3e7c"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/property[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"MCU\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Value",
+          "position": {
+            "x": 0,
+            "y": 5900000
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000
+        },
+        {
+          "id": "fld_26db16d6-8e97-5068-bcde-2bc3f0089076",
+          "native_ids": {
+            "kicad": "7b87c16c-58ec-57b9-83bc-9340b627b302"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/property[2]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Datasheet",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        },
+        {
+          "id": "fld_4ed4bddc-ecb1-5b9d-bf31-abefc821b1bc",
+          "native_ids": {
+            "kicad": "76506e5b-732f-5c89-85ed-2e6c9ad5d988"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/property[3]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"Mini QFP, 32 pins, 7 x 7 mm body, 0.8 mm pitch. Synthetic geometry for Fenolite tests, not a validated land pattern\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Description",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        },
+        {
+          "id": "fld_ff4ee463-e562-5bc7-ba07-0f90a1f37748",
+          "native_ids": {
+            "kicad": "f3c61a57-912a-5fa0-ac69-139c0d510dc7"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[2]/property[4]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"U1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "fenolite.path",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "F.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false
+        }
+      ]
+    },
+    {
+      "id": "fp_e2e11193-3e97-5d5f-8ca6-f167ba8aa40a",
+      "native_ids": {
+        "kicad": "92fd148a-e560-5fc4-925a-c3f61160d02b"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/footprint[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "lib_ref"
+            ],
+            [
+              "slot:.:modeled",
+              "side"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ],
+            [
+              "slot:.:modeled",
+              "position"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(descr \"Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern\")"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(tags \"led tht mini\")"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "fields"
+            ],
+            [
+              "slot:.:modeled",
+              "path"
+            ],
+            [
+              "slot:.:modeled",
+              "attributes"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_arc (start -0.29 1.08) (mid 1.27 1.65) (end 2.83 1.08) (stroke (width 0.12) (type solid)) (layer \"B.SilkS\") (uuid \"bdb1d02f-e90f-5747-8419-8d854c2a6e45\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_arc (start 2.83 -1.08) (mid 1.27 -1.65) (end -0.29 -1.08) (stroke (width 0.12) (type solid)) (layer \"B.SilkS\") (uuid \"e3ae54f9-b653-5fa8-8ad1-189b197c472b\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_rect (start -1.2 2) (end 3.75 -2) (stroke (width 0.05) (type solid)) (fill no) (layer \"B.CrtYd\") (uuid \"473afd0e-25d9-5420-ad4f-1adb24add4ca\"))"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(fp_circle (center 1.27 0) (end 2.77 0) (stroke (width 0.1) (type solid)) (fill no) (layer \"B.Fab\") (uuid \"d1a0ba65-39e6-5501-a840-dac262d0b4e8\"))"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:modeled",
+              "pads"
+            ],
+            [
+              "slot:.:opaque@20240706",
+              "(embedded_fonts no)"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(model \"${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_LED_THT_3mm.step\" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"
+            ]
+          ]
+        }
+      },
+      "component_id": "cmp_fbbec2ff-ad45-57f2-a51b-febb3a99df39",
+      "lib_ref": "Mini:Mini_LED_THT_3mm",
+      "position": {
+        "x": 138000000,
+        "y": 120000000
+      },
+      "side": "bottom",
+      "attributes": [
+        "through_hole"
+      ],
+      "pads": [
+        {
+          "id": "pad_19bdc1ac-6a75-53c2-8529-496177689089",
+          "native_ids": {
+            "kicad": "2ca83bf5-b29b-5581-a101-b697122f87cd"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/pad[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "drill"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(layers \"*.Cu\" \"*.Mask\")"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(remove_unused_layers no)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "rect",
+          "size": {
+            "w": 1800000,
+            "h": 1800000
+          },
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "kind": "thru_hole",
+          "drill": 900000,
+          "layers": [
+            "F.Cu",
+            "B.Cu",
+            "F.Mask",
+            "B.Mask"
+          ],
+          "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+        },
+        {
+          "id": "pad_65576a64-30eb-57b7-bd68-54765ebce3db",
+          "native_ids": {
+            "kicad": "604741eb-0a96-5275-9b10-24c01c862030"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/pad[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "drill"
+                ],
+                [
+                  "slot:.:modeled",
+                  "net_id"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(layers \"*.Cu\" \"*.Mask\")"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "(remove_unused_layers no)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "circle",
+          "size": {
+            "w": 1800000,
+            "h": 1800000
+          },
+          "position": {
+            "x": 2540000,
+            "y": 0
+          },
+          "kind": "thru_hole",
+          "drill": 900000,
+          "layers": [
+            "F.Cu",
+            "B.Cu",
+            "F.Mask",
+            "B.Mask"
+          ],
+          "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+        }
+      ],
+      "fields": [
+        {
+          "id": "fld_ad7cac28-9a61-57f9-94ef-f8c0c20cefa8",
+          "native_ids": {
+            "kicad": "4401082e-b9ef-56a4-9db4-ae34fe28d742"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/property[0]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"D1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Reference",
+          "position": {
+            "x": 1270000,
+            "y": 2500000
+          },
+          "layer": "B.SilkS",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "mirrored": true
+        },
+        {
+          "id": "fld_94d36e56-9c24-5589-bc36-956e5fb49ea2",
+          "native_ids": {
+            "kicad": "a54ef148-8190-5f49-b4ae-96ff520e24a6"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/property[1]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"LED\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Value",
+          "position": {
+            "x": 1270000,
+            "y": -2500000
+          },
+          "layer": "B.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "mirrored": true
+        },
+        {
+          "id": "fld_65a4eae0-9bcb-57ae-9925-300eccf3e51f",
+          "native_ids": {
+            "kicad": "7c38f0c8-d09a-5798-9307-9795984bb54e"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/property[2]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Datasheet",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "B.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false,
+          "mirrored": true
+        },
+        {
+          "id": "fld_aa8a5bce-02b8-50fe-96b6-ea92d5049eca",
+          "native_ids": {
+            "kicad": "493dd855-216c-593a-a99a-c68ab6e6ba4d"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/property[3]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "Description",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "B.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false,
+          "mirrored": true
+        },
+        {
+          "id": "fld_502bb826-b794-5062-8ff6-7a303760ba9f",
+          "native_ids": {
+            "kicad": "2fbe39de-96fb-5e13-8142-9caeaf738f5f"
+          },
+          "provenance": {
+            "backend": "kicad",
+            "file": "blink.kicad_pcb",
+            "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+            "locator": "/kicad_pcb/footprint[0]/property[4]",
+            "evidence": {
+              "level": "INFERRED",
+              "hypotheses": [
+                "H-K-PCB-READ"
+              ]
+            }
+          },
+          "ext": {
+            "kicad": {
+              "min_version": "20260206",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "name"
+                ],
+                [
+                  "slot:.:opaque@20260206",
+                  "\"D1\""
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layer"
+                ],
+                [
+                  "slot:.:modeled",
+                  "visible"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ],
+                [
+                  "slot:.:modeled",
+                  "effects"
+                ]
+              ]
+            }
+          },
+          "name": "fenolite.path",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "layer": "B.Fab",
+          "size": {
+            "w": 1000000,
+            "h": 1000000
+          },
+          "thickness": 150000,
+          "visible": false,
+          "mirrored": true
+        }
+      ]
+    }
+  ],
+  "graphics": [
+    {
+      "id": "gfx_3d6685e2-a7fe-5dbb-94d1-c126c247284b",
+      "native_ids": {
+        "kicad": "f40272c2-98d3-55ad-9b46-eaa2e96ae026"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/gr_line[3]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(stroke (width 0.1) (type solid))"
+            ],
+            [
+              "slot:.:modeled",
+              "layer"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ]
+          ]
+        }
+      },
+      "kind": "line",
+      "layer": "Edge.Cuts",
+      "points": [
+        {
+          "x": 100000000,
+          "y": 130000000
+        },
+        {
+          "x": 100000000,
+          "y": 100000000
+        }
+      ],
+      "width": 100000
+    },
+    {
+      "id": "gfx_4c91fd78-c74e-5faf-9619-b6cbb5b237f7",
+      "native_ids": {
+        "kicad": "1cb5c2da-31ce-5824-a4ae-cd818cfd736c"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/gr_line[1]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(stroke (width 0.1) (type solid))"
+            ],
+            [
+              "slot:.:modeled",
+              "layer"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ]
+          ]
+        }
+      },
+      "kind": "line",
+      "layer": "Edge.Cuts",
+      "points": [
+        {
+          "x": 150000000,
+          "y": 100000000
+        },
+        {
+          "x": 150000000,
+          "y": 130000000
+        }
+      ],
+      "width": 100000
+    },
+    {
+      "id": "gfx_dd5362a5-a077-58c2-92a6-976fa031ac3b",
+      "native_ids": {
+        "kicad": "af0a2e40-0690-5277-be2b-703515ea4474"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/gr_line[2]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(stroke (width 0.1) (type solid))"
+            ],
+            [
+              "slot:.:modeled",
+              "layer"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ]
+          ]
+        }
+      },
+      "kind": "line",
+      "layer": "Edge.Cuts",
+      "points": [
+        {
+          "x": 150000000,
+          "y": 130000000
+        },
+        {
+          "x": 100000000,
+          "y": 130000000
+        }
+      ],
+      "width": 100000
+    },
+    {
+      "id": "gfx_f0b04987-b74c-5018-ac17-65e3cdbe79c9",
+      "native_ids": {
+        "kicad": "dc753d00-fc74-5b97-b526-0444ca2ef269"
+      },
+      "provenance": {
+        "backend": "kicad",
+        "file": "blink.kicad_pcb",
+        "file_sha256": "23aa2192bc9e1ba756583e6444d1b34ec9c485ba2b3644a16133a83fb9645738",
+        "locator": "/kicad_pcb/gr_line[0]",
+        "evidence": {
+          "level": "INFERRED",
+          "hypotheses": [
+            "H-K-PCB-READ"
+          ]
+        }
+      },
+      "ext": {
+        "kicad": {
+          "min_version": "20260206",
+          "payload": [
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:modeled",
+              "points"
+            ],
+            [
+              "slot:.:opaque@20260206",
+              "(stroke (width 0.1) (type solid))"
+            ],
+            [
+              "slot:.:modeled",
+              "layer"
+            ],
+            [
+              "slot:.:modeled",
+              "native_ids"
+            ]
+          ]
+        }
+      },
+      "kind": "line",
+      "layer": "Edge.Cuts",
+      "points": [
+        {
+          "x": 100000000,
+          "y": 100000000
+        },
+        {
+          "x": 150000000,
+          "y": 100000000
+        }
+      ],
+      "width": 100000
+    }
+  ],
+  "sheet": {}
+}

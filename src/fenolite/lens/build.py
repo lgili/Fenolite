@@ -38,6 +38,7 @@ from fenolite.backends.kicad import (
     versions,
     wks,
 )
+from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
     MANDATORY_FIELDS,
@@ -563,8 +564,13 @@ def build_design(
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
     schematic_layout: Literal["readable", "grid"] = "readable",
+    lock_stackup: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``Board.stackup`` of ``design`` is the script's stack-up. Against an existing board it is decided by
+    ``stackup.merge_stackup``: the board's wins unless ``lock_stackup`` is set (``docs/lens.md``,
+    "Stack-up across rebuilds"); ``summary["stackup"]`` says whose stack-up the written board holds.
 
     ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
@@ -763,6 +769,22 @@ def build_design(
         target_design, preserved["pad_zones"] = _keep_pad_zones(
             decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
         )
+    stack_source: stacklib.StackupSource | None = None
+    if target_design.board is not None:
+        scripted = built.board.stackup if built.board is not None else None
+        if board_read:
+            decided_stack = stacklib.merge_stackup(
+                scripted, target_design.board.stackup, layers=target_design.board.layers, locked=lock_stackup
+            )
+            issues += decided_stack.issues
+            stack_source = decided_stack.source
+            if decided_stack.stackup is not target_design.board.stackup:
+                target_design = dataclasses.replace(
+                    target_design,
+                    board=dataclasses.replace(target_design.board, stackup=decided_stack.stackup),
+                )
+        elif scripted is not None:
+            stack_source = "script"
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -926,6 +948,9 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    written_stack = target_design.board.stackup if target_design.board is not None else None
+    if written_stack is not None:
+        evidence_items.append(stacklib.EVIDENCE)
     if generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
@@ -940,6 +965,13 @@ def build_design(
         "vendored": [f"lib/{nick}.pretty/{entry}" for nick, entry in vendored],
         "libraries": libraries,
         "preserved": _preserved(prepared, preserved),
+        "stackup": None
+        if written_stack is None
+        else {
+            "source": stack_source,
+            "thickness": written_stack.thickness(),
+            "copper": sum(1 for entry in written_stack.layers if entry.kind == "copper"),
+        },
         "copper": {
             **copper_counts,
             **{key: merged_copper.get(key, 0) for key in ("regenerated", "stale", "duplicates")},
@@ -1081,6 +1113,7 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "vendored": [],
         "libraries": dict(libraries),
         "preserved": _preserved(None, {}),
+        "stackup": None,
         "schematic": None,
     }
     return BuildOutput(design, {}, tuple(issues), BUILD_EVIDENCE, summary)
