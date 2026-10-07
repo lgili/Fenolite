@@ -28,6 +28,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Proposed change c0126 (spec only): a footprint of the model holds its graphics and free texts, and a rounded pad its corner ratio, so that a rewritten Altium board keeps the silkscreen and the mechanical-layer drawings of its footprints and the Altium build goes through the one lowering of a model with every committed sample byte-equal. No KiCad output changes; a model document of 0.2.0 reads as it is. **0.2.0 cannot read a model document that carries the new keys** (`graphics` and `texts` of a footprint, `corner_ratio` of a pad).
 - Development: Archived the completed specs of c0089 (level 5 of `equivalent`) and c0122 (zone holes of the Altium import), with the full suite and the CI run of the batch of the write part of v0.3 cited in their closing tasks; the delta of c0083 on the import's issue codes was regenerated from the living text.
 - Development: Recorded the author's report of 2026-10-07 on the Altium evidence pages: the written projects open in Altium Designer 26 and look right; it settles no numbered step and moves no evidence level. Names of pins that overlap on five small symbols are recorded for change c0134.
+- Development: Recorded what the folders the author returned from Altium Designer 26 on 2026-10-07 show: every saved document reads back to the written model; the written output job produces every output but the Gerber files, a defect that change c0138 repairs; no evidence level moves.
 
 ## [0.2.0] - 2026-10-06
 

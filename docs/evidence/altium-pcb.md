@@ -601,8 +601,8 @@ the names of pins overlap, and he does not know whether that is intended.
   licence the author may use for Fenolite.
 - **What it is not.** It is not the numbered steps of the Parts. No value was read back (rules and scopes, the
   layer stack, via spans, text positions, keep-out restrictions, title-block fields, outputs and containers),
-  and no compile, change order, rule check, repour or output-job run was reported. No file that Altium saved
-  has been received, so no kit step is settled and `fenolite kit verify` has nothing to read.
+  and no compile, change order, rule check, repour or output-job run was reported. When this was written no
+  file that Altium saved had been received; the folders came back later the same day (next section).
 - **A second answer, the same day.** Asked whether any repair, upgrade or conversion prompt appeared
   when he opened the kit's files, and for his minor version, the author answered: "nenhum erro ou pedido
   de restaurar foi feito, tudo abriu como projeto Altium. E meu Altium é o 26" (no error and no request
@@ -627,3 +627,67 @@ the names of pins overlap, and he does not know whether that is intended.
   definitions; the samples it regenerates are new files that this report does not cover.
 - The steps of the Parts were written from Altium's documentation; a menu path or a dialog name may read
   differently in version 26.
+
+## Returned folders of 2026-10-07
+
+Later on 2026-10-07 the author returned the two folders he had been given, after working in them by hand in
+Altium Designer 26 (minor version not stated). He said of the session that all went right, that he saved
+some files of the kit, and that the sheet of Part R showed as a page that was all black. Nothing that Altium
+wrote is in this repository; the folders were read outside it, on 2026-10-07, with Fenolite's own readers and
+`fenolite kit verify` at commit `6f6227eb`.
+
+**What came back.**
+
+- The session folder: its 64 files unchanged, and 21 new ones. A project structure file stands beside nine of
+  the ten projects, the mark that Altium compiled them; the project of Part U has none. Under the project of
+  Part O are the files that the written output job produced. The reply form of the session's guide was not
+  filled, and no note came with the folder.
+- The kit: the project file of the sample `flat` rewritten in place by Altium, and saved documents of three
+  samples: a schematic document, a PCB document and the project file of `flat`; a schematic library and a
+  schematic document of `libs`; a schematic document of `board6`. The kit's form is as built: every value empty.
+
+**What the files show.**
+
+- **Every saved document reads back to the model that was written.** Fenolite's import of each of the five
+  saved compound documents equals its import of the file it wrote. The one model difference is on the PCB
+  document: a rule `HoleSize` that Altium adds by default. Altium's save adds its own bookkeeping (identifiers
+  on records, default parameters of the sheet, default classes and rules around the written ones, further
+  storages) and keeps what was written: the nets, the components, the five written rules in keys, values and
+  order, the two written classes, the six title-block values, the class settings of the project file.
+- **The output job runs, except for its Gerber output.** NC drill, pick and place, the bill of materials and a
+  schematic and PCB print of two pages were produced, each into the container of its kind. The drill files
+  hold 7 holes of 0.3 mm and 2 of 0.9 mm, which are the seven vias and the two pads of the through-hole part of
+  the written board; the three placement rows hold the three components on their sides at the positions of the
+  model (Altium reports the centre of a part's pads, not its reference point). **No Gerber layer file was
+  produced**: the report of that output names no layer, and its aperture files are empty, with no error
+  message. The written job holds no settings record for the Gerber output (a decision of change c0087: the
+  job holds outputs, sources and containers and no setting), and for this one output Altium's default
+  plots nothing. That is a defect of the written job. Change c0138 writes the settings record of the Gerber
+  output, with the plotted layers taken from the board.
+- **The kit.** `fenolite kit verify` on the folder as returned fails every step of the sample `flat` for one
+  reason: step K1.5 (save the project under another name) made Altium rewrite the kit's own project file,
+  which then differs from its digest. With that file restored from the history copy that Altium left beside
+  it, steps K1.1, K1.2, K1.3, K1.5 and K9.1 pass (the saved schematic document, PCB document, schematic
+  library and project file are read and are equal to the samples at the levels the steps name), and no step
+  fails on a difference. The other steps have no file or no form value. This is not a recorded kit run:
+  `fenolite kit record` refuses a folder whose kit files changed and whose form is empty. The defects this
+  showed in the kit itself (the step that rewrites a kit file, wrong expected values printed for integer
+  steps, a path that the kit's privacy check does not list, a step that cannot tell an update from a save) are
+  change c0139.
+- **Part R, the black page.** The two sheets of Part R were authored record by record, outside the schematic
+  writer, and their sheet record holds no area colour and their objects no colour; every sheet that the
+  schematic writer writes, and every sheet Altium saved, holds an area colour. An absent colour most likely
+  reads as black. The files of Part R are to be authored again with the writer's colours; until then Part R
+  has no outcome.
+
+**What it moves.** No level. The reply form was not filled, so no row that needs a value read from a dialog or
+a message panel has its value; the kit rows need a recorded run. Recorded in `docs/hypotheses.md` as
+observations, with the rows left where they were: `H-A-OUTJOB-RUN` (five kinds generated, the Gerber kind
+not) and `H-A-OUTJOB-OPTIONS` (the default of the Gerber output plots no layer), both waiting for the author
+to state the outcome and his minor version; `H-A-KIT-SCRIPT` (the author reports that the first call of the
+script probe, `Client.GetServerRecordCount`, is not known to Altium Designer 26; he did not go on with the
+script). The structure files of Part Y list the sheet tree of step Y4, and five of the six outputs of Part O
+exist: both support their rows and settle neither, because the step's own report is missing.
+
+What the saved files show of the formats (keys that Altium adds, drops or reorders on a save) is input for
+the format pages and is recorded there in a change of its own.

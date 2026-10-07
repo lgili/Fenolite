@@ -24,3 +24,12 @@ On 2026-10-07 the author reported that the projects of the kit built from `5adad
 Designer 26 with no problem. That is not a kit run: no step was carried out, no file that Altium saved has
 been received, nothing was recorded with `fenolite kit record`, and no `H-A-KIT-*` row moves. The same
 report is on `docs/evidence/altium-schematic.md` and `docs/evidence/altium-pcb.md`.
+
+## Returned kit folder of 2026-10-07
+
+The author returned the kit folder the same day with saved documents of three samples and an empty form.
+It is not a recorded run: `fenolite kit verify` fails every step of the sample `flat`, because step K1.5
+made Altium rewrite the kit's own project file; with that file restored, five steps pass and none fails on
+a difference; `fenolite kit record` would refuse the folder. No `H-A-KIT-*` row moves. The account is on
+`docs/evidence/altium-pcb.md` ("Returned folders of 2026-10-07"); the kit's own defects it showed are
+change c0139.
