@@ -51,3 +51,37 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`).
 - **Exit codes:** 0 passed; 1 a step, a rule or a budget failed; 2 usage, or a missing `kicad-cli`,
   library cache, corpus row or budget table. The summary is printed, and appended to `--summary FILE`.
 - Seconds and MiB are measures of one runner: no evidence label moves on a budget.
+
+## Agent evaluation (`tools/agent_eval/`)
+
+Measures whether a fresh AI agent can use Fenolite (change c0081). `run.py` gives one task of
+`tools/agent_eval/tasks/` to one runner of `runners.toml` in a clean place, and Fenolite itself decides
+the result.
+
+```
+make agent-eval TASK=led-indicator RUNNER=replay
+uv run python tools/agent_eval/run.py --task led-indicator --runner replay [--repeat N] [--keep] [--record] [--yes]
+```
+
+| file | what it does |
+|---|---|
+| `run.py` | Builds the wheel of the checkout, installs it with no extra and no index in a new environment under a new temporary folder outside the repository (`uv` does both), makes an empty work folder, copies the task's `files/`, runs its `prepare` lines, installs the guide as the runner's row says, prints the budget, starts the runner with the call log first on `PATH`, stops it when the task's minutes are over, judges, writes `result.json` beside the work folder and prints one verdict line. Exit 0 when every verdict is `passed`, 5 otherwise, 1 when the place could not be prepared, 2 for a refused run. The temporary folder is removed unless `--keep` is given. |
+| `judge.py` | The verdict, from the files of the work folder: the project exists, `fenolite check` exits 0, the nets of the built model are the expected groups of `REF-PIN`, the board fits, the output files exist. `passed` needs `kicad-cli`; without it the verdict is `unjudged`. |
+| `shim.py` | The call log: a stand-in named `fenolite` that passes a call through unchanged and appends one JSON line per call (`n`, `argv`, `exit`, `elapsed_ms`, `error_code`). It logs no environment value; an absolute path is logged relative to the current folder, or as `<outside>/NAME`. |
+| `tasks.py`, `tasks/` | The task format and the five tasks with their reference solutions (`tasks/README.md`). |
+| `runners.toml` | The runners. `replay` plays the reference solution of a task and starts no agent: it is what the test suites run. Every other row starts a real agent and names the public page it was written from. |
+
+**A run with a real agent costs money and is started by a person, never by an agent and never in CI.**
+`run.py` refuses a runner other than `replay` while the variable `CI` is set; without `--yes` it prints
+the task, the runner, the time budget and the cost cap and starts nothing; a row marked `unconfigured`
+does not start at all. One run is one agent session of at most the task's minutes (20, and 30 for
+`custom-footprint`), so the five tasks are at most 110 minutes of agent time. What a session costs is
+not known before the first one: run `led-indicator` once, read the cost the runner reports, then decide
+on the rest. The tool reads no key and calls no service itself; the agent it starts inherits the
+environment of the person who started it, and is not sandboxed beyond an empty work folder and a new
+environment.
+
+To record a run, add `--record`: one row is appended to `docs/evidence/agent-eval.md` (date, commit,
+runner, model, task, verdict, calls, failed calls, minutes, first failure), with no path, prompt or
+transcript. Add a row to `Findings` by hand for each distinct first failure. `--keep` leaves the
+temporary folder, which holds the transcript, on your machine; it is never committed.

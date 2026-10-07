@@ -13,7 +13,7 @@ PYTEST_WORKERS ?= auto
 PYTEST_MAX_WORKERS ?= 8
 PYTEST_PARALLEL ?= -n $(PYTEST_WORKERS) --maxprocesses $(PYTEST_MAX_WORKERS) --dist loadfile
 
-.PHONY: check check-fast lint format types test test-fast residue hooks
+.PHONY: check check-fast lint format types test test-fast residue hooks agent-eval
 
 # The gate before a merge: every check and every test.
 check: lint format types residue test
@@ -52,3 +52,11 @@ YARDSTICK_ARGS ?=
 yardstick:
 	rm -rf $(YARDSTICK_OUT)
 	FENOLITE_LIBS_CACHE=$${FENOLITE_LIBS_CACHE:-$$HOME/.cache/fenolite/libs} uv run python tools/yardstick.py run --out $(YARDSTICK_OUT) --record $(YARDSTICK_OUT)/record.json $(YARDSTICK_ARGS)
+
+# One task of the agent evaluation with one runner (tools/README.md, "Agent evaluation").
+# RUNNER=replay plays the reference solution and starts no agent. Any other runner starts a real
+# agent, which costs money: pass ARGS=--yes yourself, never from CI.
+TASK ?= led-indicator
+RUNNER ?= replay
+agent-eval:
+	uv run python tools/agent_eval/run.py --task $(TASK) --runner $(RUNNER) $(ARGS)

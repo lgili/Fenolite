@@ -14,6 +14,13 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    `tests/README.md`, "Parallel runs".
 4. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat(model): …`, `fix(kicad): …`, `docs: …`, `test: …`, `chore: …`).
+5. **Agent evaluation.** `tools/agent_eval` measures whether a fresh AI agent can use Fenolite
+   (`tools/README.md`, "Agent evaluation"). `make agent-eval TASK=led-indicator RUNNER=replay` plays a
+   task's reference solution without any agent, and the test suites do the same, so a change that
+   breaks a solution fails them: repair the solution, or the code. A run with a real agent costs money:
+   only a maintainer starts one, by hand, with `--yes`, one task first, never from CI and never from an
+   agent session. Record it with `--record` in `docs/evidence/agent-eval.md`; a row is one sample and
+   supports no release claim.
 
 ## Parallel worktrees
 
