@@ -348,6 +348,7 @@ def _probes() -> dict[str, Probe]:
     }.items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _zonelayers.zone_layer_probes().items():  # change c0145
+        probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {  # change c0106
         **_lengthcases.length_probes(runner),
         **_lengthcases.meander_probes(runner),
