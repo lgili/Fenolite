@@ -113,7 +113,7 @@ None. The height of a part and the limit are definitions, proved by unit scenari
 | a script height becomes a body, kept through a rebuild | mechanical | `tests/unit/dsl/test_part_height.py`, `tests/unit/lens/test_build_bodies.py` |
 | height limits judged | `INFERRED`: Fenolite's own rule; the face of an area rests on `H-K-PLACE-KEEPOUT` | `tests/unit/checks/test_height_limits.py` on authored layouts |
 | the stage, `place`, the build guard | mechanical | their unit tests |
-| heights of an Altium reading | the import's level (`H-A-IMP-BODY-Z` of c0099 and the rows of c0043) | `tests/unit/cli/test_check_altium.py -k height` |
+| heights of an Altium reading | the import's level (the row c0099 registers for the bounds of an imported body, and the rows of c0043) | `tests/unit/cli/test_check_altium.py -k height` |
 
 ## Risks / Trade-offs
 
