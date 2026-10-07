@@ -17,7 +17,15 @@ j2 = Part("J2", "Fenolite:Connector_4", footprint="Fenolite:Header_1x4_P2.54", v
 u1 = Part("U1", "Fenolite:Microcontroller", footprint="Fenolite:DIP8_Microchip_P", value="MCU")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
 c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0805", value="100n")
-d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:LED0603_Kingbright_APT1608SURCK", value="red")
+# The LED land numbers its pads as the manufacturer does, pad 1 the cathode, while the symbol's pin 1 is the
+# anode: the map puts the anode (pin 1) on pad 2 and the cathode (pin 2) on pad 1.
+d1 = Part(
+    "D1",
+    "Fenolite:LED",
+    footprint="Fenolite:LED0603_Kingbright_APT1608SURCK",
+    value="red",
+    pad_map={"1": "2", "2": "1"},
+)
 d2 = Part("D2", "Fenolite:Diode", footprint="Fenolite:DO214AC", value="rectifier")
 design.add(j1, j2, u1, r1, c1, d1, d2)
 
@@ -25,9 +33,9 @@ vin, vcc, gnd, led_drv, led_a = Net("VIN"), Net("VCC"), Net("GND"), Net("LED_DRV
 port = [Net(f"P{k}") for k in range(4)]
 connect(vin, j1[1], d2[2])
 connect(vcc, d2[1], u1[1], c1[1])
-connect(gnd, j1[2], u1[8], c1[2], d1[1])
+connect(gnd, j1[2], u1[8], c1[2], d1["K"])
 connect(led_drv, u1[2], r1[1])
-connect(led_a, r1[2], d1[2])
+connect(led_a, r1[2], d1["A"])
 for k, net in enumerate(port):
     connect(net, j2[k + 1], u1[k + 3])
 design.add(Power(vin, gnd), Power(vcc, gnd))

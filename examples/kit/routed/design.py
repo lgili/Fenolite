@@ -32,14 +32,22 @@ design.board(mm(50), mm(30))
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="SUPPLY")
 u1 = Part("U1", "Fenolite:Microcontroller", footprint="Fenolite:DIP8_Microchip_P", value="MCU")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
-d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:LED0603_Kingbright_APT1608SURCK", value="red")
+# The LED land numbers its pads as the manufacturer does, pad 1 the cathode, while the symbol's pin 1 is the
+# anode: the map puts the anode (pin 1) on pad 2 and the cathode (pin 2) on pad 1.
+d1 = Part(
+    "D1",
+    "Fenolite:LED",
+    footprint="Fenolite:LED0603_Kingbright_APT1608SURCK",
+    value="red",
+    pad_map={"1": "2", "2": "1"},
+)
 design.add(j1, u1, r1, d1)
 
 vin, gnd, led_drv, led_a = Net("VIN"), Net("GND"), Net("LED_DRV"), Net("LED_A")
 connect(vin, j1[1], u1[1])
-connect(gnd, j1[2], u1[8], d1[1])
+connect(gnd, j1[2], u1[8], d1["K"])
 connect(led_drv, u1[2], r1[1])
-connect(led_a, r1[2], d1[2])
+connect(led_a, r1[2], d1["A"])
 design.add(Power(vin, gnd))
 design.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.6), nets=(vin, gnd))
 design.rules.rule("gap", "clearance", min=mm(0.15))

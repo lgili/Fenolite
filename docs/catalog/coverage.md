@@ -100,6 +100,7 @@ ability, assembly or fabrication qualification claim.
 
 - `LED0603_Kingbright_APT1608SURCK`: Kingbright APT1608SURCK LED suggested land, pin 1 cathode.
 - `LED0805_Kingbright_APT2012SURCK`: Kingbright APT2012SURCK LED suggested land, pin 1 cathode.
+  - Both LED lands use the manufacturer's numbering, pad 1 at the cathode, requiring an explicit pin-to-pad map with the generic LED symbol (pin 1 anode): `Part("D1", "Fenolite:LED", footprint=..., pad_map={"1": "2", "2": "1"})`, as on `SOD128_Nexperia_CFP5`.
 - `R_Axial_Vishay_MRS16_P7.62`: Vishay MRS16 with inferred 7.62 mm formed-lead pitch.
 - `R_Axial_Vishay_MRS25_P10.16`: Vishay MRS25 with inferred 10.16 mm formed-lead pitch.
 - `C_Film_Wima_MKS02_L4.6_W2.5_P2.5`: Wima MKS02 4.6 by 2.5 mm nominal body, 2.5 mm lead pitch.
