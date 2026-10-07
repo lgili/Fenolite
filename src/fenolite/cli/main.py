@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, NoReturn, TextIO, cast
 
 from fenolite import __version__
-from fenolite.cli.api import Command, Context, Result, discover
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, discover
 from fenolite.cli.errors import CliError, ErrorInfo, from_exception
 from fenolite.cli.exitcodes import ExitCode
 from fenolite.cli.output import (
@@ -246,6 +246,23 @@ def _replaced(result: dict[str, Any], path: str, items: list[Any], cut: Any) -> 
     return out
 
 
+def _payload(write: PlannedWrite) -> bytes:
+    """The bytes of a planned write. A deferred write's source is called here, once, and what it returns
+    must have the declared size and SHA-256 (cli-contract, "Deferred writes")."""
+    if write.source is None:
+        return write.data
+    data = write.source()
+    found = sha256_bytes(data)
+    if len(data) != write.size or found != write.sha256:
+        raise CliError(
+            "FEN-3006",
+            f"{write.path}: expected {write.size} bytes with SHA-256 {write.sha256}, "
+            f"found {len(data)} bytes with SHA-256 {found}; nothing was written",
+            where=write.path,
+        )
+    return data
+
+
 def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started: float,
               out: TextIO, err: TextIO) -> int:  # fmt: skip
     dry_run = bool(getattr(args, "dry_run", False))
@@ -280,7 +297,9 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         result, shown = _paged(command, result, shown, limit, args.cursor)
     if outcome.writes and (dry_run or not confirm):
         result["plan"] = [
-            {"path": w.path, "kind": w.kind, "bytes": len(w.data), "sha256": sha256_bytes(w.data),
+            {"path": w.path, "kind": w.kind,
+             "bytes": len(w.data) if w.size is None else w.size,
+             "sha256": sha256_bytes(w.data) if w.sha256 is None else w.sha256,
              "overwrite": (ctx.cwd / w.path).exists()}
             for w in outcome.writes
         ]  # fmt: skip
@@ -293,10 +312,17 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         raise CliError("FEN-2002", f"unknown field {exc.args[0]!r} in --fields") from exc
 
     if outcome.writes and confirm and not dry_run:
+        try:  # every deferred write is resolved and checked before any file of the command is written
+            payloads = [_payload(w) for w in outcome.writes]
+        except Exception as exc:
+            failure = exc if isinstance(exc, CliError) else from_exception(exc, command.name)
+            _emit(_envelope(command, Result(), {}, ok=False, receipt=None, started=started), ctx.mode, out)
+            write_error(failure.info(), ctx.mode, err)
+            return int(failure.exit_code)
         written: list[WrittenFile] = []
         backups: list[str] = []
-        for w in outcome.writes:
-            receipt_io = atomic_write(ctx.cwd / w.path, w.data, backup=not ctx.no_backup)
+        for w, data in zip(outcome.writes, payloads, strict=True):
+            receipt_io = atomic_write(ctx.cwd / w.path, data, backup=not ctx.no_backup)
             written.append(WrittenFile(path=w.path, sha256=receipt_io.sha256))
             if receipt_io.backup_path is not None:
                 backups.append(w.path + ".bak")

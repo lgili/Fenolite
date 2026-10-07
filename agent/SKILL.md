@@ -69,8 +69,9 @@ What each step is for:
 - `place --strategy grid` puts those parts on the board; when `build` reports `result.staged` empty, every
   part already has a position and this step changes nothing. `--move REF=X,Y` moves one part by hand.
 - `route` closes the open nets. `result.unrouted` lists what the router left open; an empty list is not
-  yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 or newer and the Freerouting jar
-  named by `FENOLITE_FREEROUTING_JAR`; `fenolite capabilities` lists the other routers.
+  yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 or newer and the Freerouting jar:
+  `fenolite fetch freerouting --confirm` installs it once (or name your own with `FENOLITE_FREEROUTING_JAR`);
+  `fenolite capabilities` lists the other routers.
 - `fill` refills the copper zones through `kicad-cli` 10. A board without zones needs no fill, and the
   step changes nothing there.
 - `check` is the judge: the model, the electrical rules, the copper clearances, KiCad's own design-rule

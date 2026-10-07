@@ -26,6 +26,7 @@ None.
 ### Modified Capabilities
 - `cli-contract`: ADDED "Fetch command", "Deferred writes", "Fetch error codes".
 - `routing`: MODIFIED "Freerouting plugin" (the jar's third location; downloading only through `fetch`); ADDED "Tools folder", "Fetched tools decision record".
+- `ci-baseline`: MODIFIED "Freerouting in the routing job" (the job installs the jar with `fenolite fetch`; the digest is the one of the table row, no longer a line of `ci.yml`). Added at the entry check of 2026-10-07: the proposal changed the job and held no delta for the requirement that describes it.
 
 The MODIFIED delta is the living text of `routing` at `9aba2dff` with only this change applied. No open change on `dev` holds a delta of "Freerouting plugin". Two other proposals of v0.4 modify it, c0109 and c0110: the order is c0078, c0109, c0110, and each later one regenerates its delta from the living text that the one before left.
 

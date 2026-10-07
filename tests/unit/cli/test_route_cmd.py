@@ -7,7 +7,7 @@ import sys
 from dataclasses import replace
 from pathlib import Path
 
-from _checkcli import run
+from _checkcli import hide_kicad, run
 from _fakefreerouting import create_fake_jar, create_fake_java
 from _fakerouter import create_fake_router
 from _resources import posix_tools
@@ -183,6 +183,45 @@ def test_freerouting_is_refused_without_allow_offsite(monkeypatch, tmp_path: Pat
     )
     assert code == 2 and error["code"] == "FEN-2001"
     assert "--allow-offsite" in error["hint"]
+
+
+def test_missing_jar_names_the_fetch_command(monkeypatch, tmp_path: Path) -> None:
+    """Capability routing, "Freerouting plugin" (c0078): scenario "Missing jar names the command"."""
+    monkeypatch.delenv("FENOLITE_FREEROUTING_JAR", raising=False)
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", str(tmp_path / "no-tools"))
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_text(write_board(two_pads().design, target=10).text, encoding="utf-8")
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting", "--dry-run"
+    )
+    assert code == 6 and error["code"] == "FEN-6001" and error["retryable"] is True
+    assert error["hint"] == "run 'fenolite fetch freerouting --confirm'"
+    assert "fenolite fetch freerouting --confirm" in error["message"]
+    hide_kicad(monkeypatch, tmp_path)  # doctor then finds no tool of this machine to run
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor")
+    entry = next(router for router in env["result"]["routers"] if router["name"] == "freerouting")
+    assert code == 0 and entry["available"] is False and entry["source"] is None
+    assert "fenolite fetch freerouting --confirm" in entry["reason"]
+    # a jar that is named but absent is a missing jar too
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting",
+        "--router-path", str(tmp_path / "absent.jar"), "--dry-run",
+    )  # fmt: skip
+    assert code == 6 and error["hint"] == "run 'fenolite fetch freerouting --confirm'"
+
+
+@posix_tools
+def test_missing_jar_hint_is_not_given_for_a_missing_java(monkeypatch, tmp_path: Path) -> None:
+    """With a jar and no suitable Java the registry's hint stays: ``fetch`` installs no Java."""
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="17.0.2")))
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_text(write_board(two_pads().design, target=10).text, encoding="utf-8")
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting",
+        "--router-path", str(create_fake_jar(tmp_path)), "--dry-run",
+    )  # fmt: skip
+    assert code == 6 and error["code"] == "FEN-6001" and "Java 25" in error["message"]
+    assert "fetch" not in error["hint"] and "capabilities" in error["hint"]
 
 
 @posix_tools

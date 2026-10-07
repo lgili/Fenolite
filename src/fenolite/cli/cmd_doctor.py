@@ -188,6 +188,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 reason=status.reason or None,
             )
             unsupported = False
+            if isinstance(router, FreeroutingRouter):
+                router_entry["source"] = router.jar_source  # argument, env or fetched; None without a jar
             if isinstance(router, FreeroutingRouter) and not router.image:
                 # Freerouting needs a Java of its own major: a jar without one is unsupported, not missing
                 line, major = router.java_version()

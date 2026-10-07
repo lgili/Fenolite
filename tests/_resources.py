@@ -108,7 +108,8 @@ FREEROUTING_HINT = (
 
 def freerouting_jar() -> Path | None:
     """The Freerouting jar named by ``FENOLITE_FREEROUTING_JAR``, or ``None`` when the variable is unset or
-    names no file. Fenolite never downloads the jar."""
+    names no file. The suites download nothing: ``fenolite fetch freerouting --confirm`` installs the jar,
+    and the gate reads it through this variable."""
     named = os.environ.get(FREEROUTING_ENV, "")
     return Path(named) if named and Path(named).is_file() else None
 

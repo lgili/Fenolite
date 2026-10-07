@@ -259,6 +259,8 @@ def test_java_major(line: str, major: int | None) -> None:
 def test_location_from_the_environment(tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     missing = FreeroutingRouter().available()
     assert missing.available is False and "FENOLITE_FREEROUTING_JAR" in missing.reason
+    assert "fenolite fetch freerouting --confirm" in missing.reason
+    assert FreeroutingRouter().jar_source is None and FreeroutingRouter().jar_missing is True
     monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(tmp_path / "absent.jar"))
     absent = FreeroutingRouter().available()
     assert absent.available is False and "missing" in absent.reason
@@ -269,6 +271,43 @@ def test_location_from_the_environment(tmp_path: Path, record: Path, monkeypatch
     monkeypatch.setenv("FENOLITE_JAVA", str(tmp_path / "no-java"))
     no_java = FreeroutingRouter().available()
     assert no_java.available is False and f"Java {JAVA_MIN}" in no_java.reason
+
+
+def test_fetched_jar_is_found(tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Fetched jar is found" (c0078): the tools folder is the third place, read on use."""
+    router = FreeroutingRouter(java=create_fake_java(tmp_path))  # built before the folder holds anything
+    tools = tmp_path / "tools"
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", str(tools))
+    assert router.available().available is False and router.jar_source is None and router.jar is None
+    (tools / "freerouting").mkdir(parents=True)
+    fetched = create_fake_jar(tools / "freerouting", f"freerouting-{PINNED_VERSION}.jar")
+    status = router.available()
+    assert status.available is True and status.path == str(fetched) and status.version == PINNED_VERSION
+    assert router.jar_source == "fetched" and router.jar == fetched and router.jar_missing is False
+    other = create_fake_jar(tmp_path, "other.jar")
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(other))
+    assert router.jar_source == "env" and router.jar == other
+    named = FreeroutingRouter(create_fake_jar(tmp_path, "named.jar"), create_fake_java(tmp_path))
+    assert named.jar_source == "argument" and named.jar == tmp_path / "named.jar"
+    assert not record.exists()  # nothing of this started the router
+
+
+def test_fetched_jar_of_another_version_is_not_looked_for(
+    tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tools = tmp_path / "tools"
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", str(tools))
+    (tools / "freerouting").mkdir(parents=True)
+    create_fake_jar(tools / "freerouting", "freerouting-2.5.0.jar")
+    router = FreeroutingRouter(java=create_fake_java(tmp_path))
+    assert router.jar_source is None and router.available().available is False
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", "relative")  # names no folder: no jar, and no exception
+    assert router.jar_source is None and router.jar is None
+
+
+def test_fetched_is_not_the_source_of_an_image(tmp_path: Path, record: Path) -> None:
+    assert FreeroutingRouter("docker:example/router:2.4.1").jar_source is None
+    assert FreeroutingRouter("docker:example/router:2.4.1").jar_missing is False
 
 
 def test_container_command_line(tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch) -> None:

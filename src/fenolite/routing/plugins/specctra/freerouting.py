@@ -3,8 +3,10 @@
 """Freerouting adapter (capability routing, "Freerouting plugin"; change c0023).
 
 Freerouting is a GPL-3.0 program: it runs as a subprocess, or in a container, on a Specctra design file in
-a temporary folder, and its session file is read back into tracks and vias. Fenolite never imports,
-vendors or downloads it (ADR-0006). The jar is ``path``, else ``FENOLITE_FREEROUTING_JAR``; ``java`` is
+a temporary folder, and its session file is read back into tracks and vias. Fenolite never imports or
+vendors it (ADR-0006), and this module opens no network connection: the jar is downloaded only by
+``fenolite fetch freerouting --confirm`` (ADR-0007). The jar is ``path``, else ``FENOLITE_FREEROUTING_JAR``,
+else the file that command installed in the tools folder (``fenolite.core.tools``); ``java`` is
 ``FENOLITE_JAVA``, else the one on ``PATH``. A ``path`` of the form ``docker:<image>`` runs that image with
 the network disabled.
 
@@ -28,6 +30,7 @@ from fenolite.backends.specctra.dsn import DsnDefaults, write_dsn
 from fenolite.backends.specctra.ses import read_session, to_copper
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.tools import tool_path
 from fenolite.model.design import Design
 from fenolite.routing.protocol import RouterStatus, RoutingJob, RoutingResult
 
@@ -38,6 +41,10 @@ JAVA_MIN = 25
 DEFAULT_PASSES = 20
 DEFAULT_TIMEOUT = 900
 JAR_ENV = "FENOLITE_FREEROUTING_JAR"
+FETCH_NAME = "freerouting"
+"""The folder of the jar in the tools folder, and the name of its row in ``fenolite fetch``."""
+FETCH_COMMAND = "fenolite fetch freerouting --confirm"
+"""The command that installs the pinned jar where the plugin finds it (ADR-0007)."""
 JAVA_ENV = "FENOLITE_JAVA"
 DOCKER_PREFIX = "docker:"
 # The jar inside the pinned image: its default command starts the API server, so the plugin names the jar
@@ -133,11 +140,38 @@ class FreeroutingRouter:
         self._java = str(java) if java else ""
         self.timeout = timeout
 
-    # The environment is read on use, not at construction: the registry builds one instance per process.
+    # The environment and the tools folder are read on use, not at construction: the registry builds one
+    # instance per process.
+
+    def _located(self) -> tuple[str, str | None]:
+        """The location and which of the three places gave it: the constructor's path (``argument``),
+        ``FENOLITE_FREEROUTING_JAR`` (``env``), or the file ``fenolite fetch`` installed (``fetched``, only
+        when it exists); ``("", None)`` without any."""
+        if self._path:
+            return self._path, "argument"
+        named = os.environ.get(JAR_ENV, "")
+        if named:
+            return named, "env"
+        try:
+            fetched = tool_path(FETCH_NAME, f"freerouting-{PINNED_VERSION}.jar")
+        except ValueError:  # a relative FENOLITE_TOOLS_DIR names no folder
+            return "", None
+        return (str(fetched), "fetched") if fetched.is_file() else ("", None)
 
     @property
     def _raw(self) -> str:
-        return self._path or os.environ.get(JAR_ENV, "")
+        return self._located()[0]
+
+    @property
+    def jar_source(self) -> str | None:
+        """Which place gave the jar: ``argument``, ``env`` or ``fetched``; ``None`` without a jar."""
+        raw, source = self._located()
+        return None if not raw or raw.startswith(DOCKER_PREFIX) else source
+
+    @property
+    def jar_missing(self) -> bool:
+        """Whether a jar is what is missing: none is named, or the named file does not exist."""
+        return not self.image and (self.jar is None or not self.jar.is_file())
 
     @property
     def image(self) -> str:
@@ -147,7 +181,8 @@ class FreeroutingRouter:
 
     @property
     def jar(self) -> Path | None:
-        """The jar: the constructor's path, else ``FENOLITE_FREEROUTING_JAR``; ``None`` without either."""
+        """The jar: the constructor's path, else ``FENOLITE_FREEROUTING_JAR``, else the fetched file;
+        ``None`` without any."""
         raw = self._raw
         return Path(raw).expanduser() if raw and not raw.startswith(DOCKER_PREFIX) else None
 
@@ -185,11 +220,15 @@ class FreeroutingRouter:
         if self.jar is None:
             return RouterStatus(
                 False,
-                reason=f"set {JAR_ENV} to the Freerouting {PINNED_VERSION} jar (Fenolite never downloads it)",
+                reason=f"no Freerouting jar: run '{FETCH_COMMAND}', or set {JAR_ENV}",
             )
         if not self.jar.is_file():
             return RouterStatus(
-                False, path=str(self.jar), reason=f"the Freerouting jar {self.jar} is missing"
+                False,
+                path=str(self.jar),
+                reason=(
+                    f"the Freerouting jar {self.jar} is missing: run '{FETCH_COMMAND}', or correct {JAR_ENV}"
+                ),
             )
         version = jar_version(self.jar)
         line, major = self.java_version()
