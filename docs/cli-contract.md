@@ -11,6 +11,13 @@ bumps the schema id.
 - `--limit N` and `--cursor TOKEN` page a command's main list, and `--format concise` keeps one issue
   per code (see "Paged results" and "Concise output").
 - `--fields a,b.c` keeps only those dotted paths of `result` (the rest of the envelope stays); the `plan` of a mutating command is part of `result`, so `--fields` keeps it only when listed.
+- **A command's own text.** A command may return a text of its own (`Result.text` in
+  `fenolite.cli.api`); `fenolite guide` does, for a page. In text mode stdout is then the status line
+  (`fenolite <name>: ok`), one empty line and that text as it is, in place of the `input`, `result` and
+  `evidence` lines. When the envelope holds issues or a receipt, their lines follow the text after one
+  empty line, in the form they have for any other command. In JSON mode the text has no effect: the
+  envelope is the same and holds no key for it. `--format concise` folds the issues before they are
+  printed and does not change the text. A command that failed prints as any other.
 
 ## Envelope — `schemas/fenolite.envelope.v0.json`
 
@@ -553,6 +560,61 @@ listed there, and every write kind of `result.experimental` has a row whose `wri
 Listing the matrix runs no external tool, so it is the same with `--no-tools`. Every label comes from
 a declaration in the code (`fenolite.backends.matrix`), and a backend module that declares nothing
 fails the test suite.
+
+### The brief view and the command view
+
+The default result grows with every backend and file kind. Two other views of the same command answer
+an agent's first questions in a small reply; the default result is unchanged by them.
+
+**`fenolite capabilities --brief`** says what is installed here, what it can do and where to read more.
+`result` holds exactly:
+
+| key | content |
+|---|---|
+| `fenolite_version` | the installed version |
+| `commands` | every command that is not hidden, sorted by name: `name`, `summary` (its help line) and `mutates` |
+| `targets` | `build`: the values of `build --target`, read from that command's parser (`altium`, `kicad`); `kicad`: the KiCad majors a build can target; `default`: the major written without `--kicad-version` |
+| `tools` | as in the default view |
+| `routers` | the registered routers, sorted by name: `name`, `available` and `reason` (why it is not available, else `null`) |
+| `guide` | the pages of `fenolite guide`: `topic`, `title`, `summary` |
+| `starters` | the starter projects of `fenolite init`: `name`, `summary` |
+| `sends_data_offsite` | as in the default view |
+
+- A router's availability comes from its own check, which runs `java -version` at most and never starts
+  the router. With `--no-tools` no check runs, and `available` and `reason` are `null`.
+- `targets.build` says that a target exists. It says nothing about how far the target is verified:
+  the brief view holds no evidence level. Read `result.matrix`, `result.experimental` and
+  `result.backends` of the default view for that, per file kind.
+- The brief result is bounded: with `--no-tools` its JSON is under 300 bytes per listed command plus
+  2 000 bytes, and a test keeps it there.
+- `--brief` chooses another `result` for this one command; `--format concise` folds the issues of any
+  command. They may be given together, and `--fields` works on the brief result.
+
+**`fenolite capabilities --command NAME`** describes one command. `result` holds exactly `command` and
+`global_arguments`. `command` is the command's entry of the default view (`name`, `mutates`, `schema`,
+`hidden`, and `example_tools`, `paged` and `default_limit` when it has them) with three more keys:
+`summary`, `usage` (one line that starts with `fenolite <name>`) and `arguments`. `global_arguments`
+lists once the flags that every command takes (`--json`, `--fields`, `--kicad-version` and the others).
+A hidden command is described when it is named exactly. The view runs no tool.
+
+The arguments are read from the command's own parser (`fenolite.cli.describe`), so they cannot differ
+from what `--help` prints, and `--dry-run` and `--confirm` are among the arguments of a mutating command
+only. Each argument has exactly these fields:
+
+| field | content |
+|---|---|
+| `name` | the name the parser stores the value under |
+| `flags` | the option strings, such as `["-o", "--output"]`; empty for a positional |
+| `kind` | `positional`, `option` (takes a value) or `flag` (takes none) |
+| `type` | `integer`, `number`, `boolean` (a flag) or `string` |
+| `choices` | the accepted values, sorted, or `null` |
+| `default` | a JSON value, or `null` |
+| `required` | whether the command line must hold it |
+| `repeatable` | whether it may be given more than once or takes several values |
+| `help` | its help text |
+
+`--brief` and `--command` exclude each other (exit 2, `FEN-2001`). An unknown `NAME` exits 2 with
+`FEN-2001`, and the hint names the three closest command names.
 
 ## Altium import
 
@@ -2232,3 +2294,83 @@ otherwise). The evidence is `UNVERIFIED`: installing a tool proves nothing about
 | 3 | `FEN-3006` | the bytes do not have the pinned size or SHA-256 (the message holds both digests); nothing is written |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 6 | `FEN-6003` | the download failed (retryable); the hint names `--from FILE` |
+
+## guide
+
+`fenolite guide [TOPIC]` prints the agent guide that ships in the package (`src/fenolite/agent/`): the
+pages an AI agent reads before it works on a board. The pages belong to the installed version, need no
+file and no network, and the command runs no tool. Its evidence is `UNVERIFIED`: a page is text, and no
+tool judged it.
+
+- **Without a topic**, `result` holds `version` (of Fenolite) and `topics`: one `{topic, title, summary,
+  lines}` per page, the page `start` first and the others sorted by topic. In text mode the command prints
+  one line per page, `<topic>: <summary>`.
+- **With a topic**, `result` holds `topic`, `title`, `summary`, `text` (the page without its front matter)
+  and `version`. In text mode the command prints the page as it is, after the status line and one empty
+  line (see "Output"): `fenolite guide start --text` is how an agent reads a page. The JSON form is for
+  programs.
+
+`start` is the body of the skill's `SKILL.md`; the other pages are the files of its `references/` folder.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | the list, or one page |
+| 2 | `FEN-2001` | an unknown topic; the hint names the closest topics, or all of them when none is close |
+
+## skill
+
+`fenolite skill show` lists the skill folder that ships in the package, and `fenolite skill install
+[--agent NAME | --dir DIR] [--agents-md]` copies it to where an agent reads skills. The command runs no
+tool and opens no connection. It is a mutating command: `install` writes only with `--confirm`, keeps a
+`.bak` of a file it replaces and returns a receipt.
+
+- **`show`** plans nothing. `result` holds `name` (`fenolite`), `description`, `version`, `files` (each
+  `path`, `bytes` and `sha256`) and `agents` (each `agent` and `dir`: the agents whose project skill
+  folder Fenolite knows from a public source; today `claude-code`, `.claude/skills`).
+- **`install --dir DIR`** plans one file per file of the skill, at `DIR/fenolite/<path>`. `--dir` takes
+  any folder, so it serves every agent. `--agent NAME` uses the folder of that row of `result.agents`
+  instead, relative to the working directory; the two exclude each other.
+- **The version line.** The installed `SKILL.md` is the packaged file followed by one line,
+  `<!-- installed from fenolite <version> -->`, so a copy that grew stale can be told from the installed
+  package. Every other file is copied byte for byte. `fenolite guide` always prints the pages of the
+  installed version.
+- **`--agents-md`** also plans `AGENTS.md` in the working directory, for agents that read that file and
+  no skill folder. The section it keeps is fixed, lies between the lines `<!-- fenolite:begin -->` and
+  `<!-- fenolite:end -->`, and tells an agent to run `fenolite guide start --text` before a board task.
+  A missing file is created with the section alone; a file without the markers gets an empty line and
+  the section appended; a file with both gets the text between them replaced, so a second run plans the
+  same bytes. Text outside the markers is never changed.
+
+`result` of `install` holds `action`, `target` (the skill folder, or `null` with `--agents-md` alone),
+`files` (the paths planned) and `version`.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | `show`; a dry run or a confirmed `install` |
+| 2 | `FEN-2001` | `install` with none of `--agent`, `--dir` and `--agents-md`; both `--agent` and `--dir`; an unknown agent (the hint names the agents and `--dir`); an option given to `show` |
+| 3 | `FEN-3004` | `AGENTS.md` holds one marker line without the other, or is not UTF-8 text |
+| 4 | `FEN-4001` | `install` with neither `--dry-run` nor `--confirm` |
+
+## init
+
+`fenolite init DIR [--starter NAME] [--name NAME] [--force]` writes a starter project into `DIR`: a design
+script that names only parts of the built-in catalog, so it builds on a machine with no KiCad library and
+no library table. It runs no tool. It is a mutating command: one file per file of the starter is planned,
+here `DIR/design.py`, and written with `--confirm`.
+
+- `--starter` chooses the starter (`blink` by default); `fenolite capabilities --brief` lists them.
+- The design name is `--name`, else the last part of `DIR`. It must match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`.
+- An existing `DIR/design.py` is kept: the command exits 2 unless `--force` is given, and with it the
+  replaced script stays beside the new one as `design.py.bak`.
+
+`result` holds `starter`, `name`, `design` (the path of the script) and `next`, the two commands to run
+next: `fenolite build <design> --out DIR/build --dry-run --json`, then the same with `--confirm`.
+
+The starter `blink` is a two-pin header, a resistor and a LED on a 30 mm by 20 mm two-layer board, with
+every part placed so that `fenolite route --router direct` closes its three nets with straight tracks.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run or a confirmed write |
+| 2 | `FEN-2001` | an unknown starter (the hint names them); a name that is not a design name (the hint names `--name`); `DIR/design.py` exists and `--force` is not given |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |

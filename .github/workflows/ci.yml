@@ -72,6 +72,16 @@ jobs:
           /tmp/wheel-venv/bin/fenolite capabilities --json > /tmp/capabilities.json
           /tmp/wheel-venv/bin/python -c "import json; assert json.load(open('/tmp/capabilities.json'))['ok']"
           /tmp/wheel-venv/bin/python -c "import importlib.metadata as m; r = m.requires('fenolite') or []; assert all('extra ==' in x for x in r), r"
+      - name: The wheel carries the agent guide and a starter project
+        run: |
+          mkdir /tmp/empty-project
+          cd /tmp/empty-project
+          /tmp/wheel-venv/bin/fenolite guide start --text > /tmp/guide.txt
+          grep -q '^# Fenolite' /tmp/guide.txt
+          grep -q '^```fenolite-loop$' /tmp/guide.txt
+          /tmp/wheel-venv/bin/fenolite init blink --dry-run --json > /tmp/init.json
+          /tmp/wheel-venv/bin/python -c "import json; r = json.load(open('/tmp/init.json'))['result']; assert [p['path'] for p in r['plan']] == ['blink/design.py'], r"
+          test -z "$(ls -A /tmp/empty-project)"
       - name: The wheel holds no test, private or example file
         run: |
           python3 - <<'PY'

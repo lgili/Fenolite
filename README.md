@@ -7,7 +7,7 @@ files, with `kicad-cli` as the verification oracle); a second backend for anothe
 format family follows.
 
 > **Status: version 0.2.** A design script becomes a KiCad project with a board and a schematic, for
-> KiCad 9.0 and 10.0. The loop below works on two-layer boards: the board is placed, routed by an
+> KiCad 9.0 and 10.0. The loop works on two-layer boards: the board is placed, routed by an
 > external router, filled, checked by KiCad's own design-rule check and exported to fabrication files.
 > The schematic is judged by KiCad's own electrical rules check, by its netlist and by its schematic
 > parity test. What was proved for this version, and its limits, are in `docs/release/v0.2.md`
@@ -84,20 +84,24 @@ and Windows.
 
 ## The loop
 
-The ten commands an agent runs, from a design script to fabrication files (`agent/SKILL.md` explains
-each one and what to do when one fails):
+The ten commands an agent runs, from an empty folder to fabrication files. They start from a starter
+project made of built-in parts and use the built-in router, so `kicad-cli` is the only tool they need; a
+real board is routed by an external router or by copper written in the script.
+`fenolite guide start --text` prints the agent guide, which explains each command and what to do when one
+fails (in this repository: `src/fenolite/agent/skill/SKILL.md`), and `fenolite skill install` copies it
+to where an agent reads skills:
 
 ```fenolite-loop
-fenolite capabilities --json
-fenolite build examples/blink_2layer/design.py --out build/blink --dry-run --json
-fenolite build examples/blink_2layer/design.py --out build/blink --confirm --json
-fenolite place build/blink --strategy grid --confirm --json
-fenolite route build/blink --router freerouting --confirm --json
-fenolite fill build/blink --confirm --json
-fenolite check build/blink --json
-fenolite export build/blink -o build/blink/fab --all --manifest --confirm --json
-fenolite render build/blink -o build/blink/views --svg --png --confirm --json
-fenolite inspect build/blink/blink.kicad_pcb --json
+fenolite capabilities --brief --json
+fenolite init blink --confirm --json
+fenolite build blink/design.py --out blink/build --dry-run --json
+fenolite build blink/design.py --out blink/build --confirm --json
+fenolite place blink/build --strategy grid --confirm --json
+fenolite route blink/build --router direct --confirm --json
+fenolite fill blink/build --confirm --json
+fenolite check blink/build --json
+fenolite export blink/build -o blink/fab --all --manifest --confirm --json
+fenolite render blink/build -o blink/views --svg --png --confirm --json
 ```
 
 ## Install for development

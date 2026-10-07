@@ -51,4 +51,5 @@ Read this file before changing anything. Humans: this is also the short version 
 5. Pass `--seed` and `--timestamp` when you need byte-identical outputs.
 6. Every reply carries `evidence.level`; treat anything below `KICAD-VERIFIED` as unconfirmed.
 7. The loop is `capabilities`, `build`, `place`, `route`, `fill`, `check`, `export`, `render`, `inspect`:
-   `agent/SKILL.md` holds the ten commands and what to do for each exit code.
+   `src/fenolite/agent/skill/SKILL.md` holds the ten commands and what to do for each exit code.
+   `fenolite guide start --text` prints that page for the installed version.
