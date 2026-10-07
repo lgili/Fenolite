@@ -392,8 +392,9 @@ def part_specs(
             _text(pin.designator, f"{component.ref} pin designator")
             _text(pin.name or pin.designator, f"{component.ref} pin name")
         pin_pads = map_pins(component, [pin.designator for pin in body.pins]) if footprint else ()
-        for _pin, pad in pin_pads:
-            _text(pad, f"{component.ref} pad name")
+        for _pin, pads in pin_pads:
+            for pad in pads:
+                _text(pad, f"{component.ref} pad name")
         specs.append(
             PartSpec(
                 key=component_path(component),

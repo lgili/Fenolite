@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Literal, cast
@@ -168,6 +168,17 @@ class PinHandle:
     designator: str
 
 
+def pads_of(value: str | Sequence[str]) -> tuple[str, ...]:
+    """The pads of one value of ``Part.pad_map``: a string is one pad, a sequence several, in order."""
+    return (value,) if isinstance(value, str) else tuple(value)
+
+
+def pad_pairs(pad_map: Mapping[str, str | Sequence[str]]) -> tuple[tuple[str, str], ...]:
+    """``Component.pin_pad_map`` of a ``pad_map``: the pins in sorted order, the pads of one pin as written.
+    For a map of one pad per pin this is ``tuple(sorted(pad_map.items()))``."""
+    return tuple((pin, pad) for pin in sorted(pad_map) for pad in pads_of(pad_map[pin]))
+
+
 class Part:
     """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
 
@@ -179,7 +190,7 @@ class Part:
         value: str | Quantity = "",
         *,
         properties: Mapping[str, str] | None = None,
-        pad_map: Mapping[str, str] | None = None,
+        pad_map: Mapping[str, str | Sequence[str]] | None = None,
     ) -> None:
         self.ref = check_name(ref, "ref")
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -198,18 +209,31 @@ class Part:
             pad_map = {}
         if not isinstance(pad_map, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {ref}: pad_map must map symbol pin numbers to footprint pad numbers")
-        checked_map: dict[str, str] = {}
+        checked_map: dict[str, str | tuple[str, ...]] = {}
         targets: set[str] = set()
         for source, target in cast(Mapping[object, object], pad_map).items():
-            if not isinstance(source, str) or not source or not isinstance(target, str) or not target:
+            if not isinstance(source, str) or not source:
                 raise DslError(f"part {ref}: pad_map keys and values must be non-empty strings")
+            # one pad, or a tuple or list of pads for a pin bonded to several (change c0123)
+            several = isinstance(target, (tuple, list))
+            pads = tuple(cast("Sequence[object]", target)) if several else (target,)
+            if not pads:
+                raise DslError(f"part {ref}: pad_map gives symbol pin {source!r} no pad")
+            for index, pad in enumerate(pads):
+                if not isinstance(pad, str) or not pad:
+                    raise DslError(f"part {ref}: pad_map keys and values must be non-empty strings")
+                if pad in pads[:index]:
+                    raise DslError(f"part {ref}: pad_map lists pad {pad!r} twice for symbol pin {source!r}")
+                if pad in targets:
+                    raise DslError(f"part {ref}: pad_map maps more than one pin to pad {pad!r}")
+                targets.add(pad)
             if source in checked_map:
                 raise DslError(f"part {ref}: pad_map repeats symbol pin {source!r}")
-            if target in targets:
-                raise DslError(f"part {ref}: pad_map maps more than one pin to pad {target!r}")
-            checked_map[source] = target
-            targets.add(target)
-        self.pad_map: Mapping[str, str] = MappingProxyType(dict(sorted(checked_map.items())))
+            names = cast("tuple[str, ...]", pads)
+            checked_map[source] = names[0] if len(names) == 1 else names
+        self.pad_map: Mapping[str, str | tuple[str, ...]] = MappingProxyType(
+            dict(sorted(checked_map.items()))
+        )
         self.parent: Container | None = None
         self.request: Request | None = None
         self.field_requests: dict[str, FieldRequest] = {}

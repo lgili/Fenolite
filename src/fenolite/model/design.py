@@ -18,7 +18,7 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import new_id
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Pad
-from fenolite.model.circuit import Circuit, Component, Net, PinRef
+from fenolite.model.circuit import Circuit, Component, Net, PinRef, pin_pad_map_problems
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
@@ -180,6 +180,10 @@ class Design:
                 )
                 severity: Severity = "warning" if board_only or ref.endswith("**") else "error"
                 add("model.duplicate-ref", severity, f"reference used {count} times", ref)
+        for component in self.circuit.components:
+            for pin, text in pin_pad_map_problems(component):
+                add("model.pin-pad-map", "error", text, f"{component.ref}-{pin}",
+                    "give each pad one pin, and each pair once")  # fmt: skip
         components = {c.id: c for c in self.circuit.components}
         netclasses = {c.id for c in self.circuit.netclasses}
         net_ids = {n.id for n in self.circuit.nets}

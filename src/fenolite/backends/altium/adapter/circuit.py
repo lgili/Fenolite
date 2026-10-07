@@ -53,36 +53,40 @@ class CircuitImport:
 
 
 def pin_pad_map(group: PartGroup) -> tuple[tuple[tuple[str, str], ...], tuple[tuple[str, str], ...], int]:
-    """The pin-to-pad map of a component as the model holds it, one pad per pin, with what it cannot hold.
+    """The pin-to-pad map of a component as the model holds it, with what it cannot hold.
 
     A map record names the pads of one pin (``docs/formats/altium/connectivity.md``, "Component link").
-    The model's map gives a pin one pad and a pad one pin, so: a pin whose pads include its own designator
-    keeps it; another pin takes the first pad listed; a pin whose pad another pin already stands for, and
-    a pin mapped to no pad, keep their own designator. Returns the pairs, every record that the pairs do
-    not say in full as ``(pin, pads joined by a comma)``, and the count of those records."""
+    The model's map gives a pin any number of pads and a pad one pin (change c0123), so a record gives one
+    pair per pad it lists, in its order. The pins are taken in the order of the pin table; a pin without a
+    record, a pin whose record lists its own designator and a pin whose record lists no pad stand for the
+    pad of their own designator before any other pin is taken. A pad that another pin stands for gives no
+    pair, and a pin none of whose pads gives a pair keeps its own designator. Returns the pairs, every
+    record that the pairs do not say in full as ``(pin, pads joined by a comma)`` (a record without a pad,
+    and one of which a pad gave no pair), and the count of those records."""
     pins = [pin.designator for pin in group.pins]
-    wanted: dict[str, str] = {}
-    kept: list[tuple[str, str]] = []
-    for pin, pads in group.pin_pads:
-        if pin not in pins:
-            continue
-        if len(pads) != 1:
-            kept.append((pin, ",".join(pads)))
-        if pads and pin not in pads:
-            wanted[pin] = pads[0]
-    taken = {pin for pin in pins if pin not in wanted}
-    pairs: list[tuple[str, str]] = []
+    records = {pin: pads for pin, pads in group.pin_pads if pin in pins}
+    holder: dict[str, str] = {}
     for pin in pins:
-        pad = wanted.get(pin)
-        if pad is None:
+        pads = records.get(pin)
+        if not pads or pin in pads:
+            holder.setdefault(pin, pin)
+    pairs: list[tuple[str, str]] = []
+    kept: list[tuple[str, str]] = []
+    for pin in pins:
+        pads = records.get(pin)
+        if pads is None:
             continue
-        if pad in taken:
-            taken.add(pin)
-            if (pin, pad) not in kept:
-                kept.append((pin, pad))
-            continue
-        taken.add(pad)
-        pairs.append((pin, pad))
+        whole, given = bool(pads), False
+        for pad in dict.fromkeys(pads):
+            if holder.setdefault(pad, pin) != pin:
+                whole = False
+                continue
+            pairs.append((pin, pad))
+            given = True
+        if not given:
+            holder.setdefault(pin, pin)
+        if not whole:
+            kept.append((pin, ",".join(pads)))
     return tuple(pairs), tuple(kept), len(kept)
 
 
@@ -264,9 +268,9 @@ def build_circuit(resolved: Resolved, ids: Ids, issues: list[Issue]) -> CircuitI
         issues.append(
             issue(
                 "altium.import.pin-map",
-                f"{partial} pin map record(s) name several pads, no pad, or a pad that another pin holds: "
-                "the model gives a pin one pad, so the comparison takes one pad for such a pin; the record "
-                "is kept in the component's altium bag (pin_pads)",
+                f"{partial} pin map record(s) name no pad, or a pad that another pin holds: the model gives "
+                "a pad one pin, so such a pad is left off the pin; the record is kept in the component's "
+                "altium bag (pin_pads)",
                 sheets[instances[0].sheet].input.file if instances else "",
             )
         )

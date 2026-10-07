@@ -339,3 +339,41 @@ def test_output_order_is_stable() -> None:
     assert first == second
     assert [d.where for d in first.levels[0].differences] == ["C1", "R10", "R2"]
     assert _kinds(first, 4) == [("side", "R2")]
+
+
+def test_level2_several_pads_of_one_pin() -> None:
+    """Capability design-equivalence, "Level 2 names every pad of a pin", scenario "Circuit against
+    board" (change c0123)."""
+    board = _cases.netted(
+        _cases.design([("U1", "IC")], {"U1": [_cases.pad("1"), _cases.pad("3", 1), _cases.pad("EP", 2)]}),
+        {"GND": [("U1", "3"), ("U1", "EP")]},
+    )
+    circuit = _cases.circuit_only(board)
+
+    # the circuit side says the same with one pin bonded to two pads
+    def bonded(component: object) -> object:
+        pins = tuple(pin for pin in component.pins if pin.number != "EP")  # type: ignore[attr-defined]
+        return dataclasses.replace(component, pins=pins, pin_pad_map=(("3", "3"), ("3", "EP")))  # type: ignore[type-var]
+
+    nets = tuple(
+        dataclasses.replace(net, members=tuple(m for m in net.members if m.pin != "EP"))
+        for net in circuit.circuit.nets
+    )
+    mapped = dataclasses.replace(
+        circuit,
+        circuit=dataclasses.replace(
+            circuit.circuit,
+            components=tuple(bonded(c) for c in circuit.circuit.components),
+            nets=nets,  # type: ignore[misc]
+        ),
+    )
+    report = compare_designs(mapped, board, level=2)
+    assert report.equivalent and report.differences == () and report.levels[1].compared == 3
+    moved = _cases.netted(board, {"OTHER": [("U1", "EP")]})
+    found = compare_designs(mapped, moved, level=2).differences
+    assert [(d.kind, d.where) for d in found if d.level == 2] and all(
+        "EP" in d.where or "3" in d.where for d in found
+    )
+    # level 3 reads no map: two boards compare alike whatever the circuit's map says
+    with_map = _cases.with_component(board, "U1", pin_pad_map=(("3", "3"), ("3", "EP")))
+    assert compare_designs(with_map, board, level=3).differences == ()

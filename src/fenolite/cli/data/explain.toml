@@ -275,8 +275,8 @@ fix = "Nothing to do; check the local net names if the option matters to you."
 see = "Altium import"
 
 ["altium.import.pin-map"]
-meaning = "Count of pin map records of footprint models that name several pads for one pin, no pad, or a pad another pin holds. The model gives a pin one pad: the comparison takes its own designator when the record lists it, else the first pad; the record is kept in the component's altium bag (`pin_pads`)."
-fix = "Nothing. The further pads of such a pin show as covered by the PCB document only."
+meaning = "Count of pin map records of footprint models that name no pad for a pin, or a pad another pin holds. The model gives a pad one pin: such a pad is left off the pin, and the record is kept in the component's altium bag (`pin_pads`). A record that lists several pads is not counted: the pin takes each of them."
+fix = "Nothing. A pad left off its pin shows as covered by the PCB document only."
 see = "Altium import"
 
 ["altium.import.padstack-unknown"]

@@ -81,6 +81,9 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
             )
             for net in nets
         ]
+    # a pin-to-pad map that no footprint model of the generated schematic holds (change c0123)
+    unmapped = gone.get("pin-pad-map", frozenset())
+    components = [dataclasses.replace(c, pin_pad_map=()) if c.id in unmapped else c for c in components]
     classes = tuple(c for c in circuit.netclasses if c.id not in gone.get("netclass", ()))
     circuit = dataclasses.replace(circuit, components=tuple(components), nets=tuple(nets), netclasses=classes)
     return dataclasses.replace(design, circuit=circuit, board=board)

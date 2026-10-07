@@ -25,6 +25,7 @@ from fenolite.backends.base import PadNetList, SchematicSide, SideComponent
 from fenolite.backends.kicad import netnames, sch, sch_netlist
 from fenolite.backends.kicad.netlist import KicadNetlist
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 from fenolite.model.schematic import SchematicSheet
 
 BODY_STYLE = 1
@@ -52,6 +53,13 @@ def grammar_issues(sheets: Mapping[str, SchematicSheet]) -> tuple[Issue, ...]:
     folder. A file that a sheet reference names and that is missing is no key, so the grammar reports it."""
     (_, root), *rest = sheets.items()
     return sch_netlist.grammar_issues(root, children=dict(rest))
+
+
+def own_evidence(sheets: Mapping[str, SchematicSheet]) -> Evidence:
+    """The evidence of ``own_netlist(sheets)`` (``sch_netlist.evidence_of``): that of the own netlist, with
+    the rows of stacked pins when the sheets hold any."""
+    (_, root), *rest = sheets.items()
+    return sch_netlist.evidence_of(root, dict(rest))
 
 
 def own_netlist(sheets: Mapping[str, SchematicSheet], *, project: str) -> KicadNetlist:
@@ -148,6 +156,7 @@ __all__ = [
     "assignment_nodes",
     "grammar_issues",
     "netlist_nodes",
+    "own_evidence",
     "own_netlist",
     "read_sheets",
     "schematic_side",

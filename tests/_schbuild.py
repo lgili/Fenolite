@@ -132,6 +132,61 @@ def snap_design(*, second: bool = False, adjacent: bool = False) -> Design:
     return design
 
 
+STACKED = "stacked"
+QFP = "Mini:Mini_QFP-32_7x7mm_P0.8mm"
+
+
+def stacked_design(first_pad_only: bool = False) -> Design:
+    """Pins bonded to several pads (change c0123), from the mini library alone: ``U1`` has an output pin
+    and two power inputs with two pads each on nets, and a marked, unnamed pin with three pads whose
+    numbers sort before and after its own; ``R1`` has two pads per pin on nets; ``D2`` has its named pin
+    ``K`` with two pads on no net and without a mark (the first pad is not the lowest); ``D1`` holds a map
+    of one pad per pin. With ``first_pad_only`` every pin has the first of its pads alone, which is what
+    the electrical rules check of the stacked design is compared with."""
+
+    def pads(*numbers: str) -> str | tuple[str, ...]:
+        return numbers[0] if first_pad_only or len(numbers) == 1 else numbers
+
+    design = Design(STACKED)
+    design.board(mm(70), mm(40))
+    gate = Part(
+        "U1",
+        "Mini:Mini_DualGate",
+        footprint=QFP,
+        value="GATE",
+        pad_map={
+            "3": pads("3", "23"),
+            "5": pads("5", "15", "9"),
+            "7": pads("7", "27"),
+            "14": pads("14", "24"),
+        },
+    )
+    led = Part("D2", "Mini:Mini_LED", footprint=QFP, value="LED", pad_map={"1": pads("21", "17"), "2": "2"})
+    r1 = Part(
+        "R1", "Mini:Mini_R", footprint=QFP, value="330", pad_map={"1": pads("1", "2"), "2": pads("3", "4")}
+    )
+    d1 = Part(
+        "D1", "Mini:Mini_LED", footprint="Mini:Mini_LED_THT_3mm", value="LED", pad_map={"1": "2", "2": "1"}
+    )
+    design.add(gate, led, r1, d1)
+    vcc, gnd, out, led_a = Net("VCC"), Net("GND"), Net("OUT"), Net("LED_A")
+    connect(vcc, gate[14])
+    connect(gnd, gate[7], d1[1])
+    connect(out, gate[3], r1[1])
+    connect(led_a, r1[2], led[2], d1[2])
+    no_connect(gate[1], gate[2], gate[4], gate[5], gate[6])
+    design.add(Power(vcc, gnd))
+    gate.place(mm(12), mm(14))
+    led.place(mm(30), mm(14))
+    r1.place(mm(48), mm(14))
+    d1.place(mm(62), mm(30))
+    return design
+
+
+def built_stacked(target: int = 10, *, first_pad_only: bool = False, **kwargs: object) -> BuildOutput:
+    return build(stacked_design(first_pad_only), target, **kwargs)
+
+
 def root_name(output: BuildOutput) -> str:
     """The root schematic file of a build: the one beside the board, not under ``sheets/``."""
     return next(path for path in output.files if path.endswith(".kicad_sch") and "/" not in path)
@@ -192,11 +247,14 @@ def built_nested(target: int = 10, **kwargs: object) -> BuildOutput:
 
 __all__ = [
     "NESTED",
+    "QFP",
+    "STACKED",
     "SLASH_NET",
     "UNITS",
     "blink_slash",
     "blink_unmarked",
     "built_nested",
+    "built_stacked",
     "built_units",
     "children_of",
     "design_of",
@@ -205,6 +263,7 @@ __all__ = [
     "root_name",
     "sheet_of",
     "snap_design",
+    "stacked_design",
     "units_design",
     "write_files",
 ]

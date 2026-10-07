@@ -13,8 +13,9 @@ import _altium_records as rec
 import pytest
 from _altium_built import EXAMPLES, build_altium_example
 
-from fenolite.backends.altium import lower, pcbdoc, pcbrecords
+from fenolite.backends.altium import lower, pcbdoc, pcbrecords, roundtrip
 from fenolite.backends.altium.adapter import import_board
+from fenolite.backends.altium.adapter.ids import bag
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import ArcRecord
@@ -224,23 +225,38 @@ def test_build_agrees(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 def test_circuit_items_of_repeated_sheets_are_counted() -> None:
-    """Change c0083 gave imported components a pin-to-pad map and modules their channel: the generated
-    schematic is one sheet of generic symbols, so a write counts each map, each module and each channel
-    as not written, with one info per kind, and none of them is a loss that refuses the write."""
+    """Change c0083 gave modules their channel: the generated schematic is one sheet, so a write counts
+    each module and each channel as not written, with one info per kind. Change c0123 writes the
+    pin-to-pad map of a component into its footprint model, so what a write counts of a map is what stays
+    unwritten: a map without a footprint model to hold it (``pin-pad-map``), and a bag record that the
+    model's map cannot say (``pin-pads``). None of them is a loss that refuses the write."""
     (project,) = sorted((SAMPLES / "hier").glob("*.PrjPcb"))
     first = _read(project)
     assert first.circuit.modules
-    component = first.circuit.components[0]
-    mapped = dataclasses.replace(component, pin_pad_map=(("1", "1"),))
-    circuit = dataclasses.replace(first.circuit, components=(mapped, *first.circuit.components[1:]))
+    component, other = first.circuit.components[0], first.circuit.components[1]
+    assert component.lib_footprint_ref and other.lib_footprint_ref
+    number = component.pins[0].number
+    mapped = dataclasses.replace(component, pin_pad_map=((number, "X9"),))
+    bare = dataclasses.replace(other, pin_pad_map=((other.pins[0].number, "X9"),), lib_footprint_ref="")
+    circuit = dataclasses.replace(first.circuit, components=(mapped, bare, *first.circuit.components[2:]))
     issues: list[Issue] = []
     inputs = lower.from_design(dataclasses.replace(first, circuit=circuit), issues=issues)
-    assert inputs.not_lowered["pin-pad-map"] == (component.id,)
+    # the map of a component with a footprint model is written; the one without is counted
+    assert inputs.not_lowered["pin-pad-map"] == (bare.id,)
+    assert "pin-pads" not in inputs.not_lowered
     assert set(inputs.not_lowered["module"]) == {module.id for module in first.circuit.modules}
     assert "channel" not in inputs.not_lowered  # the sample repeats no sheet
     found = {i.where: i.severity for i in issues if i.where in ("pin-pad-map", "module")}
     assert found == {"pin-pad-map": "info", "module": "info"}
-    assert not {"pin-pad-map", "module", "channel"} & lower.LOSS_KINDS
+    assert not {"pin-pad-map", "pin-pads", "module", "channel"} & lower.LOSS_KINDS
+    # a record that the model's map cannot hold stays in the bag and is counted under its own kind
+    kept = dataclasses.replace(mapped, ext=bag([("pin_pads", "3=")]))
+    circuit = dataclasses.replace(first.circuit, components=(kept, *first.circuit.components[1:]))
+    issues = []
+    inputs = lower.from_design(dataclasses.replace(first, circuit=circuit), issues=issues)
+    assert inputs.not_lowered["pin-pads"] == (component.id,) and "pin-pad-map" not in inputs.not_lowered
+    assert roundtrip.unwritten_pin_maps(dataclasses.replace(first, circuit=circuit)) == 1
+    assert roundtrip.unwritten_pin_maps(first) == 0
 
 
 # --- arcs keep their record (change c0127) ---------------------------------------------------------------

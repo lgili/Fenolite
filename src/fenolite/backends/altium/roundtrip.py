@@ -71,7 +71,7 @@ EVIDENCE_RT_A1: Mapping[str, Evidence] = MappingProxyType(
 RT_A2_SCOPE = ModelScope(
     fields=MappingProxyType(
         {
-            "component": ("ref", "value"),
+            "component": ("ref", "value", "pin_pad_map"),
             "net": ("name", "members"),
             "no_connect": (),
             "netclass": ("name",),
@@ -125,6 +125,17 @@ def body_changes(
         return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
     return tuple(Change(path, cast(Any, change), text(a), text(b)) for path, change, a, b in differences)
+
+
+def unwritten_pin_maps(design: Any) -> int:
+    """The number of ``pin_pads`` records in the ``altium`` bags of the components of ``design`` (a
+    ``Design``): what a footprint model says of its pins that the model's map cannot hold, and no writer
+    writes (change c0123; a record without a pad, or with a pad that another pin holds)."""
+    count = 0
+    for component in design.circuit.components:
+        bag = component.ext.get("altium")
+        count += sum(1 for key, _value in (bag.payload if bag is not None else ()) if key == "pin_pads")
+    return count
 
 
 RECORD_PREFIX = "record:"
@@ -792,4 +803,5 @@ __all__ = [
     "first_unequal",
     "rt_a0",
     "rt_a1",
+    "unwritten_pin_maps",
 ]

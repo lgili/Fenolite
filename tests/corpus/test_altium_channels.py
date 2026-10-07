@@ -194,4 +194,14 @@ def test_pin_map_never_uncovers_an_element(name: str) -> None:
     assert len(mapped.differences) <= len(plain.differences) and mapped.common >= plain.common
     assert bool(partial) == any(i.code == "altium.import.pin-map" for i in issues)
     if name == CHANNEL_SET:
-        assert (mapped.common - plain.common, pairs, partial) == (6, 6, 2)
+        # ``H-A-IMP-PINMAP-MULTI`` (change c0123): two of its pins list two and four pads, and each pad is
+        # an element; before that change the row read 694 common, 7, 31 and 2, with two records in a bag
+        assert (mapped.common - plain.common, pairs, partial) == (10, 11, 0)
+        assert (mapped.common, len(mapped.only_a), len(mapped.only_b), len(mapped.differences)) == (
+            698,
+            7,
+            27,
+            2,
+        )
+        several = [c for c in built.circuit.components if any(len(p) > 1 for p in c.pin_pads().values())]
+        assert sorted(len(pads) for c in several for pads in c.pin_pads().values() if len(pads) > 1) == [2, 4]

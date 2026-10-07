@@ -33,6 +33,7 @@ from fenolite.backends.base import (
     ContainerRoundTrip,
     DesignRules,
     DesignRulesSource,
+    DiffReport,
     DocumentParity,
     DocumentSet,
     DocumentValidator,
@@ -48,6 +49,7 @@ from fenolite.backends.base import (
 )
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
 if TYPE_CHECKING:
@@ -353,11 +355,19 @@ class AltiumBackend:
         def body_compare(reference: Design, reading: Design) -> tuple[Change, ...]:
             return self.body_differences(reference, reading)[0]
 
+        def judged(one: Design, other: Design, scope: ModelScope) -> DiffReport:
+            # two equal pin-to-pad maps may list their pins in another order (change c0123)
+            return compare(
+                dataclasses.replace(one, circuit=with_normal_pin_maps(one.circuit)),
+                dataclasses.replace(other, circuit=with_normal_pin_maps(other.circuit)),
+                scope,
+            )
+
         return rt_a3(
             first,
             written,
             second,
-            compare=compare,
+            compare=judged,
             census=census,
             from_board=suffix == ".pcbdoc",
             bodies=body_compare if with_bodies else None,

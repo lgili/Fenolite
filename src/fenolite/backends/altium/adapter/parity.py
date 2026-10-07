@@ -39,16 +39,9 @@ def footprint_name(reference: str) -> str:
 
 
 def pads_of(component: Component) -> dict[str, tuple[str, ...]]:
-    """Pin number → the pad numbers it names: those of ``pin_pad_map`` for a pin the map holds, else the
-    pin's own number. A pin without a number names no pad."""
-    mapped: dict[str, list[str]] = defaultdict(list)
-    for pin, pad in component.pin_pad_map:
-        mapped[pin].append(pad)
-    return {
-        pin.number: tuple(mapped[pin.number]) if pin.number in mapped else (pin.number,)
-        for pin in component.pins
-        if pin.number
-    }
+    """Pin number → the pad numbers it names (``Component.pads_of``): those of ``pin_pad_map`` for a pin
+    the map holds, else the pin's own number. A pin without a number names no pad."""
+    return {pin.number: component.pads_of(pin.number) for pin in component.pins if pin.number}
 
 
 def _board_side(board: Design | None) -> tuple[dict[str, str], dict[Key, set[str]]]:

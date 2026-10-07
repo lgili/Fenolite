@@ -169,7 +169,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         found, evidence = _export(schematic, board, args)
         source = "kicad"
     else:
-        found, evidence = parity_inputs.own_netlist(sheets, project=schematic.stem), sch_netlist.EVIDENCE
+        found = parity_inputs.own_netlist(sheets, project=schematic.stem)
+        evidence = parity_inputs.own_evidence(sheets)
         source = "own"
     side = parity_inputs.side_of(schematic, sheets, parity_inputs.netlist_nodes(found))
     data = board.read_bytes()

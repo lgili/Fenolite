@@ -19,7 +19,7 @@ from fenolite.core.ids import derived_id
 from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
-from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement
+from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
 from fenolite.model.board import Board, Outline, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
@@ -68,7 +68,7 @@ def _component(part: Part) -> Component:
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
         properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
-        pin_pad_map=tuple(sorted(part.pad_map.items())),
+        pin_pad_map=pad_pairs(part.pad_map),
     )
 
 

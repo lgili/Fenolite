@@ -110,3 +110,36 @@ def test_members_hold_pin_numbers() -> None:
     assert sorted(m.pin for m in gnd.members) == ["1", "10"]
     u1 = next(c for c in out.design.circuit.components if c.ref == "U1")
     assert len(u1.pins) == 32 and u1.pins[0].id == key_id("pin", "U1", u1.pins[0].number)
+
+
+def test_several_pads_for_one_pin(tmp_path: Path) -> None:
+    """Scenario "Two pads for one pin" (change c0123)."""
+    d, u1, folder = one_part(tmp_path, [("1", "A"), ("2", "B"), ("3", "GND")], ["1", "2", "3", "EP"])
+    u1.pad_map = {"3": ("3", "EP")}
+    connect(Net("GND"), u1["3"])
+    out = build(d, project_dir=folder)
+    assert "build.pad-without-pin" not in codes(out) and "build.pin-pad-map-invalid" not in codes(out)
+    net = next(n for n in out.design.circuit.nets if n.name == "GND")
+    assert [m.pin for m in net.members] == ["3"]
+    pads = {pad.number: pad.net_id for pad in out.design.board.footprints[0].pads}  # type: ignore[union-attr]
+    assert pads == {"1": None, "2": None, "3": net.id, "EP": net.id}
+    component = next(c for c in out.design.circuit.components if c.ref == "U1")
+    assert component.pin_pad_map == (("3", "3"), ("3", "EP"))
+    assert out.files and not [i for i in out.issues if i.severity == "error"]
+
+
+def test_missing_pad_among_several(tmp_path: Path) -> None:
+    """Scenario "Missing pad among several"."""
+    d, u1, folder = one_part(tmp_path, [("1", "A"), ("3", "GND")], ["1", "3"])
+    u1.pad_map = {"3": ("3", "TAB")}
+    connect(Net("GND"), u1["3"])
+    out = build(d, project_dir=folder)
+    found = [i for i in out.issues if i.code == "build.pin-pad-map-invalid"]
+    assert [i.severity for i in found] == ["error"] and "TAB" in found[0].message and out.files == {}
+
+
+def test_a_pad_of_two_pins_among_several(tmp_path: Path) -> None:
+    d, u1, folder = one_part(tmp_path, [("1", "A"), ("3", "GND")], ["1", "3", "EP"])
+    u1.pad_map = {"3": ("3", "1")}  # the pad 1 is the pad of the pin 1, which the map does not move
+    out = build(d, project_dir=folder)
+    assert "build.pin-pad-map-invalid" in codes(out) and out.files == {}

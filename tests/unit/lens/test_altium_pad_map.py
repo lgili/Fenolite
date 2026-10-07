@@ -205,10 +205,14 @@ def test_a_pad_that_two_pins_stand_for_is_refused(
             assert cli_main.main(args) == 5, target
         assert not folder.exists(), target
         codes[target] = [i for i in json.loads(out.getvalue())["issues"] if "pin-pad-map" in i["code"]]
-    (found,) = codes["altium"]
-    assert (found["code"], found["severity"], found["where"]) == ("altium.pin-pad-map-invalid", "error", "D1")
+    # Since change c0123 the model itself says ``model.pin-pad-map`` of such a pad, once per pin. Each build
+    # keeps its own code, which a user of 0.2.1 knows, and reports the model's finding beside it.
+    (found,) = [i for i in codes["altium"] if i["code"] == "altium.pin-pad-map-invalid"]
+    assert (found["severity"], found["where"]) == ("error", "D1")
     assert "the pins 1 and 2" in found["message"] and f"the pad {pad}" in found["message"]
-    assert [i["code"] for i in codes["kicad"]] == ["build.pin-pad-map-invalid"]
+    assert {i["code"] for i in codes["altium"]} == {"altium.pin-pad-map-invalid", "model.pin-pad-map"}
+    assert {i["code"] for i in codes["kicad"]} == {"build.pin-pad-map-invalid", "model.pin-pad-map"}
+    assert [i["code"] for i in codes["kicad"]].count("build.pin-pad-map-invalid") == 1
     with pytest.raises(DslError, match="more than one pin"):
         Part("X1", "Lib:S", pad_map={"1": "3", "2": "3"})
 

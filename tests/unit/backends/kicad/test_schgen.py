@@ -10,7 +10,7 @@ from collections import Counter
 from pathlib import Path
 
 from _buildhelp import HEADER_SYM, blink, build, footprint_file, project
-from _schbuild import SLASH_NET, blink_unmarked, built_units
+from _schbuild import SLASH_NET, blink_unmarked, built_stacked, built_units
 
 from fenolite.backends.kicad import sch, schgen, schlayout, symembed
 from fenolite.backends.kicad.pcb import kicad_uuid
@@ -253,3 +253,42 @@ def test_codes_are_documented() -> None:
     contract = (ROOT / "docs" / "cli-contract.md").read_text(encoding="utf-8")
     for code in (*schgen.ISSUE_CODES, *sch.WRITE_ISSUE_CODES):
         assert f"`{code}`" in contract, code
+
+
+def test_stacked_pins_on_a_generated_sheet() -> None:
+    """Capability kicad-schematic, "Pins with several pads on a generated sheet", scenarios "Pads on the
+    label's net" and "Open pin with three pads" (change c0123)."""
+    output = built_stacked()
+    made = generated(output)
+    sheet = made.sheet
+    by_ref = {s.ref: s for s in sheet.symbols if not s.ref.startswith("#")}
+    definitions = {f"{d.library}:{d.name}": d for d in sheet.lib_symbols}
+    gate = definitions[by_ref["U1"].lib_ref]
+    numbers = [(p.number, p.etype, p.hidden) for p in gate.pins_of(1, 1)]
+    # the pin of the library takes its first pad; a hidden passive pin follows it for each further pad
+    assert numbers[2:4] == [("3", "output", False), ("23", "passive", True)]
+    assert [p.number for p in gate.pins_of(2, 1)[1:4]] == ["5", "15", "9"]
+    assert [p.number for p in gate.pins_of(3, 1)] == ["7", "27", "14", "24"]
+    # the second body style of a unit holds the same stacked pins
+    assert [p.number for p in gate.pins_of(2, 2)[1:4]] == ["5", "15", "9"]
+    # one label and one flag per pin, at the point all its pads share
+    points = pin_points(output, "U1")
+    assert points["3"] == points["23"] and points["5"] == points["15"] == points["9"]
+    assert points["14"] == points["24"] and points["7"] == points["27"]
+    assert [label.name for label in sheet.labels if label.position == points["14"]] == ["VCC"]
+    assert [label.name for label in sheet.labels if label.position == points["7"]] == ["GND"]
+    assert Counter(flag.position for flag in sheet.no_connects)[points["5"]] == 1
+    # the pads of an open pin share the name KiCad gives their one net: after the lowest pad in
+    # code-point order, and ``Net-(`` when no flag marks them
+    names = {pad: name for (_cid, pad), name in made.pad_nets.items()}
+    assert names["5"] == names["15"] == names["9"] == "unconnected-(U1-Pad15)"
+    assert names["21"] == names["17"] == "Net-(D2-K-Pad17)"
+    assert names["1"] == "unconnected-(U1-Pad1)"
+    # D2 shows the first pad of its map, which is not the lowest
+    led = definitions[by_ref["D2"].lib_ref]
+    assert [(p.name, p.number, p.hidden) for p in led.pins] == [
+        ("K", "21", False),
+        ("K", "17", True),
+        ("A", "2", False),
+    ]
+    assert by_ref["D1"].lib_ref == f"Mini:{symembed.variant_name('Mini_LED', (('1', '2'), ('2', '1')))}"

@@ -927,16 +927,17 @@ def _mismatch(source: CopperSource, message: str, where: str) -> Issue:
 
 
 def pad_net_names(design: Design) -> dict[str, dict[str, str]]:
-    """Component id → pad number → net name: the net of each pin on the pad that the component's
-    pin-to-pad map names for it, a pin outside the map on the pad of its own number (change c0135). The
-    PCB document and the check of a copper source both read the nets by pad from here, so they cannot
-    disagree about a mapped part."""
-    pad_of = {component.id: dict(component.pin_pad_map) for component in design.circuit.components}
+    """Component id → pad number → net name: the net of each pin on every pad that the component's
+    pin-to-pad map names for it (``Component.pads_of``; a pin outside the map on the pad of its own number).
+    The PCB document and the check of a copper source both read the nets by pad from here, so they cannot
+    disagree about a mapped part (changes c0135 and c0123)."""
+    by_id = {component.id: component for component in design.circuit.components}
     nets: dict[str, dict[str, str]] = {}
     for net in design.circuit.nets:
         for member in net.members:
-            pad = pad_of.get(member.component_id, {}).get(member.pin, member.pin)
-            nets.setdefault(member.component_id, {})[pad] = net.name
+            owner = by_id.get(member.component_id)
+            for pad in owner.pads_of(member.pin) if owner is not None else (member.pin,):
+                nets.setdefault(member.component_id, {})[pad] = net.name
     return nets
 
 

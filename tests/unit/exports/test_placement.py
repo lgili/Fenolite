@@ -187,3 +187,22 @@ def test_property_and_unit_cells() -> None:
 def test_evidence_names_both_rows() -> None:
     assert placement.EVIDENCE.level is Level.KICAD_VERIFIED
     assert placement.EVIDENCE.hypotheses == ("H-K-PCB-POS", "H-K-POS-ROWS")
+
+
+def test_the_pin_to_pad_map_does_not_reach_the_placement_rows() -> None:
+    """A pin bonded to several pads (change c0123) is no fact of a placement row: a row is a footprint."""
+    design = design_of(Part("U1", "IC", x=10, y=10), Part("R1", "330", x=20, y=15, rot=90))
+    mapped = dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(
+            design.circuit,
+            components=tuple(
+                dataclasses.replace(c, pin_pad_map=(("3", "3"), ("3", "EP"))) if c.ref == "U1" else c
+                for c in design.circuit.components
+            ),
+        ),
+    )
+    assert mapped != design and rows_from_model(mapped) == rows_from_model(design)
+    assert table(apply(rows_from_model(mapped), DEFAULT.placement), DEFAULT.placement) == table(
+        apply(rows_from_model(design), DEFAULT.placement), DEFAULT.placement
+    )

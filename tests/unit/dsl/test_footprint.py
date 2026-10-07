@@ -10,6 +10,7 @@ from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.core.ids import derived_id
 from fenolite.dsl import Design, DslError, Footprint, Part, mm
 from fenolite.dsl.convert import to_model
+from fenolite.dsl.part import pad_pairs
 
 
 def test_design_registers_footprint_outside_model() -> None:
@@ -132,3 +133,45 @@ def test_part_pin_pad_map_is_checked_and_ordered() -> None:
     assert tuple(part.pad_map.items()) == (("1", "4"), ("2", "3"))
     with pytest.raises(DslError, match="more than one pin"):
         Part("U2", "Local:IC", pad_map={"1": "3", "2": "3"})
+
+
+def test_part_pad_map_takes_several_pads_for_one_pin() -> None:
+    """Capability design-dsl, "Per-component pin-to-pad mapping", scenario "Spelling refused" (c0123)."""
+    part = Part("U1", "Local:IC", pad_map={"3": ("3", "EP"), "1": "4", "2": ["7", "8", "9"]})
+    assert dict(part.pad_map) == {"1": "4", "2": ("7", "8", "9"), "3": ("3", "EP")}
+    assert list(part.pad_map) == ["1", "2", "3"]
+    assert pad_pairs(part.pad_map) == (
+        ("1", "4"),
+        ("2", "7"),
+        ("2", "8"),
+        ("2", "9"),
+        ("3", "3"),
+        ("3", "EP"),
+    )
+    # a sequence of one pad is that pad written as a string, so a one-pad script reads back what it wrote
+    one = Part("R1", "Local:R", pad_map={"2": "1", "1": ("2",)})
+    assert dict(one.pad_map) == {"1": "2", "2": "1"}
+    assert pad_pairs(one.pad_map) == tuple(sorted(one.pad_map.items())) == (("1", "2"), ("2", "1"))
+    # the pads of a pin keep the order written: the first is the one a symbol shows
+    assert pad_pairs(Part("U2", "Local:IC", pad_map={"1": ("T", "1")}).pad_map) == (("1", "T"), ("1", "1"))
+    for bad in (
+        {"3": ()},
+        {"3": ("4", "4")},
+        {"3": ("4", "")},
+        {"1": "4", "3": ("3", "4")},
+        {"3": ("4", 5)},
+        {"3": None},
+    ):
+        with pytest.raises(DslError, match="part U9"):
+            Part("U9", "Local:IC", pad_map=bad)  # type: ignore[arg-type]
+
+
+def test_to_model_gives_one_pair_per_pad() -> None:
+    design = Design("d")
+    design.add(
+        Part("U1", "Local:IC", pad_map={"3": ("3", "EP")}),
+        Part("D1", "Local:D", pad_map={"2": "1", "1": "2"}),
+    )
+    components = {c.ref: c for c in to_model(design).circuit.components}
+    assert components["U1"].pin_pad_map == (("3", "3"), ("3", "EP"))
+    assert components["D1"].pin_pad_map == (("1", "2"), ("2", "1"))

@@ -115,7 +115,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `hatch_style` | zone | `HATCHSTYLE` |
 | `component_kind` | component | `COMPONENTKIND` when it is not 0 |
 | `part_ids` | component | the unique ids of its parts, joined by commas |
-| `pin_pads` | component | one pair per pin map record that `pin_pad_map` does not say in full: `<pin>=<pad>,<pad>…` (several pads, no pad, or a pad that another pin holds) |
+| `pin_pads` | component | one pair per pin map record that `pin_pad_map` does not say in full: `<pin>=<pad>,<pad>…` (no pad, or a pad that another pin holds; a record of several pads is in the map since change c0123) |
 | `sheet_symbol` | module | the unique id of the sheet symbol of a `Repeat` channel |
 | `channel_index` | module | the channel index of a `Repeat` channel |
 | `source_designator` | footprint | `SOURCEDESIGNATOR` |

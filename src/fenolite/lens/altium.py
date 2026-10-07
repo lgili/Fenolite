@@ -605,9 +605,11 @@ def _comment(component: Component) -> str:
 def pin_map_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]) -> list[Issue]:
     """One ``altium.pin-pad-map-invalid`` for each pair of a pin-to-pad map that names a pin its component
     does not hold, for each pair that names a pad its resolved footprint does not hold, and for each pad
-    that two pins of the component stand for, one by the map and one by its own number (change c0135; the
+    that two pins of the component stand for, one of them by its own number (changes c0135 and c0123; the
     script refuses a map that lists one pad for two pins). The KiCad build refuses the same maps, whether
-    or not the pins are on one net. The pads of a footprint that is not resolved are not checked."""
+    or not the pins are on one net. The pads of a footprint that is not resolved are not checked. The model
+    says ``model.pin-pad-map`` of a pad of two pins; the build says it under its own code as well, as the
+    release 0.2.1 does, and reaches this function before it validates the model."""
     issues: list[Issue] = []
     for component in sorted(design.circuit.components, key=component_path):
         if not component.pin_pad_map:
@@ -625,10 +627,10 @@ def pin_map_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]
             if pads is not None and pad not in pads:
                 text = f"{component.ref}: the pin-to-pad map names the pad {pad}, which the footprint lacks"
                 issues.append(issue("altium.pin-pad-map-invalid", text, component_path(component)))
-        mapped = dict(component.pin_pad_map)
         holders: dict[str, list[str]] = {}
         for number in dict.fromkeys(pin.number for pin in component.pins if pin.number):
-            holders.setdefault(mapped.get(number, number), []).append(number)
+            for pad in component.pads_of(number):
+                holders.setdefault(pad, []).append(number)
         for pad, found_pins in sorted(holders.items()):
             if len(found_pins) > 1:
                 named = " and ".join(found_pins)
@@ -1643,7 +1645,13 @@ def build_altium(
     issues += pin_issues
     symbols = library_symbols(resolved, issues, symbol_bodies)
     model = with_written_values(generic_pins(model))
-    issues += list(model.validate())
+    validation = list(model.validate())
+    if any(found.code == "model.pin-pad-map" for found in validation):
+        # A pad that two pins stand for: the build says it under its own code, as the release 0.2.1
+        # does, before the model's finding ends the build. Both findings are reported, as in a KiCad build.
+        early, _unused = resolve_footprints(model, resolver, authored_footprints, bodies=body_mode)
+        issues += pin_map_issues(model, early)
+    issues += validation
     if not any(i.severity == "error" for i in issues):
         issues += _library_checks(model, name, symbols, project_exists, project_listed, unread_hint)
     if any(i.severity == "error" for i in issues):

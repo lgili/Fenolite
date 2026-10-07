@@ -147,7 +147,7 @@ def pin_record(pin: AltiumPin) -> bytes:
 
 def footprint_chain(library: str, footprint: str, pin_pads: PinPads = ()) -> list[list[Field]]:
     """The records 44, 45, 46 and 48 of a footprint model, without owner keys (0-based data file keys),
-    with one record 47 per item of ``pin_pads`` after record 46."""
+    with one record 47 per item of ``pin_pads`` after record 46 (change c0123)."""
     return [
         [("RECORD", "44")],
         [

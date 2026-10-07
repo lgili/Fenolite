@@ -190,7 +190,8 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   mirrored coordinates. `Pad.rotation` is relative to the footprint, and `Pad.layers` are real board
   layers without wildcards.
 - **Footprint assignment.** `Component.pin_pad_map` stores explicit symbol-pin-number to physical-pad-number
-  pairs. An empty map means identity assignment; net membership remains keyed by symbol pin number.
+  pairs. An empty map means identity assignment; net membership remains keyed by symbol pin number. A pin
+  may be bonded to several pads (section "Pins bonded to several pads").
   `Padstack.hole_shape`, `hole_length` and `hole_rotation` describe non-round drilled holes; `Pad.drill` is
   their width, and slot length includes both rounded ends. `hole_rotation` is the slot's axis in the pad's
   own frame, in a library footprint and on a board alike: it does not change when the pad or its footprint
@@ -203,6 +204,39 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
+
+## Pins bonded to several pads
+
+Normative text: requirement "Persist per-component pin-to-pad maps" of the `design-model` capability
+(change c0123).
+
+A pin of a part may be bonded to several pads: the tab and a pad of a regulator, the shield pads of a
+connector, the pads a footprint model lists for one pin. `Component.pin_pad_map` says so by holding the
+pin in several pairs: `(("3", "3"), ("3", "EP"))` bonds pin 3 to the pads 3 and EP.
+
+- **The pads of a pin** are the pads of its pairs, in map order. The first is the pad a schematic symbol
+  shows as the pin's number; the order has no other meaning. A pin that the map does not hold has one pad,
+  of its own number. A pad has one pin.
+- **Readers.** `Component.pads_of(pin)` gives the pads of a pin and `Component.pin_pads()` the pads of
+  every pin the map holds. No other code turns the pairs into pads: `dict(component.pin_pad_map)` keeps
+  one pad per pin, and a test refuses it anywhere in `src/fenolite` outside `model/circuit.py`.
+- **Canonical form.** The field did not change: same name, same type, same place, pairs written in the
+  order held, an empty map left out. A design whose pins have one pad each is written byte for byte as
+  before, and a document written before loads as it is; nothing is migrated. `SCHEMA_VERSION` stays `"0"`
+  (decided by the maintainer on 2026-10-06), and `schemas/fenolite.model.v0/circuit.json` gained only a
+  description of the field.
+- **The cost of keeping the version.** Fenolite 0.2.x and earlier read a document that holds a pin of
+  several pads without an error and apply one pad per pin. Read such a
+  document with the version that wrote it, or a later one.
+- **Validation.** `Design.validate()` reports `model.pin-pad-map` (error), with `where` set to
+  `<ref>-<pin>`, for a pair with an empty pin or pad, for a pair that occurs twice, and for a pad that two
+  pins name. For a component that holds pins, a pin outside the map names the pad of its own number, so
+  `(("1", "2"),)` on a part with the pins 1 and 2 is refused: the pad 2 would have two pins.
+- **What each consumer does** with a pin of several pads: the KiCad build gives every pad the pin's net
+  and embeds one hidden pin per further pad in the symbol (`docs/schematic.md`); the Altium build writes
+  the pads as the map of the footprint model (`docs/altium.md`); `netlist.assignment_compare` and level 2
+  of `equivalent` name every pad; the BOM, the placement file, the parity comparison and level 3 of
+  `equivalent` do not read the map.
 
 ## Padstack holes, offsets and component bodies
 

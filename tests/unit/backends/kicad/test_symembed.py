@@ -170,3 +170,66 @@ def test_an_authored_symbol_takes_the_node_of_the_symbol_writer() -> None:
 def test_unknown_target() -> None:
     with pytest.raises(ValueError, match="unsupported target"):
         power_flag(8)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_stacked_pins_of_a_pin_with_several_pads(target: int) -> None:
+    """Capability kicad-schematic, "Pins with several pads on a generated sheet", scenario "Thermal pad
+    stacked" (change c0123)."""
+    mapping = (("1", "1"), ("1", "T1"), ("1", "T2"))
+    found = embedded("Mini:Mini_LED", target, pin_numbers=mapping)
+    plain = embedded("Mini:Mini_LED", target)
+    nodes = [pin for sub in found.node.nodes("symbol") for pin in sub.nodes("pin")]
+    listed = [
+        (
+            pin.find("name").atoms()[0].value,  # type: ignore[union-attr]
+            pin.find("number").atoms()[0].value,  # type: ignore[union-attr]
+            pin.atoms()[0].value,
+            pin.atoms()[1].value,
+            pin.find("hide") is not None,
+        )
+        for pin in nodes
+    ]
+    assert listed == [
+        ("K", "1", "passive", "line", False),
+        ("K", "T1", symembed.STACKED_TYPE, "line", symembed.STACKED_HIDDEN),
+        ("K", "T2", symembed.STACKED_TYPE, "line", symembed.STACKED_HIDDEN),
+        ("A", "2", "passive", "line", False),
+    ]
+    # a stacked pin lies where its pin lies, with its length, directly after it
+    first, second = nodes[0], nodes[1]
+    assert dumps(first.find("at")) == dumps(second.find("at"))  # type: ignore[arg-type]
+    assert dumps(first.find("length")) == dumps(second.find("length"))  # type: ignore[arg-type]
+    assert second.find("alternate") is None
+    # the other pin is as the library holds it
+    other = [pin for sub in plain.node.nodes("symbol") for pin in sub.nodes("pin")][1]
+    assert dumps(nodes[3]) == dumps(other)
+    # the project library holds the same pins as the sheet
+    text = symembed.write_symbol_library([found], target=target)
+    (read,) = read_symbol_library(text, library="Mini")
+    assert [(p.name, p.number, p.etype, p.hidden) for p in read.pins] == [
+        (name, number, etype, hidden) for name, number, etype, _style, hidden in listed
+    ]
+    assert [(p.name, p.number) for p in found.definition.pins] == [(n, m) for n, m, *_ in listed]
+
+
+def test_variant_name_of_one_pad_per_pin_is_unchanged() -> None:
+    """Scenario "Variant name of one pad per pin is unchanged"."""
+    assert variant_name("Mini_LED", (("2", "1"), ("1", "2"))) == "Mini_LED_b0bb1b70"
+    assert variant_name("Mini_LED", (("1", "2"), ("2", "1"))) == "Mini_LED_b0bb1b70"
+    # the pads of one pin count in their order: the first is the one the symbol shows
+    one, other = (("1", "1"), ("1", "T1")), (("1", "T1"), ("1", "1"))
+    assert variant_name("Mini_LED", one) != variant_name("Mini_LED", other)
+    assert symembed.variant_pairs((("2", "9"), ("1", "T"), ("1", "1"))) == (
+        ("1", "T"),
+        ("1", "1"),
+        ("2", "9"),
+    )
+    assert embedded("Mini:Mini_LED", pin_numbers=other).name == variant_name("Mini_LED", other)
+    shown = {
+        pin.find("number").atoms()[0].value  # type: ignore[union-attr]
+        for sub in embedded("Mini:Mini_LED", pin_numbers=other).node.nodes("symbol")
+        for pin in sub.nodes("pin")
+        if pin.find("hide") is None
+    }
+    assert shown == {"T1", "2"}

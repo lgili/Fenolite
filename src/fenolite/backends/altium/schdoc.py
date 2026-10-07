@@ -334,7 +334,7 @@ class _Writer:
                 ]
             )
             maps = self.add([("RECORD", "46"), ("OWNERINDEX", str(model))])
-            for record in map_records(spec.pin_pads, maps):  # none for a component without a map
+            for record in map_records(spec.pin_pads, maps):  # change c0123: none without a map
                 self.add(record)
             self.add([("RECORD", "48"), ("OWNERINDEX", str(model))])
 

@@ -295,3 +295,28 @@ def test_own_reading_refuses_a_missing_child(monkeypatch: pytest.MonkeyPatch, tm
     code, env, err, _ = run(monkeypatch, tmp_path, "netlist", str(root), "--source", "fenolite")
     assert code == 7 and err["code"] == "FEN-7001"
     assert any("sheets/io.kicad_sch" in issue["message"] for issue in env["issues"])
+
+
+def test_evidence_names_the_stacked_rows_only_for_a_design_with_stacked_pins(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Change c0123: ``netlist``, ``parity`` and ``build`` answer for a design with a pin bonded to several
+    pads with the rows ``H-K-SCH-STACKED`` and ``H-K-SCH-STACKED-OPEN``; a design of one pad per pin answers
+    with the evidence it had."""
+    from _schbuild import built_stacked, built_units
+
+    rows = {"H-K-SCH-STACKED", "H-K-SCH-STACKED-OPEN"}
+    _no_subprocess(monkeypatch)
+    for name, output, expected in (("stacked", built_stacked(), True), ("units", built_units(), False)):
+        assert (
+            rows <= set(output.evidence.hypotheses)
+            if expected
+            else not rows & set(output.evidence.hypotheses)
+        )
+        root = write_files(output, tmp_path / name)
+        for command, extra in (("netlist", ("--source", "fenolite")), ("parity", ("--netlist", "own"))):
+            code, env, _, _ = run(monkeypatch, tmp_path, command, str(root), *extra)
+            assert code in (0, 5), env
+            listed = set(env["evidence"]["hypotheses"])
+            assert (rows <= listed) if expected else not (rows & listed), (name, command, sorted(listed))
+            assert "H-K-NETLIST-OWN" in listed

@@ -90,7 +90,7 @@ def _planes(design: Design) -> dict[str, int]:
 
 PARITY = {
     "altium-set:01": (540, 544, 0, 0, 27, 8, 6, 22, 171, 10),
-    "altium-set:02": (248, 260, 2, 2, 10, 21, 0, 3, 241, 129),
+    "altium-set:02": (248, 260, 2, 2, 10, 17, 0, 3, 241, 129),  # 21 before the pins of several pads (c0123)
     "altium-set:03": (23, 27, 0, 0, 0, 0, 0, 0, 23, 0),
     "altium-set:04": (41, 41, 0, 0, 0, 2, 0, 2, 41, 0),
     "altium-set:05": (27, 27, 0, 0, 0, 0, 0, 0, 27, 0),

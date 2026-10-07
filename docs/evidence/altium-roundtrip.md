@@ -409,7 +409,12 @@ and c0088: no verdict and no count of the tables above moved. The three sets are
 three reasons; in particular the import of `altium-set:02` still puts one pin on two nets. What the
 rebase adds is counted as not written, because the generated schematic is one sheet of generic
 symbols: 17 modules of `altium-set:01`, 23 modules and one pin-to-pad map of `altium-set:02`; no
-module of these sets carries a channel index. The sets 03 and 05 hold no module and no map. On the two equal sets the rewrite gets one `netlist.uncovered` info that the
+module of these sets carries a channel index. Since change c0123 the map of a component is written into
+its footprint model, and `pin-pad-map` counts a map that has no footprint model to hold it: two on
+`altium-set:02` (the two components with a map link a footprint without a library, so the generated
+schematic gives them no footprint model; the second map is new, its component had only the two bag
+records before). No set holds a `pin-pads` record. No verdict moved: the three sets are not judged for
+the same reasons. The sets 03 and 05 hold no module and no map. On the two equal sets the rewrite gets one `netlist.uncovered` info that the
 original does not have: the pins of the pads that were not written have no pad on the rewrite.
 
 **KiCad's importer on the rewrites** (`H-A-VER-RTA3-KICAD`; `tests/kicad/altium/test_rta3_oracle.py` on
@@ -442,12 +447,13 @@ Altium.
 folder under pytest's temporary directory. The pair is (`schematic`, `pcb`) of
 `netlist.assignment_compare`; c0043's own comparison, which gives a pin every pad of its map, judges the
 sets (`H-A-IMP-NETLIST`), so a difference here does not fail the test. Since change c0083 the imported
-components carry the pin-to-pad map of their footprint model, one pad per pin, and this stage applies it.
+components carry the pin-to-pad map of their footprint model and this stage applies it; since change c0123
+a pin that the map bonds to several pads is an element for each of them.
 
 | set | documents | listed and missing | common | only schematic | only PCB | differences | floating pins | undriven power nets | No ERC marks | exit |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 |
-| `altium-set:02` | 15 | 2 | 694 | 7 | 31 | 2 | 20 | 12 | 5 | 5 |
+| `altium-set:02` | 15 | 2 | 698 | 7 | 27 | 2 | 20 | 12 | 5 | 5 |
 | `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 5 |
 | `altium-set:04` | 3 | 2 | 139 | 0 | 4 | 0 | 0 | 6 | 0 | 5 |
 | `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 5 |
@@ -457,24 +463,26 @@ components carry the pin-to-pad map of their footprint model, one pad per pin, a
   `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
   reference is counted twelve times, which is a finding about the validation rule, not about channels; it waits for the follow-up that gives a component without a reference a finding of its own), which the check passes on unchanged. The container stages pass on every set: no
   `check.rta0-failed` and no `check.rta1-failed`.
-- `altium-set:02` shows 694 common elements, 2 differing, 7 that only the schematic covers and 31
-  that only the PCB document covers (measured again on 2026-10-06, change c0083, with the channels
-  named and the pin-to-pad map applied). The row read 508, 4, 26 and 217 before the change, and 688,
-  2, 13 and 37 after its first part: one sheet of the set is named by twelve sheet symbols, and the
+- `altium-set:02` shows 698 common elements, 2 differing, 7 that only the schematic covers and 27
+  that only the PCB document covers (measured again on 2026-10-06, change c0123, with every pad of a
+  pin an element). The row read 694, 2, 7 and 31 after change c0083, which named the channels and
+  applied the map with one pad per pin; 508, 4, 26 and 217 before that change, and 688, 2, 13 and 37
+  after its first part: one sheet of the set is named by twelve sheet symbols, and the
   schematic reading gave its 84 components the designators of the sheet, twelve times each, where
   the board has one designator per channel. The schematic reading now names a channel's components
   with the project's designator format, as the board does (`H-A-IMP-RPT-FORMAT`), which accounts for
   180 of the 217. The pin-to-pad map (`H-A-IMP-PINMAP`) accounts for 6 more on each side: six pins of
-  one connector whose pads have names of their own. What remains, by cause:
+  one connector whose pads have names of their own. Change c0123 accounts for 4 more on the PCB
+  side: two pins whose map lists two and four pads are bonded to each of them
+  (`H-A-IMP-PINMAP-MULTI`), the board's pads of those names are on the nets of the two pins, and no
+  record is left in a bag, so `altium.import.pin-map` is not reported on this set any more. What
+  remains, by cause:
   - **7 only in the schematic and 7 only in the PCB document:** two components (2 and 5 pins) that
     the board shows under another designator than their sheet; the comparison is by designator. The
     project import links them by their unique-id path.
   - **18 only in the PCB document:** pads that no pin of the sheets stands for (mounting and
     thermal pads, and further pads of one pin whose map names none of them), the count c0043's
     comparison reports as "pads without a pin".
-  - **4 only in the PCB document:** the further pads of two pins whose map lists several pads (two
-    and four). The model's map gives a pin one pad, so one pad of each is compared;
-    `altium.import.pin-map` counts the two records.
   - **2 only in the PCB document:** the pads of the twelve components that the board holds without
     a designator, which fall onto two elements.
   - **2 differing:** two pins that are unwired on their sheet and carry a net in the PCB document,
@@ -587,7 +595,7 @@ asserts what the stage promises, not that a board is clean.
 | set | components, footprints | missing, extra | value or footprint name | net conflicts (all implied by the pad-net comparison) | pins without a pad, pads without a pin | footprints that differ in the library alone | pads that differ in the net name alone |
 |---|---|---|---|---|---|---|---|
 | `altium-set:01` | 540, 544 | 0, 0 | 27 | 8 | 6, 22 | 171 | 10 |
-| `altium-set:02` | 248, 260 | 2, 2 | 10 | 21 | 0, 3 | 241 | 129 |
+| `altium-set:02` | 248, 260 | 2, 2 | 10 | 17 | 0, 3 | 241 | 129 |
 | `altium-set:03` | 23, 27 | 0, 0 | 0 | 0 | 0, 0 | 23 | 0 |
 | `altium-set:04` | 41, 41 | 0, 0 | 0 | 2 | 0, 2 | 41 | 0 |
 | `altium-set:05` | 27, 27 | 0, 0 | 0 | 0 | 0, 0 | 27 | 0 |
@@ -601,6 +609,17 @@ asserts what the stage promises, not that a board is clean.
   no net). The import holds a pin-to-pad map for one component of the five sets (on `altium-set:02`);
   the component of the two conflicts of `altium-set:04` holds none in its sheet, so the map does not
   explain them.
+- The row of `altium-set:02` was measured again on 2026-10-07 (change c0123): 17 net conflicts, where the
+  map of one pad per pin gave 21; the other cells of the row are unchanged. The two lists were compared
+  finding by finding, on the base of the change without it and with it. Four findings are gone, each a pad
+  that the board has on `GND` and that the schematic side gave no net: `JP6-MT2`, `JP6-P$1`, `JP6-P$2`
+  and `U11-9`. They are the further pads of the two map records of the set that list several pads: pin 6
+  of `JP6` lists `MT1`, `P$1`, `P$2`, `MT2`, and pin 4 of `U11` lists `4`, `9`. With one pad per pin the
+  import kept `JP6-MT1` alone for pin 6 and gave `U11` no pair, and held both records in the bag; now
+  each pad is a pair of the map and takes the net of its pin, which is the board's `GND`. The 17 that
+  stay are the same findings with the same nets on both sides (`BOOT-3`, `D2-0`, `D5-2_1`, `Q4-2_1` to
+  `Q4-2_7`, `Q4-3_1` to `Q4-3_5`, `RESET-3`, `Y1-2_1`), none is new, and the counts of the other kinds
+  of finding are equal.
 - Before the channel net names and the pin-to-pad map of c0083, `altium-set:02` gave 26 net conflicts,
   6 pins without a pad, 4 pads without a pin and 189 pads that differed in the net name alone; the other
   cells of the four sets measured then are unchanged.

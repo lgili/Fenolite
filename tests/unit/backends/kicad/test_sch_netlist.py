@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 from _buildhelp import blink, build
-from _schbuild import blink_unmarked, built_nested, built_units, children_of, sheet_of
+from _schbuild import blink_unmarked, built_nested, built_stacked, built_units, children_of, sheet_of
 
 from fenolite.backends.kicad import sch, sch_netlist, schlayout
 from fenolite.backends.kicad.netlist import KicadNetlist, NetlistNet, NetNode
@@ -364,6 +364,9 @@ BUILDERS: dict[str, Callable[[], SchematicSheet]] = {
 @pytest.mark.parametrize("reason", sch_netlist.REASONS)
 def test_each_reason(reason: str, monkeypatch: pytest.MonkeyPatch) -> None:
     if reason == "frame":
+        # the sheet is built before the frame is taken away: a build under the changed set is refused by
+        # its own netlist guard, so the test must not depend on an earlier test having built the blink
+        blink_sheet()
         proved = schlayout.PROVED_FRAMES - {(0, "")}
         monkeypatch.setattr(schlayout, "PROVED_FRAMES", proved)
     sheet = BUILDERS[reason]()
@@ -469,3 +472,101 @@ def test_opaque_wires() -> None:
     (points,) = sch.opaque_wires(with_slanted_wire())
     assert points == (Point(10_160_000, 10_160_000), Point(20_320_000, 12_700_000))
     assert len(sch.opaque_wires(fixture("flat.kicad_sch"))) == 5
+
+
+# -- stacked pins (change c0123)
+
+
+@cache
+def stacked() -> GeneratedSchematic:
+    output = built_stacked()
+    assert output.schematic is not None, [i.message for i in output.issues if i.severity == "error"]
+    return output.schematic
+
+
+def test_stacked_pins_are_nodes_of_one_net() -> None:
+    """Capability kicad-schematic, "Own netlist of a generated sheet", scenario "Stacked pins"."""
+    found = own(stacked(), "stacked")
+    assert elements(found, "GND") == ["D1-2", "U1-7", "U1-27"]
+    assert [n.pintype for n in net(found, "GND").nodes] == ["passive", "power_in", "passive"]
+    assert elements(found, "OUT") == ["R1-1", "R1-2", "U1-3", "U1-23"]
+    marked = net(found, "unconnected-(U1-Pad15)")
+    assert sorted(n.element for n in marked.nodes) == ["U1-15", "U1-5", "U1-9"]
+    assert all(n.pintype.endswith("+no_connect") for n in marked.nodes)
+    # without a flag, several pins are a net like any other to KiCad: ``Net-(``, not ``unconnected-(``
+    assert sorted(n.element for n in net(found, "Net-(D2-K-Pad17)").nodes) == ["D2-17", "D2-21"]
+    assert not [n.name for n in found.nets if "Pad21" in n.name or "Pad5)" in n.name or "Pad9)" in n.name]
+
+
+def test_stacked_pins_read_back_from_the_written_files() -> None:
+    output = built_stacked()
+    made = stacked()
+    read = own_netlist(sheet_of(output), project="stacked", children=children_of(output))
+    assert read == own(made, "stacked")
+
+
+def test_stacked_grammar() -> None:
+    """Capability kicad-schematic, "Netlist grammar check", scenario "Stacked pins are inside the
+    grammar": pins of one instance and one name at a point without a label are one net; pins of two names
+    there are refused."""
+    sheet = stacked().sheet
+    assert grammar_issues(sheet) == ()
+    lib = next(d for d in sheet.lib_symbols if d.name.startswith("Mini_DualGate"))
+    renamed = tuple(replace(pin, name="OTHER") if pin.number == "15" else pin for pin in lib.pins)
+    definitions = tuple(replace(d, pins=renamed) if d is lib else d for d in sheet.lib_symbols)
+    assert "shared-point" in reasons(replace(sheet, lib_symbols=definitions))
+
+
+# -- the evidence of a sheet with stacked pins (change c0123)
+
+
+def test_a_sheet_without_a_stack_has_the_evidence_it_had() -> None:
+    """A design whose pins have one pad each: the evidence is ``EVIDENCE`` itself, the same object, so no
+    envelope of such a design lists a row more."""
+    for made in (units(), nested()):
+        assert sch_netlist.stack_evidence((made.sheet, *made.children.values())) == ()
+        assert sch_netlist.evidence_of(made.sheet, made.children) is sch_netlist.EVIDENCE
+    assert sch_netlist.evidence_of(blink_sheet()) is sch_netlist.EVIDENCE
+
+
+def test_a_sheet_with_stacked_pins_names_the_rows_it_rests_on() -> None:
+    """A design with a pin bonded to several pads rests on what KiCad does with stacked pins: both rows
+    when one of its stacks carries no label, the first alone when every stack is on a label."""
+    made = stacked()
+    found = sch_netlist.evidence_of(made.sheet, made.children)
+    assert set(found.hypotheses) == {
+        *sch_netlist.EVIDENCE.hypotheses,
+        "H-K-SCH-STACKED",
+        "H-K-SCH-STACKED-OPEN",
+    }
+    assert found.level is sch_netlist.EVIDENCE.level  # the two rows are KICAD-VERIFIED: the lowest wins
+    sheet = made.sheet
+    points = {
+        schlayout.pin_point(i.position, pin.position, i.rotation // 1_000_000, i.mirror)
+        for i in sheet.symbols
+        for d in sheet.lib_symbols
+        if f"{d.library}:{d.name}" == (i.lib_name or i.lib_ref)
+        for pin in d.pins_of(i.unit, i.body_style)
+        if pin.hidden
+    }
+    labelled = {label.position for label in sheet.labels}
+    # the same sheet without the instances whose stacks are open: every stack left is on a label
+    closed = replace(
+        sheet,
+        symbols=tuple(
+            i
+            for i in sheet.symbols
+            if not any(
+                schlayout.pin_point(i.position, pin.position, i.rotation // 1_000_000, i.mirror)
+                in points - labelled
+                for d in sheet.lib_symbols
+                if f"{d.library}:{d.name}" == (i.lib_name or i.lib_ref)
+                for pin in d.pins_of(i.unit, i.body_style)
+            )
+        ),
+    )
+    assert sch_netlist.stack_evidence((closed,)) == (sch_netlist.STACKED_EVIDENCE,)
+    assert sch_netlist.stack_evidence((sheet,)) == (
+        sch_netlist.STACKED_EVIDENCE,
+        sch_netlist.STACKED_OPEN_EVIDENCE,
+    )

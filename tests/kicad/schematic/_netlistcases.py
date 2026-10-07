@@ -22,7 +22,7 @@ import _erc
 import _gencases as gen
 import _gendesigns
 from _buildhelp import ROOT, blink, build
-from _schbuild import built_units, children_of, sheet_of
+from _schbuild import built_stacked, built_units, children_of, sheet_of
 
 from fenolite.backends.kicad.cli import NETLIST, KicadCli
 from fenolite.backends.kicad.netlist import differences, read_netlist
@@ -65,7 +65,9 @@ def export_of(files: Mapping[str, bytes], schematic: str) -> str:
 
 @cache
 def output(name: str) -> BuildOutput:
-    """The blink or the units design built for the running major."""
+    """The blink, the units design or the stacked design built for the running major."""
+    if name == "stacked":
+        return built_stacked(major())
     return build(blink(), major()) if name == "blink" else built_units(major())
 
 
@@ -132,10 +134,13 @@ def expected_pintypes(name: str) -> dict[tuple[str, str], str]:
     marks = {(m.component_id, m.pin) for m in design.circuit.no_connects}
     found: dict[tuple[str, str], str] = {}
     for component in design.circuit.components:
-        pads = dict(component.pin_pad_map)
         for pin in component.pins:
             suffix = NO_CONNECT if (component.id, pin.number) in marks else ""
-            found[(component.ref, pads.get(pin.number, pin.number))] = f"{pin.etype}{suffix}"
+            # the first pad is the pin of the symbol; a further pad is a passive stacked pin (c0123)
+            first, *further = component.pads_of(pin.number)
+            found[(component.ref, first)] = f"{pin.etype}{suffix}"
+            for pad in further:
+                found[(component.ref, pad)] = f"passive{suffix}"
     return found
 
 
@@ -226,6 +231,7 @@ def netlist_probes() -> Probes:
         "netlist-own-blink": (lambda: own_outcome("blink"), both),
         "netlist-own-units": (lambda: own_outcome("units"), both),
         "netlist-own-generated": (own_generated_outcome, both),
+        "netlist-own-stacked": (lambda: own_outcome("stacked"), both),
     }
 
 

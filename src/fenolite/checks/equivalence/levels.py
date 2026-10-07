@@ -135,19 +135,20 @@ def _elements(design: Design, refs: frozenset[str]) -> tuple[str, PadNetList, in
     else:
         source = "circuit"
         listed, unnumbered = assignment_compare.model_netlist(design), 0
-        # an element names the pad of its pin, as ``model_netlist`` does (``Component.pin_pad_map``)
-        pads = {c.id: dict(c.pin_pad_map) for c in design.circuit.components}
+        # an element names a pad of its pin, as ``model_netlist`` does (``Component.pads_of``)
+        components = {c.id: c for c in design.circuit.components}
         for net in design.circuit.nets:
             for member in net.members:
                 ref = by_id.get(member.component_id, "")
                 if ref in refs:
-                    pad = pads.get(member.component_id, {}).get(member.pin, member.pin)
-                    parts[f"{ref}-{pad}"] = (ref, pad)
+                    owner = components.get(member.component_id)
+                    for pad in owner.pads_of(member.pin) if owner is not None else (member.pin,):
+                        parts[f"{ref}-{pad}"] = (ref, pad)
         for component in design.circuit.components:
             for pin in component.pins:
                 if pin.number and component.ref in refs:
-                    pad = pads[component.id].get(pin.number, pin.number)
-                    parts[f"{component.ref}-{pad}"] = (component.ref, pad)
+                    for pad in component.pads_of(pin.number):
+                        parts[f"{component.ref}-{pad}"] = (component.ref, pad)
     # KiCad gives each pin on no net a net of its own, ``unconnected-(…)``, and a board built beside a
     # schematic carries those names on its pads (c0061): such a net with one pad is a pad on no net.
     names = assignment_compare.net_names(design)

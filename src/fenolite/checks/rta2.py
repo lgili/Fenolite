@@ -12,6 +12,7 @@ footprint, and ``predates_board`` tells so.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Sequence
 
 from fenolite.backends.base import ModelScope, ProjectRead
@@ -20,6 +21,7 @@ from fenolite.checks.diff import Change, diff_designs
 from fenolite.checks.stages import StageResult, ran
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
 CIRCUIT_KINDS = ("component", "net", "no_connect")
@@ -100,9 +102,12 @@ def rta2_stage(
         ("pcb", None if read.pcb is None else read.pcb.design,
          tuple(kind for kind in scope.fields if kind not in CIRCUIT_KINDS)),
     )  # fmt: skip
+    model = dataclasses.replace(model, circuit=with_normal_pin_maps(model.circuit))
     for side, reading, kinds in sides:
         if reading is None:
             continue
+        # two equal pin-to-pad maps may list their pins in another order (change c0123)
+        reading = dataclasses.replace(reading, circuit=with_normal_pin_maps(reading.circuit))
         fields = {kind: scope.fields[kind] for kind in kinds}
         report = diff_designs(model, reading, scope=ModelScope(fields, scope.length_tolerance))
         compared[side] = sorted(kinds)

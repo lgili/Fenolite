@@ -12,6 +12,7 @@ from __future__ import annotations
 import dataclasses
 from pathlib import Path
 
+import _erc
 import _gendesigns
 import _netlistcases as cases
 import _probes
@@ -35,6 +36,23 @@ def test_blink_and_units(name: str) -> None:
     print(f"netlist-own-{name}: {outcome} (pin types compared: {cases.pintype_outcome() == 'equal'})")
     assert found == (), f"{name}: {found[0]}"
     assert outcome == "equal"
+
+
+def test_stacked_pins() -> None:
+    """Capability kicad-oracle, "Stacked pins pass ERC, the netlist export and parity" (change c0123;
+    ``H-K-SCH-STACKED``, ``H-K-SCH-STACKED-OPEN``): KiCad's export of the stacked design holds the nodes
+    and the net names of Fenolite's own netlist, the nets of the open pins included."""
+    built = cases.output("stacked")
+    found = cases.own_differences(built)
+    assert found == (), found[0]
+    assert _probes.run("netlist-own-stacked") == "equal"
+    files = cases.project_files(built)
+    nets = _erc.netlist(_probes.runner(), "stacked.kicad_sch", files)
+    assert nets["unconnected-(U1-Pad15)"] == {("U1", "5"), ("U1", "15"), ("U1", "9")}
+    assert nets["Net-(D2-K-Pad17)"] == {("D2", "21"), ("D2", "17")}
+    assert {("U1", "3"), ("U1", "23"), ("R1", "1"), ("R1", "2")} <= nets["OUT"]
+    assert {("U1", "7"), ("U1", "27")} <= nets["GND"] and {("U1", "14"), ("U1", "24")} <= nets["VCC"]
+    print(f"netlist-own-stacked: equal on kicad-cli {_probes.version()}; {len(nets)} nets")
 
 
 def test_examples() -> None:

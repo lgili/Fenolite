@@ -87,6 +87,7 @@ MORE_KINDS: tuple[str, ...] = (
     "outline",
     "schematic",
     "pin-pad-map",
+    "pin-pads",
     "module",
     "channel",
 )
@@ -94,9 +95,12 @@ MORE_KINDS: tuple[str, ...] = (
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
 polygon is written unpoured), the layers on which a via has no pad shape (the via is written with a pad on
 every layer; change c0132), an internal plane, the stack-up values, a part of the outline, and the
-schematic. Of the circuit (change c0083): the pin-to-pad map of a component (``Component.pin_pad_map``,
-with the bag key ``pin_pads``), a module (the generated schematic is one sheet), and the channel of a
-repeated sheet (the bag keys ``sheet_symbol`` and ``channel_index`` of a module)."""
+schematic. Of the circuit (change c0083): a module (the generated schematic is one sheet), and the channel
+of a repeated sheet (the bag keys ``sheet_symbol`` and ``channel_index`` of a module). Of the pin-to-pad map
+(change c0123, which writes the map as records of the footprint model): ``pin-pad-map`` is the map of a
+component that has no footprint model in the generated schematic, and ``pin-pads`` a component whose bag
+holds what the model's map cannot say (the key ``pin_pads``: a record without a pad, or with a pad that
+another pin holds)."""
 LOSS_KINDS: frozenset[str] = frozenset(
     {"footprint", "pad", "track", "arc", "via", "zone", "net", "netclass", "copper-shape", "plane"}
 )
@@ -824,10 +828,6 @@ def schematic_design(design: Design, name: str) -> Design:
                 lib_footprint_ref=footprint,
                 pins=pins,
                 value=component.value or link.rpartition(":")[2],
-                # The write of a model writes no pin-to-pad map (``from_design`` accounts for it under
-                # ``pin-pad-map``). Since the fix c0135 the schematic writers write the map a component
-                # holds, for a build; here the map is taken off, so this write is what it was.
-                pin_pad_map=(),
             )
         )
     kept = {component.id: {pin.number for pin in component.pins} for component in components}
@@ -892,10 +892,14 @@ def from_design(
                 design, board, outline, corner_ratios or {}, account, rewrite=rewrite, bodies=body_mode
             )
     schematic = schematic_design(design, name)
+    modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
     for component in design.circuit.components:
-        if component.pin_pad_map:
-            reason = "the generated symbol names each pin by its designator; no pin-to-pad map is written"
+        if component.pin_pad_map and not modelled.get(component.id):
+            reason = "the component has no footprint model in the generated schematic to hold its map"
             account.skip("pin-pad-map", component.id, reason)
+        if "pin_pads" in pairs_of(component):
+            reason = "a map record that names no pad, or a pad that another pin holds, is not written"
+            account.skip("pin-pads", component.id, reason)
     for module in design.circuit.modules:
         account.skip(
             "module", module.id, "the generated schematic is one sheet: no sheet of a module is written"

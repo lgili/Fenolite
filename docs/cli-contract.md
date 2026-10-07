@@ -546,7 +546,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.copper-shape` | info | count of fills and regions on copper, imported as graphics with their net in the bag |
 | `altium.import.scope` | info | the net identifier scope that was used |
 | `altium.import.option-ignored` | info | a project option that the import does not apply (`AppendSheetNumberToLocalNets`) |
-| `altium.import.pin-map` | info | count of pin map records that name several pads, no pad, or a pad another pin holds: one pad per pin is compared, the record is kept in the component's bag |
+| `altium.import.pin-map` | info | count of pin map records that name no pad, or a pad another pin holds: such a pad is left off the pin and the record is kept in the component's bag; a record of several pads is applied and not counted |
 | `altium.import.bus-member` | info | count of bus members without a net |
 | `altium.import.harness-entry` | info | count of harness entries without a net |
 | `altium.import.extra-board` | info | a project lists more than one PCB document; only the first is read |
@@ -822,7 +822,7 @@ repeat.
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, and `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),

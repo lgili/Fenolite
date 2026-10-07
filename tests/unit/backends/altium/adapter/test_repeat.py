@@ -405,21 +405,79 @@ def test_pin_map_identity_records_give_no_pair() -> None:
     assert q1.pin_pad_map == (("2", "3"), ("3", "2"))
 
 
-def test_pin_map_records_the_model_cannot_hold() -> None:
-    """Several pads, no pad, and a pad that another pin holds: one pad per pin, the record in the bag."""
+def test_pin_map_several_pads_of_one_pin() -> None:
+    """Scenario "Several pads of one pin" (change c0123): one pair per pad of a record, in its order; a
+    record without a pad is what the model cannot hold, and is kept in the bag."""
     issues: list[Issue] = []
     sheet = mapped_sheet({"1": ("1", "4"), "2": ("5", "6"), "3": ()})
     (group,) = [g for g in part_groups(sheet.document()) if g.ref == "Q1"]
-    assert pin_pad_map(group) == ((("2", "5"),), (("1", "1,4"), ("2", "5,6"), ("3", "")), 3)
+    pairs = (("1", "1"), ("1", "4"), ("2", "5"), ("2", "6"))
+    assert pin_pad_map(group) == (pairs, (("3", ""),), 1)
     circuit = import_circuit((sheet.input(),), issues=issues)
     q1 = next(c for c in circuit.components if c.ref == "Q1")
-    assert q1.pin_pad_map == (("2", "5"),)
-    assert q1.ext["altium"].payload == (("pin_pads", "1=1,4"), ("pin_pads", "2=5,6"), ("pin_pads", "3="))
+    assert q1.pin_pad_map == pairs
+    assert q1.pads_of("1") == ("1", "4") and q1.pads_of("2") == ("5", "6") and q1.pads_of("3") == ("3",)
+    assert q1.ext["altium"].payload == (("pin_pads", "3="),)
     (said,) = [i for i in issues if i.code == "altium.import.pin-map"]
-    assert said.severity == "info" and "3 pin map record(s)" in said.message
+    assert said.severity == "info" and "1 pin map record(s)" in said.message
+    design = type("D", (), {"circuit": circuit})()
+    elements = sorted(a.element for a in model_netlist(design).assignments if a.element.startswith("Q1-"))  # type: ignore[arg-type]
+    assert elements == ["Q1-1", "Q1-3", "Q1-4", "Q1-5", "Q1-6"]
+    imported = import_project(ProjectInput("p", sheets=(sheet.input(),)))
+    assert not [i for i in imported.validate() if i.code == "model.pin-pad-map"]
+
+
+def test_pin_map_pad_that_another_pin_holds() -> None:
+    """Scenario "Pad that another pin holds": the pad gives no pair, the other pads of the record do, and
+    the record is kept in the bag and counted."""
+    issues: list[Issue] = []
+    sheet = mapped_sheet({"1": ("2", "7")})
+    (group,) = [g for g in part_groups(sheet.document()) if g.ref == "Q1"]
+    assert pin_pad_map(group) == ((("1", "7"),), (("1", "2,7"),), 1)
+    circuit = import_circuit((sheet.input(),), issues=issues)
+    q1 = next(c for c in circuit.components if c.ref == "Q1")
+    assert q1.ext["altium"].payload == (("pin_pads", "1=2,7"),)
+    assert [i.message[:1] for i in issues if i.code == "altium.import.pin-map"] == ["1"]
+    # a record whose only pad another pin holds leaves the pin its own designator, as before
     taken = mapped_sheet({"2": ("1",)})
     (group,) = [g for g in part_groups(taken.document()) if g.ref == "Q1"]
     assert pin_pad_map(group) == ((), (("2", "1"),), 1)
+    # a pad listed twice in one record gives one pair, and the pairs say the record in full
+    twice = mapped_sheet({"3": ("S", "S", "T")})
+    (group,) = [g for g in part_groups(twice.document()) if g.ref == "Q1"]
+    assert pin_pad_map(group) == ((("3", "S"), ("3", "T")), (), 0)
+    # two pins that list one pad: the first in the pin table takes it
+    shared = mapped_sheet({"1": ("X", "Y"), "2": ("Y", "Z")})
+    (group,) = [g for g in part_groups(shared.document()) if g.ref == "Q1"]
+    assert pin_pad_map(group) == ((("1", "X"), ("1", "Y"), ("2", "Z")), (("2", "Y,Z"),), 1)
+
+
+def test_pin_map_is_read_from_the_partial_and_from_the_full_form() -> None:
+    """A footprint model may hold a record only for a pin with other pads than its own (the form Altium
+    saves, and the one Fenolite writes) or a record for every pin, the others naming their own pad: both
+    import to the same map."""
+    partial = import_circuit((mapped_sheet({"3": ("3", "EP")}).input(),))
+    full = import_circuit((mapped_sheet({"1": ("1",), "2": ("2",), "3": ("3", "EP")}).input(),))
+    maps = [next(c for c in circuit.components if c.ref == "Q1").pin_pad_map for circuit in (partial, full)]
+    assert maps[0] == maps[1] == (("3", "3"), ("3", "EP"))
+
+
+def test_pin_map_several_pads_on_the_board_side() -> None:
+    """Scenario "Board net through a pin of two pads": a net of the PCB document that the sheets lack
+    lists the pin once, whichever of its pads the net is on."""
+    sheet = mapped_sheet({"3": ("3", "EP")})
+    parts = [rec.component("Q1", unique_id="A", source_unique_id="\\QUID0001")]
+    document = rec.document(
+        nets=["ONLYPCB"],
+        components=parts,
+        pads=[rec.pad("3", (0, 0), net=0, component=0), rec.pad("EP", (100, 0), net=0, component=0)],
+    )
+    project = ProjectInput("p", sheets=(sheet.input(),), board=BoardInput("b.PcbDoc", rec.SHA, document))
+    design = import_project(project)
+    q1 = next(c for c in design.circuit.components if c.ref == "Q1")
+    assert q1.pin_pad_map == (("3", "3"), ("3", "EP"))
+    only = next(net for net in design.circuit.nets if net.name == "ONLYPCB")
+    assert [(m.component_id == q1.id, m.pin) for m in only.members] == [(True, "3")]
 
 
 def test_pin_map_of_the_board_side_names_the_pin() -> None:

@@ -859,7 +859,7 @@ An author report never raises the build's evidence level.
 | `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
 | `altium.library-too-large` | error | a schematic library needs more than 109 FAT sectors |
 | `altium.unknown-pin` | error | a net member names neither a pin number nor a pin name of a resolved symbol |
-| `altium.pin-pad-map-invalid` | error | a `pad_map` names a pin the symbol lacks, names a pad the resolved footprint lacks, or leaves one pad to two pins, one by the map and one by its own number (change c0135) |
+| `altium.pin-pad-map-invalid` | error | a `pad_map` names a pin the symbol lacks, names a pad the resolved footprint lacks, or leaves one pad to two pins, one of them by its own number (changes c0135 and c0123); for a pad of two pins the model's `model.pin-pad-map` is reported beside it |
 | `altium.symbol-off-grid` | error | a pin position or length of a resolved symbol is not a multiple of 10 mil |
 | `altium.pin-text-too-long` | error | a pin name or number is longer than 255 bytes |
 | `altium.symbol-name-collision` | error | two lib ids give one library and one storage name, or two library file names differ only in letter case |
@@ -1183,14 +1183,18 @@ the designators of the sheet. The facts are in `docs/formats/altium/connectivity
 
 **Pin-to-pad map.** A component whose footprint model maps a pin to a pad of another name carries the pair
 in `pin_pad_map`, and `netlist.assignment_compare` and level 2 of `fenolite equivalent` name the pin by
-that pad (`JP6-VBUS`, not `JP6-1`); the nets of the circuit stay keyed by pin number. This holds for
-Fenolite's own builds too: a project built from a script with a renaming `pad_map` holds the map in its
-schematic and the nets on the mapped pads of its PCB document (change c0135), and `fenolite check` on it
-compares the two through the map and reports nothing for the mapped pins. (The release 0.2.1, whose
-import leaves the map records out of the model, reports `netlist.assignment-differs` there.) The model
-gives a pin one pad: a pin whose map lists several pads keeps its own designator when the map lists it, else takes the
-first pad, and a pin mapped to no pad keeps its designator; each such record is kept in the component's
-`altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
+that pad (`JP6-VBUS`, not `JP6-1`); the nets of the circuit stay keyed by pin number. A pin whose map
+lists several pads is bonded to each of them (change c0123): the map holds one pair per pad, in the order
+of the record, and the comparisons name every pad. An Altium build writes the map back the way Altium
+saves it: a map record of the footprint model for each pin whose pads are not the pad of its own
+designator, and none for the other pins. This holds for Fenolite's own builds: a project built from a
+script with a `pad_map` holds the map in its schematic and the nets on the mapped pads of its PCB
+document, and `fenolite check` on it compares the two through the map and reports no
+`netlist.assignment-differs` for the mapped pins (the release 0.2.1, whose import leaves the map
+records out of the model, reports it). The library of a built project holds the map only when every
+part of the symbol links the footprint the symbol names. The model gives a pad one pin: a pad that another pin
+holds gives no pair, and a pin mapped to no pad keeps its designator; each such record is kept in the
+component's `altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
 
 **What is not imported.** Nothing is dropped silently: `altium.import.unmapped` counts every record that
 gave no model entity.
@@ -1213,8 +1217,8 @@ gave no model entity.
   copper layer with its net in the bag (`plane_net`), and no zone is made for it. An imported board with
   planes therefore shows less copper than the fabricated board has, and the copper check says so
   (`copper.item-unsupported` at `plane`).
-- The further pads of a pin that its footprint model maps to several pads: the comparison names the pin
-  by one pad, and the others show as covered by the PCB document only.
+- A pad that the footprint model maps to two pins, and a pin that it maps to no pad: the model gives a
+  pad one pin and a pin at least one pad, so the record stays in the bag (`pin_pads`).
 
 The issue codes `altium.import.*` are listed in `docs/cli-contract.md`, "Altium import". An error issue
 never stops an import.
@@ -1281,7 +1285,7 @@ reading of the schematic documents, and every other kind with the reading of the
 
 | kind | compared | with |
 |---|---|---|
-| `component` | `ref`, `value` | schematic |
+| `component` | `ref`, `value`, `pin_pad_map` | schematic |
 | `net` | `name`, `members` | schematic |
 | `no_connect` | the marked pins | schematic |
 | `netclass` | `name` | PCB document |
@@ -1312,7 +1316,6 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
-| `component` | `pin_pad_map` | the writer does not write it in every case: a build writes the map as map records of the footprint model (change c0135) and the import reads them into the model (change c0083), but the write of a model writes none (`pin-pad-map` below) |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
@@ -1360,7 +1363,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | rule | the rules that `rulemap.lower` writes exactly (c0084) | not compared | `rule` |
 | stack | the copper layers in order, planes with their net, the stack-up values when they fit | not compared | `plane`: a plane without a net of the document is written as a signal layer; `stackup`: default values are written |
 | outline | `Board.outline`, else the ring of the `Edge.Cuts` graphics | not compared | `outline`: an arc of the outline is two straight edges; a cut-out; no closed ring |
-| schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component (`pin_pad_map`, bag key `pin_pads`) |
+| schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component that has no footprint model in the generated schematic (the map of every other component is written as records of its footprint model, change c0123); `pin-pads`: a component whose bag holds a map record that the model cannot say (the key `pin_pads`) |
 
 Keys of `unwritten` that start with `record:` count what the import maps to no model entity, by the
 category of its census: `footprint-graphics`, `pour-primitives`, `plane-cuts`, `shape-based-regions`,

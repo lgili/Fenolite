@@ -121,8 +121,8 @@ class PartSpec:
     parameters: tuple[tuple[str, str, str], ...] = ()
     """The hidden parameters of the component (change c0086, "Component parameters"): name, value and
     unique id, in name order."""
-    pin_pads: tuple[tuple[str, str], ...] = ()
-    """The pin map of the footprint model: ``altsym.map_pins`` of the component."""
+    pin_pads: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    """The pin map of the footprint model (change c0123): ``altsym.map_pins`` of the component."""
 
     def part_id(self, part: int) -> str:
         """The unique id of part ``part`` (1-based)."""

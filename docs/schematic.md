@@ -102,6 +102,16 @@ from:
 - **A part with a pad map gets pad numbers.** KiCad ties a symbol pin to the pad of the same number, so
   for `Part(..., pad_map={"1": "2", "2": "1"})` the symbol is embedded as `<name>_<8 hex digits>` with
   the pad numbers on its pins. Parts with equal maps share one definition.
+- **A pin bonded to several pads gets stacked pins** (change c0123). For
+  `pad_map={"2": ("2", "4")}` the pin of the symbol takes the first pad, `2`, and the embedded symbol
+  holds one more pin for the pad `4` at the same place, with the same name: `passive` and hidden, so the
+  sheet shows one number and the symbol's pin table lists both. KiCad joins pins of one symbol that lie at
+  one point, so its netlist has both pads on the pin's net, and its parity test finds the board in
+  agreement. One label, or one no-connect flag, serves the pin. When such a pin is on no net, KiCad makes
+  one net of its pads and names it after the pad whose number sorts first as text:
+  `unconnected-(U1-Pad15)` for the pads `5`, `15` and `9` under a no-connect flag, and `Net-(D2-K-Pad17)`
+  for the pads `21` and `17` of a pin named `K` without a flag; the board carries that name on each of
+  those pads.
 - **Hidden power input pins are shown.** KiCad puts hidden power inputs of one name on one global net,
   whatever label they carry. A shown pin connects by its label, as the script says
   (`kicad.sch.power-pin-shown`).
