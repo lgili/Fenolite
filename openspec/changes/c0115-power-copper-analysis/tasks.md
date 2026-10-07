@@ -10,6 +10,7 @@
   - 2026-10-07: rows added at the end of the three tables; S-0681 and S-0682 taken; 44 passed, the count is 12.
 - [ ] 1.2 Probe `connection_width` on 9.0.9, which has no `--refill-zones`: write the plain-neck bench for target 9 with its fill stored, run `pcb drc` on it inside the pinned 9.0.9 image with a minimum of 1.95 mm and of 2.05 mm, and write the outcome under this task and into the row `H-K-AN-NECK`; task 11.1 adds 9 to the majors of `analysis-neck-plain` only if 9.0.9 reports 2 mm at 2.05 mm and nothing at 1.95 mm. Proof: `kicad-cli pcb drc --format json --severity-all -o report.json bench.kicad_pcb` inside the pinned 9.0.9 image, its two reports summarised under this task.
   - 9.0.9 image run owed.
+  - 2026-10-08: still owed. In the pinned 9.0.9 image `analysis-neck-plain` and `-split` cannot run as written (`pcb drc --refill-zones needs kicad-cli 10.0 or newer`); the bench with a stored fill that this task asks for was not written.
 
 ## 2. Copper fill regions
 
@@ -76,6 +77,7 @@
 
 - [ ] 11.1 Write `tests/kicad/analysis/_powerbench.py` (the five benches, each canary scoped to its own net) and `tests/unit/analysis/test_power_benches.py`; register the five probes in `tests/kicad/_probes.py` with their majors (9 for `analysis-neck-plain` only after task 1.2); write `tests/kicad/analysis/test_power_probes.py`; regenerate the probe files; write the outcomes to `docs/evidence/board-analyses.md` and to the `H-K-AN-` rows. Cover "Probes recorded" and "Benches are hermetic to build". Proof: `uv run pytest tests/unit/analysis/test_power_benches.py`; `uv run pytest tests/kicad/analysis/test_power_probes.py -rA` on the local KiCad 10.0.6, and with `-k layers` inside the pinned 9.0.9 image; `FENOLITE_PROBES_WRITE=1 uv run pytest tests/kicad/test_probe_results.py`.
   - 9.0.9 image run owed (`insulation-layers` on major 9; it is registered for major 10 only). Done on 2026-10-07: `_powerbench.py` with the five benches, the five probes in `_probes.py`, `test_power_probes.py` (10 passed on the local 10.0.6, all five outcomes `equal`), `test_power_benches.py` (6 passed), `FENOLITE_PROBES_WRITE=1 uv run pytest tests/kicad/test_probe_results.py` (1 passed; five lines added to `probes/10.0.6.json`), the outcomes in `docs/evidence/board-analyses.md` and in the `H-K-AN-` rows.
+  - 2026-10-08: `insulation-layers`, run alone in the pinned 9.0.9 image (it is registered for major 10 only, nothing was recorded), gave `absent`: the canary of the bench did not fire there, so the run proves nothing about 9.0.9. `H-K-AN-LAYERS` stays `INFERRED`.
 
 ## 12. Closing
 

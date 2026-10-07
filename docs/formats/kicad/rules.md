@@ -93,8 +93,8 @@ semantics of each row are the hypotheses above.
 - The last six kinds (change c0071) take `min` only, which is what the oracle measured, and a `min` of 0
   is allowed for them.
 - `rulemap.KIND_SUPPORT` maps each kind to the KiCad majors on which `kicad-cli` enforces it as written:
-  both majors for every kind but `creepage` and `no_tracks`, which hold 10 only (`no_tracks` until its probe
-  is recorded on 9.0.9). A modelled rule of a kind outside its
+  both majors for every kind but `creepage`, which holds 10 only (`no_tracks` holds both since its probe
+  `dru-kind-no_tracks` was recorded `present` on 9.0.9 on 2026-10-08). A modelled rule of a kind outside its
   entry gives `rules.kind-unchecked`; `allow_lossy` drops it with `rules.dropped-for-target`.
 - Values are written as the shortest exact millimetre decimal of the nanometre value (`0.25mm`,
   `0.2032mm`), never rounded. Limits are written in the order `min`, `opt`, `max`.
@@ -255,7 +255,7 @@ Per-major outcome of each row, from the oracle on 2026-10-02 (local `kicad-cli` 
 | `courtyard_clearance` | `courtyards_overlap` |
 | `silk_clearance` | `silk_overlap` (and `silk_over_copper` against pads) |
 | `creepage` | `creepage` on 10.0.6; nothing on 9.0.9 |
-| `no_tracks` | `items_not_allowed` on 10.0.6; 9.0.9 not yet recorded |
+| `no_tracks` | `items_not_allowed` on 9.0.9 and 10.0.6 |
 
 The benches of the last six kinds carry the canary scoped to its own net (`A.NetName == 'CANARY_A'`): the
 plain canary matches every pair and would take the one violation KiCad reports for a pair.

@@ -73,18 +73,18 @@ The `check-help-*` probes pinned in `docs/evidence/kicad/probes/` (`tests/kicad/
 | `pcb export stats` | absent | present |
 | `pcb export ipc2581` | present | present |
 | `pcb export odb` | present | present |
-| `pcb export step` | not recorded | present |
-| `pcb export pdf` | not recorded | present |
-| `pcb export dxf` | not recorded | present |
+| `pcb export step` | present | present |
+| `pcb export pdf` | present | present |
+| `pcb export dxf` | present | present |
 | `fp upgrade` | present | present |
 | `sym upgrade` | present | present |
 | `sch erc` | present | present |
 | `sch export netlist` | present | present |
-| `sch export pdf` | not recorded | present |
+| `sch export pdf` | present | present |
 | `jobset run` | present | present |
 
-The four rows marked "not recorded" were added by change c0116 and recorded on 10.0.6 on 2026-10-07; their 9.0.9
-probes wait for a run in the pinned image (the help pages of 9.0.9 listed all four on 2026-10-05).
+The rows of `pcb export step`, `pdf` and `dxf` and of `sch export pdf` were added by change c0116 and recorded on
+10.0.6 on 2026-10-07 and on 9.0.9 (the pinned image, local run) on 2026-10-08.
 
 Every page that `command_matrix` reads parsed on both versions. On 9.0.9 the rows `pcb import`,
 `pcb upgrade`, `pcb export stats`, `pcb drc --refill-zones` and `pcb drc --save-board` are absent; every

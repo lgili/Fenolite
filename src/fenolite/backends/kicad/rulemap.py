@@ -142,14 +142,14 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "courtyard_clearance": _BOTH,
         "silk_clearance": _BOTH,
         "creepage": frozenset({10}),
-        "no_tracks": frozenset({10}),
+        "no_tracks": _BOTH,
     }
 )
 """Each kind → the KiCad majors on which ``kicad-cli`` enforces it as written: for the six kinds of v0.1,
 ``H-K-DRU-KIND``; for the six of change c0071, the majors whose ``dru-kind-<kind>`` probe recorded
 ``present`` (``H-K-DRU-KIND-2``). 9.0.9 loads a ``creepage`` rule and reports nothing for it, so it is written
 for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
-recorded on 10.0.6; its entry gains 9 when the probe file of 9.0.9 records ``present``. A modelled rule of a
+recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both majors. A modelled rule of a
 kind outside its entry gives ``rules.kind-unchecked``."""
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(

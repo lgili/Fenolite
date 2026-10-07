@@ -35,8 +35,9 @@
 
 - [x] 3.1 Write `tests/_catalog_design.py::catalog_blink()` and `tests/unit/cli/test_catalog_only.py` (scenarios "Nets of the script and of the board agree", "A regression is caught" and "Altium documents are unchanged"). Proof: `uv run pytest tests/unit/cli/test_catalog_only.py tests/unit/cli/test_catalog.py -q`.
   - 2026-10-07: 14 passed, exit 0.
-- [ ] 3.2 Write `tests/kicad/build/test_catalog_only.py` (scenario "KiCad accepts the project"). Proof: `uv run pytest tests/kicad/build/test_catalog_only.py -rA` on the local KiCad 10.0.6 and on KiCad 9.0.9.
+- [x] 3.2 Write `tests/kicad/build/test_catalog_only.py` (scenario "KiCad accepts the project"). Proof: `uv run pytest tests/kicad/build/test_catalog_only.py -rA` on the local KiCad 10.0.6 and on KiCad 9.0.9.
   - Open: the test is written and passes on the local `kicad-cli` 10.0.6 (2026-10-07, `FENOLITE_REQUIRE=kicad`: 4 passed, exit 0; targets 9 and 10: `check` exits 0 with no issue, the control without the fields exits 5 with `netlist.assignment-differs`). The run on 9.0.9 is left to the `kicad-9` job of CI: no 9.0.9 was run this night.
+  - 2026-10-08: ticked by the local run of 2026-10-08 in the pinned 9.0.9 image (`kicad/kicad:9.0.9@sha256:e638b79b…`, linux/amd64, branch `v04-k9-probes`; whole `tests/kicad` without the corpus: 777 passed, 4 failed, 784 skipped, 1 xfailed; `tests/kicad/test_probe_results.py` passed on the 536 probes of major 9): `tests/kicad/build/test_catalog_only.py` 2 passed (target 9: `check` exits 0, the control is refused), 2 skipped (target 10 on `kicad-cli` 9).
 
 ## 4. Documentation
 
@@ -45,8 +46,9 @@
 
 ## 5. Closing
 
-- [ ] 5.1 Update the evidence labels: `H-K-FP-FIELDS` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` with the two runs, or records what KiCad reported. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
+- [x] 5.1 Update the evidence labels: `H-K-FP-FIELDS` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` with the two runs, or records what KiCad reported. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
   - Open: the row says `KICAD-VERIFIED (10.0.x)` with the run on 10.0.6 and names the missing 9.0.9 run. The proof exits 1 for the reason of task 1.1 (2026-10-07: 1 failed, 43 passed; the failure is c0140's an id of c0099 that no row registers yet).
+  - 2026-10-08: ticked: `H-K-FP-FIELDS` is `KICAD-VERIFIED (9.0.x, 10.0.x)` with both runs; `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q` passes. CI has still to confirm the 9.0.9 half.
 - [ ] 5.2 Add to `CHANGELOG.md` under `## [Unreleased]`, in bold where behaviour changes: "**Footprints from the built-in catalog and from `dsl.Footprint` now carry `Reference` and `Value` on the board and in the project library, so a catalog-only board passes `check`. Projects built before gain the two properties on their next build: this is the first change of KiCad bytes since 0.2.0, and only for these footprints.** Altium projects do not change." Update the row of this change in `docs/roadmap.md`. Proof: `git diff --stat HEAD -- CHANGELOG.md docs/roadmap.md` lists both files.
   - Open: the changelog entry is the last one of `## [Unreleased]`. `docs/roadmap.md` is left to the coordinator of the milestone, who edits it for every change of the wave.
 - [ ] 5.3 Stop and report "ready for the long runs": `make check-fast`, the unit suite on Python 3.11 (`uv run --python 3.11 pytest tests/unit -q`), `uv run pytest tests/residue tests/corpus/test_manifest.py -q` after `git add -A`, `uv run python tools/residue/scan.py`, and `openspec validate --all --strict --no-interactive`. The full `make check` is run once by the coordinator on the rebased branch, not by the implementing agent. Proof: each command exits 0.
