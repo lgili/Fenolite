@@ -6,7 +6,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.2.1] - pending the tag
+## [0.2.1] - 2026-10-07
 
 ### Fixed
 
