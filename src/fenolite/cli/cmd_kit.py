@@ -45,6 +45,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kit.pending": "info",
         "kit.synthetic": "warning",
         "kit.privacy": "warning",
+        "kit.project-resaved": "info",
         "kit.stale": "warning",
     }
 )
@@ -54,6 +55,11 @@ UNVERIFIED_RUN = Evidence(Level.INFERRED)
 """A run that did not pass in full, or that no tool performed, verifies nothing."""
 KIT_RUN = Evidence(Level.ALTIUM_VERIFIED_KIT)
 MAX_PRIVACY_ISSUES = 20
+_PRIVACY_KINDS = {
+    "home-folder": "a home folder",
+    "absolute-path": "an absolute path of the machine",
+    "login-name": "a login name",
+}
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -162,6 +168,7 @@ def _verdict_result(verdict: KitVerdict) -> dict[str, Any]:
             for outcome in ("pass", "fail", "skipped")
         },
         "kit_problems": list(verdict.kit_problems),
+        "kit_resaved": list(verdict.resaved),
         "form_problems": list(verdict.form_problems),
         "steps": [
             {
@@ -189,6 +196,15 @@ def _verdict_result(verdict: KitVerdict) -> dict[str, Any]:
 
 def _verdict_issues(verdict: KitVerdict) -> list[Issue]:
     issues = [_issue("kit.file-changed", text, hint="build the kit again") for text in verdict.kit_problems]
+    issues += [
+        _issue(
+            "kit.project-resaved",
+            f"{path} was saved again by the tool: its bytes are not the manifest's, and it lists exactly "
+            "the sample's documents, so the sample's steps are judged",
+            path,
+        )
+        for path in verdict.resaved
+    ]
     issues += [_issue("kit.form", text, manifest.FORM_FILE) for text in verdict.form_problems]
     for step in verdict.steps:
         if step.outcome == "fail":
@@ -208,7 +224,7 @@ def _verdict_issues(verdict: KitVerdict) -> list[Issue]:
     issues += [
         _issue(
             "kit.privacy",
-            f"{found.file} holds what looks like a {found.kind.replace('-', ' ')} at byte {found.offset}",
+            f"{found.file} holds what looks like {_PRIVACY_KINDS[found.kind]} at byte {found.offset}",
             found.file,
             "read result.privacy before publishing the archive",
         )

@@ -395,6 +395,7 @@ def _kit_record(**changes: object) -> dict[str, object]:
         ],
         "results": [],
         "privacy_findings": 0,
+        "kit_resaved": [],
         "archive": {"name": f"altium-kit-{KIT_RUN}.zip", "sha256": KIT_ARCHIVE, "size": 1},
     }
     record.update(changes)

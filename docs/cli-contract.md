@@ -1931,7 +1931,9 @@ fenolite kit status --json
 - **`verify`** is read-only. `result` holds `steps` (per step `outcome`: `pass`, `fail` or `skipped`, its
   `reasons`, `scripted` and its `pending` checks), `hypotheses` (per register row `pass`, `fail`,
   `skipped` or `pending`, and `form` when the verdict rests on a typed value), `privacy` (file, byte
-  offset, kind and string of what looks like a home folder or a login name), `kit_problems`,
+  offset, kind and string of what looks like a home folder, another absolute path of the machine or a
+  login name: `home-folder`, `absolute-path`, `login-name`), `kit_problems`, `kit_resaved` (the project
+  files of samples that the tool saved again with the same documents),
   `form_problems`, `synthetic` and `passed`.
 - **`record`** is a mutating command. It writes `results.zip` beside `DIR` and the run record
   `REPO/docs/evidence/altium-kit/<run id>.json` (schema `fenolite.altium-kit-run.v0`), and lists in
@@ -1945,13 +1947,14 @@ fenolite kit status --json
 
 | code | severity | when |
 |---|---|---|
-| `kit.file-changed` | error | a file of the kit is missing or differs from its digest in `kit.json` |
+| `kit.file-changed` | error | a file of the kit is missing or differs from its digest in `kit.json`, and is not a sample's project file that still lists the sample's documents |
 | `kit.form` | error | `results/form.json` is not sound as a whole (schema, tool version, system, date, fields) |
 | `kit.step-failed` | error | a result file fails a check, or a typed value is not the expected one |
 | `kit.record-refused` | error | `record` wrote nothing; the message says why |
 | `kit.synthetic` | warning | the form does not say that a tool performed the run |
-| `kit.privacy` | warning | a result file holds what looks like a home folder or a login name |
+| `kit.privacy` | warning | a result file holds what looks like a home folder, another absolute path of the machine or a login name |
 | `kit.stale` | warning | `status`: a row's kit run is stale |
+| `kit.project-resaved` | info | a sample's project file was saved again by the tool: other bytes, the same documents; nothing fails |
 | `kit.step-skipped` | info | a step was not done |
 | `kit.pending` | info | a check of a step waits for a change that is not implemented, and was not run |
 

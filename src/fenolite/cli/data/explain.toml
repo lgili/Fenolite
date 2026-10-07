@@ -1788,8 +1788,13 @@ fix = "Nothing to do; the check runs once that change is implemented."
 see = "kit"
 
 ["kit.privacy"]
-meaning = "A result file holds a string that looks like a home folder path or a login name. result.privacy gives the file, the byte offset and the string."
+meaning = "A result file holds a string that looks like a home folder, another absolute path of the machine (on a drive, on a share or from a POSIX root) or a login name. result.privacy gives the file, the byte offset, the kind and the string."
 fix = "Read the list before publishing the archive; save the document again from a neutral folder if the string must not be published."
+see = "kit"
+
+["kit.project-resaved"]
+meaning = "The project file of a sample of the kit no longer has the bytes that kit.json names, and it still lists exactly the documents of its sample. Altium writes a project file again when the project is saved. The steps of the sample are judged, and the run record names the file."
+fix = "Nothing to do. Any other change of a kit file, or a project file with another list of documents, is kit.file-changed."
 see = "kit"
 
 ["kit.record-refused"]

@@ -264,3 +264,267 @@ def test_parity_of_a_saved_document_against_the_kit_s_own(kit: Path, tmp_path: P
         "K6.1",
         "K9.1",
     ]
+
+
+# --- absolute paths of the machine (change c0139) ------------------------------------------------------
+
+DRIVE = "D:\\work\\project\\flat.PcbDoc"
+"""An invented path of the shape a saved document holds: another drive, no home folder."""
+
+
+def _pcb_document(filename: str) -> bytes:
+    """A PCB document written by Fenolite whose board record names ``filename``."""
+    from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
+    from fenolite.core.coords import Point
+
+    outline = (Point(0, 0), Point(20_000_000, 0), Point(20_000_000, 10_000_000), Point(0, 10_000_000))
+    return write_pcbdoc(PcbDocSpec(outline=outline), filename=filename)
+
+
+def _kinds(files: dict[str, bytes]) -> list[tuple[str, str]]:
+    return [(found.kind, found.text) for found in privacy_scan(files)]
+
+
+def test_a_path_on_another_drive_in_a_saved_document_is_listed() -> None:
+    """The board record of a document that a tool saved holds the file's full name: a path that is under
+    no home folder is listed too, in the bytes of the document."""
+    clean = _pcb_document("flat.PcbDoc")
+    saved = _pcb_document(DRIVE)
+    assert DRIVE.encode("cp1252") in saved and privacy_scan({"results/flat/flat.PcbDoc": clean}) == ()
+    found = privacy_scan({"results/flat/flat.PcbDoc": saved})
+    assert [(f.kind, f.text) for f in found] == [("absolute-path", DRIVE)]
+    assert saved[found[0].offset :].startswith(DRIVE.encode("cp1252"))
+
+
+def test_every_shape_of_absolute_path_is_listed() -> None:
+    unc = "\\\\fileserver\\share\\kit\\flat.SchDoc"
+    cases = {
+        "drive": (f"|FILENAME={DRIVE}|".encode("cp1252"), DRIVE),
+        "drive, forward slashes": (b'href="file:///E:/kit/results/drc.html"', "E:/kit/results/drc.html"),
+        "drive, escaped in JSON": (b'{"file": "D:\\\\work\\\\kit\\\\a.txt"}', "D:\\\\work\\\\kit\\\\a.txt"),
+        "drive, accented in the code page": (
+            "|PATH=F:\\Projeto Tensão\\placa.PcbDoc|".encode("cp1252"),
+            None,
+        ),
+        "share": (f"saved to {unc}\n".encode(), unc),
+        "posix": (b"written to /srv/builds/kit/results/flat.PcbDoc\n", "/srv/builds/kit/results/flat.PcbDoc"),
+        "posix, mounted volume": (b"FILE=/Volumes/data/kit/x.SchDoc|", "/Volumes/data/kit/x.SchDoc"),
+    }
+    for name, (data, text) in cases.items():
+        found = _kinds({"results/x": data})
+        assert len(found) == 1 and found[0][0] == "absolute-path", (name, found)
+        if text is not None:
+            assert found[0][1] == text, name
+    accented = _kinds({"results/x": cases["drive, accented in the code page"][0]})
+    assert accented[0][1] == "F:\\Projeto Tensão\\placa.PcbDoc"
+
+
+def test_absolute_paths_in_wide_text_at_any_alignment() -> None:
+    """Altium keeps some strings in UTF-16: the scan reads them at an even and at an odd byte offset."""
+    wide = DRIVE.encode("utf-16-le")
+    for lead in (b"", b"\x07", b"\x07\x08\x09"):
+        found = privacy_scan({"results/x.bin": lead + wide + b"\x00\x00"})
+        assert [(f.kind, f.text, f.offset) for f in found] == [("absolute-path", DRIVE, len(lead))], lead
+
+
+def test_a_home_folder_is_reported_once_and_as_a_home_folder() -> None:
+    home = f"C:\\{USERS}\\jdoe\\Documents\\kit\\flat.PcbDoc"
+    assert _kinds({"results/x": home.encode()}) == [("home-folder", f"C:\\{USERS}\\jdoe")]
+    both = f"{home}|{DRIVE}".encode()
+    assert [kind for kind, _ in _kinds({"results/x": both})] == ["home-folder", "absolute-path"]
+
+
+def test_what_is_part_of_the_format_is_not_a_path() -> None:
+    """Relative paths, stream names, web addresses, dates, fractions, markup and a bare drive letter are
+    not reported, and neither is anything in the documents that Fenolite writes."""
+    quiet = [
+        b"DocumentPath=..\\..\\flat\\flat.SchDoc\r\n",
+        b"Project Outputs\\routed.GTL\n",
+        b"Board6/Data\x00Components6/Header\x00",
+        b"see https://www.example.org/docs/kit/steps.html and http://example.org/a/b",
+        b"saved 10/7/2026 at 1/2 scale, 3 mm/s, and/or later",
+        b"<html><body><td>x</td><br/></body></html>",
+        b"RATIO=4:3|TIME=12:30:05|SCOPE=A:B|DRIVE=C:|",
+        b"C:\\ ",
+        "|NAME=Tensão 5 V|TEXT=N/A|".encode("cp1252"),
+    ]
+    for data in quiet:
+        assert privacy_scan({"results/x": data}) == (), data
+
+
+def test_the_kit_s_own_documents_hold_no_path(built_kit: Path) -> None:
+    files = {
+        path.relative_to(built_kit).as_posix(): path.read_bytes()
+        for path in sorted(built_kit.rglob("*"))
+        if path.is_file()
+    }
+    assert len(files) > 30 and privacy_scan(files) == ()
+
+
+def test_verify_carries_the_path_of_a_saved_document(kit: Path) -> None:
+    simulate(kit, replace={"flat/flat.PcbDoc": _pcb_document(DRIVE)})
+    verdict = verify_results(kit, judge=quick)
+    assert [(f.file, f.kind, f.text) for f in verdict.privacy] == [
+        ("results/flat/flat.PcbDoc", "absolute-path", DRIVE)
+    ]
+
+
+# --- the kit's own project file, saved again by the tool (change c0139) ----------------------------------
+
+RESAVED = "[Design]\r\nVersion=1.0\r\nHierarchyMode=0\r\nOutputPath=Project Outputs for flat\r\n\r\n"
+"""The start of a project file as a tool might write it again: more keys than Fenolite writes. The keys
+here are written for this test."""
+
+
+def _resaved_project(kit: Path, sample: str = "flat", *, drop: str = "", add: str = "") -> bytes:
+    """The sample's project file written again with other bytes: a byte-order mark, the same documents,
+    more keys; ``drop`` leaves one document out and ``add`` lists one more."""
+    from fenolite.backends.altium.read.project import read_project
+
+    path = kit / sample / f"{sample}.PrjPcb"
+    documents = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
+    documents = [name for name in documents if name != drop] + ([add] if add else [])
+    text = RESAVED + "".join(
+        f"[Document{n}]\r\nDocumentPath={name}\r\nAnnotationEnabled=1\r\nDoLibraryUpdate=1\r\n\r\n"
+        for n, name in enumerate(documents, 1)
+    )
+    return b"\xef\xbb\xbf" + (text + "[Configuration1]\r\nName=Default\r\n").encode("cp1252")
+
+
+def test_a_project_file_saved_again_with_its_documents_is_accepted(kit: Path) -> None:
+    """Altium writes a sample's own project file again when the project is saved: a project file that
+    still lists exactly the sample's documents does not fail the sample's steps, and the verdict says
+    which file was saved again."""
+    simulate(kit)
+    data = _resaved_project(kit)
+    (kit / "flat" / "flat.PrjPcb").write_bytes(data)
+    (kit / "flat" / "flat.PrjPcbStructure").write_bytes(b"written by the tool\n")
+    verdict = verify_results(kit, judge=simulated_judge)
+    assert verdict.kit_problems == () and verdict.resaved == ("flat/flat.PrjPcb",)
+    assert set(_outcomes(verdict).values()) == {"pass"} and verdict.passed
+    assert sum(1 for step in verdict.steps if step.sample == "flat") == 10
+
+
+def test_a_project_file_changed_in_another_way_still_fails(kit: Path) -> None:
+    simulate(kit)
+    own = (kit / "flat" / "flat.PrjPcb").read_bytes()
+    cases = {
+        "a document left out": _resaved_project(kit, drop="flat.PcbDoc"),
+        "a document more": _resaved_project(kit, add="other.SchDoc"),
+        "a document outside the folder": _resaved_project(
+            kit, drop="flat.SchDoc", add="..\\tree\\tree.SchDoc"
+        ),
+        "a document on a drive": _resaved_project(kit, drop="flat.SchDoc", add="D:\\work\\flat.SchDoc"),
+        "no project file": b"not a project file\r\n",
+        "empty": b"",
+    }
+    for name, data in cases.items():
+        (kit / "flat" / "flat.PrjPcb").write_bytes(data)
+        verdict = verify_results(kit, judge=quick)
+        assert verdict.kit_problems == ("flat/flat.PrjPcb differs from its digest in kit.json",), name
+        assert verdict.resaved == () and len(verdict.failed) == 10, name
+    (kit / "flat" / "flat.PrjPcb").unlink()
+    assert verify_results(kit, judge=quick).kit_problems == ("flat/flat.PrjPcb is missing",)
+    (kit / "flat" / "flat.PrjPcb").write_bytes(own)
+    assert verify_results(kit, judge=quick).kit_problems == ()
+
+
+def test_only_a_project_file_may_differ(kit: Path) -> None:
+    """Any other file of the kit that differs fails the manifest check, as before."""
+    simulate(kit)
+    for name in ("flat/flat.SchDoc", "flat/flat.SchLib", "flat/flat.OutJob", "kit_script.pas", "STEPS.md"):
+        target = kit / name
+        kept = target.read_bytes()
+        target.write_bytes(_resaved_project(kit))
+        verdict = verify_results(kit, judge=quick)
+        assert (
+            verdict.kit_problems == (f"{name} differs from its digest in kit.json",) and not verdict.resaved
+        )
+        target.write_bytes(kept)
+
+
+def test_the_documents_of_every_sample_project_are_its_files(built_kit: Path) -> None:
+    """What the manifest check takes for a sample's documents is what its project file lists."""
+    from fenolite.backends.altium.read.project import read_project
+    from fenolite.verify.kit.manifest import load_kit
+
+    kit = load_kit(built_kit)
+    for sample in kit.samples:
+        path = built_kit / sample / f"{sample}.PrjPcb"
+        listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
+        assert results.project_documents(path.read_bytes()) == listed
+        assert sorted(listed) == sorted(results.sample_documents(kit, f"{sample}/{sample}.PrjPcb")), sample
+    assert results.project_documents(b"\xff\xfe not a project") is None
+    marked = b"\xef\xbb\xbf[Design]\r\n[Document1]\r\nDocumentPath=a.SchDoc\r\n[Other]\r\nDocumentPath=b\r\n"
+    assert results.project_documents(marked) == ["a.SchDoc"]
+    assert results.project_documents(b"[Document1]\r\nDocumentPath=a.SchDoc\r\n") is None
+
+
+# --- a result file of another document kind (change c0139) -----------------------------------------------
+
+
+def test_a_result_file_of_another_document_kind_is_named(kit: Path) -> None:
+    """A schematic saved where the step wants the PCB document fails with what the file is and what the
+    step wants, not with a read error."""
+    simulate(
+        kit,
+        replace={
+            "board6/board6.PcbDoc": (kit / "board6" / "board6.SchDoc").read_bytes(),
+            "libs/libs.SchLib": (kit / "libs" / "libs.PcbLib").read_bytes(),
+            "flat/flat.SchDoc": (kit / "flat" / "flat.PrjPcb").read_bytes(),
+            "flat/flat.PrjPcb": (kit / "flat" / "flat.SchLib").read_bytes(),
+        },
+    )
+    failed = {step.id: step.reasons for step in verify_results(kit, judge=simulated_judge).failed}
+    assert sorted(failed) == ["K1.1", "K1.3", "K1.5", "K5.1"]
+    assert failed["K5.1"][0] == (
+        "resave: the file is a schematic document, and the step wants a PCB document: "
+        "save board6.PcbDoc of the sample, not another document of its project"
+    )
+    assert "is a PCB library, and the step wants a schematic library" in failed["K1.3"][0]
+    assert "is a project file, and the step wants a schematic document" in failed["K1.1"][0]
+    assert "is a schematic library, and the step wants a project file" in failed["K1.5"][0]
+    assert not any("cannot read" in text for reasons in failed.values() for text in reasons)
+    assert all(len(reasons) == 1 for reasons in failed.values())
+
+
+def test_document_kinds(built_kit: Path) -> None:
+    from fenolite.cli._kit import document_kind
+
+    kinds = {
+        "flat/flat.SchDoc": "a schematic document",
+        "flat/ascii/flat.SchDoc": "a schematic document",
+        "flat/flat.PcbDoc": "a PCB document",
+        "flat/flat.SchLib": "a schematic library",
+        "flat/flat.PcbLib": "a PCB library",
+        "flat/flat.PrjPcb": "a project file",
+        "tree/tree_io.leds.SchDoc": "a schematic document",
+        "board6/board6.PcbDoc": "a PCB document",
+        "templates/iso5457_generic.SchDot": "a schematic document",
+        "STEPS.md": None,
+        "flat/flat.OutJob": None,
+    }
+    for name, kind in kinds.items():
+        assert document_kind((built_kit / name).read_bytes()) == kind, name
+    assert document_kind(b"") is None and document_kind(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1garbage") is None
+
+
+def test_a_document_saved_under_the_name_of_another_kind_is_named(kit: Path) -> None:
+    """The schematic of ``board6`` saved as ``board6.SchDoc`` where step K5.1 wants ``board6.PcbDoc``: the
+    step is not passed over as not done, it fails and names the file it found. A file that another step
+    asks for is not taken for such a file."""
+    simulate(kit, skip=("K5.1", "K1.2"))
+    stray = kit / "results" / "board6" / "board6.SchDoc"
+    stray.write_bytes((kit / "board6" / "board6.SchDoc").read_bytes())
+    (kit / "results" / "board6" / "__Previews").mkdir()
+    verdict = verify_results(kit, judge=quick)
+    outcomes = _outcomes(verdict)
+    assert outcomes["K5.1"] == "fail" and outcomes["K1.2"] == "skipped"
+    reasons = {step.id: step.reasons for step in verdict.steps}
+    assert reasons["K5.1"] == (
+        "results/board6/board6.PcbDoc does not exist, and the folder holds board6.SchDoc, which no step "
+        "asks for: the step wants board6.PcbDoc, not another document of the project",
+    )
+    assert reasons["K1.2"] == ("results/flat/flat.PcbDoc does not exist",)
+    stray.unlink()
+    assert _outcomes(verify_results(kit, judge=quick))["K5.1"] == "skipped"

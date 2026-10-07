@@ -67,10 +67,27 @@ SOURCE_PAGES: Mapping[str, str] = MappingProxyType(
     }
 )
 """Source id → the page of Altium's public documentation, under ``www.altium.com/documentation/``."""
-READ_AS = "read as rendered on 2026-10-06"
+READ_AS = (
+    "read as rendered on 2026-10-06; no page states the version of Altium Designer it describes; "
+    "first run on Altium Designer 26"
+)
 """How every page of ``SOURCE_PAGES`` was read: through a text rendering of the page, not the page
 itself. A name or a signature of ``SCRIPT_CALLS`` may therefore differ from Altium's; compiling the
-script in Altium's script editor is the first step of a run that uses it."""
+script in Altium's script editor is the first step of a run that uses it. It also says which version the
+pages are for, and where the script runs first (``PAGE_VERSIONS``, ``FIRST_RUN_ON``)."""
+FIRST_RUN_ON = "Altium Designer 26"
+"""The version of the first run of the kit, the maintainer's. The pages were not read for it."""
+PAGE_VERSIONS: Mapping[str, str] = MappingProxyType(
+    {
+        "S-0501": "Altium Designer documentation; the address names no version",
+        "S-0502": "Altium Designer documentation; the address names no version",
+        "S-0503": "Altium DXP Developer documentation; no version of Altium Designer is stated",
+        "S-0504": "Altium DXP Developer documentation; no version of Altium Designer is stated",
+    }
+)
+"""Source id → which documentation the page belongs to and what it says of its version, as registered in
+``docs/evidence/sources.md`` on 2026-10-06 (the pages were not read again). None is stated to describe
+``FIRST_RUN_ON``: a name or a signature may have changed since the page was written."""
 KEYWORDS: frozenset[str] = frozenset(
     {
         "Function", "Procedure", "Var", "Begin", "End", "If", "Then", "Else", "While", "Do", "And", "Not",
@@ -113,6 +130,8 @@ _HEAD = """\
 { pages themselves, and the script has not run in Altium. Before the first  }
 { use: open it in the script editor and compile it; if a line is refused,   }
 { report that line and do the scripted steps by hand.                       }
+{ No page that was read states the version of Altium Designer it describes; }
+{ the first run of this script is on Altium Designer 26.                    }
 
 Function KitRoot(ProjectPath);
 Var
@@ -245,12 +264,14 @@ def log_outcomes(text: str) -> dict[str, str]:
 
 __all__ = [
     "DONE",
+    "FIRST_RUN_ON",
     "END_OF_MESSAGES",
     "KEYWORDS",
     "KEYWORD_SOURCE",
     "LOCAL_NAMES",
     "LOG",
     "NOT_SCRIPTED",
+    "PAGE_VERSIONS",
     "PROCEDURE",
     "READ_AS",
     "SCRIPT_CALLS",

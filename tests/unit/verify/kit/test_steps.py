@@ -113,3 +113,60 @@ def test_steps_survive_the_manifest(built_kit: Path) -> None:
     kit = read_kit((built_kit / "kit.json").read_bytes())
     assert [step.to_json() for step in kit.steps] == [step.to_json() for step in STEPS]
     assert all(isinstance(step, Step) for step in kit.steps)
+
+
+# --- change c0139: what the first manual run found -------------------------------------------------------
+
+
+def test_expected_values_are_printed_by_their_type() -> None:
+    """An integer step shows its number and a truth step ``true`` or ``false``: 0 and 1 are not truth
+    values, although Python holds ``0 == False``."""
+    text = steps_markdown()
+    for step in STEPS:
+        if step.kind != "form":
+            continue
+        shown = {"bool": str(step.expected).lower(), "int": str(step.expected), "text": str(step.expected)}
+        line = f"form field `{step.result}` ({step.value_type}), expected `{shown[step.value_type or '']}`."
+        assert line in text, step.id
+    for ident, wanted in (("K3.2", "0"), ("K9.2", "0"), ("K4.3", "1"), ("K4.4", "1"), ("K1.8", "false")):
+        assert f"form field `{ident}` ({steps.step(ident).value_type}), expected `{wanted}`." in text
+    base = steps.step("K3.2")
+    for value_type, expected, wanted in (
+        ("int", 0, "0"),
+        ("int", 1, "1"),
+        ("int", 6, "6"),
+        ("bool", False, "false"),
+        ("bool", True, "true"),
+        ("text", "0", "0"),
+        ("text", "True", "True"),
+        ("text", "Flat", "Flat"),
+    ):
+        one = dataclasses.replace(base, value_type=value_type, expected=expected)
+        assert f"({value_type}), expected `{wanted}`." in steps_markdown([one]), (value_type, expected)
+
+
+def test_a_typed_value_of_another_type_than_its_step_is_a_problem() -> None:
+    base = steps.step("K3.2")
+    for value_type, expected in (("int", True), ("bool", 0), ("text", 1), ("int", "1")):
+        bad = dataclasses.replace(base, value_type=value_type, expected=expected)
+        assert any("expected value" in text for text in steps.problems([bad])), (value_type, expected)
+
+
+def test_the_board_step_names_the_kind_of_document() -> None:
+    """A step that saves one of several documents of a project says in bold which kind it wants."""
+    assert "**the PCB document**" in steps.step("K5.1").instruction
+    assert "**the PCB document**" in steps_markdown()
+
+
+def test_the_update_step_settles_only_what_its_file_and_its_typed_value_show() -> None:
+    """The file of K9.1 cannot show that the update ran: the row about what the update does to a part
+    is not settled by the kit, and the row that K9.1 keeps is also named by the typed step K9.2."""
+    named = {ident for step in STEPS for ident in step.hypotheses}
+    assert "H-A-SCH-UPDATE" not in named
+    assert steps.step("K9.1").hypotheses == ("H-A-SCHLIB-UPDATE",)
+    assert "H-A-SCHLIB-UPDATE" in steps.step("K9.2").hypotheses and steps.step("K9.2").kind == "form"
+    for step in STEPS:
+        if step.kind == "file" and step.checks in (("netlist",), ("netlist", "parity")):
+            for ident in step.hypotheses:
+                others = [s for s in STEPS if ident in s.hypotheses and s.id != step.id]
+                assert others, f"{ident} would pass from the file of {step.id} alone"

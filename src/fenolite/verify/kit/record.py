@@ -28,7 +28,7 @@ from fenolite.core.evidence import Level
 from fenolite.core.io import sha256_bytes
 from fenolite.verify.hypotheses import HypothesisRow
 from fenolite.verify.kit.manifest import Kit, canonical_json
-from fenolite.verify.kit.results import ALTIUM_VERSION, DATE, HOME_FOLDER, KitVerdict
+from fenolite.verify.kit.results import ALTIUM_VERSION, DATE, HOME_FOLDER, KitVerdict, absolute_paths
 from fenolite.verify.kit.steps import SAMPLES, Step
 
 RUN_SCHEMA = "fenolite.altium-kit-run.v0"
@@ -127,6 +127,7 @@ def run_record(verdict: KitVerdict, *, archive: bytes, fenolite_version: str = "
         ],
         "results": [{"path": f.path, "sha256": f.sha256, "size": f.size} for f in verdict.results],
         "privacy_findings": len(verdict.privacy),
+        "kit_resaved": list(verdict.resaved),
         "archive": {"name": f"altium-kit-{ident}.zip", "sha256": digest, "size": len(archive)},
     }
 
@@ -138,13 +139,14 @@ def record_bytes(record: Mapping[str, Any]) -> bytes:
 _FIELDS = (
     "schema", "run_id", "date", "synthetic", "kit_sha256", "kit_version", "kit_fenolite_version",
     "fenolite_version", "altium_version", "os_family", "samples", "script_sha256", "steps", "hypotheses",
-    "results", "privacy_findings", "archive",
+    "results", "privacy_findings", "kit_resaved", "archive",
 )  # fmt: skip
 
 
 def record_problems(record: object) -> list[str]:
     """What is wrong with a run record: its schema and fields, a path that leaves the kit, a string that
-    looks like a home folder, a run id that does not follow from its date and archive."""
+    looks like a home folder or another absolute path, a run id that does not follow from its date and
+    archive."""
     if not isinstance(record, dict):
         return ["the record is not a JSON object"]
     body = cast(dict[str, Any], record)
@@ -175,6 +177,8 @@ def record_problems(record: object) -> list[str]:
     text = json.dumps(body, ensure_ascii=False)
     if HOME_FOLDER.search(text) or HOME_FOLDER.search(text.replace("\\\\", "\\")):
         found.append("the record holds a string that looks like a home folder")
+    elif absolute_paths(text):
+        found.append("the record holds a string that looks like an absolute path of a machine")
     return found
 
 

@@ -27,6 +27,7 @@ from typing import Any, cast
 import fenolite
 from fenolite.backends import registry
 from fenolite.backends.altium import schdot
+from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.project import read_project
 from fenolite.checks.documents import run_document_checks
 from fenolite.checks.equivalence import compare_designs, max_level
@@ -312,6 +313,52 @@ def parity_problems(own: Path, saved: Path) -> list[str]:
     return problems
 
 
+DOCUMENT_KINDS: Mapping[str, str] = {
+    "pcbdoc": "a PCB document",
+    "pcblib": "a PCB library",
+    "schlib": "a schematic library",
+    "schdoc": "a schematic document",
+    "project": "a project file",
+}
+"""What ``document_kind`` calls each kind of Altium file, as the reason of a failed step prints it."""
+
+
+def document_kind(data: bytes) -> str | None:
+    """What kind of Altium file ``data`` is, from its content and never from a file name: a compound file
+    with a ``Board6`` storage is a PCB document, one with a ``Library`` storage a PCB library, one with a
+    ``FileHeader`` stream a schematic library when it holds a storage per symbol and a schematic document
+    (or sheet template) otherwise; text that starts with the schematic header is a schematic document in
+    the ASCII form, and text with a ``[Design]`` section a project file. ``None`` for anything else."""
+    if data.startswith(b"|HEADER="):
+        return DOCUMENT_KINDS["schdoc"]
+    try:
+        streams = open_compound(data).streams()
+    except FenoliteError:
+        head = data[:4096].decode("latin-1").casefold()
+        return DOCUMENT_KINDS["project"] if "[design]" in head and b"\x00" not in data[:4096] else None
+    if "Board6/Data" in streams:
+        return DOCUMENT_KINDS["pcbdoc"]
+    if "Library/Data" in streams:
+        return DOCUMENT_KINDS["pcblib"]
+    if "FileHeader" not in streams:
+        return None
+    return DOCUMENT_KINDS["schlib" if any(name.endswith("/Data") for name in streams) else "schdoc"]
+
+
+def kind_problems(own: Path, saved: Path) -> list[str]:
+    """One message when the file a run left is of another kind of document than the kit's own, which the
+    step wants: a schematic saved under the name of the board, a library under the name of a sheet. No
+    message when either file is of no kind that ``document_kind`` knows: the checks then say what is
+    wrong with it."""
+    want, got = document_kind(own.read_bytes()), document_kind(saved.read_bytes())
+    if want is None or got is None or want == got:
+        return []
+    return [
+        f"the file is {got}, and the step wants {want}: save {own.name} of the sample, not another "
+        "document of its project"
+    ]
+
+
 def judge_document(check: str, own: Path, saved: Path) -> list[str]:
     """What the machine check ``check`` of a kit step finds on ``saved``, the file a run left, against
     ``own``, the kit's document: one message per problem, none for a pass.
@@ -326,6 +373,10 @@ def judge_document(check: str, own: Path, saved: Path) -> list[str]:
     repour), else on the kit's own board (the step leaves Altium's report, which is archived as it is).
     """
     try:
+        if not (check == COPPER_STAGE and saved.suffix.casefold() != ".pcbdoc"):
+            other = kind_problems(own, saved)
+            if other:
+                return other
         if check == PARITY_STAGE:
             return parity_problems(own, saved)
         if check == COPPER_STAGE:
@@ -359,13 +410,16 @@ def judge_document(check: str, own: Path, saved: Path) -> list[str]:
 
 
 __all__ = [
+    "DOCUMENT_KINDS",
     "KIT_PROFILE",
     "PLANTED_NETS",
     "SAMPLES_DIR",
     "TEMPLATE_FILE",
     "build_sample",
     "copper_problems",
+    "document_kind",
     "judge_document",
+    "kind_problems",
     "kit_sources",
     "parity_problems",
     "poured_problems",

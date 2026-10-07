@@ -344,8 +344,8 @@ STEPS: tuple[Step, ...] = (
     _file(
         "K5.1",
         "board6",
-        "Open `board6/board6.PrjPcb` and `board6.PcbDoc`. Save the document with File » Save As as "
-        "`results/board6/board6.PcbDoc`.",
+        "Open `board6/board6.PrjPcb` and, of its documents, **the PCB document** `board6.PcbDoc`. Save it "
+        "with File » Save As as `results/board6/board6.PcbDoc`.",
         "board6/board6.PcbDoc",
         (_RESAVE, "H-A-WRITE-PCBDOC"),
         document="board6/board6.PcbDoc",
@@ -446,7 +446,7 @@ STEPS: tuple[Step, ...] = (
         "Open `libs.SchDoc` and run Tools » Update From Libraries with full replacement for every part. "
         "Save the document with File » Save As as `results/libs/libs.SchDoc`.",
         "libs/libs.SchDoc",
-        ("H-A-SCHLIB-UPDATE", "H-A-SCH-UPDATE"),
+        ("H-A-SCHLIB-UPDATE",),
         document="libs/libs.SchDoc",
         checks=("netlist", "parity"),
     ),
@@ -525,8 +525,19 @@ def _expected(found: Step) -> str:
             for name, change in sorted(found.pending.items())
         )
         return f"{text}. Checked: {checks}{pending}."
-    shown = {True: "true", False: "false"}.get(found.expected, found.expected)  # type: ignore[arg-type]
-    return f"form field `{found.result}` ({found.value_type}), expected `{shown}`."
+    return f"form field `{found.result}` ({found.value_type}), expected `{expected_text(found)}`."
+
+
+_VALUE_TYPES: Mapping[str, type] = MappingProxyType({"bool": bool, "int": int, "text": str})
+
+
+def expected_text(found: Step) -> str:
+    """The expected value of a ``form`` step as the checklist prints it and as the form holds it in JSON:
+    ``true`` or ``false`` for a truth value, the digits of a number, the text itself. The step's value
+    type decides, never the value: ``0 == False`` in Python, and 0 is a number here."""
+    if found.value_type == "bool":
+        return "true" if found.expected is True else "false"
+    return str(found.expected)
 
 
 def steps_markdown(steps: Sequence[Step] = STEPS) -> str:
@@ -546,8 +557,13 @@ def steps_markdown(steps: Sequence[Step] = STEPS) -> str:
         "rendering of Altium's documentation and it has not run in Altium. If a line is refused, report "
         "that line and do the scripted steps by hand.",
         "",
-        "A saved file may hold your user name or the path of a folder. `fenolite kit verify` lists what it "
-        "finds; read that list before you publish anything.",
+        "A saved file may hold your user name or the path of a folder: a document that Altium saves names "
+        "its own file with the folder it was saved in. `fenolite kit verify` lists what it finds; read "
+        "that list before you publish anything.",
+        "",
+        "Altium may write a sample's own project file again when it saves the project (step K1.5 does). "
+        "`fenolite kit verify` accepts a project file of the kit that still lists exactly the sample's "
+        "documents; any other file of the kit that changed fails every step of its sample.",
     ]
     for group in GROUPS:
         members = [found for found in steps if found.group == group.number]
@@ -599,6 +615,10 @@ def problems(steps: Sequence[Step] = STEPS) -> list[str]:
         else:
             if item.value_type is None or item.expected is None or item.checks or item.scripted:
                 found.append(f"{where}: a form step has a type and an expected value, and is never scripted")
+            elif type(item.expected) is not _VALUE_TYPES[item.value_type]:
+                found.append(
+                    f"{where}: the expected value {item.expected!r} is not of the type {item.value_type}"
+                )
         for name, change in item.pending.items():
             if change not in PENDING_REASONS:
                 found.append(f"{where}: the pending check {name} names the unknown change {change}")
@@ -617,6 +637,7 @@ __all__ = [
     "TABLES",
     "Group",
     "Step",
+    "expected_text",
     "problems",
     "step",
     "steps_markdown",

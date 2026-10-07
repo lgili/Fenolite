@@ -125,6 +125,8 @@ def test_a_record_with_a_path_is_refused(run: tuple[Path, KitVerdict]) -> None:
     made = record.run_record(verdict, archive=record.archive_bytes(folder, verdict))
     home = f"C:\\{USERS}\\jdoe"
     assert any("home folder" in p for p in record.record_problems({**made, "os_family": home}))
+    for path in ("D:\\work\\kit", "\\\\fileserver\\share\\kit", "/srv/builds/kit"):
+        assert any("absolute path" in p for p in record.record_problems({**made, "os_family": path})), path
     outside = [{"path": "../x", "sha256": "0", "size": 1}]
     assert any("leaves the kit" in p for p in record.record_problems({**made, "results": outside}))
     assert any("run_id" in p for p in record.record_problems({**made, "run_id": "2026-10-06-00000000"}))
@@ -223,3 +225,19 @@ def test_a_stale_run(run: tuple[Path, KitVerdict]) -> None:
     )
     assert record.stale_rows(rows, [made], template) == ("H-A-SCHDOT-OPEN",)
     assert load_kit(folder).digest == verdict.kit.digest
+
+
+def test_the_record_names_a_project_file_that_the_tool_saved_again(run: tuple[Path, KitVerdict]) -> None:
+    """A sample's project file with other bytes and the same documents refuses nothing, and the record
+    says which file it was (change c0139)."""
+    folder, verdict = run
+    assert verdict.resaved == ()
+    made = record.run_record(verdict, archive=record.archive_bytes(folder, verdict))
+    assert made["kit_resaved"] == []
+    resaved = dataclasses.replace(verdict, resaved=("flat/flat.PrjPcb",))
+    assert record.refusal(resaved) == ""
+    again = record.run_record(resaved, archive=record.archive_bytes(folder, resaved))
+    assert again["kit_resaved"] == ["flat/flat.PrjPcb"] and record.record_problems(again) == []
+    assert "the field kit_resaved is missing" in record.record_problems(
+        {key: value for key, value in made.items() if key != "kit_resaved"}
+    )

@@ -38,8 +38,12 @@ in a value typed into `results/form.json`.
 
 A file that Altium saves may hold more than the design: the name of the user account, the path of the
 folder it was saved in, the name of the machine, the licence holder. `fenolite kit verify` scans the result
-files for strings that look like a home folder or a login name and lists them, with the file and the
-offset, before anything is recorded. Read that list before publishing an archive. The run record that is
+files for strings that look like a home folder, any other absolute path of the machine (on a drive, on a
+share, or from a POSIX root) or a login name, and lists them, with the file and the offset, before anything
+is recorded. A document that Altium saves holds its own full file name: the board record of a PCB document
+has a `FILENAME` with the folder it was saved in, on whatever drive that is. The scan reads each file as
+8-bit text and as UTF-16 at both alignments; a relative path, a stream name and a web address are not
+reported. Read that list before publishing an archive. The run record that is
 committed holds no path, no user name and no machine name: only digests, sizes, versions and verdicts.
 
 ## Building the kit
@@ -84,6 +88,11 @@ without a run, not measurements.
 Together about 64 minutes, plus the time to fill the form. A run may leave groups out: their steps are
 `skipped`, and the rows they settle stay as they are. Group K9 is the first to leave out.
 
+Step K9.1 leaves the sheet of `libs` saved after "Update From Libraries". That file shows that the nets
+are kept; it cannot show that the update ran, and the kit runs only the full replacement. So `H-A-SCH-UPDATE`
+(what the update does to a part, and the update of selected attributes) is settled by no step and stays an
+author report, and `H-A-SCHLIB-UPDATE` passes only with the typed value of step K9.2 and is marked `form`.
+
 Fenolite writes no component body, so no step reads one. The DSL has no bus, so the sample `tree` gets its
 bus from its script's `kit_model`; no step reads the bus in Altium, and `H-A-SCHX-BUS` stays an author
 report.
@@ -102,6 +111,12 @@ page on 2026-10-06, not from the page itself (`script.SOURCE_PAGES`, `script.REA
 has not run in Altium. So the first step of a run that uses it is to open `kit_script.pas` in Altium's
 script editor and compile it. If a line is refused, report that line and do the scripted steps by hand:
 a wrong signature then costs a minute, not the run.
+
+No page that was read states the version of Altium Designer it describes (`script.PAGE_VERSIONS`): the
+pages of the DelphiScript routines and keywords are in the Altium Designer documentation at an address
+without a version, and the pages of the interfaces are in the Altium DXP Developer documentation, which
+names none. The first run of the script is on Altium Designer 26 (`script.FIRST_RUN_ON`), so a name or a
+signature may have changed since a page was written.
 
 The script was written from Altium's public scripting documentation only, read for the names and the
 signatures of the calls. Nothing was transcribed: no example, no snippet, no forum post and no vendor or
@@ -154,6 +169,13 @@ failed, when a file of the kit differs from `kit.json`, or when the form is not 
 without `kit.json`.
 
 1. Every file of the kit matches its digest in `kit.json`. A changed sample fails every step of that sample.
+   One change is accepted: Altium writes a sample's own project file again, with every key it knows, when
+   the project is saved (step K1.5 does that). A project file of a sample whose bytes differ and that still
+   lists exactly the sample's documents, each by its name in the sample's folder, is reported as
+   `kit.project-resaved`, fails nothing, and is named in the run record (`kit_resaved`). A project file
+   with another list of documents, and any other file of the kit that changed, fails as before. Files that
+   the tool adds beside the kit's (a history folder, a structure file) are not in the manifest and are not
+   read.
 2. `results/form.json` has its schema and names the tool as `AD <major>.<minor>`, the system (`Windows`,
    `Linux` or `macOS`) and the date.
 3. Every `file` step, by its checks:
@@ -166,6 +188,13 @@ without `kit.json`.
 | `messages` | the file holds at least one line and no line of the class Error or Fatal Error |
 | `listing` | the file holds at least one line, and no line holds a folder |
 | `present` | the file exists and is not empty |
+
+   Before any of these, a result file is told by its content: when it is of another kind of document than
+   the step wants (a schematic saved under the name of the board, a library under the name of a sheet), the
+   step fails with one reason that names both kinds, not with a read error.
+   When the result file is absent and its folder holds a file of the same name with another ending that
+   no step asks for (`board6.SchDoc` where step K5.1 wants `board6.PcbDoc`), the step fails and names that
+   file; it is not passed over as not done.
 
 4. Every `form` value equals its expected value.
 5. The privacy scan (above).
@@ -228,7 +257,11 @@ record, and an author report is never recorded as a kit run.
 
 ## What is not there yet
 
-- No run was made: no row carries the kit label.
+- No run is recorded: no row carries the kit label. The maintainer made a first manual run in Altium
+  Designer 26 on 2026-10-07; it is an author report, it was made on a kit with another digest than the
+  tree builds now, and what it found was corrected by change c0139 (the privacy scan, the project file
+  that Altium saves again, the expected values printed for number steps, the update step, the wording of
+  step K5.1).
 - No JSON Schema file is generated for `kit.json` and for the run record: `schemas/` is generated from
   dataclasses, and both documents are built as plain mappings. `record.record_problems` and
   `results.form_problems` check their form.

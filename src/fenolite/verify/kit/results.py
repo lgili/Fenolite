@@ -5,7 +5,8 @@
 
 ``verify_results`` reads the folder and writes nothing. It checks the kit's own files against ``kit.json``,
 the form, every result file and typed value, and scans the result files for strings that look like a home
-folder or a login name. The verdict holds one outcome per step and per hypothesis:
+folder, any other absolute path of the machine, or a login name. The verdict holds one outcome per step
+and per hypothesis:
 
 - a step is ``pass``, ``fail`` or ``skipped`` (its file is absent, or its value is not typed);
 - a hypothesis is ``pass`` when every step that names it passes, ``fail`` when one fails, ``skipped`` when
@@ -59,13 +60,36 @@ _LOGIN = re.compile(
 )
 
 
+_PART = r"[^\\/\x00-\x1f\x7f-\x9f\"'<>|*?:=;,]"
+"""One character of a folder or file name, in 8-bit text of any Western code page or in UTF-16."""
+_SEP = r"(?:\\{1,2}|/)"
+DRIVE_PATH = re.compile(
+    rf"(?<![A-Za-z0-9_])[A-Za-z]:{_SEP}(?! ){_PART}{{1,80}}(?:{_SEP}{_PART}{{1,80}}){{0,40}}"
+)
+"""A path that starts at a drive letter, with ``\\``, a doubled ``\\`` (escaped text) or ``/`` between
+its parts: ``D:\\work\\kit\\flat.PcbDoc``, ``file:///E:/kit/drc.html``."""
+SHARE_PATH = re.compile(
+    r"(?<![\\:A-Za-z0-9_])\\\\(?:\\\\)?[A-Za-z0-9._$-]{2,64}" + rf"(?:\\{{1,2}}{_PART}{{1,80}}){{1,40}}"
+)
+"""A path on a share: two backslashes (four in escaped text), a server name and at least one part."""
+POSIX_PATH = re.compile(
+    r"(?<![A-Za-z0-9_.:<~/\\-])/(?!/)[A-Za-z][A-Za-z0-9._+@~-]{1,63}(?:/[A-Za-z0-9._+@~-]{1,80}){1,40}"
+)
+"""A path from the root of a POSIX system with at least two parts, the first starting with a letter; it
+does not follow a letter, a digit, a colon or ``<``, so a web address, a date, a fraction, a closing tag
+and a stream name such as ``Board6/Data`` are not one."""
+MIN_PATH_TEXT = 3
+"""The least number of characters after the root that make a drive path: fewer are taken for bytes that
+only look like one."""
+
+
 @dataclass(frozen=True, slots=True)
 class PrivacyFinding:
     """A string of a result file that looks like personal data: where it is and what it looks like."""
 
     file: str
     offset: int
-    kind: Literal["home-folder", "login-name"]
+    kind: Literal["home-folder", "absolute-path", "login-name"]
     text: str
 
 
@@ -100,8 +124,9 @@ class ResultFile:
 @dataclass(frozen=True, slots=True)
 class KitVerdict:
     """What ``verify_results`` found. ``kit_problems`` are the kit's own files that differ from
-    ``kit.json``; ``form_problems`` what is wrong with the form as a whole; ``results`` every file of
-    ``results/`` that the run left (the kit's own files there excluded), by path below the kit."""
+    ``kit.json`` (a project file that was only saved again is in ``resaved`` instead); ``form_problems``
+    what is wrong with the form as a whole; ``results`` every file of ``results/`` that the run left (the
+    kit's own files there excluded), by path below the kit."""
 
     kit: Kit
     synthetic: bool
@@ -114,6 +139,9 @@ class KitVerdict:
     hypotheses: tuple[HypothesisVerdict, ...]
     privacy: tuple[PrivacyFinding, ...]
     results: tuple[ResultFile, ...]
+    resaved: tuple[str, ...] = ()
+    """The project files of the kit's samples whose bytes are not the manifest's and that still list
+    exactly their sample's documents: the tool saved them again (``saved_again``). They fail nothing."""
 
     @property
     def failed(self) -> tuple[StepVerdict, ...]:
@@ -129,27 +157,120 @@ class KitVerdict:
         )
 
 
+def _texty(text: str) -> bool:
+    """True for a match that reads as text: bytes of a compressed stream give short runs with odd signs."""
+    plain = sum(1 for char in text if char.isalnum() or char in " ._-\\/:()")
+    return plain * 10 >= len(text) * 9
+
+
+def absolute_paths(text: str) -> list[tuple[int, str]]:
+    """``(index, path)`` of every absolute path of ``text`` that is under no home folder."""
+    found: list[tuple[int, str]] = []
+    for pattern in (DRIVE_PATH, SHARE_PATH, POSIX_PATH):
+        for match in pattern.finditer(text):
+            path = match.group(0).rstrip(" .")
+            rest = path[3:] if pattern is DRIVE_PATH else path
+            if len(rest) >= MIN_PATH_TEXT and _texty(path) and HOME_FOLDER.match(path) is None:
+                found.append((match.start(), path))
+    return found
+
+
 def privacy_scan(files: Mapping[str, bytes]) -> tuple[PrivacyFinding, ...]:
-    """The strings of ``files`` (path → bytes) that look like a home folder path or a login name, in 8-bit
-    and in UTF-16 text, with the file and the byte offset; at most ``MAX_PRIVACY_PER_FILE`` per file."""
+    """What a published archive of ``files`` (path → bytes) would give away about the machine of the run:
+    the strings that look like a home folder (``home-folder``), like any other absolute path of that
+    machine, on a drive, on a share or from a POSIX root (``absolute-path``), and like a login name
+    (``login-name``), each with the file and the byte offset; at most ``MAX_PRIVACY_PER_FILE`` per file.
+
+    A file is read three times: as 8-bit text, which finds a string in ASCII, in the code page of an
+    Altium record and in UTF-8, and as UTF-16 from its first and from its second byte, which finds a wide
+    string at any alignment. A relative path, a stream name and a web address are not reported."""
     found: list[PrivacyFinding] = []
     for path in sorted(files):
         data = files[path]
         seen: dict[tuple[int, str], PrivacyFinding] = {}
-        views = ((data.decode("latin-1"), 1), (data.decode("utf-16-le", errors="replace"), 2))
-        for text, width in views:
+        views = (
+            (data.decode("latin-1"), 1, 0),
+            (data.decode("utf-16-le", errors="replace"), 2, 0),
+            (data[1:].decode("utf-16-le", errors="replace"), 2, 1),
+        )
+        for text, width, shift in views:
             for match in HOME_FOLDER.finditer(text):
+                offset = match.start() * width + shift
                 seen.setdefault(
-                    (match.start() * width, "home-folder"),
-                    PrivacyFinding(path, match.start() * width, "home-folder", match.group(0)),
+                    (offset, "home-folder"), PrivacyFinding(path, offset, "home-folder", match.group(0))
+                )
+            for index, name in absolute_paths(text):
+                offset = index * width + shift
+                seen.setdefault(
+                    (offset, "absolute-path"), PrivacyFinding(path, offset, "absolute-path", name)
                 )
             for match in _LOGIN.finditer(text):
+                offset = match.start(1) * width + shift
                 seen.setdefault(
-                    (match.start(1) * width, "login-name"),
-                    PrivacyFinding(path, match.start(1) * width, "login-name", match.group(1)),
+                    (offset, "login-name"), PrivacyFinding(path, offset, "login-name", match.group(1))
                 )
         found += [seen[key] for key in sorted(seen)][:MAX_PRIVACY_PER_FILE]
     return tuple(found)
+
+
+PROJECT_SUFFIX = ".prjpcb"
+_SECTION = re.compile(r"\[([^\]\r\n]*)\]")
+_DOCUMENT_SECTION = re.compile(r"Document[0-9]+")
+_DOCUMENT_KEY = "documentpath"
+_UTF8_MARK = b"\xef\xbb\xbf"
+"""The byte-order mark that a project file saved by Altium Designer 26 starts with; Fenolite writes none."""
+
+
+def project_documents(data: bytes) -> list[str] | None:
+    """The document paths that the bytes of an Altium project file list, in file order: the value of
+    ``DocumentPath`` of each section ``[Document<n>]``. ``None`` for bytes that are no project file: no
+    section ``[Design]``, or a byte that no line of text holds. A UTF-8 byte-order mark before the first
+    section is skipped: the project file that the first manual run returned starts with one.
+
+    A project file is text in sections of ``key=value`` lines (``docs/formats/altium/project.md``). This
+    reads only what the manifest check needs; the product's reader is ``backends.altium.read.project``,
+    which ``verify`` may not import, and a test holds the two equal on the kit's projects."""
+    if b"\x00" in data:
+        return None
+    section = ""
+    seen_design = False
+    documents: list[str] = []
+    for line in data.removeprefix(_UTF8_MARK).decode("latin-1").splitlines():
+        line = line.strip()
+        head = _SECTION.fullmatch(line)
+        if head is not None:
+            section = head.group(1)
+            seen_design = seen_design or section.casefold() == "design"
+            continue
+        key, equals, value = line.partition("=")
+        if equals and key.strip().casefold() == _DOCUMENT_KEY and _DOCUMENT_SECTION.fullmatch(section):
+            documents.append(value.strip())
+    return documents if seen_design else None
+
+
+def sample_documents(kit: Kit, project: str) -> list[str]:
+    """The documents of the sample whose project file is the kit file ``project``: the names of the kit's
+    files in the same folder, the project file left out, sorted."""
+    folder = project.rsplit("/", 1)[0] + "/"
+    names = [path[len(folder) :] for path in kit.files if path.startswith(folder) and path != project]
+    return sorted(name for name in names if "/" not in name)
+
+
+def saved_again(kit: Kit, path: str, data: bytes) -> bool:
+    """True when ``data``, the bytes found at the kit path ``path`` with another digest than the
+    manifest's, are a sample's project file that the tool saved again: ``path`` is ``<sample>/<name>.PrjPcb``
+    of a sample, and the bytes list exactly that sample's documents, each by its name in the sample's
+    folder. Altium writes the project file again, with every key it knows, when the project is saved;
+    the documents are what the steps open."""
+    sample, _, name = path.partition("/")
+    if sample not in kit.samples or "/" in name or not name.casefold().endswith(PROJECT_SUFFIX):
+        return False
+    listed = project_documents(data)
+    if listed is None:
+        return False
+    return sorted(item.casefold() for item in listed) == sorted(
+        item.casefold() for item in sample_documents(kit, path)
+    )
 
 
 def _text(data: bytes) -> str:
@@ -226,18 +347,44 @@ def _pending(step: Step) -> tuple[str, ...]:
     )
 
 
-def _file_step(step: Step, root: Path, judge: DocumentJudge) -> tuple[Outcome, tuple[str, ...]]:
+def _strays(saved: Path, asked: frozenset[str], root: Path) -> list[str]:
+    """The files beside the absent result file ``saved`` that have its name with another ending and that
+    no step asks for: a document of another kind saved in the place of the one the step wants."""
+    if not saved.parent.is_dir():
+        return []
+    return sorted(
+        other.name
+        for other in saved.parent.iterdir()
+        if other.is_file()
+        and other.stem.casefold() == saved.stem.casefold()
+        and other.relative_to(root / RESULTS).as_posix() not in asked
+    )
+
+
+def _file_step(
+    step: Step, root: Path, judge: DocumentJudge, asked: frozenset[str] = frozenset()
+) -> tuple[Outcome, tuple[str, ...]]:
     saved = root.joinpath(RESULTS, *PurePosixPath(step.result).parts)
     if not saved.is_file():
+        strays = _strays(saved, asked, root)
+        if strays:
+            return "fail", (
+                f"{RESULTS}/{step.result} does not exist, and the folder holds {', '.join(strays)}, which no "
+                f"step asks for: the step wants {saved.name}, not another document of the project",
+            )
         return "skipped", (f"{RESULTS}/{step.result} does not exist",)
     data = saved.read_bytes()
     if not data:
         return "fail", (f"{RESULTS}/{step.result} is empty",)
     own = root.joinpath(*PurePosixPath(step.document).parts)
     reasons: list[str] = []
+    told: set[str] = set()
     for check in step.checks:
         if check in JUDGED_CHECKS:
-            reasons += [f"{check}: {text}" for text in judge(check, own, saved)]
+            # two checks of one step may find the same thing (a file of another kind): it is said once
+            found = [text for text in judge(check, own, saved) if text not in told]
+            told.update(found)
+            reasons += [f"{check}: {text}" for text in found]
         elif check == "messages":
             reasons += [f"{check}: {text}" for text in _messages(data)]
         elif check == "listing":
@@ -280,11 +427,18 @@ def verify_results(folder: Path, *, judge: DocumentJudge) -> KitVerdict:
     root = Path(folder)
     kit = load_kit(root)
     changed: dict[str, str] = {}
+    resaved: list[str] = []
     for path, digest in sorted(kit.files.items()):
         target = root.joinpath(*PurePosixPath(path).parts)
         if not target.is_file():
             changed[path] = f"{path} is missing"
-        elif sha256_bytes(target.read_bytes()) != digest:
+            continue
+        data = target.read_bytes()
+        if sha256_bytes(data) == digest:
+            continue
+        if saved_again(kit, path, data):
+            resaved.append(path)
+        else:
             changed[path] = f"{path} differs from its digest in kit.json"
     touched = {path.split("/", 1)[0] for path in changed}
 
@@ -306,6 +460,7 @@ def verify_results(folder: Path, *, judge: DocumentJudge) -> KitVerdict:
     log_path = root.joinpath(*PurePosixPath(LOG).parts)
     log = log_outcomes(_text(log_path.read_bytes())) if log_path.is_file() else {}
 
+    asked = frozenset(step.result for step in kit.steps if step.kind == "file")
     verdicts: list[StepVerdict] = []
     for step in kit.steps:
         scripted = step.scripted and log.get(step.id) == DONE
@@ -319,7 +474,7 @@ def verify_results(folder: Path, *, judge: DocumentJudge) -> KitVerdict:
         elif step.kind == "form":
             outcome, reasons = _typed(step, values.get(step.result))
         else:
-            outcome, reasons = _file_step(step, root, judge)
+            outcome, reasons = _file_step(step, root, judge, asked)
         verdicts.append(
             StepVerdict(step.id, step.sample, step.kind, outcome, reasons, scripted, _pending(step))
         )
@@ -344,23 +499,31 @@ def verify_results(folder: Path, *, judge: DocumentJudge) -> KitVerdict:
         hypotheses=_hypotheses(kit, verdicts),
         privacy=privacy_scan(held),
         results=tuple(ResultFile(path, sha256_bytes(data), len(data)) for path, data in sorted(held.items())),
+        resaved=tuple(resaved),
     )
 
 
 __all__ = [
     "ALTIUM_VERSION",
+    "DRIVE_PATH",
     "JUDGED_CHECKS",
     "OS_FAMILIES",
     "PENDING_BLOCKS",
+    "POSIX_PATH",
+    "SHARE_PATH",
     "SCRIPT_HYPOTHESIS",
     "HOME_FOLDER",
     "DocumentJudge",
     "HypothesisVerdict",
     "KitVerdict",
+    "absolute_paths",
     "PrivacyFinding",
     "ResultFile",
     "StepVerdict",
     "form_problems",
     "privacy_scan",
+    "project_documents",
+    "sample_documents",
+    "saved_again",
     "verify_results",
 ]

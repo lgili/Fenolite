@@ -229,3 +229,46 @@ def test_the_contract_lists_the_codes() -> None:
         assert f"| `{code}` | {severity} |" in section, code
     for action in ("build", "verify", "record", "status"):
         assert f"fenolite kit {action}" in section
+
+
+def test_a_project_file_saved_again_is_reported_and_refuses_nothing(
+    monkeypatch: pytest.MonkeyPatch, run_folder: Path, tmp_path: Path
+) -> None:
+    """Change c0139: Altium writes a sample's own project file again when the project is saved. With the
+    same documents it is an info and the run is recorded; with another list it is ``kit.file-changed``."""
+    monkeypatch.setattr(_kit, "judge_document", simulated_judge)
+    simulate(run_folder, synthetic=False)
+    project = run_folder / "flat" / "flat.PrjPcb"
+    own = project.read_bytes()
+    assert own.startswith(b"[Design]\r\n")
+    project.write_bytes(own.replace(b"[Design]\r\n", b"[Design]\r\nHierarchyMode=0\r\n", 1))
+    code, env, _ = run(monkeypatch, run_folder.parent, "verify", "kit")
+    assert code == 0 and env["result"]["passed"] and env["result"]["kit_problems"] == []
+    assert env["result"]["kit_resaved"] == ["flat/flat.PrjPcb"]
+    found = [issue for issue in env["issues"] if issue["code"] == "kit.project-resaved"]
+    assert [(issue["severity"], issue["where"]) for issue in found] == [("info", "flat/flat.PrjPcb")]
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    code, env, _ = run(monkeypatch, run_folder.parent, "record", "kit", "--out", str(repo), "--dry-run")
+    assert code == 0 and env["result"]["rows"] and len(env["result"]["plan"]) == 2
+
+    project.write_bytes(own.replace(b"DocumentPath=flat.PcbDoc", b"DocumentPath=other.PcbDoc", 1))
+    code, env, _ = run(monkeypatch, run_folder.parent, "verify", "kit")
+    assert code == 5 and env["result"]["kit_resaved"] == []
+    assert env["result"]["kit_problems"] == ["flat/flat.PrjPcb differs from its digest in kit.json"]
+    code, env, _ = run(monkeypatch, run_folder.parent, "record", "kit", "--out", str(repo), "--dry-run")
+    assert code == 5 and env["issues"][0]["code"] == "kit.record-refused"
+
+
+def test_a_file_of_another_kind_is_named_by_verify(monkeypatch: pytest.MonkeyPatch, run_folder: Path) -> None:
+    """Change c0139: the schematic saved where step K5.1 wants the PCB document."""
+    monkeypatch.setattr(_kit, "judge_document", simulated_judge)
+    wrong = (run_folder / "board6" / "board6.SchDoc").read_bytes()
+    (run_folder / "results" / "board6" / "board6.PcbDoc").write_bytes(wrong)
+    code, env, _ = run(monkeypatch, run_folder.parent, "verify", "kit")
+    failed = [step for step in env["result"]["steps"] if step["outcome"] == "fail"]
+    assert code == 5 and [step["id"] for step in failed] == ["K5.1"]
+    assert failed[0]["reasons"] == [
+        "resave: the file is a schematic document, and the step wants a PCB document: "
+        "save board6.PcbDoc of the sample, not another document of its project"
+    ]

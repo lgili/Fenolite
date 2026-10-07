@@ -115,7 +115,26 @@ def test_the_script_says_how_its_calls_were_read() -> None:
     from fenolite.verify.kit.steps import STEPS, steps_markdown
 
     assert set(SOURCE_PAGES) == {*SCRIPT_CALLS.values(), KEYWORD_SOURCE}
-    assert READ_AS == "read as rendered on 2026-10-06"
+    assert READ_AS.startswith("read as rendered on 2026-10-06")
     head = script_text(STEPS).split("Function", 1)[0]
     assert "text rendering" in head and "compile it" in head and "has not run in Altium" in head
     assert "compile it" in steps_markdown()
+
+
+def test_the_script_names_the_documentation_version_and_the_version_of_the_first_run() -> None:
+    """No registered page states the version of Altium Designer it describes, and the script says so,
+    with the version it runs on first (change c0139)."""
+    from fenolite.verify.kit.script import FIRST_RUN_ON, PAGE_VERSIONS, READ_AS, SOURCE_PAGES, script_text
+
+    assert FIRST_RUN_ON == "Altium Designer 26" and FIRST_RUN_ON in READ_AS
+    assert "no page states the version" in READ_AS
+    assert set(PAGE_VERSIONS) == set(SOURCE_PAGES)
+    for source, page in SOURCE_PAGES.items():
+        family = "Altium DXP Developer" if page.startswith("altium-dxp-developer/") else "Altium Designer"
+        assert PAGE_VERSIONS[source].startswith(family + " documentation"), source
+        assert "26" not in PAGE_VERSIONS[source]
+    head = script_text().split("Function", 1)[0]
+    assert "states the version of Altium Designer" in head and "on Altium Designer 26." in head
+    assert all(line.startswith("{ ") and line.endswith("}") for line in head.strip().splitlines())
+    page = (ROOT / "docs" / "altium-kit.md").read_text(encoding="utf-8")
+    assert "first run of the script is on Altium Designer 26" in page
