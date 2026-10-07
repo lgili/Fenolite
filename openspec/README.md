@@ -122,5 +122,6 @@ keep the names of their day.
 | c0131 | `altium-unit-slack-rule` | v0.3 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
 | c0132 | `altium-via-inner-pads` | correction of v0.3 (2026-10-07): a via whose record names layers without a pad shape is judged by its hole there | c0088, c0130, c0131 |
 | c0136 | `milestone-renumbering` | names only: the write side of the second backend is v0.3 (released as `0.3.0`) and the proposals open on other branches form v0.4; no behaviour changes | — |
+| c0138 | `altium-outjob-gerber-settings` | correction of v0.3: the Gerber output of a written output job carries the complete settings record, with the plotted layers from the board; fact rows first | c0087 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
