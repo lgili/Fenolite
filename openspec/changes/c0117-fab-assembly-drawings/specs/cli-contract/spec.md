@@ -2,12 +2,13 @@
 
 ### Requirement: Drawing options of the export command
 `fenolite export` SHALL take `--fab-drawing`, `--assembly-drawing` and `--drawing-spec FILE`, and SHALL run the drawing kinds of `manufacturing-exports` beside the kinds of the requirement "Export command", under its board, tool, source, write and exit-code rules.
-- Each flag MUST select its kind. A drawing kind MUST count as a selected kind for the rule that a call selecting none exits 2, and `--all` MUST NOT select one. `result.kinds` MUST list the drawing kinds after the other selected kinds, `fab-drawing` first.
+- Each flag MUST select its kind. A drawing kind MUST count as a selected kind for the rule that a call selecting no kind and no `--altium-rul` exits 2, and `--all` MUST NOT select one. A drawing kind runs `kicad-cli`: the "Tool" clause of "Export command" (`FEN-6001`, `FEN-6002`, `--timeout` per run) MUST apply when one is selected. `--preset` MUST NOT change the arguments of a drawing kind, and `result.repeat`, where "Export command" has it, MUST map both drawing kinds to `content`.
+- The drawing kinds are KiCad's: `PATH` resolves with `projectset.resolve_board` as for every kind, so an Altium document or project is refused there (exit 2, `FEN-2001`) before the spec is read or a tool is looked for. `result.kinds` MUST list the drawing kinds after the other selected kinds, `fab-drawing` first.
 - `--drawing-spec` MUST be read before any tool runs. Without a drawing flag it MUST exit 2 with `FEN-2001`; a missing file MUST exit 3 with `FEN-3001`; a `SpecError` MUST exit 3 with `FEN-3004` and list its problems in the message. Without the option, `drawing_spec.DEFAULT` MUST apply.
 - `cmd_export` MUST compute each page's obstacles: through `templates.layout` for the spec's or the project's drawing sheet, through `drawing.default_sheet_obstacles` when the project names none. A sheet that cannot be read or built MUST give `drawing.sheet-unread` (error).
 - A drawing issue of severity error MUST make the command plan no write and exit 5, as `export.failed` does; an info or a warning MUST NOT change the exit code.
 - `result.drawings` MUST hold one object per page, in the order fabrication, assembly top, assembly bottom, with `kind`, `path`, `paper`, `portrait`, `sheet` (`spec`, `project` or `kicad-default`) and `blocks` (each with `name`, `at` and `size` in integer nanometres), and, for an assembly page, `side` and `designators_added`. No value MUST hold a temporary path, the home directory or a date.
-- With a drawing kind selected, the envelope's evidence MUST be `Evidence.combine` of `exports.EVIDENCE` and `exports.drawings.EVIDENCE`, with the oracle `kicad-cli <version>`.
+- With a drawing kind selected, the envelope's evidence MUST be `Evidence.combine` of `exports.drawings.EVIDENCE` and the evidence of every other selected kind, with the oracle `kicad-cli <version>`.
 - `docs/cli-contract.md` MUST describe the three options and `result.drawings`, and `docs/drawings.md` the spec file, the pages, the tables and the seven `drawing.*` codes.
 
 #### Scenario: Plan, then write
@@ -32,3 +33,8 @@
 #### Scenario: The reply describes the pages
 - **WHEN** the first command of "Plan, then write" runs with `--json`
 - **THEN** `result.drawings` holds one object per page produced, each with its `paper`, `sheet` `kicad-default` and its blocks, and `result.kinds` ends with `fab-drawing`, `assembly-drawing`
+
+#### Scenario: A drawing kind alone needs the tool
+- **GIVEN** no `kicad-cli` on `PATH` and no `FENOLITE_KICAD_CLI`
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --dry-run` runs
+- **THEN** the exit code is 6 and stderr carries `FEN-6001`, although no fabrication kind is selected
