@@ -22,6 +22,7 @@ from functools import cache
 from pathlib import Path
 
 import _acceptance
+import _anchorbench
 import _arccases
 import _asmcases
 import _bench
@@ -271,6 +272,7 @@ def _probes() -> dict[str, Probe]:
         **_paircases.pair_probes(),
         **_openbench.open_probes(),
         **_lockbench.lock_probes(),
+        **_anchorbench.anchor_probes(),  # change c0111
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

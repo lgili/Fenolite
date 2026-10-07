@@ -122,8 +122,9 @@ attributes work: one with `path` is a track, one with `pitch` a stitch, any othe
 
 - **Tracks.** A path holds pad ends, points, arc steps and via steps. One track joins each pair of
   consecutive points on the current layer; a via step places a via and changes the layer. Pad ends may
-  stand anywhere, so one intent can chain several pads. An element with `component` is a pad end, one
-  with `mid` an arc step, any other that is not a point a via step.
+  stand anywhere, so one intent can chain several pads. An element with `offset` is an anchor (below),
+  another with `component` is a pad end, one with `mid` an arc step, any other that is not a point a
+  via step.
 - **Arcs.** An arc step `(mid, end)` replaces the segment that would end at it by one arc from the point
   before it through `mid` to `end`, on the current layer, with the width and the net of the intent. Its
   three points must be distinct and must not lie on one line, which is decided exactly with integers;
@@ -155,6 +156,48 @@ attributes work: one with `path` is a track, one with `pitch` a stitch, any othe
   (`kicad.copper.end-unplaced`, a warning): copper drawn there would be wrong.
 - An intent with an error creates nothing, and the other intents are still resolved. A build with a
   copper error writes no file.
+
+### Anchors: points in a part's frame
+
+Wherever an intent holds a point it may hold an anchor instead: a path element, the `at` of a via step
+or of a via, `mid` and `end` of an arc step, and the `along` points, the `region` points and the `origin`
+of a stitch. An anchor is any object with `component`, `number`, `index` and `offset` (the protocol
+`AnchorLike`; the DSL's `Anchor`, made by `part.at(…)` and `part.pad(…).at(…)`).
+
+```python
+from fenolite.backends.kicad import part_frame
+
+frame = part_frame(design, "U1", number="9")  # or part_frame(design, "U1") for the footprint's origin
+point = frame.point(Point(0, 1_000_000))  # 1 mm below pad 9, as the library draws the footprint
+```
+
+- **The map.** `offset` is measured in the footprint as its library file draws it (X to the right, Y
+  down), from the footprint's origin, or from the position of the pads that `number` and `index` name.
+  The board point is `at + R(θ)·S·(base + offset)`: turned with the footprint, mirrored about the
+  footprint's X axis on the bottom side (`S`), rounded half to even once. Pads follow the same map, so
+  `part_frame(design, c, number=n).point()` is exactly the position of that pad's record, and an
+  anchor keeps its place among the pads under any rotation and on either side.
+- **When it is applied.** `resolve_copper` replaces every anchor by its point first, on the design it
+  is given. A build gives it the design at its effective placements, so anchored copper follows a
+  part that was moved in KiCad or by `fenolite place` at the next build. Its locators and uuids are
+  those of the elements the anchors stand for, so the moved items are regenerated in place
+  (`kicad.copper.regenerated`). `part_frame` gives the same points to a script on a model design.
+- **An anchor never joins a pad.** It is a point: it gives no net and takes none. A track's net still
+  comes from its pad ends, and a via or a stitch names its net. A track from `PadEnd("R1", "2")` to an
+  anchor beside that pad is on the pad's net because of the pad end, not because of the anchor.
+- **A pad anchor names one position.** With `index`, the pad at that place among the pads of its
+  number. Without it, every pad of the number must lie at one position, as the front and back pads
+  of one padstack do.
+- **What cannot be resolved** creates nothing, with the codes of the table below:
+  `kicad.copper.pad-not-found` (no footprint of the component, no pad with the number, or an index
+  beyond them), `kicad.copper.bad-intent` (the pads of the number lie at several positions and no
+  index is given) and `kicad.copper.end-unplaced` (the part is in the staging row). Each issue names
+  the intent's key, the component and the pad number.
+- **An anchor in the wrong pad.** KiCad gives a via whose copper touches a pad of another net the net
+  of that pad when it loads the board, and its DRC reports no `shorting_items` for it
+  (`H-K-VIA-RENET`). So a via of the wrong net anchored inside a pad passes KiCad's DRC. The copper
+  guard of `build` reports it as `copper.short` and refuses the build by default; with
+  `--copper-check warn` that warning is the only report you get.
 
 Shorts and clearances between script copper and other copper are not judged here: that is the copper
 check (change c0029) and KiCad's DRC. A track follows its pads wherever they go, so a moved footprint can
@@ -206,17 +249,34 @@ intent and redraw the track in KiCad, where it is board copper. Resolving twice 
 
 ## Stitching rules
 
-A stitch places through vias of one net, along a polyline or on a grid in a region.
+A stitch places through vias of one net, along a polyline, on a grid in a region, or on a grid inside
+a pad of its net.
 
 - **Along a polyline:** each segment is cut into the fewest equal parts no longer than `pitch`; every
   vertex gets one via.
 - **In a region:** the candidates are `origin + (i·pitch, j·pitch)` inside the region, at least
   `diameter / 2 + margin` from every edge. The grid is global, so a region that grows keeps the vias, and
   the ids, it already had.
+- **A grid in a part's frame:** when `origin` is an anchor, the grid point `(i, j)` is
+  `part_frame(…).point(offset + (i·pitch, j·pitch))`: the grid turns with the anchor's part and is
+  mirrored with its bottom side. The locators `via[i,j]` count in that frame, so a part that moves
+  keeps the ids of its vias. At most `(2⌈R / pitch⌉ + 3)²` grid points are tried, `R` the distance from
+  the grid's start to the farthest point of the region.
+- **In a pad (a thermal array):** `region` is a pad reference (`component`, `number`, `index`) in
+  place of a ring. It names its pads as an anchor at offset (0, 0) does: one pad with `index`, else
+  every pad of the number, which must lie at one position. Each must be on the stitch's net
+  (`kicad.copper.net-conflict`), and one must have copper on the outer layer of the part's side, `F.Cu`
+  on the top and `B.Cu` on the bottom (`kicad.copper.layer-mismatch`). The grid starts at the pad's
+  position in the part's frame, unless `origin` is an anchor, whose grid is then used. A grid point is
+  a candidate when the via disc grown by `margin` lies inside one copper entry of the pad on that
+  layer, decided exactly on the entry's core and width. A pad whose entries are a superset
+  (`kicad.frame.shape-approximated`) is judged on that superset: give such a pad a larger margin.
 - **Clearance:** a candidate is dropped when it comes closer than `clearance` to the copper or the hole
   of any pad, or to a track, arc or via of another net or of no net, or when it touches a via of its own
   net (existing vias, those of earlier intents and those already kept). Distances are decided exactly
-  with integers. Tracks of its own net are no obstacle.
+  with integers. Tracks of its own net are no obstacle. The copper of the pads that a pad region names
+  is no obstacle to that region's candidates; their holes, every other pad, also one of the same net,
+  and the vias of its own net still are.
 - Dropped candidates give one `kicad.copper.stitch-skipped` info with their count; a stitch that keeps
   none gives the warning `kicad.copper.stitch-empty`.
 - A candidate is also dropped when its via disc meets a rule area that forbids vias on a copper layer
@@ -225,11 +285,17 @@ A stitch places through vias of one net, along a polyline or on a grid in a regi
   clearance is the `min` of the governing board-wide `edge_clearance` rule, else the project's
   `min_copper_edge_clearance`. On a rebuild the rule areas and the edge of the existing board count.
   Without a closed outline the edge is not checked. These candidates join the count of
-  `kicad.copper.stitch-skipped`.
+  `kicad.copper.stitch-skipped`. A pad region obeys this rule as any other stitch: a thermal array
+  under a rule area that forbids vias loses the candidates the area covers.
 - Zones are not avoided: a stitch is usually meant to tie zones together.
 
 KiCad reports a through via that touches copper on one layer only as `via_dangling` (a warning): a fence
-of vias along a track on one layer gets it until a zone or a second track reaches them.
+of vias along a track on one layer gets it until a zone or a second track reaches them. The same holds
+for a thermal array: its vias touch their pad on one outer layer, so each is `via_dangling` until copper
+of the net reaches it on another layer, a track or a plane. A plane counts once it is filled
+(`fenolite fill`). With such copper KiCad's DRC reports nothing for through vias of the pad's net inside
+an SMD pad (`H-K-VIA-IN-PAD`). Vias in an SMD pad draw solder away from the joint unless they are
+tented, plugged or filled: stating that protection is change c0112, not part of the stitch.
 
 ## Issue codes
 
@@ -254,6 +320,16 @@ of vias along a track on one layer gets it until a zone or a second track reache
 | `kicad.copper.duplicate` | info | an item equal to script copper is removed |
 | `kicad.copper.stitch-skipped` | info | stitch candidates are dropped for clearance, a rule area that forbids vias or the board edge (with the count) |
 
+Anchors and pad regions add no code. They use five rows of the table, each with its severity:
+
+| code | for an anchor | for a pad region |
+|---|---|---|
+| `kicad.copper.pad-not-found` | no footprint of the component, no pad with the number, or an index beyond the pads of the number | the same |
+| `kicad.copper.bad-intent` | the pads of the number lie at more than one position and no index is given | the same; also a `region` that is an anchor |
+| `kicad.copper.end-unplaced` | the part is in the staging row | the same |
+| `kicad.copper.net-conflict` | (an anchor has no net) | a pad of the region is on another net than the stitch, or on none |
+| `kicad.copper.layer-mismatch` | (an anchor has no layer) | no pad of the region has copper on the outer layer of the part's side |
+
 ## Evidence
 
 Measured on `kicad-cli` 9.0.9 and 10.0.6 on 2026-10-03 (`docs/evidence/kicad-frame.md`; hypotheses in
@@ -270,3 +346,13 @@ Measured on `kicad-cli` 9.0.9 and 10.0.6 on 2026-10-03 (`docs/evidence/kicad-fra
 These rows cover the bench footprints and the routed blink, not every pad token or design, so
 `frame.EVIDENCE` and `copper.EVIDENCE` stay `INFERRED`, and a build with copper intents carries that
 level. The routed example creates 11 tracks and 7 vias from 4 intents.
+
+Anchors and thermal arrays (change c0111) were measured on `kicad-cli` 10.0.6 on 2026-10-07 with the
+benches of `tests/kicad/frame/_anchorbench.py`; the same probes on 9.0.9 wait for the `kicad-9` job, so
+both rows are `INFERRED` until then:
+
+| what | how it was checked | rows |
+|---|---|---|
+| where an anchored point lands | 36 vias of a marker net anchored inside pads of `Frame_Anchor` at 0° and 90° on the top and at 30° on the bottom: KiCad names each with the net of the pad its anchor names, and reports no short for one. Control: two points computed without the mirror land in each other's pad | `H-G-FRAME-ANCHOR` |
+| anchored copper after `fenolite place --move` | a thermal array and its track, rebuilt after the part was moved and turned: 17 items regenerated, none dangling or unconnected. Control: the same copper given as board points stays behind, 9 `via_dangling` | `H-G-FRAME-ANCHOR` |
+| a thermal array in an SMD pad | 9 through vias of the pad's net in a 3 mm × 3 mm pad: nothing in the DRC report with a track of the net through them on the other outer layer, one `via_dangling` each without it | `H-K-VIA-IN-PAD` |

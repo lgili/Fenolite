@@ -13,12 +13,14 @@ from pathlib import Path
 import pytest
 from _buildhelp import blink, build
 from _copper import ROUTED_DIR, routed_intents, routed_script
+from _layout_edit import move_footprint
 from _routed import NAME, Routed, codes, script_copper
 
 from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import frame
 from fenolite.backends.kicad.copper import copper_uuid, is_copper_uuid
 from fenolite.backends.kicad.pcb import read_board
+from fenolite.core.coords import Point
 from fenolite.core.evidence import Level, strength
 from fenolite.dsl import arc_to, copper, mm
 from fenolite.model.design import Design
@@ -239,3 +241,89 @@ def test_buried_target_10_is_built(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     (core,) = [v for v in board.vias if v.native_ids["kicad"] == copper_uuid("core", "via")]
     assert (core.via_type, core.layers) == ("buried", ("In1.Cu", "In2.Cu"))
     assert env["result"]["copper"]["vias"] == 8
+
+
+# --- anchors in a build (change c0111) ----------------------------------------------------------------
+
+ANCHORED = (
+    '\ndesign.via("fan9", u1.pad(9).at(mm(-1), mm(1.5)), net=vin, diameter=mm(0.6), drill=mm(0.3))\n'
+    'design.track("stub", u1.pad(9), u1.pad(9).at(mm(-1), mm(1.5)), width=mm(0.3))\n'
+)
+"""An anchored via beside pad 9 of ``U1`` and a track from the pad to the same anchored waypoint."""
+FAN9, STUB = copper_uuid("fan9", "via"), copper_uuid("stub", "seg[0]")
+U1_SHIFT = (0, 2_000_000)
+
+
+def _with_anchors(project: Routed) -> None:
+    """The routed blink with ``ANCHORED``, and ``U1`` unlocked so that the board's placement is kept."""
+    project.edit_script("u1.place(mm(14), mm(15), locked=True)", "u1.place(mm(14), mm(15))")
+    project.edit_script("# Stitching vias", ANCHORED.strip("\n") + "\n# Stitching vias")
+
+
+def _anchored_items(design: Design) -> tuple[Point, tuple[Point, Point]]:
+    tracks, vias = script_copper(design)
+    (via,) = [v for v in vias if v.native_ids["kicad"] == FAN9]
+    (stub,) = [t for t in tracks if t.native_ids["kicad"] == STUB]
+    return via.position, (stub.start, stub.end)
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_reproducible_anchored_builds(target: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two processes with different hash seeds and ``--seed`` values write every file of the anchored
+    variant with the same bytes."""
+    project = Routed(tmp_path, monkeypatch, target, confirm=False)
+    _with_anchors(project)
+    outputs = []
+    for seed in ("1", "2"):
+        out = tmp_path / f"out-{seed}"
+        command = [
+            sys.executable, "-m", "fenolite", "--kicad-version", str(target), "--seed", seed, "build",
+            str(project.script), "--out", str(out), "--confirm", "--json",
+        ]  # fmt: skip
+        env = {**os.environ, "PYTHONHASHSEED": seed, "KICAD_CONFIG_HOME": str(tmp_path / "config")}
+        run = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
+        assert run.returncode == 0, run.stderr
+        outputs.append(
+            {str(p.relative_to(out)): p.read_bytes() for p in sorted(out.rglob("*")) if p.is_file()}
+        )
+    assert outputs[0] == outputs[1] and f"{NAME}.kicad_pcb" in outputs[0]
+    board = read_board(outputs[0][f"{NAME}.kicad_pcb"].decode("utf-8"))
+    at, (start, end) = _anchored_items(board)
+    (pad,) = frame.find_pads(board, "U1", 9)
+    assert start == pad.position and end == at == Point(
+        pad.position.x - 1_000_000, pad.position.y + 1_500_000
+    )
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_anchored_copper_follows_a_part_moved_on_the_board(
+    target: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rebuilt over its board after ``U1`` was moved there, the anchored via and waypoint keep their
+    uuids, move with ``U1``, and are reported as regenerated."""
+    project = Routed(tmp_path, monkeypatch, target, confirm=False)
+    _with_anchors(project)
+    code, env, err = project.build("--confirm")
+    assert code == 0, (env.get("issues"), err)
+    assert env["result"]["copper"] == {"intents": 6, "tracks": 12, "arcs": 0, "vias": 8, **ZERO}
+    before_at, before_stub = _anchored_items(project.read())
+    project.edit_board(lambda text: move_footprint(text, "U1", *U1_SHIFT))
+    code, env, err = project.build("--confirm")
+    assert code == 0, (env.get("issues"), err)
+    after_at, after_stub = _anchored_items(project.read())
+
+    def moved(point: Point) -> Point:
+        return Point(point.x + U1_SHIFT[0], point.y + U1_SHIFT[1])
+
+    assert after_at == moved(before_at)
+    assert after_stub == (moved(before_stub[0]), moved(before_stub[1]))
+    (pad,) = frame.find_pads(project.read(), "U1", 9)
+    assert after_stub[0] == pad.position, "the control: the pad itself moved"
+    regenerated = {i["where"] for i in env["issues"] if i["code"] == "kicad.copper.regenerated"}
+    assert {FAN9, STUB} <= regenerated
+    assert env["result"]["copper"]["regenerated"] == len(regenerated) >= 2
+    # a third build changes nothing
+    first = project.files()
+    code, env, _ = project.build("--confirm")
+    assert code == 0 and project.files() == first
+    assert not [c for c in codes(env) if c.startswith("kicad.copper.")]

@@ -31,6 +31,8 @@ The frame, rotation and placement conventions themselves are the rows "Rotation 
 | `kicad-cli` 9.0.9 and 10.0.6 load tracks and vias whose `uuid` is a version-8 UUID, and a 10.0.6 re-save (`pcb upgrade --force`) keeps those uuids | S-0110, S-0020, S-0022 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-FRAME-UUID |
 | Python 3.11 to 3.13 refuse `version=8` in `uuid.UUID`; versions 6 to 8 and `uuid8()` come with 3.14, so Fenolite sets the bits on the integer | S-0111 | INFERRED | H-G-FRAME-UUID |
 | Copper that joins the pads of a net leaves no entry for that net in `unconnected_items` of the DRC report | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-G-FRAME-ROUTE |
+| A point at offset `d` in the library frame of a footprint (X to the right, Y down, as the footprint file draws it) that is stored at `at` with the angle `θ` lies at `at + R(θ)·S·d`, `S` the mirror about the footprint's X axis on the bottom side: the map of the pads, read from the rows "Rotation direction" and "Bottom-side placement". Measured with marker vias inside pads at 0° and 90° on the top and at 30° on the bottom, on 10.0.6; 9.0.9 pending | S-0020, S-0029 | INFERRED | H-G-FRAME-ANCHOR |
+| KiCad's DRC on a through via inside an SMD pad: of the pad's net and joined by copper of the net on another layer, nothing; of the pad's net with nothing on another layer, one `via_dangling` warning; of another net, the via is given the pad's net when the board loads and no `shorting_items` is reported (`H-K-VIA-RENET`), so only Fenolite's copper check reports that short. The first two measured on 10.0.6; 9.0.9 pending | S-0020, S-0029 | INFERRED | H-K-VIA-IN-PAD |
 
 ## Fenolite choices
 

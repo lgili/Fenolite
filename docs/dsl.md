@@ -513,21 +513,46 @@ design.via(
     diameter=mm(0.6),
     drill=mm(0.3),
 )
+# copper that belongs to a part: a fan-out via 1 mm below pad 9 of U1, and a thermal array in pad 33
+design.via("fan9", u1.pad(9).at(mm(0), mm(1)), net=vin, diameter=mm(0.6), drill=mm(0.3))
+design.track("fan9_stub", u1.pad(9), u1.pad(9).at(mm(0), mm(1)), width=mm(0.3))
+design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), drill=mm(0.3), margin=mm(0.1))
 ```
 
 | call | records |
 |---|---|
 | `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
+| `part.pad(number).at(dx=None, dy=None)` | an anchor: the point `(dx, dy)` from the position of those pads, in the frame of the part's footprint; a length left out is 0 |
+| `part.at(dx=None, dy=None)` | an anchor measured from the origin of the part's footprint |
 
 `Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. A pin that is bonded to several pads lists them in a tuple or a list (change c0123): `Part("U1", "Lib:LDO", footprint="Lib:SOT-223", pad_map={"2": ("2", "4")})` puts the net of pin 2 on the pad 2 and on the tab 4. The first pad is the one the schematic symbol shows; a pad belongs to one pin, and a pad listed for two pins, an empty tuple and a pad listed twice are refused when the part is created. `part.pad_map` reads back a string for one pad and a tuple for several. Both build targets apply the map: an Altium build puts each net on every mapped pad of the PCB document, checks script copper and a `--copper-from` board against the mapped pads, and writes the map into the footprint model of the schematic (and of its library, when every part of the symbol links the footprint the symbol names). The releases 0.1.0 and 0.2.0 ignored `pad_map` in an Altium build (fixed in 0.2.1, change c0135): build such a project again. Both targets refuse a map that names a missing pin or pad, or that leaves one pad to two pins (`pad_map={"1": "2"}` on a part that has a pin 2: map pin 2 as well); the Altium build reports it as `altium.pin-pad-map-invalid`, the KiCad build as `build.pin-pad-map-invalid`, each beside the model's `model.pin-pad-map`. `fenolite check` on an Altium project built with a map compares the schematic and the board through the map and reports nothing for the mapped pins (the release 0.2.1 compares the schematic by pin and the board by pad, and reports `netlist.assignment-differs`). A part of an anode-first catalog symbol (`Fenolite:LED`, `Fenolite:Diode`, `Fenolite:Zener_Diode`, `Fenolite:Schottky_Diode`, `Fenolite:Photodiode`: pin 1 `A`, pin 2 `K`) on a catalog land whose pad 1 is the cathode (`Fenolite:LED0603_Kingbright_APT1608SURCK`, `Fenolite:LED0805_Kingbright_APT2012SURCK`, `Fenolite:SOD128_Nexperia_CFP5`) that gives no `pad_map` gets the catalog's default map `{"1": "2", "2": "1"}` in both build targets, and the build reports it with the warning `build.pad-map-default` (change c0147); an explicit `pad_map` always wins, and a design that authors the symbol or the land under the same lib id gets no default. The releases 0.2.0 and 0.2.1 kept pin 1 on pad 1 there: a design that wired such a part by pin number has its two pad nets swapped on the next build, and keeps the old pads with `pad_map={"1": "1", "2": "2"}`. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
-| `via_step(x, y, *, to, diameter=None, drill=None, kind="through")` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro` |
-| `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, both `(x, y)` points; the path continues from `end` |
-| `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, arc steps and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)` | one via; a via that is not a through via names its two copper layers in `layers` |
-| `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region |
-| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `ViaStep` and `ArcStep`), which the build resolves |
+| `via_step(x, y, *, to, diameter=None, drill=None, kind="through")`, `via_step(point, *, to, …)` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro`. The point is two lengths, or one argument: an `(x, y)` pair or an anchor |
+| `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, each an `(x, y)` point or an anchor; the path continues from `end` |
+| `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, anchors, arc steps and via steps, starting on `layer` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers` |
+| `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region; `region=part.pad(number)` is the copper of that pad (a thermal array) |
+| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `Anchor`, `ViaStep` and `ArcStep`), which the build resolves |
 
 - **Points** are `(x, y)` pairs of lengths in the frame of `place()`: the origin is the board's corner.
+- **Anchors** are points in a part's frame, for copper that belongs to a part: `part.pad(n).at(dx, dy)`
+  is measured from a pad, `part.at(dx, dy)` from the origin of the footprint. The offset is given as the
+  footprint's library draws it (X to the right, Y down), so it keeps its place among the pads when the
+  part is turned, and it is mirrored with the part on the bottom side. An anchor stands wherever a
+  point does: a waypoint of a track, `mid` and `end` of `arc_to`, the point of `via_step` and of
+  `design.via`, and the `along` points, the `region` points and the `origin` of a stitch. The build
+  resolves it after placement, so anchored copper follows a part that was moved in KiCad or by
+  `fenolite place` at the next build, with the same ids. Start from a pad anchor: it needs no library
+  coordinates. In this section the word "anchor" always means such a point in a part's frame.
+- **An anchor is a point, not a connection.** `part.pad(9)` in a path joins the pad and gives the
+  track its net; `part.pad(9).at()` is only the place where the pad is. A track still takes its net
+  from its pad ends, and a via or a stitch names its net. `part.pad(…)` where a point is expected is
+  refused with a hint to `.at()`. A via of another net anchored inside a pad is a short: the copper
+  guard of `build` refuses it (KiCad's own DRC does not report it, `docs/copper.md`).
+- **Thermal arrays.** `design.stitch(key, net=…, pitch=…, region=part.pad(n))` lays its grid from the
+  pad's position in the part's frame, keeps the vias whose disc plus `margin` lies inside the pad's
+  copper on the part's side, and does not count that pad as an obstacle. The pad must be on the
+  stitch's net. `origin` is left out, or is an anchor that moves the grid; a board-point `origin` is
+  refused with a pad region. The vias are through vias.
 - **Locks.** `locked=True` on `design.track`, `design.via` or `design.stitch` asks that the copper of
   the intent be written locked: `(locked yes)` on each of its segments, arcs and vias, which KiCad's
   editor then refuses to move. The value must be `True` or `False`; anything else is a `DslError` that

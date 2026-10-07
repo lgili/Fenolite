@@ -18,7 +18,7 @@ from fenolite.dsl.units import as_nm, as_udeg
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
-    from fenolite.dsl.intents import PadRef
+    from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
 
 Side = Literal["top", "bottom"]
@@ -271,6 +271,16 @@ class Part:
         from fenolite.dsl.intents import pad_ref
 
         return pad_ref(self, number, index)
+
+    def at(self, dx: object = None, dy: object = None) -> AnchorRef:
+        """The point ``(dx, dy)`` from the origin of this part's footprint, in the footprint's frame as its
+        library draws it (X to the right, Y down), for a copper intent; a length left out is 0. The build
+        resolves it after placement, so the point turns and moves with the part and is mirrored with it
+        on the bottom side. ``part.pad(n).at(dx, dy)`` measures from a pad, which needs no library
+        coordinates."""
+        from fenolite.dsl.intents import anchor_ref
+
+        return anchor_ref(self, None, None, dx, dy)
 
     def place(
         self,

@@ -43,7 +43,11 @@ fenolite place build/blink --only R1,C3 --gap 1mm --confirm
   its footprints under `lib/`); the footprint keeps its uuid, reference, value, properties, lock and
   pad nets. Without the definition the move is refused (`place.no-definition`).
 - Tracks and vias do not follow a part. When a moved part had copper on its pads, `place.copper-left`
-  says so. Script copper (`docs/copper.md`) follows the pads again at the next build.
+  says so. Script copper (`docs/copper.md`) follows the moved part at the next build where its tracks
+  end at pads (`part.pad(…)`) or its points are anchors in the part's frame (`part.at(…)`,
+  `part.pad(…).at(…)`): vias, waypoints and thermal arrays given that way are regenerated at the
+  part's new place, with the same ids. Script copper given by board points stays where those points
+  say, and so does copper drawn in KiCad.
 - With a `place.*` error nothing is written (exit code 5) unless `--force` is given. `--force` also
   moves a part that is locked on the board.
 - `-o FILE` writes the board elsewhere and leaves the project as it is.

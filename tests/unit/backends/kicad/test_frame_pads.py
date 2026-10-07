@@ -259,3 +259,22 @@ def test_offset_of_an_oval_drill_moves_the_copper_and_not_the_slot() -> None:
     (pad,) = board_pads(design)
     assert (pad.hole, pad.drill) == ((pt(10, 9.8), pt(10, 10.2)), mm(0.8))
     assert _box(pad.copper[0]) == (pt(9.3, 9), pt(11.3, 11))
+
+
+# -- the anchor bench footprint (change c0111)
+
+
+def test_frame_anchor_footprint_pads() -> None:
+    """``Frame_Anchor``: three 1.5 mm x 1 mm pads and one 3 mm x 3 mm pad, all off the origin."""
+    pads = _by_number(board_pads(design_of(Part("U1", "Frame_Anchor", 0, 0, library="Frame"))))
+    assert {n: [p.position for p in found] for n, found in pads.items()} == {
+        "1": [pt(-4, -2)],
+        "2": [pt(-4, 0)],
+        "3": [pt(-4, 2)],
+        "4": [pt(1, 0)],
+    }
+    for number, size in (("1", (1.5, 1)), ("2", (1.5, 1)), ("3", (1.5, 1)), ("4", (3, 3))):
+        (entry,) = pads[number][0].copper
+        low, high = _box(entry)
+        assert entry.layer == "F.Cu" and entry.filled and entry.width == 0 and entry.exact
+        assert (high.x - low.x, high.y - low.y) == (mm(size[0]), mm(size[1]))

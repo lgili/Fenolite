@@ -28,6 +28,8 @@ from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.intents import (
+    Anchor,
+    AnchorRef,
     ArcStep,
     CopperIntent,
     PadEnd,
@@ -52,6 +54,8 @@ __all__ = [
     "BOARD_ORIGIN",
     "DSL_BACKEND",
     "KEYS",
+    "Anchor",
+    "AnchorRef",
     "ArcStep",
     "CopperIntent",
     "Design",

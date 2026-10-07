@@ -12,7 +12,7 @@ from fenolite.backends.kicad.drc import read_drc_report
 from fenolite.backends.kicad.dru import read_rules, write_rules
 from fenolite.backends.kicad.embed import footprint_extent, place_footprint
 from fenolite.backends.kicad.fields import field_anchor, field_angle, place_outside, set_field
-from fenolite.backends.kicad.frame import board_pads, find_pads, placed_extent, placed_extents
+from fenolite.backends.kicad.frame import board_pads, find_pads, part_frame, placed_extent, placed_extents
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver, split_lib_id
 from fenolite.backends.kicad.lowering import lower_minimums, lower_rules
@@ -74,6 +74,7 @@ __all__ = [
     "parse",
     "parse_bytes",
     "parse_fragment",
+    "part_frame",
     "place_footprint",
     "place_outside",
     "placed_extent",

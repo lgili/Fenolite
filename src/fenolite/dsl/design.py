@@ -772,9 +772,10 @@ class Design(Container):
         locked: bool = False,
     ) -> None:
         """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()``,
-        ``arc_to(…)`` bends and ``via_step(…)`` layer changes. The net comes from the pads; the width from
-        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds.
-        ``locked=True`` writes the copper locked (the copper lock, not the placement lock of a part)."""
+        anchors in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), ``arc_to(…)`` bends and
+        ``via_step(…)`` layer changes. The net comes from the pads; the width from ``width`` or the net's
+        class. ``key`` names the intent, so its copper keeps its ids across builds. ``locked=True``
+        writes the copper locked (the copper lock, not the placement lock of a part)."""
         from fenolite.dsl import intents
 
         intents.record_track(self, key, path, layer, width, net, locked)
@@ -783,7 +784,7 @@ class Design(Container):
         self,
         key: str,
         x: object,
-        y: object,
+        y: object = None,
         *,
         net: Net,
         diameter: object = None,
@@ -793,11 +794,12 @@ class Design(Container):
         locked: bool = False,
         protection: object = None,
     ) -> None:
-        """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
-        ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
-        copper layers in ``layers``. ``locked=True`` writes the via locked. ``protection`` is the value of
-        ``protect()``: how the via is tented, covered, plugged, capped or filled (``None``: it follows the
-        board default)."""
+        """One via on ``net`` at ``(x, y)``, or at the one point given after the key: an ``(x, y)`` pair
+        or an anchor in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), which follows its part.
+        Sizes come from the arguments or the net's class. ``kind`` is ``through``, ``blind``, ``buried``
+        or ``micro``; a via that is not a through via names its two copper layers in ``layers``.
+        ``locked=True`` writes the via locked. ``protection`` is the value of ``protect()``: how the via is
+        tented, covered, plugged, capped or filled (``None``: it follows the board default)."""
         from fenolite.dsl import intents
 
         intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
@@ -809,7 +811,7 @@ class Design(Container):
         net: Net,
         pitch: object,
         along: Sequence[object] = (),
-        region: Sequence[object] = (),
+        region: object = (),
         origin: object = None,
         diameter: object = None,
         drill: object = None,
@@ -819,9 +821,11 @@ class Design(Container):
         protection: object = None,
     ) -> None:
         """Through vias of ``net`` every ``pitch`` along a polyline, or on a grid inside a region (the grid
-        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper.
-        ``locked=True`` writes the vias locked. Every via carries ``protection``, the value of
-        ``protect()``."""
+        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper. Points
+        may be anchors; an anchored ``origin`` lays the grid in its part's frame. ``region=part.pad(n)``
+        makes a thermal array: the grid starts at the pad, turns with the part, and keeps the vias whose
+        disc plus ``margin`` lies inside the pad's copper. ``locked=True`` writes the vias locked. Every
+        via carries ``protection``, the value of ``protect()``."""
         from fenolite.dsl import intents
 
         intents.record_stitch(

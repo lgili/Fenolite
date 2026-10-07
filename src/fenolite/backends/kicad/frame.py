@@ -45,7 +45,7 @@ from fenolite.geometry import (
 )
 from fenolite.geometry.transform import TRIG_BITS
 from fenolite.model.base import Opaque
-from fenolite.model.board import Board, FootprintInstance, Graphic, Pad, PadShape, Size
+from fenolite.model.board import Board, FootprintInstance, Graphic, Pad, PadShape, Side, Size
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
@@ -593,7 +593,43 @@ def find_pads(design: Design, component: str, number: str | int) -> tuple[BoardP
     """The pads numbered ``number`` of the footprints of ``component`` (a component path first, else a
     reference), every pad sharing the number included, in board order and pad order."""
     wanted = str(number)
-    pads = board_pads(design)
+    matched = _component_pads(board_pads(design), component)
+    found = tuple(pad for pad in matched if pad.number == wanted)
+    if not found:
+        numbers = ", ".join(dict.fromkeys(pad.number for pad in matched if pad.number))
+        raise KeyError(f"{component} has no pad {wanted!r} (pads: {numbers})")
+    return found
+
+
+# --- anchors in a part's frame --------------------------------------------------------------------
+
+_ORIGIN = Point(0, 0)
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class PartFrame:
+    """The map from the library frame of a placed footprint to the board frame (``H-G-FRAME-ANCHOR``).
+
+    ``at``, ``rotation`` and ``side`` are the footprint's. ``base`` is where offsets are measured from, in
+    the footprint as its library draws it: (0, 0), or the position of the pads named, whose ids are
+    ``pad_ids``."""
+
+    footprint_id: str
+    at: Point
+    rotation: Udeg
+    side: Side
+    base: Point
+    pad_ids: tuple[str, ...] = ()
+
+    def point(self, offset: Point = _ORIGIN) -> Point:
+        """The board point of ``offset`` (X to the right, Y down, as the footprint file draws it): turned
+        with the footprint, mirrored about local X on the bottom side, rounded half to even once."""
+        move = Transform.placement(self.at, self.rotation, mirror=self.side == "bottom")
+        return move.apply(Point(self.base.x + offset.x, self.base.y + offset.y))
+
+
+def _component_pads(pads: Sequence[BoardPad], component: str) -> list[BoardPad]:
+    """The pads of the footprints of ``component``: a component path first, else a reference."""
     matched = [pad for pad in pads if pad.path and pad.path == component]
     if not matched:
         matched = [pad for pad in pads if pad.ref == component]
@@ -602,11 +638,63 @@ def find_pads(design: Design, component: str, number: str | int) -> tuple[BoardP
         raise KeyError(
             f"no footprint of the component {component!r} on the board (components: {', '.join(known)})"
         )
-    found = tuple(pad for pad in matched if pad.number == wanted)
-    if not found:
-        numbers = ", ".join(dict.fromkeys(pad.number for pad in matched if pad.number))
-        raise KeyError(f"{component} has no pad {wanted!r} (pads: {numbers})")
-    return found
+    return matched
+
+
+def part_frame(
+    design: Design, component: str, *, number: str | int | None = None, index: int | None = None
+) -> PartFrame:
+    """The frame of the footprint of ``component`` (matched as in ``find_pads``), for points given in the
+    footprint's library frame. With ``number`` the offsets are measured from the pads of that number:
+    the ``index``-th of them, or all of them, which must then lie at one position.
+
+    ``KeyError`` when no footprint matches, no pad has the number or the index is beyond the pads of the
+    number; ``ValueError`` when the pads of the number lie at more than one position and no index is
+    given. Nothing is read or written."""
+    return frame_with_pads(design, board_pads(design), component, number, index)[0]
+
+
+def frame_with_pads(
+    design: Design, pads: Sequence[BoardPad], component: str, number: str | int | None, index: int | None
+) -> tuple[PartFrame, tuple[BoardPad, ...]]:
+    """``part_frame`` over the pad records ``pads`` of ``design``, with the records of the pads named: for
+    a caller that already holds ``board_pads(design)`` and resolves many anchors."""
+    matched = _component_pads(pads, component)
+    named: list[BoardPad] = []
+    if number is not None:
+        wanted = str(number)
+        named = [pad for pad in matched if pad.number == wanted]
+        if not named:
+            numbers = ", ".join(dict.fromkeys(pad.number for pad in matched if pad.number))
+            raise KeyError(f"{component} has no pad {wanted!r} (pads: {numbers})")
+        if index is not None:
+            if not 0 <= index < len(named):
+                raise KeyError(
+                    f"{component} has {len(named)} pad(s) numbered {wanted!r}; index {index} is beyond them"
+                )
+            named = [named[index]]
+        elif len({pad.position for pad in named}) > 1:
+            raise ValueError(
+                f"{component} has {len(named)} pads numbered {wanted!r} at different positions; "
+                "give an index to name one"
+            )
+    first = named[0] if named else matched[0]
+    footprints = design.board.footprints if design.board is not None else ()
+    footprint = next(fp for fp in footprints if fp.id == first.footprint_id)
+    base = _ORIGIN
+    if named:
+        stored = next(pad.position for pad in footprint.pads if pad.id == first.pad_id)
+        # a bottom footprint stores its children mirrored about local X (``H-G-BOTTOM-STORE``)
+        base = Point(stored.x, -stored.y) if footprint.side == "bottom" else stored
+    frame = PartFrame(
+        footprint_id=footprint.id,
+        at=footprint.position,
+        rotation=footprint.rotation,
+        side=footprint.side,
+        base=base,
+        pad_ids=tuple(pad.pad_id for pad in named),
+    )
+    return frame, tuple(named)
 
 
 # --- placed extents -------------------------------------------------------------------------------
@@ -820,9 +908,11 @@ __all__ = [
     "CURVE_GROWTH",
     "EVIDENCE",
     "FRAME_ISSUE_CODES",
+    "PartFrame",
     "board_pads",
     "copper_polygon",
     "find_pads",
+    "part_frame",
     "placed_extent",
     "placed_extents",
 ]

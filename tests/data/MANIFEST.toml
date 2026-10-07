@@ -1677,3 +1677,9 @@ path = "tests/data/specctra/c0107_before_blink_t10.dsn"
 origin = "authored"
 corpus_id = ""
 notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from examples/blink_2layer built for target 10: the text that write_dsn must still give for a design without a rule (tests/unit/backends/specctra/test_dsn.py -k unchanged)"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Anchor.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for anchors in a part's frame (c0111): three 1.5 mm x 1 mm pads and one 3 mm x 3 mm pad, off the footprint origin; not a validated land pattern"
