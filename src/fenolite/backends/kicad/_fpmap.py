@@ -52,6 +52,10 @@ PAD_CANONICAL: tuple[str, ...] = (
 )  # fmt: skip
 """Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``."""
 ZONE_CONNECT = "zone_connect"
+NET_TIES = "net_tie_pad_groups"
+"""The footprint child that lists the net-tie groups, one string per group (``libraries.md``, "Net-tie
+groups"; change c0114). It is no field of ``DEF_FIELDS``: a read child stays an opaque slot, projected into
+``net_ties``, and only an authored definition writes it from the field."""
 DEF_FIELDS: Mapping[str, str] = MappingProxyType(
     {"descr": "description", "attr": "kind", "pad": "pads", **dict.fromkeys(FP_GRAPHIC_HEADS, "graphics")}
 )
@@ -454,6 +458,37 @@ def emit_graphic(graphic: Graphic, head: str) -> Items:
     }
 
 
+def net_tie_groups(child: Node) -> tuple[tuple[str, ...], ...]:
+    """The groups of one ``net_tie_pad_groups`` child: each string is split at commas, the spaces around a
+    number and empty parts are dropped (``"1, 2"`` and ``"1,2"`` both give ``("1", "2")``), and a string
+    without a number gives no group."""
+    groups: list[tuple[str, ...]] = []
+    for atom in child.atoms():
+        numbers = tuple(part.strip() for part in atom.value.split(",") if part.strip())
+        if numbers:
+            groups.append(numbers)
+    return tuple(groups)
+
+
+def net_tie_node(groups: Sequence[Sequence[str]]) -> Node:
+    """``(net_tie_pad_groups "1, 2" …)``: one string per group, its numbers joined with ``", "``."""
+    return node(NET_TIES, *(Atom.string(", ".join(group)) for group in groups))
+
+
+def projected_net_ties(slots: Sequence[Slot]) -> tuple[tuple[str, ...], ...] | None:
+    """The groups that the opaque ``net_tie_pad_groups`` children of a footprint's slot list stand for, in
+    slot order; ``None`` when it has no such child."""
+    found: list[tuple[str, ...]] = []
+    seen = False
+    for slot in slots:
+        if isinstance(slot, Opaque) and slot.fragment.startswith(f"({NET_TIES}"):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == NET_TIES:
+                seen = True
+                found.extend(net_tie_groups(child))
+    return tuple(found) if seen else None
+
+
 def emit_attr(kind: str, flags: Sequence[str]) -> Node:
     """``(attr KIND FLAG …)``; the kind ``unspecified`` is not written."""
     values = ([] if kind == "unspecified" else [kind]) + list(flags)
@@ -512,6 +547,7 @@ def emit_footprint(
         "name": [Atom.string(defn.name)],
         "description": [node("descr", Atom.string(defn.description))],
         "kind": [emit_attr(defn.kind, defn.flags)],
+        "net_ties": [net_tie_node(defn.net_ties)] if defn.net_ties else [],
         "pads": list(pads),
         "graphics": list(graphics),
     }
@@ -580,10 +616,13 @@ __all__ = [
     "emit_graphic",
     "emit_pad",
     "layers_node",
+    "net_tie_groups",
+    "net_tie_node",
     "node",
     "opaque_zone_connects",
     "padstack_key",
     "point_node",
+    "projected_net_ties",
     "projected_zone_connect",
     "read_drill",
     "read_graphic",

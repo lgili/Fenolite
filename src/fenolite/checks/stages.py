@@ -17,6 +17,7 @@ from typing import Literal
 from fenolite.backends.base import (
     BoardFrame,
     DesignRulesSource,
+    ExclusionSource,
     FillOracle,
     Oracle,
     ParityInputs,
@@ -29,6 +30,7 @@ from fenolite.checks.codes import issue
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
@@ -131,6 +133,10 @@ class CheckReport:
     evidence: Evidence
     read_error: FenoliteError | None = None
     drc_reported: bool = False
+    waivers: Mapping[str, object] = field(
+        default_factory=lambda: {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    )
+    """What became of the design's waivers (``checks.waivers.WaiverOutcome.to_json``; change c0114)."""
 
 
 def relative_file(file: str, root: Path) -> str:
@@ -166,9 +172,11 @@ def run_checks(
     cache_error: str = "",
     plotter: Plotter | None = None,
     fill_oracle: FillOracle | None = None,
+    waivers: Sequence[Waiver] = (),
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
-    built project); ``validator.validate`` runs at most once."""
+    built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
+    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
@@ -179,6 +187,7 @@ def run_checks(
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
+    from fenolite.checks.waivers import combine
 
     wanted = DEFAULT_STAGES if stages is None else stages
     selected = [name for name in STAGE_ORDER if name in wanted]
@@ -218,13 +227,15 @@ def run_checks(
             rules_source=validator if isinstance(validator, DesignRulesSource) else None,
             frame=validator if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
+            waivers=waivers,
         )
 
     def drc() -> StageResult:
         if oracle is None:
             raise ValueError("drc.kicad is selected but no oracle was given")
         design = validation.read.design if validation is not None else None
-        return drc_stage(oracle, project, built=built, design=design)
+        stored = validator.stored_exclusions(project) if isinstance(validator, ExclusionSource) else ()
+        return drc_stage(oracle, project, built=built, design=design, waivers=waivers, exclusions=stored)
 
     done: dict[str, StageResult] = {}
 
@@ -282,7 +293,8 @@ def run_checks(
         r.name == "drc.kicad" and not any(i.code == "check.oracle-failed" for i in r.issues) for r in results
     )
     issues = (*input_issues, *(i for r in results for i in r.issues))
-    return CheckReport(results, issues, evidence, read_error, drc_reported)
+    outcome = combine(waivers, (r.summary.get("waivers") for r in results))
+    return CheckReport(results, issues, evidence, read_error, drc_reported, outcome.to_json())
 
 
 __all__ = [

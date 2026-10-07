@@ -97,6 +97,8 @@ MORE_KINDS: tuple[str, ...] = (
     "footprint-graphic",
     "footprint-copper",
     "footprint-text",
+    "net-tie",
+    "severity",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -111,6 +113,23 @@ another pin holds). Of the items of a footprint instance (change c0126): ``footp
 on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
 copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
 ``AltiumInputs.written`` counts the written graphics and texts under the first and the third key."""
+NET_TIE_KIND = "net-tie"
+"""A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
+because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
+board that is made is lost."""
+SEVERITY_KIND = "severity"
+"""A check severity of ``RuleSet.severities`` (change c0114): KiCad data, and no rule kind, so the rule
+table has no row for it and none is written. Not in ``LOSS_KINDS``."""
+NET_TIE_REASON = "the pads are written, without a mark that ties them: a net-tie group is KiCad data"
+
+
+def severity_reason(codes: Sequence[str]) -> str:
+    return (
+        f"the check severities of {', '.join(codes)} are KiCad data: a severity is no rule kind, and no "
+        "Altium rule holds one"
+    )
+
+
 LOSS_KINDS: frozenset[str] = frozenset(
     {
         "footprint",
@@ -1322,6 +1341,12 @@ def _document(
     )
     texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
+    for footprint in board.footprints:
+        if footprint.net_ties:
+            account.skip(NET_TIE_KIND, footprint.id, NET_TIE_REASON)
+    codes = sorted(design.rules.severities) if design.rules is not None else []
+    for code in codes:
+        account.skip(SEVERITY_KIND, code, severity_reason(codes))
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
     for item in lowered.not_lowered:
         account.skip("rule", item.rule.id, f"{item.kind} ({item.selector}): {item.reason}")
@@ -1685,6 +1710,9 @@ __all__ = [
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "MORE_KINDS",
+    "NET_TIE_KIND",
+    "NET_TIE_REASON",
+    "SEVERITY_KIND",
     "NOT_LOWERED",
     "AltiumInputs",
     "LossyWriteError",

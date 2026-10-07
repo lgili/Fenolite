@@ -37,9 +37,9 @@ TABLE = {
     "erc.lite.power-undriven": ("warning",),
     "erc.lite.floating-pin": ("warning",),
     "render.failed": ("warning",),
-    "copper.short": ("error",),
-    "copper.clearance": ("error", "warning"),
-    "copper.zone-overlap": ("warning",),
+    "copper.short": ("error", "info"),
+    "copper.clearance": ("error", "warning", "info"),
+    "copper.zone-overlap": ("warning", "info"),
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
@@ -62,6 +62,8 @@ TABLE = {
     "parity.footprint-mismatch": ("warning",),
     "parity.oracle-differs": ("warning",),
     "parity.pad-without-pin": ("info",),
+    "check.waiver-unmatched": ("warning",),
+    "check.exclusion-stale": ("warning",),
 }
 
 

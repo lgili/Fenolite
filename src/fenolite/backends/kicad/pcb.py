@@ -33,6 +33,7 @@ from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
+    NET_TIES,
     PAD_FIELDS,
     PAD_POSITIONAL,
     Ids,
@@ -41,10 +42,12 @@ from fenolite.backends.kicad._fpmap import (
     emit_graphic,
     emit_pad,
     layers_node,
+    net_tie_groups,
     node,
     opaque_zone_connects,
     padstack_key,
     point_node,
+    projected_net_ties,
     projected_zone_connect,
     read_graphic,
     read_pad,
@@ -1091,6 +1094,7 @@ class _Reader:
         names: set[str] = set()
         path = ""
         pads: list[tuple[Pad, Node, str]] = []
+        net_ties: tuple[tuple[str, ...], ...] = ()
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
@@ -1126,6 +1130,8 @@ class _Reader:
                 locked = symbols(child) != ["no"]
             elif head == "path":
                 path = text_of(child)
+            elif head == NET_TIES:
+                net_ties += net_tie_groups(child)  # the child stays an opaque slot: a projection
             elif head == "pad":
                 try:
                     pad = read_pad(
@@ -1162,6 +1168,7 @@ class _Reader:
             attributes=tuple(attributes),
             pads=tuple(pad for pad, _, _ in pads),
             fields=tuple(fields),
+            net_ties=net_ties,
         )
         self.check(item, loc, slots, _emit_footprint(instance, path), FP_ROOT, nested=("pads", "fields"))
         instance = dataclasses.replace(instance, ext={"kicad": slotlib.to_ext(slots)})
@@ -2365,6 +2372,10 @@ class _Writer:
             if names.count(name) > 1:
                 raise ValueError(f"{_locator(fp)}: two fields are named {name!r}")
         if created:
+            if fp.net_ties:
+                self.read_only(
+                    "net_ties", _locator(fp), "only a placed library definition carries net-tie groups"
+                )
             items["fields"] = []
             items["properties"] = self.properties(fp, component)
         else:
@@ -2581,6 +2592,8 @@ class _Writer:
         if isinstance(entity, FootprintInstance):
             self.check_properties(entity, file_properties, where)
             self.check_removed_fields(entity, slots, where)
+            if entity.net_ties and "net_ties" not in covered:
+                self.read_only("net_ties", where, f"the footprint has no {NET_TIES} child to hold the groups")
         return covered
 
     def reconcile_field(self, field: FootprintField, slots: list[Slot], items: Items) -> set[str]:
@@ -2752,6 +2765,16 @@ class _Writer:
             elif key not in ("Reference", "Value"):
                 file_properties[key] = value
             return "properties"
+        if isinstance(entity, FootprintInstance) and name == NET_TIES:
+            first = next(
+                k
+                for k, s in enumerate(slots)
+                if isinstance(s, Opaque) and s.fragment.startswith(f"({NET_TIES}")
+            )
+            if i == first and projected_net_ties(slots) != entity.net_ties:
+                where = _child_locator(entity, slots, i, name, "net_ties")
+                self.read_only("net_ties", where, "the net-tie groups are written as read")
+            return "net_ties"
         if isinstance(entity, FootprintInstance) and name == "locked":
             if (symbols(child) != ["no"]) != entity.locked:
                 self.read_only(

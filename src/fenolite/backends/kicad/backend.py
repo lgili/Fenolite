@@ -15,17 +15,19 @@ from fenolite.backends.base import (
     CapabilityReport,
     DesignRules,
     DesignRulesSource,
+    ExclusionSource,
     PadNetList,
     PlacedExtent,
     ProjectSet,
     ReadResult,
     SideOutcome,
+    StoredExclusion,
     Validation,
     Validator,
     WriteResult,
 )
 from fenolite.backends.kicad import pcb, versions
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
 from fenolite.model.presentation import DrawingSheet
@@ -190,6 +192,21 @@ class KicadBackend:
             found.evidence,
         )
 
+    def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]:
+        """The DRC exclusions that ``<stem>.kicad_pro`` of the copy set stores, in file order
+        (``pro.project_exclusions``; ``ExclusionSource`` protocol): ``()`` when the set has no project
+        file or it fails to read. Nothing is written."""
+        from fenolite.backends.kicad import pro
+
+        name = PurePosixPath(project.board).with_suffix(".kicad_pro").as_posix()
+        path = project.files.get(name)
+        if path is None:
+            return ()
+        try:
+            return pro.read_project(path.read_text(encoding="utf-8"), file=name).exclusions
+        except (OSError, UnicodeDecodeError, FenoliteError):
+            return ()
+
     def write_sheet(
         self, sheet: DrawingSheet, *, target: int | None = None, allow_lossy: bool = False
     ) -> WriteResult:
@@ -248,6 +265,8 @@ _VALIDATOR: Validator = KicadBackend()
 _FRAME: BoardFrame = KicadBackend()
 """The KiCad backend satisfies ``BoardFrame`` (checked by pyright)."""
 _RULES_SOURCE: DesignRulesSource = KicadBackend()
+_EXCLUSION_SOURCE: ExclusionSource = KicadBackend()
+"""The KiCad backend satisfies ``ExclusionSource`` (checked by pyright; change c0114)."""
 """The KiCad backend satisfies ``DesignRulesSource`` (checked by pyright)."""
 
 

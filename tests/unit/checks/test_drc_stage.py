@@ -33,6 +33,7 @@ SUMMARY_KEYS = {
     "parity_judged",
     "types",
     "limits",
+    "exclusions",
 }
 
 
@@ -181,3 +182,130 @@ def test_drc_stage_no_report_gives_no_parity_verdict() -> None:
     assert [i.code for i in result.issues if i.code.startswith("check.")] == ["check.oracle-failed"]
     assert not [i for i in result.issues if i.code.endswith("parity-unchecked")]
     assert result.summary["parity_judged"] is False
+
+
+# --- stored exclusions (capability verification-loop, "Exclusions in the DRC stage"; c0114) --------
+
+NIL = "00000000-0000-0000-0000-000000000000"
+
+
+def excluded(kind: str, uid: str = "u1", *, comment: str = "", on: bool = True) -> DrcViolation:
+    item = DrcItem(uid, "item", Point(1_500_000, 2_000_000))
+    return DrcViolation(kind, kind, "warning", (item,), excluded=on, comment=comment)
+
+
+def stored(kind: str, first: str = "u1", second: str = NIL, comment: str = "", x: int = 7_000_000):  # noqa: ANN201
+    from fenolite.backends.base import StoredExclusion
+
+    return StoredExclusion(kind, Point(x, 0), (first, second), comment)
+
+
+def test_exclusion_comment_of_an_excluded_entry() -> None:
+    """Scenario "Comment of an excluded entry"."""
+    drc = report(excluded("via_dangling", comment="test point"), excluded("silk_overlap", "u2"))
+    exclusions = [stored("via_dangling", "U1", comment="test point"), stored("silk_overlap", "u2")]
+    result = drc_stage(FakeOracle(outcome("fired", drc=drc)), project(), built=True, exclusions=exclusions)
+    by_code = {found.code: found for found in result.issues}
+    assert by_code["fake.drc.via-dangling"].severity == "info"
+    assert by_code["fake.drc.via-dangling"].message.endswith("(excluded in the project: test point)")
+    assert by_code["fake.drc.silk-overlap"].message.endswith("(excluded in the project)")
+    assert result.summary["exclusions"] == {"stored": 2, "live": 2, "stale": 0, "unjudged": 0}
+    assert result.summary["excluded"] == 2 and result.status == "ok"
+    assert not [found for found in result.issues if found.code == "check.exclusion-stale"]
+
+
+def test_exclusion_moved() -> None:
+    """Scenario "A moved exclusion": the entry is reported again, without ``excluded``."""
+    drc = report(excluded("via_dangling", on=False))
+    exclusion = stored("via_dangling", comment="test point")
+    result = drc_stage(FakeOracle(outcome("fired", drc=drc)), project(), built=True, exclusions=[exclusion])
+    (stale,) = [found for found in result.issues if found.code == "check.exclusion-stale"]
+    assert stale.severity == "warning" and "(moved)" in stale.message and "via_dangling" in stale.message
+    assert "'test point'" in stale.message and stale.where == "@7,0"  # no entity has this uuid
+    assert result.summary["exclusions"] == {"stored": 1, "live": 0, "stale": 1, "unjudged": 0}
+    (entry,) = [found for found in result.issues if found.code == "fake.drc.via-dangling"]
+    assert entry.severity == "warning" and "excluded in the project" not in entry.message
+
+
+def test_exclusion_gone_and_unrepeatable() -> None:
+    """Scenario "A gone exclusion and an unrepeatable one"."""
+    exclusions = [stored("courtyards_overlap", "a", "b"), stored("clearance", "c", "d")]
+    result = drc_stage(
+        FakeOracle(outcome("fired", drc=report())), project(), built=True, exclusions=exclusions
+    )
+    (stale,) = [found for found in result.issues if found.code == "check.exclusion-stale"]
+    assert "(gone)" in stale.message and "courtyards_overlap" in stale.message
+    assert stale.where == "@7,0, @7,0"
+    assert result.summary["exclusions"] == {"stored": 2, "live": 0, "stale": 1, "unjudged": 1}
+
+
+def test_exclusion_needs_its_type_and_its_uuids_in_order() -> None:
+    pair = DrcViolation(
+        "courtyards_overlap",
+        "d",
+        "error",
+        (DrcItem("AA", "x", Point(0, 0)), DrcItem("bb", "y", Point(0, 0))),
+        excluded=True,
+    )
+    drc = report(pair)
+    oracle = FakeOracle(outcome("fired", drc=drc))
+    live = drc_stage(oracle, project(), built=True, exclusions=[stored("courtyards_overlap", "aa", "BB")])
+    assert live.summary["exclusions"]["live"] == 1  # type: ignore[index]
+    swapped = drc_stage(oracle, project(), built=True, exclusions=[stored("courtyards_overlap", "bb", "aa")])
+    assert swapped.summary["exclusions"]["stale"] == 1  # type: ignore[index]
+    other = drc_stage(oracle, project(), built=True, exclusions=[stored("silk_overlap", "aa", "bb")])
+    assert other.summary["exclusions"]["stale"] == 1  # type: ignore[index]
+
+
+def test_exclusion_located_through_the_board() -> None:
+    design = read_board(TWO_LAYER)
+    assert design.board is not None
+    via = design.board.vias[0]
+    exclusion = stored("via_dangling", via.native_ids["kicad"].upper())
+    oracle = FakeOracle(outcome("fired", drc=report()), name="kicad")
+    result = drc_stage(oracle, project(), built=True, design=design, exclusions=[exclusion])
+    (stale,) = [found for found in result.issues if found.code == "check.exclusion-stale"]
+    assert stale.where.startswith("/kicad_pcb/via[")
+
+
+def test_exclusion_without_a_report_is_not_judged() -> None:
+    result = drc_stage(
+        FakeOracle(outcome(missing=True)), project(), built=True, exclusions=[stored("via_dangling")]
+    )
+    assert result.summary["exclusions"] == {"stored": 1, "live": 0, "stale": 0, "unjudged": 0}
+    assert not [found for found in result.issues if found.code == "check.exclusion-stale"]
+
+
+def test_exclusion_source_is_asked_by_run_checks() -> None:
+    """``run_checks`` passes ``validator.stored_exclusions(project)`` when the validator is an
+    ``ExclusionSource``, and none otherwise."""
+    from dataclasses import dataclass, field
+
+    from fakes import FakeValidator, validation
+
+    from fenolite.backends.base import ProjectSet, StoredExclusion
+    from fenolite.checks import run_checks
+
+    @dataclass
+    class Source(FakeValidator):
+        asked: list[ProjectSet] = field(default_factory=lambda: [])
+
+        def stored_exclusions(self, found: ProjectSet) -> tuple[StoredExclusion, ...]:
+            self.asked.append(found)
+            return (stored("via_dangling"),)
+
+    oracle = FakeOracle(outcome("fired", drc=report()))
+    source = Source(result=validation())
+    done = run_checks(
+        project=project(), stages=("drc.kicad",), model=None, built=False, validator=source, oracle=oracle
+    )
+    assert len(source.asked) == 1 and done.stages[0].summary["exclusions"]["stale"] == 1  # type: ignore[index]
+    plain = run_checks(
+        project=project(),
+        stages=("drc.kicad",),
+        model=None,
+        built=False,
+        validator=FakeValidator(result=validation()),
+        oracle=oracle,
+    )
+    assert plain.stages[0].summary["exclusions"]["stored"] == 0  # type: ignore[index]

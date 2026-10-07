@@ -35,6 +35,7 @@ import _creepbench
 import _doccases
 import _drccases
 import _erccases
+import _exclcases
 import _exportcases
 import _fieldbench
 import _fieldprobe
@@ -70,6 +71,7 @@ import _rulecases
 import _schcases
 import _sheetcases
 import _stackbench
+import _tiebench
 import _triad
 import _vendorcases
 import _viabench
@@ -316,6 +318,9 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _viabench.via_probes(runner).items():  # change c0112
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _planecases.plane_probes().items():  # change c0107
+    for pid, (function, majors) in _tiebench.tie_probes().items():  # change c0114
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _exclcases.exclusion_probes().items():  # change c0114
         probes[pid] = Probe(function, majors)
     return probes
 

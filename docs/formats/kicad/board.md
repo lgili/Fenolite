@@ -687,3 +687,25 @@ or side change is refused (`place.no-definition`).
 
 Errors raise `LossyWriteError` (`FEN-7001`); `droppable` is true only when every error is a too-new
 token inside opaque content.
+
+## Net-tie groups (c0114)
+
+A board footprint carries the `net_tie_pad_groups` child of its library footprint (`libraries.md`,
+"Net-tie groups").
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A board footprint written with `(net_tie_pad_groups "1, 2")` after `attr` loads, and KiCad's DRC honours the group on the board | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| A board footprint whose child is written `"1,2"` is honoured the same way | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| KiCad's demo boards hold both spellings, `"1, 2"` and `"1,2"`, on a net-tie footprint and on bridged solder jumpers | S-0058 | INFERRED | H-K-NETTIE-DRC |
+
+The third row is the census that change c0114 states (twelve footprints on three demo boards of tag
+10.0.6, read for the fact on 2026-10-05); this change did not run it again.
+
+- `read_board` projects the child into `FootprintInstance.net_ties`, as `read_footprint` does, and keeps
+  it as a projected slot: an unchanged board is written back byte for byte.
+- A footprint whose `net_ties` differs from its child, or that gains groups without having the child,
+  gives `kicad.board.projection-read-only` naming `net_ties`. A footprint that was not placed from a
+  library definition cannot carry groups.
+- `embed.place_footprint` carries the child of the definition into the placed footprint, so a library
+  net tie, or an authored one, keeps its groups on the board that `build` writes.

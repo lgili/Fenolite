@@ -16,6 +16,9 @@ stage issue codes", change c0062). ``type_suffix`` is the one rule that turns a 
 last part of a code, for DRC and ERC alike.
 The ``parity.*`` codes are those of the parity comparison and its stage (``checks.parity``; "Parity issue
 codes", change c0072).
+The last two codes report a waiver and a stored exclusion that no longer match a finding ("Waiver and
+exclusion issue codes", change c0114); the ``info`` severity of the three copper finding codes is that of a
+finding a waiver accepted (``checks.waivers``), which the copper check itself never gives.
 """
 
 from __future__ import annotations
@@ -56,9 +59,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
         "render.failed": ("warning",),
-        "copper.short": ("error",),
-        "copper.clearance": ("error", "warning"),
-        "copper.zone-overlap": ("warning",),
+        "copper.short": ("error", "info"),
+        "copper.clearance": ("error", "warning", "info"),
+        "copper.zone-overlap": ("warning", "info"),
         "copper.rules-incomplete": ("warning",),
         "copper.item-unsupported": ("warning",),
         "copper.clearance-unset": ("info",),
@@ -81,6 +84,8 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.footprint-mismatch": ("warning",),
         "parity.oracle-differs": ("warning",),
         "parity.pad-without-pin": ("info",),
+        "check.waiver-unmatched": ("warning",),
+        "check.exclusion-stale": ("warning",),
     }
 )
 

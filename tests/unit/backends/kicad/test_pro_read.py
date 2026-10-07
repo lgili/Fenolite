@@ -173,10 +173,77 @@ def test_format_errors(source: str, locator: str) -> None:
 
 
 def test_codes() -> None:
-    assert ISSUE_CODES is LEAF_CODES and len(ISSUE_CODES) == 19  # c0010 11, c0012 3, c0026 5
+    assert ISSUE_CODES is LEAF_CODES and len(ISSUE_CODES) == 21  # c0010 11, c0012 3, c0026 5, c0114 2
     assert all(ISSUE_CODE.match(code) for code in ISSUE_CODES)
     assert all(c in ISSUE_CODES or c.startswith("kicad.version.") for c in CODES)
     literals: set[str] = set()
     for path in SRC.glob("*.py"):
         literals |= set(re.findall(r'"(kicad\.project\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
     assert literals == set(ISSUE_CODES)
+
+
+# --- stored exclusions (capability kicad-file-backend, "Stored exclusions are read"; c0114) --------
+
+UUID_A = "11111111-1111-4111-8111-111111111111"
+UUID_B = "22222222-2222-4222-8222-222222222222"
+NIL = "00000000-0000-0000-0000-000000000000"
+
+
+def with_exclusions(entries: list[object]) -> str:
+    data = project()
+    data["board"]["design_settings"]["drc_exclusions"] = entries  # type: ignore[index]
+    return text(data)
+
+
+def test_exclusion_both_forms_read() -> None:
+    """Scenario "Both forms read": the pair form holds a comment, the plain form none."""
+    from fenolite.backends.base import StoredExclusion
+    from fenolite.core.coords import Point
+
+    source = with_exclusions(
+        [
+            [f"via_dangling|30123456|20654321|{UUID_A}|{NIL}", "test point"],
+            f"courtyards_overlap|1000000|2000000|{UUID_A}|{UUID_B}",
+            [f"silk_overlap|-5|0|{UUID_B}|{UUID_A}", ""],
+        ]
+    )
+    found: list[Issue] = []
+    exclusions = read_project(source, issues=collect(found)).exclusions
+    assert exclusions == (
+        StoredExclusion("via_dangling", Point(30_123_456, 20_654_321), (UUID_A, NIL), "test point"),
+        StoredExclusion("courtyards_overlap", Point(1_000_000, 2_000_000), (UUID_A, UUID_B), ""),
+        StoredExclusion("silk_overlap", Point(-5, 0), (UUID_B, UUID_A), ""),
+    )
+    assert not [i for i in found if i.code == "kicad.project.unread-entry"]
+    assert read_project(text(project())).exclusions == ()
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        [f"via_dangling|1.5|2|{UUID_A}", JsonNumber("3")],
+        f"via_dangling|1.5|2|{UUID_A}|{NIL}",
+        f"via_dangling|1|2|{UUID_A}",
+        [f"via_dangling|1|2|{UUID_A}|{NIL}"],
+        [f"via_dangling|1|2|{UUID_A}|{NIL}", "a", "b"],
+        [f"via_dangling|1|2|{UUID_A}|{NIL}", JsonNumber("3")],
+        f"|1|2|{UUID_A}|{NIL}",
+        JsonNumber("7"),
+    ],
+)
+def test_exclusion_malformed_entry_is_skipped(entry: object) -> None:
+    """Scenario "A malformed entry is skipped"."""
+    found: list[Issue] = []
+    info = read_project(with_exclusions([entry]), issues=collect(found))
+    assert info.exclusions == ()
+    (issue,) = [i for i in found if i.code == "kicad.project.unread-entry"]
+    assert issue.severity == "info" and issue.where == "/board/design_settings/drc_exclusions/0"
+
+
+def test_exclusion_list_is_kept_verbatim_by_an_update() -> None:
+    from fenolite.backends.kicad.pro import update_project
+
+    entries: list[object] = [[f"via_dangling|30123456|20654321|{UUID_A}|{NIL}", "test point"], "odd"]
+    source = with_exclusions(entries)
+    updated = update_project(source, design({}, {}), target=10)
+    assert read_project(updated).data["board"]["design_settings"]["drc_exclusions"] == entries  # type: ignore[index]

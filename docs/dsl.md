@@ -1005,3 +1005,88 @@ labels and power ports on wire stubs, and a grid layout. Altium's engineering ch
 the PCB. This build reads no library, so lib ids and footprints name Altium library files
 (`"MyParts.SchLib:LDO"`, `"MyParts.PcbLib:SOT23"`), and designators must be pin numbers. The board,
 placements, net classes and diff pairs stay in `.fenolite/` only. See `docs/altium.md`.
+
+## Net ties
+
+A net tie joins pads of different nets on purpose: a star ground, a Kelvin lead. In an authored footprint
+the join is copper you draw (pads that overlap, or a `line`, `rect`, `circle` or `polygon` on a copper
+layer), and `net_tie()` says that it is meant:
+
+```python
+tie = Footprint("Local", "StarPoint", kind="smd")
+tie.pad("1", at=(mm(-0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.pad("2", at=(mm(0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.line((mm(-0.5), mm(0)), (mm(0.5), mm(0)), layer="F.Cu", width=mm(0.3))  # the copper bridge
+tie.net_tie("1", "2")
+design.add_footprint(tie)
+```
+
+- `net_tie(*numbers)` declares one group of at least two pad numbers. A number must name a pad of the
+  footprint and may be in one group only; both are checked when the definition is read.
+- The KiCad build writes `(net_tie_pad_groups "1, 2")` into the library footprint and the board
+  footprint, as KiCad's own net-tie footprints have it, and KiCad's DRC then judges no pair of pads of
+  the footprint.
+- Fenolite's copper check, and so the copper guard of the build, do not judge two pads of one group.
+  A pad outside the group, and a track near a tied pad, are judged as on any footprint. The bridge
+  itself is a graphic, which the copper check does not see.
+- A footprint from a KiCad library keeps the groups its file has; they cannot be edited from a script.
+- `--target altium` writes the pads and no mark that ties them, and says so (`docs/altium.md`).
+
+## Waivers
+
+`design.waive()` accepts one finding of `fenolite check`, or of the copper guard of the build, with a
+reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
+longer counts it and nothing is hidden.
+
+```python
+design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating connector", name="pitch")
+design.waive("copper.clearance", "J1-*", "*", min_gap=mm(0.15), reason="shield can keep-out")
+design.waive("kicad.drc.via-dangling", "*", reason="test points")
+design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")
+```
+
+- **Code.** `copper.short`, `copper.clearance`, `copper.zone-overlap`, or a finding of KiCad's DRC as
+  `check` prints it, `kicad.drc.<type>`. The three verdicts of the DRC stage (`rules-not-loaded`,
+  `rules-unchecked`, `parity-unchecked`) are not findings. ERC and parity findings are not waived: an
+  ERC finding has its own means in the script (`no_connect`, a power flag), and a parity finding is a
+  defect of the build.
+- **Items.** One name per item of the finding, as its `where` prints it: `REF-PIN` for a pad, `REF` for a
+  footprint, a locator for a track, a via or a zone, `@x,y` for an item without a name. The order does not
+  matter, a `Part` stands for its reference, and `*`, `?` and `[…]` are patterns. A copper finding has two
+  items.
+- **Reason.** One non-empty line. It is printed with every finding the waiver accepts.
+- **Shorts** (`copper.short`, `kicad.drc.shorting-items`) take exact names only: an intended short is one
+  net tie, and a pattern could cover a second one. Prefer `Footprint.net_tie` for a short inside a
+  footprint you author.
+- **`min_gap`** belongs to `copper.clearance`: the finding is accepted only while its gap is at least that
+  length, so a closer gap stays an error. A clearance waiver with a pattern needs it. A DRC finding has
+  no distance in KiCad's report, so `min_gap` is refused there.
+- **`name`** defaults to `<code>:<items joined by ",">`. Two waivers of one name are refused, so the same
+  waiver cannot be declared twice.
+- **Prefer a rule for a clearance that a selector can name.** A waiver accepts one finding by the names
+  of its items; a rule (`design.rules.rule()`) changes the clearance in force for every item it selects,
+  in both checks. A waiver is applied by Fenolite only: KiCad's own entry for the same copper stays an
+  error until it is waived too, by its `kicad.drc.*` code.
+
+The build stores the waivers in `.fenolite/findings.json`. `fenolite check` reports a waiver that
+matched nothing as `check.waiver-unmatched` (`docs/cli-contract.md`, "Waivers"); the names of tracks are
+locators, which shift when items are added, so name pads and footprints where you can.
+
+## Check severities
+
+`design.rules.severity()` gives one check of KiCad's DRC a severity in the project file:
+
+```python
+design.rules.severity("kicad.drc.silk-overlap", "ignore")
+design.rules.severity("kicad.drc.via-dangling", "error")
+```
+
+- The code is the finding code that `check` prints (`kicad.drc.<type>`); the level is `error`, `warning`
+  or `ignore`. A code may be given one severity.
+- The build writes the check's key of `rule_severities`. A code whose key the target KiCad does not have
+  is refused when the project is written (`kicad.project.unknown-check`): KiCad would ignore it without
+  a message, so a misspelt code would do nothing.
+- A `copper.*` finding takes no severity: accept one finding with `design.waive()`.
+- `kicad.drc.clearance` cannot be ignored, because `check` needs clearance entries to prove that the
+  rules were loaded.
+- `--target altium` writes no severity and says so (`docs/altium.md`).

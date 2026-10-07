@@ -178,6 +178,8 @@ net.
 | `kicad.project.rule-below-minimum` | warning | a rule asks for less than a minimum that is not written, on a major of `FLOOR_OVER_RULES` |
 | `kicad.project.class-shadowed` | warning | a board-wide clearance rule overrides a larger class clearance |
 | `kicad.project.default-over-rule` | warning | the template `Default` clearance stays above a board-wide clearance rule, on a major outside `RULES_OVER_CLASSES` |
+| `kicad.project.unknown-check` | error | a check severity names a code whose key is not a `rule_severities` key of the target's template (c0114); droppable |
+| `kicad.project.dropped-check` | warning | with `--allow-lossy`, that severity was left out |
 
 ## Census
 
@@ -185,3 +187,46 @@ Measured on 2026-10-01 and 2026-10-02 (key names and counts only): the demos hol
 files at 10.0.6 and 37 at 9.0.9.1; the version pair (3, 5) appears only at 10.0.6. The 19 template
 projects of S-0066 all hold (3, 4), `boards: []` and `netclass_assignments: null`. Counts from the
 corpus rows are in `docs/evidence/kicad-project.md`.
+
+## Check severities (c0114)
+
+`board.design_settings.rule_severities` gives each DRC check a severity (`error`, `warning` or `ignore`),
+by the check's key.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 10.0.6 applies exactly the 62 `rule_severities` keys of the packaged template of 10: with every one at `ignore`, `ignored_checks` lists those 62 and no entry remains on a bench whose control run fires six checks | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| 10.0.6 ignores a key outside that set without a message: `overlapping_pads` and an invented key at `ignore` are not listed and change nothing | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| A severity that the project writer sets from the design reaches the report: `via_dangling` at `error` makes the entry an `error`, where the template gives `warning` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| The packaged template of 9 holds the same 62 keys as that of 10, from which it was derived; which keys 9.0.9 applies cannot be read from a run, because its report lists no ignored check | S-0029 | INFERRED | H-K-PRO-SEV-KEYS |
+| Six keys of the templates appear in no demo project of tag 9.0.9.1 (`footprint_symbol_field_mismatch`, `missing_tuning_profile`, `text_on_edge_cuts`, `track_not_centered_on_via`, `track_on_post_machined_layer`, `tuning_profile_track_geometries`), and two keys absent from the templates appear in most (`hole_near_hole`, `overlapping_pads`): a demo project holds the keys of the KiCad that last saved it | S-0058 | INFERRED | H-K-PRO-SEV-KEYS |
+
+The last row is the census that change c0114 states (2026-10-05); this change did not run it again. For
+target 9 a key of a check that 9.0.9 lacks would therefore be written and have no effect.
+
+- **Key rule.** The key of the finding code `kicad.drc.<suffix>` is the suffix with `-` as `_`
+  (`kicad.drc.silk-overlap` → `silk_overlap`). `pro.SEVERITY_KEYS[target]` is the key set of the target's
+  packaged template: exact for 10, `INFERRED` for 9.
+- **Writing.** `synthesize_project` and `update_project` set the key of each code of
+  `RuleSet.severities` (`design.rules.severity()`). A key the design does not name keeps its template
+  value on synthesis and its file value on an update, its position included.
+- **Unknown key.** A code whose key is outside `SEVERITY_KEYS[target]` is refused with
+  `kicad.project.unknown-check` (`FEN-7001`, droppable), because KiCad would ignore it silently; with
+  `--allow-lossy` it is left out and reported as `kicad.project.dropped-check`.
+
+## Stored exclusions (c0114)
+
+`board.design_settings.drc_exclusions` lists the DRC entries the user excluded in KiCad.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| An entry is the string `<type>\|<x>\|<y>\|<uuid>\|<uuid>`, `x` and `y` in integer nanometres and the nil uuid for a missing second item, or a list of that string and a comment; `pcb drc` applies both forms | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+
+A public demo project of tag 10.0.6 stores five exclusions in the list form, each with its comment
+(S-0058; the reading that change c0114 states, not run again here).
+
+`read_project` returns them as `ProjectInfo.exclusions` (`StoredExclusion`: type, position, the two
+uuids, comment), in file order; an entry of another shape is skipped with `kicad.project.unread-entry`.
+`KicadBackend.stored_exclusions(project)` reads the project file of a copy set and returns `()` when it
+is missing or cannot be read. Nothing writes the list: `update_project` keeps it verbatim, and when
+KiCad applies an entry is in `drc.md`, "Stored exclusions".

@@ -200,3 +200,32 @@ def test_parity_command_refusals(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     # --netlist own is what the Altium branch does anyway
     code, env, _ = cli(routed, "parity", str(SAMPLES / "blink"), "--netlist", "own")
     assert code == 0 and env["result"]["netlist"] == "own"
+
+
+# --- waivers (capability verification-loop, "Waivers in the check"; change c0114) -----------------
+
+
+def test_waiver_applies_to_the_built_altium_project_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A copper waiver of the script is applied by ``check`` on the built Altium project, as on KiCad; a
+    native copy has no ``.fenolite/`` model and so no waiver."""
+    from _waivercases import PITCH, TEST_POINT, tight
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    tight(routed, PITCH, TEST_POINT)
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    code, env, _ = cli(routed, "check", str(routed.out / PROJECT), "--stages", "copper.clearance")
+    found = {i["where"]: i["severity"] for i in coded(env, "copper.clearance")}
+    assert code == 5 and found.pop("U1-10, U1-9") == "info" and set(found.values()) == {"error"}
+    assert env["result"]["waivers"] == {
+        "declared": 2,
+        "matched": {"pitch": 1},
+        "unmatched": [],
+        "unjudged": {"tp": "stage-not-run"},
+    }
+    copy = native(routed.out, tmp_path / "native")
+    code, env, _ = cli(routed, "check", str(copy / PROJECT), "--stages", "copper.clearance")
+    assert code == 5 and {i["severity"] for i in coded(env, "copper.clearance")} == {"error"}
+    assert env["result"]["waivers"]["declared"] == 0

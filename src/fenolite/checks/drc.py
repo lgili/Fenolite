@@ -17,22 +17,36 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
+from collections.abc import Sequence
 from pathlib import PurePosixPath
 
 from fenolite.backends.base import (
+    NIL_UUID,
     UNCONNECTED_ITEMS,
     DrcLimits,
     DrcOutcome,
+    DrcReport,
     LimitedOracle,
     Oracle,
     ProjectSet,
+    StoredExclusion,
 )
 from fenolite.checks.codes import issue, oracle_code
-from fenolite.checks.drc_json import finding_issues, finding_types, type_code
+from fenolite.checks.drc_json import (
+    finding_entries,
+    finding_types,
+    format_position,
+    item_locations,
+    type_code,
+)
 from fenolite.checks.stages import StageResult, ran
+from fenolite.checks.waivers import UNREPEATABLE_TYPES, Candidate, apply_waivers, drc_waivers, judge
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
+
+STALE = "check.exclusion-stale"
 
 
 def _stated_limits(oracle: Oracle) -> DrcLimits | None:
@@ -106,11 +120,81 @@ def _summary(outcome: DrcOutcome, oracle: str) -> dict[str, object]:
     }
 
 
+def _pair(uuids: Sequence[str]) -> tuple[str, str]:
+    """The first two uuids in lower case, the nil uuid standing for a missing one."""
+    padded = [*(uuid.lower() for uuid in uuids), NIL_UUID, NIL_UUID]
+    return padded[0], padded[1]
+
+
+def exclusion_issues(
+    exclusions: Sequence[StoredExclusion], report: DrcReport | None, *, oracle: str, design: Design | None
+) -> tuple[list[Issue], dict[str, int]]:
+    """Whether the tool still applies each stored exclusion ("Exclusions in the DRC stage", change c0114).
+
+    An exclusion is live when an entry of the report is ``excluded`` and has its type and its item uuids,
+    in order. Otherwise it is stale and gives one ``check.exclusion-stale`` warning: ``moved`` when an
+    entry of that type and those uuids is reported without ``excluded`` (the tool matches the marker
+    position to the nanometre), ``gone`` when none is. An exclusion of one of ``UNREPEATABLE_TYPES`` is
+    not judged, and without a report none is. Returns the issues and ``summary.exclusions``."""
+    counts = {"stored": len(exclusions), "live": 0, "stale": 0, "unjudged": 0}
+    if report is None:
+        return [], counts
+    entries = (*report.violations, *report.unconnected_items, *report.schematic_parity)
+    reported: dict[tuple[str, tuple[str, str]], list[bool]] = {}
+    for entry in entries:
+        key = (entry.type, _pair([item.uuid for item in entry.items]))
+        reported.setdefault(key, []).append(entry.excluded)
+    locations = item_locations(design, oracle)
+    issues: list[Issue] = []
+    for exclusion in exclusions:
+        if exclusion.type in UNREPEATABLE_TYPES:
+            counts["unjudged"] += 1
+            continue
+        pair = _pair(exclusion.uuids)
+        found = reported.get((exclusion.type, pair))
+        if found and any(found):
+            counts["live"] += 1
+            continue
+        counts["stale"] += 1
+        reason = "moved" if found else "gone"
+        names = [
+            locations.get(uuid) or format_position(exclusion.position)
+            for index, uuid in enumerate(pair)
+            if index == 0 or uuid != NIL_UUID
+        ]
+        why = (
+            "the entry is reported again, at another marker position"
+            if found
+            else "no entry of this type names these items any more"
+        )
+        comment = f"; its comment is {exclusion.comment!r}" if exclusion.comment else ""
+        issues.append(
+            issue(
+                STALE,
+                f"the stored exclusion of {exclusion.type} no longer applies ({reason}): {why}{comment}",
+                where=", ".join(names),
+                hint="remove the exclusion in the tool's DRC dialog, or exclude the entry again there",
+            )
+        )
+    return issues, counts
+
+
 def drc_stage(
-    oracle: Oracle, project: ProjectSet, *, built: bool, design: Design | None = None
+    oracle: Oracle,
+    project: ProjectSet,
+    *,
+    built: bool,
+    design: Design | None = None,
+    waivers: Sequence[Waiver] = (),
+    exclusions: Sequence[StoredExclusion] = (),
 ) -> StageResult:
     """One DRC run of ``project``: the copy skips, the rules verdict, the counts and the findings, located
-    through ``design`` (the board model that ``run_checks`` read, or ``None`` when that read was refused)."""
+    through ``design`` (the board model that ``run_checks`` read, or ``None`` when that read was refused).
+
+    ``waivers`` are the design's waivers and ``exclusions`` the exclusions the project's own files store
+    (change c0114): a finding that a ``<oracle>.drc.*`` waiver accepts is kept as ``info``, a judged waiver
+    that matched nothing gives ``check.waiver-unmatched``, and a stored exclusion that the tool no longer
+    applies gives ``check.exclusion-stale``. Neither changes the evidence."""
     outcome = oracle.drc(project)
     issues: list[Issue] = [
         issue("check.copy-skipped", f"{s.name} was not copied for the DRC run ({s.reason})", where=s.name)
@@ -144,13 +228,26 @@ def drc_stage(
                 where=schematic,
             )
         )
-    if outcome.report is not None:
-        issues += finding_issues(outcome.report, oracle=oracle.name, design=design)
-    evidence = outcome.evidence if outcome.report is not None and not rules_issue else Evidence()
     limits = _limits(outcome, oracle)
-    result = ran("drc.kicad", issues, evidence, {**_summary(outcome, oracle.name), "limits": limits})
+    summary: dict[str, object] = {**_summary(outcome, oracle.name), "limits": limits}
+    own = drc_waivers(waivers, oracle.name)
+    if outcome.report is not None:
+        entries = finding_entries(outcome.report, oracle=oracle.name, design=design)
+        marked, counts = apply_waivers(own, (Candidate(made, names) for made, names, _ in entries))
+        issues += marked
+        if own:
+            unrepeatable = {type_code(oracle.name, name) for name in UNREPEATABLE_TYPES}
+            verdict, stale = judge(own, counts, unrepeatable=unrepeatable)
+            issues += stale
+            summary["waivers"] = {key: value for key, value in verdict.to_json().items() if key != "declared"}
+    stale_exclusions, summary["exclusions"] = exclusion_issues(
+        exclusions, outcome.report, oracle=oracle.name, design=design
+    )
+    issues += stale_exclusions
+    evidence = outcome.evidence if outcome.report is not None and not rules_issue else Evidence()
+    result = ran("drc.kicad", issues, evidence, summary)
     # the marks describe the report, not the board: they follow the findings and decide no status
     return dataclasses.replace(result, issues=result.issues + tuple(_limit_issues(limits, oracle.name)))
 
 
-__all__ = ["drc_stage"]
+__all__ = ["STALE", "drc_stage", "exclusion_issues"]

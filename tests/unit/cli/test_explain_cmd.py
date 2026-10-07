@@ -51,7 +51,7 @@ def test_tables_give_every_code_with_its_severities() -> None:
     codes = explain.all_codes()
     assert set(REGISTRY) <= set(codes) and codes["FEN-4001"] == ()
     assert codes["check.read-refused"] == ("error",)
-    assert codes["copper.clearance"] == ("error", "warning")
+    assert codes["copper.clearance"] == ("error", "warning", "info")  # info: a waived finding (c0114)
     assert codes["kicad.drc.rules-not-loaded"] == ("error", "info")
     assert codes["kicad.drc.*"] == ("error", "warning", "info")
     assert not [code for code in codes if "<" in code]
@@ -99,7 +99,7 @@ def test_an_issue_code_of_a_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert code == 0 and result["kind"] == "issue" and result["family"] == "kicad.drc.*"
     assert result["exit_code"] is None and result["severities"] == ["error", "warning", "info"]
     code, env, _, _ = run(monkeypatch, tmp_path, "explain", "copper.clearance")
-    assert env["result"]["family"] is None and env["result"]["severities"] == ["error", "warning"]
+    assert env["result"]["family"] is None and env["result"]["severities"] == ["error", "warning", "info"]
 
 
 def test_unknown_code(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -24,6 +24,7 @@ from fenolite.model.board import Board, Outline, StackLayer, Stackup, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.rules import Rule, RuleSet, Selector
@@ -194,7 +195,10 @@ def to_model(design: Design) -> ModelDesign:
             title_block=design.block,
             via_protection=design.via_default[0] if design.via_default is not None else None,
         ),
-        rules=RuleSet(id=key_id("rules"), rules=_rules(design)),
+        rules=RuleSet(
+            id=key_id("rules"), rules=_rules(design), severities=dict(sorted(design.rules.severities.items()))
+        ),
+        findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),
     )
 

@@ -112,9 +112,12 @@ class Rule(Entity):
 
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
-    """The rules layer of a design (``rules.json``)."""
+    """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
+    a severity, by the finding code of the check (``<oracle>.drc.<suffix>``; change c0114): a severity is
+    not a rule, so it has no ``RuleKind``."""
 
     rules: tuple[Rule, ...] = ()
+    severities: dict[str, RuleSeverity] = field(default_factory=lambda: {})
 
 
 __all__ = ["LEAF_OPS", "Rule", "RuleKind", "RuleSet", "RuleSeverity", "RuleSubject", "Selector", "SelectorOp"]

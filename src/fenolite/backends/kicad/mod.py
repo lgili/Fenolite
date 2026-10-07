@@ -22,13 +22,16 @@ from fenolite.backends.kicad._fpmap import (
     DEF_POSITIONAL,
     FP_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
+    NET_TIES,
     PAD_FIELDS,
     PAD_KINDS,
     PAD_SHAPES,
     PADSTACK_MODES,
     Ids,
     emit_footprint,
+    net_tie_groups,
     padstack_key,
+    projected_net_ties,
     projected_zone_connect,
     read_graphic,
     read_pad,
@@ -194,6 +197,7 @@ def _definition(
     models: list[str] = []
     pads: list[Pad] = []
     graphics: list[Graphic] = []
+    net_ties: tuple[tuple[str, ...], ...] = ()
     for index, (loc, child) in enumerate(child_locators(base, root)):
         if not isinstance(child, Node):
             continue
@@ -216,6 +220,8 @@ def _definition(
             atoms = child.atoms()
             if atoms:
                 models.append(atoms[0].value)
+        elif head == NET_TIES:
+            net_ties += net_tie_groups(child)  # the child stays an opaque slot: a projection
         elif head == "pad":
             pads.append(read_pad(ctx, child, loc, ids, root=chain))
         elif head in GRAPHIC_HEADS:
@@ -241,6 +247,7 @@ def _definition(
         pads=tuple(pads),
         graphics=tuple(graphics),
         models=tuple(models),
+        net_ties=net_ties,
     )
 
 
@@ -275,6 +282,8 @@ def prepare_authored_definition(defn: FootprintDef) -> FootprintDef:
     if _slots(defn):
         return defn
     root: list[Slot] = [Modeled("name"), Modeled("description"), Modeled("kind")]
+    if defn.net_ties:
+        root.append(Modeled("net_ties"))  # right after ``attr``, where KiCad's library writes it
     properties = dict(defn.properties)
     for default in embed.default_fields(defn):
         text = properties.setdefault(default.name, default.text)
@@ -412,6 +421,15 @@ class _Projections:
                     models.append(atoms[0].value)
         if keywords is None and defn.keywords:
             self.read_only("keywords", base, "the footprint has no tags to hold them")
+        ties = projected_net_ties(slots)
+        if ties is None:
+            if defn.net_ties and not any(isinstance(s, Modeled) and s.field == "net_ties" for s in slots):
+                self.read_only("net_ties", base, f"the footprint has no {NET_TIES} child to hold them")
+        elif ties != defn.net_ties:
+            where = next(
+                (loc for _, loc, child in self.children(slots, base) if child.name == NET_TIES), base
+            )
+            self.read_only("net_ties", where, "the net-tie groups are written as read")
         if tuple(models) != defn.models:
             self.read_only("models", base, "3D model references are written as read")
         for key in sorted(set(found) | set(defn.properties)):

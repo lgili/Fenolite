@@ -465,3 +465,36 @@ def test_render_stage_needs_the_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     board = _copy(tmp_path)
     code, _, err, _ = run(monkeypatch, tmp_path, "check", str(board), "--stages", "render")
     assert code == 6 and err["code"] == "FEN-6001"
+
+
+# --- waivers (capability verification-loop, "Waivers in the check"; change c0114) -----------------
+
+
+def test_waiver_native_project_has_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Native projects have no waivers": a project that Fenolite did not build has no
+    ``.fenolite/`` model, so no finding of it is waived."""
+    board = _copy(tmp_path)
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(board), "--stages", "copper.clearance")
+    assert env["result"]["waivers"] == {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    shorts = [i for i in env["issues"] if i["code"] == "copper.short"]
+    assert code == 5 and shorts and all(i["severity"] == "error" for i in shorts)
+    assert "waivers" not in _stages(env)["copper.clearance"]["summary"]  # type: ignore[operator]
+
+
+def test_waiver_of_a_built_project_whose_cache_cannot_be_loaded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No waiver is taken from a ``.fenolite/`` folder that cannot be loaded."""
+    from _routed import Routed
+    from _waivercases import PITCH, tight
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    tight(routed, PITCH)
+    assert routed.build("--copper-check", "warn", "--confirm")[0] == 0
+    stages = ("--stages", "copper.clearance")
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(routed.out), *stages)
+    assert env["result"]["waivers"]["matched"] == {"pitch": 1} and code == 5  # three more are errors
+    (routed.out / ".fenolite" / "findings.json").write_text("{", encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(routed.out), *stages)
+    assert env["result"]["waivers"]["declared"] == 0
+    assert [i["severity"] for i in env["issues"] if i["code"] == "copper.clearance"] == ["error"] * 4

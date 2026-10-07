@@ -240,6 +240,9 @@ class FootprintInstance(Entity):
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
     graphics: tuple[Graphic, ...] = field(default=(), metadata=ORDERED)
     texts: tuple[Text, ...] = field(default=(), metadata=ORDERED)
+    net_ties: tuple[tuple[str, ...], ...] = field(default=(), metadata=ORDERED)
+    """The net-tie groups of the footprint (change c0114): each group lists the numbers of pads of
+    different nets that the footprint joins on purpose, in the order its source lists them."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -20,6 +20,7 @@ from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
+from fenolite.model.findings import Waiver
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleKind, RuleSeverity, Selector
 
@@ -98,6 +99,28 @@ class MinimumSpec:
     min: Nm
 
 
+WAIVED_COPPER: tuple[str, ...] = ("copper.short", "copper.clearance", "copper.zone-overlap")
+"""The copper finding codes a waiver can name (``checks.waivers.COPPER_CODES``; ``dsl`` imports no
+check)."""
+DRC_VERDICTS: tuple[str, ...] = ("rules-not-loaded", "rules-unchecked", "parity-unchecked")
+"""The suffixes of ``kicad.drc.*`` that are verdicts of the DRC stage and not findings
+(``checks.drc_json.RESERVED_SUFFIXES``): no waiver and no severity names one."""
+DRC_CODE = re.compile(r"kicad\.drc\.([a-z0-9]+(?:-[a-z0-9]+)*)")
+SHORT_CODES: tuple[str, ...] = ("copper.short", "kicad.drc.shorting-items")
+"""A short is waived by exact names only: an intended short is one net tie, and a pattern could cover a
+second one."""
+GLOB_CHARS = "*?["
+
+
+def _drc_suffix(code: object) -> str | None:
+    """The suffix of a ``kicad.drc.<suffix>`` finding code, or ``None`` for anything else and for the
+    verdicts of the stage."""
+    match = DRC_CODE.fullmatch(code) if isinstance(code, str) else None
+    if match is None or match.group(1) in DRC_VERDICTS:
+        return None
+    return match.group(1)
+
+
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
 BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
@@ -143,6 +166,38 @@ class Rules:
         self.netclasses: dict[str, NetClassSpec] = {}
         self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
         """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
+        self.severities: dict[str, RuleSeverity] = {}
+        """Check severities by finding code, as declared by ``severity()``."""
+
+    def severity(self, code: str, level: str) -> None:
+        """Give one check of KiCad's DRC a severity: ``code`` is the finding code as ``fenolite check``
+        prints it (``kicad.drc.<type>``), ``level`` is ``error``, ``warning`` or ``ignore``
+        (``docs/dsl.md``, "Check severities"). The build writes it into the project file; whether the
+        target has the check is judged there. A copper finding takes no severity: accept one with
+        ``design.waive()``."""
+        if isinstance(code, str) and code.startswith("copper."):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"severity(): {code!r} is a finding of Fenolite's copper check, which takes no severity; "
+                "accept one finding with design.waive()"
+            )
+        if _drc_suffix(code) is None:
+            raise DslError(
+                f"severity(): {code!r} is not the code of a KiCad DRC check; give 'kicad.drc.<type>' as "
+                "'fenolite check' prints it (the verdicts rules-not-loaded, rules-unchecked and "
+                "parity-unchecked are not checks)"
+            )
+        if level not in RULE_SEVERITIES:
+            raise DslError(
+                f"severity(): the level of {code} is one of {', '.join(RULE_SEVERITIES)}, not {level!r}"
+            )
+        if code == "kicad.drc.clearance" and level == "ignore":
+            raise DslError(
+                "severity(): kicad.drc.clearance cannot be ignored: 'fenolite check' needs clearance "
+                "entries to prove that the rules were loaded (canary reason clearance-ignored)"
+            )
+        if code in self.severities:
+            raise DslError(f"severity(): {code} already has the severity {self.severities[code]!r}")
+        self.severities[code] = cast(RuleSeverity, level)
 
     def minimum(
         self,
@@ -347,6 +402,75 @@ class Design(Container):
         """The stack-up of ``stackup()``."""
         self.via_default: tuple[ViaProtection, bool] | None = None
         """The board's default via protection and its lock, as declared by ``via_protection()``."""
+        self.waivers: dict[str, Waiver] = {}
+        """Waivers by name, as declared by ``waive()``."""
+
+    def waive(
+        self,
+        code: str,
+        *items: object,
+        reason: str,
+        min_gap: object = None,
+        name: str | None = None,
+    ) -> None:
+        """Accept one finding of ``fenolite check`` or of the build's copper guard, with a reason
+        (``docs/dsl.md``, "Waivers").
+
+        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap`` or ``kicad.drc.<type>``.
+        ``items`` are the names of the finding's items as its ``where`` prints them (``REF-PIN``, ``REF``, a
+        locator, ``@x,y``), in any order; a ``Part`` stands for its reference, and ``*``, ``?`` and ``[…]``
+        are patterns. A short takes exact names only. ``min_gap`` belongs to ``copper.clearance``: the
+        finding is accepted only while its gap is at least that, and a pattern needs it. The finding stays
+        listed, as ``info``, with the waiver's name and reason; a waiver that matches nothing is reported by
+        ``fenolite check``."""
+        suffix = _drc_suffix(code)
+        if code not in WAIVED_COPPER and suffix is None:
+            raise DslError(
+                f"waive(): {code!r} is not a finding that can be waived; only copper and DRC findings "
+                f"are: {', '.join(WAIVED_COPPER)} or 'kicad.drc.<type>' (the verdicts "
+                f"{', '.join(DRC_VERDICTS)} are not findings)"
+            )
+        names: list[str] = []
+        for item in items:
+            text = item.ref if isinstance(item, Part) else item
+            if not isinstance(text, str) or not text or ", " in text or "\n" in text:
+                raise DslError(
+                    f"waive(): an item of {code} is a Part or the name of an item as 'where' prints it "
+                    f"(a non-empty string without ', '), not {item!r}"
+                )
+            names.append(text)
+        if len(names) not in (1, 2) or (code in WAIVED_COPPER and len(names) != 2):
+            wanted = "two items" if code in WAIVED_COPPER else "one or two items"
+            raise DslError(f"waive(): a finding of {code} has {wanted}; {len(names)} were given")
+        globbed = any(mark in text for text in names for mark in GLOB_CHARS)
+        if code in SHORT_CODES and globbed:
+            raise DslError(
+                f"waive(): a short ({code}) is waived by exact names only; {', '.join(names)} holds a pattern"
+            )
+        if not isinstance(reason, str) or not reason.strip() or "\n" in reason or "\r" in reason:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"waive(): the reason of {code} is one non-empty line of text, not {reason!r}")
+        gap: Nm | None = None
+        if min_gap is not None:
+            if code != "copper.clearance":
+                raise DslError(
+                    f"waive(): min_gap belongs to copper.clearance; a finding of {code} has no distance"
+                )
+            gap = as_nm(min_gap, name="waive(): min_gap")
+            if gap <= 0:
+                raise DslError("waive(): min_gap is a positive length")
+        elif code == "copper.clearance" and globbed:
+            raise DslError(
+                f"waive(): a copper.clearance waiver with a pattern ({', '.join(names)}) needs min_gap, "
+                "so that a closer gap stays an error"
+            )
+        label = f"{code}:{','.join(names)}" if name is None else name
+        if not isinstance(label, str) or not label.strip() or "\n" in label or "\r" in label:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"waive(): the name of a waiver is one non-empty line of text, not {name!r}")
+        if label in self.waivers:
+            raise DslError(f"waive(): a waiver named {label!r} is already recorded")
+        self.waivers[label] = Waiver(
+            name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
+        )
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""

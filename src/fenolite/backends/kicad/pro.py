@@ -21,6 +21,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, cast
 
+from fenolite.backends.base import StoredExclusion
 from fenolite.backends.kicad import _json
 from fenolite.backends.kicad._json import JsonNumber, JsonObject
 from fenolite.backends.kicad.lowering import (
@@ -46,6 +47,7 @@ from fenolite.backends.kicad.versions import (
     VersionStatus,
 )
 from fenolite.backends.kicad.wks import RESERVED_VARIABLES
+from fenolite.core.coords import Point
 from fenolite.core.errors import ConsistencyError, FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -122,6 +124,29 @@ def _ten_only() -> frozenset[str]:
 
 TEN_ONLY_PATHS: frozenset[str] = _ten_only()
 """Key paths of the 10 template absent from the 9 template (list items written ``*``)."""
+SEVERITY_POINTER = "/board/design_settings/rule_severities"
+EXCLUSION_POINTER = "/board/design_settings/drc_exclusions"
+SEVERITY_CODE = re.compile(r"kicad\.drc\.([a-z0-9]+(?:-[a-z0-9]+)*)")
+
+
+def _severity_keys(target: int) -> frozenset[str]:
+    table = _json.get(template(target), SEVERITY_POINTER)
+    return frozenset(cast(JsonObject, table)) if isinstance(table, dict) else frozenset()
+
+
+SEVERITY_KEYS: Mapping[int, frozenset[str]] = MappingProxyType(
+    {target: _severity_keys(target) for target in TARGET_MAJORS}
+)
+"""The ``rule_severities`` keys of the packaged template of each target (change c0114): exactly the keys
+that 10.0.6 applies for target 10 (``H-K-PRO-SEV-KEYS``); for target 9 the keys of a template derived from
+10's, ``INFERRED`` (project.md, "Check severities")."""
+
+
+def severity_key(code: str) -> str | None:
+    """The ``rule_severities`` key of the finding code ``kicad.drc.<suffix>``: the suffix with ``-`` as
+    ``_``; ``None`` for any other code."""
+    match = SEVERITY_CODE.fullmatch(code)
+    return None if match is None else match.group(1).replace("-", "_")
 
 
 # --- small JSON helpers ---------------------------------------------------------------------------
@@ -231,6 +256,8 @@ class ProjectInfo:
     """``pcbnew.page_layout_descr_file`` (``None`` when absent or empty; change c0012)."""
     text_variables: tuple[tuple[str, str], ...] = ()
     """``text_variables`` members with a string value, in file order (change c0012)."""
+    exclusions: tuple[StoredExclusion, ...] = ()
+    """The entries of ``board.design_settings.drc_exclusions``, in file order (change c0114)."""
 
 
 def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
@@ -263,6 +290,46 @@ def project_minimums(data: JsonObject, *, issues: list[Issue] | None = None) -> 
         if value is not None:
             minimums[key] = value
     return minimums
+
+
+_EXCLUSION_INT = re.compile(r"-?\d+")
+
+
+def project_exclusions(data: JsonObject, *, issues: list[Issue] | None = None) -> tuple[StoredExclusion, ...]:
+    """The stored DRC exclusions of a project tree, in file order (project.md, "Stored exclusions").
+
+    An entry is a string ``<type>|<x>|<y>|<uuid>|<uuid>`` (the plain form) or a list of that string and a
+    comment (the pair form), ``x`` and ``y`` in integer nm. An entry of another shape is skipped with
+    ``kicad.project.unread-entry``."""
+    found = issues if issues is not None else []
+    raw = _json.get(data, EXCLUSION_POINTER)
+    out: list[StoredExclusion] = []
+    for index, entry in enumerate(cast(list[Any], raw) if isinstance(raw, list) else []):
+        key: Any = entry
+        comment: Any = ""
+        if isinstance(entry, list):
+            pair = cast(list[Any], entry)
+            key, comment = (pair[0], pair[1]) if len(pair) == 2 else (None, None)
+        parts = key.split("|") if isinstance(key, str) else []
+        if (
+            isinstance(comment, str)
+            and len(parts) == 5
+            and parts[0]
+            and _EXCLUSION_INT.fullmatch(parts[1])
+            and _EXCLUSION_INT.fullmatch(parts[2])
+        ):
+            position = Point(int(parts[1]), int(parts[2]))
+            out.append(StoredExclusion(parts[0], position, (parts[3], parts[4]), comment))
+        else:
+            found.append(
+                project_issue(
+                    "kicad.project.unread-entry",
+                    "a DRC exclusion that is neither '<type>|<x>|<y>|<uuid>|<uuid>' with x and y in nm "
+                    "nor a list of that key and a comment is ignored",
+                    where=f"{EXCLUSION_POINTER}/{index}",
+                )
+            )
+    return tuple(out)
 
 
 def _source(source: str | os.PathLike[str], file: str) -> tuple[str, str]:
@@ -369,6 +436,7 @@ def read_project(
         priorities=tuple(priorities),
         drawing_sheet=drawing_sheet if isinstance(drawing_sheet, str) and drawing_sheet else None,
         text_variables=tuple(variables),
+        exclusions=project_exclusions(data, issues=found),
     )
 
 
@@ -644,6 +712,57 @@ def _text(value: Any) -> str:
     return value.text if isinstance(value, JsonNumber) else repr(value)
 
 
+def _write_severities(
+    data: JsonObject, design: Design, *, target: int, allow_lossy: bool, issues: list[Issue]
+) -> None:
+    """The check severities of ``RuleSet.severities`` (change c0114; project.md, "Check severities").
+
+    Each ``kicad.drc.<suffix>`` code sets its key of ``rule_severities`` when the key is one of
+    ``SEVERITY_KEYS[target]``; every other member keeps its value and its position. A code whose key is
+    not one of them is refused (``kicad.project.unknown-check``), or dropped with ``allow_lossy``: KiCad
+    ignores an unknown key without a message, so a misspelt code would do nothing."""
+    severities = design.rules.severities if design.rules is not None else {}
+    if not severities:
+        return
+    known: dict[str, str] = {}
+    unknown: list[Issue] = []
+    for code, level in sorted(severities.items()):
+        key = severity_key(code)
+        if key is not None and key in SEVERITY_KEYS[target]:
+            known[key] = level
+            continue
+        unknown.append(
+            project_issue(
+                "kicad.project.unknown-check",
+                f"{code}: KiCad {target}.0 has no DRC check with the key {key or code!r}, so the severity "
+                f"{level!r} cannot be written",
+                where=f"{SEVERITY_POINTER}/{key}" if key else code,
+                hint="name the code as 'fenolite check' prints it (kicad.drc.<type>)",
+            )
+        )
+    if unknown:
+        if not allow_lossy:
+            raise LossyWriteError(unknown, droppable=True)
+        issues += [
+            project_issue("kicad.project.dropped-check", f"{found.message}; left out", where=found.where)
+            for found in unknown
+        ]
+    if not known:
+        return
+    node = data
+    pointer = ""
+    for part in SEVERITY_POINTER.split("/")[1:]:
+        pointer += "/" + part
+        child = node.setdefault(part, {})
+        if not isinstance(child, dict):
+            raise FormatError(f"{pointer} is not an object; the check severities cannot be written",
+                              locator=pointer)  # fmt: skip
+        node = cast(JsonObject, child)
+    for key, level in known.items():
+        if node.get(key) != level:
+            node[key] = level
+
+
 def _class_clearances(classes: Sequence[Any]) -> dict[str, Nm]:
     out: dict[str, Nm] = {}
     for entry in classes:
@@ -680,6 +799,7 @@ def synthesize_project(
     data = template(target)
     cast(JsonObject, data.setdefault("meta", {}))["filename"] = f"{board_name}.kicad_pro"
     _write_minimums(data, design, target=target, update=False, issues=found)
+    _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
     base = cast(JsonObject, classes[0])
     floors = project_floors(data, issues=found)
@@ -784,6 +904,7 @@ def update_project(
     if target == 9:
         _gate_nine(data, design, pair, allow_lossy=allow_lossy, issues=found)
     _write_minimums(data, design, target=target, update=True, issues=found)
+    _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
     by_name = {cast(JsonObject, c).get("name"): i for i, c in enumerate(classes) if isinstance(c, dict)}
     default_index = by_name.get(DEFAULT_CLASS, 0)

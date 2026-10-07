@@ -793,6 +793,31 @@ class DesignRulesSource(Protocol):
     ) -> DesignRules: ...
 
 
+NIL_UUID = "00000000-0000-0000-0000-000000000000"
+"""The uuid that stands for the missing second item of a stored exclusion of one item."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredExclusion:
+    """One DRC exclusion that a project's own files store (change c0114): the tool's check ``type``, the
+    stored marker ``position`` in integer nm, the two stored item ``uuids`` in order (the second is
+    ``NIL_UUID`` for an entry of one item) and the ``comment`` stored with it."""
+
+    type: str
+    position: Point
+    uuids: tuple[str, str]
+    comment: str = ""
+
+
+@runtime_checkable
+class ExclusionSource(Protocol):
+    """A backend that gives the DRC exclusions a project's own files store, so that ``checks`` can say
+    which of them the tool still applies. A pure query, not an operation: it never raises for a project
+    file that fails to read, and returns ``()`` then."""
+
+    def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]: ...
+
+
 ChangeKind = Literal["added", "removed", "changed"]
 
 
@@ -1046,6 +1071,7 @@ class Backend(Protocol):
 
 
 __all__ = [
+    "NIL_UUID",
     "Backend",
     "BackendOperation",
     "BoardFrame",
@@ -1058,6 +1084,8 @@ __all__ = [
     "ContainerLevel",
     "ContainerRoundTrip",
     "DesignRules",
+    "ExclusionSource",
+    "StoredExclusion",
     "DesignRulesSource",
     "DiffReport",
     "Document",

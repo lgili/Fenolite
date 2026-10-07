@@ -1336,6 +1336,32 @@ def lowered_harnesses(design: Design, sheets: project.SheetMode, form: project.S
     return {c.name for module in found.values() for c in module if c.harness}
 
 
+def kicad_only_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]) -> list[Issue]:
+    """What an Altium build reports instead of writing, because it is KiCad data (change c0114): the
+    components whose footprint has net-tie groups (the pads are written, without a mark that ties them)
+    and the check severities of the design, one ``altium.not-lowered`` info per kind, with the kinds of
+    ``backends.altium.lower`` as ``where``."""
+    found: list[Issue] = []
+    tied = sorted(
+        component.ref
+        for component in design.circuit.components
+        if component.lib_footprint_ref in footprints and footprints[component.lib_footprint_ref].defn.net_ties
+    )
+    if tied:
+        message = (
+            f"{len(tied)} footprint(s) with net-tie groups ({', '.join(tied)}): {lower.NET_TIE_REASON}; "
+            "the copper guard judges the tied pads, and a copper.short waiver accepts them"
+        )
+        found.append(issue("altium.not-lowered", message, lower.NET_TIE_KIND))
+    codes = sorted(design.rules.severities) if design.rules is not None else []
+    if codes:
+        message = (
+            f"{len(codes)} severity item(s) of the model are not written: {lower.severity_reason(codes)}"
+        )
+        found.append(issue("altium.not-lowered", message, lower.SEVERITY_KIND))
+    return found
+
+
 def _not_lowered(
     design: Design,
     placed: Sequence[str],
@@ -1786,6 +1812,7 @@ def build_altium(
         )
     footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints, bodies=body_mode)
     issues += footprint_issues
+    issues += kicad_only_issues(model, footprints)
     issues += pin_map_issues(model, footprints)
     if any(i.severity == "error" for i in issues):
         return BuildOutput(

@@ -39,6 +39,7 @@ class Footprint:
         self.library, self.name, self.kind, self.description = library, name, kind, description
         self._pads: list[Pad] = []
         self._graphics: list[Graphic] = []
+        self._net_ties: list[tuple[str, ...]] = []
 
     @property
     def lib_id(self) -> str:
@@ -166,9 +167,40 @@ class Footprint:
     def polygon(self, points: tuple[tuple[object, object], ...], *, layer: str, width: object) -> None:
         self.graphic("polygon", layer=layer, points=points, width=width)
 
+    def net_tie(self, *numbers: str) -> None:
+        """Declare one net-tie group: pads of different nets that this footprint joins on purpose, through
+        overlapping pads or a copper graphic (``docs/dsl.md``, "Net ties"). The copper check then does not
+        judge two pads of the group against each other, as KiCad's DRC does not."""
+        if len(numbers) < 2:
+            raise DslError(f"footprint {self.lib_id}: net_tie() needs at least two pad numbers")
+        for number in numbers:
+            if not isinstance(number, str) or not number.strip() or "," in number:  # type: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"footprint {self.lib_id}: net_tie() takes pad numbers as non-empty strings without "
+                    f"a comma, not {number!r}"
+                )
+        if len(set(numbers)) != len(numbers):
+            raise DslError(f"footprint {self.lib_id}: net_tie() names a pad twice in {numbers!r}")
+        self._net_ties.append(tuple(numbers))
+
     @property
     def definition(self) -> FootprintDef:
         """Immutable library definition used by builders and backend writers."""
+        known = {pad.number for pad in self._pads}
+        grouped: set[str] = set()
+        for group in self._net_ties:
+            for number in group:
+                if number not in known:
+                    raise DslError(
+                        f"footprint {self.lib_id}: net_tie() names pad {number!r}, which the footprint "
+                        "does not have"
+                    )
+                if number in grouped:
+                    raise DslError(
+                        f"footprint {self.lib_id}: pad {number!r} is in two net-tie groups; a pad belongs "
+                        "to one group"
+                    )
+            grouped.update(group)
         return FootprintDef(
             id=derived_id("fpd", "fenolite.dsl", self.lib_id),
             name=self.name,
@@ -177,6 +209,7 @@ class Footprint:
             kind=cast(FootprintKind, self.kind),
             pads=tuple(self._pads),
             graphics=tuple(self._graphics),
+            net_ties=tuple(self._net_ties),
         )
 
 

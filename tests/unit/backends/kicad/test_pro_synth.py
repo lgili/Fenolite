@@ -19,6 +19,7 @@ from fenolite.backends.kicad.pro import (
 )
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.core.errors import ConsistencyError, Issue
+from fenolite.model.design import Design
 
 HV = design({"HV": 2_000_000}, {"+3V3": "HV", "Net-(R1-Pad1)": "HV", "GND": None})
 
@@ -94,3 +95,69 @@ def test_unknown_netclass_is_a_caller_bug() -> None:
     broken = dataclasses.replace(broken, circuit=dataclasses.replace(broken.circuit, netclasses=()))
     with pytest.raises(ConsistencyError, match="model.unknown-netclass"):
         synthesize_project(broken, target=10, board_name="b")
+
+
+# --- check severities (capability kicad-file-backend, "Project files carry the check severities";
+# --- change c0114) ---------------------------------------------------------------------------------
+
+
+def severities_design(severities: dict[str, str]) -> Design:
+    import dataclasses
+
+    from fenolite.model.rules import RuleSet
+
+    base = design({}, {})
+    return dataclasses.replace(base, rules=RuleSet(id="rst_x", severities=severities))  # type: ignore[arg-type]
+
+
+def severities_of(text_: str) -> dict[str, object]:
+    return dict(_json.loads(text_)["board"]["design_settings"]["rule_severities"])  # type: ignore[index, arg-type]
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_severity_synthesis_writes_a_named_key(target: int) -> None:
+    """Scenario "Synthesis writes a named key": every other member equals the template's."""
+    from fenolite.backends.kicad.pro import SEVERITY_KEYS, severity_key, template
+
+    made = severities_design({"kicad.drc.silk-overlap": "ignore", "kicad.drc.via-dangling": "error"})
+    found = severities_of(synthesize_project(made, target=target, board_name="b"))
+    plain = severities_of(_json.dumps(template(target)))
+    assert found["silk_overlap"] == "ignore" and found["via_dangling"] == "error"
+    assert plain["silk_overlap"] != "ignore" and plain["via_dangling"] != "error"
+    assert list(found) == list(plain)  # no key moved and none was added
+    assert {k: v for k, v in found.items() if k not in ("silk_overlap", "via_dangling")} == {
+        k: v for k, v in plain.items() if k not in ("silk_overlap", "via_dangling")
+    }
+    assert severity_key("kicad.drc.silk-overlap") == "silk_overlap" and severity_key("copper.short") is None
+    assert SEVERITY_KEYS[target] == frozenset(plain) and len(SEVERITY_KEYS[10]) == 62
+    assert SEVERITY_KEYS[9] == SEVERITY_KEYS[10]  # the 9 template was derived from 10's
+
+
+def test_severity_without_any_keeps_the_template_text() -> None:
+    assert synthesize_project(severities_design({}), target=10, board_name="b") == synthesize_project(
+        design({}, {}), target=10, board_name="b"
+    )
+
+
+@pytest.mark.parametrize("code", ["kicad.drc.silk-overlaps", "kicad.drc.overlapping-pads", "altium.drc.x"])
+def test_severity_unknown_key_refused(code: str) -> None:
+    """Scenario "Unknown key refused": droppable, and dropped with a warning under ``allow_lossy``."""
+    made = severities_design({code: "ignore", "kicad.drc.via-dangling": "error"})
+    with pytest.raises(LossyWriteError) as caught:
+        synthesize_project(made, target=10, board_name="b")
+    assert caught.value.droppable is True
+    assert [(i.code, i.severity) for i in caught.value.issues] == [("kicad.project.unknown-check", "error")]
+    assert code in caught.value.issues[0].message and "KiCad 10.0" in caught.value.issues[0].message
+    found: list[Issue] = []
+    written = severities_of(
+        synthesize_project(made, target=10, board_name="b", allow_lossy=True, issues=found)
+    )
+    assert [(i.code, i.severity) for i in found] == [("kicad.project.dropped-check", "warning")]
+    assert "silk_overlaps" not in written and "x" not in written and written["via_dangling"] == "error"
+
+
+def test_severity_codes_are_in_the_table() -> None:
+    from fenolite.backends.kicad.proerrors import ISSUE_CODES
+
+    assert ISSUE_CODES["kicad.project.unknown-check"] == "error"
+    assert ISSUE_CODES["kicad.project.dropped-check"] == "warning"

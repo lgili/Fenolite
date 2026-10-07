@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.rules.v0",
   "title": "RuleSet",
-  "description": "The rules layer of a design (``rules.json``).",
+  "description": "The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool",
   "type": "object",
   "properties": {
     "id": {
@@ -35,6 +35,16 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/Rule"
+      }
+    },
+    "severities": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "error",
+          "warning",
+          "ignore"
+        ]
       }
     }
   },

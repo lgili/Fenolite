@@ -432,3 +432,56 @@ def test_document_validator_narrows_a_backend() -> None:
     assert isinstance(fakes.FakeDocumentValidator(), DocumentValidator)
     assert not isinstance(KicadBackend(), DocumentValidator)
     assert not isinstance(fakes.FakeValidator(), DocumentValidator)
+
+
+# --- stored exclusions source (capability backend-protocol, "Stored exclusions source"; c0114) -----
+
+
+def test_exclusion_source_is_satisfied_by_the_kicad_backend(tmp_path: Path) -> None:
+    """Scenario "KiCad backend is an exclusion source": a project that stores none gives ``()``."""
+    from fenolite.backends.base import NIL_UUID, ExclusionSource, ProjectSet, StoredExclusion
+    from fenolite.backends.kicad.backend import KicadBackend
+    from fenolite.core.coords import Point
+
+    board = tmp_path / "b.kicad_pcb"
+    project = tmp_path / "b.kicad_pro"
+    board.write_text("(kicad_pcb)", encoding="utf-8")
+    project.write_text('{"board": {"design_settings": {}}}', encoding="utf-8")
+    files = {"b.kicad_pcb": board, "b.kicad_pro": project}
+    copy_set = ProjectSet(root=tmp_path, board="b.kicad_pcb", files=files, has_project=True)
+    backend = KicadBackend()
+    assert isinstance(backend, ExclusionSource) and backend.stored_exclusions(copy_set) == ()
+    key = f"via_dangling|30123456|20654321|11111111-1111-4111-8111-111111111111|{NIL_UUID}"
+    project.write_text(
+        '{"board": {"design_settings": {"drc_exclusions": [["' + key + '", "test point"]]}}}',
+        encoding="utf-8",
+    )
+    assert backend.stored_exclusions(copy_set) == (
+        StoredExclusion(
+            "via_dangling",
+            Point(30_123_456, 20_654_321),
+            ("11111111-1111-4111-8111-111111111111", NIL_UUID),
+            "test point",
+        ),
+    )
+    assert "stored_exclusions" not in backend.capabilities().operations
+    assert dataclasses.is_dataclass(StoredExclusion) and StoredExclusion.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_exclusion_source_never_raises_for_an_unreadable_project(tmp_path: Path) -> None:
+    """Scenario "An unreadable project gives no exclusion"."""
+    from fenolite.backends.base import ProjectSet
+    from fenolite.backends.kicad.backend import KicadBackend
+
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)", encoding="utf-8")
+    alone = ProjectSet(root=tmp_path, board="b.kicad_pcb", files={"b.kicad_pcb": board})
+    assert KicadBackend().stored_exclusions(alone) == ()
+    project = tmp_path / "b.kicad_pro"
+    files = {"b.kicad_pcb": board, "b.kicad_pro": project}
+    copy_set = ProjectSet(root=tmp_path, board="b.kicad_pcb", files=files, has_project=True)
+    assert KicadBackend().stored_exclusions(copy_set) == ()  # the file is missing
+    project.write_text("not json", encoding="utf-8")
+    assert KicadBackend().stored_exclusions(copy_set) == ()
+    project.write_bytes(b"\xff\xfe")
+    assert KicadBackend().stored_exclusions(copy_set) == ()

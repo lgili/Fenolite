@@ -42,9 +42,9 @@ objects change; the diff matches such objects by content.
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
 | `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
-| `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest) |
+| `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
-| `findings.json` | `Findings` | issues |
+| `findings.json` | `Findings` | issues, waivers |
 
 `Design` aggregates them and offers read-only indexes (`by_id`, `by_ref`, `by_net`, `by_layer`)
 and `validate()` (duplicate ids and references, dangling references, empty and single-pin nets, and
@@ -475,3 +475,26 @@ what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and seriali
 `schema_version` stays `"0"`.
 Releases 0.2.x and 0.3.x cannot read a model document that holds a `no_tracks` rule: their `RuleKind` lacks
 the value.
+## Net ties, waivers and check severities
+
+Three keys of change c0114. Each is omitted at its default, so a design that uses none of them writes the
+documents it wrote before, byte for byte.
+
+- **`net_ties`** (`board.json`, `library.json`). `FootprintInstance.net_ties` and `FootprintDef.net_ties`
+  are tuples of groups, each group the numbers of pads of different nets that the footprint joins on
+  purpose, in the order its source lists them; ordered, `()` by default. A backend reads them from its
+  own form (KiCad: the `net_tie_pad_groups` child), the copper check does not judge two pads of one
+  group, and `Design.validate()` does not check the numbers against the pads. A backend that reads no
+  groups leaves the field empty: the Altium import does. 0.2.x and 0.3.0 cannot read a document that
+  carries `net_ties`.
+- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap)`
+  values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`), `items` are
+  the names of the finding's items as `where` prints them, or patterns of them, and `min_gap` is in
+  integer nm. What a waiver may say is checked where it is declared (`design.waive()`, `docs/dsl.md`);
+  how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a `findings.json` that carries
+  `waivers`.
+- **`severities`** (`rules.json`). `RuleSet.severities` maps the finding code of a check of a
+  design-rule tool (`<oracle>.drc.<suffix>`) to `error`, `warning` or `ignore`, written with its keys
+  sorted. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table. 0.2.x and
+  0.3.0 cannot read a `rules.json` that carries `severities`.

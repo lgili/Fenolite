@@ -629,3 +629,65 @@ def test_six_layers_with_a_plane_and_a_zone(monkeypatch: pytest.MonkeyPatch, tmp
     assert "altium.copper-stack" not in [i["code"] for i in issues]
     assert not [i for i in issues if i["code"] == "altium.not-lowered" and i.get("where") == "stackup"]
     assert not [i for i in issues if i["severity"] == "error"]
+
+
+# --- net-tie groups and check severities: reported, not written (change c0114) --------------------
+
+
+def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A net tie in an Altium build" (dsl-footprint-authoring, "Net-tie groups in authored
+    footprints"): the pads are written, no mark ties them, and one info of the kind ``net-tie`` says so."""
+    from _altium_drc import DOCUMENT, build_altium, coded
+    from _routed import Routed
+    from _waivercases import NET_TIE, plant
+
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.altium.lower import LOSS_KINDS, NET_TIE_KIND
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    plant(routed, NET_TIE)
+    code, env, err = build_altium(routed, "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    planned = [Path(name).name for name in env["result"]["files"]]
+    assert DOCUMENT in planned and any(name.endswith(".PcbLib") for name in planned)
+    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
+    assert found["severity"] == "info" and "1 footprint(s)" in found["message"] and "NT1" in found["message"]
+    assert NET_TIE_KIND not in LOSS_KINDS
+    assert not coded(env, "copper.short")  # the tied pads are 0.5 mm apart
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, err
+    backend = AltiumBackend()
+    read = backend.board_from_bytes((routed.out / DOCUMENT).read_bytes(), file=DOCUMENT)
+    pads = [pad for pad in backend.board_pads(read.design) if pad.ref == "NT1"]
+    assert sorted(pad.number for pad in pads) == ["1", "2"]
+    assert read.design.board is not None
+    assert all(placed.net_ties == () for placed in read.design.board.footprints)  # the import reads none
+
+
+def test_severities_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Severities in an Altium build" (design-dsl, "Check severities in the DSL"): no severity is
+    written, one info of the kind ``severity`` names the code, and the documents are those of the build
+    without the call."""
+    from _altium_drc import build_altium, coded
+    from _routed import Routed
+    from _waivercases import ANCHOR, SEVERITY
+
+    from fenolite.backends.altium.lower import LOSS_KINDS, SEVERITY_KIND
+
+    plain = Routed(tmp_path / "plain", monkeypatch, confirm=False)
+    code, env, err = build_altium(plain, "--confirm")
+    assert code == 0, err
+    assert not [i for i in coded(env, "altium.not-lowered") if i["where"] == SEVERITY_KIND]
+    routed = Routed(tmp_path / "severity", monkeypatch, confirm=False)
+    routed.edit_script(ANCHOR, SEVERITY + ANCHOR)
+    code, env, err = build_altium(routed, "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == SEVERITY_KIND]
+    assert found["severity"] == "info" and "kicad.drc.silk-overlap" in found["message"]
+    assert SEVERITY_KIND not in LOSS_KINDS
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, err
+    model_only = {".fenolite/rules.json", ".fenolite/build.json"}  # the severity and the script's digest
+    documents = {name: data for name, data in routed.files().items() if name not in model_only}
+    assert documents == {name: data for name, data in plain.files().items() if name not in model_only}
+    assert b"kicad.drc.silk-overlap" in routed.files()[".fenolite/rules.json"]

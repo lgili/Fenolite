@@ -408,6 +408,13 @@ rules pass the target gating too: a 10.0-only construct is refused for target 9 
 with `--allow-lossy`. A rules file of version 2 or more is refused (`FEN-3002`), and a rules file that
 does not parse is refused with its line (`FEN-3004`).
 
+### Check severities
+
+A severity that the script names (`design.rules.severity()`) is rewritten by every build: its key of
+`rule_severities` takes the script's level, also over a value set in KiCad. Every other key of the table
+keeps the project's value and its place, and so does `drc_exclusions`, which Fenolite reads and never
+writes (change c0114).
+
 ## The normal form
 
 Every build derives the layout it caches from the board text it writes, fresh build or rebuild. So a

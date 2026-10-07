@@ -242,6 +242,15 @@
           "items": {
             "$ref": "#/$defs/ComponentBody"
           }
+        },
+        "net_ties": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       },
       "additionalProperties": false,

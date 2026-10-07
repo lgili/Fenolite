@@ -1033,6 +1033,11 @@ meaning = "The project file lists a document that is not a file in the project f
 fix = "Restore the document, or remove it from the project in Altium; the other documents are still checked."
 see = "check"
 
+["check.exclusion-stale"]
+meaning = "The project file stores a KiCad DRC exclusion that KiCad no longer applies: 'moved' when the entry is reported again at another marker position, 'gone' when no entry of that type names those items. KiCad ignores such an exclusion without a message."
+fix = "Open the DRC dialog in KiCad and remove the exclusion, or exclude the entry again there. For a project that Fenolite builds, prefer design.waive() in the script, which matches by name."
+see = "check"
+
 ["check.footprint-unresolved"]
 meaning = "A component that is not marked do-not-populate has no footprint reference or no footprint on the board."
 fix = "Give the part a footprint and build again."
@@ -1106,6 +1111,11 @@ see = "check"
 ["check.symbol-unresolved"]
 meaning = "A built component has no symbol reference."
 fix = "Give the part a symbol in the script and build again."
+see = "check"
+
+["check.waiver-unmatched"]
+meaning = "A waiver of the design script (design.waive) matched no finding of this run: the finding is gone, or its items have other names now. 'where' is the waiver's name."
+fix = "Remove the waiver from the script, or name its items as the 'where' of the finding prints them, then build again."
 see = "check"
 
 ["copper.clearance"]
@@ -1683,6 +1693,11 @@ meaning = "The clearance of the Default class stays above a board-wide clearance
 fix = "Lower the Default class clearance if the rule's value is the one wanted."
 see = "check"
 
+["kicad.project.dropped-check"]
+meaning = "With --allow-lossy, a severity of design.rules.severity() was left out of the project file, because the target KiCad has no DRC check with that key."
+fix = "Name the code as 'fenolite check' prints it (kicad.drc.<type>), or remove the call for this target."
+see = "KiCad output"
+
 ["kicad.project.dropped-pattern"]
 meaning = "With --allow-lossy, a net whose name cannot be a safe pattern was written without its class assignment."
 fix = "Rename the net, or assign its class in KiCad."
@@ -1741,6 +1756,11 @@ see = "check"
 ["kicad.project.too-new-key"]
 meaning = "The project holds a setting that only KiCad 10 reads, and it is being written for KiCad 9."
 fix = "Target KiCad 10, or pass --allow-lossy to drop the setting."
+see = "KiCad output"
+
+["kicad.project.unknown-check"]
+meaning = "design.rules.severity() names a code whose key the target KiCad does not have among its DRC checks. KiCad ignores an unknown key without a message, so the build refuses it."
+fix = "Name the code as 'fenolite check' prints it (kicad.drc.<type>); pass --allow-lossy to build without that severity."
 see = "KiCad output"
 
 ["kicad.project.unknown-class"]

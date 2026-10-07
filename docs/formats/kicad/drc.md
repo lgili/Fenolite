@@ -214,3 +214,46 @@ These are Fenolite's choices:
 - **Verdict.** RT2 holds when the remaining keys have equal counts. A difference is a failure only when
   no key is unstable, that is when every run of each side gave the same report. Otherwise RT2 is not
   judged on that board: the stage says so, reports no failure and carries no evidence.
+
+## Net ties (c0114)
+
+What `pcb drc` reports on a footprint that holds `net_tie_pad_groups`, measured on the bench of
+`tests/kicad/check/_tiebench.py`: one board written by Fenolite, every footprint an authored definition
+with `Footprint.net_tie`, a `{}` project (KiCad's `Default` class, 0.2 mm), and a control pair of tracks
+whose `clearance` violation must be in the report. Only `shorting_items`, `clearance`,
+`solder_mask_bridge` and `unconnected_items` are counted. The 9.0.9 half was not run by this change: the
+labels name 10.0.x, and the `kicad-9` job records the same probes.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint with `net_tie_pad_groups` gets no `shorting_items` and no `clearance` between two of its pads, whether the two share a group or not: pads of one group that overlap, pads of one group 0.1 mm apart, three pads of one group, and pads of two groups or outside every group that overlap or sit 0.15 mm apart | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| Between two pads of such a footprint that overlap and share no group, `solder_mask_bridge` is still reported; between two pads of one group it is not | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| With the token, a pad is not judged against a filled copper polygon of its own footprint (the form of the footprints of KiCad's own net-tie library); without it the polygon, which has no net, is reported against each pad it touches, with `solder_mask_bridge` and with `shorting_items` or `clearance` at an actual distance of 0 (both types in one run on 10.0.6) | S-0020, S-0018 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| A track is judged against the pads of a net-tie footprint as against any pad: a track of the net of pad 1 that ends 0.1 mm from pad 2 gives `clearance` (the track and pad 2) and `unconnected_items` (pad 1 and the track), with the token and without it | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| The group string `"1,2"` is read as `"1, 2"` is | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| Without the token, two overlapping pads of two nets give `shorting_items` and `solder_mask_bridge`, and two pads 0.1 mm apart give `clearance` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+
+Fenolite's copper check follows the first row only for two pads of one group (`copper.md`, "Supported
+cases"): a touch between a tied pad and a pad the designer did not tie is a defect, so it stays a finding.
+
+## Stored exclusions (c0114)
+
+A project file stores the DRC exclusions of its board in `board.design_settings.drc_exclusions`
+(`project.md`, "Stored exclusions"). Measured on the bench of `tests/kicad/check/_exclcases.py`: two
+tracks 0.1 mm apart, a lone via at (30.123456, 20.654321) mm, and project files that differ only in that
+list, each key built from the report of a first run. The 9.0.9 half was not run by this change.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb drc` applies a stored exclusion only when its type, its position in nanometres and its two uuids in order equal those of a violation: the position is that of the violation's first item, and the second uuid of an entry of one item is the nil uuid | S-0020, S-0055 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+| A position that is 1 nm off, another uuid, or the two uuids of a clearance entry in the other order exclude nothing, and the report says nothing about the key | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+| An excluded entry keeps its severity and gains `excluded: true` and `comment`, the text stored with the key (empty for a key stored as a plain string); an entry that is not excluded carries no `excluded` key | S-0020, S-0055 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+| A run does not write the project file | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+
+`fenolite check` therefore says what the tool does not (`cli-contract.md`, "Waivers"): the issue of an
+excluded entry ends with its comment, and a stored exclusion that no longer applies is reported as
+`check.exclusion-stale`, `moved` when an entry of its type and uuids is reported again and `gone` when
+none is. Exclusions of the types `clearance`, `hole_clearance`, `unconnected_items` and `shorting_items`
+are not judged, because KiCad does not repeat their entries from run to run (`H-K-DRC-REPEAT`,
+`H-K-VIA-RENET`). Fenolite reads exclusions and never writes one: the key needs the marker position,
+which the report gives only as item positions.

@@ -119,6 +119,10 @@ each dropped part is reported as a warning, and without the flag the command fai
 (exit 7). Content the model holds is never dropped, with or without the flag. Any other
 `--kicad-version` value is a usage error (`FEN-2001`, exit 2).
 
+A check severity of the script (`design.rules.severity()`) whose key the target major does not have is
+refused the same way, with `kicad.project.unknown-check`; with `--allow-lossy` it is left out and
+reported as `kicad.project.dropped-check`.
+
 A design rule of a kind the target major does not check is refused the same way, with the issue
 `rules.kind-unchecked`: a `creepage` rule and `--kicad-version 9`. With `--allow-lossy` the rule is left
 out of the `.kicad_dru` and reported as `rules.dropped-for-target`; it stays in `.fenolite/rules.json`.
@@ -354,7 +358,11 @@ so a `copper.short` or a `copper.clearance` error exits 5 and writes nothing. `-
 reports those errors as warnings, with ` (copper guard in warn mode)` at the end of the message, and
 writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
 the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
-`opaque_clearance_rules`, `unread`) and `evidence`. The guard runs on `--dry-run` too, reads and writes
+`opaque_clearance_rules`, `unread`), `evidence` and `waivers`. The design's `copper.*` waivers
+(`design.waive()`) are applied before the mode: a waived finding is `info` in `refuse` and in `warn`
+mode, so it neither refuses the build nor gains the warn note. `result.copper_check.waivers` holds
+`matched` (waiver name → findings) and `unmatched` (names); the guard reports no stale waiver itself,
+`check` does ("Waivers" below). The guard runs on `--dry-run` too, reads and writes
 no file, and runs no tool. With `--target altium` the guard judges the PCB document instead (below,
 "Copper guard of an Altium build"). A Python caller of
 `build_design` is not guarded (`docs/dsl.md`, "Copper guard").
@@ -966,9 +974,11 @@ repeat.
 | `erc.lite.power-undriven` | warning | document input only: a power input without a power output or a power interface |
 | `erc.lite.floating-pin` | warning | document input only: a pin on no net that `no_connect` does not mark |
 | `render.failed` | warning | the `render` stage could not produce a view; `where` is the view name. Never an error: a render is not a gate |
-| `copper.short` | error | copper of two nets touches or overlaps on a shared copper layer; `where` names both items |
-| `copper.clearance` | error, warning | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error |
-| `copper.zone-overlap` | warning | zones of different nets and equal priority overlap on a shared layer |
+| `copper.short` | error, info | copper of two nets touches or overlaps on a shared copper layer; `where` names both items; `info` when a waiver accepts it |
+| `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error; `info` when a waiver accepts it |
+| `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when a waiver accepts it |
+| `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
+| `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, one issue per kind; `where` is the kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force for them |
@@ -991,6 +1001,38 @@ neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 wh
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
 of an unsupported major, or older than the board's format (`FEN-6002`). Two runs on the same project
 give the same stdout apart from `elapsed_ms`.
+
+### Waivers
+
+A design script accepts one finding with `design.waive(code, *items, reason=…)` (`docs/dsl.md`,
+"Waivers"). The build stores the waivers in `.fenolite/findings.json`, and `check` on a built project, of
+either target, applies them. A native project has no waiver.
+
+- **Effect.** A finding that a waiver matches keeps its code and `where`, takes severity `info`, and its
+  message ends with ` (waived by <name>: <reason>)`. No finding is removed, so the counts of a stage do
+  not change; a stage whose every error was waived has status `ok`. Waivers change no evidence.
+- **Matching.** The codes are equal, each item of the waiver names one item of the finding, one to one
+  and in any order (as a glob, or letter for letter), and with `min_gap` the gap of a `copper.clearance`
+  finding is at least that. The items of a copper finding are the two parts of its `where`; those of a
+  DRC finding are the locations of its items.
+- **Stages.** `copper.*` waivers are applied by `copper.clearance`, on both pipelines; `kicad.drc.*`
+  waivers by `drc.kicad`. No other stage takes a waiver: ERC and parity findings are never waived.
+- **Stale waivers.** A waiver is judged when the stage of its code ran with a verdict. A judged waiver
+  that matched nothing gives `check.waiver-unmatched` (warning), `where` its name. A waiver of
+  `kicad.drc.clearance`, `hole-clearance`, `unconnected-items` or `shorting-items` is applied when it
+  matches and never judged, because KiCad does not repeat those entries from run to run.
+- **`result.waivers`** holds `declared` (the count), `matched` (name → findings, for judged waivers),
+  `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`). On Altium input every
+  `kicad.drc.*` waiver is `stage-not-run`: that pipeline has no DRC stage.
+
+**KiCad's own exclusions.** A KiCad project stores the entries its user excluded in the DRC dialog, each
+with a position, two item uuids and a comment. `pcb drc` ignores an exclusion that matches nothing
+without a message, so `check` says what became of each: the issue of an excluded entry ends with
+` (excluded in the project: <comment>)`, and an exclusion that no longer applies gives
+`check.exclusion-stale` (warning), `moved` when an entry of its type and items is reported again
+(KiCad matches the marker position to the nanometre) and `gone` when none is. `summary.exclusions` of
+`drc.kicad` holds `stored`, `live`, `stale` and `unjudged`; exclusions of the four types above are not
+judged. Fenolite never writes an exclusion.
 
 ### check on Altium input
 
@@ -1086,8 +1128,9 @@ warning whose message ends with ` (reported, not refused: the Altium copper guar
 and the files are written. `--copper-check warn` reports the short as a warning too, with
 ` (copper guard in warn mode)`, and writes; there is no way to switch the guard off.
 `result.copper_check` holds `mode`, `ran` (false without a PCB document), `shorts`, `clearance`,
-`unpoured`, `rules` and `evidence`; the evidence is `UNVERIFIED` when the document holds unpoured
-polygons, which the guard cannot judge. No file is read from disk and no tool runs.
+`unpoured`, `rules`, `evidence` and `waivers` (as on KiCad: the design's `copper.*` waivers are applied
+before the mode, so a waived short is `info` and does not refuse the build); the evidence is `UNVERIFIED`
+when the document holds unpoured polygons, which the guard cannot judge. No file is read from disk and no tool runs.
 
 ## export
 

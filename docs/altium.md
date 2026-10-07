@@ -1365,6 +1365,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
 | `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
 | `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
+| `footprint` | `net_ties` | the writer does not write it: a net-tie group is KiCad data, the pads are written without a mark that ties them, and the build says so with `altium.not-lowered` (kind `net-tie`; change c0114) |
 | `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
@@ -1587,3 +1588,25 @@ part of it.
   `docs/evidence/altium-pcb.md` asks the maintainer what Altium Designer 26 shows for the four flag
   values. `fenolite inspect` of a PCB document counts the set flags under `result.via_protection`
   (`docs/cli-contract.md`).
+
+## Net ties, waivers and check severities (change c0114)
+
+- **Waivers apply on both targets.** A waiver is Fenolite's, not KiCad's: `fenolite check` on a built
+  Altium project applies the `copper.*` waivers of its `.fenolite/` model in the stage `copper.clearance`,
+  and the copper guard of `build --target altium` applies them before its mode, so a waived
+  `copper.short` is `info` and does not refuse the build. `result.waivers` and
+  `result.copper_check.waivers` have the keys they have on KiCad. The document pipeline has no DRC stage:
+  a `kicad.drc.*` waiver is listed as `stage-not-run`, and no exclusion is read. No ERC and no parity
+  finding is waived, on either target.
+- **Net-tie groups are reported, not written.** `Footprint.net_tie` is KiCad data. The Altium build
+  writes the pads and their copper as for any footprint, writes no mark that ties them, and reports the
+  footprints that have groups in one `altium.not-lowered` info whose `where` is `net-tie`. How Altium
+  marks a net tie is no registered format fact yet. The guard therefore judges tied pads that touch: a
+  `copper.short` waiver accepts them by name.
+- **An imported board has no groups.** The Altium import reads none, so `FootprintInstance.net_ties` is
+  empty and the copper check judges every pad pair of the board.
+- **Check severities are reported, not written.** `design.rules.severity()` names checks of KiCad's
+  DRC. The build writes no severity and reports the codes in one `altium.not-lowered` info whose `where`
+  is `severity`. A severity is no rule kind, so the rule table has no row for it.
+
+Neither kind is a loss of the board that is made: both are `info`, and a write is not refused for them.

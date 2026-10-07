@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 from _coppercheck import Copper, disc_entry, mm, rect_entry, renet_bench
 from _placed import Part, design_of
+from _ties import MM, OVERLAP, SQUARE, WIDTH, TieBoard, row, tie_footprint
 
 from fenolite.backends.base import PadCopper
 from fenolite.backends.kicad.backend import KicadBackend
@@ -23,6 +24,7 @@ from fenolite.checks import copper as copper_module
 from fenolite.checks.copper import ARC_TOL_NM, EVIDENCE, CopperReport, check_copper
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
+from fenolite.dsl import Footprint, nm
 from fenolite.model.design import Design
 from fenolite.model.rules import Selector
 
@@ -568,6 +570,7 @@ def test_findings_and_issues_are_sorted() -> None:
     assert issue_keys == sorted(issue_keys)
     assert list(report.summary) == sorted(report.summary)
     assert set(report.summary) == {
+        "net_tie_pairs",
         "approximated",
         "arc_tol",
         "clearance",
@@ -692,3 +695,153 @@ def test_a_rule_of_some_layers_governs_only_there() -> None:
         "rule:back",
     )
     assert report.summary["pairs"] == 2 and report.summary["unset_pairs"] == 0
+
+
+# --- net-tie groups (change c0114; "Pairs that are judged") ----------------------------------------
+#
+# Two pads of one net-tie group of one footprint are not judged, as KiCad's DRC does not judge them
+# (``H-K-NETTIE-DRC``). Everything else is judged as before: a pad outside the group, and a track near a
+# tied pad. The footprints are authored (``tests/_ties.py``) and placed with ``place_footprint``.
+
+TIE_CLEARANCE = MM // 5
+TIE_AT = Point(20 * MM, 20 * MM)
+TOUCH = SQUARE - OVERLAP
+"""The pitch of two square pads that overlap by 0.2 mm."""
+GROUP = (("1", "2"),)
+
+
+def tie_check(design: Design) -> CopperReport:
+    return check_copper(design, pads=KicadBackend().board_pads(design))
+
+
+def tie_found(report: CopperReport) -> list[tuple[str, str]]:
+    return [(finding.code, finding.where) for finding in report.findings]
+
+
+def two_pads(pitch: int, groups: tuple[tuple[str, ...], ...]) -> Design:
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    board.place("NT1", tie_footprint("Two", row(2, pitch), groups=groups), TIE_AT)
+    return board.build()
+
+
+def test_net_tie_pads_that_touch() -> None:
+    """Scenario "Tied pads that touch"."""
+    tied = tie_check(two_pads(TOUCH, GROUP))
+    assert tied.findings == () and tied.summary["net_tie_pairs"] == 1
+    plain = tie_check(two_pads(TOUCH, ()))
+    assert tie_found(plain) == [("copper.short", "NT1-1, NT1-2")] and plain.summary["net_tie_pairs"] == 0
+
+
+def test_net_tie_pads_closer_than_the_clearance() -> None:
+    """Scenario "Tied pads closer than the clearance": 0.1 mm apart under a class of 0.2 mm."""
+    pitch = SQUARE + MM // 10
+    assert tie_check(two_pads(pitch, GROUP)).findings == ()
+    (finding,) = tie_check(two_pads(pitch, ())).findings
+    assert (finding.code, finding.severity, finding.gap) == ("copper.clearance", "error", 100_000)
+
+
+def test_net_tie_pad_outside_the_group_is_still_judged() -> None:
+    """Scenario "A pad outside the group is still judged"."""
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    board.place("NT1", tie_footprint("Three", row(3, TOUCH), groups=GROUP), TIE_AT)
+    report = tie_check(board.build())
+    assert tie_found(report) == [("copper.short", "NT1-2, NT1-3")] and report.summary["net_tie_pairs"] == 1
+
+
+def test_net_tie_track_near_a_tied_pad_is_still_judged() -> None:
+    """Scenario "A track near a tied pad is still judged": the track is on the net of pad 1 and ends 0.1 mm
+    from pad 2."""
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    xs = row(2, SQUARE + MM // 2)
+    board.place("NT1", tie_footprint("Apart", xs, groups=GROUP), TIE_AT)
+    edge = TIE_AT.x + xs[1] + SQUARE // 2
+    start = Point(edge + MM // 10 + WIDTH // 2, TIE_AT.y)
+    board.track("probe", "NT1_1", start, Point(start.x + 3 * MM, TIE_AT.y))
+    (finding,) = tie_check(board.build()).findings
+    assert finding.code == "copper.clearance" and finding.gap == 100_000
+    assert {item.kind for item in finding.items} == {"pad", "track"}
+    assert "NT1-2" in finding.where
+
+
+def test_net_tie_every_pad_of_a_repeated_number_counts() -> None:
+    footprint = Footprint("Tie", "Shared", kind="smd")
+    for number, x, shared in (("1", -TOUCH, False), ("1", 0, True), ("2", TOUCH, False)):
+        footprint.pad(number, at=(nm(x), nm(0)), size=(nm(SQUARE), nm(SQUARE)), shared=shared)
+    footprint.net_tie("1", "2")
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    board.place("NT1", footprint.definition, TIE_AT)
+    report = tie_check(board.build())
+    assert report.findings == () and report.summary["net_tie_pairs"] == 2
+
+
+def test_net_tie_groups_of_two_footprints_do_not_mix() -> None:
+    """The group of one footprint says nothing about the pads of another: two tied footprints whose pads
+    overlap are a short."""
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    defn = tie_footprint("Two", row(2, TOUCH), groups=GROUP)
+    board.place("NT1", defn, TIE_AT)
+    board.place("NT2", defn, Point(TIE_AT.x + 2 * TOUCH, TIE_AT.y))
+    report = tie_check(board.build())
+    assert tie_found(report) == [("copper.short", "NT1-2, NT2-1")] and report.summary["net_tie_pairs"] == 2
+
+
+def test_net_tie_summary_is_zero_without_groups() -> None:
+    assert tie_check(two_pads(3 * MM, ())).summary["net_tie_pairs"] == 0
+
+
+@pytest.mark.parametrize("seed", [3, 29])
+def test_net_tie_brute_force_agreement(seed: int) -> None:
+    """Scenario "Index agrees with brute force", on boards with groups: 60 tied footprints of two to four
+    pads at random places, half of them with a pad outside the group, and 60 tracks."""
+    rng = random.Random(seed)
+    board = TieBoard(clearance=TIE_CLEARANCE)
+    span = 30 * MM
+    for n in range(60):
+        count = rng.choice((2, 3, 4))
+        group = tuple(str(k) for k in range(1, count + 1 - (n % 2)))
+        groups = (group,) if len(group) > 1 else ()
+        defn = tie_footprint(f"T{n}", row(count, rng.choice((TOUCH, SQUARE + MM // 10))), groups=groups)
+        board.place(f"NT{n}", defn, Point(5 * MM + rng.randrange(span), 5 * MM + rng.randrange(span)))
+    for n in range(60):
+        at = Point(5 * MM + rng.randrange(span), 5 * MM + rng.randrange(span))
+        end = Point(at.x + rng.randint(-2 * MM, 2 * MM), at.y + rng.randint(-2 * MM, 2 * MM))
+        board.track(f"t{n}", f"N{rng.randrange(4)}", at, end)
+    design = board.build()
+    pads = KicadBackend().board_pads(design)
+    indexed = check_copper(design, pads=pads)
+    every = copper_module._run(  # pyright: ignore[reportPrivateUsage]
+        design,
+        pads=pads,
+        min_clearance=None,
+        rules_over_classes=True,
+        floor_over_rules=False,
+        arc_tol=ARC_TOL_NM,
+        inputs=(),
+        every_pair=True,
+    )
+    assert indexed.findings == every.findings and indexed.findings
+    assert indexed.summary["net_tie_pairs"] == every.summary["net_tie_pairs"]
+    assert indexed.summary["net_tie_pairs"] > 60  # type: ignore[operator]
+    assert not any(
+        finding.items[0].where.rsplit("-", 1)[0] == finding.items[1].where.rsplit("-", 1)[0]
+        and {item.where.rsplit("-", 1)[1] for item in finding.items} <= _tied(design, finding.items[0].where)
+        for finding in indexed.findings
+        if all(item.kind == "pad" for item in finding.items)
+    )
+
+
+def _tied(design: Design, where: str) -> set[str]:
+    """The numbers of the net-tie group of the footprint of the pad ``REF-NUMBER`` (empty without one)."""
+    ref = where.rsplit("-", 1)[0]
+    component = next(c for c in design.circuit.components if c.ref == ref)
+    assert design.board is not None
+    placed = next(fp for fp in design.board.footprints if fp.component_id == component.id)
+    return {number for group in placed.net_ties for number in group}
+
+
+def test_net_tie_check_never_gives_info_for_a_finding() -> None:
+    """Scenario "The check never gives info for a finding" (verification-loop, "Copper stage issue
+    codes"): ``info`` is the severity of a waived finding, which only a stage or a guard gives."""
+    for design in (two_pads(TOUCH, ()), two_pads(SQUARE + MM // 10, ())):
+        report = tie_check(design)
+        assert report.findings and all(issue.severity != "info" for issue in report.issues)

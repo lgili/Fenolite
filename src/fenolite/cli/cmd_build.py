@@ -78,7 +78,15 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
-from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
+from fenolite.checks.copper import (
+    LOWERING_CODES,
+    CopperReport,
+    check_copper,
+    rules_issues,
+    rules_summary,
+    waived_issues,
+)
+from fenolite.checks.waivers import copper_waivers
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -131,6 +139,7 @@ from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, pre
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.findings import Waiver
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
@@ -313,10 +322,27 @@ def _evidence_json(evidence: Evidence) -> dict[str, object]:
     }
 
 
+def guard_waivers(
+    report: CopperReport, waivers: Sequence[Waiver]
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The issues of ``report`` after the design's ``copper.*`` waivers (a matched finding is ``info``, so
+    no mode of a guard refuses it or turns it into a warning), and ``result.copper_check.waivers``:
+    ``matched`` (name → findings) and ``unmatched`` (names), in name order. A guard emits no
+    ``check.waiver-unmatched``: ``fenolite check`` reports stale waivers (change c0114)."""
+    own = copper_waivers(waivers)
+    found, counts = waived_issues(report, own)
+    names = sorted(waiver.name for waiver in own)
+    return found, {
+        "matched": {name: counts[name] for name in names if counts.get(name)},
+        "unmatched": [name for name in names if not counts.get(name)],
+    }
+
+
 def copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str, target: int
+    files: Mapping[str, bytes], *, name: str, mode: str, target: int, waivers: Sequence[Waiver] = ()
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the triad ``files`` that a build is about to write, and ``result.copper_check``.
+    ``waivers`` are the design's waivers: they are applied before the mode (``guard_waivers``).
 
     The planned board text is read back with ``read_board``, the planned project and rules texts are
     applied with ``design_rules_from_texts`` for ``target`` (the build's KiCad major), the pads come from the
@@ -350,7 +376,8 @@ def copper_guard(
         floor_over_rules=rules.floor_over_rules,
         inputs=(kicad_pcb.EVIDENCE, rules.evidence),
     )
-    found = [*report.issues, *rules_issues(rules)]
+    judged, waived = guard_waivers(report, waivers)
+    found = [*judged, *rules_issues(rules)]
     evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
     if any(issue.code in LOWERING_CODES for issue in found):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -368,6 +395,7 @@ def copper_guard(
         "clearance": report.summary["clearance"],
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
+        "waivers": waived,
     }
     return tuple(found), summary
 
@@ -376,7 +404,7 @@ CLEARANCE_NOTE = " (reported, not refused: the Altium copper guard refuses short
 
 
 def altium_copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str
+    files: Mapping[str, bytes], *, name: str, mode: str, waivers: Sequence[Waiver] = ()
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the PCB document ``<name>.PcbDoc`` of ``files`` that an Altium build is about
     to write, and ``result.copper_check`` (capability altium-build, "Copper guard in an Altium build").
@@ -386,7 +414,9 @@ def altium_copper_guard(
     Altium board frame, and ``check_copper`` judges the result. A ``copper.short`` keeps its severity, so the
     build refuses; every other error is reported as a warning with ``CLEARANCE_NOTE``. With
     ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing is read from disk and
-    nothing is written; a build without a PCB document is not judged (``ran`` false)."""
+    nothing is written; a build without a PCB document is not judged (``ran`` false). ``waivers`` are the
+    design's waivers, applied before the mode as on the KiCad target (``guard_waivers``): a waived short is
+    ``info`` and does not refuse the build."""
     if mode not in COPPER_CHECK_MODES:
         raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
     document = f"{name}.PcbDoc"
@@ -406,8 +436,9 @@ def altium_copper_guard(
         inputs=(read.evidence, rules.evidence),
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
+    judged, waived = guard_waivers(report, waivers)
     found: list[Issue] = []
-    for issue in (*report.issues, *rules_issues(rules)):
+    for issue in (*judged, *rules_issues(rules)):
         if issue.severity != "error":
             found.append(issue)
         elif issue.code != "copper.short":
@@ -429,6 +460,7 @@ def altium_copper_guard(
         "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
+        "waivers": waived,
     }
     return tuple(found), summary
 
@@ -791,7 +823,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     )
     if files:
         copper_issues, copper_check = copper_guard(
-            files, name=design.name, mode=mode, target=ctx.kicad_target
+            files,
+            name=design.name,
+            mode=mode,
+            target=ctx.kicad_target,
+            waivers=built.design.findings.waivers,
         )
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
@@ -1077,7 +1113,9 @@ def _run_altium(
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     if files:
-        copper_issues, copper_check = altium_copper_guard(files, name=name, mode=mode)
+        copper_issues, copper_check = altium_copper_guard(
+            files, name=name, mode=mode, waivers=model.findings.waivers
+        )
         if any(found.severity == "error" for found in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
     if files:

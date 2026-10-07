@@ -90,3 +90,32 @@ def test_zone_clearance_parity(case: str) -> None:
 def test_fill_fill_recorded() -> None:
     """Scenario "Two fills are recorded, not compared"."""
     assert run("copper-fill-fill") in ("present", "absent")
+
+
+# --- net-tie rows (capability kicad-oracle, "Net-tie parity canaries"; change c0114) ---------------
+
+
+def test_net_tie_parity_of_grouped_pads() -> None:
+    """Scenario "Parity of grouped pads": KiCad and ``check_copper`` give the same verdict for the pads of
+    one group, and for the same pads without a group."""
+    import _tiebench as tb
+
+    target = tb.running_target()
+    found = {
+        label: (tb.kicad_pad_verdict(label), tb.fenolite_verdict(target, label)) for label in tb.COMPARED
+    }
+    assert all(kicad == ours for kicad, ours in found.values()), found
+    assert found["touching"] == ("clean", "clean") and found["touching-plain"] == ("short", "short")
+    assert found["close-plain"] == ("clearance", "clearance")
+    assert run("copper-nettie-group") == "equal"
+
+
+def test_net_tie_parity_of_ungrouped_pads_is_recorded() -> None:
+    """The documented difference: between two pads of a net-tie footprint that share no group
+    ``check_copper`` reports one finding and KiCad none. Recorded, never a failure."""
+    import _tiebench as tb
+
+    target = tb.running_target()
+    for label, found in tb.RECORDED.items():
+        assert tb.pad_findings(target, label) == [found], label
+    assert run("copper-nettie-ungrouped") in ("equal", "different")

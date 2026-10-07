@@ -26,6 +26,8 @@ from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRule
 from fenolite.checks.clearance import ZONE_SOURCE, Clearance, ClearanceResolver, CopperKind
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.waivers import COPPER_CODES, Candidate, apply_waivers, copper_waivers
+from fenolite.checks.waivers import judge as judge_waivers
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -46,6 +48,7 @@ from fenolite.geometry import (
 from fenolite.model.base import Entity
 from fenolite.model.board import Board, Zone
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 from fenolite.model.rules import RuleSubject
 
 ARC_TOL_NM = 1_000
@@ -132,6 +135,9 @@ class _Item:
     shapes: dict[str, list[_Shape]] = field(default_factory=lambda: {})
     zone_clearance: Nm | None = None
     """For a fill: the own clearance of its zone (``settings.clearance``)."""
+    tie: tuple[str, int] | None = None
+    """For a pad whose number is in a net-tie group of its footprint: the footprint's id and the index of
+    that group (change c0114). Two pads with one ``tie`` are not judged."""
 
 
 def _sort_key(found: Issue) -> tuple[str, str, str]:
@@ -193,6 +199,14 @@ class _Items:
         self.copper = copper_layers(board)
         self._nets = {net.id: net.name for net in design.circuit.nets}
         self._band = arc_tol + 1
+        self._ties: dict[str, dict[str, int]] = {}
+        for footprint in board.footprints:
+            groups: dict[str, int] = {}
+            for index, group in enumerate(footprint.net_ties):
+                for number in group:
+                    groups.setdefault(number, index)
+            if groups:
+                self._ties[footprint.id] = groups
         self._tracks(board)
         self._arcs(board, arc_tol)
         self._vias(board)
@@ -278,7 +292,9 @@ class _Items:
             holder = record.ref or record.footprint_id
             where = f"{holder}-{record.number}" if record.number else holder
             ref = CopperRef("pad", where, record.pad_id, self.net_name(record.net_id))
-            item = _Item(ref, record.net_id, record.ref or None)
+            group = self._ties.get(record.footprint_id, {}).get(record.number) if record.number else None
+            tie = None if group is None else (record.footprint_id, group)
+            item = _Item(ref, record.net_id, record.ref or None, tie=tie)
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
 
     def _fills(self, board: Board) -> None:
@@ -348,8 +364,23 @@ _Pairs = dict[tuple[int, int], list[tuple[int, _Shape, _Shape]]]
 
 
 def _judged(a: _Item, b: _Item) -> bool:
-    """Two items are judged when their nets differ; two items without a net are not."""
-    return a.net_id != b.net_id
+    """Two items are judged when their nets differ; two items without a net are not. Two pads of one
+    net-tie group of one footprint are not judged either: KiCad's DRC does not judge them
+    (``H-K-NETTIE-DRC``), and the footprint joins them on purpose."""
+    return a.net_id != b.net_id and (a.tie is None or a.tie != b.tie)
+
+
+def _net_tie_pairs(items: Sequence[_Item]) -> int:
+    """The item pairs that only their net-tie group keeps from being judged: two pads of one group whose
+    nets differ, every physical pad of a repeated number counted."""
+    groups: dict[tuple[str, int], list[str | None]] = {}
+    for item in items:
+        if item.tie is not None:
+            groups.setdefault(item.tie, []).append(item.net_id)
+    count = 0
+    for nets in groups.values():
+        count += sum(1 for i, a in enumerate(nets) for b in nets[i + 1 :] if a != b)
+    return count
 
 
 def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: bool) -> tuple[_Pairs, int]:
@@ -521,7 +552,7 @@ def _run(
     findings: list[CopperFinding] = []
     others: list[Issue] = []
     summary: dict[str, object] = {"arc_tol": arc_tol, "max_clearance": resolver.max_value}
-    counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0}
+    counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0, "net_tie_pairs": 0}
     layers: tuple[str, ...] = ()
     kinds: Counter[str] = Counter()
     unsupported: Counter[str] = Counter()
@@ -540,7 +571,12 @@ def _run(
             if found is not None:
                 findings.append(found)
         findings += _zone_overlaps(board, items)
-        counts.update(judged=judge.judged, unset_pairs=judge.unset, approximated=items.approximated)
+        counts.update(
+            judged=judge.judged,
+            unset_pairs=judge.unset,
+            approximated=items.approximated,
+            net_tie_pairs=_net_tie_pairs(items.items),
+        )
         kinds, unsupported = items.kinds, items.unsupported
     for kind, count in sorted(unsupported.items()):
         if kind == "zone-outline":
@@ -617,6 +653,22 @@ def check_copper(
 STAGE = "copper.clearance"
 
 
+def waived_issues(
+    report: CopperReport, waivers: Sequence[Waiver]
+) -> tuple[tuple[Issue, ...], dict[str, int]]:
+    """The issues of ``report`` with every finding that a copper waiver of ``waivers`` accepts marked
+    (``checks.waivers.apply_waivers``: severity ``info``, the waiver's name and reason), and the number of
+    findings each waiver matched. The names of a finding are the ``where`` of its two items, and its gap is
+    ``CopperFinding.gap``. The other issues of the report follow unchanged."""
+    candidates = [
+        Candidate(found.to_issue(), tuple(item.where for item in found.items), found.gap)
+        for found in report.findings
+    ]
+    marked, counts = apply_waivers(copper_waivers(waivers), candidates)
+    others = tuple(found for found in report.issues if found.code not in COPPER_CODES)
+    return (*marked, *others), counts
+
+
 def rules_issues(rules: DesignRules | None) -> list[Issue]:
     """The ``copper.rules-incomplete`` warnings of a rules source's answer (``None``: no source), and one
     ``copper.item-unsupported`` per kind of copper it left out."""
@@ -667,11 +719,16 @@ def copper_stage(
     rules_source: DesignRulesSource | None,
     frame: BoardFrame | None,
     evidence: Evidence,
+    waivers: Sequence[Waiver] = (),
 ) -> StageResult:
     """The ``copper.clearance`` stage: ``check_copper`` on the board model that ``run_checks`` read
     (``design``; ``None`` when that read was refused), with the rules of the project's own files from
     ``rules_source`` and the pads of ``frame``. ``evidence`` is the evidence of the board read. No tool
-    runs, and nothing is written."""
+    runs, and nothing is written.
+
+    ``waivers`` are the design's waivers (change c0114): a finding that a ``copper.*`` waiver accepts is
+    kept as ``info``, a copper waiver that matched nothing gives ``check.waiver-unmatched``, and
+    ``summary.waivers`` says which matched. Waivers change no evidence."""
     if design is None:
         return skipped(STAGE, "read-refused")
     rules = rules_source.design_rules(design, project) if rules_source is not None else None
@@ -686,11 +743,18 @@ def copper_stage(
         floor_over_rules=rules.floor_over_rules if rules is not None else False,
         inputs=inputs,
     )
-    issues = [*report.issues, *rules_issues(rules)]
+    summary: dict[str, object] = {**report.summary, "rules": rules_summary(rules)}
+    own = copper_waivers(waivers)
+    found, counts = waived_issues(report, own)
+    issues = [*found, *rules_issues(rules)]
+    if own:
+        outcome, stale = judge_waivers(own, counts)
+        issues += stale
+        summary["waivers"] = {key: value for key, value in outcome.to_json().items() if key != "declared"}
     level = report.evidence
     if any(found.code in LOWERING_CODES for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    return ran(STAGE, issues, level, {**report.summary, "rules": rules_summary(rules)})
+    return ran(STAGE, issues, level, summary)
 
 
 __all__ = [
@@ -707,4 +771,5 @@ __all__ = [
     "copper_stage",
     "rules_issues",
     "rules_summary",
+    "waived_issues",
 ]

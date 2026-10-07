@@ -578,3 +578,25 @@ is written in that order, with pin numbers following positions, so a re-save kee
 Fenolite's simple authored symbol subset writes the KiCad symbol-library root, symbol properties,
 one-unit pin records, and library-table rows as described by S-0043. The emitted serialization remains
 `INFERRED` until exercised by the KiCad oracle.
+
+## Net-tie groups (c0114)
+
+A footprint that joins pads of different nets on purpose lists them in one child,
+`(net_tie_pad_groups "1, 2" …)`: one string per group, the pad numbers separated by commas.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint file written with `(net_tie_pad_groups "1, 2")` right after `attr`, one string per group and `", "` between the numbers, loads in `kicad-cli`, and its DRC honours the group (`drc.md`, "Net ties") | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| The footprints of KiCad's own net-tie library write the child in that form and at that place, and join their pads with a filled polygon on each copper layer | S-0018, S-0042 | INFERRED | H-K-NETTIE-DRC |
+| `"1,2"`, without the space, is read as the same group | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+
+The second row is the reading of the two library trees that change c0114 states (twelve footprints, read
+for the fact on 2026-10-05); this change did not fetch them again, so the row rests on the first.
+
+- **Reading.** `read_footprint` projects the child into `FootprintDef.net_ties`: each string is one
+  group, split at commas, with the spaces around a number and empty parts dropped. The child stays an
+  opaque slot and is written back as read.
+- **Writing.** A definition read from a file keeps its child: a `net_ties` that differs from it, or groups
+  on a definition without the child, give `kicad.footprint.projection-read-only`. An authored definition
+  (`fenolite.dsl.Footprint.net_tie`) is written from the field, the child right after `attr`; without
+  groups no child is written, so its text is the one written before the field existed.
