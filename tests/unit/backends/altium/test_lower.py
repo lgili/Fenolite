@@ -413,3 +413,98 @@ def test_a_design_without_the_bag_is_written_as_before() -> None:
     kicad = KicadBackend().read(KICAD_ROUTED).design
     assert kicad.board is not None
     assert not any("altium" in entity.ext for entity in (*kicad.board.arcs, *kicad.board.graphics))
+
+
+# --- a via with a drill equal to its diameter, in a rewrite only (change c0128) --------------------------
+
+
+def _with_full_drill() -> tuple[Design, str, str]:
+    """The reading of the routed sample with the drill of its first via set to the diameter and the drill
+    of its second via set above the diameter; the ids of the two vias."""
+    first = _read(SAMPLES / "routed" / "routed.PcbDoc")
+    assert first.board is not None and len(first.board.vias) == 3
+    full, above, other = first.board.vias
+    vias = (
+        dataclasses.replace(full, drill=full.diameter),
+        dataclasses.replace(above, drill=above.diameter + 1),
+        other,
+    )
+    return dataclasses.replace(first, board=dataclasses.replace(first.board, vias=vias)), full.id, above.id
+
+
+def test_full_drill_is_written_in_a_rewrite_only(tmp_path: Path) -> None:
+    """Scenario "Full drill in a rewrite only": without ``rewrite`` a via whose drill equals its diameter
+    is left out and counted, as before change c0128; with it the via is written with a hole equal to its
+    diameter and reads back so. A drill above the diameter is left out in both."""
+    design, full, above = _with_full_drill()
+    reason = "the drill is not below the diameter"
+    issues: list[Issue] = []
+    plain = lower.from_design(design, issues=issues)
+    assert plain.not_lowered["via"] == (full, above) and plain.reasons["via"] == reason
+    assert plain.written["via"] == 1 and plain.pcb is not None and not plain.pcb.allow_full_drill
+    assert [(i.code, i.severity, i.where) for i in issues] == [("altium.not-lowered", "warning", "via")]
+    issues = []
+    again = lower.from_design(design, issues=issues, rewrite=True)
+    assert again.not_lowered["via"] == (above,) and again.reasons["via"] == reason
+    assert again.written["via"] == 2 and again.pcb is not None and again.pcb.allow_full_drill
+    written = lower.write_design(design, allow_lossy=True, rewrite=True)
+    records = read_pcbdoc(written.files["routed.PcbDoc"], file="routed.PcbDoc").vias
+    assert sorted(v.hole == v.diameter for v in records) == [False, True]  # type: ignore[union-attr]
+    second = _reading_of(written, tmp_path)
+    assert second.board is not None and design.board is not None
+    wanted = {(v.position, v.diameter, v.drill) for v in design.board.vias if v.id != above}
+    assert {(v.position, v.diameter, v.drill) for v in second.board.vias} == wanted
+
+
+def test_rewrite_is_the_callers_word() -> None:
+    """Scenario "Rewrite is the caller's word": ``AltiumBackend.write`` refuses the loss of the via, counts
+    it with ``allow_lossy``, and writes it with ``rewrite=True``. The argument changes nothing else: a
+    design without such a via gives the same bytes with and without it. A board that was not read from an
+    Altium document is refused, so a script's design or a KiCad design never gets the relaxed rule."""
+    design, full, above = _with_full_drill()
+    assert design.board is not None
+    vias = tuple(v for v in design.board.vias if v.id != above)
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, vias=vias))
+    with pytest.raises(lower.LossyWriteError) as refused:
+        AltiumBackend().write(design)
+    assert [(i.code, i.severity, i.where) for i in refused.value.issues] == [
+        ("altium.not-lowered", "warning", "via")
+    ]
+    lossy = AltiumBackend().write(design, allow_lossy=True)
+    assert lossy.inputs.not_lowered["via"] == (full,) and lossy.inputs.written["via"] == 1
+    rewritten = AltiumBackend().write(design, rewrite=True)
+    assert "via" not in rewritten.inputs.not_lowered and rewritten.inputs.written["via"] == 2
+    assert not [i for i in rewritten.issues if i.where == "via"]
+    sample = _read(SAMPLES / "routed" / "routed.PcbDoc")
+    assert dict(AltiumBackend().write(sample).files) == dict(
+        AltiumBackend().write(sample, rewrite=True).files
+    )
+    kicad = KicadBackend().read(KICAD_ROUTED).design
+    with pytest.raises(ValueError, match="rewrite=True is for the reading of an Altium document"):
+        lower.from_design(kicad, issues=[], rewrite=True)
+    with pytest.raises(ValueError, match="rewrite=True is for the reading of an Altium document"):
+        AltiumBackend().write(kicad, rewrite=True)
+    schematic = _read(SAMPLES / "sample" / "altium_sample.SchDoc")
+    assert schematic.board is None
+    assert lower.from_design(schematic, issues=[], rewrite=True).pcb is None
+
+
+def test_roundtrip_is_a_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``AltiumBackend.model_roundtrip`` writes with ``rewrite=True``: the trip of RT-A3 gives back a
+    document that was read. No other caller of the write passes it."""
+    seen: list[dict[str, object]] = []
+    real = lower.write_design
+
+    def spy(design: Design, **options: object) -> lower.ProjectWrite:
+        seen.append(options)
+        return real(design, **options)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(lower, "write_design", spy)
+    trip = AltiumBackend().model_roundtrip(
+        SAMPLES / "routed" / "routed.PcbDoc", compare=lambda a, b, s: diff_designs(a, b, scope=s)
+    )
+    assert trip.equal and seen == [{"allow_lossy": True, "rewrite": True}]
+    seen.clear()
+    AltiumBackend().write(_read(SAMPLES / "routed" / "routed.PcbDoc"))
+    write_model(KicadBackend().read(KICAD_ROUTED).design)
+    assert [options.get("rewrite", False) for options in seen] == [False, False]

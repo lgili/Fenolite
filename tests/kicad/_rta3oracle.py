@@ -30,7 +30,7 @@ _FOLDER = tempfile.TemporaryDirectory(prefix="fenolite-rta3-oracle-")
 def rewritten(source: Path) -> Path:
     """The PCB document that ``lower.write_design`` gives for the model of ``source``, in a folder of this
     session."""
-    written = write_design(AltiumBackend().read(source).design, allow_lossy=True)
+    written = write_design(AltiumBackend().read(source).design, allow_lossy=True, rewrite=True)
     (name,) = [name for name in written.files if name.endswith(".PcbDoc")]
     folder = Path(_FOLDER.name) / f"{abs(hash(str(source))):x}"
     folder.mkdir(parents=True, exist_ok=True)

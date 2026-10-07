@@ -273,19 +273,28 @@ class AltiumBackend:
 
         return RT_A2_SCOPE
 
-    def write(self, design: Design, *, target: int | None = None, allow_lossy: bool = False) -> ProjectWrite:
+    def write(
+        self,
+        design: Design,
+        *,
+        target: int | None = None,
+        allow_lossy: bool = False,
+        rewrite: bool = False,
+    ) -> ProjectWrite:
         """The files of an Altium project written from ``design`` alone (change c0090,
         ``lower.write_design``): the PCB document of its board, and the schematic, its libraries and the
         project file of its circuit. No script, library or other file is read. ``target`` must be
         ``None``: the Altium writers have one form. ``lower.LossyWriteError`` (``FEN-7001``) when the
         documents would not hold an item of the board's copper, footprints or nets and ``allow_lossy`` is
-        false. The write is experimental: ``capabilities()`` names no write kind until the writers leave
-        that state."""
+        false. ``rewrite`` (change c0128) says that ``design`` is the reading of an Altium document and
+        that the write gives it back: a via whose drill equals its diameter is then written as it was
+        read; ``ValueError`` when the board was not read from an Altium document. The write is
+        experimental: ``capabilities()`` names no write kind until the writers leave that state."""
         from fenolite.backends.altium.lower import write_design
 
         if target is not None:
             raise ValueError(f"the Altium writers have one form; target {target!r} is not one")
-        return write_design(design, allow_lossy=allow_lossy)
+        return write_design(design, allow_lossy=allow_lossy, rewrite=rewrite)
 
     def in_model_frame(self, model: Design, reading: Design) -> Design:
         """``reading`` in the frame of ``model``, the design it was written from (``lower.in_frame_of``)."""
@@ -295,17 +304,17 @@ class AltiumBackend:
 
     def model_roundtrip(self, path: Path, *, compare: Compare) -> ModelRoundTrip:
         """RT-A3 of the document at ``path`` (a PCB document, a schematic document or a project file):
-        read it, write its model with ``lower.write_design(..., allow_lossy=True)`` into a temporary
-        folder of its own, read the written document of the same kind, and let ``rta3.rt_a3`` judge the
-        two models; ``compare`` is ``checks.diff.diff_designs`` under a scope. Nothing is written beside
-        the input, and the folder is removed. The reader's ``FormatError`` on the input is raised."""
+        read it, write its model with ``lower.write_design(..., allow_lossy=True, rewrite=True)`` into a
+        temporary folder of its own, read the written document of the same kind, and let ``rta3.rt_a3``
+        judge the two models; ``compare`` is ``checks.diff.diff_designs`` under a scope. Nothing is written
+        beside the input, and the folder is removed. The reader's ``FormatError`` on the input is raised."""
         import tempfile
 
         from fenolite.backends.altium.lower import write_design
         from fenolite.backends.altium.rta3 import rt_a3
 
         first = self.read(path).design
-        written = write_design(first, allow_lossy=True)
+        written = write_design(first, allow_lossy=True, rewrite=True)
         suffix = path.suffix.lower()
         board: Path | None = path if suffix == ".pcbdoc" else None
         if suffix == ".prjpcb":

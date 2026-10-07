@@ -29,6 +29,8 @@ from _corpus import MANIFEST, CorpusItem, heavy_enabled, manifest_items, require
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.altium.lower import write_design
+from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import ViaRecord
 from fenolite.backends.base import ModelRoundTrip
 from fenolite.checks.rta3 import compare
 
@@ -118,6 +120,39 @@ def test_document_holds_rta3(item: CorpusItem, capsys: pytest.CaptureFixture[str
     assert trip.equal, f"{item.id}: {len(trip.differences)} difference(s), first {entry['first_difference']}"
 
 
+FULL_DRILL = "altium-third-party-pcbdoc-02"
+"""The public document that holds vias whose hole equals their diameter (``H-A-PCBX-VIA-FULL``)."""
+
+
+def test_vias_with_a_full_drill(capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "Vias with a full drill" (change c0128; ``H-A-PCBX-VIA-FULL``): a document that Altium
+    saved holds via records whose hole equals their diameter, each an ordinary through via; the trip of
+    RT-A3, which is a rewrite, writes every one of them and is equal; a write of the same model that is
+    not a rewrite leaves them out, as a build refuses them. Counts only."""
+    (item,) = [row for row in ROWS if row.id == FULL_DRILL]
+    path = require(item)
+    records = [v for v in read_pcbdoc(path.read_bytes(), file=path.name).vias if isinstance(v, ViaRecord)]
+    full = [v for v in records if v.hole == v.diameter]
+    assert (len(records), len(full)) == (242, 48) and not [v for v in records if v.hole > v.diameter]
+    assert {(v.start_layer, v.end_layer) for v in full} == {(1, 32)}
+    assert all(v.prefix.net is not None for v in full)
+    first = AltiumBackend().read(path).design
+    assert first.board is not None
+    assert sum(1 for via in first.board.vias if via.drill == via.diameter) == 48
+    trip = AltiumBackend().model_roundtrip(path, compare=compare)
+    plain = write_design(first, allow_lossy=True)
+    with capsys.disabled():
+        print(
+            f"\n{item.id}: via records {len(records)}, hole equal to the diameter {len(full)}; rewrite: "
+            f"written {trip.written['via']}, unwritten {trip.unwritten.get('via', 0)}; not a rewrite: "
+            f"written {plain.inputs.written['via']}, unwritten {plain.inputs.counts().get('via', 0)}"
+        )
+    assert trip.judged and trip.equal
+    assert trip.written["via"] == 242 and "via" not in trip.unwritten
+    assert plain.inputs.written["via"] == 194 and plain.inputs.counts()["via"] == 48
+    assert plain.inputs.reasons["via"] == "the drill is not below the diameter"
+
+
 def test_equal_documents_come_from_three_repositories() -> None:
     """The criterion of ``H-A-VER-RTA3``: the rows that are not listed as different come from at least
     three repositories (the heavy row counts only where it runs)."""
@@ -163,7 +198,7 @@ def test_sets(
     assert trip.judged and trip.equal, f"{name}: first difference {entry['first_difference']}"
     rewrite = tmp_path / "rewrite"
     rewrite.mkdir()
-    written = write_design(AltiumBackend().read(project).design, allow_lossy=True)
+    written = write_design(AltiumBackend().read(project).design, allow_lossy=True, rewrite=True)
     for file_name, data in written.files.items():
         (rewrite / file_name).write_bytes(data)
     before, after = _assignment(folder, monkeypatch), _assignment(rewrite, monkeypatch)

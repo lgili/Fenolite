@@ -269,8 +269,9 @@ the heavy rows (`FENOLITE_HEAVY=1`):
 `FENOLITE_REQUIRE=corpus FENOLITE_CENSUS_OUT=… uv run pytest tests/corpus/test_altium_rta3.py`, 15 tests
 passed.
 Run again on 2026-10-06 with change c0127 (arcs keep their record), with the heavy rows:
-`FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -q`, 15 tests passed; the table holds
-that run.
+`FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -q`, 15 tests passed.
+Run again on 2026-10-07 with change c0128 (the trip writes with `rewrite=True`), with the heavy rows:
+the same command, 16 tests passed (one more test, on the vias of one document); the table holds that run.
 
 **PCB documents** (every row with the use `rta` that is a PCB document, read alone). `written` counts
 model items; the last three columns are what the rewrite does not hold: model items by kind, records
@@ -280,7 +281,7 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 | document | inside the scope | footprints | pads | tracks | arcs | vias | zones | model items not written | records without a model entity | storages kept as bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1346 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | footprint-graphics 3469; shape-based-regions 90; plane-cuts 74; pour-primitives 40; polygons 8; classes 38 | 15 |
-| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 194 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; via 48; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
+| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 242 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
 | `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; graphic 1; pad 8; rule 1; zone-fill 1 | footprint-graphics 846; shape-based-regions 23; classes 20 | 18 |
 | `altium-third-party-pcbdoc-04` | equal | 17 | 53 | 149 | 0 | 67 | 9 | body 33; copper-shape 2; graphic 12; outline 4; zone-fill 9 | footprint-graphics 315; shape-based-regions 27; classes 16; bad-geometry 1 | 19 |
 | `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
@@ -320,9 +321,7 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
   model holds as graphics); 88 graphics and 2 texts on layers without a layer in the written document
   (mechanical layers, the keep-out layer, the drill drawing), and 1 text with a line break; 75 pads (59
   with a per-layer pad stack, 10 on a layer that is no outer copper layer, 4 without a number, 2 with a
-  custom shape), and with them 8 free pads; 48 vias whose drill is not below their diameter, which
-  the via writer refuses (decision of 2026-10-06: change c0128 relaxes this for the rewrite of a
-  document that was read; a build from a script keeps refusing);
+  custom shape), and with them 8 free pads; no via since change c0128 (see below);
   6 zones whose outline has an arc (the model holds no outline for them); 41 poured fills (a polygon
   is written unpoured); 22 arcs of board outlines, written as two straight edges, and one board without
   a closed outline; 2 planes without a net of the document, written as signal layers; 2 rules (one of
@@ -338,6 +337,15 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
   model entity (`plane-cuts`), `-01` writes 1 346 tracks instead of 1 420, and `-02` writes the same
   191. No other count of the table moved, both rows stay equal inside the scope, and RT-A0 and RT-A1
   are untouched: they compare the records, which the readers keep.
+- **Vias whose drill equals their diameter** (change c0128; `H-A-PCBX-VIA-FULL`). 48 of the 242 via
+  records of `altium-third-party-pcbdoc-02` hold a hole equal to the diameter: ordinary through vias
+  on a net, with nothing else that marks them; no via record of the eight documents (2 933) holds a
+  hole above its diameter. The via writer refuses such a via (c0038), and until c0128 the rewrite left
+  the 48 out and counted them. The trip of RT-A3 is the rewrite of a document that was read and now
+  says so (`rewrite=True`): the 242 vias are written and equal, and `via` left the column. A write of
+  the same model that is not a rewrite still leaves the 48 out, and a build from a script refuses
+  such a via as before. The 43 lines on the internal planes of the same document are another matter:
+  they are no model items since change c0124 (above).
 - **Footprint graphics are the largest count**: the lines, arcs and texts of the footprints are records
   that the import maps to no model entity, because a footprint instance of the model holds pads only.
   A rewritten board has its pads and no silkscreen of its footprints. Decision of 2026-10-06: change
@@ -386,7 +394,9 @@ profile `kicad-import`. The columns give what each level compared.
 | `altium-third-party-pcbdoc-07` | 12 | 95 | 95 | 12 | 21 | 0 | 0 |
 
 No difference and no exclusion on the two own documents and on the seven public documents that are
-not heavy. This says that a second reader, which shares no code with Fenolite, reads a rewritten
+not heavy. Run again on 2026-10-07 with change c0128: the rewrites are written with `rewrite=True`, so the
+rewrite of `altium-third-party-pcbdoc-02` holds its 48 vias with a hole equal to the diameter; the table is
+unchanged (11 tests passed), and level 5, which compares the vias of each net, finds no difference. This says that a second reader, which shares no code with Fenolite, reads a rewritten
 document as Fenolite does. It does not say that Altium Designer opens one: no rewrite was opened in
 Altium.
 

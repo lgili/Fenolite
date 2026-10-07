@@ -530,6 +530,8 @@ def _copper(
     net_names: Mapping[str, str],
     frame: pcbdoc.Frame,
     account: _Account,
+    *,
+    full_drill: bool = False,
 ) -> tuple[list[Track], list[Arc], list[Via], list[Zone], dict[str, rec.ArcGeometry]]:
     signal = [name for name in layers if name not in planes]
     records: dict[str, rec.ArcGeometry] = {}
@@ -578,7 +580,8 @@ def _copper(
             pcbdoc.via_span(via, layers)
         except ValueError as error:
             problem = str(error).partition(": ")[2] or str(error)
-        if problem is None and not 0 < via.drill < via.diameter:
+        full = full_drill and 0 < via.drill == via.diameter  # a rewrite of a document that was read
+        if problem is None and not (0 < via.drill < via.diameter or full):
             problem = "the drill is not below the diameter"
         if problem is not None:
             account.skip("via", via.id, problem)
@@ -797,19 +800,29 @@ def from_design(
     *,
     issues: list[Issue],
     corner_ratios: Mapping[str, Decimal] | None = None,
+    rewrite: bool = False,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone. ``corner_ratios`` maps a pad id
     to the corner ratio of its rounded rectangle, for a caller that knows what the model does not hold (a
     board read from KiCad keeps the ratio in KiCad's own bag); a pad read from an Altium document carries
-    it. One ``altium.not-lowered`` per kind of item that is not written is added to ``issues``."""
+    it. One ``altium.not-lowered`` per kind of item that is not written is added to ``issues``.
+
+    ``rewrite`` (change c0128) is the caller's statement that ``design`` is the reading of an Altium
+    document and that the write gives the document back: a via whose drill equals its diameter, which a
+    saved document can hold and a build refuses, is then written as it was read. It is not inferred from
+    the design, and ``ValueError`` refuses it for a board that was not read from an Altium document."""
     account = _Account()
     name = design_name(design)
     board = design.board
+    if rewrite and board is not None and BACKEND not in board.native_ids:
+        raise ValueError(
+            "rewrite=True is for the reading of an Altium document; this board was not read from one"
+        )
     spec: pcbdoc.PcbDocSpec | None = None
     if board is not None:
         outline = _outline(board, account)
         if len(outline) >= 3:
-            spec = _document(design, board, outline, corner_ratios or {}, account)
+            spec = _document(design, board, outline, corner_ratios or {}, account, rewrite=rewrite)
     schematic = schematic_design(design, name)
     for component in design.circuit.components:
         if component.pin_pad_map:
@@ -840,6 +853,8 @@ def _document(
     outline: tuple[Point, ...],
     ratios: Mapping[str, Decimal],
     account: _Account,
+    *,
+    rewrite: bool = False,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -862,7 +877,9 @@ def _document(
             if found[0] is not None and found[1] is not None:
                 origin = Point(found[0][0], found[1][0])
     components, free_pads = _footprints(design, board, net_names, ratios, account)
-    tracks, arcs, vias, zones, arc_records = _copper(board, layers, planes, net_names, frame, account)
+    tracks, arcs, vias, zones, arc_records = _copper(
+        board, layers, planes, net_names, frame, account, full_drill=rewrite
+    )
     texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
@@ -888,6 +905,7 @@ def _document(
         origin=origin,
         free_pads=tuple(free_pads),
         arc_records=MappingProxyType(arc_records),
+        allow_full_drill=rewrite,
     )
 
 
@@ -896,14 +914,16 @@ def write_design(
     *,
     allow_lossy: bool = False,
     corner_ratios: Mapping[str, Decimal] | None = None,
+    rewrite: bool = False,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
     ``<name>.PrjPcb`` when the schematic writer takes the circuit (otherwise one ``altium.not-lowered``
     with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
-    ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes."""
+    ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
+    ``from_design``: the write of the reading of an Altium document."""
     issues: list[Issue] = []
-    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios)
+    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite)
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
         raise LossyWriteError(lost)

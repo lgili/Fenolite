@@ -207,6 +207,7 @@ EVIDENCE = Evidence(
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
         "H-A-PCBX-TEXT",
+        "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
     ),
 )
@@ -314,6 +315,10 @@ class PcbDocSpec:
     written with instead of the ones derived from its three points (change c0127): the record that an
     imported arc was read from, when the caller found that it still says the entity's points. Empty: every
     arc is derived from its points, as a build writes it."""
+    allow_full_drill: bool = False
+    """``True`` writes a via whose drill equals its diameter (change c0128): a document that Altium saved
+    can hold one (``pcb-copper.md``, "Via"), and the rewrite of a document that was read gives it back.
+    ``False``, the value of every build, refuses it. A drill above the diameter is refused in both cases."""
 
 
 def _u32(value: int) -> bytes:
@@ -720,17 +725,19 @@ def drill_pairs(vias: Sequence[Via], copper: _Copper) -> tuple[tuple[int, int], 
     return tuple((copper.layers[upper], copper.layers[lower]) for upper, lower in ordered)
 
 
-def via_records(vias: Sequence[Via], copper: _Copper) -> list[bytes]:
+def via_records(vias: Sequence[Via], copper: _Copper, *, allow_full_drill: bool = False) -> list[bytes]:
     """The vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and entity
     id: a through via with the start layer 1 and the end layer 32, a blind or buried via (change c0085)
     with the ids of the two layers it spans. ``ValueError`` names the id of a via that ``via_span``
-    refuses, whose drill is not below its diameter, or on an unknown net."""
+    refuses, whose drill is not below its diameter, or on an unknown net. ``allow_full_drill``
+    (``PcbDocSpec.allow_full_drill``, change c0128) accepts a drill equal to the diameter."""
     names = list(copper.layers)
     out: list[bytes] = []
     ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
     for via in ordered:
         upper, lower = via_span(via, names)
-        if not 0 < via.drill < via.diameter:
+        full = allow_full_drill and via.drill == via.diameter
+        if not (0 < via.drill < via.diameter or (full and via.drill > 0)):
             raise ValueError(
                 f"{via.id}: the drill of {via.drill} nm is not below the diameter of {via.diameter} nm"
             )
@@ -1346,7 +1353,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     tracks += routed_tracks(spec.tracks, copper)
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
-    filled["Vias6"] = via_records(spec.vias, copper)
+    filled["Vias6"] = via_records(spec.vias, copper, allow_full_drill=spec.allow_full_drill)
     pairs = drill_pairs(spec.vias, copper)
     if pairs:
         stack = dataclasses.replace(stack, drill_pairs=pairs)

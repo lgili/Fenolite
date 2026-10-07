@@ -1252,7 +1252,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written. The lines and arcs of a footprint are no part of the model: `record:footprint-graphics` |
 | `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers | `number`, `net_id`, `position`, `size` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
 | `track`, `arc` | on a signal layer of the stack, with its net; an arc that was read from an Altium document with the centre, radius and angles of its record (c0127) | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width; an arc of three points on a line that holds no record of its own |
-| `via` | through, blind and buried, with its net | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter |
+| `via` | through, blind and buried, with its net; in the rewrite of a document that was read (`rewrite=True`, c0128) also a via whose drill equals its diameter | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter (in a rewrite: above the diameter) |
 | `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
 | text, graphic, keep-out, hole | as `fenolite build` writes them (c0085) | not compared | `text`, `graphic`, `keep-out`, `hole`: a layer without a layer in the document, an item that the record cannot hold |
 | shape on copper | not written | not compared | `copper-shape`: a fill or a region on a copper layer, which the model holds as a graphic with its net in the bag |
@@ -1300,8 +1300,12 @@ they write the model as it is. Run `fenolite check` on the written documents.
   now keeps the record's own values in its `altium` bag (the pair `arc`), and the write uses them
   while they still give the arc's three points within 2 nm. An arc that was moved in the model, and
   an arc of a script or of a KiCad board, is derived from its three points as before.
-- A via whose drill equals its diameter is not written. Change c0128 relaxes that for the rewrite of
-  a document that was read; a build from a script keeps refusing such a via.
+- Closed by change c0128 for a rewrite: a via whose drill equals its diameter, which a document that
+  Altium saved can hold, is written when the caller says that the write is the rewrite of a document
+  that was read: `AltiumBackend().write(design, rewrite=True)`. RT-A3 (`fenolite roundtrip PATH --level
+  rta3`, the stage `roundtrip.rta3`) writes that way. `rewrite=True` is refused for a board that was
+  not read from an Altium document. A build from a script, `write_model` and a write without the
+  argument keep refusing such a via.
 - The schematic of a rewrite is written only when the build's schematic writer takes the circuit. A
   tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
 

@@ -193,6 +193,10 @@ is which values the records get.
   2 nm. The record is the one of "Tracks and arcs" in `pcb-copper.md`; only its values differ from
   the ones a build derives from three points. An arc without the pair, and an arc that was moved in
   the model, is derived from its points.
+- **Vias with a hole equal to the diameter** (change c0128). A saved document can hold a via whose
+  hole equals its diameter (`pcb-copper.md`, "Via"). When the write is the rewrite of a document that
+  was read (`rewrite=True`), such a via is written as the via record of any other via with the two
+  equal values. In every other write, and in a build, it is refused.
 - **Free pads.** A pad that belongs to no component is a pad record whose component index is the
   "none" value, like the pad that a hole is written as ("Free pads as holes"), here with its name, its
   copper and its net.

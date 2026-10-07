@@ -112,8 +112,8 @@ def test_a_writer_defect_is_caught(monkeypatch: pytest.MonkeyPatch) -> None:
     and a difference names a via."""
     real = pcbdoc.via_records
 
-    def dropping(vias: Any, copper: Any) -> list[bytes]:
-        return real(vias, copper)[:-1]
+    def dropping(vias: Any, copper: Any, **options: Any) -> list[bytes]:
+        return real(vias, copper, **options)[:-1]
 
     monkeypatch.setattr(pcbdoc, "via_records", dropping)
     trip = AltiumBackend().model_roundtrip(ROUTED / "routed.PcbDoc", compare=compare)

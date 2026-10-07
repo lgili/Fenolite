@@ -30,6 +30,8 @@ from fenolite.backends.altium.pcbdoc import (
     record_layer,
     write_pcbdoc,
 )
+from fenolite.backends.altium.read.pcb import read_pcbdoc as read_document
+from fenolite.backends.altium.read.pcbprims import ViaRecord
 from fenolite.core.coords import Point
 from fenolite.model.board import Arc, Track, Via, Zone
 
@@ -573,6 +575,28 @@ def test_blind_via_written() -> None:
 def test_via_refusals(changes: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(through("via_bad", 10, 10, **changes),)))
+
+
+def test_via_with_a_full_drill_needs_the_option() -> None:
+    """Scenario "Via with a full drill" (change c0128): a via whose drill equals its diameter is refused,
+    as c0038 pins it, unless ``PcbDocSpec.allow_full_drill`` is set, the option of the rewrite of a document
+    that was read; then the hole is the diameter and every other byte is that of the same via with a
+    smaller drill. A drill above the diameter and a drill of 0 are refused with and without the option."""
+    full = through("via_full", 10, 10, drill=600_000)
+    assert copper_spec().allow_full_drill is False
+    with pytest.raises(ValueError, match="via_full: the drill of 600000 nm is not below the diameter"):
+        write_pcbdoc(copper_spec(vias=(full,)))
+    # read with Fenolite's reader: the reader of these tests keeps the rule of a build and refuses the record
+    (via,) = read_document(write_pcbdoc(copper_spec(vias=(full,), allow_full_drill=True))).vias
+    (plain,) = read_document(write_pcbdoc(copper_spec(vias=(through("via_full", 10, 10),)))).vias
+    assert isinstance(via, ViaRecord) and isinstance(plain, ViaRecord)
+    assert (via.diameter, via.hole, via.start_layer, via.end_layer) == (236220, 236220, 1, 32)
+    assert (plain.diameter, plain.hole) == (236220, 118110) and len(via.raw) == len(plain.raw) == 326
+    hole = slice(5 + 25, 5 + 29)  # the type byte and the length, then the hole at 25
+    assert via.raw[: hole.start] == plain.raw[: hole.start] and via.raw[hole.stop :] == plain.raw[hole.stop :]
+    for drill in (600_001, 0, -1):
+        with pytest.raises(ValueError, match="via_bad: the drill of"):
+            write_pcbdoc(copper_spec(vias=(through("via_bad", 10, 10, drill=drill),), allow_full_drill=True))
 
 
 def test_copper_layers_must_be_a_known_stack() -> None:
