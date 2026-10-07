@@ -485,3 +485,37 @@ def test_exclusion_source_never_raises_for_an_unreadable_project(tmp_path: Path)
     assert KicadBackend().stored_exclusions(copy_set) == ()
     project.write_bytes(b"\xff\xfe")
     assert KicadBackend().stored_exclusions(copy_set) == ()
+
+
+# -- length facts (backend-protocol, "Length facts source"; change c0106)
+
+
+def test_length_source_protocol() -> None:
+    backend = KicadBackend()
+    assert isinstance(backend, base.LengthSource)
+    assert "length_facts" not in backend.capabilities().operations
+    assert not isinstance(object(), base.LengthSource)
+    source = Path(sys.modules[KicadBackend.__module__].__file__ or "").read_text(encoding="utf-8")
+    assert "_LENGTHS: LengthSource = KicadBackend()" in source
+
+
+def test_length_records_are_plain_data() -> None:
+    for record in (base.NetLength, base.LengthFacts):
+        assert dataclasses.is_dataclass(record) and record.__dataclass_params__.frozen  # type: ignore[attr-defined]
+        assert hasattr(record, "__slots__")
+        for annotation in typing.get_type_hints(record).values():
+            modules = _names(annotation)
+            assert all(
+                m in ("builtins", "typing", "types", "collections.abc", base.__name__)
+                or m.startswith(("fenolite.core", "fenolite.model"))
+                for m in modules
+            ), modules
+    test_base_imports_no_backend()
+    length = base.NetLength("N", 10, 2, 1, 13, 1)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        length.total = 4  # type: ignore[misc]
+    with pytest.raises(ValueError, match="sum of its parts"):
+        base.NetLength("N", 10, 2, 1, 14, 1)
+    facts = base.LengthFacts({"N": length}, {"F.Cu": 0}, {}, 10, "default", True, base.Evidence())
+    with pytest.raises(TypeError):
+        facts.nets["M"] = length  # type: ignore[index]

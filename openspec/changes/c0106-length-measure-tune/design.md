@@ -260,3 +260,12 @@ Cut order: (1) meanders (âˆ’1.75, to 7.75 days); (2) the stage `length.rules` (â
 - **Rounded meander corners.** Default: square only.
 - **A meander target from a rule.** c0104 writes the `opt` of a `length` rule for KiCad's tuners. Should `Design.meander` take `target="rule"` and use it? Default: no; the script passes `target` or `match`.
 - **A default stage or an opt-in one.** Default: default, because it costs nothing without length or skew rules.
+
+## Found on 2026-10-08 (integration)
+
+The change was implemented on an older base, returned before its `make check-fast` had ended, and was rebased onto `v04` with c0103 and c0104 on it. What the integration did and found:
+
+- **Every delta of the change is ADDED**, so no requirement text had to be regenerated. The ten conflicts were places where two changes add beside each other (the protocols `ExclusionSource` of c0114 and `LengthSource` in `backends/base.py` and in the KiCad backend, the evidence of board items and of meanders in `lens/build.py`, the probe registry, the test folders of `tests/kicad/conftest.py`, the registers); both sides are kept whole.
+- **The 9.0.9 half is measured.** The eleven `length-*` probes ran inside the pinned 9.0.9 image and are recorded in `docs/evidence/kicad/probes/9.0.9.json`: all `equal`, as on 10.0.6. `tests/kicad/length` gives 21 passed on the local 10.0.6 and 21 passed inside the image. Tasks 1.2 and 8.4 are ticked on those runs; the hypothesis rows keep their labels until task 10.3.
+- **The guide** (c0080 is on the branch now): one tested command line for `fenolite analyze --kinds length` on the page `rules`, one `design.meander` call in the tested script of the page `routing`, and `MeanderIntent` and `meanders` in `guide.DSL_NOT_TAUGHT` with their reasons (task 9.2).
+- **c0104 is on the branch now**, and the parts that waited for it are still not written: the pairs of the length report (task 4.3), the stage `length.rules` with its three codes (task 6.1) and the stage verdicts of the canaries (task 7.1). They are new code, not corrections, and stay open.

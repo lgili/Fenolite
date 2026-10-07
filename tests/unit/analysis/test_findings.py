@@ -39,11 +39,13 @@ POWER_CODES = {
     "analysis.creepage-over": "info",
 }
 """The nine codes of change c0115 ("Power and insulation codes")."""
+LENGTH_CODES = {"analysis.length-open": "warning", "analysis.length-stub": "info"}
+"""The two codes of change c0106 ("Length analysis issue codes")."""
 
 
 def test_table_of_ten_codes() -> None:
     """The ten codes of c0047; c0115 adds nine beside them."""
-    first = [code for code in ISSUE_CODES if code not in POWER_CODES]
+    first = [code for code in ISSUE_CODES if code not in POWER_CODES and code not in LENGTH_CODES]
     assert len(first) == 10 and all(code.startswith("analysis.") for code in ISSUE_CODES)
     errors = sorted(code for code in first if ISSUE_CODES[code] == ("error",))
     assert errors == [
@@ -56,12 +58,21 @@ def test_table_of_ten_codes() -> None:
 
 def test_power_codes_in_the_table() -> None:
     """Scenario "Codes in the table"."""
-    assert len(ISSUE_CODES) == 19
+    assert len(ISSUE_CODES) == 19 + len(LENGTH_CODES)
     for code, severity in POWER_CODES.items():
         assert ISSUE_CODES[code] == (severity,), code
     with pytest.raises(ValueError, match="no severity"):
         issue("analysis.creepage-over", "x", severity="warning")
     assert issue("analysis.creepage-over", "x").severity == "info"
+
+
+def test_length_codes_in_the_table() -> None:
+    """Scenario "Codes in the table" of the length analysis (change c0106)."""
+    for code, severity in LENGTH_CODES.items():
+        assert ISSUE_CODES[code] == (severity,), code
+    with pytest.raises(ValueError, match="no severity"):
+        issue("analysis.length-stub", "x", severity="warning")
+    assert issue("analysis.length-open", "x").severity == "warning"
 
 
 def test_unknown_code_refused() -> None:

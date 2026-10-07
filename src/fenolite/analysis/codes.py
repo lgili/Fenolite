@@ -33,6 +33,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "analysis.insulation-below": ("error",),
         "analysis.insulation-undecided": ("warning",),
         "analysis.creepage-over": ("info",),
+        # net lengths ("Length analysis issue codes")
+        "analysis.length-open": ("warning",),
+        "analysis.length-stub": ("info",),
     }
 )
 

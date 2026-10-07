@@ -804,6 +804,16 @@ meaning = "Copper that could not be given a shape, or a conductor outside the bo
 fix = "Check those items by hand; 'where' names the kind."
 see = "analyze"
 
+["analysis.length-open"]
+meaning = "The copper of a measured net does not join its start pad to the pads the message names, so those pads have no pin-to-pin length. Tracks that only cross without an end inside each other are not joined."
+fix = "Route the open connection, or pass --from to measure from another pad of the net."
+see = "analyze"
+
+["analysis.length-stub"]
+meaning = "Part of the copper of a measured net lies on no path from its start pad to another pad: a stub, a branch end or dangling copper. KiCad's length of the net counts it, so the total is longer than any pin-to-pin length."
+fix = "Remove the stub if it is not wanted; if it is, judge the pin-to-pin lengths in `result.lengths[].paths` beside the total."
+see = "analyze"
+
 ["analysis.path-exceeded"]
 meaning = "An element that carries the whole current of a power path (a part of a track in series, a via group in series, or a fill between two ports) has a capacity by the fit below that current."
 fix = "Widen the track, add vias to the group or widen the narrowest section the message locates; or correct the current or the temperature rise of the row."
@@ -1658,6 +1668,16 @@ meaning = "The board's stack-up names other copper layers than the new layer tab
 fix = "Set the stack-up again in KiCad's board setup for the new layer count."
 see = "build"
 
+["kicad.length.bad-die"]
+meaning = "A pad holds a die length that is not a non-negative decimal of millimetres. It counts as 0 in the length of its net."
+fix = "Correct the die length of the pad in KiCad's pad properties."
+see = "analyze"
+
+["kicad.length.default-stackup"]
+meaning = "The board holds no stack-up, so the height of each via is counted on the default stack-up KiCad assumes for such a file: copper layers of 35 µm and equal dielectrics that fill the board thickness less 20 µm. The total is what KiCad's DRC judges for this file, not a property of a real board."
+fix = "Declare the stack-up in the design script or in KiCad's Board Setup, then measure again."
+see = "analyze"
+
 ["kicad.lib.disabled"]
 meaning = "A library nickname exists only in rows of the library table that are disabled."
 fix = "Enable the row or name another library."
@@ -1761,6 +1781,46 @@ see = "build"
 ["kicad.outline.zone-short"]
 meaning = "An arc of the board ring bulges beyond the box of its vertices and mid points, which a zone declared without an outline takes: the fill of the named zones stops short of that edge."
 fix = "Give the zone an outline that holds the arc, or add a vertex at the extreme of the arc."
+see = "build"
+
+["kicad.meander.bad-intent"]
+meaning = "A meander() call of the script is malformed: its key, side, amplitude, pitch, margin or segment index, it has both or neither of target and match, its key is used twice, or its segment is an arc."
+fix = "Correct the meander() call that 'where' names; a meander stands on a straight segment of a track."
+see = "build"
+
+["kicad.meander.bad-match"]
+meaning = "The track a meander matches created no copper, or the matches of several meanders form a cycle."
+fix = "Check the issues of the matched track, or give one of the meanders a target length."
+see = "build"
+
+["kicad.meander.bad-shape"]
+meaning = "The pitch of a meander is not above the width of its track, so neighbouring legs would touch."
+fix = "Give a pitch of at least the track width plus the clearance of the net."
+see = "build"
+
+["kicad.meander.inexact"]
+meaning = "After two corrections of the last bump, the length of the meandered track still lies more than 10 nm from its target."
+fix = "Meander a segment that runs along an axis, or choose a target a few nanometres away."
+see = "build"
+
+["kicad.meander.no-room"]
+meaning = "The segment is too short for the bumps the missing length needs with this amplitude, pitch and margin. The message gives the length needed and the most the segment can add."
+fix = "Raise the amplitude, lower the pitch or the margin, or meander a longer segment."
+see = "build"
+
+["kicad.meander.no-segment"]
+meaning = "The track a meander names created no segment of that index, because the track had an error or one of its ends waits for a staged part. The meander creates nothing."
+fix = "Fix the issues of the track, or place the part its end names; the meander is resolved on the next build."
+see = "build"
+
+["kicad.meander.not-needed"]
+meaning = "The track already has its target length, within 10 nm, so the meander changes nothing."
+fix = "Nothing to do; remove the meander() call if the track will stay as it is."
+see = "build"
+
+["kicad.meander.too-long"]
+meaning = "The track is already longer than the target of its meander. A meander only adds length."
+fix = "Shorten the track, raise the target, or meander the other track of the pair instead."
 see = "build"
 
 ["kicad.pad.zone-forced"]

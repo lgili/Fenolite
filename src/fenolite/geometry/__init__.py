@@ -13,6 +13,7 @@ from __future__ import annotations
 from fenolite.geometry.boolean import BACKEND_ORDER, BooleanBackend, available_backends, select_backend
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.index import SpatialIndex
+from fenolite.geometry.lengths import arc_length, arc_length_to, segment_length, segment_length_to
 from fenolite.geometry.polygon import (
     Keyhole,
     Path,
@@ -83,6 +84,8 @@ __all__ = [
     "Transform",
     "Vec",
     "add",
+    "arc_length",
+    "arc_length_to",
     "area2",
     "assemble_rings",
     "available_backends",
@@ -106,6 +109,8 @@ __all__ = [
     "polygons_intersect",
     "rotate_point",
     "round_point",
+    "segment_length",
+    "segment_length_to",
     "segments_closer_than",
     "select_backend",
     "sub",

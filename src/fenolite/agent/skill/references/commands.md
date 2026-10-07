@@ -51,10 +51,10 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## analyze
 
-`fenolite analyze [--kinds K,K] [--requirements FILE] [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH] [--via-plating LENGTH] [--board-thickness LENGTH] [--pair NET] [--within LENGTH] [--arc-tol LENGTH] [--path POWER_PATHS] [--resistivity NANOOHM_METRES] [--groove-width LENGTH] PATH`
+`fenolite analyze [--kinds K,K] [--requirements FILE] [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH] [--via-plating LENGTH] [--board-thickness LENGTH] [--pair NET] [--within LENGTH] [--arc-tol LENGTH] [--path POWER_PATHS] [--resistivity NANOOHM_METRES] [--groove-width LENGTH] [--net GLOB] [--from REF] PATH`
 
 - `PATH` (string, required): a board file that a backend reads
-- `--kinds` (string): analyses to run (default: current,clearance,creepage; on request: power,insulation)
+- `--kinds` (string): analyses to run (default: current,clearance,creepage; on request: power,insulation,length)
 - `--requirements` (string): your requirements, a TOML file of integers
 - `--temp-rise` (string): temperature rise for the capacity, e.g. 10
 - `--copper-thickness` (string, repeatable): copper thickness of every layer, or of one layer (repeatable), e.g. 35um or In1.Cu=18um
@@ -66,6 +66,8 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--path` (string, repeatable): with --kinds power: measure the copper between two sets of pads, each REF-PIN[,REF-PIN...] (repeatable); an estimate against your limits, not a simulation
 - `--resistivity` (string): with --kinds power: the resistivity of your copper at your temperature, e.g. 17.2; Fenolite assumes none
 - `--groove-width` (string): with creepage: a groove narrower than this is bridged on the creepage path
+- `--net` (string, repeatable): with --kinds length: measure the nets whose name matches this pattern (repeatable); the total is counted as KiCad of --kicad-version counts it
+- `--from` (string, repeatable): with --kinds length: measure the paths of a net from this part or pad, REF or REF-PIN (repeatable; default: the first pad of each net)
 
 ## bom
 

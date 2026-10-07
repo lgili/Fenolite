@@ -85,6 +85,9 @@ d1.place(mm(15), mm(6), rot=180)
 # A track joins pads through points and takes the net of its pads. Every intent has its own key.
 # The waypoint is an anchor: 4 mm to the left of pad 1 of R1, wherever R1 lies.
 design.track("vin", j1.pad(1), r1.pad(1).at(dx=mm(-4)), r1.pad(1), width=mm(0.5))
+# A meander lengthens one straight segment of a script track to a target length; it does not avoid
+# other copper, so leave it room. Segment 1 of `vin` runs from the waypoint to pad 1 of R1.
+design.meander("vin_len", track="vin", segment=1, amplitude=mm(1), pitch=mm(0.8), target=mm(12))
 # A via inside a path: the track goes on along the layer named by `to`.
 design.track(
     "led_a",

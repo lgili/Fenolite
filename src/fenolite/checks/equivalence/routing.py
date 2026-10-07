@@ -27,9 +27,9 @@ from math import gcd, isqrt
 from fenolite.checks import assignment_compare
 from fenolite.checks.equivalence.model import EXACT, KINDS, Difference, LevelResult, Tolerances
 from fenolite.core.coords import Point, Size
-from fenolite.core.units import round_half_even_div
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import GeometryError, Thick, Transform, touch_groups
+from fenolite.geometry import arc_length as _arc_length
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.design import Design
 
@@ -46,64 +46,17 @@ _FIELD = {kind: name for level, kind, name in KINDS if level == LEVEL}
 
 # --- lengths ---------------------------------------------------------------------------------------
 
-_BITS = 128
-_ONE = 1 << _BITS
-
 
 def _round_sqrt(n: int) -> int:
     """``√n`` rounded to the nearest integer (the root of an integer is never a half)."""
     return (isqrt(4 * n) + 1) // 2
 
 
-def _distance(a: Point, b: Point) -> int:
-    return _round_sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
-
-
-def _atan_fixed(t: int) -> int:
-    """``atan(t)`` for ``0 ≤ t ≤ 1``, argument and result scaled by ``2**_BITS``: the angle is halved
-    three times (``tan(x/2) = t / (1 + √(1 + t²))``), then the power series is summed."""
-    for _ in range(3):
-        t = (t * _ONE) // (_ONE + isqrt(_ONE * _ONE + t * t))
-    square = t * t // _ONE
-    total, term, n, sign = 0, t, 1, 1
-    while term:
-        total += sign * (term // n)
-        term = term * square // _ONE
-        n += 2
-        sign = -sign
-    return total << 3
-
-
-_PI = 4 * _atan_fixed(_ONE)
-
-
-def _angle(cross: int, dot: int) -> int:
-    """The angle in ``[0, π]`` whose sine and cosine are proportional to ``cross ≥ 0`` and ``dot``, scaled
-    by ``2**_BITS``."""
-    a, b = cross, abs(dot)
-    if a <= b:
-        angle = _atan_fixed((a << _BITS) // b)
-    else:
-        angle = _PI // 2 - _atan_fixed((b << _BITS) // a)
-    return _PI - angle if dot < 0 else angle
-
-
 def arc_length(start: Point, mid: Point, end: Point) -> int:
     """The true length in nanometres of the circular arc from ``start`` through ``mid`` to ``end``,
-    rounded half to even. The arc turns by twice the angle between ``start → mid`` and ``mid → end``, so
-    its length is the radius times that. Collinear points give the two straight parts, and points that
-    form no arc the distance of the ends."""
-    try:
-        shape = GeoArc(start, mid, end)
-    except GeometryError:
-        return _distance(start, end)
-    radius2 = shape.radius2
-    if radius2 is None:
-        return _distance(start, mid) + _distance(mid, end)
-    ux, uy, vx, vy = mid.x - start.x, mid.y - start.y, end.x - mid.x, end.y - mid.y
-    turn = 2 * _angle(abs(ux * vy - uy * vx), ux * vx + uy * vy)
-    radius = isqrt((radius2.numerator << (2 * _BITS)) // radius2.denominator)
-    return round_half_even_div(radius * turn, 1 << (2 * _BITS))
+    rounded half to even (``geometry.arc_length``, the one implementation of the kernel). Collinear points
+    give the two straight parts, and points that form no arc the distance of the ends."""
+    return _arc_length(start, mid, end)
 
 
 def track_length(segments: Sequence[tuple[Point, Point]]) -> int:

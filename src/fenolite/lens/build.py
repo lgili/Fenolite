@@ -40,6 +40,8 @@ from fenolite.backends.kicad import (
     wks,
 )
 from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import lengths as lengths_mod
+from fenolite.backends.kicad import meander as meander_mod
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
@@ -54,6 +56,7 @@ from fenolite.backends.kicad.embed import (
 from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
+from fenolite.backends.kicad.meander import MeanderIntentLike
 from fenolite.backends.kicad.outline import (
     BoardOutline,
     board_outline,
@@ -718,6 +721,7 @@ def build_design(
     record: Mapping[str, str] | None = None,
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
+    meanders: Sequence[MeanderIntentLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
@@ -761,6 +765,9 @@ def build_design(
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
     ``copper_intents`` are resolved into tracks and vias after the parts are placed, so script copper
     follows a footprint that an existing board placed elsewhere (``docs/copper.md``).
+    ``meanders`` are resolved right after them (``meander.resolve_meanders``): each replaces one straight
+    segment of a script track by a meander that brings the track to its target length, counted as KiCad
+    ``target`` counts it; an error of a meander is an error of the build.
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
@@ -956,6 +963,13 @@ def build_design(
         created = (("tracks", built.board.tracks), ("arcs", built.board.arcs), ("vias", built.board.vias))
         for kind, items in created:
             copper_counts[kind] = sum(1 for i in items if is_copper_uuid(i.native_ids.get("kicad", "")))
+    if meanders:
+        built = meander_mod.resolve_meanders(built, meanders, major=target, issues=issues)
+        assert built.board is not None
+        copper_counts["meanders"] = meander_mod.changed(built, meanders)
+        copper_counts["tracks"] = sum(
+            1 for i in built.board.tracks if is_copper_uuid(i.native_ids.get("kicad", ""))
+        )
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
@@ -1195,6 +1209,8 @@ def build_design(
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
     if any(board_items.values()):
         evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
+    if meanders:
+        evidence_items += [meander_mod.EVIDENCE, lengths_mod.EVIDENCE]
     written_stack = target_design.board.stackup if target_design.board is not None else None
     if written_stack is not None:
         evidence_items.append(stacklib.EVIDENCE)

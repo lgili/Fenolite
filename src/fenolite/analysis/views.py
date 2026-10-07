@@ -13,88 +13,42 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from fractions import Fraction
-from math import isqrt
 
 from fenolite.analysis.connectivity import ConnectivityReport, OpenConnection, connectivity
 from fenolite.analysis.copper import ARC_TOL_NM, copper_layers
 from fenolite.backends.base import BoardPad, PlacedExtent
 from fenolite.core.coords import Point
-from fenolite.core.units import round_half_even_div
 from fenolite.geometry import Arc as GeoArc
-from fenolite.geometry import BBox, GeometryError, Thick, thick_bbox, thick_gap_floor, thick_touch
+from fenolite.geometry import (
+    BBox,
+    GeometryError,
+    Thick,
+    segment_length,
+    thick_bbox,
+    thick_gap_floor,
+    thick_touch,
+)
+from fenolite.geometry import arc_length as _arc_length
 from fenolite.model.base import Entity
 from fenolite.model.board import Arc, Board, FootprintInstance, Track, Via
 from fenolite.model.design import Design
 
 ALL_KINDS = ("footprint", "pad", "track", "arc", "via", "zone", "text")
 """The kinds of ``region_view``, in the order its items are sorted by."""
-_BITS = 160
-_ONE = 1 << _BITS
 THROUGH = ("thru_hole", "np_thru_hole")
 
 
 # --- lengths --------------------------------------------------------------------------------------
 
 
-def _round_sqrt(n: int) -> int:
-    """``√n`` rounded to the nearest integer (a square root of an integer is never a half)."""
-    return (isqrt(4 * n) + 1) // 2
-
-
 def _distance(a: Point, b: Point) -> int:
-    return _round_sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2)
-
-
-def _atan_fixed(t: int) -> int:
-    """``atan(t)`` for ``0 ≤ t ≤ 1``, both scaled by ``2**_BITS``: three halvings of the angle, then the
-    power series, whose terms then shrink by a factor above 100."""
-    for _ in range(3):
-        t = (t * _ONE) // (_ONE + isqrt(_ONE * _ONE + t * t))
-    square = t * t // _ONE
-    total, term, n, sign = 0, t, 1, 1
-    while term:
-        total += sign * (term // n)
-        term = term * square // _ONE
-        n += 2
-        sign = -sign
-    return total << 3
-
-
-_PI = 4 * _atan_fixed(_ONE)
-
-
-def _turn(cross: Fraction, dot: Fraction) -> int:
-    """The angle in ``[0, 2π)``, scaled by ``2**_BITS``, of a turn whose sine and cosine are proportional
-    to ``cross`` and ``dot``."""
-    a, b = abs(cross), abs(dot)
-    if a <= b:
-        ratio = a / b
-        angle = _atan_fixed((ratio.numerator << _BITS) // ratio.denominator)
-    else:
-        ratio = b / a
-        angle = _PI // 2 - _atan_fixed((ratio.numerator << _BITS) // ratio.denominator)
-    if dot < 0:
-        angle = _PI - angle
-    return angle if cross >= 0 else 2 * _PI - angle
+    return segment_length(a, b)
 
 
 def arc_length(arc: Arc) -> int:
-    """The centre-line length of an arc in nm, rounded half to even; 0 for points that give no arc."""
-    try:
-        shape = GeoArc(arc.start, arc.mid, arc.end)
-    except GeometryError:
-        return _distance(arc.start, arc.end)
-    centre, radius2 = shape.centre, shape.radius2
-    if centre is None or radius2 is None:
-        return _distance(arc.start, arc.mid) + _distance(arc.mid, arc.end)
-    way = shape.orientation
-    spokes = [(Fraction(p.x) - centre[0], Fraction(p.y) - centre[1]) for p in (arc.start, arc.mid, arc.end)]
-    angle = 0
-    for (ux, uy), (vx, vy) in zip(spokes, spokes[1:], strict=False):
-        angle += _turn(way * (ux * vy - uy * vx), ux * vx + uy * vy)
-    radius = isqrt((radius2.numerator << (2 * _BITS)) // radius2.denominator)
-    return round_half_even_div(radius * angle, 1 << (2 * _BITS))
+    """The centre-line length of an arc in nm, rounded half to even (``geometry.arc_length``): the two
+    straight parts for a straight arc, the distance of the ends for points that give no arc."""
+    return _arc_length(arc.start, arc.mid, arc.end)
 
 
 # --- shapes ---------------------------------------------------------------------------------------

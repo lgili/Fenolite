@@ -18,7 +18,7 @@
 ### Requirement: Meanders in a build
 `lens.build.build_design` SHALL accept the keyword-only argument `meanders: Sequence[MeanderIntentLike] = ()` and SHALL resolve it with `meander.resolve_meanders` (`manual-copper`, "Meanders from intents") right after `resolve_copper` and before the build checks and `Design.validate()`, with `major` the build's target; `cli/cmd_build.py` SHALL pass `dsl.meanders(design)`.
 - An error of `resolve_meanders` MUST make `build_design` return no files, so `build` exits 5 and writes nothing. Its `kicad.meander.*` codes join the `build` envelope unchanged, as "Build issue codes" allows.
-- `result.copper.meanders` MUST count the meanders that changed copper; it is an addition that "Copper intents in a build" allows.
+- `result.copper.meanders` MUST count the meanders that changed copper; it is an addition that "Copper intents in a build" allows, and the key MUST be absent from the reply of a build without meanders. An Altium build passes the meanders to the KiCad build it runs in memory, and the `kicad.meander.*` warnings and infos of that build pass with its script copper codes.
 - The copper guard ("Copper guard before writing") judges the meander's copper with the rest of the board.
 - A call without `meanders` MUST behave as before. `--seed`, `--timestamp` and `PYTHONHASHSEED` MUST NOT change any file of a build with meanders, and a second confirmed build of the same script over the first MUST write the same bytes.
 

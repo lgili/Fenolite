@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite analyze PATH``: current capacity, clearance and creepage of a board, and on request its
-power paths and the insulation between its layers (capability board-analyses, "Analyze command" and
-"Power and insulation kinds"; ``docs/analyses.md``; ``docs/cli-contract.md``, "analyze").
+power paths, the insulation between its layers and the lengths of its nets (capability board-analyses,
+"Analyze command", "Power and insulation kinds" and "Length kind in the analyze command";
+``docs/analyses.md``; ``docs/cli-contract.md``, "analyze").
 
 The command reads the board through the backend that detects it, measures, and judges the measures only
 against the requirements the user gives. It runs no tool and writes no file. Fenolite assumes no
@@ -24,17 +25,18 @@ from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.current import analyze_current
 from fenolite.analysis.distance import analyze_distances
+from fenolite.analysis.length import measure_lengths
 from fenolite.analysis.power import analyze_power
 from fenolite.analysis.report import AnalysisReport, sorted_issues
 from fenolite.analysis.requirements import Requirements, load_requirements
 from fenolite.backends import registry
-from fenolite.backends.base import BoardFrame, BoardPad
+from fenolite.backends.base import BoardFrame, BoardPad, LengthFacts, LengthSource, ProjectSet
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.coords import Point
-from fenolite.core.errors import FormatError, Issue
+from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, parse_length
 from fenolite.model.design import Design
@@ -43,7 +45,7 @@ HELP = "measure current capacity, clearance and creepage of a board (read-only)"
 """The opt-in kinds are described with their options: power paths and insulation between layers."""
 KINDS = ("current", "clearance", "creepage")
 """The kinds that run without ``--kinds``."""
-OPT_IN_KINDS = ("power", "insulation")
+OPT_IN_KINDS = ("power", "insulation", "length")
 ALL_KINDS = (*KINDS, *OPT_IN_KINDS)
 ALL_LAYERS = "*"
 _CLEARANCE_CODES = ("analysis.clearance-below", "analysis.clearance-undecided", "analysis.embedded-below")
@@ -113,6 +115,24 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="LENGTH",
         help="with creepage: a groove narrower than this is bridged on the creepage path",
+    )
+    parser.add_argument(
+        "--net",
+        dest="length_nets",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="with --kinds length: measure the nets whose name matches this pattern (repeatable); the "
+        "total is counted as KiCad of --kicad-version counts it",
+    )
+    parser.add_argument(
+        "--from",
+        dest="length_from",
+        action="append",
+        default=[],
+        metavar="REF",
+        help="with --kinds length: measure the paths of a net from this part or pad, REF or REF-PIN "
+        "(repeatable; default: the first pad of each net)",
     )
 
 
@@ -265,6 +285,17 @@ def _stackup_inputs(design: Design) -> dict[str, Any] | None:
     return {"thickness": stackup.thickness(), "copper": copper}
 
 
+def _project(board: Path) -> ProjectSet | None:
+    """The project files next to a KiCad board, for the length facts; ``None`` when they cannot be set
+    up, and the facts then count as without a project file."""
+    from fenolite.backends.kicad.projectset import project_set
+
+    try:
+        return project_set(board)
+    except (OSError, ValueError, FenoliteError):
+        return None
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = _kinds(args.kinds)
     temp_rise = _temp_rise(args.temp_rise)
@@ -281,6 +312,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ("--path", bool(paths), "power"),
         ("--resistivity", resistivity is not None, "power"),
         ("--groove-width", groove is not None, "creepage"),
+        ("--net", bool(args.length_nets), "length"),
+        ("--from", bool(args.length_from), "length"),
     ):
         if given and kind not in kinds:
             raise CliError(
@@ -370,6 +403,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidences.append(power.evidence)
         result["power"] = [_json(row) for row in power.rows]
         summary["power"] = _json(dict(power.summary))
+    if "length" in kinds:
+        facts: LengthFacts | None = None
+        fact_issues: list[Issue] = []
+        if isinstance(backend, LengthSource):
+            facts = backend.length_facts(
+                design, project=_project(path), major=ctx.kicad_target, issues=fact_issues
+            )
+        lengths = measure_lengths(
+            design, pads=pads, facts=facts, nets=tuple(args.length_nets), starts=tuple(args.length_from)
+        )
+        issues += [*fact_issues, *lengths.issues]
+        evidences.append(lengths.evidence)
+        result["lengths"] = [_json(row) for row in lengths.rows]
+        result["pairs"] = [_json(row) for row in lengths.pairs]
+        summary["length"] = _json(dict(lengths.summary))
     result["summary"] = summary
     result["inputs"] = {
         "kinds": list(kinds),
@@ -388,6 +436,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "requirements": None if args.requirements is None else Path(args.requirements).name,
         "boundary": {"source": boundary.source, "band": boundary.band, "cutouts": len(boundary.cutouts)},
     }
+    if "length" in kinds:
+        result["inputs"] |= {
+            "nets": list(args.length_nets),
+            "from": list(args.length_from),
+            "kicad_version": ctx.kicad_target,
+        }
     unique = sorted_issues(dict.fromkeys(issues))
     evidence = Evidence.combine(EVIDENCE, read.evidence, *evidences)
     raw = b"" if path.is_dir() else path.read_bytes()

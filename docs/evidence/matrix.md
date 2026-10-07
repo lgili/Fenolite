@@ -382,10 +382,12 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `helpmatrix` | `EVIDENCE` KICAD-VERIFIED: `H-K-CLI-HELP` |
 | `ipcd356` | see `padnets` |
 | `layers` | see `pcb` |
+| `lengths` | `EVIDENCE` INFERRED: `H-K-NETLEN-STACKUP`, `H-K-NETLEN-TOTAL`, `H-K-NETLEN-VIA10`, `H-K-NETLEN-VIA9` |
 | `libcache` | none: pins, hashes and stamps of the fetched libraries: no statement about a KiCad format or tool |
 | `liberrors` | none: issue codes and the error class of library reading |
 | `libs` | `EVIDENCE` INFERRED: `H-K-LIB-COMMON`, `H-K-LIB-CONFIGHOME`, `H-K-LIB-FALLBACK`, `H-K-LIB-NESTED`, `H-K-LIB-RELPATH-2`, `H-K-LIB-SCAN`<br>`WRITE_EVIDENCE` INFERRED: `H-K-BUILD-LIBTABLE` |
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND`, `H-K-DRU-PAIR` |
+| `meander` | `EVIDENCE` INFERRED: `H-K-NETLEN-MEANDER` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
 | `models` | `EVIDENCE` INFERRED: `H-K-EXPORT-MODELS` |
 | `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |

@@ -73,6 +73,10 @@ level 7.
   added exactly and their sum is rounded once to the nearest nanometre, so a track cut at a point of
   itself, or joined again, has the same length to the nanometre. An arc counts its true length, from its
   three points, rounded half to even. Copper drawn twice counts twice. Zone fills and pads add no length.
+  An arc is measured by the kernel's `arc_length` (`docs/geometry.md`, "Path lengths"; change c0106), the
+  function that also gives `NetLength.routed` of `analyze --kinds length`: both are sums of per-item
+  lengths, here over one copper span, there over a net, and neither holds a via height. They differ
+  only in that a span adds the tracks of one line before it rounds.
 - **Zones.** A zone fill is copper and joins what it touches. A zone without a fill joins nothing:
   `summary.zones_unfilled` counts them per side. A net that holds such a zone on a side, and more than one
   piece there, is not judged: its connectivity depends on copper that is not in the file. It gives one

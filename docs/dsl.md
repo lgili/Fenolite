@@ -673,6 +673,34 @@ design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), d
   an edit of it in KiCad is replaced. Copper drawn in KiCad is the board's and is kept.
 - `to_model` does not change: intents are not model objects.
 
+### Meanders
+
+`Design.meander` brings a script track to a length: a `target`, or the length of another script track
+(`match`), counted as KiCad's DRC counts the net for the target major (change c0106; `docs/copper.md`,
+"Meanders").
+
+```python
+design.track("usb_p", u1.pad(1), (mm(8.6), mm(10)), (mm(8.6), mm(30)), j1.pad(1), width=mm(0.2))
+design.track("usb_n", u1.pad(2), (mm(10.8), mm(14)), (mm(14.8), mm(14)), j1.pad(2), width=mm(0.2))
+design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0.5), pitch=mm(0.4))
+```
+
+- `track` is the key of a track recorded before the call, and `segment` the index of one of its straight
+  segments: segment `i` runs from path element `i` to element `i + 1`.
+- `amplitude` is the largest height of a bump from the segment's centre line, the band you leave free for
+  it; `pitch` is the distance between neighbouring legs, centre to centre, and must be above the track
+  width. `side` is `"left"` (the default) or `"right"` of the segment's direction, as KiCad displays the
+  board. `margin` is the straight run kept at each end of the segment: one pitch unless given.
+- Give either `target=` (a length) or `match=` (the key of another track). `dsl.meanders(design)` returns
+  the recorded `MeanderIntent`s in key order, every length in nanometres.
+- **Errors at the call.** `DslError` for a key that is not a copper key or is already used, an unknown
+  `track` or `match`, a `segment` that is not an index of a straight segment, a size that is not positive,
+  a negative `margin`, both or neither of `target` and `match`, and a second meander on one segment.
+- **Errors of the build** (`kicad.meander.*`, `docs/copper.md`): no room for the bumps, a track already
+  longer than the target, a pitch not above the width. The build then writes nothing.
+- The meander does not avoid other copper; the copper guard judges the result. Corners are square.
+- `result.copper.meanders` of `fenolite build` counts the meanders that changed copper.
+
 ## Zones
 
 A script declares its copper pours with `Design.zone`, after `board()`:

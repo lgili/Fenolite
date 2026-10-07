@@ -76,6 +76,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "to_model": _BUILD_CALLS,
         "placements": _BUILD_CALLS,
         "copper": _BUILD_CALLS,
+        "meanders": _BUILD_CALLS,
         "fields": _BUILD_CALLS,
         "moves": _BUILD_CALLS,
         "module_moves": _BUILD_CALLS,
@@ -105,6 +106,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "Length": _RETURNED,
         "Quantity": _RETURNED,
         "RuleArea": _RETURNED,
+        "MeanderIntent": _RETURNED,
         "DslError": _ERROR,
     }
 )

@@ -297,6 +297,59 @@ of the net reaches it on another layer, a track or a plane. A plane counts once 
 an SMD pad (`H-K-VIA-IN-PAD`). Vias in an SMD pad draw solder away from the joint unless they are
 tented, plugged or filled: stating that protection is change c0112, not part of the stitch.
 
+## Meanders
+
+A meander brings a script track to a length (change c0106): the length a script gives, or the length of
+another script track, so the two nets of a pair or the bits of a bus match as KiCad's DRC counts them.
+
+```python
+from fenolite.backends.kicad.meander import resolve_meanders
+
+design = resolve_meanders(design, meanders, major=10, issues=found)
+```
+
+`resolve_meanders(design, meanders, *, major, issues=None)` runs right after `resolve_copper` on the same
+design; a build calls it for you (`build_design(…, meanders=…)`; `fenolite build` passes the meanders of
+`Design.meander`). Intents are read by attribute (`key`, `track`, `segment`, `amplitude`, `pitch`,
+`target`, `match`, `side`, `margin`).
+
+- **Which copper.** The meander replaces the track `seg[segment]` of the track intent `track`: its
+  straight segment from path element `segment` to the next one. Arcs, vias and the other segments stay.
+- **The length of an intent** is the sum of its tracks and arcs, the height of each of its via steps as
+  the target major counts a via that only the two segments of the step join (`docs/analyses.md`,
+  "Length"), and the die lengths of the pads at its ends. When the intent is the only copper of its net,
+  that is KiCad's length of the net.
+- **The shape.** With `E` the length to add, `N = ⌈E / (2·amplitude)⌉` bumps of height `E / (2N)` stand
+  on `side` of the run (`left` or `right` of its direction, as KiCad displays the board), every corner
+  square. Their legs lie at `margin`, `margin + pitch`, `margin + 2·pitch`, … from the segment's start;
+  `margin` is one pitch unless given. They need `(2N − 1)·pitch + 2·margin` of run.
+- **Exactness.** Points are computed with 64 fractional bits and rounded half to even. The resolver then
+  measures the intent and corrects the height of the last bump, at most twice. The result is within 10 nm
+  of the target (`LENGTH_TOLERANCE_NM`), exact to 1 nm on a run along an axis, or the meander is refused.
+- **Matching.** `match` takes the length of the matched intent after its own meanders; meanders are
+  resolved in key order, one that matches a meandered track after that track's meanders.
+- **Ids.** The new tracks carry `copper_uuid(key, "m[k]")`, `k` in path order, and take the place of the
+  replaced track. They are script copper: a rebuild regenerates them, and removing the `meander()` call
+  brings the straight segment back.
+- **A refused meander changes nothing**, and the others are still resolved. An error stops the build.
+- **Limits.** Corners are square. The meander does not avoid other copper: the copper guard of the build
+  judges what was written and refuses a clash. Only script tracks are meandered, not router copper. For
+  an Altium build the meander is resolved through the KiCad build in memory and written as plain tracks.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.meander.bad-intent` | error | a key, side, size or segment index is malformed, a key repeats, or the segment is an arc |
+| `kicad.meander.bad-shape` | error | the pitch is not above the track's width |
+| `kicad.meander.too-long` | error | the intent is already longer than the target |
+| `kicad.meander.no-room` | error | the segment cannot add the needed length with the amplitude, pitch and margin; the message gives the length needed and the most it can add |
+| `kicad.meander.bad-match` | error | `match` names an intent without copper, or matches form a cycle |
+| `kicad.meander.inexact` | error | after two corrections the length differs from the target by more than 10 nm |
+| `kicad.meander.no-segment` | warning | the track intent created no segment of that index; the meander creates nothing |
+| `kicad.meander.not-needed` | info | the intent already has the target length, within 10 nm |
+
+Checked on `kicad-cli` 10.0.6 (`H-K-NETLEN-MEANDER`, probes `length-meander-*`): KiCad's length of the
+meandered net lies within 1 µm of the target, and the meander adds no violation.
+
 ## Issue codes
 
 | code | severity | when |

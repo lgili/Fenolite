@@ -10,7 +10,7 @@ another backend.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -863,6 +863,64 @@ class ExclusionSource(Protocol):
     def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class NetLength:
+    """The length of one net as a tool counts it, in nm: ``routed`` is the centre-line length of its tracks
+    and arcs, ``vias`` the sum of the heights its vias add, ``die`` the sum of the die lengths of its pads;
+    ``total`` is their sum, and ``via_count`` counts its vias."""
+
+    net: str
+    routed: Nm
+    vias: Nm
+    die: Nm
+    total: Nm
+    via_count: int
+
+    def __post_init__(self) -> None:
+        if self.total != self.routed + self.vias + self.die:
+            raise ValueError(f"the total of net {self.net!r} is not the sum of its parts")
+
+
+@dataclass(frozen=True, slots=True)
+class LengthFacts:
+    """The lengths of nets as a tool counts them.
+
+    ``nets`` maps a net name to its length. ``depths`` maps each copper layer to its depth as the tool
+    counts it (empty when unknown), ``die`` maps a pad id to its die length (a pad without one has no
+    entry). ``major`` names the tool version whose counting the facts follow, ``stackup`` says where the
+    depths come from (``none`` when they are unknown), and ``count_vias`` is false when the project counts
+    no via height."""
+
+    nets: Mapping[str, NetLength]
+    depths: Mapping[str, Nm]
+    die: Mapping[str, Nm]
+    major: int | None
+    stackup: Literal["board", "default", "none"]
+    count_vias: bool
+    evidence: Evidence
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "nets", MappingProxyType(dict(self.nets)))
+        object.__setattr__(self, "depths", MappingProxyType(dict(self.depths)))
+        object.__setattr__(self, "die", MappingProxyType(dict(self.die)))
+
+
+@runtime_checkable
+class LengthSource(Protocol):
+    """A backend that gives the length of nets as its tool counts them. A pure query, not an operation: it
+    never raises for a project file that fails to read, and appends warnings and infos to ``issues``."""
+
+    def length_facts(
+        self,
+        design: Design,
+        *,
+        project: ProjectSet | None = None,
+        major: int | None = None,
+        nets: Collection[str] | None = None,
+        issues: list[Issue] | None = None,
+    ) -> LengthFacts: ...
+
+
 ChangeKind = Literal["added", "removed", "changed"]
 
 
@@ -1152,6 +1210,8 @@ __all__ = [
     "ErcViolation",
     "FillOracle",
     "FillOutcome",
+    "LengthFacts",
+    "LengthSource",
     "LimitedOracle",
     "MATRIX_OPERATIONS",
     "MatrixRow",
@@ -1159,6 +1219,7 @@ __all__ = [
     "ModelRoundTrip",
     "ModelWriter",
     "ModelScope",
+    "NetLength",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",

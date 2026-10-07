@@ -274,6 +274,62 @@ two items. A requirement `r` is judged the same way for every measure:
 A search stops at the largest requirement of the pair. When it finds no shorter path, the measure is
 `bounded`: `low` is that limit and `high` is absent, which is enough to pass.
 
+## Length
+
+How long is this net, and how far does a signal travel from one pad to another? `fenolite analyze
+--kinds length --net GLOB [--from REF]` gives two lengths per net (change c0106). It judges nothing: the
+limits are the length and skew rules of the design.
+
+- **The total** is the length KiCad's DRC judges, counted as the KiCad major of `--kicad-version` counts
+  it (10 by default): the centre lines of all tracks and arcs of the net, stubs and dangling copper
+  included (`routed`), plus one height per via (`vias`), plus the die length of each pad (`die`). A track
+  counts from its end inside a pad, not from the pad edge. A through-hole pad adds no height. A zone fill
+  adds no length and is not copper a via joins.
+- **The path** is the shortest length along the copper from a start pad to each other pad of the net
+  (`paths`): the start pad is the one `--from REF` or `--from REF-PIN` names, else the first pad by
+  reference and number. A path adds the die lengths of its two end pads. `off_path` is the copper that lies
+  on no path: a stub, a branch end. The total counts it, so the total is longer than any path of a net
+  with a stub or a second load, and an info (`analysis.length-stub`) says by how much.
+- `routed` equals the `length` of `fenolite net`: every arc and every track is measured by the kernel
+  functions `arc_length` and `segment_length` (`docs/geometry.md`, "Path lengths"), which also measure the
+  spans of `equivalent --level 5`.
+
+**The two majors count a via apart** (`docs/formats/kicad/length.md`):
+
+| | KiCad 10 | KiCad 9 |
+|---|---|---|
+| depth of a copper layer | first layer 0, last layer the sum of all copper and dielectric, an inner layer the thickness above it plus half its own | every layer the thickness above it plus half its own |
+| height of a via | the depth difference of the outermost two layers on which a track, an arc or a pad of the net touches the via; 0 below two | the depth difference of the via's own two end layers when the net touches it on both; else 0 |
+
+So a through via that joins `F.Cu` and `In1.Cu` adds the depth of `In1.Cu` on 10 and nothing on 9. With
+the facts of 10 the path of an unbranched net equals its total. With the facts of 9 a path through such a
+via is longer than the total: the path weighs the layer change, and KiCad 9 counts no height there. The
+reply states both. `summary.length.major` names the major.
+
+**The stack-up.** The depths come from the board's stack-up (`summary.length.stackup` is `board`). A
+KiCad file without a stack-up is counted on the default stack-up KiCad itself assumes for it, copper
+layers of 35 µm and equal dielectrics in the board thickness less 20 µm, with one
+`kicad.length.default-stackup` info (`stackup` is `default`): that is what KiCad's DRC judges for the
+file, not a property of a real board. A file whose stack-up node Fenolite does not read
+(`kicad.board.stackup-unused`) gets no depth (`stackup` is `none`): KiCad 10.0.6 still counts that node,
+so neither it nor the default is claimed, the via heights count 0 and the reply is `UNVERIFIED`. A project
+that sets `use_height_for_length_calcs` to `false` counts no via height (`summary.length.count_vias`).
+
+**Limits of the length kind.**
+
+- Zones add no length, and a layer change inside a through-hole pad adds none, as in KiCad.
+- Tracks and arcs that cross without an end inside each other are not joined in a path, while KiCad
+  joins any overlap. The total does not depend on joins; a path does, and a pad the copper does not reach
+  this way has no length (`analysis.length-open`).
+- A pad or a via on the body of a track joins it at the point of the centre line nearest to its own
+  position.
+- On KiCad 9 a path can exceed the total (above).
+- The default stack-up is measured for 2, 4, 6 and 8 copper layers on KiCad 10.0.6.
+- Pair skew (`result.pairs`) needs the pair names of change c0104 and is empty until that change is in.
+- An Altium PCB document has no length facts: no public source recorded here says how Altium counts a
+  via or a die length. The kind then gives routed lengths and paths whose layer changes weigh 0, one
+  `analysis.input-missing` warning and the level `UNVERIFIED`.
+
 ## Limits
 
 Read these before you rely on a value.
@@ -320,6 +376,8 @@ Which independent tool could check each analysis, and what was done instead:
 | insulation between layers | `INFERRED` (`H-G-AN-INSUL`) | hand-computed cases | none; KiCad judges no distance between layers (`H-K-AN-LAYERS`) |
 | grooves | `INFERRED` (`H-G-AN-GROOVE`) | hand-computed cases; generated boards | KiCad's groove setting, if a later version applies it to cut-outs (`H-K-AN-GROOVE`) |
 | conductors on the path | `INFERRED` (`H-G-AN-OVER`) | hand-computed cases; a grid search | none; KiCad stops the path at the conductor (`H-K-AN-SPLIT`) |
+| net totals (tracks, arcs, via heights, die lengths, the project switch, the default stack-up) | `INFERRED` (`H-K-NETLEN-TOTAL`, `H-K-NETLEN-VIA10`, `H-K-NETLEN-VIA9`, `H-K-NETLEN-STACKUP`) | bench values by hand | KiCad's `length` rule as a bracket 1 µm below and above each total: the canaries `length-total-*` and `length-via-*` (`docs/evidence/length.md`) |
+| pin-to-pin paths and stubs | `INFERRED` (`H-G-NETLEN-PATH`) | hand-computed cases; the path equals the total on unbranched nets | none; no tool prints a pin-to-pin length |
 
 The KiCad bracket is supporting data. It never gates and never raises a label.
 
@@ -416,9 +474,10 @@ fenolite analyze board.kicad_pcb --requirements requirements.toml --via-plating 
 fenolite analyze board.kicad_pcb --kinds clearance --within 0.5mm
 fenolite analyze board.kicad_pcb --kinds power --path J1-1 U1-1 --temp-rise 10 --copper-thickness 35um
 fenolite analyze board.kicad_pcb --kinds creepage,insulation --pair HV LV --groove-width 1mm
+fenolite analyze board.kicad_pcb --kinds length --net 'USB_*' --from U1
 ```
 
-The kinds `power` and `insulation` run only when you name them.
+The kinds `power`, `insulation` and `length` run only when you name them.
 
 The command is read-only: it runs no tool and writes no file. An error finding gives exit code 5. The
 options and the result keys are in `docs/cli-contract.md`.

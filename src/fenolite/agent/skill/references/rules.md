@@ -117,12 +117,16 @@ floats. Fenolite supplies no thickness and no material; a script without `stacku
 fenolite analyze blink/build/blink.kicad_pcb --pair VIN GND --json
 fenolite analyze blink/build/blink.kicad_pcb --kinds current --temp-rise 10 --copper-thickness 35um --json
 fenolite analyze blink/build/blink.kicad_pcb --within 1mm --requirements blink/requirements.toml --json
+fenolite analyze blink/build/blink.kicad_pcb --kinds length --json
 ```
 
 `analyze` measures and you decide. It reports the current capacity of tracks and vias, and the
 clearance and creepage between pairs of nets; it runs no tool and writes nothing. It assumes no
 thickness and no temperature rise: an input that is not given leaves items out, and the reply counts
 them (`analysis.input-missing`). A finding exists only against a requirement of a file of yours
-(`--requirements`). No reply claims conformance to a standard.
+(`--requirements`). No reply claims conformance to a standard. `--kinds length` gives the length of
+each net as KiCad's DRC counts it for the major of `--kicad-version` (tracks, arcs, via heights, die
+lengths); `--net` names the nets and `--from REF-PAD` adds the length along copper from that pad to
+every other pad of its net.
 
 Read next: `checks`, `routing`, `fabrication`.

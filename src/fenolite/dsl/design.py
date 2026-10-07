@@ -28,7 +28,7 @@ from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, Ti
 from fenolite.model.rules import PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
-    from fenolite.dsl.intents import Recorded
+    from fenolite.dsl.intents import MeanderIntent, Recorded
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -490,6 +490,8 @@ class Design(Container):
         """The title block of ``title_block()``."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
+        self.meander_intents: dict[str, MeanderIntent] = {}
+        """Meander intents by key, as recorded by ``meander()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
@@ -1240,6 +1242,40 @@ class Design(Container):
         from fenolite.dsl import intents
 
         intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+
+    def meander(
+        self,
+        key: str,
+        *,
+        track: str,
+        segment: int,
+        amplitude: object,
+        pitch: object,
+        target: object = None,
+        match: str | None = None,
+        side: str = "left",
+        margin: object = None,
+    ) -> None:
+        """A square-wave meander on the straight segment ``segment`` of the track ``track`` (from its path
+        element ``segment`` to the next), which brings that track to the length ``target`` or to the length
+        of the track ``match``. The bumps stand on ``side`` of the segment (``"left"`` or ``"right"`` of
+        its direction, as KiCad displays the board), at most ``amplitude`` high and ``pitch`` apart, and
+        ``margin`` of straight run is kept at each end (one pitch by default). The build resolves it after
+        the tracks; it does not avoid other copper (``docs/copper.md``, "Meanders")."""
+        from fenolite.dsl import intents
+
+        intents.record_meander(
+            self,
+            key,
+            track=track,
+            segment=segment,
+            amplitude=amplitude,
+            pitch=pitch,
+            target=target,
+            match=match,
+            side=side,
+            margin=margin,
+        )
 
     def stitch(
         self,

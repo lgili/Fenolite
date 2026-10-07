@@ -375,6 +375,16 @@ selects a rule area by a name that the board about to be written does not hold s
 `design.rule_area()` or to remove the selector. The copper guard reports copper in a keep-out as
 `copper.keepout`.
 
+A script may also declare meanders (`Design.meander`; `docs/dsl.md`, "Meanders"; change c0106). The
+build resolves them right after the copper, for the major of `--kicad-version`, and `result.copper`
+then also holds `meanders`, the count of meanders that changed copper (the key is absent from the
+reply of a script without meanders). The codes are `kicad.meander.bad-intent`, `kicad.meander.bad-shape`,
+`kicad.meander.too-long`, `kicad.meander.no-room`, `kicad.meander.bad-match` and `kicad.meander.inexact`
+(errors: exit 5, nothing written), `kicad.meander.no-segment` (warning) and `kicad.meander.not-needed`
+(info); `docs/copper.md` lists them. With meanders the envelope evidence also combines the meander
+and length evidence (`INFERRED`). `--seed`, `--timestamp` and `PYTHONHASHSEED` change no byte of a
+build with meanders, and a second build over the first writes the same bytes.
+
 **Copper guard.** Before a KiCad build plans its writes, it judges the copper of the triad it is about
 to write with the copper check of `check` (`copper.clearance`, below): the planned board is read back,
 the planned project and rules files give the clearance in force, and copper kept from an existing board
@@ -1507,10 +1517,11 @@ most.
 
 ## analyze
 
-`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation] [--requirements FILE]
+`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation,length] [--requirements FILE]
 [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH]
 [--board-thickness LENGTH] [--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]
-[--path FROM TO]... [--resistivity NANOOHM_METRES] [--groove-width LENGTH]` measures the current
+[--path FROM TO]... [--resistivity NANOOHM_METRES] [--groove-width LENGTH] [--net GLOB]...
+[--from REF]...` measures the current
 capacity of tracks, arcs and vias, and the clearance and creepage of pairs of nets, on a board that a
 registered backend reads. On request it also measures power paths (`power`) and the insulation between
 layers (`insulation`). It is read-only: it runs no tool and writes no file. The user guide is
@@ -1537,6 +1548,20 @@ the user's file.
   without those depths the value is absent and `analysis.input-missing` names `stack-up`.
 - `--path` and `--resistivity` without the kind `power`, and `--groove-width` without the kind
   `creepage`, are usage errors (`FEN-2001`, exit 2).
+- The kind `length` (on request, change c0106; `docs/analyses.md`, "Length") measures the nets whose
+  name matches a `--net GLOB` (repeatable; shell-style patterns, case-sensitive). `--from REF` or
+  `--from REF-PIN` (repeatable) chooses the start pad of the paths of a net; the default is its first
+  pad by reference and number. The total of a net is counted as the KiCad major of the global
+  `--kicad-version` counts it in its DRC (10 by default). `result.lengths` holds one row per net:
+  `net`, `routed`, `vias`, `die`, `total` (their sum), `via_count`, `start` (`REF-PIN` or `null`),
+  `paths` (`end`, `length` or `null`, `vias`, `layers`) and `off_path`, all lengths in nm.
+  `result.pairs` holds the pair rows (`name`, `p`, `n`, `total_p`, `total_n`, `skew`, `path_skew`); it
+  is empty until the pair names of change c0104 exist. `result.summary.length` holds `nets`, `major`,
+  `stackup` (`board`, `default` or `none`) and `count_vias`, and `result.inputs` gains `nets`, `from`
+  and `kicad_version`. The kind judges nothing, so it alone exits 0. On input whose backend gives no
+  length facts (an Altium PCB document) the rows hold routed lengths only, `major` is `null`, one
+  `analysis.input-missing` names `length facts`, the level is `UNVERIFIED` and `--kicad-version`
+  changes nothing. `--net` and `--from` without the kind `length` are usage errors (`FEN-2001`, exit 2).
 - `--requirements FILE` names a TOML file of schema `fenolite.requirements.v0` (integers only, units in
   the key names): currents per net or net class, distances per pair, and an optional table from voltage
   to distance that is looked up without interpolation.
@@ -1603,6 +1628,10 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.insulation-below` | error | `insulation.high` is below `insulation_nm` |
 | `analysis.insulation-undecided` | warning | `insulation_nm` lies inside the insulation interval |
 | `analysis.creepage-over` | info | a clearance or a creepage of the pair crosses copper of a third net |
+| `analysis.length-open` | warning | pads of a measured net that its copper does not join to the start pad |
+| `analysis.length-stub` | info | copper of a measured net on no path from its start pad, with its length |
+| `kicad.length.default-stackup` | info | the board holds no stack-up, so via heights are counted on the default stack-up KiCad assumes |
+| `kicad.length.bad-die` | warning | a pad's die length is not a non-negative decimal; it counts as 0 |
 
 **Thicknesses from the stack-up (c0101).** A KiCad board whose `setup` holds a complete stack-up gives
 `analyze` the copper thickness of each copper layer and the board thickness with no option; an option

@@ -52,7 +52,7 @@ def analyze(
 def test_the_data_file_is_the_authored_strip() -> None:
     assert STRIP.read_text(encoding="utf-8") == write_board(written_strip(), target=10).text
     assert "authored for Fenolite, illustrative values" in STRIP.read_text(encoding="utf-8")
-    assert KINDS == ("current", "clearance", "creepage") and OPT_IN_KINDS == ("power", "insulation")
+    assert KINDS == ("current", "clearance", "creepage") and OPT_IN_KINDS == ("power", "insulation", "length")
     assert ALL_KINDS == (*KINDS, *OPT_IN_KINDS)
 
 

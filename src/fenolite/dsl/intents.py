@@ -163,6 +163,27 @@ class StitchIntent:
 
 CopperIntent = TrackIntent | ViaIntent | StitchIntent
 
+MEANDER_SIDES = ("left", "right")
+"""The sides of a segment a meander can stand on, seen along the segment as KiCad displays the board."""
+
+
+@dataclass(frozen=True, slots=True)
+class MeanderIntent:
+    """A square-wave meander on the straight segment ``seg[segment]`` of the track intent ``track``, which
+    brings that intent to the length ``target`` or to the length of the track intent ``match``.
+    ``amplitude`` is the largest height of a bump from the segment's centre line, ``pitch`` the distance
+    between neighbouring legs, ``margin`` the straight run kept at each end (``None``: one pitch)."""
+
+    key: str
+    track: str
+    segment: int
+    amplitude: Nm
+    pitch: Nm
+    target: Nm | None = None
+    match: str | None = None
+    side: str = "left"
+    margin: Nm | None = None
+
 
 # --- what a script records ------------------------------------------------------------------------
 
@@ -289,7 +310,7 @@ def _net(value: object, what: str, *, required: bool) -> Net | None:
 def check_key(design: Design, key: object) -> str:
     if not isinstance(key, str) or not KEY.fullmatch(key):
         raise DslError(f"copper key {key!r} must match {KEY.pattern}")
-    if key in design.copper_intents:
+    if key in design.copper_intents or key in design.meander_intents:
         raise DslError(f"copper key {key!r} is already used")
     return key
 
@@ -557,6 +578,66 @@ def record_stitch(
     )
 
 
+def record_meander(
+    design: Design,
+    key: object,
+    *,
+    track: object,
+    segment: object,
+    amplitude: object,
+    pitch: object,
+    target: object = None,
+    match: object = None,
+    side: object = "left",
+    margin: object = None,
+) -> None:
+    name = check_key(design, key)
+    what = f"meander {name}"
+    recorded = design.copper_intents.get(track) if isinstance(track, str) else None
+    if not isinstance(recorded, _Track):
+        raise DslError(f"{what}: track {track!r} is not the key of a track recorded before it")
+    assert isinstance(track, str)
+    last = len(recorded.path) - 2
+    if isinstance(segment, bool) or not isinstance(segment, int) or not 0 <= segment <= last:
+        raise DslError(f"{what}: segment {segment!r} is not a segment index of track {track} (0 to {last})")
+    if isinstance(recorded.path[segment + 1], ArcStep):
+        raise DslError(
+            f"{what}: segment {segment} of track {track} is an arc; a meander needs a straight one"
+        )
+    height = _size(amplitude, f"{what}: amplitude")
+    step = _size(pitch, f"{what}: pitch")
+    if height is None or step is None:
+        raise DslError(f"{what}: amplitude and pitch are positive lengths")
+    kept: Nm | None = None
+    if margin is not None:
+        kept = as_nm(margin, name=f"{what}: margin")
+        if kept < 0:
+            raise DslError(f"{what}: margin cannot be negative")
+    if (target is None) == (match is None):
+        raise DslError(f"{what}: give either target (a length) or match (the key of another track)")
+    length = _size(target, f"{what}: target")
+    if match is not None:
+        if match == track:
+            raise DslError(f"{what}: match names the meandered track {track!r} itself")
+        if not isinstance(match, str) or not isinstance(design.copper_intents.get(match), _Track):
+            raise DslError(f"{what}: match {match!r} is not the key of a track recorded before it")
+    if side not in MEANDER_SIDES:
+        raise DslError(f"{what}: side must be 'left' or 'right', not {side!r}")
+    for other in design.meander_intents.values():
+        if (other.track, other.segment) == (track, segment):
+            raise DslError(
+                f"{what}: meander {other.key} already stands on segment {segment} of track {track}"
+            )
+    design.meander_intents[name] = MeanderIntent(
+        name, track, segment, height, step, length, match, cast(str, side), kept
+    )
+
+
+def meanders(design: Design) -> tuple[MeanderIntent, ...]:
+    """The meander intents of ``design`` as plain data, in key order, every length in nanometres."""
+    return tuple(design.meander_intents[key] for key in sorted(design.meander_intents))
+
+
 def _net_name(design: Design, net: Net, key: str) -> str:
     if design.nets.get(net.name) is not net:
         raise DslError(f"copper {key}: net {net.name} is not in the design")
@@ -636,11 +717,13 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
 
 __all__ = [
     "KEY",
+    "MEANDER_SIDES",
     "VIA_KINDS",
     "Anchor",
     "AnchorRef",
     "ArcStep",
     "CopperIntent",
+    "MeanderIntent",
     "PadEnd",
     "PadRef",
     "Recorded",
@@ -650,6 +733,7 @@ __all__ = [
     "ViaStep",
     "arc_to",
     "copper",
+    "meanders",
     "protect",
     "via_step",
 ]

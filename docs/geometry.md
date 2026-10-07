@@ -131,6 +131,36 @@ floating-point trigonometry.
 
 ```
 
+## Path lengths
+
+`geometry/lengths.py` measures a centre line (change c0106). It is the one implementation: the routed
+lengths of `fenolite net`, of `equivalent --level 5` and of `analyze --kinds length`, and the meander
+generator, call it.
+
+- `segment_length(a, b)`: the distance of two points, rounded to the nearest nanometre. The square root of
+  an integer is never a half, so no tie rule is needed.
+- `arc_length(start, mid, end)`: `r·θ` of the arc through the three points, in fixed point with 160
+  fractional bits, rounded half to even. Three distinct points on a line with `mid` between the ends give
+  the two straight parts; every input the arc shape refuses (two equal points, or `mid` outside the ends on
+  their line) gives the distance of the ends, so `arc_length(P, M, P)` is 0.
+- `arc_length_to(start, mid, end, at)`: the length from `start` to the point of the arc nearest to `at`,
+  computed the same way; `at == end` gives `arc_length`. A point whose spoke misses the arc gives the
+  nearer end, `start` on a tie.
+- `segment_length_to(a, b, at)`: the same for a segment: the length from `a` to the foot of `at` on the
+  segment, clamped to its ends.
+
+No function uses a `float`.
+
+```python
+>>> from fenolite.geometry import arc_length, arc_length_to, segment_length
+>>> segment_length(Point(0, 0), Point(3_000_000, 4_000_000))
+5000000
+>>> half = (Point(15_000_000, 30_000_000), Point(18_000_000, 33_000_000), Point(21_000_000, 30_000_000))
+>>> arc_length(*half), arc_length_to(*half, Point(18_000_000, 33_000_000))
+(9424778, 4712389)
+
+```
+
 ## Polygons and the canonical form
 
 - `Polygon(outer, holes)` validates every ring when it is built. Each ring needs at least 3

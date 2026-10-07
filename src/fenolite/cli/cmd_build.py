@@ -65,6 +65,7 @@ from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.backends.kicad.meander import MeanderIntentLike
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.replace import footprint_ref
 from fenolite.backends.kicad.schgen import LAYOUTS as SCHEMATIC_LAYOUTS
@@ -102,6 +103,7 @@ from fenolite.dsl import (
     copper,
     drawing_sheet_source,
     fields,
+    meanders,
     module_moves,
     moves,
     net_moves,
@@ -168,7 +170,7 @@ COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
 WARN_NOTE = " (copper guard in warn mode)"
-SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "layout.unplaced")
+SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "kicad.meander.", "layout.unplaced")
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
 (change c0053): what the copper intents created or left out, and the parts that build staged. Its other
 warnings and infos concern KiCad files that are not written. Every error passes."""
@@ -738,6 +740,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         net_aliases = net_moves(design)
         plane_nets = planes(design)
         intents = copper(design)
+        meander_intents = meanders(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
@@ -766,6 +769,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             intents,
             frame_sheet,
             sheet_result,
+            meanders=meander_intents,
         )
         return dataclasses.replace(
             made,
@@ -816,6 +820,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         record=record,
         prepared=prepared,
         copper_intents=intents,
+        meanders=meander_intents,
         fields=field_requests,
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
@@ -978,6 +983,8 @@ def _run_altium(
     intents: Sequence[CopperIntentLike] = (),
     drawing_sheet: DrawingSheet | None = None,
     sheet_result: Mapping[str, object] | None = None,
+    *,
+    meanders: Sequence[MeanderIntentLike] = (),
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1083,6 +1090,7 @@ def _run_altium(
             resolver=resolver,
             target=ctx.kicad_target,
             copper_intents=intents,
+            meanders=meanders,
             # the catalog definitions too: a design that names only catalog ids has no library (c0077)
             authored_footprints=authored_footprints,
             authored_symbols=authored_symbols,
