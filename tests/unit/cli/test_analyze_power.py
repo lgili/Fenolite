@@ -147,7 +147,9 @@ def test_default_kinds_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert "power" not in result and "power" not in result["summary"]
     assert set(result) == {"current", "distances", "summary", "inputs"}
     assert result["inputs"]["kinds"] == ["current", "clearance", "creepage"]
-    assert set(result["inputs"]) - C0047_INPUTS == {"paths", "resistivity_pohm_m", "groove_nm"}
+    # the stack-up change (c0101) adds two keys of its own beside the three of this one
+    added = set(result["inputs"]) - C0047_INPUTS - {"board_thickness_source", "stackup"}
+    assert added == {"paths", "resistivity_pohm_m", "groove_nm"}
     assert (
         result["inputs"]["paths"],
         result["inputs"]["resistivity_pohm_m"],
