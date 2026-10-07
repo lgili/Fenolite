@@ -100,7 +100,7 @@ def test_families_of_the_live_register() -> None:
     assert "H-G-DSN-*" not in families
     # seven rows of c0023, `H-G-DSN-PARTIAL` of c0108, and the three of c0109 (`-NOOPT`, `-NETLESS`,
     # `-NETLESS-2`)
-    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 11
+    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 12
 
 
 def test_family_cell_without_a_wildcard_is_rejected(tmp_path: Path) -> None:
