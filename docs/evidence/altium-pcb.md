@@ -587,3 +587,43 @@ Reading of the repeat:
   rules and nothing else is recorded as an observation.
 - No step named a fault, so no fact and no golden file changed. The SHA-256 values that this page names
   for committed files were compared with the golden files on the day of this record and are equal.
+
+## Author report of 2026-10-07 (opening only)
+
+On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
+(minor version not stated) with no problem, and what he sees looks right to him; on some small components
+the names of pins overlap, and he does not know whether that is intended.
+
+- **What he was given.** The session folder built from commit `bc306deb` (Parts Y, W, O, U and X, 63 files
+  with their SHA-256) and the kit built from `5adad054`. The three files of Part R were in the same pack; he
+  did not say that he opened them.
+- **What the report is.** An author report of opening and looking, on files that Fenolite wrote, with a
+  licence the author may use for Fenolite.
+- **What it is not.** It is not the numbered steps of the Parts. No value was read back (rules and scopes, the
+  layer stack, via spans, text positions, keep-out restrictions, title-block fields, outputs and containers),
+  and no compile, change order, rule check, repour or output-job run was reported. No file that Altium saved
+  has been received, so no kit step is settled and `fenolite kit verify` has nothing to read.
+- **A second answer, the same day.** Asked whether any repair, upgrade or conversion prompt appeared
+  when he opened the kit's files, and for his minor version, the author answered: "nenhum erro ou pedido
+  de restaurar foi feito, tudo abriu como projeto Altium. E meu Altium é o 26" (no error and no request
+  to restore was made, everything opened as an Altium project; my Altium is 26). The answer does not use
+  the word upgrade and gives no minor version.
+- **What it moves.** No level. The two rows whose criterion is opening alone, `H-A-PH-CHECKSUM` and
+  `H-A-PH-LAYOUT`, are stated for the author's earlier writer with a value as reported, and the second
+  for another version of the tool; this report is about files that Fenolite's writers wrote and names no
+  value. Change c0092 restates that family for Fenolite's writers, and the answer above is then the
+  author report for the restated rows. The rows whose first step is opening carry a dated partial note in
+  `docs/hypotheses.md` (`H-A-SCHX-GRAPHICS`, `H-A-SCHDOT-OPEN`, `H-A-OUTJOB-OPEN`, `H-A-RULE-KINDS`,
+  `H-A-PH-CHECKSUM`, `H-A-PH-LAYOUT`), and `H-A-PCB-DOC-OPEN`, which was settled on 2026-10-03, names the
+  further documents. Every row that needs a value, one of Altium's engines or the recorded kit run is where
+  it was.
+- **Observation: names of pins that overlap.** The author named the symbols the same day: `BJT_NPN`,
+  `Comparator`, `Operational_Amplifier`, `CONN2` and `Linear_Regulator`, and asked for a correction. A scan of the
+  session's schematic libraries with Fenolite's own reader shows where a shown name can collide: a small
+  transistor body with three shown names, the triangle of a comparator or an operational amplifier with
+  names on four of five pins, and a two-pin connector whose name and number are the same text. The Altium
+  writer honours a symbol's hidden pin names, so the likely cause is in the symbol definitions, which leave
+  names visible on small discrete symbols; KiCad would then show the same. Change c0134 corrects the
+  definitions; the samples it regenerates are new files that this report does not cover.
+- The steps of the Parts were written from Altium's documentation; a menu path or a dialog name may read
+  differently in version 26.

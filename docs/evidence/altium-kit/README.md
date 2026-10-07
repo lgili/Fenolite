@@ -17,3 +17,10 @@ The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON 
   (`fenolite kit status` lists the runs and the stale rows).
 
 No run is recorded yet.
+
+## Author report of 2026-10-07 (opening only)
+
+On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium
+Designer 26 with no problem. That is not a kit run: no step was carried out, no file that Altium saved has
+been received, nothing was recorded with `fenolite kit record`, and no `H-A-KIT-*` row moves. The same
+report is on `docs/evidence/altium-schematic.md` and `docs/evidence/altium-pcb.md`.
