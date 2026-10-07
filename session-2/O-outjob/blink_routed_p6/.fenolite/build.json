@@ -1,0 +1,13 @@
+{
+  "design": "blink_routed",
+  "files": {
+    "blink_routed.OutJob": "bb3e5505a4bc91c07dd894c984e2a8710cd7d485be89de84ced996637236d5e5",
+    "blink_routed.PcbDoc": "6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a",
+    "blink_routed.PcbLib": "640bbcdb207a1dd724d310963f135101f6fb7525b5b59d22516a23ecaa4955ce",
+    "blink_routed.PrjPcb": "99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d",
+    "blink_routed.SchDoc": "50a062c3ae03c6dec28e803f42c01d18c1e7c7c39cb439c640135611e4065c14",
+    "blink_routed.SchLib": "44e8f59b353162278a631fa533f02197e4df3f40d88de8831cc3f111abe12e22"
+  },
+  "schema": "fenolite.build-record.v0",
+  "target": "altium"
+}

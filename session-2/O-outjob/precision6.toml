@@ -1,0 +1,4 @@
+schema = "fenolite.export-preset.v0"
+
+[gerbers]
+precision = 6

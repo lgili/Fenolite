@@ -1,0 +1,2456 @@
+{
+  "id": "brd_1bb54df2-eeeb-5e03-b823-4a96d78a1bca",
+  "outline": {
+    "id": "out_bab706d0-bff1-51df-8f16-b5631e378e8d",
+    "points": [
+      {
+        "x": 100000000,
+        "y": 100000000
+      },
+      {
+        "x": 150000000,
+        "y": 100000000
+      },
+      {
+        "x": 150000000,
+        "y": 130000000
+      },
+      {
+        "x": 100000000,
+        "y": 130000000
+      }
+    ]
+  },
+  "footprints": [
+    {
+      "id": "fp_4495eddb-27f0-5dfb-8461-65c205f06176",
+      "component_id": "cmp_fbbec2ff-ad45-57f2-a51b-febb3a99df39",
+      "lib_ref": "Mini:Mini_LED_THT_3mm",
+      "position": {
+        "x": 138000000,
+        "y": 120000000
+      },
+      "side": "bottom",
+      "pads": [
+        {
+          "id": "pad_9f40a0d7-8ec4-5461-bfaf-d94271a5d43e",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "drill"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(remove_unused_layers no)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "rect",
+          "size": {
+            "w": 1800000,
+            "h": 1800000
+          },
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "kind": "thru_hole",
+          "drill": 900000,
+          "layers": [
+            "*.Cu",
+            "*.Mask"
+          ],
+          "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+        },
+        {
+          "id": "pad_b06de4ad-f859-5fab-97b6-b8764566e730",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "drill"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(remove_unused_layers no)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "circle",
+          "size": {
+            "w": 1800000,
+            "h": 1800000
+          },
+          "position": {
+            "x": 2540000,
+            "y": 0
+          },
+          "kind": "thru_hole",
+          "drill": 900000,
+          "layers": [
+            "*.Cu",
+            "*.Mask"
+          ],
+          "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+        }
+      ]
+    },
+    {
+      "id": "fp_6452467a-4912-5eeb-89d1-d6a4e3f5ce8e",
+      "component_id": "cmp_441d84bd-48ed-583c-88bf-70a3396f47ed",
+      "lib_ref": "Mini:Mini_R_0603",
+      "position": {
+        "x": 132000000,
+        "y": 109000000
+      },
+      "pads": [
+        {
+          "id": "pad_e62b6242-7427-5c5e-9e22-4f69b0514aa1",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "roundrect",
+          "size": {
+            "w": 900000,
+            "h": 950000
+          },
+          "position": {
+            "x": -800000,
+            "y": 0
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+        },
+        {
+          "id": "pad_11495608-d846-576f-809e-b62aadf33408",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "roundrect",
+          "size": {
+            "w": 900000,
+            "h": 950000
+          },
+          "position": {
+            "x": 800000,
+            "y": 0
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+        }
+      ]
+    },
+    {
+      "id": "fp_6de6a17f-937a-53e8-95c1-fc299de65275",
+      "component_id": "cmp_a52d7a61-7049-5450-a2cd-5d47241f03fa",
+      "lib_ref": "Mini:Mini_QFP-32_7x7mm_P0.8mm",
+      "position": {
+        "x": 114000000,
+        "y": 115000000
+      },
+      "locked": true,
+      "pads": [
+        {
+          "id": "pad_d3306bc9-c0f9-542d-91b5-88ed594a7ca3",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "1",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+        },
+        {
+          "id": "pad_b0cfce3c-6553-556c-8395-7a8c725c6e40",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "10",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2000000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+        },
+        {
+          "id": "pad_f756aa77-1ae8-5262-a8a1-9db2b0472341",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "11",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -1200000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_72038ec0-757f-5176-b2bc-2bddebdbdcc6",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "12",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -400000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_02740214-9f3b-50ed-a526-36f97f24b951",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "13",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 400000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_8edd3032-9bc0-53bb-8a2e-10910932de43",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "14",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 1200000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_3752e8f5-e02d-5525-ace9-b51a18135205",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "15",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2000000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_d0096b5a-86ca-54ef-9d70-69534fd5675d",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "16",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2800000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_38d134fa-caab-526f-8b83-f884266c1c8b",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "17",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_8aa29b9a-f754-5cc5-a984-226af292b8bf",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "18",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_f3a34450-5cec-5a7e-9e98-9ea7dac0812d",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "19",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_a1e6eb0a-06cb-5c11-9b46-9148ec4e72be",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "2",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_3a48be4a-e441-5136-bae3-7bbb0421d655",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "20",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": 400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_6a609270-6dce-5ede-b9ea-1f083ab609a6",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "21",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_4d7534cd-d464-57dd-b310-3eb0be0fe72f",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "22",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_c1b2479c-61f1-5508-bff7-fe5ec148ccaa",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "23",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_9a6899f2-a6a4-5c44-837c-96af9f74ea7a",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "24",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 4150000,
+            "y": -2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_168621d6-60ea-580b-afff-b1a2d584d72b",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "25",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2800000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_59e834ff-c7e1-5b48-b1f6-a57104e2ed80",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "26",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 2000000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_ffc8eddf-1c28-5cf6-be71-265ffcdd01f3",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "27",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 1200000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_da38bdda-ad9d-5a24-8693-35b362ac4b21",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "28",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": 400000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_349694b7-9dba-54df-a471-8d8269ace536",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "29",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -400000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_18bd89b2-6008-5211-8931-9cd122aa1d26",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "3",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_ff8bc783-58ec-554a-a783-3e68f7416dae",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "30",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -1200000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_f7bcd941-57c2-5d0a-9e16-586c4747fee6",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "31",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2000000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_b21f0f84-c8f5-5332-a925-6d9fcf2601a8",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "32",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2800000,
+            "y": -4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_24c9992c-e128-5e4e-8e24-82ed43d5b658",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "4",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": -400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_67cd8184-00d9-57c0-a73f-56c6e8b0675d",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "5",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 400000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_23021347-b9c3-5410-b94b-44e02a2f058b",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "6",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 1200000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_ba9a710d-13ec-597a-8ae1-f2269de6e049",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "7",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 2000000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_10ccbff9-7a93-58a9-a12e-0a34245c16dc",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "8",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -4150000,
+            "y": 2800000
+          },
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ]
+        },
+        {
+          "id": "pad_3430d1ef-cf12-5b16-878e-45a48a0acd7b",
+          "ext": {
+            "kicad": {
+              "min_version": "20241229",
+              "payload": [
+                [
+                  "slot:.:modeled",
+                  "number"
+                ],
+                [
+                  "slot:.:modeled",
+                  "kind"
+                ],
+                [
+                  "slot:.:modeled",
+                  "shape"
+                ],
+                [
+                  "slot:.:modeled",
+                  "position"
+                ],
+                [
+                  "slot:.:modeled",
+                  "size"
+                ],
+                [
+                  "slot:.:modeled",
+                  "layers"
+                ],
+                [
+                  "slot:.:opaque@20241229",
+                  "(roundrect_rratio 0.25)"
+                ],
+                [
+                  "slot:.:modeled",
+                  "native_ids"
+                ]
+              ]
+            }
+          },
+          "number": "9",
+          "shape": "roundrect",
+          "size": {
+            "w": 1500000,
+            "h": 550000
+          },
+          "position": {
+            "x": -2800000,
+            "y": 4150000
+          },
+          "rotation": 90000000,
+          "layers": [
+            "F.Cu",
+            "F.Mask",
+            "F.Paste"
+          ],
+          "net_id": "net_c2a60b21-fa5a-514f-9789-d699c7169bb6"
+        }
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "trk_1bf4ce13-d92e-535e-acb5-f4be5b9b3dfe",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8d42-bbf5-3b870657d2a9"
+      },
+      "start": {
+        "x": 138000000,
+        "y": 126000000
+      },
+      "end": {
+        "x": 138000000,
+        "y": 120000000
+      },
+      "width": 500000,
+      "layer": "B.Cu",
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "trk_3bb50357-234d-515b-bf7a-b9be2398ba0d",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8fa8-b90d-93f5f10d4409"
+      },
+      "start": {
+        "x": 136000000,
+        "y": 109000000
+      },
+      "end": {
+        "x": 136000000,
+        "y": 114000000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+    },
+    {
+      "id": "trk_6dfb1060-f7b9-5aa7-bb97-eb36adf5b0fb",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-84bb-8ee2-885608af589a"
+      },
+      "start": {
+        "x": 108000000,
+        "y": 107000000
+      },
+      "end": {
+        "x": 131200000,
+        "y": 107000000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+    },
+    {
+      "id": "trk_7be13fae-815a-5dac-b2ad-0b6e54a586a2",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8794-8a08-ad59c2ef1a77"
+      },
+      "start": {
+        "x": 109850000,
+        "y": 112200000
+      },
+      "end": {
+        "x": 108000000,
+        "y": 112200000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+    },
+    {
+      "id": "trk_81554f6c-4f1b-5185-b6ea-294185fa8c98",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8cbc-8894-f7dd5a0e5aaa"
+      },
+      "start": {
+        "x": 114000000,
+        "y": 126000000
+      },
+      "end": {
+        "x": 138000000,
+        "y": 126000000
+      },
+      "width": 500000,
+      "layer": "B.Cu",
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "trk_92374357-b36f-5e22-9c7c-1425425d6a24",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8df0-8fa4-0ea5d2cac573"
+      },
+      "start": {
+        "x": 136000000,
+        "y": 114000000
+      },
+      "end": {
+        "x": 140540000,
+        "y": 120000000
+      },
+      "width": 300000,
+      "layer": "B.Cu",
+      "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+    },
+    {
+      "id": "trk_b690a582-77e0-52bb-a349-3fd519c5e1dd",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8385-911d-1250b435d661"
+      },
+      "start": {
+        "x": 112000000,
+        "y": 119150000
+      },
+      "end": {
+        "x": 112000000,
+        "y": 126000000
+      },
+      "width": 500000,
+      "layer": "F.Cu",
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "trk_c34f1429-3851-5337-84e3-ced6972eb4c9",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-880b-9872-ccbd793e6fdd"
+      },
+      "start": {
+        "x": 112000000,
+        "y": 126000000
+      },
+      "end": {
+        "x": 114000000,
+        "y": 126000000
+      },
+      "width": 500000,
+      "layer": "F.Cu",
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "trk_c89349ae-8f30-5946-a481-6696dbfc2f04",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8965-b795-5967a2da3c32"
+      },
+      "start": {
+        "x": 131200000,
+        "y": 107000000
+      },
+      "end": {
+        "x": 131200000,
+        "y": 109000000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+    },
+    {
+      "id": "trk_d13f38fc-d88d-5e76-86a6-a0e0455c4588",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8f48-a20a-aad7332ca7f0"
+      },
+      "start": {
+        "x": 132800000,
+        "y": 109000000
+      },
+      "end": {
+        "x": 136000000,
+        "y": 109000000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+    },
+    {
+      "id": "trk_d8cfadcb-b276-57bb-b5b1-e7ef43b4cd9e",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8816-9934-b504353d3e3e"
+      },
+      "start": {
+        "x": 108000000,
+        "y": 112200000
+      },
+      "end": {
+        "x": 108000000,
+        "y": 107000000
+      },
+      "width": 300000,
+      "layer": "F.Cu",
+      "net_id": "net_dae0ce4a-e0ac-5235-b527-0ef94416b78c"
+    }
+  ],
+  "vias": [
+    {
+      "id": "via_08624a8c-e97a-55b6-ad64-338cde170e0f",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8cf8-bf99-a18bd6cf6f91"
+      },
+      "position": {
+        "x": 136000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "via_13328ac0-03fc-5b0f-9a9d-3c20d20e3dbc",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-87e9-995b-1ed63556de2a"
+      },
+      "position": {
+        "x": 116000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "via_2a2157b5-7bfb-5920-95bf-794484aee118",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8fc2-b74d-f01f3d8be5c1"
+      },
+      "position": {
+        "x": 131000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "via_3da97313-7308-5726-aa98-44a7e6623dc2",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8597-812a-90630e00ea01"
+      },
+      "position": {
+        "x": 136000000,
+        "y": 114000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_2eadbf81-833a-591e-adfc-0b23f78a5300"
+    },
+    {
+      "id": "via_83ac85c1-fddc-5b0c-ab83-ba0d5dc4bbcb",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-822b-97ef-e8bc8cf0f2a2"
+      },
+      "position": {
+        "x": 121000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "via_a63d693c-1db3-50dc-ad8a-28ee028bd77d",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-84af-b165-b2e84725f1ed"
+      },
+      "position": {
+        "x": 114000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    },
+    {
+      "id": "via_f3da6f70-a2a8-5769-a9d4-2f00bdb8e6cc",
+      "native_ids": {
+        "kicad": "66656e6f-6c69-8653-8fd9-2161ac06d992"
+      },
+      "position": {
+        "x": 126000000,
+        "y": 126000000
+      },
+      "diameter": 600000,
+      "drill": 300000,
+      "layers": [
+        "F.Cu",
+        "B.Cu"
+      ],
+      "net_id": "net_bb8206a2-c41f-5230-98a5-c5a81db5be8d"
+    }
+  ]
+}
