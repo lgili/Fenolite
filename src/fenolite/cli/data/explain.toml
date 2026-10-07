@@ -704,6 +704,11 @@ meaning = "A net member names neither a pin number nor a pin name of the part's 
 fix = "Correct the pin in the script; the symbol's pins are listed by 'fenolite inspect' of its library."
 see = "Build target"
 
+["altium.pin-pad-map-invalid"]
+meaning = "The pin-to-pad map of a part names a pin its symbol lacks, names a pad its footprint lacks, or leaves one pad to two pins (a pin mapped onto the pad of another pin's own number). Nothing is written."
+fix = "Correct pad_map so each listed pin is a pin of the symbol, each pad a pad of the footprint, and each pad the pad of one pin: map the other pin too."
+see = "Build target"
+
 ["altium.via-unsupported"]
 meaning = "A micro via is not written to the Altium PCB document; through, blind and buried vias are."
 fix = "Use a blind via of the same span, or place the via in Altium."

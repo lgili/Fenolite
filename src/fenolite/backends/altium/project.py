@@ -20,7 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
-from fenolite.backends.altium.altsym import AltiumSymbol, from_generic
+from fenolite.backends.altium.altsym import AltiumSymbol, from_generic, map_pins
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
@@ -391,6 +391,9 @@ def part_specs(
         for pin in body.pins:
             _text(pin.designator, f"{component.ref} pin designator")
             _text(pin.name or pin.designator, f"{component.ref} pin name")
+        pin_pads = map_pins(component, [pin.designator for pin in body.pins]) if footprint else ()
+        for _pin, pad in pin_pads:
+            _text(pad, f"{component.ref} pad name")
         specs.append(
             PartSpec(
                 key=component_path(component),
@@ -410,6 +413,7 @@ def part_specs(
                     (key, value, unique_id(f"{component.id}:parameter:{key}"))
                     for key, value in parameters_of(component, form=form)[0]
                 ),
+                pin_pads=pin_pads,
             )
         )
     ids = [s.part_id(k) for s in specs for k in range(1, s.body.parts + 1)]
@@ -512,7 +516,18 @@ def library_symbols(
     libraries: dict[str, list[AltiumSymbol]] = {}
     for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
         library = schlib_name(lib_id, design=name)
-        libraries.setdefault(library, []).append(given.get(lib_id) or generic[lib_id])
+        symbol = given.get(lib_id) or generic[lib_id]
+        # the library holds the pin map that every component of the symbol holds on the footprint its
+        # footprint model names (record 45), and none otherwise: a map is a map onto one footprint, and a
+        # part may link another footprint than its symbol's own. The sheet holds the map of each component.
+        if symbol.footprint is not None:
+            users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
+            designators = [pin.designator for pin in symbol.pins]
+            maps = {map_pins(c, designators) for c in users}
+            on_model = all(split_link(c.lib_footprint_ref) == symbol.footprint for c in users)
+            if len(maps) == 1 and (only := maps.pop()) and on_model:
+                symbol = dataclasses.replace(symbol, pin_pads=only)
+        libraries.setdefault(library, []).append(symbol)
     return {key: libraries[key] for key in sorted(libraries, key=name_key)}
 
 

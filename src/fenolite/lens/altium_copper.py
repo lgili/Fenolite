@@ -926,6 +926,20 @@ def _mismatch(source: CopperSource, message: str, where: str) -> Issue:
     return issue("altium.copper-board-mismatch", f"{source.label}{message}", where, REBUILD_HINT)
 
 
+def pad_net_names(design: Design) -> dict[str, dict[str, str]]:
+    """Component id → pad number → net name: the net of each pin on the pad that the component's
+    pin-to-pad map names for it, a pin outside the map on the pad of its own number (change c0135). The
+    PCB document and the check of a copper source both read the nets by pad from here, so they cannot
+    disagree about a mapped part."""
+    pad_of = {component.id: dict(component.pin_pad_map) for component in design.circuit.components}
+    nets: dict[str, dict[str, str]] = {}
+    for net in design.circuit.nets:
+        for member in net.members:
+            pad = pad_of.get(member.component_id, {}).get(member.pin, member.pin)
+            nets.setdefault(member.component_id, {})[pad] = net.name
+    return nets
+
+
 def match_source(
     design: Design,
     source: CopperSource,
@@ -967,10 +981,7 @@ def match_source(
         for net_id, name in source_nets.items()
         if name.startswith(UNCONNECTED_PREFIX) and pads_on[net_id] <= 1
     }
-    pin_nets: dict[str, dict[str, str]] = {}
-    for net in design.circuit.nets:
-        for member in net.members:
-            pin_nets.setdefault(member.component_id, {})[member.pin] = net.name
+    pin_nets = pad_net_names(design)
     used: set[str] = set()
     placements: dict[str, PlacementRequest] = {}
     moved: list[str] = []

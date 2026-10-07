@@ -25,7 +25,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
-from fenolite.backends.altium.altsym import NM_PER_MIL, AltiumGraphic, unit_and_frac
+from fenolite.backends.altium.altsym import NM_PER_MIL, AltiumGraphic, map_records, unit_and_frac
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
 from fenolite.backends.altium.layout import (
     COMMENT_DROP,
@@ -333,7 +333,9 @@ class _Writer:
                     ("ISCURRENT", "T"),
                 ]
             )
-            self.add([("RECORD", "46"), ("OWNERINDEX", str(model))])
+            maps = self.add([("RECORD", "46"), ("OWNERINDEX", str(model))])
+            for record in map_records(spec.pin_pads, maps):  # none for a component without a map
+                self.add(record)
             self.add([("RECORD", "48"), ("OWNERINDEX", str(model))])
 
     def sheet_symbol(self, symbol: PlacedSymbol) -> None:

@@ -290,6 +290,16 @@ PCB_CASES: dict[str, tuple[dict[str, object], set[str]]] = {
         {"project_exists": True},
         BLINK_CODES | {"altium.project-kept", "altium.schlib-not-in-project", "altium.pcb-not-in-project"},
     ),
+    "blink-pad-map": (
+        # change c0135: a pin-to-pad map that names a pad the footprint lacks
+        {"script": ('value="LED")', 'value="LED", pad_map={"1": "TAB"})')},
+        BLINK_CODES | {"altium.pin-pad-map-invalid", "altium.not-lowered"},
+    ),
+    "blink-pad-name": (
+        # change c0135: a pad name of a map that no record holds (the vertical bar ends a field)
+        {"script": ('value="LED")', 'value="LED", pad_map={"1": "A|B"})')},
+        {"altium.text-unwritable", "altium.not-lowered", "altium.symbol-simplified"},
+    ),
     "blink-unplaced": (
         {"script": ("r1.place(mm(32), mm(9))", "")},
         BLINK_CODES | {"altium.pcb-staged"},
@@ -626,6 +636,7 @@ def test_the_table() -> None:
         "altium.schematic-too-large": "error",
         "altium.library-too-large": "error",
         "altium.unknown-pin": "error",
+        "altium.pin-pad-map-invalid": "error",
         "altium.symbol-off-grid": "error",
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",

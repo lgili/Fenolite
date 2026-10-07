@@ -802,6 +802,7 @@ An author report never raises the build's evidence level.
 | `altium.schematic-too-large` | error | the binary schematic needs more than 109 FAT sectors (about 7 MB); never with `--altium-format ascii` |
 | `altium.library-too-large` | error | a schematic library needs more than 109 FAT sectors |
 | `altium.unknown-pin` | error | a net member names neither a pin number nor a pin name of a resolved symbol |
+| `altium.pin-pad-map-invalid` | error | a `pad_map` names a pin the symbol lacks, names a pad the resolved footprint lacks, or leaves one pad to two pins, one by the map and one by its own number (change c0135) |
 | `altium.symbol-off-grid` | error | a pin position or length of a resolved symbol is not a multiple of 10 mil |
 | `altium.pin-text-too-long` | error | a pin name or number is longer than 255 bytes |
 | `altium.symbol-name-collision` | error | two lib ids give one library and one storage name, or two library file names differ only in letter case |
@@ -1125,8 +1126,12 @@ the designators of the sheet. The facts are in `docs/formats/altium/connectivity
 
 **Pin-to-pad map.** A component whose footprint model maps a pin to a pad of another name carries the pair
 in `pin_pad_map`, and `netlist.assignment_compare` and level 2 of `fenolite equivalent` name the pin by
-that pad (`JP6-VBUS`, not `JP6-1`); the nets of the circuit stay keyed by pin number. The model gives a pin
-one pad: a pin whose map lists several pads keeps its own designator when the map lists it, else takes the
+that pad (`JP6-VBUS`, not `JP6-1`); the nets of the circuit stay keyed by pin number. This holds for
+Fenolite's own builds too: a project built from a script with a renaming `pad_map` holds the map in its
+schematic and the nets on the mapped pads of its PCB document (change c0135), and `fenolite check` on it
+compares the two through the map and reports nothing for the mapped pins. (The release 0.2.1, whose
+import leaves the map records out of the model, reports `netlist.assignment-differs` there.) The model
+gives a pin one pad: a pin whose map lists several pads keeps its own designator when the map lists it, else takes the
 first pad, and a pin mapped to no pad keeps its designator; each such record is kept in the component's
 `altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
 
@@ -1250,7 +1255,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `component` | `properties` | the writer does not write it (only the comment and the footprint link are parameters) |
 | `component` | `path` | the reader maps it elsewhere: an imported path is built from the sheet names |
 | `component` | `pins` | the writer writes a fixed value: the pins of the body it draws, whose ids and, for a generic body, names are its own |
-| `component` | `pin_pad_map` | the writer does not write it |
+| `component` | `pin_pad_map` | the writer does not write it in every case: a build writes the map as map records of the footprint model (change c0135) and the import reads them into the model (change c0083), but the write of a model writes none (`pin-pad-map` below) |
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |

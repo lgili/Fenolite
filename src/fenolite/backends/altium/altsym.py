@@ -24,7 +24,7 @@ from typing import Literal
 
 from fenolite.backends.altium.symbols import PIN_LENGTH, PIN_PITCH, GenericSymbol, natural_key
 from fenolite.core.errors import Issue, Severity
-from fenolite.model.circuit import PinType
+from fenolite.model.circuit import Component, PinType
 from fenolite.model.library import PinShape, SymbolDef, SymbolGraphic, SymbolPin
 
 NM_PER_MIL = 25_400
@@ -171,6 +171,36 @@ class AltiumGraphic:
     radius: int = 0
 
 
+PinPads = tuple[tuple[str, str], ...]
+"""The pin map of a footprint model: (pin designator, its pad), one item per map record."""
+
+
+def map_pins(component: Component, designators: Sequence[str]) -> PinPads:
+    """The map records of the footprint model of ``component``, for the pins ``designators`` of its body
+    in their order: a pin whose pad in ``Component.pin_pad_map`` is not the pad of its own designator,
+    with that pad. A pin without a pair, and a pin mapped to its own designator, has no record: without a
+    record a pin stands for the pad of its designator. Empty for a component without a map."""
+    pads = dict(component.pin_pad_map)
+    return tuple(
+        (designator, pads[designator])
+        for designator in dict.fromkeys(designators)
+        if designator in pads and pads[designator] != designator
+    )
+
+
+def map_records(pin_pads: PinPads, owner: int | None = None) -> list[list[tuple[str, str]]]:
+    """One ``MapDefiner`` record (record 47) per item of ``pin_pads``: ``DESINTF`` the pin,
+    ``DESIMPCOUNT`` 1 and ``DESIMP0`` the pad. ``owner`` is the index of the ``MapDefinerList`` (record 46)
+    in a document; a library record holds no owner key."""
+    records: list[list[tuple[str, str]]] = []
+    for pin, pad in pin_pads:
+        fields = [("RECORD", "47")]
+        if owner is not None:
+            fields.append(("OWNERINDEX", str(owner)))
+        records.append([*fields, ("DESINTF", pin), ("DESIMPCOUNT", "1"), ("DESIMP0", pad)])
+    return records
+
+
 @dataclass(frozen=True)
 class AltiumSymbol:
     """A library component: ``parts`` parts, pins ordered by part and then by natural designator, one
@@ -198,6 +228,9 @@ class AltiumSymbol:
     def graphics_of(self, part: int) -> tuple[AltiumGraphic, ...]:
         """The graphics of part ``part``, in order."""
         return tuple(g for g in self.graphics if g.part == part)
+
+    pin_pads: PinPads = ()
+    """The pin map of the footprint model in the library, as ``map_pins`` gives it."""
 
     def pins_of(self, part: int) -> tuple[AltiumPin, ...]:
         """The pins drawn on part ``part`` of a placed component: its own and, on part 1, Part Zero's."""
@@ -463,6 +496,9 @@ __all__ = [
     "AltiumGraphic",
     "AltiumPin",
     "AltiumRect",
+    "PinPads",
+    "map_pins",
+    "map_records",
     "AltiumSymbol",
     "body_rectangle",
     "drawn_rectangle",

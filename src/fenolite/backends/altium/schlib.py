@@ -17,7 +17,7 @@ from __future__ import annotations
 import struct
 from collections.abc import Sequence
 
-from fenolite.backends.altium.altsym import AltiumPin, AltiumSymbol
+from fenolite.backends.altium.altsym import AltiumPin, AltiumSymbol, PinPads, map_records
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.binary import frame_record, storage_stream
 from fenolite.backends.altium.cfb import FORBIDDEN, MAX_NAME, Entry, Storage, name_key, write_compound
@@ -145,8 +145,9 @@ def pin_record(pin: AltiumPin) -> bytes:
     return struct.pack("<I", BINARY << 24 | len(payload)) + payload
 
 
-def footprint_chain(library: str, footprint: str) -> list[list[Field]]:
-    """The records 44, 45, 46 and 48 of a footprint model, without owner keys (0-based data file keys)."""
+def footprint_chain(library: str, footprint: str, pin_pads: PinPads = ()) -> list[list[Field]]:
+    """The records 44, 45, 46 and 48 of a footprint model, without owner keys (0-based data file keys),
+    with one record 47 per item of ``pin_pads`` after record 46."""
     return [
         [("RECORD", "44")],
         [
@@ -160,6 +161,7 @@ def footprint_chain(library: str, footprint: str) -> list[list[Field]]:
             ("ISCURRENT", "T"),
         ],
         [("RECORD", "46")],
+        *map_records(pin_pads),
         [("RECORD", "48")],
     ]
 
@@ -222,7 +224,7 @@ def data_records(symbol: AltiumSymbol, *, library: str) -> list[bytes]:
         ]
         records.append(frame_record(fields))
     if symbol.footprint is not None:
-        records += [frame_record(r) for r in footprint_chain(*symbol.footprint)]
+        records += [frame_record(r) for r in footprint_chain(*symbol.footprint, symbol.pin_pads)]
     return records
 
 

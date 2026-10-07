@@ -2,10 +2,15 @@
 
 Status on 2026-10-07. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
-maintainer's verdict in `docs/release/v0.2.md` (change c0093). A patch release `0.2.1` is being
-prepared from the tag `v0.2.0`. Since 2026-10-07 the write side of the second backend is v0.3, to be
+maintainer's verdict in `docs/release/v0.2.md` (change c0093), and `v0.2.1` (2026-10-07), the first
+patch release of the series. Since 2026-10-07 the write side of the second backend is v0.3, to be
 released as `0.3.0`, and v0.4 names the proposals that are open on other branches
 ([Milestone names](#milestone-names)).
+
+Patch release of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
+pin-to-pad map in the Altium build (c0135). Its record is the section “Patch releases” of
+`docs/release/v0.2.md`. It is merged into this line, which holds the fix, the version and the changelog
+section.
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.

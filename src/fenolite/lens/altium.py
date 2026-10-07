@@ -88,6 +88,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.schematic-too-large": "error",
         "altium.library-too-large": "error",
         "altium.unknown-pin": "error",
+        "altium.pin-pad-map-invalid": "error",
         "altium.symbol-off-grid": "error",
         "altium.pin-text-too-long": "error",
         "altium.symbol-name-collision": "error",
@@ -148,6 +149,8 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
             "H-A-SCHX-DIR",
             "H-A-SCHX-ECO",
             "H-A-SCHX-GRAPHICS",
+            "H-A-SCHX-PINMAP",
+            "H-A-SCHX-PINMAP-FORM",
             "H-A-SCHX-READBACK",
             "H-A-SCHX-TEXT",
             "H-A-SCHX-TREE",
@@ -566,6 +569,41 @@ def _comment(component: Component) -> str:
     return component.value or (link[1] if link is not None else component.ref)
 
 
+def pin_map_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]) -> list[Issue]:
+    """One ``altium.pin-pad-map-invalid`` for each pair of a pin-to-pad map that names a pin its component
+    does not hold, for each pair that names a pad its resolved footprint does not hold, and for each pad
+    that two pins of the component stand for, one by the map and one by its own number (change c0135; the
+    script refuses a map that lists one pad for two pins). The KiCad build refuses the same maps, whether
+    or not the pins are on one net. The pads of a footprint that is not resolved are not checked."""
+    issues: list[Issue] = []
+    for component in sorted(design.circuit.components, key=component_path):
+        if not component.pin_pad_map:
+            continue
+        pins = {pin.number for pin in component.pins}
+        # the pins of a part of an Altium link are the designators its nets use: the symbol is not known,
+        # so a mapped pin that no net uses is not a pin "the symbol lacks"
+        known_symbol = not project.is_altium_link(component.lib_symbol_ref)
+        found = footprints.get(component.lib_footprint_ref)
+        pads = {pad.number for pad in found.defn.pads if pad.number} if found is not None else None
+        for pin, pad in component.pin_pad_map:
+            if pin not in pins and known_symbol:
+                text = f"{component.ref}: the pin-to-pad map names the pin {pin}, which the symbol lacks"
+                issues.append(issue("altium.pin-pad-map-invalid", text, component_path(component)))
+            if pads is not None and pad not in pads:
+                text = f"{component.ref}: the pin-to-pad map names the pad {pad}, which the footprint lacks"
+                issues.append(issue("altium.pin-pad-map-invalid", text, component_path(component)))
+        mapped = dict(component.pin_pad_map)
+        holders: dict[str, list[str]] = {}
+        for number in dict.fromkeys(pin.number for pin in component.pins if pin.number):
+            holders.setdefault(mapped.get(number, number), []).append(number)
+        for pad, found_pins in sorted(holders.items()):
+            if len(found_pins) > 1:
+                named = " and ".join(found_pins)
+                text = f"{component.ref}: the pins {named} both stand for the pad {pad}"
+                issues.append(issue("altium.pin-pad-map-invalid", text, component_path(component)))
+    return issues
+
+
 def with_written_values(design: Design) -> Design:
     """``design`` with the value that the documents hold for every component whose value is empty: its
     symbol's name, which both writers write as the comment (a component of Altium cannot be without one).
@@ -655,10 +693,8 @@ def pcb_document(
         if any(found.severity == "error" for found in source_issues):
             return None, issues
     assert board is not None and board.outline is not None
-    nets: dict[str, dict[str, str]] = {}
-    for net in design.circuit.nets:
-        for member in net.members:
-            nets.setdefault(member.component_id, {})[member.pin] = net.name
+    # pad number → net name, through the pin-to-pad map of each component, as in a KiCad build
+    nets = altium_copper.pad_net_names(design)
     outline = board.outline.points
     cursor = max(p.x for p in outline) + STAGING_OFFSET
     top = min(p.y for p in outline)
@@ -1003,6 +1039,8 @@ def _check(
         else:
             _unwritable(issues, fp_link[0], f"{ref} footprint library", path)
             _unwritable(issues, fp_link[1], f"{ref} footprint name", path)
+            for _pin, pad in component.pin_pad_map:
+                _unwritable(issues, pad, f"{ref} pad name", path)  # written into the map records
     for net in sorted(design.circuit.nets, key=lambda n: n.name):
         _unwritable(issues, net.name, "net name", net.name)
         for member in net.members:
@@ -1541,6 +1579,11 @@ def build_altium(
         )
     footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints, bodies=body_mode)
     issues += footprint_issues
+    issues += pin_map_issues(model, footprints)
+    if any(i.severity == "error" for i in issues):
+        return BuildOutput(
+            model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
+        )
     written = [footprints[link] for link in sorted(footprints)]
     pcb_account: dict[str, dict[str, int]] = {}
     spec, document_issues = pcb_document(

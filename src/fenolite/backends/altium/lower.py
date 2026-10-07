@@ -824,6 +824,10 @@ def schematic_design(design: Design, name: str) -> Design:
                 lib_footprint_ref=footprint,
                 pins=pins,
                 value=component.value or link.rpartition(":")[2],
+                # The write of a model writes no pin-to-pad map (``from_design`` accounts for it under
+                # ``pin-pad-map``). Since the fix c0135 the schematic writers write the map a component
+                # holds, for a build; here the map is taken off, so this write is what it was.
+                pin_pad_map=(),
             )
         )
     kept = {component.id: {pin.number for pin in component.pins} for component in components}
