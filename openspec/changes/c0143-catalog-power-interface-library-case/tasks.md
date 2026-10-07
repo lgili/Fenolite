@@ -1,0 +1,43 @@
+## 0. Entry check
+
+- [x] 0.1 Read the living `kicad-schematic` and `design-dsl` specs and the open changes; say which text each MODIFIED delta copies. Proof: `openspec validate c0143-catalog-power-interface-library-case --strict --no-interactive`.
+  - 2026-10-08, on the v0.4 base `5dee080e`: valid, exit 0.
+  - "Generated sheet content" and "Generated schematic issue codes" (`kicad-schematic`) and "Symbols of a built project" (`design-dsl`) are copied from the living specs; no open change holds a delta of them.
+  - "Embedded symbols of a generated sheet" and "Netlist grammar check" are copied from the delta of the open change c0123 (`multi-pad-pin-map`), whose code is on this base (`446b310a`) and which is archived first: the living text of the two lacks c0123's clauses. If c0123's delta changes before it is archived, regenerate the two from it and re-apply the clauses about the flag's library and `is_power_flag`, and the scenarios "The flag in another library" and "The flag of the catalog library is no power symbol".
+- [x] 0.2 Measure the defect on the release. Proof: the table of `design.md`, Context.
+  - 2026-10-08: tag `v0.2.1` (`fde27c9f`), own environment: exit 5, `build.vendor-unsafe-name`; the same on the base. `v0.2.0` read in the source only (`symembed.py:33`, `catalog/__init__.py:951`), not built.
+
+## 1. The fix
+
+- [x] 1.1 `symembed.flag_library`, `symembed.is_power_flag` and `power_flag(target, library)`; `schgen.generate_schematic(..., other_libraries=...)` puts the flag in that library and refuses a taken name; `lens/build.py` passes the authored libraries and refuses an authored symbol of the flag's name; `sch_netlist` uses `is_power_flag`. Proof: `uv run pytest tests/unit/lens/test_build_flag_library.py -q`; `uv run pyright src`.
+  - 2026-10-08: 14 passed; pyright 0 errors.
+- [x] 1.2 The oracle: `tests/kicad/check/test_flag_library_erc.py` (the script with and without its `Power` line). Proof: `uv run pytest tests/kicad/check/test_flag_library_erc.py -q` on the local `kicad-cli`.
+  - 2026-10-08, `kicad-cli` 10.0.6: 2 passed. By hand: `fenolite build` of the script exit 0, `fenolite check --stages erc.kicad` exit 0, stage `ok` (one warning, `isolated_pin_label` on the one-pin net `VOUT`).
+- [x] 1.3 The Altium build: `tests/unit/lens/test_build_flag_library_altium.py`. Proof: `uv run pytest tests/unit/lens/test_build_flag_library_altium.py -q`.
+  - 2026-10-08: 2 passed. By hand: `fenolite build --target altium` of the script before the fix and after it, `diff -r` of the two folders (documents and `.fenolite/`): no difference.
+
+## 2. No byte of a building design moves
+
+- [x] 2.1 The pinned builds and the goldens pass unchanged; no pin is edited. Proof: `uv run pytest tests/unit/lens/test_build_bytes_pinned.py tests/unit/lens tests/unit/backends/kicad -q`; `git diff --stat -- tests/data tests/unit/lens/test_build_bytes_pinned.py` is empty.
+  - 2026-10-08: `tests/unit/lens` and `tests/unit/backends/kicad` passed (two skips that need a file of Altium or a census variable); the 70 KiCad and 10 Altium pins are untouched. The blink and `board_40parts` are pinned designs with a `Power` interface and no catalog part, so no pin was added.
+  - `tests/kicad/schematic/test_generated_oracle.py` and `tests/kicad/check` on 10.0.6: 235 passed.
+
+## 3. Documents
+
+- [x] 3.1 `docs/schematic.md`, the row of `build.reserved-library` in `docs/cli-contract.md`, its text in `src/fenolite/cli/data/explain.toml`, `CHANGELOG.md`. Proof: `uv run pytest tests/consistency tests/unit/cli/test_explain_cmd.py -q`; `uv run python tools/gen_schemas.py --check`; `uv run python tools/gen_evidence_matrix.py --check`.
+  - 2026-10-08: passed; both tools exit 0.
+- [ ] 3.2 Run `tests/kicad/check/test_flag_library_erc.py` in the pinned 9.0.9 image. Proof: the `kicad-9` job, or `FENOLITE_KICAD_CLI="docker:kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729" uv run pytest tests/kicad/check/test_flag_library_erc.py`.
+  - Open (2026-10-08): no container was run in this session. The build for target 9 is proved by the unit test; that KiCad 9 reads the flag in the catalog's library is not measured yet.
+- [x] 3.3 The maintainer decides whether the fix goes into a 0.2.x patch release. The commit applies on `v0.2.1` as `design.md`, Decision 4, says; the result of the trial is in the hand-over of this change.
+  - 2026-10-08: decided by the maintainer: yes. The fix is backported to the patch release `0.2.2` (change c0149), on the branch `release-0.2.2` cut from the tag `v0.2.1`, as a cherry-pick of the commit of `dev` (`5a54f502`). Only `CHANGELOG.md` conflicted: the entry stands under `### Fixed` of `## [Unreleased]`, in the form of the 0.2.x changelog.
+  - The hand that `design.md`, Decision 4, asks for: `tests/unit/lens/test_build_flag_library_altium.py` is not carried, because `build_altium(authored_symbols=...)` is not in 0.2.x; the Altium build of 0.2.x does not read the flag's library (no module of it imports `symembed` or `schgen`) and refuses the catalog's lib ids with `kicad.lib.unknown-nickname`, at the tag and with the fix. The MODIFIED deltas were regenerated from the living specs of `v0.2.1`: "Embedded symbols of a generated sheet" and "Netlist grammar check" lose the clauses of c0123 (several pads per pin, stacked pins) and their scenarios "Variant name of one pad per pin is unchanged" and "Stacked pins are inside the grammar"; "Generated sheet content" loses the scenario "Altium build unchanged", and its scenario "Other designs keep their bytes" names the comparison of the test in place of `tests/unit/lens/test_build_bytes_pinned.py`, which 0.2.x does not have. `openspec validate c0143-catalog-power-interface-library-case --strict --no-interactive`: valid.
+  - On the branch: `tests/unit/lens/test_build_flag_library.py` 14 passed; on an export of the tag with the tag's code, 11 failed and 3 passed (the controls without a flag). Every script under `examples/` and the script of `design.md`, built for KiCad 9 and 10 and for both Altium forms with one seed and timestamp, on the tag and on the branch: 36 builds on each side; 308 files of the tag's builds and none differs; the script of `design.md` exits 5 for KiCad on the tag and 0 on the branch (32 new files), and every other exit code is the same. No `kicad-cli` in this session: `tests/kicad/check/test_flag_library_erc.py` was skipped here, and the `kicad-9` and `kicad-10` jobs of the pull request run it (task 3.2).
+
+## 4. Carried onto dev
+
+- [x] 4.1 Carry the change onto `dev` for milestone v0.3 and rerun the proofs there. Proof: the commands of groups 1 to 3 on the carried commit.
+  - 2026-10-08, carried onto dev `f17b03e9` (cherry-pick of the v0.4 commit `2749678d`): only `CHANGELOG.md` conflicted; its entry now sits at the top of `## [Unreleased]`, as dev's newest entries do. No source, test or page was adapted: `build_altium(authored_symbols=...)`, `tests/_pinned.py` and the pinned builds are on dev, so `test_build_flag_library_altium.py` is kept.
+  - The MODIFIED deltas were regenerated from dev's texts and are identical byte for byte: "Generated sheet content", "Generated schematic issue codes" (`kicad-schematic`) and "Symbols of a built project" (`design-dsl`) from the living specs; "Embedded symbols of a generated sheet" and "Netlist grammar check" from the delta of the active change c0123. `openspec validate --all --strict --no-interactive`: 74 items valid.
+  - The fix's tests with the pinned builds (`test_build_flag_library.py`, `test_build_flag_library_altium.py`, `tests/kicad/check/test_flag_library_erc.py`, `test_build_bytes_pinned.py`): 101 passed, no pin moved. The script by hand on `kicad-cli` 10.0.6: build exit 0, `check --stages erc.kicad` exit 0; without its `Power` line build exit 0, ERC exit 5 with `power-pin-not-driven` on U1-1 and U1-2.
+  - Registers, provenance, `tests/unit/verify`, residue, manifest, consistency, explain and the touched schematic tests: 604 passed, 15 skipped. `tests/kicad/schematic/test_generated_oracle.py` and `tests/kicad/check` with `FENOLITE_REQUIRE=kicad` on 10.0.6: 215 passed. `make check-fast PYTEST_MAX_WORKERS=3`: 9748 passed, 18 skipped. The whole unit suite on Python 3.11: 9469 passed, 3 skipped. ruff, format, pyright, schema and matrix `--check`: clean.
+  - Task 3.2 stays open: nothing was run on the 9.0.9 image.

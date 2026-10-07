@@ -855,8 +855,8 @@ fix = "Rename the property."
 see = "build"
 
 ["build.reserved-library"]
-meaning = "The design names a symbol library `fenolite`. That nickname is kept for the symbols Fenolite writes itself, such as the power flag of a generated schematic."
-fix = "Give the library another nickname in the symbol table or in the script."
+meaning = "The design names a symbol library `fenolite`. That nickname is kept for the symbols Fenolite writes itself, such as the power flag of a generated schematic. Or the design needs a power flag and holds a symbol `PWR_FLAG` of its own in the library that holds the flag: a library whose name differs from `fenolite` in letter case only, such as `Fenolite`."
+fix = "Give the library another nickname in the symbol table or in the script, or give the symbol another name."
 see = "build"
 
 ["build.schematic-netlist-differs"]

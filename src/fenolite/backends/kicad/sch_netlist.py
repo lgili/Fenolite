@@ -327,7 +327,7 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
     if frames:
         add("frame", f"the rotation and mirror of {_shown(frames)} were not measured")
     used = {id(pin.definition): pin.definition for pin in pins}.values()
-    power = [d.lib_id for d in used if d.power and d.lib_id != FLAG_LIB_ID]
+    power = [d.lib_id for d in used if d.power and not symembed.is_power_flag(d.lib_id)]
     hidden = [
         f"{d.lib_id} pin {pin.number}"
         for d in used
