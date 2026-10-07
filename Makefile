@@ -42,3 +42,13 @@ residue:
 hooks:
 	ln -sf ../../tools/hooks/pre-commit .git/hooks/pre-commit
 	@echo "pre-commit hook installed"
+
+# The yardstick board through the loop of its stage, on a local library cache and kicad-cli 10. Not a
+# part of `check`: it takes minutes. `make yardstick YARDSTICK_ARGS=--skip-heavy` leaves the two heavy
+# corpus boards out (tools/README.md, "The yardstick").
+.PHONY: yardstick
+YARDSTICK_OUT ?= build/yardstick
+YARDSTICK_ARGS ?=
+yardstick:
+	rm -rf $(YARDSTICK_OUT)
+	FENOLITE_LIBS_CACHE=$${FENOLITE_LIBS_CACHE:-$$HOME/.cache/fenolite/libs} uv run python tools/yardstick.py run --out $(YARDSTICK_OUT) --record $(YARDSTICK_OUT)/record.json $(YARDSTICK_ARGS)

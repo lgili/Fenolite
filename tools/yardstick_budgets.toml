@@ -1,0 +1,73 @@
+# Budgets of the yardstick board (examples/yardstick), read by tools/yardstick.py run
+# (capability release-gate, "Yardstick budgets"; change c0119).
+#
+# One table per stage. `source` says where the values come from: "provisional" (one local run: seconds
+# times 4 and MiB times 2, rounded up to 10 s and to 50 MiB), or the three scheduled runs they were read
+# from (median seconds times 1.5, largest MiB times 1.25, rounded the same way). `tools/yardstick.py
+# rebase` prints the tables that the rule gives. A step without a table is recorded and fails nothing;
+# `heavy-read` and `heavy-rt1` get theirs from the first scheduled runs.
+#
+# A commit that raises a budget, or adds an accepted finding under [stage<n>.accepted.<key>] with
+# `stage`, `type`, `reason` and `owner`, adds a row to docs/evidence/yardstick.md with the reason.
+# Seconds and MiB are measures of one runner: no evidence label moves on a budget.
+
+[stage1]
+# From the local run of 2026-10-07T16:22Z at 7392159d (docs/evidence/yardstick.md, "Budgets"); no
+# accepted finding: every `check` stage but `drc.kicad` is `ok` on the example.
+source = "provisional"
+
+[stage1.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage1.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage1.steps.build]
+seconds = 90
+mib = 250
+
+[stage1.steps.fill]
+seconds = 100
+mib = 500
+
+[stage1.steps.check]
+seconds = 190
+mib = 550
+
+[stage1.steps.export]
+seconds = 30
+mib = 450
+
+[stage1.steps.render]
+seconds = 20
+mib = 450
+
+[stage1.steps.bom]
+seconds = 20
+mib = 200
+
+[stage1.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage1.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage1.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage1.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage1.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage1.steps.build-install]
+seconds = 850
+mib = 450
