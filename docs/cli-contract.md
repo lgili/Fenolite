@@ -116,6 +116,16 @@ A design rule of a kind the target major does not check is refused the same way,
 `rules.kind-unchecked`: a `creepage` rule and `--kicad-version 9`. With `--allow-lossy` the rule is left
 out of the `.kicad_dru` and reported as `rules.dropped-for-target`; it stays in `.fenolite/rules.json`.
 
+**Stack-up (c0101).** `read_board` projects the `stackup` child of `setup` into `Board.stackup` and keeps
+`setup` as it is written (`docs/formats/kicad/board.md`, "Stack-up"). Reader codes:
+`kicad.board.stackup-unused` (warning) for a node KiCad does not use, whose job file then states no
+thickness; `kicad.board.stackup-unmodelled` (info) for a complete node with a value the model cannot hold
+exactly; `kicad.board.stackup-thickness` (warning) for a board thickness that differs from the sum of the
+layers. Writer codes: `kicad.board.stackup-invalid` (error, never dropped by `--allow-lossy`) for a
+stack-up that cannot be written complete, and `kicad.board.stackup-rewritten` (info) naming the values of
+a replaced node that the model does not hold. A board that is read and written back without a change of
+its stack-up keeps the bytes of `setup` and `general`.
+
 ## Build target
 
 `fenolite build DESIGN.py --out DIR` takes `--target {kicad,altium}`, default `kicad`. With
@@ -350,6 +360,13 @@ as a warning, so a build never exits 5 for placement; the codes are those of the
 code. The guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
 `--target altium` there is no `result.placement`. A Python caller of `build_design` is not guarded; it
 calls `placement.check` itself (`docs/placement.md`).
+
+`result.stackup` (c0101) is `null` when the written board holds no stack-up, and otherwise
+`{"source": "script" | "board", "thickness": <nm>, "copper": <copper entries>}`: `source` names whose
+stack-up the written board holds. Against an existing board the board's stack-up wins over an unlocked
+`design.stackup()` that differs (`kicad.stackup.overridden`, info), and `stackup(locked=True)` replaces it
+(`kicad.stackup.forced`, warning); a `model.stackup-*` error refuses the build. A script without
+`stackup()` builds every file with the bytes it had before (`docs/lens.md`, "Stack-up across rebuilds").
 
 ## `sync`
 
@@ -880,7 +897,7 @@ repeat.
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). `model.stackup-order`, `model.stackup-copper` and `model.stackup-value` (errors) name a stack-up whose entries are out of order, whose copper entries are not the board's copper layers, or that holds a thickness or a decimal the model does not accept (`docs/design-model.md`, "Stack-up"; change c0101). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
@@ -1103,6 +1120,12 @@ Each distinct `(model …)` path is located once, from the first source that hol
 Exit codes: 0, also with missing models; 4 when `--vendor` plans a copy without `--dry-run` or
 `--confirm`; 2 for a usage error; 3 for a missing path.
 
+**Stack-up note (c0101).** The Gerber job file states the board's stack-up. When `--gerbers` (or `--all`)
+runs on a board whose model holds no stack-up, one `export.stackup-default` (info, `where` `gerbers`)
+says that KiCad states its default there: 0.035 mm copper, 0.01 mm masks, equal FR4 dielectrics that fill
+the board thickness, and the finish `None`. The note changes no file. An issue of severity `info` does not stop the writes: only an error does (a
+warning does not either, change c0116).
+
 ## render
 
 `fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--manifest]
@@ -1162,6 +1185,13 @@ file". Note codes are `cfb.note.minor-version`, `cfb.note.header-fields`, `cfb.n
 `cfb.note.tree-order` and `cfb.note.orphan-entries`. Structural rules are `cfb.signature`,
 `cfb.truncated`, `cfb.header`, `cfb.difat`, `cfb.chain`, `cfb.shared-sector`, `cfb.directory`,
 `cfb.name`, `cfb.duplicate-name`, `cfb.size` and `cfb.limit`.
+
+For a board, `result.stackup` (c0101) is `null` when the board holds no stack-up that KiCad uses, and
+otherwise holds `thickness` (the sum of the entries, in nm), `finish`, `impedance_controlled` and
+`layers`: one object per entry, top to bottom, with `name`, `kind` and `thickness`, and with
+`dielectric_kind`, `material`, `epsilon_r`, `loss_tangent` and `color` when they are set. Footprint files
+and symbol libraries do not carry the key. The `kicad.board.stackup-*` codes of the reader are reported as
+issues.
 
 ## doctor
 
@@ -1288,6 +1318,12 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.input-missing` | warning | an input that Fenolite does not assume is absent; the items left out are counted |
 | `analysis.item-unsupported` | warning | copper that could not be shaped, per kind, or a conductor outside the board |
 | `analysis.requirement-unmatched` | warning | a requirement row that matches no net, or a voltage above every step |
+
+**Thicknesses from the stack-up (c0101).** A KiCad board whose `setup` holds a complete stack-up gives
+`analyze` the copper thickness of each copper layer and the board thickness with no option; an option
+keeps winning. `result.inputs.board_thickness_source` is `option`, `stackup` or `null`, and
+`result.inputs.stackup` is `null` or `{"thickness": <nm>, "copper": {<layer>: <nm>}}`. A board without a
+stack-up and without options gets the `analysis.input-missing` warnings as before.
 
 ## template
 

@@ -24,6 +24,7 @@ LayerKind = Literal[
     "mechanical",
 ]
 StackKind = Literal["copper", "dielectric", "soldermask", "silkscreen", "solderpaste"]
+DielectricKind = Literal["core", "prepreg"]
 PadShape = Literal["circle", "rect", "oval", "roundrect", "trapezoid", "custom"]
 PadKind = Literal["smd", "thru_hole", "np_thru_hole", "connect"]
 Side = Literal["top", "bottom"]
@@ -64,7 +65,11 @@ class Layer(Entity):
 
 @dataclass(frozen=True, slots=True)
 class StackLayer(Entity):
-    """One physical layer of the stack-up. Dielectric constants are decimal strings, never floats."""
+    """One entry of the stack-up. Dielectric constants are decimal strings, never floats.
+
+    ``dielectric_kind`` says whether a dielectric is a core or a prepreg (``None``: not stated), and
+    ``color`` is the colour as the source names it. A dielectric made of several sheets is one entry per
+    sheet, consecutive, the sheets sharing a name."""
 
     name: str
     kind: StackKind
@@ -72,14 +77,44 @@ class StackLayer(Entity):
     material: str = ""
     epsilon_r: str = ""
     loss_tangent: str = ""
+    dielectric_kind: DielectricKind | None = None
+    color: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class Stackup(Entity):
-    """The stack-up, from top to bottom (order is semantic)."""
+    """The stack-up, from the top face to the bottom face (order is semantic).
+
+    ``impedance_controlled`` is true when the dielectric values are requirements for the fabricator."""
 
     layers: tuple[StackLayer, ...] = field(default=(), metadata=ORDERED)
     finish: str = ""
+    impedance_controlled: bool = False
+
+    def thickness(self) -> Nm:
+        """The sum of the entries' thicknesses: the board thickness of the model."""
+        return sum(layer.thickness for layer in self.layers)
+
+    def _index(self, name: str) -> int:
+        for index, layer in enumerate(self.layers):
+            if layer.name == name:
+                return index
+        raise KeyError(name)
+
+    def depth(self, name: str) -> tuple[Nm, Nm]:
+        """The depths, below the top face of the first entry, of the top and the bottom face of the first
+        entry named ``name``. ``KeyError`` for an unknown name."""
+        index = self._index(name)
+        top = sum(layer.thickness for layer in self.layers[:index])
+        return top, top + self.layers[index].thickness
+
+    def between(self, upper: str, lower: str) -> tuple[StackLayer, ...]:
+        """The entries strictly between the first entries named ``upper`` and ``lower``, top to bottom.
+        ``KeyError`` for an unknown name, ``ValueError`` when ``upper`` does not lie above ``lower``."""
+        first, last = self._index(upper), self._index(lower)
+        if first >= last:
+            raise ValueError(f"{upper!r} does not lie above {lower!r}")
+        return self.layers[first + 1 : last]
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,6 +422,7 @@ __all__ = [
     "Board",
     "BodyKind",
     "ComponentBody",
+    "DielectricKind",
     "FieldJustifyH",
     "FieldJustifyV",
     "FootprintAttribute",

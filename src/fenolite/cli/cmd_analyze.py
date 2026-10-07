@@ -180,6 +180,22 @@ def _json(value: Any) -> Any:
     return value
 
 
+def _thickness_source(option: Nm | None, used: Nm | None) -> str | None:
+    """Where the board thickness of the reply came from: ``option``, ``stackup`` or ``None``."""
+    if option is not None:
+        return "option"
+    return "stackup" if used is not None else None
+
+
+def _stackup_inputs(design: Design) -> dict[str, Any] | None:
+    """``inputs.stackup``: the total and the copper thicknesses of the board's stack-up, or ``None``."""
+    stackup = design.board.stackup if design.board is not None else None
+    if stackup is None:
+        return None
+    copper = {entry.name: entry.thickness for entry in stackup.layers if entry.kind == "copper"}
+    return {"thickness": stackup.thickness(), "copper": copper}
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = _kinds(args.kinds)
     temp_rise = _temp_rise(args.temp_rise)
@@ -256,6 +272,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "copper_thickness": copper_thickness,
         "via_plating": via_plating,
         "board_thickness": boundary.thickness,
+        "board_thickness_source": _thickness_source(thickness, boundary.thickness),
+        "stackup": _stackup_inputs(design),
         "pairs": [list(pair) for pair in pairs],
         "within": within,
         "arc_tol": arc_tol,

@@ -576,7 +576,10 @@ def test_stack_values_come_from_the_stackup(tmp_path: Path) -> None:
 
     between = ((180_000, "4.4", "PP"), (710_000, "4.5", ""), (180_000, "", "PP"))
     output = routed_build(tmp_path, _with_stackup(routed_model(()), FOUR, between))  # type: ignore[arg-type]
-    assert not [i for i in output.issues if i.where == "stackup"]
+    # the stack-up fits; its solder mask of 10 um has no key in the document and is named once (c0101)
+    (unheld,) = [i for i in output.issues if i.where == "stackup"]
+    assert unheld.severity == "info" and "the solder mask thickness" in unheld.message
+    assert "the copper and dielectric values are written" in unheld.message
     board = read_pcbdoc(output.files["routed.PcbDoc"]).board
     assert [board[f"V9_STACK_LAYER{i}_DIELTYPE"] for i in (4, 6, 8)] == ["2", "1", "2"]
     assert (

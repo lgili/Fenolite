@@ -16,6 +16,7 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
     {
         "export.failed": "error",
         "export.kind-unavailable": "error",
+        "export.stackup-default": "info",
         "render.failed": "warning",
         "export.sheet-missing": "error",
         "export.model-unread": "warning",

@@ -99,6 +99,7 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    stackup_locked,
     to_model,
 )
 from fenolite.dsl import Design as DslDesign
@@ -771,6 +772,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         schematic=schematic,
         symbol_placements=symbol_placements,
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
+        lock_stackup=stackup_locked(design),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):

@@ -16,6 +16,7 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
+from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
@@ -289,6 +290,17 @@ class Rules:
         self.netclasses[name] = spec
 
 
+@dataclass(frozen=True, slots=True)
+class StackupSpec:
+    """The stack-up of ``Design.stackup()``: its entries with their names, top to bottom, the finish
+    (``""`` when the script gives none), the impedance-control flag and the lock."""
+
+    entries: tuple[tuple[str, StackEntry], ...]
+    finish: str = ""
+    impedance_controlled: bool = False
+    locked: bool = False
+
+
 class Design(Container):
     """A design; its name becomes the KiCad file stem."""
 
@@ -322,6 +334,8 @@ class Design(Container):
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
+        self.stack: StackupSpec | None = None
+        """The stack-up of ``stackup()``."""
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
@@ -378,6 +392,84 @@ class Design(Container):
         """The copper layer names of the declared count, top to bottom: ``F.Cu``, the inner layers and
         ``B.Cu``. ``("F.Cu", "B.Cu")`` before ``board()`` is called."""
         return ("F.Cu", *inner_layers(self.copper), "B.Cu")
+
+    def stackup(
+        self,
+        *entries: StackEntry,
+        finish: str | None = None,
+        impedance_controlled: bool = False,
+        locked: bool = False,
+    ) -> None:
+        """The stack-up of the board, from its top face to its bottom face: at most one
+        ``stack.silkscreen()`` and then at most one ``stack.mask()``; one ``stack.copper()`` per copper
+        layer of ``board()``, with at least one ``stack.core()`` or ``stack.prepreg()`` between neighbours
+        (the dielectrics of one gap all of one kind: they are the sheets of one dielectric); then at most
+        one mask and at most one silkscreen. ``finish`` is the copper finish as the fabricator names it,
+        ``impedance_controlled`` marks the dielectric values as requirements, and ``locked`` makes this
+        stack-up replace a different one of an existing board (``docs/lens.md``). Fenolite supplies no
+        value the script does not give (``docs/dsl.md``, "Stack-up")."""
+        if self.size is None:
+            raise DslError("stackup() is called after board()")
+        if self.stack is not None:
+            raise DslError("stackup() is called once")
+        if finish is not None and (not isinstance(finish, str) or not finish.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"stackup(): finish must be None or a non-empty string, not {finish!r}")
+        for name, flag in (("impedance_controlled", impedance_controlled), ("locked", locked)):
+            if not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"stackup(): {name} must be a bool, not {flag!r}")
+        named = self._stack_names(entries)
+        self.stack = StackupSpec(named, finish or "", impedance_controlled, locked)
+
+    def _stack_names(self, entries: Sequence[object]) -> tuple[tuple[str, StackEntry], ...]:
+        """The entries with the names KiCad gives their rows; ``DslError`` naming the position of the
+        first entry out of place."""
+        copper = self.copper_layers  # the names of the declared count (c0100)
+        named: list[tuple[str, StackEntry]] = []
+        seen = 0  # copper entries so far
+        gap: list[str] = []  # the dielectric kinds since the last copper entry
+        outer: list[str] = []  # the outer kinds on the current side
+
+        def refuse(position: int, why: str) -> DslError:
+            return DslError(f"stackup(): entry {position} is out of place: {why}")
+
+        for position, entry in enumerate(entries):
+            if not isinstance(entry, StackEntry):
+                raise refuse(position, f"{entry!r} is not an entry of fenolite.dsl.stack")
+            kind = entry.kind
+            side = "F" if seen == 0 else "B"
+            if kind in ("silkscreen", "mask"):
+                if 0 < seen < len(copper) or gap:
+                    raise refuse(position, f"a {kind} lies above the first copper layer or below the last")
+                wanted = ["silkscreen", "mask"] if seen == 0 else ["mask", "silkscreen"]
+                if kind in outer or (outer and wanted.index(kind) < wanted.index(outer[-1])):
+                    raise refuse(
+                        position, f"the {'top' if seen == 0 else 'bottom'} side lists {wanted}, once"
+                    )
+                outer.append(kind)
+                named.append((f"{side}.{'SilkS' if kind == 'silkscreen' else 'Mask'}", entry))
+            elif kind == "copper":
+                if seen == len(copper):
+                    raise refuse(position, f"the board has {len(copper)} copper layers")
+                if seen and not gap:
+                    raise refuse(position, "two copper layers need a core or a prepreg between them")
+                named.append((copper[seen], entry))
+                seen, gap, outer = seen + 1, [], []
+            elif kind in DIELECTRICS:
+                if seen == 0 or seen == len(copper):
+                    raise refuse(position, f"a {kind} lies between two copper layers")
+                if gap and gap[-1] != kind:
+                    raise refuse(
+                        position, f"the dielectrics of one gap are all of one kind, not {gap[-1]} and {kind}"
+                    )
+                gap.append(kind)
+                named.append((f"dielectric {seen}", entry))
+            else:
+                raise refuse(position, f"unknown kind {kind!r}")
+        if seen != len(copper):
+            raise refuse(
+                len(entries), f"the stack-up holds {seen} copper layers and the board has {len(copper)}"
+            )
+        return tuple(named)
 
     def sheet(
         self,
@@ -762,6 +854,7 @@ __all__ = [
     "MinimumSpec",
     "NetClassSpec",
     "Rules",
+    "StackupSpec",
     "ZoneSpec",
     "inner_layers",
 ]

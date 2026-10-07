@@ -62,6 +62,13 @@ v0.1 has one way to export each kind; these options are the whole list. Two opti
   as it is. Fill the board with `fenolite fill`, check it, then export.
 - `--board-plot-params` would make the files depend on plot settings stored in the board.
 
+**The job file states the stack-up.** `kicad-cli` writes `<stem>-job.gbrjob` beside the Gerbers, and that
+file states a thickness for every layer only when the board's `setup` holds a complete stack-up. A board
+without one gets KiCad's default: 0.035 mm copper, 0.01 mm masks, equal FR4 dielectrics that fill the
+board thickness, and the finish `None`. `export --gerbers` then gives one `export.stackup-default` info
+(`where` `gerbers`), so the default is not taken for the design's; declare the stack-up with
+`design.stackup()` or in KiCad's Board Setup. The note changes no file and does not stop the writes: only an error does (change c0101; measurements in `docs/evidence/kicad-stackup.md`).
+
 ## Documents
 
 Six more kinds are documents for a manufacturer or an enclosure designer. Each is selected by its own

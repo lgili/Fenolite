@@ -39,7 +39,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE, altium_rul, manifest
 from fenolite.exports import preset as presets
 from fenolite.exports.codes import issue as export_issue
-from fenolite.exports.plan import DOCUMENT_KINDS, FAB_KINDS, KINDS, Artifact, run_kind
+from fenolite.exports.plan import DOCUMENT_KINDS, FAB_KINDS, KINDS, Artifact, run_kind, stackup_note
 
 HELP = "export fabrication files through kicad-cli on a copy of the project (writes under DIR)"
 RESULT_KEYS = ("path", "kind", "layer", "bytes", "sha256", "content_sha256")
@@ -175,6 +175,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             )
             artifacts += found.artifacts
             issues += found.issues
+            note = stackup_note(kind, design)
+            if note is not None:
+                issues.append(note)
             tool_writes.update(found.tool_writes)
             model_uses += found.models
     rule_file = _rule_file(board, issues) if args.altium_rul else None

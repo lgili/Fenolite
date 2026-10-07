@@ -20,7 +20,7 @@ from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
-from fenolite.model.board import Board, Outline, Zone
+from fenolite.model.board import Board, Outline, StackLayer, Stackup, Zone
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
@@ -48,6 +48,8 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "layer": ("lay", "layer:<KiCad name>"),
         "zone": ("zon", "zone:<name>"),
         "rule": ("rul", "rule:<kind>[:<net class>]"),
+        "stackup": ("stk", "stackup"),
+        "stack_layer": ("sly", "stack_layer:<k>"),
     }
 )
 """Object → (id prefix, key form); ids are ``derived_id(prefix, "dsl", key)``."""
@@ -187,6 +189,7 @@ def to_model(design: Design) -> ModelDesign:
             id=key_id("board"),
             outline=outline,
             zones=zones,
+            stackup=_stackup(design),
             sheet=_sheet(design),
             title_block=design.block,
         ),
@@ -196,6 +199,41 @@ def to_model(design: Design) -> ModelDesign:
 
 
 SHEET_SUFFIX = ".kicad_wks"
+
+
+def _stackup(design: Design) -> Stackup | None:
+    """The model stack-up of ``Design.stackup()``: one entry per script entry, with the names KiCad gives
+    the same rows, ``core`` and ``prepreg`` as the kind of a dielectric; ``None`` without a call."""
+    spec = design.stack
+    if spec is None:
+        return None
+    entries: list[StackLayer] = []
+    for k, (name, entry) in enumerate(spec.entries):
+        dielectric = entry.kind in ("core", "prepreg")
+        entries.append(
+            StackLayer(
+                id=key_id("stack_layer", str(k)),
+                name=name,
+                kind="dielectric" if dielectric else "soldermask" if entry.kind == "mask" else entry.kind,  # type: ignore[arg-type]
+                thickness=entry.thickness,
+                material=entry.material,
+                epsilon_r=entry.epsilon_r,
+                loss_tangent=entry.loss_tangent,
+                dielectric_kind=entry.kind if dielectric else None,  # type: ignore[arg-type]
+                color=entry.color,
+            )
+        )
+    return Stackup(
+        id=key_id("stackup"),
+        layers=tuple(entries),
+        finish=spec.finish,
+        impedance_controlled=spec.impedance_controlled,
+    )
+
+
+def stackup_locked(design: Design) -> bool:
+    """The ``locked`` argument of ``Design.stackup()``; ``False`` without a call."""
+    return design.stack is not None and design.stack.locked
 
 
 def _sheet(design: Design) -> SheetFrameRef | None:
@@ -354,5 +392,6 @@ __all__ = [
     "net_moves",
     "placements",
     "planes",
+    "stackup_locked",
     "to_model",
 ]

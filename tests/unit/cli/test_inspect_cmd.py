@@ -19,6 +19,7 @@ from fenolite.backends.kicad.pcb import opaque_count, read_board
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 TWO_LAYER = DATA / "kicad" / "board" / "two_layer.kicad_pcb"
+STACKUP_FOUR = DATA / "kicad" / "board" / "stackup_four.kicad_pcb"
 FOOTPRINT = DATA / "libs" / "Mini.pretty" / "Mini_R_0603.kicad_mod"
 SYMBOLS = DATA / "libs" / "Mini.kicad_sym"
 SHEET = DATA / "kicad" / "sheets" / "all_items.kicad_wks"
@@ -69,7 +70,51 @@ def test_authored_board_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
         "counts",
         "opaque_count",
         "model_findings",
+        "stackup",
     }
+    assert result["stackup"] is None  # the board holds no stack-up (c0101)
+
+
+def test_board_with_a_stackup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``result.stackup`` of a board (cli-contract, "Stack-up in inspect"; change c0101)."""
+    code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(STACKUP_FOUR))
+    assert code == 0
+    stackup = env["result"]["stackup"]
+    assert stackup["thickness"] == 2_025_000 and stackup["finish"] == "ENIG"
+    assert stackup["impedance_controlled"] is True and len(stackup["layers"]) == 14
+    assert stackup["layers"][0] == {"name": "F.SilkS", "kind": "silkscreen", "thickness": 0}
+    assert stackup["layers"][2] == {
+        "name": "F.Mask",
+        "kind": "soldermask",
+        "thickness": 10_000,
+        "color": "Green",
+    }
+    assert stackup["layers"][7] == {
+        "name": "dielectric 2",
+        "kind": "dielectric",
+        "thickness": 300_000,
+        "dielectric_kind": "core",
+        "material": "Laminate B",
+        "epsilon_r": "3.66",
+        "loss_tangent": "0.004",
+    }
+    assert not [i for i in env["issues"] if i["code"].startswith("kicad.board.stackup-")]
+
+
+def test_reader_codes_of_the_stackup_are_issues(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = tmp_path / "thin.kicad_pcb"
+    text = STACKUP_FOUR.read_text(encoding="utf-8")
+    assert text.count("(thickness 2.025)") == 1
+    board.write_text(text.replace("(thickness 2.025)", "(thickness 1.6)"), encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(board))
+    assert code == 0 and env["result"]["stackup"]["thickness"] == 2_025_000
+    assert [i["code"] for i in env["issues"] if "stackup" in i["code"]] == ["kicad.board.stackup-thickness"]
+
+
+def test_footprints_and_symbols_carry_no_stackup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for path in (FOOTPRINT, SYMBOLS, SHEET):
+        code, env, _, _ = run(monkeypatch, tmp_path, "inspect", str(path))
+        assert code == 0 and "stackup" not in env["result"]
 
 
 def test_model_findings_are_counted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

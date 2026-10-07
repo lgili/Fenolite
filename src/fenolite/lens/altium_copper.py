@@ -35,6 +35,7 @@ from typing import Literal
 from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.lower import stack_unfit_reason, stack_unheld, stack_unheld_reason
 from fenolite.backends.altium.project import component_path
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
@@ -404,7 +405,9 @@ def stack_from_stackup(
 ) -> StackSpec | None:
     """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
     board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
-    Solder mask, silkscreen and paste layers of the stack-up are passed over."""
+    Solder mask, silkscreen and paste layers of the stack-up are passed over. A dielectric whose
+    ``dielectric_kind`` is stated is written with that kind (``DIELTYPE``, ``pcb-copper.md``, "Layer
+    stack"); one without keeps the kind of ``dielectric_kinds`` by count (change c0101)."""
     physical = [layer for layer in stackup.layers if layer.kind in ("copper", "dielectric")]
     if len(physical) != 2 * len(layers) - 1:
         return None
@@ -415,7 +418,12 @@ def stack_from_stackup(
         return None
     try:
         dielectrics = tuple(
-            Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
+            Dielectric(
+                layer.dielectric_kind or kind,  # type: ignore[arg-type]
+                layer.thickness,
+                layer.epsilon_r or "4.800",
+                layer.material or "FR-4",
+            )
             for kind, layer in zip(dielectric_kinds(len(between)), between, strict=True)
         )
         return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
@@ -437,11 +445,11 @@ def stack_values(
         return StackSpec.default(copper, nets), []
     found = stack_from_stackup(stackup, layers, copper, nets)
     if found is not None:
-        return found, []
-    message = (
-        "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
-        "between neighbours; the document gets Fenolite's default stack values"
-    )
+        unheld = stack_unheld(stackup)
+        if not unheld:
+            return found, []
+        return found, [Issue("altium.not-lowered", "info", stack_unheld_reason(unheld), where="stackup")]
+    message = f"{stack_unfit_reason(stackup)}; the document gets Fenolite's default stack values"
     return StackSpec.default(copper, nets), [Issue("altium.not-lowered", "info", message, where="stackup")]
 
 

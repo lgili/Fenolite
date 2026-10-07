@@ -63,3 +63,8 @@ reason = "the two film sizes of the Gerber settings record that outjob.py writes
 path = "tests/data/model/v0.2.0/blink_2layer.board.json"
 pattern = "numeric-code"
 reason = "board coordinates in nanometres of the example board, 100 mm to 150 mm from the origin (100000000 to 150000000: the outline corners and the three footprint positions of examples/blink_2layer/design.py), in the board.json that release 0.2.0 wrote and that c0126 commits byte for byte as the fixture of an old model document; the model's lengths are integer nanometres, so the file cannot leave them out (c0126, 2026-10-08; approved per file by the maintainer on 2026-10-08)"
+
+[[waiver]]
+path = "tests/data/model/v0.2.1/blink_2layer.board.json"
+pattern = "numeric-code"
+reason = "integer nanometre coordinates of a board larger than 100 mm (the board origin of a design script is at 100 mm, 100 mm), in a model document written by release 0.2.1: the board.json of examples/blink_2layer, kept byte for byte as the fixture of additive model keys (c0101; approved per file on 2026-10-07)"
