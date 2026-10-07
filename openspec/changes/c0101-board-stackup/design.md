@@ -151,6 +151,38 @@ What the code and the measurements of the day showed, and what was corrected in 
     (`docs/evidence/sources.md` is append-only for the lanes of the night), `docs/roadmap.md` (the
     coordinator's), and the unit suite on Python 3.11.
 
+## Found on 2026-10-08
+
+The full suite on `3336325e` failed 17 cases of `tests/kicad/board/test_layer_tables.py` and the probe
+check that runs the same benches, with `kicad.board.stackup-invalid`: "the copper entries ['F.Cu',
+'B.Cu'] are not the board's copper layers". `make check-fast` does not run `tests/kicad`.
+
+1. **The bench was wrong, not the writer.** c0100's `tests/kicad/board/_layertables.py` takes
+   `created_board(2)` and replaces only its layer table by the table of 2, 3, 4, 6 or 8 copper layers.
+   It is a created design, not a read one. Since this change the created test board carries a stack-up
+   ("Found on 2026-10-07", item 12), so the bench wrote a two-copper stack-up under another table: the
+   case of the scenario "Copper entries that do not fit the table" and of item 8, which the writer must
+   refuse. The bench now removes the stack-up, so its probes judge the table alone and KiCad derives its
+   default, exactly as c0100 measured; c0100's requirement "Created layer tables are probed on both
+   majors" says so. The stack-up on each count is this change's own bench (`pcb-stackup-*`, task 7.1)
+   and the triad's (`created_board(n)`). No probe outcome changed and none was recorded again.
+2. **The writer drops no stack-up to fit a table, read or declared.** Considered and rejected: letting
+   the writer of a read board leave out a stack-up whose copper entries are not the table's, with a
+   warning. The writer cannot tell a read stack-up from a declared one (a merged build is written by the
+   same path as a read board, and `Board.stackup` carries no mark of who chose it), no command reaches
+   the writer in that state today (a build over a board of another copper count stops at
+   `layout.copper-mismatch`, c0100), and thicknesses and materials would leave the file on a warning.
+   The refusal is now stated for both kinds of board and pinned by
+   `test_layer_table_changed_under_a_stackup`.
+3. **For c0102** ("Copper layer changes across rebuilds", `kicad.layers.stackup-reset`). Its layer merge
+   has to do both halves itself, before `merge_stackup` and before the writer: remove the `stackup`
+   child from the `setup` fragment, and set `Board.stackup` to `None`. Setting the model field alone
+   does not remove the node: under the new table the old node is one "that KiCad ignores"
+   (`project_stackup` gives `None` for it), so the writer sees no difference from the model and keeps
+   the `setup` fragment as it is, as the scenario "A node KiCad ignores" requires. Measured on
+   `stackup_four.kicad_pcb` read, given `created_layers(2)` and `stackup=None`: the written `setup`
+   still holds the four-copper node. Leaving the model field set gives the refusal of item 2.
+
 ## Files and public API
 
 | file | content |

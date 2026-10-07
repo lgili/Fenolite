@@ -293,6 +293,27 @@ def test_copper_entries_that_do_not_fit_the_table() -> None:
     assert caught.value.issues[0].severity == "error"
 
 
+def test_layer_table_changed_under_a_stackup() -> None:
+    """A stack-up left behind by a changed layer table is refused, on a created and on a read board: the
+    writer drops no stack-up to fit a table. Without the stack-up the created board is written."""
+    created = created_board(2)
+    read = read_board(STACKUP_FIXTURE)
+    assert created.board is not None and read.board is not None and read.board.stackup is not None
+    cases = (
+        dataclasses.replace(created, board=dataclasses.replace(created.board, layers=LAYERS4)),
+        dataclasses.replace(read, board=dataclasses.replace(read.board, layers=LAYERS2)),
+    )
+    for design in cases:
+        with pytest.raises(LossyWriteError) as caught:
+            write_board(design, target=10, allow_lossy=True)
+        (issue,) = caught.value.issues
+        assert issue.code == "kicad.board.stackup-invalid" and issue.severity == "error"
+        assert "model.stackup-copper" in issue.message
+    written = parse(write_board(with_stackup(cases[0], None), target=10).text)
+    assert child(written, "setup").find("stackup") is None
+    assert dumps(child(written, "general"), style="compact").startswith("(general (thickness 1.6)")
+
+
 def test_model_findings_refuse_the_write() -> None:
     bad = dataclasses.replace(two_layers(), layers=two_layers().layers[:2] + two_layers().layers[3:])
     for design in (bare_board(2, bad), with_stackup(read_board(FIXTURE), bad)):

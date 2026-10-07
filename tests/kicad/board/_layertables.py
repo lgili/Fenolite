@@ -71,10 +71,14 @@ def copper_rows(layers: tuple[Layer, ...]) -> tuple[tuple[str, str, str, str | N
 
 
 def board(copper: int) -> Design:
-    """The created test board with its layer table replaced by the table of ``copper`` layers."""
+    """The created test board with its layer table replaced by the table of ``copper`` layers, and
+    without its stack-up: the stack-up of ``created_board(2)`` names two copper layers, and the writer
+    refuses one whose copper entries are not the table's (c0101, "Stack-up written to boards"). The
+    probes judge the table alone; KiCad derives its default stack-up, as it did when c0100 measured."""
     design = created_board(2)
     assert design.board is not None
-    return dataclasses.replace(design, board=dataclasses.replace(design.board, layers=table(copper)))
+    board = dataclasses.replace(design.board, layers=table(copper), stackup=None)
+    return dataclasses.replace(design, board=board)
 
 
 @cache
