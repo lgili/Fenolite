@@ -23,8 +23,9 @@ no solution needs an external router or a KiCad library.
 ## Licence
 
 The tasks are dedicated to the public domain under `CC0-1.0`: the `task.toml` files with their prompts
-and expected results, the `commands.txt` files and this page. The Python scripts start with the two
-header lines that every `.py` file of the repository carries (`Apache-2.0`).
+and expected results, the `commands.txt` files and this page. The task scripts (every `.py` file of a
+task) carry the `Apache-2.0` header that the repository's SPDX guard (`tests/unit/test_spdx_headers.py`)
+demands of every `.py` file, while the task texts are `CC0-1.0`.
 
 ## The format
 
