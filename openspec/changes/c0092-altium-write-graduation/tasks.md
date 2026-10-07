@@ -9,7 +9,7 @@
 
 ## 2. Acceptance
 
-- [ ] 2.1 Author the acceptance project and `tools/acceptance_v04.py`; run it and record the result in `docs/evidence/altium-acceptance.md` (scenario "Acceptance run"). Proof: `uv run pytest tests/kicad/acceptance/test_v04_acceptance.py tests/kicad/test_probe_results.py -rA`; `uv run pytest tests/corpus/test_manifest.py`.
+- [ ] 2.1 Author the acceptance project and `tools/acceptance_v03.py`; run it and record the result in `docs/evidence/altium-acceptance.md` (scenario "Acceptance run"). Proof: `uv run pytest tests/kicad/acceptance/test_v03_acceptance.py tests/kicad/test_probe_results.py -rA`; `uv run pytest tests/corpus/test_manifest.py`.
 
 ## 3. Kit run
 
@@ -23,10 +23,10 @@
 ## 5. Documentation
 
 - [ ] 5.1 Rewrite "Limits" of `docs/altium.md` from the written scope table; update the second backend's status in `README.md` and `agent/SKILL.md`; set the Phase 4 text, the milestone row and the acceptance block of `docs/roadmap.md` to what was measured. Proof: `uv run pytest tests/consistency tests/unit/test_repo_layout.py tests/residue`.
-- [ ] 5.2 Put the v0.4 acceptance block of `docs/roadmap.md` to the maintainer for review, with the measured result of each of its points beside it; record his answer and the date under this task, and change the block's heading from a proposal to the accepted text or to what he asks. The change does not close before that. Proof: `grep -n "v0.4 acceptance" docs/roadmap.md` shows no "proposal" in the heading, or this task holds his dated refusal.
+- [ ] 5.2 Put the v0.3 acceptance block of `docs/roadmap.md` to the maintainer for review, with the measured result of each of its points beside it; record his answer and the date under this task, and change the block's heading from a proposal to the accepted text or to what he asks. The change does not close before that. Proof: `grep -n "v0.3 acceptance" docs/roadmap.md` shows no "proposal" in the heading, or this task holds his dated refusal.
 
 ## 6. Closing
 
 - [ ] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue tests/corpus/test_manifest.py` and `uv run python tools/residue/scan.py` exit 0; `make check` passes; `openspec validate c0092-altium-write-graduation --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
 - [ ] 6.2 Update the evidence: every row of this change holds its measured level and result in `docs/hypotheses.md`, the cells of `backends/altium/claims.py` say what is written and at which level, and `uv run python tools/gen_evidence_matrix.py` regenerates `docs/evidence/matrix.md`. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/backends/test_evidence_declared.py`.
-- [ ] 6.3 Add to `CHANGELOG.md` under Unreleased: "v0.4: Altium write kinds leave `experimental` by a tested rule (own readback, RT-A3 over the corpus, a recorded kit run); the acceptance run and its result are in `docs/evidence/altium-acceptance.md`". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
+- [ ] 6.3 Add to `CHANGELOG.md` under Unreleased: "v0.3: Altium write kinds leave `experimental` by a tested rule (own readback, RT-A3 over the corpus, a recorded kit run); the acceptance run and its result are in `docs/evidence/altium-acceptance.md`". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.

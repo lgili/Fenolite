@@ -3,7 +3,7 @@
 - **Today.** `adapter/netlist.py` recognises `repeat(` in a sheet symbol's designator (`REPEAT`, `SymbolInfo.repeat`), descends once, and emits `altium.import.repeated-sheet` ("one instance is read", "its designators are not annotated"). `adapter/project.py::link` renames a component to the board's `source_designator` only when its unique-id path matches. `read/project.py` classifies `.Annotation` as kind `annotation` and never parses it.
 - **Measured on 2026-10-05** (`docs/evidence/altium-roundtrip.md`, `altium-set:02`): 508 common elements, 4 differing, 26 only in the schematic, 217 only in the PCB document; `model.duplicate-ref`. `docs/formats/altium/connectivity.md` records that twelve sheet symbols name one sheet in that set.
 - **Public facts available.** Altium's documentation of multi-channel design (the `Repeat` keyword, the channel naming formats `$Component_$ChannelAlpha`, `$Component$ChannelIndex` and the others, the board-level annotation file) is public and already partly cited as S-0185. The corpus project gives the ground truth: its PCB document holds every channel's designator and its unique-id path.
-- **Constraints.** Stdlib only; the import stays read-only and bounded; the model spec is additive-only since the end of v0.3, so a channel uses fields the model already has.
+- **Constraints.** Stdlib only; the import stays read-only and bounded; the model spec is additive-only since the end of the read part of v0.3, so a channel uses fields the model already has.
 
 ## Goals / Non-Goals
 
@@ -115,7 +115,7 @@ Total: 5.5. This is a size, not a calendar estimate.
 
 - `altium-import`, "Hierarchy as modules": its sentence on repeated sheets (one instance, `altium.import.repeated-sheet`) is superseded by "Repeated sheets as channels"; "Import issue codes" gains two codes. Task 0.1 writes both as MODIFIED from the living text.
 - `altium-project-reader`, "Project loading": the annotation file joins what `load_project` returns (MODIFIED at task 0.1).
-- Archive order: independent of the other v0.4 changes.
+- Archive order: independent of the other changes of the write part of v0.3.
 
 ## Risks / Trade-offs
 

@@ -1,7 +1,7 @@
 ## Context
 
 - **Labels.** `core/evidence.Level` orders `ALTIUM_VERIFIED_KIT` above `KICAD_VERIFIED`; `verify.release_verified` holds it. `verification-evidence`, "Evidence label grammar": the first field of the parenthesis is `kit` or `author-report`. "Author reports never promote an operation".
-- **Rows waiting.** `docs/hypotheses.md`: `H-A-WRITE-SCHLIB`, `-PCBLIB`, `-SCHDOC`, `-PCBDOC` ("opens and compiles in AD 24.x without a repair prompt … kit request (v0.4): open, compile and re-save the file with the acceptance kit") and `H-A-PH-CHECKSUM`, `-ZERO-FIELDS`, `-NO-CACHE`, `-LAYOUT`. Several dozen more rows are author reports from 2026-10-02 to 2026-10-04 with "no artefact".
+- **Rows waiting.** `docs/hypotheses.md`: `H-A-WRITE-SCHLIB`, `-PCBLIB`, `-SCHDOC`, `-PCBDOC` ("opens and compiles in AD 24.x without a repair prompt … kit request (v0.3): open, compile and re-save the file with the acceptance kit") and `H-A-PH-CHECKSUM`, `-ZERO-FIELDS`, `-NO-CACHE`, `-LAYOUT`. Several dozen more rows are author reports from 2026-10-02 to 2026-10-04 with "no artefact".
 - **What Altium can write that Fenolite can read.** A document saved by Altium (`.SchDoc`, `.PcbDoc`, `.SchLib`, `.PcbLib`, `.PrjPcb`): Fenolite's readers were proved on such files over the public corpus (RT-A1). That is the strongest result a step can leave: Altium loaded Fenolite's file, kept its content, and wrote it in its own bytes. Text reports (messages, rule check, change order, generated outputs) are archived as they are.
 - **Constraints.** Clean-room: the steps use Altium's menus as its public documentation names them. Privacy: files that Altium saves may hold a user name or a path; the verify step scans the results for them and says so before anything is recorded.
 

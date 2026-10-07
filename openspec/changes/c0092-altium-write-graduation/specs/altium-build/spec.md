@@ -15,10 +15,10 @@
 - **THEN** `altium.experimental` names `altium_harness` only
 
 ### Requirement: Altium acceptance project
-The repository SHALL hold an acceptance project for the second backend's write side and a script `tools/acceptance_v04.py` that: builds it for KiCad and for Altium; runs `fenolite check` on both; compares the two at level 5 of `equivalent`; runs `fenolite roundtrip --level rta3` on the Altium project; and compares the KiCad board with KiCad's import of the Altium documents at level 5.
+The repository SHALL hold an acceptance project for the second backend's write side and a script `tools/acceptance_v03.py` that: builds it for KiCad and for Altium; runs `fenolite check` on both; compares the two at level 5 of `equivalent`; runs `fenolite roundtrip --level rta3` on the Altium project; and compares the KiCad board with KiCad's import of the Altium documents at level 5.
 - The project MUST use every item that the written scope lists: a stack of six copper layers, blind and buried vias, board texts, a keep-out, a non-plated hole, bodies, polygons, rules of every exact kind, a module tree two levels deep, a bus, an output job and a drawing sheet.
 - `docs/evidence/altium-acceptance.md` MUST record each run of the script with the versions of Fenolite, KiCad and Altium, the result of each step, and the id of the kit run made on the same tree.
 
 #### Scenario: Acceptance run
-- **WHEN** `uv run pytest tests/kicad/acceptance/test_v04_acceptance.py -rA` runs with KiCad 10.0.6
-- **THEN** every step of the script passes, and the probe `acceptance-v04` records `equal`
+- **WHEN** `uv run pytest tests/kicad/acceptance/test_v03_acceptance.py -rA` runs with KiCad 10.0.6
+- **THEN** every step of the script passes, and the probe `acceptance-v03` records `equal`

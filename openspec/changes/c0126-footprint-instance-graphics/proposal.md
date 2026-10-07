@@ -1,11 +1,11 @@
 ## Why
 
-A footprint instance of the model holds pads, text fields and bodies. It holds no line, no arc and no free text, and a rounded pad holds no corner value. Two things of v0.4 stop there.
+A footprint instance of the model holds pads, text fields and bodies. It holds no line, no arc and no free text, and a rounded pad holds no corner value. Two things of the write part of v0.3 stop there.
 
 - **A rewritten Altium board has no silkscreen of its footprints.** The import counts every line, arc, fill, region and text of a component as a record without a model entity: 271 to 9 763 per public document, 16 647 on the eight documents of the RT-A3 table, the largest count of that table (`docs/evidence/altium-roundtrip.md`). The write of a model (c0090) then has nothing to write but pads.
 - **The Altium build has two paths.** c0090 could not send the build through its lowering `lower.from_design`, because a model could not give the graphics and the corner ratios that the build takes from library definitions and from KiCad's own data. Its task 2.2 stayed open.
 
-The maintainer decided on 2026-10-06 that the model holds these before v0.4 closes, and that this change closes task 2.2. It is implemented on top of c0123, which changes the model first, and it is the last change of the model in v0.4. The maintainer's answers to the questions of this proposal are in the design, "Decisions of the maintainer (2026-10-06)": none is open.
+The maintainer decided on 2026-10-06 that the model holds these before v0.3 closes, and that this change closes task 2.2. It is implemented on top of c0123, which changes the model first, and it is the last change of the model in v0.3. The maintainer's answers to the questions of this proposal are in the design, "Decisions of the maintainer (2026-10-06)": none is open.
 
 ## What Changes
 
@@ -44,7 +44,7 @@ None.
 - No PCB library derived from the instances of a model that was read (v0.5a, with `convert`), and no per-layer corner ratio of a pad stack.
 - No level of `equivalent` reads a footprint's drawing.
 - No claim that Altium shows a rewritten board's graphics: the author report Part G is the maintainer's.
-- No further field of the model in v0.4. If the build's specification needs one, the switch of the build stops and the design says which.
+- No further field of the model in v0.3. If the build's specification needs one, the switch of the build stops and the design says which.
 - No code or constant from any private project or organisation; test data is authored for Fenolite or fetched from the public rows of the corpus manifest.
 - No format fact from a decompiled tool or a transcribed parser: every fact gets a row in `docs/formats/altium/*.md` or `docs/formats/kicad/*.md` with a public source of `docs/evidence/sources.md` and a label.
 

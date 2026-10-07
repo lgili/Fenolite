@@ -1,7 +1,7 @@
 ## 0. Entry check
 
 - [x] 0.1 Read `openspec list` and the living `altium-import`, `altium-project-reader` and `altium-verification` specs. Write under this task, with the date: which of the changes this one depends on are archived (a missing one stops the tasks that name it, and say which); whether another change modified a requirement that this change supersedes ("Spec deltas and archive order" in the design lists them): then write the MODIFIED text from the living one before any code. Proof: `openspec validate c0083-altium-repeated-sheets --strict --no-interactive` passes.
-  - 2026-10-06: none of the other v0.4 changes is needed. No other change modified the superseded requirements. The proposal's premise was wrong in part: see the design, "Found on 2026-10-06". The annotation file of `altium-set:02` is listed by its project and is no corpus row.
+  - 2026-10-06: none of the other changes of the write part of v0.3 is needed. No other change modified the superseded requirements. The proposal's premise was wrong in part: see the design, "Found on 2026-10-06". The annotation file of `altium-set:02` is listed by its project and is no corpus row.
 
 ## 1. Facts and registers
 

@@ -2,7 +2,7 @@
 
 Two files of an Altium project are still only read: the output job and the sheet template. A user who builds for Altium gets a project without a way to produce fabrication data from it except by setting up every output by hand, and a schematic on a blank A4 sheet whatever `design.sheet()` says.
 
-For KiCad both exist: `export` with a preset (c0030, c0074) and the drawing sheet from a `.sheet.toml` (c0012, c0074). The roadmap lists for v0.4 "Project-file and output-job writers" and "Sheet templates for the second backend, from the same sheet spec as c0012". The project-file writer exists since c0032; this change adds the two others and the project keys that list them.
+For KiCad both exist: `export` with a preset (c0030, c0074) and the drawing sheet from a `.sheet.toml` (c0012, c0074). The roadmap lists for the write part of v0.3 "Project-file and output-job writers" and "Sheet templates for the second backend, from the same sheet spec as c0012". The project-file writer exists since c0032; this change adds the two others and the project keys that list them.
 
 ## What Changes
 
@@ -41,4 +41,4 @@ None.
 
 - New: `backends/altium/outjob.py`, `backends/altium/schdot.py`; changed `prjpcb.py`, `project.py`, `schdoc.py`, `binary.py`, `claims.py`, `lens/altium.py`, `cli/cmd_build.py`, `cli/cmd_export.py` (one shared name), `cli/cmd_template.py`. `read/outjob.py` and `templates/build.py` did not need a change.
 - Pages: `docs/altium.md` ("Output job", "Drawing sheet"), `docs/sheet-templates.md`, `docs/formats/altium/{output-job,sheet-template,project}.md`, `docs/evidence/altium-schematic.md`.
-- Depends on: c0032 (project file), c0042 (output job read), c0046 (sheet template read), c0012 and c0074 (sheet spec, preset, `design.sheet()`). Nothing else of v0.4.
+- Depends on: c0032 (project file), c0042 (output job read), c0046 (sheet template read), c0012 and c0074 (sheet spec, preset, `design.sheet()`). Nothing else of the write part of v0.3.

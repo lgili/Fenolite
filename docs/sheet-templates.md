@@ -203,6 +203,6 @@ value.
 
 **Not included.** Writing a `.SchDot` from a sheet specification is not part of this change; it is the
 roadmap item "Sheet templates for the second backend, from the same sheet spec as c0012" (`docs/roadmap.md`,
-v0.4). No template is shipped, and no template of any organisation is committed: the tests build theirs in
+the write part of v0.3). No template is shipped, and no template of any organisation is committed: the tests build theirs in
 memory. Facts and Fenolite's own rules are in `docs/formats/altium/sheet-template.md`; every format fact is
 `INFERRED`, and the command's evidence stays `INFERRED` (`H-A-RD-SHT-SAME`, `H-K-WKS-CORNER`).

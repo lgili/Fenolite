@@ -222,8 +222,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=ALTIUM_SYMBOLS,
         default=None,
         help=f"with --target altium: graphics (default) draws each resolved symbol from its own graphics, "
-        f"generic draws one rectangle per part (the output before v0.4); a usage error with --target kicad "
-        f"(default: {DEFAULT_BODIES})",
+        f"generic draws one rectangle per part (the output of 0.2.0 and earlier); a usage error with "
+        f"--target kicad (default: {DEFAULT_BODIES})",
     )
     parser.add_argument(
         "--altium-directions",

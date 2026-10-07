@@ -150,7 +150,7 @@ Total: 7. This is a size, not a calendar estimate.
 
 - `altium-build`, "Altium build outputs": the file list grows by the job (MODIFIED at task 0.1).
 - `sheet-templates`, "Template build command": the target `altium` (MODIFIED at task 0.1).
-- Archive order: independent of the other v0.4 changes; before c0091, whose kit runs the job.
+- Archive order: independent of the other changes of the write part of v0.3; before c0091, whose kit runs the job.
 
 ## Risks / Trade-offs
 

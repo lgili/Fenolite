@@ -1,6 +1,6 @@
 ## Outcome in one paragraph
 
-**This change lifts one Clearance record of the public corpus, on the heavy document `altium-third-party-pcbdoc-08`. It does not move `-02` or `-06`, which the decision also named.** Of the four records with a matrix of differing clearances, two hold cells that the copper check cannot tell apart (and the option that ignores the pads of one footprint, which is not in v0.4), one has a scope outside the grammar, and one is exact and lifted. No level changes: `-08` goes from "no clearance in force" to "a clearance in force for every pair", and stays `UNVERIFIED` for its three unread records.
+**This change lifts one Clearance record of the public corpus, on the heavy document `altium-third-party-pcbdoc-08`. It does not move `-02` or `-06`, which the decision also named.** Of the four records with a matrix of differing clearances, two hold cells that the copper check cannot tell apart (and the option that ignores the pads of one footprint, which is not in v0.3), one has a scope outside the grammar, and one is exact and lifted. No level changes: `-08` goes from "no clearance in force" to "a clearance in force for every pair", and stays `UNVERIFIED` for its three unread records.
 
 ## Context
 
@@ -88,7 +88,7 @@ The findings of `-08`, by class (the check lowers a rule by 5 nm, `UNIT_SLACK_NM
 ## Out of scope, with what each would need
 
 - **Scoping the incompleteness to pairs** (decision 5): a field of `DesignRules` that `checks/copper.py` reads.
-- **The option that ignores the pads of one footprint** (form D): not in v0.4.
+- **The option that ignores the pads of one footprint** (form D): not in v0.3.
 - **`Hole` cells as `hole_clearance` rules**: another neutral kind, which c0084 leaves without a counterpart; the copper check judges no hole.
 - **A via without a pad on an inner layer** (the 28 shorts of `-08`): a format fact for the long via record, then the import and the board frame. It is a defect of the import that this measurement found, older than this change.
 - **Scopes with `AND` and `or`**, `InDifferentialPairClass`: the closed grammar of c0042.

@@ -183,7 +183,7 @@ def test_refuted_row_naming_no_successor() -> None:
     ["ALTIUM-VERIFIED(author-report)", "ALTIUM-VERIFIED(author-report; 24; soon; no artefact)"],
 )
 def test_malformed_author_report_rows_are_refused(level: str) -> None:
-    problems = register_problems([_row("H-A-WRITE-SCHLIB", level=level, test="kit request (v0.4): open")])
+    problems = register_problems([_row("H-A-WRITE-SCHLIB", level=level, test="kit request (v0.3): open")])
     assert (
         len(problems) == 1
         and "H-A-WRITE-SCHLIB" in problems[0]
@@ -193,11 +193,11 @@ def test_malformed_author_report_rows_are_refused(level: str) -> None:
 
 def test_well_formed_author_report_row_is_accepted() -> None:
     level = "ALTIUM-VERIFIED(author-report; AD 24.x; 2026-09; no artefact)"
-    assert register_problems([_row("H-A-WRITE-SCHLIB", level=level, test="kit request (v0.4): open")]) == []
+    assert register_problems([_row("H-A-WRITE-SCHLIB", level=level, test="kit request (v0.3): open")]) == []
 
 
 def test_pending_author_rows_are_accepted() -> None:
-    row = _row("H-A-PH-CHECKSUM", result="pending (author report): later", test="kit request (v0.4): open")
+    row = _row("H-A-PH-CHECKSUM", result="pending (author report): later", test="kit request (v0.3): open")
     assert register_problems([row]) == []
 
 

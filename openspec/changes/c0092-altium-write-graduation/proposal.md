@@ -1,14 +1,14 @@
 ## Why
 
-At the end of v0.4 every Altium write is still marked `experimental`, because that is how each writer was introduced and nothing defines when the mark comes off. A user sees `experimental` on `build --target altium` whatever the evidence is, and the capability report lists no Altium write kind. The roadmap's v0.4 has no acceptance block, so nobody can say that the milestone is done.
+At the end of v0.3 every Altium write is still marked `experimental`, because that is how each writer was introduced and nothing defines when the mark comes off. A user sees `experimental` on `build --target altium` whatever the evidence is, and the capability report lists no Altium write kind. The write part of v0.3 has no acceptance block in the roadmap, so nobody can say that the milestone is done.
 
-This is the closing change of the milestone. It defines the rule by which a write kind leaves `experimental`, applies it after the first recorded kit run, states what v0.4 delivers and what it does not, and removes the texts that the other nine changes made stale.
+This is the closing change of the milestone. It defines the rule by which a write kind leaves `experimental`, applies it after the first recorded kit run, states what the write part of v0.3 delivers and what it does not, and removes the texts that the other nine changes made stale.
 
 ## What Changes
 
 - **A graduation rule**, written as a requirement and checked by a test: a write kind leaves `experimental` when its own readback holds, RT-A3 holds for it over the corpus, and every hypothesis its claims cell names is release-verified (`ALTIUM-VERIFIED(kit)`, `ORACLE-VERIFIED`, `CORPUS-VERIFIED`).
 - **The first kit run recorded** and the rows it settles relabelled; what the run did not settle stays where it is, by name.
-- **The v0.4 acceptance run**: one script that builds the acceptance project for both targets, checks it, rewrites it and compares it, and the kit run on top; its results in `docs/evidence/altium-acceptance.md`.
+- **The v0.3 acceptance run**: one script that builds the acceptance project for both targets, checks it, rewrites it and compares it, and the kit run on top; its results in `docs/evidence/altium-acceptance.md`.
 - **Capabilities and notices**: `capabilities` lists the graduated kinds as write kinds; `build --target altium` says `experimental` only for the kinds that still are.
 - **Documentation**: `docs/altium.md` "Limits" rewritten from the written scope; the roadmap's Phase 4 and milestone rows; the conformance rows of the matrix.
 

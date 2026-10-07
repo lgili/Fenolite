@@ -1,4 +1,4 @@
-Implementation waits until the v0.4 batch (c0083 to c0092 and their follow-ups) is on `dev`; the base of the implementing branch is `dev` then, not the branch this proposal was written on.
+Implementation waits until the batch of the write part of v0.3 (c0083 to c0092 and their follow-ups) is on `dev`; the base of the implementing branch is `dev` then, not the branch this proposal was written on.
 
 ## 0. Entry check
 

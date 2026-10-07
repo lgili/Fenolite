@@ -1,8 +1,11 @@
 # Roadmap to 1.0
 
-Status on 2026-10-06. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
+Status on 2026-10-07. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
-maintainer's verdict in `docs/release/v0.2.md` (change c0093).
+maintainer's verdict in `docs/release/v0.2.md` (change c0093). A patch release `0.2.1` is being
+prepared from the tag `v0.2.0`. Since 2026-10-07 the write side of the second backend is v0.3, to be
+released as `0.3.0`, and v0.4 names the proposals that are open on other branches
+([Milestone names](#milestone-names)).
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.
@@ -32,7 +35,21 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
   calendar time: the work is done by agents, and calendar time comes from the measured pace (see
   [Time and pace](#time-and-pace)). The project plan counts calendar weeks at about 60 % dedication,
   which is about 3 working days a week.
-- **Milestones** are releases (`v0.1`, `v0.2a`, …). A phase groups milestones.
+- **Milestones** are releases (`v0.1`, `v0.2a`, …), with one exception: the read part of v0.3 shipped
+  in the `0.2.0` package ([Milestone names](#milestone-names)). A phase groups milestones.
+
+## Milestone names
+
+Decision of the maintainer, 2026-10-07 (change c0136). No release was ever numbered 0.3: the read work
+of the second backend (c0039–c0047) shipped inside the `0.2.0` package. So v0.3 is the whole second
+backend: its read part, already in that package with no acceptance claimed for it, and its write part,
+which these pages called v0.4 until that day and which is released as `0.3.0`. The name v0.4 now
+belongs to the proposals that are written on other branches and are not on `dev`: the agent track
+(c0077–c0081), board authoring (c0096, c0097, c0099) and the complex board (c0100–c0120). v0.5a, v0.5b,
+v0.6 and v1.0 keep their names.
+
+Archived changes and the release record of `0.2.0` keep the names of their day: there “v0.4” means the
+write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 
 ## Milestones
 
@@ -42,12 +59,13 @@ This page is a map, not a spec. What is built, and how, is decided change by cha
 | 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
-| 4. Second backend | v0.3 | c0039–c0047 | read, equivalence levels 1–4, analyses | every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for the milestone (`docs/release/v0.2.md`, “Also in this package”) |
-| 4. Second backend | v0.4 | c0032–c0038 pulled forward; c0083–c0092 | write, equivalence level 5, verification kit | c0032–c0038, c0053, c0055 and c0056 done; c0083–c0092 proposed on 2026-10-06 |
+| 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130 and c0131 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch), c0134 (a branch that holds no folder yet) and c0129 (reserved) |
+| — | v0.4 | the agent track c0077–c0081; board authoring c0096, c0097, c0099; the complex board c0100–c0120 | an agent's first project, guide and measure; placement, copper findings and bodies; the gaps to a complex board | proposals written on their branches (the three of board authoring with an implementing commit beside the proposal), not on `dev`; they come to `dev` after `0.3.0` is released and are reconciled then ([v0.4](#v04-proposals-on-other-branches-not-on-dev)) |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
-[Proposed cuts](#proposed-cuts-for-a-leaner-10)).
+[Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
+hold the proposals of v0.4, which are not on `dev`.
 
 ## Phase 1: foundations (done)
 
@@ -274,11 +292,12 @@ from `dev` to `main` and the publication are the maintainer's.
 - **KiCad comes first because it is the second backend's oracle.** `kicad-cli pcb import` (10.0
   only) gives an independent reading of the second backend's files. `H-A-UNIT` already names this
   test, and equivalence levels 1–4 compare against it.
-- The neutral model becomes additive-only at the end of v0.3 and is frozen, with migrators, at 1.0
+- The neutral model becomes additive-only at the end of the read part of v0.3 and is frozen, with
+  migrators, at 1.0
   (ADR-0001).
 - Conversion, public equivalence and downgrade need both backends, so they are in phase 5.
 
-## Phase 4: second backend, clean-room (v0.3, v0.4; estimate)
+## Phase 4: second backend, clean-room (v0.3: a read part and a write part; estimate)
 
 Public docs call it the second backend. The hypothesis register (`docs/hypotheses.md`) uses the
 backend tag `altium`; the labels are `ALTIUM-VERIFIED(kit)` and `ALTIUM-VERIFIED(author-report)`
@@ -286,8 +305,8 @@ backend tag `altium`; the labels are `ALTIUM-VERIFIED(kit)` and `ALTIUM-VERIFIED
 recorded in `docs/formats/<backend>/` (`AGENTS.md`, `LEGAL.md`, ADR-0003).
 
 **v0.3 read, c0039–c0047 (all nine archived).** They are on `dev` and ship in the `0.2.0` package. This
-page gives v0.3 a scope and no acceptance list, so the release record of v0.2 claims none for it: it says,
-per line below, which test proves it (`docs/release/v0.2.md`, “Also in this package”).
+page gives the read part a scope and no acceptance list, so the release record of v0.2 claims none for
+it: it says, per line below, which test proves it (`docs/release/v0.2.md`, “Also in this package”).
 
 - Compound-file reader. Done as c0039.
 - Readers for the four document kinds: schematic library, PCB library, schematic document, PCB
@@ -306,7 +325,7 @@ per line below, which test proves it (`docs/release/v0.2.md`, “Also in this pa
   what the built model of an Altium build holds, which is the circuit and the net classes
   (`docs/evidence/altium-roundtrip.md`).
 - Buses, padstacks and component bodies in the model. Done as c0043. The model spec is additive-only
-  from the end of v0.3.
+  from the end of the read part of v0.3.
 - `equivalent`, levels 1–4. Done as c0045 (`docs/equivalence.md`).
 - Sheet templates read from the second backend's files and written as `.kicad_wks`. Done as c0046.
 - In parallel, an analyses track: current capacity, clearance and creepage distances. Done as c0047
@@ -318,15 +337,17 @@ maintainer starts a real board in Altium Designer on 2026-10-05. c0032 lets
 `fenolite build --target altium` write a project file and an ASCII schematic. The schematic has
 generic component bodies, library and footprint links, and net labels and power ports. Altium then
 creates the PCB with its engineering change order. Evidence: Fenolite's own readback, plus the
-maintainer's Altium checks as author reports. Size: 5.75 design-days. The rest of v0.3 and v0.4 stays
-as planned.
+maintainer's Altium checks as author reports. Size: 5.75 design-days. The rest of v0.3, read and
+write, stays as planned.
 
 **Copper in the Altium PCB document: c0038 `altium-pcb-copper`.** The experimental `<name>.PcbDoc` holds
 tracks, arcs, vias, unpoured polygons, a 2- or 4-layer stack with planes, net classes and rules. c0028
 (script copper), c0016 and c0023 (router plugins) feed this writer; until they land, `--copper-from`
 copies the copper of a routed KiCad board.
 
-**v0.4 write, c0083–c0092 (proposed on 2026-10-06; the experimental writers c0032–c0038 were pulled forward).**
+**v0.3 write, c0083–c0092 and their follow-ups (c0083–c0092 proposed on 2026-10-06; the experimental writers
+c0032–c0038 were pulled forward).** Until 2026-10-07 these pages called this part v0.4. It is released as
+`0.3.0`.
 
 - Writers for the four document kinds, starting with the ASCII schematic format.
 - Project-file and output-job writers.
@@ -356,18 +377,18 @@ written, and the kit is named and not defined.
 | c0089 | `equivalence-level-5` | `equivalent --level 5`: connectivity, vias and length per net; the triangle at level 5 | archived on 2026-10-07; implemented on 2026-10-06: the triangle holds at level 5 on `kicad-cli` 10.0.6 for the routed sample and the seven public documents (`docs/evidence/equivalence-triangle.md`); the full suite and the CI run are the maintainer's | c0045, c0029 | 4.25 |
 | c0090 | `altium-roundtrip-write` | a model with a board written as Altium documents; RT-A2 on footprints and copper; the level RT-A3 over the corpus; the first round-trip notes in the claims | implemented on 2026-10-06: RT-A2 holds on the 21 example builds with every kind compared; RT-A3 holds on the seven public PCB documents that are not heavy and on two of five project sets, and KiCad's importer reads each rewrite as Fenolite does (`docs/evidence/altium-roundtrip.md`); open: an arc's points can move by more than 2 nm (one heavy document), three sets whose circuit the schematic writer refuses, and the CI run | c0083–c0086, c0089 | 7 |
 | c0091 | `altium-verification-kit` | `fenolite kit build`, `verify` and `record`: the acceptance run in Altium by checklist and by the kit's own script, its files checked by Fenolite, the run record and the rule for `ALTIUM-VERIFIED(kit)` | implemented on its branch on 2026-10-06 (`docs/altium-kit.md`): build, verify, record, status and the label rule, tested on a simulated run; the script does the five compile steps only, because no public page documents a call for the saves, the reports, the repour or the output job; the first real run (task 5.3) waits for c0084 to c0090, and the copper check is pending on c0088; the full suite and the CI run are the maintainer's | c0084–c0090 | 7.25 |
-| c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.4 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
+| c0092 | `altium-write-graduation` | the rule by which a write kind leaves `experimental`, the v0.3 acceptance run, capabilities and documentation | proposed | c0083–c0091 | 3.25 |
 | c0121 | `altium-component-bodies` | follow-up of c0085 (decided on 2026-10-06, fact rows first): the fact rows of the saved extruded body from the public documents, then extruded component bodies in the PCB document and library on request (`--altium-bodies extruded`, off by default), read-back, RT-A2 and RT-A3 with bodies, step X8 of Part X; no model body, no STEP data, no change of the model | proposed on 2026-10-06 | c0085, c0090; beside c0099 of another session; followed by c0129 | 4.75 |
 | c0124 | `altium-plane-lines` | the Altium import makes no copper of what is drawn on an internal plane: such a line cuts the plane; counted in the census and on the plane's layer, and the copper view of c0088 loses its filter | implemented on its branch on 2026-10-06: 74 and 43 tracks fewer on the two public documents with planes, as in KiCad's import; ids of the other items unchanged | c0043, c0088 | 1.25 |
-| c0125 | `altium-clearance-scopes` | follow-up of c0084 and c0088 (decided 2026-10-06): the rule table reads a blank or uniform object matrix, the records of a clearance matrix between all net classes, and two layer conditions where they are exact; read only | implemented on its branch on 2026-10-06: ONE of the three public documents without a clearance in force gets one (`INFERRED`); the two others hold a matrix of differing clearances (→ c0130) or the option that ignores the pads of a footprint (not in v0.4), which one neutral rule cannot say; optional Altium step open | c0084, c0088 | 1.25 |
-| c0126 | `footprint-instance-graphics` | a footprint instance holds its graphics and free texts and a rounded pad its corner ratio; the Altium import fills them, a rewrite keeps the silkscreen and the mechanical-layer drawings of its footprints, and the Altium build goes through `lower.from_design` with every committed sample byte-equal; no KiCad output changes (a projection on request); the last change of the model in v0.4 | proposed on 2026-10-06 and decided by the maintainer the same day (its design, "Decisions of the maintainer"); implemented on top of c0123; its first task compares the two build paths field by field | c0090, c0123; c0127 for the arcs of a graphic | 13.75 (11.5 without the three groups of its cut order) |
+| c0125 | `altium-clearance-scopes` | follow-up of c0084 and c0088 (decided 2026-10-06): the rule table reads a blank or uniform object matrix, the records of a clearance matrix between all net classes, and two layer conditions where they are exact; read only | implemented on its branch on 2026-10-06: ONE of the three public documents without a clearance in force gets one (`INFERRED`); the two others hold a matrix of differing clearances (→ c0130) or the option that ignores the pads of a footprint (not in v0.3), which one neutral rule cannot say; optional Altium step open | c0084, c0088 | 1.25 |
+| c0126 | `footprint-instance-graphics` | a footprint instance holds its graphics and free texts and a rounded pad its corner ratio; the Altium import fills them, a rewrite keeps the silkscreen and the mechanical-layer drawings of its footprints, and the Altium build goes through `lower.from_design` with every committed sample byte-equal; no KiCad output changes (a projection on request); the last change of the model in v0.3 | proposed on 2026-10-06 and decided by the maintainer the same day (its design, "Decisions of the maintainer"); implemented on top of c0123; its first task compares the two build paths field by field | c0090, c0123; c0127 for the arcs of a graphic | 13.75 (11.5 without the three groups of its cut order) |
 | c0127 | `altium-arc-record-values` | follow-up of c0090 (decision of the maintainer, 2026-10-06): an arc that was read keeps the centre, radius and angles of its record, and the write of a model gives them back while they still say the arc's points | implemented on 2026-10-06: the heavy public document is equal inside the scope (529 arcs written, 12 of them refused before), RT-A3 holds on the eight public PCB documents, `H-A-VER-RTA3` is `CORPUS-VERIFIED` (Fenolite reads its rewrite back equal inside the written scope; nothing about Altium opening it) | c0090 | 1 |
 | c0128 | `altium-rewrite-via-drill` | follow-up of c0090 (decision of the maintainer, 2026-10-06): a via whose drill equals its diameter is written in the rewrite of a document that was read, by the explicit argument `rewrite`; a build keeps refusing | implemented on 2026-10-07: the 48 such vias of one public document are written by RT-A3 (242 of 242), KiCad's importer reads the rewrite as Fenolite does, the fact is `CORPUS-VERIFIED` (`H-A-PCBX-VIA-FULL`) | c0090, c0127 | 0.75 |
-| c0130 | `altium-clearance-matrix-cells` | follow-up of c0125 (decided 2026-10-06): a Clearance matrix of differing clearances read as one neutral rule per cell of item kinds, where exact; the cells counted in the stage summary; read only | implemented on its branch on 2026-10-07: ONE of the four public records lifts (the heavy document, which stays `UNVERIFIED`); the matrices of the two other documents are not exact in item kinds and carry the option that is not in v0.4 | c0125 | 1 |
+| c0130 | `altium-clearance-matrix-cells` | follow-up of c0125 (decided 2026-10-06): a Clearance matrix of differing clearances read as one neutral rule per cell of item kinds, where exact; the cells counted in the stage summary; read only | implemented on its branch on 2026-10-07: ONE of the four public records lifts (the heavy document, which stays `UNVERIFIED`); the matrices of the two other documents are not exact in item kinds and carry the option that is not in v0.3 | c0125 | 1 |
 | c0131 | `altium-unit-slack-rule` | follow-up of c0088 and c0125 (decided 2026-10-06): the slack of the copper check on Altium input is one file unit per item of the pair, derived and tested at the bound | implemented on its branch on 2026-10-07: the rule gives 5.08 nm, the 5 nm already in use, so no finding changes; the 25 findings that are 8 to 20 nm short stay errors; two open decisions | c0130 | 0.5 |
 
-- **Total:** 90 design-days (sizes, not time): 65.75 of c0083–c0092 and 24.25 of the follow-ups and additions decided on 2026-10-06 and 2026-10-07 (c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131). c0122 (zone holes) and c0123 (several pads per pin) are sized in their own changes; c0129 (the model keys of a body that was read) and c0132 (vias without a pad on inner layers) are reserved and not yet proposed.
-- **Order:** c0083 first; it depends on nothing of v0.4 and repairs a read defect, so it can ship
+- **Total:** 90 design-days (sizes, not time): 65.75 of c0083–c0092 and 24.25 of the follow-ups and additions decided on 2026-10-06 and 2026-10-07 (c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131). c0122 (zone holes) and c0123 (several pads per pin) are sized in their own changes; c0129 (the model keys of a body that was read) is reserved and not yet proposed; c0132 (vias without a pad on inner layers) is proposed on its own branch and is not a folder on `dev` yet.
+- **Order:** c0083 first; it depends on nothing of the write part and repairs a read defect, so it can ship
   before the rest. Then c0084, c0085, c0086, c0087 and c0089 in parallel. c0088 after c0084. c0090
   after c0084, c0085, c0086 and c0089. c0091 can be written at any time; its first real run needs
   c0084 to c0090. c0092 last.
@@ -380,8 +401,9 @@ written, and the kit is named and not defined.
   sheet template), each written as numbered steps in the change's design; an optional one for c0083
   (channel naming formats) and for c0088; and the kit run of c0091 on his machine, which c0092 records.
 
-**v0.4 acceptance (a proposal; the project plan's text for this milestone is not in these pages).**
-Approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes.
+**v0.3 acceptance (a proposal; the project plan's text for this milestone is not in these pages).**
+It is the acceptance of the write part of v0.3; the read part shipped in `0.2.0` with no acceptance
+claimed. Approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes.
 
 1. A project built for both targets is the same design: `equivalent` at level 5 between the KiCad
    board and the Altium documents, and between the KiCad board and KiCad's import of those documents
@@ -393,7 +415,7 @@ Approved as the working target on 2026-10-06, to be reviewed by the maintainer b
    disagrees with its schematic, with no tool (c0088). Measured on the public corpus (c0125, c0130):
    five of the seven non-heavy public documents have a clearance in force. The two that do not are
    `altium-third-party-pcbdoc-02` and `-06`: their Clearance records carry the option that ignores
-   the pads of one footprint (form D of c0125, not in v0.4) and hold matrix cells that the item kinds
+   the pads of one footprint (form D of c0125, not in v0.3) and hold matrix cells that the item kinds
    of the check cannot tell apart (a through-hole pad from a surface pad, an arc from a track), so
    they are judged for shorts only and carry `UNVERIFIED`. The maintainer reviews this count before
    c0092 closes.
@@ -405,14 +427,86 @@ Approved as the working target on 2026-10-06, to be reviewed by the maintainer b
 
 | level | compares | milestone |
 |---|---|---|
-| 1 | components | v0.3; delivered by c0045 (`docs/equivalence.md`) |
-| 2 | netlist (`REF-PIN`) | v0.3; delivered by c0045 (`docs/equivalence.md`) |
-| 3 | footprints and pads | v0.3; delivered by c0045 (`docs/equivalence.md`) |
-| 4 | placement | v0.3; delivered by c0045 (`docs/equivalence.md`) |
-| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.4; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
+| 1 | components | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
+| 2 | netlist (`REF-PIN`) | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
+| 3 | footprints and pads | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
+| 4 | placement | v0.3 read; delivered by c0045 (`docs/equivalence.md`) |
+| 5 | routing (per net: the pads joined, the vias, the length per layer) | v0.3 write; delivered by c0089 (`docs/equivalence.md`, "Level 5: routing") |
 | 6 | rules | v0.6 |
 | 7 | geometry (XOR) | v0.6 |
 | 8 | presentation | after 1.0 |
+
+## v0.4: proposals on other branches (not on `dev`)
+
+Since 2026-10-07 the name v0.4 belongs to three groups of proposals ([Milestone names](#milestone-names)).
+Their folders are not on `dev`: each group is on the branch named below and comes to `dev` after `0.3.0`
+is released. Where a commit is given, it is the tip of the branch as it was read on 2026-10-07. The three
+branches of board authoring were rebased and amended several times that day, so no commit is given for
+them: read the tip with `git rev-parse <branch>`. An id that is not a folder on `dev` is an estimate, and
+so are the slugs and the scope lines below, which were read from the branches on 2026-10-07. No budget
+is given here.
+
+**The agent track, c0077–c0081.** Branch `claude/onde-paramos-40a5cd` at `d6ed3651`. Scope, from the
+proposals: an agent that installs Fenolite gets a board from the built-in catalog that can pass `check`,
+a router it can use on a new machine, a guide inside the package that says how to run Fenolite and how
+to write a design, and a tool that measures whether an agent closes the loop.
+
+| id | slug |
+|---|---|
+| c0077 | `catalog-footprint-fields` |
+| c0078 | `router-fetch` |
+| c0079 | `agent-kit` |
+| c0080 | `agent-authoring-guide` |
+| c0081 | `agent-eval` |
+
+**Board authoring, c0096, c0097 and c0099.** One branch each; the tip of each is a commit that
+implements its change, with the proposal in it. Scope, from the proposals: a placement request that
+keeps declared interfaces, shared fixing drills, group regions and the nearness of connected pads, with
+a bounded search and explicit unplaced results (c0096); a copper finding that shows the selectors, class
+values and precedence behind its limit (c0097); component bodies with signed bounds, so that an
+extrusion through the mounting plane can be described (c0099). c0098 (electrical readiness) is on hold:
+the maintainer has not decided whether it is in v0.4 (Open decisions, row 35).
+
+| id | slug | branch |
+|---|---|---|
+| c0096 | `constrained-board-placement` | `codex/c0096-constrained-placement` |
+| c0097 | `copper-rule-explain` | `codex/c0097-copper-rule-explain` |
+| c0099 | `component-body-volumes` | `codex/c0099-body-volumes` |
+
+**The complex board, c0100–c0120.** Branch `review-roadmap-complex-board` at `1a130741`, where the group
+is called v0.2c. Scope, from the proposals: the gaps to a complex board that the review of 2026-10-05
+found, most with a measurement or a probe of that day recorded in the proposal: more copper layers and a
+stack-up, outlines and board items, differential pairs, impedance and length, routing with planes and at
+the scale of hundreds of nets, placement constraints, net ties and waivers, power copper, the documents
+and drawings a manufacturer asks for, and one yardstick board with the agent loop on long steps.
+
+| id | slug |
+|---|---|
+| c0100 | `board-layer-count` |
+| c0101 | `board-stackup` |
+| c0102 | `board-outline-shapes` |
+| c0103 | `dsl-keepouts-board-items` |
+| c0104 | `diff-pair-constraints` |
+| c0105 | `impedance-targets` |
+| c0106 | `length-measure-tune` |
+| c0107 | `route-planes-layers` |
+| c0108 | `route-open-nets` |
+| c0109 | `routing-scale-control` |
+| c0110 | `route-pairs-fanout` |
+| c0111 | `copper-part-anchors` |
+| c0112 | `via-protection` |
+| c0113 | `placement-constraints` |
+| c0114 | `net-ties-waivers` |
+| c0115 | `power-copper-analysis` |
+| c0116 | `export-documents` |
+| c0117 | `fab-assembly-drawings` |
+| c0118 | `assembly-test-features` |
+| c0119 | `yardstick-board` |
+| c0120 | `agent-loop-scale` |
+
+**Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
+c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may
+change at that point.
 
 ## Phase 5: to 1.0 (estimate; ids not allocated)
 
@@ -428,10 +522,13 @@ Approved as the working target on 2026-10-06, to be reviewed by the maintainer b
 > **Proposal, pending the maintainer's decision.** Nothing in this section is decided. The project
 > plan already allows moving v0.5b and v0.6 after 1.0 if dedication falls below 40 %.
 
+This section was written before 2026-10-07 and does not place the proposals of v0.4 (the agent track,
+board authoring, the complex board): whether each is kept for 1.0 is decided when they come to `dev`.
+
 **Keep for 1.0:**
 
 - complete KiCad (to the end of v0.2b);
-- second backend read and write (to the end of v0.4);
+- second backend read and write (to the end of v0.3, released as `0.3.0`);
 - conversion, with controlled KiCad downgrade (capability resolver) and public `equivalent` (v0.5a);
 - equivalence levels 1–5;
 - the MCP server (v0.5b): small, and central for agents;
@@ -534,8 +631,9 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | v0.1 | 20 | 20 |
 | v0.2a | 9 | 29 |
 | v0.2b | 7 | 36 |
-| v0.3 | 18 | 54 |
-| v0.4 | 24 | 78 |
+| v0.3, read part | 18 | 54 |
+| v0.3, write part | 24 | 78 |
+| v0.4 | not estimated | not estimated |
 | v0.5a | 7 | 85 |
 | v0.5b | 6 | 91 |
 | v0.6 | 5 | 96 |
@@ -543,8 +641,10 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 
 - **By size, v0.1 is more than half of the work up to the end of KiCad (v0.2b).** v0.2a is 80.5
   design-days and v0.2b 65 as proposed, against about 188 for v0.1.
-- **The second backend is the largest single block after that:** v0.3 and v0.4 are 42 of the
-  project plan's 101 weeks.
+- **The second backend is the largest single block after that:** the read and write parts of v0.3 are
+  42 of the project plan's 101 weeks.
+- **v0.4 is not estimated.** The project plan has no line for its three groups, so the table gives them
+  no weeks and the cumulative column runs on without them.
 
 ## Open decisions
 
@@ -570,19 +670,21 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | pending. Recommended: as proposed |
 | 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | pending. Recommended: as proposed |
 | 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | pending. Recommended: as proposed |
-| 21 | v0.4: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 are free | this page; `openspec/README.md` | ten, by the start of implementation on 2026-10-06 |
-| 22 | v0.4: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`, and may hold a script that runs inside Altium | proposal and design of c0091 | decided by the maintainer on 2026-10-06: checklist plus script. The script is authored for Fenolite from Altium's public scripting documentation, the user starts it from inside Altium, and the checklist works alone |
-| 23 | v0.4: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | decided by the maintainer on 2026-10-06: as proposed |
-| 24 | v0.4: c0083 (repeated sheets in the import) is inside v0.4, first and independent, or a v0.3 follow-up released earlier | proposal of c0083 | decided by the maintainer on 2026-10-06: inside v0.4 |
-| 25 | v0.4: level 5 of `equivalent` compares connectivity, vias and length per net; exact geometry stays level 7 | proposal of c0089 | decided by the maintainer on 2026-10-06: as proposed |
-| 26 | v0.4: variants stay in v0.5b | proposal of c0086 | decided by the maintainer on 2026-10-06: v0.5b |
-| 27 | v0.4: the acceptance block above is a proposal derived from the roadmap's bullets | this page; design of c0092 | approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes (a task of c0092) |
-| 28 | v0.4: `fenolite check` on Altium input runs `copper.clearance` and `parity` by default, so it can exit 5 where it exited 0 | design of c0088 | decided by the maintainer on 2026-10-06: on by default; the changelog states it as a change of behaviour |
-| 29 | v0.4: one kit run on one Altium version is enough for a write kind to leave `experimental`, the version named wherever the level is shown | design of c0092 | decided by the maintainer on 2026-10-06: yes |
-| 30 | v0.4: the archive of a kit run is published as a release asset; the repository holds only its digest and size | design of c0091 | decided by the maintainer on 2026-10-06: yes |
-| 31 | v0.4: an Altium build draws each symbol from its own graphics by default (`--altium-symbols graphics`); `generic` keeps the rectangles. The four samples his author reports covered are regenerated, their rectangle form is kept as golden copies, and the graphics form is not Altium-verified until Part Y | proposal and design of c0086 | decided by the maintainer on 2026-10-06: `graphics` is the default; the changelog states it as a change of the default output |
-| 32 | v0.4: the model holds the graphics of each footprint instance, the corner ratio of a rounded pad and enough to send the Altium build through the one lowering, before v0.4 closes; every KiCad output of 0.2.0 stays byte-equal | design of c0090 ("Decisions of the maintainer", 1); proposal and design of c0126 | decided by the maintainer on 2026-10-06: the change goes ahead in v0.4 as c0126, on top of c0123 and as the last change of the model; Mechanical 1 to 12 are in and are not to be cut. Decided by default, to be shown to the maintainer with the result: KiCad reads fill the fields on request only; the corner ratio in ppm of the pad's shorter side; provenance kept on every imported footprint graphic; copper lines inside a footprint not written, counted, a loss that needs `allow_lossy`; no PCB library derived from an imported model in v0.4 (v0.5a, `convert`); fields and free texts written, not compared in RT-A2 and RT-A3 |
-| 33 | v0.4: component bodies (c0121): implemented inside v0.4, before c0092; written only on request (`--altium-bodies extruded`, off until step X8 of Part X is reported, in session 2 of the Altium work); the form that Altium saves, 35 keys with stand-ins for `MODELID` and `MODEL.CHECKSUM`, the short form built for X8 only; bodies that name a 3D model are never written by it; no body is invented where the model has none; library bodies are written and are the first to be cut; a new sample `body2`, `board6` unchanged; keeping `MODELID` and `MODEL.CHECKSUM` of a body that was read is its own change c0129, right after c0099 is on `dev` | design of c0121, "Decisions (2026-10-06)" | accepted by the coordinator on the maintainer's behalf on 2026-10-06, as the conservative reading of his order "a follow-up change with fact rows before the write"; to be shown to him |
+| 21 | v0.3: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 were free then | this page; `openspec/README.md` | ten, by the start of implementation on 2026-10-06 |
+| 22 | v0.3: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`, and may hold a script that runs inside Altium | proposal and design of c0091 | decided by the maintainer on 2026-10-06: checklist plus script. The script is authored for Fenolite from Altium's public scripting documentation, the user starts it from inside Altium, and the checklist works alone |
+| 23 | v0.3: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | decided by the maintainer on 2026-10-06: as proposed |
+| 24 | v0.3: c0083 (repeated sheets in the import) is inside the write part, first and independent, or a follow-up of the read part released earlier | proposal of c0083 | decided by the maintainer on 2026-10-06: inside the write part |
+| 25 | v0.3: level 5 of `equivalent` compares connectivity, vias and length per net; exact geometry stays level 7 | proposal of c0089 | decided by the maintainer on 2026-10-06: as proposed |
+| 26 | v0.3: variants stay in v0.5b | proposal of c0086 | decided by the maintainer on 2026-10-06: v0.5b |
+| 27 | v0.3: the acceptance block above is a proposal derived from the roadmap's bullets | this page; design of c0092 | approved as the working target on 2026-10-06, to be reviewed by the maintainer before c0092 closes (a task of c0092) |
+| 28 | v0.3: `fenolite check` on Altium input runs `copper.clearance` and `parity` by default, so it can exit 5 where it exited 0 | design of c0088 | decided by the maintainer on 2026-10-06: on by default; the changelog states it as a change of behaviour |
+| 29 | v0.3: one kit run on one Altium version is enough for a write kind to leave `experimental`, the version named wherever the level is shown | design of c0092 | decided by the maintainer on 2026-10-06: yes |
+| 30 | v0.3: the archive of a kit run is published as a release asset; the repository holds only its digest and size | design of c0091 | decided by the maintainer on 2026-10-06: yes |
+| 31 | v0.3: an Altium build draws each symbol from its own graphics by default (`--altium-symbols graphics`); `generic` keeps the rectangles. The four samples his author reports covered are regenerated, their rectangle form is kept as golden copies, and the graphics form is not Altium-verified until Part Y | proposal and design of c0086 | decided by the maintainer on 2026-10-06: `graphics` is the default; the changelog states it as a change of the default output |
+| 32 | v0.3: the model holds the graphics of each footprint instance, the corner ratio of a rounded pad and enough to send the Altium build through the one lowering, before v0.3 closes; every KiCad output of 0.2.0 stays byte-equal | design of c0090 ("Decisions of the maintainer", 1); proposal and design of c0126 | decided by the maintainer on 2026-10-06: the change goes ahead in v0.3 as c0126, on top of c0123 and as the last change of the model; Mechanical 1 to 12 are in and are not to be cut. Decided by default, to be shown to the maintainer with the result: KiCad reads fill the fields on request only; the corner ratio in ppm of the pad's shorter side; provenance kept on every imported footprint graphic; copper lines inside a footprint not written, counted, a loss that needs `allow_lossy`; no PCB library derived from an imported model in v0.3 (v0.5a, `convert`); fields and free texts written, not compared in RT-A2 and RT-A3 |
+| 33 | v0.3: component bodies (c0121): implemented inside v0.3, before c0092; written only on request (`--altium-bodies extruded`, off until step X8 of Part X is reported, in session 2 of the Altium work); the form that Altium saves, 35 keys with stand-ins for `MODELID` and `MODEL.CHECKSUM`, the short form built for X8 only; bodies that name a 3D model are never written by it; no body is invented where the model has none; library bodies are written and are the first to be cut; a new sample `body2`, `board6` unchanged; keeping `MODELID` and `MODEL.CHECKSUM` of a body that was read is its own change c0129, right after c0099 is on `dev` | design of c0121, "Decisions (2026-10-06)" | accepted by the coordinator on the maintainer's behalf on 2026-10-06, as the conservative reading of his order "a follow-up change with fact rows before the write"; to be shown to him |
+| 34 | Milestone names: the write side of the second backend is v0.3, released as `0.3.0`; v0.4 names the proposals that are open on other branches (the agent track c0077–c0081, board authoring c0096, c0097 and c0099, the complex board c0100–c0120); v0.5a, v0.5b, v0.6 and v1.0 keep their names | this page, “Milestone names”; change c0136 | decided by the maintainer on 2026-10-07 |
+| 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4 | open |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).

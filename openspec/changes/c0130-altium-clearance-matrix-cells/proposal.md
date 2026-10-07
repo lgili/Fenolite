@@ -4,7 +4,7 @@ Change c0125 left a Clearance record whose object matrix holds differing clearan
 
 ## Outcome in one paragraph
 
-**One of the four records is lifted, on the heavy document `-08`; the documents `-02` and `-06` are not moved by this change.** Measured before proposing (design, "Measured before"): of the four matrices, two tell object kinds apart that the copper check holds as one item kind (a through-hole pad from a surface pad on `-02`; an arc from a track on `-06`), and the same two records also carry the option that ignores the pads of one footprint, which is not in v0.4 (decision 2 of c0125). The two matrices of `-08` are exact in item kinds; one of those records has a scope outside the grammar, the other is for all objects and is lifted: a rule of 4 mil and a cell rule of 3.5 mil between vias. `-08` thereby gets a clearance in force for every pair and stays `UNVERIFIED` (three Clearance records unread).
+**One of the four records is lifted, on the heavy document `-08`; the documents `-02` and `-06` are not moved by this change.** Measured before proposing (design, "Measured before"): of the four matrices, two tell object kinds apart that the copper check holds as one item kind (a through-hole pad from a surface pad on `-02`; an arc from a track on `-06`), and the same two records also carry the option that ignores the pads of one footprint, which is not in v0.3 (decision 2 of c0125). The two matrices of `-08` are exact in item kinds; one of those records has a scope outside the grammar, the other is for all objects and is lifted: a rule of 4 mil and a cell rule of 3.5 mil between vias. `-08` thereby gets a clearance in force for every pair and stays `UNVERIFIED` (three Clearance records unread).
 
 ## What Changes
 
@@ -32,7 +32,7 @@ None.
 
 - No change of `checks/copper.py` or `checks/clearance.py`, and none of the neutral rule model: `copper.clearance` on a KiCad board is judged exactly as in 0.2.0. `checks/documents.py` gains one summary key on document input.
 - No partial lifting of a record with a cell that has no counterpart, and no rule of severity `ignore` to leave its pairs unjudged: that would put rules into the model that the document does not hold (design, decision 5).
-- No `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` (not in v0.4), no scope function beyond c0125's, no hole clearance from the `Hole` cells (another neutral kind; "Out of scope").
+- No `IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` (not in v0.3), no scope function beyond c0125's, no hole clearance from the `Hole` cells (another neutral kind; "Out of scope").
 - No matrix for `BoardOutlineClearance`.
 - No committed Altium sample changes and no writer writes a matrix.
 - No code or constant from any private project or organisation; test records are authored for Fenolite, and corpus files are read from the cache with Fenolite's own readers.

@@ -365,7 +365,7 @@ schematic of a rewrite is generated from the circuit, with generic symbols on on
 
 Two of five sets are equal; three are not judged, each for a text or a circuit that the schematic
 writer of the build refuses. `H-A-VER-RTA3-PRJ` therefore stays `INFERRED` and pending: its criterion
-asks for the five sets. Decision of the maintainer, 2026-10-06: v0.4 records the sets 01, 02 and 04 as
+asks for the five sets. Decision of the maintainer, 2026-10-06: v0.3 records the sets 01, 02 and 04 as
 not judged; a tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
 
 Measured again on 2026-10-06 after the rebase onto the changes c0083 (repeated sheets, pin-to-pad maps)

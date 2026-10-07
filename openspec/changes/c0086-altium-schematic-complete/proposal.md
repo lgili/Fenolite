@@ -42,9 +42,9 @@ None.
 
 ## Decision of the maintainer (2026-10-06): v0.5b, as written below
 
-- **Question.** Variants: in v0.4 with the schematic writer, or in v0.5b as the roadmap has them?
+- **Question.** Variants: in v0.3 with the schematic writer, or in v0.5b as the roadmap has them?
 - **Default written here.** v0.5b. This change writes no variant and the project file lists none.
-- **Alternative.** Write assembly variants (fitted / not fitted per variant) into the project file in v0.4.
+- **Alternative.** Write assembly variants (fitted / not fitted per variant) into the project file in v0.3.
 - **To switch.** Add one requirement "Variants in the project file" to this change's `altium-schematic-writer` delta with a task and a Part Y step; the model already carries `dnp`, so only per-variant `dnp` would be new, which makes it a model change that needs its own design note.
 
 ## Decision of the maintainer (2026-10-06): graphics is the default
@@ -59,4 +59,4 @@ None.
 - Changed: `backends/altium/{altsym,symbols,schdoc,schlib,hierarchy,layout,ascii,binary,project}.py`, `lens/altium.py`.
 - Pages: `docs/altium.md` ("Schematic", "Hierarchy", "Limits"), `docs/formats/altium/{schematic-records,schematic-library,schematic-ascii,schematic-binary}.md`, `docs/evidence/altium-schematic.md`.
 - Samples under `tests/data/altium/` change where symbols now have graphics; each regenerated file is listed in the change.
-- Depends on: c0032, c0033, c0034, c0036, c0037 (schematic writers); c0040 (the reader that proves readback); c0058 and c0060 (symbol graphics in the model); c0070 (sheet tree and layout). Nothing else of v0.4.
+- Depends on: c0032, c0033, c0034, c0036, c0037 (schematic writers); c0040 (the reader that proves readback); c0058 and c0060 (symbol graphics in the model); c0070 (sheet tree and layout). Nothing else of the write part of v0.3.

@@ -51,4 +51,4 @@ None.
 - Changed: `backends/altium/{pcbrecords,pcbdoc,docboard,layout}.py`, `lens/altium_copper.py`, `lens/altium.py`; `claims.py` notes.
 - Pages: `docs/altium.md` ("PCB document"), `docs/formats/altium/{pcb-document,pcb-copper,pcb-bodies,pcb-records}.md`, `docs/evidence/altium-pcb.md`.
 - Issue codes: `altium.via-unsupported` narrows to micro vias; `altium.not-lowered` for board items becomes per kind.
-- Depends on: c0035, c0038, c0053 (PCB writers); c0041 and c0043 (the readers that prove readback); nothing else of v0.4.
+- Depends on: c0035, c0038, c0053 (PCB writers); c0041 and c0043 (the readers that prove readback); nothing else of the write part of v0.3.

@@ -2,7 +2,7 @@
 
 The Altium import reads a repeated sheet once. A sheet symbol whose designator is a `Repeat(…)` statement stands for several channels of one child sheet, and Altium gives each channel's components their own designators on the board. Fenolite reports `altium.import.repeated-sheet` and keeps the designators that the child sheet holds, so every channel but one is missing from the circuit.
 
-On the public project `altium-set:02` (`docs/evidence/altium-roundtrip.md`, 2026-10-05) this gives `model.duplicate-ref` in `model.validate`, 26 elements that only the schematic covers and 217 that only the PCB document covers in `netlist.assignment_compare`. The page blames the missing pin-to-pad map for these counts; most of them are the channels that were never instantiated. The import is the read side of the second backend, but v0.4 cannot round-trip that project honestly while its circuit is wrong, so this change comes first and stands alone.
+On the public project `altium-set:02` (`docs/evidence/altium-roundtrip.md`, 2026-10-05) this gives `model.duplicate-ref` in `model.validate`, 26 elements that only the schematic covers and 217 that only the PCB document covers in `netlist.assignment_compare`. The page blames the missing pin-to-pad map for these counts; most of them are the channels that were never instantiated. The import is the read side of the second backend, but the write part of v0.3 cannot round-trip that project honestly while its circuit is wrong, so this change comes first and stands alone.
 
 ## What Changes
 
@@ -39,11 +39,11 @@ None.
 - The naming format without a board and without an annotation file is `INFERRED` (`H-A-IMP-RPT-FORMAT`) until the maintainer reports Part R.
 - `adapter.IMPORT_EVIDENCE` keeps its level; the new rows are added to its hypotheses.
 
-## Decision of the maintainer (2026-10-06): inside v0.4, as written below
+## Decision of the maintainer (2026-10-06): inside the write part of v0.3, as written below
 
-- **Question.** Does this change ship inside v0.4, or earlier as a v0.3 follow-up, since it repairs a read defect?
-- **Default written here.** Inside v0.4, as its first change, with no dependency on any other v0.4 change, so it can be implemented and released before the rest.
-- **Alternative.** A v0.3 follow-up released with v0.2/v0.3.
+- **Question.** Does this change ship inside the write part of v0.3, or earlier as a follow-up of the read part, since it repairs a read defect?
+- **Default written here.** Inside the write part of v0.3, as its first change, with no dependency on any other change of that part, so it can be implemented and released before the rest.
+- **Alternative.** A follow-up of the read part of v0.3, released with v0.2 and that part.
 - **To switch.** Change the milestone cell of the roadmap row and of the `openspec/README.md` row; no requirement or task changes.
 
 ## Impact
@@ -51,4 +51,4 @@ None.
 - Changed: `backends/altium/adapter/{netlist,circuit,project,connectivity,pins}.py`, `backends/altium/read/project.py`; new `backends/altium/read/annotation.py`.
 - Changed pages: `docs/altium.md` ("Hierarchy"), `docs/formats/altium/{connectivity,project}.md`, `docs/evidence/altium-roundtrip.md`.
 - `altium.import.repeated-sheet` changes meaning: it is reported only for a repeat that cannot be instantiated (see the design).
-- Depends on: c0043 (import), c0044 (check on Altium input); nothing of v0.4.
+- Depends on: c0043 (import), c0044 (check on Altium input); nothing of the write part of v0.3.

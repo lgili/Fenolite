@@ -52,11 +52,11 @@ None.
 
 The coordinator accepted the defaults below on the maintainer's behalf on 2026-10-06, as the conservative reading of his order "a follow-up change with fact rows before the write"; they are to be shown to him, and each keeps what switching it would cost. The design holds the alternatives.
 
-1. **Inside v0.4**, opt-in and `experimental`, implemented before c0092; the change of the option's default waits for step X8 and may fall after v0.4.
+1. **Inside v0.3**, opt-in and `experimental`, implemented before c0092; the change of the option's default waits for step X8 and may fall after v0.3.
 2. **The option is `off`** until step X8 is reported.
 3. **The saved form** (35 keys, two stand-in values) is written; the short form is built for X8 only.
 4. **Bodies that name a 3D model** are never written by this change.
-5. **No body is invented** where the model has none; a way to state a height in a script is a later change of the DSL, after v0.4.
+5. **No body is invented** where the model has none; a way to state a height in a script is a later change of the DSL, after v0.3.
 6. **Library bodies** are written, first to be cut.
 7. **Keeping `MODELID` and `MODEL.CHECKSUM` of a body that was read** is change c0129, a small change of its own, scheduled right after c0099 is on `dev`: it is what makes a rewrite carry real values instead of stand-ins.
 8. **A new sample `body2`**; `board6` keeps its five files byte for byte.

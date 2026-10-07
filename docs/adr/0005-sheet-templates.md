@@ -34,7 +34,7 @@ ISO 7200:2004 shown by a distributor (S-0077, S-0078) and from S-0079, read for 
    Fenolite choice. No example claims conformance with ISO 5457 or ISO 7200.
 
 ## Alternatives
-- **Templates that produce KiCad trees directly.** Rejected: the second backend (v0.4) needs the same sheet.
+- **Templates that produce KiCad trees directly.** Rejected: the second backend (the write part of v0.3) needs the same sheet.
 - **One file per paper size.** Rejected: acceptance item 4 asks for one sheet on two sizes, and an agent
   passes a single `--drawing-sheet`.
 - **ISO zones exact for one declared size.** Rejected: the fields would be misplaced on the other size.

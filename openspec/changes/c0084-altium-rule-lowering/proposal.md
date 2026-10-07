@@ -2,7 +2,7 @@
 
 An Altium build writes three kinds of rule (Clearance, Width, Routing Via Style), each as one rule for all nets plus one per net class. Every other rule of a script gives `altium.not-lowered` at `design-rules`: the board-edge clearance, the hole sizes, the six kinds that c0071 added for KiCad (hole to hole, hole clearance, annular width, courtyard, silkscreen, creepage), and every scoped `rule()`. The board then opens in Altium with Altium's defaults for all of them, and a design rule check there judges another design than the script.
 
-The read side has the same gap: `read/rules.py` maps three kinds and holds `BoardOutlineClearance` as pending, so an imported board loses most of its rules and RT-A2 cannot compare them. The roadmap's v0.4 item "Rule lowering" is this.
+The read side has the same gap: `read/rules.py` maps three kinds and holds `BoardOutlineClearance` as pending, so an imported board loses most of its rules and RT-A2 cannot compare them. The roadmap's item "Rule lowering" of the write part of v0.3 is this.
 
 ## What Changes
 
@@ -45,4 +45,4 @@ None.
 - Changed: `backends/altium/pcbdoc.py`, `read/rules.py`, `read/rul.py` (constants), `claims.py`, `lens/altium_copper.py`, `lens/altium.py`, `cli/cmd_build.py`, `cli/cmd_export.py`; new `backends/altium/rulemap.py` (the table, `lower`, `lift` and `write_rule_file`, shared by writer and reader) and `exports/altium_rul.py`.
 - Pages: `docs/altium.md` ("Rules"), `docs/formats/altium/{rule-file,pcb-copper}.md`, `docs/evidence/altium-pcb.md`.
 - `altium.not-lowered` at `design-rules` is replaced by one warning per rule that is not lowered, with `where` `design-rules/<kind>`; `result.rules` of an Altium build is new.
-- Depends on: c0038 (rule records), c0042 (rule files read), c0071 (rule kinds); nothing else of v0.4.
+- Depends on: c0038 (rule records), c0042 (rule files read), c0071 (rule kinds); nothing else of the write part of v0.3.

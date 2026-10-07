@@ -18,10 +18,13 @@ CLI accepts any kebab-case name); lettered ids such as `c0009a` are not used. A 
 until its change is proposed. The nine v0.2a changes were allocated together as c0060–c0068 on
 2026-10-04, while c0058 was being written, so c0057 stays unused.
 The six v0.2b changes were allocated together as c0069–c0074 on 2026-10-05.
-The ten v0.4 changes were allocated together as c0083–c0092 on 2026-10-06; c0077–c0081 stay unused,
-and c0100–c0120 are used by a proposed milestone on another branch.
-c0093 was taken for the release of v0.2 on 2026-10-06: the numbers from c0083 to c0092 are reserved on another
-branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed milestone on another branch.
+The ten changes of the write part of v0.3 were allocated together as c0083–c0092 on 2026-10-06, and
+c0093 was taken for the release of v0.2 on the same day.
+Since 2026-10-07 (c0136) v0.3 is the whole second backend, its read part and its write part, and v0.4
+names the proposals that are written on other branches and are not in this table: c0077–c0081 (the
+agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
+reserved and c0098 is on hold. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
+keep the names of their day.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -48,22 +51,22 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0029 | `copper-check` | dogfood gap | — |
 | c0030 | `footprint-fields` | dogfood gap | — |
 | c0031 | `zone-settings` | dogfood gap | — |
-| c0032 | `altium-schematic-writer` | v0.4, first item pulled forward | — |
+| c0032 | `altium-schematic-writer` | v0.3 write, first item pulled forward | — |
 | c0033 | `altium-binary-schematic` | follow-up | c0032 |
-| c0034 | `altium-schlib-writer` | v0.4 item pulled forward | c0032 |
-| c0035 | `altium-pcb-writers` | v0.4 items pulled forward | c0032 |
+| c0034 | `altium-schlib-writer` | v0.3 write item pulled forward | c0032 |
+| c0035 | `altium-pcb-writers` | v0.3 write items pulled forward | c0032 |
 | c0036 | `no-connect-pins` | follow-up | c0032 |
-| c0037 | `altium-hierarchy-harness` | v0.4 item pulled forward | c0032 |
-| c0038 | `altium-pcb-copper` | v0.4 item pulled forward | c0035 |
-| c0039 | `altium-compound-reader` | v0.3 | — |
-| c0040 | `altium-schematic-reader` | v0.3 | — |
-| c0041 | `altium-pcb-reader` | v0.3 | — |
-| c0042 | `altium-project-reader` | v0.3 | — |
-| c0043 | `altium-import` | v0.3 | — |
-| c0044 | `altium-inspect-check-diff` | v0.3 | — |
-| c0045 | `design-equivalence` | v0.3 | — |
-| c0046 | `altium-sheet-template-import` | v0.3 | — |
-| c0047 | `board-analyses` | v0.3 | — |
+| c0037 | `altium-hierarchy-harness` | v0.3 write item pulled forward | c0032 |
+| c0038 | `altium-pcb-copper` | v0.3 write item pulled forward | c0035 |
+| c0039 | `altium-compound-reader` | v0.3 read | — |
+| c0040 | `altium-schematic-reader` | v0.3 read | — |
+| c0041 | `altium-pcb-reader` | v0.3 read | — |
+| c0042 | `altium-project-reader` | v0.3 read | — |
+| c0043 | `altium-import` | v0.3 read | — |
+| c0044 | `altium-inspect-check-diff` | v0.3 read | — |
+| c0045 | `design-equivalence` | v0.3 read | — |
+| c0046 | `altium-sheet-template-import` | v0.3 read | — |
+| c0047 | `board-analyses` | v0.3 read | — |
 | c0048 | `altium-eco-clean` | v0.3 (Altium writer) | c0038 |
 | c0049 | `test-speed` | v0.1 | — |
 | c0050 | `transform-composition-bound` | v0.1 | — |
@@ -71,8 +74,8 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0052 | `release-hygiene` | v0.1 | — |
 | c0053 | `altium-script-copper` | v0.1 (Altium writer) | c0038 |
 | c0054 | `dsl-rule-constructor` | v0.1 | c0011 |
-| c0055 | `dsl-footprint-authoring` | dogfood gap / v0.4 footprint generator | c0011, c0018 |
-| c0056 | `dsl-pin-pad-map-slots` | dogfood gap / v0.4 footprint generator | c0055 |
+| c0055 | `dsl-footprint-authoring` | dogfood gap / v0.3 write footprint generator | c0011, c0018 |
+| c0056 | `dsl-pin-pad-map-slots` | dogfood gap / v0.3 write footprint generator | c0055 |
 | c0057 | (unused) | — | — |
 | c0058 | `authored-symbols` | follow-up | — |
 | c0059 | `shared-footprint-pads` | follow-up | c0055 |
@@ -95,28 +98,29 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0076 | `component-catalog-coverage` | expand offline symbols and standard package footprints across common families | c0055, c0056, c0075 |
 
 | c0082 | `kicad-worksheet-oracle-isolation` | CI correction: isolated worksheet boundary oracle | — |
-| c0083 | `altium-repeated-sheets` | v0.4 | c0043 |
-| c0084 | `altium-rule-lowering` | v0.4 | c0038, c0042 |
-| c0085 | `altium-pcb-complete` | v0.4 | c0035, c0038 |
-| c0086 | `altium-schematic-complete` | v0.4 | c0032 |
-| c0087 | `altium-outjob-sheet` | v0.4 | c0042, c0046 |
-| c0088 | `altium-light-drc` | v0.4 | c0044, c0072 |
-| c0089 | `equivalence-level-5` | v0.4 | c0045 |
-| c0090 | `altium-roundtrip-write` | v0.4 | c0044 |
-| c0091 | `altium-verification-kit` | v0.4 | — |
-| c0092 | `altium-write-graduation` | v0.4 | c0091 |
+| c0083 | `altium-repeated-sheets` | v0.3 write | c0043 |
+| c0084 | `altium-rule-lowering` | v0.3 write | c0038, c0042 |
+| c0085 | `altium-pcb-complete` | v0.3 write | c0035, c0038 |
+| c0086 | `altium-schematic-complete` | v0.3 write | c0032 |
+| c0087 | `altium-outjob-sheet` | v0.3 write | c0042, c0046 |
+| c0088 | `altium-light-drc` | v0.3 write | c0044, c0072 |
+| c0089 | `equivalence-level-5` | v0.3 write | c0045 |
+| c0090 | `altium-roundtrip-write` | v0.3 write | c0044 |
+| c0091 | `altium-verification-kit` | v0.3 write | — |
+| c0092 | `altium-write-graduation` | v0.3 write | c0091 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
-| c0121 | `altium-component-bodies` | v0.4 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
-| c0122 | `altium-zone-holes` | correction of v0.4: a zone fill keeps the holes of its poured region | c0043 |
-| c0124 | `altium-plane-lines` | correction of v0.4: the Altium import makes no track of a line on an internal plane | c0043, c0088 |
-| c0125 | `altium-clearance-scopes` | v0.4 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
-| c0126 | `footprint-instance-graphics` | v0.4: the graphics and texts of a footprint instance and the corner ratio of a pad in the model; closes task 2.2 of c0090 | c0090, c0123 |
-| c0127 | `altium-arc-record-values` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
-| c0128 | `altium-rewrite-via-drill` | v0.4, follow-up (decision of 2026-10-06) | c0090 |
-| c0129 | reserved | v0.4 follow-up of c0121 and c0099: keep the model keys of a component body that was read | c0099, c0121 |
-| c0130 | `altium-clearance-matrix-cells` | v0.4 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
-| c0131 | `altium-unit-slack-rule` | v0.4 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
-| c0132 | reserved | correction of v0.4: a via without a pad on inner layers (the long via record) is not drawn at its full diameter there | c0088, c0130 |
+| c0121 | `altium-component-bodies` | v0.3 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
+| c0122 | `altium-zone-holes` | correction of v0.3: a zone fill keeps the holes of its poured region | c0043 |
+| c0124 | `altium-plane-lines` | correction of v0.3: the Altium import makes no track of a line on an internal plane | c0043, c0088 |
+| c0125 | `altium-clearance-scopes` | v0.3 follow-up: more forms of the Clearance record in the Altium rule table | c0084, c0088 |
+| c0126 | `footprint-instance-graphics` | v0.3 write: the graphics and texts of a footprint instance and the corner ratio of a pad in the model; closes task 2.2 of c0090 | c0090, c0123 |
+| c0127 | `altium-arc-record-values` | v0.3, follow-up (decision of 2026-10-06) | c0090 |
+| c0128 | `altium-rewrite-via-drill` | v0.3, follow-up (decision of 2026-10-06) | c0090 |
+| c0129 | reserved | v0.3 follow-up of c0121 and c0099: keep the model keys of a component body that was read | c0099, c0121 |
+| c0130 | `altium-clearance-matrix-cells` | v0.3 follow-up: a Clearance matrix read as one rule per cell of item kinds | c0125 |
+| c0131 | `altium-unit-slack-rule` | v0.3 follow-up: the slack of the copper check on Altium input as a stated rule | c0130 |
+| c0132 | reserved | correction of v0.3: a via without a pad on inner layers (the long via record) is not drawn at its full diameter there | c0088, c0130 |
+| c0136 | `milestone-renumbering` | names only: the write side of the second backend is v0.3 (released as `0.3.0`) and the proposals open on other branches form v0.4; no behaviour changes | — |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

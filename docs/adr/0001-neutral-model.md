@@ -14,7 +14,7 @@ rejects unknown tokens on load, so extension data cannot be stored inside its fi
 ## Decision
 1. The model is **small** at first (circuit, board, rules, manufacturing, findings for v0.1;
    schematic presentation arrives with the schematic backend) and grows per change, driven by real
-   files. It becomes additive-only at the end of v0.3 and is frozen with migrators at 1.0.
+   files. It becomes additive-only at the end of the read part of v0.3 and is frozen with migrators at 1.0.
 2. Every entity carries the header `{id, native_ids, provenance, ext}`.
 3. **Units:** lengths are `int` nanometres; angles are `int` microdegrees; no floats anywhere in the
    model. Conversion to the 1/10 000 mil unit is integer-only with round-half-even; it is lossy by

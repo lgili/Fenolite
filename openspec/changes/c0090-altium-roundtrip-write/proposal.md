@@ -29,7 +29,7 @@ None.
 
 ## Non-goals
 
-- No byte-preserving edit of an Altium document (changing one record of a file Altium saved and keeping the rest): RT-A0 and RT-A1 prove the container and the record codecs, and that is as far as preservation goes in v0.4.
+- No byte-preserving edit of an Altium document (changing one record of a file Altium saved and keeping the rest): RT-A0 and RT-A1 prove the container and the record codecs, and that is as far as preservation goes in v0.3.
 - No conversion command and no loss report for users (v0.5a): this change gives the write and the measurement; `convert` builds on them.
 - No claim that Altium opens a rewritten corpus file: the kit of c0091 checks Fenolite's own samples, and a rewritten third-party board is checked by Fenolite's readers and by KiCad's importer only.
 - No code or constant from any private project or organisation; test data is authored for Fenolite or fetched from the public rows of the corpus manifest.
