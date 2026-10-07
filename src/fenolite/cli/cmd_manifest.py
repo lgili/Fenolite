@@ -168,13 +168,16 @@ def _symbol_side(root: Path) -> list[str]:
 
 def design_files(board: Path) -> list[str]:
     """The design files of the project of ``board``, relative to its folder and sorted: the copy set of
-    ``check`` (a library folder file by file), the schematic with its sheets, and the symbol side."""
+    ``check`` (a library folder file by file), the schematic with its sheets, the symbol side, and the
+    3D models vendored below ``3dmodels/`` (``fenolite models --vendor``; change c0116)."""
     root = board.parent
     names: set[str] = set()
     for name, path in project_set(board).files.items():
         names.update(_files_under(path, root) if path.is_dir() else [name])
     names.update(_sheets(root, board.stem))
     names.update(_symbol_side(root))
+    if (root / manifest.MODEL_FOLDER).is_dir():
+        names.update(_files_under(root / manifest.MODEL_FOLDER, root))
     return sorted(name for name in names if name == board.name or not _skipped(name))
 
 

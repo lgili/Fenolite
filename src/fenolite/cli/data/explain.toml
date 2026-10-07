@@ -1273,6 +1273,21 @@ meaning = "The running kicad-cli major cannot export this kind, so no tool ran f
 fix = "Use a kicad-cli that has the command, or drop the kind from the request."
 see = "export"
 
+["export.model-unread"]
+meaning = "kicad-cli reported that it could not add the 3D model of the part that 'where' names, although Fenolite gave it the model file. The STEP is written without that body."
+fix = "Run 'fenolite models' on the board to see which file was given, and open the model in KiCad: the file may be damaged or in a format the STEP export does not read."
+see = "export"
+
+["export.page-too-small"]
+meaning = "The outline of the board does not fit the page of its drawing sheet, so the board PDF is cut at the page. The files are written all the same."
+fix = "Choose a larger paper for the board (Design.sheet(paper=...) in a script, or Page Settings in KiCad), or move the board onto the page, and export again."
+see = "export"
+
+["export.sheet-missing"]
+meaning = "The schematic PDF was refused: the hierarchy names a sheet file that is missing, outside the project folder, part of a cycle or too large to copy. kicad-cli would plot an empty page for it and report nothing."
+fix = "Restore the sheet file that 'where' names inside the project folder, or export without --sch-pdf. No file of the export was written."
+see = "export"
+
 ["fmt.would-change"]
 meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."

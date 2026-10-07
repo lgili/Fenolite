@@ -263,7 +263,7 @@ class KicadCli:
             for name in folders:
                 (tmp / _relative(name)).mkdir(parents=True, exist_ok=True)
             before = {rel: _sha256(path) for rel, path in _files(tmp).items()}
-            command = self._command(args, tmp)
+            command = self._command(args, tmp, env)
             try:
                 proc = subprocess.run(
                     command,
@@ -288,7 +288,9 @@ class KicadCli:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+    def _command(self, args: Sequence[str], tmp: Path, env: Mapping[str, str] | None = None) -> list[str]:
+        """The command line of one run. ``env`` is the run's extra environment: a runner whose tool does
+        not inherit the process environment (a container) passes it on the command line."""
         return [str(self.path), *map(str, args)]
 
     def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
@@ -501,7 +503,8 @@ class DockerCli(KicadCli):
         self.image = image
         super().__init__(Path(DOCKER_PREFIX + image), timeout=timeout)
 
-    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+    def _command(self, args: Sequence[str], tmp: Path, env: Mapping[str, str] | None = None) -> list[str]:
+        extra = [part for name, value in sorted((env or {}).items()) for part in ("-e", f"{name}={value}")]
         return [
             "docker",
             "run",
@@ -520,6 +523,7 @@ class DockerCli(KicadCli):
             "LANG=C",
             "-e",
             "LC_ALL=C",
+            *extra,
             self.image,
             "kicad-cli",
             *map(str, args),

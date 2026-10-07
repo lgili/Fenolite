@@ -9,6 +9,11 @@ alone needs no ``kicad-cli``; it is not one of the kinds of ``--all``.
 ``kicad-cli`` only sees the copy set of ``projectset.project_set``, so the project folder never changes.
 Every file the tool wrote becomes a planned write under ``DIR``; when a kind fails, nothing is planned,
 so a folder never holds a partial set.
+
+Change c0116 adds the six document kinds (``--ipc2581``, ``--odb``, ``--step``, ``--pdf``, ``--dxf``,
+``--sch-pdf``). Each is selected by its own flag, ``--all`` keeps the four fabrication kinds, and no
+preset reaches a document kind. ``result.repeat`` says which hashes compare between two exports, and
+``result.models`` lists the 3D model files a STEP was given.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ from typing import Any
 
 import fenolite
 from fenolite.backends import registry
+from fenolite.backends.kicad import models as kicad_models
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
@@ -30,10 +36,10 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
-from fenolite.exports import EVIDENCE, altium_rul, manifest
+from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE, altium_rul, manifest
 from fenolite.exports import preset as presets
 from fenolite.exports.codes import issue as export_issue
-from fenolite.exports.plan import KINDS, Artifact, run_kind
+from fenolite.exports.plan import DOCUMENT_KINDS, FAB_KINDS, KINDS, Artifact, run_kind
 
 HELP = "export fabrication files through kicad-cli on a copy of the project (writes under DIR)"
 RESULT_KEYS = ("path", "kind", "layer", "bytes", "sha256", "content_sha256")
@@ -48,7 +54,17 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--drill", action="store_true", help="Excellon drill files (PTH and NPTH)")
     parser.add_argument("--pos", action="store_true", help="component positions (CSV, mm)")
     parser.add_argument("--ipcd356", action="store_true", help="IPC-D-356 netlist")
-    parser.add_argument("--all", action="store_true", help="the four kinds")
+    parser.add_argument("--ipc2581", action="store_true", help="IPC-2581 (version C, mm), one XML file")
+    parser.add_argument("--odb", action="store_true", help="ODB++, one zip file")
+    parser.add_argument("--step", action="store_true", help="STEP model with the 3D models Fenolite locates")
+    parser.add_argument("--pdf", action="store_true", help="board PDF, one file per layer")
+    parser.add_argument("--dxf", action="store_true", help="DXF (mm), one file per mechanical layer")
+    parser.add_argument(
+        "--sch-pdf", dest="sch_pdf", action="store_true", help="schematic PDF, every sheet of the hierarchy"
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="the four fabrication kinds (Gerbers, drill, positions, netlist)"
+    )
     parser.add_argument(
         "--altium-rul",
         dest="altium_rul",
@@ -114,13 +130,25 @@ def _rule_file(board: Path, issues: list[Issue]) -> altium_rul.RuleFileExport | 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
-    kinds = [kind for kind in KINDS if args.all or getattr(args, kind)]
+    kinds = [
+        kind for kind in KINDS if (args.all and kind in FAB_KINDS) or getattr(args, kind.replace("-", "_"))
+    ]
     if not kinds and not args.altium_rul:
         raise CliError("FEN-2001", "no export kind selected", hint="pass --all or one of --gerbers, --drill, "
-                       "--pos, --ipcd356, --altium-rul")  # fmt: skip
+                       "--pos, --ipcd356, --ipc2581, --odb, --step, --pdf, --dxf, --sch-pdf, "
+                       "--altium-rul")  # fmt: skip
     preset, preset_result = _preset(args.preset, ctx.cwd)
     given = Path(args.path)
     board = resolve_board(given if given.is_absolute() else ctx.cwd / given)
+    schematic = board.with_suffix(".kicad_sch")
+    if "sch-pdf" in kinds and not schematic.is_file():
+        raise CliError(
+            "FEN-3001",
+            f"{board.name} has no schematic {schematic.name} beside it",
+            hint="--sch-pdf plots that schematic; the other kinds (--gerbers, --drill, --pos, --ipcd356, "
+            "--ipc2581, --odb, --step, --pdf, --dxf) need only the board",
+            where=schematic.name,
+        )
     project = project_set(board)
     backend = registry.for_path(board)
     if backend is None:
@@ -128,6 +156,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     artifacts: list[Artifact] = []
     issues: list[Issue] = []
     tool_writes: set[str] = set()
+    model_uses: list[kicad_models.ModelUse] = []
     version: str | None = None
     if kinds:  # the rule file alone runs no tool
         cli = preflight(args.kicad_cli, args.timeout, board)
@@ -147,6 +176,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             artifacts += found.artifacts
             issues += found.issues
             tool_writes.update(found.tool_writes)
+            model_uses += found.models
     rule_file = _rule_file(board, issues) if args.altium_rul else None
     if rule_file is not None and rule_file.data:
         artifacts.append(Artifact(rule_file.path, altium_rul.KIND, None, rule_file.data, True))
@@ -165,6 +195,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "tool_version": version,
         "tool_writes": sorted(tool_writes),
         "preset": preset_result,
+        "repeat": {kind: KINDS[kind].repeat for kind in kinds},
+        "models": [kicad_models.use_dict(use) for use in model_uses],
     }
     if args.altium_rul:
         result["rules"] = (
@@ -172,15 +204,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if rule_file is None
             else {"written": list(rule_file.written), "not_lowered": list(rule_file.not_lowered)}
         )
-    tool_parts = [EVIDENCE] if kinds else []
-    tool_parts += [presets.EVIDENCE] if preset is not None and kinds else []
-    parts = [*tool_parts, *([rule_file.evidence] if rule_file is not None else [])]
+    fabrication = [kind for kind in kinds if kind in FAB_KINDS]
+    documents = [kind for kind in kinds if kind in DOCUMENT_KINDS]
+    tool_parts = [EVIDENCE] if fabrication else []
+    tool_parts += [presets.EVIDENCE] if preset is not None and fabrication else []
+    document_parts = [DOCUMENTS_EVIDENCE] if documents else []
+    parts = [*tool_parts, *document_parts, *([rule_file.evidence] if rule_file is not None else [])]
     evidence = dataclasses.replace(
         Evidence.combine(*parts) if parts else EVIDENCE,
         oracle=f"kicad-cli {version}" if kinds else None,
     )
     writes: list[PlannedWrite] = []
-    if not issues:
+    if not any(found.severity == "error" for found in issues):  # a warning never holds the files back
         writes = [PlannedWrite(joined(args.out, a.path), a.data, a.kind) for a in artifacts]
         if args.manifest:
             # an entry claims no more than the run: the level of an export with a preset is the preset's.
@@ -189,8 +224,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             own = manifest.ToolRef("fenolite", fenolite.__version__)
             tool = manifest.ToolRef("kicad-cli", version) if version is not None else own
             made = {"board": board_sha}
+            sources = {
+                kind: {"schematic": hashlib.sha256(schematic.read_bytes()).hexdigest()}
+                for kind in documents
+                if KINDS[kind].source == "schematic"
+            }
             tools = {altium_rul.KIND: f"{own.name} {own.version}"}
             levels = {altium_rul.KIND: rule_file.evidence.level.value} if rule_file is not None else {}
+            levels.update({kind: DOCUMENTS_EVIDENCE.level.value for kind in documents})
             tool_level = Evidence.combine(*tool_parts).level.value if tool_parts else evidence.level.value
             planned, refused = merged_write(
                 args.out,
@@ -198,7 +239,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 [
                     manifest.entry(
                         a,
-                        from_=made,
+                        from_=sources.get(a.kind, made),
                         tool=tools.get(a.kind, f"{tool.name} {tool.version}"),
                         evidence=levels.get(a.kind, tool_level),
                     )

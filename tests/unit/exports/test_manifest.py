@@ -16,8 +16,9 @@ import pytest
 
 import fenolite
 from fenolite.core.errors import FormatError
-from fenolite.exports import EVIDENCE
+from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE
 from fenolite.exports.manifest import (
+    DESIGN_KINDS,
     FILE_NAME,
     SCHEMA,
     STATES,
@@ -28,12 +29,13 @@ from fenolite.exports.manifest import (
     content_sha256,
     design_kind,
     dumps,
+    entry,
     file_entry,
     load,
     merge,
     to_data,
 )
-from fenolite.exports.plan import Artifact
+from fenolite.exports.plan import DOCUMENT_KINDS, FAB_KINDS, Artifact
 
 V01 = Path(__file__).resolve().parents[2] / "data" / "exports" / "manifest_v01.json"
 
@@ -222,6 +224,11 @@ def test_design_kinds() -> None:
     assert design_kind("lib/Mini.kicad_sym") == "kicad_sym" and design_kind("a4.kicad_wks") == "kicad_wks"
     assert design_kind("fp-lib-table") == design_kind("sub/sym-lib-table") == "lib-table"
     assert design_kind("lib/Mini.pretty/r.step") == "file"
+    # a file below the project's 3dmodels/ folder is a vendored 3D model, whatever its suffix (c0116)
+    assert design_kind("3dmodels/Fenolite.3dshapes/Box_2x1.step") == "3d-model"
+    assert design_kind("3dmodels\\L.3dshapes\\a.wrl") == "3d-model"
+    assert design_kind("3dmodels") == "file" and design_kind("fab/3dmodels/a.step") == "file"
+    assert "3d-model" in DESIGN_KINDS and not set(DOCUMENT_KINDS) & DESIGN_KINDS
 
 
 def _entry(path: str, data: bytes, board: str) -> ArtifactEntry:
@@ -247,3 +254,37 @@ def test_merge_replaces_by_path_and_keeps_the_rest() -> None:
     assert second.generated == later.isoformat()
     assert second.states == {**dict.fromkeys(STATES, 0), "generated": 2, "checked": 1}
     assert _schema.validate(to_data(second), _schema.load("fenolite.artifacts.v0.json")) == []
+
+
+# --- document kinds (c0116)
+
+
+def test_pdf_date_does_not_change_the_content_hash() -> None:
+    one = b"%PDF-1.5\n<<\n/CreationDate (D:20261005135825)\n/Title (b-F_Cu.pdf)\n>>\n%%EOF\n"
+    two = one.replace(b"D:20261005135825", b"D:2026:10:05:21:44:59")
+    assert one != two
+    for kind in ("pdf", "sch-pdf"):
+        assert content_sha256(one, kind) == content_sha256(two, kind)
+        assert content_sha256(one, kind) != hashlib.sha256(one).hexdigest()
+    # a kind whose runs share nothing has no prefix: its content hash is the hash of its bytes
+    for kind in ("step", "odb", "ipc2581"):
+        assert content_sha256(one, kind) != content_sha256(two, kind)
+        assert content_sha256(one, kind) == hashlib.sha256(one).hexdigest()
+    other_title = one.replace(b"b-F_Cu.pdf", b"b-B_Cu.pdf")
+    assert content_sha256(one, "pdf") != content_sha256(other_title, "pdf")
+
+
+def test_entry_level_follows_the_kind() -> None:
+    assert DOCUMENTS_EVIDENCE.hypotheses == (
+        "H-K-EXPORT-DOCS",
+        "H-K-EXPORT-DOCS-REPEAT",
+        "H-K-EXPORT-MODELS",
+        "H-K-EXPORT-SHEETS",
+    )
+    for kind in DOCUMENT_KINDS:
+        assert (
+            entry(Artifact(f"x/{kind}", kind, None, b"x", False)).evidence == DOCUMENTS_EVIDENCE.level.value
+        )
+    for kind in FAB_KINDS:
+        assert entry(Artifact(f"x/{kind}", kind, None, b"x", False)).evidence == EVIDENCE.level.value
+    assert entry(Artifact("x/s", "step", None, b"x", False), evidence="UNVERIFIED").evidence == "UNVERIFIED"

@@ -16,4 +16,12 @@ EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-EXPORT-FILES", "H-K-E
 """``KICAD-VERIFIED``: both hypotheses hold on 9.0.9 and 10.0.6 (c0024 task 6.2). The level covers the
 file set and the hashes, never the fabrication data."""
 
-__all__ = ["EVIDENCE", "ISSUE_CODES"]
+DOCUMENTS_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=("H-K-EXPORT-DOCS", "H-K-EXPORT-DOCS-REPEAT", "H-K-EXPORT-MODELS", "H-K-EXPORT-SHEETS"),
+)
+"""The level of the six document kinds (IPC-2581, ODB++, STEP, board PDF and DXF, schematic PDF; change
+c0116): ``INFERRED`` until the four hypotheses hold on 9.0.x and 10.0.x. As for ``EVIDENCE``, it covers the
+file set, the hashes and the source of each file, never the content of a document."""
+
+__all__ = ["DOCUMENTS_EVIDENCE", "EVIDENCE", "ISSUE_CODES"]

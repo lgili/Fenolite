@@ -23,7 +23,14 @@ from fenolite.backends.kicad.pcb import read_board
 from fenolite.backends.kicad.plot import plot_view, png_size
 from fenolite.backends.kicad.projectset import project_set
 from fenolite.exports.manifest import content_sha256
-from fenolite.exports.plan import JOB_SUFFIX, KINDS, VOLATILE_PREFIXES, KindResult, gerber_layers, run_kind
+from fenolite.exports.plan import (
+    FAB_KINDS,
+    JOB_SUFFIX,
+    VOLATILE_PREFIXES,
+    KindResult,
+    gerber_layers,
+    run_kind,
+)
 
 Probes = dict[str, tuple[Callable[[], str], tuple[int, ...]]]
 RENDER_SIZE = (400, 300)
@@ -147,7 +154,7 @@ def render_outcome(kind: str) -> str:
 def export_probes() -> Probes:
     both = (9, 10)
     probes: Probes = {}
-    for kind in KINDS:
+    for kind in FAB_KINDS:  # the six document kinds are probed by _doccases (c0116)
         probes[f"export-files-{kind}"] = (lambda kind=kind: files_outcome(kind), both)
         probes[f"export-repeat-{kind}"] = (lambda kind=kind: repeat_outcome(kind), both)
     probes["export-render-png"] = (lambda: render_outcome("png"), both)

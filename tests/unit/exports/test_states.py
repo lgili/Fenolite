@@ -169,7 +169,8 @@ def test_roles_and_ranks() -> None:
         "board", "sheet", "board-support", "board-support", "board-support", "schematic-support",
         "board-support", "schematic-support", "other", "derived", "derived",
     ]  # fmt: skip
-    assert frozenset({"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"}) == DERIVED
+    fabrication = {"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"}
+    assert frozenset(fabrication | {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}) == DERIVED
     assert not any(rule.state == "oracle-verified" for rules in RULES.values() for rule in rules)
 
 
@@ -234,3 +235,34 @@ def test_states_never_exceed_what_the_stages_give(
             assert native and current[BOARD.path] == BOARD.sha256
     if not stages:
         assert {item.state for item in found} == {"generated"}
+
+
+# --- document kinds and vendored models (c0116)
+
+
+def test_documents_follow_their_source() -> None:
+    assert {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"} <= DERIVED
+    step = file_entry("fab/3d/board.step", "step", b"ISO", from_={"board": BOARD.sha256})
+    sch_pdf = file_entry("fab/schematic/board.pdf", "sch-pdf", b"%PDF", from_={"schematic": SHEET.sha256})
+    vendored = file_entry("3dmodels/Fenolite.3dshapes/Box_2x1.step", "3d-model", b"ISO-10303-21;")
+    entries = (*DESIGN, step, sch_pdf, vendored)
+    assert role_of(step) == role_of(sch_pdf) == "derived" and role_of(vendored) == "other"
+
+    def states(current: dict[str, str]) -> dict[str, ArtifactEntry]:
+        found = assign(entries, stages=PASSING, sheets_ok=SHEETS, current=current)
+        return {item.path: item for item in found}
+
+    found = states(_current(entries))
+    for item in (step, sch_pdf):
+        assert (found[item.path].state, found[item.path].stale, found[item.path].held) == (
+            "checked",
+            False,
+            "",
+        )
+    # the DRC does not load a vendored model, and the STEP export that reads it judges nothing about it
+    assert (found[vendored.path].state, found[vendored.path].held) == ("checked", "")
+
+    edited = {**_current(entries), BOARD.path: "0" * 64}
+    found = states(edited)
+    assert (found[step.path].state, found[step.path].stale) == ("generated", True)
+    assert (found[sch_pdf.path].state, found[sch_pdf.path].stale) == ("checked", False)

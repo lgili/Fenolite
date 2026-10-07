@@ -20,7 +20,7 @@ from _projects import tree_snapshot
 
 from fenolite.backends.kicad.plot import png_size
 from fenolite.exports.manifest import content_sha256
-from fenolite.exports.plan import KINDS
+from fenolite.exports.plan import FAB_KINDS, KINDS
 
 pytestmark = pytest.mark.needs_kicad
 DESIGN = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
@@ -63,7 +63,7 @@ def test_blink_loop(blink: Path) -> None:
     written = sorted(p.relative_to(fab).as_posix() for p in fab.rglob("*") if p.is_file())
     listed = [e["path"] for e in manifest["artifacts"]]
     assert written == sorted([*listed, "fenolite-artifacts.json"])
-    assert {e["kind"] for e in manifest["artifacts"]} == set(KINDS)
+    assert {e["kind"] for e in manifest["artifacts"]} == set(FAB_KINDS)  # --all: the four kinds
     for entry in manifest["artifacts"]:
         data = (fab / entry["path"]).read_bytes()
         assert entry["bytes"] == len(data) and entry["sha256"] == hashlib.sha256(data).hexdigest()

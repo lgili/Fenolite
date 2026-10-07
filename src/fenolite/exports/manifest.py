@@ -28,8 +28,8 @@ from typing import Any, Literal, cast, get_args
 from fenolite import __version__
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Level
-from fenolite.exports import EVIDENCE
-from fenolite.exports.plan import VOLATILE_PREFIXES, Artifact
+from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE
+from fenolite.exports.plan import DOCUMENT_KINDS, VOLATILE_PREFIXES, Artifact
 
 SCHEMA = "fenolite.artifacts.v0"
 FILE_NAME = "fenolite-artifacts.json"
@@ -54,7 +54,11 @@ LIB_TABLES = ("fp-lib-table", "sym-lib-table")
 LIB_TABLE_KIND = "lib-table"
 OTHER_KIND = "file"
 """The kind of a file of a project that is none of KiCad's design files (a 3D model in a library)."""
-DESIGN_KINDS = frozenset({*DESIGN_SUFFIXES.values(), LIB_TABLE_KIND, OTHER_KIND})
+MODEL_KIND = "3d-model"
+"""The kind of a file below the project's ``3dmodels/`` folder: a 3D model that ``fenolite models
+--vendor`` copied there (change c0116)."""
+MODEL_FOLDER = "3dmodels"
+DESIGN_KINDS = frozenset({*DESIGN_SUFFIXES.values(), LIB_TABLE_KIND, OTHER_KIND, MODEL_KIND})
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,9 +152,12 @@ def content_sha256(data: bytes, kind: str) -> str:
 
 def design_kind(path: str) -> str:
     """The kind of a design file, from its name: ``kicad_pcb``, ``kicad_sch``, ``kicad_pro``,
-    ``kicad_dru``, ``kicad_mod``, ``kicad_sym``, ``kicad_wks``, ``lib-table``, or ``file`` for any other
-    file of a project."""
-    name = PurePosixPath(path.replace("\\", "/")).name
+    ``kicad_dru``, ``kicad_mod``, ``kicad_sym``, ``kicad_wks``, ``lib-table``, ``3d-model`` for a file
+    below the project's ``3dmodels/`` folder, or ``file`` for any other file of a project."""
+    whole = PurePosixPath(path.replace("\\", "/"))
+    if len(whole.parts) > 1 and whole.parts[0] == MODEL_FOLDER:
+        return MODEL_KIND
+    name = whole.name
     if name in LIB_TABLES:
         return LIB_TABLE_KIND
     return DESIGN_SUFFIXES.get(PurePosixPath(name).suffix, OTHER_KIND)
@@ -188,14 +195,16 @@ def entry(
     tool: str | None = None,
     evidence: str | None = None,
 ) -> ArtifactEntry:
-    """The entry of a file that ``kicad-cli`` exported, at the level of ``exports.EVIDENCE`` unless the
-    run gives another (an export with a preset)."""
+    """The entry of a file that ``kicad-cli`` exported, at the level of its kind (``exports.EVIDENCE``
+    for a fabrication kind, ``exports.DOCUMENTS_EVIDENCE`` for a document kind) unless the run gives
+    another (an export with a preset)."""
+    own = DOCUMENTS_EVIDENCE if artifact.kind in DOCUMENT_KINDS else EVIDENCE
     return file_entry(
         artifact.path,
         artifact.kind,
         artifact.data,
         layer=artifact.layer,
-        evidence=EVIDENCE.level.value if evidence is None else evidence,
+        evidence=own.level.value if evidence is None else evidence,
         from_=from_,
         tool=tool,
     )
@@ -406,6 +415,8 @@ def load(text: str, *, file: str = FILE_NAME) -> Manifest:
 __all__ = [
     "DESIGN_KINDS",
     "FILE_NAME",
+    "MODEL_FOLDER",
+    "MODEL_KIND",
     "SCHEMA",
     "STATES",
     "ArtifactEntry",

@@ -31,6 +31,7 @@ import _buildcases
 import _checkcases
 import _copperparity
 import _creepbench
+import _doccases
 import _drccases
 import _erccases
 import _exportcases
@@ -246,6 +247,7 @@ def _probes() -> dict[str, Probe]:
         **_renamecases.rename_probes(),
         **_followcases.followup_probes(),
         **_exportcases.export_probes(),
+        **_doccases.document_probes(),  # change c0116
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),
         **_fieldbench.bench_probes(),
