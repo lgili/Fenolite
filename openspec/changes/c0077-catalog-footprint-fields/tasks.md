@@ -18,7 +18,7 @@
 ## 1. Register
 
 - [ ] 1.1 Add the row `H-K-FP-FIELDS` to `docs/hypotheses.md` (backend `kicad`, level `INFERRED`, the test and criterion of `design.md`, result `pending`). Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/verify/test_cited_ids.py -q`; `grep -c '^| H-K-FP-FIELDS ' docs/hypotheses.md` prints `1`.
-  - Open: the row is added as the last row of the table and `grep -c` prints `1`, but the proof exits 1 (2026-10-07: 1 failed, 41 passed). The one failure is `test_cited_ids_registered`: `openspec/changes/c0140-part-height-rules/design.md` cites `H-A-IMP-BODY-Z`, which no row registers. It fails the same way on a clean copy of `f36e08d9` and belongs to c0140; nothing of this change is in its message.
+  - Open: the row is added as the last row of the table and `grep -c` prints `1`, but the proof exits 1 (2026-10-07: 1 failed, 41 passed). The one failure is `test_cited_ids_registered`: `openspec/changes/c0140-part-height-rules/design.md` cites an id of c0099 that no row registers yet, which no row registers. It fails the same way on a clean copy of `f36e08d9` and belongs to c0140; nothing of this change is in its message.
 
 ## 2. The two fields
 
@@ -46,7 +46,7 @@
 ## 5. Closing
 
 - [ ] 5.1 Update the evidence labels: `H-K-FP-FIELDS` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` with the two runs, or records what KiCad reported. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
-  - Open: the row says `KICAD-VERIFIED (10.0.x)` with the run on 10.0.6 and names the missing 9.0.9 run. The proof exits 1 for the reason of task 1.1 (2026-10-07: 1 failed, 43 passed; the failure is c0140's `H-A-IMP-BODY-Z`).
+  - Open: the row says `KICAD-VERIFIED (10.0.x)` with the run on 10.0.6 and names the missing 9.0.9 run. The proof exits 1 for the reason of task 1.1 (2026-10-07: 1 failed, 43 passed; the failure is c0140's an id of c0099 that no row registers yet).
 - [ ] 5.2 Add to `CHANGELOG.md` under `## [Unreleased]`, in bold where behaviour changes: "**Footprints from the built-in catalog and from `dsl.Footprint` now carry `Reference` and `Value` on the board and in the project library, so a catalog-only board passes `check`. Projects built before gain the two properties on their next build: this is the first change of KiCad bytes since 0.2.0, and only for these footprints.** Altium projects do not change." Update the row of this change in `docs/roadmap.md`. Proof: `git diff --stat HEAD -- CHANGELOG.md docs/roadmap.md` lists both files.
   - Open: the changelog entry is the last one of `## [Unreleased]`. `docs/roadmap.md` is left to the coordinator of the milestone, who edits it for every change of the wave.
 - [ ] 5.3 Stop and report "ready for the long runs": `make check-fast`, the unit suite on Python 3.11 (`uv run --python 3.11 pytest tests/unit -q`), `uv run pytest tests/residue tests/corpus/test_manifest.py -q` after `git add -A`, `uv run python tools/residue/scan.py`, and `openspec validate --all --strict --no-interactive`. The full `make check` is run once by the coordinator on the rebased branch, not by the implementing agent. Proof: each command exits 0.
