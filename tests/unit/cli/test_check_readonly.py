@@ -113,7 +113,13 @@ def test_doctor_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Pat
 
 
 @pytest.mark.parametrize(
-    "command", [("export", "--all", "--manifest"), ("render", "--svg", "--png")], ids=["export", "render"]
+    "command",
+    [
+        ("export", "--all", "--manifest"),
+        ("render", "--svg", "--png"),
+        ("export", "--ipc2581", "--odb", "--step", "--pdf", "--dxf", "--manifest"),  # c0116
+    ],
+    ids=["export", "render", "export-documents"],
 )
 @pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
 def test_export_and_render_leave_the_source_untouched(
@@ -223,4 +229,18 @@ def test_netlist_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert code == 0, env
     assert any(c["args"][:3] == ["sch", "export", "netlist"] for c in calls(fake))  # the fake ran on a copy
     assert env["receipt"] is None and env["result"]["counts"]["components"] == 3
+    _untouched(root, before)
+
+
+@pytest.mark.parametrize("flags", [(), ("--vendor", "--dry-run")], ids=["list", "vendor-plan"])
+def test_models_is_read_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, project: tuple[Path, Path], flags: tuple[str, ...]
+) -> None:
+    """``models`` without ``--vendor`` writes nothing and runs no tool; with ``--vendor --dry-run`` it only
+    plans (cli-contract, "Models command"; change c0116)."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(monkeypatch, tmp_path, "models", str(root), *flags)
+    assert code == 0, env["issues"]
+    assert calls(fake) == []
     _untouched(root, before)

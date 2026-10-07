@@ -398,6 +398,50 @@ outside the repository and never committed. `tools/kicad_libs_fetch.py` makes th
 - **Location.** The tool and the tests use `--cache`, else `FENOLITE_LIBS_CACHE`, else
   `~/.cache/fenolite/libs`. The resolver uses the cache only on request (above).
 
+## 3D models
+
+A footprint names its 3D model files with `(model "<path>" …)`. The official footprints write
+`${KICAD<N>_3DMODEL_DIR}/<library>.3dshapes/<name>.step` (or `.wrl`), N being the major the library was
+written for. `LibraryResolver.locate_model(path)` finds the file, `backends/kicad/models.py` plans a STEP
+run with it, and `fenolite models` lists the result (change c0116). These rows say how `kicad-cli pcb
+export step` itself finds a model; they were measured on 2026-10-05 on both majors and are probed by
+`tests/kicad/export/test_document_probes.py` (recorded for 10.0.6, not yet for 9.0.9).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb export step` takes `${KICAD<N>_3DMODEL_DIR}/<rel>` from the folder that the variable names in its environment, as an absolute path or as a path relative to its working folder; a `${KIPRJMOD}/<rel>` path is read from the board's folder | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| 9.0.9 does not read a `KICAD9_` path through `KICAD10_3DMODEL_DIR`: with only that variable set the STEP holds the board alone | S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| With no model variable in its environment, 10.0.6 takes `KICAD9_` and `KICAD10_` paths from the `3dmodels` folder of its own install (3.1 GB in the macOS application); the pinned 9.0.9 image holds no model folder | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| A model that is not found gives the two lines `Could not add 3D model for <ref>.` and `File not found: <path as written>` on standard output for each footprint, a STEP without that body and exit 0 | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| With `--subst-models`, a `.wrl` path whose file is present gives the body of its `.step` sibling; with only the sibling present nothing is substituted and the model counts as not found; without the option a present `.wrl` exits 2 with the board alone | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| A STEP holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` named after the reference for each footprint whose model was added | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+
+Fenolite's choices on top of these facts:
+
+- **Sources, in order** (`locate_model`): for `${KICAD<N>_3DMODEL_DIR}/<rel>` the project's `3dmodels/<rel>`
+  (`project`), the variable in the caller's environment (`env`), the same variable in KiCad's
+  `kicad_common.json` of major N, read only with `read_common` (`kicad-config`), the `3dmodels` folder of the
+  install whatever its major (`install`), and `<cache>/<tag>/kicad-packages3D/<rel>` of the model pin of major N
+  when the file's SHA-256 equals its stamp entry (`cache`). `${KIPRJMOD}/<rel>` is `<project>/<rel>`
+  (`project`); any other path is read where it is (`in-place`). `locate_model` defines no path variable, so
+  "Library sources" is unchanged: a cache still gives no `KICAD<M>_3DMODEL_DIR`.
+- **The run sees only what Fenolite located.** Each located official model is copied into the run as
+  `3dmodels/<rel>`, and `KICAD<N>_3DMODEL_DIR=3dmodels` is set for every N that a path of the board names,
+  also when none of its paths was located, so `kicad-cli` never falls back on its install. A `.wrl` model
+  brings its `.step` and `.stp` siblings of the same source.
+- **Model pins.** `data/libraries.toml` holds one `[[models]]` table per pinned tag: `tag`, `major`, `project`
+  (`kicad/libraries/kicad-packages3D`) and `commit`, the tag's commit from the tags API (S-0700). No tree hash
+  and no file count: one install holds 3.1 GB of models, beyond the archive limits of the library fetch.
+- **Fetch, one file at a time.** `tools/kicad_libs_fetch.py --models PATH…` reads the model paths that boards or
+  footprint files name, asks GitLab's files API for each file's size and SHA-256 at the pinned commit (`HEAD
+  …/repository/files/<rel>?ref=<commit>`, headers `X-Gitlab-Size` and `X-Gitlab-Content-Sha256`; S-0024,
+  S-0701), refuses more than 64 MiB, downloads the raw file into a temporary file, and keeps it only when both
+  agree. Each kept file is recorded in `<cache>/<tag>/kicad-packages3D/.fenolite-models.json`, an object that
+  maps `<rel>` to the SHA-256. A stamped file is `cached` and not requested again; `--verify` re-hashes the
+  stamped files. No real fetch was made for c0116 (`H-G-MODELS-FETCH` is `INFERRED`): the tests replace both
+  requests and use an authored model. The official models are CC-BY-SA 4.0 with the library exception
+  (S-0048): they stay in the cache and are never committed.
+
 ## Locating items
 
 - `locate(lib_id, kind)` gives the row, its origin, the table file, the library path and the item
@@ -408,8 +452,9 @@ outside the repository and never committed. `tools/kicad_libs_fetch.py` makes th
   absent. The parent of a derived symbol is looked up the same way in the same folder.
 - `footprint` and `symbol` return definitions whose `library` is the nickname. Symbols are flattened.
 - Parsed files are cached while their path, modification time and size are unchanged (16 entries).
-- `missing_models(fp)` expands each 3D model path. It returns one warning per path that names no
-  existing file or has an unresolved variable. It never downloads anything. Nearly half of the official
+- `missing_models(fp)` locates each 3D model path with `locate_model` ("3D models"). It returns one warning
+  per path that no source holds; the message names a variable of the path that has no value. It never
+  downloads anything. Nearly half of the official
   model references do not resolve on a local install: 7 324 of 14 849 on the 10.0.6 install
   (`docs/evidence/kicad-libs.md`).
 

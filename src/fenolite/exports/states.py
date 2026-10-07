@@ -29,7 +29,10 @@ Need = Literal["stages", "sheet-rt1", "board", "sources"]
 StageMap = Mapping[str, tuple[str, str]]
 """Stage name → ``(status, evidence level)`` of a check; a stage that did not run is absent."""
 
-DERIVED = frozenset({"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"})
+DERIVED = frozenset(
+    {"gerbers", "drill", "pos", "ipcd356", "ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}
+    | {"bom", "pnp", "render"}
+)
 """The kinds of a file made from the design; any other kind is a design file."""
 BOARD_KIND, SHEET_KIND = "kicad_pcb", "kicad_sch"
 SYMBOL_KIND = "kicad_sym"
@@ -96,7 +99,8 @@ def role_of(entry: ArtifactEntry) -> Role:
     """The role of an entry, from its kind: the board, a schematic sheet, a file KiCad loads with the
     board (project, rules, footprint table and libraries, drawing sheet), a file it loads with the
     schematic (symbol table and libraries), a file made from the design, or any other file of the
-    project, which no tool is known to load and which therefore stops at ``checked``."""
+    project, which no tool is known to load and which therefore stops at ``checked`` (a vendored 3D model,
+    kind ``3d-model``, is one: the DRC does not load it, and the STEP export that reads it judges nothing)."""
     if entry.kind in DERIVED:
         return "derived"
     if entry.kind == BOARD_KIND:

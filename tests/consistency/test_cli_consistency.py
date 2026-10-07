@@ -18,7 +18,7 @@ from typing import Any
 
 import _schema
 import pytest
-from _cliexamples import PREPARED, folder_snapshot, prepare_example
+from _cliexamples import PLANS_NOTHING, PREPARED, folder_snapshot, prepare_example
 from _fakecli import EXAMPLE_NETLIST, fake_kicad_cli
 
 from fenolite.cli.api import Command, Context, Result, discover, module_name_for
@@ -168,6 +168,16 @@ def test_mutation_protocol(
     args = [name, *command.mutation_example_args, "--json"]
 
     code, out, err = _invoke(capsys, args)
+    if name in PLANS_NOTHING:  # nothing to write: no confirmation is asked, and every form exits 0
+        assert code == 0 and folder_snapshot(tmp_path) == before
+        assert not _assert_envelope(name, out)["result"].get("plan")
+        for protocol in ("--dry-run", "--confirm"):
+            code, out, _ = _invoke(capsys, [*args, protocol])
+            assert code == 0 and folder_snapshot(tmp_path) == before
+            assert not _assert_envelope(name, out)["result"].get("plan")
+        code, _, err = _invoke(capsys, [*args, "--dry-run", "--confirm"])
+        assert code == 2 and _assert_error(err, 2)["code"] == "FEN-2003"
+        return
     assert code == 4 and folder_snapshot(tmp_path) == before
     assert _assert_envelope(name, out)["result"]["plan"]
     assert _assert_error(err, 4)["code"] == "FEN-4001"

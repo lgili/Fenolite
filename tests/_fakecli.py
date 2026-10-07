@@ -28,6 +28,12 @@ folder under ``sheets``. ``parity`` is a list of DRC violations that a ``pcb drc
 ``schematic_parity`` only when it got ``--schematic-parity``; ``parity_fail`` makes such a run print
 ``parity_fail`` and exit 255 without a report, as KiCad does for a schematic it cannot load, and
 ``parity_note`` makes it print that line and still write its report.
+
+Change c0116 adds the document exports: ``pcb export ipc2581``, ``odb``, ``step``, ``pdf`` and ``dxf``
+are kinds of ``export_files`` like the others, and ``sch export pdf`` is the kind ``sch-pdf``.
+``export_output`` maps a kind to a text its run prints on standard output. Each call also records
+``tree``, every file of the run folder, and ``env``, the ``KICAD*`` variables of the run other than
+``KICAD_CONFIG_HOME``.
 """
 
 from __future__ import annotations
@@ -55,8 +61,15 @@ for folder, _, names in sorted(os.walk(".")):
         if name.endswith(".kicad_sch"):
             path = os.path.normpath(os.path.join(folder, name)).replace(os.sep, "/")
             sheets[path] = open(path, encoding="utf-8", errors="replace").read()
+tree = []
+for folder, _, names in sorted(os.walk(".")):
+    for name in sorted(names):
+        path = os.path.normpath(os.path.join(folder, name)).replace(os.sep, "/")
+        if not path.startswith("config/"):
+            tree.append(path)
+env = {k: v for k, v in sorted(os.environ.items()) if k.startswith("KICAD") and k != "KICAD_CONFIG_HOME"}
 with open(os.path.join(HERE, "calls.jsonl"), "a") as log:
-    log.write(json.dumps({"args": args, "files": files, "sheets": sheets}) + "\\n")
+    log.write(json.dumps({"args": args, "files": files, "sheets": sheets, "tree": tree, "env": env}) + "\\n")
 if config["log"]:
     count = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in files.items():
@@ -134,6 +147,8 @@ if args[:2] == ["pcb", "export"] and len(args) > 2:
     kind = args[2]
 if args[:2] == ["pcb", "render"]:
     kind = "render"
+if args[:3] == ["sch", "export", "pdf"]:
+    kind = "sch-pdf"
 if kind is not None and kind in config["export_files"]:
     out = args[args.index("-o") + 1]
     stem = os.path.splitext(os.path.basename(args[-1]))[0]
@@ -148,6 +163,7 @@ if kind is not None and kind in config["export_files"]:
     for name, text in wanted.items():
         target = os.path.join(folder, name.replace("{stem}", stem)) if out.endswith("/") else out
         open(target, "w", encoding="latin-1", newline="").write(text)
+    sys.stdout.write(config["export_output"].get(kind, ""))
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:
     board = args[-1]
@@ -197,6 +213,8 @@ def _png(width: int, height: int) -> str:
 
 GERBER = "%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6*%\n%TF.CreationDate,2026-10-03T00:00:00+00:00*%\nM02*\n"
 DRILL = "M48\n; DRILL file KiCad 10.0.6 date 2026-10-03T00:00:00+0000\nM30\n"
+PDF = "%PDF-1.5\n1 0 obj\n<<\n/CreationDate (D:20261007000000)\n/Title (board.pdf)\n>>\nendobj\n%%EOF\n"
+"""A stand-in for a PDF that ``kicad-cli`` wrote: its date line is the one a content hash leaves out."""
 EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
     "gerbers": {
         "{stem}-F_Cu.gbr": GERBER,
@@ -208,6 +226,12 @@ EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
     "ipcd356": {"board.d356": "P  CODE 00\n999\n"},
     "svg": {"view.svg": '<svg xmlns="http://www.w3.org/2000/svg"/>\n'},
     "render": {"view.png": _png(320, 240)},
+    "ipc2581": {"board.xml": '<?xml version="1.0"?>\n<IPC-2581 revision="C"/>\n'},
+    "odb": {"board.zip": "PK\x05\x06" + "\x00" * 18},
+    "step": {"board.step": "ISO-10303-21;\nHEADER;\nENDSEC;\nEND-ISO-10303-21;\n"},
+    "pdf": {"{stem}-F_Cu.pdf": PDF, "{stem}-Edge_Cuts.pdf": PDF},
+    "dxf": {"{stem}-Edge_Cuts.dxf": "0\nSECTION\n0\nENDSEC\n0\nEOF\n"},
+    "sch-pdf": {"schematic.pdf": PDF},
 }
 """What the fake writes for each export kind when ``export_files`` is not given."""
 
@@ -237,6 +261,7 @@ def fake_kicad_cli(
     refill_board: str | None = None,
     export_files: Mapping[str, Mapping[str, str]] | None = None,
     export_fail: Sequence[str] = (),
+    export_output: Mapping[str, str] | None = None,
     imported: str | None = None,
     import_output: str = "",
     import_warnings: Sequence[str] = (),
@@ -252,7 +277,9 @@ def fake_kicad_cli(
     ``export_files`` maps an export kind (``gerbers``, ``drill``, ``pos``, ``ipcd356``, ``svg``, ``render``)
     to the files its run writes, name → text: under the ``-o`` folder when that argument ends with ``/``
     (``{stem}`` is the board's stem), else the first text at the ``-o`` path itself. The default is
-    ``EXPORT_FILES``; a kind mapped to ``{}`` writes nothing, and a kind in ``export_fail`` exits 1."""
+    ``EXPORT_FILES``; a kind mapped to ``{}`` writes nothing, and a kind in ``export_fail`` exits 1.
+    The document kinds of c0116 are ``ipc2581``, ``odb``, ``step``, ``pdf``, ``dxf`` and ``sch-pdf``;
+    ``export_output`` maps a kind to what its run prints."""
     folder.mkdir(parents=True, exist_ok=True)
     config = {
         "version": version,
@@ -274,6 +301,7 @@ def fake_kicad_cli(
             k: dict(v) for k, v in (EXPORT_FILES if export_files is None else export_files).items()
         },
         "export_fail": list(export_fail),
+        "export_output": dict(export_output or {}),
         "imported": imported,
         "import_output": import_output,
         "import_warnings": list(import_warnings),
@@ -329,6 +357,7 @@ __all__ = [
     "EXAMPLE_NETLIST",
     "EXPORT_FILES",
     "GERBER",
+    "PDF",
     "calls",
     "erc_entry",
     "erc_report_with",

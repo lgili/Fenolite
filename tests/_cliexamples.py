@@ -43,6 +43,11 @@ def _restore(folder: Path) -> None:
 
 PREPARED: dict[str, Callable[[Path], None]] = {"fmt": _fmt, "restore": _restore}
 """Command name → the function that writes its example files into a folder."""
+PLANS_NOTHING = frozenset({"models"})
+"""Mutating commands whose mutation example plans no write: ``models --vendor`` on the example board,
+whose footprints name no 3D model (cli-contract, "Models command": both examples exit 0 and run no
+subprocess; change c0116). The protocol with a real plan is tested in
+``tests/unit/cli/test_models_cmd.py``."""
 
 
 def prepare_example(name: str, folder: Path) -> None:
@@ -61,4 +66,4 @@ def folder_snapshot(folder: Path) -> dict[str, str]:
     }
 
 
-__all__ = ["PREPARED", "folder_snapshot", "prepare_example"]
+__all__ = ["PLANS_NOTHING", "PREPARED", "folder_snapshot", "prepare_example"]

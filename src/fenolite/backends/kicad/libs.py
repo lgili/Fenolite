@@ -17,7 +17,7 @@ import sys
 from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, cast
 
 from fenolite.backends.kicad import libcache, versions
@@ -64,6 +64,12 @@ COMMON_FILE = "kicad_common.json"
 variables set in KiCad (observed, ``H-K-LIB-COMMON``). Read only with ``LibraryConfig.read_common``."""
 _SCAN_VARIABLE: Mapping[TableKind, str] = {"footprint": "FOOTPRINT_DIR", "symbol": "SYMBOL_DIR"}
 _CACHE_DIRS = {"FOOTPRINT_DIR": "kicad-footprints", "SYMBOL_DIR": "kicad-symbols"}
+ModelSource = Literal["project", "env", "kicad-config", "install", "cache", "in-place"]
+"""Where ``LibraryResolver.locate_model`` found a 3D model, in the order the sources are tried."""
+MODEL_FOLDER = "3dmodels"
+"""The folder of a project that holds vendored 3D models (``fenolite models --vendor``)."""
+_MODEL_PATH = re.compile(r"^\$\{KICAD(\d+)_3DMODEL_DIR\}[/\\](.+)$")
+_PROJECT_PATH = re.compile(r"^\$\{KIPRJMOD\}[/\\](.+)$")
 MACOS_INSTALL = Path("/Applications/KiCad/KiCad.app/Contents/SharedSupport")
 LINUX_INSTALL = Path("/usr/share/kicad")
 
@@ -359,6 +365,26 @@ class Location:
 Entry = tuple[LibRow, RowOrigin, str]
 
 
+@dataclass(frozen=True, slots=True)
+class ModelLocation:
+    """Where the 3D model ``path`` of a footprint was found: ``rel`` is the part after the variable
+    (``None`` for a path read in place), ``file`` the file, ``source`` the source that holds it."""
+
+    path: str
+    rel: str | None
+    file: Path
+    source: ModelSource
+
+
+def _model_rel(written: str) -> str | None:
+    """The part of a model path after its variable as a POSIX path, or ``None`` when it is absolute or
+    climbs out of its folder."""
+    rel = PurePosixPath(written.replace("\\", "/"))
+    if rel.is_absolute() or not rel.parts or ".." in rel.parts:
+        return None
+    return rel.as_posix()
+
+
 class LibraryResolver:
     """Resolve library identifiers like KiCad: project, global (or template) and nested tables."""
 
@@ -370,6 +396,7 @@ class LibraryResolver:
         self._rows: dict[TableKind, tuple[Entry, ...]] = {}
         self._cache: OrderedDict[tuple[str, int, int], Loaded] = OrderedDict()
         self._common: dict[str, str] | None = None
+        self._model_commons: dict[int, dict[str, str]] = {}
 
     # --- variables --------------------------------------------------------------------------------
 
@@ -716,32 +743,94 @@ class LibraryResolver:
             chain.append(symbols[parent])
         return tuple(chain)
 
+    # --- 3D models --------------------------------------------------------------------------------
+
+    def _model_common(self, major: int) -> dict[str, str]:
+        """The path variables KiCad ``major`` holds in its ``kicad_common.json``; none without
+        ``read_common`` or when the file cannot be read."""
+        if not self.config.read_common:
+            return {}
+        if major not in self._model_commons:
+            try:
+                found = _read_common(self._config_base() / f"{major}.0" / COMMON_FILE)
+            except (FormatError, OSError):
+                found = {}
+            self._model_commons[major] = found
+        return self._model_commons[major]
+
+    def _cached_model(self, major: int, rel: str) -> Path | None:
+        """``rel`` in the fetched model folder of the pin of ``major``, when its SHA-256 is its stamp
+        entry."""
+        cache = _cache_dir(self.config, self._env)
+        if cache is None:
+            return None
+        for pin in libcache.load_model_pins():
+            if pin.major != major:
+                continue
+            folder = cache / pin.tag / libcache.MODEL_REPO
+            file = folder / rel
+            wanted = libcache.read_model_stamp(folder).get(rel)
+            if wanted and file.is_file() and libcache.file_sha256(file) == wanted:
+                return file
+        return None
+
+    def _official_model(self, path: str, major: int, rel: str) -> ModelLocation | None:
+        candidates: list[tuple[ModelSource, Path]] = []
+        if self.config.project_dir is not None:
+            candidates.append(("project", self.config.project_dir / MODEL_FOLDER / rel))
+        name = f"KICAD{major}_3DMODEL_DIR"
+        if self._env.get(name):
+            candidates.append(("env", Path(self._env[name]) / rel))
+        configured = self._model_common(major).get(name)
+        if configured:
+            candidates.append(("kicad-config", Path(configured) / rel))
+        for root in _install_candidates(self.config, self._env):
+            candidates.append(("install", root / _INSTALL_DIRS["3DMODEL_DIR"] / rel))
+        for source, file in candidates:
+            if file.is_file():
+                return ModelLocation(path, rel, file, source)
+        cached = self._cached_model(major, rel)
+        return None if cached is None else ModelLocation(path, rel, cached, "cache")
+
+    def locate_model(self, path: str) -> ModelLocation | None:
+        """The file that the 3D model ``path`` of a footprint names, from the first source that holds it
+        (capability kicad-library-resolution, "3D model location"): for ``${KICAD<N>_3DMODEL_DIR}/<rel>``
+        the project's ``3dmodels`` folder, the environment, KiCad's configured variable of major N, the
+        install and a fetched cache; for ``${KIPRJMOD}/<rel>`` the project folder; any other path where it
+        is. ``None`` when no source holds a regular file. Never raises and never downloads."""
+        try:
+            official = _MODEL_PATH.match(path)
+            if official is not None:
+                rel = _model_rel(official.group(2))
+                return None if rel is None else self._official_model(path, int(official.group(1)), rel)
+            local = _PROJECT_PATH.match(path)
+            project = self.config.project_dir
+            if local is not None:
+                rel = _model_rel(local.group(1))
+                if rel is None or project is None:
+                    return None
+                file = project / rel
+                return ModelLocation(path, rel, file, "project") if file.is_file() else None
+            file = Path(self.expand(path))
+            if not file.is_absolute() and project is not None:
+                file = project / file
+            return ModelLocation(path, None, file, "in-place") if file.is_file() else None
+        except (LibraryError, OSError, ValueError):
+            return None
+
     def missing_models(self, fp: FootprintDef) -> tuple[Issue, ...]:
-        """One warning per 3D model path that names no file or has a variable without a value."""
+        """One warning per 3D model path that ``locate_model`` does not find; the message names a
+        variable of the path that no source gives a value."""
         out: list[Issue] = []
         for model in fp.models:
-            try:
-                expanded = self.expand(model)
-            except LibraryError as exc:
-                out.append(
-                    lib_issue(
-                        "kicad.lib.missing-3d-model",
-                        f"3D model of {fp.lib_id}: {exc.issue.message}",
-                        where=fp.lib_id,
-                    )
-                )
+            if self.locate_model(model) is not None:
                 continue
-            path = Path(expanded)
-            if not path.is_absolute() and self.config.project_dir is not None:
-                path = self.config.project_dir / path
-            if not path.is_file():
-                out.append(
-                    lib_issue(
-                        "kicad.lib.missing-3d-model",
-                        f"3D model {path} of {fp.lib_id} not found",
-                        where=fp.lib_id,
-                    )
-                )
+            unset = [name for name in _VARIABLE.findall(model) if self._lookup(name) is None]
+            if unset:
+                message = f"3D model of {fp.lib_id}: path variable {unset[0]!r} has no value (in {model!r})"
+            else:
+                message = f"3D model {model} of {fp.lib_id} not found"
+            out.append(lib_issue("kicad.lib.missing-3d-model", message, where=fp.lib_id))
         return tuple(out)
 
 
@@ -790,6 +879,9 @@ __all__ = [
     "LibraryResolver",
     "LibrarySource",
     "Location",
+    "MODEL_FOLDER",
+    "ModelLocation",
+    "ModelSource",
     "RowOrigin",
     "SourceKind",
     "TableKind",

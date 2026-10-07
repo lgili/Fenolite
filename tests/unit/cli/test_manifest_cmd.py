@@ -517,3 +517,26 @@ def test_artifacts_are_paged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert env["result"]["page"]["total"] == len(whole["result"]["artifacts"])
     assert env["result"]["states"] == whole["result"]["states"]
     assert env["result"]["plan"] == whole["result"]["plan"]  # the manifest that is written is whole
+
+
+def test_vendored_model_is_a_design_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A file below ``3dmodels/`` (the copies of ``fenolite models --vendor``) is a design file of kind
+    ``3d-model`` (manufacturing-exports, "Project manifest"; change c0116)."""
+    folder = built(monkeypatch, tmp_path)
+    _no_subprocess(monkeypatch)
+    (board,) = folder.glob("*.kicad_pcb")
+    model = folder / "3dmodels" / "Fenolite.3dshapes" / "Box_2x1.step"
+    model.parent.mkdir(parents=True)
+    source = Path(__file__).resolve().parents[2] / "data" / "models" / "Fenolite.3dshapes" / "Box_2x1.step"
+    shutil.copyfile(source, model)
+    (model.parent / ".DS_Store").write_bytes(b"hidden")
+    assert "3dmodels/Fenolite.3dshapes/Box_2x1.step" in design_files(board)
+    assert not any(".DS_Store" in name for name in design_files(board))
+    code, env, _, _ = run(monkeypatch, tmp_path, "manifest", str(folder), "--no-check", "--confirm")
+    assert code == 0, env
+    entry = _by_path(_read(folder / NAME))["3dmodels/Fenolite.3dshapes/Box_2x1.step"]
+    assert (entry["kind"], entry["layer"], entry["from"], entry["tool"], entry["state"]) == (
+        "3d-model", None, {}, None, "generated",
+    )  # fmt: skip
+    assert entry["sha256"] == entry["content_sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
+    assert entry["evidence"] == "UNVERIFIED"

@@ -977,12 +977,14 @@ polygons, which the guard cannot judge. No file is read from disk and no tool ru
 
 ## export
 
-`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--altium-rul] [--manifest]
-[--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
-copy of the board `PATH` names (resolved as for `check`). Fenolite writes no Gerber itself: the tool runs
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf]
+[--dxf] [--sch-pdf] [--all] [--altium-rul] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]`
+writes the fabrication files and documents that `kicad-cli` produces from a
+copy of the board `PATH` names (resolved as for `check`) and, for `--sch-pdf`, of its schematic. Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
 becomes a planned write under `DIR` (relative to the working directory). The mutation protocol applies:
-`--dry-run` runs the tool and shows the plan, `--confirm` writes. `--all` selects the four kinds; a call
+`--dry-run` runs the tool and shows the plan, `--confirm` writes. `--all` selects the four fabrication
+kinds (`gerbers`, `drill`, `pos`, `ipcd356`) and no document kind; a call
 that selects none exits 2. `--timeout` defaults to 300 s and applies to each run.
 
 | kind | `kicad-cli` call | files under `DIR` |
@@ -993,6 +995,31 @@ that selects none exits 2. `--timeout` defaults to 300 s and applies to each run
 | `--ipcd356` | `pcb export ipcd356` | `netlist/<stem>.d356` |
 
 `--check-zones` and `--board-plot-params` are never passed, so the files show the board as it is.
+
+The six document kinds (change c0116) are selected one by one, each with one fixed argument list that is
+the same on KiCad 9 and 10; `--variant`, `--drawing-sheet` and `--define-var` are never passed either.
+
+| kind | `kicad-cli` call | files under `DIR` | `repeat` |
+|---|---|---|---|
+| `--ipc2581` | `pcb export ipc2581 --version C --units mm --precision 6` | `ipc2581/<stem>.xml` | `none` |
+| `--odb` | `pcb export odb --compression zip --units mm` | `odb/<stem>.zip` | `none` |
+| `--step` | `pcb export step --subst-models`, with the 3D model files Fenolite locates | `3d/<stem>.step` | `none` |
+| `--pdf` | `pcb export pdf --mode-separate --layers <those of the Gerbers, F.Fab, B.Fab, Edge.Cuts> --common-layers Edge.Cuts --include-border-title` | `pdf/<stem>-<layer>.pdf` | `content` |
+| `--dxf` | `pcb export dxf --mode-multi --output-units mm --layers <Edge.Cuts, F.Fab, B.Fab, F.CrtYd, B.CrtYd>` | `dxf/<stem>-<layer>.dxf` | `bytes` |
+| `--sch-pdf` | `sch export pdf <stem>.kicad_sch`, with every sheet of the hierarchy | `schematic/<stem>.pdf` | `content` |
+
+- `result.repeat` maps each selected fabrication or document kind to what two exports of one board share:
+  `bytes` (the files are byte-equal), `content` (they differ only in date-bearing lines, which
+  `content_sha256` leaves out) or `none` (neither hash tells whether the board changed).
+- `--step`: Fenolite reads every `(model …)` path of the board, locates each file (the order of the
+  sources is under "models") and copies the located ones into the run. `result.models` lists every
+  path with `source`, `sha256`, `bytes` and `refs`, and is `[]` without `--step`. A path that is not
+  located gives `kicad.lib.missing-3d-model` (warning) and the STEP is written without that body.
+- `--sch-pdf` needs `<stem>.kicad_sch` beside the board: without it the call exits 3 (`FEN-3001`) before
+  any run. A hierarchy that names a sheet the run cannot be given is refused (`export.sheet-missing`).
+- `--preset` changes no document kind: each runs with the arguments of the table whatever the preset holds.
+- `PATH` names a KiCad board. An Altium document or project is refused with exit 2 (`FEN-2001`), as for
+  the four fabrication kinds.
 
 `--altium-rul` (change c0084) writes `DIR/<stem>.RUL`: the rules of the project's rules file
 (`<stem>.kicad_dru`) as an Altium rule file, which Altium's PCB Rules editor imports. It runs no tool, so
@@ -1014,20 +1041,58 @@ position file ends in `.csv`, `.pos` or `.gbr`. `result.preset` holds `file` (th
 new entry `generated` with `from` holding the board's SHA-256 and `tool` `kicad-cli <version>`. A file
 there that is not a manifest gives `manifest.unreadable` (see "manifest"), and nothing is planned.
 `result` holds `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`,
-`content_sha256`; sorted by path), `tool_version` and `tool_writes` (files the tool wrote outside its
-output folders, such as `<stem>.kicad_prl`). When a kind fails, nothing is planned or written, so a
-folder never holds a partial set.
+`content_sha256`; sorted by path), `tool_version`, `tool_writes` (files the tool wrote outside its
+output folders, such as `<stem>.kicad_prl`), `repeat` and `models`. `layer` is set for a Gerber and for
+each file of `--pdf` and `--dxf`. In the manifest, the `from` of a `sch-pdf` entry holds the SHA-256 of
+the root schematic instead of the board's, and the `evidence` of a document entry is the level of
+`exports.DOCUMENTS_EVIDENCE`. When a kind fails, nothing is planned or written, so a
+folder never holds a partial set; a warning never holds the files back.
 
 | code | severity | when |
 |---|---|---|
 | `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind. For `altium-rul`: the rules file cannot be read, or no rule has an exact Altium form |
 | `export.kind-unavailable` | error | the running `kicad-cli` major cannot export the kind; no tool run |
+| `export.sheet-missing` | error | `--sch-pdf`: the hierarchy names a sheet file that is missing, outside the project folder, in a cycle or too large to copy (`where`); no tool run for the kind |
+| `export.model-unread` | warning | `--step`: `kicad-cli` printed that it could not add the model of a part (`where`) whose files Fenolite gave it |
+| `export.page-too-small` | warning | `--pdf`: the outline of the board does not fit the page of its paper, so the PDF is cut (`where` is `pdf`) |
+| `kicad.lib.missing-3d-model` | warning | `--step`: a model path that no source holds; `where` is the path, and the message names the parts |
 
-Exit codes: 0 when the files are planned or written, 4 without `--dry-run` or `--confirm`, 5 with an
-issue above, 2 for a usage error, 3 for a missing path or a board Fenolite cannot read, 6 when
+Exit codes: 0 when the files are planned or written, whatever the warnings, 4 without `--dry-run` or
+`--confirm`, 5 with an error above, 2 for a usage error, 3 for a missing path, a board Fenolite cannot
+read or a missing schematic, 6 when
 `kicad-cli` is missing (`FEN-6001`), of an unsupported major or older than the board's format
 (`FEN-6002`). The evidence is `exports.EVIDENCE` with the oracle `kicad-cli <version>`: Fenolite claims
-the file set and the hashes, and the content of each file is KiCad's.
+the file set and the hashes, and the content of each file is KiCad's. An export that selects a document
+kind carries the combination of the selected kinds' evidence: `exports.DOCUMENTS_EVIDENCE` is `INFERRED`
+(`H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`, `H-K-EXPORT-SHEETS`) until the four
+hold on both majors.
+
+## models
+
+`fenolite models PATH [--vendor]` lists the 3D model files that the footprints of a KiCad board name and
+where Fenolite finds each (change c0116). It runs no tool and makes no request. `PATH` resolves as for
+`check`; an Altium document or project is refused with exit 2 (`FEN-2001`).
+
+Each distinct `(model …)` path is located once, from the first source that holds the file:
+
+| path form | sources, in order |
+|---|---|
+| `${KICAD<N>_3DMODEL_DIR}/<rel>` | `project`: `<board folder>/3dmodels/<rel>`; `env`: the variable in the environment; `kicad-config`: the variable in KiCad's `kicad_common.json` of major N; `install`: the `3dmodels` folder of the KiCad install; `cache`: a fetched file of the pinned tag of major N whose SHA-256 is its stamp entry |
+| `${KIPRJMOD}/<rel>` | `project`: `<board folder>/<rel>` |
+| any other path | `in-place`: the file where the path says |
+
+- `result.models` holds one object per distinct path, sorted by path: `path`, `source` (one of the
+  above, or `missing`), `sha256` and `bytes` (`null` when missing or in place) and `refs` (sorted).
+  `result.counts` holds `paths`, `located` and `missing`. The list is paged ("Paged results").
+- A path that is not located gives one `kicad.lib.missing-3d-model` (warning); the exit code stays 0.
+- `--vendor` plans one copy per located `${KICAD<N>_3DMODEL_DIR}/<rel>` whose source is not `project`,
+  at `<board folder>/3dmodels/<rel>` (kind `3d-model`). The mutation protocol applies: a plan asks for
+  `--confirm`. The board, its footprints and their model paths never change; later exports read the
+  copies first. `fenolite manifest` lists them as design files of kind `3d-model`.
+- No value holds an absolute path or a date. The evidence is `INFERRED` (`H-K-EXPORT-MODELS`).
+
+Exit codes: 0, also with missing models; 4 when `--vendor` plans a copy without `--dry-run` or
+`--confirm`; 2 for a usage error; 3 for a missing path.
 
 ## render
 
@@ -1624,6 +1689,7 @@ lists, per command, `paged` (the list: a path in `result`, or `issues`) and `def
 | `check`, `analyze` | `issues` | none |
 | `diff` | `result.differences` | 200 |
 | `manifest` | `result.differences` with `--verify`, else `result.artifacts` | none |
+| `models` | `result.models` | none |
 | `net` | `result.nets`, or `result.net.pads` with a net name | none |
 | `region` | `result.items` | none |
 | `neighbors` | `result.neighbors` | none |

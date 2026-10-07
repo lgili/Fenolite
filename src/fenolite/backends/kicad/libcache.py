@@ -36,6 +36,13 @@ _TREE = re.compile(r"[0-9a-f]{64}")
 _PIN_KEYS = ("tag", "major", "repo", "project", "commit", "tree", "files")
 _STAMP_KEYS = ("scheme", "tag", "repo", "commit", "tree", "files")
 _CHUNK = 1 << 20
+MODEL_REPO = "kicad-packages3D"
+"""The folder of the fetched 3D models below ``<cache>/<tag>/`` (capability kicad-library-resolution,
+"3D model fetch"; change c0116)."""
+MODEL_PROJECT = f"kicad/libraries/{MODEL_REPO}"
+MODEL_STAMP = ".fenolite-models.json"
+"""The stamp of a model folder: a JSON object, the path of each fetched file mapped to its SHA-256."""
+_MODEL_KEYS = ("tag", "major", "project", "commit")
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +57,17 @@ class LibraryPin:
     commit: str
     tree: str
     files: int
+
+
+@dataclass(frozen=True, slots=True)
+class ModelPin:
+    """The official 3D model repository at one tag: its commit. No tree hash and no file count: the
+    models are fetched one file at a time, each checked against the SHA-256 that the files API gives."""
+
+    tag: str
+    major: int
+    project: str
+    commit: str
 
 
 def _document(path: Path | None) -> tuple[dict[str, object], str]:
@@ -124,6 +142,73 @@ def load_pins(path: Path | None = None) -> tuple[LibraryPin, ...]:
         if tags.setdefault(pin.major, pin.tag) != pin.tag:
             raise _fail(name, f"pin[{index}].tag", f"major {pin.major} is pinned at two tags")
     return tuple(pins)
+
+
+def load_model_pins(path: Path | None = None) -> tuple[ModelPin, ...]:
+    """The ``[[models]]`` pins of ``path`` (default: the package's pins file), in file order: one per tag
+    of the ``[[pin]]`` tables, with that tag's major. ``ValueError`` naming the file and the key for a
+    table that breaks the rules of "3D model pins"."""
+    data, name = _document(path)
+    majors = {pin.tag: pin.major for pin in load_pins(path)}
+    listed = data.get("models")
+    if not isinstance(listed, list) or not listed:
+        raise _fail(name, "models", "must be a non-empty array of tables")
+    pins: list[ModelPin] = []
+    for index, item in enumerate(cast(list[object], listed)):
+        where = f"models[{index}]"
+        if not isinstance(item, dict):
+            raise _fail(name, where, "must be a table")
+        entry = cast(dict[str, object], item)
+        missing = [key for key in _MODEL_KEYS if key not in entry]
+        extra = sorted(set(entry) - set(_MODEL_KEYS))
+        if missing or extra:
+            raise _fail(name, f"{where}.{(missing or extra)[0]}", "missing key" if missing else "unknown key")
+        tag, major, project, commit = entry["tag"], entry["major"], entry["project"], entry["commit"]
+        if not isinstance(tag, str) or tag not in majors:
+            raise _fail(name, f"{where}.tag", "must be the tag of a [[pin]] table")
+        if type(major) is not int or major != majors[tag]:
+            raise _fail(name, f"{where}.major", f"must be {majors[tag]}, the major of tag {tag}")
+        if project != MODEL_PROJECT:
+            raise _fail(name, f"{where}.project", f"must be {MODEL_PROJECT}")
+        if not isinstance(commit, str) or not _COMMIT.fullmatch(commit):
+            raise _fail(name, f"{where}.commit", "must be 40 lowercase hex digits")
+        if any(pin.tag == tag for pin in pins):
+            raise _fail(name, f"{where}.tag", f"the models of tag {tag} are pinned twice")
+        pins.append(ModelPin(tag, major, MODEL_PROJECT, commit))
+    unpinned = sorted(set(majors) - {pin.tag for pin in pins})
+    if unpinned:
+        raise _fail(name, "models", f"tag {unpinned[0]} has no model pin")
+    return tuple(pins)
+
+
+def file_sha256(path: Path) -> str:
+    """The SHA-256 of a file, read in 1 MiB pieces."""
+    return _file_digest(path)[0]
+
+
+def read_model_stamp(folder: Path) -> dict[str, str]:
+    """The model stamp of ``folder`` (``<cache>/<tag>/kicad-packages3D``): the path of each fetched file
+    below the folder mapped to its SHA-256. Empty when the stamp is missing or is not such an object."""
+    try:
+        data = json.loads((folder / MODEL_STAMP).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    found: dict[str, str] = {}
+    for key, value in cast(dict[object, object], data).items():
+        if isinstance(key, str) and isinstance(value, str) and _TREE.fullmatch(value):
+            found[key] = value
+    return found
+
+
+def write_model_stamp(folder: Path, entries: Mapping[str, str]) -> None:
+    """Write the model stamp of ``folder`` through a temporary file, so that a reader never sees half."""
+    text = json.dumps(dict(sorted(entries.items())), indent=2) + "\n"
+    target = folder / MODEL_STAMP
+    partial = folder / (MODEL_STAMP + ".part")
+    partial.write_text(text, encoding="utf-8", newline="\n")
+    os.replace(partial, target)
 
 
 def _file_digest(path: Path) -> tuple[str, int]:
@@ -225,14 +310,22 @@ def default_cache_dir(env: Mapping[str, str] | None = None, home: Path | None = 
 
 __all__ = [
     "CACHE_VARIABLE",
+    "MODEL_PROJECT",
+    "MODEL_REPO",
+    "MODEL_STAMP",
     "REPOS",
     "SCHEME",
     "STAMP",
     "LibraryPin",
+    "ModelPin",
     "archive_template",
     "default_cache_dir",
+    "file_sha256",
+    "load_model_pins",
     "load_pins",
+    "read_model_stamp",
     "read_stamp",
+    "write_model_stamp",
     "stamp_matches",
     "tree_hash",
     "verified_folders",

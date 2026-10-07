@@ -16,7 +16,15 @@ from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.exports import ISSUE_CODES, plan
 from fenolite.exports.codes import issue
-from fenolite.exports.plan import KINDS, Kind, arguments, gerber_layers, layer_suffixes, run_kind
+from fenolite.exports.plan import (
+    FAB_KINDS,
+    KINDS,
+    Kind,
+    arguments,
+    gerber_layers,
+    layer_suffixes,
+    run_kind,
+)
 from fenolite.model.design import Design
 
 FORBIDDEN = ("--check-zones", "--board-plot-params")
@@ -54,6 +62,7 @@ def test_layer_suffixes_know_the_shown_name(design: Design) -> None:
     suffixes = layer_suffixes(design)
     assert suffixes["F_Cu"] == "F.Cu" and suffixes["F_SilkS"] == "F.SilkS"
     assert suffixes["F_Silkscreen"] == "F.SilkS" and suffixes["Edge_Cuts"] == "Edge.Cuts"
+    assert suffixes["F_Courtyard"] == "F.CrtYd" and suffixes["B_Fab"] == "B.Fab"
     bare = dataclasses.replace(
         design,
         board=dataclasses.replace(
@@ -62,6 +71,8 @@ def test_layer_suffixes_know_the_shown_name(design: Design) -> None:
         ),
     )
     assert layer_suffixes(bare)["B_Silkscreen"] == "B.SilkS"
+    assert layer_suffixes(bare)["B_Courtyard"] == "B.CrtYd"  # the shown name, without a user name
+    assert plan.SHOWN_NAMES["F.Adhes"] == "F.Adhesive" and plan.SHOWN_NAMES["B.Adhes"] == "B.Adhesive"
 
 
 def test_arguments_per_kind() -> None:
@@ -80,8 +91,8 @@ def test_arguments_per_kind() -> None:
 
 def test_forbidden_options_are_absent() -> None:
     """One argument table serves both majors, and no kind passes an option that changes the board."""
-    assert list(KINDS) == ["gerbers", "drill", "pos", "ipcd356"]
-    for kind, entry in KINDS.items():
+    assert FAB_KINDS == ("gerbers", "drill", "pos", "ipcd356") and list(KINDS)[:4] == list(FAB_KINDS)
+    for kind, entry in KINDS.items():  # the document kinds of c0116 too (test_plan_documents.py)
         assert entry.majors == (9, 10)
         args = arguments(kind, stem="b", layers=("F.Cu",))
         assert not set(FORBIDDEN) & set(args), kind
@@ -163,6 +174,9 @@ def test_issue_codes() -> None:
         "export.failed": "error",
         "export.kind-unavailable": "error",
         "render.failed": "warning",
+        "export.sheet-missing": "error",
+        "export.model-unread": "warning",
+        "export.page-too-small": "warning",
         "assembly.template-invalid": "error",
         "bom.property-missing": "info",
         "bom.field-unsupported": "error",
