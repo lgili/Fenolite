@@ -401,7 +401,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `build.schematic-netlist-differs` | error | the nets read back from the generated sheet are not those of the circuit; nothing is written |
 | `build.symbol-short` | error | two symbols placed by the placements file have a pin at one point |
 | `build.symbol-placement-invalid` | error | a placement is off the 1.27 mm grid, has an unknown key or a rotation or mirror that is not allowed |
-| `build.reserved-library` | error | the design names or authors a symbol library `fenolite` |
+| `build.reserved-library` | error | the design names or authors a symbol library `fenolite`, or needs a power flag and holds a symbol `PWR_FLAG` in the library that holds the flag |
 | `build.symbol-overlap` | warning | the cell of a placed symbol overlaps another cell |
 | `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
 | `build.schematic-replaced` | warning | a schematic file, the root or a child sheet, changed since the last build is replaced |

@@ -761,6 +761,7 @@ def build_design(
             vendor=vendor,
             allow_lossy=allow_lossy,
             layout=schematic_layout,
+            other_libraries=sorted({definition.library for definition in authored_symbols.values()}),
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)
@@ -1102,6 +1103,22 @@ def _symbol_libraries(
             )
             continue
         held = libraries.setdefault(definition.library, [])
+        if (
+            generated.power_flags
+            and symembed.is_power_flag(lib_id)
+            and all(found.code != "build.reserved-library" or found.where != lib_id for found in issues)
+        ):
+            # the flag of this sheet lies in this library under this name (change c0143)
+            issues.append(
+                issue(
+                    "build.reserved-library",
+                    f"{lib_id}: the symbol name {symembed.FLAG_NAME!r} of the library {definition.library!r} "
+                    "is kept for Fenolite's power flag, which this design needs",
+                    lib_id,
+                    "give the symbol another name, or its library another nickname",
+                )
+            )
+            continue
         if all(found.lib_id != definition.lib_id for found in held):
             held.append(
                 symembed.embed_symbol(definition, target=target, allow_lossy=allow_lossy, issues=issues)

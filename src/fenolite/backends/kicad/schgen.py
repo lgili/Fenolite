@@ -321,6 +321,7 @@ def generate_schematic(
     vendor: str = "all",
     allow_lossy: bool = False,
     layout: str = "readable",
+    other_libraries: Iterable[str] = (),
 ) -> GeneratedSchematic:
     """The sheets of ``design``, whose components ``parts`` resolve to symbols.
 
@@ -328,7 +329,9 @@ def generate_schematic(
     not hold is left out. ``placements`` fixes symbol origins (``schlayout.layout_units``); ``vendor``
     is the build's vendoring policy: with ``"project"`` a symbol of a row that is not a project row is
     embedded and gets no project library. ``layout`` is ``"readable"`` (a sheet per module) or
-    ``"grid"`` (one flat sheet, the form of c0061).
+    ``"grid"`` (one flat sheet, the form of c0061). ``other_libraries`` names the symbol libraries of the
+    design that no part may use (the ones it authors): with the libraries of ``parts`` they decide which
+    library holds the power flag (``symembed.flag_library``).
     """
     if layout not in LAYOUTS:
         raise ValueError(f"unknown schematic layout {layout!r}; use one of: {', '.join(LAYOUTS)}")
@@ -391,7 +394,7 @@ def generate_schematic(
         by_sheet["" if flat else module_of(item.part.path)].append(item)
 
     flag_nets = _needs_flag(design, components)
-    flag = symembed.power_flag(target) if flag_nets else None
+    flag = _flag(flag_nets, embedded, other_libraries, target, issues)
     fixed = dict(placements or {})
     known = {item.box.key for item in placed}
     state = _State(design, name, net_of, {(m.component_id, m.pin) for m in design.circuit.no_connects})
@@ -404,7 +407,7 @@ def generate_schematic(
         here = {k: v for k, v in fixed.items() if k in keys or (not module and k not in known)}
         children = [m for m in modules if module_of(m) == module]
         refs = [RefBox(m, tree.refs[m].name, tree.refs[m].file) for m in children]
-        flags = [_flag_box(net) for net in flag_nets] if not module else []
+        flags = [_flag_box(net, flag) for net in flag_nets] if not module and flag is not None else []
         boxes = [item.box for item in items]
         clusters: tuple[Cluster, ...] = ()
         if layout == "readable":
@@ -458,7 +461,7 @@ def generate_schematic(
             continue
         libraries.setdefault(definition.nickname, []).append(definition)
     if flag is not None:
-        libraries[flag.nickname] = [flag]
+        libraries.setdefault(flag.nickname, []).append(flag)
     return GeneratedSchematic(
         sheets[""],
         MappingProxyType({nick: tuple(found) for nick, found in sorted(libraries.items())}),
@@ -473,12 +476,40 @@ def generate_schematic(
     )
 
 
-def _flag_box(net: Net) -> UnitBox:
+def _flag(
+    flag_nets: Sequence[Net],
+    embedded: Mapping[tuple[str, tuple[tuple[str, str], ...]], EmbeddedSymbol],
+    libraries: Iterable[str],
+    target: int,
+    issues: list[Issue],
+) -> EmbeddedSymbol | None:
+    """The power flag of a sheet with ``flag_nets``, in the library that holds it (change c0143): a library
+    of the design whose name differs from ``fenolite`` in letter case only, else ``fenolite``. A part
+    whose symbol has the flag's name in that library is reported, since one library holds one symbol of a
+    name."""
+    if not flag_nets:
+        return None
+    library = symembed.flag_library([*(found.nickname for found in embedded.values()), *libraries])
+    flag = symembed.power_flag(target, library)
+    if any(lib_id == flag.lib_id for lib_id, _ in embedded):
+        issues.append(
+            issue(
+                "build.reserved-library",
+                f"{flag.lib_id}: the symbol name {symembed.FLAG_NAME!r} of the library {library!r} is kept "
+                "for Fenolite's power flag, which this design needs",
+                flag.lib_id,
+                "give the symbol another name, or its library another nickname",
+            )
+        )
+    return flag
+
+
+def _flag_box(net: Net, flag: EmbeddedSymbol) -> UnitBox:
     return UnitBox(
         f"{FLAG_KEY}{net.name}",
         (UnitPin("1", Point(0, 0), 90, len(netnames.stored_name(net.name))),),
         (0, 0, 2_540_000, 2_540_000),
-        f"{symembed.FLAG_LIBRARY}:{symembed.FLAG_NAME}",
+        flag.lib_id,
     )
 
 
