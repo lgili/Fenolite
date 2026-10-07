@@ -23,6 +23,16 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "analysis.input-missing": ("warning",),
         "analysis.item-unsupported": ("warning",),
         "analysis.requirement-unmatched": ("warning",),
+        # power paths, insulation and conductors on the path ("Power and insulation codes")
+        "analysis.path-unmatched": ("warning",),
+        "analysis.path-open": ("warning",),
+        "analysis.path-exceeded": ("error",),
+        "analysis.path-undecided": ("warning",),
+        "analysis.drop-above": ("error",),
+        "analysis.drop-undecided": ("warning",),
+        "analysis.insulation-below": ("error",),
+        "analysis.insulation-undecided": ("warning",),
+        "analysis.creepage-over": ("info",),
     }
 )
 

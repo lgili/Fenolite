@@ -1647,3 +1647,9 @@ path = "tests/data/kicad/board/stackup_four.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "authored CC0 four-layer board (format 20241229) with a stack-up in setup: masks of 10 um (the top one Green), a prepreg, a core of two sheets (the second 0.3 mm of the material Laminate B) and a prepreg, finish ENIG, dielectric constraints, a board thickness equal to the sum of its rows (2.025 mm); written by Fenolite's own board writer from tests/_boards.py (bare_board(4, four_layer_stackup())) for change c0101"
+
+[[file]]
+path = "tests/data/analysis/strip_10.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored board of the power-path analysis (c0115): a 20 mm x 5 mm fill between two pads, written by write_board for target 10 from tests/_power.py::written_strip; round illustrative numbers, no value of any standard"

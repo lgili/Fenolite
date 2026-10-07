@@ -749,6 +749,11 @@ meaning = "The shortest path along the board surface between two conductors is b
 fix = "Move the conductors apart or add a slot between them."
 see = "analyze"
 
+["analysis.creepage-over"]
+meaning = "The clearance or the creepage of a pair of nets crosses copper of a third net, at no length. The distances from each net of the pair to that third net are the ones its voltage acts across."
+fix = "Select the pairs the hint names (each net with the third net) and judge those distances; the value of the pair is the conservative one."
+see = "analyze"
+
 ["analysis.creepage-undecided"]
 meaning = "The requirement lies inside the interval for the creepage, or the search was cut short."
 fix = "Measure the path by hand, or increase the distance until the lower bound passes."
@@ -757,6 +762,16 @@ see = "analyze"
 ["analysis.current-exceeded"]
 meaning = "The current capacity of a track or via is below the current its net requires."
 fix = "Widen the track, add copper thickness or vias, or correct the required current."
+see = "analyze"
+
+["analysis.drop-above"]
+meaning = "The low end of the voltage drop of a power path, at the row's current and with the resistivity you gave, is above the row's `drop_mv`."
+fix = "Widen or shorten the copper of the path, add copper in parallel, or correct the row; `result.power` lists each element with its resistance interval."
+see = "analyze"
+
+["analysis.drop-undecided"]
+meaning = "The row's `drop_mv` lies inside the interval of the voltage drop, or the drop has no high end (a region with more than two ports, a bound that is only one-sided, or a missing input)."
+fix = "Read the interval in `result.power`; give the missing input, or treat the drop as not shown to be met."
 see = "analyze"
 
 ["analysis.embedded-below"]
@@ -774,9 +789,39 @@ meaning = "An input that Fenolite does not assume is absent, so the items that n
 fix = "Pass the missing input, for example --temp-rise or --copper-thickness."
 see = "analyze"
 
+["analysis.insulation-below"]
+meaning = "The distance through the laminate between copper of two nets on two layers is below the `insulation_nm` you require."
+fix = "Move the copper apart in plan view, choose a thicker dielectric, or correct the requirement; the measure names the two layers and items."
+see = "analyze"
+
+["analysis.insulation-undecided"]
+meaning = "The `insulation_nm` you require lies inside the interval of the distance through the laminate, so the measure does not decide."
+fix = "Read the interval of the row; the approximation of curved copper bounds its width."
+see = "analyze"
+
 ["analysis.item-unsupported"]
 meaning = "Copper that could not be given a shape, or a conductor outside the board, was left out of the analysis."
 fix = "Check those items by hand; 'where' names the kind."
+see = "analyze"
+
+["analysis.path-exceeded"]
+meaning = "An element that carries the whole current of a power path (a part of a track in series, a via group in series, or a fill between two ports) has a capacity by the fit below that current."
+fix = "Widen the track, add vias to the group or widen the narrowest section the message locates; or correct the current or the temperature rise of the row."
+see = "analyze"
+
+["analysis.path-open"]
+meaning = "The copper of the net does not join the start pads of a power path to its end pads: a track, via, pad or fill is missing, or the copper is of a kind the analysis does not read (a graphic, or plane copper an import does not hold)."
+fix = "Route or fill the connection, refill the zones, and check the pads the message names."
+see = "analyze"
+
+["analysis.path-undecided"]
+meaning = "An element of a power path has a capacity below the whole current, but its share of the current is not computed (copper in parallel), or its section is only a bound."
+fix = "Read the element in `result.power`: it passes only if its share is below its capacity, which Fenolite does not compute."
+see = "analyze"
+
+["analysis.path-unmatched"]
+meaning = "A power path names a pad the board does not hold, or its pads belong to more than one net or to none, or the backend gives no board-frame pads."
+fix = "Name pads as REF-PIN, all of one net, as `fenolite inspect` lists them."
 see = "analyze"
 
 ["analysis.requirement-unmatched"]

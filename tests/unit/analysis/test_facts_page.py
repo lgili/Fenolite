@@ -110,3 +110,53 @@ def test_example_is_marked_as_authored() -> None:
     first = EXAMPLE.read_text(encoding="utf-8").splitlines()[0]
     assert first.startswith("#") and MARK in first
     assert MARK in PAGE.read_text(encoding="utf-8")
+
+
+def test_power_page_states_the_model() -> None:
+    """Scenario "The page states the model" (change c0115)."""
+    import re
+
+    text = PAGE.read_text(encoding="utf-8")
+    for section in ("Power paths", "Insulation between layers", "Grooves", "Conductors on the path"):
+        assert f"\n## {section}\n" in text, section
+    sources = (ROOT / "docs" / "evidence" / "sources.md").read_text(encoding="utf-8")
+    for source in ("S-0681", "S-0682"):
+        assert source in text and f"\n| {source} | https://" in sources, source
+    assert "R_s · ℓ² / A" in text and "R_s · A / w²" in text and "not a simulation" in text
+    for limit in (
+        "ideal contacts",
+        "upper bound",
+        "analysis.path-open",
+        "counted and not used",
+        "0.2.x and 0.3.0",
+    ):
+        assert limit in text, limit
+    for hypothesis in (
+        "H-G-AN-SECTION",
+        "H-G-AN-POUR",
+        "H-G-AN-NETWORK",
+        "H-G-AN-INSUL",
+        "H-G-AN-GROOVE",
+        "H-G-AN-OVER",
+    ):
+        assert hypothesis in text, hypothesis
+    # a resistivity with a number is an example: its paragraph says that the value is illustrative
+    for paragraph in text.split("\n\n"):
+        if re.search(r"resistivity[^\n]*\d|--resistivity \d", paragraph):
+            assert "illustrative" in paragraph, paragraph[:120]
+    assert "every resistivity in this guide is illustrative" in text
+
+
+def test_power_modules_ship_no_requirement_value() -> None:
+    """No resistivity, groove width, insulation distance or sheet count in the package: such a value in
+    the units of the package is an integer of at least 10 000, and the new modules hold none beside the
+    scale of the drop (microohms times milliamperes to millivolts) and hold no float."""
+    import ast
+
+    package = ROOT / "src" / "fenolite" / "analysis"
+    for name in ("power.py", "section.py", "network.py", "fills.py", "grooves.py", "insulation.py"):
+        tree = ast.parse((package / name).read_text(encoding="utf-8"))
+        constants = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant)]
+        large = {value for value in constants if type(value) is int and abs(value) >= 10_000}
+        assert large <= ({1_000_000} if name == "power.py" else set()), (name, sorted(large))
+        assert not [value for value in constants if type(value) is float], name

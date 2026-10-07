@@ -1260,19 +1260,36 @@ warning (`result.placement` holds `ran` and `counts`): a build never refuses for
 
 ## analyze
 
-`fenolite analyze PATH [--kinds current,clearance,creepage] [--requirements FILE] [--temp-rise KELVIN]
-[--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH] [--board-thickness LENGTH]
-[--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]` measures the current capacity of tracks,
-arcs and vias, and the clearance and creepage of pairs of nets, on a board that a registered backend
-reads. It is read-only: it runs no tool and writes no file. The user guide is `docs/analyses.md`.
+`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation] [--requirements FILE]
+[--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH]
+[--board-thickness LENGTH] [--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]
+[--path FROM TO]... [--resistivity NANOOHM_METRES] [--groove-width LENGTH]` measures the current
+capacity of tracks, arcs and vias, and the clearance and creepage of pairs of nets, on a board that a
+registered backend reads. On request it also measures power paths (`power`) and the insulation between
+layers (`insulation`). It is read-only: it runs no tool and writes no file. The user guide is
+`docs/analyses.md`.
 
 **Fenolite measures and the user decides.** No reply claims conformance to a standard. Fenolite ships no
 requirement value and assumes no thickness and no temperature rise: an input that is not given leaves
 items out, which are counted (`analysis.input-missing`). A finding exists only against a requirement of
 the user's file.
 
-- `--kinds` selects the analyses (default: all three). `clearance` and `creepage` come from one pass; an
-  unselected kind is left out of each row.
+- `--kinds` selects the analyses. The default is `current,clearance,creepage`; `power` and `insulation`
+  run only when named, so a reply without them holds neither. `clearance`, `creepage` and `insulation`
+  come from one pass; an unselected kind is left out of each row.
+- `--path FROM TO` (repeatable, with `power`) measures the copper between two sets of pads, `FROM` and
+  `TO` each one or more `REF-PIN` names joined by commas. A `[[path]]` row of the requirements file is
+  measured and judged. `--resistivity NANOOHM_METRES` is the resistivity of your copper, a decimal number
+  of at most three decimals; it is passed on in picoohm-metres, and without it no path has a resistance.
+  Fenolite assumes no resistivity. The capacities and the resistance are estimates against your limits,
+  not a simulation.
+- `--groove-width LENGTH` (with `creepage`) bridges every groove narrower than that width on the creepage
+  path; a `groove_nm` of a distance row does the same for its pairs, and the larger of the two governs.
+- With `insulation`, each row of `distances` also holds the distance through the laminate between copper
+  of the two nets on two layers, from the depths of the board's stack-up. Fenolite assumes no thickness:
+  without those depths the value is absent and `analysis.input-missing` names `stack-up`.
+- `--path` and `--resistivity` without the kind `power`, and `--groove-width` without the kind
+  `creepage`, are usage errors (`FEN-2001`, exit 2).
 - `--requirements FILE` names a TOML file of schema `fenolite.requirements.v0` (integers only, units in
   the key names): currents per net or net class, distances per pair, and an optional table from voltage
   to distance that is looked up without interpolation.
@@ -1293,12 +1310,24 @@ the user's file.
 - `current`: one row per track, arc and via with `kind`, `where`, `entity_id`, `net`, `layer`, `at`,
   `width`, `thickness`, `area_nm2`, `external`, `temp_rise_mk`, `capacity_ma` and `in_range`;
 - `distances`: one row per pair with `net_a`, `net_b`, `gaps` (one measure per copper layer that carries
-  both nets), `clearance` and `creepage`. A measure holds `low` and `high` in nanometres, `layer`,
-  `points`, `items` and `bounded`;
+  both nets), `clearance` and `creepage`, and with the kind `insulation` also `insulation` and `sheets`
+  (the count of dielectric entries of the stack-up between the two layers). A measure holds `low` and
+  `high` in nanometres, `layer`, `points`, `items`, `bounded` and `over`, the names of the conductors of
+  other nets, or of none, that the path crosses at no length;
+- `power` (with the kind `power`): one row per path with `net`, `start`, `end`, `milliamps`,
+  `temp_rise_mk`, `elements`, `resistance_uohm` and `drop_mv`. An element is an active part of a track or
+  arc, a via group or a fill, with `kind`, `where`, `layer`, `series`, `area_nm2`, `section` (the
+  narrowest section of a fill, a measure), `ports`, `capacity_ma`, `in_range`, `resistance_uohm` and
+  `hull_free`. A resistance and a drop are intervals `low` and `high` in microohms and millivolts; `high`
+  is `null` when no upper bound is known;
 - `summary`: per analysis, the counts; `current.nets` names the weakest item of each net, `current.fit`
   the source id of the fit, and `distances.faces_alone` the pairs measured on each face alone because the
   board thickness or outline is unknown;
-- `inputs`: the option values in force and the boundary (`source`, `band`, `cutouts`).
+- `summary.power`: the counts of paths and elements and the inputs that were missing;
+  `summary.distances.grooves` (when a groove width was used): per width, the grooves `bridged` and
+  `counted`;
+- `inputs`: the option values in force, `paths`, `resistivity_pohm_m` and `groove_nm` among them, and the
+  boundary (`source`, `band`, `cutouts`).
 
 A requirement `r` is judged the same way for every measure: `high < r` is an error, `low < r ≤ high` a
 warning (`-undecided`), `low ≥ r` nothing. An error gives exit code 5. An unknown kind, a malformed option
@@ -1318,6 +1347,15 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.input-missing` | warning | an input that Fenolite does not assume is absent; the items left out are counted |
 | `analysis.item-unsupported` | warning | copper that could not be shaped, per kind, or a conductor outside the board |
 | `analysis.requirement-unmatched` | warning | a requirement row that matches no net, or a voltage above every step |
+| `analysis.path-unmatched` | warning | a power path names a pad the board does not hold, or pads of more than one net |
+| `analysis.path-open` | warning | the copper of the net does not join the start pads to the end pads |
+| `analysis.path-exceeded` | error | an element that carries the whole current of the path has a capacity below it |
+| `analysis.path-undecided` | warning | an element whose share of the current is not computed, or whose section is only a bound, has a capacity below the whole current |
+| `analysis.drop-above` | error | the low end of the drop is above `drop_mv` |
+| `analysis.drop-undecided` | warning | `drop_mv` lies inside the drop interval, or the drop has no high end |
+| `analysis.insulation-below` | error | `insulation.high` is below `insulation_nm` |
+| `analysis.insulation-undecided` | warning | `insulation_nm` lies inside the insulation interval |
+| `analysis.creepage-over` | info | a clearance or a creepage of the pair crosses copper of a third net |
 
 **Thicknesses from the stack-up (c0101).** A KiCad board whose `setup` holds a complete stack-up gives
 `analyze` the copper thickness of each copper layer and the board thickness with no option; an option

@@ -115,3 +115,65 @@ def test_example_file_loads() -> None:
     requirements = load_requirements(path.read_text(encoding="utf-8"), file=path.name)
     assert len(requirements.currents) == 1 and len(requirements.distances) == 2
     assert [step.up_to_mv for step in requirements.steps] == [50_000, 300_000]
+
+
+# --- change c0115: path rows, insulation and groove keys --------------------------------------------
+
+PATH = (
+    '[[path]]\nfrom = ["J1-1"]\nto = ["Q1-2", "Q2-2"]\n'  # one path row
+    "milliamps = 20000\ntemp_rise_mk = 10000\ndrop_mv = 50\n"
+)
+
+
+def test_path_rows() -> None:
+    """Scenario "Path rows"."""
+    (row,) = load_requirements(HEAD + PATH).paths
+    assert (row.start, row.end) == (("J1-1",), ("Q1-2", "Q2-2"))
+    assert (row.milliamps, row.temp_rise_mk, row.drop_mv) == (20_000, 10_000, 50)
+    assert load_requirements(HEAD + PATH.replace("drop_mv = 50\n", "")).paths[0].drop_mv is None
+    for bad in (
+        "from = []",
+        'from = ["J1"]',
+        'from = ["-1"]',
+        'from = ["J1-"]',
+        'from = "J1-1"',
+        "from = [1]",
+    ):
+        with pytest.raises(FormatError) as caught:
+            load_requirements(HEAD + PATH.replace('from = ["J1-1"]', bad), file="req.toml")
+        assert caught.value.locator == "path[0].from"
+    with pytest.raises(FormatError) as caught:
+        load_requirements(HEAD + PATH.replace("milliamps = 20000", "milliamps = 2.5"))
+    assert caught.value.locator == "path[0].milliamps"
+    with pytest.raises(FormatError) as caught:
+        load_requirements(HEAD + PATH + "ohms = 1\n")
+    assert caught.value.locator == "path[0].ohms"
+    assert load_requirements(HEAD).paths == ()
+    assert load_requirements(HEAD + PATH.replace("J1-1", "J-1-A-2")).paths[0].start == ("J-1-A-2",)
+
+
+def test_insulation_and_groove_keys() -> None:
+    """Scenario "Insulation and groove keys"."""
+    text = (
+        HEAD
+        + '[[distance]]\na = { net = "HV" }\nb = { net = "LV" }\n'
+        + "insulation_nm = 400000\ngroove_nm = 1000000\n"
+        + '[[distance]]\na = { net = "HV" }\nb = { net = "LV" }\nmillivolts = 230000\n'
+        + "[[step]]\nup_to_mv = 300000\ninsulation_nm = 200000\n"
+    )
+    found, made = circuit(("HV", None), ("LV", None), ("X", None))
+    loaded = load_requirements(text)
+    hv, lv, other = made.nets["HV"], made.nets["LV"], made.nets["X"]
+    assert loaded.insulation_for(hv, lv, found) == 400_000
+    assert loaded.groove_for(lv, hv, found) == 1_000_000
+    assert loaded.distance_for(hv, lv, found) == (None, None, None)
+    assert loaded.insulation_for(hv, other, found) is None and loaded.groove_for(hv, other, found) is None
+    # the step governs when it is the larger one
+    larger = load_requirements(text.replace("insulation_nm = 200000", "insulation_nm = 900000"))
+    assert larger.insulation_for(hv, lv, found) == 900_000
+    with pytest.raises(FormatError):
+        load_requirements(
+            HEAD + '[[distance]]\na = { net = "HV" }\nb = { net = "LV" }\ngroove_nm = 1000000\n'
+        )
+    # every file of the earlier schema loads as before
+    assert pair(HEAD + STEPS + distance(230_000)) == (None, 3_000_000, None)

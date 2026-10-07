@@ -146,6 +146,117 @@ and on the readable corpus boards (`docs/evidence/routing.md`, "Open connections
 query has no cap. An item that cannot be shaped is counted per net in `unsupported`, gives one
 `analysis.item-unsupported` warning per kind, and lowers the reply to `UNVERIFIED`.
 
+## Power paths
+
+A `[[current]]` row says that every item of a net carries the row's current, a branch to a capacitor
+included. For a power net, name a **path** instead: the pads where the current enters, the pads where it
+leaves, the current, the rise you accept and, if you want, the largest drop. A power path is not the
+surface path of a creepage (`H-G-AN-PATH`); the two share only the word.
+
+- **Network.** The net's tracks and arcs, vias, pads and fills are joined where their copper touches on a
+  layer. A track is cut where it enters a fill of its net (the part inside is the fill's copper), at a pad
+  or a via on its body, at the end of another track on its body and where two tracks cross. Vias joined to
+  the same copper on each of their layers are one via group. A stored fill is one ring whose holes join
+  it by slits of no width; the slits are removed to get the fill's outline and its holes.
+- **Active copper.** An element is active when it lies on a path from a start pad to an end pad that
+  passes each element once, and in series when every such path passes it. Copper that is not active
+  carries no direct current and is not judged.
+- **Narrowest section.** For a fill between two ports (the pads, tracks and via groups that touch it), the
+  smallest length inside the copper of a closed curve that separates the two ports: the whole current
+  crosses it. It is exact on the integer geometry (`H-G-AN-SECTION`). Its capacity is the fit of "Current
+  capacity" at that width, an estimate: the fit is stated for a long isolated conductor
+  (`H-G-AN-NECKFIT`).
+- **Judging.** Where the topology says the whole current flows (a part of a track in series, a via group
+  in series, a fill in series between exactly two ports), a capacity below the current is an error,
+  `analysis.path-exceeded`. Anywhere else it is `analysis.path-undecided`: Fenolite computes no share of
+  the current between parallel copper. A via group fails when the sum of its barrels is below the current,
+  whatever the split.
+- **Resistance and drop.** With a resistivity that you give (`--resistivity`, in nanoohm-metres; Fenolite
+  ships none, and every resistivity in this guide is illustrative), each path gets an interval of its
+  resistance. A part of a track is `ρ·L/(w·t)`. A via group is its barrels in parallel, `ρ·h/ΣA`, with
+  `h` between the middles of its two copper layers by the stack-up. A fill between two ports lies between
+  two bounds, with `R_s = ρ/t` the sheet resistance, `ℓ` the shortest path inside the fill between the two
+  ports, `w` their narrowest section and `A` the fill's area outside the ports:
+
+  | bound | value | why |
+  |---|---|---|
+  | lower | `R_s · ℓ² / A` | the potential that rises evenly along the distance from one port is a trial function, and by Dirichlet's principle (S-0682) a trial function bounds the energy, hence the conductance, from above |
+  | upper | `R_s · A / w²` | every line of equal potential separates the two ports, so it is at least `w` long; with the Cauchy–Schwarz inequality the conductance is at least `w² / (R_s · A)` |
+
+  They are the bounds of the extremal length of the joining and of the separating curves with the metric 1
+  (S-0681). On a strip between two plates both equal `R_s · L / W`; on a pour with a neck they lie far
+  apart, and the interval is reported as it is. The path's low end is the network at its low values, a fill
+  of more than two ports shorted; its high end is the network at its high values, or the best single chain
+  (`H-G-AN-POUR`, `H-G-AN-NETWORK`). The drop is the current times the resistance. It is a measure against
+  your limit, **not a simulation**: no current density, no temperature and no share of parallel copper is
+  computed.
+
+Limits of the power paths:
+
+- Ports are ideal contacts, and the vias of a group share the current equally; crowding at the edge of a
+  via array is not modelled.
+- A port is taken by the convex hull of its copper. When a hole lies inside that hull between the port's
+  shapes, the section is only an upper bound and is judged as undecided.
+- A section wider than the width its source states for the fit is outside the fit's range.
+- A fill with more than 400 boundary points takes the gap of its two ports in plan view as `ℓ`, which is
+  never longer than the path inside it, so the lower bound stays a lower bound.
+- Two fills of one net that touch only each other are not joined; a track whose side overlaps a fill
+  without its centre line or an end reaching it is not joined to it.
+- **An imported Altium board** is read like any other: its pours are fills. Copper of an inner plane that
+  the import does not hold as a fill is not in the model, so a path through it is reported as
+  `analysis.path-open`. A via counts at one diameter on every layer of its span, also where the document
+  holds no pad shape for it.
+- **Copper graphics**, those of a footprint included, are counted and not used.
+
+## Insulation between layers
+
+With the kind `insulation`, each pair of nets gets the shortest distance through the laminate between
+copper of one net on a layer and copper of the other on another layer: `√(g² + h²)`, with `g` their
+smallest gap in plan view and `h` the depth of the top face of the lower layer less the depth of the
+bottom face of the upper one (`H-G-AN-INSUL`). `sheets` counts the dielectric entries of the stack-up
+between those two layers; it is data, and Fenolite judges no sheet count. `insulation_nm` is judged
+against the measure as every distance is.
+
+- The depths come from the stack-up of the board. Fenolite assumes no thickness: without a depth for a
+  layer the value is absent and `analysis.input-missing` names `stack-up`.
+- Copper of any net on a layer between the two is not considered.
+- No KiCad check measures a distance between layers (`H-K-AN-LAYERS`).
+
+## Grooves
+
+Without a groove width every cut-out and every notch lengthens a creepage, whatever its width. With a
+width (`--groove-width`, or `groove_nm` of a distance row) a creepage path crosses a groove narrower than
+that width as if it were not there (`H-G-AN-GROOVE`):
+
+- a **cut-out** is bridged whole when it has a double normal shorter than the width: a chord inside it
+  that meets its boundary at right angles at both ends. For a slot that is its width;
+- a **pocket** of the outline, the region between an edge of the outline's convex hull and the outline,
+  is filled when its mouth is shorter than the width.
+
+Bridging only removes obstacles, so it can only shorten a creepage. The clearance does not change.
+
+- A pair that is judged for creepage, whose path bends at a groove or crosses its wall, and for which no
+  width is given, is counted in `analysis.input-missing` (`groove width`).
+- A cut-out is bridged whole: a wide cut-out with one narrow arm is bridged when the arm is narrow.
+- A notch in the floor of a wide bay is not a pocket of its own: the bay is decided by its mouth.
+- A V-shaped groove is not cut at the groove width.
+- KiCad 10.0.6 applies no groove width to a cut-out (`H-K-AN-GROOVE`), so nothing brackets this value.
+
+## Conductors on the path
+
+Copper on an outer layer that belongs to neither net of a pair conducts: a creepage path and a clearance
+chain reach such a conductor and leave it from any point of its copper at no length, and a via or a pad
+with copper on both outer layers joins the two faces (`H-G-AN-OVER`). The measure names the conductors it
+crosses in `over`.
+
+- When a conductor belongs to a **third net**, an info (`analysis.creepage-over`) names it: the distances
+  from each net of the pair to that net are the ones its voltage acts across, and the hint names those
+  pairs.
+- KiCad stops a creepage at a track of another net and judges the two halves only under rules for them
+  (`H-K-AN-SPLIT`); Fenolite gives the pair the conservative value and names the conductor.
+- Between two nets that lie far apart among thousands of conductors the search stops at a budget; such a
+  pair is counted in `analysis.item-unsupported` (`conductors`) and its values are upper bounds.
+
 ## Measures and judging
 
 A distance is an interval `low ≤ d ≤ high` in nanometres, with the layer, the points of the path and the
@@ -165,10 +276,12 @@ A search stops at the largest requirement of the pair. When it finds no shorter 
 Read these before you rely on a value.
 
 - **Holes** are not obstacles of the surface path. Ignoring a hole can only shorten the reported path.
-- **Every cut-out counts**, whatever its width. Fenolite has no rule for a groove too narrow to count.
+- **Every cut-out counts** unless you give a groove width ("Grooves"). Fenolite ships no width below
+  which a groove does not count.
 - **Solder mask, coatings, components and their leads** are ignored.
-- **Copper of a third net** between two conductors is ignored. A floating conductor can shorten the real
-  leakage path.
+- **Copper of a third net**, or of none, on the path is crossed at no length and named ("Conductors on
+  the path"). Graphics on a copper layer are not read as copper: they are counted, and the reply is then
+  `UNVERIFIED`.
 - **Without a board thickness** no path crosses a wall. A pair with copper only on opposite faces then has
   no clearance and no creepage (`analysis.input-missing`). A pair that shares a face is measured on each
   face alone, and `summary.faces_alone` counts such pairs: a shorter path around the edge or through a
@@ -198,6 +311,12 @@ Which independent tool could check each analysis, and what was done instead:
 | clearance on a layer | `INFERRED` (`H-G-AN-GAP`) | authored cases by hand | the `clearance` rule canaries of the copper check, for the gap primitive |
 | creepage | `INFERRED` (`H-G-AN-PATH`) | hand-computed cases; a grid search | KiCad's `creepage` rule as a bracket, recorded (`H-K-AN-CREEP`) |
 | clearance across the edge | `INFERRED` (`H-G-AN-EDGE`) | hand-computed cases | none |
+| narrowest section of a fill | `INFERRED` (`H-G-AN-SECTION`) | hand-computed cases; a grid cut | KiCad's connection width, on plain necks only (`H-K-AN-NECK`) |
+| capacity of path elements and sections | `INFERRED` (`H-G-AN-FIT`, `H-G-AN-VIA`, `H-G-AN-NECKFIT`) | the arithmetic only | KiCad's calculator, in its GUI only |
+| resistance and drop of a path | `INFERRED` (`H-G-AN-POUR`, `H-G-AN-NETWORK`) | a finite-difference solution in the test | a field solver run as a subprocess; none chosen |
+| insulation between layers | `INFERRED` (`H-G-AN-INSUL`) | hand-computed cases | none; KiCad judges no distance between layers (`H-K-AN-LAYERS`) |
+| grooves | `INFERRED` (`H-G-AN-GROOVE`) | hand-computed cases; generated boards | KiCad's groove setting, if a later version applies it to cut-outs (`H-K-AN-GROOVE`) |
+| conductors on the path | `INFERRED` (`H-G-AN-OVER`) | hand-computed cases; a grid search | none; KiCad stops the path at the conductor (`H-K-AN-SPLIT`) |
 
 The KiCad bracket is supporting data. It never gates and never raises a label.
 
@@ -252,6 +371,39 @@ creepage_nm = 3000000
   does not choose between peak, RMS or working voltage.
 - A float, an unknown key or a missing key is an error that names the key.
 
+Three additions of change c0115 use the same schema name. They are optional, so every earlier file loads
+unchanged; the other direction does not hold: **Fenolite 0.2.x and 0.3.0 refuse a requirements file that
+holds a `[[path]]` row, `insulation_nm` or `groove_nm`**, because their key sets are closed. This example
+is authored for Fenolite; its values are illustrative, not requirements:
+
+```toml
+# authored for Fenolite; illustrative values, not requirements
+schema = "fenolite.requirements.v0"
+
+[[path]]
+from = ["J1-1"]
+to = ["Q1-2", "Q2-2"]
+milliamps = 20000
+temp_rise_mk = 10000
+drop_mv = 50
+
+[[distance]]
+a = { net = "HV" }
+b = { net = "LV" }
+creepage_nm = 3000000
+insulation_nm = 400000
+groove_nm = 1000000
+```
+
+- **`[[path]]`.** `from` and `to` are non-empty arrays of pad names `REF-PIN`: where the current enters
+  and where it leaves. `milliamps` is the current, `temp_rise_mk` the rise you accept and `drop_mv`,
+  optional, the largest voltage drop ("Power paths").
+- **`insulation_nm`**, on a distance row or a step: the distance through the laminate you require between
+  copper of the pair on two layers ("Insulation between layers").
+- **`groove_nm`**, on a distance row beside its distances: the width below which a groove is bridged on
+  the creepage path of the pair ("Grooves"). The largest of the matching rows and of `--groove-width`
+  governs.
+
 ## The command
 
 ```console
@@ -259,7 +411,11 @@ fenolite analyze board.kicad_pcb --kinds current --temp-rise 10 --copper-thickne
 fenolite analyze board.kicad_pcb --kinds clearance,creepage --pair L N --board-thickness 1.6mm
 fenolite analyze board.kicad_pcb --requirements requirements.toml --via-plating 25um --board-thickness 1.6mm
 fenolite analyze board.kicad_pcb --kinds clearance --within 0.5mm
+fenolite analyze board.kicad_pcb --kinds power --path J1-1 U1-1 --temp-rise 10 --copper-thickness 35um
+fenolite analyze board.kicad_pcb --kinds creepage,insulation --pair HV LV --groove-width 1mm
 ```
+
+The kinds `power` and `insulation` run only when you name them.
 
 The command is read-only: it runs no tool and writes no file. An error finding gives exit code 5. The
 options and the result keys are in `docs/cli-contract.md`.

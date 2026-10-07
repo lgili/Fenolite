@@ -86,3 +86,30 @@ def test_missing_pads_lower_the_level() -> None:
     (found,) = [issue for issue in report.issues if issue.code == "analysis.item-unsupported"]
     assert "pad" in found.message and found.where == "pad"
     assert report.evidence.level is Level.UNVERIFIED
+
+
+def test_power_evidence_constants() -> None:
+    """Scenario "Evidence constants" (change c0115)."""
+    from fenolite.analysis import grooves, insulation, power, surface
+
+    constants = {
+        "power": (power.EVIDENCE, ("H-G-AN-NECKFIT", "H-G-AN-NETWORK", "H-G-AN-POUR", "H-G-AN-SECTION")),
+        "insulation": (insulation.EVIDENCE, ("H-G-AN-INSUL",)),
+        "grooves": (grooves.EVIDENCE, ("H-G-AN-GROOVE",)),
+        "bridges": (surface.BRIDGE_EVIDENCE, ("H-G-AN-OVER",)),
+    }
+    register = (ROOT / "docs" / "hypotheses.md").read_text(encoding="utf-8")
+    for name, (evidence, ids) in constants.items():
+        assert evidence.level is Level.INFERRED and evidence.hypotheses == ids, name
+        for ident in ids:
+            assert f"| {ident} |" in register, ident
+    assert analysis.EVIDENCE.hypotheses == (
+        "H-G-AN-EDGE",
+        "H-G-AN-FIT",
+        "H-G-AN-GAP",
+        "H-G-AN-PATH",
+        "H-G-AN-VIA",
+    )
+    assert (
+        power.PowerReport().evidence.level is Level.INFERRED and power.PowerReport().findings().issues == ()
+    )

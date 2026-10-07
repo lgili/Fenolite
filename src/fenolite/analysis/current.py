@@ -121,6 +121,12 @@ def _thickness(board: Board, layer: str, given: Mapping[str, Nm] | None) -> Nm |
     return None
 
 
+def layer_thickness(board: Board, layer: str, given: Mapping[str, Nm] | None) -> Nm | None:
+    """The copper thickness of a layer: the value given for it, else for every layer, else the stack-up's;
+    ``None`` when none is known. The rule of the capacity analysis, for the other analyses."""
+    return _thickness(board, layer, given)
+
+
 def analyze_current(
     design: Design,
     *,
@@ -287,4 +293,5 @@ __all__ = [
     "barrel_area_nm2",
     "capacity_ma",
     "in_range",
+    "layer_thickness",
 ]
