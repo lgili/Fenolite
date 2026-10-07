@@ -1,0 +1,50 @@
+## 0. Entry check
+
+- [ ] 0.1 Read the living `manufacturing-exports`, `cli-contract`, `kicad-oracle`, `sheet-templates` and `package-layering` specs and `openspec list`. Write under this task, with the date: that c0101 and c0116 are archived (else stop: the stack-up table and the shared PDF date rule need them); whether c0103, c0105, c0112, c0065, c0074, c0077 and c0080 are archived (tasks 3.2, 5.1, 6.3 and 8.2 depend on it); whether an archive since 2026-10-05 changed "Export command" or "Export kinds and their arguments" (then re-read "Drawing options of the export command" against the living text and repair the delta); and whether another change added a requirement of the same name as one here. Proof: `openspec validate c0117-fab-assembly-drawings --strict --no-interactive` passes after any repair.
+
+## 1. Probe and register
+
+- [ ] 1.1 Add the rows `H-K-DRAW-ITEMS`, `H-K-DRAW-TEXT`, `H-K-DRAW-PAGE`, `H-K-DRAW-SHEET`, `H-K-DRAW-DRILL`, `H-K-DRAW-ASSEMBLY`, `H-K-DRAW-REPEAT` and `H-K-DRAW-LAYER` to `docs/hypotheses.md` (level `INFERRED`, the tests and criteria of `design.md`, result `pending` with the measurements of 2026-10-05 as the first record). Widen the "used for" text of S-0020, S-0022, S-0037 and S-0039 in `docs/evidence/sources.md` with the facts of the design's Context, only as each source states them. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`; `grep -cE '^\| H-K-DRAW-(ITEMS|TEXT|PAGE|SHEET|DRILL|ASSEMBLY|REPEAT|LAYER) ' docs/hypotheses.md` prints `8`.
+- [ ] 1.2 Write `tests/kicad/drawings/_drawbench.py` (the bench of "Drawing facts are probed") and the probes of items, text, page and sheet in `tests/kicad/drawings/test_drawing_probes.py`, registered in `tests/kicad/_probes.py`. Record the page sizes KiCad plots for A2, A1 and A0 and the default sheet's boxes on A4 to A0. A probe that records another outcome stops its part, and the register row says what KiCad showed. Proof: `uv run pytest tests/kicad/drawings/test_drawing_probes.py -k "items or text or page or default_sheet" -rA` on the local `kicad-cli` 10.0.6; the probes are in `docs/evidence/kicad/probes/10.0.6.json`.
+- [ ] 1.3 Add the probes of drill, assembly, repeat and layer to the same file. Record how the report lists slotted holes and the drill files of blind and micro vias, and the names of their maps; task 6.1 compares by what is recorded. Proof: `uv run pytest tests/kicad/drawings/test_drawing_probes.py -k "drill or assembly or repeat or layer" -rA` on the local 10.0.6.
+- [ ] 1.4 Run every probe of the file in the pinned 9.0.9 image, in one container. Proof: `docker run --rm --platform linux/amd64 -v "$PWD":/w -w /w -e HOME=/tmp "kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729" …` running `uv run pytest tests/kicad/drawings/test_drawing_probes.py -rA`, or the `kicad-9` job; the probes are in `9.0.9.json`; `uv run pytest tests/kicad/test_probe_results.py`.
+
+## 2. Spec file
+
+- [ ] 2.1 Write `src/fenolite/exports/drawing_spec.py` (`SCHEMA`, `DrawingSpec`, `PageSpec`, `FabSpec`, `AssemblySpec`, `DEFAULT`, `SpecError`, `read_spec`) and `tests/unit/exports/test_drawing_spec.py` (scenarios of "Drawing specification files", the closed keys one by one, a note with a control character). Proof: `uv run pytest tests/unit/exports/test_drawing_spec.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+
+## 3. Tables and notes
+
+- [ ] 3.1 Write `text_width`, `break_lines`, `LINE_PITCH`, `GLYPH_BOUND` and `GLYPH_SET` from the probes of task 1.2, `Block` and `notes_block` in `src/fenolite/exports/drawing_tables.py`, with `tests/unit/exports/test_drawing_tables.py -k "text or notes"` (the scenario "Notes are broken by the bound", a word longer than the width, line feeds kept). Proof: `uv run pytest tests/unit/exports/test_drawing_tables.py -k "text or notes"`.
+- [ ] 3.2 Write `board_block`, `stackup_block`, `drill_rows` and `drill_block`, and, as task 0.1 found, `impedance_block` (c0105) and the via-protection row (c0112); extend the test file (scenarios "Stack-up rows of a two-layer board", "Drill rows of vias and pads", "No stack-up"). Proof: `uv run pytest tests/unit/exports/test_drawing_tables.py`; `uv run pyright src`.
+
+## 4. Layout
+
+- [ ] 4.1 Write `src/fenolite/exports/drawing_layout.py` (`Obstacles`, `Placed`, `place`, `choose_paper`, `AUTO_PAPERS` with the page sizes of task 1.2) and the board box of each page, mirror included, with `tests/unit/exports/test_drawing_layout.py` (the four scenarios of "Drawing page layout", fixed corners, determinism). Proof: `uv run pytest tests/unit/exports/test_drawing_layout.py tests/unit/test_import_graph.py`.
+- [ ] 4.2 Write `default_sheet_obstacles(width, height)` in `src/fenolite/backends/kicad/drawing.py` from the boxes of task 1.2, and the obstacles of a known sheet through `templates.layout` in `cmd_export` (`drawing.sheet-unread` for a sheet that cannot be read or built). Proof: `uv run pytest tests/unit/backends/kicad/test_drawing_copy.py -k obstacles tests/unit/cli/test_export_drawings.py -k sheet`.
+
+## 5. Plot copies
+
+- [ ] 5.1 Add `PlotTable`, `PlotText` and `PlotDimension` to `src/fenolite/backends/base.py`, and `plot_copy`, `item_nodes`, `layer_extent` and `shows_reference` to `src/fenolite/backends/kicad/drawing.py`; build the dimension node with c0103's emitter if task 0.1 found c0103 archived, else in c0103's measured form; write `tests/unit/backends/kicad/test_drawing_copy.py` (the four scenarios of "Drawing plot copies"). Proof: `uv run pytest tests/unit/backends/kicad/test_drawing_copy.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+- [ ] 5.2 Let `KicadCli.run` and `KicadCli.export` take `bytes` sources in `files`, and extend `tests/_fakecli.py` with fake PDF, map and report outputs. Proof: `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k bytes tests/unit/cli/test_export_cmd.py`.
+
+## 6. Drawing kinds
+
+- [ ] 6.1 Write `run_fab_drawing` and `read_drill_report` in `src/fenolite/exports/drawings.py` and `backends/kicad/drawing.py`, with the report check of Decision 10 as task 1.3 recorded it; extend `tests/unit/exports/test_drawings.py` (scenarios "Files of the kind", "Both forms of a tool line", a count that differs, an unreadable report). Proof: `uv run pytest tests/unit/exports/test_drawings.py -k fab`.
+- [ ] 6.2 Write `run_assembly_drawing` with the options, the side rule and the added references (scenarios of "Assembly drawing kind"). Proof: `uv run pytest tests/unit/exports/test_drawings.py -k assembly`.
+- [ ] 6.3 Add the two kinds to `VOLATILE_PREFIXES` (reusing c0116's PDF prefix), the seven `drawing.*` codes to `exports/codes.py` and their entries to `cli/data/explain.toml`, and `exports.drawings.EVIDENCE`. If task 0.1 found c0065 archived, give the two kinds its state rule of files `kicad-cli` made. Proof: `uv run pytest tests/unit/exports tests/consistency -k "drawing or codes or explain"`.
+
+## 7. Export command
+
+- [ ] 7.1 Add `--fab-drawing`, `--assembly-drawing` and `--drawing-spec` to `src/fenolite/cli/cmd_export.py`, with `result.drawings`, the combined evidence and the all-or-nothing rule; write `tests/unit/cli/test_export_drawings.py` (scenarios of "Drawing options of the export command" and "A count that differs"). Proof: `uv run pytest tests/unit/cli/test_export_drawings.py tests/unit/cli/test_export_cmd.py tests/unit/cli/test_check_readonly.py tests/unit/cli/test_hermetic_examples.py tests/consistency`.
+
+## 8. Oracle and documentation
+
+- [ ] 8.1 Write `tests/kicad/drawings/test_drawing_oracle.py` (the checks of "Drawing facts are probed" on the bench's exported drawings). Proof: `uv run pytest tests/kicad/drawings/test_drawing_oracle.py -rA` on the local 10.0.6 and in the pinned 9.0.9 image.
+- [ ] 8.2 Write `docs/drawings.md` (the spec file with every key and default, the pages, the tables, the layout rule, the codes, the limits of the proposal, and that a note naming an undefined variable is printed as written) and `docs/evidence/kicad-drawings.md` (the probe outcomes); update `docs/exports.md`, `docs/cli-contract.md`, and `docs/formats/kicad/cli.md` and `board.md` with the facts of the Context and their labels. If c0080 is archived, add one tested line for `--fab-drawing` with `--drawing-spec` to its guide page. Proof: `uv run pytest tests/consistency tests/unit/test_format_facts.py tests/unit/test_repo_layout.py tests/residue`.
+
+## 9. Closing
+
+- [ ] 9.1 Run the tests and the residue scan. Proof: `make check-fast`; `uv run pytest tests/unit tests/kicad/drawings -q`; `uv run python tools/residue/scan.py` exits 0; `openspec validate c0117-fab-assembly-drawings --strict --no-interactive` passes; the full `make check` and the pull request checks (`unit`, `kicad-9`, `kicad-10`) are run once at the merge.
+- [ ] 9.2 Update the evidence labels: the eight `H-K-DRAW-*` rows become `KICAD-VERIFIED (9.0.x, 10.0.x)` with their scope, or record what was refuted and the part stopped; `exports.drawings.EVIDENCE` rises to `KICAD-VERIFIED` when `H-K-DRAW-ITEMS`, `-PAGE` and `-DRILL` hold on both majors; the fact rows of task 8.2 carry the same labels. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/kicad/test_probe_results.py`.
+- [ ] 9.3 Add to `CHANGELOG.md` under Unreleased: "`export --fab-drawing` writes a fabrication drawing (outline and its dimensions, board, stack-up, drill and impedance tables, numbered notes) with KiCad's drill maps and report, and `--assembly-drawing` top and bottom assembly drawings, all plotted by `kicad-cli` from a copy of the board; `--drawing-spec FILE` sets paper, sheet, tables, notes and assembly options; the drill counts are checked against KiCad's report". Mark row c0117 done in `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
