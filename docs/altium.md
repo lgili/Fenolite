@@ -577,8 +577,20 @@ the footprints as the board places them, so every component is written where the
 texts, graphics and holes of the board are not copied (`altium.not-lowered`).
 
 `result.copper` reports what was written: `source` (`none`, `model`, `script` or `board`), `from`,
-`layers`, `planes`, `tracks`, `arcs`, `vias`, `zones` (polygons), `net_classes` and
+`layers`, `planes`, `tracks`, `arcs`, `vias`, `zones` (polygons), `locked`, `net_classes` and
 `placements_from_board`.
+
+**Locks (change c0108).** A locked track, arc or via of the model, from any copper source, is written as
+a locked primitive: bit 2 of the first flag byte of its record is clear (`docs/formats/altium/pcb-copper.md`,
+"Locked flag of a free primitive"). `result.copper.locked` holds `tracks`, `arcs` and `vias`, the numbers
+of items written locked, so the count can be checked against the board. The lock is written only for a
+record kind whose fact row is on that page (`pcbrecords.LOCK_WRITTEN`; today the three kinds). For a kind
+without its row, the items are written unlocked and the build gives one `altium.not-lowered` **warning**
+with `where` `copper/locked` that names the kind and the count: a lock is never dropped in silence. The
+Altium import reads the same bit back into `locked`. A design without locked copper gives the documents it
+gave before. The lock is `INFERRED`: a public reader's statement and Fenolite's own reader; Altium
+Designer's view is step X12 of `docs/evidence/altium-pcb.md`, which has not been run. A lock changes no
+copper, and no rule of the document depends on it.
 
 **Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
 variant with `kicad-cli pcb import` and compares the copper and the layer types;
@@ -1307,9 +1319,9 @@ reading of the schematic documents, and every other kind with the reading of the
 | `footprint` | `position`, `rotation`, `side` | PCB document |
 | `pad` | `number`, `net_id`, `position`, `size`, `corner_ratio` | PCB document |
 | `footprint_graphic` | `kind`, `layer`, `points`, `width`, `filled` | PCB document |
-| `track` | `start`, `end`, `width`, `layer`, `net_id` | PCB document |
-| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id` | PCB document |
-| `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
+| `track` | `start`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
+| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
+| `via` | `position`, `diameter`, `drill`, `net_id`, `locked` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
 
 **The built model holds the board that was written** (change c0090). A build that writes a PCB document

@@ -410,6 +410,15 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
     although the record holds the second key; then save the document, reopen it and read the restrictions
     again. Expected: no message, the same two restrictions before and after the save
     (`H-A-PCBX-KEEPOUT`).
+12. **X12** Copper locks (change c0108; added on 2026-10-07; not run). Build a document whose model holds
+    one locked track, one locked arc and one locked via beside unlocked ones: the routed sample with those
+    three items set `locked=True` (`tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` builds it
+    in memory; write it to a folder outside the repository). Open it in Altium Designer 26, select each of
+    the three items and read the property "Locked"; select one unlocked track, arc and via too. Expected:
+    the three items locked, the others not, and no message on load (`H-A-PCB-CU-LOCK`). Then try to drag
+    the locked track: Altium should ask before it moves a locked primitive. Report one generic outcome per
+    item kind. Until this step is reported, the lock bit rests on a public reader's statement and on
+    Fenolite's own reader, and the row stays `INFERRED`.
 
 A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
 author report never moves an operation out of `experimental`.

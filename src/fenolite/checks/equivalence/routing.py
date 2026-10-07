@@ -29,7 +29,7 @@ from fenolite.checks.equivalence.model import EXACT, KINDS, Difference, LevelRes
 from fenolite.core.coords import Point, Size
 from fenolite.core.units import round_half_even_div
 from fenolite.geometry import Arc as GeoArc
-from fenolite.geometry import GeometryError, SpatialIndex, Thick, Transform, thick_bbox, thick_touch
+from fenolite.geometry import GeometryError, Thick, Transform, touch_groups
 from fenolite.model.board import Board, FootprintInstance, Pad
 from fenolite.model.design import Design
 
@@ -374,29 +374,8 @@ class _Copper:
 
 def _joined(items: Sequence[_Item]) -> list[int]:
     """The piece of each item, as the index of one item of it: two items of one net are joined when two of
-    their shapes on one layer touch. The result does not depend on the order of the pairs."""
-    parent = list(range(len(items)))
-
-    def find(index: int) -> int:
-        while parent[index] != index:
-            parent[index] = parent[parent[index]]
-            index = parent[index]
-        return index
-
-    layers: dict[str, list[tuple[int, Thick]]] = defaultdict(list)
-    for index, item in enumerate(items):
-        for layer, shape in item.shapes:
-            layers[layer].append((index, shape))
-    for shapes in layers.values():
-        tree = SpatialIndex[int].build((thick_bbox(shape), index) for index, shape in shapes)
-        for p, q in tree.pairs():
-            (first, one), (second, other) = shapes[p], shapes[q]
-            if items[first].net != items[second].net:
-                continue
-            root_a, root_b = find(first), find(second)
-            if root_a != root_b and thick_touch(one, other):
-                parent[max(root_a, root_b)] = min(root_a, root_b)
-    return [find(index) for index in range(len(items))]
+    their shapes on one layer touch (``geometry.touch_groups``, keyed by net and layer)."""
+    return touch_groups([[((item.net, layer), shape) for layer, shape in item.shapes] for item in items])
 
 
 def _piece(items: Sequence[_Item]) -> Piece:

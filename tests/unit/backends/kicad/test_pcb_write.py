@@ -297,8 +297,12 @@ def test_created_track_in_canonical_order() -> None:
         design, circuit=Circuit(nets=(net,)), board=dataclasses.replace(design.board, tracks=(track,))
     )
     (segment,) = parse(write_board(design, target=10).text).nodes("segment")
-    assert heads(segment) == list(CANONICAL_ORDER["segment"])
+    assert heads(segment) == [name for name in CANONICAL_ORDER["segment"] if name != "locked"]
     assert segment.find("net") == parse('(net "GND")')
+    locked = dataclasses.replace(design, board=dataclasses.replace(
+        design.board, tracks=(dataclasses.replace(track, locked=True),)))  # fmt: skip
+    (segment,) = parse(write_board(locked, target=10).text).nodes("segment")
+    assert heads(segment) == list(CANONICAL_ORDER["segment"])
 
 
 def test_read_entity_keeps_its_order() -> None:

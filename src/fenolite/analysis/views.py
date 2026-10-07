@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from math import isqrt
 
+from fenolite.analysis.connectivity import ConnectivityReport, OpenConnection, connectivity
 from fenolite.analysis.copper import ARC_TOL_NM, copper_layers
 from fenolite.backends.base import BoardPad, PlacedExtent
 from fenolite.core.coords import Point
@@ -170,7 +171,8 @@ def _pad_where(pad: BoardPad) -> str:
 @dataclass(frozen=True, slots=True)
 class NetRow:
     """One net of the list: its class, the counts of its pads, tracks (arcs included), vias and zones,
-    and the summed centre-line length of its tracks and arcs."""
+    the summed centre-line length of its tracks and arcs, and the numbers of its copper islands and of
+    its open connections (``analysis.connectivity``, change c0108)."""
 
     name: str
     netclass: str | None
@@ -179,6 +181,8 @@ class NetRow:
     vias: int
     zones: int
     length: int
+    islands: int = 0
+    open: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,7 +219,8 @@ class NetZone:
 
 @dataclass(frozen=True, slots=True)
 class NetView:
-    """One net: its class, pads, copper per layer, vias, zones and the box of its pads and copper."""
+    """One net: its class, pads, copper per layer, vias, zones and the box of its pads and copper; its
+    copper islands, the islands of fills alone and its open connections (change c0108)."""
 
     name: str
     netclass: str | None
@@ -224,16 +229,24 @@ class NetView:
     vias: tuple[NetVia, ...]
     zones: tuple[NetZone, ...]
     box: BBox | None
+    islands: int = 0
+    fill_islands: int = 0
+    open: tuple[OpenConnection, ...] = ()
 
 
 def _classes(design: Design) -> dict[str, str]:
     return {c.id: c.name for c in design.circuit.netclasses}
 
 
-def net_list(design: Design) -> tuple[NetRow, ...]:
-    """One row per net of the circuit, sorted by name."""
+def net_list(
+    design: Design, *, pads: Sequence[BoardPad] | None = None, report: ConnectivityReport | None = None
+) -> tuple[NetRow, ...]:
+    """One row per net of the circuit, sorted by name. ``islands`` and ``open`` come from ``report``, or
+    from the open connections computed with ``pads`` when it is not given."""
     board = design.board or Board(id="brd_none")
     classes = _classes(design)
+    found = report if report is not None else connectivity(design, pads=pads)
+    joined = {row.name: row for row in found.nets}
     rows: list[NetRow] = []
     for net in design.circuit.nets:
         tracks = [t for t in board.tracks if t.net_id == net.id]
@@ -247,16 +260,23 @@ def net_list(design: Design) -> tuple[NetRow, ...]:
                 vias=sum(1 for v in board.vias if v.net_id == net.id),
                 zones=sum(1 for z in board.zones if z.net_id == net.id),
                 length=sum(_distance(t.start, t.end) for t in tracks) + sum(arc_length(a) for a in arcs),
+                islands=joined[net.name].islands if net.name in joined else 0,
+                open=len(joined[net.name].open) if net.name in joined else 0,
             )
         )
     return tuple(sorted(rows, key=lambda row: row.name))
 
 
-def net_view(design: Design, name: str, *, pads: Sequence[BoardPad]) -> NetView:
-    """The net called ``name``; ``KeyError`` for a name that the circuit does not hold."""
+def net_view(
+    design: Design, name: str, *, pads: Sequence[BoardPad], report: ConnectivityReport | None = None
+) -> NetView:
+    """The net called ``name``; ``KeyError`` for a name that the circuit does not hold. The islands and
+    the open connections come from ``report``, or are computed with ``pads`` when it is not given."""
     net = design.nets_by_name.get(name)
     if net is None:
         raise KeyError(name)
+    found = report if report is not None else connectivity(design, pads=pads, nets=(name,))
+    joined = found.net(name)
     board = design.board or Board(id="brd_none")
     own = sorted((p for p in pads if p.net_id == net.id), key=lambda p: (_pad_where(p), p.pad_id))
     tracks = [t for t in board.tracks if t.net_id == net.id]
@@ -293,6 +313,9 @@ def net_view(design: Design, name: str, *, pads: Sequence[BoardPad]) -> NetView:
             for z in sorted((z for z in board.zones if z.net_id == net.id), key=lambda z: (z.name, z.layers))
         ),
         box=_union(boxes),
+        islands=joined.islands if joined is not None else 0,
+        fill_islands=joined.fill_islands if joined is not None else 0,
+        open=joined.open if joined is not None else (),
     )
 
 

@@ -195,6 +195,7 @@ EVIDENCE = Evidence(
         "H-A-ECO-SHEETCLASS",
         "H-A-PCB-CU-CLASS",
         "H-A-PCB-CU-KICAD",
+        "H-A-PCB-CU-LOCK",
         "H-A-PCB-CU-PLANE",
         "H-A-PCB-CU-REPOUR",
         "H-A-PCB-CU-ROUNDTRIP",
@@ -912,7 +913,7 @@ def routed_tracks(tracks: Sequence[Track], copper: _Copper) -> list[bytes]:
             raise ValueError(f"{track.id}: the track has zero length")
         net = copper.net(track.id, track.net_id)
         a, b = _units(copper.frame(track.start)), _units(copper.frame(track.end))
-        out.append(rec.track_record(layer, a, b, rec.to_units(track.width), net=net))
+        out.append(rec.track_record(layer, a, b, rec.to_units(track.width), net=net, locked=track.locked))
     return out
 
 
@@ -939,7 +940,7 @@ def routed_arcs(
                 geometry = rec.arc_from_points(*(copper.frame(p) for p in (arc.start, arc.mid, arc.end)))
             except ValueError as error:
                 raise ValueError(f"{arc.id}: {error}") from error
-        out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net))
+        out.append(rec.arc_record(layer, geometry, rec.to_units(arc.width), net=net, locked=arc.locked))
     return out
 
 
@@ -992,6 +993,7 @@ def via_records(vias: Sequence[Via], copper: _Copper, *, allow_full_drill: bool 
                 net=net,
                 start=copper.layers[upper],
                 end=copper.layers[lower],
+                locked=via.locked,
             )
         )
     return out

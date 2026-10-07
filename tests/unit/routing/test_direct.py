@@ -54,5 +54,6 @@ def test_skips_three_pad_or_layer_disjoint_nets_and_is_deterministic() -> None:
 def test_authored_two_pad_board_is_an_unrouted_candidate() -> None:
     path = Path(__file__).resolve().parents[2] / "data/kicad/routing/two_pads.kicad_pcb"
     design = read_board(path)
-    assert unrouted(design) == ("ROUTE_ME",)
+    assert unrouted(design, ("ROUTE_ME",)) == ("ROUTE_ME",)
+    assert unrouted(design, ()) == ()
     assert len(design.by_net["ROUTE_ME"]) == 2

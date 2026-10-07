@@ -209,26 +209,32 @@ class FootprintInstance(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Track(Entity):
+    """A straight track. ``locked`` marks copper that tools must not move or remove."""
+
     start: Point
     end: Point
     width: Nm
     layer: str
     net_id: str | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class Arc(Entity):
+    """An arc track through ``mid``. ``locked`` as for a track."""
+
     start: Point
     mid: Point
     end: Point
     width: Nm
     layer: str
     net_id: str | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class Via(Entity):
-    """A via between ``layers`` (the two outermost copper layers it spans)."""
+    """A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track."""
 
     position: Point
     diameter: Nm
@@ -236,6 +242,7 @@ class Via(Entity):
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
     via_type: ViaType = "through"
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)

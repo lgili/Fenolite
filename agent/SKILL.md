@@ -72,6 +72,10 @@ What each step is for:
   yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 or newer and the Freerouting jar:
   `fenolite fetch freerouting --confirm` installs it once (or name your own with `FENOLITE_FREEROUTING_JAR`);
   `fenolite capabilities` lists the other routers.
+- `route` closes the open nets: it selects every net that still has an open connection, also one that
+  already holds copper. `result.unrouted` lists the nets that are still open after the run and
+  `result.open` their connections; an empty list is not yet a proof, which is the job of `check`. `--router freerouting` needs Java 25 or newer and the Freerouting jar
+  named by `FENOLITE_FREEROUTING_JAR`; `fenolite capabilities` lists the other routers.
 - `fill` refills the copper zones through `kicad-cli` 10. A board without zones needs no fill, and the
   step changes nothing there.
 - `check` is the judge: the model, the electrical rules, the copper clearances, KiCad's own design-rule
@@ -94,6 +98,14 @@ script as they are. It reads the board and runs no tool.
   entries per type, so repair the reported findings and check again to see the next ones.
 - **`route` lists nets under `unrouted`.** Give the router more room (move parts with `place --move`),
   or script the copper for those nets in the design file and build again.
+  two items of `where`: run `route` again (open nets are selected again, and the copper already there
+  stays; add `--rip` only when that copper is in the way), or add the copper in the script. `kicad.drc.*` codes carry KiCad's own message. `netlist.assignment-differs`
+  means a pad is on another net than the script says.
+- **`route` lists nets under `unrouted`.** Run `route` again: the copper of the first run is kept and
+  the second run completes those nets from it. If they stay open, give the router more room (move parts
+  with `place --move`), or script the copper for those nets in the design file and build again.
+  `fenolite net BOARD NAME --json` shows which connections of a net are open, without running a tool;
+  `--require-complete` makes `route` exit 5 and write nothing when a net stays open.
 - **`build` exits 5 with `copper.short` or `copper.clearance`.** Copper on the board now collides with
   the design: a part was moved onto a track or onto an old zone fill. Refill (`fenolite fill`) or move
   the part, then build again.

@@ -185,6 +185,14 @@ The script owns its copper. `merge_copper(existing, built)` decides what stays o
 | no copper uuid, but equal to a script item (an arc: the same ends in either order and the same mid point) | removed; `kicad.copper.duplicate` (info) |
 | anything else | kept, and it then follows its net as any board copper does |
 
+**Locks (change c0108).** An intent with `locked=True` gives each track, arc and via it creates
+`locked=True`, written as `(locked yes)`; an intent without the attribute is unlocked. The lock is one of
+the fields the merge compares, so script copper whose lock was changed in KiCad is regenerated with one
+`kicad.copper.regenerated` info. It is not part of what makes two items the same copper: a locked copy of
+a script track is still a duplicate. This is the copper lock of a track or a via, not the placement lock
+of a part (`Part.place(..., locked=True)`), which is written on the footprint. `fenolite route --rip`
+keeps script copper whether it is locked or not (`docs/routing.md`).
+
 So a footprint moved in KiCad pulls its tracks along on the next build, removing an intent removes its
 copper, and copper drawn in KiCad stays. To keep a hand-edited version of a script track, remove the
 intent and redraw the track in KiCad, where it is board copper. Resolving twice changes nothing.

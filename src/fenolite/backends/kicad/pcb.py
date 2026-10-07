@@ -179,6 +179,7 @@ TRACK_FIELDS: Mapping[str, str] = MappingProxyType(
         "mid": "mid",
         "end": "end",
         "width": "width",
+        "locked": "locked",
         "layer": "layer",
         "net": "net_id",
         "uuid": "native_ids",
@@ -190,6 +191,7 @@ VIA_FIELDS: Mapping[str, str] = MappingProxyType(
         "size": "diameter",
         "drill": "drill",
         "layers": "layers",
+        "locked": "locked",
         "net": "net_id",
         "uuid": "native_ids",
     }
@@ -384,6 +386,11 @@ def _emit_board_pad(pad: Pad, rotation: Udeg, nets: _Nets) -> Items:
     return emit_pad(pad, nets.node(pad.net_id, pad=True), angle=angle)
 
 
+def _lock_items(locked: bool) -> list[Node | Atom]:
+    """``(locked yes)`` for a locked track, arc or via; nothing for an unlocked one (``H-K-LOCK-FORM``)."""
+    return [node("locked", Atom.symbol("yes"))] if locked else []
+
+
 def _emit_track(track: Track | Arc, nets: _Nets) -> Items:
     points: Items = {"start": [point_node("start", track.start)], "end": [point_node("end", track.end)]}
     if isinstance(track, Arc):
@@ -391,6 +398,7 @@ def _emit_track(track: Track | Arc, nets: _Nets) -> Items:
     return {
         **points,
         "width": [node("width", Atom.from_nm(track.width))],
+        "locked": _lock_items(track.locked),
         "layer": [node("layer", Atom.string(track.layer))],
         "net_id": _opt(nets.node(track.net_id)),
         "native_ids": uuid_items(track.native_ids),
@@ -404,6 +412,7 @@ def _emit_via(via: Via, nets: _Nets) -> Items:
         "diameter": [node("size", Atom.from_nm(via.diameter))],
         "drill": [node("drill", Atom.from_nm(via.drill))],
         "layers": [layers_node("layers", via.layers)],
+        "locked": _lock_items(via.locked),
         "net_id": _opt(nets.node(via.net_id)),
         "native_ids": uuid_items(via.native_ids),
     }
@@ -1248,11 +1257,14 @@ class _Reader:
         width: int | None = None
         layer: str | None = None
         net_id: str | None = None
+        locked = False
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
             head = child.name
-            if head in ("start", "mid", "end"):
+            if head == "locked":
+                locked = symbols(child) != ["no"]
+            elif head in ("start", "mid", "end"):
                 points[head] = ctx.point(child, child_loc)
             elif head == "width":
                 width = self.nm_of(child, child_loc)
@@ -1281,6 +1293,7 @@ class _Reader:
                 width=width,
                 layer=layer,
                 net_id=net_id,
+                locked=locked,
             )
         else:
             ident, native_ids = self.ids.of("trk", "segment", item)
@@ -1293,6 +1306,7 @@ class _Reader:
                 width=width,
                 layer=layer,
                 net_id=net_id,
+                locked=locked,
             )
         self.check(item, loc, slots, _emit_track(entity, self.emit_nets), chain)
         return dataclasses.replace(entity, ext={"kicad": slotlib.to_ext(slots)})
@@ -1313,12 +1327,15 @@ class _Reader:
         drill: int | None = None
         layers: tuple[str, ...] = ()
         net_id: str | None = None
+        locked = False
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
             head = child.name
             if head == "at":
                 position = ctx.point(child, child_loc)
+            elif head == "locked":
+                locked = symbols(child) != ["no"]
             elif head == "size":
                 diameter = self.nm_of(child, child_loc)
             elif head == "drill":
@@ -1343,6 +1360,7 @@ class _Reader:
             layers=layers,
             net_id=net_id,
             via_type=via_type,
+            locked=locked,
         )
         self.check(item, loc, slots, _emit_via(via, self.emit_nets), chain)
         return dataclasses.replace(via, ext={"kicad": slotlib.to_ext(slots)})
@@ -1760,9 +1778,9 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
         "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "zone_connect", "uuid"),
-        "segment": ("start", "end", "width", "layer", "net", "uuid"),
-        "arc": ("start", "mid", "end", "width", "layer", "net", "uuid"),
-        "via": (*VIA_POSITIONAL, "at", "size", "drill", "layers", "net", "uuid"),
+        "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
+        "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
+        "via": (*VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", "net", "uuid"),
         "zone": (
             "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
             "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
@@ -2564,6 +2582,13 @@ class _Writer:
                 file_properties[key] = value
             return "properties"
         if isinstance(entity, FootprintInstance) and name == "locked":
+            if (symbols(child) != ["no"]) != entity.locked:
+                self.read_only(
+                    "locked", _locator(entity), f"{dumps(child, style='compact')} is kept as written"
+                )
+            return "locked"
+        if isinstance(entity, (Track, Arc, Via)) and name == "locked":
+            # a lock that Fenolite would not write this way (``(locked no)``) is kept as written
             if (symbols(child) != ["no"]) != entity.locked:
                 self.read_only(
                     "locked", _locator(entity), f"{dumps(child, style='compact')} is kept as written"

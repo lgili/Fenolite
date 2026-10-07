@@ -26,9 +26,64 @@ the machine; `fenolite route` requires explicit permission for such a router. Ro
 
 Discover routers with `fenolite capabilities --json`; `fenolite doctor --json` checks their local
 availability. Route with `fenolite route BOARD --router NAME --dry-run`, inspect the plan, then rerun
-with `--confirm` to write. `--nets` may be repeated with glob patterns; `--rip` permits the selected
-unlocked copper to be replaced. Routed files from external tools are read for copper only, then
-Fenolite's writer produces the board.
+with `--confirm` to write. `--nets` may be repeated with glob patterns. Routed files from external
+tools are read for copper only, then Fenolite's writer produces the board.
+
+## Open nets, second passes and locks
+
+**Selection.** `route` takes every net that matches `--nets`, has two or more pads and still has an
+**open connection** on the board. Fenolite computes the open connections from the board itself
+(`docs/analyses.md`, "Open connections"): copper that touches is joined, and what stays apart is open.
+A net that already holds copper is therefore routed when it is not complete: a stub written by the
+script, the tracks of an earlier run, a fan-out. A net whose pads are all joined is never given to a
+router. A net that a zone carries is left out unless `--include-zone-nets` is given.
+
+**The verdict.** After the router's copper is merged, Fenolite computes the open connections of the
+selected nets again. `result.routed` holds the nets that are now closed and `result.unrouted` the others,
+whatever the router said; `result.open` lists the connections that are still open, each with its two
+ends and its length, and `result.connections` gives the counts before and after. When a router called a
+net routed that is still open, the `route.unrouted` message says so.
+
+**Partial copper is kept.** Copper that the router returns for a net that stays open is merged and
+written, with one `route.partial` (info) per net. The second pass starts from it:
+
+```
+fenolite route BOARD --router freerouting --confirm      # some nets stay open
+fenolite route BOARD --router freerouting --confirm      # selects only those nets again
+```
+
+Run `route` again until `result.unrouted` is empty, or give the router more room first. Use `--rip`
+only when the copper of a net is in the way.
+
+One case needs it with Freerouting 2.4.1: a pad whose nearest copper of its net is the **middle** of one
+track. The router joins new copper to a pad or to the end of an existing wire and does not split a wire it
+must keep, so that connection stays open on every pass (recorded in
+[routing evidence](evidence/routing.md), "Routers on nets that hold copper"). `route --rip --nets NAME`
+routes that net again from its pads; script copper can end a track where the branch should leave.
+
+**`--require-complete`.** With this option a run that leaves a selected net open adds one
+`route.incomplete` (error), writes nothing and exits 5. The reply still lists `result.open`. Run without
+the option to keep the partial copper.
+
+**Locks and `--rip`.** `--rip` removes the tracks, arcs and vias of the matching nets before the router
+runs, but for two kinds of copper, which it keeps:
+
+- copper that is **locked**: a track, an arc or a via written `(locked yes)` in the board, locked in
+  KiCad's editor or by `locked=True` in the script;
+- **script copper**: what `design.track`, `design.via` and `design.stitch` created, locked or not. The
+  next build would create it again, over the routed copper.
+
+`result.ripped` is the number of items removed, and `result.rip_kept` counts what was kept (`locked`,
+`script`). To have such copper gone, unlock it in KiCad or remove the intent from the script. A rip that
+is followed by no new copper is not written.
+
+**Two rules for plugin authors.**
+
+1. A router MAY return copper for a net that it lists in `unrouted`. `route` merges every valid item of
+   a result, and it never removes copper because its net stays open. The `routed` and `unrouted` of a
+   `RoutingResult` are the router's own claim; the verdict is the board's.
+2. A router is never given a net without an open connection. A job still carries every pad of its nets
+   and the design with the copper already on the board: join that copper, do not route beside it.
 
 ## Freerouting
 
@@ -91,8 +146,9 @@ never uses its hosted API. A run of the pinned image with the network disabled r
 
 **Net classes and open connections.** `fenolite route` reads the net classes from the project file beside
 the board (a KiCad board holds none), so each net is routed with the track width, clearance and via size of
-its own class. A net that Freerouting reports with unrouted connections is listed under `unrouted` even
-when it has copper; run `fenolite check` afterwards, where KiCad's DRC is the judge.
+its own class. Which nets are `routed` and which `unrouted` is read from the board after the merge
+("Open nets, second passes and locks"), not from Freerouting's output; run `fenolite check` afterwards,
+where KiCad's DRC is the judge.
 
 `--router-path docker:<image>` runs a container image of Freerouting instead of a local
 jar, with the run folder mounted and `--network none`; Fenolite never pulls the image.

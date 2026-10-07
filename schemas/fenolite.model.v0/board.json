@@ -138,6 +138,7 @@
   ],
   "$defs": {
     "Arc": {
+      "description": "An arc track through ``mid``. ``locked`` as for a track.",
       "type": "object",
       "properties": {
         "id": {
@@ -190,6 +191,9 @@
               "type": "null"
             }
           ]
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1349,6 +1353,7 @@
       "additionalProperties": false
     },
     "Track": {
+      "description": "A straight track. ``locked`` marks copper that tools must not move or remove.",
       "type": "object",
       "properties": {
         "id": {
@@ -1398,6 +1403,9 @@
               "type": "null"
             }
           ]
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1410,7 +1418,7 @@
       ]
     },
     "Via": {
-      "description": "A via between ``layers`` (the two outermost copper layers it spans).",
+      "description": "A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.",
       "type": "object",
       "properties": {
         "id": {
@@ -1471,6 +1479,9 @@
             "buried",
             "micro"
           ]
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,

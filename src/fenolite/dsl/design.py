@@ -644,14 +644,21 @@ class Design(Container):
     # -- copper intents (resolved by the build after placement; ``docs/dsl.md``, "Copper")
 
     def track(
-        self, key: str, *path: object, layer: str = "F.Cu", width: object = None, net: Net | None = None
+        self,
+        key: str,
+        *path: object,
+        layer: str = "F.Cu",
+        width: object = None,
+        net: Net | None = None,
+        locked: bool = False,
     ) -> None:
         """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()``,
         ``arc_to(…)`` bends and ``via_step(…)`` layer changes. The net comes from the pads; the width from
-        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds."""
+        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds.
+        ``locked=True`` writes the copper locked (the copper lock, not the placement lock of a part)."""
         from fenolite.dsl import intents
 
-        intents.record_track(self, key, path, layer, width, net)
+        intents.record_track(self, key, path, layer, width, net, locked)
 
     def via(
         self,
@@ -664,13 +671,14 @@ class Design(Container):
         drill: object = None,
         kind: str = "through",
         layers: object = None,
+        locked: bool = False,
     ) -> None:
         """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
         ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
-        copper layers in ``layers``."""
+        copper layers in ``layers``. ``locked=True`` writes the via locked."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked)
 
     def stitch(
         self,
@@ -685,9 +693,11 @@ class Design(Container):
         drill: object = None,
         clearance: object = None,
         margin: object = None,
+        locked: bool = False,
     ) -> None:
         """Through vias of ``net`` every ``pitch`` along a polyline, or on a grid inside a region (the grid
-        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper."""
+        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper.
+        ``locked=True`` writes the vias locked."""
         from fenolite.dsl import intents
 
         intents.record_stitch(
@@ -702,6 +712,7 @@ class Design(Container):
             drill=drill,
             clearance=clearance,
             margin=margin,
+            locked=locked,
         )
 
     # -- registration (called by add(), connect() and netclass())
