@@ -39,6 +39,7 @@ from fenolite.backends.kicad import (
     wks,
 )
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
     MANDATORY_FIELDS,
@@ -68,7 +69,7 @@ from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Pad, Side
+from fenolite.model.board import FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
@@ -565,12 +566,18 @@ def build_design(
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
     schematic_layout: Literal["readable", "grid"] = "readable",
     lock_stackup: bool = False,
+    lock_via_protection: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
     ``Board.stackup`` of ``design`` is the script's stack-up. Against an existing board it is decided by
     ``stackup.merge_stackup``: the board's wins unless ``lock_stackup`` is set (``docs/lens.md``,
     "Stack-up across rebuilds"); ``summary["stackup"]`` says whose stack-up the written board holds.
+
+    ``Board.via_protection`` of ``design`` is the script's default via protection. Against an existing
+    board it is decided by ``via_protection.merge_default``: the board's wins unless ``lock_via_protection``
+    is set (``docs/lens.md``, "Via protection across rebuilds"). A default of covering, plugging, capping
+    or filling that vias take from the board only gives ``kicad.via.protection-not-exported``.
 
     ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
@@ -785,6 +792,21 @@ def build_design(
                 )
         elif scripted is not None:
             stack_source = "script"
+    scripted_default = built.board.via_protection if built.board is not None else None
+    if target_design.board is not None:
+        if board_read:
+            decided_default = vialib.merge_default(
+                scripted_default, target_design.board.via_protection, locked=lock_via_protection
+            )
+            issues += decided_default.issues
+            if decided_default.default != target_design.board.via_protection:
+                target_design = dataclasses.replace(
+                    target_design,
+                    board=dataclasses.replace(target_design.board, via_protection=decided_default.default),
+                )
+        unexported = vialib.not_exported(target_design)
+        if unexported is not None:
+            issues.append(unexported)
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -951,6 +973,10 @@ def build_design(
     written_stack = target_design.board.stackup if target_design.board is not None else None
     if written_stack is not None:
         evidence_items.append(stacklib.EVIDENCE)
+    if scripted_default is not None or any(
+        via.protection != ViaProtection() for via in (built.board.vias if built.board is not None else ())
+    ):
+        evidence_items.append(vialib.EVIDENCE)  # the script states a via protection
     if generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);

@@ -144,7 +144,7 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 | `property` (a field, c0030) | name, `at` → `position` and `rotation`, `layer`, `hide` → `visible`, `uuid`, `effects` with `font` `size` and `thickness` and `justify` → `size`, `thickness`, `h_justify`, `v_justify`, `mirrored` | the value atom → `Component.ref`, `value`, `properties`; an `effects` the emitter does not reproduce (`bold`, a font `face`) | `unlocked`, a bare `hide` atom, unknown heads |
 | `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `locked` → `locked` (c0108), `layer`, `net`, `uuid` | — | unknown heads; a `locked` child that is not `(locked yes)` |
-| `via` | type atom, `at`, `size`, `drill`, `layers`, `locked` → `locked` (c0108), `net`, `uuid` | — | `free`, `remove_unused_layers`, `tenting`, `padstack`, `teardrops`; a `locked` child that is not `(locked yes)` |
+| `via` | type atom, `at`, `size`, `drill`, `layers`, `locked` → `locked` (c0108), `net`, `uuid`, and the protection children `tenting`, `capping`, `covering`, `plugging`, `filling` → `protection` ("Via protection") | a protection child in a form that the board's major does not write ("Via protection") | `free`, `remove_unused_layers`, `padstack`, `teardrops`; a `locked` child that is not `(locked yes)` |
 | `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `locked`, `connect_pads`, `min_thickness` and `fill` |
 | `filled_polygon` | `layer`, `island`, points-only `pts` | — | unknown heads |
 | `gr_*` | as `fp_*` in footprint libraries (`libraries.md`) | `stroke` (width) | hatch fills, `net`, `locked` |
@@ -376,6 +376,87 @@ slot. Measurements and the corpus census: `docs/evidence/kicad-stackup.md`.
 | `kicad.board.stackup-thickness` | warning | the `thickness` of `general` differs from the sum of the rows |
 | `kicad.board.stackup-invalid` | error | on write: a stack-up with a `model.stackup-*` finding, or whose copper entries are not the table's copper layers in order; `allow_lossy` does not drop it |
 | `kicad.board.stackup-rewritten` | info | on write: the replaced node of a read board held children that the model does not hold |
+
+## Via protection (c0112)
+
+A via may be tented, covered, plugged, capped and filled. `fenolite.backends.kicad.via_protection` reads
+and writes the protection children of a via into `Via.protection` (`project_via`, `emit_via`), projects the
+board's default from `setup` into `Board.via_protection` (`project_setup`) and rewrites it
+(`setup_children`, `rewrite_setup`), and decides the default across rebuilds (`merge_default`); `setup`
+itself stays an opaque root slot. Measurements: the design of change c0112 (2026-10-05), repeated by the
+probes `via-prot-*` of `tests/kicad/vias/` on 2026-10-07; corpus census:
+`docs/evidence/kicad-board-read.md`, "Via protection".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A via of a KiCad-written board of the 10.0 format holds, after `layers` (and after `free`), the children `(tenting (front V) (back V))`, `(capping V)`, `(covering (front V) (back V))`, `(plugging (front V) (back V))` and `(filling V)`, in that order, V being `yes`, `no` or `none`; `setup` holds `tenting`, `covering`, `plugging`, `capping` and `filling`, in that order after `allow_soldermask_bridges_in_footprints`, with `yes` or `no` | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| In the 21 native demo boards, 444 vias of one board of format 20250513 hold the five children with `none` values only, 6 vias of one 20260206 board hold `(capping no) (covering (front no) (back no)) (plugging (front no) (back no)) (filling no)` and no `tenting`, and 2 vias of one 9.0 board hold `(tenting front back)`; `setup` holds `(tenting front back)` on the 19 boards of the 9.0 format and the five 10.0 children (tented on both sides, the others `no`) on 2 | S-0058 | CORPUS-VERIFIED | H-K-PCB-READ |
+| `none` on a via means the board's value. A re-save by 10.0.6 keeps a child that Fenolite writes: a child is written when one of its values is not `none`, a two-sided child with both sides (`(tenting (front no) (back none))` stays as written), in the order above; `setup` keeps its five children | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-FORMS |
+| A re-save by 10.0.6 gives a `setup` without protection children `(tenting (front yes) (back yes)) (covering (front no) (back no)) (plugging (front no) (back no)) (capping no) (filling no)`: the default of a board that states none is tented on both sides and nothing else | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-FORMS |
+| The mask plot (`pcb export gerbers -l F.Mask,B.Mask`) holds a flash at a via's centre on a side exactly when the via's effective tenting there is false: the via's own value, else the board's default, else tented. Covering, plugging, capping and filling open and close nothing | S-0020, S-0029, S-0125 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIAPROT-MASK |
+| In a board of the 9.0 format a via holds at most `(tenting …)` with the atoms `front`, `back`, both, or `none`; 9.0.9 plots the named sides tented and the others open (`none` and a child without an atom: both open), a via without the child follows the board, and `setup` is read the same way (no child, or `front back`: both tented) | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-VIAPROT-NINE |
+| 9.0.9 does not load a board that holds a 10.0 protection form: `pcb drc` exits 3 on a 9.0 board whose via holds `(plugging (front yes) (back yes))` | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-VIAPROT-NINE |
+| The spelling KiCad 9 itself writes for a via tented on neither side is not observed: 9.0.9 has no headless re-save (`pcb upgrade` does not exist there). `(tenting none)` loads and plots as meant on 9.0.9 | S-0029, S-0037 | INFERRED | H-K-VIAPROT-NINE |
+| 10.0.6 reads a 9.0 via child with the sides it does not name as `none`, in a 9.0 and in a 10.0 file: under a default that tents both sides it plots `(tenting front)`, `(tenting back)`, `(tenting none)` and `(tenting)` tented on both sides, where 9.0.9 leaves the unnamed sides open. It reads the 9.0 `setup` forms as 9.0.9 does | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-UPGRADE |
+| On 10.0.6, `pcb export drill --format gerber --generate-tenting` writes, beside the drill file, one Gerber file per feature and side that some via carries (`-tenting-front`, `-tenting-back`, `-covering-front`, `-covering-back`, `-plugging-front`, `-plugging-back`, `-filling-front-back`, `-capping-front-back`), and `pcb export ipc2581` one layer per feature and side (`COATINGNONCOND` for tenting and covering, `HOLEFILL` for plugging and filling, `COATINGCOND` for capping). Each holds exactly the vias whose own value is `yes` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-OUTPUTS |
+| A board default of `yes` for all five `setup` children adds no via to those files and layers: on 10.0.6 a default of covering, plugging, capping or filling reaches no fabrication file | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-OUTPUTS |
+
+- **The model.** `ViaProtection` holds eight values, each `True`, `False` or `None`: `tenting_front`,
+  `tenting_back`, `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping`,
+  `filling`. On a via, `None` is KiCad's `none`: the board's value. `KICAD_DEFAULT` is tented on both
+  sides and nothing else; `effective_default(default)` fills the `None` fields of a board default with it,
+  and `effective(protection, default)` gives the eight booleans of one via. Effective values are computed,
+  never stored.
+- **The meaning is the file's major.** A board of the 9.0 format is read as 9.0.9 reads it: the named
+  sides of a `tenting` child are `True` and the others `False`; no child is `None`. A board of the 10.0
+  format is read as 10.0.6 reads it; a 9.0 child in it gives `True` for the named sides and `None` for
+  the others. In `setup`, `tenting` is read in either form on boards of either major (a 9.0 child: named
+  sides `True`, the others `False`); covering, plugging, capping and filling are read on 10.0 boards.
+- **Slots.** Each protection child is a modelled slot of its own name. A child that the emitter for the
+  board's major does not reproduce tree-equal (a 9.0 child in a 10.0 board, a 10.0 child in a 9.0 board,
+  `(tenting)`, a two-sided child with one side, a child with an unknown value) stays an opaque projected
+  slot with `kicad.board.kept-opaque`; a child that no form reads leaves its fields `None`. A 10.0 child
+  whose values are all `none` is written again by the emitter: the via's `kicad` bag names such children
+  in the pair `protection_none` (heads separated by spaces), so RT1 holds without an opaque slot.
+- **Writing for target 10.** A child is written when one of its values is not `None`, with both sides, in
+  KiCad's order between `locked` (c0108) and `net`. A re-save by 10.0.6 orders the children of a via
+  `layers`, `remove_unused_layers`, `keep_end_layers`, `locked`, `free`, `zone_layer_connections`, the
+  protection children, `net`, `uuid`; `free` and `zone_layer_connections` stay opaque, and a protection
+  child added to a read via that holds them is placed after them (`pcb.OPAQUE_BEFORE`; probe
+  `via-prot-order`, `equal` on 10.0.6).
+- **Writing for target 9.** Only `tenting`: `(tenting front back)`, `(tenting front)`, `(tenting back)` or
+  `(tenting none)`; nothing when both sides are `None`. A side that is `None` beside a stated one takes its
+  value from the effective board default, so that 9.0.9 plots what the model means. A covering, plugging,
+  capping or filling of `True`, on a via or in the board default, is refused with
+  `kicad.board.via-protection-too-new`; `False` and `None` of those fields write nothing.
+- **A 9.0 board written for target 10** gets the 10.0 form of 9.0.9's meaning (`(tenting front)` becomes
+  `(tenting (front yes) (back no))`), a child kept as written included (`(tenting)` becomes
+  `(tenting (front no) (back no))`): copied as it is, KiCad 10 would tent the unnamed sides. Opening a
+  target-9 board in KiCad 10 itself changes the mask of vias whose child names one side or none: that is
+  KiCad's conversion, not the written file.
+- **The default.** A created board whose model holds a default writes the children right after
+  `pad_to_mask_clearance`: the five 10.0 children with the effective values, or the 9.0 `tenting` child. A
+  read board keeps its `setup` fragment while the model's default equals the projection in effect; a
+  changed default rewrites the protection children in place (missing ones after the last protection child,
+  else after `allow_soldermask_bridges_in_footprints`, else after `pad_to_mask_clearance`, else first), a
+  default of `None` removes them, and every other child of `setup` stays at its place. The stack-up
+  projection (c0101) rewrites its own child of the same fragment.
+- **Projected via children.** A protection child kept as written keeps its fragment while the model agrees
+  with it and the target is the board's major; otherwise it is written from the model in the target's
+  form, or removed when its values are all `None`.
+- **Inventory.** The token inventory holds `tenting` (9), `tenting/front`, `tenting/back`, `covering`,
+  `plugging`, `capping` and `filling` (10). It holds no row for the `front` and `back` children of
+  `covering` and `plugging`: such a row cannot be exercised alone above KiCad 9 (its parent is itself a
+  row of KiCad 10), and the parent row already refuses the child for target 9.
+- **Not modelled.** The `tenting` child of a pad stays opaque. Nothing is checked: KiCad's DRC reports
+  nothing about protection.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.board.via-protection-too-new` | error | on write for target 9: a via, or the board default (`where` is `setup`), holds a covering, plugging, capping or filling of `True`; `allow_lossy` does not drop it |
+| `kicad.via.protection-forced` | warning | build: a locked `via_protection()` replaced a board default that differed from it |
+| `kicad.via.protection-overridden` | info | build: an unlocked `via_protection()` differs from the kept board default |
+| `kicad.via.protection-not-exported` | info | build: vias take a covering, plugging, capping or filling of `True` from the board default only, which 10.0.6 writes to no fabrication file |
 
 ## Issue codes
 

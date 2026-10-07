@@ -70,6 +70,7 @@ import _sheetcases
 import _stackbench
 import _triad
 import _vendorcases
+import _viabench
 import _zonebench
 import pytest
 from _boards import FIXTURE, created_board
@@ -305,6 +306,8 @@ def _probes() -> dict[str, Probe]:
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _stackbench.stackup_probes(runner).items():  # change c0101
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _viabench.via_probes(runner).items():  # change c0112
         probes[pid] = Probe(function, majors)
     return probes
 

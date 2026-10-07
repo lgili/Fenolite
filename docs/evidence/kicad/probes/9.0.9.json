@@ -435,6 +435,8 @@
     "vendor-hide-t9": "present",
     "vendor-props-t9": "equal",
     "vendor-shadow-t9": "present",
+    "via-prot-load-nine": "reject",
+    "via-prot-mask": "equal",
     "wks-accept-iso5457_generic-a3": "equal",
     "wks-accept-iso5457_generic-a4": "equal",
     "wks-accept-letter_generic-letter": "equal",

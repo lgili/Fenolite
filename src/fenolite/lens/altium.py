@@ -1740,6 +1740,8 @@ def build_altium(
                 unread_hint,
             )
         )
+    if spec is not None and any(any(pcbdoc.via_tenting(via, spec.via_protection)) for via in spec.vias):
+        evidence = Evidence.combine(evidence, pcbrecords.VIA_TENTING_EVIDENCE)  # a tenting flag is set
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
     relist = False

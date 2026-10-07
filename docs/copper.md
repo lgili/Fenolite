@@ -193,6 +193,13 @@ a script track is still a duplicate. This is the copper lock of a track or a via
 of a part (`Part.place(..., locked=True)`), which is written on the footprint. `fenolite route --rip`
 keeps script copper whether it is locked or not (`docs/routing.md`).
 
+A via's protection (`Via.protection`) is one of the compared fields (change c0112): every via an intent
+creates carries the `protection` of its via step, via intent or stitch intent (read by attribute, like
+`kind`; an intent without it gives `ViaProtection()`, and a value that is not a `ViaProtection` gives
+`kicad.copper.bad-intent`), so a protection set in KiCad on a script via is regenerated. A duplicate is
+still judged without it. The board default is not copied into script vias: a field of `None` follows
+`Board.via_protection`.
+
 So a footprint moved in KiCad pulls its tracks along on the next build, removing an intent removes its
 copper, and copper drawn in KiCad stays. To keep a hand-edited version of a script track, remove the
 intent and redraw the track in KiCad, where it is board copper. Resolving twice changes nothing.

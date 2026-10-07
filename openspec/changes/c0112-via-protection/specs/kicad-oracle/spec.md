@@ -8,7 +8,8 @@
 
 | probe | majors | outcome |
 |---|---|---|
-| `via-prot-resave` | 10 | `equal` when `pcb upgrade --force` of the written target-10 bench gives every via, and `setup`, the protection children Fenolite wrote; `different` otherwise |
+| `via-prot-resave` | 10 | `equal` when `pcb upgrade --force` of the written target-10 bench under each stated default (tented, open, front only) gives every via, matched by its position, and `setup`, the protection children Fenolite wrote; `different` otherwise. The bench without a default is left out: a re-save gives its `setup` the five children of KiCad's default |
+| `via-prot-order` | 10 | `equal` when `pcb upgrade --force` keeps the order of the children of every via of the order bench: a target-10 board whose vias hold `(free yes)`, `(locked yes) (free yes)`, `(locked yes)` or neither, read, each via given a tenting, a capping and a filling through the model, and written; `different` otherwise |
 | `via-prot-mask` | 9, 10 | `equal` when every via of the facts bench of the running major (9.0 forms on 9.0.9, 10.0 forms on 10.0.6) is open exactly where `via_protection.effective` of its read protection and the board's default is `False`; `different` otherwise |
 | `via-prot-load-nine` | 9 | `reject` when `pcb drc` gives exit 3 on a target-9 bench holding `(plugging (front yes) (back yes))` on one via; `load` otherwise |
 | `via-prot-upgrade` | 10 | `different` when 10.0.6 plots the target-9 facts bench under the default `front back` as tented on the unnamed sides of `front`, `back`, `none` and the empty child and agrees with 9.0.9 on the others; `equal` when it agrees everywhere; `inconclusive` otherwise |

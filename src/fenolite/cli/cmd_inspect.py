@@ -20,7 +20,7 @@ from typing import Any
 
 from fenolite.backends import registry
 from fenolite.backends.base import DocumentValidator, ReadResult
-from fenolite.backends.kicad import pcb, versions
+from fenolite.backends.kicad import pcb, versions, via_protection
 from fenolite.backends.kicad.sexpr import Node, parse_bytes
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, Result
@@ -262,6 +262,8 @@ def _document_summary(path: Path, backend: DocumentValidator, read: ReadResult) 
     else:
         version, counts, streams = _altium_facts(path, document.kind, read.content)
         result.update(format_version=version, counts=counts)
+        if document.kind == "altium_pcbdoc" and isinstance(read.content, Design):
+            result["via_protection"] = _altium_via_protection(read.content)
     result.update(
         opaque_count=verdict.opaque_count,
         model_findings=dict(sorted(findings.items())),
@@ -299,6 +301,23 @@ def _stackup(stackup: Stackup | None) -> dict[str, Any] | None:
         "finish": stackup.finish,
         "impedance_controlled": stackup.impedance_controlled,
         "layers": layers,
+    }
+
+
+def _altium_via_protection(design: Design) -> dict[str, Any]:
+    """``result.via_protection`` of an Altium PCB document (cli-contract, "Via protection in inspect"):
+    every via carries its own tenting flags, so no default applies; ``effective`` counts the set flags of
+    the imported vias, and nothing comes by default."""
+    vias = design.board.vias if design.board is not None else ()
+    zero = dict.fromkeys(via_protection.FIELDS, 0)
+    counted = {
+        name: sum(1 for via in vias if getattr(via.protection, name) is True)
+        for name in ("tenting_front", "tenting_back")
+    }
+    return {
+        "default": {"source": "altium", **dict.fromkeys(via_protection.FIELDS, False)},
+        "effective": {**zero, **counted},
+        "by_default": zero,
     }
 
 
@@ -352,6 +371,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         )
         if isinstance(content, Design) and content.board is not None and kind == versions.FileKind.BOARD:
             result["stackup"] = _stackup(content.board.stackup)
+            result["via_protection"] = via_protection.summary(content)
         issues = tuple(i for i in read.issues if not i.code.startswith("model."))
         evidence = read.evidence
     data = b"" if path.is_dir() else path.read_bytes()

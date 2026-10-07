@@ -192,6 +192,7 @@ def to_model(design: Design) -> ModelDesign:
             stackup=_stackup(design),
             sheet=_sheet(design),
             title_block=design.block,
+            via_protection=design.via_default[0] if design.via_default is not None else None,
         ),
         rules=RuleSet(id=key_id("rules"), rules=_rules(design)),
         manufacturing=Manifest(id=key_id("manifest")),
@@ -234,6 +235,11 @@ def _stackup(design: Design) -> Stackup | None:
 def stackup_locked(design: Design) -> bool:
     """The ``locked`` argument of ``Design.stackup()``; ``False`` without a call."""
     return design.stack is not None and design.stack.locked
+
+
+def via_protection_locked(design: Design) -> bool:
+    """The ``locked`` argument of ``Design.via_protection()``; ``False`` without a call."""
+    return design.via_default is not None and design.via_default[1]
 
 
 def _sheet(design: Design) -> SheetFrameRef | None:
@@ -394,4 +400,5 @@ __all__ = [
     "planes",
     "stackup_locked",
     "to_model",
+    "via_protection_locked",
 ]

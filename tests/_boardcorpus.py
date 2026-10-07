@@ -17,8 +17,9 @@ from _corpus import CorpusItem, manifest_items
 
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import versions
+from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.pcb import ZONE_SETTING_FIELDS, read_board
-from fenolite.backends.kicad.sexpr import AtomKind, Node, load, walk
+from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, load, walk
 from fenolite.core.errors import Issue
 from fenolite.geometry import Arc, GeometryError, Point, Segment
 from fenolite.geometry.errors import OPEN_CONTOUR
@@ -154,6 +155,42 @@ def _setting_slots(zone: Zone) -> dict[str, str]:
             if head in ZONE_SETTING_CHILDREN:
                 out[head] = "Opaque"
     return out
+
+
+def _protection_form(node: Node) -> str:
+    """The protection children of a via or of ``setup``, as written, joined; ``""`` without any."""
+    return " ".join(dumps(c, style="compact") for c in node.nodes() if c.name in vialib.FEATURE_FIELDS)
+
+
+def census_via_protection(entries: Iterable[Entry]) -> tuple[dict[str, dict[str, int]], list[str]]:
+    """Per origin: boards by the protection children of their ``setup``, vias, vias with protection
+    children by the form of those children, and the vias whose read protection holds a value (change
+    c0112). The second value lists the protection children that the reader kept as opaque slots, by board
+    id and locator."""
+    counts: dict[str, Counter[str]] = {}
+    problems: list[str] = []
+    for e in entries:
+        assert e.design.board is not None
+        found = counts.setdefault(e.origin, Counter())
+        setup = e.root.find("setup")
+        found[f"setup: {(_protection_form(setup) if setup is not None else '') or 'no child'}"] += 1
+        for node in e.root.nodes("via"):
+            found["vias"] += 1
+            form = _protection_form(node)
+            if form:
+                found["vias_with_children"] += 1
+                found[f"via: {form}"] += 1
+        for via in e.design.board.vias:
+            if via.protection != type(via.protection)():
+                found["vias_with_values"] += 1
+            for slot in slotlib.from_ext(via.ext["kicad"]):
+                if isinstance(slot, Opaque):
+                    child = slotlib.opaque_child(slot)
+                    if isinstance(child, Node) and child.name in vialib.FEATURE_FIELDS:
+                        found[f"opaque:{child.name}"] += 1
+                        locator = via.provenance.locator if via.provenance is not None else ""
+                        problems.append(f"{e.id} {locator} {child.name}")
+    return _per_origin(counts), problems
 
 
 def census_zone_settings(entries: Iterable[Entry]) -> tuple[dict[str, dict[str, int]], list[str]]:

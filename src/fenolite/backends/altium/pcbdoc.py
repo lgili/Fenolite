@@ -62,7 +62,20 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Arc, ComponentBody, Graphic, Hole, Keepout, Pad, Side, Text, Track, Via, Zone
+from fenolite.model.board import (
+    Arc,
+    ComponentBody,
+    Graphic,
+    Hole,
+    Keepout,
+    Pad,
+    Side,
+    Text,
+    Track,
+    Via,
+    ViaProtection,
+    Zone,
+)
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -203,6 +216,7 @@ EVIDENCE = Evidence(
         "H-A-PCB-CU-STACK",
         "H-A-PCB-CU-TRACK",
         "H-A-PCB-CU-VIA",
+        "H-A-PCB-CU-VIATENT",
         "H-A-PCB-CU-VIEWER",
         "H-A-PCB-DOC-BOTTOM",
         "H-A-PCB-DOC-LINK",
@@ -444,6 +458,9 @@ class PcbDocSpec:
     written with instead of the ones derived from its three points (change c0127): the record that an
     imported arc was read from, when the caller found that it still says the entity's points. Empty: every
     arc is derived from its points, as a build writes it."""
+    via_protection: ViaProtection | None = None
+    """The board's default via protection (change c0112): a tenting side that a via of ``vias`` leaves at
+    ``None`` takes its flag from here, and from nothing (a clear flag) when this states none either."""
     allow_full_drill: bool = False
     """``True`` writes a via whose drill equals its diameter (change c0128): a document that Altium saved
     can hold one (``pcb-copper.md``, "Via"), and the rewrite of a document that was read gives it back.
@@ -863,12 +880,20 @@ def drill_pairs(vias: Sequence[Via], copper: _Copper) -> tuple[tuple[int, int], 
     return tuple((copper.layers[upper], copper.layers[lower]) for upper, lower in ordered)
 
 
-def via_records(vias: Sequence[Via], copper: _Copper, *, allow_full_drill: bool = False) -> list[bytes]:
+def via_records(
+    vias: Sequence[Via],
+    copper: _Copper,
+    *,
+    allow_full_drill: bool = False,
+    default: ViaProtection | None = None,
+) -> list[bytes]:
     """The vias of the board (``pcb-copper.md``, "Via"), sorted by net name, position, diameter and entity
     id: a through via with the start layer 1 and the end layer 32, a blind or buried via (change c0085)
     with the ids of the two layers it spans. ``ValueError`` names the id of a via that ``via_span``
     refuses, whose drill is not below its diameter, or on an unknown net. ``allow_full_drill``
-    (``PcbDocSpec.allow_full_drill``, change c0128) accepts a drill equal to the diameter."""
+    (``PcbDocSpec.allow_full_drill``, change c0128) accepts a drill equal to the diameter. Each tenting
+    flag is that of ``via_tenting(via, default)`` (change c0112; ``default`` is
+    ``PcbDocSpec.via_protection``); every other value of the protection writes nothing."""
     names = list(copper.layers)
     out: list[bytes] = []
     ordered = sorted(vias, key=lambda v: (v.net_id or "", _xy(v.position), v.diameter, v.id))
@@ -881,6 +906,7 @@ def via_records(vias: Sequence[Via], copper: _Copper, *, allow_full_drill: bool 
             )
         net = copper.net(via.id, via.net_id)
         x, y = _units(copper.frame(via.position))
+        top, bottom = via_tenting(via, default)
         out.append(
             rec.via_record(
                 x,
@@ -891,9 +917,59 @@ def via_records(vias: Sequence[Via], copper: _Copper, *, allow_full_drill: bool 
                 start=copper.layers[upper],
                 end=copper.layers[lower],
                 locked=via.locked,
+                tented_top=top,
+                tented_bottom=bottom,
             )
         )
     return out
+
+
+def via_tenting(via: Via, default: ViaProtection | None) -> tuple[bool, bool]:
+    """The two tenting flags (top, bottom) an Altium document holds for ``via`` (altium-build, "Via
+    protection in an Altium build"): for each side the via's own value, else the board default's when it
+    states one, else ``False``, the clear flag that is this backend's own default. Covering, plugging,
+    capping and filling have no flag: no Altium fact is recorded for them."""
+
+    def side(name: str) -> bool:
+        value = getattr(via.protection, name)
+        if value is None and default is not None:
+            value = getattr(default, name)
+        return value is True
+
+    return side("tenting_front"), side("tenting_back")
+
+
+def unstated_tenting(via: Via, default: ViaProtection | None) -> bool:
+    """True when a tenting side of ``via`` is stated neither by the via nor by the board default: KiCad
+    tents such a side, and the Altium document leaves its flag clear."""
+    return any(
+        getattr(via.protection, name) is None and (default is None or getattr(default, name) is None)
+        for name in ("tenting_front", "tenting_back")
+    )
+
+
+UNWRITTEN_FEATURES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("covering", ("covering_front", "covering_back")),
+    ("plugging", ("plugging_front", "plugging_back")),
+    ("capping", ("capping",)),
+    ("filling", ("filling",)),
+)
+"""The features of ``ViaProtection`` that no Altium document holds, each with its fields."""
+
+
+def unwritten_features(via: Via, default: ViaProtection | None) -> tuple[str, ...]:
+    """The features among covering, plugging, capping and filling that ``via`` has, by its own value or
+    by the board default: what stays in the model only."""
+    found: list[str] = []
+    for feature, fields in UNWRITTEN_FEATURES:
+        for name in fields:
+            value = getattr(via.protection, name)
+            if value is None and default is not None:
+                value = getattr(default, name)
+            if value is True:
+                found.append(feature)
+                break
+    return tuple(found)
 
 
 # --- free items of the board (change c0085) ---------------------------------------------------------------
@@ -1494,7 +1570,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     tracks += routed_tracks(spec.tracks, copper)
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
-    filled["Vias6"] = via_records(spec.vias, copper, allow_full_drill=spec.allow_full_drill)
+    filled["Vias6"] = via_records(
+        spec.vias, copper, allow_full_drill=spec.allow_full_drill, default=spec.via_protection
+    )
     pairs = drill_pairs(spec.vias, copper)
     if pairs:
         stack = dataclasses.replace(stack, drill_pairs=pairs)
@@ -1607,6 +1685,10 @@ __all__ = [
     "short_text",
     "text_problem_of",
     "via_span",
+    "via_tenting",
+    "unstated_tenting",
+    "unwritten_features",
+    "UNWRITTEN_FEATURES",
     "file_header",
     "file_header_six",
     "place_component",

@@ -14,7 +14,7 @@ the entity node, ``effects[0]`` for a modelled sub-list), so no model dataclass 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from typing import Protocol
 
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
@@ -23,6 +23,7 @@ from fenolite.model.base import ExtBag, Modeled, Opaque, Slot
 SLOT_PREFIX = "slot:"
 MinVersion = str | Callable[[Node | Atom], str | None] | None
 _KIND = re.compile(r"modeled|opaque(?:@(\d+))?")
+_HEAD = re.compile(r"\(\s*([^\s()\"]+)")
 
 
 class SlotSource(Protocol):
@@ -72,10 +73,14 @@ def rebuild(
     *,
     canonical: Sequence[str] = (),
     opaque: Callable[[Opaque], Node | Atom] = opaque_child,
+    after: Mapping[str, Collection[str]] | None = None,
 ) -> Node:
     """A node whose children follow ``slots``; modelled children come from ``source``.
 
     ``opaque`` turns an opaque slot into its child; a writer passes its own to see each child it emits.
+    A field without a slot is placed after the last slot of the fields before it in ``canonical``;
+    ``after`` names, per field, heads of opaque children that also precede it, so that a child added
+    beside content the model does not hold lands where the format's writer puts it.
     """
     last: dict[str, int] = {}
     for index, slot in enumerate(slots):
@@ -103,10 +108,18 @@ def rebuild(
         items = source.items(field)
         before = canonical[: list(canonical).index(field)]
         anchors = [last[f] for f in before if f in last]
+        heads = after.get(field, ()) if after is not None else ()
+        anchors += [k for k, slot in enumerate(slots) if isinstance(slot, Opaque) and _head(slot) in heads]
         (emitted[max(anchors)] if anchors else front).extend(items)
     children = [child for group in emitted for child in group]
     first_list = next((i for i, c in enumerate(children) if isinstance(c, Node)), len(children))
     return Node(head, tuple(children[:first_list] + front + children[first_list:]))
+
+
+def _head(slot: Opaque) -> str:
+    """The head of the list an opaque slot holds; ``""`` for an atom."""
+    match = _HEAD.match(slot.fragment)
+    return match.group(1) if match else ""
 
 
 def _pairs(rel: str, slots: Sequence[Slot]) -> list[tuple[str, str]]:

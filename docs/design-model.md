@@ -298,6 +298,29 @@ a board whose source states none has `stackup` `None`, and the model then holds 
   document that carries `dielectric_kind`, `color` or `impedance_controlled`: its reader refuses an
   unknown key.
 
+## Via protection
+
+`Via.protection` and `Board.via_protection` say how vias are protected (change c0112). Both hold a
+`ViaProtection`, a value object without an entity header and with eight fields, each `True`, `False` or
+`None`: `tenting_front`, `tenting_back`, `covering_front`, `covering_back`, `plugging_front`,
+`plugging_back`, `capping` and `filling`. `True` means that the feature is applied on that side (or to the
+via, for `capping` and `filling`), `False` that it is not.
+
+- On a via, `None` means that the field follows the board's default. A via without protection holds
+  `ViaProtection()`, every field `None`. `protection` is the field before `locked` (c0108), which stays
+  the last field of `Via`.
+- `Board.via_protection` is the default for every via. `None`, whole or for one field, means the backend's
+  own default: KiCad tents both sides and applies nothing else (`docs/formats/kicad/board.md`, "Via
+  protection"); the Altium backend leaves the tenting flags clear (`docs/altium.md`).
+- The model computes no effective value: `fenolite.backends.kicad.via_protection.effective` does, for the
+  KiCad backend.
+- The two fields are additive: `canonical` omits the defaults, so a via whose protection is
+  `ViaProtection()` and a board without a default write the text they wrote before, a `board.json` written
+  before them loads unchanged and serialises to its own bytes
+  (`tests/data/model/v0.2.1/blink_2layer.board.json`), and `schema_version` stays `"0"`. The other
+  direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or
+  `via_protection`: their reader of the canonical form is strict.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change

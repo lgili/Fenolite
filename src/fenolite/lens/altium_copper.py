@@ -54,6 +54,7 @@ from fenolite.model.board import (
     Text,
     Track,
     Via,
+    ViaProtection,
     Zone,
 )
 from fenolite.model.design import Design
@@ -138,6 +139,8 @@ class CopperPlan:
     holes: tuple[Hole, ...] = ()
     counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
     """Kind of ``KINDS`` → (items written, items not lowered), for the kinds the lowering decides."""
+    via_protection: ViaProtection | None = None
+    """The default via protection of the board that holds the copper (change c0112)."""
 
     @property
     def failed(self) -> bool:
@@ -317,6 +320,47 @@ def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]
         if len(issues) == before:
             out.append(dataclasses.replace(via, net_id=name))
     return out
+
+
+VIA_PROTECTION_WHERE = "via-protection"
+VIA_PROTECTION_HINT = (
+    "state the tenting of every via with design.via_protection(protect(tenting=…)), or per via with "
+    "protection=; covering, plugging, capping and filling are entered in Altium by hand"
+)
+
+
+def via_protection_info(vias: Sequence[Via], default: ViaProtection | None) -> Issue | None:
+    """The one ``altium.not-lowered`` info at ``via-protection`` (altium-build, "Via protection in an
+    Altium build"), or ``None``. It names (a) the vias for which covering, plugging, capping or filling is
+    ``True``, by their own value or by the board default, with those features: no Altium fact is recorded
+    for them, so they stay in the model; and (b), when the design states a protection at all, the vias
+    with a tenting side that neither the via nor the default states: KiCad tents such a side, and the
+    Altium document leaves its flag clear."""
+    features: list[str] = []
+    kept = 0
+    for via in vias:
+        found = pcbdoc.unwritten_features(via, default)
+        kept += bool(found)
+        features += [name for name in found if name not in features]
+    stated = default is not None or any(via.protection != ViaProtection() for via in vias)
+    unstated = sum(1 for via in vias if pcbdoc.unstated_tenting(via, default)) if stated else 0
+    parts: list[str] = []
+    if kept:
+        order = [feature for feature, _ in pcbdoc.UNWRITTEN_FEATURES if feature in features]
+        parts.append(
+            f"{kept} via(s) hold {', '.join(order)}, which the Altium document does not hold: the "
+            "values stay in the model only"
+        )
+    if unstated:
+        parts.append(
+            f"{unstated} via(s) have a tenting side that neither the via nor the board default states: "
+            "KiCad tents such a via, and the Altium document leaves its tenting flag clear"
+        )
+    if not parts:
+        return None
+    return Issue(
+        "altium.not-lowered", "info", "; ".join(parts), where=VIA_PROTECTION_WHERE, hint=VIA_PROTECTION_HINT
+    )
 
 
 def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue], merged: list[str]) -> list[Zone]:
@@ -803,6 +847,11 @@ def lower_copper(
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
     issues += lock_issues(tracks, arcs, vias, low)
+    # the default of the board that holds the copper; a copper source without one follows the script's
+    default = board.via_protection if board.via_protection is not None else design.board.via_protection
+    named = via_protection_info(board.vias, default)
+    if named is not None:
+        issues.append(named)
     merged: list[str] = []
     zones = _zones(board.zones, low, issues, merged)
     for name, items in sorted(low.missing.items()):
@@ -846,6 +895,7 @@ def lower_copper(
         items.keepouts,
         items.holes,
         MappingProxyType(counts),
+        default,
     )
 
 
@@ -858,6 +908,7 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
         tracks=plan.tracks,
         arcs=plan.arcs,
         vias=plan.vias,
+        via_protection=plan.via_protection,
         zones=plan.zones,
         net_classes=plan.net_classes,
         texts=plan.texts,

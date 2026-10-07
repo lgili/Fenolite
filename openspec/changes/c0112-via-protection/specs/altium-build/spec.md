@@ -10,9 +10,9 @@
 - `docs/altium.md` MUST say what the Altium documents hold of via protection (tenting, where the design states it), what they do not (the four other features; a board default as such, since every via carries its own flags), and that a side nobody states is tented by KiCad and left clear in the Altium document.
 
 #### Scenario: Tenting written, the rest named
-- **GIVEN** `examples/altium_sample/design.py` with two via intents added, the first with `protection=protect(tenting="front", filling=True, capping=True)` and the second without protection, and `design.via_protection(protect(tenting=True))`
+- **GIVEN** a copy of `examples/blink_routed/design.py` (a board with script copper: 7 vias) with two via intents of 0.8 mm added, the first with `protection=protect(tenting="front", filling=True, capping=True)` and the second without protection, and `design.via_protection(protect(tenting=True))`
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_via_protection.py -k written` builds it with `--target altium` and reads the PCB document back
-- **THEN** the first via record has the flags `2C 00` (top tented, bottom not) and the second `6C 00` (both tented, from the default); `issues` hold one `altium.not-lowered` info at `via-protection` naming 1 via, `capping` and `filling`; `result.pcb` counts both vias as written; and every planned file outside `.fenolite/` other than the PCB document equals the file of the same design without protection
+- **THEN** the first via record has the flags `2C 00` (top tented, bottom not) and the second `6C 00` (both tented, from the default); `issues` hold one `altium.not-lowered` info at `via-protection` naming 1 via, `capping` and `filling`; the seven routed vias have `6C 00` too; `result.pcb` counts the nine vias as written; the evidence names `H-A-PCB-CU-VIATENT`; and every written file outside `.fenolite/` other than the PCB document equals the file of the same design without protection, the PCB document differing from it in one byte per via record
 
 #### Scenario: A design without protection keeps its bytes
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_copper_golden.py tests/unit/lens/test_altium_pcb_golden.py` runs
@@ -21,4 +21,4 @@
 #### Scenario: A side nobody states
 - **GIVEN** the first design without its `design.via_protection(…)` call
 - **WHEN** it is built with `--target altium --dry-run --json`
-- **THEN** the second via keeps the flags `0C 00`, and the info at `via-protection` also names 1 via whose tenting is stated nowhere
+- **THEN** the second via keeps the flags `0C 00`, and the info at `via-protection` also names the 8 vias whose tenting is stated nowhere (the second added via and the seven routed vias)

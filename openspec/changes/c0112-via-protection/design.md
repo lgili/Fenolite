@@ -120,6 +120,113 @@ kicad-cli pcb upgrade --force U.kicad_pcb          # U: a copy of B
     - c0069 (archived) modified "Board content outside the design is kept"; "Via protection defaults across rebuilds" states its precedence for the protection children of `setup` without modifying it, as c0101 does.
     - `kicad-slots` "Slot source for model entities" is not modified: its first sentence admits every rewrite that a `kicad-file-backend` requirement names, which c0101 relies on too.
 
+## Found on 2026-10-07
+
+Implemented on the local branch `v04-impl-c0112`, based on `0ea988da` (`v04` at `991b3f57` plus change
+c0101), where the prerequisites of the proposal do not all hold. What the code and the measurements of the
+day showed, and what was corrected in the same commit:
+
+1. **Prerequisites.** Release 0.3.0 is not out; c0085, c0124, c0128 and c0132 are implemented on the branch
+   and not archived. Their deltas of "Via records" and "Tracks, arcs and vias" were read: none contradicts
+   the two ADDED requirements ("Via tenting flags" adds two keywords to `via_record` after `start` and
+   `end` of c0085; "Via tenting of imported vias" adds one field beside the pair `pad_removed` of c0132).
+   c0100 and c0103 are not on the branch. The three MODIFIED deltas of `kicad-file-backend` were
+   regenerated from the delta text of c0101, which modifies all three, with this change's sentence, bullet
+   and scenarios re-applied; they must be regenerated again when c0100 and c0103 land (task 0.1). Six and
+   eight copper layers do not exist on the branch: the benches are two-layer boards, as designed.
+2. **Decision 12 is the Altium decision.** The brief of the night calls it "decision 7"; the numbering of
+   this file was kept.
+3. **The token rows `covering-front`, `covering-back`, `plugging-front` and `plugging-back` are not
+   added.** The inventory rule "each row above KiCad 9 is the only row above 9 in at least one example"
+   (`tests/unit/backends/kicad/test_token_examples.py::test_coverage_isolates_rows_above_9`) cannot hold for
+   them: their parent `covering` or `plugging` is itself a row of KiCad 10, so no example exercises the
+   child alone (`tenting/front` passes because `tenting` is a row of KiCad 9). The rows would add nothing
+   to the write gate either: the parent row already refuses the child for target 9, and the model refuses
+   the value before the gate sees it. The children are recorded as fact rows of
+   `docs/formats/kicad/board.md`, "Via protection", which says why the inventory holds no row.
+4. **Each protection child is a slot field of its own name** (`VIA_FIELDS` maps `tenting` to `tenting`,
+   and so on), as the zone settings are, not one field `protection`: a file that holds the children in
+   another order than KiCad's is then still reproduced without an opaque slot.
+5. **A kept 9.0 child is rewritten for target 10 even when the model did not change.** A 9.0 board whose
+   via holds `(tenting)` keeps the child as an opaque projected slot (the 9.0 emitter writes
+   `(tenting none)`); copied into a 10.0 file it would be read by KiCad 10 with both sides `none`, so the
+   mask would change, against Decision 3. The writer therefore writes such a child from the model whenever
+   the target is not the major of the board that was read ("Projected fields on write", the regenerated
+   bullet and its new scenario).
+6. **`merge_default` on its own result.** The requirement said "the same value and no issue". An unlocked
+   default that differs from the kept board default differs again at the next build, so the info is given
+   again, as `kicad.zone.overridden` and `kicad.stackup.overridden` are. The sentence now says so; a
+   locked default reports nothing the second time.
+7. **`via-prot-resave` matches vias by position and leaves the bench without a default out.** A re-save
+   by 10.0.6 orders the vias its own way, and gives a `setup` without protection children the five
+   children of KiCad's default (measurement 2), which is not what Fenolite wrote and is no error.
+8. **The Altium build test uses the routed blink.** `examples/altium_sample/design.py` declares no board,
+   so it cannot carry via intents. The scenarios of "Via protection in an Altium build" now name a copy of
+   `examples/blink_routed` with two vias added: nine vias are written, and eight are counted when no
+   default states their tenting.
+9. **The board default reaches the document writer as `PcbDocSpec.via_protection`.** Resolving the tenting
+   into the vias of the spec changed `.fenolite/board.json` of an Altium build with script copper (every
+   via gained `protection`), against "a design without protection keeps its bytes". The vias of the spec
+   now keep the model's protection, and `pcbdoc.via_tenting(via, default)` gives the two flags at the
+   write.
+10. **`H-A-PCB-CU-VIATENT` is a row of the writer's evidence and one more id of the import's.**
+    `tests/unit/lens/test_altium_build.py::test_evidence` asks that the build's evidence names every
+    registered `H-A-PCB-*` row, so the row is in `pcbdoc.EVIDENCE` and every Altium build names it, not only
+    one that sets a flag. `import_evidence.EVIDENCE` names it beside the `H-A-IMP-*` rows
+    (`MAPPING_HYPOTHESES`); `adapter/test_package.py` was extended to allow exactly this one row.
+11. **The write of a model (`backends.altium.lower`) follows the same rule** as the build: the tenting of
+    each via from the via, else from `Board.via_protection`, and a count under the kind `via-protection`
+    for covering, plugging, capping and filling. The rewrite of a document that was read therefore keeps
+    its tenting flags, where it wrote `0C` before: every imported via states both sides.
+12. **Measured on the eight public PCB documents** (2 933 via records; `docs/formats/altium/pcb-copper.md`,
+    "Via"): bit 5 and bit 6 both clear in 734 records, bit 5 alone in 1, bit 6 alone in 0, both in 2 198.
+    The solder-mask expansion does not follow the bits (two documents hold a negative expansion on every
+    via, with both bits set). `kicad-cli pcb import --format altium` 10.0.6, run as a subprocess on a
+    written document with the four flag values, gives the four vias the tenting that Fenolite's import
+    gives them (`tests/kicad/altium/test_via_tenting_oracle.py`). Neither settles what Altium Designer
+    shows: `H-A-PCB-CU-VIATENT` stays `INFERRED`, and step C8 of `docs/evidence/altium-pcb.md` asks.
+13. **Sources.** One id was added after all: S-0630, the re-reading of the eight public documents for the
+    two bits. Three addresses of Altium's documentation were tried and gave HTTP 404, so no Altium fact
+    rests on a documentation page; S-0631 to S-0634 are not used. The "used for" cells of S-0020, S-0029,
+    S-0037, S-0058, S-0125 and S-0160 were not extended: shared files are append-only tonight (task 1.1).
+14. **The old-document fixture holds no via.** `tests/data/model/v0.2.1/blink_2layer.board.json` (the
+    fixture of c0101) is loaded and dumped byte-equal by `tests/unit/model/test_via_protection.py`; a
+    second test builds a board with vias, checks that its text holds neither key, and loads it again.
+15. **Hard condition, measured.** `examples/blink_2layer` and `examples/blink_routed` built for KiCad 9 and
+    10 and for Altium, and `examples/altium_sample` for Altium, with the code of `0ea988da` and with this
+    change (`--seed 7 --timestamp 2026-10-07T00:00:00Z`): 108 files, 108 byte-equal. No committed sample
+    and no pin moved.
+
+## Found on 2026-10-08 (rebase onto `be2c01ec`)
+
+The commit was rebased onto the wave-1 tip (`v04` with c0138, c0123, c0141, c0077, c0078, c0100, c0108,
+c0116, then c0101). What changed in this change because of it:
+
+1. **`locked` (c0108) and `protection` share the via.** c0108's requirements make `locked` the last
+   field of `Via`, `ViaIntent` and `StitchIntent`; this change lands second, so `protection` is the field
+   right before it, and the keyword `protection=` follows `locked=` on `Design.via` and `Design.stitch`
+   ("Via protection in the board model" and "Via protection in the DSL" say so now). `merge_copper`
+   compares geometry, net, lock and protection, and judges a duplicate without the lock and without the
+   protection.
+2. **Order of the via children.** A re-save by 10.0.6 writes `layers`, `remove_unused_layers`,
+   `keep_end_layers`, `locked`, `free`, `zone_layer_connections`, then the five protection children, then
+   `net` and `uuid` (measured on 2026-10-08). `CANONICAL_ORDER["via"]` holds the protection children after
+   `locked`. `free` and `zone_layer_connections` stay opaque, so `slots.rebuild` gained the argument
+   `after` (field → heads of opaque children that precede it) and `pcb.OPAQUE_BEFORE` names the two heads
+   for the five protection fields: a child added to a read via that holds `(free yes)` lands after it. The
+   probe `via-prot-order` proves on 10.0.6 that a re-save keeps the written order.
+3. **Altium flags beside the lock bit.** c0108 writes a locked via with bit 2 of the first flags byte
+   clear (`08`). The tenting bits are added to whatever byte the lock gives: `28`, `48`, `68` for a locked
+   via. The 36 records with `68` in one public document fit this reading (locked, tented on both sides).
+4. **The three MODIFIED deltas** were regenerated from the text the tip leaves: "Created board header"
+   from c0100's delta as c0101's rebased delta carries it on (six and eight layers), "Modelled board
+   content" and "Projected fields on write" from c0101's delta. c0103 is still not on the branch.
+5. **Unexplained flag values, neither read nor written.** On the public document of corpus row
+   `altium-third-party-pcbdoc-02`, 11 via records hold the first flags bytes `88` (5) and `E8` (6) with a
+   second flags byte `01`; every other record of the eight documents has bit 7 clear and a second byte
+   `00`. Bit 7 of the first byte and the second byte are unexplained: no fact row and no hypothesis is
+   recorded for them, the reader reads neither, and the writer writes bit 7 clear and the second byte `00`.
+
 ## Files and public API
 
 | file | content |
@@ -128,7 +235,7 @@ kicad-cli pcb upgrade --force U.kicad_pcb          # U: a copy of B
 | `schemas/fenolite.model.v0/board.json` | regenerated |
 | `src/fenolite/backends/kicad/via_protection.py` (new) | `FEATURES`; `SUPPORT` (`tenting` {9, 10}, the others {10}); `KICAD_DEFAULT`; `effective_default(default) -> ViaProtection`; `effective(protection, default) -> ViaProtection`; `project_via(children, *, major) -> ViaRead` (value, `none_written`); `emit_via(protection, *, major, default, none_written=frozenset()) -> dict[str, Node]`; `project_setup(setup, *, major) -> ViaProtection \| None`; `setup_children(default, *, major) -> tuple[Node, ...]`; `rewrite_setup(setup, default, *, major) -> Node`; `too_new(protection) -> tuple[str, ...]`; `merge_default(script, board, *, locked) -> DefaultMerge`; `not_exported(design) -> Issue \| None`; `summary(design) -> dict[str, object]`; `ISSUE_CODES`; `EVIDENCE` |
 | `src/fenolite/backends/kicad/pcb.py` | `VIA_FIELDS` gains `tenting`, `capping`, `covering`, `plugging`, `filling`; `CANONICAL_ORDER["via"]`; the `setup` projection, created children and rewrite; `kicad.board.via-protection-too-new` in `WRITE_ISSUE_CODES` |
-| `src/fenolite/backends/kicad/data/tokens.toml` | rows `covering-front`, `covering-back`, `plugging-front`, `plugging-back` (since 10, 20250228) |
+| `src/fenolite/backends/kicad/data/tokens.toml` | no row is added ("Found on 2026-10-07", item 3) |
 | `src/fenolite/backends/kicad/copper.py` | `protection` read by attribute from via steps and intents; stitch vias; `_fields` compares it |
 | `src/fenolite/dsl/intents.py` | `protect`; `ViaStep`, `ViaIntent` and `StitchIntent` gain `protection` |
 | `src/fenolite/dsl/design.py`, `convert.py`, `__init__.py` | `protection=` on `via` and `stitch`; `Design.via_protection`; `to_model` sets `Board.via_protection`; `via_protection_locked`; `protect` re-exported |
@@ -152,7 +259,7 @@ New names of this change, for the cross-check among the v0.4 proposals:
 - DSL: `protect`, `protection=` on `Design.via`, `via_step` and `Design.stitch`, `Design.via_protection(…, locked=False)`; `build_design(lock_via_protection=)`.
 - Result keys: `result.via_protection.{default,effective,by_default}` and `default.source` with the values `board`, `kicad` and `altium` (inspect). No CLI flag is added.
 - Altium writer: `via_record(…, tented_top=, tented_bottom=)`.
-- Token rows: `covering-front`, `covering-back`, `plugging-front`, `plugging-back`. Probe ids: `via-prot-*`.
+- Token rows: none ("Found on 2026-10-07", item 3). Probe ids: `via-prot-*`. Source id: S-0630.
 
 ## Hypotheses registered by this change
 
@@ -164,7 +271,7 @@ New names of this change, for the cross-check among the v0.4 proposals:
 | H-K-VIAPROT-UPGRADE | 10.0.6 reads a 9.0 via child naming one side, or none, in a 9.0 or a 10.0 file, with the unnamed sides `none`, so the default decides where 9.0.9 leaves them open; it reads the 9.0 `setup` forms as 9.0.9 does, and re-saves every via of a 9.0 board with an explicit `no` for the four 10.0 features (S-0020) | `-k upgrade` | probe `via-prot-upgrade` `different` on 10.0.6, the rows `front`, `back` and `none` differing and the others equal |
 | H-K-VIAPROT-OUTPUTS | On 10.0.6 the drill side files of `pcb export drill --format gerber [--generate-tenting]` and the coating and hole-fill layers of `pcb export ipc2581` hold exactly the vias whose own value is `yes`; a board default adds none; 9.0.9 writes none of them (S-0020, S-0029) | `-k outputs` | probes `via-prot-outputs` `equal` and `via-prot-default-outputs` `absent` on 10.0.6 |
 
-| H-A-PCB-CU-VIATENT | Altium Designer shows a via whose record has bit 5 of its first flags byte set as tented on the top, one with bit 6 set as tented on the bottom, and one with the flags `0C` as tented on neither side; it opens a document with the four flag values without a message (S-0160, S-0172, S-0174, S-0175, S-0176) | an author report: step added to `docs/evidence/altium-pcb.md` on a sample with four vias, one per flag value (task 8.4); `tests/unit/backends/altium/test_pcb_vias.py -k tenting` for the bytes and the read-back | the report names the four vias with the expected tenting; the unit test proves only that Fenolite reads back what it wrote |
+| H-A-PCB-CU-VIATENT | Altium Designer shows a via whose record has bit 5 of its first flags byte set as tented on the top, one with bit 6 set as tented on the bottom, and one with the flags `0C` as tented on neither side; it opens a document with the four flag values without a message (S-0160, S-0172, S-0174, S-0175, S-0176) | an author report: step C8 of `docs/evidence/altium-pcb.md` on a sample with four vias, one per flag value (task 8.4); `tests/unit/backends/altium/test_pcb_vias.py -k tenting` for the bytes and the read-back | the report names the four vias with the expected tenting; the unit test proves only that Fenolite reads back what it wrote |
 
 The five `H-K-` rows start `INFERRED`, with the measurements of "Context" as their first record. `H-A-PCB-CU-VIATENT` starts `INFERRED` with result `pending (author report)`; it stands beside `H-A-PCB-CU-VIA` and `H-A-RD-PCB-LENGTHS`, whose levels do not move. None of the six ids is in `docs/hypotheses.md` at `9aba2dff`. Cited without a change of level: `H-K-COPPER-VIAKINDS` (c0068), `H-K-UUID-KEEP-2`, `H-K-PCB-READ`, `H-K-PCB-WRITE`.
 

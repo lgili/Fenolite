@@ -43,7 +43,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Keepout, Track, Via, ViaType
+from fenolite.model.board import Arc, Keepout, Track, Via, ViaProtection, ViaType
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -335,8 +335,10 @@ def _via(
     net: Net,
     kind: str = "through",
     layers: tuple[str, str] | None = None,
+    protection: ViaProtection | None = None,
 ) -> Via:
-    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via."""
+    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via, and
+    ``protection`` the protection of its intent (``None``: the via follows the board default)."""
     native = copper_uuid(key, locator)
     return Via(
         id=derived_id("via", "kicad", native),
@@ -347,7 +349,22 @@ def _via(
         layers=layers if layers is not None else (board.copper_layers[0], board.copper_layers[-1]),
         net_id=net.id,
         via_type=cast(ViaType, kind),
+        protection=protection if protection is not None else ViaProtection(),
     )
+
+
+def _via_protection(item: object, key: str) -> ViaProtection:
+    """The protection of a via step, a via intent or a stitch intent, read by attribute like ``kind``:
+    ``ViaProtection()`` when it has none, so the intents of earlier scripts keep their meaning. The board
+    default is not copied in: a field of ``None`` follows ``Board.via_protection``."""
+    protection: object = getattr(item, "protection", ViaProtection())
+    if not isinstance(protection, ViaProtection):
+        raise _Refused(
+            "kicad.copper.bad-intent",
+            f"{key}: the protection {protection!r} is not a ViaProtection (fenolite.model.board)",
+            key,
+        )
+    return protection
 
 
 def _via_kind(item: object, key: str) -> str:
@@ -509,11 +526,13 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
     _copper_layer(board, intent.layer, key)
     layers: list[str] = []  # the layer of the segment that leaves each element
     spans: dict[int, tuple[str, tuple[str, str] | None]] = {}  # the kind and the layers of each via step
+    protections: dict[int, ViaProtection] = {}
     current = intent.layer
     for index, element in enumerate(path):
         if _is_via_step(element):
             step = cast(ViaStepLike, element)
             kind = _via_kind(step, key)
+            protections[index] = _via_protection(step, key)
             _copper_layer(board, step.layer, key)
             if step.layer == current:
                 raise _Refused(
@@ -557,7 +576,9 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
     for index, point in enumerate(points):
         if index in sizes:
             kind, span = spans[index]
-            vias.append(_via(key, f"via[{index}]", point, sizes[index], board, net, kind, span))
+            vias.append(
+                _via(key, f"via[{index}]", point, sizes[index], board, net, kind, span, protections[index])
+            )
         if index + 1 == len(points):
             break
         after = path[index + 1]
@@ -616,6 +637,7 @@ def _resolve_via(board: _Board, intent: ViaIntentLike) -> Via:
     key = intent.key
     net = _required_net(board, intent.net, key, "via")
     kind = _via_kind(intent, key)
+    protection = _via_protection(intent, key)
     named: object = getattr(intent, "layers", None)
     span: tuple[str, str] | None = None
     if kind == "through":
@@ -638,7 +660,7 @@ def _resolve_via(board: _Board, intent: ViaIntentLike) -> Via:
         _copper_layer(board, second, key)
         span = _via_span(board, kind, first, second, key)
     sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, key)
-    return _via(key, "via", intent.at, sizes, board, net, kind, span)
+    return _via(key, "via", intent.at, sizes, board, net, kind, span, protection)
 
 
 # --- stitching ------------------------------------------------------------------------------------
@@ -823,6 +845,7 @@ def _resolve_stitch(
                 key,
             )
     net = _required_net(board, intent.net, key, "stitch")
+    protection = _via_protection(intent, key)
     cls = board.netclass(net)
     diameter, drill = _via_sizes((intent.diameter, intent.drill), cls, net, key)
     clearance = (
@@ -864,7 +887,7 @@ def _resolve_stitch(
             dropped += 1
             continue
         cells.setdefault(cell, []).append(point)
-        kept.append(_via(key, locator, point, (diameter, drill), board, net))
+        kept.append(_via(key, locator, point, (diameter, drill), board, net, protection=protection))
     if dropped:
         issues.append(
             _issue(
@@ -903,7 +926,7 @@ def _with_lock(items: Sequence[_Copper], locked: bool) -> list[_Copper]:
 
 
 def _geometry(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
-    """The modelled fields of a copper item but its lock, with its net by name."""
+    """The modelled fields of a copper item but its lock and a via's protection, with its net by name."""
     net = names.get(item.net_id) if item.net_id is not None else None
     if isinstance(item, Via):
         return ("via", item.position, item.diameter, item.drill, tuple(item.layers), item.via_type, net)
@@ -913,13 +936,16 @@ def _geometry(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object
 
 
 def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
-    """What a regenerated item is compared by: its geometry, its net and its lock."""
-    return (*_geometry(item, names), item.locked)
+    """What a regenerated item is compared by: its geometry, its net, its lock and, for a via, its
+    protection (change c0112)."""
+    protection = (item.protection,) if isinstance(item, Via) else ()
+    return (*_geometry(item, names), item.locked, *protection)
 
 
 def _shape_key(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
     """What makes two items the same copper: the ends of a track or an arc as an unordered pair (an arc
-    with the same mid point). The lock is not part of it: a locked copy is still a duplicate."""
+    with the same mid point). Neither the lock nor a via's protection is part of it: a locked copy, or a
+    copy that differs only by its protection, is still a duplicate."""
     fields = _geometry(item, names)
     if isinstance(item, Track):
         first, second = sorted((item.start, item.end))

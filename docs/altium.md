@@ -1351,6 +1351,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
 | `via` | `layers` | the writer writes a fixed value: only through vias are written |
+| `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |
 | `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
 | `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
@@ -1522,3 +1523,43 @@ write of a model) follow the same rules:
 - The Altium import does not fill `dielectric_kind`, `color` or `impedance_controlled`.
 
 No record, key, format fact or issue code is added, and the evidence of the build does not change.
+
+## Via protection (c0112)
+
+`Via.protection` and `Board.via_protection` say how vias are tented, covered, plugged, capped and filled
+(`docs/design-model.md`, "Via protection"; `docs/dsl.md`, "Via protection"). The Altium documents hold a
+part of it.
+
+- **What is written: tenting, where the design states it.** A via record has two tenting flags, for the
+  top and for the bottom (`docs/formats/altium/pcb-copper.md`, "Via"). For each side the flag is set from
+  the via's own value (`tenting_front` for the top, `tenting_back` for the bottom); else from the board
+  default, when the design declares one that states that side; else it stays clear. This holds for a
+  build (`fenolite build --target altium`, with script copper or with `--copper-from` a routed KiCad
+  board, whose own default then applies) and for the write of a model. No other byte of the record
+  follows the tenting: the solder-mask expansion stays the fixed 4 mil.
+- **The side nobody states.** KiCad tents a via side that neither the via nor the board default states;
+  the Altium document leaves its flag clear, which is what it held before this change. So the same script
+  gives tented vias in KiCad and clear flags in Altium unless it states the tenting. A design that states
+  no protection at all builds the Altium files it built before, byte for byte, and gets no message. As
+  soon as a design states any protection, one `altium.not-lowered` info whose `where` is `via-protection`
+  counts the vias with a side stated nowhere; `design.via_protection(protect(tenting=True))` states it for
+  every via.
+- **What is not written.** Covering, plugging, capping and filling: no fact about them is recorded for the
+  Altium format, so they stay in the model, and the same info names the vias that hold one and the
+  features. A via is counted as written in `result.pcb` whatever its protection. A board default as such
+  is not written either: every Altium via carries its own flags.
+- **What is read.** `import_board` gives every via `protection` with both tenting sides explicit: `True`
+  for a set flag, `False` for a clear one, and `None` for the six other fields; `Board.via_protection` is
+  `None`. A clear flag is read as "not tented", so an imported board written for KiCad holds a `tenting`
+  child on every via and none follows KiCad's default. Altium can also close a via's mask opening through
+  its solder-mask expansion (public documents hold negative expansions); the expansion is not read, so the
+  imported value says what the flags say, not what the plotted mask shows.
+- **Round trips.** RT-A2 and the equivalence levels do not compare `Via.protection` ("The scope of
+  RT-A2"): a side stated nowhere is written as a clear flag and read back as `False`. Stated tenting is
+  written and read back unchanged. The rewrite of a document that was read keeps its tenting flags, since
+  every imported via states both sides.
+- **Evidence.** The two flags are `INFERRED` (`H-A-PCB-CU-VIATENT`): they rest on one public description
+  and on a count over eight public documents, not on Altium's own word. Step C8 of
+  `docs/evidence/altium-pcb.md` asks the maintainer what Altium Designer 26 shows for the four flag
+  values. `fenolite inspect` of a PCB document counts the set flags under `result.via_protection`
+  (`docs/cli-contract.md`).

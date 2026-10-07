@@ -2,7 +2,7 @@
 
 ### Requirement: Via protection in the board model
 `fenolite.model.board` SHALL describe how a via is protected with the value object `ViaProtection`, which has no entity header, and SHALL add these fields, each with a default, so that documents written before them still load:
-- `Via.protection: ViaProtection = ViaProtection()`, the via's own values;
+- `Via.protection: ViaProtection = ViaProtection()`, the via's own values, placed right before `locked`, which stays the last field of `Via` (c0108, "Copper locks in the board model");
 - `Board.via_protection: ViaProtection | None = None`, the board's default for every via.
 
 `ViaProtection` MUST be a frozen dataclass of eight fields, in this order, each of type `bool | None` with the default `None`: `tenting_front`, `tenting_back`, `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping`, `filling`. `True` means that the feature is applied on that side, or to the via for `capping` and `filling`; `False` that it is not.

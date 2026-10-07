@@ -250,8 +250,30 @@ class Arc(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class ViaProtection:
+    """How a via is protected: tenting, covering and plugging per side, capping and filling for the via.
+
+    ``True`` means that the feature is applied (on that side), ``False`` that it is not. On a via, ``None``
+    means that the field follows the board's default; in ``Board.via_protection``, ``None`` (whole, or for
+    one field) means the backend's own default. Effective values are computed by the backends, never
+    stored (``docs/design-model.md``, "Via protection")."""
+
+    tenting_front: bool | None = None
+    tenting_back: bool | None = None
+    covering_front: bool | None = None
+    covering_back: bool | None = None
+    plugging_front: bool | None = None
+    plugging_back: bool | None = None
+    capping: bool | None = None
+    filling: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Via(Entity):
-    """A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track."""
+    """A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.
+
+    ``protection`` holds the via's own protection values; a field of ``None`` follows
+    ``Board.via_protection``. ``locked`` stays the last field (change c0108)."""
 
     position: Point
     diameter: Nm
@@ -259,6 +281,7 @@ class Via(Entity):
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
     via_type: ViaType = "through"
+    protection: ViaProtection = ViaProtection()
     locked: bool = False
 
 
@@ -397,6 +420,8 @@ class Board(Entity):
     holes: tuple[Hole, ...] = ()
     sheet: SheetFrameRef | None = None
     title_block: TitleBlock | None = None
+    via_protection: ViaProtection | None = None
+    """The board's default protection for every via; ``None`` is the backend's own default."""
 
 
 __all__ = [
@@ -432,6 +457,7 @@ __all__ = [
     "Text",
     "Track",
     "Via",
+    "ViaProtection",
     "ViaType",
     "Zone",
     "ZoneConnection",

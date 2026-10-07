@@ -22,7 +22,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.geometry import FillRule, Location, Thick, area2, point_in_ring, thick_touch
 from fenolite.geometry.shapes import Arc as GeometryArc
-from fenolite.model.board import Board
+from fenolite.model.board import Board, ViaProtection
 from fenolite.model.design import Design
 
 DATA = Path(__file__).resolve().parents[5] / "tests" / "data" / "altium"
@@ -161,6 +161,37 @@ def test_via_pad_removed_layers_are_kept_in_the_bag() -> None:
     # a layer id outside the chain is kept as the record says it: the bag holds what the record holds
     (odd,) = board_of(vias=[rec.via_without_pads((0, 0), (1, 7, 32))]).vias
     assert pairs(odd) == {"pad_removed": "1,7,32"}
+
+
+def test_via_tenting_flags_become_the_protection() -> None:
+    """Scenario "Flags become tenting" (change c0112): the four flag values of a via record, both sides
+    explicit, every other field ``None``, and no board default."""
+    cases = ((False, False), (True, False), (False, True), (True, True))
+    records = [
+        dataclasses.replace(
+            rec.via((k * 100 * MIL, 0)),
+            prefix=dataclasses.replace(rec.prefix(74), flags1=0x0C | (0x20 * top) | (0x40 * bottom)),
+            tented_top=top,
+            tented_bottom=bottom,
+        )
+        for k, (top, bottom) in enumerate(cases)
+    ]
+    board = board_of(vias=records)
+    assert [(v.protection.tenting_front, v.protection.tenting_back) for v in board.vias] == list(cases)
+    for via in board.vias:
+        assert via.protection == ViaProtection(
+            tenting_front=via.protection.tenting_front, tenting_back=via.protection.tenting_back
+        )
+        assert via.protection.tenting_front is not None and via.protection.tenting_back is not None
+    assert board.via_protection is None
+    # the flags enter no id and no bag pair: a via keeps the id it had before the mapping
+    (clear,) = board_of(vias=[rec.via((0, 0))]).vias
+    assert clear.id == board.vias[0].id and pairs(clear) == {}
+    # tenting and removed pad shapes are independent fields of one record (change c0132)
+    bare = dataclasses.replace(rec.via_without_pads((0, 0), (2, 3)), tented_top=True, tented_bottom=True)
+    (both,) = board_of(chain=FOUR, vias=[bare]).vias
+    assert pairs(both) == {"pad_removed": "2,3"}
+    assert both.protection == ViaProtection(tenting_front=True, tenting_back=True)
 
 
 def test_via_layer_outside_the_chain() -> None:

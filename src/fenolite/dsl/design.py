@@ -18,7 +18,7 @@ from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import as_nm, as_nm2
-from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
+from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleKind, RuleSeverity, Selector
@@ -336,6 +336,8 @@ class Design(Container):
         """Copper zones by name, as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
         """The stack-up of ``stackup()``."""
+        self.via_default: tuple[ViaProtection, bool] | None = None
+        """The board's default via protection and its lock, as declared by ``via_protection()``."""
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
@@ -419,6 +421,22 @@ class Design(Container):
                 raise DslError(f"stackup(): {name} must be a bool, not {flag!r}")
         named = self._stack_names(entries)
         self.stack = StackupSpec(named, finish or "", impedance_controlled, locked)
+
+    def via_protection(self, protection: ViaProtection, *, locked: bool = False) -> None:
+        """The board's default protection for every via: the value of ``protect()``. A via whose own
+        ``protection=`` leaves a feature at ``None`` takes it from here, and a feature this default leaves
+        at ``None`` is KiCad's own (tented on both sides, nothing else). ``locked`` makes this default
+        replace a different one of an existing board (``docs/lens.md``); otherwise an edit in KiCad's
+        Board Setup wins. Called at most once (``docs/dsl.md``, "Via protection")."""
+        if self.via_default is not None:
+            raise DslError("via_protection() is called once")
+        if not isinstance(protection, ViaProtection):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"via_protection(): the default must be the value of protect(), not {protection!r}"
+            )
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"via_protection(): locked must be a bool, not {locked!r}")
+        self.via_default = (protection, locked)
 
     def _stack_names(self, entries: Sequence[object]) -> tuple[tuple[str, StackEntry], ...]:
         """The entries with the names KiCad gives their rows; ``DslError`` naming the position of the
@@ -764,13 +782,16 @@ class Design(Container):
         kind: str = "through",
         layers: object = None,
         locked: bool = False,
+        protection: object = None,
     ) -> None:
         """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
         ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
-        copper layers in ``layers``. ``locked=True`` writes the via locked."""
+        copper layers in ``layers``. ``locked=True`` writes the via locked. ``protection`` is the value of
+        ``protect()``: how the via is tented, covered, plugged, capped or filled (``None``: it follows the
+        board default)."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
 
     def stitch(
         self,
@@ -786,10 +807,12 @@ class Design(Container):
         clearance: object = None,
         margin: object = None,
         locked: bool = False,
+        protection: object = None,
     ) -> None:
         """Through vias of ``net`` every ``pitch`` along a polyline, or on a grid inside a region (the grid
         starts at ``origin``, the board corner by default), kept ``clearance`` from other copper.
-        ``locked=True`` writes the vias locked."""
+        ``locked=True`` writes the vias locked. Every via carries ``protection``, the value of
+        ``protect()``."""
         from fenolite.dsl import intents
 
         intents.record_stitch(
@@ -805,6 +828,7 @@ class Design(Container):
             clearance=clearance,
             margin=margin,
             locked=locked,
+            protection=protection,
         )
 
     # -- registration (called by add(), connect() and netclass())

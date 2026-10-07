@@ -306,6 +306,34 @@ and mask layer it leaves out) and compared with the board's projected one, ids a
 - The codes are `kicad.*` codes: they pass through the closed layout and build tables unchanged. The
   normal-form pass does not decide again, so a rebuild over the build's own output writes the same bytes.
 
+## Via protection across rebuilds
+
+`design.via_protection()` declares the board's default via protection (`docs/dsl.md`, "Via protection").
+When a build merges an existing board, `backends.kicad.via_protection.merge_default` decides it, as for
+zones and for the stack-up (change c0112). The two defaults are compared in effect: each with the fields it
+leaves open filled by KiCad's own default (tented on both sides, nothing else).
+
+| script | existing board | written default | code |
+|---|---|---|---|
+| none | any | the board's, with its text | none |
+| declared | none | the script's | none |
+| declared | equal in effect | the board's, with its text | none |
+| declared, unlocked | different | the board's, with its text | `kicad.via.protection-overridden` (info) |
+| declared, `locked=True` | different | the script's | `kicad.via.protection-forced` (warning) |
+
+- For the protection children of `setup` this rule replaces "board content outside the design is kept";
+  every other child of `setup` stays under that rule, and the stack-up keeps its own.
+- KiCad has no lock for the default in the file, so the lock lives in the script.
+- The vias are not decided here: script vias take the protection of their intent at every build
+  (`docs/copper.md`, "The merge with an existing board"), and every other via keeps its protection with
+  the rest of its fields.
+- After the decision the build gives `kicad.via.protection-not-exported` (info) when vias take a covering,
+  plugging, capping or filling of `True` from the default only: `kicad-cli` 10.0.6 writes such a default to
+  no fabrication file.
+- The normal-form pass does not decide again: the written board holds the decided default, so a rebuild
+  over the build's own output writes the same bytes. An unlocked default that still differs is reported at
+  every build, as an overridden zone is.
+
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,

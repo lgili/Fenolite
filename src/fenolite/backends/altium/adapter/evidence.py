@@ -7,6 +7,12 @@ names it there without loading the adapter)."""
 
 from __future__ import annotations
 
-from fenolite.backends.altium.import_evidence import EVIDENCE, HYPOTHESES, LEVELS, READER_LEVELS
+from fenolite.backends.altium.import_evidence import (
+    EVIDENCE,
+    HYPOTHESES,
+    LEVELS,
+    MAPPING_HYPOTHESES,
+    READER_LEVELS,
+)
 
-__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "READER_LEVELS"]
+__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "MAPPING_HYPOTHESES", "READER_LEVELS"]

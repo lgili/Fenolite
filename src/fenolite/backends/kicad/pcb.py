@@ -28,6 +28,7 @@ from fenolite.backends.base import WriteResult
 from fenolite.backends.kicad import _pcbwrite, netnames
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
@@ -98,6 +99,7 @@ from fenolite.model.board import (
     Text,
     Track,
     Via,
+    ViaProtection,
     ViaType,
     Zone,
     ZoneFill,
@@ -195,10 +197,13 @@ VIA_FIELDS: Mapping[str, str] = MappingProxyType(
         "drill": "drill",
         "layers": "layers",
         "locked": "locked",
+        **{feature: feature for feature in vialib.FEATURES},
         "net": "net_id",
         "uuid": "native_ids",
     }
 )
+"""The children of a via. Each protection child (``tenting``, ``capping``, ``covering``, ``plugging``,
+``filling``) is a slot field of its own name; together they hold ``Via.protection`` (``via_protection``)."""
 VIA_POSITIONAL = ("via_type",)
 ZONE_FIELDS: Mapping[str, str] = MappingProxyType(
     {
@@ -408,7 +413,20 @@ def _emit_track(track: Track | Arc, nets: _Nets) -> Items:
     }
 
 
-def _emit_via(via: Via, nets: _Nets) -> Items:
+def _emit_via(
+    via: Via,
+    nets: _Nets,
+    *,
+    major: int,
+    default: ViaProtection | None = None,
+    none_written: Collection[str] | None = None,
+) -> Items:
+    """The modelled fields of a via; ``major`` picks the form of the protection children, ``default`` is
+    the board's default (a 9.0 child needs it for a side the via leaves to the board), and
+    ``none_written`` names the children written with ``none`` values (the via's bag when not given)."""
+    if none_written is None:
+        none_written = _ext_pairs(via).get(vialib.NONE_KEY, "").split()
+    protection = vialib.emit_via(via.protection, major=major, default=default, none_written=none_written)
     return {
         "via_type": [] if via.via_type == "through" else [Atom.symbol(via.via_type)],
         "position": [point_node("at", via.position)],
@@ -416,6 +434,7 @@ def _emit_via(via: Via, nets: _Nets) -> Items:
         "drill": [node("drill", Atom.from_nm(via.drill))],
         "layers": [layers_node("layers", via.layers)],
         "locked": _lock_items(via.locked),
+        **{feature: [child] for feature, child in protection.items()},
         "net_id": _opt(nets.node(via.net_id)),
         "native_ids": uuid_items(via.native_ids),
     }
@@ -792,7 +811,9 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
     elif isinstance(entity, (Track, Arc)):
         items = _emit_track(entity, ctx.nets)
     elif isinstance(entity, Via):
-        items = _emit_via(entity, ctx.nets)
+        board = ctx.design.board
+        default = board.via_protection if board is not None else None
+        items = _emit_via(entity, ctx.nets, major=ctx.major, default=default)
     elif isinstance(entity, (Zone, Keepout)):
         items = _emit_zone(entity, ctx.nets, major=ctx.major)
         if isinstance(entity, Zone):
@@ -1353,6 +1374,8 @@ class _Reader:
             missing = "at" if position is None else "size" if diameter is None else "drill"
             raise ctx.error(f"via has no {missing}", loc, item)
         ident, native_ids = self.ids.of("via", "via", item)
+        major = form_major(ctx.version)
+        read = vialib.project_via(item.children, major=major)
         via = Via(
             id=ident,
             native_ids=native_ids,
@@ -1364,9 +1387,13 @@ class _Reader:
             net_id=net_id,
             via_type=via_type,
             locked=locked,
+            protection=read.value,
         )
-        self.check(item, loc, slots, _emit_via(via, self.emit_nets), chain)
-        return dataclasses.replace(via, ext={"kicad": slotlib.to_ext(slots)})
+        emitted = _emit_via(via, self.emit_nets, major=major, none_written=read.none_written)
+        self.check(item, loc, slots, emitted, chain)
+        kept = sorted((h for h in read.none_written if Modeled(h) in slots), key=vialib.FEATURES.index)
+        base = ExtBag(None, ((vialib.NONE_KEY, " ".join(kept)),)) if kept else None
+        return dataclasses.replace(via, ext={"kicad": slotlib.to_ext(slots, base)})
 
     # -- zones
 
@@ -1649,6 +1676,7 @@ class _Reader:
         stackup = stacklib.project_stackup(setup, layers, issues=ctx.issues) if setup is not None else None
         if stackup is not None:
             self.stack_thickness(root, stackup)
+        via_protection = vialib.project_setup(setup, major=form_major(ctx.version))
         board = Board(
             id=derived_id("brd", "kicad", "kicad_pcb"),
             provenance=ctx.provenance("/kicad_pcb"),
@@ -1665,6 +1693,7 @@ class _Reader:
             sheet=sheet,
             title_block=title_block,
             stackup=stackup,
+            via_protection=via_protection,
         )
         header_items = _emit_header(board)
         header_items["nets"] = [
@@ -1780,6 +1809,7 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.outline-conflict": "error",
         "kicad.board.flip-unsupported": "error",
         **stacklib.WRITE_ISSUE_CODES,
+        **vialib.WRITE_ISSUE_CODES,
     }
 )
 CREATED_ROOT_HEADS: tuple[str, ...] = (
@@ -1813,7 +1843,9 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "zone_connect", "uuid"),
         "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
         "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
-        "via": (*VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", "net", "uuid"),
+        "via": (
+            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", *vialib.FEATURES, "net", "uuid",
+        ),
         "zone": (
             "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
             "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
@@ -1840,6 +1872,12 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
 )  # fmt: skip
 """Per head the writer can create: positional fields, then children in the order KiCad 9.0 and 10.0
 write them (``board.md``, observed in KiCad-written boards; never taken from KiCad's code)."""
+OPAQUE_BEFORE: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType(
+    {"via": MappingProxyType(dict.fromkeys(vialib.FEATURES, ("free", "zone_layer_connections")))}
+)
+"""Per head: field → heads of children the model does not hold and that KiCad writes before the field. A
+protection child added to a read via lands after its ``free`` and ``zone_layer_connections`` children, as
+a re-save by 10.0.6 orders them (``board.md``, "Via protection"; probe ``via-prot-order``)."""
 POSITIONAL: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "footprint": FOOTPRINT_POSITIONAL,
@@ -2149,6 +2187,9 @@ class _Writer:
         self.opaque_ids: set[int] = set()
         self.notes: list[Issue] = []
         self.stack_checked: bool | None = None
+        pairs = _ext_pairs(board)
+        self.source_major = form_major(int(pairs["version"])) if "version" in pairs else target
+        """The major whose forms the read board uses; the target for a created board."""
 
     def error(self, code: str, message: str, where: str) -> None:
         self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where))
@@ -2175,6 +2216,19 @@ class _Writer:
                 found = stacklib.project_stackup(child, self.board.layers)
                 return stacklib.values(found) != stacklib.values(self.board.stackup)
         return False
+
+    def protection_changed(self, setup: Node) -> bool:
+        """True when ``Board.via_protection`` differs in effect from the projection of ``setup``."""
+        found = vialib.project_setup(setup, major=self.source_major)
+        return vialib.effective_default(found) != vialib.effective_default(self.board.via_protection)
+
+    def protection_too_new(self, protection: ViaProtection | None, what: str, where: str) -> bool:
+        """``kicad.board.via-protection-too-new`` when a KiCad 9 target is given a covering, plugging,
+        capping or filling of ``True`` (kicad-file-backend, "Via protection on boards")."""
+        fields = vialib.too_new(protection) if self.target < 10 else ()
+        if fields:
+            self.error(vialib.TOO_NEW, vialib.too_new_message(what, fields), where)
+        return bool(fields)
 
     def read_only(self, field: str, where: str, detail: str) -> None:
         self.error(READ_ONLY_CODE, f"field {field!r} cannot be written from the model: {detail}", where)
@@ -2217,7 +2271,10 @@ class _Writer:
             if field not in canonical:
                 raise ValueError(f"{head}: field {field!r} has no position in CANONICAL_ORDER")
         source = ModelSource({f: v for f, v in items.items() if f in wanted})
-        return slotlib.rebuild(Atom.symbol(head), slot_list, source, canonical=canonical, opaque=self.opaque)
+        return slotlib.rebuild(
+            Atom.symbol(head), slot_list, source, canonical=canonical, opaque=self.opaque,
+            after=OPAQUE_BEFORE.get(head),
+        )  # fmt: skip
 
     def entity(self, entity: Entity, head: str) -> Node:
         bag = entity.ext.get("kicad")
@@ -2270,7 +2327,8 @@ class _Writer:
         elif isinstance(entity, (Track, Arc)):
             items = _emit_track(entity, self.nets)
         elif isinstance(entity, Via):
-            items = _emit_via(entity, self.nets)
+            self.protection_too_new(entity.protection, "the via", _locator(entity))
+            items = _emit_via(entity, self.nets, major=self.target, default=self.board.via_protection)
         elif isinstance(entity, (Zone, Keepout)):
             items = _emit_zone(entity, self.nets, major=self.target)
             if isinstance(entity, Zone):
@@ -2387,6 +2445,10 @@ class _Writer:
             setup: list[Node | Atom] = [node("pad_to_mask_clearance", Atom.integer(0))]
             if board.stackup is not None and self.stack_writable():
                 setup.insert(0, stacklib.stackup_node(board.stackup, board.layers))
+            if board.via_protection is not None and not self.protection_too_new(
+                board.via_protection, "the board default", vialib.SETUP_WHERE
+            ):
+                setup += vialib.setup_children(board.via_protection, major=self.target)
             general = node(
                 "general",
                 node("thickness", Atom.from_nm(thickness)),
@@ -2399,8 +2461,10 @@ class _Writer:
             items["setup"] = [node("setup", *setup)]
         else:
             slots = _with_title_block(list(slots), board.title_block)
-            if board.stackup is not None and "setup" not in [_fragment_head(s) for s in slots]:
-                self.read_only("stackup", _locator(board), "the board has no setup node to hold it")
+            if "setup" not in [_fragment_head(s) for s in slots]:
+                for field, value in (("stackup", board.stackup), ("via_protection", board.via_protection)):
+                    if value is not None:
+                        self.read_only(field, _locator(board), "the board has no setup node to hold it")
             rows = _sorted(n for n in self.design.circuit.nets if "number" in _ext_pairs(n))
             items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), stored_net_name(n)) for n in rows]
         items["footprints"] = [self.entity(fp, "footprint") for fp in _write_order(board.footprints)]
@@ -2613,6 +2677,13 @@ class _Writer:
             slot = slots[i]
             assert isinstance(slot, Opaque)
             stackup = entity.stackup
+            if name == "setup" and self.protection_changed(child):
+                # each projection rewrites only its own children of ``setup``
+                if not self.protection_too_new(
+                    entity.via_protection, "the board default", vialib.SETUP_WHERE
+                ):
+                    child = vialib.rewrite_setup(child, entity.via_protection, major=self.target)
+                    slots[i] = slot = Opaque(dumps(child, style="compact"), slot.min_version)
             if not self.stack_changed(slots) or (stackup is not None and not self.stack_writable()):
                 return name
             if name == "setup":
@@ -2636,6 +2707,15 @@ class _Writer:
                     else [total, *child.children]
                 )
                 slots[i] = Opaque(dumps(child.with_children(children), style="compact"), slot.min_version)
+            return name
+        if isinstance(entity, Via) and name in vialib.FEATURE_FIELDS:
+            # a protection child kept as written: it keeps its fragment while the model agrees with it and
+            # the target reads it as the source did; otherwise the child is written from the model
+            found = vialib.read_child(child, major=self.source_major)
+            unset = (None,) * len(vialib.FEATURE_FIELDS[name])
+            same = (unset if found is None else found) == vialib.values_of(entity.protection, name)
+            if not same or (found is not None and self.source_major != self.target):
+                slots[i] = Modeled(name)
             return name
         if isinstance(entity, Board) and name in ("paper", "title_block"):
             slot = slots[i]

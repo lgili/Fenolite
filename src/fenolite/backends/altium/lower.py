@@ -82,6 +82,7 @@ MORE_KINDS: tuple[str, ...] = (
     "copper-shape",
     "zone-fill",
     "via-pad-shape",
+    "via-protection",
     "plane",
     "stackup",
     "outline",
@@ -691,6 +692,14 @@ def _copper(
             account.skip("via", via.id, problem)
         else:
             vias.append(dataclasses.replace(via, net_id=named(via.net_id)))
+            unwritten = pcbdoc.unwritten_features(via, board.via_protection)
+            if unwritten:
+                account.skip(
+                    "via-protection",
+                    via.id,
+                    f"{', '.join(unwritten)} of the via is not written: the Altium document holds the "
+                    "tenting of a via only",
+                )
             if PAD_REMOVED_KEY in pairs_of(via):
                 account.skip(
                     "via-pad-shape",
@@ -1026,6 +1035,7 @@ def _document(
         tracks=tuple(tracks),
         arcs=tuple(arcs),
         vias=tuple(vias),
+        via_protection=board.via_protection,  # the default of the tenting flags (c0112)
         zones=tuple(zones),
         net_classes=_classes(design, nets, account),
         texts=tuple(texts_),

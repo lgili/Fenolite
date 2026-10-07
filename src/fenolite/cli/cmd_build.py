@@ -99,6 +99,7 @@ from fenolite.dsl import (
     planes,
     stackup_locked,
     to_model,
+    via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
@@ -744,6 +745,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         symbol_placements=symbol_placements,
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
         lock_stackup=stackup_locked(design),
+        lock_via_protection=via_protection_locked(design),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):
