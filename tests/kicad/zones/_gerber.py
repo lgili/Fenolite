@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The Gerber subset that the ``zone-fat9`` probe reads (``docs/formats/kicad/gerber.md``, S-0125).
+"""The Gerber subset that the ``zone-fat9`` and ``via-prot-*`` probes read (``docs/formats/kicad/gerber.md``,
+S-0125).
 
 A test helper only: Fenolite writes no Gerber file and no module of ``src`` reads one. It follows the
 coordinate format and unit statements, region statements and the move and draw operations inside them,
@@ -66,4 +67,26 @@ def region_extents(text: str) -> list[Extent]:
     return extents
 
 
-__all__ = ["FORMAT", "UNIT", "Extent", "region_extents"]
+def flashes(text: str) -> list[tuple[int, int]]:
+    """``(x, y)`` in nanometres of every flash (a ``D03`` operation) of a Gerber text, in file order, in
+    the plot's own axes; coordinates are modal. A text with another coordinate format or unit raises
+    ``ValueError``. The aperture of a flash is not read (change c0112: a via's mask opening and its entry
+    in a drill side file are flashes at its centre)."""
+    commands = [c.strip().strip("%") for c in text.replace("\n", "").replace("\r", "").split("*")]
+    if FORMAT not in commands or UNIT not in commands:
+        raise ValueError(f"the helper reads only %{FORMAT}*% plots in millimetres (%{UNIT}*%)")
+    found: list[tuple[int, int]] = []
+    x = y = 0
+    for command in commands:
+        match = _OPERATION.fullmatch(command)
+        if match is None:
+            continue
+        _, new_x, new_y, operation = match.groups()
+        x = int(new_x) if new_x is not None else x
+        y = int(new_y) if new_y is not None else y
+        if operation == "3":
+            found.append((x, y))
+    return found
+
+
+__all__ = ["FORMAT", "UNIT", "Extent", "flashes", "region_extents"]

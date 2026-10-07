@@ -48,6 +48,12 @@ LOCK_WRITTEN: frozenset[str] = frozenset({"track", "arc", "via"})
 """The record kinds whose lock is written: those with a row "The locked flag of a free <kind>" in
 ``docs/formats/altium/pcb-copper.md`` (change c0108, "Locked copper records"). A kind enters this set only
 after its row is on the page; a locked item of a kind outside it is written unlocked and the build says so."""
+VIA_TENTED_TOP = 0x20
+VIA_TENTED_BOTTOM = 0x40
+"""Bits 5 and 6 of the first flags byte of a via: tented on the top and on the bottom (``pcb-copper.md``,
+"Flags of a via"; the bits ``read.pcbprims`` reads as ``ViaRecord.tented_top`` and ``tented_bottom``)."""
+VIA_TENTING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-PCB-CU-VIATENT",))
+"""What a build or a write adds to its evidence when it sets a tenting flag (change c0112)."""
 TRACK = 4
 ARC = 1
 PAD = 2
@@ -465,15 +471,20 @@ def via_record(
     start: int = VIA_START,
     end: int = VIA_END,
     locked: bool = False,
+    tented_top: bool = False,
+    tented_bottom: bool = False,
 ) -> bytes:
     """A via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
     ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units. ``start``
     and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32). ``locked`` writes
-    the locked flag when ``via`` is in ``LOCK_WRITTEN``."""
+    the locked flag when ``via`` is in ``LOCK_WRITTEN``. ``tented_top`` and ``tented_bottom`` set bits 5
+    and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
+    c0112), beside the lock bit; no other byte follows them."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
     body[0:13] = prefix(MULTI_LAYER, net=net, locked=lock_written("via", locked))
+    body[1] |= (VIA_TENTED_TOP if tented_top else 0) | (VIA_TENTED_BOTTOM if tented_bottom else 0)
     struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, start, end)
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
@@ -784,6 +795,9 @@ def body_record(
 
 
 __all__ = [
+    "VIA_TENTED_BOTTOM",
+    "VIA_TENTED_TOP",
+    "VIA_TENTING_EVIDENCE",
     "ARC",
     "ARC_SIZE",
     "BODY",

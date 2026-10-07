@@ -380,8 +380,8 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up. With where design-rules/<kind> (a warning) it is one rule of the script that the PCB document does not hold, with its selector and the reason. With where body/<id> it is a component body (written with --altium-bodies extruded)."
-fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. For a rule: give every limit Altium's rule holds (min, opt and max for a width or a via; min and max for a hole size), and select all objects, a net or a net class. For a component body: build with --altium-bodies extruded, or set the height in Altium."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part. where names one item as <kind>/<id>, the stack-up, design-rules/<kind> (a warning: a rule of the script that the PCB document does not hold), body/<id> (a component body) or via-protection (covering, plugging, capping or filling of vias, or a tenting side stated nowhere)."
+fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. A rule: give every limit Altium's rule holds and select all objects, a net or a net class. A component body: build with --altium-bodies extruded, or set the height in Altium. Via protection: state the tenting with design.via_protection(protect(tenting=...)) or protection=."
 see = "Build target"
 
 ["altium.outjob-not-listed"]
@@ -1433,6 +1433,11 @@ meaning = "An item refers to a net number that the file's net table does not hol
 fix = "Re-save the board in KiCad."
 see = "inspect"
 
+["kicad.board.via-protection-too-new"]
+meaning = "A via, or the board default, holds a covering, plugging, capping or filling of True, and the board is written for KiCad 9, whose format holds tenting only. KiCad 9 refuses to load a board that carries the newer children, so nothing is written."
+fix = "Build for target 10, or clear the value (protect() without that feature, or the feature set to False). The error cannot be dropped."
+see = "KiCad output"
+
 ["kicad.board.zone-outline-opaque"]
 meaning = "A zone or rule area has an outline with arcs or with several polygons, which the model does not hold; it is kept verbatim."
 fix = "Nothing to do; that zone's outline cannot be edited through Fenolite."
@@ -1840,6 +1845,21 @@ see = "build"
 ["kicad.stackup.overridden"]
 meaning = "An unlocked stackup() differs from the stack-up on the board, and the board's stack-up was kept."
 fix = "Lock the stack-up in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout."
+see = "build"
+
+["kicad.via.protection-forced"]
+meaning = "A locked via_protection() of the script replaced the via protection default of the board, which differed from it."
+fix = "Nothing to do; remove locked=True to keep what is entered in KiCad's Board Setup."
+see = "build"
+
+["kicad.via.protection-not-exported"]
+meaning = "The board default gives vias a covering, plugging, capping or filling that they do not carry themselves. kicad-cli 10.0.6 writes such a default to no fabrication file: its drill side files and its IPC-2581 export hold only the vias that carry the value themselves, and the Gerber and Excellon files hold none of the four features."
+fix = "Give the value to the vias with protection= on Design.via, via_step or Design.stitch, or state it in the fabrication notes."
+see = "build"
+
+["kicad.via.protection-overridden"]
+meaning = "An unlocked via_protection() differs from the via protection default on the board, and the board's default was kept."
+fix = "Lock the default in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout."
 see = "build"
 
 ["kicad.wks.below-resolution"]

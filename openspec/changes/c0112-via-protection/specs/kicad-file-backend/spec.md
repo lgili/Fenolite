@@ -2,7 +2,7 @@
 
 ### Requirement: Via protection on boards
 `fenolite.backends.kicad.via_protection` SHALL read and write the protection children of a via, and `read_board` and `write_board` SHALL use it for `Via.protection`: the reader in the form of the board's major (`pcb.form_major` of its version), the writer in the form of the target (`H-K-VIAPROT-FORMS`, `H-K-VIAPROT-NINE`, `H-K-VIAPROT-UPGRADE`).
-- **10.0 form** (major 10). The children are `(tenting (front V) (back V))`, `(capping V)`, `(covering (front V) (back V))`, `(plugging (front V) (back V))` and `(filling V)`, V being `yes` (`True`), `no` (`False`) or `none` (`None`); a missing side or child reads as `None`. The writer MUST write a child exactly when one of its values is not `None`, with both sides for the first three, in the order `tenting`, `capping`, `covering`, `plugging`, `filling`, which `pcb.CANONICAL_ORDER["via"]` places between `layers` and `net`. A child that the source holds with `none` values only MUST be named in the pair `protection_none` of the via's `kicad` bag (heads separated by spaces), and the writer MUST write it again in that form while its values stay `None`.
+- **10.0 form** (major 10). The children are `(tenting (front V) (back V))`, `(capping V)`, `(covering (front V) (back V))`, `(plugging (front V) (back V))` and `(filling V)`, V being `yes` (`True`), `no` (`False`) or `none` (`None`); a missing side or child reads as `None`. The writer MUST write a child exactly when one of its values is not `None`, with both sides for the first three, in the order `tenting`, `capping`, `covering`, `plugging`, `filling`, which `pcb.CANONICAL_ORDER["via"]` places between `locked` (c0108, "Copper locks on boards") and `net`. A child added to a read via MUST follow the via's opaque `free` and `zone_layer_connections` children when it holds them (`pcb.OPAQUE_BEFORE`), as a re-save by 10.0.6 orders them: `layers`, `locked`, `free`, `zone_layer_connections`, then the protection children (probe `via-prot-order`). A child that the source holds with `none` values only MUST be named in the pair `protection_none` of the via's `kicad` bag (heads separated by spaces), and the writer MUST write it again in that form while its values stay `None`.
 - **9.0 form** (major 9). One child `(tenting …)` whose atoms are `front`, `back`, both, `none`, or none at all. Read from a board of major 9, the named sides MUST be `True` and the others `False`, `none` and no atom MUST give both `False`, and no child gives both `None`. Read from a board of major 10, the named sides MUST be `True` and the others `None`, as 10.0.6 reads them. For target 9 the writer MUST write `(tenting front back)`, `(tenting front)`, `(tenting back)` or `(tenting none)` when both tenting fields are booleans, no child when both are `None`, and, when exactly one is `None`, that side's value in `effective_default(Board.via_protection)` ("Via protection defaults on boards"), so that 9.0.9 plots what the model means.
 - **Support per major.** `via_protection.SUPPORT` MUST map `tenting` to `{9, 10}` and `covering`, `plugging`, `capping` and `filling` to `{10}`. For target 9, a via whose `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping` or `filling` is `True` MUST raise `LossyWriteError` with `droppable = False`, carrying one `kicad.board.via-protection-too-new` (error) per via that names its locator, those fields and KiCad 10; `allow_lossy` MUST NOT drop it, and its hint MUST NOT name `--allow-lossy`. `False` and `None` of those fields MUST write nothing for target 9. The code MUST join `pcb.WRITE_ISSUE_CODES`.
 - **Reproducibility.** A child that the emitter for the board's major does not reproduce tree-equal (a 9.0 child in a board of major 10, a 10.0 child in a board of major 9, `(tenting)`, a two-sided child with one side) MUST stay an opaque projected slot under "Modelled children are reproducible". A child that none of these forms reads MUST give `None` for its fields and stay opaque, with `kicad.board.kept-opaque`.
@@ -86,7 +86,7 @@ The reader SHALL model exactly these root children and leave every other one as 
 - `gr_line`, `gr_arc`, `gr_circle`, `gr_rect` and `gr_poly` → `Graphic` of kind `line`, `arc`, `circle`, `rect` and `polygon`, with the c0008 rules for points, fill and stroke;
 - `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`. A `gr_text` without a font size or thickness MUST stay opaque.
 
-Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent), and `protection` from the children of "Via protection on boards". Any other leading atom MUST raise `FormatError`. `Board.outline` and `Board.stackup` MUST be `None` on import. `Board.via_protection` MUST be the projection of the opaque `setup` child that "Via protection defaults on boards" states; the projection adds no child to the list above. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
+Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent), and `protection` from the children of "Via protection on boards". Any other leading atom MUST raise `FormatError`. `Board.outline` MUST be `None` on import. `Board.stackup` MUST be the projection of the opaque `setup` child that "Stack-up on boards" states; the projection adds no child to the list above. `Board.via_protection` MUST be the projection of the same opaque `setup` child that "Via protection defaults on boards" states; it adds no child to the list above either. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
 
 #### Scenario: Copper items of the authored board
 - **WHEN** the authored board is read
@@ -110,6 +110,10 @@ Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net
 - **WHEN** it is read
 - **THEN** no `Zone` is created for it, and the zone is an `Opaque` slot of the board at its position
 
+#### Scenario: Stack-up projected from an opaque setup
+- **WHEN** `tests/data/kicad/board/stackup_four.kicad_pcb` is read
+- **THEN** `board.stackup` is not `None`, the `setup` child is an `Opaque` root slot, and `pcb.opaque_count` counts it as it counts the `setup` of `two_layer.kicad_pcb`
+
 #### Scenario: Protected via and board default
 - **GIVEN** a copy of the authored board whose via holds `(tenting front)` and whose `setup` holds `(tenting front back)`
 - **WHEN** it is read
@@ -118,14 +122,14 @@ Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net
 ### Requirement: Created board header
 For a created design, `write_board` SHALL emit exactly the root head set of c0007's `tests/data/kicad/tokens/skeleton.kicad_pcb`, plus `title_block` when one of the seven fields of `Board.title_block` is non-empty:
 - `version`, `generator` and `generator_version`;
-- `(general (thickness T) (legacy_teardrops no))`, where T is the sum of the `Board.stackup` layer thicknesses, or 1.6 mm without a stack-up;
+- `(general (thickness T) (legacy_teardrops no))`, where T is `Stackup.thickness()` of the stack-up that "Stack-up written to boards" completes, or 1.6 mm without a stack-up;
 - `paper`, written by `pcb.paper_node(Board.sheet)`, which gives `(paper "A4")` when `Board.sheet` is `None` ("Paper and title block on boards");
 - `title_block`, written by `pcb.title_block_node(Board.title_block)` right after `paper`, only when one of its seven fields is non-empty;
 - `layers`, from `Board.layers` and each layer's `kicad` bag;
-- `(setup (pad_to_mask_clearance 0))`, followed inside `setup` by the children of "Via protection defaults on boards" when `Board.via_protection` is not `None`;
+- `(setup (pad_to_mask_clearance 0))`, with the node of "Stack-up written to boards" as the first child of `setup` when `Board.stackup` is set, and followed inside `setup`, after `pad_to_mask_clearance`, by the children of "Via protection defaults on boards" when `Board.via_protection` is not `None`;
 - for target 9 only, the net table.
 
-The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the 2- and 4-copper-layer sets recorded in `docs/formats/kicad/board.md`, numbered in the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In1.Cu` 4, `In2.Cu` 6, `Edge.Cuts` 25), with the KiCad number, type and user name in each layer's `kicad` bag. Any other `copper` value MUST raise `ValueError`. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")` and a `TitleBlock` whose seven fields are non-empty, so the created test board writes them.
+The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.CREATED_COPPER_COUNTS` MUST be `(2, 4, 6, 8)`. For each of these counts, `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the two-copper-layer set recorded in `docs/formats/kicad/board.md` with the rows of `layers.inner_rows(copper)` inserted right after `F.Cu`: one row `(2k + 2, "In<k>.Cu", signal)` without a user name for each inner layer k = 1 … copper − 2, in that order. The numbers are those of the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In<k>.Cu` 2k + 2, `Edge.Cuts` 25), the rows are the same for targets 9 and 10 (`H-K-PCB-LAYERS`), and each layer's `kicad` bag holds the KiCad number, type and user name. Any other `copper` value, an odd count included, MUST raise `ValueError` naming the counts. `layers.created_count(names)` MUST return the count whose created table has exactly the copper layer names `names`, in table order, and `None` when no count of `CREATED_COPPER_COUNTS` has them. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `stackup`, `color`, `material`, `epsilon_r`, `loss_tangent`, `copper_finish` and `dielectric_constraints` (S-0021, S-0058); `type` is not listed, because the skeleton holds it already and `FLOOR_HEADS` is disjoint from the skeleton. `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")`, a `TitleBlock` whose seven fields are non-empty, and, for every created copper count, a `Stackup` with a dielectric of two sheets, a colour, a material and both decimals, so the created test board writes them.
 
 #### Scenario: Head set of a created 2-layer board
 - **GIVEN** a created design whose board has `created_layers(2)` and no content
@@ -141,6 +145,14 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **WHEN** `created_layers(4)` is called
 - **THEN** the copper layers are `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` with KiCad numbers 0, 4, 6 and 2
 
+#### Scenario: Six and eight copper layers
+- **WHEN** `created_layers(6)` and `created_layers(8)` are called
+- **THEN** the copper layers of the first are `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu` with KiCad numbers 0, 4, 6, 8, 10 and 2 and the type `signal`, the second adds `In5.Cu` (12) and `In6.Cu` (14) before `B.Cu`, every other row equals the row of `created_layers(2)`, and `created_count` of each table's copper names gives 6 and 8
+
+#### Scenario: Counts outside the table
+- **WHEN** `created_layers(c)` is called for `c` equal to 0, 3, 10 and `True`, and `created_count(("F.Cu", "In1.Cu", "B.Cu"))` is called
+- **THEN** each `created_layers` call raises `ValueError` naming 2, 4, 6 and 8, and `created_count` returns `None`
+
 #### Scenario: Created tokens are known
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k created_tokens` runs
 - **THEN** every head and field in `CANONICAL_ORDER` and in the created header is found in the skeleton, is in `FLOOR_HEADS`, or matches an inventory row, and every name of `FLOOR_HEADS` occurs in the parsed text of the created test board written for target 9
@@ -149,6 +161,11 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **GIVEN** a created design whose board has `created_layers(2)`, `sheet = SheetFrameRef("Tabloid")` and `title_block = TitleBlock(title="Bench")`
 - **WHEN** it is written for target 10
 - **THEN** the root's child heads are `version`, `generator`, `generator_version`, `general`, `paper`, `title_block`, `layers`, `setup`, and the `paper` child is `(paper "User" 431.8 279.4)`
+
+#### Scenario: Created board with a stack-up
+- **GIVEN** a created design whose board has `created_layers(2)` and a two-layer stack-up
+- **WHEN** it is written for target 10
+- **THEN** the root's child heads are those of "No net table for target 10", and `setup` holds `stackup` and then `(pad_to_mask_clearance 0)`
 
 #### Scenario: Created board with a via protection default
 - **GIVEN** a created design whose board has `created_layers(2)` and `via_protection = ViaProtection(tenting_front=True, tenting_back=False)`
@@ -160,7 +177,8 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - When `Component.ref` or `Component.value` differs, the writer MUST rewrite only the value atom of the `(property "Reference" …)` or `(property "Value" …)` fragment; every other atom and child of that fragment MUST stay tree-equal.
 - When a modelled field kept as an `Opaque` projected slot by the reader's reproducibility check differs, the writer MUST emit that field from the model if the fragment differs from the emitter's output for the old value only in spelling (same heads and atom count, numbers equal as decimals, strings equal as text, a zero angle written or omitted); otherwise it MUST give `kicad.board.projection-read-only`. An unchanged value MUST keep its fragment.
 - When `Board.sheet` differs from `pcb.project_paper` of the root `paper` fragment, the writer MUST re-emit that fragment whole with `pcb.paper_node`. When `Board.title_block` differs from `pcb.project_title_block` of the root `title_block` fragment, the writer MUST rewrite that fragment in place, or insert it, as "Paper and title block on boards" states. Both projections are editable, and an unchanged value MUST keep its fragment.
-- When `Board.via_protection` differs from `via_protection.project_setup` of the root `setup` fragment, compared by `effective_default`, the writer MUST rewrite the protection children of that fragment as "Via protection defaults on boards" states. When `Via.protection` differs from the projection of a protection child that the reader kept as an opaque projected slot, the writer MUST replace that child by the form of "Via protection on boards" for the target, or remove it when the child's values are all `None`. Both projections are editable, and an unchanged value MUST keep its fragments.
+- When `Board.stackup` differs from `stackup.project_stackup` of the root `setup` fragment, compared by `stackup.values`, the writer MUST rewrite the `setup` fragment and the `thickness` of the root `general` fragment as "Stack-up written to boards" states. This projection is editable, and an unchanged value MUST keep both fragments.
+- When `Board.via_protection` differs from `via_protection.project_setup` of the root `setup` fragment, compared by `effective_default`, the writer MUST rewrite the protection children of that fragment as "Via protection defaults on boards" states, and no other child of it: the stack-up projection and this one each rewrite their own children of the one fragment. When `Via.protection` differs from the projection of a protection child that the reader kept as an opaque projected slot, or when the target is not the major of the board that was read and the forms of that major read the child, the writer MUST replace that child by the form of "Via protection on boards" for the target, or remove it when its values are all `None`. Both projections are editable, and an unchanged value written for the board's own major MUST keep its fragments.
 - When any other projection differs (`Component.properties` other than Reference and Value, `Graphic.width` from a `stroke`, `Pad.padstack`), the writer MUST give `kicad.board.projection-read-only`, naming the field and the locator.
 
 #### Scenario: Reference renamed
@@ -183,6 +201,11 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - **WHEN** the design is written for target 9
 - **THEN** no issue is raised, and the `paper` child is `(paper "A3")` at its source index
 
+#### Scenario: Stack-up added to a read board
+- **GIVEN** `two_layer.kicad_pcb` read with `read_board`, and its board given a two-layer stack-up of 35 µm copper, a 1.5 mm core and 10 µm masks
+- **WHEN** the design is written for target 9
+- **THEN** no warning or error is raised, `setup` holds the stack-up node and then `(pad_to_mask_clearance 0)`, and `general` holds `(thickness 1.59)` and `(legacy_teardrops no)`
+
 #### Scenario: Via protection default added to a read board
 - **GIVEN** `two_layer.kicad_pcb` read with `read_board`, and its board given `via_protection = ViaProtection(tenting_front=False, tenting_back=False)`
 - **WHEN** the design is written for target 9
@@ -192,3 +215,8 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - **GIVEN** a board of format 20260206 whose via holds the 9.0 child `(tenting front)`, read with `read_board` so the child is an opaque projected slot, and the via's protection then set to `ViaProtection(tenting_front=True, tenting_back=False)`
 - **WHEN** the design is written for target 10
 - **THEN** no issue is raised, and the via holds `(tenting (front yes) (back no))` at the position of the source child
+
+#### Scenario: A kept 9.0 child written for target 10
+- **GIVEN** a board of format 20241229 whose via holds `(tenting)`, read with `read_board` so the child is an opaque projected slot and the via has both tenting fields `False`
+- **WHEN** the design is written for target 9 and for target 10
+- **THEN** the target-9 via holds `(tenting)` as read, and the target-10 via holds `(tenting (front no) (back no))` at the position of the source child, which KiCad 10 plots as 9.0.9 plots the source

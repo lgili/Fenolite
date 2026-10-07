@@ -212,6 +212,24 @@ copies.
   stays pending until reported. `tests/unit/cli/test_build_altium_script_copper.py -k protocol` checks the
   digest. The bisection variants below do not apply to this step.
 
+- **C8** (via tenting, change c0112; `~/fenolite-altium-checks/session-2/ViaTenting/blink.PcbDoc`, SHA-256
+  `eca2619850f48f745d66d6d8714c7af4ada6b290d816c9f55cc5a1cb57d2a02e`): the blink with four through vias of
+  0.8 mm (hole 0.4 mm) on `GND`, 4 mm above the bottom edge, at 10, 15, 20 and 25 mm from the left edge,
+  whose first flags byte is `0C`, `2C`, `4C` and `6C`. The sample was built outside the repository on
+  2026-10-07 with `fenolite build <copy of examples/blink_2layer>/design.py --out <folder> --target altium
+  --confirm --timestamp 2026-10-07T00:00:00Z --seed 112`, the script extended by the four lines
+  `design.via("v1", mm(10), mm(26), net=gnd, diameter=mm(0.8), drill=mm(0.4), protection=protect(tenting=False))`,
+  `v2` at `mm(15)` with `protect(tenting="front")`, `v3` at `mm(20)` with `protect(tenting="back")` and `v4`
+  at `mm(25)` with `protect(tenting=True)`; its folder holds a `README.md` with the steps. Open the
+  document in Altium Designer 26 (a menu path or a dialog name may read differently there), select each of
+  the four vias and read the "Tented" check boxes of its solder mask settings in the Properties panel.
+  Expected: no message on opening; via 1 tented on neither side, via 2 on the top only, via 3 on the bottom
+  only, via 4 on both; the Top Solder and Bottom Solder layers show an opening exactly where a via is not
+  tented. Question for the report: which sides does Altium Designer 26 show as tented for each via, and
+  does the document open without a message? Also report the solder mask expansion the panel shows: the
+  written record holds 4 mil on both sides whatever the flags. Settles `H-A-PCB-CU-VIATENT`, which stays
+  `INFERRED` until the report is recorded here. The bisection variants below do not apply to this step.
+
 When a step fails, open the variants in order and report the first that fails. They are written outside
 the repository with `FENOLITE_ALTIUM_VARIANTS=<folder> uv run pytest
 tests/unit/lens/test_altium_copper_golden.py -k variants`: `c0` two layers with tracks and an arc; `c1` adds

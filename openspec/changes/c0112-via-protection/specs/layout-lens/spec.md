@@ -7,7 +7,7 @@
 - When the board has no default (`None`), the script's MUST be written.
 - When they differ and the script's is not locked, the board's MUST be kept, and `kicad.via.protection-overridden` (info) MUST name the first field that differs with both values, with the hint "lock the default in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout".
 - When they differ and the script's is locked, the script's MUST replace the board's, and `kicad.via.protection-forced` (warning) MUST name the first field that differs.
-- `DefaultMerge` MUST hold `default`, the decided value, `source` (`script`, `board`, or `None` when neither holds one) and `issues`. `merge_default` MUST be pure, and run again on its own result with the same arguments it MUST return the same value and no issue.
+- `DefaultMerge` MUST hold `default`, the decided value, `source` (`script`, `board`, or `None` when neither holds one) and `issues`. `merge_default` MUST be pure, and run again on its own result with the same arguments it MUST return the same value; a locked default then reports nothing, and an unlocked one that still differs from the kept board default reports `kicad.via.protection-overridden` again, as an overridden zone does at every build.
 - The vias are not decided here: script vias follow `manual-copper` "Via protection of script copper", and every other via of the board keeps its protection with the rest of its fields ("Copper items follow their nets").
 - `via_protection` SHALL report only the codes of the closed table `via_protection.ISSUE_CODES`. They are `kicad.*` codes, so they pass through `lens.preserve.PRESERVE_ISSUE_CODES` and `lens.build.BUILD_ISSUE_CODES` unchanged, as "Layout issue codes" and `design-dsl` "Build issue codes" allow.
 

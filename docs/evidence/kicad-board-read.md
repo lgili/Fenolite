@@ -137,3 +137,25 @@ separate pass. Machine: Apple M4, 16 GB, macOS 26.6 (arm64), CPython 3.13.7.
 | peak traced memory, write | 125 715 004 bytes (119.9 MiB) |
 
 No limit is asserted; the test skips without `FENOLITE_CENSUS_OUT`.
+
+## Via protection (change c0112)
+
+Census of the protection children of the 21 native demo boards, `tests/corpus/test_board_census.py -k
+via_protection`, run on 2026-10-07 with the corpus cached (counts only; S-0058). Every protection child of
+a via is a modelled slot, none is kept opaque, and RT1 holds on the 21 boards
+(`tests/corpus/test_board_rt1.py`: 22 passed, the two heavy items skipped).
+
+| item | count |
+|---|---|
+| boards whose `setup` holds `(tenting front back)` (9.0 form) | 19 |
+| boards whose `setup` holds `(tenting (front yes) (back yes)) (covering (front no) (back no)) (plugging (front no) (back no)) (capping no) (filling no)` | 2 |
+| vias | 2 671 |
+| vias with protection children | 452 |
+| vias holding the five children with `none` values only (one board of format 20250513; named in the bag pair `protection_none`) | 444 |
+| vias holding `(capping no) (covering (front no) (back no)) (plugging (front no) (back no)) (filling no)` and no `tenting` (one board of format 20260206) | 6 |
+| vias holding `(tenting front back)` (one 9.0 board) | 2 |
+| vias whose read protection holds a value | 8 |
+| protection children kept as opaque slots | 0 |
+
+The three third-party boards below the read floor hold no protection child in `setup` (census of
+2026-10-05, design of c0112); they are read only as `pcb upgrade` copies and are not in this count.

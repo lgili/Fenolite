@@ -9,7 +9,7 @@ import dataclasses
 
 import pytest
 from _boards import created_board
-from _copper import arc, at, built_blink, end, routed_intents, step, track, via
+from _copper import arc, at, built_blink, end, routed_intents, step, stitch, track, via
 from _placed import Part, design_of, mm, pt
 
 import fenolite.backends.kicad as kicad
@@ -20,6 +20,7 @@ from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
 from fenolite.model import canonical
+from fenolite.model.board import ViaProtection
 from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
 
@@ -568,3 +569,81 @@ def test_via_kinds_micro_takes_the_via_sizes_of_the_class() -> None:
     result, found = _resolve(classed, intent)
     _, (made,) = _created(classed, result)
     assert found == [] and (made.diameter, made.drill, made.via_type) == (mm(0.5), mm(0.2), "micro")
+
+
+# -- via protection (manual-copper, "Via protection of script copper"; change c0112)
+
+
+def test_protection_of_a_via_intent_and_of_a_step() -> None:
+    blink = built_blink()
+    front = ViaProtection(tenting_front=True, tenting_back=False)
+    filled = ViaProtection(filling=True, capping=True)
+    tp1 = dataclasses.replace(via("tp1", at(8, 8)), protection=front)
+    plain = via("tp2", at(12, 8))
+    led_a = track(
+        "led_a", end("R1", 2), at(36, 9), dataclasses.replace(step(36, 14), protection=filled), end("D1", 2)
+    )
+    result, found = _resolve(blink, tp1, plain, led_a)
+    assert found == []
+    _, vias = _copper(result)
+    by_uuid = {v.native_ids["kicad"]: v.protection for v in vias}
+    assert by_uuid[copper_uuid("tp1", "via")] == front
+    assert by_uuid[copper_uuid("tp2", "via")] == ViaProtection()
+    assert by_uuid[copper_uuid("led_a", "via[2]")] == filled
+    assert result.board is not None and result.board.via_protection is None  # the default is not copied in
+
+
+def test_protection_of_every_stitch_via() -> None:
+    filled = ViaProtection(filling=True, capping=True)
+    intent = dataclasses.replace(stitch("row", along=(at(5, 25), at(45, 25)), pitch=mm(5)), protection=filled)
+    result, _ = _resolve(built_blink(), intent)
+    _, vias = _copper(result)
+    assert len(vias) > 1 and all(v.protection == filled for v in vias)
+    assert all(v.protection.filling is True and v.protection.capping is True for v in vias)
+
+
+def test_protection_edited_in_kicad_is_regenerated() -> None:
+    front = ViaProtection(tenting_front=True, tenting_back=False)
+    tp1 = dataclasses.replace(via("tp1", at(8, 8)), protection=front)
+    first, _ = _resolve(built_blink(), tp1)
+    assert first.board is not None
+    edited = tuple(
+        dataclasses.replace(v, protection=ViaProtection(tenting_front=False, tenting_back=False))
+        for v in first.board.vias
+    )
+    changed = dataclasses.replace(first, board=dataclasses.replace(first.board, vias=edited))
+    again, found = _resolve(changed, tp1)
+    _, (only,) = _copper(again)
+    assert only.protection == front
+    (issue,) = found
+    native = copper_uuid("tp1", "via")
+    assert (issue.code, issue.severity) == ("kicad.copper.regenerated", "info")
+    assert native in issue.message and issue.where == native
+    same, quiet = _resolve(again, tp1)
+    assert quiet == [] and _copper(same)[1][0].protection == front
+
+
+def test_a_user_copy_that_differs_only_by_its_protection_is_a_duplicate() -> None:
+    tp1 = via("tp1", at(8, 8))
+    first, _ = _resolve(built_blink(), tp1)
+    assert first.board is not None
+    (script,) = first.board.vias
+    native = "00000000-0000-4000-8000-000000000112"
+    user = dataclasses.replace(
+        script,
+        id=derived_id("via", "kicad", native),
+        native_ids={"kicad": native},
+        protection=ViaProtection(filling=True),
+    )
+    both = dataclasses.replace(first, board=dataclasses.replace(first.board, vias=(script, user)))
+    again, found = _resolve(both, tp1)
+    assert [i.code for i in found] == ["kicad.copper.duplicate"]
+    assert [v.native_ids["kicad"] for v in _copper(again)[1]] == [copper_uuid("tp1", "via")]
+
+
+def test_protection_that_is_not_a_protection() -> None:
+    blink = built_blink()
+    for bad in ("tented", None, True):
+        intent = dataclasses.replace(via("tp1", at(8, 8)), protection=bad)  # type: ignore[arg-type]
+        issue = _refused(blink, intent, "kicad.copper.bad-intent", "tp1", "protection")
+        assert issue.where == "tp1"

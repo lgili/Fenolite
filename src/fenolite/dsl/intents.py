@@ -20,6 +20,7 @@ from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.part import Net, Part
 from fenolite.dsl.units import as_nm
+from fenolite.model.board import ViaProtection
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -58,6 +59,7 @@ class ViaStep:
     diameter: Nm | None = None
     drill: Nm | None = None
     kind: str = "through"
+    protection: ViaProtection = ViaProtection()
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +95,7 @@ class ViaIntent:
     drill: Nm | None = None
     kind: str = "through"
     layers: tuple[str, str] | None = None
+    protection: ViaProtection = ViaProtection()
     locked: bool = False
 
 
@@ -108,6 +111,7 @@ class StitchIntent:
     drill: Nm | None = None
     clearance: Nm | None = None
     margin: Nm = 0
+    protection: ViaProtection = ViaProtection()
     locked: bool = False
 
 
@@ -139,6 +143,7 @@ class _Via:
     drill: Nm | None
     kind: str = "through"
     layers: tuple[str, str] | None = None
+    protection: ViaProtection = ViaProtection()
     locked: bool = False
 
 
@@ -154,6 +159,7 @@ class _Stitch:
     drill: Nm | None
     clearance: Nm | None
     margin: Nm
+    protection: ViaProtection = ViaProtection()
     locked: bool = False
 
 
@@ -220,14 +226,65 @@ def _kind(value: object, what: str) -> str:
     return cast(str, value)
 
 
+_SIDED = {True: (True, True), False: (False, False), "front": (True, False), "back": (False, True),
+          None: (None, None)}  # fmt: skip
+
+
+def _sided(value: object, name: str) -> tuple[bool | None, bool | None]:
+    if not (value is None or isinstance(value, (bool, str))) or value not in _SIDED:
+        raise DslError(f"protect(): {name} must be True, False, 'front', 'back' or None, not {value!r}")
+    return _SIDED[value]  # type: ignore[index]
+
+
+def _whole(value: object, name: str) -> bool | None:
+    if value is not None and not isinstance(value, bool):
+        raise DslError(f"protect(): {name} must be True, False or None, not {value!r}")
+    return value
+
+
+def protect(
+    *,
+    tenting: object = None,
+    covering: object = None,
+    plugging: object = None,
+    capping: object = None,
+    filling: object = None,
+) -> ViaProtection:
+    """How a via is protected (``docs/dsl.md``, "Via protection"). ``tenting``, ``covering`` and
+    ``plugging`` take ``True`` (both sides), ``False`` (neither side), ``"front"`` or ``"back"`` (that side
+    only) or ``None`` (both sides follow the board default); ``capping`` and ``filling`` take ``True``,
+    ``False`` or ``None``. Pass the result as ``protection=`` to ``Design.via``, ``via_step`` or
+    ``Design.stitch``, or to ``Design.via_protection`` as the board default."""
+    return ViaProtection(
+        *_sided(tenting, "tenting"), *_sided(covering, "covering"), *_sided(plugging, "plugging"),
+        _whole(capping, "capping"), _whole(filling, "filling"),
+    )  # fmt: skip
+
+
+def _protection(value: object, what: str) -> ViaProtection:
+    """``protection=`` of a via call: ``None`` records ``ViaProtection()``."""
+    if value is None:
+        return ViaProtection()
+    if not isinstance(value, ViaProtection):
+        raise DslError(f"{what}: protection must be None or the value of protect(), not {value!r}")
+    return value
+
+
 def via_step(
-    x: object, y: object, *, to: str, diameter: object = None, drill: object = None, kind: str = "through"
+    x: object,
+    y: object,
+    *,
+    to: str,
+    diameter: object = None,
+    drill: object = None,
+    kind: str = "through",
+    protection: object = None,
 ) -> ViaStep:
     """A via of ``kind`` (``through``, ``blind``, ``buried`` or ``micro``) at ``(x, y)`` in the frame of
-    ``place()``; the track continues on the layer ``to``."""
+    ``place()``; the track continues on the layer ``to``. ``protection`` is the value of ``protect()``."""
     return ViaStep(
         _point((x, y), "via_step"), _layer(to, "via_step: to"), _size(diameter, "via_step: diameter"),
-        _size(drill, "via_step: drill"), _kind(kind, "via_step"),
+        _size(drill, "via_step: drill"), _kind(kind, "via_step"), _protection(protection, "via_step"),
     )  # fmt: skip
 
 
@@ -331,6 +388,7 @@ def record_via(
     kind: object = "through",
     layers: object = None,
     locked: object = False,
+    protection: object = None,
 ) -> None:
     name = check_key(design, key)
     what = f"via {name}"
@@ -345,6 +403,7 @@ def record_via(
         _size(drill, f"{what}: drill"),
         via_kind,
         _via_layers(layers, via_kind, what),
+        _protection(protection, what),
         _locked(locked, what),
     )
 
@@ -363,6 +422,7 @@ def record_stitch(
     clearance: object,
     margin: object,
     locked: object = False,
+    protection: object = None,
 ) -> None:
     name = check_key(design, key)
     what = f"stitch {name}"
@@ -396,6 +456,7 @@ def record_stitch(
         _size(drill, f"{what}: drill"),
         free,
         gap,
+        _protection(protection, what),
         _locked(locked, what),
     )
 
@@ -429,9 +490,10 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
             net_name = _net_name(design, item.net, key)
             found.append(
                 ViaIntent(
-                    key, item.at, net_name, item.diameter, item.drill, item.kind, item.layers, item.locked
+                    key, item.at, net_name, item.diameter, item.drill, item.kind, item.layers,
+                    item.protection, item.locked,
                 )
-            )
+            )  # fmt: skip
         else:
             found.append(
                 StitchIntent(
@@ -445,6 +507,7 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
                     item.drill,
                     item.clearance,
                     item.margin,
+                    item.protection,
                     item.locked,
                 )
             )
@@ -465,5 +528,6 @@ __all__ = [
     "ViaStep",
     "arc_to",
     "copper",
+    "protect",
     "via_step",
 ]

@@ -132,6 +132,9 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   copper: `design.zone(<net>, layers=("<layer>",))`. `planes(design)` returns the mapping from layer name
   to net name.
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
+- `protect(…)`, `protection=` on `Design.via`, `via_step` and `Design.stitch`, and
+  `Design.via_protection(protection, *, locked=False)`: how vias are tented, covered, plugged, capped
+  and filled ("Via protection").
 - `Design.rules.rule(name, kind, *, where, between, layers, min, opt, max, severity, priority)` and
   `fenolite.dsl.select`: one design rule with selectors ("Rules with selectors").
 - `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
@@ -677,6 +680,52 @@ design.stackup(
   `docs/lens.md`, "Stack-up across rebuilds".
 - `stack.preset(name)` and `stack.PRESETS` are reserved for stack-ups taken from public fabricator pages;
   no preset ships yet, so every name raises `DslError`.
+
+## Via protection
+
+A via may be tented (covered by solder mask), covered, plugged, capped and filled. `protect()` says how,
+per via or for the whole board (change c0112):
+
+```python
+from fenolite.dsl import protect
+
+design.via_protection(protect(tenting=True))  # the board default: every via tented on both sides
+design.via("tp1", mm(5), mm(5), net=gnd, protection=protect(tenting=False))  # a test point, open
+design.stitch("pad", net=gnd, pitch=mm(1), region=ring, protection=protect(filling=True, capping=True))
+design.track(
+    "a", r1.pad(2), via_step(mm(8), mm(8), to="B.Cu", protection=protect(tenting="front")), d1.pad(2)
+)
+```
+
+- `protect(*, tenting=None, covering=None, plugging=None, capping=None, filling=None)` returns a
+  `ViaProtection` of the model (`docs/design-model.md`, "Via protection"). `tenting`, `covering` and
+  `plugging` have two sides and take `True` (both sides), `False` (neither), `"front"` or `"back"` (that
+  side, the other not) or `None`; `capping` and `filling` take `True`, `False` or `None`. Any other value
+  raises `DslError`. `None` means "not stated here": on a via the feature follows the board default, and in
+  the board default it is KiCad's own (tented on both sides, nothing else). A value for one side with
+  `None` for the other is built with `ViaProtection(...)` of `fenolite.model.board`.
+- `protection=` on `Design.via`, `via_step` and `Design.stitch` takes that value (or `None`); every via of
+  a stitch carries it. Anything else raises `DslError` naming the copper key.
+- `Design.via_protection(protection, *, locked=False)`, at most once, declares the board default. A script
+  without it, and without any `protection=`, builds every file with the bytes it had before.
+- **Rebuilds.** Script vias take the protection of their intent at every build: a protection set in KiCad
+  on a script via is replaced, with `kicad.copper.regenerated` (info). The board default follows the rule
+  of zones and of the stack-up: an edit in KiCad's Board Setup wins over an unlocked default
+  (`kicad.via.protection-overridden`, info), and `locked=True` makes the script's replace it
+  (`kicad.via.protection-forced`, warning): `docs/lens.md`, "Via protection across rebuilds".
+- **What each target holds.** KiCad 10 holds all five features, per via and as defaults. KiCad 9 holds
+  tenting only: `--kicad-version 9` refuses a covering, plugging, capping or filling of `True` with exit 7
+  (`kicad.board.via-protection-too-new`; `--allow-lossy` does not drop it), and writes nothing for `False`
+  and `None`. A target-9 board opened in KiCad 10 is converted by KiCad, which then tents the side that a
+  via's 9.0 child does not name; `fenolite build --kicad-version 10` keeps the mask that KiCad 9 plots.
+  The Altium target writes the tenting where the design states it and names the rest (`docs/altium.md`,
+  "Via protection").
+- **What reaches the fabrication files.** The solder mask plots follow tenting alone. Covering, plugging,
+  capping and filling reach only the drill side files and the IPC-2581 export of `kicad-cli` 10.0.6, and
+  only for the vias that carry the value themselves: a board default adds none. A build whose default
+  gives such a feature to vias that do not carry it says so with `kicad.via.protection-not-exported`
+  (info); set it with `protection=` on those vias, or state it in the fabrication notes. Fenolite supplies
+  no protection the script does not give, and checks none.
 
 ## Design rules
 

@@ -56,7 +56,11 @@ def locked_design() -> Design:
 def test_lock_fields_and_order() -> None:
     assert TRACK_FIELDS["locked"] == "locked" and VIA_FIELDS["locked"] == "locked"
     assert CANONICAL_ORDER["segment"] == SEGMENT and CANONICAL_ORDER["arc"] == ARC
-    assert tuple(name for name in CANONICAL_ORDER["via"] if name != "via_type") == VIA
+    # the protection children of change c0112 come between `locked` and `net`
+    features = ("tenting", "capping", "covering", "plugging", "filling")
+    order = CANONICAL_ORDER["via"]
+    assert tuple(name for name in order if name != "via_type" and name not in features) == VIA
+    assert order[order.index("locked") + 1 : order.index("net")] == features
 
 
 @pytest.mark.parametrize("target", [9, 10])

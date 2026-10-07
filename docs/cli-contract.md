@@ -368,6 +368,19 @@ stack-up the written board holds. Against an existing board the board's stack-up
 (`kicad.stackup.forced`, warning); a `model.stackup-*` error refuses the build. A script without
 `stackup()` builds every file with the bytes it had before (`docs/lens.md`, "Stack-up across rebuilds").
 
+**Via protection (c0112).** A script states how vias are tented, covered, plugged, capped and filled with
+`protect()`, `protection=` and `design.via_protection()` (`docs/dsl.md`, "Via protection"). Codes of the
+build: `kicad.board.via-protection-too-new` (error, exit 7 with `FEN-7001`, never dropped by
+`--allow-lossy`) when `--kicad-version 9` meets a covering, plugging, capping or filling of `True`;
+`kicad.via.protection-overridden` (info) when the board's default is kept over an unlocked script default
+that differs; `kicad.via.protection-forced` (warning) when a locked script default replaced the board's;
+`kicad.via.protection-not-exported` (info) when vias take a covering, plugging, capping or filling from
+the board default only, which `kicad-cli` 10.0.6 writes to no fabrication file. With `--target altium`,
+one `altium.not-lowered` info whose `where` is `via-protection` names the vias whose covering, plugging,
+capping or filling stays in the model and, when the design states a protection, the vias with a tenting
+side stated nowhere (`docs/altium.md`, "Via protection"). No flag is added, and a script that states no
+protection builds every file with the bytes it had before.
+
 ## `sync`
 
 `fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
@@ -1192,6 +1205,20 @@ otherwise holds `thickness` (the sum of the entries, in nm), `finish`, `impedanc
 `dielectric_kind`, `material`, `epsilon_r`, `loss_tangent` and `color` when they are set. Footprint files
 and symbol libraries do not carry the key. The `kicad.board.stackup-*` codes of the reader are reported as
 issues.
+
+For a board, `result.via_protection` (c0112) holds three objects, each with the eight fields
+`tenting_front`, `tenting_back`, `covering_front`, `covering_back`, `plugging_front`, `plugging_back`,
+`capping` and `filling`. `default` holds the board's effective default as booleans, and `source`: `board`
+when the board states a default, `kicad` when KiCad's own applies (tented on both sides, nothing else).
+`effective` holds, per field, the number of vias for which the value is true, by their own value or by
+the default; `by_default` how many of those take it from the default. On `kicad-cli` 10.0.6 a covering,
+plugging, capping or filling counted in `by_default` reaches no fabrication file: the drill side files
+and the IPC-2581 export hold only the vias that carry the value themselves. For an Altium PCB document
+(`altium_pcbdoc`) the key holds the same three objects: `default` has `source` `altium` and every field
+`false`, because an Altium via carries its own tenting flags and no default applies; `effective` counts
+the vias whose top and bottom tenting flag is set, under `tenting_front` and `tenting_back`, and 0 for
+the six other fields; `by_default` is 0 everywhere. The two flags are `INFERRED` (`H-A-PCB-CU-VIATENT`).
+Footprint files, symbol libraries, Altium libraries and schematic documents do not carry the key.
 
 ## doctor
 

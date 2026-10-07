@@ -286,7 +286,12 @@ def test_the_change_registered_its_rows() -> None:
     assert ORACLE_THEN_REPORT <= set(rows)
     assert all("test_pcbdoc_oracle.py" in rows[i].test for i in ORACLE_THEN_REPORT)
     copper = {i for i in rows if i.startswith("H-A-PCB-CU-")}
-    assert copper == REGISTERED_BY_C0038 | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP"} | REGISTERED_BY_C0108
+    # H-A-PCB-CU-VIATENT: the tenting flags of a via, registered by change c0112
+    assert copper == (
+        REGISTERED_BY_C0038
+        | {"H-A-PCB-CU-KICAD", "H-A-PCB-CU-ROUNDTRIP", "H-A-PCB-CU-VIATENT"}
+        | REGISTERED_BY_C0108
+    )
     assert all(rows[i].test.startswith("kit request") for i in REGISTERED_BY_C0108)
     assert {i for i in rows if i.startswith("H-A-ECO-")} == REGISTERED_BY_C0048
     reader = {i for i in rows if i.startswith(READER_STEM)}

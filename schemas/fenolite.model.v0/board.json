@@ -130,6 +130,16 @@
           "type": "null"
         }
       ]
+    },
+    "via_protection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ViaProtection"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -1499,6 +1509,9 @@
             "micro"
           ]
         },
+        "protection": {
+          "$ref": "#/$defs/ViaProtection"
+        },
         "locked": {
           "type": "boolean"
         }
@@ -1510,6 +1523,93 @@
         "diameter",
         "drill"
       ]
+    },
+    "ViaProtection": {
+      "description": "How a via is protected: tenting, covering and plugging per side, capping and filling for the via.",
+      "type": "object",
+      "properties": {
+        "tenting_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tenting_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capping": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filling": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "Zone": {
       "description": "A copper zone (pour). ``fills`` are derived and discarded when the zone changes.",

@@ -25,6 +25,7 @@ from _boardcorpus import (
     census_pintypes,
     census_uuids,
     census_validation,
+    census_via_protection,
     census_zone_settings,
     census_zones,
     entry,
@@ -109,6 +110,16 @@ def test_zone_settings() -> None:
     print("zone settings:", counts)
     assert sum(c.get("zones", 0) for c in counts.values()) > 0
     assert not problems, "setting children kept opaque: " + "; ".join(problems)
+
+
+def test_via_protection() -> None:
+    """Every protection child of a via of the readable boards is a modelled slot, and the forms are those
+    of ``docs/formats/kicad/board.md``, "Via protection" (change c0112; counts go to the census file)."""
+    counts, problems = census_via_protection(entries())
+    census("via_protection", "native", counts)
+    print("via protection:", counts)
+    assert sum(c.get("vias", 0) for c in counts.values()) > 0
+    assert not problems, "protection children kept opaque: " + "; ".join(problems)
 
 
 @pytest.mark.needs_kicad

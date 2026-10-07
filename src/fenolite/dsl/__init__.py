@@ -22,6 +22,7 @@ from fenolite.dsl.convert import (
     planes,
     stackup_locked,
     to_model,
+    via_protection_locked,
 )
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
@@ -37,6 +38,7 @@ from fenolite.dsl.intents import (
     ViaStep,
     arc_to,
     copper,
+    protect,
     via_step,
 )
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
@@ -89,10 +91,12 @@ __all__ = [
     "pad_zones",
     "placements",
     "planes",
+    "protect",
     "select",
     "stack",
     "stackup_locked",
     "to_model",
+    "via_protection_locked",
     "via_step",
     "I2C",
     "SPI",
