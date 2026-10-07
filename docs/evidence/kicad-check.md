@@ -302,8 +302,20 @@ Each construct gives one entry of its type and none of another: at 3 copies of o
 
 The 10.0.6 run wrote 3386 entries (2 × 499 + 11 × 199) in 13 s and no entry of a type outside the bench. The
 first measurement of 2026-10-05 on 10.0.6, with one bench per type, gave the same thirteen counts. The 9.0.9
-column is not yet recorded with this bench: the `kicad-9` job records the probes, and until then the 9.0.9
-rows of `docs/formats/kicad/drc.md` stay `INFERRED`.
+column above is the first measurement of 2026-10-05, on another board.
+
+With this bench in the pinned 9.0.9 image (`kicad/kicad:9.0.9@sha256:e638b79b…`, linux/amd64, local run
+of 2026-10-08; the `kicad-9` job of CI has not run it yet), the board of 13 × 700 constructs gives 499
+`clearance`, 499 `unconnected_items`, 199 of each of `track_dangling`, `via_dangling`,
+`copper_edge_clearance`, `track_width`, `hole_to_hole`, `annular_width`, `silk_overlap`,
+`courtyards_overlap`, `lib_footprint_issues` and `shorting_items`, and **no entry of `hole_clearance`**
+(0, where 10.0.6 gives 199). A diagnosis of the same day, not recorded as a probe: 9.0.9 gives no
+`hole_clearance` entry for a pad beside an unplated hole in one footprint or in two, with or without a
+net, at 3 and at 700 copies; 10.0.6 gives 3 and 199 for each of the four forms. So the limit of
+`hole_clearance` on 9.0.9 is not measured (`drc-limit-hole_clearance` = `different` there), and
+`drc.MEASURED_TYPES[9]` lacks the type. At 150 copies 9.0.9 gives 150, 150 and 150; with
+`--all-track-errors` 199 `track_dangling`. Its report has nine top-level keys, those of 10.0.6 without
+`ignored_checks`; `drc-limit-keys` compares with the keys of the running major and is `equal` on both.
 
 ### Under the limit, `--all-track-errors`, and the keys (10.0.6 macOS, 2026-10-07)
 

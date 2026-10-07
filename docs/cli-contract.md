@@ -917,12 +917,12 @@ describes the report, not the board.
 
 | type | limit, KiCad 9.0 | limit, KiCad 10.0 | label |
 |---|---|---|---|
-| `clearance` | 499 (9.0.9 writes up to a few more) | 499 | `KICAD-VERIFIED (10.0.x)`; `INFERRED` on 9.0 |
-| `unconnected_items` | 499 | 499 | `KICAD-VERIFIED (10.0.x)`; `INFERRED` on 9.0 |
-| every other type | 199 | 199 | `KICAD-VERIFIED (10.0.x)` for the eleven types of the bench, `INFERRED` on 9.0 and for a type no probe measured |
+| `clearance` | 499 (9.0.9 writes up to a few more) | 499 | `KICAD-VERIFIED (9.0.x, 10.0.x)` |
+| `unconnected_items` | 499 | 499 | `KICAD-VERIFIED (9.0.x, 10.0.x)` |
+| every other type | 199 | 199 | `KICAD-VERIFIED (10.0.x)` for the eleven types of the bench and `KICAD-VERIFIED (9.0.x)` for ten of them (not `hole_clearance`, which 9.0.9 does not report on the bench); `INFERRED` for a type no probe measured |
 
 The limits are measured on an authored bench (`H-K-DRC-LIMITS`; `docs/formats/kicad/drc.md`, "Report limits").
-The 9.0 column was measured on 9.0.9 and is not yet recorded by the probes of that bench.
+The 9.0 column is the bench's run in the pinned 9.0.9 image.
 
 **Repeatability.** Fenolite adds no difference of its own: two `check` runs on one project with one
 `kicad-cli` give the same output apart from `elapsed_ms` whenever KiCad repeats its reports. KiCad

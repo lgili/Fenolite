@@ -33,14 +33,42 @@ REQUIRED_KEYS: tuple[str, ...] = (
 )
 LIB_FOOTPRINT_MISMATCH = "lib_footprint_mismatch"
 LIB_FOOTPRINT_ISSUES = "lib_footprint_issues"
-_MEASURED = DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199)
-REPORT_LIMITS: Mapping[int, DrcLimits] = MappingProxyType({9: _MEASURED, 10: _MEASURED})
+REPORT_LIMITS: Mapping[int, DrcLimits] = MappingProxyType(
+    {
+        9: DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199),
+        10: DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199),
+    }
+)
 """Per ``kicad-cli`` major, the number of entries at which ``pcb drc --format json`` stops writing a type
 (``H-K-DRC-LIMITS``): 499 for ``clearance`` and for the unconnected items, 199 for every other type. Each
-number is pinned to a probe ``drc-limit-<type>`` (``tests/kicad/check/test_drc_limits.py``); ``others`` is
-measured for eleven types and assumed for the rest. 9.0.9 can write a few more than 499 ``clearance``
-entries (``H-K-DRC-LIMIT``), so a count at or above its limit is a lower bound. A major without a row was
-not measured."""
+row is its major's own measurement: a number is pinned to the probe ``drc-limit-<type>`` of that major
+(``tests/kicad/check/test_drc_limits.py``), and ``others`` is measured for the types of ``MEASURED_TYPES``
+and assumed for the rest. 9.0.9 can write a few more than 499 ``clearance`` entries (``H-K-DRC-LIMIT``),
+so a count at or above its limit is a lower bound. A major without a row was not measured."""
+_MEASURED_ON_BOTH = frozenset(
+    {
+        "clearance",
+        "unconnected_items",
+        "track_dangling",
+        "via_dangling",
+        "copper_edge_clearance",
+        "track_width",
+        "hole_to_hole",
+        "annular_width",
+        "silk_overlap",
+        "courtyards_overlap",
+        "lib_footprint_issues",
+        "shorting_items",
+    }
+)
+MEASURED_TYPES: Mapping[int, frozenset[str]] = MappingProxyType(
+    {9: _MEASURED_ON_BOTH, 10: _MEASURED_ON_BOTH | {"hole_clearance"}}
+)
+"""Per ``kicad-cli`` major, the types whose value in ``REPORT_LIMITS`` a probe measured: exactly those whose
+probe ``drc-limit-<type>`` is ``equal`` in the probe file of that major
+(``tests/unit/backends/kicad/test_oracle_limits.py``). The limit of every other type is assumed to be
+``others``. 9.0.9 lacks ``hole_clearance``: it reports no entry of that type between a pad and an unplated
+hole, the construct of the bench, so no limit of the type is measured there (10.0.6 reports 199 of 700)."""
 
 
 def report_limits(major: int) -> DrcLimits:
@@ -193,6 +221,7 @@ __all__ = [
     "EVIDENCE",
     "LIB_FOOTPRINT_ISSUES",
     "LIB_FOOTPRINT_MISMATCH",
+    "MEASURED_TYPES",
     "REPORT_LIMITS",
     "REQUIRED_KEYS",
     "UNIT_NM",

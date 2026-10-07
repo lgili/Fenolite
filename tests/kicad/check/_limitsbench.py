@@ -10,6 +10,11 @@ another. ``report_counts`` runs ``kicad-cli pcb drc --format json --severity-all
 entries per type. ``limit_probes`` gives the ``drc-limit-*`` rows of ``_probes.PROBES``: each compares one
 count with what the hypothesis states, and ``counted`` keeps the counts for the test and the fact rows.
 
+What holds per major (measured on 9.0.9 on 2026-10-08): 9.0.9 writes no ``hole_clearance`` entry for the
+construct of the bench, a pad beside an unplated hole, so ``drc-limit-hole_clearance`` is ``different``
+there and ``reported_types(9)`` lacks the type (``drc.MEASURED_TYPES``); and its report has nine top-level
+keys, without ``ignored_checks`` (``REPORT_KEYS``).
+
 It is a second bench beside ``_limitbench.py`` (change c0051), which proves the canary's verdict at the
 ``clearance`` limit with close track pairs and is not changed. Every byte is authored for Fenolite: 400 mm,
 4 mm, 700 and 150 are round values chosen for the bench.
@@ -27,6 +32,7 @@ from functools import cache
 from pathlib import Path
 
 from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli
+from fenolite.backends.kicad.drc import MEASURED_TYPES
 from fenolite.core.ids import FENOLITE_NS
 
 STEM = "limits"
@@ -52,11 +58,10 @@ ABOVE = 700
 BELOW = 150
 """Copies per type under every limit."""
 BELOW_TYPES: tuple[str, ...] = ("track_dangling", "silk_overlap", UNCONNECTED)
-REPORT_KEYS: tuple[str, ...] = (
+_KEYS_9: tuple[str, ...] = (
     "$schema",
     "coordinate_units",
     "date",
-    "ignored_checks",
     "included_severities",
     "kicad_version",
     "schematic_parity",
@@ -64,7 +69,9 @@ REPORT_KEYS: tuple[str, ...] = (
     "unconnected_items",
     "violations",
 )
-"""The top-level keys of the report (``H-K-DRC-LIMITS``): none of them marks a type as cut."""
+REPORT_KEYS: Mapping[int, tuple[str, ...]] = {9: _KEYS_9, 10: tuple(sorted((*_KEYS_9, "ignored_checks")))}
+"""The top-level keys of the report per major (``H-K-DRC-LIMITS``): nine on 9.0.9 and, with
+``ignored_checks``, ten on 10.0.6. None of them marks a type as cut."""
 STATED: Mapping[str, int] = {type_: 499 if type_ in ("clearance", UNCONNECTED) else 199 for type_ in TYPES}
 """What ``H-K-DRC-LIMITS`` states per type; the probes compare the tool with it, and the test compares the
 counts with ``REPORT_LIMITS``."""
@@ -376,6 +383,12 @@ def _major() -> int:
     return major()
 
 
+def reported_types(major: int) -> tuple[str, ...]:
+    """The types of the bench that ``major`` writes entries of, in the order of ``TYPES``: those whose
+    limit is measured there (``drc.MEASURED_TYPES``). 9.0.9 writes none of ``hole_clearance``."""
+    return tuple(type_ for type_ in TYPES if type_ in MEASURED_TYPES[major])
+
+
 def above(type_: str) -> str:
     """``equal`` when the count of ``type_`` at 700 copies is the stated limit, else ``different``; no
     entry of a type outside the bench may be in the report."""
@@ -401,8 +414,9 @@ def all_track_errors() -> str:
 
 
 def keys() -> str:
-    """``equal`` when the report of the bench has exactly the ten known top-level keys."""
-    return "equal" if counted("above")[1] == REPORT_KEYS else "different"
+    """``equal`` when the report of the bench has exactly the top-level keys known for the running major
+    (``REPORT_KEYS``): a key that could mark a cut would be a new one."""
+    return "equal" if counted("above")[1] == REPORT_KEYS[_major()] else "different"
 
 
 def limit_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
@@ -434,5 +448,6 @@ __all__ = [
     "limits_board",
     "limits_project",
     "report_counts",
+    "reported_types",
     "stated",
 ]

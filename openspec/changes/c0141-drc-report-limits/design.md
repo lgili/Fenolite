@@ -71,6 +71,15 @@
    - "DRC stage and the rules canary" lists what `summary` must hold and is not modified: the list is not closed, and the new key is stated by this change's own requirement, as "Check issue codes" asks for codes. c0114 (v0.4) modifies another requirement of the capability.
    - c0119 reads `summary.limits` in its record when the reply holds it. c0108 may name `check.report-limit` in its documentation. c0120 keeps no part of this change; its proposal says so.
 
+## Found on 2026-10-08
+
+Corrections from the run of the bench on `kicad-cli` 9.0.9 (the pinned image `kicad/kicad:9.0.9@sha256:e638b79b…`, linux/amd64, local run), each with what showed it. No recorded outcome was changed to pass; the expectations are now per major.
+
+1. **9.0.9 writes no `hole_clearance` entry for the bench's construct.** The board of 13 × 700 gives 0 entries of the type, where 10.0.6 gives 199. A diagnosis in the image (not a probe): a pad beside an unplated hole, in one footprint or in two, with or without a net, gives 0 at 3 and at 700 copies; 10.0.6 gives 3 and 199 for each form. 9.0.9 does report the type between a via hole and a track (`H-K-DRU-KIND-2`), but that construct also gives a dangling via and a dangling track, so it cannot stand in a bench of one type per construct. So `drc-limit-hole_clearance` stays `different` on 9.0.9, as measured, and its test expects that outcome and a count of 0.
+2. **The table says what each major measured.** `REPORT_LIMITS` held one object for both majors; it now holds one row per major (the numbers are equal: no measured number differs), and `drc.MEASURED_TYPES` names the types whose limit a probe measured: thirteen on 10, twelve on 9. `tests/unit/backends/kicad/test_oracle_limits.py` holds it to the probe files (a type is in the set exactly when its `drc-limit-<type>` is `equal`). On 9.0.9 `hole_clearance` falls under the assumed `others` = 199, as every type outside the bench does on both majors (Decision 2): `check` marks it from 199 on, which says "at least" and stays true. No reply of `check` changes.
+3. **The report's keys are per major.** The 9.0.9 report has nine top-level keys, those of 10.0.6 without `ignored_checks` (the reader already takes that key as optional). `REPORT_KEYS` of the bench is per major and `drc-limit-keys` compares with the list of the running major, so the probe guards each major against a new key; it was recorded again on 9.0.9 in the image and is `equal` there (it was `different` against the ten keys of 10.0.6). No other row of `9.0.9.json` moved.
+4. **The requirement and the register.** "DRC report limits are probed" and its two scenarios, "DRC report limits of an oracle", the statement and the criterion of `H-K-DRC-LIMITS` and the fact rows say what holds on which major. Owed, outside this change's bench: a construct of one type alone that 9.0.9 reports as `hole_clearance`.
+
 ## Files and public API
 
 | file | content |

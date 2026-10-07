@@ -9,6 +9,10 @@ capability kicad-oracle, "DRC report limits are probed"; verification-loop, "DRC
 so both oracle jobs run it without the corpus; ``tests/kicad/test_probe_results.py`` pins the ``drc-limit-*``
 outcomes per version. ``test_drc_limit.py`` (c0051) proves another claim, the canary's verdict at the
 ``clearance`` limit.
+
+The expectations are per major, from what each measured. 9.0.9 writes no ``hole_clearance`` entry for the
+bench's construct (a pad beside an unplated hole): its probe is ``different`` there, the count is 0 and
+``drc.MEASURED_TYPES[9]`` lacks the type. Its report has nine top-level keys, without ``ignored_checks``.
 """
 
 from __future__ import annotations
@@ -17,11 +21,20 @@ from pathlib import Path
 
 import pytest
 from _checkrun import check, stage, without_elapsed
-from _limitsbench import ABOVE, BELOW, BELOW_TYPES, REPORT_KEYS, TYPES, counted, limits_project
+from _limitsbench import (
+    ABOVE,
+    BELOW,
+    BELOW_TYPES,
+    REPORT_KEYS,
+    TYPES,
+    counted,
+    limits_project,
+    reported_types,
+)
 from _probes import major, run
 
 from fenolite.backends.kicad.canary import CLEARANCE_REPORT_LIMIT
-from fenolite.backends.kicad.drc import REPORT_LIMITS
+from fenolite.backends.kicad.drc import MEASURED_TYPES, REPORT_LIMITS
 
 pytestmark = pytest.mark.needs_kicad
 MARK = {"type": "track_dangling", "reported": 199, "limit": 199}
@@ -29,8 +42,13 @@ MARK = {"type": "track_dangling", "reported": 199, "limit": 199}
 
 @pytest.mark.parametrize("type_", TYPES)
 def test_probe_limit_per_type(type_: str) -> None:
-    assert run(f"drc-limit-{type_}") == "equal"
     counts, _ = counted("above")
+    if type_ not in MEASURED_TYPES[major()]:
+        # measured, not a limit: this major writes no entry of the type for the bench's construct
+        assert run(f"drc-limit-{type_}") == "different"
+        assert (major(), type_, counts.get(type_, 0)) == (9, "hole_clearance", 0), counts
+        return
+    assert run(f"drc-limit-{type_}") == "equal"
     limit = REPORT_LIMITS[major()].limit(type_)
     if type_ == "clearance" and major() == 9:  # 9.0.9 passes the limit by a few (H-K-DRC-LIMIT)
         assert limit <= counts[type_] < ABOVE, counts
@@ -40,7 +58,9 @@ def test_probe_limit_per_type(type_: str) -> None:
 
 def test_probe_no_other_type_and_one_table() -> None:
     counts, _ = counted("above")
-    assert set(counts) == set(TYPES), counts  # each construct gives its own type and no other
+    # each construct gives its own type and no other; 9.0.9 gives none for the hole_clearance construct
+    assert set(counts) == set(reported_types(major())), counts
+    assert set(TYPES) - set(reported_types(major())) == ({"hole_clearance"} if major() == 9 else set())
     assert CLEARANCE_REPORT_LIMIT == REPORT_LIMITS[major()].limit("clearance")
 
 
@@ -57,7 +77,8 @@ def test_probe_all_track_errors_does_not_lift_the_limit() -> None:
 
 def test_probe_the_report_has_no_key_for_a_cut() -> None:
     assert run("drc-limit-keys") == "equal"
-    assert counted("above")[1] == REPORT_KEYS
+    assert counted("above")[1] == REPORT_KEYS[major()]
+    assert set(REPORT_KEYS[10]) - set(REPORT_KEYS[9]) == {"ignored_checks"}
 
 
 def _marks(found: dict[str, object]) -> list[dict[str, str]]:
