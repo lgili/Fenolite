@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Take ``examples/yardstick`` through the loop of its stage and judge the run (capability release-gate,
