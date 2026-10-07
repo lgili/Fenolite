@@ -1593,6 +1593,8 @@ path = "tests/data/kicad/layers/l8_t9_filled.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "the eight-layer blink variant of tests/kicad/build/_layercases.py built for target 9 and filled by KiCad 10.0.6 (c0100, the 9.0.9 half of the build oracle)"
+
+[[file]]
 path = "tests/data/models/box_2x1.kicad_pcb"
 origin = "authored"
 corpus_id = ""
