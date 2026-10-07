@@ -251,50 +251,65 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "run: uv run pytest tests/routing -q -rA" in job
 
 
-JAR_URL = "https://github.com/freerouting/freerouting/releases/download/v{0}/freerouting-{0}.jar"
-JAR_CHECK = re.compile(r"echo '([0-9a-f]{64})  (\S+freerouting-([\d.]+)\.jar)' \| sha256sum --check")
+FETCH_STEP = "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json"
+"""The install step of the ``routing`` job: the command checks the pinned size and SHA-256 itself and
+writes nothing when they differ (ADR-0007; change c0078)."""
+FETCH_RUN = re.compile(r"run: uv run fenolite fetch freerouting --dir (\S+) --confirm\b")
 
 
 def freerouting_problems(workflow: str, pinned: str) -> list[str]:
     """Problems of the Freerouting steps of the ``routing`` job against the plugin's pinned version
-    (capability ci-baseline, "Freerouting in the routing job"; change c0023)."""
+    (capability ci-baseline, "Freerouting in the routing job"; changes c0023 and c0078)."""
     job = job_text(workflow, "routing")
     problems: list[str] = []
-    downloads = re.findall(r"releases/download/v([\d.]+)/freerouting-([\d.]+)\.jar", job)
-    if not downloads:
-        problems.append("the routing job downloads no Freerouting jar from its release page")
-    for tag, name in downloads:
-        if (tag, name) != (pinned, pinned):
-            problems.append(f"ci.yml downloads Freerouting {tag} ({name}); the plugin pins {pinned}")
-    check = JAR_CHECK.search(job)
-    if check is None:
-        problems.append("the routing job does not verify the jar against a 64-hex SHA-256")
-    elif check.group(3) != pinned:
-        problems.append(f"ci.yml verifies Freerouting {check.group(3)}; the plugin pins {pinned}")
+    fetch = FETCH_RUN.search(job)
+    if fetch is None:
+        problems.append(
+            "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'"
+        )
+    if re.search(r"releases/download/\S*freerouting-[\d.]+\.jar", job):
+        problems.append("the routing job downloads the Freerouting jar itself, beside 'fenolite fetch'")
     jar = re.search(r"FENOLITE_FREEROUTING_JAR: (\S+)", job)
     if jar is None:
         problems.append("the routing job does not set FENOLITE_FREEROUTING_JAR")
-    elif check is not None and jar.group(1) != check.group(2):
-        problems.append("FENOLITE_FREEROUTING_JAR does not name the verified jar")
+    else:
+        named = re.fullmatch(r"(\S+)/freerouting-([\d.]+)\.jar", jar.group(1))
+        if named is None:
+            problems.append("FENOLITE_FREEROUTING_JAR does not name a freerouting-<version>.jar")
+        else:
+            if named.group(2) != pinned:
+                problems.append(
+                    f"FENOLITE_FREEROUTING_JAR names Freerouting {named.group(2)}; the plugin pins {pinned}"
+                )
+            if fetch is not None and named.group(1) != fetch.group(1):
+                problems.append("FENOLITE_FREEROUTING_JAR does not name the folder the jar is fetched into")
     required = re.search(r"FENOLITE_REQUIRE: (\S+)", job)
     if required is None or "freerouting" not in required.group(1).split(","):
         problems.append("FENOLITE_REQUIRE of the routing job does not list freerouting")
     if "actions/setup-java" not in job or 'java-version: "25"' not in job:
         problems.append("the routing job does not install Java 25")
-    if check is not None and job.find("sha256sum --check", check.start()) > job.find("run: uv run pytest"):
-        problems.append("the jar is verified after the tests run")
+    if fetch is not None and fetch.start() > job.find("run: uv run pytest"):
+        problems.append("the jar is fetched after the tests run")
+    if fetch is not None and fetch.start() < job.find("run: uv sync --locked"):
+        problems.append("the jar is fetched before Fenolite is installed")
     return problems
 
 
 def test_routing_job_installs_the_pinned_freerouting() -> None:
-    """Scenario "Workflow shape checked"."""
+    """Scenario "Workflow shape checked": the job installs the jar with ``fenolite fetch``, whose table
+    row holds the plugin's pinned version, and downloads it in no other way."""
+    from fenolite.cli import fetch
     from fenolite.routing.plugins.specctra.freerouting import JAVA_MIN, PINNED_VERSION
 
     text = WORKFLOW.read_text(encoding="utf-8")
     assert freerouting_problems(text, PINNED_VERSION) == []
-    assert JAR_URL.format(PINNED_VERSION) in job_text(text, "routing")
+    job = job_text(text, "routing")
+    assert FETCH_STEP in job and "curl" not in job[job.index("Install pinned Freerouting jar") :]
+    row = fetch.rows()["freerouting"]
+    assert row.version == PINNED_VERSION and row.file == f"freerouting-{PINNED_VERSION}.jar"
+    assert f"FENOLITE_FREEROUTING_JAR: /tmp/freerouting/{row.file}" in job
     assert JAVA_MIN == 25
-    assert "run: uv run pytest tests/routing -q -rA" in job_text(text, "routing")
+    assert "run: uv run pytest tests/routing -q -rA" in job
 
 
 def test_freerouting_version_drift_is_caught() -> None:
@@ -306,9 +321,22 @@ def test_freerouting_version_drift_is_caught() -> None:
 
 def test_freerouting_steps_missing_or_unverified() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    unverified = re.sub(r"\n +echo '[0-9a-f]{64}  \S+freerouting\S+' \| sha256sum --check", "", text)
-    assert "the routing job does not verify the jar against a 64-hex SHA-256" in freerouting_problems(
-        unverified, "2.4.1"
+    by_hand = text.replace(
+        FETCH_STEP,
+        "run: curl -fsSL https://github.com/freerouting/freerouting/releases/download/v2.4.1/"
+        "freerouting-2.4.1.jar -o /tmp/freerouting/freerouting-2.4.1.jar",
+    )
+    assert by_hand != text
+    found = freerouting_problems(by_hand, "2.4.1")
+    assert "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'" in found
+    assert "the routing job downloads the Freerouting jar itself, beside 'fenolite fetch'" in found
+    unconfirmed = text.replace(FETCH_STEP, FETCH_STEP.replace("--confirm", "--dry-run"))
+    assert "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'" in (
+        freerouting_problems(unconfirmed, "2.4.1")
+    )
+    elsewhere = text.replace("--dir /tmp/freerouting --confirm", "--dir /tmp/other --confirm")
+    assert "FENOLITE_FREEROUTING_JAR does not name the folder the jar is fetched into" in (
+        freerouting_problems(elsewhere, "2.4.1")
     )
     no_variable = text.replace("FENOLITE_FREEROUTING_JAR: ", "SOMETHING_ELSE: ")
     assert "the routing job does not set FENOLITE_FREEROUTING_JAR" in freerouting_problems(

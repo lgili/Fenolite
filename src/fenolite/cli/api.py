@@ -39,11 +39,29 @@ class Context:
 
 @dataclass(frozen=True, slots=True)
 class PlannedWrite:
-    """A file a mutating command wants to write. ``path`` is relative to the working directory."""
+    """A file a mutating command wants to write. ``path`` is relative to the working directory.
+
+    A *deferred* write names a ``source`` instead of its bytes, with the ``size`` and the ``sha256`` those
+    bytes must have: the plan lists the declared values, and the dispatcher calls ``source`` only with
+    ``--confirm``, before it writes any file, and checks what it returns (cli-contract, "Deferred writes")."""
 
     path: str
     data: bytes
     kind: str
+    source: Callable[[], bytes] | None = None
+    size: int | None = None
+    sha256: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.source is None:
+            if self.size is not None or self.sha256 is not None:
+                raise ValueError("a planned write without a source declares neither size nor sha256")
+        elif self.data or self.size is None or self.sha256 is None:
+            raise ValueError("a deferred write has empty data and declares both size and sha256")
+
+    @property
+    def deferred(self) -> bool:
+        return self.source is not None
 
 
 @dataclass(frozen=True, slots=True)

@@ -10,6 +10,12 @@ from typing import Any
 
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.output import Issue
+from fenolite.core.io import sha256_bytes
+
+DEFERRED = b"deferred echo\n"
+"""The bytes of a ``--defer`` write; ``--defer-bad`` declares their size and digest and returns others."""
+DEFER_CALLS: list[str] = []
+"""The path of each deferred source that was called, in order: the suites count them."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -20,6 +26,21 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--write", metavar="PATH", help="plan a write of --content to PATH")
     parser.add_argument("--content", default="echo\n", help="content for --write")
     parser.add_argument("--gen-id", action="store_true", help="generate an id and a timestamp")
+    parser.add_argument("--defer", metavar="PATH", help="plan a deferred write of fixed bytes to PATH")
+    parser.add_argument("--defer-bad", metavar="PATH", dest="defer_bad",
+                        help="plan a deferred write whose source returns other bytes")  # fmt: skip
+
+
+def _deferred(path: str, payload: bytes) -> PlannedWrite:
+    """A deferred write that declares the size and the digest of ``DEFERRED`` and returns ``payload``."""
+
+    def source() -> bytes:
+        DEFER_CALLS.append(path)
+        return payload
+
+    return PlannedWrite(
+        path=path, data=b"", kind="text", source=source, size=len(DEFERRED), sha256=sha256_bytes(DEFERRED)
+    )
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -46,6 +67,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     writes: tuple[PlannedWrite, ...] = ()
     if args.write:
         writes = (PlannedWrite(path=args.write, data=str(args.content).encode("utf-8"), kind="text"),)
+    if args.defer:
+        writes += (_deferred(args.defer, DEFERRED),)
+    if args.defer_bad:
+        writes += (_deferred(args.defer_bad, DEFERRED[::-1]),)
     return Result(result=result, issues=issues, writes=writes)
 
 

@@ -18,7 +18,8 @@ the machine; `fenolite route` requires explicit permission for such a router. Ro
   [routing evidence](evidence/routing.md).
 
 - `freerouting` runs [Freerouting](https://github.com/freerouting/freerouting) 2.4.1, a GPL-3.0 autorouter,
-  as a subprocess. Fenolite does not install, download or import it. It is the only router that needs no
+  as a subprocess. Fenolite does not bundle or import it, and downloads it only when you ask:
+  `fenolite fetch freerouting --confirm`. It is the only router that needs no
   KiCad file: Fenolite writes a Specctra design file of its own from the model and reads the session
   Freerouting writes back (`fenolite.backends.specctra`, [format notes](formats/specctra/dsn.md)).
   See [Freerouting](#freerouting) below.
@@ -31,11 +32,40 @@ Fenolite's writer produces the board.
 
 ## Freerouting
 
-**Install.** Download `freerouting-2.4.1.jar` from the project's release page yourself, check its SHA-256
-against the one the release lists (recorded in [routing evidence](evidence/routing.md)), keep it outside
-your project, and set `FENOLITE_FREEROUTING_JAR` to it, or pass `--router-path JAR`. Freerouting 2.4.1 needs
-**Java 25** or newer: `java` on `PATH`, or `FENOLITE_JAVA`. `fenolite doctor --json` reports the jar, its
-version and the Java major in the `freerouting` entry of `result.routers`.
+**Install.** Let Fenolite fetch the pinned jar:
+
+```
+fenolite fetch freerouting --dry-run
+fenolite fetch freerouting --confirm
+```
+
+- `--dry-run` shows the file, its size, its SHA-256, its address and its licence (GPL-3.0), and makes no
+  request. `--confirm` downloads `freerouting-2.4.1.jar` from the project's release page, checks its size
+  and its SHA-256 against the values recorded in [routing evidence](evidence/routing.md), and writes it
+  only when both match. No other command downloads anything
+  ([ADR-0007](adr/0007-fetching-external-tools.md)), and no design data is sent.
+- The jar goes to the **tools folder**, outside your project, where `route --router freerouting` finds it:
+
+  | platform | folder |
+  |---|---|
+  | any, when `FENOLITE_TOOLS_DIR` is set (an absolute path) | that folder |
+  | any, when `XDG_CACHE_HOME` is set | `$XDG_CACHE_HOME/fenolite/tools` |
+  | macOS | `~/Library/Caches/fenolite/tools` |
+  | Windows | `%LOCALAPPDATA%\fenolite\tools` |
+  | elsewhere | `~/.cache/fenolite/tools` |
+
+  The jar is `freerouting/freerouting-2.4.1.jar` in it. It is a cache entry: delete it and fetch it again.
+- On a machine without a network, download the jar another way and run
+  `fenolite fetch freerouting --from FILE --confirm`: the same size and digest are checked.
+
+**Install by hand** (the second way). Download `freerouting-2.4.1.jar` from the project's release page
+yourself, check its SHA-256 against the one the release lists (recorded in
+[routing evidence](evidence/routing.md)), keep it outside your project, and set `FENOLITE_FREEROUTING_JAR`
+to it, or pass `--router-path JAR`. Both win over the tools folder.
+
+Freerouting 2.4.1 needs **Java 25** or newer: `java` on `PATH`, or `FENOLITE_JAVA`. `fetch` does not
+install it. `fenolite doctor --json` reports the jar, where it came from (`source`: `argument`, `env` or
+`fetched`), its version and the Java major in the `freerouting` entry of `result.routers`.
 
 **Run.**
 

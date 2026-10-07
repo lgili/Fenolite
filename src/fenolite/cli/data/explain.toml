@@ -54,6 +54,11 @@ meaning = "Geometry in the input cannot be represented exactly, for example an a
 fix = "Correct the geometry the message names, with its code and points."
 see = "Exit codes"
 
+["FEN-3006"]
+meaning = "A file that 'fenolite fetch' obtained, from the network or from --from FILE, does not have the size or the SHA-256 pinned for the tool. Nothing was written. The message holds the digest that was expected and the one that was found."
+fix = "Run the command again; a download may have been cut or altered on the way. With --from, name the file of the pinned version, downloaded from the address that --dry-run shows."
+see = "fetch"
+
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
 fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
@@ -73,6 +78,11 @@ see = "Discovery"
 meaning = "The external tool was found but its version is not supported, or it is older than the file it has to read."
 fix = "Install a supported version; 'fenolite capabilities' lists the supported majors."
 see = "Discovery"
+
+["FEN-6003"]
+meaning = "'fenolite fetch' could not download the tool: no network, a proxy or a firewall, a redirect to an address that is not https, or the publisher's address did not answer. Nothing was written."
+fix = "Retry later. On a machine without a network, download the file another way from the address that --dry-run shows and install it with --from FILE: the size and the SHA-256 are checked the same way."
+see = "fetch"
 
 ["FEN-7001"]
 meaning = "The operation would lose or overwrite information, so Fenolite refused it and wrote nothing."

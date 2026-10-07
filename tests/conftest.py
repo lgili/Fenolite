@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -100,3 +101,19 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         if version is not None and version[0] < needed:
             # An older major is present, not missing: required-resource mode never turns this into a failure.
             pytest.skip(f"needs kicad-cli {needed}.x; running {version[0]}.x")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _tools_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads the user's tools folder: ``FENOLITE_TOOLS_DIR`` names a folder of the run, which is
+    created only by a test that installs something there (capability routing, "Tools folder"; c0078). A
+    jar that ``fenolite fetch`` installed on this machine would otherwise make the router available.
+    Session-scoped, so that it changes the order of no test's own fixtures."""
+    name = "FENOLITE_TOOLS_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-tools")
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before

@@ -55,6 +55,12 @@ _SPECS = (
         "the message names the geometry code and the points",
     ),
     ErrorSpec(
+        "FEN-3006",
+        ExitCode.INPUT,
+        "fetched file does not match the pinned size or SHA-256",
+        "nothing was written; get the file again, or name a good copy with --from FILE",
+    ),
+    ErrorSpec(
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",
@@ -75,6 +81,13 @@ _SPECS = (
     ),
     ErrorSpec(
         "FEN-6002", ExitCode.TOOL, "external tool version not supported", "install a supported version"
+    ),
+    ErrorSpec(
+        "FEN-6003",
+        ExitCode.TOOL,
+        "download failed",
+        "retry later, or download the file another way and install it with --from FILE",
+        retryable=True,
     ),
     ErrorSpec(
         "FEN-7001",

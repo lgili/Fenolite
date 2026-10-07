@@ -106,6 +106,16 @@ def _router(name: str, args: argparse.Namespace) -> Router:
     return selected
 
 
+def _missing_hint(router: Router) -> str | None:
+    """The hint of an unavailable router: the command that installs the Freerouting jar when that jar is
+    what is missing, else ``None`` (the registry's hint)."""
+    from fenolite.routing.plugins.specctra.freerouting import FETCH_COMMAND, FreeroutingRouter
+
+    if isinstance(router, FreeroutingRouter) and router.jar_missing:
+        return f"run '{FETCH_COMMAND}'"
+    return None
+
+
 def _relative(path: Path, cwd: Path) -> str:
     """``path`` relative to ``cwd``, or as it is when the two are on different Windows drives."""
     try:
@@ -156,7 +166,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         )
     status = router.available()
     if not status.available:
-        raise CliError("FEN-6001", status.reason or f"router {router.name!r} is unavailable")
+        raise CliError(
+            "FEN-6001", status.reason or f"router {router.name!r} is unavailable", hint=_missing_hint(router)
+        )
     board_path = resolve_board(Path(args.path) if Path(args.path).is_absolute() else ctx.cwd / args.path)
     data = board_path.read_bytes()
     text = data.decode("utf-8")

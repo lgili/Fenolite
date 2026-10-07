@@ -188,10 +188,9 @@ jobs:
           distribution: temurin
           java-version: "25"
       - name: Install pinned Freerouting jar
-        run: |
-          mkdir -p /tmp/freerouting
-          curl -fsSL https://github.com/freerouting/freerouting/releases/download/v2.4.1/freerouting-2.4.1.jar -o /tmp/freerouting/freerouting-2.4.1.jar
-          echo '251101c3eeac22d7e7dfcf6796603279e5d1000283eb82d8f093780f7afc6aa9  /tmp/freerouting/freerouting-2.4.1.jar' | sha256sum --check
+        # The command checks the size and the SHA-256 pinned in src/fenolite/cli/data/fetch.toml and
+        # writes nothing when they differ: each run settles H-G-FETCH-PIN (ADR-0007).
+        run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json
       - name: Router gate and loop
         env:
           FENOLITE_REQUIRE: kicad,router,freerouting

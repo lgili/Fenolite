@@ -65,6 +65,8 @@ do), they are put in the envelope's `issues`, so a refusal says which lib ids, n
 | `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
 | `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |
 | `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
+| `FEN-3006` | fetched file does not match the pinned size or SHA-256 | the dispatcher, for a deferred write whose bytes differ from what the plan declared (see [fetch](#fetch)); the message holds the digest that was expected and the one that was found, and nothing is written |
+| `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; downgrade is not supported | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
@@ -78,6 +80,13 @@ Commands that write are **mutating**. They never write unless asked:
 | `fenolite <cmd> … --dry-run` | `result.plan` lists every file that would be written; nothing is written | 0 |
 | `fenolite <cmd> …` | same plan, error `FEN-4001`, nothing is written | 4 |
 | `fenolite <cmd> … --confirm` | atomic writes (temporary file + rename), `.bak` of overwritten files unless `--no-backup`, `receipt` with SHA-256 | 0 |
+
+**Deferred writes.** A command may plan a file whose bytes are costly to obtain, such as a download,
+without obtaining them (`PlannedWrite.source`, with the `size` and the `sha256` the bytes must have). The
+plan lists such a file with its declared `bytes` and `sha256`, as it lists any other. Without `--confirm`
+the source is never called. With `--confirm` it is called once, before any file of the command is written,
+and what it returns is compared with the declared size and digest: a difference exits 3 with `FEN-3006`
+and nothing is written, not even the command's other files.
 
 ## Determinism
 
@@ -586,7 +595,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.unrouted` | warning | a selected net remains unrouted, or the router reports open connections: a net with copper is still listed under `unrouted` when the router says it left one of its connections open |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 
-`fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes; the board needs a closed outline. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` (warning), `specctra.rounded`, `specctra.renamed` and `specctra.unknown-list` (info). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`.
+`fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes; the board needs a closed outline. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` (warning), `specctra.rounded`, `specctra.renamed` and `specctra.unknown-list` (info). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
 ## fill
 
@@ -1144,7 +1153,7 @@ still off the board) and `legality` (the number of issues by code). The evidence
 
 `fenolite build` reports the same legality codes for the board it is about to write, each at most as a
 warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
-`result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`.
+`result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`. It holds `source` too, the place that gave the jar: `argument` (`--router-path`), `env` (`FENOLITE_FREEROUTING_JAR`), `fetched` (the tools folder, see [fetch](#fetch)) or `null` without a jar; the reason of a missing jar names `fenolite fetch freerouting --confirm`.
 
 ## analyze
 
@@ -2008,3 +2017,44 @@ fenolite kit status --json
 | 3 | `FEN-3001` | `DIR` holds no `kit.json`; the sample scripts are missing or do not build |
 | 4 | `FEN-4001` | `build` or `record` with neither `--dry-run` nor `--confirm` |
 | 5 | `FEN-5001` | a step failed, a kit file changed, the form is not sound, or `record` refused |
+
+## fetch
+
+`fenolite fetch NAME [--from FILE] [--dir DIR]` installs one external tool after checking its size and its
+SHA-256 against the values pinned for it. The one tool is `freerouting`: the jar of Freerouting 2.4.1
+(GPL-3.0), from the release page of its publisher. **No other command downloads anything**, and this one
+makes a request only with `--confirm` ([ADR-0007](adr/0007-fetching-external-tools.md)).
+
+```
+fenolite fetch freerouting --dry-run --json
+fenolite fetch freerouting --confirm --json
+```
+
+- The file goes to the tools folder: `FENOLITE_TOOLS_DIR` (an absolute path), else
+  `$XDG_CACHE_HOME/fenolite/tools`, else `~/Library/Caches/fenolite/tools` on macOS,
+  `%LOCALAPPDATA%\fenolite\tools` on Windows and `~/.cache/fenolite/tools` elsewhere. `route --router
+  freerouting` looks there after `--router-path` and `FENOLITE_FREEROUTING_JAR`. `--dir DIR` installs
+  into `DIR` instead, where the router does not look: `result.env` then says which variable to set.
+- **The plan** is one file, with the `bytes` and the `sha256` it must have. `--dry-run`, and a run with
+  neither flag (exit 4), open no connection and do not read the file of `--from`. A destination that
+  already holds the pinned bytes plans nothing and exits 0 with `installed: true`.
+- **With `--confirm`** the bytes are obtained first (a [deferred write](#writing-files)): one request to
+  the pinned `https` address, with the header `User-Agent: fenolite/<version>`, a timeout of 60 s, no
+  parameter and no retry; a redirect is followed only to an `https` address. No design data is sent.
+  `--from FILE` reads a copy you already have instead, and the same check applies.
+- Nothing is written unless the size and the digest match. The receipt is that of any write.
+- The command installs no Java: `result.needs` says what the tool needs before anything is downloaded.
+
+`result` holds `name`, `version`, `file`, `path` (the destination), `bytes`, `sha256`, `url`, `licence`,
+`origin` (`network`, `file` with `--from`, or `package`), `installed` (the destination already held the
+pinned bytes), `needs`, and `env` (the variable to set, mapped to the destination, with `--dir`; empty
+otherwise). The evidence is `UNVERIFIED`: installing a tool proves nothing about a board.
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run, a confirmed install, or nothing to do |
+| 2 | `FEN-2001` | no `NAME` or an unknown one (the hint lists the names); a relative `FENOLITE_TOOLS_DIR` |
+| 3 | `FEN-3001` | the file of `--from` is missing or unreadable |
+| 3 | `FEN-3006` | the bytes do not have the pinned size or SHA-256 (the message holds both digests); nothing is written |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+| 6 | `FEN-6003` | the download failed (retryable); the hint names `--from FILE` |

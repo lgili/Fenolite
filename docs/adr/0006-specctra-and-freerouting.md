@@ -34,6 +34,7 @@ Two things need a decision before any code relies on them.
 3. **Freerouting only as a program.** It is run as a subprocess (or in a container) on files in a temporary
    folder. Fenolite never imports it, vendors it, downloads it or reads its source code for format
    knowledge. Its documentation pages (S-0220 to S-0223, S-0226) are read for its arguments and settings.
+   Amended on 2026-10-07 by ADR-0007: the jar may be downloaded by `fenolite fetch`, and by nothing else.
 4. **No data leaves the machine by default.** The plugin always passes the flag that disables analytics,
    and reported `sends_data_offsite: true` until a run with the network disabled was recorded
    (`H-G-DSN-OFFLINE`, recorded on 2026-10-04; the plugin now reports `false`). There is no cloud mode in v0.1.
