@@ -28,6 +28,7 @@ from fenolite.backends.base import (
     BoardFrame,
     BoardPad,
     CapabilityReport,
+    Change,
     ContainerLevel,
     ContainerRoundTrip,
     DesignRules,
@@ -284,6 +285,7 @@ class AltiumBackend:
         target: int | None = None,
         allow_lossy: bool = False,
         rewrite: bool = False,
+        bodies: str = "off",
     ) -> ProjectWrite:
         """The files of an Altium project written from ``design`` alone (change c0090,
         ``lower.write_design``): the PCB document of its board, and the schematic, its libraries and the
@@ -292,13 +294,15 @@ class AltiumBackend:
         documents would not hold an item of the board's copper, footprints or nets and ``allow_lossy`` is
         false. ``rewrite`` (change c0128) says that ``design`` is the reading of an Altium document and
         that the write gives it back: a via whose drill equals its diameter is then written as it was
-        read; ``ValueError`` when the board was not read from an Altium document. The write is
+        read; ``ValueError`` when the board was not read from an Altium document. ``bodies`` (change
+        c0121) is ``off`` or ``extruded``: with ``extruded`` the extruded component bodies of the board's
+        footprints are written, and every other body is counted as not written. The write is
         experimental: ``capabilities()`` names no write kind until the writers leave that state."""
         from fenolite.backends.altium.lower import write_design
 
         if target is not None:
             raise ValueError(f"the Altium writers have one form; target {target!r} is not one")
-        return write_design(design, allow_lossy=allow_lossy, rewrite=rewrite)
+        return write_design(design, allow_lossy=allow_lossy, rewrite=rewrite, bodies=bodies)
 
     def in_model_frame(self, model: Design, reading: Design) -> Design:
         """``reading`` in the frame of ``model``, the design it was written from (``lower.in_frame_of``)."""
@@ -306,19 +310,31 @@ class AltiumBackend:
 
         return in_frame_of(model, reading)
 
-    def model_roundtrip(self, path: Path, *, compare: Compare) -> ModelRoundTrip:
+    def body_differences(self, model: Design, reading: Design) -> tuple[tuple[Change, ...], Evidence]:
+        """The differences of the kind ``body`` between ``model``, the model a build stored, and
+        ``reading``, the model of the PCB document it wrote (``bodydiff.body_differences``; change c0121),
+        and the evidence of that comparison. The stored board holds exactly the bodies that were written,
+        so a build without them gives none."""
+        from fenolite.backends.altium.bodydiff import body_differences
+        from fenolite.backends.altium.roundtrip import EVIDENCE_BODIES, body_changes
+
+        return body_changes(body_differences(model, reading)), EVIDENCE_BODIES
+
+    def model_roundtrip(self, path: Path, *, compare: Compare, bodies: str = "off") -> ModelRoundTrip:
         """RT-A3 of the document at ``path`` (a PCB document, a schematic document or a project file):
         read it, write its model with ``lower.write_design(..., allow_lossy=True, rewrite=True)`` into a
         temporary folder of its own, read the written document of the same kind, and let ``rta3.rt_a3``
         judge the two models; ``compare`` is ``checks.diff.diff_designs`` under a scope. Nothing is written
-        beside the input, and the folder is removed. The reader's ``FormatError`` on the input is raised."""
+        beside the input, and the folder is removed. The reader's ``FormatError`` on the input is raised.
+        ``bodies`` (change c0121) is passed to the write: with ``extruded`` the extruded component bodies
+        are written and compared; the stage ``roundtrip.rta3`` runs with ``off``."""
         import tempfile
 
         from fenolite.backends.altium.lower import write_design
         from fenolite.backends.altium.rta3 import rt_a3
 
         first = self.read(path).design
-        written = write_design(first, allow_lossy=True, rewrite=True)
+        written = write_design(first, allow_lossy=True, rewrite=True, bodies=bodies)
         suffix = path.suffix.lower()
         board: Path | None = path if suffix == ".pcbdoc" else None
         if suffix == ".prjpcb":
@@ -332,7 +348,20 @@ class AltiumBackend:
                 for name, data in written.files.items():
                     (Path(folder) / name).write_bytes(data)
                 second = self.read(Path(folder) / wanted).design
-        return rt_a3(first, written, second, compare=compare, census=census, from_board=suffix == ".pcbdoc")
+        with_bodies = written.inputs.bodies == "extruded"
+
+        def body_compare(reference: Design, reading: Design) -> tuple[Change, ...]:
+            return self.body_differences(reference, reading)[0]
+
+        return rt_a3(
+            first,
+            written,
+            second,
+            compare=compare,
+            census=census,
+            from_board=suffix == ".pcbdoc",
+            bodies=body_compare if with_bodies else None,
+        )
 
     @staticmethod
     def _census(path: Path) -> dict[str, int]:

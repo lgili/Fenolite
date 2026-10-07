@@ -101,6 +101,32 @@ document is equal inside the written scope. Fenolite reads what Fenolite wrote, 
 the write and the import agree on the model of a public document, not that Altium reads the documents.
 ``rta3.rt_a3`` combines it with the import's evidence, which is ``INFERRED``, so a verdict and a stage
 stay ``INFERRED``."""
+BODY_SCOPE = ModelScope(
+    fields=MappingProxyType({"body": ("kind", "height", "standoff", "outline", "layer", "name")}),
+    length_tolerance=2,
+)
+"""What a written component body carries of the model's body (change c0121; capability
+altium-verification, "Component bodies in the round trips"). It is no part of ``RT_A2_SCOPE``: bodies are
+written on request only, and they are compared, by ``bodydiff.body_differences``, exactly when they were
+written."""
+EVIDENCE_BODIES = Evidence(Level.INFERRED, hypotheses=("H-A-PCBX-BODY-READBACK",))
+"""The evidence of a comparison of bodies: Fenolite reads what Fenolite wrote."""
+
+
+def body_changes(
+    differences: Sequence[tuple[str, str, Mapping[str, Any] | None, Mapping[str, Any] | None]],
+) -> tuple[Change, ...]:
+    """The differences of ``bodydiff.body_differences`` as the ``Change`` values of a report: each side is
+    the compact canonical JSON of its compared view (``""`` for none)."""
+
+    def text(view: Mapping[str, Any] | None) -> str:
+        if view is None:
+            return ""
+        return json.dumps(view, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+    return tuple(Change(path, cast(Any, change), text(a), text(b)) for path, change, a, b in differences)
+
+
 RECORD_PREFIX = "record:"
 """In ``ModelRoundTrip.unwritten`` of RT-A3, a key with this prefix counts records of the first reading
 that gave no model entity (the import's census, by its category); a key without it counts model items."""
@@ -741,6 +767,9 @@ def _stream_names(data: bytes, kind: str) -> tuple[str, ...]:
 
 
 __all__ = [
+    "EVIDENCE_BODIES",
+    "BODY_SCOPE",
+    "body_changes",
     "LCS_CELLS",
     "MAX_SHOWN",
     "READER_EVIDENCE",

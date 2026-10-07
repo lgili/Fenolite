@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """RT-A3 on the public PCB documents and project sets (capability altium-verification, "Round-trip level
-RT-A3"; changes c0090 and c0127; ``H-A-VER-RTA3``, ``H-A-VER-RTA3-PRJ``).
+RT-A3" and "Component bodies in the round trips"; changes c0090, c0127 and c0121; ``H-A-VER-RTA3``,
+``H-A-VER-RTA3-PRJ``, ``H-A-PCBX-BODY-READBACK``).
 
 Every PCB document with the use ``rta`` is read, its model is written as new Altium documents under
 pytest's temporary directory, and those are read again; the two models must be equal inside the written
@@ -28,7 +29,8 @@ from _corpus import MANIFEST, CorpusItem, heavy_enabled, manifest_items, require
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium.backend import AltiumBackend
-from fenolite.backends.altium.lower import write_design
+from fenolite.backends.altium.lower import from_design, write_design
+from fenolite.backends.altium.pcbdoc import BODY_IS_MODEL
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import ViaRecord
 from fenolite.backends.base import ModelRoundTrip
@@ -118,6 +120,51 @@ def test_document_holds_rta3(item: CorpusItem, capsys: pytest.CaptureFixture[str
         assert set(entry["differences"]) == {kind}, f"{item.id}: differs outside {kind}"
         return
     assert trip.equal, f"{item.id}: {len(trip.differences)} difference(s), first {entry['first_difference']}"
+
+
+BODIES: dict[str, tuple[int, int]] = {
+    "altium-third-party-pcbdoc-01": (2, 245),
+    "altium-third-party-pcbdoc-02": (0, 42),
+    "altium-third-party-pcbdoc-03": (5, 45),
+    "altium-third-party-pcbdoc-04": (30, 3),
+    "altium-third-party-pcbdoc-05": (0, 23),
+    "altium-third-party-pcbdoc-06": (0, 27),
+    "altium-third-party-pcbdoc-07": (18, 6),
+    "altium-third-party-pcbdoc-08": (1217, 81),
+}
+"""Row id → the component bodies that a rewrite with ``bodies="extruded"`` writes (the extruded bodies with
+a component) and those it does not write, each because it names a 3D model (change c0121). The numbers are
+those of ``tests/corpus/test_altium_bodies.py``: the heavy row holds 85 bodies that name a model, of which 4
+have no component and are no body of the model."""
+
+
+@pytest.mark.parametrize("item", ROWS, ids=lambda item: item.id)
+def test_document_holds_rta3_with_bodies(item: CorpusItem, capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "Corpus documents with bodies" (change c0121): the trip with ``bodies="extruded"`` writes
+    exactly the extruded bodies with a component, counts every other body under its reason, compares the
+    written ones, and is equal as the trip without bodies is. The trip of the stage, without bodies, is
+    ``test_document_holds_rta3``: its numbers do not move. Counts only."""
+    path = require(item)
+    backend = AltiumBackend()
+    trip = backend.model_roundtrip(path, compare=compare, bodies="extruded")
+    reasons = dict(
+        from_design(backend.read(path).design, issues=[], rewrite=True, bodies="extruded").body_reasons
+    )
+    entry = entry_of(trip)
+    written, kept = trip.written.get("body", 0), trip.unwritten.get("body", 0)
+    census("altium-rta3", f"{item.id}:bodies", {**entry, "body_reasons": reasons})
+    with capsys.disabled():
+        state = "equal" if trip.equal else (entry["first_difference"] or f"not judged ({trip.reason})")
+        print(f"\n{item.id} with bodies: {state}; bodies written {written}; not written {reasons}")
+    assert trip.judged, f"{item.id}: not judged ({trip.reason})"
+    assert (written, kept) == BODIES[item.id]
+    assert reasons == ({BODY_IS_MODEL: kept} if kept else {})
+    assert not [change for change in trip.differences if change.path.startswith("/body/")]
+    if item.id in NOT_EQUAL:
+        assert not trip.equal
+        return
+    assert trip.equal, f"{item.id}: {len(trip.differences)} difference(s), first {entry['first_difference']}"
+    assert "H-A-PCBX-BODY-READBACK" in trip.evidence.hypotheses
 
 
 FULL_DRILL = "altium-third-party-pcbdoc-02"

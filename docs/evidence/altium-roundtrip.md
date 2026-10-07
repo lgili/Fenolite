@@ -289,6 +289,37 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 | `altium-third-party-pcbdoc-07` | equal | 14 | 97 | 475 | 20 | 60 | 5 | body 24; copper-shape 6; graphic 12; outline 2; pad 19; zone 4; zone-fill 5 | footprint-graphics 307; shape-based-regions 31; classes 16; bad-geometry 1 | 20 |
 | `altium-third-party-pcbdoc-08` | equal | 544 | 2115 | 8355 | 529 | 1770 | 27 | body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; rule 1; text 311; via-pad-shape 123; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
 
+**With component bodies (change c0121).** The table above is the trip of the stage `roundtrip.rta3`, which
+writes no body: it did not move with change c0121 (every `body` count is where it was). The trip can be
+asked to write bodies (`AltiumBackend.model_roundtrip(path, compare=…, bodies="extruded")`); it then writes
+each extruded body that has a component, an outline and a height above its standoff, compares the written
+bodies inside `roundtrip.BODY_SCOPE` (`kind`, `height`, `standoff`, `outline` as a ring, `layer`, `name`,
+within 2 nm) and counts every other body by its reason. Run on 2026-10-07, macOS, local corpus cache,
+with the heavy rows: `FENOLITE_REQUIRE=corpus FENOLITE_HEAVY=1 uv run pytest
+tests/corpus/test_altium_rta3.py tests/corpus/test_altium_roundtrip.py tests/corpus/test_altium_bodies.py
+-rA -n 2`, 104 passed.
+
+| document | bodies of the model | written | not written: names a 3D model | inside the scope, bodies compared |
+|---|---|---|---|---|
+| `altium-third-party-pcbdoc-01` | 247 | 2 | 245 | equal |
+| `altium-third-party-pcbdoc-02` | 42 | 0 | 42 | equal |
+| `altium-third-party-pcbdoc-03` | 50 | 5 | 45 | equal |
+| `altium-third-party-pcbdoc-04` | 33 | 30 | 3 | equal |
+| `altium-third-party-pcbdoc-05` | 23 | 0 | 23 | equal |
+| `altium-third-party-pcbdoc-06` | 27 | 0 | 27 | equal |
+| `altium-third-party-pcbdoc-07` | 24 | 18 | 6 | equal |
+| `altium-third-party-pcbdoc-08` | 1298 | 1217 | 81 | equal |
+
+- On the seven documents 55 of the 446 bodies are written and 391 are not, every one because it names a 3D
+  model, whose data the design model does not hold. Each document that is equal without bodies is equal
+  with them, and no difference names a body. The heavy document is the other way round: 1217 of its
+  1298 bodies are written and 81 name a model, and it is equal with them too. Over the eight documents
+  1272 of 1744 bodies are written.
+- This is Fenolite reading what Fenolite wrote (`H-A-PCBX-BODY-READBACK`, `INFERRED`). A written body
+  holds two stand-in values (`MODELID`, `MODEL.CHECKSUM`), not the values of the document that was read:
+  the model does not carry them (change c0129 is to keep them). Nothing here says that Altium opens a
+  rewrite with bodies; that is step X8 of the author report, which is pending.
+
 - **Vias without a pad on some layers (change c0132; run again on 2026-10-07 with the heavy rows, the
   same command).** The 123 vias of `-08` whose records name layers without a pad shape are written, as
   ordinary via records with a pad on every layer, and counted under `via-pad-shape`: the rewrite does

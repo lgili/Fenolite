@@ -4,9 +4,10 @@
 capability altium-pcb-writer, "PCB units and record framing", "PCB layer map", "Footprint pad records" and
 "Footprint line and arc records"; change c0038, "Copper layer map" and "Via records"; change c0085, "Layer
 stacks of any even count", "Blind and buried via records", "Board graphics and keep-out records" and
-"Non-plated holes and slots").
+"Non-plated holes and slots"; change c0121, "Extruded component body records").
 
-Written from ``docs/formats/altium/pcb-records.md`` and ``pcb-copper.md`` only. Lengths are signed 32-bit
+Written from ``docs/formats/altium/pcb-records.md``, ``pcb-copper.md`` and, for a component body,
+``pcb-bodies.md`` ("Written form of an extruded body") only. Lengths are signed 32-bit
 integers in 1/10 000 mil (2.54 nm): ``to_units`` rounds ``nm · 50 / 127`` half away from zero. Angles are
 doubles in degrees, counter-clockwise with Y up, computed with ``decimal`` and converted to a double once,
 so the bytes do not depend on the platform's C library. Every record is its type byte, then subrecords of a
@@ -15,12 +16,15 @@ so the bytes do not depend on the platform's C library. Every record is its type
 
 from __future__ import annotations
 
+import hashlib
+import re
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from fractions import Fraction
 from types import MappingProxyType
+from typing import Literal
 
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.binary import frame_record
@@ -42,6 +46,7 @@ PAD = 2
 TEXT = 5
 VIA = 3
 REGION = 11
+BODY = 12
 TRACK_SIZE = 36
 ARC_SIZE = 47
 VIA_SIZE = 321
@@ -201,7 +206,9 @@ EVIDENCE = Evidence(
         "H-A-PCB-PRJ",
     ),
 )
-"""The PCB records are inferred from public sources; the kicad-cli oracles check only what KiCad reads."""
+"""The PCB records are inferred from public sources; the kicad-cli oracles check only what KiCad reads.
+The rows of a component body (change c0121, ``body_record``) are named by the writers that use it:
+``pcbdoc.EVIDENCE`` and ``pcblib.EVIDENCE``."""
 
 _DIGITS = 40
 EMPTY_PROPERTY_BLOCK = struct.pack("<I", 1) + b"\0"
@@ -598,9 +605,168 @@ def region_record(
     return bytes((REGION,)) + subrecord(body)
 
 
+# --- component bodies (change c0121) -------------------------------------------------------------------
+
+BODY_KEYS: tuple[str, ...] = (
+    "V7_LAYER", "NAME", "KIND", "SUBPOLYINDEX", "UNIONINDEX", "ARCRESOLUTION", "ISSHAPEBASED",
+    "CAVITYHEIGHT", "STANDOFFHEIGHT", "OVERALLHEIGHT", "BODYPROJECTION", "ARCRESOLUTION", "BODYCOLOR3D",
+    "BODYOPACITY3D", "IDENTIFIER", "TEXTURE", "TEXTURECENTERX", "TEXTURECENTERY", "TEXTURESIZEX",
+    "TEXTURESIZEY", "TEXTUREROTATION", "MODELID", "MODEL.CHECKSUM", "MODEL.EMBED", "MODEL.NAME",
+    "MODEL.2D.X", "MODEL.2D.Y", "MODEL.2D.ROTATION", "MODEL.3D.ROTX", "MODEL.3D.ROTY", "MODEL.3D.ROTZ",
+    "MODEL.3D.DZ", "MODEL.MODELTYPE", "MODEL.EXTRUDED.MINZ", "MODEL.EXTRUDED.MAXZ",
+)  # fmt: skip
+"""The keys of a written extruded body, in order (``pcb-bodies.md``, "Written form of an extruded body":
+one row per key; ``ARCRESOLUTION`` is written twice, as saved records hold it). A unit test compares this
+tuple with the rows of the page in both directions: a key without a row is not written."""
+BODY_SHORT_KEYS = 21
+"""The keys of the short form: the first 21, ending at ``TEXTUREROTATION`` (``H-A-PCBX-BODY-SHORT``)."""
+BODY_COLOR = "12632256"
+"""``BODYCOLOR3D``: Fenolite's choice among the values that saved records hold (836 of 1272)."""
+BODY_TEXTURE_ROTATION = " 0.00000000000000E+0000"
+"""``TEXTUREROTATION``: the saved form of a real with the value 0, Fenolite's choice (115 of 1272)."""
+BODY_CHECKSUM = "0"
+"""``MODEL.CHECKSUM``: a stand-in. No source gives the rule of the saved value (``H-A-PCBX-BODY-OPEN``)."""
+BODY_ID_SALT = "fenolite.altium.bodymodel:"
+BODY_LAYERS = range(57, 73)
+"""The layer ids a body is written on: Mechanical 1 to 16."""
+BODY_TOP_LAYER, BODY_BOTTOM_LAYER = 69, 70
+"""Mechanical 13 and 14: where a body without a mechanical layer of its own is written, by its side."""
+BodyForm = Literal["saved", "short"]
+_MECHANICAL = re.compile(r"Mech\.(\d+)")
+
+
+def body_model_id(body_id: str) -> str:
+    """The ``MODELID`` of a written body: a GUID text in braces made of the first 16 bytes of the SHA-256
+    of ``fenolite.altium.bodymodel:<body_id>``, so that it depends on ``body_id`` alone and a build is
+    repeatable. It is a stand-in: a saved body holds a GUID whose origin no source states
+    (``pcb-bodies.md``, the row of ``MODELID``; ``H-A-PCBX-BODY-OPEN``)."""
+    digest = hashlib.sha256((BODY_ID_SALT + body_id).encode("utf-8")).hexdigest().upper()
+    return "{" + "-".join((digest[:8], digest[8:12], digest[12:16], digest[16:20], digest[20:32])) + "}"
+
+
+def body_layer(name: str, *, bottom: bool) -> int:
+    """The layer id a body on the model layer ``name`` is written on (``pcb-bodies.md``, "Layer rule"): the
+    id of a mechanical layer 1 to 16 when ``name`` is one of ``BOARD_LAYER_MAP`` or the import's
+    ``Mech.<n>``; else Mechanical 13 for a top footprint and Mechanical 14 for a bottom one."""
+    found = BOARD_LAYER_MAP.get(name)
+    if found is None:
+        match = _MECHANICAL.fullmatch(name)
+        found = 56 + int(match.group(1)) if match is not None else None
+    if found is not None and found in BODY_LAYERS:
+        return found
+    return BODY_BOTTOM_LAYER if bottom else BODY_TOP_LAYER
+
+
+def _half_towards_zero(twice: int) -> int:
+    half = abs(twice) // 2
+    return half if twice >= 0 else -half
+
+
+def body_record(
+    layer: int,
+    vertices: Sequence[tuple[int, int]],
+    *,
+    component: int,
+    standoff: int,
+    overall: int,
+    bottom: bool,
+    identifier: str = "",
+    model_id: str = "",
+    shape_based: bool = False,
+    form: BodyForm = "saved",
+) -> bytes:
+    """One extruded component body (type 12; ``pcb-bodies.md``, "Written form of an extruded body"): the
+    common prefix with ``layer`` and the ``component`` index (``NO_INDEX`` for none), five zero bytes, the
+    property text and the outline. ``vertices`` are binary units, at least three, without a closing vertex.
+    The plain form (``ComponentBodies6`` and a library) holds each vertex as two doubles; the shape-based
+    form (``ShapeBasedComponentBodies6``) holds each as 37 bytes, none round, and repeats the first vertex.
+
+    ``standoff`` and ``overall`` are the two heights in units; ``bottom`` gives ``BODYPROJECTION`` 1.
+    ``form="saved"`` writes the 35 keys of ``BODY_KEYS`` with ``MODELID`` ``model_id`` and
+    ``MODEL.CHECKSUM`` 0, the two stand-ins; ``form="short"`` writes the first 21 keys, for step X8 of the
+    author report only. ``ValueError`` for fewer than three vertices, a layer that is no Mechanical 1 to
+    16, a component index outside 16 bits, an overall height that is not above the standoff, a negative
+    standoff, an empty ``model_id`` in the saved form, or an unknown form."""
+    if form not in ("saved", "short"):
+        raise ValueError(f"unknown body form {form!r}: saved, short")
+    if len(vertices) < 3:
+        raise ValueError("a component body needs at least three vertices")
+    if layer not in BODY_LAYERS:
+        raise ValueError(f"layer {layer} is not a mechanical layer 1 to 16 (ids 57 to 72)")
+    if not 0 <= component <= NO_INDEX:
+        raise ValueError(f"the component index {component} is not 16 bits")
+    if standoff < 0:
+        raise ValueError("no saved extruded body holds a negative standoff; none is written")
+    if overall <= standoff:
+        raise ValueError("the overall height of a component body must be above its standoff")
+    if form == "saved" and not model_id:
+        raise ValueError("the saved form of a component body needs a model id")
+    xs, ys = [x for x, _ in vertices], [y for _, y in vertices]
+    values: dict[str, str] = {
+        "V7_LAYER": V7_LAYERS[layer],
+        "NAME": " ",
+        "KIND": "0",
+        "SUBPOLYINDEX": "-1",
+        "UNIONINDEX": "0",
+        "ARCRESOLUTION": REGION_ARC_RESOLUTION,
+        "ISSHAPEBASED": "FALSE",
+        "CAVITYHEIGHT": "0mil",
+        "STANDOFFHEIGHT": mil_text(standoff),
+        "OVERALLHEIGHT": mil_text(overall),
+        "BODYPROJECTION": "1" if bottom else "0",
+        "BODYCOLOR3D": BODY_COLOR,
+        "BODYOPACITY3D": "1.000",
+        "IDENTIFIER": ",".join(str(ord(character)) for character in identifier),
+        "TEXTURE": "",
+        "TEXTURECENTERX": "0mil",
+        "TEXTURECENTERY": "0mil",
+        "TEXTURESIZEX": "0mil",
+        "TEXTURESIZEY": "0mil",
+        "TEXTUREROTATION": BODY_TEXTURE_ROTATION,
+        "MODELID": model_id,
+        "MODEL.CHECKSUM": BODY_CHECKSUM,
+        "MODEL.EMBED": "FALSE",
+        "MODEL.NAME": "",
+        "MODEL.2D.X": mil_text(_half_towards_zero(min(xs) + max(xs))),
+        "MODEL.2D.Y": mil_text(_half_towards_zero(min(ys) + max(ys))),
+        "MODEL.2D.ROTATION": "0.000",
+        "MODEL.3D.ROTX": "0.000",
+        "MODEL.3D.ROTY": "0.000",
+        "MODEL.3D.ROTZ": "0.000",
+        "MODEL.3D.DZ": "0mil",
+        "MODEL.MODELTYPE": "0",
+        "MODEL.EXTRUDED.MINZ": mil_text(standoff),
+        "MODEL.EXTRUDED.MAXZ": mil_text(overall),
+    }
+    keys = BODY_KEYS if form == "saved" else BODY_KEYS[:BODY_SHORT_KEYS]
+    text = "|".join(f"{key}={values[key]}" for key in keys).encode("ascii") + b"\0"
+    body = prefix(layer, component=component) + bytes(5) + struct.pack("<I", len(text)) + text
+    body += struct.pack("<I", len(vertices))
+    if shape_based:
+        for x, y in (*vertices, vertices[0]):
+            body += struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0)
+    else:
+        for x, y in vertices:
+            body += struct.pack("<2d", float(x), float(y))
+    return bytes((BODY,)) + subrecord(body)
+
+
 __all__ = [
     "ARC",
     "ARC_SIZE",
+    "BODY",
+    "BODY_BOTTOM_LAYER",
+    "BODY_CHECKSUM",
+    "BODY_COLOR",
+    "BODY_KEYS",
+    "BODY_LAYERS",
+    "BODY_SHORT_KEYS",
+    "BODY_TEXTURE_ROTATION",
+    "BODY_TOP_LAYER",
+    "BodyForm",
+    "body_layer",
+    "body_model_id",
+    "body_record",
     "BOARD_LAYER_MAP",
     "BOTTOM_LAYER",
     "BOTTOM_SIDE",

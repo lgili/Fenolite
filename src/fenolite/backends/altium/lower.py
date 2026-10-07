@@ -142,6 +142,11 @@ class AltiumInputs:
     written: Mapping[str, int]
     not_lowered: Mapping[str, tuple[str, ...]]
     reasons: Mapping[str, str]
+    bodies: pcbdoc.BodyMode = "off"
+    """What the write did with component bodies (change c0121): ``extruded`` when it was asked to write
+    them, whether or not the board holds one."""
+    body_reasons: Mapping[str, int] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
+    """Reason → the number of component bodies that were not written for it."""
 
     def counts(self) -> dict[str, int]:
         """Kind → number of model items that are not written, for the kinds that have any."""
@@ -163,6 +168,7 @@ class _Account:
         self.written: dict[str, int] = {}
         self.kept: dict[str, list[str]] = {}
         self.reasons: dict[str, str] = {}
+        self.body_reasons: dict[str, int] = {}
 
     def wrote(self, kind: str, count: int = 1) -> None:
         self.written[kind] = self.written.get(kind, 0) + count
@@ -170,6 +176,11 @@ class _Account:
     def skip(self, kind: str, ident: str, reason: str) -> None:
         self.kept.setdefault(kind, []).append(ident)
         self.reasons.setdefault(kind, reason)
+
+    def skip_body(self, ident: str, reason: str) -> None:
+        """A component body that is not written, counted under ``body`` and by its reason."""
+        self.skip("body", ident, reason)
+        self.body_reasons[reason] = self.body_reasons.get(reason, 0) + 1
 
     def issues(self) -> list[Issue]:
         found: list[Issue] = []
@@ -453,8 +464,20 @@ def _footprints(
     net_names: Mapping[str, str],
     ratios: Mapping[str, Decimal],
     account: _Account,
+    *,
+    bodies: pcbdoc.BodyMode = "off",
+    frame: pcbdoc.Frame | None = None,
+    placed_bodies: list[pcbdoc.PlacedBody] | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
+    """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
+    bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
+    ``frame``; every other body is counted with its reason."""
     components = {component.id: component for component in design.circuit.components}
+
+    def skip_bodies(fp: FootprintInstance, reason: str) -> None:
+        for body in fp.bodies:
+            account.skip_body(body.id, reason)
+
     links = unique_links(design)
     placed: list[pcbdoc.PlacedComponent] = []
     free: list[pcbdoc.FreePad] = []
@@ -468,6 +491,7 @@ def _footprints(
             if problem is not None:
                 account.skip("footprint", fp.id, f"a free pad: {problem}")
                 account.skip("pad", pad.id, problem)
+                skip_bodies(fp, pcbdoc.BODY_NO_FOOTPRINT)
                 continue
             at = Transform.placement(fp.position, fp.rotation).apply(pad.position)
             rotation = (fp.rotation + pad.rotation) % FULL_TURN
@@ -475,11 +499,13 @@ def _footprints(
             free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
             account.wrote("footprint")
             account.wrote("pad")
+            skip_bodies(fp, "a free pad is no component, and a body is written with a component")
             continue
         if not _field_ok(ref):
             account.skip("footprint", fp.id, f"the reference {ref!r} holds '|', which no record holds")
             for pad in fp.pads:
                 account.skip("pad", pad.id, "its footprint is not written")
+            skip_bodies(fp, pcbdoc.BODY_NO_FOOTPRINT)
             continue
         bottom = fp.side == "bottom"
         pads: list[Pad] = []
@@ -521,7 +547,22 @@ def _footprints(
         account.wrote("footprint")
         account.wrote("pad", len(pads))
         for body in fp.bodies:
-            account.skip("body", body.id, "the document writes no component body record")
+            if bodies == "off" or frame is None or placed_bodies is None:
+                account.skip_body(body.id, pcbdoc.BODIES_OFF)
+                continue
+            found = pcbdoc.place_body(
+                body,
+                component=len(placed) - 1,
+                at=fp.position,
+                rotation=fp.rotation,
+                bottom=bottom,
+                frame=frame,
+            )
+            if isinstance(found, str):
+                account.skip_body(body.id, found)
+            else:
+                placed_bodies.append(found)
+                account.wrote("body")
     return placed, free
 
 
@@ -813,6 +854,7 @@ def from_design(
     issues: list[Issue],
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    bodies: str = "off",
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone. ``corner_ratios`` maps a pad id
     to the corner ratio of its rounded rectangle, for a caller that knows what the model does not hold (a
@@ -822,7 +864,15 @@ def from_design(
     ``rewrite`` (change c0128) is the caller's statement that ``design`` is the reading of an Altium
     document and that the write gives the document back: a via whose drill equals its diameter, which a
     saved document can hold and a build refuses, is then written as it was read. It is not inferred from
-    the design, and ``ValueError`` refuses it for a board that was not read from an Altium document."""
+    the design, and ``ValueError`` refuses it for a board that was not read from an Altium document.
+
+    ``bodies`` (change c0121) is ``off`` (the default) or ``extruded``; another value raises ``ValueError``.
+    With ``extruded`` the extruded component bodies of the footprint instances that have an outline and a
+    height above their standoff are written into the document (``pcbdoc.place_body``); every other body,
+    and every body with ``off``, is left out and counted under ``body``. The definition that is
+    synthesised from an instance holds no body: the document carries them. ``rewrite`` does not decide
+    it."""
+    body_mode = pcbdoc.body_mode(bodies)
     account = _Account()
     name = design_name(design)
     board = design.board
@@ -834,7 +884,9 @@ def from_design(
     if board is not None:
         outline = _outline(board, account)
         if len(outline) >= 3:
-            spec = _document(design, board, outline, corner_ratios or {}, account, rewrite=rewrite)
+            spec = _document(
+                design, board, outline, corner_ratios or {}, account, rewrite=rewrite, bodies=body_mode
+            )
     schematic = schematic_design(design, name)
     for component in design.circuit.components:
         if component.pin_pad_map:
@@ -856,6 +908,8 @@ def from_design(
         MappingProxyType(dict(account.written)),
         MappingProxyType({kind: tuple(found) for kind, found in account.kept.items()}),
         MappingProxyType(dict(account.reasons)),
+        body_mode,
+        MappingProxyType(dict(sorted(account.body_reasons.items()))),
     )
 
 
@@ -867,6 +921,7 @@ def _document(
     account: _Account,
     *,
     rewrite: bool = False,
+    bodies: pcbdoc.BodyMode = "off",
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -888,7 +943,10 @@ def _document(
             found = [text_length(text) for text in texts]
             if found[0] is not None and found[1] is not None:
                 origin = Point(found[0][0], found[1][0])
-    components, free_pads = _footprints(design, board, net_names, ratios, account)
+    placed_bodies: list[pcbdoc.PlacedBody] = []
+    components, free_pads = _footprints(
+        design, board, net_names, ratios, account, bodies=bodies, frame=frame, placed_bodies=placed_bodies
+    )
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
@@ -918,6 +976,7 @@ def _document(
         free_pads=tuple(free_pads),
         arc_records=MappingProxyType(arc_records),
         allow_full_drill=rewrite,
+        bodies=tuple(placed_bodies),
     )
 
 
@@ -927,15 +986,17 @@ def write_design(
     allow_lossy: bool = False,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
+    bodies: str = "off",
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
     ``<name>.PrjPcb`` when the schematic writer takes the circuit (otherwise one ``altium.not-lowered``
     with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
     ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
-    ``from_design``: the write of the reading of an Altium document."""
+    ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
+    too: ``extruded`` writes the extruded component bodies (change c0121)."""
     issues: list[Issue] = []
-    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite)
+    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies)
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
         raise LossyWriteError(lost)
@@ -961,14 +1022,17 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
     of the design (change c0090, "RT-A2 on a written model"): one footprint per placed component with the
     pads that are written, and the tracks, arcs, vias and zones of ``spec`` with the design's net ids. A
     zone is one entity per written polygon, so a zone on two layers is two. The board's other fields are
-    kept. Ids are derived from the component's id and the entity's place."""
+    kept. Ids are derived from the component's id and the entity's place. A footprint holds the component
+    bodies that ``spec`` writes for its component (change c0121) and no other: the stored board of a build
+    without ``--altium-bodies extruded`` holds no body, as before."""
     board = design.board
     if board is None:
         raise ValueError("the design holds no board")
     net_ids = {net.name: net.id for net in design.circuit.nets}
     by_ref = {component.ref: component for component in design.circuit.components}
+    model_bodies = {body.id: body for footprint in board.footprints for body in footprint.bodies}
     footprints: list[FootprintInstance] = []
-    for placed in spec.components:
+    for number, placed in enumerate(spec.components):
         component = by_ref[placed.ref]
         bottom = placed.side == "bottom"
         to_board = Transform.placement(placed.at, placed.rotation, mirror=bottom)
@@ -1005,6 +1069,11 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
                 side=placed.side,
                 locked=placed.locked,
                 pads=tuple(pads),
+                bodies=tuple(
+                    model_bodies[body.body_id]
+                    for body in spec.bodies
+                    if body.component == number and body.body_id in model_bodies
+                ),
             )
         )
     zones = [

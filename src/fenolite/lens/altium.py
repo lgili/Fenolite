@@ -168,6 +168,7 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
     pcbrecords.EVIDENCE,
     hierarchy.EVIDENCE,
     pcbdoc.EVIDENCE,
+    pcblib.EVIDENCE,
     rulemap.EVIDENCE,
 )
 """``INFERRED`` for every build: author reports cover the files the maintainer opened, never a design, and
@@ -175,7 +176,9 @@ the kicad-cli oracle checks only what KiCad's importer reads. It names the rows 
 (``binary.EVIDENCE`` holds the ``H-A-SCHBIN-*`` rows) and of the libraries (every ``H-A-SCHLIB-*`` row,
 ``schlib.EVIDENCE`` holding those of the library file) and of the hierarchy and harnesses
 (``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037), and the rule
-rows ``H-A-RULE-*`` of the PCB document (``rulemap.EVIDENCE``, change c0084)."""
+rows ``H-A-RULE-*`` of the PCB document (``rulemap.EVIDENCE``, change c0084). The rows of a component body
+(``H-A-PCBX-BODY-*``, change c0121) come with ``pcbdoc.EVIDENCE`` and ``pcblib.EVIDENCE``: they are claims
+of a build that writes bodies, which is on request only."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -473,9 +476,12 @@ def resolve_footprints(
     design: Design,
     resolver: LibraryResolver | None,
     authored: Mapping[str, FootprintDef] = MappingProxyType({}),
+    *,
+    bodies: pcbdoc.BodyMode = "off",
 ) -> tuple[dict[str, pcblib.LibFootprint], list[Issue]]:
     """KiCad footprint link → the footprint written into ``<name>.PcbLib``, with the warnings and infos of
-    footprints that do not resolve, are refused, collide on a storage name, or lose items."""
+    footprints that do not resolve, are refused, collide on a storage name, or lose items. With ``bodies``
+    ``extruded`` (change c0121) the component bodies of a definition are written with it."""
     issues: list[Issue] = []
     resolved: dict[str, pcblib.LibFootprint] = {}
     for link in kicad_footprint_ids(design):
@@ -505,7 +511,8 @@ def resolve_footprints(
             continue
         extras = pad_extras(defn)
         texts = footprint_texts(defn)
-        check = pcblib.check_footprint(defn, extras, texts=texts)
+        asked = defn.bodies if bodies == "extruded" else ()
+        check = pcblib.check_footprint(defn, extras, texts=texts, bodies=asked)
         if check.refusal is None:
             try:
                 schlib.storage_name(defn.name)
@@ -534,7 +541,7 @@ def resolve_footprints(
                     link,
                 )
             )
-        resolved[link] = pcblib.LibFootprint(defn, extras, texts)
+        resolved[link] = pcblib.LibFootprint(defn, extras, texts, asked)
     by_key: dict[tuple[int, tuple[int, ...]], list[str]] = {}
     for link, footprint in resolved.items():
         by_key.setdefault(name_key(schlib.storage_name(footprint.defn.name)), []).append(link)
@@ -581,6 +588,8 @@ def pcb_document(
     planes: Mapping[str, str] | None = None,
     copper_source: altium_copper.CopperSource | None = None,
     account: dict[str, dict[str, int]] | None = None,
+    bodies: pcbdoc.BodyMode = "off",
+    body_form: pcbrecords.BodyForm = "saved",
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
     ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
@@ -592,7 +601,9 @@ def pcb_document(
     errors and ``None``. With ``copper_source`` the copper and the placements come from that source, after
     ``altium_copper.match_source`` checked it against the design; none is staged. ``account`` (change
     c0085), when given, receives ``written`` and ``not_lowered`` of ``altium_copper.account`` for a
-    document that is planned."""
+    document that is planned. ``bodies`` (change c0121) is ``off`` or ``extruded``: with ``extruded`` the
+    extruded component bodies of the board's footprints are written (``altium_copper.lower_bodies``), in
+    the form ``body_form``; every other body is reported."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -723,6 +734,10 @@ def pcb_document(
     lowered = altium_copper.lowered_rules(design)  # change c0084; build_altium reports the others
     spec = dataclasses.replace(spec, design_rules=lowered.records)
     spec = altium_copper.with_copper(spec, plan)
+    placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues)
+    plan = dataclasses.replace(plan, counts=MappingProxyType({**plan.counts, "body": body_counts}))
+    if placed_bodies:
+        spec = dataclasses.replace(spec, bodies=placed_bodies, body_form=body_form)
     if account is not None:
         source = copper_source.design if copper_source is not None else None
         account.update(altium_copper.account(design, spec, plan, source))
@@ -1452,8 +1467,18 @@ def build_altium(
     directions: bool = True,
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     symbol_bodies: SymbolBodies = DEFAULT_BODIES,
+    bodies: str = "off",
+    body_form: pcbrecords.BodyForm = "saved",
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
+
+    ``bodies`` (change c0121, ``--altium-bodies``) is ``off`` (the default: no component body is written and
+    every file is the file of earlier changes) or ``extruded``: the extruded component bodies of the
+    board's footprints are written into the PCB document and those of the footprint definitions into the
+    PCB library; a body that names a 3D model, has no outline or no height above its standoff is reported.
+    Another value raises ``ValueError``. The default stays ``off`` until step X8 of the author report is
+    in: two keys of a written body are stand-ins (``H-A-PCBX-BODY-OPEN``). ``body_form`` is ``saved``;
+    ``short`` exists for the second file set of that step and no command selects it.
 
     ``directions`` (change c0086, ``--altium-directions``) false writes every port and sheet entry
     without an I/O type. ``authored_symbols`` (change c0086) maps a lib id to a symbol the script authored
@@ -1481,6 +1506,7 @@ def build_altium(
     """
     if sheets not in ("flat", "modules"):
         raise ValueError(f"unknown sheet mode {sheets!r}")
+    body_mode = pcbdoc.body_mode(bodies)
     if copper_source is not None and altium_copper.has_copper(design.board):
         raise ValueError(
             "two copper sources: the design's board holds copper (the model source) and a copper source "
@@ -1513,7 +1539,7 @@ def build_altium(
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
-    footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints)
+    footprints, footprint_issues = resolve_footprints(model, resolver, authored_footprints, bodies=body_mode)
     issues += footprint_issues
     written = [footprints[link] for link in sorted(footprints)]
     pcb_account: dict[str, dict[str, int]] = {}
@@ -1527,6 +1553,8 @@ def build_altium(
         copper_source=copper_source,
         sheets=sheets,
         account=pcb_account,
+        bodies=body_mode,
+        body_form=body_form,
     )
     issues += document_issues
     if any(i.severity == "error" for i in issues):
@@ -1698,7 +1726,7 @@ def build_altium(
         pcb_document=f"{name}.PcbDoc" if spec is not None else None,
         sheets=sheets,
         copper=copper_info,
-        pcb=pcb_account if spec is not None else None,
+        pcb={**pcb_account, "bodies": body_mode} if spec is not None else None,
         outjob=job_info,
         drawing_sheet=sheet_info,
         rules=rules_info,
@@ -1724,12 +1752,14 @@ def corner_ratios(design: Design) -> dict[str, Decimal]:
     return found
 
 
-def write_model(design: Design, *, allow_lossy: bool = False) -> lower.ProjectWrite:
+def write_model(design: Design, *, allow_lossy: bool = False, bodies: str = "off") -> lower.ProjectWrite:
     """The Altium project of ``design``, written from the model alone (``backends.altium.lower.write_design``,
     change c0090), with the corner ratios of ``corner_ratios``: the write of a design that was read from
     a KiCad board. ``AltiumBackend.write`` is the same write without them, for a design that carries its
     ratios (one read from an Altium document) or holds no rounded rectangle."""
-    return lower.write_design(design, allow_lossy=allow_lossy, corner_ratios=corner_ratios(design))
+    return lower.write_design(
+        design, allow_lossy=allow_lossy, corner_ratios=corner_ratios(design), bodies=bodies
+    )
 
 
 __all__ = [

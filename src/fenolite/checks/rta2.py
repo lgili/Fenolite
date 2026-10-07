@@ -12,6 +12,8 @@ footprint, and ``predates_board`` tells so.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fenolite.backends.base import ModelScope, ProjectRead
 from fenolite.checks.codes import issue
 from fenolite.checks.diff import Change, diff_designs
@@ -72,13 +74,23 @@ def _message(change: Change) -> str:
     return "the written documents hold this, and the built model does not"
 
 
-def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResult:
+def body_total(design: Design) -> int:
+    """The component bodies that the footprints of ``design`` hold."""
+    board = design.board
+    return sum(len(footprint.bodies) for footprint in board.footprints) if board is not None else 0
+
+
+def rta2_stage(
+    model: Design, read: ProjectRead, scope: ModelScope, *, bodies: Sequence[Change] | None = None
+) -> StageResult:
     """RT-A2 of a built project: ``model`` is the model the build stored, ``read`` the two readings of the
     documents it wrote, ``scope`` what the writers write. Each difference is one ``check.rta2-failed`` error
     whose ``where`` is the change's path behind ``schematic:`` or ``pcb:``, at most ``MAX_ISSUES`` per side.
     The summary holds ``level``, ``holds``, ``differences`` and ``compared`` (per side, the kinds
     compared: every kind of the scope). The caller sets the evidence and moves the PCB reading into the
-    frame of the model."""
+    frame of the model. ``bodies`` (change c0121) are the differences of the kind ``body`` that the backend
+    found for a build that wrote component bodies, or ``None`` for a build that wrote none: given, the kind
+    is listed as compared on the PCB side and each difference is one issue ``pcb:/body/<n>``."""
     issues: list[Issue] = []
     compared: dict[str, list[str]] = {}
     total = 0
@@ -99,6 +111,13 @@ def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResu
             issue("check.rta2-failed", _message(change), where=f"{side}:{change.path}")
             for change in report.changes[:MAX_ISSUES]
         ]
+    if bodies is not None and read.pcb is not None:
+        compared["pcb"] = sorted([*compared.get("pcb", []), "body"])
+        total += len(bodies)
+        issues += [
+            issue("check.rta2-failed", _message(change), where=f"pcb:{change.path}")
+            for change in list(bodies)[:MAX_ISSUES]
+        ]
     summary: dict[str, object] = {
         "level": "RT-A2",
         "holds": total == 0,
@@ -108,4 +127,12 @@ def rta2_stage(model: Design, read: ProjectRead, scope: ModelScope) -> StageResu
     return ran("roundtrip.rta2", issues, Evidence(), summary)
 
 
-__all__ = ["BOARD_KINDS", "CIRCUIT_KINDS", "MAX_ISSUES", "held", "predates_board", "rta2_stage"]
+__all__ = [
+    "BOARD_KINDS",
+    "CIRCUIT_KINDS",
+    "MAX_ISSUES",
+    "body_total",
+    "held",
+    "predates_board",
+    "rta2_stage",
+]

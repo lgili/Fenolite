@@ -1547,3 +1547,33 @@ path = "tests/data/altium/channels/two/two_ch.SchDoc"
 origin = "authored"
 corpus_id = ""
 notes = "child sheet of the two-channel sample, authored record by record: R1 and C12, the ports VCC and OUT, the net label MID (c0083)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of the sample with component bodies (tests/_altium_body2.py), built with --altium-bodies extruded: three extruded bodies in both body storages, one on the bottom side, one with a standoff; a fourth body of the model, which names a 3D model, is not written (c0121 golden file; never opened in Altium)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of the sample with component bodies: the three mini footprints, the footprint of U1 with one extruded body (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the sample with component bodies listing its schematic, libraries and PCB document (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of the sample with component bodies, the blink design named body2 (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The Altium PCB library (``.PcbLib``) of the Altium writer (change c0035, capability altium-pcb-writer,
-"Footprint content checks", "Footprint line and arc records" and "PCB library file").
+"Footprint content checks", "Footprint line and arc records" and "PCB library file"; change c0121,
+"Component bodies of a library footprint").
 
 Written from ``docs/formats/altium/pcb-library.md`` and ``pcb-records.md``. ``check_footprint`` refuses a
 footprint it cannot write exactly and lists what it leaves out; ``pad_bytes`` and ``graphic_records`` turn
@@ -24,7 +25,7 @@ from fenolite.backends.altium.libboard import board_text, guid
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.board import Graphic, Pad
+from fenolite.model.board import ComponentBody, Graphic, Pad
 from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
@@ -36,17 +37,23 @@ DEFAULT_FILENAME = "Fenolite.PcbLib"
 UNIQUE_STORAGE = "UniqueIDPrimitiveInformation"
 """Altium's spelling of the per-footprint storage of unique ids."""
 HEIGHT = "0mil"
+BODY_OBJECT = "Body"
+"""The kind of a component body among the primitives of ``footprint_primitives``."""
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
         "H-A-PCB-GRAPHICS",
         "H-A-PCB-KICAD-LIB",
+        "H-A-PCBX-BODY-FORM",
+        "H-A-PCBX-BODY-LIB",
         "H-A-PCB-LIB-NAME",
         "H-A-PCB-LIB-OPEN",
         "H-A-PCB-PAD",
     ),
 )
-"""The library file is inferred from public sources; the kicad-cli oracle checks only what KiCad reads."""
+"""The library file is inferred from public sources; the kicad-cli oracle checks only what KiCad reads.
+A body of a library footprint (change c0121) is written in the form of a document's body: no extruded
+body of a saved library was read (``H-A-PCBX-BODY-LIB``)."""
 COPPER_WILDCARDS = ("*.Cu", "F&B.Cu")
 
 
@@ -62,11 +69,14 @@ class PadExtras:
 
 @dataclass(frozen=True, slots=True)
 class LibFootprint:
-    """One footprint to write: the definition, its pad extras by pad id, and its number of texts."""
+    """One footprint to write: the definition, its pad extras by pad id, and its number of texts.
+    ``bodies`` (change c0121) are the component bodies to write into the library with it: empty, the value
+    of every write without ``--altium-bodies extruded``, or the bodies of the definition."""
 
     defn: FootprintDef
     extras: Mapping[str, PadExtras] = field(default_factory=lambda: {})
     texts: int = 0
+    bodies: tuple[ComponentBody, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +89,47 @@ class FootprintCheck:
     extras: tuple[str, ...] = ()
     pads: tuple[Pad, ...] = ()
     graphics: tuple[Graphic, ...] = ()
+    bodies: tuple[ComponentBody, ...] = ()
+    """The component bodies that are written (change c0121)."""
+
+
+BODY_IS_MODEL = "a body that names a 3D model needs the model's data, which the model does not hold"
+BODY_NO_OUTLINE = "the body has no outline"
+
+
+def _mm(nm: int) -> str:
+    text = format(Decimal(nm) / Decimal(1_000_000), "f")
+    return text.rstrip("0").rstrip(".") if "." in text else text
+
+
+def body_problem(body: ComponentBody) -> str | None:
+    """Why ``body`` has no record, or ``None`` (capability altium-pcb-writer, "Component bodies are
+    reported"; ``pcb-bodies.md``, "What is not written"): the kind ``model``; an outline of fewer than three
+    distinct points; a standoff below the board surface, which no saved extruded body holds; a height that
+    is not above the standoff in the units of the record. It reads ``kind``, ``outline``, ``height`` and
+    ``standoff`` as the model holds them and no other field."""
+    if body.kind != "extruded":
+        return BODY_IS_MODEL
+    if len(set(body.outline)) < 3:
+        return BODY_NO_OUTLINE
+    if body.standoff < 0:
+        return f"its standoff of {_mm(body.standoff)} mm lies below the board surface"
+    if rec.to_units(body.height) <= rec.to_units(body.standoff):
+        return f"its height of {_mm(body.height)} mm is not above its standoff of {_mm(body.standoff)} mm"
+    return None
+
+
+def library_body_vertices(body: ComponentBody) -> list[tuple[int, int]]:
+    """The outline of ``body`` in the library's frame as whole units, without a point that equals the one
+    before it and without a last point that repeats the first."""
+    vertices: list[tuple[int, int]] = []
+    for point in body.outline:
+        vertex = _units(library_frame(point))
+        if not vertices or vertices[-1] != vertex:
+            vertices.append(vertex)
+    while len(vertices) > 1 and vertices[-1] == vertices[0]:
+        vertices.pop()
+    return vertices
 
 
 def _copper_sides(pad: Pad) -> set[str]:
@@ -157,8 +208,17 @@ def _graphic_drop(graphic: Graphic) -> str | None:
     return None
 
 
-def check_footprint(defn: FootprintDef, extras: Mapping[str, PadExtras], *, texts: int = 0) -> FootprintCheck:
-    """Refuse ``defn`` (a reason naming the pad or graphic) or list what is written, dropped and extra."""
+def check_footprint(
+    defn: FootprintDef,
+    extras: Mapping[str, PadExtras],
+    *,
+    texts: int = 0,
+    bodies: Sequence[ComponentBody] = (),
+) -> FootprintCheck:
+    """Refuse ``defn`` (a reason naming the pad or graphic) or list what is written, dropped and extra.
+    ``bodies`` (change c0121) are the component bodies asked for: one that ``body_problem`` passes and that
+    keeps three vertices in the library's units is written; each other body of ``bodies`` and of the
+    definition is counted in the notes."""
     if (problem := _text_refusal(defn.name, "the footprint name")) is not None:
         return FootprintCheck(problem)
     dropped: list[str] = []
@@ -184,7 +244,14 @@ def check_footprint(defn: FootprintDef, extras: Mapping[str, PadExtras], *, text
         notes.append(f"{len(defn.properties)} propert{'y' if len(defn.properties) == 1 else 'ies'}")
     if defn.models:
         notes.append(f"{len(defn.models)} 3D model link(s)")
-    return FootprintCheck(None, tuple(dropped), tuple(notes), defn.pads, tuple(graphics))
+    written = tuple(
+        body for body in bodies if body_problem(body) is None and len(library_body_vertices(body)) >= 3
+    )
+    ids = {body.id for body in written}
+    unwritten = sum(1 for body in {b.id: b for b in (*defn.bodies, *bodies)}.values() if body.id not in ids)
+    if unwritten:
+        notes.append(f"{unwritten} component bod{'y' if unwritten == 1 else 'ies'}")
+    return FootprintCheck(None, tuple(dropped), tuple(notes), defn.pads, tuple(graphics), written)
 
 
 Frame = Callable[[Point], Point]
@@ -376,8 +443,10 @@ def _library_storage(filename: str, footprints: Sequence[LibFootprint]) -> Stora
 
 def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
     """``(object id, record)`` of each written primitive: the pads in definition order, then the tracks and
-    arcs in graphic order; ``ValueError`` for a refused footprint."""
-    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+    arcs in graphic order, then the component bodies of ``footprint.bodies`` that are written (change
+    c0121; ``pcb-bodies.md``, "Library": the document's form with no component, in the library's frame);
+    ``ValueError`` for a refused footprint."""
+    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts, bodies=footprint.bodies)
     if check.refusal is not None:
         raise ValueError(f"{footprint.defn.name}: {check.refusal}")
     out: list[tuple[str, bytes]] = []
@@ -389,6 +458,18 @@ def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
     for graphic in check.graphics:
         for record in graphic_records(graphic):
             out.append(("Track" if record[0] == rec.TRACK else "Arc", record))
+    for body in check.bodies:
+        record = rec.body_record(
+            rec.body_layer(body.layer, bottom=False),
+            library_body_vertices(body),
+            component=rec.NO_INDEX,
+            standoff=rec.to_units(body.standoff),
+            overall=rec.to_units(body.height),
+            bottom=False,
+            identifier=body.name,
+            model_id=rec.body_model_id(body.id),
+        )
+        out.append((BODY_OBJECT, record))
     return out
 
 
@@ -397,6 +478,8 @@ def _footprint_storage(key: str, footprint: LibFootprint) -> Storage:
 
     defn = footprint.defn
     primitives = footprint_primitives(footprint)
+    # a body has no entry in the list of unique ids: the one saved library with a body lists its pads only
+    listed = [kind for kind, _record in primitives if kind != BODY_OBJECT]
     unique = b"".join(
         rec.property_block(
             (
@@ -405,14 +488,14 @@ def _footprint_storage(key: str, footprint: LibFootprint) -> Storage:
                 ("UNIQUEID", unique_id(f"pcblib:{defn.name}:{index}")),
             )
         )
-        for index, (kind, _record) in enumerate(primitives)
+        for index, kind in enumerate(listed)
     )
     entries: tuple[Entry, ...] = (
         ("Header", _u32(len(primitives))),
         ("Parameters", _parameters(defn)),
         ("WideStrings", rec.EMPTY_PROPERTY_BLOCK),
         ("Data", rec.string_block(defn.name) + b"".join(record for _kind, record in primitives)),
-        Storage(UNIQUE_STORAGE, (("Header", _u32(len(primitives))), ("Data", unique))),
+        Storage(UNIQUE_STORAGE, (("Header", _u32(len(listed))), ("Data", unique))),
     )
     return Storage(key, entries)
 
@@ -447,6 +530,9 @@ def write_pcblib(footprints: Sequence[LibFootprint], *, filename: str = DEFAULT_
 
 
 __all__ = [
+    "BODY_IS_MODEL",
+    "BODY_NO_OUTLINE",
+    "BODY_OBJECT",
     "EVIDENCE",
     "DEFAULT_FILENAME",
     "LIBRARY_HEADER_TEXT",
@@ -456,9 +542,11 @@ __all__ = [
     "Frame",
     "LibFootprint",
     "PadExtras",
+    "body_problem",
     "check_footprint",
     "footprint_primitives",
     "graphic_records",
+    "library_body_vertices",
     "library_frame",
     "pad_bytes",
     "pad_layer",

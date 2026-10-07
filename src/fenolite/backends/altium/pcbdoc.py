@@ -34,6 +34,7 @@ import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
+from typing import Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
@@ -49,8 +50,11 @@ from fenolite.backends.altium.docboard import (
 )
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcblib import (
+    BODY_IS_MODEL,
+    BODY_NO_OUTLINE,
     LibFootprint,
     PadExtras,
+    body_problem,
     check_footprint,
     graphic_records,
     pad_bytes,
@@ -58,7 +62,7 @@ from fenolite.backends.altium.pcblib import (
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Arc, Graphic, Hole, Keepout, Pad, Side, Text, Track, Via, Zone
+from fenolite.model.board import Arc, ComponentBody, Graphic, Hole, Keepout, Pad, Side, Text, Track, Via, Zone
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
 """``FileHeader``: the 32-bit value 19, then the first ten characters of this text in UTF-16LE."""
@@ -95,7 +99,12 @@ EMPTY_STORAGES: tuple[str, ...] = (
     "SmartUnions",
 )
 """Storages written with ``Header`` 0 and an empty ``Data``: the kinds KiCad looks for and the ones every
-Altium-saved document holds, empty in a document without such objects."""
+Altium-saved document holds, empty in a document without such objects. Three of them are filled when the
+spec holds such an object: the two region storages (change c0085) and the two body storages (change
+c0121, ``PcbDocSpec.bodies``)."""
+BODY_STORAGES: tuple[str, str] = ("ComponentBodies6", "ShapeBasedComponentBodies6")
+"""The plain and the shape-based storage of the component bodies: record ``i`` of one is the twin of record
+``i`` of the other (``pcb-bodies.md``, "Written form of an extruded body")."""
 _TAIL_ORDER: tuple[str, ...] = (
     "Vias6",
     *EMPTY_STORAGES[:3],
@@ -200,6 +209,13 @@ EVIDENCE = Evidence(
         "H-A-PCB-DOC-OPEN",
         "H-A-PCB-DOC-VIEWER",
         "H-A-PCB-KICAD-DOC",
+        "H-A-PCBX-BODY-2D",
+        "H-A-PCBX-BODY-FORM",
+        "H-A-PCBX-BODY-ID",
+        "H-A-PCBX-BODY-KICAD",
+        "H-A-PCBX-BODY-OPEN",
+        "H-A-PCBX-BODY-READBACK",
+        "H-A-PCBX-BODY-SHORT",
         "H-A-PCBX-HOLE",
         "H-A-PCBX-KEEPOUT",
         "H-A-PCBX-KICAD",
@@ -213,7 +229,10 @@ EVIDENCE = Evidence(
 )
 """The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
 ``H-A-PCB-CU-*`` rows are those of the copper (change c0038), and ``H-A-ECO-COMPCLASS`` and
-``H-A-ECO-SHEETCLASS`` those of the component classes of the sheets (change c0048)."""
+``H-A-ECO-SHEETCLASS`` those of the component classes of the sheets (change c0048). The
+``H-A-PCBX-BODY-*`` rows are those a written component body rests on (change c0121): the saved form is
+measured on public documents, thinly, and whether Altium takes the two stand-in values of a body is an
+author report that is pending, so bodies are written only on request."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,6 +288,115 @@ class FreePad:
     net: str | None = None
 
 
+BodyMode = Literal["off", "extruded"]
+BODY_MODES: tuple[BodyMode, ...] = ("off", "extruded")
+"""What a write does with component bodies (change c0121, ``--altium-bodies``): ``off`` writes none, and
+``extruded`` writes the extruded bodies that ``body_problem`` passes. The default is ``off`` until step X8
+of the author report is in (``H-A-PCBX-BODY-OPEN``)."""
+BODIES_OFF = "component bodies are not written without --altium-bodies extruded"
+BODY_NO_FOOTPRINT = "its footprint is not written"
+
+
+def body_mode(value: str) -> BodyMode:
+    """``value`` as a body mode; ``ValueError`` for another value."""
+    if value == "off":
+        return "off"
+    if value == "extruded":
+        return "extruded"
+    raise ValueError(f"unknown body mode {value!r}: {', '.join(BODY_MODES)}")
+
+
+@dataclass(frozen=True, slots=True)
+class PlacedBody:
+    """One component body to write (change c0121): ``component`` is the index of its component in
+    ``PcbDocSpec.components``, ``layer`` the Altium id of a mechanical layer 1 to 16, ``outline`` its
+    polygon in the frame of the placements (nanometres), ``height`` and ``standoff`` its two heights from
+    the board surface, ``bottom`` the side of its footprint, ``identifier`` its name and ``model_id`` the
+    ``MODELID`` stand-in (``pcbrecords.body_model_id``). ``body_id`` is the id of the model's body, for the
+    caller's accounts; no record holds it."""
+
+    component: int
+    layer: int
+    outline: tuple[Point, ...]
+    height: int
+    standoff: int = 0
+    bottom: bool = False
+    identifier: str = ""
+    model_id: str = ""
+    body_id: str = ""
+
+
+def body_vertices(outline: Sequence[Point], frame: Frame) -> list[tuple[int, int]]:
+    """The vertices of a body outline as the record holds them: each point in ``frame``, as whole units,
+    without a point that equals the one before it and without a last point that repeats the first."""
+    vertices: list[tuple[int, int]] = []
+    for point in outline:
+        vertex = _units(frame(point))
+        if not vertices or vertices[-1] != vertex:
+            vertices.append(vertex)
+    while len(vertices) > 1 and vertices[-1] == vertices[0]:
+        vertices.pop()
+    return vertices
+
+
+def place_body(
+    body: ComponentBody, *, component: int, at: Point, rotation: int, bottom: bool, frame: Frame
+) -> PlacedBody | str:
+    """``body`` as the document writes it, or the reason it has no record. ``at`` and ``rotation`` are the
+    placement of the body's component in the document and ``bottom`` its side: the outline of a footprint
+    instance is held as seen from the top, as the instance's pads are, so it is placed without a mirror.
+    The layer is ``pcbrecords.body_layer`` of ``ComponentBody.layer``. A body that ``body_problem`` passes
+    and whose placed outline keeps fewer than three vertices in whole units has no outline."""
+    problem = body_problem(body)
+    if problem is not None:
+        return problem
+    transform = Transform.placement(at, rotation)
+    outline = tuple(transform.apply(point) for point in body.outline)
+    if len(body_vertices(outline, frame)) < 3:
+        return BODY_NO_OUTLINE
+    return PlacedBody(
+        component=component,
+        layer=rec.body_layer(body.layer, bottom=bottom),
+        outline=outline,
+        height=body.height,
+        standoff=body.standoff,
+        bottom=bottom,
+        identifier=body.name,
+        model_id=rec.body_model_id(body.id),
+        body_id=body.id,
+    )
+
+
+def body_records(spec: PcbDocSpec, frame: Frame) -> tuple[list[bytes], list[bytes]]:
+    """The records of ``spec.bodies`` for ``ComponentBodies6`` and for ``ShapeBasedComponentBodies6``:
+    record ``i`` of each from body ``i``. ``ValueError`` names the body whose component index is outside
+    ``spec.components`` or whose outline keeps fewer than three vertices."""
+    plain: list[bytes] = []
+    shape: list[bytes] = []
+    for index, body in enumerate(spec.bodies):
+        where = body.body_id or f"body {index}"
+        if not 0 <= body.component < len(spec.components):
+            raise ValueError(f"{where}: the component index {body.component} names no component")
+        vertices = body_vertices(body.outline, frame)
+        if len(vertices) < 3:
+            raise ValueError(f"{where}: {BODY_NO_OUTLINE}")
+        fields = {
+            "component": body.component,
+            "standoff": rec.to_units(body.standoff),
+            "overall": rec.to_units(body.height),
+            "bottom": body.bottom,
+            "identifier": body.identifier,
+            "model_id": body.model_id,
+            "form": spec.body_form,
+        }
+        try:
+            plain.append(rec.body_record(body.layer, vertices, **fields))  # type: ignore[arg-type]
+            shape.append(rec.body_record(body.layer, vertices, shape_based=True, **fields))  # type: ignore[arg-type]
+        except (ValueError, UnicodeEncodeError) as error:
+            raise ValueError(f"{where}: {error}") from error
+    return plain, shape
+
+
 @dataclass(frozen=True, slots=True)
 class PcbDocSpec:
     """A board: its outline (KiCad frame, in order), its components, its net names and its copper.
@@ -319,6 +447,15 @@ class PcbDocSpec:
     """``True`` writes a via whose drill equals its diameter (change c0128): a document that Altium saved
     can hold one (``pcb-copper.md``, "Via"), and the rewrite of a document that was read gives it back.
     ``False``, the value of every build, refuses it. A drill above the diameter is refused in both cases."""
+    bodies: tuple[PlacedBody, ...] = ()
+    """The component bodies to write (change c0121), in the order of the components and, within one, of
+    its bodies: body ``i`` is record ``i`` of ``ComponentBodies6`` and of ``ShapeBasedComponentBodies6``.
+    Empty, the value of every write without ``--altium-bodies extruded``: both storages are empty and the
+    document is the one of change c0085, byte for byte."""
+    body_form: rec.BodyForm = "saved"
+    """The form of the body records: ``saved``, the 35 keys of a saved body with the two stand-ins, or
+    ``short``, the first 21 keys. ``short`` exists for the second file set of step X8 of the author report
+    (``H-A-PCBX-BODY-SHORT``); no command and no option of a build selects it."""
 
 
 def _u32(value: int) -> bytes:
@@ -1306,7 +1443,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     is the document's file name (no folder), written into the board record and the source of its ids.
     ``ValueError`` for an outline of fewer than three points, a refused footprint, copper layers that are
     not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written exactly (the entity's id
-    is named); ``cfb.CompoundTooLarge`` past the size limit."""
+    is named); ``cfb.CompoundTooLarge`` past the size limit. The bodies of ``spec.bodies`` (change c0121) go
+    into the two body storages; no entry of ``Models``, ``ModelsNoEmbed``, ``Textures`` or
+    ``UniqueIDPrimitiveInformation`` is written for a body."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
@@ -1372,10 +1511,12 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
         *component_class_records(spec.components, filename),
     ]
     filled["Rules6"] = rule_records(spec, filename)
+    filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
         {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *free.regions)}
         | poured
+        | {body.layer for body in spec.bodies}
     )
     unique = [
         rec.property_block(
@@ -1418,7 +1559,20 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
 
 
 __all__ = [
+    "BODIES_OFF",
+    "BODY_IS_MODEL",
+    "BODY_MODES",
+    "BODY_NO_FOOTPRINT",
+    "BODY_NO_OUTLINE",
+    "BODY_STORAGES",
     "BOARD_OFFSET_MIL",
+    "BodyMode",
+    "PlacedBody",
+    "body_mode",
+    "body_problem",
+    "body_records",
+    "body_vertices",
+    "place_body",
     "COPPER_STORAGES",
     "DEFAULT_CLEARANCE",
     "DEFAULT_FILENAME",

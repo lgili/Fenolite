@@ -1,6 +1,7 @@
 {
   "version": "10.0.6",
   "probes": {
+    "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
     "altium-pcbx-holes": "equal",
     "altium-pcbx-keepouts": "equal",

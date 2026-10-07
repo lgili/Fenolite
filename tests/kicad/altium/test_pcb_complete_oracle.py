@@ -38,8 +38,9 @@ def _needs_import() -> None:
 
 def test_the_probes_cover_every_kind_kicad_imports() -> None:
     assert tuple(_pcbxcases.KINDS) == KINDS
+    # the probe of the component bodies is change c0121's (``test_pcb_bodies_oracle.py``)
     assert sorted(pid for pid in _probes.PROBES if pid.startswith("altium-pcbx-")) == sorted(
-        f"altium-pcbx-{kind}" for kind in KINDS
+        [*(f"altium-pcbx-{kind}" for kind in KINDS), "altium-pcbx-bodies"]
     )
     assert all(_probes.PROBES[f"altium-pcbx-{kind}"].majors == (10,) for kind in KINDS)
     assert len(_pcbxcases.NOT_COMPARED) == 5

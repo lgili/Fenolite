@@ -40,6 +40,11 @@ pattern = "numeric-code"
 reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every PCB library (c0085 golden file of the six-layer sample)"
 
 [[waiver]]
+path = "tests/data/altium/body2/body2.PcbLib"
+pattern = "numeric-code"
+reason = "the view-window numbers VP.LX/HX/LY/HY that libboard.py writes into every PCB library: 499000000 and 501000000 units around the library origin at 50 000 mil, the same class as the waivers of blink.PcbLib, routed.PcbLib and board6.PcbLib (c0121 golden file of the sample with component bodies; approved per file on 2026-10-07)"
+
+[[waiver]]
 path = "tests/data/acceptance/*/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the finished projects of the v0.1 acceptance loop (c0025)"

@@ -26,6 +26,7 @@ import _arccases
 import _asmcases
 import _bench
 import _benches
+import _bodycases
 import _buildcases
 import _checkcases
 import _copperparity
@@ -281,6 +282,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _hiercases.hier_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
         probes[pid] = Probe(function, majors)
     return probes
 

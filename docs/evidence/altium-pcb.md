@@ -329,7 +329,73 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    (`H-A-PCBX-KEEPOUT`).
 7. **X7** Select the hole; read plated and the hole size. Expected: not plated, 3.2 mm (`H-A-PCBX-HOLE`).
    The sample holds no slot: the model's board hole is round.
-8. **X8** Not run: component bodies were cut from change c0085 and are not written.
+8. **X8** Component bodies (change c0121; added on 2026-10-07; not run). This step belongs to **session 2**
+   of the maintainer's Altium work, with Altium Designer 26: session 1 is the folder he already has, and
+   nothing is added to it. Change c0085 cut bodies; change c0121 writes the extruded ones on request
+   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported**. The step runs on
+   a sample of its own, `body2` (`tests/_altium_body2.py`), so that a body that Altium refused cannot hide
+   the answers of the other steps on `board6`.
+
+   What is known and what is not: the keys of a body were measured on 1272 saved extruded bodies of five
+   public documents of three repositories, 1265 of them from one repository
+   (`docs/formats/altium/pcb-bodies.md`, "Written form of an extruded body"); nothing that Fenolite writes
+   for a body was opened in Altium. Two keys have no rule, `MODELID` and `MODEL.CHECKSUM`: the file set
+   `saved` holds stand-ins for them (a GUID derived by Fenolite, and `0`), and the file set `short` holds
+   no model key at all (21 keys instead of 35; the form that a third-party writer reports of its own
+   bodies, S-0571). One session settles both. The steps were written from Altium's documentation (S-0303,
+   S-0570); a menu path or a dialog name may read differently in Altium Designer 26.
+
+   Files: `FENOLITE_ALTIUM_BODY2=<folder outside the repository> uv run pytest
+   tests/unit/lens/test_altium_bodies.py -k golden` writes both sets and a `README.md`. On the
+   maintainer's machine they lie in `~/fenolite-altium-checks/session-2/X8-bodies/` (`saved/`, `short/`).
+   The set `saved` is the committed sample; the set `short` is built for this step and is not committed.
+   It differs from `saved` in `body2.PcbDoc` only.
+
+   | file | SHA-256 |
+   |---|---|
+   | `tests/data/altium/body2/body2.PcbDoc` | `bee5811bc7a1b43c589722a5b95d1bf1a784aa78f38a5abad8e035156fded2f2` |
+   | `tests/data/altium/body2/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
+   | `tests/data/altium/body2/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
+   | `tests/data/altium/body2/body2.SchDoc` | `cfea41d60f7c34fe5ee9ee620ea25acee8d130ac0d2c1dccc2b26ecc030629ab` |
+   | `tests/data/altium/body2/body2.SchLib` | `53cc1b8f2b0bd2f79bf51f7d4b3e6c011f296ac77e13b39c1669f5dbfc500b07` |
+   | `short/body2.PcbDoc` | `6becb1923051aa3b312cc97eaf8230fab0a50b30d7187253c55411ebe3e8175f` |
+   | `short/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
+   | `short/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
+   | `short/body2.SchDoc` | `cfea41d60f7c34fe5ee9ee620ea25acee8d130ac0d2c1dccc2b26ecc030629ab` |
+   | `short/body2.SchLib` | `53cc1b8f2b0bd2f79bf51f7d4b3e6c011f296ac77e13b39c1669f5dbfc500b07` |
+
+   Values to compare. The model holds a fourth body, which names a 3D model: it is reported by the build
+   and not written, so the document holds three.
+
+   | body | footprint | board side | layer | overall height | standoff height | outline | identifier |
+   |---|---|---|---|---|---|---|---|
+   | 1 | `U1` | Top | Mechanical 13 | 2.5 mm | 0 mm | a rectangle 7 mm by 7 mm | empty |
+   | 2 | `D1` | Bottom | Mechanical 14 | 1 mm | 0 mm | a rectangle 4 mm by 3 mm | `LED` |
+   | 3 | `R1` | Top | Mechanical 13 | 4 mm | 0.5 mm | six points, an L | `STANDOFF` |
+
+   - **X8.1** Open `saved/body2.PrjPcb` and `body2.PcbDoc`. Expected: no repair prompt and no message in
+     the Messages panel (`H-A-PCBX-BODY-OPEN`).
+   - **X8.2** Open the PCB panel in the mode "3D Models" (or select each body in 2D). Expected: three
+     bodies, each owned by the footprint of the table.
+   - **X8.3** Read in the properties of each body: identifier, board side, layer, overall height, standoff
+     height. Expected: the table.
+   - **X8.4** Switch to the 3D view. Expected: three solids at the heights of the table, body 2 below the
+     board.
+   - **X8.5** Repeat X8.1 to X8.4 with the folder `short/` (`H-A-PCBX-BODY-SHORT`).
+   - **X8.6** Save `saved/body2.PcbDoc` under another name outside the repository and run
+     `FENOLITE_ALTIUM_BODY2_SAVED=<that file> uv run pytest tests/unit/lens/test_altium_bodies.py -k
+     saved_report -s`. It prints counts only: the bodies per storage, how many keep the `MODELID` that was
+     written, how many hold a `MODEL.CHECKSUM` other than 0, and the number of keys per body
+     (`H-A-PCBX-BODY-ID`; a measurement, not a pass or fail).
+   - **X8.7** Open `saved/body2.PcbLib`, select the footprint of `U1` and read the heights of its body.
+     Expected: one body, 2.5 mm overall, 0 mm standoff (`H-A-PCBX-BODY-LIB`).
+
+   Report one generic outcome per step, as for every step of this part. No file that Altium wrote is
+   committed. What the report decides: with X8.1 to X8.4 as expected, `saved` stays the form and the
+   default of the option may become `extruded` (a one-line change with its changelog line, outside change
+   c0121); with only X8.5 as expected, the form becomes `short`; with neither, the option stays off and
+   the report's sentence is the next fact row. An author report never moves an operation out of
+   `experimental`.
 9. **X9** Open Tools » Polygon Pours » Polygon Manager; note the state of the two polygons; run Repour All;
    note the state and any message. Expected: unpoured, then poured, no message (`H-A-PCBX-REPOUR`).
 10. **X10** Save the document under another name and report only its size and whether Altium asked

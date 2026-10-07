@@ -982,6 +982,18 @@ class ModelWriter(Protocol):
     def model_roundtrip(self, path: Path, *, compare: ModelCompare) -> ModelRoundTrip: ...
 
 
+@runtime_checkable
+class BodyComparer(Protocol):
+    """A model writer that can write component bodies on request (change c0121). ``body_differences``
+    gives the differences of the kind ``body`` between ``model``, the model a build stored, and
+    ``reading``, the model of the documents it wrote, each a ``Change`` whose path starts with ``/body/``,
+    and the evidence of that comparison.
+    The stored model holds exactly the bodies that were written, so the caller compares bodies exactly
+    when it holds one; the kind is no part of ``written_scope()``."""
+
+    def body_differences(self, model: Design, reading: Design) -> tuple[tuple[Change, ...], Evidence]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -1004,6 +1016,7 @@ __all__ = [
     "BackendOperation",
     "BoardFrame",
     "BoardPad",
+    "BodyComparer",
     "CanaryState",
     "CapabilityReport",
     "Change",

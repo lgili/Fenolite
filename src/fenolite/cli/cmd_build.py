@@ -142,6 +142,11 @@ ALTIUM_SYMBOLS: tuple[SymbolBodies, ...] = ("generic", "graphics")
 ALTIUM_DIRECTIONS: tuple[str, ...] = ("on", "off")
 """The values of ``--altium-directions`` (change c0086)."""
 DEFAULT_DIRECTIONS = "on"
+ALTIUM_BODIES: tuple[str, ...] = ("off", "extruded")
+"""The values of ``--altium-bodies`` (change c0121)."""
+DEFAULT_ALTIUM_BODIES = "off"
+"""No component body is written unless asked: two keys of a written body are stand-ins that only Altium
+can settle (``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -232,6 +237,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help=f"with --target altium: on (default) gives each port and sheet entry the I/O type that follows "
         f"from the pin types on its net, off leaves them all unspecified; a usage error with --target kicad "
         f"(default: {DEFAULT_DIRECTIONS})",
+    )
+    parser.add_argument(
+        "--altium-bodies",
+        choices=ALTIUM_BODIES,
+        default=None,
+        help=f"with --target altium: extruded writes the extruded component bodies of the board's "
+        f"footprints (experimental: not yet opened in Altium), off writes none and reports each body; a "
+        f"usage error with --target kicad (default: {DEFAULT_ALTIUM_BODIES})",
     )
     parser.add_argument(
         "--copper-from",
@@ -594,6 +607,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             f"--altium-directions needs --target {ALTIUM_TARGET}; the target is {args.target}",
             where="--altium-directions",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-directions",
+        )
+    if args.altium_bodies is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-bodies needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-bodies",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-bodies",
         )
     if args.schematic is not None and args.target == ALTIUM_TARGET:
         raise CliError(
@@ -994,6 +1014,7 @@ def _run_altium(
             authored_footprints=authored_footprints,
             directions=(args.altium_directions or DEFAULT_DIRECTIONS) == "on",
             symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
+            bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
         )
     files = dict(built.files)
@@ -1030,6 +1051,7 @@ def _run_altium(
         "footprints": summary["footprints"],
         "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
         "copper": summary["copper"],
+        "pcb": summary["pcb"],
         "copper_check": copper_check,
         "outjob": _outjob_result(summary["outjob"], out, preset_result),
         "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),

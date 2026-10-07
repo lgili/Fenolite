@@ -172,6 +172,15 @@ byte for byte.
 `--altium-directions {on,off}` (default `on`; a usage error `FEN-2001` without `--target altium`) picks
 the I/O type of ports and sheet entries: `on` writes output, input or bidirectional where the pin types
 on the net say so (`docs/altium.md`, "Port directions"), `off` leaves every one unspecified.
+`--altium-bodies {off,extruded}` (change c0121; default `off`; a usage error `FEN-2001` without
+`--target altium`) picks what the build does with the component bodies of the board's footprints:
+`off` writes none and reports each with `altium.not-lowered` (`where` = `body/<id>`); `extruded`
+writes each extruded body that has an outline and a height above its standoff into the PCB document
+(and the bodies of a footprint definition into the PCB library) and reports the others. With `off`
+every file is the file of earlier versions, byte for byte; a design whose footprints hold no body
+gives those bytes with `extruded` too, and a script declares no body today. The option is
+experimental and stays `off` by default until step X8 of the author report is in: two keys of a
+written body are stand-ins (`docs/altium.md`, "Component bodies"). The evidence for the record is thin: its keys were measured on 1272 saved extruded bodies of five public documents of three repositories, 1265 of them from one repository, and no written body has been opened in Altium.
 `result.schematic` holds `sheets`, `symbols` (`graphics` or `generic`), `symbols_drawn` (library symbols drawn from their own graphics),
 `symbols_simplified` (those drawn as a rectangle), `buses` (bus blocks drawn), `parameters` (hidden
 component parameters written), `directions` (`on` or `off`) and `directed` (ports and sheet entries that
@@ -187,7 +196,7 @@ with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
 `result.copper` is present whenever the PCB document is planned (`null` otherwise): `source` (`none`,
 `model`, `script` or `board`), `from` (the path given to `--copper-from`, else `null`), `layers`,
 `planes` (layer name to net name), `tracks`, `arcs`, `vias`, `zones`, `net_classes` (counts of what
-is written) and `placements_from_board`. `result.pcb` (change c0085) is `null` without a PCB document; with one it holds `written`, the number of model items the document holds per kind (`footprint`, `pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`), and `not_lowered`, the kinds with items it does not hold and their number. With `--copper-from`, `result.copper_input` holds the board's
+is written) and `placements_from_board`. `result.pcb` (specified by change c0085; **returned by the command since change c0121**: until then the key was missing from the JSON result of every Altium build, and only the library's build summary held it; it stands after `copper`, and no written file changed with it) is `null` without a PCB document; with one it holds `written`, the number of model items the document holds per kind (`footprint`, `pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`), `not_lowered`, the kinds with items it does not hold and their number, and `bodies` (change c0121), the value of `--altium-bodies` that was used (`off` or `extruded`): with `extruded`, `written.body` counts the component bodies written and `not_lowered.body` the others. With `--copper-from`, `result.copper_input` holds the board's
 `path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
 
 `result.rules` (change c0084) is `null` when the build is refused, else `written` and `not_lowered`:
@@ -238,6 +247,7 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 [--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
+[--altium-bodies off|extruded]
 [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.

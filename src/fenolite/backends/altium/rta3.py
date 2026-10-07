@@ -16,14 +16,19 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Any
 
 import fenolite.backends.altium.import_evidence as import_evidence
 from fenolite.backends.altium.lower import ProjectWrite
-from fenolite.backends.altium.roundtrip import EVIDENCE_RT_A3, RECORD_PREFIX, RT_A3_SCOPE
-from fenolite.backends.base import ModelCompare, ModelRoundTrip
+from fenolite.backends.altium.roundtrip import (
+    EVIDENCE_BODIES,
+    EVIDENCE_RT_A3,
+    RECORD_PREFIX,
+    RT_A3_SCOPE,
+)
+from fenolite.backends.base import Change, ModelCompare, ModelRoundTrip
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
@@ -35,7 +40,8 @@ _BOARD_FIELDS: Mapping[str, str] = MappingProxyType(
 def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from_board: bool) -> Design:
     """``design`` without the entities whose ids ``kept`` lists per kind (``lower.AltiumInputs.not_lowered``):
     what a write left out and counted is not part of the comparison. A footprint that was not written goes
-    with its pads. ``from_board`` tells that the circuit was synthesised from the board (a PCB document
+    with its pads, and a component body that was not written leaves its footprint (change c0121).
+    ``from_board`` tells that the circuit was synthesised from the board (a PCB document
     read alone): then a component whose footprint was not written goes too, and a net loses the members
     whose pads were not written, as the second reading cannot hold them."""
     board = design.board
@@ -54,7 +60,8 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
             lost_pins |= {
                 (footprint.component_id, pad.number) for pad in footprint.pads if pad.number not in numbers
             }
-            footprints.append(dataclasses.replace(footprint, pads=pads))
+            bodies = tuple(body for body in footprint.bodies if body.id not in gone.get("body", ()))
+            footprints.append(dataclasses.replace(footprint, pads=pads, bodies=bodies))
         changes: dict[str, Any] = {"footprints": tuple(footprints)}
         for kind, name in _BOARD_FIELDS.items():
             changes[name] = tuple(item for item in getattr(board, name) if item.id not in gone.get(kind, ()))
@@ -97,12 +104,17 @@ def rt_a3(
     compare: ModelCompare,
     census: Mapping[str, int] = MappingProxyType({}),
     from_board: bool = False,
+    bodies: Callable[[Design, Design], Sequence[Change]] | None = None,
 ) -> ModelRoundTrip:
     """The verdict of one trip: ``first`` is the model of the document that was read, ``written`` what
     ``lower.write_design(first, allow_lossy=True)`` gave, and ``second`` the model of the written document
     of the kind that was read (``None`` when the write gave none: not judged, reason ``no-document``).
     The two models are compared with ``compare`` under ``RT_A3_SCOPE`` after ``without_unwritten``.
-    ``unwritten`` never changes ``equal``."""
+    ``unwritten`` never changes ``equal``. ``bodies`` (change c0121) is the comparison of the kind ``body``
+    that the caller hands in when the write was asked for component bodies
+    (``bodydiff.body_differences`` inside ``roundtrip.BODY_SCOPE``, as ``Change`` values), or ``None``: it
+    is given the first model without the bodies that the write left out and the second reading, each
+    difference is a ``/body/<n>``, and the evidence then names ``H-A-PCBX-BODY-READBACK``."""
     counts = unwritten_counts(written, census)
     done = dict(written.inputs.written)
     files = tuple(written.files)
@@ -114,7 +126,11 @@ def rt_a3(
     reference = without_unwritten(first, written.inputs.not_lowered, from_board=from_board)
     report = compare(reference, second, RT_A3_SCOPE)
     evidence = Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE)
-    return ModelRoundTrip(True, report.equal, report.changes, counts, done, files, evidence=evidence)
+    changes = report.changes
+    if bodies is not None:
+        changes = (*changes, *bodies(reference, second))
+        evidence = Evidence.combine(evidence, EVIDENCE_BODIES)
+    return ModelRoundTrip(True, not changes, changes, counts, done, files, evidence=evidence)
 
 
 __all__ = ["rt_a3", "unwritten_counts", "without_unwritten"]

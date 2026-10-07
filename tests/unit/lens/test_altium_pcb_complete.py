@@ -208,6 +208,7 @@ def test_board6_golden_files() -> None:
             "keep-out": 1, "hole": 1, "body": 0, "rule": 0,
         },
         "not_lowered": {},
+        "bodies": "off",
     }  # fmt: skip
     assert output.summary["copper"]["layers"] == 6  # type: ignore[index]
     assert not [i for i in output.issues if i.code == "altium.not-lowered"]

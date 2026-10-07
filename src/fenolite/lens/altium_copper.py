@@ -520,7 +520,7 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
     left out. A graphic on ``Edge.Cuts`` is the outline, which the document writes from ``Board.outline``:
     it counts as written and is not passed on. A keep-out's ``no_footprints`` has no bit in the record: the
     keep-out is written with its other restrictions and one issue names the one that is lost. Component
-    bodies are not written: each one is reported."""
+    bodies are not decided here: ``lower_bodies`` places them on the components of the document."""
     if board is None:
         return LoweredItems()
     counts: dict[str, tuple[int, int]] = {}
@@ -569,15 +569,62 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
             message = f"the hole is not written: a drill of {mm_text(hole.drill)} mm is not positive"
             issues.append(_kept("hole", hole.id, message))
     counts["hole"] = (len(holes), len(board.holes) - len(holes))
-    bodies = [body for footprint in board.footprints for body in footprint.bodies]
-    for body in bodies:
-        message = (
-            f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not written: "
-            "the document writes no component body record"
-        )
-        issues.append(_kept("body", body.id, message, "set the height on the footprint in Altium"))
-    counts["body"] = (0, len(bodies))
     return LoweredItems(tuple(texts), tuple(graphics), tuple(keepouts), tuple(holes), counts)
+
+
+BODIES_HINT = "build with --altium-bodies extruded"
+BODY_HINT = "set the height on the footprint in Altium"
+
+
+def lower_bodies(
+    design: Design,
+    spec: pcbdoc.PcbDocSpec,
+    mode: pcbdoc.BodyMode,
+    issues: list[Issue],
+) -> tuple[tuple[pcbdoc.PlacedBody, ...], tuple[int, int]]:
+    """The component bodies of the board's footprints that the document ``spec`` writes, and (bodies
+    written, bodies not lowered) (change c0121, capability altium-pcb-writer, "Component bodies are
+    reported"). With ``mode`` ``off`` none is written. With ``extruded`` a body is placed by the placement
+    that ``spec`` gives the component of its footprint (``pcbdoc.place_body``), in the order of the
+    components and, within one, of its bodies. Each body without a record gives one ``altium.not-lowered``
+    with ``where`` ``body/<id>``, its height and its reason. A footprint without a body gives nothing: no
+    body is derived from a courtyard or any other graphic, and no height is assumed."""
+    board = design.board
+    if board is None:
+        return (), (0, 0)
+    refs = {component.id: component.ref for component in design.circuit.components}
+    index = {component.ref: number for number, component in enumerate(spec.components)}
+    frame = spec.frame if spec.frame is not None else pcbdoc.Frame.of(spec.outline)
+    placed: list[pcbdoc.PlacedBody] = []
+    kept = 0
+    for footprint in board.footprints:
+        number = index.get(refs.get(footprint.component_id, ""))
+        for body in footprint.bodies:
+            if mode == "off":
+                found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
+            elif number is None:
+                found = pcbdoc.BODY_NO_FOOTPRINT
+            else:
+                component = spec.components[number]
+                found = pcbdoc.place_body(
+                    body,
+                    component=number,
+                    at=component.at,
+                    rotation=component.rotation,
+                    bottom=component.side == "bottom",
+                    frame=frame,
+                )
+            if isinstance(found, str):
+                kept += 1
+                message = (
+                    f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
+                    f"written: {found}"
+                )
+                issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
+            else:
+                placed.append(found)
+    placed.sort(key=lambda body: body.component)
+    return tuple(placed), (len(placed), kept)
 
 
 def account(
@@ -1030,6 +1077,7 @@ __all__ = [
     "COPPER_COUNTS",
     "COPPER_ISSUE_CODES",
     "KINDS",
+    "lower_bodies",
     "LoweredItems",
     "account",
     "dielectric_kinds",

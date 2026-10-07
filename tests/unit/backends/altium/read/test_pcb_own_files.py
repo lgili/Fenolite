@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Own files read (capability altium-pcb-reader, "Own files read", change c0041): every committed
 ``.PcbLib`` and ``.PcbDoc`` under ``tests/data/altium/`` is read by the product reader and by the
-independent test reader ``tests/_altium_pcb_read.py``, with equal values, rebuilt streams and no issue."""
+independent test reader ``tests/_altium_pcb_read.py``, with equal values, rebuilt streams and no issue.
+Since change c0121 a file may hold component bodies: both readers decode them and must agree."""
 
 from __future__ import annotations
 
@@ -12,10 +13,12 @@ from typing import Any
 import _altium_pcb_read as independent
 import pytest
 
+from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
 from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import TYPED_STORAGES, read_pcbdoc
 from fenolite.backends.altium.read.pcblib import read_pcblib
 from fenolite.backends.altium.read.pcbprims import (
+    BODY,
     ArcRecord,
     PadRecord,
     Primitive,
@@ -34,8 +37,28 @@ def _net(value: int | None) -> int:
     return 0xFFFF if value is None else value
 
 
+def _my_body(record: BodyRecord) -> tuple[Any, ...]:
+    assert record.framed and record.tail == b"" and not record.holes
+    component = 0xFFFF if record.component is None else record.component
+    keys = [(key, record.properties.get_all(key)[n]) for key, n in _numbered(record.properties.keys())]
+    return ("body", record.layer, component, keys, [(int(v.x), int(v.y)) for v in record.outline])
+
+
+def _numbered(keys: tuple[str, ...]) -> list[tuple[str, int]]:
+    """Each key with the number of its earlier uses (``ARCRESOLUTION`` is written twice)."""
+    seen: dict[str, int] = {}
+    out: list[tuple[str, int]] = []
+    for key in keys:
+        out.append((key, seen.get(key, 0)))
+        seen[key] = seen.get(key, 0) + 1
+    return out
+
+
 def _mine(item: Primitive) -> tuple[Any, ...]:
-    assert not isinstance(item, RawPrimitive)
+    if isinstance(item, RawPrimitive):  # a component body of a library footprint (change c0121)
+        assert item.type == BODY
+        (record,) = read_bodies(item.raw)
+        return _my_body(record)
     pre = (item.prefix.layer, _net(item.prefix.net), _net(item.prefix.component))
     if isinstance(item, TrackRecord):
         return ("track", *pre, item.x1, item.y1, item.x2, item.y2, item.width)
@@ -56,6 +79,8 @@ def _mine(item: Primitive) -> tuple[Any, ...]:
 
 def _theirs(item: Any) -> tuple[Any, ...]:
     pre = (item.prefix.layer, item.prefix.net, item.prefix.component)
+    if isinstance(item, independent.BodyRecord):
+        return ("body", item.prefix.layer, item.prefix.component, item.keys, item.vertices)
     if isinstance(item, independent.Track):
         return ("track", *pre, item.x1, item.y1, item.x2, item.y2, item.width)
     if isinstance(item, independent.ArcRecord):
@@ -109,6 +134,9 @@ def test_golden_documents_agree(path: Path) -> None:
     ):
         assert [_mine(p) for p in own] == [_theirs(p) for p in other], kind
     texts = [t for t in mine.texts if isinstance(t, TextRecord)]
+    plain = read_bodies(mine.storages["ComponentBodies6"]["Data"])
+    shape = read_bodies(mine.storages["ShapeBasedComponentBodies6"]["Data"], shape_based=True)
+    assert [_my_body(b) for b in plain] == [_my_body(b) for b in shape] == [_theirs(b) for b in theirs.bodies]
     assert [t.text for t in texts] == [
         theirs.wide_strings.get(t.wide_index or 0, t.text) for t in theirs.texts
     ]
