@@ -5,6 +5,7 @@ model" and "Project issue codes"; kicad-version-gating, "Project file versions";
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from fenolite.backends.kicad.pro import (
     apply_project,
     pattern_matches,
     read_project,
+    synthesize_project,
 )
 from fenolite.backends.kicad.proerrors import ISSUE_CODES as LEAF_CODES
 from fenolite.backends.kicad.triad import write_triad
@@ -247,3 +249,23 @@ def test_exclusion_list_is_kept_verbatim_by_an_update() -> None:
     source = with_exclusions(entries)
     updated = update_project(source, design({}, {}), target=10)
     assert read_project(updated).data["board"]["design_settings"]["drc_exclusions"] == entries  # type: ignore[index]
+
+
+def test_pair_values_read_back() -> None:
+    """Scenario "Pair values read back" (change c0104)."""
+    made = design({"USB": 200_000}, {"USB_P": "USB", "USB_N": "USB"})
+    (cls,) = made.circuit.netclasses
+    cls = dataclasses.replace(cls, diff_pair_gap=150_000, diff_pair_width=300_000)
+    made = dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(cls,)))
+    found: list[Issue] = []
+    info = read_project(synthesize_project(made, target=9, board_name="b"), issues=found)
+    applied = apply_project(made, info, issues=found)
+    collect(found)
+    by_name = {c.name: c for c in applied.circuit.netclasses}
+    usb, default = by_name["USB"], by_name["Default"]
+    assert (usb.diff_pair_gap, usb.diff_pair_width, usb.diff_pair_via_gap) == (150_000, 300_000, 250_000)
+    assert (default.diff_pair_gap, default.diff_pair_width, default.diff_pair_via_gap) == (
+        250_000,
+        200_000,
+        250_000,
+    )

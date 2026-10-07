@@ -141,12 +141,16 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   and filled ("Via protection").
 - `Design.rules.rule(name, kind, *, where, between, layers, min, opt, max, severity, priority)` and
   `fenolite.dsl.select`: one design rule with selectors ("Rules with selectors").
-- `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
-  is optional; a net belongs to at most one class.
+- `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, diff_pair_width,
+  diff_pair_gap, diff_pair_via_gap, nets)`: every value is optional; a net belongs to at most one class.
+- `design.rules.pair(pair, *, gap_min, gap_max, clearance, uncoupled_max, skew_max, length_min,
+  length_max, severity, priority)` and `select.pair(pair)`: the rules of one differential pair
+  ("Differential pairs").
 - `design.rules.minimum(*, clearance, track_width, via_diameter, via_drill, hole_size, edge_clearance,
   netclass=None)`: design-rule minimums for the board, or for one net class ("Design rules").
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A
-  `DiffPair` is not lowered to KiCad (`build.interface-not-lowered`, info).
+  `DiffPair` reaches KiCad through its two net names and the rules that select it; one that no rule
+  selects gives `build.interface-not-lowered` (info).
 - `Harness(name, members)`: a named group of nets with different names, such as
   `Harness("SPI", {"MOSI": mosi, "MISO": miso, "SCK": sck})`. `name` is the harness type name and has no
   default; `members` maps an entry name to its net and may not be empty. The order of the entries carries
@@ -243,12 +247,17 @@ spi.attach(u4, role="peripheral", sck="SCK", mosi="SDI", miso="SDO", cs="CS", cs
     chip-select net, in order; a `peripheral` gives one `cs` pin and the index of its net. MOSI joins MOSI.
   - `USB2.attach(part, dp=, dn=, vbus=None, gnd=None)`: a role the interface has no net for raises.
 - **KiCad build.** The interfaces are kept in `.fenolite/circuit.json`; the other files do not depend on
-  them. A `diff_pair` or `usb2` interface gives `build.interface-not-lowered` (info).
+  them. KiCad files hold no pair object: a `diff_pair` or `usb2` interface reaches KiCad through its two
+  net names and through the rules that select it ("Differential pairs" below). A pair that no rule of the
+  design selects gives `build.interface-not-lowered` (info): KiCad then knows it by its names only.
 - **Checks in a build** (warnings):
   - `build.diff-pair-name`: the two nets of a `DiffPair` or of a `USB2` (`dp`, `dn`) are not a differential
-    pair for KiCad. KiCad pairs two names that are equal except for the last character, `P` then `N` or `+`
-    then `-`, and letter case counts: `USB_P`/`USB_N`, `USB+`/`USB-` and `USB_DP`/`USB_DN` are pairs,
-    `USB_DP`/`USB_DM` is not (measured, `docs/formats/kicad/rules.md`). The hint proposes a name.
+    pair for KiCad. KiCad pairs two names that are equal except for one character, `P` then `N` or `+`
+    then `-`, which only digits and underscores may follow, the same in both names; letter case counts.
+    `USB_P`/`USB_N`, `USB+`/`USB-`, `USB_DP`/`USB_DN` and `D_P0`/`D_N0` are pairs; `USB_DP`/`USB_DM` and
+    `D_P0`/`D_N1` are not (measured, `docs/formats/kicad/rules.md`). The hint proposes a name.
+  - `build.diff-pair-gap-shadowed`: the nets of a pair are in a class with a `diff_pair_gap`, and KiCad
+    would report two tracks laid at that gap ("Differential pairs" below).
   - `build.i2c-pullup-missing`: an I2C line has no part of exactly two pins between it and the `hv` net of
     a `Power` interface. A pull-up on another board, or in a resistor array, is not seen: ignore the
     warning then.
@@ -809,8 +818,8 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
   under names that do not start with `fenolite_`, are kept after them (`docs/lens.md`, "Project and rules
   files").
 - **Beyond minimums.** `minimum()` covers six kinds on the board or on a class. Everything else is a
-  `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. Custom expressions,
-  differential-pair and length rules are not modelled.
+  `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. The rules of a
+  differential pair are a `pair()` ("Differential pairs"). Custom expressions are not modelled.
 - **Altium.** `--target altium` writes a minimum into the PCB document when Altium's rule holds that
   one limit: `clearance` and `edge_clearance`. A `track_width`, `via_diameter`, `via_drill` or `hole_size`
   minimum is reported with one `altium.not-lowered` warning (`where` = `design-rules/<kind>`), because
@@ -833,10 +842,13 @@ design.rules.rule(
 )  # your value, not Fenolite's
 ```
 
-- **Kinds.** The six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
-  `courtyard_clearance`, `silk_clearance` and `creepage`. Fenolite ships no value for any of them.
+- **Kinds.** The six of `minimum()`; `hole_to_hole`, `hole_clearance`, `annular_width`,
+  `courtyard_clearance`, `silk_clearance` and `creepage`; and the pair and length kinds `diff_pair_gap`,
+  `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length` ("Differential pairs"). Fenolite ships no
+  value for any of them.
 - **Selectors** come from `fenolite.dsl.select`: `net(name or Net)`, `netclass(name)`, `ref(reference or
-  Part)`, `item("track" | "via" | "pad" | "zone")`, `area(name or RuleArea)` and `ALL` (the default). `&`, `|` and `~` combine them;
+  Part)`, `item("track" | "via" | "pad" | "zone")`, `area(name or RuleArea)`, `pair(pair interface, or a
+  base name, or "*")` and `ALL` (the default). `&`, `|` and `~` combine them;
   `ALL` stands alone. A name may hold `*`. A class named in a selector must be declared first, except
   `Default`.
 - **`between`** names the second item of a `clearance` or `creepage` rule. No other kind takes it.
@@ -853,8 +865,8 @@ design.rules.rule(
   check that the area exists, because an area may be drawn and named in KiCad: the build checks, after
   it merged the existing board, that the board it is about to write holds a rule area of that name, and
   stops with `build.area-unknown` (exit 5) otherwise, since KiCad would load the rule and apply it to
-  nothing. Every kind takes an area but `courtyard_clearance`, `silk_clearance`, `creepage` and
-  `no_tracks`. The
+  nothing. Every kind takes an area but `courtyard_clearance`, `silk_clearance`, `creepage`,
+  `no_tracks` and the five pair and length kinds ("Differential pairs"). The
   selector is written for the KiCad majors on which its probe is recorded (`docs/formats/kicad/rules.md`).
 
   ```python
@@ -882,6 +894,74 @@ design.rules.rule(
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
 - **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
   not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
+
+### Differential pairs
+
+A pair is a `DiffPair` or a `USB2`. Its width, gap and via gap are values of the net class of its two
+nets, and its limits are rules that `design.rules.pair()` declares in one call:
+
+```python
+from fenolite.dsl import USB2, select
+
+usb_p, usb_n = Net("USB_P"), Net("USB_N")
+usb = USB2(usb_p, usb_n, name="USB")
+design.rules.netclass(
+    "USB", clearance=mm(0.2), diff_pair_width=mm(0.2), diff_pair_gap=mm(0.15), nets=(usb_p, usb_n)
+)
+design.rules.pair(
+    usb,
+    gap_min=mm(0.13),
+    gap_max=mm(0.2),
+    clearance=mm(0.15),
+    uncoupled_max=mm(5),
+    skew_max=mm(0.5),
+    length_max=mm(60),
+)  # your values, not Fenolite's
+```
+
+- **Net names.** KiCad has no pair object: two nets are a pair by their names (the rule is under "Typed
+  interfaces", `build.diff-pair-name`). `select.pair(usb)` and `pair(usb, …)` take the base from the two
+  names (`USB_` here, `USB_D` for `USB_DP`/`USB_DN`) and raise `DslError` when the names do not pair.
+- **Class values.** `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` of `netclass()` are
+  lengths, written into the class of `<name>.kicad_pro`. KiCad's pair router lays a pair with them; none
+  is a limit that the DRC checks. One of them changes a check: a `diff_pair_gap` below the class
+  `clearance` lowers the clearance between the two nets of each pair of the class, in KiCad and in
+  `fenolite check` alike, where no clearance rule governs them.
+- **`pair(pair, …)`** records one rule per group that is given, named `pair:<pair name>:<group>`, and adds
+  the pair to the design:
+
+  | given | rule kind | what KiCad checks |
+  |---|---|---|
+  | `gap_min`, `gap_max` | `diff_pair_gap` | the edge-to-edge gap of the coupled tracks |
+  | `clearance` | `clearance`, with the pair on both sides | the clearance between the two nets of the pair |
+  | `uncoupled_max` | `diff_pair_uncoupled` | the length the pair runs uncoupled |
+  | `skew_max` | `diff_pair_skew` | the length difference between the two nets |
+  | `length_min`, `length_max` | `length` | the routed length of each net |
+
+  A call that gives no limit, or whose values `rule()` would refuse, raises `DslError` naming `pair()` and
+  records nothing. `pair()` takes no target value: a target (`opt`) is written with `rule()`, and KiCad's
+  DRC never checks it.
+- **Order.** The rules have priority 1 by default, like the class minimums of `minimum(netclass=…)`.
+  Rules of one priority are written in name order, and `pair:` sorts after `min_`, so a pair's rules come
+  later in the file and govern its items over a class minimum. A rule of your own with priority 1 and a
+  name after `pair:` governs instead.
+- **`select.pair(x)`** is the selector for `rule()`: `x` is a pair interface, a base name, or `"*"` for
+  every pair. It combines with `&`, `|` and `~` as the other selectors do, and the base keeps its letter
+  case. `design.rules.rule("every skew", "diff_pair_skew", where=select.pair("*"), max=mm(0.5))` holds for
+  every pair of the board; `skew` (without `diff_pair_`) matches a group of nets against its longest net.
+- **What KiCad measures.** A length counts each via by the board stack-up. Parallel tracks of a pair count
+  as coupled at any distance, so `gap_max` is what bounds how far a pair spreads.
+- **`build.diff-pair-gap-shadowed`** (warning). A design often has a board-wide clearance rule
+  (`minimum(clearance=…)`), and KiCad applies a custom clearance rule over the pair gap of a class. A pair
+  whose class gap is below such a rule would be reported when laid at its gap. The build warns, and the
+  hint names the fix: `pair(…, clearance=…, gap_min=…)` writes a clearance rule and a gap rule for the
+  pair, after the rules that shadow it. Fenolite writes no such rule on its own.
+- **Targets.** The pair kinds and the pair selector are written for the KiCad majors on which their
+  probes are recorded (`docs/formats/kicad/rules.md`): KiCad 10 today. For another major the build stops
+  with exit 7 (`rules.kind-unchecked`), and `--allow-lossy` leaves the rules out.
+- **Altium.** `--target altium` keeps the pair rules, the class pair values and the pair interfaces in
+  `.fenolite/` and names each in an `altium.not-lowered` message; it writes none of them
+  (`docs/altium.md`, "Differential pairs").
 
 ## Rule areas
 

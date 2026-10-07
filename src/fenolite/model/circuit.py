@@ -131,6 +131,10 @@ class NetClass(Entity):
     via_diameter: Nm | None = None
     via_drill: Nm | None = None
     description: str = ""
+    #: The width, gap and via gap of a differential pair of the class: defaults of a router, not limits.
+    diff_pair_width: Nm | None = None
+    diff_pair_gap: Nm | None = None
+    diff_pair_via_gap: Nm | None = None
 
 
 @dataclass(frozen=True, slots=True)

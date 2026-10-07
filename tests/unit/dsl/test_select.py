@@ -7,7 +7,20 @@ from __future__ import annotations
 import pytest
 
 from fenolite.core.ids import derived_id
-from fenolite.dsl import Design, DslError, Net, Part, mm, select, to_model
+from fenolite.dsl import (
+    I2C,
+    USB2,
+    Design,
+    DiffPair,
+    DslError,
+    Interface,
+    Net,
+    Part,
+    Power,
+    mm,
+    select,
+    to_model,
+)
 from fenolite.model.rules import Selector
 
 
@@ -103,3 +116,50 @@ def test_no_check_at_the_call() -> None:
     assert rules is not None
     (rule,) = rules.rules
     assert (rule.selector_a, rule.selector_b) == (Selector("area", "NOPE"), Selector("area", "ALSO"))
+
+
+# -- pair selectors (capability design-dsl, "Pair selectors in the DSL"; change c0104)
+
+
+def test_base_of_a_usb_pair() -> None:
+    usb = USB2(Net("USB_DP"), Net("USB_DN"))
+    assert select.pair(usb).to_model() == Selector("diff_pair", "USB_D")
+    assert select.pair(DiffPair(Net("CLK+"), Net("CLK-"))).to_model() == Selector("diff_pair", "CLK")
+    assert select.pair(DiffPair(Net("D_P0"), Net("D_N0"))).to_model() == Selector("diff_pair", "D_")
+    plain = Interface("LVDS", "diff_pair", {"p": Net("TX_P"), "n": Net("TX_N")})
+    assert select.pair(plain).to_model() == Selector("diff_pair", "TX_")
+
+
+def test_pair_names_that_do_not_pair() -> None:
+    with pytest.raises(DslError) as caught:
+        select.pair(USB2(Net("USB_DP"), Net("USB_DM")))
+    assert all(name in str(caught.value) for name in ("USB_DP", "USB_DM", "USB_DN"))
+    with pytest.raises(DslError, match="DATA_P and DATA_N"):
+        select.pair(DiffPair(Net("DATA"), Net("DATA_B")))
+    with pytest.raises(DslError, match="CLK_N.*CLK_P"):
+        select.pair(DiffPair(Net("CLK_N"), Net("CLK_P")))
+
+
+def test_every_pair_but_one_net() -> None:
+    made = (select.pair("*") & ~select.net("CLK_P")).to_model()
+    assert made == Selector(
+        "and", items=(Selector("diff_pair", "*"), Selector("not", items=(Selector("net", "CLK_P"),)))
+    )
+    assert select.pair("USB_").to_model() == Selector("diff_pair", "USB_")
+
+
+@pytest.mark.parametrize(
+    "made",
+    [
+        lambda: select.pair(""),
+        lambda: select.pair(" USB_"),
+        lambda: select.pair(Net("USB_P")),  # type: ignore[arg-type]
+        lambda: select.pair(I2C(Net("SDA"), Net("SCL"))),
+        lambda: select.pair(Power(Net("VIN"), Net("GND"))),
+        lambda: select.pair(Interface("HALF", "diff_pair", {"p": Net("A_P")})),
+        lambda: select.pair(None),  # type: ignore[arg-type]
+    ],
+)
+def test_what_pair_refuses(made: object) -> None:
+    with pytest.raises(DslError, match=r"select\.pair\(\)"):
+        made()  # type: ignore[operator]

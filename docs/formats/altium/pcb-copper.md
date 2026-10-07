@@ -203,6 +203,11 @@ limits of its row.
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
 | `no_tracks` | — | — | — | — | — | no-counterpart |
+| `diff_pair_gap` | — | — | — | — | — | no-counterpart |
+| `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
+| `skew` | — | — | — | — | — | no-counterpart |
+| `diff_pair_skew` | — | — | — | — | — | no-counterpart |
+| `length` | — | — | — | — | — | no-counterpart |
 
 The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which signal layers may be used for
 routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its

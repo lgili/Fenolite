@@ -849,6 +849,11 @@ meaning = "A rule selects a rule area by name (select.area) and the board that t
 fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
 see = "build"
 
+["build.diff-pair-gap-shadowed"]
+meaning = "The two nets of a pair interface are in a net class with a pair gap, but KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between the two nets, or the board minimum clearance is above the gap and no diff_pair_gap rule selects the pair."
+fix = "Call design.rules.pair(pair, clearance=…, gap_min=…) with values at or below the class gap: it writes a clearance rule and a gap rule for the pair after the rules that shadow it. Or raise the class pair gap."
+see = "build"
+
 ["build.diff-pair-name"]
 meaning = "The two nets of a diff_pair or usb2 interface do not form a differential pair for KiCad by their names, so KiCad's pair rules and its pair router do not see them as one."
 fix = "Rename the nets as the hint proposes (a common base name with the suffixes KiCad pairs)."
@@ -870,8 +875,8 @@ fix = "Add a pull-up resistor from each line to the supply net, or ignore the wa
 see = "build"
 
 ["build.interface-not-lowered"]
-meaning = "An interface such as a differential pair is kept in the model and is not written to the KiCad files."
-fix = "Nothing to do; enter the pair in KiCad if the router needs it."
+meaning = "A differential pair of the design (a diff_pair or usb2 interface) is selected by no rule, so nothing of it is written: KiCad files hold no pair object, and KiCad knows the pair by its two net names only. A pair that a rule selects with select.pair() or design.rules.pair() gets no such message."
+fix = "Nothing to do when the pair needs no limits. To constrain it, call design.rules.pair(pair, …), or write a rule on select.pair(pair)."
 see = "build"
 
 ["build.layout-exists"]

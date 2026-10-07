@@ -183,7 +183,7 @@ def test_kind_support_follows_the_probe_files() -> None:
             if probes.get(f"dru-kind-{kind}") == "present":
                 expected[kind].add(major)
     assert {kind: set(rulemap.KIND_SUPPORT[kind]) for kind in NEW_KINDS} == expected  # type: ignore[index]
-    for kind in set(get_args(RuleKind)) - set(NEW_KINDS) - {"no_tracks"}:
+    for kind in get_args(RuleKind)[:6]:  # the kinds of v0.1; the pair kinds: test_rulemap_pairs.py
         assert rulemap.KIND_SUPPORT[kind] == frozenset({9, 10})
 
 

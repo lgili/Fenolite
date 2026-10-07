@@ -5,6 +5,8 @@ kicad-version-gating, "Project file versions"; change c0010)."""
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 from _prodesigns import design
 
@@ -161,3 +163,26 @@ def test_severity_codes_are_in_the_table() -> None:
 
     assert ISSUE_CODES["kicad.project.unknown-check"] == "error"
     assert ISSUE_CODES["kicad.project.dropped-check"] == "warning"
+
+
+def usb_design() -> Design:
+    """The class ``USB`` with a pair gap and a pair width, holding the nets ``USB_P`` and ``USB_N``."""
+    made = design({"USB": 200_000}, {"USB_P": "USB", "USB_N": "USB"})
+    (usb,) = made.circuit.netclasses
+    usb = dataclasses.replace(usb, diff_pair_gap=150_000, diff_pair_width=300_000)
+    return dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(usb,)))
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_synthesis_writes_pair_values(target: int) -> None:
+    """Scenario "Synthesis writes pair values" (change c0104); both templates hold the three keys."""
+    data = read_project_text(synthesize_project(usb_design(), target=target, board_name="b"))
+    default, usb = data["net_settings"]["classes"]
+    base = template(target)["net_settings"]["classes"][0]
+    assert usb["name"] == "USB" and usb["diff_pair_gap"] == JsonNumber("0.15")
+    assert (
+        usb["diff_pair_width"] == JsonNumber("0.3") and usb["diff_pair_via_gap"] == base["diff_pair_via_gap"]
+    )
+    for key in ("diff_pair_gap", "diff_pair_width", "diff_pair_via_gap"):
+        assert default[key] == base[key]
+    assert _json.key_paths(data) <= _json.key_paths(template(target)) | PATTERN_ENTRY_PATHS

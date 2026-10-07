@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Rule kinds and limits
-The seventeen model kinds SHALL lower one to one, with these constraints and limits:
+The eighteen model kinds SHALL lower one to one, with these constraints and limits:
 
 | kind | written constraint | limits |
 |---|---|---|
@@ -17,6 +17,7 @@ The seventeen model kinds SHALL lower one to one, with these constraints and lim
 | `courtyard_clearance` | `courtyard_clearance` | `min` |
 | `silk_clearance` | `silk_clearance` | `min` |
 | `creepage` | `creepage` | `min` |
+| `no_tracks` | `disallow track`, one rule per layer ("Track layer rules") | none |
 | `diff_pair_gap` | `diff_pair_gap` | `min`, `opt`, `max` |
 | `diff_pair_uncoupled` | `diff_pair_uncoupled` | `max` |
 | `skew` | `skew` | `opt`, `max` |
@@ -25,9 +26,10 @@ The seventeen model kinds SHALL lower one to one, with these constraints and lim
 
 - Values MUST be written as the shortest exact millimetre decimal of the nanometre value, with the unit `mm` (`core.units.format_length`). They MUST never be rounded.
 - Limits MUST be written in the order `min`, `opt`, `max`.
-- A limit outside the table, or a rule with no limit, MUST give the error `rules.unsupported-limit`.
+- A limit outside the table MUST give the error `rules.unsupported-limit`, and so MUST a rule with no limit of any kind but `no_tracks`, whose normal form holds none.
 - `severity` MUST map one to one to `(severity error|warning|ignore)`, and a lowered rule MUST always carry its severity clause.
-- Each of the first six kinds MUST be enforced by `kicad-cli` 9.0.9 and 10.0.6 on the items its condition selects (`H-K-DRU-KIND`). Each of the six kinds of c0071 MUST be written only for the majors of its `KIND_SUPPORT` entry ("Kind support by major", `H-K-DRU-KIND-2`), and its DRC types MUST be listed in `docs/formats/kicad/rules.md`. A `min` of 0 MUST be accepted for those six kinds.
+- Each of the first six kinds MUST be enforced by `kicad-cli` 9.0.9 and 10.0.6 on the items its condition selects (`H-K-DRU-KIND`). Each of the six kinds from `hole_to_hole` to `creepage` MUST be written only for the majors of its `KIND_SUPPORT` entry ("Kind support by major", `H-K-DRU-KIND-2`), and its DRC types MUST be listed in `docs/formats/kicad/rules.md`; `no_tracks` follows the same two rules with its own probe (`H-K-DRU-NOTRACKS`). A `min` of 0 MUST be accepted for those six kinds.
+- `model.rules.RuleKind` MUST list the kinds in the order of the table: the first twelve as before change c0107, `no_tracks` thirteenth, and the five pair and length kinds after it.
 - The last five kinds, the pair and length kinds, MUST be written only for the majors of their `KIND_SUPPORT` entries, which their probes `dru-kind-<kind>` set ("Kind support by major", `H-K-DRU-PAIR`). Their DRC types, `diff_pair_gap_out_of_range`, `diff_pair_uncoupled_length_too_long`, `skew_out_of_range` and `length_out_of_range`, MUST be listed in `docs/formats/kicad/rules.md`. KiCad's DRC checks their `min` and `max` and not their `opt`, which is written for KiCad's interactive tools and for later changes, as the `opt` of `track_width` is, and which `rules.md` MUST say is not checked. `skew` compares every net that the rule selects with the longest of them; `diff_pair_skew` compares the two nets of each pair that it selects.
 - `read_rules` MUST lift a `skew` constraint whose children are its limits and the list `(within_diff_pairs)` as `diff_pair_skew`, and one whose children are its limits alone as `skew`; any other child MUST keep the rule opaque.
 
@@ -61,6 +63,10 @@ The seventeen model kinds SHALL lower one to one, with these constraints and lim
 - **WHEN** it is lowered
 - **THEN** `RulesLossError` is raised with one `rules.unsupported-limit` naming the rule
 
+#### Scenario: Eighteen kinds, one without a limit
+- **WHEN** `uv run pytest tests/unit/dsl/test_minimums.py tests/unit/backends/kicad/test_lowering.py -k "kinds or no_tracks"` counts the kinds of `RuleKind` and lowers a `no_tracks` rule without a limit and a `clearance` rule without a limit
+- **THEN** `RuleKind` holds eighteen kinds with `no_tracks` thirteenth and the five pair and length kinds after it, the first rule is written, and the second raises `RulesLossError` with one `rules.unsupported-limit`
+
 #### Scenario: Pair gap rule
 - **GIVEN** a `diff_pair_gap` rule on `diff_pair USB_` with `min=130_000` and `max=200_000`
 - **WHEN** it is lowered for target 9
@@ -91,6 +97,7 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 | `netclass v` | `S.NetClass == 'v'` |
 | `ref v` | `S.memberOfFootprint('v')`; for `courtyard_clearance`, `S.Reference == 'v'` (`H-K-DRU-COURTYARD`) |
 | `item_kind v`, v in `track`, `via`, `pad`, `zone` | `S.Type == 'Track'`, `'Via'`, `'Pad'` or `'Zone'` |
+| `area v` | `S.intersectsArea('v')` (`H-K-AREA-COND`) |
 | `diff_pair v` | `S.inDiffPair('v')` (`H-K-DRU-PAIRSEL`) |
 | `and(x, y, …)` | `(x && y && …)` |
 | `or(x, y, …)` | `(x \|\| y \|\| …)` |
@@ -100,7 +107,9 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - `selector_b` MUST be used only with `clearance` and `creepage`.
 - `rulemap.KIND_SELECTORS` MUST narrow the grammar per kind: `hole_to_hole`, `hole_clearance` and `annular_width` take side A only and no layer clause; `courtyard_clearance` takes `all`, or `ref` leaves without a glob combined with `and`, `or` and `not`, on side A only and with no layer clause; `silk_clearance` takes `all` only; `creepage` takes `net` and `netclass` leaves combined with `and`, `or` and `not`, on both sides, with no layer clause; `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length` take `all`, or `diff_pair`, `net` and `netclass` leaves combined with `and`, `or` and `not`, on side A only, and of them only `diff_pair_gap` takes a layer clause. The first six kinds take the grammar as this requirement states it, `diff_pair` included.
 - A `diff_pair v` leaf MUST select the items on the two nets of every pair (`design-model`, "Differential pairs in the model") whose base is `v`, or `v` followed by `_`; `v` MAY be `*`, which selects every pair. KiCad compares its value with letter case, unlike the other leaves (`H-K-DRU-PAIRSEL`).
-- `rulemap.SELECTOR_SUPPORT` MUST have the keys `net`, `netclass`, `ref`, `item_kind`, `diff_pair`, `and`, `or`, `not`, `glob` (a `*` inside a leaf value), `selector_b` (a `selector_b` other than `all`) and `layer_clause` (a non-empty `Rule.layers`). Each entry MUST hold exactly the majors on which that key's `dru-cond-*` probe passed (`H-K-DRU-COND`, `H-K-DRU-GLOB`, and `H-K-DRU-PAIRSEL` for `diff_pair`); a key without a passing probe MUST have an empty entry. `all` at the top level writes no term and needs no entry.
+- `area v` names the rule areas of the board whose `Keepout.name` matches `v`, with letter case and with `*` as a glob; it selects the items whose copper overlaps such an area on one of the area's layers (`H-K-AREA-COND`). `area` MUST be a leaf of the grammar of the first six kinds (`clearance`, `edge_clearance`, `track_width`, `via_diameter`, `hole_size` and `via_drill`), on side A and, for `clearance`, on side B, and `rulemap.KIND_SELECTORS` MUST add it to the side-A leaves of `hole_to_hole`, `hole_clearance` and `annular_width`. `courtyard_clearance`, `silk_clearance` and `creepage` MUST NOT take it, and neither does `no_tracks`, whose selector "Track layer rules" limits to nets and classes, nor do `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length`, whose leaves are `diff_pair`, `net` and `netclass`: an `area` leaf in one of their rules is a selector outside the kind's entry. Whether the board holds such an area is checked by the build (`design-dsl`, "Board items in a build"), not by the lowering.
+- `read_rules` MUST lift `S.intersectsArea('v')` to `area v`, on either side. A condition that uses `S.enclosedByArea` or `S.insideArea` MUST keep its rule opaque (`rules.kept-opaque`).
+- `rulemap.SELECTOR_SUPPORT` MUST have the keys `net`, `netclass`, `ref`, `item_kind`, `area`, `diff_pair`, `and`, `or`, `not`, `glob` (a `*` inside a leaf value), `selector_b` (a `selector_b` other than `all`) and `layer_clause` (a non-empty `Rule.layers`). Each entry MUST hold exactly the majors on which that key's `dru-cond-*` probe passed (`H-K-DRU-COND`, `H-K-DRU-GLOB`, `H-K-AREA-COND` for `area` and `H-K-DRU-PAIRSEL` for `diff_pair`); a key without a passing probe MUST have an empty entry. `all` at the top level writes no term and needs no entry.
 - A key MUST be written for a target only when that target is in its entry. The unit scenarios of this capability set every entry to `{9, 10}` unless they say otherwise.
 - The error `rules.unsupported-selector` MUST be given for: the `layer` op; `all` below the top level; an `item_kind` value outside the table; a value containing `'`, `"`, `?`, `[` or `]`; a `*` for a target outside the `glob` entry; `selector_b` with a kind other than `clearance` and `creepage`, or for a target outside its entry; a selector or a layer clause outside the kind's `KIND_SELECTORS` entry; and any op outside its entry. A selector MUST never be approximated.
 
@@ -140,7 +149,7 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - **THEN** each entry holds exactly the majors whose file records `present` for that key's `dru-cond-<key>` probe
 
 #### Scenario: Each op selects its items in KiCad
-- **GIVEN** one bench per op (`net`, `netclass`, `ref`, `item_kind`, `diff_pair`, layer clause, `and`, `or`, `not`, `selector_b`, glob), each with a probe pair and a control pair 4 mm apart, a 5 mm rule and the canary
+- **GIVEN** one bench per op (`net`, `netclass`, `ref`, `item_kind`, `area`, `diff_pair`, layer clause, `and`, `or`, `not`, `selector_b`, glob), each with a probe pair and a control pair 4 mm apart, a 5 mm rule and the canary
 - **WHEN** `uv run pytest tests/kicad/rules/test_rule_conditions.py` runs on 9.0.9 and on 10.0.6
 - **THEN** for each op the report holds the probe pair's violation, not the control pair's, and the canary violation, and each outcome is recorded under its `dru-cond-*` probe id
 
@@ -153,6 +162,26 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - **GIVEN** a `silk_clearance` rule on `ref U1`
 - **WHEN** it is lowered
 - **THEN** `RulesLossError` is raised with one `rules.unsupported-selector` naming `silk_clearance`, and its hint does not offer `--allow-lossy`
+
+#### Scenario: Area on one side
+- **GIVEN** a `track_width` rule `neck` with `selector_a = area BGA` and `min = 0.1 mm`
+- **WHEN** it is lowered for target 9
+- **THEN** its condition is `"A.intersectsArea('BGA')"`
+
+#### Scenario: Areas on both sides
+- **GIVEN** a `clearance` rule with `selector_a = area P` and `selector_b = area Q`
+- **WHEN** it is lowered for target 10 and the text is read back with `read_rules`
+- **THEN** the condition is `"A.intersectsArea('P') && B.intersectsArea('Q')"`, and the lifted rule has the same two selectors
+
+#### Scenario: Enclosed area stays opaque
+- **GIVEN** a hand-written rule with the condition `"A.enclosedByArea('HV')"`
+- **WHEN** it is read with `read_rules` and an `issues` list
+- **THEN** the rule is an opaque slot and `issues` hold one `rules.kept-opaque` naming the condition
+
+#### Scenario: Area refused for a creepage rule
+- **GIVEN** a `creepage` rule with `selector_a = area HV`
+- **WHEN** it is lowered
+- **THEN** `RulesLossError` is raised with one `rules.unsupported-selector` naming `creepage`, and its hint does not offer `--allow-lossy`
 
 #### Scenario: Clearance inside a pair
 - **GIVEN** a `clearance` rule whose `selector_a` and `selector_b` are both `diff_pair USB_`, with `min=100_000`

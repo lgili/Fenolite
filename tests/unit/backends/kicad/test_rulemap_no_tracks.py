@@ -45,7 +45,8 @@ def refused(*rules: Rule, target: int = 10) -> list[Issue]:
 
 def test_thirteen_kinds_no_tracks_last() -> None:
     kinds = get_args(RuleKind)
-    assert len(kinds) == 13 and kinds[-1] == "no_tracks"
+    # eighteen since change c0104, whose five pair and length kinds follow the thirteenth
+    assert len(kinds) == 18 and kinds[12] == "no_tracks"
     assert kinds[:12] == (
         "clearance", "track_width", "via_diameter", "via_drill", "hole_size", "edge_clearance",
         "hole_to_hole", "hole_clearance", "annular_width", "courtyard_clearance", "silk_clearance",

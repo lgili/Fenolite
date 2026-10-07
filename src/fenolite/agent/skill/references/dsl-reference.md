@@ -216,6 +216,12 @@ Function: `select.netclass(name: 'str') -> 'Select'`
 
 The items on the nets of a net class declared with `design.rules.netclass`.
 
+### select.pair
+
+Function: `select.pair(x: 'Interface \| str') -> 'Select'`
+
+The items on the two nets of a differential pair: a `DiffPair`, a `USB2` or another interface of a pair kind, whose base is taken from its net names; or a base as text, `"*"` for every pair.
+
 ### select.ref
 
 Function: `select.ref(name: 'str \| Part') -> 'Select'`

@@ -233,3 +233,24 @@ def test_severity_update_of_a_project_without_the_table() -> None:
     made = with_severities(design({}, {}), {"kicad.drc.via-dangling": "error"})
     updated = read_project_text(update_project(text(data), made, target=10))
     assert updated["board"]["design_settings"]["rule_severities"] == {"via_dangling": "error"}  # type: ignore[index]
+
+
+def test_update_keeps_an_equal_pair_spelling() -> None:
+    """Scenario "Update keeps an equal spelling" (change c0104): a pair value that is equal in nanometres
+    keeps its text, and a pair key whose model value is ``None`` is left as it is."""
+    data = project(10)
+    usb = dict(data["net_settings"]["classes"][0])
+    usb.update(name="USB", diff_pair_gap=JsonNumber("0.150"), diff_pair_width=JsonNumber("0.2"))
+    data["net_settings"]["classes"].append(usb)
+    made = design({"USB": None}, {})
+    (cls,) = made.circuit.netclasses
+    cls = dataclasses.replace(cls, diff_pair_gap=150_000, diff_pair_width=None)
+    made = dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(cls,)))
+    out = read_project_text(update_project(text(data), made, target=10))
+    entry = next(c for c in out["net_settings"]["classes"] if c["name"] == "USB")
+    assert entry["diff_pair_gap"] == JsonNumber("0.150") and entry["diff_pair_width"] == JsonNumber("0.2")
+    changed = dataclasses.replace(cls, diff_pair_gap=130_000, diff_pair_via_gap=400_000)
+    made = dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(changed,)))
+    out = read_project_text(update_project(text(data), made, target=10))
+    entry = next(c for c in out["net_settings"]["classes"] if c["name"] == "USB")
+    assert entry["diff_pair_gap"] == JsonNumber("0.13") and entry["diff_pair_via_gap"] == JsonNumber("0.4")

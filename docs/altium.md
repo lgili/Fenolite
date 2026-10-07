@@ -126,6 +126,17 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   sheet and the warning `altium.sheet-custom`.
 - **Unique ids.** Each component's unique id is derived from its component path. A rebuild that keeps
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
+- **Differential pairs** (change c0104). An Altium build keeps the pair content of a design in
+  `.fenolite/` and writes none of it, because no public source recorded in `docs/formats/altium/` states
+  the pair record or the records of the pair and length rules. Each part is named: a rule of kind
+  `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` or `length` gives one
+  `altium.not-lowered` warning at `design-rules/<kind>` with the reason `no-counterpart` (the record is
+  not known, which is not a statement that Altium has no such rule); a rule of a written kind that
+  selects a pair, such as the clearance rule of `design.rules.pair(…, clearance=…)`, gives the reason
+  `scope-unsupported`; the net classes that hold a pair width, gap or via gap are named in one info at
+  `pair-values`, with and without a PCB document; and a `diff_pair` or `usb2` interface stays in the
+  info at `interfaces`, whether or not a rule selects it. Every other file is byte-equal to the file of
+  the design without that content.
 - **Not lowered.** The board outline, placements, the rule values of net classes, diff pairs and typed interfaces have no
   place in these files (the nets of a net class are declared by directives, see "Change order"). They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
   only order the layout and the schematic is one flat sheet; `--altium-sheets modules` gives each
@@ -1384,6 +1395,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
+| `netclass` | `diff_pair_width`, `diff_pair_gap`, `diff_pair_via_gap` | the writer does not write it: no public source recorded in `docs/formats/altium/` says where a document holds them (c0104) |
 | `footprint` | `component_id` | the reader maps it elsewhere: a footprint is matched by the reference of its component |
 | `footprint` | `lib_ref` | the writer writes a fixed value: the name of the generated PCB library |
 | `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |

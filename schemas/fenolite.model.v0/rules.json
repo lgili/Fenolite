@@ -196,7 +196,12 @@
             "courtyard_clearance",
             "silk_clearance",
             "creepage",
-            "no_tracks"
+            "no_tracks",
+            "diff_pair_gap",
+            "diff_pair_uncoupled",
+            "skew",
+            "diff_pair_skew",
+            "length"
           ]
         },
         "selector_a": {
@@ -280,6 +285,7 @@
             "layer",
             "item_kind",
             "area",
+            "diff_pair",
             "and",
             "or",
             "not"

@@ -385,6 +385,36 @@ via, for `capping` and `filling`), `False` that it is not.
   direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or
   `via_protection`: their reader of the canonical form is strict.
 
+## Differential pairs
+
+A differential pair is an `Interface` whose kind is a key of `fenolite.model.pairs.PAIR_ROLES`
+(change c0104): `diff_pair` with the roles `p` and `n`, and `usb2` with `dp` and `dn`, the positive role
+first. The model holds no other pair entity, and a pair holds no constraint of its own: its width, gap
+and via gap are values of the net class of its two nets, and its limits are rules that select it.
+
+- **Name rule** (`H-K-DIFFPAIR-NAMES-2`, `docs/formats/kicad/rules.md`). `split_pair_name(name)` takes the
+  longest trailing run of digits and `_` as the tail; the character before it must be `P`, `N`, `+` or `-`
+  (the polarity), and the text before that is the base. `coupled_name` swaps the polarity;
+  `pair_base(positive, negative)` is the base when the first name has the polarity `P` or `+` and the
+  second is its coupled name. `USB_P`/`USB_N` has the base `USB_`, `USB_DP`/`USB_DN` the base `USB_D`,
+  `D_P0`/`D_N0` the base `D_`. Letter case counts. `net_bases(names)` gives the base of every name whose
+  coupled name is among `names`; `pair_nets(interface)` gives the two net ids of a pair interface.
+- **Class values.** `NetClass.diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` are lengths in
+  nm or `None` (the default), stored in `circuit.json`. They are what a router lays a pair with, not
+  limits.
+- **Rule kinds.** `RuleKind` holds five kinds for pairs and nets: `diff_pair_gap`, `diff_pair_uncoupled`,
+  `skew` (every selected net against the longest of them), `diff_pair_skew` (the two nets of each
+  selected pair) and `length`.
+- **The pair leaf.** `SelectorOp` and `LEAF_OPS` hold `diff_pair`, whose value is a pair base or `*`.
+  `RuleSubject.diff_pair` is the base of the subject's net when the design holds its coupled net, and
+  `Selector("diff_pair", v)` matches a subject whose base matches `v` as a glob with its letter case, or
+  ends with `_` and matches `v` without that `_`.
+- The fields, the kinds and the leaf are additive: `canonical` omits the defaults, a `circuit.json` and a
+  `rules.json` written before them load unchanged, and `schema_version` stays `"0"`. The other direction
+  does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `circuit.json` or a `rules.json` that carries them
+  (one of the three class keys, one of the five kinds or a `diff_pair` leaf): their reader of the canonical
+  form is strict. A build regenerates `.fenolite/`.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change
@@ -488,9 +518,10 @@ SHA-256 under `native/`.
 
 ## Rule kinds (c0107)
 
-`model.rules.RuleKind` holds thirteen kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
+`model.rules.RuleKind` holds eighteen kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
 and arcs of the items that `selector_a` selects are not allowed on the copper layers of `layers`. It takes
-no limit and no `selector_b`, and it is last in the list, so the first twelve keep their order.
+no limit and no `selector_b`, and it follows the twelve kinds of before, so the first twelve keep their
+order; the five pair and length kinds of change c0104 ("Differential pairs") follow it.
 
 The kind is additive in one direction only. A `rules.json` without a `no_tracks` rule is, byte for byte,
 what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and serialises to its own bytes), and

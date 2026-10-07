@@ -130,8 +130,9 @@ def test_clearance_with_a_maximum() -> None:
 
 @pytest.mark.parametrize("kind", sorted(set(rulemap.KIND_MAP) - rulemap.NO_LIMIT_KINDS))
 def test_each_kind_lowers(kind: str) -> None:
-    text = lowered(rule(kind, min=100_000)).text
-    assert f"(constraint {rulemap.KIND_MAP[kind]} (min 0.1mm))" in text  # type: ignore[index]
+    limit = "min" if "min" in rulemap.LIMITS[kind] else "max"  # type: ignore[index]
+    text = lowered(rule(kind, **{"min": None, limit: 100_000})).text
+    assert f"(constraint {rulemap.KIND_MAP[kind]} ({limit} 0.1mm)" in text  # type: ignore[index]
 
 
 # -- selectors
@@ -257,7 +258,13 @@ def test_via_drill_normal_forms() -> None:
 
 def test_evidence() -> None:
     assert EVIDENCE.level is Level.KICAD_VERIFIED
-    assert set(EVIDENCE.hypotheses) == {"H-K-DRU-DIALECT", "H-K-DRU-ORDER", "H-K-DRU-COND", "H-K-DRU-KIND"}
+    assert set(EVIDENCE.hypotheses) == {
+        "H-K-DRU-DIALECT",
+        "H-K-DRU-ORDER",
+        "H-K-DRU-COND",
+        "H-K-DRU-KIND",
+        "H-K-DRU-PAIR",  # change c0104
+    }
 
 
 # -- the closed set of codes
@@ -292,7 +299,8 @@ def test_no_tracks_kinds_and_one_rule_per_layer() -> None:
 
     from fenolite.model.rules import RuleKind
 
-    assert len(get_args(RuleKind)) == 13 and get_args(RuleKind)[-1] == "no_tracks"
+    # eighteen kinds since change c0104, whose five follow ``no_tracks``, the thirteenth
+    assert len(get_args(RuleKind)) == 18 and get_args(RuleKind)[12] == "no_tracks"
     made = rule(
         "no_tracks", Selector("netclass", "SIG"), name="sig-outer", min=None, layers=("In1.Cu", "In2.Cu")
     )
@@ -303,3 +311,39 @@ def test_no_tracks_kinds_and_one_rule_per_layer() -> None:
         assert head + body in text
     error = refused(rule(min=None))
     assert [i.code for i in error.issues] == ["rules.unsupported-limit"]
+
+
+def test_pair_rules_pass_the_self_check() -> None:
+    """Change c0104: the written pair rules lift back to what was lowered, which is the self-check of
+    ``write_rules``, and they come in priority order with the clearance rule of the pair last."""
+    pair = Selector("diff_pair", "USB_")
+    rules = (
+        rule("diff_pair_gap", pair, name="pair:USB:gap", min=130_000, max=170_000, priority=1),
+        rule("clearance", pair, name="pair:USB:clearance", selector_b=pair, min=130_000, priority=1),
+        rule("diff_pair_uncoupled", pair, name="pair:USB:uncoupled", min=None, max=5_000_000, priority=1),
+        rule("diff_pair_skew", pair, name="pair:USB:skew", min=None, max=150_000, priority=1),
+        rule("length", pair, name="pair:USB:length", min=None, max=60_000_000, priority=1),
+        rule("clearance", name="min_clearance", min=200_000),
+        rule("clearance", Selector("netclass", "USB"), name="min_clearance_USB", min=200_000, priority=1),
+    )
+    text = lowered(*rules).text
+    assert names(text) == [
+        "fenolite_0_min_clearance",
+        "fenolite_1_min_clearance_usb",
+        "fenolite_1_pair_usb_clearance",
+        "fenolite_1_pair_usb_gap",
+        "fenolite_1_pair_usb_length",
+        "fenolite_1_pair_usb_skew",
+        "fenolite_1_pair_usb_uncoupled",
+    ]
+    back = read_rules(text)
+    assert [r.kind for r in back.rules] == [
+        "clearance",
+        "clearance",
+        "clearance",
+        "diff_pair_gap",
+        "length",
+        "diff_pair_skew",
+        "diff_pair_uncoupled",
+    ]
+    assert write_rules(back, target=10) == text

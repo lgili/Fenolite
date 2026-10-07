@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import random
 
 from _coppercheck import Copper, ident, mm
@@ -366,6 +367,28 @@ def area_pair(design: Design, *areas: str) -> Clearance:
     return resolver.resolve(first, second)
 
 
+# --- the clearance inside a differential pair (change c0104) ---------------------------------------
+
+
+def usb_pair(*, clearance: int | None = mm(0.2), gap: int | None = mm(0.1)) -> Copper:
+    """Nets ``USB_P``, ``USB_N`` and ``CLK`` in the class ``USB`` with ``clearance`` and the pair gap
+    ``gap``."""
+    made = Copper()
+    made.classes["USB"] = dataclasses.replace(made.netclass("USB", clearance), diff_pair_gap=gap)
+    for name in ("USB_P", "USB_N", "CLK"):
+        made.net(name, "USB")
+    return made
+
+
+def inside(design: Design, a: str = "USB_P", b: str = "USB_N", **switches: object) -> Clearance:
+    resolver = ClearanceResolver(design, **switches)  # type: ignore[arg-type]
+    ids = {n.name: n.id for n in design.circuit.nets}
+    first = resolver.subject("track", ids[a], ref=None, layer="F.Cu")
+    second = resolver.subject("track", ids[b], ref=None, layer="F.Cu")
+    assert resolver.resolve(first, second) == resolver.resolve(second, first)
+    return resolver.resolve(first, second)
+
+
 def test_rule_scoped_to_an_area() -> None:
     """Scenario "Rule scoped to an area"."""
     design = area_design()
@@ -396,3 +419,74 @@ def test_area_beside_a_folded_leaf() -> None:
     assert resolver.resolve(inside, other).source == "rule:hv"
     outside = resolver.subject("track", ids["GND"], ref=None, layer="F.Cu")
     assert resolver.resolve(outside, other) == UNSET
+
+
+def test_pair_subjects_carry_their_base() -> None:
+    design = usb_pair().build()
+    resolver = ClearanceResolver(design)
+    ids = {n.name: n.id for n in design.circuit.nets}
+    assert resolver.subject("track", ids["USB_P"], ref=None, layer="F.Cu").diff_pair == "USB_"
+    assert resolver.subject("via", ids["USB_N"], ref=None, layer="F.Cu").diff_pair == "USB_"
+    assert resolver.subject("track", ids["CLK"], ref=None, layer="F.Cu").diff_pair is None
+    assert resolver.subject("track", None, ref=None, layer="F.Cu").diff_pair is None
+
+
+def test_pair_below_its_class_clearance() -> None:
+    design = usb_pair().build()
+    assert inside(design) == Clearance(mm(0.1), "error", "pair-gap:USB")
+    assert inside(design, "USB_P", "CLK") == Clearance(mm(0.2), "error", "class:USB")
+    assert ClearanceResolver(design).max_value == mm(0.2)
+
+
+def test_pair_gap_applies_only_below_the_class_clearance() -> None:
+    assert inside(usb_pair(gap=mm(0.25)).build()).source == "class:USB"
+    assert inside(usb_pair(gap=mm(0.2)).build()).source == "class:USB"
+    assert inside(usb_pair(gap=None).build()).source == "class:USB"
+    assert inside(usb_pair(clearance=None).build()) == UNSET
+
+
+def test_pair_gap_needs_one_class_and_one_pair() -> None:
+    made = usb_pair()
+    made.netclass("OTHER", mm(0.2))
+    made.net("DAT_P", "USB")
+    made.net("DAT_N", "OTHER")
+    made.net("AUX_P", "USB")
+    made.net("AUX_N0", "USB")
+    design = made.build()
+    assert inside(design, "DAT_P", "DAT_N").source in ("class:OTHER", "class:USB")
+    assert inside(design, "AUX_P", "AUX_N0").source == "class:USB"
+    assert inside(design, "USB_P", "USB_P").source == "class:USB"
+
+
+def test_rules_over_the_pair_gap() -> None:
+    made = usb_pair()
+    made.rule("board", mm(0.2))
+    assert inside(made.build(), rules_over_classes=True) == Clearance(mm(0.2), "error", "rule:board")
+    pair_leaf = Selector("diff_pair", "USB_")
+    made.rule("inside", mm(0.1), pair_leaf, pair_leaf, priority=1)
+    design = made.build()
+    assert inside(design, rules_over_classes=True) == Clearance(mm(0.1), "error", "rule:inside")
+    assert inside(design, "USB_P", "CLK", rules_over_classes=True).source == "rule:board"
+
+
+def test_rule_below_the_pair_gap_where_classes_stay() -> None:
+    made = usb_pair()
+    made.rule("low", mm(0.05))
+    assert inside(made.build(), rules_over_classes=False) == Clearance(mm(0.1), "error", "pair-gap:USB")
+
+
+def test_board_minimum_above_the_pair_gap() -> None:
+    design = usb_pair().build()
+    assert inside(design, min_clearance=mm(0.12)) == Clearance(mm(0.12), "error", "floor")
+    assert inside(design, min_clearance=mm(0.05)).source == "pair-gap:USB"
+
+
+def test_letter_case_of_the_pair_leaf() -> None:
+    made = usb_pair()
+    made.rule("lower", mm(0.5), Selector("diff_pair", "usb_"))
+    assert inside(made.build()) == Clearance(mm(0.1), "error", "pair-gap:USB")
+    made.rule("every", mm(0.3), Selector("diff_pair", "*"), priority=1)
+    assert inside(made.build()).source == "rule:every"
+    other = usb_pair()
+    other.rule("net_name", mm(0.4), Selector("net", "usb_p"))  # the other leaves compare without case
+    assert inside(other.build()).source == "rule:net_name"

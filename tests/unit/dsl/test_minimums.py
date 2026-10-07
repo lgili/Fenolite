@@ -29,8 +29,16 @@ def rules(d: Design) -> tuple[Rule, ...]:
 
 
 def test_keywords_are_the_model_kinds() -> None:
-    assert MINIMUM_KINDS == get_args(RuleKind)[:6] and len(get_args(RuleKind)) == 13
-    assert get_args(RuleKind)[-1] == "no_tracks"  # change c0107: thirteen kinds, the new one last
+    assert MINIMUM_KINDS == get_args(RuleKind)[:6] and len(get_args(RuleKind)) == 18
+    # change c0107: ``no_tracks`` is the thirteenth kind; the five kinds of change c0104 follow it
+    assert get_args(RuleKind)[12:] == (
+        "no_tracks",
+        "diff_pair_gap",
+        "diff_pair_uncoupled",
+        "skew",
+        "diff_pair_skew",
+        "length",
+    )
     assert KEYS["rule"] == ("rul", "rule:<kind>[:<net class>] or rule:named:<rule name>")
 
 

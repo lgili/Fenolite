@@ -17,6 +17,7 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
+from fenolite.dsl.select import pair as select_pair
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
 from fenolite.dsl.units import as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
@@ -58,6 +59,9 @@ class NetClassSpec:
     via_diameter: Nm | None
     via_drill: Nm | None
     nets: tuple[Net, ...]
+    diff_pair_width: Nm | None = None
+    diff_pair_gap: Nm | None = None
+    diff_pair_via_gap: Nm | None = None
 
 
 @dataclass(frozen=True)
@@ -316,6 +320,62 @@ class Rules:
             priority,
         )
 
+    def pair(
+        self,
+        pair: Interface,
+        *,
+        gap_min: object = None,
+        gap_max: object = None,
+        clearance: object = None,
+        uncoupled_max: object = None,
+        skew_max: object = None,
+        length_min: object = None,
+        length_max: object = None,
+        severity: str = "error",
+        priority: int = 1,
+    ) -> None:
+        """Declare the rules of one differential pair (a ``DiffPair``, a ``USB2`` or another pair
+        interface), one rule per given group, named ``pair:<pair name>:<group>``: the gap between the two
+        tracks, the clearance between the two nets, the longest uncoupled length, the largest length
+        difference between the two nets, and the length of each net. The pair joins the design.
+
+        With the default priority 1 the rules govern over the board minimums and over the class minimums
+        of ``minimum(netclass=…)``."""
+        if isinstance(pair, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("pair(): give the pair interface itself, not a base name")
+        try:
+            where = select_pair(pair)
+        except DslError as error:
+            raise DslError(f"pair(): {error}") from None
+        groups: tuple[tuple[str, str, dict[str, object]], ...] = (
+            ("gap", "diff_pair_gap", {"min": gap_min, "max": gap_max}),
+            ("clearance", "clearance", {"min": clearance, "between": where}),
+            ("uncoupled", "diff_pair_uncoupled", {"max": uncoupled_max}),
+            ("skew", "diff_pair_skew", {"max": skew_max}),
+            ("length", "length", {"min": length_min, "max": length_max}),
+        )
+        given = [g for g in groups if any(g[2].get(limit) is not None for limit in ("min", "max"))]
+        if not given:
+            raise DslError(
+                f"pair() {pair.name}: give at least one limit, for example gap_min=mm(0.13) "
+                "or uncoupled_max=mm(5)"
+            )
+        before = dict(self.named)
+        try:
+            for group, kind, limits in given:
+                self.rule(
+                    f"pair:{pair.name}:{group}",
+                    kind,
+                    where=where,
+                    severity=severity,
+                    priority=priority,
+                    **limits,  # type: ignore[arg-type]
+                )
+            self._design.register_interface(pair)
+        except DslError as error:
+            self.named = before
+            raise DslError(f"pair() {pair.name}: {error}") from None
+
     def netclass(
         self,
         name: str,
@@ -324,9 +384,14 @@ class Rules:
         track_width: object = None,
         via_diameter: object = None,
         via_drill: object = None,
+        diff_pair_width: object = None,
+        diff_pair_gap: object = None,
+        diff_pair_via_gap: object = None,
         nets: Iterable[Net] = (),
     ) -> None:
-        """Declare one net class with lengths and its member nets."""
+        """Declare one net class with lengths and its member nets. The three ``diff_pair_`` values are the
+        width, the gap and the via gap a router lays the differential pairs of the class with; they are
+        no limits, and a pair's limits are declared with ``pair()``."""
         if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"a net-class name must be a non-empty string, not {name!r}")
         if name in self.netclasses:
@@ -348,6 +413,9 @@ class Rules:
             length(via_diameter, "via_diameter"),
             length(via_drill, "via_drill"),
             members,
+            length(diff_pair_width, "diff_pair_width"),
+            length(diff_pair_gap, "diff_pair_gap"),
+            length(diff_pair_via_gap, "diff_pair_via_gap"),
         )
         for net in members:
             self._design.register_net(net)

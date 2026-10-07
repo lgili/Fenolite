@@ -23,7 +23,7 @@ from hypothesis import strategies as st
 from fenolite.backends.altium import pcbdoc, rulemap
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.rules import map_rules
-from fenolite.dsl import Design, mm, placements, to_model
+from fenolite.dsl import USB2, Design, Net, mm, placements, to_model
 from fenolite.dsl.select import net, netclass
 from fenolite.lens.altium import build_altium
 from fenolite.lens.build import BuildOutput
@@ -452,8 +452,85 @@ def test_no_tracks_rule_is_reported_and_not_written() -> None:
     document = read_pcbdoc(output.files[DOCUMENT], file=DOCUMENT)
     before = read_pcbdoc(plain.files[DOCUMENT], file=DOCUMENT)
     assert [r.fields for r in document.rules] == [r.fields for r in before.rules]
-    row = rulemap.TABLE[-1]
+    # the thirteenth row: the five pair and length kinds of change c0104 follow it
+    row = rulemap.TABLE[12]
     assert (row.neutral, row.status, row.exact) == ("no_tracks", "no-counterpart", False)
     assert "Routing Layers" in row.note and "no public file" in row.note
     lowered = rulemap.lower(to_model(design).rules.rules)  # type: ignore[union-attr]
     assert lowered.written == () and len(lowered.not_lowered) == 1
+
+
+# -- differential pairs in an Altium build (capability altium-build; change c0104)
+
+
+def pair_design(*, pair_content: bool = True, document: bool = True) -> Design:
+    """The blink (the example of the build without a PCB document when ``document`` is false) with a USB
+    pair in the class ``USB``; with ``pair_content`` the class holds a pair gap and the pair has its
+    rules."""
+    design = blink() if document else example()
+    usb_p, usb_n = Net("USB_P"), Net("USB_N")
+    usb = USB2(usb_p, usb_n)
+    design.add(usb)
+    gap = mm(0.15) if pair_content else None
+    design.rules.netclass("USB", clearance=mm(0.2), diff_pair_gap=gap, nets=(usb_p, usb_n))
+    if pair_content:
+        design.rules.pair(
+            usb,
+            gap_min=mm(0.13),
+            clearance=mm(0.15),
+            uncoupled_max=mm(5),
+            skew_max=mm(0.5),
+            length_max=mm(60),
+        )
+    return design
+
+
+@pytest.mark.parametrize("document", [True, False])
+def test_pair_rules_in_an_altium_build(document: bool) -> None:
+    """Scenario "Pair rules in an Altium build": nothing raises, each pair or length rule is named with
+    ``no-counterpart``, the pair clearance rule with ``scope-unsupported``, and the class pair values in
+    one info, with and without a PCB document."""
+    output = built(pair_design(document=document), document=document)
+    values = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "pair-values"]
+    assert [(i.severity, "USB" in i.message, "PWR" in i.message) for i in values] == [("info", True, False)]
+    interfaces = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "interfaces"]
+    assert len(interfaces) == 1 and "USB_P/USB_N" in interfaces[0].message
+    if not document:  # no document: every rule is named with that reason, the pair rules included
+        reasons = {entry["kind"]: entry["reason"] for entry in summary(output)["not_lowered"]}
+        assert reasons.pop("clearance") in ("no-document", "scope-unsupported")
+        assert reasons == dict.fromkeys(
+            ("diff_pair_gap", "diff_pair_uncoupled", "diff_pair_skew", "length"), "no-counterpart"
+        )
+        return
+    found = not_lowered(output)
+    assert [(where, severity) for where, severity, _message in found] == [
+        ("design-rules/diff_pair_gap", "warning"),
+        ("design-rules/clearance", "warning"),
+        ("design-rules/diff_pair_uncoupled", "warning"),
+        ("design-rules/diff_pair_skew", "warning"),
+        ("design-rules/length", "warning"),
+    ]
+    reasons = ["no-counterpart", "scope-unsupported", "no-counterpart", "no-counterpart", "no-counterpart"]
+    for (_where, _severity, message), reason in zip(found, reasons, strict=True):
+        assert reason in message and "diff_pair USB_" in message
+    assert [(entry["kind"], entry["reason"]) for entry in summary(output)["not_lowered"]] == [
+        ("diff_pair_gap", "no-counterpart"),
+        ("clearance", "scope-unsupported"),
+        ("diff_pair_uncoupled", "no-counterpart"),
+        ("diff_pair_skew", "no-counterpart"),
+        ("length", "no-counterpart"),
+    ]
+
+
+@pytest.mark.parametrize("document", [True, False])
+def test_pair_files_equal_without_the_pair_content(document: bool) -> None:
+    """Scenario "Files equal without the pair content": every planned file outside ``.fenolite/`` is
+    byte-equal to the file of the design without the pair rules and the class pair gap."""
+    with_pair = built(pair_design(document=document), document=document)
+    without = built(pair_design(pair_content=False, document=document), document=document)
+    outside = {name for name in without.files if not name.startswith(".fenolite/")}
+    assert outside and outside == {name for name in with_pair.files if not name.startswith(".fenolite/")}
+    assert all(with_pair.files[name] == without.files[name] for name in outside)
+    assert b"diff_pair_gap" in with_pair.files[".fenolite/circuit.json"]
+    assert b"diff_pair_skew" in with_pair.files[".fenolite/rules.json"]
+    assert not [i for i in without.issues if i.where == "pair-values"]

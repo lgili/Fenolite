@@ -38,6 +38,10 @@ templates come only from GUI saves** (see "Templates").
 | The project Fenolite writes from board-wide rules lets every rule value take effect | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-WRITE |
 | A board-wide custom clearance rule governs the items of a class with a larger clearance: the class clearance is not applied | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-CLASS |
 | Net-class track widths and via sizes are defaults for new items, not DRC limits | S-0038, S-0010 | INFERRED | H-K-PRO-MIN-CLASS |
+| The class keys `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` are defaults of the interactive pair router and no DRC limits: a pair laid 0.15 mm apart with 0.2 mm tracks in a class of pair gap 0.4 mm and pair width 0.3 mm, and two vias of a pair 0.3 mm apart under a via gap of 0.5 mm, report nothing | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-PRO-PAIR |
+| A class `diff_pair_gap` below the class clearance lowers the clearance between the two nets of a pair of that class (nets that pair by name): at 0.15 mm in a class of clearance 0.2 mm and pair gap 0.1 mm there is no `clearance` violation, while two nets of the class that do not pair, and a pair in a class whose pair gap is 0.25 mm, are reported | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-PRO-PAIR |
+| A custom clearance rule that governs the pair replaces the class pair gap: under a board-wide rule of 0.2 mm the pair at 0.15 mm is reported, and a later clearance rule of 0.1 mm with `inDiffPair` on both sides makes it clean again; a `diff_pair_gap` rule does not lower the clearance | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-PRO-PAIR |
+| A board `min_clearance` above the class pair gap is a floor inside a pair, and adds a gap check at that minimum (`diff_pair_gap_out_of_range`, "netclass … (diff pair) minimum gap") unless a `diff_pair_gap` rule governs the pair: with a minimum of 0.12 mm a pair at 0.11 mm gets both violations and a pair at 0.13 mm none | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-PRO-PAIR |
 
 ## Versions
 
@@ -78,7 +82,13 @@ templates come only from GUI saves** (see "Templates").
 - every other key keeps its template value, `boards` (`[]`) included.
 
 Class values are written by `lowering.lower_netclass` from the `Default` entry of the project being
-written: the four values as exact millimetre texts, every other key copied. A value below its
+written: the seven values of `lowering.NETCLASS_KEYS` as exact millimetre texts (`clearance`,
+`track_width`, `via_diameter`, `via_drill`, and since change c0104 `diff_pair_width`, `diff_pair_gap` and
+`diff_pair_via_gap`), every other key copied. A model value of `None` keeps the value of the `Default`
+entry, so a class without pair values carries the template's 0.2, 0.25 and 0.25 mm. The three pair
+values have no board-setup minimum and get no floor warning; what a pair gap does to the clearance inside
+a pair is in the facts above, and `checks.clearance` follows it (`copper.md`). Both templates hold the
+three keys in every class entry, so both targets write them. A value below its
 board-setup minimum is still written, with the warning `kicad.project.below-floor`, because the
 minimum governs. The minimums themselves are written first ("Board-setup minimums").
 
@@ -137,8 +147,9 @@ another class; `allow_lossy` writes it without a pattern instead (`kicad.project
 
 `update_project(existing_text, design, *, target)` changes only the managed keys:
 
-- class entries named like a model class get their four values replaced; a value equal in nanometres
-  keeps its spelling. Model classes absent from the file are appended, lowered from the file's
+- class entries named like a model class get their seven values replaced (the four lengths and the
+  three pair values); a value equal in nanometres keeps its spelling, and a key whose model value is
+  `None` is left as it is. Model classes absent from the file are appended, lowered from the file's
   `Default` entry. A class is never deleted;
 - exact-name pattern entries (no `*` or `?`) naming a model net are regenerated and placed first;
   every other entry is kept verbatim after them. A kept entry or assignment that gives a model net
@@ -152,7 +163,8 @@ each path (`kicad.project.too-new-key`). `allow_lossy` removes the paths, writes
 
 ## Reading
 
-`read_project(source)` returns a `ProjectInfo`; `apply_project(design, info)` gives the design the
+`read_project(source)` returns a `ProjectInfo` whose `ProjectClass` entries hold the seven lowered
+values in nm, the three pair values among them; `apply_project(design, info)` gives the design the
 project's classes (ids `derived_id("cls", "kicad", "netclass:<name>")`) and each net the matching class
 of highest priority (lowest `priority`, ties in file order). Several candidates give
 `kicad.project.multiple-classes`, because KiCad aggregates them while the model keeps one class per

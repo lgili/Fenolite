@@ -21,6 +21,7 @@ from typing import Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
+from fenolite.model.pairs import coupled_name, net_bases
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
 
 CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout"]
@@ -36,6 +37,8 @@ ITEM_KINDS: dict[str, str] = {
 }
 DEFAULT_CLASS = "Default"
 """The class of a net without one, when the design holds a class of this name."""
+PAIR_GAP_SOURCE = "pair-gap"
+"""The prefix of the source of a value that is the pair gap of a class: ``pair-gap:<class name>``."""
 ZONE_SOURCE = "zone"
 """The source of a value that is the own clearance of the zone of a fill."""
 
@@ -43,7 +46,7 @@ ZONE_SOURCE = "zone"
 @dataclass(frozen=True, slots=True)
 class Clearance:
     """What ``resolve`` returns: the value in nanometres, the severity of a finding below it, and where the
-    value comes from (``rule:<name>``, ``class:<name>``, ``zone`` or ``floor``).
+    value comes from (``rule:<name>``, ``class:<name>``, ``pair-gap:<class name>``, ``zone`` or ``floor``).
 
     ``value`` is ``None`` when the pair is not judged for clearance: ``source`` is then ``rule:<name>`` for a
     governing rule of severity ``ignore``, and empty when nothing sets a clearance.
@@ -74,8 +77,10 @@ def _fold(text: str | None) -> str | None:
 
 def _fold_selector(selector: Selector) -> Selector:
     """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
-    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``)."""
-    if selector.op == "area":
+    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``). A
+    ``diff_pair`` leaf keeps its value too, because KiCad compares a pair base with its letter case
+    (``H-K-DRU-PAIRSEL``)."""
+    if selector.op in ("area", "diff_pair"):
         return selector
     if selector.op in LEAF_OPS:
         return dataclasses.replace(selector, value=selector.value.casefold())
@@ -92,6 +97,7 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
         ref=_fold(subject.ref),
         layer=_fold(subject.layer),
         areas=subject.areas,
+        diff_pair=subject.diff_pair,
     )
 
 
@@ -128,6 +134,15 @@ class ClearanceResolver:
         self._class_values: dict[str, Nm] = {
             name: netclass.clearance for name, netclass in named.items() if netclass.clearance is not None
         }
+        self._pair_gaps: dict[str, Nm] = {
+            name: netclass.diff_pair_gap
+            for name, netclass in named.items()
+            if netclass.diff_pair_gap is not None
+            and netclass.clearance is not None
+            and netclass.diff_pair_gap < netclass.clearance
+        }
+        """Class name → its pair gap, for the classes whose gap is below their clearance."""
+        self._bases = net_bases(net.name for net in circuit.nets)
         self._nets: dict[str, tuple[str, str]] = {}
         for net in circuit.nets:
             netclass = classes.get(net.netclass_id) if net.netclass_id is not None else None
@@ -175,12 +190,19 @@ class ClearanceResolver:
     ) -> RuleSubject:
         """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, the
         component reference for a pad, and the names of the rule areas it lies in on that layer. An item
-        without a net, or whose net has no class, is in the class named ``Default``."""
+        without a net, or whose net has no class, is in the class named ``Default``. ``diff_pair`` is the
+        base of the net when the design holds its coupled net."""
         name, netclass = (
             self._nets.get(net_id, (None, DEFAULT_CLASS)) if net_id is not None else (None, DEFAULT_CLASS)
         )
         return RuleSubject(
-            item_kind=ITEM_KINDS[kind], net=name, netclass=netclass, ref=ref, layer=layer, areas=areas
+            item_kind=ITEM_KINDS[kind],
+            net=name,
+            netclass=netclass,
+            ref=ref,
+            layer=layer,
+            areas=areas,
+            diff_pair=self._bases.get(name) if name is not None else None,
         )
 
     def _class_value(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
@@ -194,6 +216,17 @@ class ClearanceResolver:
             return None
         value = max(v for v, _ in found)
         return value, min(name for v, name in found if v == value)
+
+    def _pair_gap(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
+        """The pair gap of the class of two subjects on the two nets of one pair, and the name of that
+        class, when the gap is below the class clearance: KiCad then judges the pair by the gap
+        (``H-K-PRO-PAIR``)."""
+        if a.diff_pair is None or a.diff_pair != b.diff_pair or a.net is None or a.net == b.net:
+            return None
+        if a.netclass is None or a.netclass != b.netclass or coupled_name(a.net) != b.net:
+            return None
+        gap = self._pair_gaps.get(a.netclass)
+        return None if gap is None else (gap, a.netclass)
 
     def resolve(self, a: RuleSubject, b: RuleSubject, *, zone_clearance: Nm | None = None) -> Clearance:
         """The clearance in force between two subjects on the same layer; the same for ``(b, a)``.
@@ -218,7 +251,10 @@ class ClearanceResolver:
         floor = self._floor
         # the values a rule may replace, the class first: among equal values the class names the source
         kept: list[Clearance] = []
-        if classes is not None:
+        pair = self._pair_gap(a, b)
+        if pair is not None:
+            kept.append(Clearance(pair[0], "error", f"{PAIR_GAP_SOURCE}:{pair[1]}"))
+        elif classes is not None:
             kept.append(Clearance(classes[0], "error", f"class:{classes[1]}"))
         if zone is not None:
             kept.append(Clearance(zone, "error", ZONE_SOURCE))
@@ -247,6 +283,7 @@ class ClearanceResolver:
 __all__ = [
     "DEFAULT_CLASS",
     "ITEM_KINDS",
+    "PAIR_GAP_SOURCE",
     "UNSET",
     "ZONE_SOURCE",
     "Clearance",

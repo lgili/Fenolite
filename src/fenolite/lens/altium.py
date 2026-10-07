@@ -79,6 +79,8 @@ UPDATE_COMMAND = "Tools » Update From Libraries"
 MAX_PIN_TEXT = 255
 MODEL_ONLY_INTERFACES: frozenset[str] = frozenset({"diff_pair", "i2c", "spi", "uart", "usb2"})
 """The interface kinds an Altium build keeps in the model and names in one ``altium.not-lowered`` info."""
+PAIR_VALUES_WHERE = "pair-values"
+"""The ``where`` of the ``altium.not-lowered`` info that names the net classes holding a pair value."""
 """The longest pin name or number a binary pin's short string holds."""
 ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -1388,6 +1390,17 @@ def _not_lowered(
             "schematic declares their nets"
         )
         found.append(issue("altium.not-lowered", message, "rules"))
+    paired = sorted(
+        c.name
+        for c in design.circuit.netclasses
+        if (c.diff_pair_width, c.diff_pair_gap, c.diff_pair_via_gap) != (None, None, None)
+    )
+    if paired:  # change c0104: given with and without a PCB document, which holds no pair value
+        message = (
+            f"the differential pair width, gap and via gap of the net classes {', '.join(paired)} are kept "
+            "in the model only; no Altium document holds them"
+        )
+        found.append(issue("altium.not-lowered", message, PAIR_VALUES_WHERE))
     found += altium_copper.board_not_lowered(design.board)
     kept = sorted((i.name, i.kind) for i in design.circuit.interfaces if i.kind in MODEL_ONLY_INTERFACES)
     if kept:

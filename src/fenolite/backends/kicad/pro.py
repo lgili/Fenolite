@@ -226,13 +226,16 @@ def pattern_matches(pattern: str, name: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class ProjectClass:
-    """A ``net_settings.classes`` entry: its name and the four modelled values in nm."""
+    """A ``net_settings.classes`` entry: its name and the seven modelled values in nm."""
 
     name: str
     clearance: Nm | None = None
     track_width: Nm | None = None
     via_diameter: Nm | None = None
     via_drill: Nm | None = None
+    diff_pair_width: Nm | None = None
+    diff_pair_gap: Nm | None = None
+    diff_pair_via_gap: Nm | None = None
 
 
 @dataclass(frozen=True)
@@ -456,6 +459,9 @@ def apply_project(design: Design, info: ProjectInfo, *, issues: list[Issue] | No
             track_width=c.track_width,
             via_diameter=c.via_diameter,
             via_drill=c.via_drill,
+            diff_pair_width=c.diff_pair_width,
+            diff_pair_gap=c.diff_pair_gap,
+            diff_pair_via_gap=c.diff_pair_via_gap,
         )
         for i, c in enumerate(info.classes)
     )

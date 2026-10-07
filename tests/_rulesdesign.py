@@ -27,6 +27,18 @@ CREEPAGE_RULE = (
 """The rule that only KiCad 10 checks."""
 NEW_KIND_NAMES = ("pitch", "hole_gap", "ring", "court", "silk", "mains")
 """The slugs of the six rules, as the lowered names end."""
+PAIR_RULES = (
+    "from fenolite.dsl import USB2\n"
+    'usb_p, usb_n = Net("USB_P"), Net("USB_N")\n'
+    'usb = USB2(usb_p, usb_n, name="USB")\n'
+    'design.rules.netclass("USB", clearance=mm(0.2), diff_pair_width=mm(0.2), diff_pair_gap=mm(0.15),'
+    " nets=(usb_p, usb_n))\n"
+    "design.rules.pair(usb, gap_min=mm(0.13), gap_max=mm(0.2), clearance=mm(0.15), uncoupled_max=mm(5),"
+    " skew_max=mm(0.5), length_min=mm(1), length_max=mm(60))\n"
+)
+"""A USB pair in a class with pair values, and a ``pair()`` call that gives every group (change c0104)."""
+PAIR_RULE_NAMES = ("gap", "clearance", "uncoupled", "skew", "length")
+"""The groups of the five pair rules; each lowered name is ``fenolite_1_pair_usb_<group>``."""
 
 
 def script(tmp_path: Path, append: str) -> Path:

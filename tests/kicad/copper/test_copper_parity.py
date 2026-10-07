@@ -89,6 +89,17 @@ def test_zone_clearance_parity(case: str) -> None:
     assert run(f"copper-zoneclr-{case}") == "equal"
 
 
+@pytest.mark.parametrize("case", cp.PAIR_CASES)
+def test_pair_parity(case: str) -> None:
+    """Scenario "Pair parity on both majors" (``H-K-COPPER-PAIR``; change c0104): the clearance in force
+    inside a pair is the class pair gap, a governing rule, or the board minimum, in KiCad and in the copper
+    check alike; two nets of the class that do not pair keep the class clearance."""
+    found = cp.pair_rows(case)
+    assert len(found) == 4 and _differences(found) == []
+    assert [kicad for _, kicad, _ in found] == ["clearance", "clean", "clean", "clearance"]
+    assert run(f"copper-resolve-pair-{case}") == "equal"
+
+
 def test_fill_fill_recorded() -> None:
     """Scenario "Two fills are recorded, not compared"."""
     assert run("copper-fill-fill") in ("present", "absent")

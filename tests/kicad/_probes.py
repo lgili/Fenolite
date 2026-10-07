@@ -60,7 +60,9 @@ import _netcases
 import _netlistcases
 import _offsetbench
 import _openbench
+import _pairbench
 import _paircases
+import _pairclasses
 import _paritycases
 import _pcbxcases
 import _placecases
@@ -329,6 +331,11 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _exclcases.exclusion_probes().items():  # change c0114
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _drawbench.draw_probes().items():  # change c0117
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {  # change c0104
+        **_pairbench.pair_rule_probes(),
+        **_pairclasses.pair_class_probes(),
+    }.items():
         probes[pid] = Probe(function, majors)
     return probes
 

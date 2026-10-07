@@ -30,6 +30,7 @@ from fenolite.backends.kicad import (
     netnames,
     pcb,
     pro,
+    rulemap,
     sch,
     sch_netlist,
     schgen,
@@ -69,12 +70,13 @@ from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
-from fenolite.model import canonical
+from fenolite.model import canonical, pairs
 from fenolite.model.board import FootprintInstance, Pad, Side, ViaProtection
-from fenolite.model.circuit import Component, Net, Pin, PinRef
+from fenolite.model.circuit import Component, Interface, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.rules import Rule, RuleSubject, Selector
 from fenolite.model.schematic import SchematicSheet
 
 RECORD_FILE = ".fenolite/build.json"
@@ -110,6 +112,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.library-too-new": "warning",
         "build.library-changed": "warning",
         "build.diff-pair-name": "warning",
+        "build.diff-pair-gap-shadowed": "warning",
         "build.i2c-pullup-missing": "warning",
         "build.pad-map-default": "warning",
         "layout.unplaced": "warning",
@@ -467,57 +470,195 @@ def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     return out
 
 
-PAIR_KINDS: Mapping[str, tuple[str, str, str]] = MappingProxyType(
-    {"diff_pair": ("p", "n", "diff pair"), "usb2": ("dp", "dn", "USB 2.0 pair")}
-)
-"""Interface kind → the roles of its positive and negative nets, and the words of its messages."""
-PAIR_ENDS: tuple[tuple[str, str], ...] = (("P", "N"), ("+", "-"))
-"""The last characters of the two names of a KiCad differential pair (``H-K-DIFFPAIR-NAMES``)."""
+PAIR_WORDS: Mapping[str, str] = MappingProxyType({"diff_pair": "diff pair", "usb2": "USB 2.0 pair"})
+"""Pair interface kind (``model.pairs.PAIR_ROLES``) → the words of its messages."""
 
 
 def is_pair(first: str, second: str) -> bool:
-    """Whether KiCad takes the two net names as one differential pair: equal except for the last
-    character, ``P`` then ``N`` or ``+`` then ``-``; letter case counts."""
-    return first[:-1] == second[:-1] and (first[-1:], second[-1:]) in PAIR_ENDS
+    """Whether KiCad takes the two net names as one differential pair, the positive one first
+    (``model.pairs.pair_base``, ``H-K-DIFFPAIR-NAMES-2``): equal except for a polarity character, ``P``
+    then ``N`` or ``+`` then ``-``, which only digits and ``_`` may follow; letter case counts."""
+    return pairs.pair_base(first, second) is not None
 
 
 def pair_hint(first: str, second: str) -> str:
     """The names to use instead of a pair that ``is_pair`` refuses."""
-    for positive, negative in PAIR_ENDS:
-        if first.endswith(positive):
-            return f"name the second net {first[:-1]}{negative}: KiCad pairs it with {first}, not {second}"
-    return f"name the nets {first}_P and {first}_N: KiCad pairs names that end in P and N, or in + and -"
+    split = pairs.split_pair_name(first)
+    if split is not None and split.polarity in pairs.POSITIVE:
+        return f"name the second net {pairs.coupled_name(first)}: KiCad pairs it with {first}, not {second}"
+    return (
+        f"name the nets {first}_P and {first}_N: KiCad pairs names that hold P and N, or + and -, "
+        "followed by nothing but digits and underscores"
+    )
+
+
+def _leaves(selector: Selector | None, op: str) -> list[Selector]:
+    if selector is None:
+        return []
+    if selector.items:
+        return [leaf for item in selector.items for leaf in _leaves(item, op)]
+    return [selector] if selector.op == op else []
+
+
+def _fold(selector: Selector) -> Selector:
+    """``selector`` as the copper check compares it (``checks.clearance``, which this package may not
+    import): every leaf value without letter case, a ``diff_pair`` leaf with it."""
+    if selector.items:
+        return dataclasses.replace(selector, items=tuple(_fold(item) for item in selector.items))
+    if selector.op in ("all", "diff_pair"):
+        return selector
+    return dataclasses.replace(selector, value=selector.value.casefold())
+
+
+def _selects(rule: Rule, a: RuleSubject, b: RuleSubject) -> bool:
+    """Whether a rule holds between two track subjects, as the copper check decides it."""
+    if rule.layers and a.layer not in {layer.casefold() for layer in rule.layers}:
+        return False
+    first = _fold(rule.selector_a)
+    if rule.selector_b is None:
+        return first.matches(a) or first.matches(b)
+    second = _fold(rule.selector_b)
+    return (first.matches(a) and second.matches(b)) or (first.matches(b) and second.matches(a))
+
+
+def pair_gap_issue(
+    design: Design, itf: Interface, first: Net, second: Net, base: str, *, target: int, layers: Sequence[str]
+) -> Issue | None:
+    """``build.diff-pair-gap-shadowed`` for one pair whose nets share a class with a pair gap ``g``, when
+    KiCad would report two tracks of the pair ``g`` apart (``H-K-PRO-PAIR``): the clearance in force
+    between them on a copper layer is above ``g`` (the value of the copper check, "Clearance in force"
+    and "Clearance between the nets of a differential pair", with the switches of ``target``), or the board
+    minimum clearance that the build writes is above ``g`` and no ``diff_pair_gap`` rule selects the pair."""
+    classes = {c.id: c for c in design.circuit.netclasses}
+    cls = classes.get(first.netclass_id or "")
+    if cls is None or first.netclass_id != second.netclass_id or cls.diff_pair_gap is None:
+        return None
+    gap = cls.diff_pair_gap
+    ruleset = design.rules
+    ordered = rulemap.rule_order(ruleset.rules if ruleset is not None else ())
+    floor = lowering.lower_minimums(ruleset, target=target, current={}).get("min_clearance")
+    over_classes = target in lowering.RULES_OVER_CLASSES
+    over_rules = target in lowering.FLOOR_OVER_RULES.get("min_clearance", frozenset())
+    words = PAIR_WORDS[itf.kind]
+    hint = (
+        "design.rules.pair(…, clearance=…, gap_min=…) writes a clearance rule and a gap rule for the "
+        "pair, after the rules that shadow its class gap"
+    )
+
+    def text(nm: int) -> str:
+        return lowering.millimetres(nm).text
+
+    def found(what: str) -> Issue:
+        return issue(
+            "build.diff-pair-gap-shadowed",
+            f"{words} {itf.name}: the nets {first.name} and {second.name} are in the class {cls.name}, "
+            f"whose pair gap is {text(gap)} mm, but {what}; KiCad reports two tracks of the pair laid "
+            "at that gap",
+            itf.name,
+            hint,
+        )
+
+    # the class value inside the pair: the pair gap where it is below the class clearance
+    inside = cls.clearance if cls.clearance is not None and cls.clearance <= gap else gap
+    for layer in layers:
+        a, b = (
+            RuleSubject(
+                "track",
+                net=net.name.casefold(),
+                netclass=cls.name.casefold(),
+                layer=layer.casefold(),
+                diff_pair=base,
+            )
+            for net in (first, second)
+        )
+        governing = next(
+            (
+                rule
+                for rule in reversed(ordered)
+                if rule.kind == "clearance" and rule.min is not None and _selects(rule, a, b)
+            ),
+            None,
+        )
+        if governing is None or governing.severity == "ignore" or governing.min is None:
+            continue
+        if not over_classes and inside > governing.min:
+            continue
+        if governing.min > gap and not (over_rules and floor is not None and floor > governing.min):
+            return found(
+                f"the clearance rule {governing.name!r} ({text(governing.min)} mm) governs between them"
+            )
+    if floor is not None and floor > gap:
+        subjects = [
+            RuleSubject("track", net=net.name.casefold(), netclass=cls.name.casefold(), diff_pair=base)
+            for net in (first, second)
+        ]
+        gap_rule = any(
+            rule.kind == "diff_pair_gap" and any(_fold(rule.selector_a).matches(x) for x in subjects)
+            for rule in ordered
+        )
+        if not gap_rule:
+            return found(
+                f"the board minimum clearance that the build writes is {text(floor)} mm and no "
+                "diff_pair_gap rule selects the pair"
+            )
+    return None
 
 
 def interface_checks(
-    design: Design, pins: Mapping[str, Sequence[Pin]], on_net: Mapping[str, Mapping[str, str]]
+    design: Design,
+    pins: Mapping[str, Sequence[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+    *,
+    target: int = versions.DEFAULT_TARGET,
+    layers: Sequence[str] = ("F.Cu", "B.Cu"),
 ) -> list[Issue]:
-    """What a build says about the interfaces of ``design`` (change c0073): one info per pair that is kept
-    in the model only, ``build.diff-pair-name`` for a pair whose names KiCad does not pair, and
+    """What a build says about the interfaces of ``design`` (changes c0073 and c0104): one info per pair
+    that no rule selects, ``build.diff-pair-name`` for a pair whose names KiCad does not pair,
+    ``build.diff-pair-gap-shadowed`` for a pair KiCad would report at its class gap, and
     ``build.i2c-pullup-missing`` for an I2C line without a two-pin part to the ``hv`` net of a ``power``
-    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``. Nothing is changed."""
+    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``; ``layers`` are the copper layers of
+    the board. Nothing is changed."""
     found: list[Issue] = []
+    nets = {net.id: net for net in design.circuit.nets}
     names = {net.id: net.name for net in design.circuit.nets}
+    rules = design.rules.rules if design.rules is not None else ()
+    pair_leaves = [
+        leaf
+        for rule in rules
+        for leaf in (*_leaves(rule.selector_a, "diff_pair"), *_leaves(rule.selector_b, "diff_pair"))
+    ]
     supplies = {i.members["hv"] for i in design.circuit.interfaces if i.kind == "power" and "hv" in i.members}
     for itf in design.circuit.interfaces:
-        if itf.kind in PAIR_KINDS:
-            positive, negative, words = PAIR_KINDS[itf.kind]
-            found.append(
-                issue(
-                    "build.interface-not-lowered", f"{words} {itf.name} is kept in the model only", itf.name
-                )
+        if itf.kind in pairs.PAIR_ROLES:
+            words = PAIR_WORDS[itf.kind]
+            ids = pairs.pair_nets(itf)
+            first, second = (nets.get(ids[0]), nets.get(ids[1])) if ids is not None else (None, None)
+            base = (
+                pairs.pair_base(first.name, second.name) if first is not None and second is not None else None
             )
-            first, second = names.get(itf.members.get(positive, "")), names.get(itf.members.get(negative, ""))
-            if first is not None and second is not None and not is_pair(first, second):
+            if base is None or not any(pairs.base_matches(base, leaf.value) for leaf in pair_leaves):
+                found.append(
+                    issue(
+                        "build.interface-not-lowered",
+                        f"{words} {itf.name} is kept in the model only: no rule of the design selects it, "
+                        "so KiCad knows the pair by its net names only",
+                        itf.name,
+                    )
+                )
+            if first is not None and second is not None and base is None:
                 found.append(
                     issue(
                         "build.diff-pair-name",
-                        f"{words} {itf.name}: KiCad does not take the nets {first} and {second} as a "
-                        "differential pair, so its pair router and inDiffPair() do not find them",
+                        f"{words} {itf.name}: KiCad does not take the nets {first.name} and {second.name} "
+                        "as a differential pair, so its pair router and inDiffPair() do not find them",
                         itf.name,
-                        pair_hint(first, second),
+                        pair_hint(first.name, second.name),
                     )
                 )
+            if first is not None and second is not None and base is not None:
+                shadowed = pair_gap_issue(design, itf, first, second, base, target=target, layers=layers)
+                if shadowed is not None:
+                    found.append(shadowed)
         elif itf.kind == "i2c":
             for line in ("sda", "scl"):
                 net_id = itf.members.get(line)
@@ -634,7 +775,13 @@ def build_design(
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
     _case_collisions(design, issues)
-    issues += interface_checks(design, pins, on_net)
+    issues += interface_checks(
+        design,
+        pins,
+        on_net,
+        target=target,
+        layers=tuple(x.name for x in created_layers(copper) if x.kind == "copper"),
+    )
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))

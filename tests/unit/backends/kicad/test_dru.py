@@ -371,3 +371,73 @@ def test_area_condition_is_lifted_and_written_back() -> None:
     assert [i.code for i in issues] == ["rules.kept-opaque", "rules.kept-opaque"]
     assert "enclosedByArea" in issues[0].message or issues[0].where.endswith("rule[1]")
     assert write_rules(ruleset, target=10) == AREA_RULES
+
+
+# -- hand-written pair rules (change c0104)
+
+PAIR_RULES = """(version 1)
+(rule usb_gap
+\t(layer "F.Cu")
+\t(condition "A.inDiffPair('USB_')")
+\t(constraint diff_pair_gap (min 0.13mm) (opt 0.15mm) (max 0.17mm)))
+(rule usb_uncoupled (condition "A.inDiffPair('USB_')") (constraint diff_pair_uncoupled (max 5mm)))
+(rule u_skew (condition "A.inDiffPair('*')") (constraint skew (opt 0.05mm) (max 0.15mm) (within_diff_pairs)))
+(rule ddr_skew (condition "A.NetClass == 'DDR'") (constraint skew (max 1mm)))
+(rule clk_length (condition "A.NetName == 'CLK'") (constraint length (min 20mm) (opt 25mm) (max 30mm)))
+(rule inside (condition "A.inDiffPair('USB_') && B.inDiffPair('USB_')") (constraint clearance (min 0.1mm)))
+"""
+PAIR_OPAQUE = """(version 1)
+(rule a (condition "A.inDiffPair('USB_')") (constraint diff_pair_uncoupled (min 1mm) (max 5mm)))
+(rule b (condition "A.inDiffPair('USB_')") (constraint skew (max 0.1mm) within_diff_pairs))
+(rule c (condition "A.NetName == 'CLK'") (constraint length (max 150ps)))
+(rule d (layer "F.Cu") (condition "A.inDiffPair('USB_')") (constraint skew (max 0.1mm) (within_diff_pairs)))
+(rule e (condition "A.inDiffPair('USB_')") (constraint skew (within_diff_pairs) (max 0.1mm)))
+(rule f (condition "A.memberOfFootprint('U1')") (constraint length (max 30mm)))
+(rule g (condition "AB.isCoupledDiffPair()") (constraint clearance (min 0.1mm)))
+(rule h (condition "A.inDiffPair('USB_')") (constraint diff_pair_gap (min 0.1mm) (within_diff_pairs)))
+(rule kept (condition "A.inDiffPair('USB_')") (constraint diff_pair_gap (min 0.13mm)))
+"""
+
+
+def test_read_pair_rules_lifted() -> None:
+    """The five kinds, their ``opt``, the list of a skew within pairs, the pair leaf and a layer clause on
+    a gap rule lift into the model."""
+    issues: list[Issue] = []
+    ruleset = read_rules(PAIR_RULES, issues=issues)
+    assert issues == []
+    by_name = {r.name: r for r in ruleset.rules}
+    usb, every = Selector("diff_pair", "USB_"), Selector("diff_pair", "*")
+    gap = by_name["usb_gap"]
+    assert (gap.kind, gap.selector_a, gap.layers) == ("diff_pair_gap", usb, ("F.Cu",))
+    assert (gap.min, gap.opt, gap.max) == (130_000, 150_000, 170_000)
+    assert (by_name["usb_uncoupled"].kind, by_name["usb_uncoupled"].max) == ("diff_pair_uncoupled", 5_000_000)
+    skew = by_name["u_skew"]
+    assert (skew.kind, skew.selector_a, skew.opt, skew.max) == ("diff_pair_skew", every, 50_000, 150_000)
+    assert (by_name["ddr_skew"].kind, by_name["ddr_skew"].selector_a) == ("skew", Selector("netclass", "DDR"))
+    length = by_name["clk_length"]
+    assert (length.kind, length.min, length.opt, length.max) == ("length", 20_000_000, 25_000_000, 30_000_000)
+    inside = by_name["inside"]
+    assert (inside.kind, inside.selector_a, inside.selector_b) == ("clearance", usb, usb)
+
+
+def test_read_pair_rules_rebuilt() -> None:
+    """A rules file holding hand-written pair rules is written back with its names and clause order, and
+    reads back as the same rules."""
+    ruleset = read_rules(PAIR_RULES)
+    text = write_rules(ruleset, target=10)
+    assert plain(read_rules(text)) == plain(ruleset)
+    assert text.index("usb_gap") < text.index("u_skew") < text.index("inside")
+    assert "(within_diff_pairs)" in text and "A.inDiffPair('*')" in text
+
+
+def test_read_pair_rules_outside_the_grammar_kept_opaque() -> None:
+    """A limit outside the kind's row, a bare ``within_diff_pairs`` atom, a time unit, a layer clause on a
+    pair kind other than the gap, the list before the limits, a selector outside the kind's grammar and
+    ``isCoupledDiffPair()`` stay opaque and are written back verbatim."""
+    issues: list[Issue] = []
+    ruleset = read_rules(PAIR_OPAQUE, issues=issues)
+    assert [r.name for r in ruleset.rules] == ["kept"]
+    assert [i.code for i in issues] == ["rules.kept-opaque"] * 8
+    text = write_rules(ruleset, target=10)
+    for line in PAIR_OPAQUE.splitlines()[1:9]:
+        assert line in text, line

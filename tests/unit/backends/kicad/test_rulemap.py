@@ -325,7 +325,7 @@ def test_rule_order() -> None:
 
 def test_support_keys() -> None:
     assert set(rulemap.SELECTOR_SUPPORT) == set(rulemap.SELECTOR_KEYS) == {
-        "net", "netclass", "ref", "item_kind", "area", "and", "or", "not", "glob", "selector_b",
+        "net", "netclass", "ref", "item_kind", "area", "diff_pair", "and", "or", "not", "glob", "selector_b",
         "layer_clause",
     }  # fmt: skip
 

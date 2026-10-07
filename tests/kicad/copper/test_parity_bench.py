@@ -70,6 +70,38 @@ def test_fenolite_half_of_the_parity_rows(source: str, target: int) -> None:
     assert {"rule": "rule", "class": "class", "floor": "floor"}[source] in sources
 
 
+@pytest.mark.parametrize("target", [9, 10])
+@pytest.mark.parametrize("case", cp.PAIR_CASES)
+def test_fenolite_half_of_the_pair_rows(case: str, target: int) -> None:
+    """Change c0104: below the value in force inside the pair is a clearance finding, at it and above it
+    is clean, and the two nets that do not pair are judged by the class clearance. The value comes from
+    the pair gap, the governing rule or the board minimum."""
+    source = cp.pair_source(case)
+    bench = cp.parity_bench(source, target)
+    g = cp.PAIR_CASES[case]
+    rows = [row for row in bench.rows if row.group == cp.pair_group(case)]
+    assert [row.gap - g for row in rows] == [-10_000, 0, 10_000]
+    for row in rows:
+        assert cp.fenolite_verdict(source, target, row) == ("clearance" if row.gap < g else "clean"), row
+    (control,) = [row for row in bench.rows if row.group == cp.PAIR_CONTROL]
+    assert cp.fenolite_verdict(source, target, control) == "clearance"
+    report, uuid_of = cp.fenolite_report(source, target)
+    below = set(bench.bench.uuids(f"{rows[0].label}_a"))
+    sources = {
+        finding.source
+        for finding in report.findings
+        if finding.code == "copper.clearance"
+        and below & {uuid_of.get(item.entity_id) for item in finding.items}
+    }
+    expected = {
+        "class": "pair-gap:PAIRC",
+        "rule": "rule:fenolite_0_board",
+        "pair-rule": "rule:fenolite_1_inside",
+        "floor": "floor",
+    }[case]
+    assert sources == {expected}
+
+
 def test_rule_bench_holds_the_zone_rows_for_target_10_only() -> None:
     groups10 = {row.group for row in cp.parity_bench("rule", 10).rows}
     groups9 = {row.group for row in cp.parity_bench("rule", 9).rows}

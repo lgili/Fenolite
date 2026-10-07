@@ -14,6 +14,7 @@ from typing import Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
+from fenolite.model.pairs import base_matches
 
 RuleKind = Literal[
     "clearance",
@@ -29,14 +30,26 @@ RuleKind = Literal[
     "silk_clearance",
     "creepage",
     "no_tracks",
+    "diff_pair_gap",
+    "diff_pair_uncoupled",
+    "skew",
+    "diff_pair_skew",
+    "length",
 ]
 """The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
-track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. Which sides,
-selector ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
+track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. The last five,
+the pair and length kinds, were added by change c0104 (``skew`` compares every net a rule selects with the
+longest of them, ``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and
+layer clause a kind takes, and for which targets it is written, is the backend's to say
 (``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
-SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "area", "and", "or", "not"]
-LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area")
+SelectorOp = Literal[
+    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "and", "or", "not"
+]
+LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair")
+"""The leaves. The value of ``diff_pair`` is a pair base (``model.pairs``) or ``*``, compared with its
+letter case; the value of ``area`` is the name of a rule area, compared with its letter case and with ``*``
+as a glob; the other leaves hold globs over names."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +63,8 @@ class RuleSubject:
     layer: str | None = None
     areas: frozenset[str] = frozenset()
     """The names of the rule areas the object lies in (letter case counts)."""
+    #: The base of the subject's net when the design holds the coupled net (``model.pairs.net_bases``).
+    diff_pair: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +107,8 @@ class Selector:
                 return _glob(subject.item_kind, self.value)
             case "area":
                 return any(fnmatch.fnmatchcase(name, self.value) for name in subject.areas)
+            case "diff_pair":
+                return base_matches(subject.diff_pair, self.value)
 
 
 def _glob(value: str | None, pattern: str) -> bool:

@@ -3,9 +3,9 @@
 """Selectors of ``design.rules.rule()``: which items a design rule holds for (``docs/dsl.md``, "Design
 rules").
 
-``net``, ``netclass``, ``ref``, ``item`` and ``area`` give leaves; ``&``, ``|`` and ``~`` combine them;
-``ALL`` is every item and stands alone. A name may hold ``*``, which the model keeps as a glob. Whether a
-target writes a selector for a rule kind is decided by the lowering, not here.
+``net``, ``netclass``, ``ref``, ``item``, ``area`` and ``pair`` give leaves; ``&``, ``|`` and ``~`` combine
+them; ``ALL`` is every item and stands alone. A name may hold ``*``, which the model keeps as a glob. Whether
+a target writes a selector for a rule kind is decided by the lowering, not here.
 """
 
 from __future__ import annotations
@@ -13,8 +13,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.items import RuleArea
 from fenolite.dsl.part import Net, Part
+from fenolite.model.pairs import PAIR_ROLES, coupled_name, pair_base
 from fenolite.model.rules import Selector
 
 ITEM_KINDS: tuple[str, ...] = ("track", "via", "pad", "zone")
@@ -96,4 +98,36 @@ def area(area: str | RuleArea) -> Select:
     return Select(Selector("area", name))
 
 
-__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "ref"]
+def pair(x: Interface | str) -> Select:
+    """The items on the two nets of a differential pair: a ``DiffPair``, a ``USB2`` or another interface
+    of a pair kind, whose base is taken from its net names; or a base as text, ``"*"`` for every pair.
+
+    A pair reaches KiCad through its net names, so the two names must form a pair: equal except for a
+    ``P`` and an ``N``, or a ``+`` and a ``-``, which only digits and ``_`` may follow."""
+    if isinstance(x, str):
+        return Select(Selector("diff_pair", _name(x, "pair")))
+    roles = PAIR_ROLES.get(x.kind) if isinstance(x, Interface) else None  # pyright: ignore[reportUnnecessaryIsInstance]
+    if roles is None:
+        raise DslError(
+            f"select.pair() takes a DiffPair, a USB2, an interface of kind "
+            f"{' or '.join(PAIR_ROLES)}, or a base name, not {x!r}"
+        )
+    positive, negative = (x.members.get(role) for role in roles)
+    if positive is None or negative is None:
+        raise DslError(f"select.pair(): interface {x.name} lacks its {roles[0]} or its {roles[1]} net")
+    base = pair_base(positive.name, negative.name)
+    if not base:
+        other = coupled_name(positive.name)
+        hint = (
+            f"name the second net {other}"
+            if other is not None and base is None
+            else f"name them {positive.name}_P and {positive.name}_N"
+        )
+        raise DslError(
+            f"select.pair(): the nets {positive.name} and {negative.name} of {x.name} do not form a "
+            f"differential pair by name; {hint}"
+        )
+    return Select(Selector("diff_pair", base))
+
+
+__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "pair", "ref"]

@@ -138,6 +138,9 @@ def to_model(design: Design) -> ModelDesign:
             track_width=spec.track_width,
             via_diameter=spec.via_diameter,
             via_drill=spec.via_drill,
+            diff_pair_width=spec.diff_pair_width,
+            diff_pair_gap=spec.diff_pair_gap,
+            diff_pair_via_gap=spec.diff_pair_via_gap,
         )
         for name, spec in sorted(design.rules.netclasses.items())
     }
