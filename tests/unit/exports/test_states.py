@@ -170,7 +170,8 @@ def test_roles_and_ranks() -> None:
         "board-support", "schematic-support", "other", "derived", "derived",
     ]  # fmt: skip
     fabrication = {"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"}
-    assert frozenset(fabrication | {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}) == DERIVED
+    documents = {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}
+    assert frozenset(fabrication | documents | {"fab-drawing", "assembly-drawing"}) == DERIVED
     assert not any(rule.state == "oracle-verified" for rules in RULES.values() for rule in rules)
 
 
@@ -266,3 +267,28 @@ def test_documents_follow_their_source() -> None:
     found = states(edited)
     assert (found[step.path].state, found[step.path].stale) == ("generated", True)
     assert (found[sch_pdf.path].state, found[sch_pdf.path].stale) == ("checked", False)
+
+
+# --- drawing kinds (capability manufacturing-exports, "Artefact states"; change c0117)
+
+
+def test_a_drawing_follows_its_board() -> None:
+    assert {"fab-drawing", "assembly-drawing"} <= DERIVED
+    fab = file_entry("fab/drawings/b-fab.pdf", "fab-drawing", b"%PDF", from_={"board": BOARD.sha256})
+    top = file_entry(
+        "fab/drawings/b-assembly-top.pdf", "assembly-drawing", b"%PDF", from_={"board": BOARD.sha256}
+    )
+    entries = (*DESIGN, fab, top)
+    assert role_of(fab) == role_of(top) == "derived"
+
+    def states(current: dict[str, str]) -> dict[str, ArtifactEntry]:
+        found = assign(entries, stages=PASSING, sheets_ok=SHEETS, current=current)
+        return {item.path: item for item in found}
+
+    found = states(_current(entries))
+    assert found[BOARD.path].state == "native-verified"
+    for item in (fab, top):  # a derived file reaches `checked` and no higher rung
+        assert (found[item.path].state, found[item.path].stale) == ("checked", False)
+    found = states({**_current(entries), BOARD.path: "0" * 64})
+    for item in (fab, top):
+        assert (found[item.path].state, found[item.path].stale) == ("generated", True)

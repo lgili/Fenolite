@@ -243,12 +243,13 @@ class KicadCli:
         self,
         args: Sequence[str],
         *,
-        files: Mapping[str, Path],
+        files: Mapping[str, Path | bytes],
         env: Mapping[str, str] | None = None,
         folders: Sequence[str] = (),
     ) -> CliRun:
-        """Copy ``files`` (relative name → file or folder) to a fresh folder, create the empty ``folders``
-        there, and run."""
+        """Copy ``files`` (relative name → file or folder, or the bytes of a file that exists nowhere on
+        disk: a plot copy of change c0117) to a fresh folder, create the empty ``folders`` there, and
+        run. A file given as bytes is an output only when the run changed it, like any copied file."""
         tmp = Path(tempfile.mkdtemp(prefix="fenolite-kicad-"))
         try:
             config = tmp / CONFIG_DIR
@@ -256,7 +257,9 @@ class KicadCli:
             for name, source in files.items():
                 target = tmp / _relative(name)
                 target.parent.mkdir(parents=True, exist_ok=True)
-                if Path(source).is_dir():
+                if isinstance(source, bytes):
+                    target.write_bytes(source)
+                elif Path(source).is_dir():
                     shutil.copytree(source, target)
                 else:
                     shutil.copyfile(source, target)
@@ -293,7 +296,7 @@ class KicadCli:
         not inherit the process environment (a container) passes it on the command line."""
         return [str(self.path), *map(str, args)]
 
-    def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
+    def _checked(self, args: Sequence[str], files: Mapping[str, Path | bytes], what: str) -> CliRun:
         run = self.run(args, files=files)
         if run.outcome == "timeout":
             raise KicadCliError(f"kicad-cli {what} timed out after {self.timeout} s", run)
@@ -330,7 +333,7 @@ class KicadCli:
         return _output(run, "board.d356", "pcb export ipcd356")
 
     def export(
-        self, args: Sequence[str], board: Path, *, files: Mapping[str, Path] | None = None, out: str
+        self, args: Sequence[str], board: Path, *, files: Mapping[str, Path | bytes] | None = None, out: str
     ) -> CliRun:
         """An export command (``args`` without the board) on a copy of ``board``, with the folder ``out``
         created in the run folder first; the caller reads ``returncode`` and the files under ``out``."""
@@ -554,11 +557,12 @@ class ErcRun:
     report: ErcReport | None
 
 
-def _with(board: Path, files: Mapping[str, Path] | None) -> dict[str, Path]:
-    """The board under its own name, and the extra files next to it."""
-    found = {Path(board).name: Path(board)}
+def _with(board: Path, files: Mapping[str, Path | bytes] | None) -> dict[str, Path | bytes]:
+    """The board under its own name, and the extra files next to it. A file given as bytes under the
+    board's name replaces the board in the run folder."""
+    found: dict[str, Path | bytes] = {Path(board).name: Path(board)}
     for name, source in (files or {}).items():
-        found[name] = Path(source)
+        found[name] = source if isinstance(source, bytes) else Path(source)
     return found
 
 

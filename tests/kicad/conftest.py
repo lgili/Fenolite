@@ -4,8 +4,8 @@
 ``_rulebench`` of ``rules/``, ``_procases`` of ``project/``, ``_buildcases`` of ``build/``, and ``_svg``
 and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/``, ``_exportcases`` of ``export/``, and
 ``_zonebench`` and ``_gerber`` of ``zones/``, ``_benches`` of ``copper/``, ``_placecases`` of
-``place/``, ``_asmcases`` of ``assembly/``, ``_schcases`` of ``schematic/``, and ``_viabench`` of
-``vias/``)."""
+``place/``, ``_asmcases`` of ``assembly/``, ``_schcases`` of ``schematic/``, ``_viabench`` of
+``vias/``, and ``_drawbench`` of ``drawings/``)."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ for folder in (
     HERE / "schematic",
     HERE / "followups",
     HERE / "vias",
+    HERE / "drawings",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))

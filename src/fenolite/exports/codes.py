@@ -2,8 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """The issue codes of ``fenolite export`` and ``fenolite render`` (capability manufacturing-exports,
 "Export kinds and their arguments"), of ``fenolite bom`` and ``fenolite pnp`` (capability
-assembly-outputs, "Assembly issue codes and evidence"), and of the manifest (capability
-manufacturing-exports, "Project manifest")."""
+assembly-outputs, "Assembly issue codes and evidence"), of the manifest (capability
+manufacturing-exports, "Project manifest"), and of the drawing kinds (the seven ``drawing.*`` codes of
+change c0117; ``docs/drawings.md``)."""
 
 from __future__ import annotations
 
@@ -30,6 +31,13 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "manifest.changed": ("warning", "error"),
         "manifest.stale": "warning",
         "manifest.unlisted": "info",
+        "drawing.no-room": "error",
+        "drawing.drill-mismatch": "error",
+        "drawing.sheet-unread": "error",
+        "drawing.drill-report-unread": "warning",
+        "drawing.stackup-missing": "info",
+        "drawing.side-empty": "info",
+        "drawing.designators-added": "info",
     }
 )
 """Code → severity. A code with two severities is a warning when ``fenolite manifest`` writes (the file is

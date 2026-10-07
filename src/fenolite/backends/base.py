@@ -726,6 +726,51 @@ class BoardPad:
 
 
 @dataclass(frozen=True, slots=True)
+class PlotTable:
+    """A table of a plot copy (change c0117): never stored in the model, only written into the copy of a
+    board that a drawing is plotted from. ``at`` is its top-left corner; ``cells`` holds one tuple of
+    texts per row, each as long as ``column_widths``; a row of ``header`` rows is ruled off below."""
+
+    name: str
+    layer: str
+    at: Point
+    column_widths: tuple[Nm, ...]
+    row_heights: tuple[Nm, ...]
+    cells: tuple[tuple[str, ...], ...]
+    text_size: Nm
+    border: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class PlotText:
+    """A text of a plot copy, centred on ``at``; a text on a back layer is written mirrored."""
+
+    name: str
+    text: str
+    layer: str
+    at: Point
+    size: Nm
+
+
+@dataclass(frozen=True, slots=True)
+class PlotDimension:
+    """An orthogonal dimension of a plot copy between ``start`` and ``end``, its line ``offset`` away
+    from them (negative: above a horizontal one, left of a vertical one), in millimetres."""
+
+    name: str
+    layer: str
+    start: Point
+    end: Point
+    offset: Nm
+    direction: Literal["horizontal", "vertical"]
+    precision: int
+    text_size: Nm
+
+
+PlotItem = PlotTable | PlotText | PlotDimension
+
+
+@dataclass(frozen=True, slots=True)
 class PlacedExtent:
     """The courtyard of a placed footprint in the board frame: the rings of its front and back faces, where
     they come from, and whether they are exact. Each ring is in the normal form."""
@@ -1122,7 +1167,11 @@ __all__ = [
     "PadNetList",
     "ParityInputs",
     "PlacedExtent",
+    "PlotDimension",
+    "PlotItem",
     "PlotOutcome",
+    "PlotTable",
+    "PlotText",
     "PlotView",
     "Plotter",
     "ProjectRead",

@@ -34,6 +34,11 @@ are kinds of ``export_files`` like the others, and ``sch export pdf`` is the kin
 ``export_output`` maps a kind to a text its run prints on standard output. Each call also records
 ``tree``, every file of the run folder, and ``env``, the ``KICAD*`` variables of the run other than
 ``KICAD_CONFIG_HOME``.
+
+Change c0117 adds the outputs of the drawing kinds. A page is a ``pcb export pdf`` run whose ``-o`` names
+a file, which the kind ``pdf`` already writes. A ``pcb export drill`` run with ``--generate-map`` writes
+the files of the kind ``drill-map`` instead of those of ``drill``: the two drill files, their maps and
+the report (``drill_report`` builds one in KiCad's form; the default report names no drill file).
 """
 
 from __future__ import annotations
@@ -160,6 +165,8 @@ if kind is not None and kind in config["export_files"]:
         print("Output folder is missing: " + folder, file=sys.stderr)
         sys.exit(1)
     wanted = config["export_files"][kind]
+    if kind == "drill" and "--generate-map" in args:
+        wanted = config["export_files"].get("drill-map", wanted)
     for name, text in wanted.items():
         target = os.path.join(folder, name.replace("{stem}", stem)) if out.endswith("/") else out
         open(target, "w", encoding="latin-1", newline="").write(text)
@@ -215,6 +222,38 @@ GERBER = "%TF.GenerationSoftware,KiCad,Pcbnew,10.0.6*%\n%TF.CreationDate,2026-10
 DRILL = "M48\n; DRILL file KiCad 10.0.6 date 2026-10-03T00:00:00+0000\nM30\n"
 PDF = "%PDF-1.5\n1 0 obj\n<<\n/CreationDate (D:20261007000000)\n/Title (board.pdf)\n>>\nendobj\n%%EOF\n"
 """A stand-in for a PDF that ``kicad-cli`` wrote: its date line is the one a content hash leaves out."""
+REPORT_HEAD = "Drill report for board.kicad_pcb\nCreated on 2026-10-07T00:00:00\n\n"
+
+
+def drill_report(
+    stem: str,
+    plated: Mapping[str, int],
+    unplated: Mapping[str, int] | None = None,
+    pairs: Mapping[tuple[str, str], Mapping[str, int]] | None = None,
+    *,
+    closing: str = "))",
+) -> str:
+    """A drill report in the form ``kicad-cli`` writes: per drill file, one line per tool with its
+    diameter in millimetres (the keys, such as ``"0.300"``) and its hole count. ``closing`` ends a tool
+    line of more than one hole: ``))`` as 10.0.6 writes it, ``)`` as 9.0.9 does."""
+
+    def section(name: str, title: str, tools: Mapping[str, int], word: str) -> str:
+        lines = [f"Drill file '{name}' contains", f"    {title}:", "    " + "=" * 61]
+        for number, (diameter, count) in enumerate(tools.items(), 1):
+            end = f"{count} holes{closing}" if count != 1 else "1 hole)"
+            lines.append(f'    T{number}  {diameter}mm  0.0000"  ({end}')
+        lines += ["", f"    Total {word} holes count {sum(tools.values())}", "", ""]
+        return "\n".join(lines)
+
+    text = REPORT_HEAD + section(f"{stem}-PTH.drl", "plated through holes", plated, "plated")
+    for (first, last), tools in (pairs or {}).items():
+        words = {"F": "front", "B": "back"}
+        short = "-".join(words.get(name.split(".")[0], name.split(".")[0].lower()) for name in (first, last))
+        title = f"holes connecting layer pair: '{first} and {last}' (blind vias)"
+        text += section(f"{stem}-{short}.drl", title, tools, "plated")
+    return text + section(f"{stem}-NPTH.drl", "unplated through holes", unplated or {}, "unplated")
+
+
 EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
     "gerbers": {
         "{stem}-F_Cu.gbr": GERBER,
@@ -232,6 +271,13 @@ EXPORT_FILES: Mapping[str, Mapping[str, str]] = {
     "pdf": {"{stem}-F_Cu.pdf": PDF, "{stem}-Edge_Cuts.pdf": PDF},
     "dxf": {"{stem}-Edge_Cuts.dxf": "0\nSECTION\n0\nENDSEC\n0\nEOF\n"},
     "sch-pdf": {"schematic.pdf": PDF},
+    "drill-map": {
+        "{stem}-PTH.drl": DRILL,
+        "{stem}-NPTH.drl": DRILL,
+        "{stem}-PTH-drl_map.pdf": PDF,
+        "{stem}-NPTH-drl_map.pdf": PDF,
+        "{stem}-drill.rpt": REPORT_HEAD,
+    },
 }
 """What the fake writes for each export kind when ``export_files`` is not given."""
 
@@ -359,6 +405,7 @@ __all__ = [
     "GERBER",
     "PDF",
     "calls",
+    "drill_report",
     "erc_entry",
     "erc_report_with",
     "fake_kicad_cli",

@@ -33,6 +33,7 @@ import _checkcases
 import _copperparity
 import _creepbench
 import _doccases
+import _drawbench
 import _drccases
 import _erccases
 import _exclcases
@@ -321,6 +322,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _tiebench.tie_probes().items():  # change c0114
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _exclcases.exclusion_probes().items():  # change c0114
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _drawbench.draw_probes().items():  # change c0117
         probes[pid] = Probe(function, majors)
     return probes
 

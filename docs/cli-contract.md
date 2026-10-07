@@ -1135,7 +1135,8 @@ when the document holds unpoured polygons, which the guard cannot judge. No file
 ## export
 
 `fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf]
-[--dxf] [--sch-pdf] [--all] [--altium-rul] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]`
+[--dxf] [--sch-pdf] [--fab-drawing] [--assembly-drawing] [--drawing-spec FILE] [--all] [--altium-rul]
+[--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]`
 writes the fabrication files and documents that `kicad-cli` produces from a
 copy of the board `PATH` names (resolved as for `check`) and, for `--sch-pdf`, of its schematic. Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
@@ -1178,6 +1179,35 @@ the same on KiCad 9 and 10; `--variant`, `--drawing-sheet` and `--define-var` ar
 - `PATH` names a KiCad board. An Altium document or project is refused with exit 2 (`FEN-2001`), as for
   the four fabrication kinds.
 
+`--fab-drawing` and `--assembly-drawing` (change c0117; `docs/drawings.md`) write a fabrication drawing
+and assembly drawings under `DIR/drawings/`. Each page is one `pcb export pdf --mode-single
+--include-border-title --drill-shape-opt 0 -D FENOLITE_DRAWING=<title>` run on a copy of the board that
+holds Fenolite's tables, dimensions and added designators as board items (`--layers Edge.Cuts,Dwgs.User`
+for the fabrication page, `F.Fab,Edge.Cuts` for the top assembly page, `B.Fab,Edge.Cuts` with `--mirror`
+for the bottom one, and `--drawing-sheet` for a sheet the specification names); the fabrication kind also
+runs `pcb export drill … --generate-map --map-format pdf --generate-report` and keeps the maps and the
+report. These are the only runs that pass `--define-var` or `--drawing-sheet`.
+
+- Each flag selects its kind. A drawing kind counts as a selected kind, needs `kicad-cli` (`FEN-6001`,
+  `FEN-6002`, `--timeout` per run), and is not selected by `--all`; `--preset` changes none of its
+  arguments, and `result.repeat` maps both kinds to `content`. `result.kinds` lists the drawing kinds
+  last, `fab-drawing` first.
+- `--drawing-spec FILE` names the drawing specification, a TOML file whose `schema` is
+  `fenolite.drawing-spec.v0` (`docs/drawings.md`, "The specification file"). It is read after `PATH`
+  is resolved and before any tool runs: without a drawing flag the call exits 2 (`FEN-2001`), a file
+  that cannot be read exits 3 (`FEN-3001`), and a file with a problem exits 3 (`FEN-3004`) with every
+  problem and its dotted key in the message. Without the option every default applies.
+- `PATH` names a KiCad board: an Altium document or project is refused with exit 2 (`FEN-2001`) before
+  the specification is read or a tool is looked for.
+- `result.drawings` (present when a drawing kind is selected) holds one object per page produced, in the
+  order fabrication, assembly top, assembly bottom: `kind`, `path`, `paper`, `portrait`, `sheet`
+  (`spec`, `project` or `kicad-default`) and `blocks` (each with `name`, and `at` and `size` in integer
+  nanometres), and for an assembly page `side` and `designators_added`.
+- A `drawing.*` issue of severity error plans no write, for any selected kind; an info or a warning does
+  not change the exit code. With a drawing kind the evidence is combined with `exports.drawings.EVIDENCE`
+  (`INFERRED`; `H-K-DRAW-ITEMS`, `H-K-DRAW-PAGE`, `H-K-DRAW-DRILL`), and a manifest entry of a drawing
+  kind carries that level, `layer` `null` and the board's SHA-256 in `from`.
+
 `--altium-rul` (change c0084) writes `DIR/<stem>.RUL`: the rules of the project's rules file
 (`<stem>.kicad_dru`) as an Altium rule file, which Altium's PCB Rules editor imports. It runs no tool, so
 alone it needs no `kicad-cli` (`tool_version` is `null` and the evidence has no oracle), and `--all`
@@ -1213,6 +1243,13 @@ folder never holds a partial set; a warning never holds the files back.
 | `export.model-unread` | warning | `--step`: `kicad-cli` printed that it could not add the model of a part (`where`) whose files Fenolite gave it |
 | `export.page-too-small` | warning | `--pdf`: the outline of the board does not fit the page of its paper, so the PDF is cut (`where` is `pdf`) |
 | `kicad.lib.missing-3d-model` | warning | `--step`: a model path that no source holds; `where` is the path, and the message names the parts |
+| `drawing.no-room` | error | a drawing page's paper does not hold the board box or a block at 1:1; `where` is the block or `board box`, and the message names the smallest paper that holds the page |
+| `drawing.drill-mismatch` | error | `--fab-drawing`: the drill table and KiCad's drill report give different counts for a diameter; `where` is the drill file |
+| `drawing.sheet-unread` | error | the drawing sheet of the specification or of the project cannot be read or built; `where` is the file; no drawing run |
+| `drawing.drill-report-unread` | warning | `--fab-drawing`: KiCad's drill report names no drill file, so the drill table was not checked |
+| `drawing.stackup-missing` | info | `--fab-drawing`: the board has no stack-up, so the drawing has no stack-up table |
+| `drawing.side-empty` | info | `--assembly-drawing`: no part sits on the bottom, so there is no bottom page |
+| `drawing.designators-added` | info | `--assembly-drawing`: references were added to a page (`where` is the side); the message gives the count |
 
 Exit codes: 0 when the files are planned or written, whatever the warnings, 4 without `--dry-run` or
 `--confirm`, 5 with an error above, 2 for a usage error, 3 for a missing path, a board Fenolite cannot

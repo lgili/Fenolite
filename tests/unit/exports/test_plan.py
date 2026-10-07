@@ -187,6 +187,13 @@ def test_issue_codes() -> None:
         "manifest.changed": ("warning", "error"),
         "manifest.stale": "warning",
         "manifest.unlisted": "info",
+        "drawing.no-room": "error",  # the seven codes of the drawing kinds (c0117)
+        "drawing.drill-mismatch": "error",
+        "drawing.sheet-unread": "error",
+        "drawing.drill-report-unread": "warning",
+        "drawing.stackup-missing": "info",
+        "drawing.side-empty": "info",
+        "drawing.designators-added": "info",
     }
     assert issue("manifest.missing", "m").severity == "warning"
     assert issue("manifest.missing", "m", severity="error").severity == "error"

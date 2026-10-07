@@ -147,10 +147,14 @@ VOLATILE_PREFIXES: Mapping[str, tuple[bytes, ...]] = MappingProxyType(
         "pdf": (b"/CreationDate",),
         "dxf": (),
         "sch-pdf": (b"/CreationDate",),
+        "fab-drawing": (b"/CreationDate", b"Created on"),
+        "assembly-drawing": (b"/CreationDate",),
     }
 )
 """Per kind, the starts of the lines that carry the creation date (leading blanks ignored). A kind whose
-``repeat`` is ``none`` has no prefix: its content hash is the hash of its bytes."""
+``repeat`` is ``none`` has no prefix: its content hash is the hash of its bytes. The two drawing kinds of
+change c0117 (``exports.drawings``) are not rows of ``KINDS``; their PDFs carry the date line of every PDF
+that ``kicad-cli`` writes, and the drill report of the fabrication drawing its ``Created on`` line."""
 
 
 @dataclass(frozen=True, slots=True)

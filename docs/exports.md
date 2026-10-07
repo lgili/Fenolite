@@ -181,6 +181,17 @@ by `kicad-cli` from a KiCad board, and Fenolite does not convert a board to expo
 has its output job instead (`build --target altium`, `docs/altium.md`), which Altium runs.
 `--altium-rul` stays what it is: a rule file made from a KiCad project's rules, with no tool.
 
+## Drawings
+
+`--fab-drawing` and `--assembly-drawing` (change c0117) write a fabrication drawing and assembly drawings
+under `DIR/drawings/`, plotted by `kicad-cli` from copies of the board that hold Fenolite's tables, notes
+and dimensions; `--drawing-spec FILE` sets paper, sheet, tables, notes and assembly options. They are
+described in `docs/drawings.md`: the pages, the tables, the specification file, the seven `drawing.*`
+codes and the limits. `--all` does not select them, no preset reaches them, and they take a KiCad board
+(an Altium project gets its drawings from Altium). The fabrication drawing comes with KiCad's drill maps
+and drill report; those maps are the ones the preset key `drill.map` writes under `drill/`. In the
+manifest a drawing is a derived file of the board, like a Gerber, with `layer` `null`.
+
 ## Presets
 
 A fabricator's options are yours to state, in a file of your own. `fenolite export … --preset fab.toml`

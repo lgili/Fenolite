@@ -1163,6 +1163,41 @@ meaning = "A kicad-cli that was found has a major other than 9 or 10, or reports
 fix = "Install KiCad 9 or 10, or name another binary."
 see = "doctor"
 
+["drawing.designators-added"]
+meaning = "An assembly drawing shows references that Fenolite added: the footprints named by the count show no reference on their fabrication layer, so a text of each reference was put at the centre of its courtyard in the plot copy. The board file is unchanged."
+fix = "Nothing to do. Set designators = false or designator_size under [assembly] in the drawing specification to leave them out or to change their size."
+see = "export"
+
+["drawing.drill-mismatch"]
+meaning = "The drill table of the fabrication drawing states another hole count for a diameter than KiCad's drill report gives for the drill file that 'where' names. The drawing would state a count the drill files do not hold, so no file of the export was written."
+fix = "Read both counts in the message and compare the board with drawings/<board>-drill.rpt of a drill export. A difference is a defect of Fenolite's drill table: report the board."
+see = "export"
+
+["drawing.drill-report-unread"]
+meaning = "KiCad's drill report names no drill file that Fenolite can read, so the drill table of the fabrication drawing was not checked against it. The drawing is written with the table."
+fix = "Open the report under drawings/ and compare its counts with the table yourself; a newer kicad-cli may write the report in another form."
+see = "export"
+
+["drawing.no-room"]
+meaning = "A drawing page does not hold its content at 1:1: the board box or the block that 'where' names lies outside the page, on the drawing sheet, or on a fixed corner that is taken. No file of the export was written."
+fix = "Set [page] paper in the drawing specification to the paper the message names, or leave it \"auto\"; free the fixed corner (at); for a board that lies outside every page, move it onto the page in KiCad."
+see = "export"
+
+["drawing.sheet-unread"]
+meaning = "The drawing sheet of the pages cannot be read or built: the file that the drawing specification or the project names is missing, is not a drawing sheet, or is a sheet template that does not build. No file of the export was written."
+fix = "Correct the path of drawing_sheet under [page], or the sheet the project names; 'where' names the file. Leave both out to plot with KiCad's default sheet."
+see = "export"
+
+["drawing.side-empty"]
+meaning = "No part sits on the side that 'where' names, so that assembly drawing is not made."
+fix = "Nothing to do. Name only the sides you want under [assembly] sides in the drawing specification."
+see = "export"
+
+["drawing.stackup-missing"]
+meaning = "The board holds no stack-up that Fenolite reads, so the fabrication drawing has no stack-up table and its board table no thickness, finish or impedance row."
+fix = "Define the stack-up of the board (Board Setup in KiCad), or leave stackup out of [fab] tables in the drawing specification."
+see = "export"
+
 ["equiv.component-missing"]
 meaning = "A component reference exists on one side of the comparison only."
 fix = "Add or remove the component, or leave such references out with --ignore-ref."
