@@ -32,6 +32,9 @@ class JobPad:
 class JobNet:
     """One selected net and the physical constraints a router must use (all lengths in nm).
 
+    ``layers`` is ``None`` when the net may use every routing layer of the job, else the non-empty tuple,
+    in stack order, of the routing layers its tracks may use (change c0107).
+
     ``tier`` orders a job: a plugin routes the tiers one after the other, lowest first, and the copper of
     earlier tiers is fixed input of later ones (capability routing, "Routing tiers"; change c0109).
     """
@@ -43,7 +46,8 @@ class JobNet:
     clearance: Nm
     via_diameter: Nm
     via_drill: Nm
-    # builds on c0107 (not on this base): ``tier`` comes after the fields c0107 adds to a job net.
+    layers: tuple[str, ...] | None = None
+    # ``tier`` (c0109) stays the last field: it comes after the field c0107 adds to a job net.
     tier: int = 0
 
 
@@ -55,6 +59,9 @@ class RoutingJob:
     the command fills ``board_pads`` (the pads of ``BoardFrame.board_pads``) and ``outline`` (the rings of
     the board outline, the board first). A router that needs neither ignores it.
 
+    ``plane_layers`` names the copper layers, in stack order, that hold planes and take no track (change
+    c0107); a job built without it means what it meant before.
+
     ``budget`` is the wall-clock time, in seconds, of the plugin's whole ``route()``; ``None`` gives the
     plugin's ``DEFAULT_BUDGET`` (capability routing, "Routing time budget"; change c0109). A router that
     starts no process ignores it. ``nets`` is sorted by tier, then by name.
@@ -65,7 +72,8 @@ class RoutingJob:
     layers: tuple[str, ...]
     options: Mapping[str, str] = field(default_factory=lambda: {})
     extra: Mapping[str, object] = field(default_factory=lambda: {})
-    # builds on c0107 (not on this base): ``budget`` comes after the fields c0107 adds to a job.
+    plane_layers: tuple[str, ...] = ()
+    # ``budget`` (c0109) stays the last field: it comes after the field c0107 adds to a job.
     budget: float | None = None
 
 

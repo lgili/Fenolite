@@ -423,6 +423,7 @@ class FreeroutingRouter:
             issues.extend(issue for issue in found if issue not in issues)
 
         try:
+            net_layers = {net.name: net.layers for net in job.nets if net.layers is not None}
             for tier in sorted(tiers):
                 names = tuple(net.name for net in tiers[tier])
                 if ended or budget.left() <= 0:  # no process starts once the budget is spent
@@ -439,6 +440,11 @@ class FreeroutingRouter:
                         selected=names,
                         defaults=defaults,
                         others="netless",
+                        # change c0107: the plane layers of the job and the layers its nets are kept
+                        # to; the rules travel in the design. A job without them writes the file it
+                        # wrote before.
+                        plane_layers=job.plane_layers,
+                        net_layers=net_layers,
                     )
                 except ValueError as error:
                     return self._failed(

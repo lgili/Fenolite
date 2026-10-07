@@ -322,3 +322,22 @@ def test_unsupported_selector_not_droppable() -> None:
     with pytest.raises(RulesLossError) as caught:
         write_rules(RuleSet(id=derived_id("rst", "test", "l"), rules=(rule,)), target=10, allow_lossy=True)
     assert caught.value.droppable is False and "--allow-lossy" not in caught.value.hint
+
+
+# -- track layer rules (change c0107; the other cases are in test_rulemap_no_tracks.py)
+
+
+def test_no_tracks_lift_and_opaque_forms() -> None:
+    """Scenario "Lift and opaque forms" (capability kicad-file-backend, "Track layer rules in rules
+    files")."""
+    text = (
+        "(version 1)\n"
+        '(rule "a" (layer "In2.Cu") (condition "A.NetClass == \'SIG\'") (constraint disallow track))\n'
+        '(rule "b" (layer inner) (condition "A.NetClass == \'SIG\'") (constraint disallow track))\n'
+        '(rule "c" (layer "F.Cu") (constraint disallow via))\n'
+    )
+    issues: list[Issue] = []
+    (a,) = read_rules(text, issues=issues).rules
+    assert (a.name, a.kind, a.layers) == ("a", "no_tracks", ("In2.Cu",))
+    assert a.selector_a == Selector("netclass", "SIG")
+    assert [i.code for i in issues] == ["rules.kept-opaque", "rules.kept-opaque"]

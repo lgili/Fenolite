@@ -183,8 +183,20 @@ def test_kind_support_follows_the_probe_files() -> None:
             if probes.get(f"dru-kind-{kind}") == "present":
                 expected[kind].add(major)
     assert {kind: set(rulemap.KIND_SUPPORT[kind]) for kind in NEW_KINDS} == expected  # type: ignore[index]
-    for kind in set(get_args(RuleKind)) - set(NEW_KINDS):
+    for kind in set(get_args(RuleKind)) - set(NEW_KINDS) - {"no_tracks"}:
         assert rulemap.KIND_SUPPORT[kind] == frozenset({9, 10})
+
+
+def test_kind_support_of_no_tracks_follows_the_probe_files() -> None:
+    """``KIND_SUPPORT["no_tracks"]`` holds exactly the majors whose committed probe file records ``present``
+    for ``dru-kind-no_tracks`` (capability rules-model, "Track layer rules", scenario "Support follows the
+    probes"; change c0107)."""
+    expected: set[int] = set()
+    for name, major in {"9.0.9": 9, "10.0.6": 10}.items():
+        probes: dict[str, str] = json.loads((PROBES / f"{name}.json").read_text(encoding="utf-8"))["probes"]
+        if probes.get("dru-kind-no_tracks") == "present":
+            expected.add(major)
+    assert set(rulemap.KIND_SUPPORT["no_tracks"]) == expected
 
 
 # -- reading

@@ -775,6 +775,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),
+        planes=plane_nets,
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):
@@ -833,7 +834,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             *default_issues,
             *built.issues,
             *symbol_issues,
-            *plane_issues(plane_nets),
+            *plane_issues(plane_nets, built.layout or built.design),
             *copper_issues,
             *placement_issues,
         ),

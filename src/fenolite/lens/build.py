@@ -49,7 +49,7 @@ from fenolite.backends.kicad.embed import (
     uuid_locators,
     with_property,
 )
-from fenolite.backends.kicad.layers import created_layers
+from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
 from fenolite.backends.kicad.outline import BoardOutline, board_outline
@@ -115,7 +115,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.global-library": "info",
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
-        "build.plane-not-lowered": "info",
+        "build.plane-zone-missing": "warning",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
     }
@@ -147,18 +147,29 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, BUILD_ISSUE_CODES[code], message, where=where, hint=hint)
 
 
-def plane_issues(planes: Mapping[str, str]) -> list[Issue]:
-    """One ``build.plane-not-lowered`` info per internal plane of the script (layer name → net name): the
-    KiCad target writes the layer as the signal layer it is, and no plane (change c0038). The hint names
-    the script call that draws that copper (change c0100)."""
+def plane_issues(planes: Mapping[str, str], design: Design) -> list[Issue]:
+    """One ``build.plane-zone-missing`` warning per internal plane of the script (layer name → net name)
+    whose net has no zone on its layer in ``design``, the design the board is written from (the script's
+    zones and those of the existing board). The KiCad target gives the layer the row type ``power`` and
+    writes no copper for the plane: the zone is the copper (change c0107). The hint names the script call
+    that draws it (change c0100)."""
+    board = design.board
+    by_id = {net.id: net.name for net in design.circuit.nets}
+    covered = {
+        (layer, by_id.get(zone.net_id or ""))
+        for zone in (board.zones if board is not None else ())
+        for layer in zone.layers
+    }
     return [
         issue(
-            "build.plane-not-lowered",
-            f"the plane on {layer} (net {net}) is not written: {layer} stays a signal layer of the board",
+            "build.plane-zone-missing",
+            f"the plane on {layer} (net {net}) has no copper: no zone of {net} lies on {layer}; "
+            f"the layer is written as a plane layer (type power) all the same",
             layer,
             f'draw that copper in the script: design.zone(<the net {net}>, layers=("{layer}",))',
         )
         for layer, net in planes.items()
+        if (layer, net) not in covered
     ]
 
 
@@ -568,8 +579,14 @@ def build_design(
     schematic_layout: Literal["readable", "grid"] = "readable",
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
+    planes: Mapping[str, str] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    ``planes`` are the script's internal planes (layer name → net name). Each plane layer gets the KiCad
+    row type ``power`` in the written board, after the merge with an existing board; every other copper
+    layer keeps the type of the board it is written from, so a type set in KiCad stays (``docs/lens.md``,
+    "Plane layers across rebuilds"; change c0107). The copper of a plane is the script's zone.
 
     ``Board.stackup`` of ``design`` is the script's stack-up. Against an existing board it is decided by
     ``stackup.merge_stackup``: the board's wins unless ``lock_stackup`` is set (``docs/lens.md``,
@@ -808,6 +825,16 @@ def build_design(
         unexported = vialib.not_exported(target_design)
         if unexported is not None:
             issues.append(unexported)
+    if planes and target_design.board is not None:
+        # after the merge: the table may be the existing board's, whose other types are kept
+        held_copper = {layer.name for layer in target_design.board.layers if layer.kind == "copper"}
+        typed = with_plane_types(
+            target_design.board.layers, tuple(name for name in planes if name in held_copper)
+        )
+        if typed != target_design.board.layers:
+            target_design = dataclasses.replace(
+                target_design, board=dataclasses.replace(target_design.board, layers=typed)
+            )
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)

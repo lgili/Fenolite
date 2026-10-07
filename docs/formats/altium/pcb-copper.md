@@ -202,6 +202,12 @@ limits of its row.
 | `courtyard_clearance` | — | — | — | — | — | no-counterpart |
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
+| `no_tracks` | — | — | — | — | — | no-counterpart |
+
+The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which signal layers may be used for
+routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its
+record (kind number, constraint keys) is in no public file read under the sources register, so the row
+cannot be `exact`: a `no_tracks` rule is reported with `altium.not-lowered` and no record is written.
 
 ## Locked flag of a free primitive
 

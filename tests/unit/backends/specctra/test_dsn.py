@@ -782,16 +782,27 @@ def test_issue_codes() -> None:
         "specctra.unknown-padstack": "error",
         "specctra.session-moved": "error",
         "specctra.pad-approximated": "warning",
+        "specctra.plane-skipped": "warning",  # change c0107, with the two rule codes
         "specctra.rounded": "info",
         "specctra.renamed": "info",
         "specctra.unknown-list": "info",
+        "specctra.rule-not-sent": "info",
+        "specctra.rule-widened": "info",
     }
     assert set(dsn.ISSUE_CODES.values()) <= set(SEVERITIES)
 
 
 def test_evidence_stays_inferred_until_the_probes_run() -> None:
     assert dsn.EVIDENCE.level is Level.INFERRED
-    assert dsn.EVIDENCE.hypotheses == ("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-UNITS")
+    assert dsn.EVIDENCE.hypotheses == (
+        "H-G-DSN-ACCEPT",
+        "H-G-DSN-CLEARANCE",
+        "H-G-DSN-EDGE-2",
+        "H-G-DSN-LAYERS",
+        "H-G-DSN-PLANE",
+        "H-G-DSN-PROTECT",
+        "H-G-DSN-UNITS",
+    )
 
 
 def test_not_a_registered_backend() -> None:
@@ -804,3 +815,56 @@ def test_package_holds_its_provenance_and_nothing_of_the_reference() -> None:
     text = (package / "PROVENANCE.md").read_text(encoding="utf-8")
     assert "S-0224" in text and "ADR-0006" in text
     assert sorted(p.name for p in package.glob("*.pdf")) == []
+
+
+# --- the text of the writer before change c0107 ---------------------------------------------------------
+
+
+def _unchanged_inputs(
+    tmp_path: Path,
+) -> dict[str, tuple[Design, tuple[object, ...], object, tuple[str, ...]]]:
+    """The two boards of the scenario "Same text without planes, layers and rules": the four-layer plane
+    bench without its rules, and the blink built for target 10; every net of two pads or more is selected."""
+    import _planebench as pb
+    from _copper import built_blink
+
+    from fenolite.backends.kicad.frame import board_pads
+    from fenolite.backends.kicad.outline import board_outline
+
+    found = pb.load(pb.build_project(tmp_path, rules=False))
+    blink = built_blink(10)
+    cases = {}
+    for name, design, pads, rings in (
+        ("planebench_norules", found.design, found.pads, found.outline),
+        ("blink_t10", blink, board_pads(blink), board_outline(blink).rings),
+    ):
+        selected = tuple(
+            sorted(n.name for n in design.circuit.nets if len(design.by_net.get(n.name, ())) >= 2)
+        )
+        cases[name] = (design, pads, rings, selected)
+    return cases
+
+
+def test_unchanged_without_planes_layers_and_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Same text without planes, layers and rules": a call without ``plane_layers`` and
+    ``net_layers``, for a design without a rule, writes the text recorded from the writer of the commit
+    before change c0107 (``FENOLITE_GOLDEN_WRITE=1`` recorded it, once, before the writer was changed)."""
+    import os
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    for name, (design, pads, rings, selected) in _unchanged_inputs(tmp_path).items():
+        assert design.rules is None or design.rules.rules == ()
+        result = write_dsn(design, pads=pads, outline=rings, selected=selected, defaults=DEFAULTS)  # type: ignore[arg-type]
+        golden = DATA / f"c0107_before_{name}.dsn"
+        if os.environ.get("FENOLITE_GOLDEN_WRITE") == "1" and os.environ.get("FENOLITE_C0107_RECORD") == "1":
+            golden.write_text(result.text, encoding="utf-8", newline="\n")
+        assert result.text == golden.read_text(encoding="utf-8"), name
+        layers = [node for node in _section(result.text, "structure").lists if node.head == "layer"]
+        assert layers and all("(type signal)" in dumps_of(node) for node in layers)
+        assert "plane" not in {node.head for node in _section(result.text, "structure").lists}
+
+
+def dumps_of(node: SNode) -> str:
+    from fenolite.backends.specctra.lexer import dumps
+
+    return dumps(node)

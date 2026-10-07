@@ -128,7 +128,7 @@ def test_clearance_with_a_maximum() -> None:
     assert [i.code for i in error.issues] == ["rules.unsupported-limit"] and "clr" in error.issues[0].message
 
 
-@pytest.mark.parametrize("kind", sorted(rulemap.KIND_MAP))
+@pytest.mark.parametrize("kind", sorted(set(rulemap.KIND_MAP) - rulemap.NO_LIMIT_KINDS))
 def test_each_kind_lowers(kind: str) -> None:
     text = lowered(rule(kind, min=100_000)).text
     assert f"(constraint {rulemap.KIND_MAP[kind]} (min 0.1mm))" in text  # type: ignore[index]
@@ -281,3 +281,25 @@ def test_codes() -> None:
         literals |= set(re.findall(r'"(rules\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
     assert literals == set(rulemap.RULE_ISSUE_CODES)
     assert {i.code for i in [*PRODUCED, *found]} >= {"rules.kept-opaque", "rules.dropped-for-target"}
+
+
+# -- track layer rules (change c0107; the other cases are in test_rulemap_no_tracks.py)
+
+
+def test_no_tracks_kinds_and_one_rule_per_layer() -> None:
+    """Scenarios "Thirteen kinds, one without a limit" and "A class kept off the inner layers"."""
+    from typing import get_args
+
+    from fenolite.model.rules import RuleKind
+
+    assert len(get_args(RuleKind)) == 13 and get_args(RuleKind)[-1] == "no_tracks"
+    made = rule(
+        "no_tracks", Selector("netclass", "SIG"), name="sig-outer", min=None, layers=("In1.Cu", "In2.Cu")
+    )
+    text = lowered(made).text
+    for layer, slug in (("In1.Cu", "in1_cu"), ("In2.Cu", "in2_cu")):
+        head = f'(rule "fenolite_0_sig_outer_{slug}"\n\t(layer "{layer}")\n'
+        body = "\t(condition \"A.NetClass == 'SIG'\")\n\t(constraint disallow track)\n\t(severity error)\n)"
+        assert head + body in text
+    error = refused(rule(min=None))
+    assert [i.code for i in error.issues] == ["rules.unsupported-limit"]

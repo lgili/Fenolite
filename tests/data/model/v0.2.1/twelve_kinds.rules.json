@@ -1,0 +1,162 @@
+{
+  "id": "rst_de163e04-fed0-57d2-a85e-1ceee613860c",
+  "rules": [
+    {
+      "id": "rul_6b73ed37-4c4f-50e8-9fef-3fe8d83e2ecc",
+      "name": "old-annular_width",
+      "kind": "annular_width",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 900000,
+      "priority": 8
+    },
+    {
+      "id": "rul_7d65abc5-d2f2-52f7-ba57-a16f06ffd7f8",
+      "name": "old-clearance",
+      "kind": "clearance",
+      "selector_a": {
+        "op": "netclass",
+        "value": "HV"
+      },
+      "selector_b": {
+        "op": "or",
+        "items": [
+          {
+            "op": "net",
+            "value": "A*"
+          },
+          {
+            "op": "netclass",
+            "value": "LV"
+          }
+        ]
+      },
+      "min": 100000
+    },
+    {
+      "id": "rul_5ff2c1bf-c44d-528a-b7fb-31ff9bc37790",
+      "name": "old-courtyard_clearance",
+      "kind": "courtyard_clearance",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 1000000,
+      "severity": "warning",
+      "priority": 9
+    },
+    {
+      "id": "rul_7f64211d-4e53-5631-b3f9-9f3e5b8c2ab1",
+      "name": "old-creepage",
+      "kind": "creepage",
+      "selector_a": {
+        "op": "netclass",
+        "value": "HV"
+      },
+      "selector_b": {
+        "op": "or",
+        "items": [
+          {
+            "op": "net",
+            "value": "A*"
+          },
+          {
+            "op": "netclass",
+            "value": "LV"
+          }
+        ]
+      },
+      "min": 1200000,
+      "severity": "warning",
+      "priority": 11
+    },
+    {
+      "id": "rul_c3bf2c71-2140-5aad-a1f6-07d22ef04f75",
+      "name": "old-edge_clearance",
+      "kind": "edge_clearance",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 600000,
+      "severity": "warning",
+      "priority": 5
+    },
+    {
+      "id": "rul_37eb864b-7755-566f-9b78-055e5a301821",
+      "name": "old-hole_clearance",
+      "kind": "hole_clearance",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 800000,
+      "severity": "warning",
+      "priority": 7
+    },
+    {
+      "id": "rul_0d96ab05-b54c-5eba-b659-665470fde28a",
+      "name": "old-hole_size",
+      "kind": "hole_size",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 500000,
+      "priority": 4
+    },
+    {
+      "id": "rul_4553c93f-a836-540a-aeac-0bdfff7802aa",
+      "name": "old-hole_to_hole",
+      "kind": "hole_to_hole",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 700000,
+      "priority": 6
+    },
+    {
+      "id": "rul_93cba0a0-2033-5af4-8e3c-f1d00210773a",
+      "name": "old-silk_clearance",
+      "kind": "silk_clearance",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 1100000,
+      "priority": 10
+    },
+    {
+      "id": "rul_ec8b1314-d663-5546-9043-40bc1823024a",
+      "name": "old-track_width",
+      "kind": "track_width",
+      "selector_a": {
+        "op": "all"
+      },
+      "layers": [
+        "F.Cu"
+      ],
+      "min": 200000,
+      "max": 2000000,
+      "severity": "warning",
+      "priority": 1
+    },
+    {
+      "id": "rul_bddcbf77-af81-55cc-bed4-5291848c268e",
+      "name": "old-via_diameter",
+      "kind": "via_diameter",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 300000,
+      "priority": 2
+    },
+    {
+      "id": "rul_fe777bbe-79b1-57c3-baf4-5ddd14307049",
+      "name": "old-via_drill",
+      "kind": "via_drill",
+      "selector_a": {
+        "op": "all"
+      },
+      "min": 400000,
+      "severity": "warning",
+      "priority": 3
+    }
+  ]
+}

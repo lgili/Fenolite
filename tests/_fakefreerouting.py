@@ -60,6 +60,11 @@ if runs:
     dsn = design_file.read_text(encoding="utf-8") if design_file and design_file.is_file() else ""
     with open(listed, "a", encoding="utf-8") as stream:
         stream.write(json.dumps({{"argv": argv, "dsn": dsn}}) + "\\n")
+kept = os.environ.get("FAKE_JAVA_KEEP_DSN")
+if kept and design_file is not None:
+    # change c0107: keep the design file the router was given
+    given = design_file.read_text(encoding="utf-8")
+    Path(kept).write_text(given, encoding="utf-8")
 mode = os.environ.get("FAKE_JAVA_MODE", "write")
 optimizer = "--router.optimizer.enabled=false" not in argv
 if (

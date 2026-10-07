@@ -934,8 +934,8 @@ meaning = "A pin that is connected to a net has no pad in the footprint."
 fix = "Choose a footprint with that pad, or map the pin to an existing pad."
 see = "build"
 
-["build.plane-not-lowered"]
-meaning = "A plane of the script is not written to the KiCad board; one issue per plane."
+["build.plane-zone-missing"]
+meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
 fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
 
@@ -1912,6 +1912,11 @@ meaning = "A zone that an earlier build created has no zone() in the script any 
 fix = "Nothing to do; put the call back to keep the zone."
 see = "build"
 
+["kicad.fanout.failed"]
+meaning = "route found no room for the fan-out via of an SMD pad of a plane net: none of the 72 candidates around the pad keeps the clearances, lies inside the plane's zone and on the board, and avoids the keep-outs. The pad stays open; the message names what blocked the first candidate."
+fix = "Move the part or free room beside the pad, or join the pad to its plane in the design script, then run route again."
+see = "route"
+
 ["kicad.zone.overridden"]
 meaning = "An unlocked zone() differs from the zone on the board, and the board's zone was kept."
 fix = "Nothing to do; lock the zone() to make the script win."
@@ -2287,6 +2292,26 @@ meaning = "A net that a zone carries was left out of the routing."
 fix = "Pass the flag that includes zone nets if tracks are wanted for it."
 see = "route"
 
+["route.plane-net"]
+meaning = "A net that has a zone on a plane layer (a copper layer of type power) is never given to a router: its pads reach the plane through vias. One issue per plane net that the --nets patterns select."
+fix = "Nothing to do. route makes one fan-out via per SMD pad of the net unless --no-plane-fanout is given; run fill afterwards so the plane connects them."
+see = "route"
+
+["route.no-layer"]
+meaning = "Track layer rules (no_tracks) forbid every routing layer to a selected net, so it was not given to the router."
+fix = "Free at least one copper layer for the net in the no_tracks rules of the design, or route it by hand."
+see = "route"
+
+["route.constraint-not-sent"]
+meaning = "The router takes no option for plane layers or for the layers a net is kept to, so it was told neither; its tracks may lie on a plane layer or on a layer a no_tracks rule forbids."
+fix = "Run check after routing, or route with freerouting, which is told both."
+see = "route"
+
+["route.project-unread"]
+meaning = "The project file or the rules file beside the board could not be read. Without the project every net takes the default class values; without the rules file the rules of the design are not given to the router."
+fix = "Repair the file that 'where' names, or rebuild the project, and run route again."
+see = "route"
+
 ["rules.dropped-for-target"]
 meaning = "With --allow-lossy, a rule that the target KiCad version cannot load was left out of the rules file."
 fix = "Nothing to do if the loss is accepted; else target the newer KiCad."
@@ -2345,6 +2370,21 @@ see = "route"
 ["specctra.unknown-padstack"]
 meaning = "The router's result uses a via that the design file did not offer."
 fix = "Run the router again; report it if it repeats."
+see = "route"
+
+["specctra.plane-skipped"]
+meaning = "A zone on a plane layer has no outline of three points or more, so the Specctra file holds no plane for it and the router does not count its net as joined there."
+fix = "Give the zone an outline, or let design.zone() take the board outline."
+see = "route"
+
+["specctra.rule-not-sent"]
+meaning = "A design rule is not in the Specctra file, because the format has no list for it: a rule on single nets, references or item kinds, a glob, a 'not', or a kind other than clearance, track width and edge clearance."
+fix = "Nothing to do for the router; KiCad's design-rule check still judges the routed board against the rule."
+see = "route"
+
+["specctra.rule-widened"]
+meaning = "A clearance or edge-clearance rule names layers. The Specctra file has no clearance per layer, so the rule was written for every layer and the router keeps it everywhere."
+fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
 ["sync.net-dropped"]

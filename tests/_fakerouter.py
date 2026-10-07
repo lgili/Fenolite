@@ -5,7 +5,8 @@
 Environment read by the fake ``route.py``: ``FAKE_ROUTER_MODE`` (``append``, the default: one segment on
 the first net of ``--nets``; ``drop``; ``fail``; ``sleep``), ``FAKE_ROUTER_RECORD`` (a JSON file that
 receives the arguments and the folder of the last run), ``FAKE_ROUTER_RUNS`` (a file that receives one
-JSON line per run: its arguments, its names of ``--nets`` and the text of its input board; change c0109),
+JSON line per run: its arguments, its names of ``--nets``, the text of its input board (change c0109)
+and the text of the rules file beside it (change c0107)),
 ``FAKE_ROUTER_SLEEP_NET`` and ``FAKE_ROUTER_FAIL_NET`` (the run whose ``--nets`` names that net sleeps
 5 s, or exits 2 printing ``boom``).
 """
@@ -54,7 +55,14 @@ def create_fake_router(folder: Path, *, version: str = "0.22.1") -> Path:
                 Path(record).write_text(json.dumps({"argv": sys.argv[1:], "cwd": os.getcwd()}))
             runs = os.environ.get("FAKE_ROUTER_RUNS")
             if runs:
-                entry = {"argv": sys.argv[1:], "nets": named, "board": source.read_text(encoding="utf-8")}
+                beside = source.with_suffix(".kicad_dru")
+                rules = beside.read_text(encoding="utf-8") if beside.is_file() else ""
+                entry = {
+                    "argv": sys.argv[1:],
+                    "nets": named,
+                    "board": source.read_text(encoding="utf-8"),
+                    "rules": rules,
+                }
                 with open(runs, "a", encoding="utf-8") as stream:
                     stream.write(json.dumps(entry) + "\\n")
             mode = os.environ.get("FAKE_ROUTER_MODE", "append")

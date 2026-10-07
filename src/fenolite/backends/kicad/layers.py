@@ -10,13 +10,15 @@ S-0021; the ``*.Adhes`` row and the fallback for names outside the table are Fen
 
 from __future__ import annotations
 
+import dataclasses
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from types import MappingProxyType
 
 from fenolite.core.ids import derived_id
 from fenolite.model.base import ExtBag
 from fenolite.model.board import Layer, LayerKind
+from fenolite.model.design import Design
 
 LAYER_KINDS: Mapping[str, LayerKind] = MappingProxyType(
     {
@@ -180,12 +182,54 @@ def created_layers(copper: int) -> tuple[Layer, ...]:
     return tuple(layers)
 
 
+PLANE_ROW_TYPE = "power"
+"""The copper row type of a plane layer (``board.md``, "Plane layers"; ``H-K-LAYER-POWER``)."""
+
+
+def _row_type(layer: Layer) -> str | None:
+    bag = layer.ext.get("kicad")
+    return None if bag is None else dict(bag.payload).get("type")
+
+
+def plane_layers(design: Design) -> tuple[str, ...]:
+    """The copper layers of the board whose KiCad row type is ``power``, in stack order: the plane layers
+    (change c0107). A copper layer without a ``type`` in its ext bag is not a plane layer."""
+    if design.board is None:
+        return ()
+    copper = sorted((x for x in design.board.layers if x.kind == "copper"), key=lambda x: x.ordinal)
+    return tuple(layer.name for layer in copper if _row_type(layer) == PLANE_ROW_TYPE)
+
+
+def with_plane_types(layers: Sequence[Layer], planes: Collection[str]) -> tuple[Layer, ...]:
+    """``layers`` with the row type ``power`` on each copper layer named in ``planes``; every other layer
+    is returned as it is, so a type the board already holds is never removed. A name that is not a copper
+    layer of ``layers`` raises ``ValueError``."""
+    copper = {layer.name for layer in layers if layer.kind == "copper"}
+    unknown = [name for name in planes if name not in copper]
+    if unknown:
+        raise ValueError(f"{', '.join(unknown)}: not a copper layer of the board, so it takes no plane")
+    made: list[Layer] = []
+    for layer in layers:
+        if layer.name not in planes or _row_type(layer) == PLANE_ROW_TYPE:
+            made.append(layer)
+            continue
+        bag = layer.ext.get("kicad", ExtBag())
+        pairs = [(key, value) for key, value in bag.payload if key != "type"]
+        keys = [key for key, _ in bag.payload]
+        index = keys.index("type") if "type" in keys else min(1, len(pairs))
+        pairs.insert(index, ("type", PLANE_ROW_TYPE))
+        ext = {**layer.ext, "kicad": dataclasses.replace(bag, payload=tuple(pairs))}
+        made.append(dataclasses.replace(layer, ext=ext))
+    return tuple(made)
+
+
 __all__ = [
     "COPPER_ROW_TYPES",
     "CREATED_COPPER_COUNTS",
     "CREATED_ROWS",
     "FLIP_SUFFIXES",
     "LAYER_KINDS",
+    "PLANE_ROW_TYPE",
     "created_count",
     "created_layers",
     "expand_layers",
@@ -194,4 +238,6 @@ __all__ = [
     "inner_rows",
     "is_canonical",
     "layer_kind",
+    "plane_layers",
+    "with_plane_types",
 ]

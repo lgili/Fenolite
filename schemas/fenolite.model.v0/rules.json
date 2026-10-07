@@ -185,7 +185,8 @@
             "annular_width",
             "courtyard_clearance",
             "silk_clearance",
-            "creepage"
+            "creepage",
+            "no_tracks"
           ]
         },
         "selector_a": {

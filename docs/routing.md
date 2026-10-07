@@ -160,6 +160,72 @@ optimizer, on the time that is left. Its session replaces the first when it ends
 first is kept and `route.optimizer-cut` (info) says so. That second run routes the nets again before it
 optimizes, and it is not offered together with `--order`.
 
+## Plane layers and plane fan-out
+
+A copper layer of the KiCad row type `power` is a plane layer, and a net with a zone on one is a plane net
+(change c0107). `design.board(planes=…)` sets the type in a build; KiCad's board setup sets it too.
+`fenolite route` then works in three steps:
+
+1. **Plane nets leave the selection.** A plane net is never given to a router, also with
+   `--include-zone-nets`: a router cannot bring a pad to a plane on a `power` layer (`H-G-DSN-PLANE`), so it
+   would trace the net on the surface. Each plane net that `--nets` selects gives `route.plane-net`.
+2. **Plane fan-out.** Each SMD pad of a selected plane net gets one short track and one through via
+   (`backends.kicad.fanout.plan_fanout`), unless `--no-plane-fanout` is given. The copper is merged before
+   the router runs, so every router sees it as existing copper, and it is written also when no net goes
+   to a router. `result.plane_fanout` counts it.
+3. **Routing layers.** A net's tracks may use the copper layers that are not plane layers and that no
+   `no_tracks` rule forbids to it (`routing.layers.allowed_layers`; `JobNet.layers`). A net left with no
+   layer gives `route.no-layer`.
+
+The fan-out search is deterministic. Pads are taken in board footprint order, then pad order.
+
+- **Joined pads are skipped**: a via of the net overlaps the pad's copper, or a chain of the net's tracks
+  and arcs on the pad's layer leads from its copper, through equal end points or ends inside another pad
+  of the net, to a via of the net or to a through-hole pad of the net. Copper made earlier in the same run
+  counts, so a pad tied by a track to a fanned-out pad gets no second via.
+- **Sizes** are the net's: track width, via diameter and drill from its class, else the project's
+  `Default` class, else 0.2 mm, 0.6 mm and 0.3 mm. The neck between the via and its own pad is the net's
+  clearance.
+- **Candidates.** The eight directions at multiples of 45° are tried in the order of their angle to the
+  outward direction, from the footprint's position to the pad's. Along each, the step is a quarter of the
+  via diameter, rounded up to a whole micrometre; the first distance is the smallest multiple at which the
+  via keeps the neck from its pad, and eight more follow. Via centres lie on whole micrometres.
+- **Tests**, exact in integers: the via keeps the clearance in force (the copper check's
+  `ClearanceResolver`, over the project's classes and rules) from every copper item of another net on
+  every copper layer, pads and holes included; it overlaps no other pad of its net and no other via; it
+  lies inside the outline of a zone of its net on a plane layer by at least half its diameter; it keeps
+  the edge clearance from every outline ring and lies on the board; it touches no keep-out that forbids
+  vias; its drill keeps a board-wide `hole_to_hole` rule from every other drill. The track keeps the
+  clearance in force on the pad's layer and crosses no keep-out that forbids tracks there. Zone fills are
+  not obstacles: run `fenolite fill` after routing.
+- **A pad without room** stays open with `kicad.fanout.failed`, which names the pad, the net and what
+  blocked the first candidate. Move the part, or join the pad in the script.
+
+The fan-out via takes the board's default via protection, as every via without its own values does
+(`docs/lens.md`, "Via protection across rebuilds"). It is routed copper: a later build keeps it, `--rip`
+on its net removes it and makes it again, and locked copper stays (`--rip` keeps locked items).
+
+This is not Freerouting's own fanout stage, which makes escapes for signal pins and stays enabled: that
+stage added no via to a plane in any measured run.
+
+### What each router is given
+
+| | plane layers | layers of a net | rules of the design |
+|---|---|---|---|
+| `direct` | takes the first shared layer that is not a plane layer | and that is in the net's layers | none: it checks nothing |
+| `freerouting` | `(type power)` and one `plane` per zone | `use_layer` in the net's class, split by layer set | class clearances, `class_class`, widths, `layer_rule`; the rest is reported (`specctra.rule-not-sent`, `specctra.rule-widened`) |
+| `kicadroutingtools` | not told (`route.constraint-not-sent`); its board file holds the row types | not told; its rules file holds the `disallow track` rules | its rules file holds them (`H-K-KRT-PLANES`, not measured) |
+
+The rules the design file cannot carry: a rule on single nets, references or item kinds, a glob, a `not`,
+every kind other than `clearance` and `track_width`, and the edge clearance. Keep-out bands along the board
+edges were measured and not adopted: they kept the edge clearance where the board left room and lost the
+route in a 2 mm passage (`H-G-DSN-EDGE-2`). KiCad's check judges the routed board for all of them.
+
+Measured on 2026-10-05 with Freerouting 2.4.1 on a generated board of 100 parts with two inner planes, its
+83 plane vias made by hand, the inner layers written `power` and one plane per zone: with the optimizer off,
+no unrouted connection in 365 s, 1133 tracks and 170 vias, none on a plane layer and none added to a plane
+net; `kicad-cli` 10.0.6 after a refill reported no unconnected item and no violation of severity error.
+
 ## Freerouting
 
 **Install.** Let Fenolite fetch the pinned jar:

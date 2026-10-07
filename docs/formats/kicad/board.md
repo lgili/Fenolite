@@ -133,6 +133,18 @@ never taken from KiCad's writer code.
 | A layer table of 2, 4, 6 or 8 copper layers with those inner rows loads on 10.0.6 in the target-9 and the target-10 text (`pcb drc` writes its report), `pcb export gerbers` writes one Gerber per copper layer, named after it, and `pcb upgrade --force` keeps every copper row (number, name, type, no user name, in order) | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
 | 10.0.6 refuses a table of three copper layers (`F.Cu`, `In1.Cu`, `B.Cu`) in both texts: no DRC report and no Gerber | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PCB-LAYERS |
 | 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | INFERRED | H-K-PCB-LAYERS |
+| A copper row of type `power` (`(4 "In1.Cu" power)`) loads on 10.0.6 in the target-9 and the target-10 text and adds no violation type to the DRC report of the same routed board with `signal` rows; its Gerber carries the file function `Copper,L<n>,Inr`, as a signal row's does; `pcb upgrade --force` keeps the type. The type says what the layer is for and changes no check: tracks on it are not reported | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-LAYER-POWER |
+| 9.0.9 loads the target-9 text with `power` rows the same way (measured on 2026-10-05; its probe is not yet recorded in `9.0.9.json`) | S-0029 | INFERRED | H-K-LAYER-POWER |
+
+### Plane layers (c0107)
+
+A copper layer whose row type is `power` is a plane layer: `layers.plane_layers(design)` gives them in stack
+order, from the `type` that the reader keeps in `Layer.ext["kicad"]` and the writer writes back unchanged for
+both targets. `layers.with_plane_types(layers, planes)` sets the type on the named copper layers and leaves
+every other layer as it is, so it never removes a type. A build with `design.board(planes=…)` uses it after
+the layout merge; `fenolite route` reads the plane layers to keep tracks off them and to fan out the pads of
+their nets (`docs/routing.md`, "Plane layers and plane fan-out"). The copper of a plane is a zone of its net
+on the layer: the row type makes no copper.
 
 ## What the reader models
 

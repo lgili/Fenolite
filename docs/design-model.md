@@ -463,3 +463,15 @@ atoms, and respelled fields written from changed model values).
 For a design authored in Fenolite, the exported tool project is the source of truth for layout;
 `.fenolite/` is a regenerable, git-ignored cache; imported third-party files are kept immutable by
 SHA-256 under `native/`.
+
+## Rule kinds (c0107)
+
+`model.rules.RuleKind` holds thirteen kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
+and arcs of the items that `selector_a` selects are not allowed on the copper layers of `layers`. It takes
+no limit and no `selector_b`, and it is last in the list, so the first twelve keep their order.
+
+The kind is additive in one direction only. A `rules.json` without a `no_tracks` rule is, byte for byte,
+what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and serialises to its own bytes), and
+`schema_version` stays `"0"`.
+Releases 0.2.x and 0.3.x cannot read a model document that holds a `no_tracks` rule: their `RuleKind` lacks
+the value.

@@ -17,15 +17,24 @@ gives the file text, the names it wrote and its findings. It reads no file and i
   design files"; change c0109, ``H-G-DSN-NETLESS``). A net whose class clearance is larger than the
   default rule stays declared: the router keeps only the default rule from copper without a net, and
   KiCad asks for the larger clearance (measured with Freerouting 2.4.1, outcome ``dsn-netless``).
+- **Planes, layers and rules** (change c0107). A layer of ``plane_layers`` is written ``(type power)`` with
+  one ``plane`` per zone of a net on it; a net of ``net_layers`` is kept to its layers with ``use_layer``, its
+  class split by layer set; the rules of ``design.rules`` that the subset can carry are lowered by the closed
+  table of ``_lower_rules`` (class clearances, ``class_class``, widths, ``layer_rule``), and every other rule
+  is reported, the edge clearance among them: the format has no clearance from the board edge, and keep-out
+  bands along the edges lost a route on the oracle bench (``H-G-DSN-EDGE-2``). A call without the two
+  arguments, for a design without a rule, writes what it wrote before.
 
 Every fact behind this module is ``INFERRED`` until the probes of ``H-G-DSN-ACCEPT``, ``H-G-DSN-UNITS`` and
-``H-G-DSN-PROTECT`` are recorded.
+``H-G-DSN-PROTECT`` are recorded; the lists of change c0107 follow ``H-G-DSN-LAYERS``, ``H-G-DSN-PLANE``,
+``H-G-DSN-CLEARANCE`` and ``H-G-DSN-EDGE-2``.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Literal
 
 from fenolite.backends.base import BoardPad, PadCopper
@@ -36,23 +45,39 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, round_half_even_div
 from fenolite.geometry import DEFAULT_TOL, Circle, GeometryError, Polygon, convex_hull
 from fenolite.geometry import Arc as GeometryArc
+from fenolite.model.circuit import NetClass
 from fenolite.model.design import Design
+from fenolite.model.rules import Rule, Selector
 
 UNIT_NM = 100
 """Nanometres per database unit."""
 RESOLUTION = 10
 """Database units per micrometre, the value of ``(resolution um 10)``."""
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-UNITS"))
-"""Raised when the three probes are recorded; a route itself is always ``UNVERIFIED``."""
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-G-DSN-ACCEPT",
+        "H-G-DSN-CLEARANCE",
+        "H-G-DSN-EDGE-2",
+        "H-G-DSN-LAYERS",
+        "H-G-DSN-PLANE",
+        "H-G-DSN-PROTECT",
+        "H-G-DSN-UNITS",
+    ),
+)
+"""Raised when the probes are recorded; a route itself is always ``UNVERIFIED``."""
 Others = Literal["declared", "netless"]
 """How ``write_dsn`` writes the nets outside the job."""
 ISSUE_CODES: dict[str, Severity] = {
     "specctra.unknown-padstack": "error",
     "specctra.session-moved": "error",
     "specctra.pad-approximated": "warning",
+    "specctra.plane-skipped": "warning",
     "specctra.rounded": "info",
     "specctra.renamed": "info",
     "specctra.unknown-list": "info",
+    "specctra.rule-not-sent": "info",
+    "specctra.rule-widened": "info",
 }
 """Every ``specctra.*`` code and its one severity."""
 PCB_LAYER = "pcb"
@@ -61,6 +86,9 @@ RESERVED_LAYERS = frozenset({PCB_LAYER, SIGNAL_LAYER, "power"})
 HOST = "fenolite"
 UNCONNECTED_PREFIX = "unconnected-("
 """How KiCad names the net of a pin on no net (``docs/formats/kicad/schematic.md``, "Net names")."""
+DEFAULT_CLASS = "Default"
+"""The class name that selects the nets without a class, as KiCad names it."""
+NO_LAYERS: Mapping[str, tuple[str, ...]] = MappingProxyType({})
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +208,162 @@ class _Namer:
         return text
 
 
+def _classes_of(selector: Selector | None) -> frozenset[str] | None:
+    """What a rule side selects, for the closed table: ``frozenset()`` for every item (``all`` or no
+    selector), the class names of a ``netclass`` leaf or of an ``or`` of such leaves, else ``None``."""
+    if selector is None or selector.op == "all":
+        return frozenset()
+    if selector.op == "netclass" and "*" not in selector.value:
+        return frozenset({selector.value})
+    if selector.op == "or":
+        found: set[str] = set()
+        for item in selector.items:
+            names = _classes_of(item)
+            if not names:
+                return None
+            found |= names
+        return frozenset(found)
+    return None
+
+
+@dataclass
+class _Lowered:
+    """The rules of a design as the Specctra subset carries them (``docs/formats/specctra/dsn.md``,
+    "Routing rules"). Values combine by maximum: the router keeps at least what any rule asks."""
+
+    clearance: int
+    width: int
+    class_clearance: dict[str, int] = field(default_factory=lambda: {})
+    class_width: dict[str, int] = field(default_factory=lambda: {})
+    layer_width: dict[str, dict[str, int]] = field(default_factory=lambda: {})
+    pairs: dict[tuple[str, str], int] = field(default_factory=lambda: {})
+
+
+def _lower_rules(
+    rules: Sequence[Rule],
+    classes: Mapping[str, NetClass],
+    defaults: DsnDefaults,
+    copper: Sequence[str],
+    issues: list[Issue],
+) -> _Lowered:
+    """Lower ``rules`` over the written ``classes`` (name → model class) by the closed table; a rule the
+    subset cannot carry gives ``specctra.rule-not-sent``, a dropped layer clause ``specctra.rule-widened``."""
+    low = _Lowered(defaults.clearance, defaults.width)
+    for name, cls in classes.items():
+        low.class_clearance[name] = cls.clearance or defaults.clearance
+        low.class_width[name] = cls.track_width or defaults.width
+    opt_set: set[str] = set()
+
+    def not_sent(rule: Rule, why: str) -> None:
+        issues.append(
+            Issue(
+                "specctra.rule-not-sent",
+                "info",
+                f"the {rule.kind} rule {rule.name!r} is not in the design file: {why}",
+                where=rule.name,
+            )
+        )
+
+    def widened(rule: Rule) -> None:
+        issues.append(
+            Issue(
+                "specctra.rule-widened",
+                "info",
+                f"the {rule.kind} rule {rule.name!r} names the layers {', '.join(rule.layers)}; the design "
+                "file has no clearance per layer, so the rule is written for every layer",
+                where=rule.name,
+            )
+        )
+
+    def raise_clearance(names: frozenset[str], value: int) -> None:
+        """Raise the clearance of the named classes (``Default`` without such a class: the default rule;
+        no name: every class and the default rule)."""
+        if not names:
+            low.clearance = max(low.clearance, value)
+        for name in sorted(names or low.class_clearance):
+            if name in low.class_clearance:
+                low.class_clearance[name] = max(low.class_clearance[name], value)
+            elif name == DEFAULT_CLASS:
+                low.clearance = max(low.clearance, value)
+
+    for rule in rules:
+        if rule.severity == "ignore" or rule.kind == "no_tracks":
+            continue  # a track layer rule travels as net_layers
+        side_a, side_b = _classes_of(rule.selector_a), _classes_of(rule.selector_b)
+        if rule.kind not in ("clearance", "track_width", "edge_clearance"):
+            not_sent(rule, f"the Specctra subset has no list for a {rule.kind} rule")
+            continue
+        if side_a is None or side_b is None:
+            not_sent(rule, "its selector is not 'all', a net class or an 'or' of net classes")
+            continue
+        if rule.kind == "clearance":
+            if rule.min is None:
+                not_sent(rule, "it has no min")
+                continue
+            if rule.layers:
+                widened(rule)
+            if not side_a or not side_b:
+                raise_clearance(side_a or side_b, rule.min)
+                continue
+            lost = False
+            for a in sorted(side_a):
+                for b in sorted(side_b):
+                    if a == b:
+                        raise_clearance(frozenset({a}), rule.min)
+                    elif a in low.class_clearance and b in low.class_clearance:
+                        key = (a, b) if a < b else (b, a)
+                        low.pairs[key] = max(low.pairs.get(key, 0), rule.min)
+                    elif DEFAULT_CLASS in (a, b):
+                        lost = True
+            if lost:
+                not_sent(rule, "the nets without a class have no class to pair in the design file")
+        elif rule.kind == "edge_clearance":
+            # Decision 11's fallback (change c0107): keep-out bands along the edges removed the edge
+            # findings of the oracle bench but lost its route in a 2 mm passage (H-G-DSN-EDGE, refuted)
+            not_sent(
+                rule,
+                "the Specctra subset has no clearance from the board edge; check the routed board",
+            )
+        else:  # track_width
+            if rule.selector_b is not None:
+                not_sent(rule, "a width rule has one side")
+                continue
+            names = sorted(side_a or low.class_width)
+            if rule.layers:
+                unknown = [layer for layer in rule.layers if layer not in copper]
+                if rule.opt is None or unknown:
+                    why = (
+                        f"{', '.join(unknown)} is not a copper layer of the board"
+                        if unknown
+                        else "a width per layer needs an opt value"
+                    )
+                    not_sent(rule, why)
+                    continue
+                for name in names:
+                    if name in low.class_width:
+                        per_layer = low.layer_width.setdefault(name, {})
+                        for layer in rule.layers:
+                            per_layer[layer] = max(per_layer.get(layer, 0), rule.opt)
+                continue
+
+            def fit(name: str, current: int, rule: Rule = rule) -> int:
+                if rule.opt is not None:
+                    value = max(current, rule.opt) if name in opt_set else rule.opt
+                    opt_set.add(name)
+                    return value
+                value = current if rule.min is None else max(current, rule.min)
+                return value if rule.max is None else min(value, max(rule.max, rule.min or 0))
+
+            for name in names:
+                if name in low.class_width:
+                    low.class_width[name] = fit(name, low.class_width[name])
+                elif name == DEFAULT_CLASS:
+                    low.width = fit("", low.width)
+            if not side_a:
+                low.width = fit("", low.width)
+    return low
+
+
 class _Writer:
     def __init__(
         self,
@@ -189,6 +373,8 @@ class _Writer:
         selected: Sequence[str],
         defaults: DsnDefaults,
         others: Others = "declared",
+        plane_layers: Sequence[str] = (),
+        net_layers: Mapping[str, Sequence[str]] = NO_LAYERS,
     ) -> None:
         if others not in ("declared", "netless"):
             raise ValueError(f"others must be 'declared' or 'netless', got {others!r}")
@@ -211,6 +397,21 @@ class _Writer:
         )
         if not self.copper:
             raise ValueError("the board has no copper layer")
+        unknown = [name for name in plane_layers if name not in self.copper]
+        if unknown:
+            raise ValueError(f"plane layer {', '.join(unknown)} is not a copper layer of the board")
+        self.plane_layers = tuple(name for name in self.copper if name in plane_layers)
+        self.net_layers: dict[str, tuple[str, ...]] = {}
+        for net, layers in sorted(net_layers.items()):
+            given = tuple(layers)
+            if not given:
+                raise ValueError(f"the net {net} has an empty layer set")
+            for layer in given:
+                if layer not in self.copper:
+                    raise ValueError(f"the net {net} is kept to {layer}, which is not a copper layer")
+                if layer in self.plane_layers:
+                    raise ValueError(f"the net {net} is kept to {layer}, which is a plane layer")
+            self.net_layers[net] = tuple(name for name in self.copper if name in given)
         self.issues: list[Issue] = []
         self.rounded = 0
         self.layer_out: dict[str, str] = {}
@@ -347,13 +548,25 @@ class _Writer:
             nodes.append(SNode("padstack", (name, *shapes)))
         return nodes
 
-    def plane_nets(self) -> frozenset[str]:
-        """The names of the nets of the planes this file holds; they stay declared in every mode.
+    def plane_zones(self) -> list[tuple[str, str, tuple[Point, ...], str]]:
+        """The planes of the board: ``(net name, layer, outline, zone label)`` for each zone with a net,
+        in model order, and each of its layers that is a plane layer, in stack order."""
+        names = {net.id: net.name for net in self.design.circuit.nets}
+        found: list[tuple[str, str, tuple[Point, ...], str]] = []
+        for zone in self.board.zones:
+            net = names.get(zone.net_id or "")
+            if net is None:
+                continue
+            every = "*.Cu" in zone.layers
+            for layer in self.plane_layers:
+                if every or layer in zone.layers:
+                    found.append((net, layer, tuple(zone.outline), zone.name or net))
+        return found
 
-        builds on c0107 (not on this base): the writer of this base writes no plane, so the set is empty
-        and every net outside the job is left out. c0107 fills it with the nets of its ``plane`` lists.
-        """
-        return frozenset()
+    def plane_nets(self) -> frozenset[str]:
+        """The names of the nets of the planes this file holds; they stay declared in every mode, so a
+        router counts as joined every pin that reaches the plane (changes c0107 and c0109)."""
+        return frozenset(net for net, _layer, outline, _label in self.plane_zones() if len(outline) >= 3)
 
     # --- the file -------------------------------------------------------------------------------
 
@@ -376,6 +589,16 @@ class _Writer:
         classes = {c.id: c for c in design.circuit.netclasses}
         class_of = {n.name: classes.get(n.netclass_id or "") for n in design.circuit.nets}
         d = self.defaults
+        ordered = sorted(design.circuit.netclasses, key=lambda c: (c.name, c.id))
+        # the classes that hold a net with pads, before any net leaves the file: the rules are lowered
+        # over them, and the nets outside the job are decided from the lowered values
+        populated = {cls.name: cls for cls in ordered if any(class_of.get(name) is cls for name in net_ids)}
+        low = _lower_rules(
+            design.rules.rules if design.rules is not None else (), populated, d, self.copper, self.issues
+        )
+        # the classes that a ``class_class`` list pairs with the class of a selected net
+        chosen = {cls.name for cls in (class_of.get(name) for name in self.selected) if cls is not None}
+        paired = {other for a, b in low.pairs for own, other in ((a, b), (b, a)) if own in chosen}
         if self.others == "netless":
             # The same for every net outside the job: not declared and in no class, its pads pins on no
             # net and its copper protected wiring without a net (c0109). A router keeps the default rule
@@ -384,7 +607,7 @@ class _Writer:
             kept = set(self.selected) | self.plane_nets()
             for name in [n for n in net_ids if n not in kept]:
                 cls = class_of.get(name)
-                if cls is not None and (cls.clearance or d.clearance) > d.clearance:
+                if cls is not None and (low.class_clearance[cls.name] > low.clearance or cls.name in paired):
                     continue
                 del net_ids[name]
         net_namer = _Namer("NET", self.issues, kind="net")
@@ -461,19 +684,65 @@ class _Writer:
         declared = {name for name in net_out if net_pins[name]}
         class_namer = _Namer("CLASS", self.issues, kind="net class")
         class_nodes: list[SNode] = []
-        for cls in sorted(design.circuit.netclasses, key=lambda c: (c.name, c.id)):
-            members = sorted(name for name in declared if class_of.get(name) is cls)
+        members_of = {
+            cls.id: sorted(name for name in declared if class_of.get(name) is cls) for cls in ordered
+        }
+        groups_of: dict[str, list[str]] = {}
+
+        def class_node(
+            label: str, members: Sequence[str], sets: tuple[str, ...] | None, cls: NetClass | None
+        ) -> SNode:
+            """One written class: its nets, its circuit (via and layers), its rule and its layer rules."""
+            _w, _c, diameter, drill = values(members[0])
+            width = low.class_width[cls.name] if cls is not None else low.width
+            clearance = low.class_clearance[cls.name] if cls is not None else low.clearance
+            items: list[SNode | str] = [label, *(net_out[name] for name in members)]
+            circuit: list[SNode] = []
+            if any(name in routed for name in members):
+                circuit.append(SNode("use_via", (self.via_padstack(diameter, drill, top, bottom),)))
+            if sets is not None:
+                circuit.append(SNode("use_layer", tuple(self.layer_out[layer] for layer in sets)))
+            if circuit:
+                items.append(SNode("circuit", tuple(circuit)))
+            items.append(
+                SNode(
+                    "rule",
+                    (SNode("width", (self.length(width),)), SNode("clearance", (self.length(clearance),))),
+                )
+            )
+            per_layer = low.layer_width.get(cls.name, {}) if cls is not None else {}
+            for layer in self.copper:
+                if layer in per_layer:
+                    layer_rule = SNode("rule", (SNode("width", (self.length(per_layer[layer]),)),))
+                    items.append(SNode("layer_rule", (self.layer_out[layer], layer_rule)))
+            return SNode("class", tuple(items))
+
+        def by_layer_set(members: Sequence[str]) -> list[tuple[tuple[str, ...] | None, list[str]]]:
+            """``members`` grouped by layer set: the group that may use every signal layer first, so it
+            keeps the class's name, then the others in the name order of their first net."""
+            groups: dict[tuple[str, ...] | None, list[str]] = {}
+            for name in members:
+                groups.setdefault(self.net_layers.get(name), []).append(name)
+            return sorted(groups.items(), key=lambda item: (item[0] is not None, item[1][0]))
+
+        for cls in ordered:
+            members = members_of[cls.id]
             if not members:
                 continue
-            width, clearance, diameter, drill = values(members[0])
-            items: list[SNode | str] = [class_namer.name(cls.name), *(net_out[name] for name in members)]
-            if any(name in routed for name in members):
-                use = self.via_padstack(diameter, drill, top, bottom)
-                items.append(SNode("circuit", (SNode("use_via", (use,)),)))
-            rule = SNode(
-                "rule", (SNode("width", (self.length(width),)), SNode("clearance", (self.length(clearance),)))
-            )
-            class_nodes.append(SNode("class", (*items, rule)))
+            for sets, group in by_layer_set(members):
+                label = class_namer.name(cls.name)
+                groups_of.setdefault(cls.name, []).append(label)
+                class_nodes.append(class_node(label, group, sets, cls))
+        classless = sorted(
+            name for name in declared if class_of.get(name) is None and name in self.net_layers
+        )
+        for sets, group in by_layer_set(classless):
+            class_nodes.append(class_node(class_namer.name(""), group, sets, None))
+        for (a, b), value in sorted(low.pairs.items()):
+            rule = SNode("rule", (SNode("clearance", (self.length(value),)),))
+            for first in groups_of.get(a, ()):
+                for second in groups_of.get(b, ()):
+                    class_nodes.append(SNode("class_class", (SNode("classes", (first, second)), rule)))
 
         # wiring
         wires: list[SNode] = []
@@ -522,10 +791,33 @@ class _Writer:
         ys = [to_units(-p.y) for p in ring]
         box = (format_units(min(xs)), format_units(min(ys)), format_units(max(xs)), format_units(max(ys)))
         structure: list[SNode | str] = [
-            SNode("layer", (self.layer_out[name], SNode("type", ("signal",)))) for name in self.copper
+            SNode(
+                "layer",
+                (
+                    self.layer_out[name],
+                    SNode("type", ("power" if name in self.plane_layers else "signal",)),
+                ),
+            )
+            for name in self.copper
         ]
         structure.append(SNode("boundary", (SNode("rect", (PCB_LAYER, *box)),)))
         structure.append(SNode("boundary", (SNode("path", (SIGNAL_LAYER, "0", *self.flat(ring))),)))
+        for plane_net, layer, zone_outline, label in self.plane_zones():
+            if plane_net not in declared:
+                continue  # a net without a pin in the file: no plane and no issue
+            if len(zone_outline) < 3:
+                self.issues.append(
+                    Issue(
+                        "specctra.plane-skipped",
+                        "warning",
+                        f"the zone {label!r} of {plane_net} on {layer} has no outline of three points or "
+                        "more, so no plane is written for it",
+                        where=f"{label}/{layer}",
+                    )
+                )
+                continue
+            shape = SNode("polygon", (self.layer_out[layer], "0", *self.flat(zone_outline)))
+            structure.append(SNode("plane", (net_out[plane_net], shape)))
         for cutout in self.outline[1:]:
             structure.append(SNode("keepout", (SNode("polygon", (SIGNAL_LAYER, "0", *self.flat(cutout))),)))
         for keepout in board.keepouts:
@@ -547,7 +839,10 @@ class _Writer:
         structure.append(
             SNode(
                 "rule",
-                (SNode("width", (self.length(d.width),)), SNode("clearance", (self.length(d.clearance),))),
+                (
+                    SNode("width", (self.length(low.width),)),
+                    SNode("clearance", (self.length(low.clearance),)),
+                ),
             )
         )
 
@@ -603,6 +898,8 @@ def write_dsn(
     outline: Sequence[Sequence[Point]],
     selected: Sequence[str],
     defaults: DsnDefaults,
+    plane_layers: Sequence[str] = (),
+    net_layers: Mapping[str, Sequence[str]] = NO_LAYERS,
     others: Others = "declared",
 ) -> DsnResult:
     """The Specctra design file of ``design``'s board.
@@ -611,17 +908,25 @@ def write_dsn(
     and its cut-outs after it; ``selected`` names the nets to route, which decides the vias the router may
     use; ``defaults`` serve nets without a class. Equal inputs give equal text.
 
+    ``plane_layers`` names the copper layers written ``(type power)``, each with one ``plane`` per zone of a
+    net on it; ``net_layers`` maps a net name to the copper layers, none of them a plane layer, that its
+    wires may use. The rules of ``design.rules`` are lowered by the closed table of the module. Without
+    the two arguments and without a rule, the text is the one the writer gave before change c0107.
+
     ``others`` says how the nets that are not in ``selected`` are written: ``"declared"`` (the default)
     declares every net that has pads; ``"netless"`` leaves them out of the network section and of every
     class, keeps their pins in the images as pins on no net and writes their copper as protected wiring
-    without a net. They are then no key of ``names.nets`` and ``names.net_ids``. A net whose class
-    clearance is larger than ``defaults.clearance`` is the exception: it stays declared with its class in
-    both modes, because a router keeps only the default rule from copper without a net.
+    without a net. They are then no key of ``names.nets`` and ``names.net_ids``. Two kinds of nets stay
+    declared with their class in both modes: a net of a plane this file holds, so the router counts its
+    pins as joined there, and a net whose clearance as the file writes it (its class, raised by the rules,
+    or a ``class_class`` pair of its class) is larger than the default rule's, because a router keeps only
+    the default rule from copper without a net.
 
     Raises ``ValueError`` for a design without a board, without a copper layer or without an outline ring,
-    and for a value of ``others`` that is neither of the two.
+    for a plane layer that is not a copper layer, for a layer set that is empty or names a plane layer or
+    a layer the board lacks, and for a value of ``others`` that is neither of the two.
     """
-    return _Writer(design, pads, outline, selected, defaults, others).build()
+    return _Writer(design, pads, outline, selected, defaults, others, plane_layers, net_layers).build()
 
 
 __all__ = [

@@ -59,6 +59,10 @@ Y is negated. A board of 2 m is 2·10⁷ units, far below the limit.
 | The keep-out lists are `keepout` (everything), `wire_keepout` (wires) and `via_keepout` (vias); each holds one shape, which names its layer | S-0224 | INFERRED | H-G-DSN-ACCEPT |
 | The `via` list of the structure names the padstacks the router may use as vias | S-0224 | INFERRED | H-G-DSN-ACCEPT |
 | The `rule` list of the structure holds the default rules, among them `(width <length>)` and `(clearance <length>)`; a clearance without a `type` applies to every pair of objects | S-0224 | INFERRED | H-G-DSN-ACCEPT |
+| Wires are not routed on a layer of type `power`: Freerouting 2.4.1 puts no wire on a layer written `(type power)` (20 tracks of the plane bench, all on the outer layers) | S-0224 | ORACLE-VERIFIED | H-G-DSN-LAYERS (Freerouting 2.4.1, local run of 2026-10-08) |
+| A `plane` list names a net and a shape, `(plane <net> (polygon <layer> 0 <points>))`, after the boundaries. On a `power` layer Freerouting 2.4.1 counts as joined every pin of the net that a protected via or a through-hole pad brings to the plane, and adds no copper to the net; it brings no SMD pin to the plane by itself (2 open connections per plane net of the bench without fan-out) | S-0224 | ORACLE-VERIFIED | H-G-DSN-PLANE (Freerouting 2.4.1, local run of 2026-10-08) |
+| Freerouting 2.4.1 keeps its wires out of a `wire_keepout` polygon and the larger of the default and class clearance away from it | S-0224 | INFERRED | H-G-DSN-CLEARANCE |
+| No clearance type applies to the boundary. Keep-out paths of half width `E − d` along every edge keep Freerouting 2.4.1's wires the edge clearance `E` from the edge where the board leaves room (a 4 mm passage), and lose the route in a 2 mm passage that the file without them routes; the writer writes none | S-0224 | ORACLE-VERIFIED | H-G-DSN-EDGE-2 (it supersedes H-G-DSN-EDGE; Freerouting 2.4.1 and `kicad-cli` 10.0.6, 2026-10-08) |
 
 ## Shapes
 
@@ -91,6 +95,10 @@ anchor) is written as it is; whether a router objects is part of `H-G-DSN-ACCEPT
 |---|---|---|---|
 | A `net` list is a net name and a `pins` list of pin references `<reference>-<pin>`; every pin of the net is listed | S-0224 | INFERRED | H-G-DSN-ACCEPT |
 | A `class` list is a class name, the names of its nets, and optional `circuit` and `rule` lists; `(circuit (use_via <padstack>))` names the via of the class, and the `rule` list holds its width and clearance | S-0224 | INFERRED | H-G-DSN-ACCEPT |
+| A net of one pad whose name starts with `unconnected-(`, the name KiCad gives a pin on no net, is not declared: its pad is a pin on no net, so a router gets the same board with and without those names (`tests/unit/backends/specctra/test_dsn.py -k unconnected`; the writer does this since c0061) | S-0224 | INFERRED | H-G-DSN-ACCEPT |
+| The `circuit` list of a class may hold `use_via` and `(use_layer <layers>)`; Freerouting 2.4.1 keeps the wires of such a class on the named layers (18 tracks of the class `SIG`, all on `F.Cu`) | S-0224 | ORACLE-VERIFIED | H-G-DSN-LAYERS (Freerouting 2.4.1, local run of 2026-10-08) |
+| `(class_class (classes <a> <b>) (rule (clearance <length>)))` in the network gives a clearance to the pair of the two classes; with it Freerouting 2.4.1 leaves no clearance violation between the two classes under KiCad's check, where the same file without it leaves 2 | S-0224 | INFERRED | H-G-DSN-CLEARANCE |
+| A class may hold `(layer_rule <layer> (rule (width <length>)))`. Freerouting 2.4.1 routes most of the class's wire at that width on the layer (14 of 20 segments) and narrows 6 segments to 262.4 µm, 5 of them at a pad; no segment keeps the class width | S-0224 | INFERRED | H-G-DSN-CLEARANCE |
 
 ## Wiring
 
@@ -107,3 +115,39 @@ anchor) is written as it is; whether a router objects is part of `H-G-DSN-ACCEPT
 | Freerouting loads a design file named with `-de` and writes its result to the file named with `-do` | S-0221 | INFERRED | H-G-DSN-ACCEPT |
 | `kicad-cli` 9.0 and 10.0 export no Specctra design file; KiCad's editor does | S-0022, S-0037, S-0225 | INFERRED | H-G-DSN-ACCEPT |
 | Freerouting 2.4.1 routes no wire on a net that the network section does not declare; pins on no net and wiring without a net stay obstacles, kept clear of by the default rule and no more, whatever class the model gives their net. A class named with `-inc` is still routed | S-0221 | ORACLE-VERIFIED | H-G-DSN-NETLESS-2 (it supersedes H-G-DSN-NETLESS; Freerouting 2.4.1, 2026-10-08) |
+
+## Planes, routing layers and rules (c0107)
+
+What `write_dsn` writes from `plane_layers`, `net_layers` and `design.rules`; each construct is a fact row
+above. A call without the two arguments, for a design without a rule, writes the text of the writer before
+the change (`tests/data/specctra/c0107_before_*.dsn`).
+
+- **Plane layers.** A copper layer named in `plane_layers` is written `(type power)`. Each zone with a net
+  that has pins in the file, on each plane layer it covers, gives one `plane` after the boundaries, in zone
+  order then stack order. A zone without an outline of three points gives `specctra.plane-skipped`. Via
+  padstacks keep a shape on every copper layer, so a protected via touches the plane. With
+  `others="netless"` (c0109) the net of a plane stays declared.
+- **Routing layers.** The nets of one class are grouped by their layer set in `net_layers`. The group that
+  may use every signal layer keeps the class's name (without one, the group of the class's first net in
+  name order); each other group is a class named `<class>@<n>` by the writer's namer, with
+  `(use_layer <layers in stack order>)` in its circuit and the class's values. A net without a class that
+  has a set is written in a class named from `CLASS`, one per layer set, with the default rule's values.
+- **Rules.** A closed table, combined by maximum, so the router keeps at least what any rule asks:
+
+  | model rule (severity not `ignore`) | written as |
+  |---|---|
+  | `clearance`, one side `all` or absent, the other `all` or absent | the default rule's clearance and every class clearance raised to at least `min` |
+  | `clearance`, one side a class or an `or` of classes, the other `all` or absent | those classes' clearances raised to at least `min` (`netclass Default` without such a class: the default rule) |
+  | `clearance`, both sides classes or `or`s of classes | one `class_class` per pair of written classes and of their groups; a class with itself raises its own clearance |
+  | `track_width`, A `all` or classes, with `opt` | their width becomes `opt`; with a layer clause, `layer_rule` per layer instead |
+  | `track_width`, A `all` or classes, without `opt` | each of those widths clamped into `[min, max]` |
+  | `no_tracks` | nothing here: `net_layers` carries it |
+  | a layer clause on a `clearance` rule | dropped, the rule written for every layer, `specctra.rule-widened` |
+  | `edge_clearance`; any other selector (`net`, `ref`, `item_kind`, a glob, `not`) or kind | not written, `specctra.rule-not-sent` naming the rule and why |
+
+- **Edge clearance.** Not sent (`H-G-DSN-EDGE-2`): the format has no clearance from the boundary, and
+  keep-out bands lost a route. KiCad's check judges the routed board; the plane fan-out keeps the edge
+  clearance by its own test.
+- **Nets outside the job.** With `others="netless"` a net stays declared when its clearance as written
+  (its class, raised by the rules) is above the default rule's, or when a `class_class` list pairs its
+  class with the class of a selected net.

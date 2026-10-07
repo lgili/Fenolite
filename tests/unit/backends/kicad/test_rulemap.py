@@ -340,3 +340,23 @@ def test_support_matches_probe_results() -> None:
             if probes.get(f"dru-cond-{key}") == "present":
                 expected[key].add(major)
     assert {k: set(v) for k, v in rulemap.SELECTOR_SUPPORT.items()} == expected
+
+
+# -- track layer rules (change c0107; the other cases are in test_rulemap_no_tracks.py)
+
+
+def test_kind_support_of_no_tracks_follows_the_probes() -> None:
+    """Scenario "Support follows the probes" (capability rules-model, "Track layer rules")."""
+    import json
+    from pathlib import Path
+
+    from fenolite.backends.kicad import rulemap as table
+
+    folder = Path(__file__).resolve().parents[4] / "docs" / "evidence" / "kicad" / "probes"
+    expected = set()
+    for name, major in (("9.0.9", 9), ("10.0.6", 10)):
+        probes = json.loads((folder / f"{name}.json").read_text(encoding="utf-8"))["probes"]
+        if probes.get("dru-kind-no_tracks") == "present":
+            expected.add(major)
+    assert set(table.KIND_SUPPORT["no_tracks"]) == expected
+    assert table.KIND_SELECTORS["no_tracks"].leaves == {"net", "netclass"}

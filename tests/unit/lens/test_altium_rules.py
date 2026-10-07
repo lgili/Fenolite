@@ -429,3 +429,31 @@ def test_board6_rules_are_written_and_read_back() -> None:
     for file in ("board6.PcbDoc", "board6.PcbLib", "board6.PrjPcb", "board6.SchDoc", "board6.SchLib"):
         assert plain.files[file] == (data / file).read_bytes(), file
         assert (output.files[file] == plain.files[file]) is (file != name), file
+
+
+def test_no_tracks_rule_is_reported_and_not_written() -> None:
+    """Scenario "A track layer rule in an Altium build" (capability altium-pcb-writer, "Track layer rules in
+    the Altium rule table"; change c0107): one ``altium.not-lowered`` warning naming the rule, the reason
+    ``no-counterpart`` in the result, and the rule records of the same script without the rule."""
+    plain = built(blink())
+    design = blink()
+    design.rules.rule("sig-outer", "no_tracks", where=netclass("PWR"), layers=("F.Cu",))
+    output = built(design)
+    ((where, severity, message),) = not_lowered(output)
+    assert (where, severity) == ("design-rules/no_tracks", "warning")
+    assert "'sig-outer' (netclass PWR on F.Cu)" in message and "no-counterpart" in message
+    assert summary(output) == {
+        "written": [],
+        "not_lowered": [
+            {"kind": "no_tracks", "selector": "netclass PWR on F.Cu", "reason": "no-counterpart"}
+        ],
+    }
+    assert read_back(output)[0] == read_back(plain)[0]
+    document = read_pcbdoc(output.files[DOCUMENT], file=DOCUMENT)
+    before = read_pcbdoc(plain.files[DOCUMENT], file=DOCUMENT)
+    assert [r.fields for r in document.rules] == [r.fields for r in before.rules]
+    row = rulemap.TABLE[-1]
+    assert (row.neutral, row.status, row.exact) == ("no_tracks", "no-counterpart", False)
+    assert "Routing Layers" in row.note and "no public file" in row.note
+    lowered = rulemap.lower(to_model(design).rules.rules)  # type: ignore[union-attr]
+    assert lowered.written == () and len(lowered.not_lowered) == 1

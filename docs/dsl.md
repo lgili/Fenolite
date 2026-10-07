@@ -127,10 +127,14 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
   `planes={"In1.Cu": gnd}` declares an inner layer as an internal plane on a net (a `Net` or a net
   name); it takes any inner layer of the count, so `planes={"In4.Cu": gnd}` is valid with `copper=6` and
   `In5.Cu` is not. A plane holds one net. It is a build parameter, as `copper` is: the model does not
-  change. The Altium target writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the
-  signal layer and reports `build.plane-not-lowered`, whose hint names the script call that draws that
-  copper: `design.zone(<net>, layers=("<layer>",))`. `planes(design)` returns the mapping from layer name
-  to net name.
+  change. The Altium target writes the plane (`docs/altium.md`, "Copper"). The KiCad target gives each
+  plane layer the row type `power` in the board it writes, also on a rebuild, after the layout merge
+  (change c0107); it never removes a type, so a layer typed in KiCad's board setup stays a plane layer
+  when the script names no plane on it. The copper of a plane is a zone: a plane whose net has no zone on
+  its layer gives `build.plane-zone-missing` (warning), whose hint names the script call that draws that
+  copper, `design.zone(<net>, layers=("<layer>",))`. `fenolite route` keeps tracks off a plane layer and
+  joins the SMD pads of its net to the plane (`docs/routing.md`). `planes(design)` returns the mapping
+  from layer name to net name.
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
 - `protect(…)`, `protection=` on `Design.via`, `via_step` and `Design.stitch`, and
   `Design.via_protection(protection, *, locked=False)`: how vias are tented, covered, plugged, capped
@@ -807,6 +811,13 @@ design.rules.rule(
   `ALL` stands alone. A name may hold `*`. A class named in a selector must be declared first, except
   `Default`.
 - **`between`** names the second item of a `clearance` or `creepage` rule. No other kind takes it.
+- **`no_tracks`** keeps a selection off some copper layers (change c0107):
+  `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`.
+  It takes no limit (`min`, `opt` and `max` are refused) and needs `layers`; `where` is `ALL`, or nets and
+  classes. KiCad checks it (`disallow track`, target 10 until the probe of 9.0 is recorded), `route` routes
+  the selected nets on the other layers, and an Altium build reports it as not lowered. It is the rule
+  kind, and not the `no_tracks` flag of a keep-out, which forbids tracks inside an outline whatever their
+  net.
 - **Limits** carry a unit. `min` may be 0 (a courtyard rule of 0 forbids overlap); `opt` and `max` are above
   0; the limits rise from `min` to `max`. Which limits a kind takes is in `docs/formats/kicad/rules.md`: the
   six new kinds take `min` only.

@@ -38,6 +38,8 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | A board-wide `hole_clearance`, `hole_to_hole` or `annular_width` rule governs below the template's board-setup minimum of its kind (0.25 mm, 0.25 mm and 0.1 mm): an item between the two is reported without the rule and not with it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-RULE-3 |
 | The later of two `hole_to_hole` rules that match one via pair governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | `A.inDiffPair('<base>')` matches the two nets named `<base>` plus a last character `P` and `N`, or `+` and `-` (`X_P`/`X_N` with the base `X` or `X_`, `X+`/`X-`, `X_DP`/`X_DN`, `XP`/`XN`); letter case counts, and `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` are not a pair | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DIFFPAIR-NAMES |
+| `(constraint disallow track)` with `(layer "<name>")` and a condition on `A.NetName` gives one `items_not_allowed` violation per track of the selected net on that layer, none for its tracks on another layer and none for another net's tracks on the layer (10.0.6; a condition on `A.NetClass` selects as in every other rule, `H-K-DRU-COND`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRU-NOTRACKS |
+| 9.0.9 reports the same for `disallow track` (measured on 2026-10-05; its probe is not yet recorded in `9.0.9.json`, so the kind is written for target 10 only) | S-0029 | INFERRED | H-K-DRU-NOTRACKS |
 
 ## Board-wide rules and board-setup minimums
 
@@ -86,11 +88,13 @@ semantics of each row are the hypotheses above.
 | `courtyard_clearance` | `courtyard_clearance` | `min` |
 | `silk_clearance` | `silk_clearance` | `min` |
 | `creepage` | `creepage` | `min` |
+| `no_tracks` | `disallow track`, one rule per layer | none |
 
 - The last six kinds (change c0071) take `min` only, which is what the oracle measured, and a `min` of 0
   is allowed for them.
 - `rulemap.KIND_SUPPORT` maps each kind to the KiCad majors on which `kicad-cli` enforces it as written:
-  both majors for every kind but `creepage`, which holds 10 only. A modelled rule of a kind outside its
+  both majors for every kind but `creepage` and `no_tracks`, which hold 10 only (`no_tracks` until its probe
+  is recorded on 9.0.9). A modelled rule of a kind outside its
   entry gives `rules.kind-unchecked`; `allow_lossy` drops it with `rules.dropped-for-target`.
 - Values are written as the shortest exact millimetre decimal of the nanometre value (`0.25mm`,
   `0.2032mm`), never rounded. Limits are written in the order `min`, `opt`, `max`.
@@ -140,6 +144,7 @@ the whole table above.
 | `courtyard_clearance` | `all`, or `ref` leaves without `*`, combined with `and`, `or` and `not` | no | no |
 | `silk_clearance` | `all` only | no | no |
 | `creepage` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | the same | no |
+| `no_tracks` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | no | required: at least one layer |
 
 - A courtyard rule checks footprints, so its `ref v` is written `A.Reference == 'v'`. A courtyard rule
   read with `memberOfFootprint` stays opaque: writing it back with `Reference` would change what KiCad
@@ -148,6 +153,23 @@ the whole table above.
   courtyard of its neighbours; a narrower selector would promise a precision the check does not have.
 - Anything outside a kind's row gives `rules.unsupported-selector` on write and keeps the rule opaque on
   read.
+
+### Track layer rules (c0107)
+
+A rule of the kind `no_tracks` keeps the tracks and arcs of the items it selects off its layers. It is the
+rule kind, not the `no_tracks` flag of a keep-out (`model.board.Keepout.no_tracks`), which forbids tracks
+inside an outline whatever their net.
+
+- It takes no limit (a `min`, `opt` or `max` gives `rules.unsupported-limit`), no B side
+  (`rules.unsupported-selector`) and at least one layer (`rules.unsupported-layer` without one).
+- `lower_rules` writes one KiCad rule per layer: `(layer "<name>")`, the condition of side A (none for
+  `all`), `(constraint disallow track)` and the severity. Names follow "Layers and names".
+- `read_rules` lifts a rule whose constraint is `disallow track` alone, with a layer clause that names one
+  KiCad layer and a condition in the kind's grammar, into a `no_tracks` rule with that layer. Every other
+  `disallow` rule (another item type, several item types, `(layer inner)` or `(layer outer)`, no layer
+  clause) stays opaque with `rules.kept-opaque`.
+- KiCad reports a violation of the rule as `items_not_allowed`.
+- `fenolite route` reads these rules to choose the layers a net may use (`docs/routing.md`).
 
 ### Layers and names
 
@@ -233,6 +255,7 @@ Per-major outcome of each row, from the oracle on 2026-10-02 (local `kicad-cli` 
 | `courtyard_clearance` | `courtyards_overlap` |
 | `silk_clearance` | `silk_overlap` (and `silk_over_copper` against pads) |
 | `creepage` | `creepage` on 10.0.6; nothing on 9.0.9 |
+| `no_tracks` | `items_not_allowed` on 10.0.6; 9.0.9 not yet recorded |
 
 The benches of the last six kinds carry the canary scoped to its own net (`A.NetName == 'CANARY_A'`): the
 plain canary matches every pair and would take the one violation KiCad reports for a pair.

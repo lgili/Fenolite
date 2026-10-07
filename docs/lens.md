@@ -306,6 +306,20 @@ and mask layer it leaves out) and compared with the board's projected one, ids a
 - The codes are `kicad.*` codes: they pass through the closed layout and build tables unchanged. The
   normal-form pass does not decide again, so a rebuild over the build's own output writes the same bytes.
 
+## Plane layers across rebuilds
+
+`design.board(planes=…)` names the plane layers of the script (`docs/dsl.md`). The build gives each of them
+the KiCad row type `power` after the layout merge (`backends.kicad.layers.with_plane_types`, change c0107).
+Every other copper layer keeps the type of the board the build is written from, `signal` for a created
+board:
+
+- a plane declared after the first build changes its row and nothing else of the board;
+- a type set in KiCad's board setup stays, also when the script names no plane on that layer;
+- a plane removed from the script leaves its type: the build never writes `signal` over `power`.
+
+A plane whose net has no zone on its layer, in the script or on the existing board, gives
+`build.plane-zone-missing`.
+
 ## Via protection across rebuilds
 
 `design.via_protection()` declares the board's default via protection (`docs/dsl.md`, "Via protection").

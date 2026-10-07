@@ -28,9 +28,11 @@ RuleKind = Literal[
     "courtyard_clearance",
     "silk_clearance",
     "creepage",
+    "no_tracks",
 ]
-"""The first six kinds are those of v0.1; the last six were added by change c0071. Which sides, selector
-ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
+"""The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
+track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. Which sides,
+selector ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
 (``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
 SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "and", "or", "not"]

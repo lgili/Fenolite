@@ -57,3 +57,26 @@ def test_authored_two_pad_board_is_an_unrouted_candidate() -> None:
     assert unrouted(design, ("ROUTE_ME",)) == ("ROUTE_ME",)
     assert unrouted(design, ()) == ()
     assert len(design.by_net["ROUTE_ME"]) == 2
+
+
+def test_layers_off_a_plane_layer() -> None:
+    """Scenario "Direct router off a plane layer" (capability routing, "Plane and routing layers in a
+    routing job"; change c0107)."""
+    every = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+    pads = (
+        JobPad("J1", "1", "A", Point(0, 0), every, 800_000),
+        JobPad("J2", "1", "A", Point(9, 0), every, 800_000),
+    )
+
+    def routed(job_layers: tuple[str, ...] | None, planes: tuple[str, ...]) -> tuple[str, ...]:
+        net = JobNet("A", "net_a", pads, 250_000, 200_000, 600_000, 300_000, job_layers)
+        result = DirectRouter().route(
+            RoutingJob(Design.new("direct", seed=1), (net,), every, plane_layers=planes)
+        )
+        return tuple(track.layer for track in result.tracks)
+
+    assert routed(("B.Cu",), ("In1.Cu",)) == ("B.Cu",)
+    assert routed(None, ()) == ("F.Cu",)
+    assert routed(("In1.Cu", "In2.Cu"), ("In1.Cu",)) == ("In2.Cu",)
+    assert routed(("In1.Cu",), ("In1.Cu",)) == ()
+    assert routed(None, ("F.Cu", "In1.Cu")) == ("In2.Cu",)

@@ -16,11 +16,12 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from fenolite.backends.kicad.dru import write_rules
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import project_set
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import DEFAULT_TARGET
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.board import Arc, Track, Via
 from fenolite.routing.budget import Budget, exhausted
@@ -183,12 +184,39 @@ class KicadRoutingToolsRouter:
         passed, group_nets = self._options(job, issues)
         info = source_info(job.design)
         target = int(info.major) if info is not None and info.major is not None else DEFAULT_TARGET
+        kept = sorted(net.name for net in job.nets if net.layers is not None)
+        if job.plane_layers or kept:
+            # the tool takes no layer or plane option: its board and rules files hold the row types and
+            # the track layer rules, and what it does with them is not measured (H-K-KRT-PLANES)
+            told = [f"plane layers {', '.join(job.plane_layers)}"] if job.plane_layers else []
+            told += [f"the layers of {', '.join(kept)}"] if kept else []
+            issues.append(
+                Issue(
+                    "route.constraint-not-sent",
+                    "warning",
+                    f"KiCadRoutingTools takes no option for {' and '.join(told)}: its tracks may lie on "
+                    "a plane layer or on a layer a track layer rule forbids",
+                    hint="run check, or route with freerouting, which is told both",
+                )
+            )
         try:
             with tempfile.TemporaryDirectory(prefix="fenolite-route-") as name:
                 folder = Path(name)
                 stem = "fenolite-routing"
-                for filename, contents in write_triad(job.design, name=stem, target=target).items():
+                # The rules of the job's design may have been read from the project's rules file
+                # (change c0107): such a set is written back by ``write_rules``, which keeps its order and
+                # names, and not lowered again. A set that cannot be written leaves the empty rules file.
+                rules = job.design.rules
+                bare = dataclasses.replace(job.design, rules=None)
+                for filename, contents in write_triad(bare, name=stem, target=target).items():
                     (folder / filename).write_text(contents, encoding="utf-8", newline="\n")
+                if rules is not None and rules.rules:
+                    try:
+                        rules_text = write_rules(rules, target=target, allow_lossy=True)
+                    except FenoliteError as error:
+                        logs.append(f"rules file not written: {_line(error, folder)}")
+                    else:
+                        (folder / f"{stem}.kicad_dru").write_text(rules_text, encoding="utf-8", newline="\n")
                 board_path = folder / f"{stem}.kicad_pcb"
                 project_set(board_path)
                 current = job.design

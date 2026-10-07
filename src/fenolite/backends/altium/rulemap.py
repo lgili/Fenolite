@@ -135,6 +135,13 @@ TABLE: tuple[RuleRow, ...] = (
         "no-counterpart",
         note="Altium's Creepage Distance rule is in no public file, so its record is not known",
     ),
+    RuleRow(
+        "no_tracks",
+        "no-counterpart",
+        note="Altium's Routing Layers rule, which names the layers a scope may be routed on, is the nearest "
+        "counterpart; its record (kind number, constraint keys) is in no public file read under the "
+        "sources register",
+    ),
 )
 """One row per kind of ``model.rules.RuleKind``, in the model's order (``pcb-copper.md``, "Rule kinds
 lowered"; ``H-A-RULE-KINDS``)."""

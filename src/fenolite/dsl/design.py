@@ -102,6 +102,10 @@ RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
 BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
 """The rule kinds that take a second selector (``between``)."""
+NO_LIMIT_KINDS: frozenset[str] = frozenset({"no_tracks"})
+"""The rule kinds that take no limit and need ``layers``: a track layer rule keeps the tracks of the
+selected items off those layers (it is not the ``no_tracks`` flag of a keep-out, which forbids tracks
+inside an outline)."""
 
 
 @dataclass(frozen=True)
@@ -220,7 +224,12 @@ class Rules:
         for label, value in (("min", min), ("opt", opt), ("max", max)):
             limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
         given = [(label, value) for label, value in limits.items() if value is not None]
-        if not given:
+        if kind in NO_LIMIT_KINDS:
+            if given:
+                raise DslError(f"rule() {name!r}: a {kind} rule takes no limit, so {given[0][0]} is refused")
+            if not layers:
+                raise DslError(f'rule() {name!r}: a {kind} rule needs layers, for example layers=("In1.Cu",)')
+        elif not given:
             raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
         if limits["min"] is not None and limits["min"] < 0:
             raise DslError(f"rule() {name!r}: min must not be negative")

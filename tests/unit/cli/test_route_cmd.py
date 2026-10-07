@@ -321,7 +321,9 @@ def test_net_classes_come_from_the_project(monkeypatch, tmp_path: Path) -> None:
     design = read_board(board_path.read_text(encoding="utf-8"), file=board_path.name)
     assert not [net for net in design.circuit.nets if net.netclass_id], "the board alone names no class"
     issues: list[Issue] = []
-    classed = cmd_route._with_project_classes(design, board_path, issues)  # pyright: ignore[reportPrivateUsage]
+    found = cmd_route._project_rules(design, board_path, issues)  # pyright: ignore[reportPrivateUsage]
+    classed = found.design
+    assert classed.rules is not None, "the rules file is read too (change c0107)"
     classes = {item.id: item for item in classed.circuit.netclasses}
     widths = {
         net.name: classes[net.netclass_id].track_width for net in classed.circuit.nets if net.netclass_id
@@ -331,9 +333,15 @@ def test_net_classes_come_from_the_project(monkeypatch, tmp_path: Path) -> None:
 
     board_path.with_suffix(".kicad_pro").write_text("{ not json", encoding="utf-8")
     issues = []
-    assert cmd_route._with_project_classes(design, board_path, issues) is design  # pyright: ignore[reportPrivateUsage]
+    unread = cmd_route._project_rules(design, board_path, issues).design  # pyright: ignore[reportPrivateUsage]
+    assert unread.circuit == design.circuit and unread.rules is not None, "left as the other file gives it"
     assert [(issue.code, issue.severity) for issue in issues] == [("route.project-unread", "warning")]
-    assert cmd_route._with_project_classes(design, tmp_path / "none.kicad_pcb", []) is design  # pyright: ignore[reportPrivateUsage]
+    assert "blink.kicad_pro" in issues[0].message and "default class values" in issues[0].message
+    board_path.with_suffix(".kicad_dru").write_text("(version 1) (rule", encoding="utf-8")
+    issues = []
+    assert cmd_route._project_rules(design, board_path, issues).design == design  # pyright: ignore[reportPrivateUsage]
+    assert [issue.code for issue in issues] == ["route.project-unread"] * 2
+    assert cmd_route._project_rules(design, tmp_path / "none.kicad_pcb", []).design is design  # pyright: ignore[reportPrivateUsage]
 
 
 # --- open nets (change c0108) ------------------------------------------------------------------------
@@ -817,3 +825,179 @@ def test_budget_keys_of_the_direct_router(monkeypatch, tmp_path: Path) -> None:
     assert code == 0, (env, error)
     assert env["result"]["budget"] == {"seconds": 30, "spent": 0.0, "exhausted": False}
     assert env["result"]["runs"] == [] and env["result"]["not_attempted"] == []
+
+
+# --- plane nets (change c0107, cli-contract "Plane nets in the route command") ------------------------
+
+
+@pytest.fixture
+def plane_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """The plane bench built for target 10: ``In1.Cu`` and ``In2.Cu`` of type ``power``, with its project
+    and rules files."""
+    import _planebench as pb
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    return pb.build_project(tmp_path / "bench")
+
+
+def plane_run(monkeypatch, tmp_path: Path, board: Path, *more: str) -> tuple[int, dict, str]:
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(board), "--router", "direct", *more)
+    return code, env, error
+
+
+def codes_of(env: dict, code: str) -> list[dict]:
+    return [issue for issue in env["issues"] if issue["code"] == code]
+
+
+def test_plane_fanout_and_signals_routed(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Plane nets fanned out, signals routed"."""
+    import _planebench as pb
+
+    before = plane_board.read_text(encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--dry-run")
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["plane_layers"] == ["In1.Cu", "In2.Cu"]
+    assert result["plane_fanout"] == {
+        "nets": ["GND", "VCC"], "pads": 6, "joined": 0, "tracks": 6, "vias": 6, "failed": [],
+    }  # fmt: skip
+    assert [i["where"] for i in codes_of(env, "route.plane-net")] == ["GND", "VCC"]
+    assert all(i["severity"] == "info" for i in codes_of(env, "route.plane-net"))
+    assert codes_of(env, "route.zone-net-skipped") == [] and codes_of(env, "kicad.fanout.failed") == []
+    assert "GND" not in result["selected"] and "VCC" not in result["selected"]
+    assert sorted(result["selected"]) == sorted((*pb.SIGNALS, *pb.HIGH))
+    assert result["plan"] and plane_board.read_text(encoding="utf-8") == before
+    # the same command with --confirm: the written board holds the fan-out copper and the direct tracks
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--confirm")
+    assert code == 0, (env, error)
+    board = read_board(plane_board).board
+    assert board is not None
+    names = {net.id: net.name for net in read_board(plane_board).circuit.nets}
+    plane_vias = [via for via in board.vias if names[via.net_id or ""] in ("GND", "VCC")]
+    plane_tracks = [track for track in board.tracks if names[track.net_id or ""] in ("GND", "VCC")]
+    assert len(plane_vias) == len(board.vias) == 6 and len(plane_tracks) == 6
+    assert all(via.layers == ("F.Cu", "B.Cu") for via in plane_vias)
+    assert not [t for t in board.tracks if t.layer in ("In1.Cu", "In2.Cu")], "no track on a plane layer"
+    assert len(board.tracks) == 6 + len(result["selected"])
+    # a second run: every plane pad is joined, nothing is fanned out again
+    code, env, _ = plane_run(monkeypatch, tmp_path, plane_board, "--dry-run")
+    assert code == 0 and env["result"]["plane_fanout"] == {
+        "nets": ["GND", "VCC"], "pads": 6, "joined": 6, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+
+
+def test_plane_fanout_skipped(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Fan-out skipped"."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--no-plane-fanout", "--dry-run")
+    assert code == 0, (env, error)
+    assert env["result"]["plane_fanout"] == {
+        "nets": [], "pads": 0, "joined": 0, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+    assert env["result"]["plane_layers"] == ["In1.Cu", "In2.Cu"]
+    assert "GND" not in env["result"]["selected"] and "VCC" not in env["result"]["selected"]
+    assert len(codes_of(env, "route.plane-net")) == 2
+
+
+def test_plane_nets_with_the_zone_nets_option(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Zone nets option": a plane net is not traced with ``--include-zone-nets`` either."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--include-zone-nets", "--dry-run")
+    assert code == 0, (env, error)
+    assert "GND" not in env["result"]["selected"] and "VCC" not in env["result"]["selected"]
+    assert env["result"]["plane_fanout"]["vias"] == 6
+
+
+def test_plane_fanout_alone_is_written(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """The write rule: the fan-out copper is written when no net goes to a router."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--nets", "GND", "--confirm")
+    assert code == 0, (env, error)
+    assert env["result"]["selected"] == [] and env["result"]["tracks"] == 0
+    assert env["result"]["plane_fanout"]["nets"] == ["GND"] and env["result"]["plane_fanout"]["vias"] == 3
+    assert [i["where"] for i in codes_of(env, "route.plane-net")] == ["GND"]
+    board = read_board(plane_board).board
+    assert board is not None and len(board.vias) == 3 and len(board.tracks) == 3
+    # --rip takes the fan-out of the selected plane net away and makes it again: the same copper
+    again = plane_board.read_text(encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--nets", "GND", "--rip", "--dry-run")
+    assert code == 0, (env, error)
+    assert env["result"]["ripped"] == 6 and env["result"]["plane_fanout"]["vias"] == 3
+    assert plane_board.read_text(encoding="utf-8") == again
+
+
+def test_board_without_plane_layers(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Board without plane layers": the example of the command, with the two new keys empty."""
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(EXAMPLE_UNROUTED), "--router", "direct", "--out",
+        "fenolite-routed.kicad_pcb", "--confirm",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    assert env["result"]["plane_layers"] == []
+    assert env["result"]["plane_fanout"] == {
+        "nets": [], "pads": 0, "joined": 0, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+    assert list(env["result"])[-2:] == ["plane_layers", "plane_fanout"] or "plan" in list(env["result"])[-3:]
+    assert env["result"]["routed"] == ["ROUTE_ME"]
+
+
+def test_net_with_no_allowed_layer(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "A net with no allowed layer", and a net kept to one layer."""
+    rules = plane_board.with_suffix(".kicad_dru")
+    extra = "".join(
+        f'(rule "sig5_{n}" (layer "{layer}") (condition "A.NetName == \'SIG5\'")'
+        " (constraint disallow track))\n"
+        for n, layer in enumerate(("F.Cu", "B.Cu"))
+    )
+    hv = '(rule "hv_bottom" (layer "F.Cu") (condition "A.NetClass == \'HV\'") (constraint disallow track))\n'
+    rules.write_text(rules.read_text(encoding="utf-8") + extra + hv, encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--confirm")
+    assert code == 0, (env, error)
+    (found,) = codes_of(env, "route.no-layer")
+    assert found["severity"] == "warning" and found["where"] == "SIG5" and "SIG5" in found["message"]
+    assert "SIG5" not in env["result"]["selected"] and "SIG6" in env["result"]["selected"]
+    design = read_board(plane_board)
+    assert design.board is not None
+    names = {net.id: net.name for net in design.circuit.nets}
+    layers = {names[t.net_id or ""]: t.layer for t in design.board.tracks}
+    assert layers["HV1"] == layers["HV2"] == "B.Cu", "the direct router keeps the class off F.Cu"
+    assert "SIG5" not in layers and layers["SIG1"] == "F.Cu"
+
+
+def test_edge_minimum_of_the_project_becomes_a_rule(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    design = read_board(plane_board)
+    found = cmd_route._project_rules(design, plane_board, [])  # pyright: ignore[reportPrivateUsage]
+    minimum = cmd_route._edge_minimum(plane_board)  # pyright: ignore[reportPrivateUsage]
+    with_rule = cmd_route._with_edge_rule(found.design, minimum)  # pyright: ignore[reportPrivateUsage]
+    assert minimum == 500_000 and with_rule.rules is not None
+    (rule,) = [r for r in with_rule.rules.rules if r.name == cmd_route.EDGE_MINIMUM]
+    assert (rule.kind, rule.min, rule.selector_a.op, rule.layers) == ("edge_clearance", 500_000, "all", ())
+    assert cmd_route._edge_clearance(with_rule) == 500_000  # pyright: ignore[reportPrivateUsage]
+    assert cmd_route._with_edge_rule(design, 0) is design  # pyright: ignore[reportPrivateUsage]
+    assert cmd_route._edge_minimum(tmp_path / "none.kicad_pcb") == 0  # pyright: ignore[reportPrivateUsage]
+    bare = cmd_route._with_edge_rule(design, 300_000)  # pyright: ignore[reportPrivateUsage]
+    assert bare.rules is not None and [r.min for r in bare.rules.rules] == [300_000]
+
+
+def test_failed_fanout_is_reported_and_does_not_change_the_exit_code(
+    monkeypatch, tmp_path: Path, plane_board: Path
+) -> None:
+    design = read_board(plane_board)
+    assert design.board is not None
+    from fenolite.backends.kicad.outline import board_outline
+    from fenolite.model.board import Keepout
+
+    ring = board_outline(design).rings[0]
+
+    area = Keepout(
+        id=derived_id("kpo", "test", "all"),
+        outline=tuple(ring),
+        layers=("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"),
+        no_vias=True,
+    )
+    blocked = dataclasses.replace(design, board=dataclasses.replace(design.board, keepouts=(area,)))
+    plane_board.write_text(write_board(blocked, target=10).text, encoding="utf-8")
+    code, env, error = plane_run(
+        monkeypatch, tmp_path, plane_board, "--nets", "GND", "--nets", "VCC", "--dry-run"
+    )
+    assert code == 0, (env, error)
+    fanned = env["result"]["plane_fanout"]
+    assert fanned["failed"] == ["C1-1", "C1-2", "C2-1", "C2-2", "U1-4", "U1-8"] and fanned["vias"] == 0
+    assert len(codes_of(env, "kicad.fanout.failed")) == 6 and not env["result"].get("plan")

@@ -251,3 +251,25 @@ is not taken.
 blink and `board_40parts`, built for KiCad 9 and 10, both judged by the local 10.0.6: 3 of 3 and 39 of 39
 nets closed, no DRC violation, no unconnected item). The runs under 9.0.9 (`dsn-route-t9`, the
 KiCadRoutingTools gate) were not made: they need the pinned image and the checkout.
+
+## Planes, routing layers and rules (c0107)
+
+Recorded on 2026-10-08 with `tests/routing/test_freerouting_planes.py` (results in
+`docs/evidence/routing/freerouting-2.4.1.json`), Java 26.0.2 and the local `kicad-cli` 10.0.6, **with the
+local jar of the routing image, 2.4.1** (sha256 `00ba5b873e33ed8fec03420b4b2e6796615b89d196b7539d9c07f0d0a7ce234e`).
+Its hash differs from the pinned file above, so each of these outcomes names its jar in its detail, the
+file's own `jar_sha256` is left as it was, and the proof with the pinned jar is left to the `routing` job.
+The bench is `tests/routing/_planebench.py`.
+
+| outcome | value | hypothesis | what was seen |
+|---|---|---|---|
+| `dsn-power-layers` | `equal` | `H-G-DSN-LAYERS` | the bench with the fan-out of `fenolite route`: 20 tracks, all on `F.Cu`, none on the two layers written `(type power)` |
+| `dsn-use-layer` | `equal` | `H-G-DSN-LAYERS` | `(use_layer F.Cu)` in the class `SIG`: its 18 tracks on `F.Cu` |
+| `dsn-plane-alone` | `open` | `H-G-DSN-PLANE` | without fan-out: 2 open connections on `GND` and on `VCC`, no via, 6 surface tracks to them |
+| `dsn-plane-fanout` | `equal` | `H-G-DSN-PLANE` | with the fan-out (12 protected items): nothing added to the plane nets, no open connection on them |
+| `dsn-class-class` | `equal` | `H-G-DSN-CLEARANCE` | the bench with `J3` in the upper right corner, every net kept to `F.Cu`: 0 HV–SIG `clearance` violations by KiCad with `class_class`, 2 without it |
+| `dsn-keepout` | `equal` | `H-G-DSN-CLEARANCE` | a keep-out for tracks between `J1` and `U1`: 17 tracks, none inside it or closer than the larger of the default and class clearance |
+| `dsn-layer-rule` | `different` | `H-G-DSN-CLEARANCE` | `(layer_rule F.Cu (rule (width 350)))` in `SIG`: 14 segments of 350 µm and 6 of 262.4 µm on `F.Cu`, 5 of the narrow ones at a pad; none of 200 µm |
+| `dsn-edge-band` | `different` | `H-G-DSN-EDGE`, `H-G-DSN-EDGE-2` | bands added by the test: a 2 mm passage loses its route (7 tracks and 3 `copper_edge_clearance` without bands); a 4 mm passage is routed with no such violation |
+
+`krt-planes` (`H-K-KRT-PLANES`) was not run: no KiCadRoutingTools checkout on this machine.

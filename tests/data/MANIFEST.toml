@@ -1659,3 +1659,21 @@ path = "examples/yardstick/design.py"
 origin = "authored"
 corpus_id = ""
 notes = "the yardstick board of c0119: an invented eight-channel buck controller on official library lib ids, every value a round one chosen for the example; DSL source only"
+
+[[file]]
+path = "tests/data/model/v0.2.1/twelve_kinds.rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "a rules.json with one invented rule of each of the twelve rule kinds of release 0.2.1, written by the rules model and the canonical serialiser of the commit before change c0107 (7d8c0d0a; the two modules are unchanged since release 0.2.1): a model document from before the kind no_tracks, which must load and serialise to its own bytes (tests/unit/backends/kicad/test_rulemap_no_tracks.py)"
+
+[[file]]
+path = "tests/data/specctra/c0107_before_planebench_norules.dsn"
+origin = "authored"
+corpus_id = ""
+notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from the authored plane bench of tests/routing/_planebench.py without its rules, with no plane layer and no layer set: the text that write_dsn must still give for such a call (tests/unit/backends/specctra/test_dsn.py -k unchanged)"
+
+[[file]]
+path = "tests/data/specctra/c0107_before_blink_t10.dsn"
+origin = "authored"
+corpus_id = ""
+notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from examples/blink_2layer built for target 10: the text that write_dsn must still give for a design without a rule (tests/unit/backends/specctra/test_dsn.py -k unchanged)"

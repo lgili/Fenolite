@@ -520,7 +520,8 @@ copper on `In4.Cu` of the script lies on a layer of the document.
 `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})` makes `In1.Cu` an internal plane on
 `GND`; a plane takes any inner layer of the count. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
 rules decide how they join it. A zone of the plane's net on that layer is left to the plane
-(`altium.plane-zone-merged`). The KiCad target writes no plane; it reports `build.plane-not-lowered`.
+(`altium.plane-zone-merged`). The KiCad target gives the layer the row type `power` and takes the copper
+from the zone of the plane's net; a plane without that zone gives `build.plane-zone-missing` (change c0107).
 
 **Refused, with an error and no file.** Nothing is dropped to make a document fit.
 

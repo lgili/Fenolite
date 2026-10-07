@@ -1,0 +1,191 @@
+(pcb planebench
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad fenolite)
+  )
+  (resolution um 10)
+  (unit um)
+  (structure
+    (layer F.Cu
+      (type signal)
+    )
+    (layer In1.Cu
+      (type signal)
+    )
+    (layer In2.Cu
+      (type signal)
+    )
+    (layer B.Cu
+      (type signal)
+    )
+    (boundary
+      (rect pcb 100000 -130000 140000 -100000)
+    )
+    (boundary
+      (path signal 0 100000 -100000 140000 -100000 140000 -130000 100000 -130000)
+    )
+    (via Via_600_300)
+    (rule
+      (width 250)
+      (clearance 200)
+    )
+  )
+  (placement
+    (component C1
+      (place C1 120000 -108000 front 0
+        (lock_type position)
+      )
+    )
+    (component C2
+      (place C2 120000 -122000 front 0
+        (lock_type position)
+      )
+    )
+    (component J1
+      (place J1 105000 -115000 front 0
+        (lock_type position)
+      )
+    )
+    (component J2
+      (place J2 135000 -115000 front 0
+        (lock_type position)
+      )
+    )
+    (component J3
+      (place J3 110000 -126000 front 0
+        (lock_type position)
+      )
+    )
+    (component J4
+      (place J4 130000 -126000 front 0
+        (lock_type position)
+      )
+    )
+    (component R1
+      (place R1 128000 -109000 front 0
+        (lock_type position)
+      )
+    )
+    (component U1
+      (place U1 120000 -115000 front 0
+        (lock_type position)
+      )
+    )
+  )
+  (library
+    (image C1
+      (pin P1 1 -800 0)
+      (pin P1 2 800 0)
+    )
+    (image C2
+      (pin P1 1 -800 0)
+      (pin P1 2 800 0)
+    )
+    (image J1
+      (pin P2 1 0 -3750)
+      (pin P2 2 0 -1250)
+      (pin P2 3 0 1250)
+      (pin P2 4 0 3750)
+    )
+    (image J2
+      (pin P2 1 0 -3750)
+      (pin P2 2 0 -1250)
+      (pin P2 3 0 1250)
+      (pin P2 4 0 3750)
+    )
+    (image J3
+      (pin P2 1 0 -1250)
+      (pin P2 2 0 1250)
+    )
+    (image J4
+      (pin P2 1 0 -1250)
+      (pin P2 2 0 1250)
+    )
+    (image R1
+      (pin P1 1 -800 0)
+      (pin P1 2 800 0)
+    )
+    (image U1
+      (pin P3 1 -2700 -1905)
+      (pin P3 2 -2700 -635)
+      (pin P3 3 -2700 635)
+      (pin P3 4 -2700 1905)
+      (pin P3 5 2700 1905)
+      (pin P3 6 2700 635)
+      (pin P3 7 2700 -635)
+      (pin P3 8 2700 -1905)
+    )
+    (padstack P1
+      (shape
+        (polygon F.Cu 0 -450 500 450 500 450 -500 -450 -500)
+      )
+    )
+    (padstack P2
+      (shape
+        (circle F.Cu 1800)
+      )
+      (shape
+        (circle In1.Cu 1800)
+      )
+      (shape
+        (circle In2.Cu 1800)
+      )
+      (shape
+        (circle B.Cu 1800)
+      )
+    )
+    (padstack P3
+      (shape
+        (polygon F.Cu 0 -775 300 775 300 775 -300 -775 -300)
+      )
+    )
+    (padstack Via_600_300
+      (shape
+        (circle F.Cu 600)
+      )
+      (shape
+        (circle In1.Cu 600)
+      )
+      (shape
+        (circle In2.Cu 600)
+      )
+      (shape
+        (circle B.Cu 600)
+      )
+    )
+  )
+  (network
+    (net GND
+      (pins C1-2 C2-2 J1-2 J2-3 U1-4)
+    )
+    (net HV1
+      (pins J3-1 J4-1)
+    )
+    (net HV2
+      (pins J3-2 J4-2)
+    )
+    (net SIG1
+      (pins J1-3 U1-1)
+    )
+    (net SIG2
+      (pins J1-4 U1-2)
+    )
+    (net SIG3
+      (pins R1-1 U1-3)
+    )
+    (net SIG4
+      (pins R1-2 U1-5)
+    )
+    (net SIG5
+      (pins J2-1 U1-6)
+    )
+    (net SIG6
+      (pins J2-2 U1-7)
+    )
+    (net VCC
+      (pins C1-1 C2-1 J1-1 J2-4 U1-8)
+    )
+  )
+  (wiring)
+)

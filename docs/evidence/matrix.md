@@ -45,7 +45,7 @@ marks an operation that may change its output, its options or its issue codes in
 | kicad | `kicad_sch` | INFERRED | CORPUS-VERIFIED | KICAD-VERIFIED | CORPUS-VERIFIED | — | `H-K-SCH-COMPONENTS-2`, `H-K-SCH-HIER-FILE`, `H-K-SCH-HIER-PATH`, `H-K-SCH-LIBTABLE`, `H-K-SCH-MINIMAL`, `H-K-SCH-PARITY`, `H-K-SCH-PINFRAME`, `H-K-SCH-POWER`, `H-K-SCH-READ`, `H-K-SCH-SLASH`, `H-K-SCH-UNCONNECTED`, `H-K-SCH-WIRE-END`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_sym` | INFERRED | INFERRED | UNVERIFIED (experimental) | — | — | `H-K-LIB-READ`, `H-K-TOK-CONSTANTS` |
 | kicad | `kicad_wks` | INFERRED | INFERRED | INFERRED | INFERRED | — | `H-K-TOK-CONSTANTS`, `H-K-WKS-CORNER` |
-| specctra | `specctra_dsn` | — | — | INFERRED | — | — | `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
+| specctra | `specctra_dsn` | — | — | INFERRED | — | — | `H-G-DSN-ACCEPT`, `H-G-DSN-CLEARANCE`, `H-G-DSN-EDGE-2`, `H-G-DSN-LAYERS`, `H-G-DSN-PLANE`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
 | specctra | `specctra_ses` | — | INFERRED | — | — | — | `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
 
 ## Hypotheses
@@ -226,6 +226,10 @@ the settling test and the result of an id are in its register row.
 | `H-A-VER-RTA2-3` | INFERRED |
 | `H-A-VER-RTA3` | CORPUS-VERIFIED |
 | `H-G-DSN-ACCEPT` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-04) |
+| `H-G-DSN-CLEARANCE` | INFERRED |
+| `H-G-DSN-EDGE-2` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-08) |
+| `H-G-DSN-LAYERS` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-08) |
+| `H-G-DSN-PLANE` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-08) |
 | `H-G-DSN-PROTECT` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-04) |
 | `H-G-DSN-UNITS` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-04) |
 | `H-K-BUILD-LIBTABLE` | KICAD-VERIFIED (10.0.x) |
@@ -365,6 +369,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `dru` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `embed` | `EVIDENCE` KICAD-VERIFIED: `H-G-BOTTOM-STORE`, `H-G-FLIP`, `H-G-PAD-ANGLE-ABS` |
 | `erc` | `EVIDENCE` KICAD-VERIFIED: `H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET` |
+| `fanout` | `EVIDENCE` INFERRED: `H-K-FANOUT` |
 | `fields` | `EVIDENCE` INFERRED: `H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`, `H-K-FIELD-OUTSIDE` |
 | `fill` | `EVIDENCE` KICAD-VERIFIED: `H-K-FILL-SAVE`, `H-K-FILL-LIFT`, `H-K-FILL-REPEAT` |
 | `fpitems` | `EVIDENCE` INFERRED: `H-K-PCB-FPGFX` |
@@ -410,6 +415,6 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 
 | module | declaration |
 |---|---|
-| `dsn` | `EVIDENCE` INFERRED: `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
+| `dsn` | `EVIDENCE` INFERRED: `H-G-DSN-ACCEPT`, `H-G-DSN-CLEARANCE`, `H-G-DSN-EDGE-2`, `H-G-DSN-LAYERS`, `H-G-DSN-PLANE`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |
 | `lexer` | see `dsn`, `ses` |
 | `ses` | `EVIDENCE` INFERRED: `H-G-DSN-ACCEPT`, `H-G-DSN-PROTECT`, `H-G-DSN-UNITS` |

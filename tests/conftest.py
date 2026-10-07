@@ -14,6 +14,9 @@ import pytest
 TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
+# the plane bench of change c0107 lives beside the routing gates and is shared with the unit suites
+if str(TESTS_DIR / "routing") not in sys.path:
+    sys.path.insert(1, str(TESTS_DIR / "routing"))
 
 from _resources import (  # noqa: E402  (imported after the sys.path setup above)
     CORPUS_HINT,

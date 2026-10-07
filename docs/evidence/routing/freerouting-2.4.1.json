@@ -6,9 +6,25 @@
       "detail": "two-pads: 1 wire(s), 0 via(s), resolution um 10, 2 place(s), placement unit um 10, unknown lists []; blink: 5 wire(s), 1 via(s), resolution um 10, 3 place(s), placement unit um 10, unknown lists []",
       "value": "present"
     },
+    "dsn-class-class": {
+      "detail": "kicad-cli 10.0.6: the bench with J3 in the upper right corner, every routed net kept to F.Cu; with (class_class (classes HV SIG) (rule (clearance 1000))) 0 HV-SIG clearance violation(s), 13 HV track(s), open nets {}; control without the rule in the file: 2 violation(s), 13 HV track(s), open nets {}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "equal"
+    },
+    "dsn-edge-band": {
+      "detail": "kicad-cli 10.0.6, edge bench (a 1 mm slot between the two pads, edge clearance 500 um, bands of 600 um added to the file by the test), as (tracks, copper_edge_clearance on tracks, open nets): 2 mm passage with bands (0, 0, 1), without (7, 3, 0); 4 mm passage with bands (7, 0, 0), without (7, 3, 0); jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "different"
+    },
     "dsn-inc": {
       "detail": "the open net B in the class WIDE, declared, with -inc WIDE as the first and as the last argument: 1 and 1 session wire(s) on B",
       "value": "present"
+    },
+    "dsn-keepout": {
+      "detail": "a 2 mm by 12 mm keep-out for tracks on F.Cu and B.Cu between J1 and U1: 17 track(s), 0 inside it, 0 closer than the larger of the default and class clearance; open nets {'SIG1': 1, 'SIG5': 1}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "equal"
+    },
+    "dsn-layer-rule": {
+      "detail": "class SIG with (layer_rule F.Cu (rule (width 350))): SIG track widths in nm per layer {'F.Cu': {350000: 14, 262400: 6}}; 6 segment(s) on F.Cu are not 350 um wide, 5 of them end within 1.6 mm of a pad of their net; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "different"
     },
     "dsn-mt0": {
       "detail": "blink, -mt 0 without the setting: noopt: optimization stage logged: False, session with wires: True; mt0: optimization stage logged: True, session with wires: True; plain: optimization stage logged: True, session with wires: True",
@@ -38,6 +54,18 @@
       "detail": "a pad nearest to the middle of one protected track: 1 open connection(s) after the run by the query, listed in result.unrouted: True",
       "value": "different"
     },
+    "dsn-plane-alone": {
+      "detail": "plane bench without fan-out: Freerouting reports open connections {'GND': 2, 'VCC': 2} on the plane nets, adds 0 via(s) and tracks per layer {'F.Cu': 6} to them; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "open"
+    },
+    "dsn-plane-fanout": {
+      "detail": "plane bench with the fan-out of fenolite route (12 protected items in the file): 0 item(s) added to GND and VCC, open plane connections {}; open nets {'SIG5': 1}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "equal"
+    },
+    "dsn-power-layers": {
+      "detail": "plane bench with fan-out, In1.Cu and In2.Cu written (type power): tracks per layer {'F.Cu': 20}; open nets {'SIG5': 1}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
+      "value": "equal"
+    },
     "dsn-protect": {
       "detail": "1 session wire(s) on the protected net, 0 item(s) that differ from the input",
       "value": "equal"
@@ -56,6 +84,10 @@
     },
     "dsn-units": {
       "detail": "largest distance to a pad centre: 0 nm",
+      "value": "equal"
+    },
+    "dsn-use-layer": {
+      "detail": "class SIG with (use_layer F.Cu): SIG tracks per layer {'F.Cu': 18}, HV tracks per layer {'F.Cu': 2}; open nets {'SIG5': 1}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
       "value": "equal"
     }
   },

@@ -259,24 +259,73 @@ def plane_script(tmp_path: Path, board: str) -> Path:
     return script
 
 
-def test_plane_in_a_kicad_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "Plane in a KiCad build": one info, and the board of the variant without ``planes``."""
-    board = "design.board(mm(50), mm(30), copper=4)"
-    plain = plane_script(tmp_path / "a", board)
-    code, expected, _ = run(monkeypatch, str(plain), "--out", str(tmp_path / "A"), "--dry-run")
-    assert code == 0 and "build.plane-not-lowered" not in [i["code"] for i in expected["issues"]]  # type: ignore[index]
-    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
-    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "A"), "--dry-run")
+ZONE_LINE = '\ndesign.zone(gnd, layers=("In1.Cu",))\n'
+
+
+def plane_codes(envelope: dict[str, object]) -> list[str]:
+    return [i["code"] for i in envelope["issues"] if i["code"].startswith("build.plane-")]  # type: ignore[index, union-attr]
+
+
+def built_board(monkeypatch: pytest.MonkeyPatch, script: Path, out: Path) -> tuple[dict[str, object], str]:
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
     assert code == 0
-    found = [i for i in env["issues"] if i["code"] == "build.plane-not-lowered"]  # type: ignore[index]
-    assert len(found) == 1 and found[0]["severity"] == "info"
-    assert "In1.Cu" in found[0]["message"] and "GND" in found[0]["message"]
+    return env, (out / "blink.kicad_pcb").read_text(encoding="utf-8")
 
-    def digests(envelope: dict[str, object]) -> dict[str, str]:
-        plan = envelope["result"]["plan"]  # type: ignore[index]
-        return {Path(p["path"]).name: p["sha256"] for p in plan if not Path(p["path"]).name.endswith(".json")}
 
-    assert digests(env) == digests(expected) and "blink.kicad_pcb" in digests(env)
+def test_plane_in_a_kicad_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane in a KiCad build" (change c0107): the plane layer gets the row type ``power``, no
+    plane issue is given, and the board differs from the one without ``planes`` in that row only."""
+    plain = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=4)")
+    plain.write_text(plain.read_text(encoding="utf-8") + ZONE_LINE, encoding="utf-8")
+    expected, without = built_board(monkeypatch, plain, tmp_path / "A")
+    assert plane_codes(expected) == []
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
+    script.write_text(script.read_text(encoding="utf-8") + ZONE_LINE, encoding="utf-8")
+    code, dry, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+    assert code == 0 and plane_codes(dry) == []
+    env, board = built_board(monkeypatch, script, tmp_path / "B")
+    assert plane_codes(env) == []
+    assert '(4 "In1.Cu" power)' in board and '(6 "In2.Cu" signal)' in board
+    assert '(4 "In1.Cu" signal)' in without
+    assert board == without.replace('(4 "In1.Cu" signal)', '(4 "In1.Cu" power)')
+    for name in ("blink.kicad_pro", "blink.kicad_dru", "blink.kicad_sch"):
+        assert (tmp_path / "A" / name).read_bytes() == (tmp_path / "B" / name).read_bytes(), name
+
+
+def test_plane_without_its_zone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane without its zone": one warning whose hint names the script call, and the type."""
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
+    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+    assert code == 0 and plane_codes(env) == ["build.plane-zone-missing"]
+    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-zone-missing"]  # type: ignore[index, union-attr]
+    assert found["severity"] == "warning" and "In1.Cu" in found["message"] and "GND" in found["message"]
+    assert "design.zone" in found["hint"] and "In1.Cu" in found["hint"]
+    _, board = built_board(monkeypatch, script, tmp_path / "B")
+    assert '(4 "In1.Cu" power)' in board and '(6 "In2.Cu" signal)' in board
+
+
+def test_plane_declared_after_the_first_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Plane declared after the first build" and "A type set in KiCad stays"."""
+    script = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=4)")
+    out = tmp_path / "A"
+    _, first = built_board(monkeypatch, script, out)
+    assert '(4 "In1.Cu" signal)' in first and '(6 "In2.Cu" signal)' in first
+    # KiCad's board setup gives In2.Cu the type power; the script still names no plane
+    (out / "blink.kicad_pcb").write_text(
+        first.replace('(6 "In2.Cu" signal)', '(6 "In2.Cu" power)'), encoding="utf-8", newline="\n"
+    )
+    _, kept = built_board(monkeypatch, script, out)
+    assert '(6 "In2.Cu" power)' in kept and '(4 "In1.Cu" signal)' in kept
+    text = script.read_text(encoding="utf-8")
+    assert "copper=4)" in text
+    script.write_text(text.replace("copper=4)", 'copper=4, planes={"In1.Cu": gnd})'), encoding="utf-8")
+    _, second = built_board(monkeypatch, script, out)
+    assert '(4 "In1.Cu" power)' in second and '(6 "In2.Cu" power)' in second
+    assert second == kept.replace('(4 "In1.Cu" signal)', '(4 "In1.Cu" power)'), "the layout is kept"
+    # the plane leaves the script: its type stays, as one set in KiCad would
+    script.write_text(text, encoding="utf-8")
+    _, third = built_board(monkeypatch, script, out)
+    assert third == second
 
 
 def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -319,30 +368,20 @@ def layers_script(tmp_path: Path, copper: int, extra: str) -> Path:
 
 
 def test_plane_on_a_six_layer_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenarios "Plane on a six-layer board" and the hint of "Plane in a KiCad build"."""
+    """Scenario "Plane on a six-layer board": any inner layer of the count takes the type, and the hint of
+    the missing zone names the script call and not the KiCad editor."""
     plain = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=6)")
-    code, expected, _ = run(monkeypatch, str(plain), "--out", str(tmp_path / "A"), "--dry-run")
-    assert code == 0
-
-    def digests(envelope: dict[str, object]) -> dict[str, str]:
-        plan = envelope["result"]["plan"]  # type: ignore[index]
-        return {Path(p["path"]).name: p["sha256"] for p in plan if not Path(p["path"]).name.endswith(".json")}
-
+    _, without = built_board(monkeypatch, plain, tmp_path / "A")
     script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})')
-    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "A"), "--dry-run")
-    assert code == 0
-    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-not-lowered"]  # type: ignore[index, union-attr]
-    assert found["severity"] == "info" and "In4.Cu" in found["message"] and "GND" in found["message"]
+    env, board = built_board(monkeypatch, script, tmp_path / "B")
+    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-zone-missing"]  # type: ignore[index, union-attr]
+    assert found["severity"] == "warning" and "In4.Cu" in found["message"] and "GND" in found["message"]
     assert (
         "design.zone(" in found["hint"] and "GND" in found["hint"] and 'layers=("In4.Cu",)' in found["hint"]
     )
     assert "KiCad" not in found["hint"]
-    assert digests(env) == digests(expected) and "blink.kicad_pcb" in digests(env)
-
-    four = plane_script(tmp_path / "c", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
-    code, env, _ = run(monkeypatch, str(four), "--out", str(tmp_path / "C"), "--dry-run")
-    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-not-lowered"]  # type: ignore[index, union-attr]
-    assert code == 0 and "design.zone" in found["hint"] and "In1.Cu" in found["hint"]
+    assert '(10 "In4.Cu" signal)' in without
+    assert board == without.replace('(10 "In4.Cu" signal)', '(10 "In4.Cu" power)')
 
 
 @pytest.mark.parametrize("target", [9, 10])

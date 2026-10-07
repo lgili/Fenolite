@@ -628,3 +628,53 @@ def test_net_of_a_wider_class_stays_declared_and_is_named(
     assert "1 net(s)" in issue.message and issue.message.endswith(": B")
     assert result.routed == ("A",) and len(result.tracks) == 1
     assert ISSUE_CODES["route.net-declared"] == "info"
+
+
+# --- planes, layers and rules (change c0107) -------------------------------------------------------------
+
+
+def test_planes_layers_and_rules_reach_the_design_file(
+    tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "Recorded design file" (capability routing, "Freerouting plugin sends planes, layers and
+    rules"; change c0107): the kept file holds the power layers, a plane, ``use_layer`` and ``class_class``,
+    and the arguments are those of a job without them."""
+    import dataclasses
+
+    import _planebench as pb
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    found = pb.load(pb.build_project(tmp_path / "bench"))
+    by_net: dict[str, list[JobPad]] = {}
+    for pad in found.pads:
+        if pad.net in (*pb.SIGNALS, *pb.HIGH):
+            by_net.setdefault(pad.net, []).append(
+                JobPad(pad.ref, pad.number, pad.net, pad.position, pad.layers, pad.drill)
+            )
+    nets = tuple(
+        JobNet(name, found.net_id(name), tuple(pads), mm(0.2), mm(0.2), mm(0.6), mm(0.3),
+               ("F.Cu",) if name == "SIG1" else None)
+        for name, pads in sorted(by_net.items())
+    )  # fmt: skip
+    extra = {"board_pads": found.pads, "outline": found.outline}
+    layers = ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")
+    job = RoutingJob(found.design, nets, layers, {}, extra, plane_layers=pb.PLANE_LAYERS)
+    kept = tmp_path / "kept.dsn"
+    monkeypatch.setenv("FAKE_JAVA_KEEP_DSN", str(kept))
+    monkeypatch.setenv("FAKE_JAVA_MODE", "none")
+    router = _router(tmp_path)
+    router.route(job)
+    text = " ".join(kept.read_text(encoding="utf-8").split()).replace("( ", "(").replace(" )", ")")
+    assert "(layer In1.Cu (type power))" in text and "(layer In2.Cu (type power))" in text
+    assert "(plane GND (polygon In1.Cu 0 " in text and "(plane VCC (polygon In2.Cu 0 " in text
+    assert "(use_layer F.Cu)" in text and "(class SIG@2 SIG1 " in text
+    assert "(class_class (classes HV SIG) (rule (clearance 1000)))" in text
+    assert "(class_class (classes HV SIG@2) (rule (clearance 1000)))" in text
+    planes_argv = _saved(record)["argv"]
+    plain = dataclasses.replace(
+        job, plane_layers=(), nets=tuple(dataclasses.replace(net, layers=None) for net in nets)
+    )
+    router.route(plain)
+    assert _saved(record)["argv"] == planes_argv
+    before = " ".join(kept.read_text(encoding="utf-8").split())
+    assert "(type power)" not in before and "use_layer" not in before and "(plane " not in before

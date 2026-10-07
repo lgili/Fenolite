@@ -478,7 +478,7 @@ def test_plane_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     result = env["result"]
     assert isinstance(result, dict) and result["copper"]["planes"] == {"In1.Cu": "GND"}
     issues = env["issues"]
-    assert isinstance(issues, list) and "build.plane-not-lowered" not in [i["code"] for i in issues]
+    assert isinstance(issues, list) and not [i for i in issues if i["code"].startswith("build.plane-")]
 
 
 # --- change c0086: symbol bodies, directions and result.schematic -------------------------------------

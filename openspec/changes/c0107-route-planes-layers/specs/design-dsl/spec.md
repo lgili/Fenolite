@@ -19,6 +19,11 @@
 - **WHEN** it is built with `--dry-run --json`
 - **THEN** the exit code is 0, `issues` hold one `build.plane-zone-missing` warning naming `In1.Cu` and `GND` whose hint names `design.zone` and `In1.Cu`, and the planned board holds `(4 "In1.Cu" power)`
 
+#### Scenario: Plane on a six-layer board
+- **GIVEN** a blink variant with `design.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 0, `issues` hold one `build.plane-zone-missing` warning naming `In4.Cu` and `GND` whose hint names `design.zone`, `GND` and `In4.Cu` and not "KiCad", and the board equals the board of the variant without `planes` but for the row `(10 "In4.Cu" power)`
+
 #### Scenario: Plane declared after the first build
 - **GIVEN** a confirmed build of the variant without `planes`, and then the script with `planes={"In1.Cu": gnd}`
 - **WHEN** it is built again with `--confirm`

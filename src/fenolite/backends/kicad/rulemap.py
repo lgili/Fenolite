@@ -40,9 +40,14 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "courtyard_clearance": "courtyard_clearance",
         "silk_clearance": "silk_clearance",
         "creepage": "creepage",
+        "no_tracks": "disallow",
     }
 )
-"""Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``."""
+"""Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``, and
+``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``)."""
+DISALLOW_ITEM = "track"
+"""The one item type of a ``disallow`` constraint that is modelled (rules.md, "Track layer rules";
+``H-K-DRU-NOTRACKS``). Every other ``disallow`` rule stays opaque."""
 LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
     {
         "clearance": frozenset({"min"}),
@@ -57,9 +62,15 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
         "courtyard_clearance": frozenset({"min"}),
         "silk_clearance": frozenset({"min"}),
         "creepage": frozenset({"min"}),
+        "no_tracks": frozenset(),
     }
 )
-"""The six kinds of change c0071 take ``min`` only: that is what the oracle measured for them."""
+"""The six kinds of change c0071 take ``min`` only: that is what the oracle measured for them.
+``no_tracks`` takes no limit at all (``NO_LIMIT_KINDS``)."""
+NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+"""The kinds whose rule holds no limit; every other kind needs one."""
+LAYER_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+"""The kinds whose rule needs at least one layer (one rule is written per layer)."""
 LIMIT_ORDER = ("min", "opt", "max")
 
 
@@ -89,6 +100,7 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
         "courtyard_clearance": KindGrammar(frozenset({"ref"}), glob=False),
         "silk_clearance": KindGrammar(frozenset()),
         "creepage": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
+        "no_tracks": KindGrammar(frozenset({"net", "netclass"}), layers=True),
     }
 )
 """Each kind → the selectors it takes (rules.md, "Selectors per kind"). A courtyard rule selects footprints,
@@ -130,12 +142,15 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "courtyard_clearance": _BOTH,
         "silk_clearance": _BOTH,
         "creepage": frozenset({10}),
+        "no_tracks": frozenset({10}),
     }
 )
 """Each kind → the KiCad majors on which ``kicad-cli`` enforces it as written: for the six kinds of v0.1,
 ``H-K-DRU-KIND``; for the six of change c0071, the majors whose ``dru-kind-<kind>`` probe recorded
 ``present`` (``H-K-DRU-KIND-2``). 9.0.9 loads a ``creepage`` rule and reports nothing for it, so it is written
-for 10 only. A modelled rule of a kind outside its entry gives ``rules.kind-unchecked``."""
+for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
+recorded on 10.0.6; its entry gains 9 when the probe file of 9.0.9 records ``present``. A modelled rule of a
+kind outside its entry gives ``rules.kind-unchecked``."""
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -431,7 +446,7 @@ def rule_nodes(
     issues: list[Issue] = []
     constraint_type = KIND_MAP[rule.kind]
     limits = [(name, getattr(rule, name)) for name in LIMIT_ORDER if getattr(rule, name) is not None]
-    if not limits:
+    if not limits and rule.kind not in NO_LIMIT_KINDS:
         issues.append(_issue("rules.unsupported-limit", f"a {rule.kind} rule needs a limit", rule))
     for name, _ in limits:
         if name not in LIMITS[rule.kind]:
@@ -440,6 +455,15 @@ def rule_nodes(
     issues += found
     if rule.layers and not KIND_SELECTORS[rule.kind].layers:
         issues.append(_issue("rules.unsupported-selector", f"a {rule.kind} rule takes no layer clause", rule))
+    if rule.kind in LAYER_KINDS:
+        if not rule.layers:
+            issues.append(
+                _issue("rules.unsupported-layer", f"a {rule.kind} rule needs at least one layer", rule)
+            )
+        if rule.selector_b is not None and rule.selector_b.op == "all":  # another B: condition_text
+            issues.append(
+                _issue("rules.unsupported-selector", f"a {rule.kind} rule takes no selector_b", rule)
+            )
     for layer in rule.layers:
         if not is_canonical(layer):
             issues.append(
@@ -454,6 +478,7 @@ def rule_nodes(
     constraint = _node(
         "constraint",
         Atom.symbol(constraint_type),
+        *((Atom.symbol(DISALLOW_ITEM),) if rule.kind == "no_tracks" else ()),
         *(_node(name, Atom.symbol(format_value(value))) for name, value in limits),
     )
     fields = {s.field for s in slots if isinstance(s, Modeled)}
@@ -501,6 +526,17 @@ def lift_rule(node: Node) -> Rule | str:
         return "a clause appears twice"
     constraint = clauses["constraint"][0]
     types = constraint.atoms()
+    disallow = bool(types) and types[0].kind == AtomKind.SYMBOL and types[0].value == KIND_MAP["no_tracks"]
+    if disallow:
+        items = [a.text for a in types[1:]]
+        if items != [DISALLOW_ITEM] or constraint.nodes():
+            return (
+                f"constraint disallow {' '.join(items) or '()'} is not 'disallow {DISALLOW_ITEM}' alone, "
+                "the one disallow rule that is modelled"
+            )
+        if "layer" not in clauses:
+            return f"a 'disallow {DISALLOW_ITEM}' rule without a layer clause is not modelled"
+        types = types[:1]
     kinds: list[RuleKind] = [
         k for k, written in KIND_MAP.items() if k != "via_drill" and types and written == types[0].value
     ]
@@ -515,7 +551,7 @@ def lift_rule(node: Node) -> Rule | str:
         if found[0] in limits or found[0] not in LIMITS[kind]:
             return f"limit {found[0]!r} is not allowed for {kind}"
         limits[found[0]] = found[1]
-    if not limits:
+    if not limits and kind not in NO_LIMIT_KINDS:
         return "the constraint has no limit"
     selector_a, selector_b = Selector("all"), None
     if "condition" in clauses:

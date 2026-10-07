@@ -59,6 +59,7 @@ import _paircases
 import _paritycases
 import _pcbxcases
 import _placecases
+import _planecases
 import _powerbench
 import _procases
 import _renamecases
@@ -311,6 +312,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _stackbench.stackup_probes(runner).items():  # change c0101
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _viabench.via_probes(runner).items():  # change c0112
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _planecases.plane_probes().items():  # change c0107
         probes[pid] = Probe(function, majors)
     return probes
 

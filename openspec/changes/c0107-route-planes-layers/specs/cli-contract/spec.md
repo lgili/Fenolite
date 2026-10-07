@@ -13,7 +13,7 @@
 #### Scenario: Plane nets fanned out, signals routed
 - **GIVEN** the bench of `tests/routing/_planebench.py` written as a KiCad board with `In1.Cu` and `In2.Cu` of type `power`, and its project and rules files
 - **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k plane_fanout` runs `fenolite route <board> --router direct --dry-run --json`
-- **THEN** the exit code is 0, `result.plane_layers` is `["In1.Cu", "In2.Cu"]`, `result.plane_fanout.nets` is `["GND", "VCC"]` with 6 vias and 6 tracks, `issues` hold one `route.plane-net` for each, `result.selected` names neither, and the planned board holds the fan-out copper
+- **THEN** the exit code is 0, `result.plane_layers` is `["In1.Cu", "In2.Cu"]`, `result.plane_fanout.nets` is `["GND", "VCC"]` with 6 vias and 6 tracks, `issues` hold one `route.plane-net` for each, `result.selected` names neither, and the board written by the same command with `--confirm` holds the fan-out copper
 
 #### Scenario: Fan-out skipped
 - **WHEN** the same command runs with `--no-plane-fanout`

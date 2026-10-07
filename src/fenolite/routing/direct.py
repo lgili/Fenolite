@@ -23,7 +23,8 @@ class DirectRouter:
         return RouterStatus(True, version="builtin")
 
     def route(self, job: RoutingJob) -> RoutingResult:
-        """Route two-pad nets on their first shared copper layer in stack order."""
+        """Route two-pad nets on their first shared copper layer, in stack order, that is not a plane
+        layer of the job and, when the net has a layer set, is in it."""
         tracks: list[Track] = []
         routed: list[str] = []
         unrouted: list[str] = []
@@ -33,7 +34,15 @@ class DirectRouter:
                 continue
             first, second = net.pads
             shared = next(
-                (layer for layer in job.layers if layer in first.layers and layer in second.layers), None
+                (
+                    layer
+                    for layer in job.layers
+                    if layer in first.layers
+                    and layer in second.layers
+                    and layer not in job.plane_layers
+                    and (net.layers is None or layer in net.layers)
+                ),
+                None,
             )
             if shared is None:
                 unrouted.append(net.name)

@@ -248,3 +248,53 @@ def test_escalation_option_comes_after_the_default(fake) -> None:
     argv = recorded(runs)[0]["argv"]
     positions = [index for index, word in enumerate(argv) if word == "--escalation"]
     assert [argv[index + 1] for index in positions] == ["off", "board"]
+
+
+# --- plane layers and layer sets (change c0107) --------------------------------------------------------
+
+
+def test_constraint_not_sent(tmp_path, monkeypatch) -> None:
+    """Scenario "KiCadRoutingTools told nothing" (change c0107): one warning naming the plane layers, and
+    the arguments of a job without them."""
+    import dataclasses
+
+    checkout = create_fake_router(tmp_path)
+    record = tmp_path / "record.json"
+    monkeypatch.setenv("FAKE_ROUTER_RECORD", str(record))
+    router = KicadRoutingToolsRouter(checkout, sys.executable)
+    plain = router.route(_job())
+    assert not [i for i in plain.issues if i.code == "route.constraint-not-sent"]
+    plain_args = json.loads(record.read_text(encoding="utf-8"))["argv"]
+    job = dataclasses.replace(_job(), plane_layers=("In1.Cu",))
+    result = router.route(job)
+    (found,) = [i for i in result.issues if i.code == "route.constraint-not-sent"]
+    assert found.severity == "warning" and "In1.Cu" in found.message
+    argv = json.loads(record.read_text(encoding="utf-8"))["argv"]
+    assert argv[3:] == plain_args[3:] and result.routed == plain.routed
+    kept = dataclasses.replace(_job(), nets=(dataclasses.replace(_job().nets[0], layers=("F.Cu",)),))
+    (found,) = [i for i in router.route(kept).issues if i.code == "route.constraint-not-sent"]
+    assert "B" in found.message and "plane" not in found.message.split(":")[0]
+
+
+def test_rules_read_from_a_file_reach_the_run_folder(tmp_path, monkeypatch) -> None:
+    """The rules of the job's design, read from a rules file by ``route`` (change c0107), are written back
+    into the run's rules file with their own names: a set read from a file is not lowered again."""
+    import dataclasses
+
+    from fenolite.backends.kicad.dru import read_rules
+
+    text = (
+        "(version 1)\n"
+        '(rule "sig_outer" (layer "B.Cu") (condition "A.NetName == \'B\'") (constraint disallow track))\n'
+        '(rule "wide" (constraint clearance (min 0.3mm)))\n'
+    )
+    checkout = create_fake_router(tmp_path)
+    runs = tmp_path / "runs.jsonl"
+    monkeypatch.setenv("FAKE_ROUTER_RUNS", str(runs))
+    job = dataclasses.replace(_job(), design=dataclasses.replace(_job().design, rules=read_rules(text)))
+    result = KicadRoutingToolsRouter(checkout, sys.executable).route(job)
+    assert not [i for i in result.issues if i.severity == "error"], result.issues
+    assert result.routed == ("B",)
+    (run,) = [json.loads(line) for line in runs.read_text(encoding="utf-8").splitlines()]
+    assert '"sig_outer"' in run["rules"] and "(constraint disallow track)" in run["rules"]
+    assert '"wide"' in run["rules"]
