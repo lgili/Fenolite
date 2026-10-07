@@ -154,7 +154,11 @@ def test_place_dry_run_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tu
     _untouched(root, before)
 
 
-@pytest.mark.parametrize("command", [("bom", "--source", "model"), ("pnp",)], ids=["bom", "pnp"])
+@pytest.mark.parametrize(
+    "command",
+    [("bom", "--source", "model"), ("pnp",), ("testpoints",)],
+    ids=["bom", "pnp", "testpoints"],
+)
 @pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
 def test_bom_and_pnp_leave_the_source_untouched(
     monkeypatch: pytest.MonkeyPatch,
@@ -170,7 +174,7 @@ def test_bom_and_pnp_leave_the_source_untouched(
     name, *flags = command
     code, env, _, _ = run(monkeypatch, elsewhere, name, str(root), *flags, "--out", "table.csv", protocol)
     assert code == 0, env["issues"]
-    assert calls(fake) == []  # neither command runs a tool
+    assert calls(fake) == []  # none of the commands runs a tool
     assert (elsewhere / "table.csv").is_file() is (protocol == "--confirm")
     assert tree_snapshot(root) == before
 

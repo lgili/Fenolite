@@ -594,6 +594,19 @@ def resolve_footprints(
             )
             for link in links:
                 del resolved[link]
+    marked = sorted(
+        link for link, footprint in resolved.items() if any(p.fab_property for p in footprint.defn.pads)
+    )
+    if marked:
+        # change c0118: no public source says where an Altium pad record holds a fabrication mark
+        issues.append(
+            issue(
+                "altium.not-lowered",
+                f"pad properties of {', '.join(marked)} are kept in the model only: the fabrication marks "
+                "of their pads (test point, fiducial, BGA and the like) are written to no Altium record",
+                "pad properties",
+            )
+        )
     return resolved, issues
 
 

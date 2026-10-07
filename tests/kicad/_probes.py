@@ -35,6 +35,7 @@ import _doccases
 import _drccases
 import _erccases
 import _exportcases
+import _featurebench
 import _fieldbench
 import _fieldprobe
 import _fillcases
@@ -311,6 +312,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _stackbench.stackup_probes(runner).items():  # change c0101
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _viabench.via_probes(runner).items():  # change c0112
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
         probes[pid] = Probe(function, majors)
     return probes
 

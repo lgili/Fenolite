@@ -74,7 +74,13 @@ A **row** is one footprint of the board file. Left out: a footprint with the att
 | `x`, `y` | the footprint's position, after the template's origin and Y direction, in its `units` |
 | `rotation` | the footprint's rotation in degrees, after the template's rotation rule |
 | `side` | the name the template gives to the top or the bottom side |
+| `fiducial` | `yes` for a footprint with a pad marked as a fiducial, else nothing |
 | `property:<NAME>` | the user property `NAME` of the component, or nothing |
+
+A **fiducial row** is the row of a footprint with a pad whose mark is `fiducial_global` or
+`fiducial_local` (`Pad.fab_property`). The default template keeps it, as KiCad's own position file does
+for a fiducial that is not excluded from position files; `fiducials = false` in `[placement]` leaves the
+fiducial rows out, and a column with the field `fiducial` marks them.
 
 `fenolite pnp` always reads the positions from the **board file**, also in a project that Fenolite built:
 `place`, `route` and `fill` write the board and not the `.fenolite/` model, so the board is the one
@@ -108,6 +114,7 @@ the command exits 3.
 | `[placement]` `sides` | `{ top = "…", bottom = "…" }` | `top`, `bottom` |
 | `[placement]` `exclude_dnp` | `true` leaves DNP parts out | `true` |
 | `[placement]` `smd_only` | `true` keeps only footprints with the attribute `smd` | `false` |
+| `[placement]` `fiducials` | `false` leaves out the rows of footprints with a fiducial pad | `true` |
 | `[placement.rotation]` `top`, `bottom` | `{ sign = 1 or -1, offset = degrees }` | `sign = 1`, `offset = 0` |
 | `[[placement.rotation.footprint]]` | `match` (a pattern) and `offset` (degrees) | none |
 
@@ -189,7 +196,7 @@ The neutral row is in the **board frame**, which is the KiCad file frame (`docs/
 the right, Y down the page, and the footprint's stored angle, on the top and on the bottom side alike. A
 template then applies, in this order:
 
-1. **Filters.** `exclude_dnp` and `smd_only`.
+1. **Filters.** `exclude_dnp`, `smd_only` and `fiducials`.
 2. **`origin`.** `"page"` subtracts nothing: the numbers are the board file's. `"outline"` subtracts the
    left edge of the bounding box of the board outline and, for `y_axis = "up"`, its lower edge on the
    page (for `"down"`, its upper edge), so a part inside the outline has positive coordinates. A board
@@ -283,6 +290,64 @@ template: `removed` (a line only `OTHER` has), `added` (a line only `PATH` has) 
 grouping values with different references). The fitted line and the DNP line of one value are compared
 separately: the `key` of a DNP line is its grouping values followed by `DNP`, unless `group_by` names
 `dnp` (then `DNP` is among the values already) or is empty (then the key is the reference).
+
+## Test points, fiducials and holes
+
+`fenolite testpoints PATH` reads the board file, as `pnp` does, and runs no tool. It answers four
+questions a contract manufacturer asks: where the test points are and from which side a probe reaches
+them, which nets have one, where the fiducials are, and which holes are not plated.
+
+```
+fenolite testpoints build/board --json
+fenolite testpoints build/board --side bottom --min-coverage 90 --min-pitch 2.54mm --min-fiducials 3
+fenolite testpoints build/board --template jlc.toml --out fab/testpoints.csv --manifest --confirm
+```
+
+**What counts.** Marks, never names:
+
+| row | what makes it one |
+|---|---|
+| test point | a pad with the mark `test_point` (`Pad.fab_property`; KiCad's pad property "test point") |
+| fiducial | a footprint with a pad marked `fiducial_global` or `fiducial_local`; the row holds the position and size of its first such pad, and its `scope` |
+| hole | a non-plated through-hole pad; `tooling` is true when its footprint's library name starts with `Fenolite_Assembly:ToolingHole_` |
+
+KiCad's library test points and fiducials carry no mark, so a board that uses them shows none: the info
+`testpoint.none` says so. Mark a pad of your own footprint with `Footprint.pad(fab_property="test_point")`
+(`docs/dsl.md`, "Assembly and test features"), or set the pad's fabrication property in KiCad; marking the
+placed copy of a library footprint works too, and KiCad's DRC then reports that the copy differs from its
+library.
+
+**Access.** A probe reaches a pad on a side where the pad has both its copper layer and its mask layer:
+`F.Cu` with `F.Mask`, `B.Cu` with `B.Mask`. `access` is `top`, `bottom`, `both` (a through-hole pad open on
+both sides) or `none` (copper under the mask everywhere, reported as `testpoint.covered`). This is what
+KiCad's IPC-D-356 netlist says with its side code and its mask code. It is a rule about layers: the size
+of a probe and the parts around the pad are not judged.
+
+**Coverage.** A net with two pads or more is *eligible*; it is *covered* when a test point on it is open
+on the side asked with `--side` (on either side for `both`). `coverage.uncovered` names the others. Nets
+of one pad are not counted, and no net can be left out.
+
+**Targets are yours.** Fenolite ships no number. Without an option the command gives warnings and infos
+only and exits 0. With an option, a missed target is an error and the exit code is 5:
+
+| option | error |
+|---|---|
+| `--min-coverage PERCENT` | `testpoint.coverage-low` when fewer than that share of the eligible nets are covered |
+| `--min-pitch LENGTH` | `testpoint.too-close`, once per pair of test points that share an access side and are closer, centre to centre |
+| `--min-fiducials N` | `fiducial.too-few`, once per side that holds surface-mount parts to place and fewer global fiducials |
+
+**The CSV file.** `--out FILE` writes the rows under the fixed header
+`kind,ref,pad,net,x,y,side,access,width,height,drill`, test points first, then fiducials, then holes
+(`kind` `test_point`, `fiducial`, `tooling_hole` or `hole`). Positions and sizes are printed in the frame of
+the template's `[placement]` table (origin, Y axis, units, decimals, side names, and the `[csv]` options),
+so the file shares one frame with the placement table. No file is written when a target is missed.
+`--manifest` lists the file in `fenolite-artifacts.json` with the kind `testpoints`; it follows its board
+as the other tables do (`docs/exports.md`, "States").
+
+**Evidence.** The report is `INFERRED` (`H-K-TESTPOINT-D356`, `H-K-PAD-FABPROP`): its rows and access
+agree with `kicad-cli` 10.0.6 on a bench of four kinds of test pad
+(`tests/kicad/assembly/test_testpoints_d356.py`); the same run on 9.0.9 is not recorded yet. Coverage, the
+targets and the CSV are arithmetic.
 
 ## Things to watch
 

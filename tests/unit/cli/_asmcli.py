@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from _asmfeatures import FEATURES, LAST_LINE
 from _buildhelp import blink_variant
 from _checkcli import run
 
@@ -41,4 +42,4 @@ def built(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *edits: tuple[str, st
     return out
 
 
-__all__ = ["COLUMNS", "FIXTURE", "INVALID", "R1", "ROTATED", "built", "isolate"]
+__all__ = ["COLUMNS", "FEATURES", "FIXTURE", "INVALID", "LAST_LINE", "R1", "ROTATED", "built", "isolate"]

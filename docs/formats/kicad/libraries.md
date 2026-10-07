@@ -115,6 +115,15 @@ opaque child of the footprint and adds `kicad.lib.kept-opaque`. This covers:
 - an `fp_rect` with a corner `radius` (board version `20250829`, inventory row `gr-rect-radius`);
 - a graphic without a layer or without the points its kind needs.
 
+- **Fabrication marks in the official library** (counts only; S-0018, counted again on 2026-10-08 in the
+  footprint library that KiCad 10.0.6 installs). The token `pad_prop_bga` occurs 73 391 times,
+  `pad_prop_heatsink` 6 375 times, `pad_prop_mechanical` 264 times and `pad_prop_fiducial_loc` twice, in
+  one footprint; no other mark occurs. `Fiducial.pretty` holds 10 footprints and `TestPoint.pretty` 57,
+  and none of the 67 carries a mark: a fiducial or a test point taken from the library is not marked as
+  one, and marking its placed copy makes KiCad's DRC report `lib_footprint_mismatch`
+  (`H-K-PAD-FABPROP-LIB`, `board.md`, "Pad fabrication properties"). `Panelization.pretty` holds 31
+  footprints. The reader maps the mark of a library pad to `Pad.fab_property` as it does for a board pad.
+
 ## Symbol libraries
 
 - A symbol library is a `(kicad_symbol_lib (version V) (generator G) …)` file `.kicad_sym` holding

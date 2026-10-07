@@ -50,6 +50,51 @@ components from the part and reads none of this.
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
 
+## Assembly and test features (c0118)
+
+A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of
+a pad:
+
+```python
+tp = Footprint("Local", "TestPad", kind="smd")
+tp.pad(
+    "1",
+    at=(mm(0), mm(0)),
+    size=(mm(1.5), mm(1.5)),
+    shape="circle",
+    layers=("F.Cu", "F.Mask"),
+    fab_property="test_point",
+)
+```
+
+| `fab_property=` | what it marks | what KiCad's copper Gerber says |
+|---|---|---|
+| `"test_point"` | a pad a test probe lands on | `TestPad` |
+| `"fiducial_global"`, `"fiducial_local"` | a fiducial of the board, or of one part | `FiducialPad,Global`, `FiducialPad,Local` |
+| `"bga"` | a ball of a BGA package | `BGAPad,CuDef` |
+| `"heatsink"` | a thermal pad | `HeatsinkPad` |
+| `"castellated"` | a plated half-hole on the board edge | `CastellatedPad` |
+| `"mechanical"` | a pad that only holds a part | as an unmarked pad |
+| `"press_fit"` | a press-fit hole (KiCad 10 only: a build for target 9 refuses it) | as an unmarked pad |
+
+- Any other value raises `DslError`. `castellated` and `mechanical` are refused on a pad that is not
+  `thru_hole`, because KiCad's DRC reports such a pad on every check.
+- The mark is written to the vendored footprint file and to the placed pad, so KiCad finds the placed
+  copy equal to its library. A pad without the keyword is unchanged, and so are the bytes of its file.
+- Give a test pad the mask layer of its copper side (`"F.Mask"` with `"F.Cu"`): a pad without it is
+  under the solder mask, and `fenolite testpoints` reports it as `testpoint.covered`.
+- KiCad's own `Fiducial` and `TestPoint` footprints carry no mark. `fenolite testpoints`
+  (`docs/assembly.md`, "Test points, fiducials and holes") lists marked pads only.
+- An Altium build writes a part with a marked pad as any other part; the mark itself is written to no
+  Altium record, and one `altium.not-lowered` info names the footprints concerned.
+
+The calls `design.fiducial()`, `design.test_point()` and `design.tooling_hole()`, which place such parts
+with generated footprints and a copper keep-out, are **not available yet**: they are built on the generated
+definitions of `design.hole()` (change c0102) and on `design.rule_area()` (change c0103). Until then,
+author the footprint as above. `fenolite.dsl.assembly.clear_outline(x, y, diameter)` already gives the
+outline those calls will use for a clear area: an octagon that contains the circle of that diameter, whose
+corners reach about 8 % further out, because a keep-out outline holds points only.
+
 ## Authored symbols (c0058)
 
 `Symbol` declares a project-local one-unit symbol without reading any files. Add pins with exact DSL

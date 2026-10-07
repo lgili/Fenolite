@@ -31,7 +31,7 @@ StageMap = Mapping[str, tuple[str, str]]
 
 DERIVED = frozenset(
     {"gerbers", "drill", "pos", "ipcd356", "ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}
-    | {"bom", "pnp", "render"}
+    | {"bom", "pnp", "testpoints", "render"}
 )
 """The kinds of a file made from the design; any other kind is a design file."""
 BOARD_KIND, SHEET_KIND = "kicad_pcb", "kicad_sch"

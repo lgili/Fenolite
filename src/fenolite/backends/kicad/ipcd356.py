@@ -27,6 +27,9 @@ _UNITS = re.compile(r"^P\s+UNITS\s+CUST\s+(\d+)\s*$")
 _POSITION = re.compile(r"X([+-]\d+)Y([+-]\d+)")
 _ACCESS = re.compile(r"A(\d\d)X")
 _ROTATION = re.compile(r"R(\d{3})")
+_MASK = re.compile(r"S(\d)\s*$")
+COVERED = {"0": "none", "1": "top", "2": "bottom", "3": "both"}
+"""The ``S`` field: the sides whose solder mask covers the pad (``H-K-TESTPOINT-D356``)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +37,8 @@ class Ipcd356Record:
     """One record; ``x`` and ``y`` in export units, Y up; ``side`` is ``both``, ``top`` or ``bottom``.
 
     ``ref`` and ``pin`` are the export's fixed-width fields (truncated to 6 and 4 characters); a via has
-    ``ref == "VIA"`` and an empty ``pin``.
+    ``ref == "VIA"`` and an empty ``pin``. ``covered`` names the sides whose solder mask covers the pad
+    (``none``, ``top``, ``bottom`` or ``both``, from the ``S`` field), ``None`` when the record has none.
     """
 
     code: str
@@ -45,6 +49,7 @@ class Ipcd356Record:
     y: int
     rotation: int | None
     side: str
+    covered: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,6 +80,7 @@ def read_ipcd356(text: str) -> Ipcd356:
             raise FormatError("pad record without a position", locator=f"line {number}")
         access = _ACCESS.search(fields)
         rotation = _ROTATION.search(fields[position.end() :])
+        mask = _MASK.search(fields[position.end() :])
         records.append(
             Ipcd356Record(
                 code=line[:3],
@@ -85,6 +91,7 @@ def read_ipcd356(text: str) -> Ipcd356:
                 y=int(position.group(2)),
                 rotation=None if rotation is None else int(rotation.group(1)),
                 side=SIDES.get(access.group(1), f"A{access.group(1)}") if access else "",
+                covered=None if mask is None else COVERED.get(mask.group(1), f"S{mask.group(1)}"),
             )
         )
     if unit_nm is None:

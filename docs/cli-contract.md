@@ -1585,8 +1585,8 @@ reference, DNP lines included. The `key` of a line of DNP parts ends with one mo
 It is a mutating command that writes only with `--out FILE`: the plan then holds one write of kind `bom`,
 the CSV bytes of the table, and the mutation protocol applies (4 without `--dry-run` or `--confirm`).
 Without `--out` nothing is planned and the exit code is 0. The project folder never changes.
-`--manifest` (for `bom` and for `pnp`) also plans `fenolite-artifacts.json` in the folder of `FILE`,
-merged as `export` merges it, with one entry of kind `bom` or `pnp`: `tool` `fenolite <version>`,
+`--manifest` (for `bom`, for `pnp` and for `testpoints`) also plans `fenolite-artifacts.json` in the folder
+of `FILE`, merged as `export` merges it, with one entry of kind `bom`, `pnp` or `testpoints`: `tool` `fenolite <version>`,
 `from` the board's SHA-256, `evidence` the level of the envelope. Without `--out` it exits 2
 (`FEN-2001`).
 
@@ -1629,6 +1629,66 @@ a usage error, 3 for a missing path or template or an invalid template. The evid
 `placement.EVIDENCE` (`H-K-PCB-POS`, `H-K-POS-ROWS`) combined with the evidence of the board read. Under
 the default template the table holds the content of `kicad-cli pcb export pos`, without the DNP parts and
 with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differences.
+
+## testpoints
+
+`fenolite testpoints PATH [--side top|bottom|both] [--template FILE] [--min-coverage PERCENT]
+[--min-pitch LENGTH] [--min-fiducials N] [--out FILE] [--manifest]` reports the test points, the fiducials
+and the non-plated holes of the board `PATH` names (resolved as for `pnp`, and read from the board file as
+`pnp` reads it), and which nets a probe reaches (`docs/assembly.md`, "Test points"). It runs no tool. A
+test point is a pad that carries the mark `test_point` and a fiducial is a footprint with a pad marked
+`fiducial_global` or `fiducial_local` (`Pad.fab_property`, KiCad's fabrication property of a pad): marks
+are read, never footprint names. An Altium document or project is refused as `pnp` refuses it: no Altium
+record is known to hold such a mark.
+
+`result` holds:
+
+- `side`, the side a probe comes from (`--side`, default `both`);
+- `test_points`: one object per marked pad with `ref` (the reference, or the footprint id of a footprint
+  without a component), `path`, `pad`, `net` (`""` on no net), `position` (`[x, y]`), `side` (the
+  footprint's), `access`, `shape`, `size` (`[width, height]`) and `drill`. `access` names the sides where
+  the pad has both its copper layer and its mask layer: `top`, `bottom`, `both` or `none`. With `--side top`
+  or `bottom`, a test point whose `access` does not include that side is left out. This list is the paged
+  one (`--limit`, `--cursor`);
+- `fiducials`: one object per footprint with a fiducial pad: `ref`, `path`, `position` and `size` of its
+  first such pad, `side` and `scope` (`global` or `local`); with one side, only the fiducials of that side;
+- `holes`: one object per `np_thru_hole` pad: `ref`, `path`, `position`, `drill`, `length` (of a slot, else
+  `null`) and `tooling`, true for a footprint whose library name starts with
+  `Fenolite_Assembly:ToolingHole_`. Holes are listed for every side;
+- `coverage`: `eligible`, the nets with two pads or more; `covered`, those that hold a test point whose
+  `access` includes the side (any access but `none` for `both`); and `uncovered`, the names of the others;
+- `counts`: `test_points`, `fiducials_top`, `fiducials_bottom`, `holes`, `tooling_holes`;
+- `template`, `units`, `origin` and `y_axis`, the frame of the CSV file.
+
+Every length is an integer in nanometres in the board frame (X to the right, Y down).
+
+`--min-coverage` is an integer from 0 to 100, `--min-pitch` a positive length with a unit (`1.27mm`) and
+`--min-fiducials` an integer of at least 1; another value exits 2 (`FEN-2001`). Fenolite ships no target:
+without the three values no error is given.
+
+| code | severity | when |
+|---|---|---|
+| `testpoint.none` | info | no pad of the board carries the test-point mark; the hint names `design.test_point()` and `Footprint.pad(fab_property="test_point")`, and says that KiCad's library test points carry no mark |
+| `testpoint.no-net` | warning | a test point is on no net |
+| `testpoint.covered` | warning | a test point's `access` is `none`: no side has both its copper and its mask layer |
+| `testpoint.coverage-low` | error | `--min-coverage` is given and `covered × 100 < PERCENT × eligible` |
+| `testpoint.too-close` | error | `--min-pitch` is given and the centres of two test points whose `access` shares a side are closer than it; one issue per pair, compared exactly on squares of integers |
+| `fiducial.too-few` | error | `--min-fiducials` is given and a side that the report covers holds a footprint with the attribute `smd`, without `dnp` and without a fiducial pad, and fewer global fiducials than `N`; one issue per side |
+| `pnp.no-outline` | error | `--out` is given, the template has `origin = "outline"` and the board has no closed outline; no file is planned |
+
+`--out FILE` plans one CSV file of kind `testpoints` through the mutation protocol. Its header is
+`kind,ref,pad,net,x,y,side,access,width,height,drill`, with `kind` `test_point`, `fiducial`,
+`tooling_hole` or `hole` and one row per report row in that order. Positions and sizes are printed in the
+origin, Y axis, units and decimals of the template's `[placement]` table, sides by its side names, with
+its CSV options, so test points and parts share one frame. No file is planned when a finding is an error.
+`--manifest` also plans `fenolite-artifacts.json` in the folder of `FILE` with one entry of kind
+`testpoints` (`tool` `fenolite <version>`, `from` the board's SHA-256, `evidence` the level of the
+envelope); without `--out` it exits 2 (`FEN-2001`).
+
+Exit codes: 0 without an error finding, 5 with one, 4 without `--dry-run` or `--confirm` when `--out` is
+given, 2 for a usage error, 3 for a file that cannot be read. The evidence is `testpoints.EVIDENCE`
+(`INFERRED`, `H-K-TESTPOINT-D356` and `H-K-PAD-FABPROP`) combined with the evidence of the board read.
+
 ## diff
 
 `fenolite diff A B [--view model|tree|records] [--ext]` lists the differences between two inputs. It writes

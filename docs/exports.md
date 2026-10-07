@@ -240,7 +240,7 @@ exclude_dnp = true
 `fenolite-artifacts.json` (schema `schemas/fenolite.artifacts.v0.json`) says which file came from which
 design, by which tool, with its hashes and what was verified about it. One format has two writers:
 
-- **A producing command** (`export`, `render`, `bom`, `pnp`) with `--manifest` adds its files to the
+- **A producing command** (`export`, `render`, `bom`, `pnp`, `testpoints`) with `--manifest` adds its files to the
   manifest of its output folder. Every entry it writes is `generated`.
 - **`fenolite manifest`** writes the project manifest next to the board: the design files and the
   artefacts of the folders it is given, each with a state.
@@ -270,7 +270,7 @@ Each entry has `path` (relative to the manifest's folder; in a project manifest,
 | `tool` | what wrote the file (`kicad-cli 10.0.6`, `fenolite 0.2.0`), or `null` for a file neither wrote, or one edited since |
 
 Kinds: `gerbers`, `drill`, `pos`, `ipcd356`, `ipc2581`, `odb`, `step`, `pdf`, `dxf`, `sch-pdf`
-(`export`), `render`, `bom`, `pnp`, and for design files
+(`export`), `render`, `bom`, `pnp`, `testpoints`, and for design files
 `kicad_pcb`, `kicad_sch`, `kicad_pro`, `kicad_dru`, `kicad_mod`, `kicad_sym`, `kicad_wks`, `lib-table`,
 `3d-model` (a file below the project's `3dmodels/` folder) and `file` (any other file of a library
 folder). `layer` is also set for each file of `pdf` and `dxf`. The manifest holds no absolute path and does not list
@@ -286,7 +286,7 @@ design file the entry claims a hash only, so it is `UNVERIFIED`; what was verifi
 ### Merging
 
 `--manifest` never replaces a manifest. The command reads `fenolite-artifacts.json` of its output folder
-(`--out DIR` for `export` and `render`, the folder of `--out FILE` for `bom` and `pnp`), replaces the
+(`--out DIR` for `export` and `render`, the folder of `--out FILE` for `bom`, `pnp` and `testpoints`), replaces the
 entries of the files it writes, keeps every other entry as it is, and plans the merged file as one more
 write. `board`, `tool` and `generated` become those of this run and `check` becomes `null`. If the file
 in the folder is not a manifest Fenolite reads, the command writes nothing at all and reports
@@ -327,7 +327,7 @@ Two limits are deliberate, and the schematic side has its own stage:
 - **A file of unknown origin stays `generated`.** A derived entry without `from` (an entry of a v0.1
   manifest, or a file edited after it was exported) names no source, so nothing can be said about it.
 
-A state belongs to a hash. `export`, `render`, `bom` and `pnp` only ever write `generated`; states come
+A state belongs to a hash. `export`, `render`, `bom`, `pnp` and `testpoints` only ever write `generated`; states come
 from `fenolite manifest`, which hashes every file again.
 
 ### The project manifest

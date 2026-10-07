@@ -142,7 +142,7 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 | `kicad_pcb` | `version`, `generator`, `generator_version` (values in `Board.ext["kicad"]`), `layers`, net rows N ≥ 1, `footprint`, `segment`, `arc`, `via`, `zone` (not teardrop), `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text` | — | `general`, `paper`, `title_block`, `setup`, `(net 0 "")`, teardrop zones, `group`, `dimension`, `generated`, `image`, `table`, `barcode`, `point`, `target`, `embedded_fonts`, `embedded_files`, unknown heads |
 | `footprint` | name → `lib_ref`, `layer` → `side`, `at` → `position` and `rotation`, `uuid`, `attr` → `attributes`, `pad`, `path` → `Component.path`, placed `property` → `fields` (c0030) | a `property` that is not a field (bare, or a repeated name) → `Component.ref`, `value`, `properties`; `locked` → `locked` | `descr`, `tags`, `sheetname`, `sheetfile`, `fp_*`, `model`, `zone`, `group`, `units`, clearances, `embedded_*` |
 | `property` (a field, c0030) | name, `at` → `position` and `rotation`, `layer`, `hide` → `visible`, `uuid`, `effects` with `font` `size` and `thickness` and `justify` → `size`, `thickness`, `h_justify`, `v_justify`, `mirrored` | the value atom → `Component.ref`, `value`, `properties`; an `effects` the emitter does not reproduce (`bold`, a font `face`) | `unlocked`, a bare `hide` atom, unknown heads |
-| `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
+| `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection`, `property` with one of the eight fabrication tokens → `fab_property` (c0118) | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `locked` → `locked` (c0108), `layer`, `net`, `uuid` | — | unknown heads; a `locked` child that is not `(locked yes)` |
 | `via` | type atom, `at`, `size`, `drill`, `layers`, `locked` → `locked` (c0108), `net`, `uuid`, and the protection children `tenting`, `capping`, `covering`, `plugging`, `filling` → `protection` ("Via protection") | a protection child in a form that the board's major does not write ("Via protection") | `free`, `remove_unused_layers`, `padstack`, `teardrops`; a `locked` child that is not `(locked yes)` |
 | `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `locked`, `connect_pads`, `min_thickness` and `fill` |
@@ -458,6 +458,53 @@ probes `via-prot-*` of `tests/kicad/vias/` on 2026-10-07; corpus census:
 | `kicad.via.protection-overridden` | info | build: an unlocked `via_protection()` differs from the kept board default |
 | `kicad.via.protection-not-exported` | info | build: vias take a covering, plugging, capping or filling of `True` from the board default only, which 10.0.6 writes to no fabrication file |
 
+## Pad fabrication properties (c0118)
+
+A pad may carry one fabrication mark: `(property <token>)`, a child of the pad. `_fpmap` maps it to
+`Pad.fab_property` for board pads and for the pads of a footprint file (`FAB_PROPERTY_TOKENS`,
+`read_fab_property`, `fab_property_node`). Measurements: the design of change c0118 (2026-10-05, 10.0.6
+and 9.0.9), repeated on 2026-10-08 with `kicad-cli` 10.0.6 by the probes `pad-fabprop-*` and `asm-*` of
+`tests/kicad/assembly/`; the 9.0.9 outcomes are not recorded yet.
+
+| `fab_property` | KiCad token | aperture function of the pad's copper flash |
+|---|---|---|
+| `bga` | `pad_prop_bga` | `BGAPad,CuDef` |
+| `fiducial_global` | `pad_prop_fiducial_glob` | `FiducialPad,Global` |
+| `fiducial_local` | `pad_prop_fiducial_loc` | `FiducialPad,Local` |
+| `test_point` | `pad_prop_testpoint` | `TestPad` |
+| `heatsink` | `pad_prop_heatsink` | `HeatsinkPad` |
+| `castellated` | `pad_prop_castellated` | `CastellatedPad` |
+| `mechanical` | `pad_prop_mechanical` | `SMDPad,CuDef` on an SMD pad, as without the mark |
+| `press_fit` | `pad_prop_pressfit` | `ComponentPad` on a through-hole pad, as without the mark |
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad holds its fabrication mark as `(property <token>)` after `drill`, or after `size` when it has no drill, and before `layers`; `pcb upgrade --force` of 10.0.6 writes every one of the eight tokens back in that place | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PAD-FABPROP |
+| The mark changes the `.AperFunction` attribute of the pad's flash in the copper Gerber, as the table above lists; `mechanical` on an SMD pad and `pressfit` on a through-hole pad keep the function of an unmarked pad (`SMDPad,CuDef`, `ComponentPad`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PAD-FABPROP |
+| `pcb export pos --format csv` and the pad records of `pcb export ipcd356` are equal with and without the marks | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PAD-FABPROP |
+| DRC reports `padstack` for `castellated` and for `mechanical` on an SMD pad, and not on a plated through-hole pad | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PAD-FABPROP |
+| `pad_prop_pressfit` is a token of the 10.0 format (inventory row `pad-property-pressfit`); 9.0.9 loads the pad and drops the mark | S-0020, S-0029 | INFERRED | H-K-PAD-FABPROP |
+| A mark on the placed copy of a library footprint whose library pad has none gives one `lib_footprint_mismatch` for the footprint; a footprint whose library file carries the same mark gives none | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PAD-FABPROP-LIB |
+| A fiducial made of two unnumbered SMD pads, a marked copper pad on `F.Cu` and `F.Mask` and an aperture pad on `F.Mask` only (`B.Cu` and `B.Mask` on the bottom), loads with no violation that names it, flashes a circle of the aperture pad's diameter on its mask layer, and is one `327` record on the net `N/C` in IPC-D-356 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FIDUCIAL-FORM |
+| A keep-out on the fiducial's copper layer that forbids tracks, vias and pours and allows pads gives `items_not_allowed` for a track inside it and nothing for the fiducial's pads; the refilled pour of 10.0.6 stays at the apothem of an octagonal outline, to the micrometre | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FIDUCIAL-KEEPOUT |
+| In IPC-D-356 a pad marked `testpoint` is one record on its net: `327` with the access `A01` for an SMD pad on `F.Cu` and `A02` on `B.Cu`, `317` with `A00` for a through-hole pad. The field `S` after the rotation names the sides whose solder mask covers the pad: `S0` none, `S1` the top, `S2` the bottom, `S3` both. A top pad with `F.Mask` is `S2`, a bottom pad with `B.Mask` is `S1`, a through-hole pad with both mask layers is `S0`, and a top SMD pad without a mask layer is `S3` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-TESTPOINT-D356 |
+
+- **Reading.** One `property` child with a token of the table is modelled: the pad has `fab_property` and
+  a modelled slot. A token outside the table keeps the child opaque with `fab_property` `None` and the
+  info `kicad.board.kept-opaque` (`kicad.lib.kept-opaque` in a footprint file). Several `property`
+  children are each kept opaque with that info, and `fab_property` is projected from the first.
+- **Writing.** A created pad writes the child after `drill` (or `size`) and before `layers`
+  (`CANONICAL_ORDER["pad"]`, `PAD_CANONICAL`). A read pad without the child gains it when the model sets a
+  mark, and loses it when the model clears one. A model value that differs from an opaque child gives
+  `kicad.board.projection-read-only` (the read-only error of `mod.write_footprint` in a footprint file).
+- **Authored and placed.** `mod.prepare_authored_definition` gives an authored pad with a mark a modelled
+  slot between `drill` and `layers`, and none otherwise, so a footprint without marks keeps its bytes.
+  `embed.place_footprint` keeps the mark of each pad of the definition.
+- **Target 9.** `press_fit` written for target 9 is modelled content newer than the target:
+  `LossyWriteError` with `kicad.token.too-new` (row `pad-property-pressfit`), with and without
+  `allow_lossy`. The seven other tokens are written for both targets.
+- **Not modelled.** A pad's own clearance and mask margin stay opaque, as before.
+
 ## Issue codes
 
 | code | severity | when |
@@ -524,7 +571,7 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   | `property` | name, value, `at`, `layer`, `hide`, `uuid`, `effects` |
   | `effects` | `font`, `justify` |
   | `font` | `size`, `thickness` |
-  | `pad` | number, type, shape, `at`, `size`, `drill`, `layers`, `net`, `zone_connect`, `uuid` |
+  | `pad` | number, type, shape, `at`, `size`, `drill`, `property`, `layers`, `net`, `zone_connect`, `uuid` |
   | `segment` | `start`, `end`, `width`, `locked`, `layer`, `net`, `uuid` |
   | `arc` | `start`, `mid`, `end`, `width`, `locked`, `layer`, `net`, `uuid` |
   | `via` | type, `at`, `size`, `drill`, `layers`, `locked`, `net`, `uuid` |

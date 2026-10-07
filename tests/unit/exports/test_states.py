@@ -118,6 +118,22 @@ def test_sheet_roundtrip() -> None:
     assert found[BOM.path].state == "checked"  # its sources are checked; it never needs more
 
 
+def test_testpoints_table_follows_its_board() -> None:
+    """Scenario "The test-point table follows its board" (change c0118)."""
+    table = file_entry("fab/tp.csv", "testpoints", b"kind,ref", from_={"board": BOARD.sha256})
+    assert role_of(table) == "derived"
+    entries = (*ALL, table)
+    found = {e.path: e for e in assign(entries, stages=PASSING, sheets_ok=SHEETS, current=_current(entries))}
+    assert (found[table.path].state, found[table.path].stale, found[table.path].held) == (
+        "checked",
+        False,
+        "",
+    )
+    changed = {**_current(entries), BOARD.path: "e" * 64}
+    found = {e.path: e for e in assign(entries, stages=PASSING, sheets_ok=SHEETS, current=changed)}
+    assert (found[table.path].state, found[table.path].stale) == ("generated", True)
+
+
 def test_derived_file_of_a_checked_board() -> None:
     found = _states(PASSING)
     gerber = found[GERBER.path]
@@ -169,7 +185,7 @@ def test_roles_and_ranks() -> None:
         "board", "sheet", "board-support", "board-support", "board-support", "schematic-support",
         "board-support", "schematic-support", "other", "derived", "derived",
     ]  # fmt: skip
-    fabrication = {"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"}
+    fabrication = {"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "testpoints", "render"}
     assert frozenset(fabrication | {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}) == DERIVED
     assert not any(rule.state == "oracle-verified" for rules in RULES.values() for rule in rules)
 
