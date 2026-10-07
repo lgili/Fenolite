@@ -582,3 +582,141 @@ def test_macos_app_triggers_and_order() -> None:
 
 def test_macos_app_is_not_a_job_of_the_pull_request_workflow() -> None:
     assert job_text(WORKFLOW.read_text(encoding="utf-8"), "macos-app") == ""
+
+
+# ---- the yardstick nightly job (capability ci-baseline, "Yardstick nightly job"; change c0119)
+
+HEAVY_BOARDS = ("kicad-demo-10-0-6-pcb-06", "kicad-demo-10-0-6-pcb-18")
+YARDSTICK_RUN = (
+    'run --out "$RUNNER_TEMP/yardstick" --record "$RUNNER_TEMP/yardstick/record.json" '
+    '--summary "$GITHUB_STEP_SUMMARY"'
+)
+YARDSTICK_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("uv sync", "run: uv sync --locked --extra dev"),
+    ("kicad-cli version", "kicad-cli version | grep -F 10.0.6"),
+    (
+        "library cache",
+        "key: kicad-libs-10.0.6-${{ hashFiles('src/fenolite/backends/kicad/data/libraries.toml') }}",
+    ),
+    ("library fetch", "run: uv run python tools/kicad_libs_fetch.py --tag 10.0.6 --cache "),
+    ("heavy cache", "key: corpus-heavy-${{ hashFiles('tests/corpus/manifest.toml') }}"),
+    ("heavy fetch", "run: uv run python tools/corpus_fetch.py --uses heavy --only " + " ".join(HEAVY_BOARDS)),
+    ("yardstick run", "uv run python tools/yardstick.py " + YARDSTICK_RUN),
+    ("upload", "uses: actions/upload-artifact@v4"),
+]
+KICAD_IMAGE = re.compile(r"^\s+image: (kicad/kicad:10\.0\.6\S*)\s*$", re.MULTILINE)
+
+
+def yardstick_problems(nightly: str, ci: str) -> list[str]:
+    """What is wrong with the ``yardstick`` job of ``nightly.yml``, read as text."""
+    job = job_text(nightly, "yardstick")
+    if not job:
+        return ["yardstick: job missing"]
+    problems: list[str] = []
+    on = triggers(nightly)
+    if not re.search(r"^  schedule:", on, re.MULTILINE) or not re.search(
+        r"^  workflow_dispatch:", on, re.MULTILINE
+    ):
+        problems.append("yardstick: the workflow must run on schedule and on workflow_dispatch")
+    for trigger in ("push", "pull_request"):
+        if re.search(rf"^  {trigger}:", on, re.MULTILINE):
+            problems.append(f"yardstick: the workflow must not run on {trigger}: it is not a merge gate")
+    if not re.search(r"^\s+runs-on: ubuntu-latest\s*$", job, re.MULTILINE):
+        problems.append("yardstick: must run on ubuntu-latest")
+    if not re.search(r"^\s+timeout-minutes: \d+\s*$", job, re.MULTILINE):
+        problems.append("yardstick: must set timeout-minutes")
+    pinned = KICAD_IMAGE.search(job_text(ci, "kicad-10"))
+    image = KICAD_IMAGE.search(job)
+    if image is None:
+        problems.append("yardstick: must run in the image kicad/kicad:10.0.6")
+    elif "@sha256:" not in image.group(1) or pinned is None or image.group(1) != pinned.group(1):
+        problems.append(
+            f"yardstick: the image {image.group(1)} must be pinned by the SHA-256 of the kicad-10 job"
+        )
+    if not re.search(r"^\s+options: --user 0\s*$", job, re.MULTILINE):
+        problems.append("yardstick: the container must run with --user 0")
+    problems += ordered_problems(job, "yardstick", YARDSTICK_STEPS)
+    cache = re.search(r"^\s+FENOLITE_LIBS_CACHE: (\S+)\s*$", job, re.MULTILINE)
+    if cache is None:
+        problems.append("yardstick: FENOLITE_LIBS_CACHE must name the folder of the library cache")
+    elif "--cache " + cache.group(1) not in job:
+        problems.append("yardstick: the library fetch must fill the folder that FENOLITE_LIBS_CACHE names")
+    upload = job[job.find("uses: actions/upload-artifact@v4") :] if "upload-artifact@v4" in job else ""
+    before = job[: job.find("uses: actions/upload-artifact@v4")].rsplit("- name:", 1)[-1]
+    if upload and "if: always()" not in before + upload:
+        problems.append("yardstick: the upload step must run with if: always()")
+    if upload and not re.search(r"^\s+retention-days: 90\s*$", upload, re.MULTILINE):
+        problems.append("yardstick: the upload step must keep the artefact 90 days (retention-days: 90)")
+    if upload and ("record.json" not in upload or "replies" not in upload):
+        problems.append("yardstick: the upload step must take the record and the replies")
+    if "pytest" in job:
+        problems.append("yardstick: the job must not run pytest")
+    if re.search(r"git (push|commit)|contents: write", job):
+        problems.append("yardstick: the job must not write to the repository")
+    if "continue-on-error" in job:
+        problems.append("yardstick: the job must fail when the runner exits non-zero")
+    return problems
+
+
+def _workflows() -> tuple[str, str]:
+    return NIGHTLY.read_text(encoding="utf-8"), WORKFLOW.read_text(encoding="utf-8")
+
+
+def test_yardstick_job() -> None:
+    """Scenario "Workflow shape checked"."""
+    nightly, ci = _workflows()
+    problems = yardstick_problems(nightly, ci)
+    assert not problems, "\n".join(problems)
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        if path != NIGHTLY:
+            assert job_text(text, "yardstick") == "" and "tools/yardstick.py" not in text, path.name
+    assert yardstick_problems(nightly.replace("  yardstick:", "  other:"), ci) == ["yardstick: job missing"]
+
+
+def test_yardstick_unpinned_image_rejected() -> None:
+    """Scenario "Unpinned image rejected"."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    unpinned = nightly.replace(job, re.sub(r"(image: kicad/kicad:10\.0\.6)@sha256:[0-9a-f]{64}", r"\1", job))
+    problems = yardstick_problems(unpinned, ci)
+    assert len(problems) == 1 and problems[0].startswith(
+        "yardstick: the image kicad/kicad:10.0.6 must be pinned"
+    )
+    other = nightly.replace(job, re.sub(r"@sha256:[0-9a-f]{64}", "@sha256:" + "0" * 64, job))
+    assert any(
+        "must be pinned by the SHA-256 of the kicad-10 job" in p for p in yardstick_problems(other, ci)
+    )
+
+
+def test_yardstick_upload_only_on_success_rejected() -> None:
+    """Scenario "Upload only on success rejected"."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    assert job.count("        if: always()\n") == 1
+    problems = yardstick_problems(nightly.replace(job, job.replace("        if: always()\n", "")), ci)
+    assert problems == ["yardstick: the upload step must run with if: always()"]
+    short = nightly.replace(job, job.replace("retention-days: 90", "retention-days: 5"))
+    assert any("retention-days: 90" in p for p in yardstick_problems(short, ci))
+
+
+def test_yardstick_steps_filters_and_gates() -> None:
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    wider = nightly.replace(job, job.replace(" --only " + " ".join(HEAVY_BOARDS), ""))
+    assert "yardstick: step 'heavy fetch' missing" in yardstick_problems(wider, ci)
+    other_tag = nightly.replace(job, job.replace("--tag 10.0.6", "--tag 9.0.9"))
+    assert "yardstick: step 'library fetch' missing" in yardstick_problems(other_tag, ci)
+    sync = "      - name: Sync (locked)\n        run: uv sync --locked --extra dev\n"
+    assert sync in job
+    late = nightly.replace(job, job.replace(sync, "") + sync)
+    assert any("must come after" in p for p in yardstick_problems(late, ci))
+    gated = nightly.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n")
+    assert "yardstick: the workflow must not run on pull_request: it is not a merge gate" in (
+        yardstick_problems(gated, ci)
+    )
+    tested = nightly.replace(job, job + "      - run: uv run pytest tests/unit -q\n")
+    assert "yardstick: the job must not run pytest" in yardstick_problems(tested, ci)
+    assert macos_app_problems(nightly) == []  # the first job of the workflow is untouched

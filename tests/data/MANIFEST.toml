@@ -1653,3 +1653,9 @@ path = "tests/data/analysis/strip_10.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "authored board of the power-path analysis (c0115): a 20 mm x 5 mm fill between two pads, written by write_board for target 10 from tests/_power.py::written_strip; round illustrative numbers, no value of any standard"
+
+[[file]]
+path = "examples/yardstick/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the yardstick board of c0119: an invented eight-channel buck controller on official library lib ids, every value a round one chosen for the example; DSL source only"

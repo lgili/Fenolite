@@ -57,3 +57,59 @@ jobs:
         env:
           FENOLITE_REQUIRE: kicad
         run: uv run pytest tests/kicad -q -n auto --dist loadfile
+
+  yardstick:
+    # The yardstick board (examples/yardstick) taken through the loop of its stage by tools/yardstick.py,
+    # with a time and memory budget per step (H-K-YARD-STAGE1 and the rows after it). Not a merge gate:
+    # no test suite runs here and nothing is written to the repository; the record is an artefact of the
+    # run, and docs/evidence/yardstick.md gets a row per stage reached and per release. The official
+    # libraries and the two heavy demo boards are fetched into caches, run through and never committed.
+    # The router steps join the job when the example reaches stage 4.
+    name: yardstick (the 370-part example through the loop, kicad-cli 10.0.6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
+      options: --user 0
+    env:
+      HOME: /root
+      FENOLITE_LIBS_CACHE: /root/.cache/fenolite/libs
+      FENOLITE_CORPUS_CACHE: /root/.cache/fenolite/corpus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev
+      - name: kicad-cli version
+        run: |
+          kicad-cli version
+          kicad-cli version | grep -F 10.0.6
+      - name: Library cache
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/fenolite/libs
+          key: kicad-libs-10.0.6-${{ hashFiles('src/fenolite/backends/kicad/data/libraries.toml') }}
+      - name: Fetch the official libraries of tag 10.0.6
+        run: uv run python tools/kicad_libs_fetch.py --tag 10.0.6 --cache /root/.cache/fenolite/libs
+      - name: Heavy boards cache
+        uses: actions/cache@v4
+        with:
+          path: /root/.cache/fenolite/corpus
+          key: corpus-heavy-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - name: Fetch the two heavy demo boards
+        run: uv run python tools/corpus_fetch.py --uses heavy --only kicad-demo-10-0-6-pcb-06 kicad-demo-10-0-6-pcb-18
+      - name: Yardstick
+        run: |
+          echo "YARDSTICK_OUT=$RUNNER_TEMP/yardstick" >> "$GITHUB_ENV"
+          uv run python tools/yardstick.py run --out "$RUNNER_TEMP/yardstick" --record "$RUNNER_TEMP/yardstick/record.json" --summary "$GITHUB_STEP_SUMMARY"
+      - name: Upload the record and the replies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yardstick-record
+          path: |
+            ${{ env.YARDSTICK_OUT }}/record.json
+            ${{ env.YARDSTICK_OUT }}/yardstick-run/replies
+          retention-days: 90
